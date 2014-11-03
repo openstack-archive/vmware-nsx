@@ -105,3 +105,12 @@ class LsnMigrationConflict(n_exc.Conflict):
 
 class LsnConfigurationConflict(NsxPluginException):
     message = _("Configuration conflict on Logical Service Node %(lsn_id)s")
+
+
+class DvsNotFound(n_exc.NotFound):
+    message = _('Unable to find DVS %(dvs)s')
+
+
+class NoRouterAvailable(n_exc.ResourceExhausted):
+    message = _("Unable to create the router. "
+                "No tenant router is available for allocation.")

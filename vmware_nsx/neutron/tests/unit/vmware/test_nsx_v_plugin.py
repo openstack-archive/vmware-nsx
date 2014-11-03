@@ -37,6 +37,8 @@ from neutron import manager
 from neutron.openstack.common import uuidutils
 from neutron.plugins.vmware.extensions import (
     vnicindex as ext_vnic_idx)
+from neutron.plugins.vmware.extensions import routertype as router_type
+
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.test_db_plugin as test_plugin
 import neutron.tests.unit.test_extension_allowedaddresspairs as test_addr_pair
@@ -45,6 +47,7 @@ import neutron.tests.unit.test_extension_portsecurity as test_psec
 import neutron.tests.unit.test_extension_security_group as ext_sg
 import neutron.tests.unit.test_l3_plugin as test_l3_plugin
 from neutron.tests.unit import testlib_api
+
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
 from vmware_nsx.neutron.plugins.vmware.vshield.common import (
     constants as vcns_const)
@@ -1033,6 +1036,8 @@ class TestL3ExtensionManager(object):
                 l3_ext_gw_mode.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
             l3.RESOURCE_ATTRIBUTE_MAP[key].update(
                 dist_router.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
+            l3.RESOURCE_ATTRIBUTE_MAP[key].update(
+                router_type.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
         # Finally add l3 resources to the global attribute map
         attributes.RESOURCE_ATTRIBUTE_MAP.update(
             l3.RESOURCE_ATTRIBUTE_MAP)
@@ -1074,11 +1079,11 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
         ext_mgr = ext_mgr or TestL3ExtensionManager()
         super(L3NatTest, self).setUp(
             plugin=plugin, ext_mgr=ext_mgr, service_plugins=service_plugins)
-        plugin_instance = manager.NeutronManager.get_plugin()
+        self.plugin_instance = manager.NeutronManager.get_plugin()
         self._plugin_name = "%s.%s" % (
-            plugin_instance.__module__,
-            plugin_instance.__class__.__name__)
-        self._plugin_class = plugin_instance.__class__
+            self.plugin_instance.__module__,
+            self.plugin_instance.__class__.__name__)
+        self._plugin_class = self.plugin_instance.__class__
 
     def tearDown(self):
         plugin = manager.NeutronManager.get_plugin()
@@ -1116,9 +1121,31 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
         self._delete('routers', router['router']['id'])
 
 
-class TestL3NatTestCase(L3NatTest,
-                        test_l3_plugin.L3NatDBIntTestCase,
-                        NsxVPluginV2TestCase):
+class TestExclusiveRouterTestCase(L3NatTest,
+                                  test_l3_plugin.L3NatDBIntTestCase,
+                                  NsxVPluginV2TestCase):
+    def _create_router(self, fmt, tenant_id, name=None,
+                       admin_state_up=None, set_context=False,
+                       arg_list=None, **kwargs):
+        data = {'router': {'tenant_id': tenant_id}}
+        if name:
+            data['router']['name'] = name
+        if admin_state_up:
+            data['router']['admin_state_up'] = admin_state_up
+        for arg in (('admin_state_up', 'tenant_id') + (arg_list or ())):
+            # Arg must be present and not empty
+            if arg in kwargs and kwargs[arg]:
+                data['router'][arg] = kwargs[arg]
+
+        data['router']['router_type'] = kwargs.get('router_type', 'exclusive')
+
+        router_req = self.new_create_request('routers', data, fmt)
+        if set_context and tenant_id:
+            # create a specific auth context for this request
+            router_req.environ['neutron.context'] = context.Context(
+                '', tenant_id)
+
+        return router_req.get_response(self.ext_api)
 
     def _test_create_l3_ext_network(self, vlan_id=0):
         name = 'l3_ext_net'
@@ -1247,7 +1274,7 @@ class TestL3NatTestCase(L3NatTest,
         self._test_floatingip_with_invalid_create_port(self._plugin_name)
 
     def test_floatingip_update(self):
-        super(TestL3NatTestCase, self).test_floatingip_update(
+        super(TestExclusiveRouterTestCase, self).test_floatingip_update(
             constants.FLOATINGIP_STATUS_DOWN)
 
     def test_floatingip_disassociate(self):

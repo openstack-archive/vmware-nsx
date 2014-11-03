@@ -223,6 +223,7 @@ class NsxVMetadataProxyHandler:
                 'router': {
                     'name': 'metadata_proxy_router',
                     'admin_state_up': True,
+                    'router_type': 'exclusive',
                     'tenant_id': None}}
 
             rtr = self.nsxv_plugin.create_router(

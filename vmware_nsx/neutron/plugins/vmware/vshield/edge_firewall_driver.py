@@ -142,7 +142,8 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
             vcns_rules.append(
                 {'action': "accept",
                  'enabled': True,
-                 'destination': {'vnicGroupId': ["external"]}})
+                 'destination': {'vnicGroupId': ["external"]},
+                 'ruleTag': ruleTag})
         return {
             'featureType': "firewall_4.0",
             'firewallRules': {

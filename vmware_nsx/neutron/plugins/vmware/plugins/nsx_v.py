@@ -58,13 +58,12 @@ from vmware_nsx.neutron.plugins import vmware
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
 from vmware_nsx.neutron.plugins.vmware.common import utils as c_utils
 from vmware_nsx.neutron.plugins.vmware.dbexts import (
-    distributedrouter as dist_rtr)
+    routertype as rt_rtr)
 from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
 from vmware_nsx.neutron.plugins.vmware.dbexts import vnic_index_db
+from vmware_nsx.neutron.plugins.vmware.plugins import managers
 from vmware_nsx.neutron.plugins.vmware.plugins import nsx_v_md_proxy
-from vmware_nsx.neutron.plugins.vmware.vshield.common import (
-    constants as vcns_const)
 from vmware_nsx.neutron.plugins.vmware.vshield.common import (
     exceptions as vsh_exc)
 from vmware_nsx.neutron.plugins.vmware.vshield import edge_utils
@@ -77,7 +76,7 @@ PORTGROUP_PREFIX = 'dvportgroup'
 
 class NsxVPluginV2(agents_db.AgentDbMixin,
                    db_base_plugin_v2.NeutronDbPluginV2,
-                   dist_rtr.DistributedRouter_mixin,
+                   rt_rtr.RouterType_mixin,
                    external_net_db.External_net_db_mixin,
                    extraroute_db.ExtraRoute_db_mixin,
                    l3_gwmode_db.L3_NAT_db_mixin,
@@ -98,6 +97,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                                    "extraroute",
                                    "router",
                                    "security-group",
+                                   "nsxv-router-type",
                                    "vnic-index",
                                    "advanced-service-providers"]
 
@@ -130,6 +130,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         self.sg_container_id = self._create_security_group_container()
         self._validate_config()
         self._create_cluster_default_fw_rules()
+        self._router_managers = managers.RouterTypeManager(self)
 
         has_metadata_cfg = (
             cfg.CONF.nsxv.nova_metadata_ips
@@ -150,6 +151,37 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                                            "description": description}}
             h, container_id = self.nsx_v.vcns.create_security_group(container)
         return container_id
+
+    def _find_router_driver(self, context, router_id):
+        router_db = self._get_router(context, router_id)
+        return self._get_router_driver(context, router_db)
+
+    def _get_router_driver(self, context, router_db):
+        router_type_dict = {}
+        self._extend_nsx_router_dict(router_type_dict, router_db)
+        router_type = None
+        if router_type_dict.get("distributed", False):
+            router_type = "distributed"
+        else:
+            router_type = router_type_dict.get("router_type")
+        return self._router_managers.get_tenant_router_driver(
+            context, router_type)
+
+    def _decide_router_type(self, context, r):
+        router_type = None
+        if attr.is_attr_set(r.get("distributed")) and r.get("distributed"):
+            router_type = "distributed"
+        elif attr.is_attr_set(r.get("router_type")):
+            router_type = r.get("router_type")
+
+        router_type = self._router_managers.decide_tenant_router_type(
+            context, router_type)
+        if router_type == "distributed":
+            r["distributed"] = True
+            r["router_type"] = "exclusive"
+        else:
+            r["distributed"] = False
+            r["router_type"] = router_type
 
     def _create_cluster_default_fw_rules(self):
         # default cluster rules
@@ -1160,34 +1192,25 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         gw_info = self._extract_external_gw(context, router)
         lrouter = super(NsxVPluginV2, self).create_router(context, router)
         r = router['router']
-        distributed = r.get('distributed')
-        r['distributed'] = attr.is_attr_set(distributed) and distributed
-        self.edge_manager.create_lrouter(context, lrouter,
-                                         dist=r['distributed'])
+        self._decide_router_type(context, r)
         with context.session.begin(subtransactions=True):
             router_db = self._get_router(context, lrouter['id'])
             self._process_nsx_router_create(context, router_db, r)
+        router_driver = self._get_router_driver(context, router_db)
+        router_driver.create_router(
+            context, lrouter,
+            allow_metadata=(allow_metadata and self.metadata_proxy_handler))
         if gw_info is not None:
-            self._update_router_gw_info(context, lrouter['id'], gw_info)
-        if (not r['distributed']
-                and allow_metadata
-                and self.metadata_proxy_handler):
-            self.metadata_proxy_handler.configure_router_edge(lrouter['id'])
+            router_driver._update_router_gw_info(
+                context, lrouter['id'], gw_info)
         return self.get_router(context, lrouter['id'])
 
     def update_router(self, context, router_id, router):
         # TODO(berlin): admin_state_up update
         if router['router'].get('admin_state_up') is False:
             LOG.warning(_LW("admin_state_up=False router is not supported."))
-        gw_info = self._extract_external_gw(context, router, is_extract=False)
-        router_updated = super(NsxVPluginV2, self).update_router(
-            context, router_id, router)
-        # here is used to handle routes which tenant updates.
-        if gw_info is None:
-            router_db = self._get_router(context, router_id)
-            nexthop = self._get_external_attachment_info(context, router_db)[2]
-            self._update_routes(context, router_id, nexthop)
-        return router_updated
+        router_driver = self._find_router_driver(context, router_id)
+        return router_driver.update_router(context, router_id, router)
 
     def _check_router_in_use(self, context, router_id):
         with context.session.begin(subtransactions=True):
@@ -1207,10 +1230,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
     def delete_router(self, context, id):
         self._check_router_in_use(context, id)
-        distributed = self.get_router(context, id).get('distributed', False)
-        if self.metadata_proxy_handler and not distributed:
-            self.metadata_proxy_handler.cleanup_router_edge(id)
-        self.edge_manager.delete_lrouter(context, id, dist=distributed)
+        router_driver = self._find_router_driver(context, id)
+        router_driver.delete_router(context, id)
         super(NsxVPluginV2, self).delete_router(context, id)
 
     def _get_external_attachment_info(self, context, router):
@@ -1258,101 +1279,9 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         edge_utils.update_routes(self.nsx_v, context, router_id,
                                  routes, nexthop)
 
-    def _update_routes_on_plr(self, context, router_id, plr_id, newnexthop):
-        subnets = self._find_router_subnets_cidrs(
-            context.elevated(), router_id)
-        routes = []
-        for subnet in subnets:
-            routes.append({
-                'destination': subnet,
-                'nexthop': (vcns_const.INTEGRATION_LR_IPADDRESS.
-                            split('/')[0])
-            })
-        edge_utils.update_routes_on_plr(self.nsx_v, context,
-                                        plr_id, router_id, routes,
-                                        nexthop=newnexthop)
-
     def _update_router_gw_info(self, context, router_id, info):
-        router = self._get_router(context, router_id)
-        org_ext_net_id = router.gw_port_id and router.gw_port.network_id
-        org_enable_snat = router.enable_snat
-        orgaddr, orgmask, orgnexthop = self._get_external_attachment_info(
-            context, router)
-
-        super(NsxVPluginV2, self)._update_router_gw_info(
-            context, router_id, info, router=router)
-
-        new_ext_net_id = router.gw_port_id and router.gw_port.network_id
-        new_enable_snat = router.enable_snat
-        newaddr, newmask, newnexthop = self._get_external_attachment_info(
-            context, router)
-
-        router_dict = self._make_router_dict(router)
-        if not router_dict.get('distributed', False):
-            if new_ext_net_id != org_ext_net_id and orgnexthop:
-                # network changed, so need to remove default gateway before
-                # vnic can be configured
-                LOG.debug("Delete default gateway %s", orgnexthop)
-                edge_utils.clear_gateway(self.nsx_v, context, router_id)
-                # Delete SNAT rules
-                if org_enable_snat:
-                    edge_utils.clear_nat_rules(self.nsx_v, context, router_id)
-
-            # Update external vnic if addr or mask is changed
-            if orgaddr != newaddr or orgmask != newmask:
-                edge_utils.update_external_interface(
-                    self.nsx_v, context, router_id,
-                    new_ext_net_id, newaddr, newmask)
-
-            # Update SNAT rules if ext net changed and snat enabled
-            # or ext net not changed but snat is changed.
-            if ((new_ext_net_id != org_ext_net_id and
-                 newnexthop and new_enable_snat) or
-                (new_ext_net_id == org_ext_net_id and
-                 new_enable_snat != org_enable_snat)):
-                self._update_nat_rules(context, router)
-
-            # Update static routes in all.
-            self._update_routes(context, router_id, newnexthop)
-        else:
-            plr_id = self.edge_manager.get_plr_by_tlr_id(context, router_id)
-            if not new_ext_net_id:
-                if plr_id:
-                    # delete all plr relative conf
-                    self.edge_manager.delete_plr_by_tlr_id(
-                        context, plr_id, router_id)
-            else:
-                # Connecting one plr to the tlr if new_ext_net_id is not None.
-                if not plr_id:
-                    plr_id = self.edge_manager.create_plr_with_tlr_id(
-                        context, router_id, router_dict.get('name'))
-                if new_ext_net_id != org_ext_net_id and orgnexthop:
-                    # network changed, so need to remove default gateway and
-                    # all static routes before vnic can be configured
-                    edge_utils.clear_gateway(self.nsx_v, context, plr_id)
-                    # Delete SNAT rules
-                    if org_enable_snat:
-                        edge_utils.clear_nat_rules(self.nsx_v, context, plr_id)
-
-                # Update external vnic if addr or mask is changed
-                if orgaddr != newaddr or orgmask != newmask:
-                    edge_utils.update_external_interface(
-                        self.nsx_v, context, plr_id,
-                        new_ext_net_id, newaddr, newmask)
-
-                # Update SNAT rules if ext net changed and snat enabled
-                # or ext net not changed but snat is changed.
-                if ((new_ext_net_id != org_ext_net_id and
-                     newnexthop and new_enable_snat) or
-                    (new_ext_net_id == org_ext_net_id and
-                     new_enable_snat != org_enable_snat)):
-                    self._update_nat_rules(context, router, plr_id)
-                    # Open firewall flows on plr
-                    self._update_subnets_and_dnat_firewall(
-                        context, router, router_id=plr_id)
-                    # Update static routes of plr
-                    self._update_routes_on_plr(
-                        context, router_id, plr_id, newnexthop)
+        router_driver = self._find_router_driver(context, router_id)
+        router_driver._update_router_gw_info(context, router_id, info)
 
     def _get_router_interface_ports_by_network(
         self, context, router_id, network_id):
@@ -1429,96 +1358,14 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             self.nsx_v, context, router_id, snat, dnat)
 
     def add_router_interface(self, context, router_id, interface_info):
-        info = super(NsxVPluginV2, self).add_router_interface(
+        router_driver = self._find_router_driver(context, router_id)
+        return router_driver.add_router_interface(
             context, router_id, interface_info)
-
-        router_db = self._get_router(context, router_id)
-        router = self._make_router_dict(router_db)
-        distributed = router.get('distributed', False)
-        subnet = self.get_subnet(context, info['subnet_id'])
-        network_id = subnet['network_id']
-
-        address_groups = self._get_address_groups(
-            context, router_id, network_id)
-        if not distributed:
-            edge_utils.update_internal_interface(
-                self.nsx_v, context, router_id, network_id, address_groups)
-        else:
-            try:
-                edge_utils.add_vdr_internal_interface(
-                    self.nsx_v, context, router_id, network_id, address_groups)
-            except n_exc.BadRequest:
-                with excutils.save_and_reraise_exception():
-                    super(NsxVPluginV2, self).remove_router_interface(
-                        context, router_id, interface_info)
-        # Update edge's firewall rules to accept subnets flows.
-        self._update_subnets_and_dnat_firewall(context, router_db)
-
-        if router_db.gw_port and router_db.enable_snat:
-            if not distributed:
-                # Update Nat rules on external edge vnic
-                self._update_nat_rules(context, router_db)
-            else:
-                plr_id = self.edge_manager.get_plr_by_tlr_id(
-                    context, router_id)
-                self._update_nat_rules(context, router_db, plr_id)
-                # Open firewall flows on plr
-                self._update_subnets_and_dnat_firewall(
-                    context, router_db, router_id=plr_id)
-                # Update static routes of plr
-                nexthop = self._get_external_attachment_info(
-                    context, router_db)[2]
-                self._update_routes_on_plr(
-                    context, router_id, plr_id, nexthop)
-        return info
 
     def remove_router_interface(self, context, router_id, interface_info):
-        info = super(NsxVPluginV2, self).remove_router_interface(
+        router_driver = self._find_router_driver(context, router_id)
+        return router_driver.remove_router_interface(
             context, router_id, interface_info)
-        router_db = self._get_router(context, router_id)
-        router = self._make_router_dict(router_db)
-        distributed = router.get('distributed', False)
-
-        subnet = self.get_subnet(context, info['subnet_id'])
-        network_id = subnet['network_id']
-        if router_db.gw_port and router_db.enable_snat:
-            if not distributed:
-                # First update nat rules
-                self._update_nat_rules(context, router_db)
-            else:
-                plr_id = self.edge_manager.get_plr_by_tlr_id(
-                    context, router_id)
-                self._update_nat_rules(context, router_db, plr_id)
-                # Open firewall flows on plr
-                self._update_subnets_and_dnat_firewall(
-                    context, router_db, router_id=plr_id)
-                # Update static routes of plr
-                nexthop = self._get_external_attachment_info(
-                    context, router_db)[2]
-                nexthop = self._get_external_attachment_info(
-                    context, router_db)[2]
-                self._update_routes_on_plr(
-                    context, router_id, plr_id, nexthop)
-
-        ports = self._get_router_interface_ports_by_network(
-            context, router_id, network_id)
-        self._update_subnets_and_dnat_firewall(context, router_db)
-        # No subnet on the network connects to the edge vnic
-        if not ports:
-            edge_utils.delete_interface(self.nsx_v, context,
-                                        router_id, network_id,
-                                        dist=distributed)
-        else:
-            address_groups = self._get_address_groups(
-                context, router_id, network_id)
-            if not distributed:
-                edge_utils.update_internal_interface(self.nsx_v, context,
-                                                     router_id, network_id,
-                                                     address_groups)
-            else:
-                edge_utils.update_vdr_internal_interface(
-                    self.nsx_v, context, router_id, network_id, address_groups)
-        return info
 
     def _get_floatingips_by_router(self, context, router_id):
         fip_qry = context.session.query(l3_db.FloatingIP)
@@ -1545,6 +1392,10 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         if floatingip_db['status'] != status:
             floatingip_db['status'] = status
             self.update_floatingip_status(context, floatingip_db['id'], status)
+
+    def _update_edge_router(self, context, router_id):
+        router_driver = self._find_router_driver(context, router_id)
+        router_driver._update_edge_router(context, router_id)
 
     def create_floatingip(self, context, floatingip):
         fip_db = super(NsxVPluginV2, self).create_floatingip(
@@ -1583,19 +1434,6 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         self._set_floatingip_status(context, fip_db)
         return fip_db
 
-    def _update_edge_router(self, context, router_id):
-        router = self._get_router(context, router_id)
-        distributed = self._make_router_dict(router).get(
-            'distributed', False)
-        if distributed:
-            plr_id = self.edge_manager.get_plr_by_tlr_id(context, router_id)
-        else:
-            plr_id = None
-        self._update_external_interface(context, router, router_id=plr_id)
-        self._update_nat_rules(context, router, router_id=plr_id)
-        self._update_subnets_and_dnat_firewall(context, router,
-                                               router_id=plr_id)
-
     def delete_floatingip(self, context, id):
         fip_db = self._get_floatingip(context, id)
         router_id = None
@@ -1603,21 +1441,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             router_id = fip_db.router_id
         super(NsxVPluginV2, self).delete_floatingip(context, id)
         if router_id:
-            router = self._get_router(context, router_id)
-            distributed = self._make_router_dict(router).get(
-                'distributed', False)
-            if not distributed:
-                self._update_subnets_and_dnat_firewall(context, router)
-                self._update_nat_rules(context, router)
-                self._update_external_interface(context, router)
-            else:
-                plr_id = self.edge_manager.get_plr_by_tlr_id(context,
-                                                             router_id)
-                self._update_subnets_and_dnat_firewall(
-                    context, router, router_id=plr_id)
-                self._update_nat_rules(context, router, router_id=plr_id)
-                self._update_external_interface(
-                    context, router, router_id=plr_id)
+            self._update_edge_router(context, router_id)
 
     def disassociate_floatingips(self, context, port_id):
         router_id = None
@@ -1632,21 +1456,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             router_id = None
         super(NsxVPluginV2, self).disassociate_floatingips(context, port_id)
         if router_id:
-            router = self._get_router(context, router_id)
-            distributed = self._make_router_dict(router).get(
-                'distributed', False)
-            if not distributed:
-                self._update_subnets_and_dnat_firewall(context, router)
-                self._update_nat_rules(context, router)
-                self._update_external_interface(context, router)
-            else:
-                plr_id = self.edge_manager.get_plr_by_tlr_id(context,
-                                                             router_id)
-                self._update_subnets_and_dnat_firewall(
-                    context, router, router_id=plr_id)
-                self._update_nat_rules(context, router, router_id=plr_id)
-                self._update_external_interface(
-                    context, router, router_id=plr_id)
+            self._update_edge_router(context, router_id)
 
     def _update_subnets_and_dnat_firewall(self, context, router,
                                           router_id=None, allow_external=True):
@@ -1659,8 +1469,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             fake_subnet_fw_rule = {
                 'action': 'allow',
                 'enabled': True,
-                'source_ip_address': subnet_cidrs,
-                'destination_ip_address': subnet_cidrs}
+                'source_ip_address': sorted(subnet_cidrs),
+                'destination_ip_address': sorted(subnet_cidrs)}
             fake_fw_rules.append(fake_subnet_fw_rule)
         _, dnat_rules = self._get_nat_rules(context, router)
 
@@ -1674,7 +1484,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             fake_dnat_fw_rule = {
                 'action': 'allow',
                 'enabled': True,
-                'destination_ip_address': dnat_cidrs}
+                'destination_ip_address': sorted(dnat_cidrs)}
             fake_fw_rules.append(fake_dnat_fw_rule)
         # TODO(berlin): Add fw rules if fw service is supported
         fake_fw = {'firewall_rule_list': fake_fw_rules}

@@ -239,7 +239,11 @@ nsxv_opts = [
     cfg.BoolOpt('spoofguard_enabled',
                 default=True,
                 help=_("If True then plugin will use NSXV spoofguard "
-                       "component for port-security feature."))
+                       "component for port-security feature.")),
+    cfg.ListOpt('tenant_router_types',
+                default=['shared', 'distributed', 'exclusive'],
+                help=_("Ordered list of router_types to allocate as tenant "
+                       "routers."))
 ]
 
 # Register the configuration options
