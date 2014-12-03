@@ -65,6 +65,7 @@ class FakeVcns(object):
         self._securitygroups = {'ids': 0, 'names': set()}
         self._sections = {'section_ids': 0, 'rule_ids': 0, 'names': set()}
         self._dhcp_bindings = {}
+        self._spoofguard_policies = []
 
     def set_fake_nsx_api(self, fake_nsx_api):
         self._fake_nsx_api = fake_nsx_api
@@ -940,6 +941,32 @@ class FakeVcns(object):
             response = ''
             headers = {'status': 200}
         return (headers, response)
+
+    def create_spoofguard_policy(self, enforcement_point, name, enable):
+        policy = {'name': name,
+                  'enforcement_point': enforcement_point,
+                  'operationMode': 'MANUAL' if enable else 'DISABLE'}
+        policy_id = len(self._spoofguard_policies)
+        self._spoofguard_policies.append(policy)
+        return None, policy_id
+
+    def update_spoofguard_policy(self, policy_id,
+                                 enforcement_point, name, enable):
+        policy = {'name': name,
+                  'enforcement_point': enforcement_point,
+                  'operationMode': 'MANUAL' if enable else 'DISABLE'}
+        self._spoofguard_policies[int(policy_id)] = policy
+        return None, ''
+
+    def delete_spoofguard_policy(self, policy_id):
+        self._spoofguard_policies[int(policy_id)] = {}
+
+    def approve_assigned_addresses(self, policy_id,
+                                   vnic_id, mac_addr, addresses):
+        pass
+
+    def inactivate_vnic_assigned_addresses(self, policy_id, vnic_id):
+        pass
 
     def reset_all(self):
         self._jobs.clear()

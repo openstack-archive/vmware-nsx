@@ -27,7 +27,6 @@ from neutron.common import exceptions as n_exc
 from neutron.common import utils
 from neutron import context as neutron_context
 from neutron.db import agents_db
-from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
 from neutron.db import extraroute_db
@@ -38,7 +37,6 @@ from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
 from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db
-from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import external_net as ext_net_extn
 from neutron.extensions import l3
 from neutron.extensions import multiprovidernet as mpnet
@@ -77,7 +75,6 @@ PORTGROUP_PREFIX = 'dvportgroup'
 
 
 class NsxVPluginV2(agents_db.AgentDbMixin,
-                   addr_pair_db.AllowedAddressPairsMixin,
                    db_base_plugin_v2.NeutronDbPluginV2,
                    dist_rtr.DistributedRouter_mixin,
                    external_net_db.External_net_db_mixin,
@@ -89,7 +86,6 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                    vnic_index_db.VnicIndexDbMixin):
 
     supported_extension_aliases = ["agent",
-                                   "allowed-address-pairs",
                                    "binding",
                                    "dvr",
                                    "ext-gw-mode",
@@ -513,12 +509,19 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                                % dvs_id)
                     raise n_exc.InvalidInput(error_message=err_msg)
         try:
+            # Create SpoofGuard policy for network anti-spoofing
+            if backend_network:
+                sg_policy_id = None
+                s, sg_policy_id = self.nsx_v.vcns.create_spoofguard_policy(
+                    net_moref, net_data['id'], net_data[psec.PORTSECURITY])
+
             with context.session.begin(subtransactions=True):
                 new_net = super(NsxVPluginV2, self).create_network(context,
                                                                    network)
                 # Process port security extension
                 self._process_network_port_security_create(
                     context, net_data, new_net)
+
                 # DB Operations for setting the network as external
                 self._process_l3_create(context, new_net, net_data)
                 if (net_data.get(mpnet.SEGMENTS) and
@@ -550,11 +553,15 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                     nsx_db.add_neutron_nsx_network_mapping(
                         context.session, new_net['id'],
                         net_moref)
+                    nsxv_db.map_spoofguard_policy_for_network(
+                        context.session, new_net['id'], sg_policy_id)
 
         except Exception:
             with excutils.save_and_reraise_exception():
                 # Delete the backend network
                 if backend_network:
+                    if sg_policy_id:
+                        self.nsx_v.vcns.delete_spoofguard_policy(sg_policy_id)
                     self._delete_backend_network(net_moref)
                 LOG.exception(_LE('Failed to create network'))
 
@@ -582,10 +589,9 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                         self.metadata_proxy_handler.cleanup_router_edge(rtr_id)
 
     def delete_network(self, context, id):
-        mappings = nsx_db.get_nsx_switch_ids(
-            context.session, id)
-        bindings = nsxv_db.get_network_bindings(context.session,
-                                                id)
+        mappings = nsx_db.get_nsx_switch_ids(context.session, id)
+        bindings = nsxv_db.get_network_bindings(context.session, id)
+        sg_policy_id = nsxv_db.get_spoofguard_policy_id(context.session, id)
 
         self._cleanup_dhcp_edge_before_deletion(context, id)
         with context.session.begin(subtransactions=True):
@@ -603,6 +609,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         # the base operation as that may throw an exception in the case
         # that there are ports defined on the network.
         if mappings:
+            if sg_policy_id:
+                self.nsx_v.vcns.delete_spoofguard_policy(sg_policy_id)
             self._delete_backend_network(mappings[0])
 
     def get_network(self, context, id, fields=None):
@@ -629,49 +637,70 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         return [self._fields(network, fields) for network in networks]
 
     def update_network(self, context, id, network):
-        pnet._raise_if_updates_provider_attributes(network['network'])
-        if network["network"].get("admin_state_up") is False:
+        net_attrs = network['network']
+        original_network = self.get_network(context, id)
+
+        pnet._raise_if_updates_provider_attributes(net_attrs)
+        if net_attrs.get("admin_state_up") is False:
             raise NotImplementedError(_("admin_state_up=False networks "
                                         "are not supported."))
+
+        # PortSecurity validation checks
+        # TODO(roeyc): enacapsulate validation in a method
+        psec_update = (psec.PORTSECURITY in net_attrs and
+                       original_network[psec.PORTSECURITY] !=
+                       net_attrs[psec.PORTSECURITY])
+        if psec_update and not net_attrs[psec.PORTSECURITY]:
+            LOG.warning(_("Disabling port-security on network %s would "
+                          "require instance in the network to have VM tools "
+                          "installed in order for security-groups to "
+                          "function properly."))
+
         with context.session.begin(subtransactions=True):
-            net = super(NsxVPluginV2, self).update_network(context, id,
-                                                           network)
-            self._process_l3_update(context, net, network['network'])
-            self._extend_network_dict_provider(context, net)
-        return net
+            net_res = super(NsxVPluginV2, self).update_network(context, id,
+                                                               network)
+            self._process_network_port_security_update(
+                context, net_attrs, net_res)
+            self._process_l3_update(context, net_res, net_attrs)
+            self._extend_network_dict_provider(context, net_res)
+
+        # Updating SpoofGuard policy if exists, on failure revert to network
+        # old state
+        if psec_update:
+            policy_id = nsxv_db.get_spoofguard_policy_id(context.session, id)
+            net_moref = nsx_db.get_nsx_switch_ids(context.session, id)
+            try:
+                self.nsx_v.vcns.update_spoofguard_policy(
+                    policy_id, net_moref[0], id,
+                    net_attrs[psec.PORTSECURITY])
+            except Exception:
+                with excutils.save_and_reraise_exception():
+                    revert_update = self._fields(original_network,
+                                                 ['shared', psec.PORTSECURITY])
+                    self._process_network_port_security_update(
+                        context, revert_update, net_res)
+                    super(NsxVPluginV2, self).update_network(
+                        context, id, {'network': revert_update})
+        return net_res
 
     def create_port(self, context, port):
-        # If PORTSECURITY is not the default value ATTR_NOT_SPECIFIED
-        # then we pass the port to the policy engine. The reason why we don't
-        # pass the value to the policy engine when the port is
-        # ATTR_NOT_SPECIFIED is for the case where a port is created on a
-        # shared network that is not owned by the tenant.
         port_data = port['port']
         with context.session.begin(subtransactions=True):
             # First we allocate port in neutron database
             neutron_db = super(NsxVPluginV2, self).create_port(context, port)
-            # Update fields obtained from neutron db (eg: MAC address)
-            port["port"].update(neutron_db)
-            # port security extension checks
-            (port_security, has_ip) = self._determine_port_security_and_has_ip(
-                context, port_data)
+            # Port port-security is decided by the port-security state on the
+            # network it belongs to
+            port_security = self._get_network_security_binding(
+                context, neutron_db['network_id'])
             port_data[psec.PORTSECURITY] = port_security
             self._process_port_port_security_create(
                 context, port_data, neutron_db)
-            # allowed address pair checks
-            if attr.is_attr_set(port_data.get(addr_pair.ADDRESS_PAIRS)):
-                if not port_security:
-                    raise addr_pair.AddressPairAndPortSecurityRequired()
-                else:
-                    self._process_create_allowed_address_pairs(
-                        context, neutron_db,
-                        port_data[addr_pair.ADDRESS_PAIRS])
-            else:
-                # remove ATTR_NOT_SPECIFIED
-                port_data[addr_pair.ADDRESS_PAIRS] = None
+            # Update fields obtained from neutron db (eg: MAC address)
+            port["port"].update(neutron_db)
+            has_ip = self._ip_on_port(neutron_db)
 
             # security group extension checks
-            if port_security and has_ip:
+            if has_ip:
                 self._ensure_default_security_group_on_port(context, port)
             elif attr.is_attr_set(port_data.get(ext_sg.SECURITYGROUPS)):
                 raise psec.PortSecurityAndIPRequiredForSecurityGroups()
@@ -682,7 +711,6 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             self._process_portbindings_create_and_update(context,
                                                          port['port'],
                                                          port_data)
-
         try:
             # Configure NSX - this should not be done in the DB transaction
             # Configure the DHCP Edge service
@@ -696,74 +724,64 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
     def update_port(self, context, id, port):
         port_data = port['port']
-        current_port = super(NsxVPluginV2, self).get_port(context, id)
-        device_id = current_port['device_id']
-        comp_owner_update = ('device_owner' in port_data and
-                             port_data['device_owner'].startswith('compute:'))
+        original_port = super(NsxVPluginV2, self).get_port(context, id)
+        is_compute_port = self._is_compute_port(original_port)
+        device_id = original_port['device_id']
+        has_port_security = original_port[psec.PORTSECURITY]
 
+        # TODO(roeyc): create a method '_process_vnic_index_update' from the
+        # following code block
         # Process update for vnic-index
         vnic_idx = port_data.get(ext_vnic_idx.VNIC_INDEX)
         # Only set the vnic index for a compute VM
-        if attr.is_attr_set(vnic_idx) and self._is_compute_port(current_port):
+        if attr.is_attr_set(vnic_idx) and is_compute_port:
             # Update database only if vnic index was changed
-            if current_port.get(ext_vnic_idx.VNIC_INDEX) != vnic_idx:
+            if original_port.get(ext_vnic_idx.VNIC_INDEX) != vnic_idx:
                 self._set_port_vnic_index_mapping(
                     context, id, device_id, vnic_idx)
             vnic_id = self._get_port_vnic_id(vnic_idx, device_id)
             self._add_security_groups_port_mapping(
-                context.session, vnic_id, current_port.get('security_groups'))
+                context.session, vnic_id, original_port['security_groups'])
+            if has_port_security:
+                self._update_vnic_assigned_addresses(
+                    context.session, original_port, vnic_id)
+            else:
+                LOG.warning(_("port-security is disabled on port %(id)s, "
+                              "VM tools must be installed on instance "
+                              "%(device_id)s for security-groups to function "
+                              "properly "),
+                            {'id': id,
+                             'device_id': original_port['device_id']})
 
         delete_security_groups = self._check_update_deletes_security_groups(
             port)
         has_security_groups = self._check_update_has_security_groups(port)
-        delete_addr_pairs = self._check_update_deletes_allowed_address_pairs(
-            port)
-        has_addr_pairs = self._check_update_has_allowed_address_pairs(port)
+        comp_owner_update = ('device_owner' in port_data and
+                             port_data['device_owner'].startswith('compute:'))
 
         with context.session.begin(subtransactions=True):
             ret_port = super(NsxVPluginV2, self).update_port(
                 context, id, port)
+            if psec.PORTSECURITY in port['port']:
+                raise NotImplementedError()
             # copy values over - except fixed_ips as
             # they've already been processed
-            port['port'].pop('fixed_ips', None)
+            updates_fixed_ips = port['port'].pop('fixed_ips', [])
             ret_port.update(port['port'])
-            # populate port_security setting
-            if psec.PORTSECURITY not in port['port']:
-                ret_port[psec.PORTSECURITY] = self._get_port_security_binding(
-                    context, id)
             has_ip = self._ip_on_port(ret_port)
-            # validate port security and allowed address pairs
-            if not ret_port[psec.PORTSECURITY]:
-                #  has address pairs in request
-                if has_addr_pairs:
-                    raise addr_pair.AddressPairAndPortSecurityRequired()
-                elif not delete_addr_pairs:
-                    # check if address pairs are in db
-                    ret_port[addr_pair.ADDRESS_PAIRS] = (
-                        self.get_allowed_address_pairs(context, id))
-                    if ret_port[addr_pair.ADDRESS_PAIRS]:
-                        raise addr_pair.AddressPairAndPortSecurityRequired()
 
-            if (delete_addr_pairs or has_addr_pairs):
-                # delete address pairs and read them in
-                self._delete_allowed_address_pairs(context, id)
-                self._process_create_allowed_address_pairs(
-                    context, ret_port, ret_port[addr_pair.ADDRESS_PAIRS])
-            # checks if security groups were updated adding/modifying
-            # security groups, port security is set and port has ip
-            if not (has_ip and ret_port[psec.PORTSECURITY]):
+            # checks that if update adds/modify security groups,
+            # then port has ip
+            if not has_ip:
                 if has_security_groups:
                     raise psec.PortSecurityAndIPRequiredForSecurityGroups()
-                # Update did not have security groups passed in. Check
-                # that port does not have any security groups already on it.
-                filters = {'port_id': [id]}
                 security_groups = (
                     super(NsxVPluginV2,
-                          self)._get_port_security_group_bindings(context,
-                                                                  filters)
+                          self)._get_port_security_group_bindings(
+                              context, {'port_id': [id]})
                 )
                 if security_groups and not delete_security_groups:
-                    raise psec.PortSecurityPortHasSecurityGroup()
+                    raise psec.PortSecurityAndIPRequiredForSecurityGroups()
 
             if delete_security_groups or has_security_groups:
                 # delete the port binding and read it with the new rules.
@@ -771,10 +789,6 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 new_sgids = self._get_security_groups_on_port(context, port)
                 self._process_port_create_security_group(context, ret_port,
                                                          new_sgids)
-
-            if psec.PORTSECURITY in port['port']:
-                self._process_port_port_security_update(
-                    context, port['port'], ret_port)
 
             LOG.debug("Updating port: %s", port)
             self._process_portbindings_create_and_update(context,
@@ -785,22 +799,37 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             # Create dhcp bindings, the port is now owned by an instance
             self._create_dhcp_static_binding(context, ret_port)
 
-        # Updating NSXv Security Group membership for vNic
-        vnic_idx = current_port.get(ext_vnic_idx.VNIC_INDEX)
-        if attr.is_attr_set(vnic_idx):
+        # Processing compute port update
+        vnic_idx = original_port.get(ext_vnic_idx.VNIC_INDEX)
+        if attr.is_attr_set(vnic_idx) and is_compute_port:
             vnic_id = self._get_port_vnic_id(vnic_idx, device_id)
-            curr_sgids = current_port.get(ext_sg.SECURITYGROUPS)
+            curr_sgids = original_port.get(ext_sg.SECURITYGROUPS)
             if ret_port['device_id'] != device_id:
                 # Update change device_id - remove port-vnic assosiation and
                 # delete security-groups memberships for the vnic
                 self._delete_security_groups_port_mapping(
                     context.session, vnic_id, curr_sgids)
+                self._remove_vnic_from_spoofguard_policy(
+                    context.session, port['network_id'], vnic_id)
                 self._delete_port_vnic_index_mapping(context, id)
-            elif delete_security_groups or has_security_groups:
-                # Update security-groups,
-                # calculate differences and update vnic membership accordingly.
-                self._update_security_groups_port_mapping(
-                    context.session, id, vnic_id, curr_sgids, new_sgids)
+            else:
+                # Update vnic with the newest approved IP addresses
+                if has_port_security and updates_fixed_ips:
+                    self._update_vnic_assigned_addresses(
+                        context.session, ret_port, vnic_id)
+                if not has_port_security and has_security_groups:
+                    LOG.warning(_("port-security is disabled on port %(id)s, "
+                                  "VM tools must be installed on instance "
+                                  "%(device_id)s for security-groups to "
+                                  "function properly "),
+                                {'id': id,
+                                 'device_id': original_port['device_id']})
+                if delete_security_groups or has_security_groups:
+                    # Update security-groups,
+                    # calculate differences and update vnic membership
+                    # accordingly.
+                    self._update_security_groups_port_mapping(
+                        context.session, id, vnic_id, curr_sgids, new_sgids)
 
         return ret_port
 
@@ -823,7 +852,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         neutron_db_port = self.get_port(context, id)
 
         # If this port is attached to a device, remove the corresponding vnic
-        # from all NSXv Security-Groups
+        # from all NSXv Security-Groups and the spoofguard policy
         port_index = neutron_db_port.get(ext_vnic_idx.VNIC_INDEX)
         if attr.is_attr_set(port_index):
             vnic_id = self._get_port_vnic_id(port_index,
@@ -831,6 +860,9 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             sgids = neutron_db_port.get(ext_sg.SECURITYGROUPS)
             self._delete_security_groups_port_mapping(
                 context.session, vnic_id, sgids)
+            if neutron_db_port[psec.PORTSECURITY]:
+                self._remove_vnic_from_spoofguard_policy(
+                    context.session, neutron_db_port['network_id'], vnic_id)
 
         self.disassociate_floatingips(context, id)
         with context.session.begin(subtransactions=True):
@@ -1854,6 +1886,25 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 LOG.exception(_LE('Failed to delete security group rule'))
 
         return ret
+
+    def _remove_vnic_from_spoofguard_policy(self, session, net_id, vnic_id):
+        policy_id = nsxv_db.get_spoofguard_policy_id(session, net_id)
+        try:
+            self.nsx_v.vcns.inactivate_vnic_assigned_addresses(policy_id,
+                                                               vnic_id)
+        except Exception:
+            LOG.debug("Failed to remove vnic %(vnic_id)s "
+                      "from spoofguard policy %(policy_id)s",
+                      {'vnic_id': vnic_id,
+                       'policy_id': policy_id})
+
+    def _update_vnic_assigned_addresses(self, session, port, vnic_id):
+        sg_policy_id = nsxv_db.get_spoofguard_policy_id(
+            session, port['network_id'])
+        mac_addr = port['mac_address']
+        approved_addrs = [addr['ip_address'] for addr in port['fixed_ips']]
+        self.nsx_v.vcns.approve_assigned_addresses(
+            sg_policy_id, vnic_id, mac_addr, approved_addrs)
 
     def _is_compute_port(self, port):
         try:

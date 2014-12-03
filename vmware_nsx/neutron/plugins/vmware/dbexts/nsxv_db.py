@@ -431,3 +431,22 @@ def cleanup_nsxv_edge_firewallrule_binding(session, edge_id):
         session.query(
             nsxv_models.NsxvEdgeFirewallRuleBinding).filter_by(
                 edge_id=edge_id).delete()
+
+
+def map_spoofguard_policy_for_network(session, network_id, policy_id):
+    with session.begin(subtransactions=True):
+        mapping = nsxv_models.NsxvSpoofGuardPolicyNetworkMapping(
+            network_id=network_id, policy_id=policy_id)
+        session.add(mapping)
+    return mapping
+
+
+def get_spoofguard_policy_id(session, network_id):
+    try:
+        mapping = (session.query(
+            nsxv_models.NsxvSpoofGuardPolicyNetworkMapping).
+            filter_by(network_id=network_id).one())
+        return mapping['policy_id']
+    except exc.NoResultFound:
+        LOG.debug("SpoofGuard Policy for network %s was not found",
+                  network_id)
