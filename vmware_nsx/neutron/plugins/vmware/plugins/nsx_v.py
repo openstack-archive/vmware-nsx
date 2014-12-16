@@ -308,7 +308,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def get_subnet(self, context, id, fields=None):
         subnet = super(NsxVPluginV2, self).get_subnet(context, id, fields)
-        if context.is_admin:
+
+        if not context.is_admin:
+            return subnet
+        elif not fields or subnet_md.ADV_SERVICE_PROVIDERS in fields:
             subnet[subnet_md.ADV_SERVICE_PROVIDERS] = (
                 self._get_subnet_md_providers(context, subnet))
         return subnet
