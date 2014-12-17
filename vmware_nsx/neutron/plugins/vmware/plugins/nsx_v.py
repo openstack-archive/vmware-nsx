@@ -558,12 +558,34 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
         return new_net
 
+    def _cleanup_dhcp_edge_before_deletion(self, context, net_id):
+        if self.metadata_proxy_handler:
+            # Find if this is the last network which is bound
+            # to DHCP Edge. If it is - cleanup Edge metadata config
+            dhcp_edge = nsxv_db.get_dhcp_edge_network_binding(
+                context.session, net_id)
+
+            if dhcp_edge:
+                edge_vnics = nsxv_db.get_edge_vnic_bindings_by_edge(
+                    context.session, dhcp_edge['edge_id'])
+
+                # If the DHCP Edge is connected to two networks:
+                # the delete network and the inter-edge network, we can delete
+                # the inter-edge interface
+                if len(edge_vnics) == 2:
+                    rtr_binding = nsxv_db.get_vcns_router_binding_by_edge(
+                        context.session, dhcp_edge['edge_id'])
+                    if rtr_binding:
+                        rtr_id = rtr_binding['router_id']
+                        self.metadata_proxy_handler.cleanup_router_edge(rtr_id)
+
     def delete_network(self, context, id):
         mappings = nsx_db.get_nsx_switch_ids(
             context.session, id)
         bindings = nsxv_db.get_network_bindings(context.session,
                                                 id)
 
+        self._cleanup_dhcp_edge_before_deletion(context, id)
         with context.session.begin(subtransactions=True):
             super(NsxVPluginV2, self).delete_network(context, id)
 
@@ -830,6 +852,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             filters = {'network_id': [network_id]}
             remaining_subnets = self.get_subnets(context, filters=filters)
             if len(remaining_subnets) == 0:
+                self._cleanup_dhcp_edge_before_deletion(context, network_id)
                 LOG.debug("Delete the DHCP Edge for network %s", network_id)
                 self.edge_manager.delete_dhcp_edge_service(context,
                                                            network_id)
@@ -1076,6 +1099,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
     def delete_router(self, context, id):
         self._check_router_in_use(context, id)
         distributed = self.get_router(context, id).get('distributed', False)
+        if self.metadata_proxy_handler and not distributed:
+            self.metadata_proxy_handler.cleanup_router_edge(id)
         self.edge_manager.delete_lrouter(context, id, dist=distributed)
         super(NsxVPluginV2, self).delete_router(context, id)
 

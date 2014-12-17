@@ -349,6 +349,17 @@ class NsxVMetadataProxyHandler:
                                 self.proxy_edge_ips,
                                 proxy_lb=False)
 
+    def cleanup_router_edge(self, rtr_id):
+        filters = {
+            'network_id': [self.internal_net],
+            'device_id': [rtr_id]}
+        ports = self.nsxv_plugin.get_ports(self.context, filters=filters)
+
+        if ports:
+            self.nsxv_plugin.delete_port(
+                self.context, ports[0]['id'],
+                l3_port_check=False)
+
     def get_router_fw_rules(self):
         fw_rules = [
             {
