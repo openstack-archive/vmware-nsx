@@ -14,10 +14,13 @@
 
 import copy
 
-from oslo.serialization import jsonutils
+from oslo.serialization import jsonutils as json
+import xml.etree.ElementTree as ET
 
 from neutron.openstack.common import uuidutils
-from neutron.plugins.vmware.vshield.common import exceptions
+from vmware_nsx.neutron.plugins.vmware.vshield.common import exceptions
+
+SECTION_LOCATION_HEADER = '/api/4.0/firewall/globalroot-0/config/%s/%s'
 
 
 class FakeVcns(object):
@@ -55,6 +58,13 @@ class FakeVcns(object):
         self._fake_monitors_dict = {}
         self._fake_app_profiles_dict = {}
         self._fake_loadbalancer_config = {}
+        self._fake_virtual_wires = {}
+        self._virtual_wire_id = 0
+        self._fake_portgroups = {}
+        self._portgroup_id = 0
+        self._securitygroups = {'ids': 0, 'names': set()}
+        self._sections = {'section_ids': 0, 'rule_ids': 0, 'names': set()}
+        self._dhcp_bindings = {}
 
     def set_fake_nsx_api(self, fake_nsx_api):
         self._fake_nsx_api = fake_nsx_api
@@ -80,7 +90,7 @@ class FakeVcns(object):
                 'moduleName': 'vShield Edge',
                 'errorData': None
             }
-            return (header, jsonutils.dumps(response))
+            return (header, json.dumps(response))
 
         self._job_idx = self._job_idx + 1
         job_id = "jobdata-%d" % self._job_idx
@@ -91,11 +101,23 @@ class FakeVcns(object):
             'name': request['name'],
             'request': request,
             'nat_rules': None,
-            'nat_rule_id': 0
+            'nat_rule_id': 0,
+            'interface_index': 1
         }
         header = {
             'status': 200,
             'location': 'https://host/api/4.0/jobs/%s' % job_id
+        }
+        response = ''
+        return (header, response)
+
+    def update_edge(self, edge_id, request):
+        if edge_id not in self._edges:
+            raise Exception(_("Edge %s does not exist") % edge_id)
+        edge = self._edges[edge_id]
+        edge['name'] = request['name']
+        header = {
+            'status': 200
         }
         response = ''
         return (header, response)
@@ -133,7 +155,115 @@ class FakeVcns(object):
         response = ''
         return (header, response)
 
+    def add_vdr_internal_interface(self, edge_id, interface):
+        interface = interface['interfaces'][0]
+        if not self._edges[edge_id].get('interfaces'):
+            self._edges[edge_id]['interfaces'] = []
+        index = len(self._edges[edge_id]['interfaces'])
+        interface['index'] = str(index)
+        self._edges[edge_id]['interfaces'].append(interface)
+        header = {
+            'status': 200
+        }
+        response = {"interfaces": [{"index": str(index)}]}
+        return (header, response)
+
+    def get_edge_interfaces(self, edge_id):
+        if not self._edges[edge_id].get('interfaces'):
+            self._edges[edge_id]['interfaces'] = []
+        header = {
+            'status': 200
+        }
+        response = {"interfaces": self._edges[edge_id].get('interfaces', [])}
+        return (header, response)
+
+    def update_vdr_internal_interface(
+        self, edge_id, interface_index, interface):
+        header = {
+            'status': 200
+        }
+        response = ''
+        return (header, response)
+
+    def delete_vdr_internal_interface(self, edge_id, interface_index):
+        for interface in self._edges[edge_id].get('interfaces', []):
+            if int(interface['index']) == int(interface_index):
+                header = {
+                    'status': 200
+                }
+                break
+        header = {'status': 404}
+        response = ''
+        return (header, response)
+
     def update_interface(self, edge_id, vnic):
+        header = {
+            'status': 200
+        }
+        response = ''
+        return (header, response)
+
+    def delete_interface(self, edge_id, vnic_index):
+        header = {
+            'status': 200
+        }
+        response = ''
+        return (header, response)
+
+    def query_interface(self, edge_id, vnic_index):
+        header = {
+            'status': 200
+        }
+        response = {
+            'label': 'vNic_1',
+            'name': 'internal1',
+            'address_groups': {'address_groups': []},
+            'mtu': 1500,
+            'type': 'trunk',
+            'subInterfaces': {'subInterfaces': []},
+            'isConnected': True
+        }
+        return (header, response)
+
+    def reconfigure_dhcp_service(self, edge_id, request):
+        header = {
+            'status': 201
+        }
+        response = ''
+        return (header, response)
+
+    def query_dhcp_configuration(self, edge_id):
+        header = {
+            'status': 200
+        }
+        response = {
+            "featureType": "dhcp_4.0",
+            "version": 14,
+            "enabled": True,
+            "staticBindings": {"staticBindings": [{}]},
+            "ipPools": {"ipPools": []}
+        }
+        return (header, response)
+
+    def create_dhcp_binding(self, edge_id, request):
+        if not self._dhcp_bindings.get(edge_id):
+            self._dhcp_bindings[edge_id] = {}
+            self._dhcp_bindings[edge_id]['idx'] = 0
+        binding_idx = self._dhcp_bindings[edge_id]['idx']
+        binding_idx_str = "binding-" + str(binding_idx)
+        self._dhcp_bindings[edge_id][binding_idx_str] = request
+        self._dhcp_bindings[edge_id]['idx'] = binding_idx + 1
+        header = {
+            'status': 200,
+            'location': '/dhcp/config/bindings/%s' % binding_idx_str
+        }
+        response = ''
+        return (header, response)
+
+    def delete_dhcp_binding(self, edge_id, binding_id):
+        if binding_id not in self._dhcp_bindings[edge_id]:
+            raise Exception(_("binding %s does not exist") % binding_id)
+        del self._dhcp_bindings[edge_id][binding_id]
         header = {
             'status': 200
         }
@@ -242,8 +372,7 @@ class FakeVcns(object):
         # The lswitch is created via VCNS API so the fake nsx_api will not
         # see it. Added to fake nsx_api here.
         if self._fake_nsx_api:
-            lswitch = \
-                self._fake_nsx_api._add_lswitch(jsonutils.dumps(lsconfig))
+            lswitch = self._fake_nsx_api._add_lswitch(json.dumps(lsconfig))
         else:
             lswitch = lsconfig
             lswitch['uuid'] = uuidutils.generate_uuid()
@@ -579,6 +708,40 @@ class FakeVcns(object):
         self._fake_loadbalancer_config[edge_id] = True
         return self.return_helper(header, response)
 
+    def create_virtual_wire(self, vdn_scope_id, request):
+        self._virtual_wire_id += 1
+        header = {'status': 200}
+        virtual_wire = 'virtualwire-%s' % self._virtual_wire_id
+        data = {'name': request['virtualWireCreateSpec']['name'],
+                'objectId': virtual_wire}
+        self._fake_virtual_wires.update({virtual_wire: data})
+        return (header, virtual_wire)
+
+    def delete_virtual_wire(self, virtualwire_id):
+        del self._fake_virtual_wires[virtualwire_id]
+        header = {
+            'status': 200
+        }
+        response = ''
+        return (header, response)
+
+    def create_port_group(self, dvs_id, request):
+        self._portgroup_id += 1
+        header = {'status': 200}
+        portgroup = 'dvportgroup-%s' % self._portgroup_id
+        data = {'name': request['networkSpec']['networkName'],
+                'objectId': portgroup}
+        self._fake_portgroups.update({portgroup: data})
+        return (header, portgroup)
+
+    def delete_port_group(self, dvs_id, portgroup_id):
+        del self._fake_portgroups[portgroup_id]
+        header = {
+            'status': 200
+        }
+        response = ''
+        return (header, response)
+
     def return_helper(self, header, response):
         status = int(header['status'])
         if 200 <= status <= 300:
@@ -590,6 +753,194 @@ class FakeVcns(object):
         raise cls(
             status=status, header=header, uri='fake_url', response=response)
 
+    def _get_bad_req_response(self, details, error_code, module_name):
+        bad_req_response_format = """
+            <error>
+            <details>%(details)s</details>
+            <errorCode>%(error_code)s</errorCode>
+            <moduleName>%(module_name)s</moduleName>
+            </error>
+            """
+        return bad_req_response_format % {
+            'details': details,
+            'error_code': error_code,
+            'module_name': module_name,
+        }
+
+    def _get_section_location(self, type, section_id):
+        return SECTION_LOCATION_HEADER % (type, section_id)
+
+    def _get_section_id_from_uri(self, section_uri):
+        return section_uri.split('/')[-1]
+
+    def _section_not_found(self, section_id):
+        msg = "Invalid section id found : %s" % section_id
+        response = self._get_bad_req_response(msg, 100089, 'vShield App')
+        headers = {'status': 400}
+        return (headers, response)
+
+    def _unknown_error(self):
+        msg = "Unknown Error Occured.Please look into tech support logs."
+        response = self._get_bad_req_response(msg, 100046, 'vShield App')
+        headers = {'status': 400}
+        return (headers, response)
+
+    def create_security_group(self, request):
+        sg = request['securitygroup']
+        if sg['name'] in self._securitygroups['names']:
+            status = 400
+            msg = ("Another object with same name : %s already exists in "
+                   "the current scope : globalroot-0." % sg['name'])
+            response = self._get_bad_req_response(msg, 210, 'core-services')
+        else:
+            sg_id = str(self._securitygroups['ids'])
+            self._securitygroups['ids'] += 1
+            sg['members'] = set()
+            self._securitygroups[sg_id] = sg
+            self._securitygroups['names'].add(sg['name'])
+            status, response = 201, sg_id
+        return ({'status': status}, response)
+
+    def delete_security_group(self, securitygroup_id):
+        try:
+            del self._securitygroups[securitygroup_id]
+        except KeyError:
+            status = 404
+            msg = ("The requested object : %s could "
+                   "not be found. Object identifiers are case sensitive."
+                   % securitygroup_id)
+            response = self._get_bad_req_response(msg, 210, 'core-services')
+        else:
+            status, response = 200, ''
+        return ({'status': status}, response)
+
+    def create_section(self, type, request):
+        section = ET.fromstring(request)
+        section_name = section.attrib.get('name')
+        if section_name in self._sections['names']:
+            msg = "Section with name %s already exists." % section_name
+            response = self._get_bad_req_response(msg, 100092, 'vShield App')
+            headers = {'status': 400}
+        else:
+            section_id = str(self._sections['section_ids'])
+            section.attrib['id'] = section_id
+            _section = self._sections[section_id] = {'name': section_name,
+                                                     'etag': 'Etag-0',
+                                                     'rules': {}}
+            self._sections['names'].add(section_name)
+            for rule in section.findall('rule'):
+                rule_id = str(self._sections['rule_ids'])
+                rule.attrib['id'] = rule_id
+                _section['rules'][rule_id] = ET.tostring(rule)
+                self._sections['rule_ids'] += 1
+            response = ET.tostring(section)
+            headers = {
+                'status': 201,
+                'location': self._get_section_location(type, section_id),
+                'etag': _section['etag']
+            }
+            self._sections['section_ids'] += 1
+        return (headers, response)
+
+    def update_section(self, section_uri, request, h):
+        section = ET.fromstring(request)
+        section_id = section.attrib.get('id')
+        section_name = section.attrib.get('name')
+        if section_id not in self._sections:
+            return self._section_not_found(section_id)
+        _section = self._sections[section_id]
+        if (_section['name'] != section_name and
+            section_name in self._sections['names']):
+                # Theres a section with this name already
+                headers, response = self._unknown_error()
+        else:
+            # Different Etag every successful update
+            _section['etag'] = ('Etag-1' if _section['etag'] == 'Etag-0'
+                                else 'Etag-0')
+            self._sections['names'].remove(_section['name'])
+            _section['name'] = section_name
+            self._sections['names'].add(section_name)
+            _section['rules'] = {}
+            for rule in section.findall('rule'):
+                if not rule.attrib.get('id'):
+                    rule.attrib['id'] = str(self._sections['rule_ids'])
+                    self._sections['rule_ids'] += 1
+                rule_id = rule.attrib.get('id')
+                _section['rules'][rule_id] = ET.tostring(rule)
+            response = ET.tostring(section)
+            headers = {
+                'status': 200,
+                'location': self._get_section_location(type, section_id),
+                'etag': _section['etag']
+            }
+        return (headers, response)
+
+    def delete_section(self, section_uri):
+        section_id = self._get_section_id_from_uri(section_uri)
+        if section_id not in self._sections:
+            headers, response = self._unknown_error()
+        else:
+            section_name = self._sections[section_id]['name']
+            del self._sections[section_id]
+            self._sections['names'].remove(section_name)
+            response = ''
+            headers = {'status': 204}
+        return (headers, response)
+
+    def get_section(self, section_uri):
+        section_id = self._get_section_id_from_uri(section_uri)
+        if section_id not in self._sections:
+            headers, response = self._section_not_found(section_id)
+        else:
+            section_rules = (''.join(self._sections[section_id]['rules'].
+                             values()))
+            response = ('<section id="%s"><rules>%s</rules></section>'
+                        % (section_id, section_rules))
+            headers = {'status': 200,
+                       'etag': self._sections[section_id]['etag']}
+        return (headers, response)
+
+    def remove_rule_from_section(self, section_uri, rule_id):
+        section_id = self._get_section_id_from_uri(section_uri)
+        if section_id not in self._sections:
+            headers, response = self._section_not_found(section_id)
+        else:
+            section = self._sections[section_id]
+            if rule_id in section['rules']:
+                del section['rules'][rule_id]
+                response = ''
+                headers = {'status': 204}
+            else:
+                headers, response = self._unknown_error()
+        return (headers, response)
+
+    def add_member_to_security_group(self, security_group_id, member_id):
+        if security_group_id not in self._securitygroups:
+            msg = ("The requested object : %s could not be found."
+                   "Object identifiers are case "
+                   "sensitive.") % security_group_id
+            response = self._get_bad_req_response(msg, 202, 'core-services')
+            headers = {'status': 404}
+        else:
+            self._securitygroups[security_group_id]['members'].add(member_id)
+            response = ''
+            headers = {'status': 200}
+        return (headers, response)
+
+    def remove_member_from_security_group(self, security_group_id, member_id):
+        if security_group_id not in self._securitygroups:
+            msg = ("The requested object : %s could not be found."
+                   "Object identifiers are "
+                   "case sensitive.") % security_group_id
+            response = self._get_bad_req_response(msg, 202, 'core-services')
+            headers = {'status': 404}
+        else:
+            self._securitygroups[security_group_id]['members'].remove(
+                member_id)
+            response = ''
+            headers = {'status': 200}
+        return (headers, response)
+
     def reset_all(self):
         self._jobs.clear()
         self._edges.clear()
@@ -600,3 +951,22 @@ class FakeVcns(object):
         self._fake_monitors_dict = {}
         self._fake_app_profiles_dict = {}
         self._fake_loadbalancer_config = {}
+        self._fake_virtual_wires = {}
+        self._virtual_wire_id = 0
+        self._fake_portgroups = {}
+        self._portgroup_id = 0
+        self._securitygroups = {'ids': 0, 'names': set()}
+        self._sections = {'section_ids': 0, 'rule_ids': 0, 'names': set()}
+        self._dhcp_bindings = {}
+
+    def validate_datacenter_moid(self, object_id):
+        return True
+
+    def validate_network(self, object_id):
+        return True
+
+    def validate_vdn_scope(self, object_id):
+        return True
+
+    def validate_dvs(self, object_id):
+        return True

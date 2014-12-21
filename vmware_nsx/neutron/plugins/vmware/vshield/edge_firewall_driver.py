@@ -15,12 +15,15 @@
 from oslo.utils import excutils
 
 from neutron.db import db_base_plugin_v2
-from neutron.i18n import _LE
+from neutron.i18n import _, _LE
 from neutron.openstack.common import log as logging
 from neutron.plugins.common import constants
-from neutron.plugins.vmware.dbexts import vcns_db
-from neutron.plugins.vmware.vshield.common import (
+from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
+from vmware_nsx.neutron.plugins.vmware.vshield.common import (
     exceptions as vcns_exc)
+from vmware_nsx.neutron.plugins.vmware.vshield.tasks import (
+    constants as task_const)
+from vmware_nsx.neutron.plugins.vmware.vshield.tasks import tasks
 
 LOG = logging.getLogger(__name__)
 
@@ -69,17 +72,19 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
 
     def _convert_firewall_rule(self, context, rule, index=None):
         vcns_rule = {
-            "name": rule['name'],
-            "description": rule['description'],
             "action": self._convert_firewall_action(rule['action']),
-            "enabled": rule['enabled']}
+            "enabled": rule.get('enabled', True)}
+        if rule.get('name'):
+            vcns_rule['name'] = rule['name']
+        if rule.get('description'):
+            vcns_rule['description'] = rule['description']
         if rule.get('source_ip_address'):
             vcns_rule['source'] = {
-                "ipAddress": [rule['source_ip_address']]
+                "ipAddress": rule['source_ip_address']
             }
         if rule.get('destination_ip_address'):
             vcns_rule['destination'] = {
-                "ipAddress": [rule['destination_ip_address']]
+                "ipAddress": rule['destination_ip_address']
             }
         service = {}
         if rule.get('source_port'):
@@ -102,27 +107,30 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
 
     def _restore_firewall_rule(self, context, edge_id, response):
         rule = response
-        rule_binding = vcns_db.get_vcns_edge_firewallrule_binding_by_vseid(
+        rule_binding = nsxv_db.get_nsxv_edge_firewallrule_binding_by_vseid(
             context.session, edge_id, rule['ruleId'])
         service = rule['application']['service'][0]
         src_port_range = self._get_port_range_from_min_max_ports(
             service['sourcePort'][0], service['sourcePort'][-1])
         dst_port_range = self._get_port_range_from_min_max_ports(
             service['port'][0], service['port'][-1])
-        return {
+        fw_rule = {
             'firewall_rule': {
-                'name': rule['name'],
                 'id': rule_binding['rule_id'],
-                'description': rule['description'],
-                'source_ip_address': rule['source']['ipAddress'][0],
-                'destination_ip_address': rule['destination']['ipAddress'][0],
+                'source_ip_address': rule['source']['ipAddress'],
+                'destination_ip_address': rule['destination']['ipAddress'],
                 'protocol': service['protocol'],
                 'destination_port': dst_port_range,
                 'source_port': src_port_range,
                 'action': self._restore_firewall_action(rule['action']),
                 'enabled': rule['enabled']}}
+        if rule.get('name'):
+            fw_rule['firewall_rule']['name'] = rule['name']
+        if rule.get('description'):
+            fw_rule['firewall_rule']['description'] = rule['description']
+        return fw_rule
 
-    def _convert_firewall(self, context, firewall):
+    def _convert_firewall(self, context, firewall, allow_external=False):
         #bulk configuration on firewall and rescheduling the rule binding
         ruleTag = 1
         vcns_rules = []
@@ -130,6 +138,11 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
             vcns_rule = self._convert_firewall_rule(context, rule, ruleTag)
             vcns_rules.append(vcns_rule)
             ruleTag += 1
+        if allow_external:
+            vcns_rules.append(
+                {'action': "accept",
+                 'enabled': True,
+                 'destination': {'vnicGroupId': ["external"]}})
         return {
             'featureType': "firewall_4.0",
             'firewallRules': {
@@ -140,7 +153,7 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
         res['firewall_rule_list'] = []
         for rule in response['firewallRules']['firewallRules']:
             rule_binding = (
-                vcns_db.get_vcns_edge_firewallrule_binding_by_vseid(
+                nsxv_db.get_nsxv_edge_firewallrule_binding_by_vseid(
                     context.session, edge_id, rule['ruleId']))
             if rule_binding is None:
                 continue
@@ -151,17 +164,19 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
                 service['port'][0], service['port'][-1])
             item = {
                 'firewall_rule': {
-                    'name': rule['name'],
                     'id': rule_binding['rule_id'],
-                    'description': rule['description'],
-                    'source_ip_address': rule['source']['ipAddress'][0],
+                    'source_ip_address': rule['source']['ipAddress'],
                     'destination_ip_address': rule[
-                        'destination']['ipAddress'][0],
+                        'destination']['ipAddress'],
                     'protocol': service['protocol'],
                     'destination_port': dst_port_range,
                     'source_port': src_port_range,
                     'action': self._restore_firewall_action(rule['action']),
                     'enabled': rule['enabled']}}
+            if rule.get('name'):
+                item['firewall_rule']['name'] = rule['name']
+            if rule.get('description'):
+                item['firewall_rule']['description'] = rule['description']
             res['firewall_rule_list'].append(item)
         return res
 
@@ -179,16 +194,16 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
                     'rule_vseid': rule_vseid,
                     'edge_id': edge_id
                 }
-                vcns_db.add_vcns_edge_firewallrule_binding(
+                nsxv_db.add_nsxv_edge_firewallrule_binding(
                     context.session, map_info)
 
     def _get_firewall(self, context, edge_id):
         try:
             return self.vcns.get_firewall(edge_id)[1]
-        except vcns_exc.VcnsApiException:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to get firewall with edge "
-                                  "id: %s"), edge_id)
+        except vcns_exc.VcnsApiException as e:
+            LOG.exception(_LE("Failed to get firewall with edge "
+                              "id: %s"), edge_id)
+            raise e
 
     def _get_firewall_rule_next(self, context, edge_id, rule_vseid):
         # Return the firewall rule below 'rule_vseid'
@@ -202,7 +217,7 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
                     return fw_cfg['firewallRules']['firewallRules'][i + 1]
 
     def get_firewall_rule(self, context, id, edge_id):
-        rule_map = vcns_db.get_vcns_edge_firewallrule_binding(
+        rule_map = nsxv_db.get_nsxv_edge_firewallrule_binding(
             context.session, id, edge_id)
         if rule_map is None:
             msg = _("No rule id:%s found in the edge_firewall_binding") % id
@@ -213,12 +228,12 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
         try:
             response = self.vcns.get_firewall_rule(
                 edge_id, vcns_rule_id)[1]
-        except vcns_exc.VcnsApiException:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to get firewall rule: %(rule_id)s "
-                                  "with edge_id: %(edge_id)s"), {
-                                    'rule_id': id,
-                                    'edge_id': edge_id})
+        except vcns_exc.VcnsApiException as e:
+            LOG.exception(_LE("Failed to get firewall rule: %(rule_id)s "
+                              "with edge_id: %(edge_id)s"), {
+                                'rule_id': id,
+                                'edge_id': edge_id})
+            raise e
         return self._restore_firewall_rule(context, edge_id, response)
 
     def get_firewall(self, context, edge_id):
@@ -229,27 +244,27 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
         fw_req = self._convert_firewall(context, firewall)
         try:
             self.vcns.update_firewall(edge_id, fw_req)
-        except vcns_exc.VcnsApiException:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to update firewall "
-                                  "with edge_id: %s"), edge_id)
+        except vcns_exc.VcnsApiException as e:
+            LOG.exception(_LE("Failed to update firewall "
+                              "with edge_id: %s"), edge_id)
+            raise e
         fw_res = self._get_firewall(context, edge_id)
-        vcns_db.cleanup_vcns_edge_firewallrule_binding(
+        nsxv_db.cleanup_nsxv_edge_firewallrule_binding(
             context.session, edge_id)
         self._create_rule_id_mapping(context, edge_id, firewall, fw_res)
 
     def delete_firewall(self, context, edge_id):
         try:
             self.vcns.delete_firewall(edge_id)
-        except vcns_exc.VcnsApiException:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to delete firewall "
-                                  "with edge_id:%s"), edge_id)
-        vcns_db.cleanup_vcns_edge_firewallrule_binding(
+        except vcns_exc.VcnsApiException as e:
+            LOG.exception(_LE("Failed to delete firewall "
+                              "with edge_id:%s"), edge_id)
+            raise e
+        nsxv_db.cleanup_nsxv_edge_firewallrule_binding(
             context.session, edge_id)
 
     def update_firewall_rule(self, context, id, edge_id, firewall_rule):
-        rule_map = vcns_db.get_vcns_edge_firewallrule_binding(
+        rule_map = nsxv_db.get_nsxv_edge_firewallrule_binding(
             context.session, id, edge_id)
         vcns_rule_id = rule_map.rule_vseid
         fwr_req = self._convert_firewall_rule(context, firewall_rule)
@@ -258,12 +273,13 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
         except vcns_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("Failed to update firewall rule: "
-                                  "%(rule_id)s with edge_id: %(edge_id)s"),
+                                  "%(rule_id)s "
+                                  "with edge_id: %(edge_id)s"),
                               {'rule_id': id,
                                'edge_id': edge_id})
 
     def delete_firewall_rule(self, context, id, edge_id):
-        rule_map = vcns_db.get_vcns_edge_firewallrule_binding(
+        rule_map = nsxv_db.get_nsxv_edge_firewallrule_binding(
             context.session, id, edge_id)
         vcns_rule_id = rule_map.rule_vseid
         try:
@@ -271,14 +287,15 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
         except vcns_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("Failed to delete firewall rule: "
-                                  "%(rule_id)s with edge_id: %(edge_id)s"),
+                                  "%(rule_id)s "
+                                  "with edge_id: %(edge_id)s"),
                               {'rule_id': id,
                                'edge_id': edge_id})
-        vcns_db.delete_vcns_edge_firewallrule_binding(
-            context.session, id, edge_id)
+        nsxv_db.delete_nsxv_edge_firewallrule_binding(
+            context.session, id)
 
     def _add_rule_above(self, context, ref_rule_id, edge_id, firewall_rule):
-        rule_map = vcns_db.get_vcns_edge_firewallrule_binding(
+        rule_map = nsxv_db.get_nsxv_edge_firewallrule_binding(
             context.session, ref_rule_id, edge_id)
         ref_vcns_rule_id = rule_map.rule_vseid
         fwr_req = self._convert_firewall_rule(context, firewall_rule)
@@ -298,11 +315,11 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
             'rule_id': firewall_rule['id'],
             'rule_vseid': fwr_vseid,
             'edge_id': edge_id}
-        vcns_db.add_vcns_edge_firewallrule_binding(
+        nsxv_db.add_nsxv_edge_firewallrule_binding(
             context.session, map_info)
 
     def _add_rule_below(self, context, ref_rule_id, edge_id, firewall_rule):
-        rule_map = vcns_db.get_vcns_edge_firewallrule_binding(
+        rule_map = nsxv_db.get_nsxv_edge_firewallrule_binding(
             context.session, ref_rule_id, edge_id)
         ref_vcns_rule_id = rule_map.rule_vseid
         fwr_vse_next = self._get_firewall_rule_next(
@@ -336,7 +353,7 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
             'rule_vseid': fwr_vseid,
             'edge_id': edge_id
         }
-        vcns_db.add_vcns_edge_firewallrule_binding(
+        nsxv_db.add_nsxv_edge_firewallrule_binding(
             context.session, map_info)
 
     def insert_rule(self, context, rule_info, edge_id, fwr):
@@ -350,3 +367,34 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
             msg = _("Can't execute insert rule operation "
                     "without reference rule_id")
             raise vcns_exc.VcnsBadRequest(resource='firewall_rule', msg=msg)
+
+    def _asyn_update_firewall(self, task):
+        edge_id = task.userdata['edge_id']
+        config = task.userdata['config']
+        context = task.userdata['jobdata']['context']
+        try:
+            self.vcns.update_firewall(edge_id, config)
+        except vcns_exc.VcnsApiException:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE("Failed to update firewall "
+                                  "with edge_id: %s"), edge_id)
+        vcns_fw_config = self._get_firewall(context, edge_id)
+        task.userdata['vcns_fw_config'] = vcns_fw_config
+        return task_const.TaskStatus.COMPLETED
+
+    def asyn_update_firewall(self, router_id, edge_id, firewall,
+                             jobdata=None, allow_external=True):
+        # TODO(berlin): Remove uncessary context input parameter.
+        config = self._convert_firewall(None, firewall,
+                                        allow_external=allow_external)
+        userdata = {
+            'edge_id': edge_id,
+            'config': config,
+            'fw_config': firewall,
+            'jobdata': jobdata}
+        task_name = "update-firewall-%s" % edge_id
+        task = tasks.Task(task_name, router_id,
+                          self._asyn_update_firewall, userdata=userdata)
+        task.add_result_monitor(self.callbacks.firewall_update_result)
+        self.task_manager.add(task)
+        return task

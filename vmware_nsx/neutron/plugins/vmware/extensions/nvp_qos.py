@@ -17,7 +17,7 @@
 # TODO(arosen): This is deprecated in Juno, and
 # to be removed in Kxxxx.
 
-from neutron.plugins.vmware.extensions import qos
+from vmware_nsx.neutron.plugins.vmware.extensions import qos
 
 
 class Nvp_qos(qos.Qos):

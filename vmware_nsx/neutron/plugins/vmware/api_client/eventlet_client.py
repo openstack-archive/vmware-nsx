@@ -22,8 +22,8 @@ eventlet.monkey_patch()
 
 from neutron.i18n import _LE
 from neutron.openstack.common import log as logging
-from neutron.plugins.vmware.api_client import base
-from neutron.plugins.vmware.api_client import eventlet_request
+from vmware_nsx.neutron.plugins.vmware.api_client import base
+from vmware_nsx.neutron.plugins.vmware.api_client import eventlet_request
 
 LOG = logging.getLogger(__name__)
 

@@ -19,9 +19,9 @@ import mock
 
 from neutron.common import constants
 from neutron.common import exceptions
-from neutron.plugins.vmware.common import utils
-from neutron.plugins.vmware.nsxlib import switch as switchlib
 from neutron.tests.unit import test_api_v2
+from vmware_nsx.neutron.plugins.vmware.common import utils
+from vmware_nsx.neutron.plugins.vmware.nsxlib import switch as switchlib
 from vmware_nsx.neutron.tests.unit.vmware.nsxlib import base
 
 _uuid = test_api_v2._uuid

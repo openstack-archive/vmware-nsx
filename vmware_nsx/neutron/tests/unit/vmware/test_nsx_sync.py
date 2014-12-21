@@ -27,17 +27,17 @@ from neutron.common import exceptions as n_exc
 from neutron import context
 from neutron.extensions import l3
 from neutron.openstack.common import log
-from neutron.plugins.vmware.api_client import client
 from neutron.plugins.vmware.api_client import exception as api_exc
-from neutron.plugins.vmware.api_client import version
-from neutron.plugins.vmware.common import sync
-from neutron.plugins.vmware.dbexts import db
-from neutron.plugins.vmware import nsx_cluster as cluster
-from neutron.plugins.vmware import nsxlib
-from neutron.plugins.vmware import plugin
 from neutron.tests import base
 from neutron.tests.unit import test_api_v2
 from neutron.tests.unit import testlib_api
+from vmware_nsx.neutron.plugins.vmware.api_client import client
+from vmware_nsx.neutron.plugins.vmware.api_client import version
+from vmware_nsx.neutron.plugins.vmware.common import sync
+from vmware_nsx.neutron.plugins.vmware.dbexts import db
+from vmware_nsx.neutron.plugins.vmware import nsx_cluster as cluster
+from vmware_nsx.neutron.plugins.vmware import nsxlib
+from vmware_nsx.neutron.plugins.vmware import plugin
 from vmware_nsx.neutron.tests.unit import vmware
 from vmware_nsx.neutron.tests.unit.vmware.apiclient import fake
 

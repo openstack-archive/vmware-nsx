@@ -17,9 +17,9 @@ from oslo.db import exception as d_exc
 
 from neutron import context
 from neutron.db import models_v2
-from neutron.plugins.vmware.dbexts import db as nsx_db
 from neutron.plugins.vmware.dbexts import models
 from neutron.tests.unit import testlib_api
+from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
 
 
 class NsxDBTestCase(testlib_api.SqlTestCase):

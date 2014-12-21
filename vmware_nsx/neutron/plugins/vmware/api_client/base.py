@@ -23,7 +23,7 @@ from oslo.config import cfg
 
 from neutron.i18n import _LE, _LI, _LW
 from neutron.openstack.common import log as logging
-from neutron.plugins.vmware import api_client
+from vmware_nsx.neutron.plugins.vmware import api_client
 
 LOG = logging.getLogger(__name__)
 

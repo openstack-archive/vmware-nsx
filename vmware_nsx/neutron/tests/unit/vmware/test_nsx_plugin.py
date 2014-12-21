@@ -39,18 +39,19 @@ from neutron import manager
 from neutron.openstack.common import log
 from neutron.openstack.common import uuidutils
 from neutron.plugins.vmware.api_client import exception as api_exc
-from neutron.plugins.vmware.api_client import version as version_module
 from neutron.plugins.vmware.common import exceptions as nsx_exc
-from neutron.plugins.vmware.common import sync
-from neutron.plugins.vmware.common import utils
-from neutron.plugins.vmware.dbexts import db as nsx_db
-from neutron.plugins.vmware import nsxlib
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.test_db_plugin as test_plugin
 import neutron.tests.unit.test_extension_ext_gw_mode as test_ext_gw_mode
 import neutron.tests.unit.test_extension_security_group as ext_sg
 import neutron.tests.unit.test_l3_plugin as test_l3_plugin
 from neutron.tests.unit import testlib_api
+from vmware_nsx.neutron.plugins.vmware.api_client import (
+    version as version_module)
+from vmware_nsx.neutron.plugins.vmware.common import sync
+from vmware_nsx.neutron.plugins.vmware.common import utils
+from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
+from vmware_nsx.neutron.plugins.vmware import nsxlib
 from vmware_nsx.neutron.tests.unit import vmware
 from vmware_nsx.neutron.tests.unit.vmware.apiclient import fake
 

@@ -20,14 +20,14 @@ from oslo.config import cfg
 
 from neutron import manager
 from neutron.openstack.common import uuidutils
-from neutron.plugins.vmware.api_client import client
-from neutron.plugins.vmware.api_client import version
-from neutron.plugins.vmware.common import config  # noqa
 from neutron.plugins.vmware.common import exceptions
-from neutron.plugins.vmware.common import sync
-from neutron.plugins.vmware import nsx_cluster
-from neutron.plugins.vmware.nsxlib import lsn as lsnlib
 from neutron.tests import base
+from vmware_nsx.neutron.plugins.vmware.api_client import client
+from vmware_nsx.neutron.plugins.vmware.api_client import version
+from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
+from vmware_nsx.neutron.plugins.vmware.common import sync
+from vmware_nsx.neutron.plugins.vmware import nsx_cluster
+from vmware_nsx.neutron.plugins.vmware.nsxlib import lsn as lsnlib
 from vmware_nsx.neutron.tests.unit import vmware
 
 BASE_CONF_PATH = vmware.get_fake_conf('neutron.conf.test')

@@ -16,8 +16,8 @@
 
 import sys
 
-from neutron.plugins.vmware.shell import commands as cmd
 from neutronclient import shell
+from vmware_nsx.neutron.plugins.vmware.shell import commands as cmd
 
 
 class NsxManage(shell.NeutronShell):
