@@ -16,11 +16,13 @@
 from eventlet import greenthread
 import mock
 
-from neutron.plugins.vmware.vshield.common import constants as vcns_const
-from neutron.plugins.vmware.vshield.tasks import constants as ts_const
-from neutron.plugins.vmware.vshield.tasks import tasks as ts
-from neutron.plugins.vmware.vshield import vcns_driver
 from neutron.tests import base
+from vmware_nsx.neutron.plugins.vmware.vshield.common import (
+    constants as vcns_const)
+from vmware_nsx.neutron.plugins.vmware.vshield.tasks import (
+    constants as ts_const)
+from vmware_nsx.neutron.plugins.vmware.vshield.tasks import tasks as ts
+from vmware_nsx.neutron.plugins.vmware.vshield import vcns_driver
 from vmware_nsx.neutron.tests.unit import vmware
 from vmware_nsx.neutron.tests.unit.vmware.vshield import fake_vcns
 
@@ -554,13 +556,9 @@ class VcnsDriverTestCase(base.BaseTestCase):
 
     def test_update_interface(self):
         self._deploy_edge()
-        jobdata = {}
-        task = self.vcns_driver.update_interface(
+        self.vcns_driver.update_interface(
             'router-id', self.edge_id, vcns_const.EXTERNAL_VNIC_INDEX,
-            'network-id', address='100.0.0.3', netmask='255.255.255.0',
-            jobdata=jobdata)
-        task.wait(ts_const.TaskState.RESULT)
-        self.assertTrue(jobdata.get('interface_update_result'))
+            'network-id', address='100.0.0.3', netmask='255.255.255.0')
 
     def test_delete_edge(self):
         self._deploy_edge()

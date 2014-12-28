@@ -19,9 +19,9 @@ from oslo.serialization import jsonutils
 from neutron.common import exceptions
 from neutron.plugins.vmware.api_client import exception as api_exc
 from neutron.plugins.vmware.common import exceptions as nsx_exc
-from neutron.plugins.vmware.common import utils
-from neutron.plugins.vmware.nsxlib import lsn as lsnlib
 from neutron.tests import base
+from vmware_nsx.neutron.plugins.vmware.common import utils
+from vmware_nsx.neutron.plugins.vmware.nsxlib import lsn as lsnlib
 
 
 class LSNTestCase(base.BaseTestCase):
@@ -29,7 +29,7 @@ class LSNTestCase(base.BaseTestCase):
     def setUp(self):
         super(LSNTestCase, self).setUp()
         self.mock_request_p = mock.patch(
-            'neutron.plugins.vmware.nsxlib.do_request')
+            'vmware_nsx.neutron.plugins.vmware.nsxlib.do_request')
         self.mock_request = self.mock_request_p.start()
         self.cluster = mock.Mock()
         self.cluster.default_service_cluster_uuid = 'foo'

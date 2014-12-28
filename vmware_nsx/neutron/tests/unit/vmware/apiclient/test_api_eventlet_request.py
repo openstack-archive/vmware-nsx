@@ -21,9 +21,11 @@ import mock
 
 from neutron.i18n import _LI
 from neutron.openstack.common import log as logging
-from neutron.plugins.vmware.api_client import eventlet_client as client
-from neutron.plugins.vmware.api_client import eventlet_request as request
 from neutron.tests import base
+from vmware_nsx.neutron.plugins.vmware.api_client import (
+    eventlet_client as client)
+from vmware_nsx.neutron.plugins.vmware.api_client import (
+    eventlet_request as request)
 from vmware_nsx.neutron.tests.unit import vmware
 
 

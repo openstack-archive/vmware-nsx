@@ -1,5 +1,6 @@
 # Copyright 2013 VMware, Inc.  All rights reserved.
 #
+#
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
 #    a copy of the License at
@@ -13,15 +14,16 @@
 #    under the License.
 #
 
-from neutron.db import l3_dvr_db
-from vmware_nsx.neutron.plugins.vmware.extensions import servicerouter
+from vmware_nsx.neutron.plugins.vmware.dbexts import nsxrouter
+from vmware_nsx.neutron.plugins.vmware.extensions import (
+    distributedrouter as dist_rtr)
 
 
-class ServiceRouter_mixin(l3_dvr_db.L3_NAT_with_dvr_db_mixin):
-    """Mixin class to enable service router support."""
+class DistributedRouter_mixin(nsxrouter.NsxRouterMixin):
+    """Mixin class to enable distributed router support."""
 
-    extra_attributes = (
-        l3_dvr_db.L3_NAT_with_dvr_db_mixin.extra_attributes + [{
-            'name': servicerouter.SERVICE_ROUTER,
+    nsx_attributes = (
+        nsxrouter.NsxRouterMixin.nsx_attributes + [{
+            'name': dist_rtr.DISTRIBUTED,
             'default': False
         }])

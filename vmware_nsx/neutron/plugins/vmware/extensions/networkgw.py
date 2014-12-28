@@ -19,7 +19,7 @@ from oslo.config import cfg
 
 from neutron.api.v2 import attributes
 from neutron.api.v2 import resource_helper
-from neutron.plugins.vmware.common import utils
+from vmware_nsx.neutron.plugins.vmware.common import utils
 
 GATEWAY_RESOURCE_NAME = "network_gateway"
 DEVICE_RESOURCE_NAME = "gateway_device"

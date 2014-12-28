@@ -14,7 +14,7 @@
 #    under the License.
 
 from neutron.openstack.common import log
-from neutron.plugins.vmware.common import nsx_utils
+from vmware_nsx.neutron.plugins.vmware.common import nsx_utils
 
 LOG = log.getLogger(__name__)
 # Protocol number look up for supported protocols

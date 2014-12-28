@@ -12,9 +12,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import logging
+
 from oslo.config import cfg
 
+from neutron.i18n import _LW
 from neutron.plugins.vmware.common import exceptions as nsx_exc
+
+LOG = logging.getLogger(__name__)
 
 
 class AgentModes:
@@ -153,40 +158,87 @@ cluster_opts = [
 ]
 
 DEFAULT_STATUS_CHECK_INTERVAL = 2000
+DEFAULT_MINIMUM_POOLED_EDGES = 1
+DEFAULT_MAXIMUM_POOLED_EDGES = 3
+DEFAULT_MAXIMUM_TUNNELS_PER_VNIC = 20
 
-vcns_opts = [
+nsxv_opts = [
     cfg.StrOpt('user',
                default='admin',
+               deprecated_group="vcns",
                help=_('User name for vsm')),
     cfg.StrOpt('password',
                default='default',
+               deprecated_group="vcns",
                secret=True,
                help=_('Password for vsm')),
     cfg.StrOpt('manager_uri',
+               deprecated_group="vcns",
                help=_('uri for vsm')),
+    cfg.ListOpt('cluster_moid',
+                default=[],
+                help=_('Parameter listing the IDs of the clusters '
+                       'which are used by OpenStack.')),
     cfg.StrOpt('datacenter_moid',
+               deprecated_group="vcns",
                help=_('Optional parameter identifying the ID of datacenter '
                       'to deploy NSX Edges')),
     cfg.StrOpt('deployment_container_id',
+               deprecated_group="vcns",
                help=_('Optional parameter identifying the ID of datastore to '
                       'deploy NSX Edges')),
     cfg.StrOpt('resource_pool_id',
+               deprecated_group="vcns",
                help=_('Optional parameter identifying the ID of resource to '
                       'deploy NSX Edges')),
     cfg.StrOpt('datastore_id',
+               deprecated_group="vcns",
                help=_('Optional parameter identifying the ID of datastore to '
                       'deploy NSX Edges')),
     cfg.StrOpt('external_network',
+               deprecated_group="vcns",
                help=_('Network ID for physical network connectivity')),
     cfg.IntOpt('task_status_check_interval',
                default=DEFAULT_STATUS_CHECK_INTERVAL,
-               help=_("Task status check interval"))
+               deprecated_group="vcns",
+               help=_("Task status check interval")),
+    cfg.StrOpt('vdn_scope_id',
+               help=_('Network scope ID for VXLAN virtual wires')),
+    cfg.StrOpt('dvs_id',
+               help=_('DVS ID for VLANs')),
+    cfg.IntOpt('maximum_tunnels_per_vnic',
+               default=DEFAULT_MAXIMUM_TUNNELS_PER_VNIC,
+               help=_('Maximum number of sub interfaces supported '
+                      'per vnic in edge. The value should be in 1-110.')),
+    cfg.ListOpt('backup_edge_pool',
+                default=['service:large:4:10',
+                         'service:compact:4:10',
+                         'vdr:large:4:10'],
+                help=_('Defines edge pool using the format: '
+                       '<edge_type>:[edge_size]:<min_edges>:<max_edges>.'
+                       'edge_type: service,vdr. '
+                       'edge_size: compact, large, xlarge, quadlarge '
+                       'and default is large.')),
+    cfg.IntOpt('retries',
+               default=10,
+               help=_('Maximum number of API retries on endpoint.')),
+    cfg.StrOpt('mgt_net_moid',
+               help=_('Network ID for management network connectivity')),
+    cfg.ListOpt('mgt_net_proxy_ips',
+                help=_('Management network IP address for metadata proxy')),
+    cfg.StrOpt('mgt_net_proxy_netmask',
+               help=_('Management network netmask for metadata proxy')),
+    cfg.ListOpt('nova_metadata_ips',
+                help=_('IP addresses used by Nova metadata service')),
+    cfg.IntOpt('nova_metadata_port',
+               default=8775,
+               help=_("TCP Port used by Nova metadata server."))
 ]
 
 # Register the configuration options
 cfg.CONF.register_opts(connection_opts)
 cfg.CONF.register_opts(cluster_opts)
-cfg.CONF.register_opts(vcns_opts, group="vcns")
+cfg.CONF.register_opts(nsxv_opts, group="nsxv")
 cfg.CONF.register_opts(base_opts, group="NSX")
 cfg.CONF.register_opts(sync_opts, group="NSX_SYNC")
 
@@ -197,3 +249,15 @@ def validate_config_options():
         error = (_("Invalid replication_mode: %s") %
                  cfg.CONF.NSX.replication_mode)
         raise nsx_exc.NsxPluginException(err_msg=error)
+
+
+def validate_nsxv_config_options():
+    if (cfg.CONF.nsxv.manager_uri is None or
+        cfg.CONF.nsxv.user is None or
+        cfg.CONF.nsxv.password is None):
+        error = _("manager_uri, user and passwork be configured!")
+        raise nsx_exc.NsxPluginException(err_msg=error)
+    if cfg.CONF.nsxv.dvs_id is None:
+        LOG.warning(_LW("dvs_id must be configured to support VLAN's!"))
+    if cfg.CONF.nsxv.vdn_scope_id is None:
+        LOG.warning(_LW("vdn_scope_id must be configured to support VXLAN's!"))

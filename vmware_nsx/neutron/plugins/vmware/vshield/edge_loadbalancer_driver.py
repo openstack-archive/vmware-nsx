@@ -16,10 +16,10 @@ from oslo.utils import excutils
 
 from neutron.i18n import _LE
 from neutron.openstack.common import log as logging
-from neutron.plugins.vmware.dbexts import vcns_db
-from neutron.plugins.vmware.vshield.common import (
+from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
+from vmware_nsx.neutron.plugins.vmware.vshield.common import (
     constants as vcns_const)
-from neutron.plugins.vmware.vshield.common import (
+from vmware_nsx.neutron.plugins.vmware.vshield.common import (
     exceptions as vcns_exc)
 try:
     from neutron_lbaas.services.loadbalancer import constants as lb_constants
@@ -54,7 +54,7 @@ class EdgeLbDriver():
 
     def _convert_lb_vip(self, context, edge_id, vip, app_profileid):
         pool_id = vip.get('pool_id')
-        poolid_map = vcns_db.get_vcns_edge_pool_binding(
+        poolid_map = nsxv_db.get_vcns_edge_pool_binding(
             context.session, pool_id, edge_id)
         pool_vseid = poolid_map['pool_vseid']
         return {
@@ -70,7 +70,7 @@ class EdgeLbDriver():
         }
 
     def _restore_lb_vip(self, context, edge_id, vip_vse):
-        pool_binding = vcns_db.get_vcns_edge_pool_binding_by_vseid(
+        pool_binding = nsxv_db.get_vcns_edge_pool_binding_by_vseid(
             context.session,
             edge_id,
             vip_vse['defaultPoolId'])
@@ -105,7 +105,7 @@ class EdgeLbDriver():
         monitors = pool.get('health_monitors')
         if not monitors:
             return vsepool
-        monitorid_map = vcns_db.get_vcns_edge_monitor_binding(
+        monitorid_map = nsxv_db.get_vcns_edge_monitor_binding(
             context.session,
             monitors[0],
             edge_id)
@@ -204,10 +204,10 @@ class EdgeLbDriver():
             "edge_id": edge_id,
             "app_profileid": app_profileid
         }
-        vcns_db.add_vcns_edge_vip_binding(context.session, map_info)
+        nsxv_db.add_nsxv_edge_vip_binding(context.session, map_info)
 
     def _get_vip_binding(self, session, id):
-        vip_binding = vcns_db.get_vcns_edge_vip_binding(session, id)
+        vip_binding = nsxv_db.get_nsxv_edge_vip_binding(session, id)
         if not vip_binding:
             msg = (_("vip_binding not found with id: %(id)s "
                      "edge_id: %(edge_id)s") % {
@@ -219,7 +219,7 @@ class EdgeLbDriver():
         return vip_binding
 
     def get_vip(self, context, id):
-        vip_binding = vcns_db.get_vcns_edge_vip_binding(context.session, id)
+        vip_binding = nsxv_db.get_nsxv_edge_vip_binding(context.session, id)
         edge_id = vip_binding[vcns_const.EDGE_ID]
         vip_vseid = vip_binding['vip_vseid']
         try:
@@ -276,7 +276,7 @@ class EdgeLbDriver():
                 LOG.exception(_LE("Failed to delete app profile on edge: %s"),
                               edge_id)
 
-        vcns_db.delete_vcns_edge_vip_binding(context.session, id)
+        nsxv_db.delete_nsxv_edge_vip_binding(context.session, id)
 
     def create_pool(self, context, edge_id, pool, members):
         pool_new = self._convert_lb_pool(context, edge_id, pool, members)
@@ -295,10 +295,10 @@ class EdgeLbDriver():
             "pool_vseid": pool_vseid,
             "edge_id": edge_id
         }
-        vcns_db.add_vcns_edge_pool_binding(context.session, map_info)
+        nsxv_db.add_vcns_edge_pool_binding(context.session, map_info)
 
     def get_pool(self, context, id, edge_id):
-        pool_binding = vcns_db.get_vcns_edge_pool_binding(
+        pool_binding = nsxv_db.get_vcns_edge_pool_binding(
             context.session, id, edge_id)
         if not pool_binding:
             msg = (_("pool_binding not found with id: %(id)s "
@@ -315,7 +315,7 @@ class EdgeLbDriver():
         return self._restore_lb_pool(context, edge_id, response)
 
     def update_pool(self, context, edge_id, pool, members):
-        pool_binding = vcns_db.get_vcns_edge_pool_binding(
+        pool_binding = nsxv_db.get_vcns_edge_pool_binding(
             context.session, pool['id'], edge_id)
         pool_vseid = pool_binding['pool_vseid']
         pool_new = self._convert_lb_pool(context, edge_id, pool, members)
@@ -326,7 +326,7 @@ class EdgeLbDriver():
                 LOG.exception(_LE("Failed to update pool"))
 
     def delete_pool(self, context, id, edge_id):
-        pool_binding = vcns_db.get_vcns_edge_pool_binding(
+        pool_binding = nsxv_db.get_vcns_edge_pool_binding(
             context.session, id, edge_id)
         pool_vseid = pool_binding['pool_vseid']
         try:
@@ -334,7 +334,7 @@ class EdgeLbDriver():
         except vcns_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("Failed to delete pool"))
-        vcns_db.delete_vcns_edge_pool_binding(
+        nsxv_db.delete_vcns_edge_pool_binding(
             context.session, id, edge_id)
 
     def create_health_monitor(self, context, edge_id, health_monitor):
@@ -355,10 +355,10 @@ class EdgeLbDriver():
             "monitor_vseid": monitor_vseid,
             "edge_id": edge_id
         }
-        vcns_db.add_vcns_edge_monitor_binding(context.session, map_info)
+        nsxv_db.add_vcns_edge_monitor_binding(context.session, map_info)
 
     def get_health_monitor(self, context, id, edge_id):
-        monitor_binding = vcns_db.get_vcns_edge_monitor_binding(
+        monitor_binding = nsxv_db.get_vcns_edge_monitor_binding(
             context.session, id, edge_id)
         if not monitor_binding:
             msg = (_("monitor_binding not found with id: %(id)s "
@@ -377,7 +377,7 @@ class EdgeLbDriver():
 
     def update_health_monitor(self, context, edge_id,
                               old_health_monitor, health_monitor):
-        monitor_binding = vcns_db.get_vcns_edge_monitor_binding(
+        monitor_binding = nsxv_db.get_vcns_edge_monitor_binding(
             context.session,
             old_health_monitor['id'], edge_id)
         monitor_vseid = monitor_binding['monitor_vseid']
@@ -392,7 +392,7 @@ class EdgeLbDriver():
                               edge_id)
 
     def delete_health_monitor(self, context, id, edge_id):
-        monitor_binding = vcns_db.get_vcns_edge_monitor_binding(
+        monitor_binding = nsxv_db.get_vcns_edge_monitor_binding(
             context.session, id, edge_id)
         monitor_vseid = monitor_binding['monitor_vseid']
         try:
@@ -400,5 +400,5 @@ class EdgeLbDriver():
         except vcns_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("Failed to delete monitor"))
-        vcns_db.delete_vcns_edge_monitor_binding(
+        nsxv_db.delete_vcns_edge_monitor_binding(
             context.session, id, edge_id)

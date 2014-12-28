@@ -66,3 +66,7 @@ class MediaTypeUnsupport(VcnsApiException):
 
 class ServiceUnavailable(VcnsApiException):
     message = _("Service Unavailable: %(uri)s")
+
+
+class ServiceConflict(VcnsApiException):
+    message = _("Concurrent object access error: %(uri)s")

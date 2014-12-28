@@ -18,8 +18,8 @@
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
 from neutron.common import constants as const
 from neutron.common import topics
-from neutron.plugins.vmware.dhcp_meta import nsx as nsx_svc
-from neutron.plugins.vmware.dhcp_meta import rpc as nsx_rpc
+from vmware_nsx.neutron.plugins.vmware.dhcp_meta import nsx as nsx_svc
+from vmware_nsx.neutron.plugins.vmware.dhcp_meta import rpc as nsx_rpc
 
 
 class DhcpAgentNotifyAPI(dhcp_rpc_agent_api.DhcpAgentNotifyAPI):

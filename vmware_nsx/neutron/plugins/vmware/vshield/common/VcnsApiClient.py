@@ -17,24 +17,48 @@ import base64
 import eventlet
 from oslo.serialization import jsonutils
 
-from neutron.plugins.vmware.vshield.common import exceptions
+from vmware_nsx.neutron.plugins.vmware.vshield.common import exceptions
 
 httplib2 = eventlet.import_patched('httplib2')
 
 
-def xmldumps(obj):
+def _xmldump(obj):
+    """Sort of imporved xml creation method.
+
+    This converts the dict to xml with following assumptions:
+    keys starting with _(underscore) are to be used as attributes and not
+    elements keys starting with @ are to there so that dict can be made.
+    The keys are not part of any xml schema.
+    """
+
     config = ""
+    attr = ""
     if isinstance(obj, dict):
         for key, value in obj.iteritems():
-            cfg = "<%s>%s</%s>" % (key, xmldumps(value), key)
-            config += cfg
+            if (key.startswith('_')):
+                attr += ' %s="%s"' % (key[1:], value)
+            else:
+                a, x = _xmldump(value)
+                if (key.startswith('@')):
+                    cfg = "%s" % (x)
+                else:
+                    cfg = "<%s%s>%s</%s>" % (key, a, x, key)
+
+                config += cfg
     elif isinstance(obj, list):
         for value in obj:
-            config += xmldumps(value)
+            a, x = _xmldump(value)
+            attr += a
+            config += x
     else:
         config = obj
 
-    return config
+    return attr, config
+
+
+def xmldumps(obj):
+    attr, xml = _xmldump(obj)
+    return xml
 
 
 class VcnsApiHelper(object):
@@ -43,6 +67,7 @@ class VcnsApiHelper(object):
         400: exceptions.RequestBad,
         403: exceptions.Forbidden,
         404: exceptions.ResourceNotFound,
+        409: exceptions.ServiceConflict,
         415: exceptions.MediaTypeUnsupport,
         503: exceptions.ServiceUnavailable
     }
@@ -58,16 +83,22 @@ class VcnsApiHelper(object):
         else:
             self.encode = xmldumps
 
-    def request(self, method, uri, params=None):
+    def request(self, method, uri, params=None, headers=None,
+                encodeparams=True):
         uri = self.address + uri
         http = httplib2.Http()
         http.disable_ssl_certificate_validation = True
-        headers = {
-            'Content-Type': 'application/' + self.format,
-            'Accept': 'application/' + 'json',
-            'Authorization': 'Basic ' + self.authToken
-        }
-        body = self.encode(params) if params else None
+        if headers is None:
+            headers = {}
+
+        headers['Content-Type'] = 'application/' + self.format
+        headers['Accept'] = 'application/' + self.format,
+        headers['Authorization'] = 'Basic ' + self.authToken
+
+        if encodeparams is True:
+            body = self.encode(params) if params else None
+        else:
+            body = params if params else None
         header, response = http.request(uri, method,
                                         body=body, headers=headers)
         status = int(header['status'])

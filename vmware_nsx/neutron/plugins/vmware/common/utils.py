@@ -36,6 +36,15 @@ class NetworkTypes:
     BRIDGE = 'bridge'
 
 
+# Allowed network types for the NSX-v Plugin
+class NsxVNetworkTypes:
+    """Allowed provider network types for the NSX-v Plugin."""
+    FLAT = 'flat'
+    VLAN = 'vlan'
+    VXLAN = 'vxlan'
+    PORTGROUP = 'portgroup'
+
+
 def get_tags(**kwargs):
     tags = ([dict(tag=value, scope=key)
             for key, value in kwargs.iteritems()])

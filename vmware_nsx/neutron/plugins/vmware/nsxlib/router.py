@@ -22,10 +22,10 @@ from neutron.i18n import _LE, _LI, _LW
 from neutron.openstack.common import log
 from neutron.plugins.vmware.api_client import exception as api_exc
 from neutron.plugins.vmware.common import exceptions as nsx_exc
-from neutron.plugins.vmware.common import utils
-from neutron.plugins.vmware import nsxlib
-from neutron.plugins.vmware.nsxlib import switch
-from neutron.plugins.vmware.nsxlib import versioning
+from vmware_nsx.neutron.plugins.vmware.common import utils
+from vmware_nsx.neutron.plugins.vmware import nsxlib
+from vmware_nsx.neutron.plugins.vmware.nsxlib import switch
+from vmware_nsx.neutron.plugins.vmware.nsxlib import versioning
 
 # @versioning.versioned decorator makes the apparent function body
 # totally unrelated to the real function.  This confuses pylint :(
@@ -630,7 +630,7 @@ def update_lrouter_port_ips(cluster, lrouter_id, lport_id,
         raise nsx_exc.NsxPluginException(err_msg=msg)
     except api_exc.NsxApiException as e:
         msg = _("An exception occurred while updating IP addresses on a "
-                "router logical port:%s") % str(e)
+                "router logical port:%s") % e
         LOG.exception(msg)
         raise nsx_exc.NsxPluginException(err_msg=msg)
 

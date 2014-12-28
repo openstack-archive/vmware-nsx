@@ -19,16 +19,16 @@ from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import providernet as pnet
 from neutron.i18n import _LW
 from neutron.openstack.common import log
-from neutron.plugins.vmware.api_client import client
 from neutron.plugins.vmware.api_client import exception as api_exc
-from neutron.plugins.vmware.common import utils as vmw_utils
-from neutron.plugins.vmware.dbexts import db as nsx_db
 from neutron.plugins.vmware.dbexts import networkgw_db
-from neutron.plugins.vmware import nsx_cluster
-from neutron.plugins.vmware.nsxlib import l2gateway as l2gwlib
-from neutron.plugins.vmware.nsxlib import router as routerlib
-from neutron.plugins.vmware.nsxlib import secgroup as secgrouplib
-from neutron.plugins.vmware.nsxlib import switch as switchlib
+from vmware_nsx.neutron.plugins.vmware.api_client import client
+from vmware_nsx.neutron.plugins.vmware.common import utils as vmw_utils
+from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
+from vmware_nsx.neutron.plugins.vmware import nsx_cluster
+from vmware_nsx.neutron.plugins.vmware.nsxlib import l2gateway as l2gwlib
+from vmware_nsx.neutron.plugins.vmware.nsxlib import router as routerlib
+from vmware_nsx.neutron.plugins.vmware.nsxlib import secgroup as secgrouplib
+from vmware_nsx.neutron.plugins.vmware.nsxlib import switch as switchlib
 
 LOG = log.getLogger(__name__)
 

@@ -23,7 +23,7 @@ from neutron.common import exceptions
 from neutron.i18n import _LE, _LI
 from neutron.openstack.common import log as logging
 from neutron.openstack.common import loopingcall
-from neutron.plugins.vmware.vshield.tasks import constants
+from vmware_nsx.neutron.plugins.vmware.vshield.tasks import constants
 
 DEFAULT_INTERVAL = 1000
 
@@ -184,15 +184,15 @@ class TaskManager():
         try:
             status = task._execute_callback(task)
         except Exception:
-            LOG.exception(_LE("Task %(task)s encountered exception in %(cb)s"),
+            LOG.exception(_LE("Task %(task)s encountered exception in "
+                              "%(cb)s"),
                           {'task': str(task),
                            'cb': str(task._execute_callback)})
             status = constants.TaskStatus.ERROR
 
-        LOG.debug("Task %(task)s return %(status)s", {
-            'task': str(task),
-            'status': status})
-
+        LOG.debug("Task %(task)s return %(status)s",
+                  {'task': str(task),
+                   'status': status})
         task._update_status(status)
         task._executed()
 
@@ -203,10 +203,10 @@ class TaskManager():
         try:
             task._result_callback(task)
         except Exception:
-            LOG.exception(_LE("Task %(task)s encountered exception in %(cb)s"),
+            LOG.exception(_LE("Task %(task)s encountered exception in "
+                              "%(cb)s"),
                           {'task': str(task),
                            'cb': str(task._result_callback)})
-
         LOG.debug("Task %(task)s return %(status)s",
                   {'task': str(task), 'status': task.status})
 

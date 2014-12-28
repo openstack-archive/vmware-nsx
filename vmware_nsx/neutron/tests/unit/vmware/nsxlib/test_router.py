@@ -21,13 +21,14 @@ from oslo.config import cfg
 from neutron.common import exceptions
 from neutron.openstack.common import uuidutils
 from neutron.plugins.vmware.api_client import exception as api_exc
-from neutron.plugins.vmware.api_client import version as version_module
 from neutron.plugins.vmware.common import exceptions as nsx_exc
-from neutron.plugins.vmware.common import utils
-from neutron.plugins.vmware import nsxlib
-from neutron.plugins.vmware.nsxlib import router as routerlib
-from neutron.plugins.vmware.nsxlib import switch as switchlib
 from neutron.tests.unit import test_api_v2
+from vmware_nsx.neutron.plugins.vmware.api_client import (
+    version as version_module)
+from vmware_nsx.neutron.plugins.vmware.common import utils
+from vmware_nsx.neutron.plugins.vmware import nsxlib
+from vmware_nsx.neutron.plugins.vmware.nsxlib import router as routerlib
+from vmware_nsx.neutron.plugins.vmware.nsxlib import switch as switchlib
 from vmware_nsx.neutron.tests.unit.vmware.nsxlib import base
 
 _uuid = test_api_v2._uuid

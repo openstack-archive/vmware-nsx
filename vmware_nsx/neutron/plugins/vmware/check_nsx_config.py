@@ -20,9 +20,9 @@ import sys
 from oslo.config import cfg
 
 from neutron.common import config
-from neutron.plugins.vmware.common import config as nsx_config  # noqa
-from neutron.plugins.vmware.common import nsx_utils
-from neutron.plugins.vmware import nsxlib
+from vmware_nsx.neutron.plugins.vmware.common import config as nsx_config  # noqa
+from vmware_nsx.neutron.plugins.vmware.common import nsx_utils
+from vmware_nsx.neutron.plugins.vmware import nsxlib
 
 config.setup_logging()
 

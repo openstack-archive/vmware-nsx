@@ -27,7 +27,7 @@ import six.moves.urllib.parse as urlparse
 
 from neutron.i18n import _LI, _LW
 from neutron.openstack.common import log as logging
-from neutron.plugins.vmware import api_client
+from vmware_nsx.neutron.plugins.vmware import api_client
 
 LOG = logging.getLogger(__name__)
 

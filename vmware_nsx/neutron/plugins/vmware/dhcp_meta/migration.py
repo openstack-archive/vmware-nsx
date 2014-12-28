@@ -21,8 +21,8 @@ from neutron.extensions import external_net
 from neutron.i18n import _LE
 from neutron.openstack.common import log as logging
 from neutron.plugins.vmware.common import exceptions as p_exc
-from neutron.plugins.vmware.dhcp_meta import nsx
-from neutron.plugins.vmware.dhcp_meta import rpc
+from vmware_nsx.neutron.plugins.vmware.dhcp_meta import nsx
+from vmware_nsx.neutron.plugins.vmware.dhcp_meta import rpc
 
 LOG = logging.getLogger(__name__)
 

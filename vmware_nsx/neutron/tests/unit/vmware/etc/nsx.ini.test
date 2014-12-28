@@ -5,3 +5,10 @@ nsx_user=foo
 nsx_password=bar
 default_l3_gw_service_uuid = whatever
 default_l2_gw_service_uuid = whatever
+
+[nsxv]
+manager_uri = https://fake_manager
+user = fake_user
+password = fake_password
+vdn_scope_id = fake_vdn_scope_id
+dvs_id = fake_dvs_id

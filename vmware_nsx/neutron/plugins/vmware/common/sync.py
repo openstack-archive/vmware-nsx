@@ -30,10 +30,10 @@ from neutron.openstack.common import log
 from neutron.openstack.common import loopingcall
 from neutron.plugins.vmware.api_client import exception as api_exc
 from neutron.plugins.vmware.common import exceptions as nsx_exc
-from neutron.plugins.vmware.common import nsx_utils
-from neutron.plugins.vmware import nsxlib
-from neutron.plugins.vmware.nsxlib import router as routerlib
-from neutron.plugins.vmware.nsxlib import switch as switchlib
+from vmware_nsx.neutron.plugins.vmware.common import nsx_utils
+from vmware_nsx.neutron.plugins.vmware import nsxlib
+from vmware_nsx.neutron.plugins.vmware.nsxlib import router as routerlib
+from vmware_nsx.neutron.plugins.vmware.nsxlib import switch as switchlib
 
 # Maximum page size for a single request
 # NOTE(salv-orlando): This might become a version-dependent map should the
