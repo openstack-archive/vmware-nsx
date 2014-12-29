@@ -1,19 +1,13 @@
-Testing Neutron
-=============================================================
+Testing VMware-NSX
+==================
 
 Overview
 --------
 
-The unit tests (neutron/test/unit/) are meant to cover as much code as
-possible and should be executed without the service running. They are
-designed to test the various pieces of the neutron tree to make sure
-any new changes don't break existing functionality.
-
-The functional tests (neutron/tests/functional/) are intended to
-validate actual system interaction.  Mocks should be used sparingly,
-if at all.  Care should be taken to ensure that existing system
-resources are not modified and that resources created in tests are
-properly cleaned up.
+The unit tests (vmware_nsx/neutron/test/unit/) are meant to cover as much
+code as possible and should be executed without the service running. They
+are designed to test the various pieces of the neutron and VMware NSX tree
+to make sure any new changes don't break existing functionality.
 
 Development process
 -------------------
@@ -21,7 +15,7 @@ Development process
 It is expected that any new changes that are proposed for merge
 come with tests for that feature or code area. Ideally any bugs
 fixes that are submitted also have tests to prove that they stay
-fixed!  In addition, before proposing for merge, all of the
+fixed! In addition, before proposing for merge, all of the
 current tests should be passing.
 
 Virtual environments
@@ -85,12 +79,12 @@ interactive debugging session while using testr.
 With `tox`
 ~~~~~~~~~~
 
-Neutron, like other OpenStack projects, uses `tox`_ for managing the virtual
+VMware NSX, like other OpenStack projects, uses `tox`_ for managing the virtual
 environments for running test cases. It uses `Testr`_ for managing the running
 of the test cases.
 
 Tox handles the creation of a series of `virtualenvs`_ that target specific
-versions of Python (2.6, 2.7, 3.3, etc).
+versions of Python (2.7, 3.3, etc).
 
 Testr handles the parallel execution of series of test cases as well as
 the tracking of long-running tests and other things.
@@ -130,19 +124,19 @@ the dot-separated path to the module you want as an argument to it.
 For executing a specific test case, specify the name of the test case
 class separating it from the module path with a colon.
 
-For example, the following would run only the JSONV2TestCase tests from
-neutron/tests/unit/test_api_v2.py::
+For example, the following would run only the TestSubnetsV2 tests from
+vmware_nsx/neutron/tests/unit/vmware/test_nsx_v_plugin.py::
 
-      $ ./run_tests.sh neutron.tests.unit.test_api_v2.JSONV2TestCase
+      $ ./run_tests.sh vmware_nsx.neutron.tests.unit.vmware.test_nsx_v_plugin.TestSubnetsV2
 
 or::
 
-      $ tox -e py27 neutron.tests.unit.test_api_v2.JSONV2TestCase
+      $ tox -e py27 vmware_nsx.neutron.tests.unit.vmware.test_nsx_v_plugin.TestSubnetsV2
 
 Adding more tests
 ~~~~~~~~~~~~~~~~~
 
-Neutron has a fast growing code base and there is plenty of areas that
+VMware NSX has a fast growing code base and there is plenty of areas that
 need to be covered by unit and functional tests.
 
 To get a grasp of the areas where tests are needed, you can check
@@ -169,7 +163,7 @@ after a tox run and reused for debugging::
     $ . .tox/venv/bin/activate
     $ python -m testtools.run [test module path]
 
-Tox packages and installs the neutron source tree in a given venv
+Tox packages and installs the vmware-nsx source tree in a given venv
 on every invocation, but if modifications need to be made between
 invocation (e.g. adding more pdb statements), it is recommended
 that the source tree be installed in the venv in editable mode::
