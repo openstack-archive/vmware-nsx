@@ -1558,7 +1558,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if type == 'ip':
                 return mapping['ip_section_id']
             else:
-                return mapping['mac_section_id']
+                None
 
     def create_security_group(self, context, security_group,
                               default_sg=False):
@@ -1658,7 +1658,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
                 # Delete nsx rule sections
                 self._delete_section(section_mapping['ip_section_id'])
-                self._delete_section(section_mapping['mac_section_id'])
 
                 # Delete nsx security group
                 self._delete_security_group(nsx_sg_id)

@@ -74,6 +74,9 @@
     "add_router_interface": "rule:admin_or_owner",
     "remove_router_interface": "rule:admin_or_owner",
 
+    "create_router:external_gateway_info:external_fixed_ips": "rule:admin_only",
+    "update_router:external_gateway_info:external_fixed_ips": "rule:admin_only",
+
     "create_firewall": "",
     "get_firewall": "rule:admin_or_owner",
     "create_firewall:shared": "rule:admin_only",
@@ -112,6 +115,7 @@
     "get_loadbalancer-pools": "rule:admin_only",
 
     "create_floatingip": "rule:regular_user",
+    "create_floatingip:floating_ip_address": "rule:admin_only",
     "update_floatingip": "rule:admin_or_owner",
     "delete_floatingip": "rule:admin_or_owner",
     "get_floatingip": "rule:admin_or_owner",

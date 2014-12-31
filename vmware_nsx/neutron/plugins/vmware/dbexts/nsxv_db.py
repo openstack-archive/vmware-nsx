@@ -296,12 +296,10 @@ def delete_nsxv_internal_edge(session, ext_ip_address):
                 filter_by(ext_ip_address=ext_ip_address).delete())
 
 
-def add_neutron_nsx_section_mapping(session, neutron_id, ip_section_id,
-                                    mac_section_id=None):
+def add_neutron_nsx_section_mapping(session, neutron_id, ip_section_id):
     with session.begin(subtransactions=True):
-        mapping = nsxv_models.NsxvSectionMapping(
-            neutron_id=neutron_id, ip_section_id=ip_section_id,
-            mac_section_id=mac_section_id)
+        mapping = nsxv_models.NsxvSecurityGroupSectionMapping(
+            neutron_id=neutron_id, ip_section_id=ip_section_id)
         session.add(mapping)
     return mapping
 
@@ -324,7 +322,7 @@ def add_neutron_nsx_port_vnic_mapping(session, neutron_id, nsx_id):
 
 def get_nsx_section(session, neutron_id):
     try:
-        mapping = (session.query(nsxv_models.NsxvSectionMapping).
+        mapping = (session.query(nsxv_models.NsxvSecurityGroupSectionMapping).
                    filter_by(neutron_id=neutron_id).
                    one())
         return mapping
