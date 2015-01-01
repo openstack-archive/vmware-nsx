@@ -1343,8 +1343,6 @@ class TestL3NatTestCase(L3NatTest,
             yield update_edge
 
     def test_router_interfaces_with_update_firewall(self):
-        #TODO(kobis): unskip
-        self.skipTest('resolve value order problem')
         with mock.patch.object(edge_utils, "update_firewall") as firewall:
             with self.router() as r:
                 s1_cidr = '10.0.0.0/24'
@@ -1361,12 +1359,13 @@ class TestL3NatTestCase(L3NatTest,
                                                   r['router']['id'],
                                                   s2['subnet']['id'],
                                                   None)
+                    expected_cidrs = sorted([s1_cidr, s2_cidr])
                     expected_fw = {
                         'firewall_rule_list': [
                             {'action': 'allow',
                              'enabled': True,
-                             'source_ip_address': [s2_cidr, s1_cidr],
-                             'destination_ip_address': [s2_cidr, s1_cidr]}]}
+                             'source_ip_address': expected_cidrs,
+                             'destination_ip_address': expected_cidrs}]}
                     firewall.assert_called_once_with(
                         mock.ANY, mock.ANY, mock.ANY,
                         expected_fw, allow_external=True)
@@ -1380,8 +1379,6 @@ class TestL3NatTestCase(L3NatTest,
                                                   None)
 
     def test_router_interfaces_different_tenants_update_firewall(self):
-        #TODO(kobis): unskip
-        self.skipTest('resolve value order problem')
         tenant_id = _uuid()
         other_tenant_id = _uuid()
         with mock.patch.object(edge_utils, "update_firewall") as firewall:
@@ -1406,12 +1403,13 @@ class TestL3NatTestCase(L3NatTest,
                                                   s1['subnet']['id'],
                                                   None,
                                                   tenant_id=tenant_id)
+                    expected_cidrs = sorted([s1_cidr, s2_cidr])
                     expected_fw = {
                         'firewall_rule_list': [
                             {'action': 'allow',
                              'enabled': True,
-                             'source_ip_address': [s1_cidr, s2_cidr],
-                             'destination_ip_address': [s1_cidr, s2_cidr]}]}
+                             'source_ip_address': expected_cidrs,
+                             'destination_ip_address': expected_cidrs}]}
                     firewall.assert_called_once_with(
                         mock.ANY, mock.ANY, mock.ANY,
                         expected_fw, allow_external=True)

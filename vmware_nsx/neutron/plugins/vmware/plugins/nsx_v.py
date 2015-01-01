@@ -1257,7 +1257,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 subnet_qry = context.session.query(models_v2.Subnet)
                 subnet = subnet_qry.filter_by(id=ip.subnet_id).one()
                 cidrs.append(subnet.cidr)
-        return cidrs
+        return sorted(cidrs)
 
     def _get_nat_rules(self, context, router):
         fip_qry = context.session.query(l3_db.FloatingIP)
