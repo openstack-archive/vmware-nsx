@@ -51,7 +51,7 @@ from neutron.openstack.common import log as logging
 from neutron.openstack.common import uuidutils
 from neutron.plugins.vmware.common import exceptions as nsx_exc
 from neutron.plugins.vmware.extensions import (
-     advancedserviceproviders as subnet_md)
+     advancedserviceproviders as as_providers)
 from neutron.plugins.vmware.extensions import (
     vnicindex as ext_vnic_idx)
 
@@ -302,24 +302,24 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             return '%s (%s)' % (name, id)
         return id
 
-    def _get_subnet_md_providers(self, context, subnet):
+    def _get_subnet_as_providers(self, context, subnet):
         net_id = subnet.get('network_id')
         if net_id is None:
             net_id = self.get_subnet(context, subnet['id']).get('network_id')
-        md_provider_data = nsxv_db.get_edge_vnic_bindings_by_int_lswitch(
+        as_provider_data = nsxv_db.get_edge_vnic_bindings_by_int_lswitch(
             context.session, net_id)
 
-        md_providers = [mdp['edge_id'] for mdp in md_provider_data]
-        return md_providers
+        providers = [asp['edge_id'] for asp in as_provider_data]
+        return providers
 
     def get_subnet(self, context, id, fields=None):
         subnet = super(NsxVPluginV2, self).get_subnet(context, id, fields)
 
         if not context.is_admin:
             return subnet
-        elif not fields or subnet_md.ADV_SERVICE_PROVIDERS in fields:
-            subnet[subnet_md.ADV_SERVICE_PROVIDERS] = (
-                self._get_subnet_md_providers(context, subnet))
+        elif not fields or as_providers.ADV_SERVICE_PROVIDERS in fields:
+            subnet[as_providers.ADV_SERVICE_PROVIDERS] = (
+                self._get_subnet_as_providers(context, subnet))
         return subnet
 
     def get_subnets(self, context, filters=None, fields=None, sorts=None,
@@ -332,23 +332,26 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             return subnets
 
         new_subnets = []
-        if (not fields
-            or subnet_md.ADV_SERVICE_PROVIDERS in fields
-            or (filters and filters.get(subnet_md.ADV_SERVICE_PROVIDERS))):
+        if(not fields
+           or as_providers.ADV_SERVICE_PROVIDERS in fields
+           or (filters and filters.get(as_providers.ADV_SERVICE_PROVIDERS))):
 
             # We only deal metadata provider field when:
             # - All fields are retrieved
-            # - metadata_provider is explicitly retrieved
-            # - metadata_provider is used in a filter
+            # - adv_service_provider is explicitly retrieved
+            # - adv_service_provider is used in a filter
             for subnet in subnets:
-                md_provider = self._get_subnet_md_providers(context, subnet)
-                md_filter = (None if filters is None
-                             else filters.get('metadata_providers'))
+                as_provider = self._get_subnet_as_providers(context, subnet)
+                md_filter = (
+                    None if filters is None
+                    else filters.get('as_providers.ADV_SERVICE_PROVIDERS'))
 
-                if md_filter is None or len(set(md_provider) & set(md_filter)):
+                if md_filter is None or len(set(as_provider) & set(md_filter)):
                     # Include metadata_providers only if requested in results
-                    if not fields or subnet_md.ADV_SERVICE_PROVIDERS in fields:
-                        subnet[subnet_md.ADV_SERVICE_PROVIDERS] = md_provider
+                    if(not fields
+                       or as_providers.ADV_SERVICE_PROVIDERS in fields):
+                        subnet[as_providers.ADV_SERVICE_PROVIDERS] = (
+                            as_provider)
 
                     new_subnets.append(subnet)
         else:
