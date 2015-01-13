@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+from neutron.common import constants
 from neutron.common import exceptions
 from neutron.tests.unit import test_api_v2
 from vmware_nsx.neutron.plugins.vmware import nsxlib
@@ -112,6 +113,95 @@ class SecurityProfileTestCase(base.NsxlibTestCase):
                       sec_prof_res['logical_port_egress_rules'])
         self.assertEqual(len(sec_prof_res['logical_port_ingress_rules']), 1)
         self.assertIn(hidden_ingress_rule,
+                      sec_prof_res['logical_port_ingress_rules'])
+
+    def test_update_security_profile_rules_summarize_port_range(self):
+        sec_prof = secgrouplib.create_security_profile(
+            self.fake_cluster, _uuid(), 'pippo', {'name': 'test'})
+        ingress_rule = [{'ethertype': 'IPv4'}]
+        egress_rules = [
+            {'ethertype': 'IPv4', 'protocol': constants.PROTO_NUM_UDP,
+             'port_range_min': 1, 'port_range_max': 65535}]
+        new_rules = {'logical_port_egress_rules': egress_rules,
+                     'logical_port_ingress_rules': [ingress_rule]}
+        egress_rules_summarized = [{'ethertype': 'IPv4',
+                                    'protocol': constants.PROTO_NUM_UDP}]
+        secgrouplib.update_security_group_rules(
+            self.fake_cluster, sec_prof['uuid'], new_rules)
+        sec_prof_res = nsxlib.do_request(
+            nsxlib.HTTP_GET,
+            nsxlib._build_uri_path('security-profile',
+                                   resource_id=sec_prof['uuid']),
+            cluster=self.fake_cluster)
+        self.assertEqual(sec_prof['uuid'], sec_prof_res['uuid'])
+
+        # Check for builtin rules
+        self.assertEqual(len(sec_prof_res['logical_port_ingress_rules']), 1)
+        self.assertEqual(sec_prof_res['logical_port_egress_rules'],
+                         egress_rules_summarized)
+        self.assertIn(ingress_rule,
+                      sec_prof_res['logical_port_ingress_rules'])
+
+    def test_update_security_profile_rules_summarize_ip_prefix(self):
+        sec_prof = secgrouplib.create_security_profile(
+            self.fake_cluster, _uuid(), 'pippo', {'name': 'test'})
+        ingress_rule = [{'ethertype': 'IPv4'}]
+        egress_rules = [
+            {'ethertype': 'IPv4', 'protocol': constants.PROTO_NUM_UDP,
+             'ip_prefix': '0.0.0.0/0'},
+            {'ethertype': 'IPv6', 'protocol': constants.PROTO_NUM_UDP,
+             'ip_prefix': '::/0'}]
+        new_rules = {'logical_port_egress_rules': egress_rules,
+                     'logical_port_ingress_rules': [ingress_rule]}
+        egress_rules_summarized = [
+            {'ethertype': 'IPv4', 'protocol': constants.PROTO_NUM_UDP},
+            {'ethertype': 'IPv6', 'protocol': constants.PROTO_NUM_UDP}]
+        secgrouplib.update_security_group_rules(
+            self.fake_cluster, sec_prof['uuid'], new_rules)
+        sec_prof_res = nsxlib.do_request(
+            nsxlib.HTTP_GET,
+            nsxlib._build_uri_path('security-profile',
+                                   resource_id=sec_prof['uuid']),
+            cluster=self.fake_cluster)
+        self.assertEqual(sec_prof['uuid'], sec_prof_res['uuid'])
+
+        # Check for builtin rules
+        self.assertEqual(len(sec_prof_res['logical_port_ingress_rules']), 1)
+        self.assertEqual(sec_prof_res['logical_port_egress_rules'],
+                         egress_rules_summarized)
+        self.assertIn(ingress_rule,
+                      sec_prof_res['logical_port_ingress_rules'])
+
+    def test_update_security_profile_rules_summarize_subset(self):
+        sec_prof = secgrouplib.create_security_profile(
+            self.fake_cluster, _uuid(), 'pippo', {'name': 'test'})
+        ingress_rule = [{'ethertype': 'IPv4'}]
+        egress_rules = [
+            {'ethertype': 'IPv4', 'protocol': constants.PROTO_NUM_UDP,
+             'port_range_min': 1, 'port_range_max': 1,
+             'remote_ip_prefix': '1.1.1.1/20'},
+            {'ethertype': 'IPv4', 'protocol': constants.PROTO_NUM_UDP,
+             'port_range_min': 2, 'port_range_max': 2,
+             'profile_uuid': 'xyz'},
+            {'ethertype': 'IPv4', 'protocol': constants.PROTO_NUM_UDP}]
+        new_rules = {'logical_port_egress_rules': egress_rules,
+                     'logical_port_ingress_rules': [ingress_rule]}
+        egress_rules_summarized = [
+            {'ethertype': 'IPv4', 'protocol': constants.PROTO_NUM_UDP}]
+        secgrouplib.update_security_group_rules(
+            self.fake_cluster, sec_prof['uuid'], new_rules)
+        sec_prof_res = nsxlib.do_request(
+            nsxlib.HTTP_GET,
+            nsxlib._build_uri_path('security-profile',
+                                   resource_id=sec_prof['uuid']),
+            cluster=self.fake_cluster)
+        self.assertEqual(sec_prof['uuid'], sec_prof_res['uuid'])
+
+        # Check for builtin rules
+        self.assertEqual(len(sec_prof_res['logical_port_ingress_rules']), 1)
+        self.assertEqual(sec_prof_res['logical_port_egress_rules'],
+                         egress_rules_summarized)
+        self.assertIn(ingress_rule,
                       sec_prof_res['logical_port_ingress_rules'])
 
     def test_update_non_existing_securityprofile_raises(self):
