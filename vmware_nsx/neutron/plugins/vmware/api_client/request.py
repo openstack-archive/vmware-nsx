@@ -146,14 +146,6 @@ class ApiRequest(object):
 
                 if response.status == httplib.UNAUTHORIZED:
 
-                    if cookie is None and self._url != "/ws.v1/login":
-                        # The connection still has no valid cookie despite
-                        # attempts to authenticate and the request has failed
-                        # with unauthorized status code. If this isn't a
-                        # a request to authenticate, we should abort the
-                        # request since there is no point in retrying.
-                        self._abort = True
-
                     # If request is unauthorized, clear the session cookie
                     # for the current provider so that subsequent requests
                     # to the same provider triggers re-authentication.
