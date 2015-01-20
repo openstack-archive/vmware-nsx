@@ -66,7 +66,6 @@ class EventletApiRequest(request.ApiRequest):
         self._redirects = redirects
         self._http_timeout = http_timeout
         self._client_conn = client_conn
-        self._abort = False
 
         self._request_error = None
 
@@ -139,7 +138,7 @@ class EventletApiRequest(request.ApiRequest):
             # automatically raises any exceptions returned.
             if isinstance(req, httplib.HTTPResponse):
                 timeout = 0
-                if attempt <= self._retries and not self._abort:
+                if attempt <= self._retries:
                     if req.status in (httplib.UNAUTHORIZED, httplib.FORBIDDEN):
                         continue
                     elif req.status == httplib.SERVICE_UNAVAILABLE:
