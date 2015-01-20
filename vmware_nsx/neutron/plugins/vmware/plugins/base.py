@@ -61,6 +61,8 @@ from neutron.plugins.vmware.dbexts import maclearning as mac_db
 from neutron.plugins.vmware.dbexts import networkgw_db
 from neutron.plugins.vmware.dbexts import qos_db
 from neutron.plugins.vmware.extensions import maclearning as mac_ext
+from neutron.plugins.vmware.extensions import networkgw
+from neutron.plugins.vmware.extensions import qos
 from vmware_nsx.neutron.plugins import vmware
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
 from vmware_nsx.neutron.plugins.vmware.common import nsx_utils
@@ -69,8 +71,6 @@ from vmware_nsx.neutron.plugins.vmware.common import sync
 from vmware_nsx.neutron.plugins.vmware.common import utils as c_utils
 from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
 from vmware_nsx.neutron.plugins.vmware import dhcpmeta_modes
-from vmware_nsx.neutron.plugins.vmware.extensions import networkgw
-from vmware_nsx.neutron.plugins.vmware.extensions import qos
 from vmware_nsx.neutron.plugins.vmware.nsxlib import l2gateway as l2gwlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import queue as queuelib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import router as routerlib

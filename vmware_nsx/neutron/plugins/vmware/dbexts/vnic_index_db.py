@@ -19,7 +19,7 @@ from neutron.api.v2 import attributes as attr
 from neutron.db import db_base_plugin_v2
 from neutron.openstack.common import log as logging
 from neutron.plugins.vmware.dbexts import nsxv_models
-from vmware_nsx.neutron.plugins.vmware.extensions import vnic_index as vnicidx
+from neutron.plugins.vmware.extensions import vnicindex as vnicidx
 
 LOG = logging.getLogger(__name__)
 

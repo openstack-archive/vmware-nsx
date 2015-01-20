@@ -28,13 +28,13 @@ from neutron import manager
 from neutron.plugins.vmware.api_client import exception as api_exc
 from neutron.plugins.vmware.common import exceptions as nsx_exc
 from neutron.plugins.vmware.dbexts import networkgw_db
+from neutron.plugins.vmware.extensions import networkgw
 from neutron import quota
 from neutron.tests import base
 from neutron.tests.unit import test_api_v2
 from neutron.tests.unit import test_db_plugin
 from neutron.tests.unit import test_extensions
 from neutron.tests.unit import testlib_plugin
-from vmware_nsx.neutron.plugins.vmware.extensions import networkgw
 from vmware_nsx.neutron.plugins.vmware import nsxlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import l2gateway as l2gwlib
 from vmware_nsx.neutron.tests.unit import vmware

@@ -50,6 +50,10 @@ from neutron.openstack.common import log as logging
 from neutron.openstack.common import uuidutils
 from neutron.plugins.vmware.common import exceptions as nsx_exc
 from neutron.plugins.vmware.dbexts import networkgw_db
+from neutron.plugins.vmware.extensions import (
+     advancedserviceproviders as subnet_md)
+from neutron.plugins.vmware.extensions import (
+    vnicindex as ext_vnic_idx)
 from vmware_nsx.neutron.plugins import vmware
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
 from vmware_nsx.neutron.plugins.vmware.common import utils as c_utils
@@ -58,10 +62,6 @@ from vmware_nsx.neutron.plugins.vmware.dbexts import (
 from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
 from vmware_nsx.neutron.plugins.vmware.dbexts import vnic_index_db
-from vmware_nsx.neutron.plugins.vmware.extensions import (
-    metadata_providers as subnet_md)
-from vmware_nsx.neutron.plugins.vmware.extensions import (
-    vnic_index as ext_vnic_idx)
 from vmware_nsx.neutron.plugins.vmware.plugins import nsx_v_md_proxy
 from vmware_nsx.neutron.plugins.vmware.vshield.common import (
     constants as vcns_const)
@@ -89,7 +89,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     supported_extension_aliases = ["allowed-address-pairs",
                                    "binding",
-                                   "dist-router",
+                                   "dvr",
                                    "multi-provider",
                                    "port-security",
                                    "provider",
@@ -99,7 +99,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                    "router",
                                    "security-group",
                                    "vnic-index",
-                                   "metadata-providers"]
+                                   "advanced-service-providers"]
 
     __native_bulk_support = True
     __native_pagination_support = True
@@ -310,7 +310,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     def get_subnet(self, context, id, fields=None):
         subnet = super(NsxVPluginV2, self).get_subnet(context, id, fields)
         if context.is_admin:
-            subnet[subnet_md.METADATA_PROVIDERS] = (
+            subnet[subnet_md.ADV_SERVICE_PROVIDERS] = (
                 self._get_subnet_md_providers(context, subnet))
         return subnet
 
@@ -325,8 +325,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         new_subnets = []
         if (not fields
-            or subnet_md.METADATA_PROVIDERS in fields
-            or (filters and filters.get(subnet_md.METADATA_PROVIDERS))):
+            or subnet_md.ADV_SERVICE_PROVIDERS in fields
+            or (filters and filters.get(subnet_md.ADV_SERVICE_PROVIDERS))):
 
             # We only deal metadata provider field when:
             # - All fields are retrieved
@@ -339,8 +339,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
                 if md_filter is None or len(set(md_provider) & set(md_filter)):
                     # Include metadata_providers only if requested in results
-                    if not fields or subnet_md.METADATA_PROVIDERS in fields:
-                        subnet[subnet_md.METADATA_PROVIDERS] = md_provider
+                    if not fields or subnet_md.ADV_SERVICE_PROVIDERS in fields:
+                        subnet[subnet_md.ADV_SERVICE_PROVIDERS] = md_provider
 
                     new_subnets.append(subnet)
         else:

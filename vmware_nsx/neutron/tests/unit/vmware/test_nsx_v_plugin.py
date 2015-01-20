@@ -25,6 +25,7 @@ from neutron.common import exceptions as n_exc
 from neutron.common import ipv6_utils
 import neutron.common.test_lib as test_lib
 from neutron import context
+from neutron.extensions import dvr as dist_router
 from neutron.extensions import external_net
 from neutron.extensions import l3
 from neutron.extensions import l3_ext_gw_mode
@@ -33,6 +34,8 @@ from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as secgrp
 from neutron import manager
 from neutron.openstack.common import uuidutils
+from neutron.plugins.vmware.extensions import (
+    vnicindex as ext_vnic_idx)
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.test_db_plugin as test_plugin
 import neutron.tests.unit.test_extension_allowedaddresspairs as test_addr_pair
@@ -41,10 +44,6 @@ import neutron.tests.unit.test_extension_security_group as ext_sg
 import neutron.tests.unit.test_l3_plugin as test_l3_plugin
 from neutron.tests.unit import testlib_api
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
-from vmware_nsx.neutron.plugins.vmware.extensions import (
-    distributedrouter as dist_router)
-from vmware_nsx.neutron.plugins.vmware.extensions import (
-    vnic_index as ext_vnic_idx)
 from vmware_nsx.neutron.plugins.vmware.vshield.common import (
     constants as vcns_const)
 from vmware_nsx.neutron.plugins.vmware.vshield import edge_utils
@@ -1508,6 +1507,12 @@ class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
 class TestVdrTestCase(L3NatTest,
                       test_l3_plugin.L3NatDBIntTestCase,
                       NsxVPluginV2TestCase):
+
+    def test_update_port_device_id_to_different_tenants_router(self):
+        self.skipTest('TBD')
+
+    def test_router_add_gateway_tenant_ctx(self):
+        self.skipTest('TBD')
 
     def _create_router(self, fmt, tenant_id, name=None,
                        admin_state_up=None, set_context=False,

@@ -14,9 +14,8 @@
 #    under the License.
 #
 
+from neutron.extensions import dvr as dist_rtr
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxrouter
-from vmware_nsx.neutron.plugins.vmware.extensions import (
-    distributedrouter as dist_rtr)
 
 
 class DistributedRouter_mixin(nsxrouter.NsxRouterMixin):
