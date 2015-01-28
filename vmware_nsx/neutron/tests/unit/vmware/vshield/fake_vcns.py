@@ -76,6 +76,15 @@ class FakeVcns(object):
                 return False
         return True
 
+    def get_edge_jobs(self, edge_id):
+        if edge_id not in self._edges:
+            raise Exception(_("Edge %s does not exist") % edge_id)
+        header = {
+            'status': 200
+        }
+        response = {"edgeJob": []}
+        return (header, response)
+
     def deploy_edge(self, request):
         if (self._unique_router_name and
             not self._validate_edge_name(request['name'])):

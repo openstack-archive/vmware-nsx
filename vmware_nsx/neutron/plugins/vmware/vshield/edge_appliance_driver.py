@@ -297,6 +297,8 @@ class EdgeApplianceDriver(object):
                 LOG.exception(_LE("Failed to delete vdr interface on edge: "
                                   "%s"),
                               edge_id)
+        # avoid bug 1389358
+        self.check_edge_jobs(edge_id)
 
     def _delete_interface(self, task):
         edge_id = task.userdata['edge_id']
@@ -328,6 +330,8 @@ class EdgeApplianceDriver(object):
                           userdata=userdata)
         task.add_result_monitor(self.callbacks.interface_delete_result)
         self.task_manager.add(task)
+        # avoid bug 1389358
+        self.check_edge_jobs(edge_id)
         return task
 
     def _deploy_edge(self, task):
