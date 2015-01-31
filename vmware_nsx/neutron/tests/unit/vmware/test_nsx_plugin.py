@@ -340,6 +340,9 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxPluginV2TestCase):
             # don't worry about deleting this network, do not use
             # context manager
             ctx = context.get_admin_context()
+            # Because of commit 79c9712 a tenant must be specified otherwise
+            # the unit test will fail
+            ctx.tenant_id = 'whatever'
             plugin = manager.NeutronManager.get_plugin()
             net = plugin.create_network(
                 ctx, {'network': {'name': 'xxx',
