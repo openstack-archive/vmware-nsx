@@ -228,7 +228,7 @@ class EdgeManager(object):
                                       appliance_size=appliance_size,
                                       edge_type=edge_type)
 
-    def check_edge_exist_at_backend(self, edge_id):
+    def check_edge_active_at_backend(self, edge_id):
         try:
             status = self.nsxv_manager.get_edge_status(edge_id)
             return (status == vcns_const.RouterStatus.ROUTER_STATUS_ACTIVE)
@@ -242,7 +242,7 @@ class EdgeManager(object):
             context, appliance_size=appliance_size, edge_type=edge_type)
         for router_binding in backup_router_bindings:
             if (router_binding['status'] == plugin_const.ACTIVE):
-                if not self.check_edge_exist_at_backend(
+                if not self.check_edge_active_at_backend(
                     router_binding['edge_id']):
                     self._delete_edge(context, router_binding)
                 else:
@@ -457,7 +457,8 @@ class EdgeManager(object):
         dist = (binding['edge_type'] == nsxv_constants.VDR_EDGE)
         edge_pool_range = self.edge_pool_dicts[binding['edge_type']].get(
             binding['appliance_size'])
-        if edge_pool_range is None:
+        if (not self.check_edge_active_at_backend(binding['edge_id']) or
+            not edge_pool_range):
             nsxv_db.update_nsxv_router_binding(
                 context.session, router_id,
                 status=plugin_const.PENDING_DELETE)
@@ -1407,7 +1408,7 @@ class NsxVCallbacks(object):
             nsxv_db.update_nsxv_router_binding(
                 context.session, router_id,
                 status=plugin_const.ERROR)
-            if not dist:
+            if not dist and task.userdata.get('edge_id'):
                 nsxv_db.clean_edge_vnic_binding(
                     context.session, task.userdata['edge_id'])
 
