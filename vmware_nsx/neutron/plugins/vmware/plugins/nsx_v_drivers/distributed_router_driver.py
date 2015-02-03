@@ -30,6 +30,8 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         return "distributed"
 
     def _update_routes_on_plr(self, context, router_id, plr_id, newnexthop):
+        lswitch_id = edge_utils.get_internal_lswitch_id_of_plr_tlr(
+            context, router_id)
         subnets = self.plugin._find_router_subnets_cidrs(
             context.elevated(), router_id)
         routes = []
@@ -37,27 +39,63 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
             routes.append({
                 'destination': subnet,
                 'nexthop': (vcns_const.INTEGRATION_LR_IPADDRESS.
-                            split('/')[0])
+                            split('/')[0]),
+                'network_id': lswitch_id
             })
-        edge_utils.update_routes_on_plr(self.nsx_v, context,
-                                        plr_id, router_id, routes,
-                                        nexthop=newnexthop)
+
+        # Add extra routes referring to external network on plr
+        extra_routes = self.plugin._prepare_edge_extra_routes(
+            context, router_id)
+        routes.extend([route for route in extra_routes
+                       if route.get('external')])
+        edge_utils.update_routes(self.nsx_v, context,
+                                 plr_id, routes, newnexthop)
+
+    def _update_routes_on_tlr(
+        self, context, router_id,
+        newnexthop=vcns_const.INTEGRATION_EDGE_IPADDRESS):
+        internal_vnic_index = None
+        if newnexthop:
+            internal_vnic_index = (
+                edge_utils.get_internal_vnic_index_of_plr_tlr(
+                    context, router_id))
+        routes = []
+        # Add extra routes referring to internal network on tlr
+        extra_routes = self.plugin._prepare_edge_extra_routes(
+            context, router_id)
+        routes.extend([route for route in extra_routes
+                       if not route.get('external')])
+        edge_utils.update_routes(self.nsx_v, context,
+                                 router_id, routes, newnexthop,
+                                 gateway_vnic_index=internal_vnic_index)
 
     def create_router(self, context, lrouter, allow_metadata=True):
         self.edge_manager.create_lrouter(context, lrouter, dist=True)
         # TODO(kobi) can't configure metadata service on VDR at present.
 
     def update_router(self, context, router_id, router):
-        return super(nsx_v.NsxVPluginV2, self.plugin).update_router(
+        gw_info = self.plugin._extract_external_gw(context, router,
+                                                   is_extract=False)
+        router_updated = super(nsx_v.NsxVPluginV2, self.plugin).update_router(
             context, router_id, router)
+        # here is used to handle routes which tenant updates.
+        if gw_info is None:
+            router_db = self.plugin._get_router(context, router_id)
+            nexthop = self.plugin._get_external_attachment_info(
+                context, router_db)[2]
+            self.update_routes(context, router_id, nexthop)
+        return router_updated
 
     def delete_router(self, context, router_id):
         self.edge_manager.delete_lrouter(context, router_id, dist=True)
 
-    def update_routes(self, context, router_id, nexthop):
-        # Since there may be an internal plr connected to the VDR affecting
-        # static routes, static routes feature should be avoided on VDR now.
-        pass
+    def update_routes(self, context, router_id, newnexthop):
+        plr_id = self.edge_manager.get_plr_by_tlr_id(context, router_id)
+        if plr_id:
+            self._update_routes_on_plr(context, router_id, plr_id, newnexthop)
+            self._update_routes_on_tlr(context, router_id)
+        else:
+            self._update_routes_on_tlr(context, router_id, newnexthop=None)
 
     def _update_router_gw_info(self, context, router_id, info):
         router = self.plugin._get_router(context, router_id)
@@ -112,9 +150,9 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                 # Open firewall flows on plr
                 self.plugin._update_subnets_and_dnat_firewall(
                     context, router, router_id=plr_id)
-                # Update static routes of plr
-                self._update_routes_on_plr(
-                    context, router_id, plr_id, newnexthop)
+
+        # update static routes in all
+        self.update_routes(context, router_id, newnexthop)
 
     def add_router_interface(self, context, router_id, interface_info):
         info = super(nsx_v.NsxVPluginV2, self.plugin).add_router_interface(
@@ -145,8 +183,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
             # Update static routes of plr
             nexthop = self.plugin._get_external_attachment_info(
                 context, router_db)[2]
-            self._update_routes_on_plr(
-                context, router_id, plr_id, nexthop)
+            self.update_routes(context, router_id, nexthop)
         return info
 
     def remove_router_interface(self, context, router_id, interface_info):
@@ -165,8 +202,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
             # Update static routes of plr
             nexthop = self.plugin._get_external_attachment_info(
                 context, router_db)[2]
-            self._update_routes_on_plr(
-                context, router_id, plr_id, nexthop)
+            self.update_routes(context, router_id, nexthop)
 
         ports = self.plugin._get_router_interface_ports_by_network(
             context, router_id, network_id)

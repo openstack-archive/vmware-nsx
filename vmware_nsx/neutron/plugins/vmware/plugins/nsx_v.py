@@ -1279,11 +1279,15 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                         if net.get(ext_net_extn.EXTERNAL):
                             route['external'] = True
 
-    def _update_routes(self, context, router_id, nexthop):
+    def _prepare_edge_extra_routes(self, context, router_id):
         routes = self._get_extra_routes_by_router_id(context, router_id)
         filters = {'device_id': [router_id]}
         ports = self.get_ports(context, filters)
         self._add_network_info_for_routes(context, routes, ports)
+        return routes
+
+    def _update_routes(self, context, router_id, nexthop):
+        routes = self._prepare_edge_extra_routes(context, router_id)
         edge_utils.update_routes(self.nsx_v, context, router_id,
                                  routes, nexthop)
 
