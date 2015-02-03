@@ -60,7 +60,6 @@ from vmware_nsx.neutron.plugins.vmware.common import utils as c_utils
 from vmware_nsx.neutron.plugins.vmware.dbexts import (
     distributedrouter as dist_rtr)
 from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
-from vmware_nsx.neutron.plugins.vmware.dbexts import networkgw_db
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
 from vmware_nsx.neutron.plugins.vmware.dbexts import vnic_index_db
 from vmware_nsx.neutron.plugins.vmware.plugins import nsx_v_md_proxy
@@ -82,7 +81,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                    external_net_db.External_net_db_mixin,
                    extraroute_db.ExtraRoute_db_mixin,
                    l3_gwmode_db.L3_NAT_db_mixin,
-                   networkgw_db.NetworkGatewayMixin,
                    portbindings_db.PortBindingMixin,
                    portsecurity_db.PortSecurityDbMixin,
                    securitygroups_db.SecurityGroupDbMixin,
