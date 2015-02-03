@@ -55,21 +55,23 @@ from neutron.extensions import securitygroup as ext_sg
 from neutron.i18n import _LE, _LI, _LW
 from neutron.openstack.common import log as logging
 from neutron.plugins.common import constants as plugin_const
-from neutron.plugins.vmware.api_client import exception as api_exc
-from neutron.plugins.vmware.common import exceptions as nsx_exc
-from neutron.plugins.vmware.dbexts import maclearning as mac_db
-from neutron.plugins.vmware.dbexts import networkgw_db
-from neutron.plugins.vmware.dbexts import qos_db
+from neutron.plugins.vmware.dbexts import nsx_models
 from neutron.plugins.vmware.extensions import maclearning as mac_ext
 from neutron.plugins.vmware.extensions import networkgw
 from neutron.plugins.vmware.extensions import qos
+
 from vmware_nsx.neutron.plugins import vmware
+from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
+from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import nsx_utils
 from vmware_nsx.neutron.plugins.vmware.common import securitygroups as sg_utils
 from vmware_nsx.neutron.plugins.vmware.common import sync
 from vmware_nsx.neutron.plugins.vmware.common import utils as c_utils
 from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
+from vmware_nsx.neutron.plugins.vmware.dbexts import maclearning as mac_db
+from vmware_nsx.neutron.plugins.vmware.dbexts import networkgw_db
+from vmware_nsx.neutron.plugins.vmware.dbexts import qos_db
 from vmware_nsx.neutron.plugins.vmware import dhcpmeta_modes
 from vmware_nsx.neutron.plugins.vmware.nsxlib import l2gateway as l2gwlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import queue as queuelib
@@ -2087,8 +2089,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                       "because of an error in the NSX backend"), device_id)
         with context.session.begin(subtransactions=True):
             query = self._model_query(
-                context, networkgw_db.NetworkGatewayDevice).filter(
-                    networkgw_db.NetworkGatewayDevice.id == device_id)
+                context, nsx_models.NetworkGatewayDevice).filter(
+                    nsx_models.NetworkGatewayDevice.id == device_id)
             if is_create:
                 query.delete(synchronize_session=False)
             else:
@@ -2123,8 +2125,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # set NSX GW device in neutron database and update status
             with context.session.begin(subtransactions=True):
                 query = self._model_query(
-                    context, networkgw_db.NetworkGatewayDevice).filter(
-                        networkgw_db.NetworkGatewayDevice.id == neutron_id)
+                    context, nsx_models.NetworkGatewayDevice).filter(
+                        nsx_models.NetworkGatewayDevice.id == neutron_id)
                 query.update({'status': device_status,
                               'nsx_id': nsx_res['uuid']},
                              synchronize_session=False)
@@ -2162,8 +2164,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # update status
             with context.session.begin(subtransactions=True):
                 query = self._model_query(
-                    context, networkgw_db.NetworkGatewayDevice).filter(
-                        networkgw_db.NetworkGatewayDevice.id == neutron_id)
+                    context, nsx_models.NetworkGatewayDevice).filter(
+                        nsx_models.NetworkGatewayDevice.id == neutron_id)
                 query.update({'status': device_status},
                              synchronize_session=False)
             LOG.debug("Neutron gateway device: %(neutron_id)s; "
@@ -2197,8 +2199,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Update status in database
         with context.session.begin(subtransactions=True):
             query = self._model_query(
-                context, networkgw_db.NetworkGatewayDevice).filter(
-                    networkgw_db.NetworkGatewayDevice.id == device_id)
+                context, nsx_models.NetworkGatewayDevice).filter(
+                    nsx_models.NetworkGatewayDevice.id == device_id)
             query.update({'status': device_status},
                          synchronize_session=False)
         gw_device['status'] = device_status

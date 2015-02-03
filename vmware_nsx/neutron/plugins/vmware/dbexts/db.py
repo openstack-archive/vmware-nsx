@@ -21,7 +21,7 @@ from sqlalchemy.orm import exc
 import neutron.db.api as db
 from neutron.openstack.common import log as logging
 from neutron.plugins.vmware.dbexts import models
-from neutron.plugins.vmware.dbexts import networkgw_db
+from neutron.plugins.vmware.dbexts import nsx_models
 
 LOG = logging.getLogger(__name__)
 
@@ -173,13 +173,13 @@ def delete_neutron_nsx_router_mapping(session, neutron_id):
 
 def unset_default_network_gateways(session):
     with session.begin(subtransactions=True):
-        session.query(networkgw_db.NetworkGateway).update(
-            {networkgw_db.NetworkGateway.default: False})
+        session.query(nsx_models.NetworkGateway).update(
+            {nsx_models.NetworkGateway.default: False})
 
 
 def set_default_network_gateway(session, gw_id):
     with session.begin(subtransactions=True):
-        gw = (session.query(networkgw_db.NetworkGateway).
+        gw = (session.query(nsx_models.NetworkGateway).
               filter_by(id=gw_id).one())
         gw['default'] = True
 

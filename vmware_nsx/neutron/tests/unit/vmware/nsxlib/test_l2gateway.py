@@ -15,10 +15,10 @@
 #
 
 import mock
+from neutron.tests.unit import test_api_v2
 from oslo.serialization import jsonutils
 
-from neutron.plugins.vmware.api_client import exception
-from neutron.tests.unit import test_api_v2
+from vmware_nsx.neutron.plugins.vmware.api_client import exception
 from vmware_nsx.neutron.plugins.vmware.common import utils as nsx_utils
 from vmware_nsx.neutron.plugins.vmware import nsxlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import l2gateway as l2gwlib

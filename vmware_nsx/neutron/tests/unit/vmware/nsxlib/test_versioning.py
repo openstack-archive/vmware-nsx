@@ -14,10 +14,11 @@
 # limitations under the License.
 #
 
-from neutron.plugins.vmware.api_client import exception
 from neutron.tests import base
+
 from vmware_nsx.neutron.plugins.vmware.api_client import (
     version as version_module)
+from vmware_nsx.neutron.plugins.vmware.api_client import exception
 from vmware_nsx.neutron.plugins.vmware.nsxlib import router as routerlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import versioning
 

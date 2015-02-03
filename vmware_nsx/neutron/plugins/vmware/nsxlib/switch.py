@@ -21,8 +21,9 @@ from neutron.common import constants
 from neutron.common import exceptions as exception
 from neutron.i18n import _LE, _LI, _LW
 from neutron.openstack.common import log
-from neutron.plugins.vmware.api_client import exception as api_exc
-from neutron.plugins.vmware.common import exceptions as nsx_exc
+
+from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
+from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import utils
 from vmware_nsx.neutron.plugins.vmware import nsxlib
 

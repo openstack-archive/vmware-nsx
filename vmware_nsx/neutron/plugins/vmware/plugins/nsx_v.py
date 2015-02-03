@@ -49,17 +49,18 @@ from neutron.i18n import _LE, _LW
 from neutron.openstack.common import log as logging
 from neutron.openstack.common import uuidutils
 from neutron.plugins.vmware.common import exceptions as nsx_exc
-from neutron.plugins.vmware.dbexts import networkgw_db
 from neutron.plugins.vmware.extensions import (
      advancedserviceproviders as subnet_md)
 from neutron.plugins.vmware.extensions import (
     vnicindex as ext_vnic_idx)
+
 from vmware_nsx.neutron.plugins import vmware
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
 from vmware_nsx.neutron.plugins.vmware.common import utils as c_utils
 from vmware_nsx.neutron.plugins.vmware.dbexts import (
     distributedrouter as dist_rtr)
 from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
+from vmware_nsx.neutron.plugins.vmware.dbexts import networkgw_db
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
 from vmware_nsx.neutron.plugins.vmware.dbexts import vnic_index_db
 from vmware_nsx.neutron.plugins.vmware.plugins import nsx_v_md_proxy

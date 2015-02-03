@@ -13,11 +13,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo.config import cfg
-
 from neutron.i18n import _LI
 from neutron.openstack.common import log as logging
-from neutron.plugins.vmware.common import exceptions
+from oslo.config import cfg
+
+from vmware_nsx.neutron.plugins.vmware.common import exceptions
 
 LOG = logging.getLogger(__name__)
 DEFAULT_PORT = 443

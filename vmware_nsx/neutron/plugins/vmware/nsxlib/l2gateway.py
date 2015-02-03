@@ -14,11 +14,11 @@
 #    under the License.
 #
 
+from neutron.openstack.common import log
 from oslo.serialization import jsonutils
 
-from neutron.openstack.common import log
-from neutron.plugins.vmware.api_client import exception as api_exc
-from neutron.plugins.vmware.common import exceptions as nsx_exc
+from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
+from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import utils
 from vmware_nsx.neutron.plugins.vmware import nsxlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import switch

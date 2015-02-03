@@ -13,13 +13,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo.serialization import jsonutils
-
 from neutron.common import exceptions as exception
 from neutron.openstack.common import log
-from neutron.plugins.vmware.api_client import exception as api_exc
-from neutron.plugins.vmware.common import exceptions as nsx_exc
 from neutron import version
+from oslo.serialization import jsonutils
+
+from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
+from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 
 HTTP_GET = "GET"
 HTTP_POST = "POST"

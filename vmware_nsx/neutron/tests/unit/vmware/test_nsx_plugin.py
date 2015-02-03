@@ -38,16 +38,16 @@ from neutron.extensions import securitygroup as secgrp
 from neutron import manager
 from neutron.openstack.common import log
 from neutron.openstack.common import uuidutils
-from neutron.plugins.vmware.api_client import exception as api_exc
-from neutron.plugins.vmware.common import exceptions as nsx_exc
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.test_db_plugin as test_plugin
 import neutron.tests.unit.test_extension_ext_gw_mode as test_ext_gw_mode
 import neutron.tests.unit.test_extension_security_group as ext_sg
 import neutron.tests.unit.test_l3_plugin as test_l3_plugin
 from neutron.tests.unit import testlib_api
-from vmware_nsx.neutron.plugins.vmware.api_client import (
-    version as version_module)
+
+from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
+from vmware_nsx.neutron.plugins.vmware.api_client import version as ver_module
+from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import sync
 from vmware_nsx.neutron.plugins.vmware.common import utils
 from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
@@ -103,7 +103,7 @@ class NsxPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
 
         # Emulate tests against NSX 2.x
         self.mock_instance.return_value.get_version.return_value = (
-            version_module.Version("2.9"))
+            ver_module.Version("2.9"))
         self.mock_instance.return_value.request.side_effect = (
             self.fc.fake_request)
         super(NsxPluginV2TestCase, self).setUp(plugin=plugin,
@@ -547,7 +547,7 @@ class TestL3NatTestCase(L3NatTest,
     def _test_router_create_with_distributed(self, dist_input, dist_expected,
                                              version='3.1', return_code=201):
         self.mock_instance.return_value.get_version.return_value = (
-            version_module.Version(version))
+            ver_module.Version(version))
 
         data = {'tenant_id': 'whatever'}
         data['name'] = 'router1'

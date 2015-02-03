@@ -14,12 +14,12 @@
 # limitations under the License.
 
 import mock
+from neutron.common import exceptions
+from neutron.tests import base
 from oslo.serialization import jsonutils
 
-from neutron.common import exceptions
-from neutron.plugins.vmware.api_client import exception as api_exc
-from neutron.plugins.vmware.common import exceptions as nsx_exc
-from neutron.tests import base
+from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
+from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import utils
 from vmware_nsx.neutron.plugins.vmware.nsxlib import lsn as lsnlib
 

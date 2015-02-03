@@ -16,8 +16,6 @@
 
 from eventlet import greenthread
 import netaddr
-from oslo.config import cfg
-
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
 from neutron.api.v2 import attributes
 from neutron.common import constants as const
@@ -27,9 +25,11 @@ from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron.i18n import _LE, _LI, _LW
 from neutron.openstack.common import log as logging
-from neutron.plugins.vmware.api_client import exception as api_exc
-from neutron.plugins.vmware.common import exceptions as nsx_exc
+from oslo.config import cfg
+
+from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import config
+from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 
 LOG = logging.getLogger(__name__)
 
