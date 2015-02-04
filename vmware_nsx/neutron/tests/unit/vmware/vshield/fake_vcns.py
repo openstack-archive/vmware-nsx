@@ -997,3 +997,6 @@ class FakeVcns(object):
 
     def validate_dvs(self, object_id):
         return True
+
+    def edges_lock_operation(self):
+        pass
