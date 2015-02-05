@@ -896,11 +896,14 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         with context.session.begin(subtransactions=True):
             super(NsxVPluginV2, self).delete_subnet(context, id)
 
-        if subnet['enable_dhcp'] and len(ports) == 1:
-            port = ports.pop()
-            self._delete_port(context, port['id'])
-            network_id = subnet['network_id']
+        if subnet['enable_dhcp']:
+            # There is only DHCP port available
+            if len(ports) == 1:
+                port = ports.pop()
+                self._delete_port(context, port['id'])
+
             # Delete the DHCP edge service
+            network_id = subnet['network_id']
             filters = {'network_id': [network_id]}
             remaining_subnets = self.get_subnets(context, filters=filters)
             if len(remaining_subnets) == 0:
