@@ -1910,6 +1910,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         approved_addrs = [addr['ip_address'] for addr in port['fixed_ips']]
         self.nsx_v.vcns.approve_assigned_addresses(
             sg_policy_id, vnic_id, mac_addr, approved_addrs)
+        self.nsx_v.vcns.publish_assigned_addresses(sg_policy_id)
 
     def _is_compute_port(self, port):
         try:

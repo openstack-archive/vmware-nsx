@@ -14,13 +14,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import functools
 import time
 
 from oslo.config import cfg
 from oslo.serialization import jsonutils
 import xml.etree.ElementTree as et
 
-from neutron.i18n import _LI
 from neutron.openstack.common import log as logging
 from vmware_nsx.neutron.plugins.vmware.vshield.common import exceptions
 from vmware_nsx.neutron.plugins.vmware.vshield.common import VcnsApiClient
@@ -60,6 +60,24 @@ DHCP_SERVICE = "dhcp/config"
 DHCP_BINDING_RESOURCE = "bindings"
 
 
+def retry_upon_exception(exception, delay=0.5, max_delay=2):
+    def retry_decorator(f):
+        @functools.wraps(f)
+        def retry_wrapper(*args, **kwargs):
+            retries = max(cfg.CONF.nsxv.retries, 1)
+            for attempt in range(1, retries + 1):
+                try:
+                    return f(*args, **kwargs)
+                except exception as e:
+                    if attempt == retries:
+                        LOG.info("NSXv: API called failed")
+                        raise e
+                    tts = (2 ** (attempt - 1)) * delay
+                    time.sleep(min(tts, max_delay))
+        return retry_wrapper
+    return retry_decorator
+
+
 class Vcns(object):
 
     def __init__(self, address, user, password):
@@ -71,20 +89,10 @@ class Vcns(object):
         self.xmlapi_client = VcnsApiClient.VcnsApiHelper(address, user,
                                                          password, 'xml')
 
-    def _client_request(self, client, method, uri, params, headers,
-                        encodeParams):
-        retries = max(cfg.CONF.nsxv.retries, 1)
-        delay = 0.5
-        for attempt in range(1, retries + 1):
-            if attempt != 1:
-                time.sleep(delay)
-                delay = min(2 * delay, 60)
-            try:
-                return client(method, uri, params, headers, encodeParams)
-            except exceptions.ServiceConflict as e:
-                if attempt == retries:
-                    raise e
-            LOG.info(_LI('NSXv: conflict on request. Trying again.'))
+    @retry_upon_exception(exceptions.ServiceConflict)
+    def _client_request(self, client, method, uri,
+                        params, headers, encodeParams):
+        return client(method, uri, params, headers, encodeParams)
 
     def do_request(self, method, uri, params=None, format='json', **kwargs):
         LOG.debug("VcnsApiHelper('%(method)s', '%(uri)s', '%(body)s')", {
@@ -525,6 +533,7 @@ class Vcns(object):
                                     security_group_id, member_id)
         return self.do_request(HTTP_DELETE, uri, format='xml', decode=False)
 
+    @retry_upon_exception(exceptions.RequestBad)
     def create_spoofguard_policy(self, enforcement_point, name, enable):
         uri = '%s/policies/' % SPOOFGUARD_PREFIX
 
@@ -538,6 +547,7 @@ class Vcns(object):
         return self.do_request(HTTP_POST, uri, body,
                                format='xml', encode=True, decode=False)
 
+    @retry_upon_exception(exceptions.RequestBad)
     def update_spoofguard_policy(self, policy_id,
                                  enforcement_point, name, enable):
         update_uri = '%s/policies/%s' % (SPOOFGUARD_PREFIX, policy_id)
@@ -556,10 +566,12 @@ class Vcns(object):
                         format='xml', encode=True, decode=False)
         return self.do_request(HTTP_POST, publish_uri, decode=False)
 
+    @retry_upon_exception(exceptions.RequestBad)
     def delete_spoofguard_policy(self, policy_id):
         uri = '%s/policies/%s' % (SPOOFGUARD_PREFIX, policy_id)
         return self.do_request(HTTP_DELETE, uri, decode=False)
 
+    @retry_upon_exception(exceptions.RequestBad)
     def approve_assigned_addresses(self, policy_id,
                                    vnic_id, mac_addr, addresses):
         uri = '%s/%s' % (SPOOFGUARD_PREFIX, policy_id)
@@ -573,9 +585,14 @@ class Vcns(object):
                   'publishedIpAddress': addresses,
                   'publishedMacAddress': mac_addr}}}
 
-        self.do_request(HTTP_POST, '%s?action=approve' % uri,
-                        body, format='xml', decode=False)
-        self.do_request(HTTP_POST, '%s?action=publish' % uri, decode=False)
+        return self.do_request(HTTP_POST, '%s?action=approve' % uri,
+                               body, format='xml', decode=False)
+
+    @retry_upon_exception(exceptions.VcnsApiException)
+    def publish_assigned_addresses(self, policy_id):
+        uri = '%s/%s' % (SPOOFGUARD_PREFIX, policy_id)
+        return self.do_request(HTTP_POST, '%s?action=publish' % uri,
+                               decode=False)
 
     def inactivate_vnic_assigned_addresses(self, policy_id, vnic_id):
         return self.approve_assigned_addresses(policy_id, vnic_id, '', [])
