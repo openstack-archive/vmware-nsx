@@ -98,6 +98,7 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
         self.plugin._update_routes(context, router_id, newnexthop)
 
     def add_router_interface(self, context, router_id, interface_info):
+        self.plugin._check_intf_number_of_router(context, router_id)
         info = super(nsx_v.NsxVPluginV2, self.plugin).add_router_interface(
             context, router_id, interface_info)
 

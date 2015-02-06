@@ -50,7 +50,7 @@ from neutron.openstack.common import log as logging
 from neutron.openstack.common import uuidutils
 from neutron.plugins.vmware.common import exceptions as nsx_exc
 from neutron.plugins.vmware.extensions import (
-     advancedserviceproviders as as_providers)
+    advancedserviceproviders as as_providers)
 from neutron.plugins.vmware.extensions import (
     vnicindex as ext_vnic_idx)
 
@@ -64,6 +64,8 @@ from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
 from vmware_nsx.neutron.plugins.vmware.dbexts import vnic_index_db
 from vmware_nsx.neutron.plugins.vmware.plugins import managers
 from vmware_nsx.neutron.plugins.vmware.plugins import nsx_v_md_proxy
+from vmware_nsx.neutron.plugins.vmware.vshield.common import (
+    constants as vcns_const)
 from vmware_nsx.neutron.plugins.vmware.vshield.common import (
     exceptions as vsh_exc)
 from vmware_nsx.neutron.plugins.vmware.vshield import edge_utils
@@ -1368,6 +1370,18 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             router_id = router['id']
         edge_utils.update_nat_rules(
             self.nsx_v, context, router_id, snat, dnat)
+
+    def _check_intf_number_of_router(self, context, router_id):
+        intf_ports = self._get_port_by_device_id(
+            context, router_id, l3_db.DEVICE_OWNER_ROUTER_INTF)
+        if len(intf_ports) >= (vcns_const.MAX_INTF_NUM):
+            err_msg = _("interfaces number on router: %(router_id)s "
+                        "has reached the maximum %(number)d which NSXv can "
+                        "support. Please use vdr if you want to add unlimited "
+                        "interfaces") % {'router_id': router_id,
+                                         'number': vcns_const.MAX_INTF_NUM}
+            raise nsx_exc.ServiceOverQuota(overs="router-interface-add",
+                                           err_msg=err_msg)
 
     def add_router_interface(self, context, router_id, interface_info):
         router_driver = self._find_router_driver(context, router_id)

@@ -425,6 +425,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                                                                 router_id)
 
     def add_router_interface(self, context, router_id, interface_info):
+        self.plugin._check_intf_number_of_router(context, router_id)
         edge_id = edge_utils.get_router_edge_id(context, router_id)
         if edge_id:
             is_migrated = False

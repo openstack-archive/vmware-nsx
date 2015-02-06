@@ -32,6 +32,9 @@ INTERNAL_VNIC_INDEX = 1
 EXTERNAL_VNIC_NAME = "external"
 INTERNAL_VNIC_NAME = "internal"
 MAX_VNIC_NUM = 10
+# we can add at most 8 interfaces on service edge. Other two interfaces
+# are used for metadata and external network access.
+MAX_INTF_NUM = 8
 MAX_TUNNEL_NUM = (cfg.CONF.nsxv.maximum_tunnels_per_vnic if
                   (cfg.CONF.nsxv.maximum_tunnels_per_vnic < 110 and
                    cfg.CONF.nsxv.maximum_tunnels_per_vnic > 0)
