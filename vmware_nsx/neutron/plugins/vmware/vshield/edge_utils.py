@@ -1254,7 +1254,8 @@ def update_vdr_internal_interface(
         vcns_network_id, address_groups=address_groups)
 
 
-def delete_interface(nsxv_manager, context, router_id, network_id, dist=False):
+def delete_interface(nsxv_manager, context, router_id, network_id,
+                     dist=False, is_wait=True):
     # Get the pg/wire id of the network id
     mappings = nsx_db.get_nsx_switch_ids(context.session, network_id)
     if mappings:
@@ -1277,7 +1278,8 @@ def delete_interface(nsxv_manager, context, router_id, network_id, dist=False):
     if not dist:
         task = nsxv_manager.delete_interface(
             router_id, edge_id, edge_vnic_binding.vnic_index)
-        task.wait(task_const.TaskState.RESULT)
+        if is_wait:
+            task.wait(task_const.TaskState.RESULT)
         nsxv_db.free_edge_vnic_by_network(
             context.session, edge_id, network_id)
     else:
