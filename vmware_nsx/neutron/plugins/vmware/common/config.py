@@ -235,7 +235,11 @@ nsxv_opts = [
                help=_("TCP Port used by Nova metadata server")),
     cfg.StrOpt('metadata_shared_secret',
                secret=True,
-               help=_('Shared secret to sign metadata requests'))
+               help=_('Shared secret to sign metadata requests')),
+    cfg.BoolOpt('spoofguard_enabled',
+                default=True,
+                help=_("If True then plugin will use NSXV spoofguard "
+                       "component for port-security feature."))
 ]
 
 # Register the configuration options

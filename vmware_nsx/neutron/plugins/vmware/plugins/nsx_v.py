@@ -513,7 +513,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                     raise n_exc.InvalidInput(error_message=err_msg)
         try:
             # Create SpoofGuard policy for network anti-spoofing
-            if backend_network:
+            if cfg.CONF.nsxv.spoofguard_enabled and backend_network:
                 sg_policy_id = None
                 s, sg_policy_id = self.nsx_v.vcns.create_spoofguard_policy(
                     net_moref, net_data['id'], net_data[psec.PORTSECURITY])
@@ -556,14 +556,15 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                     nsx_db.add_neutron_nsx_network_mapping(
                         context.session, new_net['id'],
                         net_moref)
-                    nsxv_db.map_spoofguard_policy_for_network(
-                        context.session, new_net['id'], sg_policy_id)
+                    if cfg.CONF.nsxv.spoofguard_enabled:
+                        nsxv_db.map_spoofguard_policy_for_network(
+                            context.session, new_net['id'], sg_policy_id)
 
         except Exception:
             with excutils.save_and_reraise_exception():
                 # Delete the backend network
                 if backend_network:
-                    if sg_policy_id:
+                    if cfg.CONF.nsxv.spoofguard_enabled and sg_policy_id:
                         self.nsx_v.vcns.delete_spoofguard_policy(sg_policy_id)
                     self._delete_backend_network(net_moref)
                 LOG.exception(_LE('Failed to create network'))
@@ -594,7 +595,9 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
     def delete_network(self, context, id):
         mappings = nsx_db.get_nsx_switch_ids(context.session, id)
         bindings = nsxv_db.get_network_bindings(context.session, id)
-        sg_policy_id = nsxv_db.get_spoofguard_policy_id(context.session, id)
+        if cfg.CONF.nsxv.spoofguard_enabled:
+            sg_policy_id = nsxv_db.get_spoofguard_policy_id(
+                context.session, id)
 
         # Update the DHCP edge for metadata and clean the vnic in DHCP edge
         # if there is only no other existing port besides DHCP port
@@ -625,7 +628,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         # the base operation as that may throw an exception in the case
         # that there are ports defined on the network.
         if mappings:
-            if sg_policy_id:
+            if cfg.CONF.nsxv.spoofguard_enabled and sg_policy_id:
                 self.nsx_v.vcns.delete_spoofguard_policy(sg_policy_id)
             self._delete_backend_network(mappings[0])
 
@@ -682,7 +685,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
         # Updating SpoofGuard policy if exists, on failure revert to network
         # old state
-        if psec_update:
+        if cfg.CONF.nsxv.spoofguard_enabled and psec_update:
             policy_id = nsxv_db.get_spoofguard_policy_id(context.session, id)
             net_moref = nsx_db.get_nsx_switch_ids(context.session, id)
             try:
@@ -743,7 +746,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         original_port = super(NsxVPluginV2, self).get_port(context, id)
         is_compute_port = self._is_compute_port(original_port)
         device_id = original_port['device_id']
-        has_port_security = original_port[psec.PORTSECURITY]
+        has_port_security = (cfg.CONF.nsxv.spoofguard_enabled and
+                             original_port[psec.PORTSECURITY])
 
         # TODO(roeyc): create a method '_process_vnic_index_update' from the
         # following code block
@@ -825,8 +829,9 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 # delete security-groups memberships for the vnic
                 self._delete_security_groups_port_mapping(
                     context.session, vnic_id, curr_sgids)
-                self._remove_vnic_from_spoofguard_policy(
-                    context.session, port['network_id'], vnic_id)
+                if cfg.CONF.nsxv.spoofguard_enabled:
+                    self._remove_vnic_from_spoofguard_policy(
+                        context.session, port['network_id'], vnic_id)
                 self._delete_port_vnic_index_mapping(context, id)
             else:
                 # Update vnic with the newest approved IP addresses
@@ -876,7 +881,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             sgids = neutron_db_port.get(ext_sg.SECURITYGROUPS)
             self._delete_security_groups_port_mapping(
                 context.session, vnic_id, sgids)
-            if neutron_db_port[psec.PORTSECURITY]:
+            if (cfg.CONF.nsxv.spoofguard_enabled and
+                neutron_db_port[psec.PORTSECURITY]):
                 self._remove_vnic_from_spoofguard_policy(
                     context.session, neutron_db_port['network_id'], vnic_id)
 
