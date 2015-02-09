@@ -824,6 +824,11 @@ class FakeVcns(object):
             status, response = 200, ''
         return ({'status': status}, response)
 
+    def get_security_group_id(self, sg_name):
+        for k, v in self._securitygroups.items():
+            if k not in ('ids', 'names') and v['name'] == sg_name:
+                return k
+
     def create_section(self, type, request):
         section = ET.fromstring(request)
         section_name = section.attrib.get('name')
@@ -909,6 +914,13 @@ class FakeVcns(object):
             headers = {'status': 200,
                        'etag': self._sections[section_id]['etag']}
         return (headers, response)
+
+    def get_section_id(self, section_name):
+        self._sections = {'section_ids': 0, 'rule_ids': 0, 'names': set()}
+        for k, v in self._sections.items():
+            if (k not in ('section_ids', 'rule_ids', 'names')
+                and v['name'] == section_name):
+                return k
 
     def remove_rule_from_section(self, section_uri, rule_id):
         section_id = self._get_section_id_from_uri(section_uri)

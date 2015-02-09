@@ -1480,6 +1480,7 @@ class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
                 self._delete('ports', port['id'])
 
     def test_vnic_security_group_membership(self):
+        p = manager.NeutronManager.get_plugin()
         self.fc2.add_member_to_security_group = (
             mock.Mock().add_member_to_security_group)
         self.fc2.remove_member_from_security_group = (
@@ -1491,6 +1492,9 @@ class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
         vnic_id = '%s.%03d' % (device_id, port_index)
         with self.port(device_id=device_id,
                        device_owner='compute:None') as port:
+            (self.fc2.add_member_to_security_group
+             .assert_called_once_with(p.sg_container_id, nsx_sg_id))
+            self.fc2.add_member_to_security_group.reset_mock()
             data = {'port': {'vnic_index': port_index}}
             self.new_update_request('ports', data,
                                     port['port']['id']).get_response(self.api)

@@ -459,6 +459,15 @@ class Vcns(object):
         uri = '%s/%s?force=true' % (SECURITYGROUP_PREFIX, securitygroup_id)
         return self.do_request(HTTP_DELETE, uri, format='xml', decode=False)
 
+    def get_security_group_id(self, sg_name):
+        """Returns NSXv security group id which match the given name."""
+        uri = '%s/scope/globalroot-0' % SECURITYGROUP_PREFIX
+        h, c = self.do_request(HTTP_GET, uri, format='xml', decode=False)
+        root = et.fromstring(c)
+        for sg in root.iter('securitygroup'):
+            if sg.find('name').text == sg_name:
+                return sg.find('objectId').text
+
     def create_section(self, type, request):
         """Creates a layer 3 or layer 2 section in nsx rule table.
 
