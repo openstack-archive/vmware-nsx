@@ -190,7 +190,8 @@ class SyncParameters():
         self.total_size = 0
 
 
-def _start_loopingcall(min_chunk_size, state_sync_interval, func):
+def _start_loopingcall(min_chunk_size, state_sync_interval, func,
+                       initial_delay=5):
     """Start a loopingcall for the synchronization task."""
     # Start a looping call to synchronize operational status
     # for neutron resources
@@ -201,6 +202,7 @@ def _start_loopingcall(min_chunk_size, state_sync_interval, func):
     state_synchronizer = loopingcall.DynamicLoopingCall(
         func, sp=SyncParameters(min_chunk_size))
     state_synchronizer.start(
+        initial_delay=initial_delay,
         periodic_interval_max=state_sync_interval)
     return state_synchronizer
 
@@ -220,7 +222,8 @@ class NsxSynchronizer():
         relations='LogicalPortStatus')
 
     def __init__(self, plugin, cluster, state_sync_interval,
-                 req_delay, min_chunk_size, max_rand_delay=0):
+                 req_delay, min_chunk_size, max_rand_delay=0,
+                 initial_delay=5):
         random.seed()
         self._nsx_cache = NsxCache()
         # Store parameters as instance members
@@ -243,7 +246,8 @@ class NsxSynchronizer():
         # Store the looping call in an instance variable to allow unit tests
         # for controlling its lifecycle
         self._sync_looping_call = _start_loopingcall(
-            min_chunk_size, state_sync_interval, self._synchronize_state)
+            min_chunk_size, state_sync_interval,
+            self._synchronize_state, initial_delay=initial_delay)
 
     def _get_tag_dict(self, tags):
         return dict((tag.get('scope'), tag['tag']) for tag in tags)
