@@ -556,13 +556,15 @@ class EdgeManager(object):
                                                     mac_address, binding_id)
 
     def create_dhcp_edge_service(self, context, network_id,
-                                 conflict_networks=[]):
+                                 conflict_networks=None):
         """
         Create an edge if there is no available edge for dhcp service,
         Update an edge if there is available edge for dhcp service
 
         If new edge was allocated, return resource_id, else return None
         """
+        if conflict_networks is None:
+            conflict_networks = []
         # Query all conflict edges and available edges first
         conflict_edge_ids = []
         available_edge_ids = []
