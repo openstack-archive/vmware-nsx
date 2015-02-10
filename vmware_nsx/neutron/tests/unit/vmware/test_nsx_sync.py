@@ -250,9 +250,10 @@ class SyncLoopingCallTestCase(base.BaseTestCase):
         # Avoid runs of the synchronization process - just start
         # the looping call
         with mock.patch.object(
-            sync.NsxSynchronizer, '_synchronize_state', return_value=0.01):
+            sync.NsxSynchronizer, '_synchronize_state', return_value=0.01,):
             synchronizer = sync.NsxSynchronizer(mock.ANY, mock.ANY,
-                                                100, 0, 0)
+                                                100, 0, 0,
+                                                initial_delay=0)
             time.sleep(0.03)
             # stop looping call before asserting
             synchronizer._sync_looping_call.stop()
