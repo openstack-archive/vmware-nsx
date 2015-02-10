@@ -962,7 +962,7 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
         providernet_args = {pnet.NETWORK_TYPE: 'vlan',
                             pnet.SEGMENTATION_ID: 43,
                             pnet.PHYSICAL_NETWORK: 'dvs-uuid'}
-        with self.network(name=name,
+        with self.network(name=name, do_delete=False,
                           providernet_args=providernet_args,
                           arg_list=(pnet.NETWORK_TYPE,
                                     pnet.SEGMENTATION_ID,
@@ -975,7 +975,7 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
             providernet_args_1 = {pnet.NETWORK_TYPE: 'vlan',
                                   pnet.SEGMENTATION_ID: 43,
                                   pnet.PHYSICAL_NETWORK: 'dvs-uuid-1'}
-            with self.network(name=name,
+            with self.network(name=name, do_delete=False,
                               providernet_args=providernet_args_1,
                               arg_list=(pnet.NETWORK_TYPE,
                                         pnet.SEGMENTATION_ID,
@@ -992,7 +992,7 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
         name = 'flat-net'
         providernet_args = {pnet.NETWORK_TYPE: 'flat',
                             pnet.PHYSICAL_NETWORK: 'dvs-uuid'}
-        with self.network(name=name,
+        with self.network(name=name, do_delete=False,
                           providernet_args=providernet_args,
                           arg_list=(pnet.NETWORK_TYPE,
                                     pnet.PHYSICAL_NETWORK)) as net:
@@ -1003,7 +1003,7 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
                 self.context.session, dhcp_router_id)['edge_id']
             providernet_args_1 = {pnet.NETWORK_TYPE: 'flat',
                                   pnet.PHYSICAL_NETWORK: 'dvs-uuid'}
-            with self.network(name=name,
+            with self.network(name=name, do_delete=False,
                               providernet_args=providernet_args_1,
                               arg_list=(pnet.NETWORK_TYPE,
                                         pnet.PHYSICAL_NETWORK)) as net1:
