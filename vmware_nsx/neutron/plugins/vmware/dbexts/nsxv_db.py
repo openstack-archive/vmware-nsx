@@ -17,6 +17,7 @@
 from oslo.db import exception as db_exc
 from oslo.utils import excutils
 from sqlalchemy.orm import exc
+from sqlalchemy.sql import expression as expr
 
 import neutron.db.api as db
 from neutron.i18n import _, _LE
@@ -159,9 +160,26 @@ def allocate_edge_vnic(session, edge_id, network_id):
 def allocate_edge_vnic_with_tunnel_index(session, edge_id, network_id):
     """Allocate an avaliable edge vnic with tunnel index to network."""
 
+    # TODO(berlin): temporary solution to let metadata and dhcp use
+    # different vnics
+    net_list = get_nsxv_internal_network(
+        session, constants.InternalEdgePurposes.INTER_EDGE_PURPOSE)
+    metadata_net_id = net_list[0]['network_id'] if net_list else None
+
     with session.begin(subtransactions=True):
-        binding = (session.query(nsxv_models.NsxvEdgeVnicBinding).
-                   filter_by(edge_id=edge_id, network_id=None).first())
+        query = session.query(nsxv_models.NsxvEdgeVnicBinding)
+        query = query.filter(
+            nsxv_models.NsxvEdgeVnicBinding.edge_id == edge_id,
+            nsxv_models.NsxvEdgeVnicBinding.network_id == expr.null())
+        if metadata_net_id:
+            vnic_binding = get_edge_vnic_binding(
+                session, edge_id, metadata_net_id)
+            if vnic_binding:
+                vnic_index = vnic_binding.vnic_index
+                query = query.filter(
+                    nsxv_models.NsxvEdgeVnicBinding.vnic_index != vnic_index)
+
+        binding = query.first()
         if not binding:
             msg = (_("Failed to allocate one available vnic on edge_id: "
                      ":%(edge_id)s to network_id: %(network_id)s") %
