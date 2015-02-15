@@ -21,6 +21,7 @@ import time
 import netaddr
 from oslo.config import cfg
 from oslo.db import exception as db_exc
+from oslo_utils import excutils
 
 from neutron.api.v2 import attributes as attr
 from neutron.common import constants
@@ -40,9 +41,9 @@ METADATA_TCP_PORT = 80
 INTERNAL_SUBNET = '169.254.128.0/17'
 MAX_INIT_THREADS = 3
 
-NET_WAIT_INTERVAL = 120
+NET_WAIT_INTERVAL = 240
 NET_CHECK_INTERVAL = 10
-EDGE_WAIT_INTERVAL = 600
+EDGE_WAIT_INTERVAL = 900
 EDGE_CHECK_INTERVAL = 10
 
 LOG = logging.getLogger(__name__)
@@ -128,6 +129,9 @@ class NsxVMetadataProxyHandler:
         return internal_net, internal_subnet
 
     def _get_internal_network_and_subnet(self):
+        internal_net = None
+        internal_subnet = None
+
         try:
             nsxv_db.create_nsxv_internal_network(
                 self.context.session,
@@ -138,8 +142,21 @@ class NsxVMetadataProxyHandler:
             #  initialized these elements. Use existing elements
             return self._get_internal_network()
 
-        internal_net, internal_subnet = (
-            self._create_metadata_internal_network(INTERNAL_SUBNET))
+        try:
+            internal_net, internal_subnet = (
+                self._create_metadata_internal_network(INTERNAL_SUBNET))
+        except Exception as e:
+            with excutils.save_and_reraise_exception():
+                nsxv_db.delete_nsxv_internal_network(
+                    self.context.session,
+                    vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE)
+
+                # if network is created, clean up
+                if internal_net:
+                    self.nsxv_plugin.delete_network(self.context, internal_net)
+
+                LOG.exception(_("Exception %s while creating internal network "
+                                "for metadata service"), e)
 
         # Update the new network_id in DB
         nsxv_db.update_nsxv_internal_network(
@@ -197,81 +214,94 @@ class NsxVMetadataProxyHandler:
                 ctr += EDGE_CHECK_INTERVAL
                 time.sleep(EDGE_CHECK_INTERVAL)
 
-            error = _('Network creation on other neutron instance timed out')
+            error = _('Metadata proxy creation on other neutron instance '
+                      'timed out')
             raise nsxv_exc.NsxPluginException(err_msg=error)
 
-        router_data = {
-            'router': {
-                'name': 'metadata_proxy_router',
-                'admin_state_up': True,
-                'tenant_id': None}}
+        try:
+            router_data = {
+                'router': {
+                    'name': 'metadata_proxy_router',
+                    'admin_state_up': True,
+                    'tenant_id': None}}
 
-        rtr = self.nsxv_plugin.create_router(
-            self.context,
-            router_data,
-            allow_metadata=False)
+            rtr = self.nsxv_plugin.create_router(
+                self.context,
+                router_data,
+                allow_metadata=False)
 
-        rtr_id = rtr['id']
-        binding = nsxv_db.get_nsxv_router_binding(
-            self.context.session,
-            rtr_id)
+            rtr_id = rtr['id']
+            binding = nsxv_db.get_nsxv_router_binding(
+                self.context.session,
+                rtr_id)
 
-        self.nsxv_plugin.nsx_v.update_interface(
-            rtr['id'],
-            binding['edge_id'],
-            vcns_const.EXTERNAL_VNIC_INDEX,
-            cfg.CONF.nsxv.mgt_net_moid,
-            address=rtr_ip,
-            netmask=cfg.CONF.nsxv.mgt_net_proxy_netmask,
-            secondary=[])
+            self.nsxv_plugin.nsx_v.update_interface(
+                rtr['id'],
+                binding['edge_id'],
+                vcns_const.EXTERNAL_VNIC_INDEX,
+                cfg.CONF.nsxv.mgt_net_moid,
+                address=rtr_ip,
+                netmask=cfg.CONF.nsxv.mgt_net_proxy_netmask,
+                secondary=[])
 
-        port_data = {
-            'port': {
-                'network_id': self.internal_net,
-                'name': None,
-                'admin_state_up': True,
-                'device_id': rtr_id,
-                'device_owner': constants.DEVICE_OWNER_ROUTER_INTF,
-                'fixed_ips': attr.ATTR_NOT_SPECIFIED,
-                'mac_address': attr.ATTR_NOT_SPECIFIED,
-                'port_security_enabled': False,
-                'tenant_id': None}}
+            port_data = {
+                'port': {
+                    'network_id': self.internal_net,
+                    'name': None,
+                    'admin_state_up': True,
+                    'device_id': rtr_id,
+                    'device_owner': constants.DEVICE_OWNER_ROUTER_INTF,
+                    'fixed_ips': attr.ATTR_NOT_SPECIFIED,
+                    'mac_address': attr.ATTR_NOT_SPECIFIED,
+                    'port_security_enabled': False,
+                    'tenant_id': None}}
 
-        port = self.nsxv_plugin.create_port(self.context, port_data)
+            port = self.nsxv_plugin.create_port(self.context, port_data)
 
-        address_groups = self._get_address_groups(
-            self.context, self.internal_net, rtr_id, is_proxy=True)
+            address_groups = self._get_address_groups(
+                self.context, self.internal_net, rtr_id, is_proxy=True)
 
-        edge_ip = port['fixed_ips'][0]['ip_address']
-        edge_utils.update_internal_interface(
-            self.nsxv_plugin.nsx_v, self.context, rtr_id,
-            self.internal_net, address_groups)
+            edge_ip = port['fixed_ips'][0]['ip_address']
+            edge_utils.update_internal_interface(
+                self.nsxv_plugin.nsx_v, self.context, rtr_id,
+                self.internal_net, address_groups)
 
-        self._setup_metadata_lb(rtr_id,
-                                port['fixed_ips'][0]['ip_address'],
-                                cfg.CONF.nsxv.nova_metadata_port,
-                                cfg.CONF.nsxv.nova_metadata_port,
-                                cfg.CONF.nsxv.nova_metadata_ips,
-                                proxy_lb=True)
+            self._setup_metadata_lb(rtr_id,
+                                    port['fixed_ips'][0]['ip_address'],
+                                    cfg.CONF.nsxv.nova_metadata_port,
+                                    cfg.CONF.nsxv.nova_metadata_port,
+                                    cfg.CONF.nsxv.nova_metadata_ips,
+                                    proxy_lb=True)
 
-        firewall_rule = {
-            'action': 'allow',
-            'enabled': True,
-            'source_ip_address': [INTERNAL_SUBNET]}
+            firewall_rule = {
+                'action': 'allow',
+                'enabled': True,
+                'source_ip_address': [INTERNAL_SUBNET]}
 
-        edge_utils.update_firewall(
-            self.nsxv_plugin.nsx_v,
-            self.context,
-            rtr_id,
-            {'firewall_rule_list': [firewall_rule]},
-            allow_external=False)
+            edge_utils.update_firewall(
+                self.nsxv_plugin.nsx_v,
+                self.context,
+                rtr_id,
+                {'firewall_rule_list': [firewall_rule]},
+                allow_external=False)
 
-        nsxv_db.update_nsxv_internal_edge(
-            self.context.session,
-            rtr_ip,
-            rtr_id)
+            nsxv_db.update_nsxv_internal_edge(
+                self.context.session,
+                rtr_ip,
+                rtr_id)
 
-        return edge_ip
+            return edge_ip
+
+        except Exception as e:
+            with excutils.save_and_reraise_exception():
+                nsxv_db.delete_nsxv_internal_edge(
+                    self.context.session,
+                    rtr_ip)
+
+                if rtr_id:
+                    self.nsxv_plugin.delete_router(self.context, rtr_id)
+                LOG.exception(_("Exception %s while creating internal edge "
+                                "for metadata service"), e)
 
     def _get_address_groups(self, context, network_id, device_id, is_proxy):
 
