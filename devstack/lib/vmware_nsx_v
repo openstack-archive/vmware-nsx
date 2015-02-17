@@ -1,0 +1,115 @@
+#!/bin/bash
+
+# Copyright 2015 VMware, Inc.
+#
+# All Rights Reserved
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
+
+# Neutron VMware NSXv plugin
+# --------------------------
+
+# Save trace setting
+NSXV_XTRACE=$(set +o | grep xtrace)
+set +o xtrace
+
+
+function setup_integration_bridge {
+    :
+}
+
+function is_neutron_ovs_base_plugin {
+    # NSXv does not use OVS
+    return 1
+}
+
+function neutron_plugin_create_nova_conf {
+    if [[ -n $NSXV_NOVA_METADATA_IPS ]]; then
+        iniset $NOVA_CONF neutron service_metadata_proxy "True"
+        iniset $NOVA_CONF neutron metadata_proxy_shared_secret "$NSXV_METADATA_SHARED_SECRET"
+    fi
+}
+
+function neutron_plugin_install_agent_packages {
+    # NSXv does not require this
+    :
+}
+
+function neutron_plugin_configure_common {
+    Q_PLUGIN_CONF_PATH=etc/neutron/plugins/vmware
+    Q_PLUGIN_CONF_FILENAME=nsx.ini
+    Q_DB_NAME="neutron_nsx"
+    Q_PLUGIN_CLASS="vmware_nsx.neutron.plugins.vmware.plugin.NsxVPlugin"
+}
+
+function neutron_plugin_configure_debug_command {
+    :
+}
+
+function neutron_plugin_configure_dhcp_agent {
+    # VMware NSXv plugin does not run L3 agent
+    die $LINENO "q-dhcp should not be executed with VMware NSXv plugin!"
+}
+
+function neutron_plugin_configure_l3_agent {
+    # VMware NSXv plugin does not run L3 agent
+    die $LINENO "q-l3 should not be executed with VMware NSXv plugin!"
+}
+
+function neutron_plugin_configure_plugin_agent {
+    # VMware NSXv plugin does not run L2 agent
+    die $LINENO "q-agt must not be executed with VMware NSXv plugin!"
+}
+
+function _nsxv_ini_set {
+    if [[ $2 != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE nsxv $1 $2
+    fi
+}
+
+function neutron_plugin_configure_service {
+    _nsxv_ini_set password "$NSXV_PASSWORD"
+    _nsxv_ini_set user "$NSXV_USER"
+    _nsxv_ini_set vdn_scope_id "$NSXV_VDN_SCOPE_ID"
+    _nsxv_ini_set dvs_id "$NSXV_DVS_ID"
+    _nsxv_ini_set manager_uri "$NSXV_MANAGER_URI"
+    _nsxv_ini_set datacenter_moid "$NSXV_DATACENTER_MOID"
+    _nsxv_ini_set datastore_id "$NSXV_DATASTORE_ID"
+    _nsxv_ini_set resource_pool_id "$NSXV_RESOURCE_POOL_ID"
+    _nsxv_ini_set external_network "$NSXV_EXTERNAL_NETWORK"
+    _nsxv_ini_set cluster_moid "$NSXV_CLUSTER_MOID"
+    _nsxv_ini_set backup_edge_pool "$NSXV_BACKUP_POOL"
+    _nsxv_ini_set mgt_net_proxy_ips "$NSXV_MGT_NET_PROXY_IPS"
+    _nsxv_ini_set mgt_net_moid "$NSXV_MGT_NET_MOID"
+    _nsxv_ini_set mgt_net_proxy_netmask "$NSXV_MGT_NET_PROXY_NETMASK"
+    _nsxv_ini_set nova_metadata_port "$NSXV_NOVA_METADATA_PORT"
+    _nsxv_ini_set nova_metadata_ips "$NSXV_NOVA_METADATA_IPS"
+    _nsxv_ini_set metadata_shared_secret "$NSXV_METADATA_SHARED_SECRET"
+}
+
+function neutron_plugin_setup_interface_driver {
+    :
+}
+
+function has_neutron_plugin_security_group {
+    # 0 means True here
+    return 0
+}
+
+function neutron_plugin_check_adv_test_requirements {
+    return 0
+}
+
+# Restore xtrace
+$NSXV_XTRACE
