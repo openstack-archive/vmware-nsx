@@ -26,6 +26,7 @@ from neutron.common import constants
 from neutron.common import exceptions as n_exc
 from neutron.common import utils
 from neutron import context as neutron_context
+from neutron.db import agents_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
@@ -75,7 +76,8 @@ LOG = logging.getLogger(__name__)
 PORTGROUP_PREFIX = 'dvportgroup'
 
 
-class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
+class NsxVPluginV2(agents_db.AgentDbMixin,
+                   addr_pair_db.AllowedAddressPairsMixin,
                    db_base_plugin_v2.NeutronDbPluginV2,
                    dist_rtr.DistributedRouter_mixin,
                    external_net_db.External_net_db_mixin,
@@ -86,7 +88,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                    securitygroups_db.SecurityGroupDbMixin,
                    vnic_index_db.VnicIndexDbMixin):
 
-    supported_extension_aliases = ["allowed-address-pairs",
+    supported_extension_aliases = ["agent",
+                                   "allowed-address-pairs",
                                    "binding",
                                    "dvr",
                                    "multi-provider",
