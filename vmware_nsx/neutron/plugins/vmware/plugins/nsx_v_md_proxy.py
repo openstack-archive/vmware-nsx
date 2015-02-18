@@ -13,6 +13,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import hashlib
+import hmac
+
 import netaddr
 from oslo.config import cfg
 from oslo.db import exception as db_exc
@@ -274,10 +277,21 @@ class NsxVMetadataProxyHandler:
 
         # For router Edge, we add X-LB-Proxy-ID header
         if not proxy_lb:
-            app_rule = nsxv_lb.NsxvLBAppRule(
-                'insert-reqadd',
+            md_app_rule = nsxv_lb.NsxvLBAppRule(
+                'insert-mdp',
                 'reqadd X-Metadata-Provider:' + edge_id)
-            virt_srvr.add_app_rule(app_rule)
+            virt_srvr.add_app_rule(md_app_rule)
+
+            # When shared proxy is configured, insert authentication string
+            if cfg.CONF.nsxv.metadata_shared_secret:
+                signature = hmac.new(
+                    cfg.CONF.nsxv.metadata_shared_secret,
+                    edge_id,
+                    hashlib.sha256).hexdigest()
+                sign_app_rule = nsxv_lb.NsxvLBAppRule(
+                    'insert-auth',
+                    'reqadd X-Metadata-Provider-Signature:' + signature)
+                virt_srvr.add_app_rule(sign_app_rule)
 
         # Create app profile
         #  XFF is inserted in router LBs

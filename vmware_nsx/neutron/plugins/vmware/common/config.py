@@ -232,7 +232,9 @@ nsxv_opts = [
                 help=_('IP addresses used by Nova metadata service')),
     cfg.IntOpt('nova_metadata_port',
                default=8775,
-               help=_("TCP Port used by Nova metadata server."))
+               help=_("TCP Port used by Nova metadata server")),
+    cfg.StrOpt('metadata_shared_secret',
+               help=_('Shared secret to sign metadata requests'))
 ]
 
 # Register the configuration options
