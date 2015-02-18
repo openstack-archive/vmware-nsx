@@ -573,7 +573,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 # the delete network and the inter-edge network, we can delete
                 # the inter-edge interface
                 if len(edge_vnics) == 2:
-                    rtr_binding = nsxv_db.get_vcns_router_binding_by_edge(
+                    rtr_binding = nsxv_db.get_nsxv_router_binding_by_edge(
                         context.session, dhcp_edge['edge_id'])
                     if rtr_binding:
                         rtr_id = rtr_binding['router_id']
