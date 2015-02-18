@@ -131,9 +131,11 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         self._validate_config()
         self._create_cluster_default_fw_rules()
 
-        has_metadata_cfg = (cfg.CONF.nsxv.nova_metadata_ips is not None
-                            and cfg.CONF.nsxv.mgt_net_moid is not None
-                            and cfg.CONF.nsxv.mgt_net_proxy_ips is not None)
+        has_metadata_cfg = (
+            cfg.CONF.nsxv.nova_metadata_ips
+            and cfg.CONF.nsxv.mgt_net_moid
+            and cfg.CONF.nsxv.mgt_net_proxy_ips
+            and cfg.CONF.nsxv.mgt_net_proxy_netmask)
         self.metadata_proxy_handler = (
             nsx_v_md_proxy.NsxVMetadataProxyHandler(self)
             if has_metadata_cfg else None)
@@ -1882,4 +1884,10 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
         if not self.nsx_v.vcns.validate_vdn_scope(cfg.CONF.nsxv.vdn_scope_id):
             error = _("configured vdn_scope_id not found")
+            raise nsx_exc.NsxPluginException(err_msg=error)
+
+        if (cfg.CONF.nsxv.mgt_net_moid
+            and not self.nsx_v.vcns.validate_network(
+                cfg.CONF.nsxv.mgt_net_moid)):
+            error = _("configured mgt_net_moid not found")
             raise nsx_exc.NsxPluginException(err_msg=error)
