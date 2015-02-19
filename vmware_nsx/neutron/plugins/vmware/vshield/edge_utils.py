@@ -289,8 +289,10 @@ class EdgeManager(object):
         LOG.debug("Query the vnic %s for DHCP Edge %s", vnic_index, edge_id)
         resource_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
         vnic_config = self._getvnic_config(edge_id, vnic_index)
-        sub_interfaces = vnic_config['subInterfaces']['subInterfaces']
-        port_group_id = vnic_config['portgroupId']
+        sub_interfaces = (vnic_config['subInterfaces']['subInterfaces'] if
+                          'subInterfaces' in vnic_config else [])
+        port_group_id = (vnic_config['portgroupId'] if 'portgroupId' in
+                         vnic_config else None)
         for sub_interface in sub_interfaces:
             if tunnel_index == sub_interface['tunnelId']:
                 LOG.debug("Delete the tunnel %d on vnic %d",
@@ -303,11 +305,14 @@ class EdgeManager(object):
         if len(sub_interfaces) == 0:
             header, _ = self.nsxv_manager.vcns.delete_interface(edge_id,
                                                                 vnic_index)
-            objuri = header['location']
-            job_id = objuri[objuri.rfind("/") + 1:]
-            dvs_id = self._get_physical_provider_network(context, network_id)
-            self.nsxv_manager.delete_portgroup(
-                dvs_id, port_group_id, job_id)
+            if port_group_id:
+                objuri = header['location']
+                job_id = objuri[objuri.rfind("/") + 1:]
+                dvs_id = self._get_physical_provider_network(context,
+                                                             network_id)
+                self.nsxv_manager.delete_portgroup(dvs_id,
+                                                   port_group_id,
+                                                   job_id)
         else:
             self.nsxv_manager.vcns.update_interface(edge_id, vnic_config)
 
