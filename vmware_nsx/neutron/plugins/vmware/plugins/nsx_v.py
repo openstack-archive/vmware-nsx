@@ -1099,7 +1099,9 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             self._process_nsx_router_create(context, router_db, r)
         if gw_info is not None:
             self._update_router_gw_info(context, lrouter['id'], gw_info)
-        if allow_metadata and self.metadata_proxy_handler:
+        if (not r['distributed']
+                and allow_metadata
+                and self.metadata_proxy_handler):
             self.metadata_proxy_handler.configure_router_edge(lrouter['id'])
         return self.get_router(context, lrouter['id'])
 
