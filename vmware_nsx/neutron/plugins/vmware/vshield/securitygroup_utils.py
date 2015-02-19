@@ -15,9 +15,7 @@
 
 import xml.etree.ElementTree as et
 
-from neutron.i18n import _LE, _LI
 from neutron.openstack.common import log as logging
-from neutron.openstack.common import loopingcall
 
 WAIT_INTERVAL = 2000
 MAX_ATTEMPTS = 5
@@ -135,49 +133,3 @@ class NsxSecurityGroupUtils(object):
 
     def parse_section(self, xml_string):
         return et.fromstring(xml_string)
-
-    def add_port_to_security_group(self, nsx_sg_id, nsx_vnic_id):
-        userdata = {
-            'nsx_sg_id': nsx_sg_id,
-            'nsx_vnic_id': nsx_vnic_id,
-            'attempt': 1
-        }
-        LOG.info(_LI("Add task to add %(nsx_sg_id)s member to NSX security "
-                     "group %(nsx_vnic_id)s"), userdata)
-        task = loopingcall.FixedIntervalLoopingCall(
-            self._add_security_groups_port_mapping,
-            userdata=userdata)
-        task.start(WAIT_INTERVAL / 1000)
-
-    def _add_security_groups_port_mapping(self, userdata):
-        nsx_vnic_id = userdata.get('nsx_vnic_id')
-        nsx_sg_id = userdata.get('nsx_sg_id')
-        attempt = userdata.get('attempt')
-        LOG.debug("Trying to execute task to add %s to %s attempt %d",
-                  nsx_vnic_id, nsx_sg_id, attempt)
-        if attempt >= MAX_ATTEMPTS:
-            LOG.error(_LE("Stop task to add %(nsx_vnic_id)s to security group "
-                          "%(nsx_sg_id)s"), userdata)
-            LOG.error(_LE("Exception %s"), userdata.get('exception'))
-            raise loopingcall.LoopingCallDone()
-        else:
-            attempt = attempt + 1
-            userdata['attempt'] = attempt
-
-        try:
-            h, c = self.nsxv_manager.vcns.add_member_to_security_group(
-                nsx_sg_id, nsx_vnic_id)
-            LOG.info(_LI("Added %s(nsx_sg_id)s member to NSX security "
-                         "group %(nsx_vnic_id)s"), userdata)
-
-        except Exception as e:
-            LOG.debug("NSX security group %(nsx_sg_id)s member add "
-                      "failed %(nsx_vnic_id)s - attempt %(attempt)d",
-                      {'nsx_sg_id': nsx_sg_id,
-                       'nsx_vnic_id': nsx_vnic_id,
-                       'attempt': attempt})
-            userdata['exception'] = e
-            LOG.debug("Exception %s", e)
-            return
-
-        raise loopingcall.LoopingCallDone()
