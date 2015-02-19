@@ -37,7 +37,7 @@ from vmware_nsx.neutron.plugins.vmware.vshield import edge_utils
 
 METADATA_IP_ADDR = '169.254.169.254'
 METADATA_TCP_PORT = 80
-INTERNAL_SUBNET = '169.254.0.0/16'
+INTERNAL_SUBNET = '169.254.128.0/17'
 MAX_INIT_THREADS = 3
 
 NET_WAIT_INTERVAL = 120
