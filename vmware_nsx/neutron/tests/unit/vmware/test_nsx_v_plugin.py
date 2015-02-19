@@ -30,6 +30,7 @@ from neutron.extensions import external_net
 from neutron.extensions import l3
 from neutron.extensions import l3_ext_gw_mode
 from neutron.extensions import portbindings
+from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as secgrp
 from neutron import manager
@@ -40,6 +41,7 @@ from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.test_db_plugin as test_plugin
 import neutron.tests.unit.test_extension_allowedaddresspairs as test_addr_pair
 import neutron.tests.unit.test_extension_ext_gw_mode as test_ext_gw_mode
+import neutron.tests.unit.test_extension_portsecurity as test_psec
 import neutron.tests.unit.test_extension_security_group as ext_sg
 import neutron.tests.unit.test_l3_plugin as test_l3_plugin
 from neutron.tests.unit import testlib_api
@@ -76,7 +78,7 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
         for arg in (('admin_state_up', 'tenant_id', 'shared') +
                     (arg_list or ())):
             # Arg must be present and not empty
-            if arg in kwargs and kwargs[arg]:
+            if arg in kwargs:
                 data['network'][arg] = kwargs[arg]
         network_req = self.new_create_request('networks', data, fmt)
         if (kwargs.get('set_context') and 'tenant_id' in kwargs):
@@ -1617,3 +1619,55 @@ class TestNSXvAllowedAddressPairs(test_addr_pair.TestAllowedAddressPairs,
                                   NsxVPluginV2TestCase):
     def test_get_vlan_network_name(self):
         pass
+
+
+class TestNSXPortSecurity(test_psec.TestPortSecurity,
+                          NsxVPluginV2TestCase):
+    def setUp(self, plugin=PLUGIN_NAME):
+        super(TestNSXPortSecurity, self).setUp(plugin=plugin)
+
+    def test_create_port_fails_with_secgroup_and_port_security_false(self):
+        # Security Gropus can be used even when port-security is disabled
+        pass
+
+    def test_update_port_security_off_with_security_group(self):
+        # Security Gropus can be used even when port-security is disabled
+        pass
+
+    def test_create_port_security_overrides_network_value(self):
+        pass
+
+    def test_create_port_with_security_group_and_net_sec_false(self):
+        pass
+
+    def test_create_port_security_doese_not_overrides_network_value(self):
+        """NSXv plugin port port-security-enabled is decided by the networks
+        port-security state
+        """
+        res = self._create_network('json', 'net1', True,
+                                   arg_list=('port_security_enabled',),
+                                   port_security_enabled=False)
+        net = self.deserialize('json', res)
+        res = self._create_port('json', net['network']['id'],
+                                arg_list=('port_security_enabled',),
+                                port_security_enabled=True)
+        port = self.deserialize('json', res)
+        self.assertEqual(port['port'][psec.PORTSECURITY], False)
+        self._delete('ports', port['port']['id'])
+
+    def test_update_port_remove_port_security_security_group(self):
+        pass
+
+    def test_update_port_remove_port_security_security_group_read(self):
+        pass
+
+    def test_update_port_port_security_raise_not_implemented(self):
+        with self.network() as net:
+            with self.subnet(network=net) as sub:
+                with self.port(subnet=sub) as port:
+                    update_port = {'port': {psec.PORTSECURITY: False}}
+                    plugin = manager.NeutronManager.get_plugin()
+                    self.assertRaises(NotImplementedError,
+                                      plugin.update_port,
+                                      context.get_admin_context(),
+                                      port['port']['id'], update_port)

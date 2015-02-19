@@ -42,6 +42,7 @@ FIREWALL_PREFIX = '/api/4.0/firewall/globalroot-0/config'
 SECURITYGROUP_PREFIX = '/api/2.0/services/securitygroup'
 VDN_PREFIX = '/api/2.0/vdn'
 SERVICES_PREFIX = '/api/2.0/services'
+SPOOFGUARD_PREFIX = '/api/4.0/services/spoofguard'
 
 #LbaaS Constants
 LOADBALANCER_SERVICE = "loadbalancer/config"
@@ -523,6 +524,61 @@ class Vcns(object):
         uri = '%s/%s/members/%s' % (SECURITYGROUP_PREFIX,
                                     security_group_id, member_id)
         return self.do_request(HTTP_DELETE, uri, format='xml', decode=False)
+
+    def create_spoofguard_policy(self, enforcement_point, name, enable):
+        uri = '%s/policies/' % SPOOFGUARD_PREFIX
+
+        body = {'spoofguardPolicy':
+                {'name': name,
+                 'operationMode': 'MANUAL' if enable else 'DISABLE',
+                 'enforcementPoint':
+                 {'id': enforcement_point,
+                  'type': enforcement_point.split('-')[0]},
+                 'allowLocalIPs': 'true'}}
+        return self.do_request(HTTP_POST, uri, body,
+                               format='xml', encode=True, decode=False)
+
+    def update_spoofguard_policy(self, policy_id,
+                                 enforcement_point, name, enable):
+        update_uri = '%s/policies/%s' % (SPOOFGUARD_PREFIX, policy_id)
+        publish_uri = '%s/%s?action=publish' % (SPOOFGUARD_PREFIX, policy_id)
+
+        body = {'spoofguardPolicy':
+                {'policyId': policy_id,
+                 'name': name,
+                 'operationMode': 'MANUAL' if enable else 'DISABLE',
+                 'enforcementPoint':
+                 {'id': enforcement_point,
+                  'type': enforcement_point.split('-')[0]},
+                 'allowLocalIPs': 'true'}}
+
+        self.do_request(HTTP_PUT, update_uri, body,
+                        format='xml', encode=True, decode=False)
+        return self.do_request(HTTP_POST, publish_uri, decode=False)
+
+    def delete_spoofguard_policy(self, policy_id):
+        uri = '%s/policies/%s' % (SPOOFGUARD_PREFIX, policy_id)
+        return self.do_request(HTTP_DELETE, uri, decode=False)
+
+    def approve_assigned_addresses(self, policy_id,
+                                   vnic_id, mac_addr, addresses):
+        uri = '%s/%s' % (SPOOFGUARD_PREFIX, policy_id)
+        addresses = [{'ipAddress': ip_addr} for ip_addr in addresses]
+        body = {'spoofguardList':
+                {'spoofguard':
+                 {'id': vnic_id,
+                  'vnicUuid': vnic_id,
+                  'approvedIpAddress': addresses,
+                  'approvedMacAddress': mac_addr,
+                  'publishedIpAddress': addresses,
+                  'publishedMacAddress': mac_addr}}}
+
+        self.do_request(HTTP_POST, '%s?action=approve' % uri,
+                        body, format='xml', decode=False)
+        self.do_request(HTTP_POST, '%s?action=publish' % uri, decode=False)
+
+    def inactivate_vnic_assigned_addresses(self, policy_id, vnic_id):
+        return self.approve_assigned_addresses(policy_id, vnic_id, '', [])
 
     def _build_uri_path(self, edge_id,
                         service,
