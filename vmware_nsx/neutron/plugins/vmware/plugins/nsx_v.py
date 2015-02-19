@@ -616,6 +616,15 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                         rtr_id = rtr_binding['router_id']
                         self.metadata_proxy_handler.cleanup_router_edge(rtr_id)
 
+    @lockutils.synchronized('vmware', 'neutron-dhcp-')
+    def _update_dhcp_edge_service(self, context, network_id, address_groups):
+        self.edge_manager.update_dhcp_edge_service(
+            context, network_id, address_groups=address_groups)
+
+    @lockutils.synchronized('vmware', 'neutron-dhcp-')
+    def _delete_dhcp_edge_service(self, context, id):
+        self.edge_manager.delete_dhcp_edge_service(context, id)
+
     def delete_network(self, context, id):
         mappings = nsx_db.get_nsx_switch_ids(context.session, id)
         bindings = nsxv_db.get_network_bindings(context.session, id)
@@ -632,7 +641,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         if (dhcp_port_count == len(subnet_ids)) and dhcp_port_count > 0:
             try:
                 self._cleanup_dhcp_edge_before_deletion(context, id)
-                self.edge_manager.delete_dhcp_edge_service(context, id)
+                self._delete_dhcp_edge_service(context, id)
             except Exception:
                 with excutils.save_and_reraise_exception():
                     LOG.exception(_('Failed to delete network'))
@@ -932,14 +941,13 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             if len(remaining_subnets) == 0:
                 self._cleanup_dhcp_edge_before_deletion(context, network_id)
                 LOG.debug("Delete the DHCP Edge for network %s", network_id)
-                self.edge_manager.delete_dhcp_edge_service(context,
-                                                           network_id)
+                self._delete_dhcp_edge_service(context, network_id)
             else:
                 # Update address group and delete the DHCP port only
                 address_groups = self._create_network_dhcp_address_group(
                     context, network_id)
-                self.edge_manager.update_dhcp_edge_service(
-                    context, network_id, address_groups=address_groups)
+                self._update_dhcp_edge_service(context, network_id,
+                                               address_groups)
 
     def create_subnet(self, context, subnet):
         """Create subnet on nsx_v provider network.
