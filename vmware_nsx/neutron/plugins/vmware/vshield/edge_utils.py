@@ -13,6 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import time
+
 from oslo.config import cfg
 from oslo.utils import excutils
 from sqlalchemy.orm import exc as sa_exc
@@ -1214,6 +1216,21 @@ def update_firewall(nsxv_manager, context, router_id, firewall,
                                              firewall, jobdata=jobdata,
                                              allow_external=allow_external)
     task.wait(task_const.TaskState.RESULT)
+
+
+def check_network_in_use_at_backend(context, network_id):
+    retries = max(cfg.CONF.nsxv.retries, 1)
+    delay = 0.5
+    for attempt in range(1, retries + 1):
+        if attempt != 1:
+            time.sleep(delay)
+            delay = min(2 * delay, 60)
+        edge_vnic_bindings = nsxv_db.get_edge_vnic_bindings_by_int_lswitch(
+            context.session, network_id)
+        if not edge_vnic_bindings:
+            return
+        LOG.warning(_('NSXv: network is still in use at the backend'))
+    LOG.error(_('NSXv: network is still in use at the backend'))
 
 
 class NsxVCallbacks(object):

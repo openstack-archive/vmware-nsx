@@ -664,6 +664,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         if mappings:
             if cfg.CONF.nsxv.spoofguard_enabled and sg_policy_id:
                 self.nsx_v.vcns.delete_spoofguard_policy(sg_policy_id)
+            edge_utils.check_network_in_use_at_backend(context, id)
             self._delete_backend_network(mappings[0])
 
     def get_network(self, context, id, fields=None):
