@@ -234,6 +234,7 @@ nsxv_opts = [
                default=8775,
                help=_("TCP Port used by Nova metadata server")),
     cfg.StrOpt('metadata_shared_secret',
+               secret=True,
                help=_('Shared secret to sign metadata requests'))
 ]
 
