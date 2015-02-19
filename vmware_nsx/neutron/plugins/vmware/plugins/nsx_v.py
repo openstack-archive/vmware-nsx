@@ -596,11 +596,24 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         bindings = nsxv_db.get_network_bindings(context.session, id)
         sg_policy_id = nsxv_db.get_spoofguard_policy_id(context.session, id)
 
-        self._cleanup_dhcp_edge_before_deletion(context, id)
+        # Update the DHCP edge for metadata and clean the vnic in DHCP edge
+        # if there is only no other existing port besides DHCP port
+        filters = {'network_id': [id]}
+        subnet_ids = self.get_subnets(context, filters=filters, fields=['id'])
+        dhcp_port_count = 0
+        for subnet_id in subnet_ids:
+            filters = {'fixed_ips': {'subnet_id': [subnet_id['id']]}}
+            dhcp_port_count += self.get_ports_count(context, filters=filters)
+        if (dhcp_port_count == len(subnet_ids)) and dhcp_port_count > 0:
+            try:
+                self._cleanup_dhcp_edge_before_deletion(context, id)
+                self.edge_manager.delete_dhcp_edge_service(context, id)
+            except Exception:
+                with excutils.save_and_reraise_exception():
+                    LOG.exception(_('Failed to delete network'))
+
         with context.session.begin(subtransactions=True):
             super(NsxVPluginV2, self).delete_network(context, id)
-
-        self.edge_manager.delete_dhcp_edge_service(context, id)
 
         # Do not delete a predefined port group that was attached to
         # an external network
