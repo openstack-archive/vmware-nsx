@@ -18,6 +18,7 @@ import uuid
 import netaddr
 from oslo.config import cfg
 from oslo.utils import excutils
+from oslo_concurrency import lockutils
 from sqlalchemy.orm import exc as sa_exc
 
 from neutron.api import extensions as neutron_extensions
@@ -570,6 +571,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
         return new_net
 
+    @lockutils.synchronized('vmware', 'neutron-dhcp-')
     def _cleanup_dhcp_edge_before_deletion(self, context, net_id):
         if self.metadata_proxy_handler:
             # Find if this is the last network which is bound
@@ -942,6 +944,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                     self.delete_subnet(context, s['id'])
         return s
 
+    @lockutils.synchronized('vmware', 'neutron-dhcp-')
     def _update_dhcp_service_with_subnet(self, context, subnet):
         network_id = subnet['network_id']
         # Create DHCP port
