@@ -105,6 +105,10 @@ class Vcns(object):
             content = jsonutils.loads(content)
         return header, content
 
+    def edges_lock_operation(self):
+        uri = URI_PREFIX + "?lockUpdatesOnEdge=true"
+        return self.do_request(HTTP_POST, uri, decode=False)
+
     def deploy_edge(self, request):
         uri = URI_PREFIX + "?async=true"
         return self.do_request(HTTP_POST, uri, request, decode=False)

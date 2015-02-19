@@ -125,6 +125,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         self.dvs_id = cfg.CONF.nsxv.dvs_id
         self.nsx_sg_utils = securitygroup_utils.NsxSecurityGroupUtils(
             self.nsx_v)
+        # Ensure that edges do concurrency
+        self._ensure_lock_operations()
         self._validate_config()
         self._create_cluster_default_fw_rules()
 
@@ -1938,6 +1940,12 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
     def _is_valid_ip(self, ip_addr):
         return netaddr.valid_ipv4(ip_addr) or netaddr.valid_ipv6(ip_addr)
+
+    def _ensure_lock_operations(self):
+        try:
+            self.nsx_v.vcns.edges_lock_operation()
+        except Exception:
+            LOG.info(_("Unable to set manager lock operation"))
 
     def _validate_config(self):
         if not self.nsx_v.vcns.validate_dvs(cfg.CONF.nsxv.dvs_id):
