@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import eventlet
 import hashlib
 import hmac
 
@@ -36,6 +37,7 @@ from vmware_nsx.neutron.plugins.vmware.vshield import edge_utils
 METADATA_IP_ADDR = '169.254.169.254'
 METADATA_TCP_PORT = 80
 INTERNAL_SUBNET = '169.254.0.0/16'
+MAX_INIT_THREADS = 3
 
 LOG = logging.getLogger(__name__)
 
@@ -143,89 +145,99 @@ class NsxVMetadataProxyHandler:
         proxy_edge_ids = []
         proxy_edge_ips = []
 
-        for rtr_ip in cfg.CONF.nsxv.mgt_net_proxy_ips:
-            router_data = {
-                'router': {
-                    'name': 'metadata_proxy_router',
-                    'admin_state_up': True,
-                    'tenant_id': None}}
+        pool = eventlet.GreenPool(min(MAX_INIT_THREADS,
+                                      len(cfg.CONF.nsxv.mgt_net_proxy_ips)))
 
-            rtr = self.nsxv_plugin.create_router(
-                self.context,
-                router_data,
-                allow_metadata=False)
-
-            rtr_id = rtr['id']
-            binding = nsxv_db.get_nsxv_router_binding(
-                self.context.session,
-                rtr_id)
-
-            self.nsxv_plugin.nsx_v.update_interface(
-                rtr['id'],
-                binding['edge_id'],
-                vcns_const.EXTERNAL_VNIC_INDEX,
-                cfg.CONF.nsxv.mgt_net_moid,
-                address=rtr_ip,
-                netmask=cfg.CONF.nsxv.mgt_net_proxy_netmask,
-                secondary=[])
-
-            port_data = {
-                'port': {
-                    'network_id': self.internal_net,
-                    'name': None,
-                    'admin_state_up': True,
-                    'device_id': rtr_id,
-                    'device_owner': constants.DEVICE_OWNER_ROUTER_INTF,
-                    'fixed_ips': attr.ATTR_NOT_SPECIFIED,
-                    'mac_address': attr.ATTR_NOT_SPECIFIED,
-                    'port_security_enabled': False,
-                    'tenant_id': None}}
-
-            port = self.nsxv_plugin.create_port(self.context, port_data)
-
-            address_groups = self._get_address_groups(
-                self.context, self.internal_net, rtr_id, is_proxy=True)
-
-            edge_ip = port['fixed_ips'][0]['ip_address']
-            edge_utils.update_internal_interface(
-                self.nsxv_plugin.nsx_v, self.context, rtr_id,
-                self.internal_net, address_groups)
-
-            self._setup_metadata_lb(rtr_id,
-                                    port['fixed_ips'][0]['ip_address'],
-                                    cfg.CONF.nsxv.nova_metadata_port,
-                                    cfg.CONF.nsxv.nova_metadata_port,
-                                    cfg.CONF.nsxv.nova_metadata_ips,
-                                    proxy_lb=True)
-
-            firewall_rule = {
-                'action': 'allow',
-                'enabled': True,
-                'source_ip_address': [INTERNAL_SUBNET]}
-
-            edge_utils.update_firewall(
-                self.nsxv_plugin.nsx_v,
-                self.context,
-                rtr_id,
-                {'firewall_rule_list': [firewall_rule]},
-                allow_external=False)
-
-            # If DB Entry already defined by another Neutron instance, remove
-            #  and resume
-            try:
-                nsxv_db.create_nsxv_internal_edge(
-                    self.context.session,
-                    rtr_ip,
-                    nsxv_constants.INTER_EDGE_PURPOSE,
-                    rtr_id)
-            except db_exc.DBDuplicateEntry:
-                self.nsxv_plugin.delete_router(self.context, rtr_id)
-                rtr_id = nsxv_db.get_nsxv_internal_edge(self.context, rtr_ip)
-                edge_ip = self._get_edge_internal_ip(rtr_id)
-
+        for rtr_id, edge_ip in pool.imap(
+                self._create_proxy_edge,
+                cfg.CONF.nsxv.mgt_net_proxy_ips):
             proxy_edge_ids.append(rtr_id)
             proxy_edge_ips.append(edge_ip)
+
+        pool.waitall()
         return proxy_edge_ids, proxy_edge_ips
+
+    def _create_proxy_edge(self, rtr_ip):
+        router_data = {
+            'router': {
+                'name': 'metadata_proxy_router',
+                'admin_state_up': True,
+                'tenant_id': None}}
+
+        rtr = self.nsxv_plugin.create_router(
+            self.context,
+            router_data,
+            allow_metadata=False)
+
+        rtr_id = rtr['id']
+        binding = nsxv_db.get_nsxv_router_binding(
+            self.context.session,
+            rtr_id)
+
+        self.nsxv_plugin.nsx_v.update_interface(
+            rtr['id'],
+            binding['edge_id'],
+            vcns_const.EXTERNAL_VNIC_INDEX,
+            cfg.CONF.nsxv.mgt_net_moid,
+            address=rtr_ip,
+            netmask=cfg.CONF.nsxv.mgt_net_proxy_netmask,
+            secondary=[])
+
+        port_data = {
+            'port': {
+                'network_id': self.internal_net,
+                'name': None,
+                'admin_state_up': True,
+                'device_id': rtr_id,
+                'device_owner': constants.DEVICE_OWNER_ROUTER_INTF,
+                'fixed_ips': attr.ATTR_NOT_SPECIFIED,
+                'mac_address': attr.ATTR_NOT_SPECIFIED,
+                'port_security_enabled': False,
+                'tenant_id': None}}
+
+        port = self.nsxv_plugin.create_port(self.context, port_data)
+
+        address_groups = self._get_address_groups(
+            self.context, self.internal_net, rtr_id, is_proxy=True)
+
+        edge_ip = port['fixed_ips'][0]['ip_address']
+        edge_utils.update_internal_interface(
+            self.nsxv_plugin.nsx_v, self.context, rtr_id,
+            self.internal_net, address_groups)
+
+        self._setup_metadata_lb(rtr_id,
+                                port['fixed_ips'][0]['ip_address'],
+                                cfg.CONF.nsxv.nova_metadata_port,
+                                cfg.CONF.nsxv.nova_metadata_port,
+                                cfg.CONF.nsxv.nova_metadata_ips,
+                                proxy_lb=True)
+
+        firewall_rule = {
+            'action': 'allow',
+            'enabled': True,
+            'source_ip_address': [INTERNAL_SUBNET]}
+
+        edge_utils.update_firewall(
+            self.nsxv_plugin.nsx_v,
+            self.context,
+            rtr_id,
+            {'firewall_rule_list': [firewall_rule]},
+            allow_external=False)
+
+        # If DB Entry already defined by another Neutron instance, remove
+        #  and resume
+        try:
+            nsxv_db.create_nsxv_internal_edge(
+                self.context.session,
+                rtr_ip,
+                vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE,
+                rtr_id)
+        except db_exc.DBDuplicateEntry:
+            self.nsxv_plugin.delete_router(self.context, rtr_id)
+            rtr_id = nsxv_db.get_nsxv_internal_edge(self.context, rtr_ip)
+            edge_ip = self._get_edge_internal_ip(rtr_id)
+
+        return rtr_id, edge_ip
 
     def _get_address_groups(self, context, network_id, device_id, is_proxy):
 
