@@ -401,6 +401,23 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
     def _get_default_security_group(self, context, tenant_id):
         return self._ensure_default_security_group(context, tenant_id)
 
+    def _add_member_to_security_group(self, sg_id, vnic_id):
+        with lockutils.lock(str(sg_id),
+                            lock_file_prefix='neutron-security-ops'):
+            try:
+                h, c = self.nsx_v.vcns.add_member_to_security_group(
+                    sg_id, vnic_id)
+                LOG.info(_("Added %s(sg_id)s member to NSX security "
+                           "group %(vnic_id)s"),
+                         {'sg_id': sg_id, 'vnic_id': vnic_id})
+            except Exception as e:
+                LOG.debug("NSX security group %(sg_id)s member add "
+                          "failed %(vnic_id)s - attempt %(attempt)d. "
+                          "Exception: %(exc)s",
+                          {'sg_id': sg_id,
+                           'vnic_id': vnic_id,
+                           'exc': e})
+
     def _add_security_groups_port_mapping(self, session, vnic_id,
                                           added_sgids):
         if vnic_id is None or added_sgids is None:
@@ -410,8 +427,19 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             if nsx_sg_id is None:
                 LOG.warning(_LW("NSX security group not found for %s"), add_sg)
             else:
-                self.nsx_sg_utils.add_port_to_security_group(nsx_sg_id,
-                                                             vnic_id)
+                self._add_member_to_security_group(nsx_sg_id, vnic_id)
+
+    def _remove_member_from_security_group(self, sg_id, vnic_id):
+        with lockutils.lock(str(sg_id),
+                            lock_file_prefix='neutron-security-ops'):
+            try:
+                h, c = self.nsx_v.vcns.remove_member_from_security_group(
+                    sg_id, vnic_id)
+            except Exception:
+                LOG.debug("NSX security group %(nsx_sg_id)s member "
+                          "delete failed %(vnic_id)s",
+                          {'nsx_sg_id': sg_id,
+                           'vnic_id': vnic_id})
 
     def _delete_security_groups_port_mapping(self, session, vnic_id,
                                              deleted_sgids):
@@ -423,14 +451,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             if nsx_sg_id is None:
                 LOG.warning(_LW("NSX security group not found for %s"), del_sg)
             else:
-                try:
-                    h, c = self.nsx_v.vcns.remove_member_from_security_group(
-                        nsx_sg_id, vnic_id)
-                except Exception:
-                    LOG.debug("NSX security group %(nsx_sg_id)s member "
-                              "delete failed %(vnic_id)s",
-                              {'nsx_sg_id': nsx_sg_id,
-                               'vnic_id': vnic_id})
+                self._remove_member_from_security_group(nsx_sg_id, vnic_id)
 
     def _update_security_groups_port_mapping(self, session, port_id,
                                              vnic_id, current_sgids,
