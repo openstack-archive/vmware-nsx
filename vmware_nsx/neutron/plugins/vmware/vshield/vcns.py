@@ -14,11 +14,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import functools
-import time
-
 from oslo.config import cfg
 from oslo.serialization import jsonutils
+import retrying
 import xml.etree.ElementTree as et
 
 from neutron.openstack.common import log as logging
@@ -60,22 +58,12 @@ DHCP_SERVICE = "dhcp/config"
 DHCP_BINDING_RESOURCE = "bindings"
 
 
-def retry_upon_exception(exception, delay=0.5, max_delay=2):
-    def retry_decorator(f):
-        @functools.wraps(f)
-        def retry_wrapper(*args, **kwargs):
-            retries = max(cfg.CONF.nsxv.retries, 1)
-            for attempt in range(1, retries + 1):
-                try:
-                    return f(*args, **kwargs)
-                except exception as e:
-                    if attempt == retries:
-                        LOG.info("NSXv: API called failed")
-                        raise e
-                    tts = (2 ** (attempt - 1)) * delay
-                    time.sleep(min(tts, max_delay))
-        return retry_wrapper
-    return retry_decorator
+def retry_upon_exception(exc, delay=500, max_delay=2000,
+                         max_attempts=cfg.CONF.nsxv.retries):
+    return retrying.retry(retry_on_exception=lambda e: isinstance(e, exc),
+                          wait_exponential_multiplier=delay,
+                          wait_exponential_max=max_delay,
+                          stop_max_attempt_number=max_attempts)
 
 
 class Vcns(object):
