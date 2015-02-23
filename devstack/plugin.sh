@@ -25,11 +25,16 @@ fi
 
 if [[ $Q_PLUGIN == 'vmware_nsx_v' ]]; then
     source $dir/lib/vmware_nsx_v
+    if [[ "$1" == "unstack" ]]; then
+        python $dir/tools/nsxv_cleanup.py --vsm-ip ${NSXV_MANAGER_URI/https:\/\/} --user $NSXV_USER --password $NSXV_PASSWORD
+    fi
 elif [[ $Q_PLUGIN == 'vmware_nsx' ]]; then
     source $dir/lib/vmware_nsx
     if [[ "$1" == "stack" && "$2" == "post-config" ]]; then
         init_vmware_nsx
     elif [[ "$1" == "stack" && "$2" == "extra" ]]; then
         check_vmware_nsx
+    elif [[ "$1" == "unstack" ]]; then
+        stop_vmware_nsx
     fi
 fi
