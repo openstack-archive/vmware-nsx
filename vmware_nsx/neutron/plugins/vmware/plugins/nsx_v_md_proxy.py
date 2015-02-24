@@ -218,6 +218,7 @@ class NsxVMetadataProxyHandler:
                       'timed out')
             raise nsxv_exc.NsxPluginException(err_msg=error)
 
+        rtr_id = None
         try:
             router_data = {
                 'router': {

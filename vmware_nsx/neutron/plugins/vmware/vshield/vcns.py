@@ -117,8 +117,10 @@ class Vcns(object):
         uri = URI_PREFIX + "?lockUpdatesOnEdge=true"
         return self.do_request(HTTP_POST, uri, decode=False)
 
-    def deploy_edge(self, request):
-        uri = URI_PREFIX + "?async=true"
+    def deploy_edge(self, request, async=True):
+        uri = URI_PREFIX
+        if async:
+            uri += "?async=true"
         return self.do_request(HTTP_POST, uri, request, decode=False)
 
     def update_edge(self, edge_id, request):
