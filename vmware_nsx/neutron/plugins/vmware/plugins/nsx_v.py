@@ -680,7 +680,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
         # Update the DHCP edge for metadata and clean the vnic in DHCP edge
         # if there is only no other existing port besides DHCP port
-        filters = {'network_id': [id]}
+        filters = {'network_id': [id], 'enable_dhcp': [True]}
         subnet_ids = self.get_subnets(context, filters=filters, fields=['id'])
         dhcp_port_count = 0
         for subnet_id in subnet_ids:
