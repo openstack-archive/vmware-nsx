@@ -286,6 +286,11 @@ class NsxVMetadataProxyHandler:
                 {'firewall_rule_list': [firewall_rule]},
                 allow_external=False)
 
+            if cfg.CONF.nsxv.mgt_net_default_gateway:
+                self.nsxv_plugin._update_routes(
+                    self.context, rtr_id,
+                    cfg.CONF.nsxv.mgt_net_default_gateway)
+
             nsxv_db.update_nsxv_internal_edge(
                 self.context.session,
                 rtr_ip,
