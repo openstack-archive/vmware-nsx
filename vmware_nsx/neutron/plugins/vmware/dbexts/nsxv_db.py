@@ -32,6 +32,20 @@ from vmware_nsx.neutron.plugins.vmware.vshield.common import constants
 LOG = logging.getLogger(__name__)
 
 
+def _apply_filters_to_query(query, model, filters, like_filters=None):
+    if filters:
+        for key, value in filters.iteritems():
+            column = getattr(model, key, None)
+            if column:
+                query = query.filter(column.in_(value))
+    if like_filters:
+        for key, search_term in like_filters.iteritems():
+            column = getattr(model, key, None)
+            if column:
+                query = query.filter(column.like(search_term))
+    return query
+
+
 def add_nsxv_router_binding(session, router_id, vse_id, lswitch_id, status,
                             appliance_size=nsxv_constants.LARGE,
                             edge_type=nsxv_constants.SERVICE_EDGE):
@@ -59,9 +73,25 @@ def get_nsxv_router_bindings_by_edge(session, edge_id):
                 filter_by(edge_id=edge_id).all())
 
 
-def get_nsxv_router_bindings(session):
+def get_nsxv_router_bindings(session, filters=None,
+                             like_filters=None):
     with session.begin(subtransactions=True):
-        return session.query(nsxv_models.NsxvRouterBinding).all()
+        query = session.query(nsxv_models.NsxvRouterBinding)
+        return _apply_filters_to_query(
+            query, nsxv_models.NsxvRouterBinding,
+            filters, like_filters).all()
+
+
+def get_nsxv_router_bindings_with_lock(session, filters=None,
+                                       like_filters=None):
+    """Get rows of nsxv_router_bindings data with "select for update" lock.
+
+    More accurate filters mean smaller db lock range
+    """
+    query = session.query(nsxv_models.NsxvRouterBinding)
+    return _apply_filters_to_query(
+        query, nsxv_models.NsxvRouterBinding,
+        filters, like_filters).with_lockmode('update').all()
 
 
 def update_nsxv_router_binding(session, router_id, **kwargs):
