@@ -171,7 +171,7 @@ class VSMClient(object):
                                                              ls['objectId'])
             endpoint = '/vdn/virtualwires/%s' % ls['objectId']
             response = self.delete(endpoint=endpoint)
-            if response.status_code != 200:
+            if response.status_code != 204:
                 print "ERROR: reponse status code %s" % response.status_code
 
     def query_all_firewall_sections(self):
@@ -201,7 +201,7 @@ class VSMClient(object):
             endpoint = '/firewall/globalroot-0/config/layer3sections/%s' % \
                        l3sec['id']
             response = self.delete(endpoint=endpoint)
-            if response.status_code != 200:
+            if response.status_code != 204:
                 print "ERROR: reponse status code %s" % response.status_code
 
     def query_all_security_groups(self):
@@ -231,7 +231,7 @@ class VSMClient(object):
             endpoint = '/services/securitygroup/%s' % sg['objectId']
             params = {'force': self.force}
             response = self.delete(endpoint=endpoint, params=params)
-            if response.status_code != 200:
+            if response.status_code != 204:
                 print "ERROR: reponse status code %s" % response.status_code
 
     def query_all_spoofguard_policies(self):
@@ -254,7 +254,7 @@ class VSMClient(object):
         for spg in policies:
             print "\nDeleting spoofguard policy %s (%s) ..." % (spg['name'],
                                                                 spg['policyId'])
-            endpoint = '/services/spoofguard/%s' % spg['policyId']
+            endpoint = '/services/spoofguard/policies/%s' % spg['policyId']
             response = self.delete(endpoint=endpoint)
             print "Response code: %s" % response.status_code
 
@@ -287,7 +287,7 @@ class VSMClient(object):
             print "\nDeleting edge %s (%s) ..." % (edge['name'], edge['id'])
             endpoint = '/edges/%s' % edge['id']
             response = self.delete(endpoint=endpoint)
-            if response.status_code != 200:
+            if response.status_code != 204:
                 print "ERROR: reponse status code %s" % response.status_code
 
     def cleanup_all(self):
