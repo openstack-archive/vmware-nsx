@@ -643,7 +643,6 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
         return new_net
 
-    @lockutils.synchronized('vmware', 'neutron-dhcp-')
     def _cleanup_dhcp_edge_before_deletion(self, context, net_id):
         if self.metadata_proxy_handler:
             # Find if this is the last network which is bound
@@ -665,12 +664,10 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                         rtr_id = rtr_binding['router_id']
                         self.metadata_proxy_handler.cleanup_router_edge(rtr_id)
 
-    @lockutils.synchronized('vmware', 'neutron-dhcp-')
     def _update_dhcp_edge_service(self, context, network_id, address_groups):
         self.edge_manager.update_dhcp_edge_service(
             context, network_id, address_groups=address_groups)
 
-    @lockutils.synchronized('vmware', 'neutron-dhcp-')
     def _delete_dhcp_edge_service(self, context, id):
         self.edge_manager.delete_dhcp_edge_service(context, id)
 
@@ -1023,12 +1020,22 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 err_msg = _("No support for DHCP for IPv6")
                 raise n_exc.InvalidInput(error_message=err_msg)
 
-        with context.session.begin(subtransactions=True):
-            s = super(NsxVPluginV2, self).create_subnet(context, subnet)
-
+        with lockutils.lock('nsx-edge-pool',
+                            lock_file_prefix='edge-bind-',
+                            external=True):
+            with context.session.begin(subtransactions=True):
+                s = super(NsxVPluginV2, self).create_subnet(context, subnet)
+            if s['enable_dhcp']:
+                conflicting = self._get_conflicting_networks_for_subnet(
+                    context, s)
+                (conflict_edge_ids,
+                 available_edge_ids) = self.edge_manager.get_available_edges(
+                     context, subnet['subnet']['network_id'], conflicting)
         if s['enable_dhcp']:
             try:
-                self._update_dhcp_service_with_subnet(context, s)
+                self._update_dhcp_service_with_subnet(context, s,
+                                                      conflict_edge_ids,
+                                                      available_edge_ids)
             except Exception:
                 with excutils.save_and_reraise_exception():
                     self.delete_subnet(context, s['id'])
@@ -1048,19 +1055,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 conflict_network_ids.append(subnet['network_id'])
         return conflict_network_ids
 
-    def _update_dhcp_service_with_subnet(self, context, subnet):
+    def _get_conflicting_networks_for_subnet(self, context, subnet):
         network_id = subnet['network_id']
-        # Create DHCP port
-        port_dict = {'name': '',
-                     'admin_state_up': True,
-                     'network_id': network_id,
-                     'tenant_id': subnet['tenant_id'],
-                     'fixed_ips': [{'subnet_id': subnet['id']}],
-                     'device_owner': constants.DEVICE_OWNER_DHCP,
-                     'device_id': '',
-                     'mac_address': attr.ATTR_NOT_SPECIFIED
-                     }
-        self.create_port(context, {'port': port_dict})
         # The DHCP for network with different physical network can not be used
         # The flat network should be located in different DHCP
         conflicting_networks = []
@@ -1085,10 +1081,27 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                     context, [subnet]))
 
         conflicting_networks = list(set(conflicting_networks))
+        return conflicting_networks
+
+    def _update_dhcp_service_with_subnet(self, context, subnet,
+                                         conflict_edge_ids,
+                                         available_edge_ids):
+        network_id = subnet['network_id']
+        # Create DHCP port
+        port_dict = {'name': '',
+                     'admin_state_up': True,
+                     'network_id': network_id,
+                     'tenant_id': subnet['tenant_id'],
+                     'fixed_ips': [{'subnet_id': subnet['id']}],
+                     'device_owner': constants.DEVICE_OWNER_DHCP,
+                     'device_id': '',
+                     'mac_address': attr.ATTR_NOT_SPECIFIED
+                     }
+        self.create_port(context, {'port': port_dict})
 
         try:
             resource_id = self.edge_manager.create_dhcp_edge_service(
-                context, network_id, conflicting_networks)
+                context, network_id, conflict_edge_ids, available_edge_ids)
             # Create all dhcp ports within the network
             address_groups = self._create_network_dhcp_address_group(
                 context, network_id)

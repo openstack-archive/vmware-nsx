@@ -74,8 +74,9 @@ def update_nsxv_router_binding(session, router_id, **kwargs):
 def delete_nsxv_router_binding(session, router_id):
     with session.begin(subtransactions=True):
         binding = (session.query(nsxv_models.NsxvRouterBinding).
-                   filter_by(router_id=router_id).one())
-        session.delete(binding)
+                   filter_by(router_id=router_id).first())
+        if binding:
+            session.delete(binding)
 
 
 def get_edge_vnic_binding(session, edge_id, network_id):

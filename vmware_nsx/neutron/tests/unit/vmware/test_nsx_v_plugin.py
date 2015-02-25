@@ -1017,6 +1017,9 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
                     self.context.session, router_id)['edge_id']
                 self.assertNotEqual(dhcp_server_id, dhcp_server_id_1)
 
+    def test_create_subnets_bulk_native_plugin_failure(self):
+        pass
+
 
 class TestBasicGet(test_plugin.TestBasicGet, NsxVPluginV2TestCase):
     pass
