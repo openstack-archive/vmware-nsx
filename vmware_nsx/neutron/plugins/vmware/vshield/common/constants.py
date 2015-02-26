@@ -52,7 +52,7 @@ SUFFIX_LENGTH = 8
 
 #Edge size
 SERVICE_SIZE_MAPPING = {
-    'router': nsxv_constants.LARGE,
+    'router': nsxv_constants.COMPACT,
     'dhcp': nsxv_constants.COMPACT
 }
 ALLOWED_EDGE_SIZES = (nsxv_constants.COMPACT,
