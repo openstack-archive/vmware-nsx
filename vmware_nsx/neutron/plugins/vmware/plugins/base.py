@@ -633,12 +633,18 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # TODO(salvatore-orlando): Handle NSX resource
         # rollback when something goes not quite as expected
         try:
-            lr_port = self._find_router_gw_port(context, port_data)
-            # Delete is actually never a real delete, otherwise the NSX
-            # logical router will stop working
             router_id = port_data['device_id']
             nsx_router_id = nsx_utils.get_nsx_router_id(
                 context.session, self.cluster, router_id)
+            if not nsx_router_id:
+                LOG.debug("No object found on backend for router %s. This "
+                          "that the router was already deleted and no "
+                          "further action is needed for resetting the "
+                          "external gateway port", router_id)
+                return
+            lr_port = self._find_router_gw_port(context, port_data)
+            # Delete is actually never a real delete, otherwise the NSX
+            # logical router will stop working
             routerlib.update_router_lport(self.cluster,
                                           nsx_router_id,
                                           lr_port['uuid'],
