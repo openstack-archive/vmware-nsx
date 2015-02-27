@@ -15,6 +15,7 @@
 #    under the License.
 #
 
+from oslo.concurrency import lockutils
 from oslo.config import cfg
 from oslo.utils import importutils
 
@@ -38,6 +39,15 @@ from vmware_nsx.neutron.plugins.vmware.dhcp_meta import nsx as nsx_svc
 from vmware_nsx.neutron.plugins.vmware.dhcp_meta import rpc as nsx_rpc
 
 LOG = logging.getLogger(__name__)
+
+
+class SynchronizedDhcpRpcCallback(dhcp_rpc.DhcpRpcCallback):
+    """DHCP RPC callbakcs synchronized with VMware plugin mutex."""
+
+    @lockutils.synchronized('vmware', 'neutron-')
+    def create_dhcp_port(self, context, **kwargs):
+        return super(SynchronizedDhcpRpcCallback, self).create_dhcp_port(
+            context, **kwargs)
 
 
 class DhcpMetadataAccess(object):
@@ -75,7 +85,7 @@ class DhcpMetadataAccess(object):
     def _setup_rpc_dhcp_metadata(self, notifier=None):
         self.topic = topics.PLUGIN
         self.conn = n_rpc.create_connection(new=True)
-        self.endpoints = [dhcp_rpc.DhcpRpcCallback(),
+        self.endpoints = [SynchronizedDhcpRpcCallback(),
                           agents_db.AgentExtRpcCallback(),
                           metadata_rpc.MetadataRpcCallback()]
         self.conn.create_consumer(self.topic, self.endpoints, fanout=False)
