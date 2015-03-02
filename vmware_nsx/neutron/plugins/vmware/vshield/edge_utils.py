@@ -1268,6 +1268,12 @@ def delete_interface(nsxv_manager, context, router_id, network_id, dist=False):
     edge_id = binding['edge_id']
     edge_vnic_binding = nsxv_db.get_edge_vnic_binding(
         context.session, edge_id, network_id)
+    if not edge_vnic_binding:
+        LOG.warning(_("Failed to find the network %(net_id)s "
+                      "corresponding vnic index on edge %(edge_id)s"),
+                    {'net_id': network_id,
+                     'edge_id': edge_id})
+
     if not dist:
         task = nsxv_manager.delete_interface(
             router_id, edge_id, edge_vnic_binding.vnic_index)

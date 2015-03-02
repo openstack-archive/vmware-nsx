@@ -73,7 +73,7 @@ class InvalidSecurityCertificate(NsxPluginException):
 
 
 class ServiceOverQuota(n_exc.Conflict):
-    message = _("Quota exceeded for Vcns resource: %(overs)s: %(err_msg)s")
+    message = _("Quota exceeded for NSX resource %(overs)s: %(err_msg)s")
 
 
 class ServiceClusterUnavailable(NsxPluginException):
