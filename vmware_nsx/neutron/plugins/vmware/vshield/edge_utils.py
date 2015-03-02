@@ -787,12 +787,6 @@ class EdgeManager(object):
         nsxv_db.update_nsxv_router_binding(
             context.session, router_id,
             lswitch_id=lswitch_id)
-        # TODO(berlin): update vdr's default gateway flexibly.
-        task = self.nsxv_manager.update_routes(
-            router_id, tlr_edge_id,
-            vcns_const.INTEGRATION_EDGE_IPADDRESS, [],
-            gateway_vnic_index=tlr_vnic_index)
-        task.wait(task_const.TaskState.RESULT)
 
         # Handle plr relative op
         plr_router = {'name': router_name,
@@ -1124,7 +1118,9 @@ def update_gateway(nsxv_manager, context, router_id, nexthop, routes=None):
     task.wait(task_const.TaskState.RESULT)
 
 
-def update_routes(edge_manager, context, router_id, routes, nexthop=None):
+def update_routes(edge_manager, context, router_id, routes,
+                  nexthop=None,
+                  gateway_vnic_index=vcns_const.EXTERNAL_VNIC_INDEX):
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
     edge_id = binding['edge_id']
     edge_routes = []
@@ -1145,27 +1141,22 @@ def update_routes(edge_manager, context, router_id, routes, nexthop=None):
                     route['network_id'])['vnic_index'],
                 'cidr': route['destination'],
                 'nexthop': route['nexthop']})
-    task = edge_manager.update_routes(router_id, edge_id, nexthop, edge_routes)
+    task = edge_manager.update_routes(router_id, edge_id, nexthop, edge_routes,
+                                      gateway_vnic_index=gateway_vnic_index)
     task.wait(task_const.TaskState.RESULT)
 
 
-def update_routes_on_plr(edge_manager, context, plr_id, router_id,
-                         routes, nexthop=None):
-
-    binding = nsxv_db.get_nsxv_router_binding(context.session, plr_id)
-    edge_id = binding['edge_id']
-    lswitch_id = nsxv_db.get_nsxv_router_binding(
+def get_internal_lswitch_id_of_plr_tlr(context, router_id):
+    return nsxv_db.get_nsxv_router_binding(
         context.session, router_id).lswitch_id
+
+
+def get_internal_vnic_index_of_plr_tlr(context, router_id):
+    router_binding = nsxv_db.get_nsxv_router_binding(
+        context.session, router_id)
     edge_vnic_binding = nsxv_db.get_edge_vnic_binding(
-        context.session, edge_id, lswitch_id)
-    edge_routes = []
-    for route in routes:
-        edge_routes.append({
-            'vnic_index': edge_vnic_binding.vnic_index,
-            'cidr': route['destination'],
-            'nexthop': route['nexthop']})
-    task = edge_manager.update_routes(plr_id, edge_id, nexthop, edge_routes)
-    task.wait(task_const.TaskState.RESULT)
+        context.session, router_binding.edge_id, router_binding.lswitch_id)
+    return edge_vnic_binding.vnic_index
 
 
 def clear_gateway(nsxv_manager, context, router_id):
