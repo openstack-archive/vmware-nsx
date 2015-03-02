@@ -14,10 +14,10 @@
 
 import logging
 
+from neutron.i18n import _LW
 from oslo.config import cfg
 
-from neutron.i18n import _LW
-from neutron.plugins.vmware.common import exceptions as nsx_exc
+from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 
 LOG = logging.getLogger(__name__)
 
