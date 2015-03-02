@@ -155,7 +155,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         return container_id
 
     def _find_router_driver(self, context, router_id):
-        router_db = self._get_router(context, router_id)
+        router_qry = context.session.query(l3_db.Router)
+        router_db = router_qry.filter_by(id=router_id).one()
         return self._get_router_driver(context, router_db)
 
     def _get_router_driver(self, context, router_db):
