@@ -13,66 +13,192 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.db import db_base_plugin_v2
+
+from oslo_config import cfg
 from oslo_log import log
+from oslo_utils import importutils
+from oslo_utils import uuidutils
+
+from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
+from neutron.api.rpc.handlers import dhcp_rpc
+from neutron.api.rpc.handlers import metadata_rpc
+from neutron.api.v2 import attributes
+from neutron.extensions import l3
+
+from neutron.common import constants as const
+from neutron.common import rpc as n_rpc
+from neutron.common import topics
+from neutron.db import agents_db
+from neutron.db import agentschedulers_db
+from neutron.db import db_base_plugin_v2
+from neutron.db import l3_db
+from neutron.db import models_v2
+from neutron.db import securitygroups_db
+
+from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
+from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
+from vmware_nsx.neutron.plugins.vmware.nsxlib import v3 as nsxlib
 
 
 LOG = log.getLogger(__name__)
 
 
-class NSXv3Plugin(db_base_plugin_v2.NeutronDbPluginV2):
+class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
+                  securitygroups_db.SecurityGroupDbMixin,
+                  l3_db.L3_NAT_dbonly_mixin,
+                  agentschedulers_db.DhcpAgentSchedulerDbMixin):
+    # NOTE(salv-orlando): Security groups are not actually implemented by this
+    # plugin at the moment
 
     __native_bulk_support = True
     __native_pagination_support = True
     __native_sorting_support = True
 
+    supported_extension_aliases = ["quotas",
+                                   "security-group",
+                                   "router"]
+
     def __init__(self):
-        super(NSXv3Plugin, self).__init__()
-        LOG.info(_("Starting NSXv3Plugin"))
-        # XXXX Read in config
+        super(NsxV3Plugin, self).__init__()
+        LOG.info(_("Starting NsxV3Plugin"))
+        self._setup_rpc()
+
+    def _setup_rpc(self):
+        self.topic = topics.PLUGIN
+        self.conn = n_rpc.create_connection(new=True)
+        self.endpoints = [dhcp_rpc.DhcpRpcCallback(),
+                          agents_db.AgentExtRpcCallback(),
+                          metadata_rpc.MetadataRpcCallback()]
+        self.conn.create_consumer(self.topic, self.endpoints, fanout=False)
+        self.agent_notifiers[const.AGENT_TYPE_DHCP] = (
+            dhcp_rpc_agent_api.DhcpAgentNotifyAPI())
+        self.conn.consume_in_threads()
+        self.network_scheduler = importutils.import_object(
+            cfg.CONF.network_scheduler_driver
+        )
+        self.supported_extension_aliases.extend(
+            ['agent', 'dhcp_agent_scheduler'])
 
     def create_network(self, context, network):
-        # TODO(arosen) - call to backend
-        network = super(NSXv3Plugin, self).create_network(context,
+        result = nsxlib.create_logical_switch(
+            network['network']['name'],
+            cfg.CONF.default_tz_uuid)
+        network['network']['id'] = result['id']
+        network = super(NsxV3Plugin, self).create_network(context,
                                                           network)
+        # TODO(salv-orlando): Undo logical switch creation on failure
         return network
 
-    def delete_network(self, context, id):
-        # TODO(arosen) - call to backend
-        return super(NSXv3Plugin, self).delete_network(context, id)
+    def delete_network(self, context, network_id):
+        # First call DB operation for delete network as it will perform
+        # checks on active ports
+        ret_val = super(NsxV3Plugin, self).delete_network(context, network_id)
+        # TODO(salv-orlando): Handle backend failure, possibly without
+        # requiring us to un-delete the DB object. For instance, ignore
+        # failures occuring if logical switch is not found
+        nsxlib.delete_logical_switch(network_id)
+        return ret_val
 
     def update_network(self, context, id, network):
         # TODO(arosen) - call to backend
-        return super(NSXv3Plugin, self).update_network(context, id,
+        return super(NsxV3Plugin, self).update_network(context, id,
                                                        network)
 
-    def create_port(self, context, port):
-        # TODO(arosen) - call to backend
-        port = super(NSXv3Plugin, self).create_port(context,
-                                                    port)
+    def create_port(self, context, port_data):
+        # NOTE(salv-orlando): This method currently first performs the backend
+        # operation. However it is important to note that this workflow might
+        # change in the future as the backend might need parameter generated
+        # from the neutron side such as port MAC address
+        port_id = uuidutils.generate_uuid()
+        result = nsxlib.create_logical_port(
+            lswitch_id=port_data['network_id'],
+            vif_uuid=port_id)
+        port_data['port']['id'] = port_id
+        # TODO(salv-orlando): Undo logical switch creation on failure
+        with context.session.begin():
+            port = super(NsxV3Plugin, self).create_port(context, port_data)
+            # TODO(salv-orlando): The logical switch identifier in the mapping
+            # object is not necessary anymore.
+            nsx_db.add_neutron_nsx_port_mapping(
+                context.session, port['id'],
+                port['network_id'], result['id'])
         return port
 
-    def delete_port(self, context, id, l3_port_check=True):
-        # TODO(arosen) - call to backend
-        return super(NSXv3Plugin, self).delete_port(context, id)
+    def delete_port(self, context, port_id, l3_port_check=True):
+        _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
+            context.session, port_id)
+        ret_val = super(NsxV3Plugin, self).delete_port(context, port_id)
+
+        nsxlib.delete_logical_port(nsx_port_id)
+
+        return ret_val
 
     def update_port(self, context, id, port):
         # TODO(arosen) - call to backend
-        return super(NSXv3Plugin, self).update_port(context, id,
+        return super(NsxV3Plugin, self).update_port(context, id,
                                                     port)
 
     def create_router(self, context, router):
-        # TODO(arosen) - call to backend
-        router = super(NSXv3Plugin, self).create_router(context,
+        # NOTE(salv-orlando): tier0 routers are expensive, consider whether
+        # tier1 can be employed (especially as there's no NAT atm)
+        result = nsxlib.create_logical_router(
+            display_name=router['router']['name'],
+            tier0=True,
+            edge_cluster_uuid=cfg.CONF.nsx_v3.default_edge_cluster_uuid)
+
+        router['router']['id'] = result['id']
+        router = super(NsxV3Plugin, self).create_router(context,
                                                         router)
         return router
 
     def delete_router(self, context, router_id):
         # TODO(arosen) - call to backend
-        return super(NSXv3Plugin, self).delete_router(context,
+        return super(NsxV3Plugin, self).delete_router(context,
                                                       router_id)
 
     def update_router(self, context, router_id, router):
         # TODO(arosen) - call to backend
-        return super(NSXv3Plugin, self).update_router(context, id,
+        return super(NsxV3Plugin, self).update_router(context, id,
                                                       router)
+
+    def add_router_interface(self, context, router_id, interface_info):
+        # NOTE(arosen): I think there is a bug here since I believe we
+        # can also get a port or ip here....
+        subnet = self.get_subnet(context, interface_info['subnet_id'])
+        port = {'port': {'network_id': subnet['network_id'], 'name': '',
+                         'admin_state_up': True, 'device_id': '',
+                         'device_owner': l3_db.DEVICE_OWNER_ROUTER_INTF,
+                         'mac_address': attributes.ATTR_NOT_SPECIFIED,
+                         'fixed_ips': [{'subnet_id': subnet['id'],
+                                        'ip_address': subnet['gateway_ip']}]}}
+        port = self.create_port(context, port)
+        result = nsxlib.create_logical_router_port(
+            router_id=router_id,
+            resource_type="LogicalRouterUpLinkPort",
+            cidr_length=24, ip_addresses=subnet['gateway_ip'],
+            port_id=port['id'])
+        interface_info['port_id'] = port['id']
+        del interface_info['subnet_id']
+        result = super(NsxV3Plugin, self).add_router_interface(
+            context, router_id, interface_info)
+        return result
+
+    def remove_router_interface(self, context, router_id, interface_info):
+        if 'subnet_id' in interface_info:
+            subnet_id = interface_info['subnet_id']
+            subnet = self._get_subnet(context, subnet_id)
+            rport_qry = context.session.query(models_v2.Port)
+            ports = rport_qry.filter_by(
+                device_id=router_id,
+                device_owner=l3_db.DEVICE_OWNER_ROUTER_INTF,
+                network_id=subnet['network_id'])
+            for p in ports:
+                if p['fixed_ips'][0]['subnet_id'] == subnet_id:
+                    port_id = p['id']
+                    break
+            else:
+                raise l3.RouterInterfaceNotFoundForSubnet(router_id=router_id,
+                                                          subnet_id=subnet_id)
+            nsxlib.delete_logical_router_port(port_id)
+        return super(NsxV3Plugin, self).remove_router_interface(
+            context, router_id, interface_info)

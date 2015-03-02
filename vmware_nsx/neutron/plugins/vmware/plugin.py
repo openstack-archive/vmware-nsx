@@ -18,7 +18,9 @@
 from vmware_nsx.neutron.plugins.vmware.plugins import base
 from vmware_nsx.neutron.plugins.vmware.plugins import dvs
 from vmware_nsx.neutron.plugins.vmware.plugins import nsx_v
+from vmware_nsx.neutron.plugins.vmware.plugins import nsx_v3_plugin
 
 NsxPlugin = base.NsxPluginV2
 NsxVPlugin = nsx_v.NsxVPluginV2
 NsxDvsPlugin = dvs.NsxDvsV2
+NsxV3Plugin = nsx_v3_plugin.NsxV3Plugin

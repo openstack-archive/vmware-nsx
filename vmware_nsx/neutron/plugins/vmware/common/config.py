@@ -157,6 +157,10 @@ cluster_opts = [
                       "network connection")),
 ]
 
+nsx_v3_opts = [
+    cfg.StrOpt('default_edge_cluster_uuid',
+               help=_("Default edge cluster identifier"))]
+
 DEFAULT_STATUS_CHECK_INTERVAL = 2000
 DEFAULT_MINIMUM_POOLED_EDGES = 1
 DEFAULT_MAXIMUM_POOLED_EDGES = 3
@@ -252,6 +256,7 @@ nsxv_opts = [
 # Register the configuration options
 cfg.CONF.register_opts(connection_opts)
 cfg.CONF.register_opts(cluster_opts)
+cfg.CONF.register_opts(nsx_v3_opts, group="nsx_v3")
 cfg.CONF.register_opts(nsxv_opts, group="nsxv")
 cfg.CONF.register_opts(base_opts, group="NSX")
 cfg.CONF.register_opts(sync_opts, group="NSX_SYNC")
