@@ -1702,3 +1702,497 @@ class TestNSXPortSecurity(test_psec.TestPortSecurity,
                                       plugin.update_port,
                                       context.get_admin_context(),
                                       port['port']['id'], update_port)
+
+
+class TestSharedRouterTestCase(L3NatTest,
+                               test_l3_plugin.L3NatTestCaseMixin,
+                               NsxVPluginV2TestCase):
+
+    def _create_router(self, fmt, tenant_id, name=None,
+                       admin_state_up=None, set_context=False,
+                       arg_list=None, **kwargs):
+        data = {'router': {'tenant_id': tenant_id}}
+        if name:
+            data['router']['name'] = name
+        if admin_state_up:
+            data['router']['admin_state_up'] = admin_state_up
+        for arg in (('admin_state_up', 'tenant_id') + (arg_list or ())):
+            # Arg must be present and not empty
+            if arg in kwargs and kwargs[arg]:
+                data['router'][arg] = kwargs[arg]
+
+        data['router']['router_type'] = kwargs.get('router_type', 'shared')
+
+        router_req = self.new_create_request('routers', data, fmt)
+        if set_context and tenant_id:
+            # create a specific auth context for this request
+            router_req.environ['neutron.context'] = context.Context(
+                '', tenant_id)
+
+        return router_req.get_response(self.ext_api)
+
+    def test_router_create_with_no_edge(self):
+        name = 'router1'
+        tenant_id = _uuid()
+        expected_value = [('name', name), ('tenant_id', tenant_id),
+                          ('admin_state_up', True), ('status', 'ACTIVE'),
+                          ('external_gateway_info', None)]
+        with self.router(name='router1', admin_state_up=True,
+                         tenant_id=tenant_id) as router:
+            for k, v in expected_value:
+                self.assertEqual(router['router'][k], v)
+            self.assertEqual(
+                [],
+                self.plugin_instance.edge_manager.get_routers_on_same_edge(
+                    context.get_admin_context(), router['router']['id']))
+
+    def test_router_create_with_gwinfo_with_no_edge(self):
+        with self._create_l3_ext_network() as net:
+            with self.subnet(network=net, enable_dhcp=False) as s:
+                data = {'router': {'tenant_id': 'whatever'}}
+                data['router']['name'] = 'router1'
+                data['router']['external_gateway_info'] = {
+                    'network_id': s['subnet']['network_id']}
+                router_req = self.new_create_request('routers', data,
+                                                     self.fmt)
+                try:
+                    res = router_req.get_response(self.ext_api)
+                    router = self.deserialize(self.fmt, res)
+                    self.assertEqual(
+                        s['subnet']['network_id'],
+                        (router['router']['external_gateway_info']
+                         ['network_id']))
+                    self.assertEqual(
+                        [],
+                        self.plugin_instance.edge_manager.
+                        get_routers_on_same_edge(
+                            context.get_admin_context(),
+                            router['router']['id']))
+                finally:
+                    self._delete('routers', router['router']['id'])
+
+    def test_router_update_gateway_with_no_edge(self):
+        with self.router() as r:
+            with self.subnet() as s1:
+                with self._create_l3_ext_network() as net:
+                    with self.subnet(network=net, enable_dhcp=False) as s2:
+                        self._set_net_external(s1['subnet']['network_id'])
+                        try:
+                            self._add_external_gateway_to_router(
+                                r['router']['id'],
+                                s1['subnet']['network_id'])
+                            body = self._show('routers', r['router']['id'])
+                            net_id = (body['router']
+                                      ['external_gateway_info']['network_id'])
+                            self.assertEqual(net_id,
+                                             s1['subnet']['network_id'])
+                            self.assertEqual(
+                                [],
+                                self.plugin_instance.edge_manager.
+                                get_routers_on_same_edge(
+                                    context.get_admin_context(),
+                                    r['router']['id']))
+                            # Plug network with external mapping
+                            self._set_net_external(s2['subnet']['network_id'])
+                            self._add_external_gateway_to_router(
+                                r['router']['id'],
+                                s2['subnet']['network_id'])
+                            body = self._show('routers', r['router']['id'])
+                            net_id = (body['router']
+                                      ['external_gateway_info']['network_id'])
+                            self.assertEqual(net_id,
+                                             s2['subnet']['network_id'])
+                            self.assertEqual(
+                                [],
+                                self.plugin_instance.edge_manager.
+                                get_routers_on_same_edge(
+                                    context.get_admin_context(),
+                                    r['router']['id']))
+                        finally:
+                            # Cleanup
+                            self._remove_external_gateway_from_router(
+                                r['router']['id'],
+                                s2['subnet']['network_id'])
+
+    def test_router_update_gateway_with_existing_floatingip_with_edge(self):
+        with self._create_l3_ext_network() as net:
+            with self.subnet(network=net, enable_dhcp=False) as subnet:
+                with self.floatingip_with_assoc() as fip:
+                    self._add_external_gateway_to_router(
+                        fip['floatingip']['router_id'],
+                        subnet['subnet']['network_id'],
+                        expected_code=webob.exc.HTTPConflict.code)
+                    self.assertNotEqual(
+                        [],
+                        self.plugin_instance.edge_manager.
+                        get_routers_on_same_edge(
+                            context.get_admin_context(),
+                            fip['floatingip']['router_id']))
+
+    def test_router_set_gateway_with_interfaces_with_edge(self):
+        with self.router() as r:
+            with self.subnet() as s1:
+                self._set_net_external(s1['subnet']['network_id'])
+                try:
+                    self._add_external_gateway_to_router(
+                        r['router']['id'],
+                        s1['subnet']['network_id'])
+                    body = self._show('routers', r['router']['id'])
+                    net_id = (body['router']
+                              ['external_gateway_info']['network_id'])
+                    self.assertEqual(net_id,
+                                     s1['subnet']['network_id'])
+                    self.assertEqual(
+                        [],
+                        self.plugin_instance.edge_manager.
+                        get_routers_on_same_edge(
+                            context.get_admin_context(),
+                            r['router']['id']))
+                    with contextlib.nested(
+                        self.subnet(cidr='11.0.0.0/24'),
+                        self.subnet(cidr='12.0.0.0/24')) as (s11, s12):
+                        self._router_interface_action('add',
+                                                      r['router']['id'],
+                                                      s11['subnet']['id'],
+                                                      None)
+                        self._router_interface_action('add',
+                                                      r['router']['id'],
+                                                      s12['subnet']['id'],
+                                                      None)
+                        self.assertIsNotNone(
+                            self.plugin_instance.edge_manager.
+                            get_routers_on_same_edge(
+                                context.get_admin_context(),
+                                r['router']['id']))
+                        self._router_interface_action('remove',
+                                                      r['router']['id'],
+                                                      s11['subnet']['id'],
+                                                      None)
+                        self.assertIsNotNone(
+                            self.plugin_instance.edge_manager.
+                            get_routers_on_same_edge(
+                                context.get_admin_context(),
+                                r['router']['id']))
+                        self._router_interface_action('remove',
+                                                      r['router']['id'],
+                                                      s12['subnet']['id'],
+                                                      None)
+                        self.assertEqual(
+                            [],
+                            self.plugin_instance.edge_manager.
+                            get_routers_on_same_edge(
+                                context.get_admin_context(),
+                                r['router']['id']))
+                finally:
+                    # Cleanup
+                    self._remove_external_gateway_from_router(
+                        r['router']['id'],
+                        s1['subnet']['network_id'])
+
+    def test_routers_with_interface_on_same_edge(self):
+        with contextlib.nested(
+            self.router(),
+            self.router()) as (r1, r2):
+            with contextlib.nested(
+                self.subnet(cidr='11.0.0.0/24'),
+                self.subnet(cidr='12.0.0.0/24')) as (s11, s12):
+                    self._router_interface_action('add',
+                                                  r1['router']['id'],
+                                                  s11['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('add',
+                                                  r2['router']['id'],
+                                                  s12['subnet']['id'],
+                                                  None)
+                    routers_expected = [r1['router']['id'], r2['router']['id']]
+                    routers_1 = (self.plugin_instance.edge_manager.
+                                 get_routers_on_same_edge(
+                                     context.get_admin_context(),
+                                     r1['router']['id']))
+                    self.assertEqual(routers_expected, routers_1)
+                    routers_2 = (self.plugin_instance.edge_manager.
+                                 get_routers_on_same_edge(
+                                     context.get_admin_context(),
+                                     r2['router']['id']))
+                    self.assertEqual(routers_expected, routers_2)
+                    self._router_interface_action('remove',
+                                                  r1['router']['id'],
+                                                  s11['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('remove',
+                                                  r2['router']['id'],
+                                                  s12['subnet']['id'],
+                                                  None)
+
+    def test_routers_with_overlap_interfaces(self):
+        with contextlib.nested(
+            self.router(),
+            self.router()) as (r1, r2):
+            with contextlib.nested(
+                self.subnet(cidr='11.0.0.0/24'),
+                self.subnet(cidr='11.0.0.0/24')) as (s11, s12):
+                    self._router_interface_action('add',
+                                                  r1['router']['id'],
+                                                  s11['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('add',
+                                                  r2['router']['id'],
+                                                  s12['subnet']['id'],
+                                                  None)
+                    r1_expected = [r1['router']['id']]
+                    routers_1 = (self.plugin_instance.edge_manager.
+                                 get_routers_on_same_edge(
+                                     context.get_admin_context(),
+                                     r1['router']['id']))
+                    self.assertEqual(r1_expected, routers_1)
+                    r2_expected = [r2['router']['id']]
+                    routers_2 = (self.plugin_instance.edge_manager.
+                                 get_routers_on_same_edge(
+                                     context.get_admin_context(),
+                                     r2['router']['id']))
+                    self.assertEqual(r2_expected, routers_2)
+                    self._router_interface_action('remove',
+                                                  r1['router']['id'],
+                                                  s11['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('remove',
+                                                  r2['router']['id'],
+                                                  s12['subnet']['id'],
+                                                  None)
+
+    def test_routers_with_overlap_interfaces_with_migration(self):
+        with contextlib.nested(
+            self.router(),
+            self.router()) as (r1, r2):
+            with contextlib.nested(
+                self.subnet(cidr='11.0.0.0/24'),
+                self.subnet(cidr='12.0.0.0/24'),
+                self.subnet(cidr='11.0.0.0/24')) as (s11, s12, s13):
+                    self._router_interface_action('add',
+                                                  r1['router']['id'],
+                                                  s11['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('add',
+                                                  r2['router']['id'],
+                                                  s12['subnet']['id'],
+                                                  None)
+                    r1_expected = [r1['router']['id'], r2['router']['id']]
+                    routers_1 = (self.plugin_instance.edge_manager.
+                                 get_routers_on_same_edge(
+                                     context.get_admin_context(),
+                                     r1['router']['id']))
+                    self.assertEqual(r1_expected, routers_1)
+                    self._router_interface_action('add',
+                                                  r2['router']['id'],
+                                                  s13['subnet']['id'],
+                                                  None)
+                    r1_expected = [r1['router']['id']]
+                    routers_1 = (self.plugin_instance.edge_manager.
+                                 get_routers_on_same_edge(
+                                     context.get_admin_context(),
+                                     r1['router']['id']))
+                    self.assertEqual(r1_expected, routers_1)
+                    self._router_interface_action('remove',
+                                                  r1['router']['id'],
+                                                  s11['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('remove',
+                                                  r2['router']['id'],
+                                                  s12['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('remove',
+                                                  r2['router']['id'],
+                                                  s13['subnet']['id'],
+                                                  None)
+
+    def test_routers_with_different_subnet_on_same_network(self):
+        with contextlib.nested(
+            self.router(),
+            self.router(),
+            self.network()) as (r1, r2, net):
+            with contextlib.nested(
+                self.subnet(network=net, cidr='12.0.0.0/24'),
+                self.subnet(network=net, cidr='13.0.0.0/24')) as (s1, s2):
+                    self._router_interface_action('add',
+                                                  r1['router']['id'],
+                                                  s1['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('add',
+                                                  r2['router']['id'],
+                                                  s2['subnet']['id'],
+                                                  None)
+                    routers_2 = (self.plugin_instance.edge_manager.
+                                 get_routers_on_same_edge(
+                                     context.get_admin_context(),
+                                     r2['router']['id']))
+                    self.assertEqual(1, len(routers_2))
+                    self._router_interface_action('remove',
+                                                  r1['router']['id'],
+                                                  s1['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('remove',
+                                                  r2['router']['id'],
+                                                  s2['subnet']['id'],
+                                                  None)
+
+    def test_routers_with_different_subnet_on_same_network_migration(self):
+        with contextlib.nested(
+            self.router(),
+            self.router(),
+            self.network()) as (r1, r2, net):
+            with contextlib.nested(
+                self.subnet(cidr='11.0.0.0/24'),
+                self.subnet(network=net, cidr='12.0.0.0/24'),
+                self.subnet(network=net, cidr='13.0.0.0/24')) as (s1, s2, s3):
+                    self._router_interface_action('add',
+                                                  r1['router']['id'],
+                                                  s1['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('add',
+                                                  r2['router']['id'],
+                                                  s2['subnet']['id'],
+                                                  None)
+                    routers_2 = (self.plugin_instance.edge_manager.
+                                 get_routers_on_same_edge(
+                                     context.get_admin_context(),
+                                     r2['router']['id']))
+                    self.assertEqual(2, len(routers_2))
+                    self._router_interface_action('add',
+                                                  r2['router']['id'],
+                                                  s3['subnet']['id'],
+                                                  None)
+                    routers_2 = (self.plugin_instance.edge_manager.
+                                 get_routers_on_same_edge(
+                                     context.get_admin_context(),
+                                     r2['router']['id']))
+                    self.assertEqual(2, len(routers_2))
+                    self._router_interface_action('remove',
+                                                  r2['router']['id'],
+                                                  s3['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('add',
+                                                  r1['router']['id'],
+                                                  s3['subnet']['id'],
+                                                  None)
+                    routers_2 = (self.plugin_instance.edge_manager.
+                                 get_routers_on_same_edge(
+                                     context.get_admin_context(),
+                                     r2['router']['id']))
+                    self.assertEqual(1, len(routers_2))
+                    self._router_interface_action('remove',
+                                                  r1['router']['id'],
+                                                  s3['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('remove',
+                                                  r1['router']['id'],
+                                                  s1['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('remove',
+                                                  r2['router']['id'],
+                                                  s2['subnet']['id'],
+                                                  None)
+
+    def test_routers_set_same_gateway_on_same_edge(self):
+        with contextlib.nested(
+            self.router(),
+            self.router(),
+            self.network()) as (r1, r2, ext_net):
+            with contextlib.nested(
+                self.subnet(cidr='11.0.0.0/24'),
+                self.subnet(cidr='12.0.0.0/24'),
+                self.subnet(network=ext_net,
+                            cidr='13.0.0.0/24')) as (s1, s2, ext_subnet):
+                    self._set_net_external(ext_net['network']['id'])
+                    self._router_interface_action('add',
+                                                  r1['router']['id'],
+                                                  s1['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('add',
+                                                  r2['router']['id'],
+                                                  s2['subnet']['id'],
+                                                  None)
+                    self._add_external_gateway_to_router(
+                        r1['router']['id'],
+                        ext_net['network']['id'])
+                    self._add_external_gateway_to_router(
+                        r2['router']['id'],
+                        ext_net['network']['id'])
+                    routers_2 = (self.plugin_instance.edge_manager.
+                                 get_routers_on_same_edge(
+                                     context.get_admin_context(),
+                                     r2['router']['id']))
+                    self.assertEqual(2, len(routers_2))
+
+                    self._router_interface_action('remove',
+                                                  r1['router']['id'],
+                                                  s1['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('remove',
+                                                  r2['router']['id'],
+                                                  s2['subnet']['id'],
+                                                  None)
+                    self._remove_external_gateway_from_router(
+                        r1['router']['id'],
+                        ext_net['network']['id'])
+                    self._remove_external_gateway_from_router(
+                        r2['router']['id'],
+                        ext_net['network']['id'])
+
+    def test_routers_set_different_gateway_on_different_edge(self):
+        with contextlib.nested(
+            self.router(),
+            self.router(),
+            self.network(),
+            self.network()) as (r1, r2, ext1, ext2):
+            with contextlib.nested(
+                self.subnet(cidr='11.0.0.0/24'),
+                self.subnet(cidr='12.0.0.0/24'),
+                self.subnet(network=ext1,
+                            cidr='13.0.0.0/24'),
+                self.subnet(network=ext2,
+                            cidr='14.0.0.0/24')
+            ) as (s1, s2, ext_sub1, ext_sub2):
+                    self._set_net_external(ext1['network']['id'])
+                    self._set_net_external(ext2['network']['id'])
+                    self._router_interface_action('add',
+                                                  r1['router']['id'],
+                                                  s1['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('add',
+                                                  r2['router']['id'],
+                                                  s2['subnet']['id'],
+                                                  None)
+                    self._add_external_gateway_to_router(
+                        r1['router']['id'],
+                        ext1['network']['id'])
+                    self._add_external_gateway_to_router(
+                        r2['router']['id'],
+                        ext1['network']['id'])
+                    routers_2 = (self.plugin_instance.edge_manager.
+                                 get_routers_on_same_edge(
+                                     context.get_admin_context(),
+                                     r2['router']['id']))
+                    self.assertEqual(2, len(routers_2))
+                    self._add_external_gateway_to_router(
+                        r2['router']['id'],
+                        ext2['network']['id'])
+                    routers_2 = (self.plugin_instance.edge_manager.
+                                 get_routers_on_same_edge(
+                                     context.get_admin_context(),
+                                     r2['router']['id']))
+                    self.assertEqual(1, len(routers_2))
+
+                    self._router_interface_action('remove',
+                                                  r1['router']['id'],
+                                                  s1['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('remove',
+                                                  r2['router']['id'],
+                                                  s2['subnet']['id'],
+                                                  None)
+                    self._remove_external_gateway_from_router(
+                        r1['router']['id'],
+                        ext1['network']['id'])
+                    self._remove_external_gateway_from_router(
+                        r2['router']['id'],
+                        ext2['network']['id'])

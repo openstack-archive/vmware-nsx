@@ -495,6 +495,13 @@ class EdgeManager(object):
                 router_id, binding['edge_id'], backup_router_id, None,
                 appliance_size=binding['appliance_size'], dist=dist)
             task.wait(task_const.TaskState.RESULT)
+
+            # Refresh edge_vnic_bindings
+            if not dist and binding['edge_id']:
+                nsxv_db.clean_edge_vnic_binding(
+                    context.session, binding['edge_id'])
+                nsxv_db.init_edge_vnic_binding(
+                    context.session, binding['edge_id'])
         else:
             nsxv_db.update_nsxv_router_binding(
                 context.session, router_id,
@@ -747,8 +754,9 @@ class EdgeManager(object):
                 context.session, lswitch_id)
             if edge_vnic_bindings:
                 for edge_vnic_binding in edge_vnic_bindings:
-                    plr_router_id = nsxv_db.get_nsxv_router_binding_by_edge(
-                        context.session, edge_vnic_binding.edge_id).router_id
+                    plr_router_id = nsxv_db.get_nsxv_router_bindings_by_edge(
+                        context.session,
+                        edge_vnic_binding.edge_id)[0].router_id
                     if plr_router_id != router_id:
                         return plr_router_id
 
@@ -774,7 +782,7 @@ class EdgeManager(object):
             type="uplink")
         nsxv_db.create_edge_vnic_binding(
             context.session, tlr_edge_id, tlr_vnic_index, lswitch_id)
-        # store the lswitch_id into vcns_router_binding
+        # store the lswitch_id into nsxv_router_binding
         nsxv_db.update_nsxv_router_binding(
             context.session, router_id,
             lswitch_id=lswitch_id)
@@ -840,6 +848,101 @@ class EdgeManager(object):
             self.nsxv_manager.vcns.delete_virtual_wire(lswitch_id)
         except Exception:
             LOG.warning(_LW("Failed to delete virtual wire: %s"), lswitch_id)
+
+    def get_routers_on_same_edge(self, context, router_id):
+        edge_binding = nsxv_db.get_nsxv_router_binding(
+            context.session, router_id)
+        if edge_binding:
+            return [
+                binding['router_id']
+                for binding in nsxv_db.get_nsxv_router_bindings_by_edge(
+                    context.session, edge_binding['edge_id'])]
+        else:
+            return []
+
+    def bind_router_on_available_edge(
+        self, context, target_router_id,
+        optional_router_ids, conflict_router_ids,
+        conflict_network_ids, network_number):
+        """Bind logical router on an available edge.
+        Return True if the logical router is bound to a new edge.
+        """
+        optional_edge_ids = []
+        conflict_edge_ids = []
+        for router_id in optional_router_ids:
+            binding = nsxv_db.get_nsxv_router_binding(
+                context.session, router_id)
+            if binding and binding.edge_id not in optional_edge_ids:
+                optional_edge_ids.append(binding.edge_id)
+
+        for router_id in conflict_router_ids:
+            binding = nsxv_db.get_nsxv_router_binding(
+                context.session, router_id)
+            if binding and binding.edge_id not in conflict_edge_ids:
+                conflict_edge_ids.append(binding.edge_id)
+        optional_edge_ids = list(
+            set(optional_edge_ids) - set(conflict_edge_ids))
+
+        max_net_number = 0
+        available_edge_id = None
+        for edge_id in optional_edge_ids:
+            edge_vnic_bindings = nsxv_db.get_edge_vnic_bindings_by_edge(
+                context.session, edge_id)
+            # one vnic is used to provide external access.
+            net_number = vcns_const.MAX_VNIC_NUM - len(edge_vnic_bindings) - 1
+            if net_number > max_net_number and net_number >= network_number:
+                net_ids = [vnic_binding.network_id
+                           for vnic_binding in edge_vnic_bindings]
+                if not (set(conflict_network_ids) & set(net_ids)):
+                    max_net_number = net_number
+                    available_edge_id = edge_id
+        if available_edge_id:
+            edge_binding = nsxv_db.get_nsxv_router_bindings_by_edge(
+                context.session, edge_id)[0]
+            nsxv_db.add_nsxv_router_binding(
+                context.session, target_router_id,
+                edge_binding.edge_id, None,
+                edge_binding.status,
+                edge_binding.appliance_size,
+                edge_binding.edge_type)
+        else:
+            router_name = ('shared' + '-' + _uuid())[:vcns_const.EDGE_NAME_LEN]
+            self._allocate_edge_appliance(
+                context, target_router_id, router_name,
+                appliance_size=vcns_const.SERVICE_SIZE_MAPPING['router'])
+            return True
+
+    def unbind_router_on_edge(self, context, router_id):
+        """Unbind a logical router from edge.
+        Return True if no logical router bound to the edge.
+        """
+        # free edge if no other routers bound to the edge
+        router_ids = self.get_routers_on_same_edge(context, router_id)
+        if router_ids == [router_id]:
+            self._free_edge_appliance(context, router_id)
+            return True
+        else:
+            nsxv_db.delete_nsxv_router_binding(context.session, router_id)
+
+    def is_router_conflict_on_edge(self, context, router_id,
+                                   conflict_router_ids,
+                                   conflict_network_ids,
+                                   intf_num=0):
+        router_ids = self.get_routers_on_same_edge(context, router_id)
+        if set(router_ids) & set(conflict_router_ids):
+            return True
+        router_binding = nsxv_db.get_nsxv_router_binding(context.session,
+                                                         router_id)
+        edge_vnic_bindings = nsxv_db.get_edge_vnic_bindings_by_edge(
+            context.session, router_binding.edge_id)
+        if vcns_const.MAX_VNIC_NUM - len(edge_vnic_bindings) - 1 < intf_num:
+            LOG.debug("There isn't available edge vnic for the router: %s",
+                      router_id)
+            return True
+        for binding in edge_vnic_bindings:
+            if binding.network_id in conflict_network_ids:
+                return True
+        return False
 
 
 def create_lrouter(nsxv_manager, context, lrouter, lswitch=None, dist=False):
@@ -1002,6 +1105,12 @@ def update_dhcp_internal_interface(context, nsxv_manager,
         nsxv_manager.update_interface(
             'fake_router_id', edge_id, vnic_index, vcns_network_id,
             address_groups=vnic_config['addressGroups']['addressGroups'])
+
+
+def get_router_edge_id(context, router_id):
+    binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
+    if binding:
+        return binding['edge_id']
 
 
 def update_gateway(nsxv_manager, context, router_id, nexthop, routes=None):

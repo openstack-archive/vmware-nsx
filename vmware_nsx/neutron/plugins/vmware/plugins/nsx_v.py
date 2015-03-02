@@ -1031,6 +1031,19 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         return s
 
     @lockutils.synchronized('vmware', 'neutron-dhcp-')
+    def _get_conflict_network_ids_by_overlapping(self, context, subnets):
+        conflict_network_ids = []
+        subnet_ids = [subnet['id'] for subnet in subnets]
+        conflict_set = netaddr.IPSet([subnet['cidr'] for subnet in subnets])
+        subnets_qry = context.session.query(models_v2.Subnet).all()
+        subnets_all = [subnet for subnet in subnets_qry
+                       if subnet['id'] not in subnet_ids]
+        for subnet in subnets_all:
+            cidr_set = netaddr.IPSet([subnet['cidr']])
+            if cidr_set & conflict_set:
+                conflict_network_ids.append(subnet['network_id'])
+        return conflict_network_ids
+
     def _update_dhcp_service_with_subnet(self, context, subnet):
         network_id = subnet['network_id']
         # Create DHCP port
@@ -1063,16 +1076,11 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                     conflicting_networks.append(net_id['id'])
         # Query all networks with overlap subnet
         if cfg.CONF.allow_overlapping_ips:
-            # Query all subnet first to get the conflict networks
-            fields = ['id', 'network_id', 'cidr']
-            subnets = self.get_subnets(neutron_context.get_admin_context(),
-                                       fields=fields)
-            subnet_set = netaddr.IPSet([subnet['cidr']])
-            for s in subnets:
-                s_set = netaddr.IPSet([s['cidr']])
-                if (s['id'] != subnet['id'] and subnet_set & s_set and
-                    s['network_id'] not in conflicting_networks):
-                    conflicting_networks.append(s['network_id'])
+            conflicting_networks.extend(
+                self._get_conflict_network_ids_by_overlapping(
+                    context, [subnet]))
+
+        conflicting_networks = list(set(conflicting_networks))
 
         try:
             resource_id = self.edge_manager.create_dhcp_edge_service(
