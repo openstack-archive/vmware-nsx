@@ -47,7 +47,7 @@ class EdgeApplianceDriver(object):
                        enable_fips=False, remote_access=False):
         edge = {
             'name': name,
-            'fqdn': name,
+            'fqdn': None,
             'enableAesni': enable_aesni,
             'enableFips': enable_fips,
             'cliSettings': {
