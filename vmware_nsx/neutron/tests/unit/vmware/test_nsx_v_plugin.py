@@ -1457,8 +1457,11 @@ class TestExclusiveRouterTestCase(L3NatTest,
                         expected_fw, allow_external=True)
 
     def test_delete_ext_net_with_disassociated_floating_ips(self):
-        #TODO(kobis): unskip
-        self.skipTest('external network with dhcp not supported')
+        with self.network() as net:
+            net_id = net['network']['id']
+            self._set_net_external(net_id)
+            with self.subnet(network=net, enable_dhcp=False):
+                self._make_floatingip(self.fmt, net_id)
 
 
 class ExtGwModeTestCase(NsxVPluginV2TestCase,
@@ -1642,8 +1645,11 @@ class TestVdrTestCase(L3NatTest,
                                                   None)
 
     def test_delete_ext_net_with_disassociated_floating_ips(self):
-        #TODO(kobis): unskip
-        self.skipTest('external network with dhcp not supported')
+        with self.network() as net:
+            net_id = net['network']['id']
+            self._set_net_external(net_id)
+            with self.subnet(network=net, enable_dhcp=False):
+                self._make_floatingip(self.fmt, net_id)
 
 
 class TestNSXvAllowedAddressPairs(test_addr_pair.TestAllowedAddressPairs,

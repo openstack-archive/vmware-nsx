@@ -698,6 +698,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                     LOG.exception(_('Failed to delete network'))
 
         with context.session.begin(subtransactions=True):
+            self._process_l3_delete(context, id)
             super(NsxVPluginV2, self).delete_network(context, id)
 
         # Do not delete a predefined port group that was attached to
