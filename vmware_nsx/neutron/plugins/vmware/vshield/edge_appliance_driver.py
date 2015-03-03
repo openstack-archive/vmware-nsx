@@ -437,7 +437,7 @@ class EdgeApplianceDriver(object):
 
     def deploy_edge(self, resource_id, name, internal_network, jobdata=None,
                     dist=False, wait_for_exec=False, loadbalancer_enable=True,
-                    appliance_size=nsxv_constants.LARGE):
+                    appliance_size=nsxv_constants.LARGE, async=True):
         task_name = 'deploying-%s' % name
         edge_name = name
         edge = self._assemble_edge(
@@ -468,26 +468,51 @@ class EdgeApplianceDriver(object):
             edge['vnics']['vnics'].append(vnic_inside)
         if not dist and loadbalancer_enable:
             self._enable_loadbalancer(edge)
-        userdata = {
-            'dist': dist,
-            'request': edge,
-            'router_name': name,
-            'jobdata': jobdata
-        }
-        task = tasks.Task(task_name, resource_id,
-                          self._deploy_edge,
-                          status_callback=self._status_edge,
-                          result_callback=self._result_edge,
-                          userdata=userdata)
-        task.add_executed_monitor(self.callbacks.edge_deploy_started)
-        task.add_result_monitor(self.callbacks.edge_deploy_result)
-        self.task_manager.add(task)
 
-        if wait_for_exec:
-            # waitl until the deploy task is executed so edge_id is available
-            task.wait(task_constants.TaskState.EXECUTED)
+        if async:
+            userdata = {
+                'dist': dist,
+                'request': edge,
+                'router_name': name,
+                'jobdata': jobdata
+            }
+            task = tasks.Task(task_name, resource_id,
+                              self._deploy_edge,
+                              status_callback=self._status_edge,
+                              result_callback=self._result_edge,
+                              userdata=userdata)
+            task.add_executed_monitor(self.callbacks.edge_deploy_started)
+            task.add_result_monitor(self.callbacks.edge_deploy_result)
+            self.task_manager.add(task)
 
-        return task
+            if wait_for_exec:
+                # wait until the deploy task is executed so edge_id is
+                # available
+                task.wait(task_constants.TaskState.EXECUTED)
+
+            return task
+        else:
+            edge_id = None
+            try:
+                header = self.vcns.deploy_edge(edge,
+                                               async=False)[0]
+                edge_id = header['location'].split('/')[-1]
+                LOG.debug(_("VCNS: deploying edge %s"), edge_id)
+
+                self.callbacks.edge_deploy_started_sync(
+                    jobdata['context'], edge_id, name,
+                    jobdata['router_id'], dist)
+
+                self.callbacks.edge_deploy_result_sync(
+                    jobdata['context'], edge_id, name, jobdata['router_id'],
+                    dist, True)
+
+            except exceptions.VcnsApiException:
+                self.callbacks.edge_deploy_result_sync(
+                    jobdata['context'], edge_id, name, jobdata['router_id'],
+                    dist, False)
+                with excutils.save_and_reraise_exception():
+                    LOG.exception(_("NSXv: deploy edge failed."))
 
     def update_edge(self, router_id, edge_id, name, internal_network,
                     jobdata=None, dist=False, loadbalancer_enable=True,
