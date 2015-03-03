@@ -228,6 +228,9 @@ nsxv_opts = [
                 help=_('Management network IP address for metadata proxy')),
     cfg.StrOpt('mgt_net_proxy_netmask',
                help=_('Management network netmask for metadata proxy')),
+    cfg.StrOpt('mgt_net_default_gateway',
+               help=_('Management network default gateway for '
+                      'metadata proxy')),
     cfg.ListOpt('nova_metadata_ips',
                 help=_('IP addresses used by Nova metadata service')),
     cfg.IntOpt('nova_metadata_port',
