@@ -584,6 +584,16 @@ class EdgeManager(object):
                           startswith(vcns_const.DHCP_EDGE_PREFIX) and
                           binding['status'] == plugin_const.ACTIVE)}
         if all_dhcp_edges:
+            for dhcp_edge_id in set(all_dhcp_edges.values()):
+                edge_vnic_bindings = nsxv_db.get_edge_vnic_bindings_by_edge(
+                    context.session, dhcp_edge_id)
+                free_number = ((vcns_const.MAX_VNIC_NUM - 1) *
+                               vcns_const.MAX_TUNNEL_NUM -
+                               len(edge_vnic_bindings))
+                # metadata internal network will use one vnic
+                if free_number <= (vcns_const.MAX_TUNNEL_NUM - 1):
+                    conflict_edge_ids.append(dhcp_edge_id)
+
             for net_id in conflicting_nets:
                 router_id = (vcns_const.DHCP_EDGE_PREFIX + net_id)[:36]
                 edge_id = all_dhcp_edges.get(router_id)
