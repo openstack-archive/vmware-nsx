@@ -93,12 +93,13 @@ class EdgeManager(object):
     to support DHCP&metadata, L3&FIP and LB&FW&VPN services.
     """
 
-    def __init__(self, nsxv_manager):
+    def __init__(self, nsxv_manager, plugin):
         LOG.debug("Start Edge Manager initialization")
         self.nsxv_manager = nsxv_manager
         self.dvs_id = cfg.CONF.nsxv.dvs_id
         self.edge_pool_dicts = parse_backup_edge_pool_opt()
         self.nsxv_plugin = nsxv_manager.callbacks.plugin
+        self.plugin = plugin
         self._check_backup_edge_pools()
 
     def _deploy_edge(self, context, lrouter,
@@ -572,7 +573,7 @@ class EdgeManager(object):
             nsxv_db.create_edge_dhcp_static_binding(context.session, edge_id,
                                                     mac_address, binding_id)
 
-    def get_available_edges(self, context, network_id, conflicting_nets):
+    def _get_available_edges(self, context, network_id, conflicting_nets):
         if conflicting_nets is None:
             conflicting_nets = []
         conflict_edge_ids = []
@@ -595,55 +596,94 @@ class EdgeManager(object):
                     available_edge_ids.append(x)
         return (conflict_edge_ids, available_edge_ids)
 
+    def _get_used_edges(self, context, subnet):
+        """Returns conflicting and available edges for the subnet."""
+        conflicting = self.plugin._get_conflicting_networks_for_subnet(
+            context, subnet)
+        return self._get_available_edges(context, subnet['network_id'],
+                                         conflicting)
+
     def create_dhcp_edge_service(self, context, network_id,
-                                 conflict_edge_ids, available_edge_ids):
+                                 subnet):
         """
         Create an edge if there is no available edge for dhcp service,
         Update an edge if there is available edge for dhcp service
 
         If new edge was allocated, return resource_id, else return None
         """
-        LOG.debug('The available edges %s, the conflict edges %s',
-                  available_edge_ids, conflict_edge_ids)
         # Check if the network has one related dhcp edge
         resource_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
         dhcp_edge_binding = nsxv_db.get_nsxv_router_binding(context.session,
                                                             resource_id)
-
+        allocate_new_edge = False
         # case 1: update a subnet to an existing dhcp edge
         if dhcp_edge_binding:
-            edge_id = dhcp_edge_binding['edge_id']
-            # Delete the existing vnic interface if there is overlap subnet
-            if edge_id in conflict_edge_ids:
-                old_binding = nsxv_db.get_edge_vnic_binding(
-                    context.session, edge_id, network_id)
-                old_vnic_index = old_binding['vnic_index']
-                old_tunnel_index = old_binding['tunnel_index']
-                # Cut off the port group/virtual wire connection
-                nsxv_db.free_edge_vnic_by_network(context.session, edge_id,
-                                                  network_id)
-                # update dhcp service config on edge_id
-                self.update_dhcp_service_config(context, edge_id)
+            with lockutils.lock('nsx-edge-pool',
+                                lock_file_prefix='edge-bind-',
+                                external=True):
+                edge_id = dhcp_edge_binding['edge_id']
+                (conflict_edge_ids,
+                 available_edge_ids) = self._get_used_edges(context, subnet)
+                LOG.debug('The available edges %s, the conflict edges %s',
+                          available_edge_ids, conflict_edge_ids)
+                with lockutils.lock(str(edge_id),
+                                    lock_file_prefix='nsxv-dhcp-config-',
+                                    external=True):
+                    # Delete the existing vnic interface if there is
+                    # and overlapping subnet
+                    if edge_id in conflict_edge_ids:
+                        old_binding = nsxv_db.get_edge_vnic_binding(
+                            context.session, edge_id, network_id)
+                        old_vnic_index = old_binding['vnic_index']
+                        old_tunnel_index = old_binding['tunnel_index']
+                        # Cut off the port group/virtual wire connection
+                        nsxv_db.free_edge_vnic_by_network(context.session,
+                                                          edge_id,
+                                                          network_id)
+                        # update dhcp service config on edge_id
+                        self.update_dhcp_service_config(context, edge_id)
 
-                try:
-                    self._delete_dhcp_internal_interface(context, edge_id,
-                                                         old_vnic_index,
-                                                         old_tunnel_index,
-                                                         network_id)
-                except Exception:
-                    with excutils.save_and_reraise_exception():
-                        LOG.exception(_LE('Failed to delete vnic '
-                                          '%(vnic_index)d tunnel '
-                                          '%(tunnel_index)d on edge '
-                                          '%(edge_id)s'),
-                                      {'vnic_index': old_vnic_index,
-                                       'tunnel_index': old_tunnel_index,
-                                       'edge_id': edge_id})
-                #Move the network to anther Edge and update vnic:
-                #1. Find an available existing edge or create a new one
-                #2. For the existing one, cut off the old port group connection
-                #3. Create the new port group connection to the existing one
-                #4. Update the address groups to the vnic
+                        try:
+                            self._delete_dhcp_internal_interface(
+                                context, edge_id, old_vnic_index,
+                                old_tunnel_index, network_id)
+                        except Exception:
+                            with excutils.save_and_reraise_exception():
+                                LOG.exception(
+                                    _('Failed to delete vnic %(vnic_index)d '
+                                      'tunnel %(tunnel_index)d on edge '
+                                      '%(edge_id)s'),
+                                    {'vnic_index': old_vnic_index,
+                                     'tunnel_index': old_tunnel_index,
+                                     'edge_id': edge_id})
+                        #Move the network to anther Edge and update vnic:
+                        #1. Find an available existing edge or create a new one
+                        #2. For the existing one, cut off the old port group
+                        #   connection
+                        #3. Create the new port group connection to an existing
+                        #   one
+                        #4. Update the address groups to the vnic
+                        if available_edge_ids:
+                            new_id = available_edge_ids.pop()
+                            app_size = vcns_const.SERVICE_SIZE_MAPPING['dhcp']
+                            nsxv_db.add_nsxv_router_binding(
+                                context.session, resource_id,
+                                new_id, None, plugin_const.ACTIVE,
+                                appliance_size=app_size)
+                            nsxv_db.allocate_edge_vnic_with_tunnel_index(
+                                context.session, new_id, network_id)
+                        else:
+                            allocate_new_edge = True
+        # case 2: attach the subnet to a new edge and update vnic
+        else:
+            with lockutils.lock('nsx-edge-pool',
+                                lock_file_prefix='edge-bind-',
+                                external=True):
+                (conflict_edge_ids,
+                 available_edge_ids) = self._get_used_edges(context, subnet)
+                LOG.debug('The available edges %s, the conflict edges %s',
+                          available_edge_ids, conflict_edge_ids)
+                # There is available one
                 if available_edge_ids:
                     new_id = available_edge_ids.pop()
                     nsxv_db.add_nsxv_router_binding(
@@ -653,35 +693,17 @@ class EdgeManager(object):
                     nsxv_db.allocate_edge_vnic_with_tunnel_index(
                         context.session, new_id, network_id)
                 else:
-                    self._allocate_dhcp_edge_appliance(context, resource_id)
-                    new_edge = nsxv_db.get_nsxv_router_binding(
-                        context.session, resource_id)
-                    nsxv_db.allocate_edge_vnic_with_tunnel_index(
-                        context.session, new_edge['edge_id'], network_id)
+                    allocate_new_edge = True
 
-                    # If a new Edge was allocated, return resource_id
-                    return resource_id
+        if allocate_new_edge:
+            self._allocate_dhcp_edge_appliance(context, resource_id)
+            new_edge = nsxv_db.get_nsxv_router_binding(context.session,
+                                                       resource_id)
+            nsxv_db.allocate_edge_vnic_with_tunnel_index(
+                context.session, new_edge['edge_id'], network_id)
 
-        # case 2: attach the subnet to a new edge and update vnic
-        else:
-            # There is available one
-            if available_edge_ids:
-                new_id = available_edge_ids.pop()
-                nsxv_db.add_nsxv_router_binding(
-                    context.session, resource_id,
-                    new_id, None, plugin_const.ACTIVE,
-                    appliance_size=vcns_const.SERVICE_SIZE_MAPPING['dhcp'])
-                nsxv_db.allocate_edge_vnic_with_tunnel_index(
-                    context.session, new_id, network_id)
-            else:
-                self._allocate_dhcp_edge_appliance(context, resource_id)
-                new_edge = nsxv_db.get_nsxv_router_binding(context.session,
-                                                           resource_id)
-                nsxv_db.allocate_edge_vnic_with_tunnel_index(
-                    context.session, new_edge['edge_id'], network_id)
-
-                # If a new Edge was allocated, return resource_id
-                return resource_id
+            # If a new Edge was allocated, return resource_id
+            return resource_id
 
     def update_dhcp_edge_service(self, context, network_id,
                                  address_groups=None):

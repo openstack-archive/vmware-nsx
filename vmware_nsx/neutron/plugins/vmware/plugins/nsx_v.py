@@ -122,7 +122,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         # Create the client to interface with the NSX-v
         _nsx_v_callbacks = edge_utils.NsxVCallbacks(self)
         self.nsx_v = vcns_driver.VcnsDriver(_nsx_v_callbacks)
-        self.edge_manager = edge_utils.EdgeManager(self.nsx_v)
+        self.edge_manager = edge_utils.EdgeManager(self.nsx_v, self)
         self.vdn_scope_id = cfg.CONF.nsxv.vdn_scope_id
         self.dvs_id = cfg.CONF.nsxv.dvs_id
         self.nsx_sg_utils = securitygroup_utils.NsxSecurityGroupUtils(
@@ -1025,17 +1025,9 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                             external=True):
             with context.session.begin(subtransactions=True):
                 s = super(NsxVPluginV2, self).create_subnet(context, subnet)
-            if s['enable_dhcp']:
-                conflicting = self._get_conflicting_networks_for_subnet(
-                    context, s)
-                (conflict_edge_ids,
-                 available_edge_ids) = self.edge_manager.get_available_edges(
-                     context, subnet['subnet']['network_id'], conflicting)
         if s['enable_dhcp']:
             try:
-                self._update_dhcp_service_with_subnet(context, s,
-                                                      conflict_edge_ids,
-                                                      available_edge_ids)
+                self._update_dhcp_service_with_subnet(context, s)
             except Exception:
                 with excutils.save_and_reraise_exception():
                     self.delete_subnet(context, s['id'])
@@ -1083,9 +1075,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         conflicting_networks = list(set(conflicting_networks))
         return conflicting_networks
 
-    def _update_dhcp_service_with_subnet(self, context, subnet,
-                                         conflict_edge_ids,
-                                         available_edge_ids):
+    def _update_dhcp_service_with_subnet(self, context, subnet):
         network_id = subnet['network_id']
         # Create DHCP port
         port_dict = {'name': '',
@@ -1101,7 +1091,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
         try:
             resource_id = self.edge_manager.create_dhcp_edge_service(
-                context, network_id, conflict_edge_ids, available_edge_ids)
+                context, network_id, subnet)
             # Create all dhcp ports within the network
             address_groups = self._create_network_dhcp_address_group(
                 context, network_id)
