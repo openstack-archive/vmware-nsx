@@ -19,8 +19,9 @@ from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import providernet as pnet
 from neutron.i18n import _LW
 from neutron.openstack.common import log
-from neutron.plugins.vmware.api_client import exception as api_exc
+
 from vmware_nsx.neutron.plugins.vmware.api_client import client
+from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import utils as vmw_utils
 from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
 from vmware_nsx.neutron.plugins.vmware.dbexts import networkgw_db

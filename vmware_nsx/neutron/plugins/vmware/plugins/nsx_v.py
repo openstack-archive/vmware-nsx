@@ -48,7 +48,6 @@ from neutron.extensions import securitygroup as ext_sg
 from neutron.i18n import _LE, _LW
 from neutron.openstack.common import log as logging
 from neutron.openstack.common import uuidutils
-from neutron.plugins.vmware.common import exceptions as nsx_exc
 from neutron.plugins.vmware.extensions import (
     advancedserviceproviders as as_providers)
 from neutron.plugins.vmware.extensions import (
@@ -56,6 +55,7 @@ from neutron.plugins.vmware.extensions import (
 
 from vmware_nsx.neutron.plugins import vmware
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
+from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import utils as c_utils
 from vmware_nsx.neutron.plugins.vmware.dbexts import (
     routertype as rt_rtr)
