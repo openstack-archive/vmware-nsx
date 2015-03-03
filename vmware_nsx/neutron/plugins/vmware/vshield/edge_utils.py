@@ -17,6 +17,7 @@ import time
 
 from oslo.config import cfg
 from oslo.utils import excutils
+from oslo_concurrency import lockutils
 from sqlalchemy.orm import exc as sa_exc
 
 from neutron.common import exceptions as n_exc
@@ -565,6 +566,7 @@ class EdgeManager(object):
             nsxv_db.create_edge_dhcp_static_binding(context.session, edge_id,
                                                     mac_address, binding_id)
 
+    @lockutils.synchronized("edge-dhcp", "bind-")
     def create_dhcp_edge_service(self, context, network_id,
                                  conflict_networks=None):
         """
@@ -675,6 +677,7 @@ class EdgeManager(object):
                 # If a new Edge was allocated, return resource_id
                 return resource_id
 
+    @lockutils.synchronized("edge-dhcp", "bind-")
     def update_dhcp_edge_service(self, context, network_id,
                                  address_groups=None):
         """Update the subnet to the dhcp edge vnic."""
@@ -714,6 +717,7 @@ class EdgeManager(object):
                 # update dhcp service config for the new added network
                 self.update_dhcp_service_config(context, edge_id)
 
+    @lockutils.synchronized("edge-dhcp", "bind-")
     def delete_dhcp_edge_service(self, context, network_id):
         """Delete an edge for dhcp service."""
         resource_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
@@ -855,6 +859,7 @@ class EdgeManager(object):
         else:
             return []
 
+    @lockutils.synchronized("edge-router", "bind-")
     def bind_router_on_available_edge(
         self, context, target_router_id,
         optional_router_ids, conflict_router_ids,
@@ -907,6 +912,7 @@ class EdgeManager(object):
                 appliance_size=vcns_const.SERVICE_SIZE_MAPPING['router'])
             return True
 
+    @lockutils.synchronized("edge-router", "bind-")
     def unbind_router_on_edge(self, context, router_id):
         """Unbind a logical router from edge.
         Return True if no logical router bound to the edge.
@@ -919,6 +925,7 @@ class EdgeManager(object):
         else:
             nsxv_db.delete_nsxv_router_binding(context.session, router_id)
 
+    @lockutils.synchronized("edge-router", "bind-")
     def is_router_conflict_on_edge(self, context, router_id,
                                    conflict_router_ids,
                                    conflict_network_ids,
