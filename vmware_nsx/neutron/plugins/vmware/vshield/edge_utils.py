@@ -394,9 +394,12 @@ class EdgeManager(object):
             task.wait(task_const.TaskState.RESULT)
             return
 
-        self._clean_all_error_edge_bindings(context)
-        available_router_binding = self._get_available_router_binding(
-            context, appliance_size=appliance_size, edge_type=edge_type)
+        with lockutils.lock('nsx-edge-request',
+                            lock_file_prefix='get-',
+                            external=True):
+            self._clean_all_error_edge_bindings(context)
+            available_router_binding = self._get_available_router_binding(
+                context, appliance_size=appliance_size, edge_type=edge_type)
         # Synchronously deploy an edge if no avaliable edge in pool.
         if not available_router_binding:
             # store router-edge mapping binding
@@ -472,10 +475,13 @@ class EdgeManager(object):
                 router_id, binding['edge_id'], jobdata=jobdata, dist=dist)
             return
 
-        self._clean_all_error_edge_bindings(context)
-        backup_router_bindings = self._get_backup_edge_bindings(
-            context, appliance_size=binding['appliance_size'],
-            edge_type=binding['edge_type'])
+        with lockutils.lock('nsx-edge-request',
+                            lock_file_prefix='get-',
+                            external=True):
+            self._clean_all_error_edge_bindings(context)
+            backup_router_bindings = self._get_backup_edge_bindings(
+                context, appliance_size=binding['appliance_size'],
+                edge_type=binding['edge_type'])
         backup_num = len(backup_router_bindings)
         # collect the edge to pool if pool not full
         if backup_num < edge_pool_range['maximum_pooled_edges']:
@@ -566,18 +572,9 @@ class EdgeManager(object):
             nsxv_db.create_edge_dhcp_static_binding(context.session, edge_id,
                                                     mac_address, binding_id)
 
-    @lockutils.synchronized("edge-dhcp", "bind-")
-    def create_dhcp_edge_service(self, context, network_id,
-                                 conflict_networks=None):
-        """
-        Create an edge if there is no available edge for dhcp service,
-        Update an edge if there is available edge for dhcp service
-
-        If new edge was allocated, return resource_id, else return None
-        """
-        if conflict_networks is None:
-            conflict_networks = []
-        # Query all conflict edges and available edges first
+    def get_available_edges(self, context, network_id, conflicting_nets):
+        if conflicting_nets is None:
+            conflicting_nets = []
         conflict_edge_ids = []
         available_edge_ids = []
         router_bindings = nsxv_db.get_nsxv_router_bindings(context.session)
@@ -586,7 +583,7 @@ class EdgeManager(object):
                           startswith(vcns_const.DHCP_EDGE_PREFIX) and
                           binding['status'] == plugin_const.ACTIVE)}
         if all_dhcp_edges:
-            for net_id in conflict_networks:
+            for net_id in conflicting_nets:
                 router_id = (vcns_const.DHCP_EDGE_PREFIX + net_id)[:36]
                 edge_id = all_dhcp_edges.get(router_id)
                 if (edge_id and edge_id not in conflict_edge_ids):
@@ -596,7 +593,16 @@ class EdgeManager(object):
                 if (x not in conflict_edge_ids and
                     x not in available_edge_ids):
                     available_edge_ids.append(x)
+        return (conflict_edge_ids, available_edge_ids)
 
+    def create_dhcp_edge_service(self, context, network_id,
+                                 conflict_edge_ids, available_edge_ids):
+        """
+        Create an edge if there is no available edge for dhcp service,
+        Update an edge if there is available edge for dhcp service
+
+        If new edge was allocated, return resource_id, else return None
+        """
         LOG.debug('The available edges %s, the conflict edges %s',
                   available_edge_ids, conflict_edge_ids)
         # Check if the network has one related dhcp edge
@@ -677,7 +683,6 @@ class EdgeManager(object):
                 # If a new Edge was allocated, return resource_id
                 return resource_id
 
-    @lockutils.synchronized("edge-dhcp", "bind-")
     def update_dhcp_edge_service(self, context, network_id,
                                  address_groups=None):
         """Update the subnet to the dhcp edge vnic."""
@@ -697,9 +702,12 @@ class EdgeManager(object):
             LOG.debug('Update the dhcp service for %s on vnic %d tunnel %d',
                       edge_id, vnic_index, tunnel_index)
             try:
-                self._update_dhcp_internal_interface(
-                    context, edge_id, vnic_index, tunnel_index, network_id,
-                    address_groups)
+                with lockutils.lock(str(edge_id),
+                                    lock_file_prefix='nsxv-dhcp-config-',
+                                    external=True):
+                    self._update_dhcp_internal_interface(
+                        context, edge_id, vnic_index, tunnel_index, network_id,
+                        address_groups)
             except Exception:
                 with excutils.save_and_reraise_exception():
                     LOG.exception(_LE('Failed to update the dhcp service for '
@@ -717,7 +725,6 @@ class EdgeManager(object):
                 # update dhcp service config for the new added network
                 self.update_dhcp_service_config(context, edge_id)
 
-    @lockutils.synchronized("edge-dhcp", "bind-")
     def delete_dhcp_edge_service(self, context, network_id):
         """Delete an edge for dhcp service."""
         resource_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
@@ -737,10 +744,13 @@ class EdgeManager(object):
                                                   edge_id,
                                                   network_id)
                 try:
-                    self._delete_dhcp_internal_interface(context, edge_id,
-                                                         vnic_index,
-                                                         tunnel_index,
-                                                         network_id)
+                    with lockutils.lock(str(edge_id),
+                                        lock_file_prefix='nsxv-dhcp-config-',
+                                        external=True):
+                        self._delete_dhcp_internal_interface(context, edge_id,
+                                                             vnic_index,
+                                                             tunnel_index,
+                                                             network_id)
                 except Exception:
                     with excutils.save_and_reraise_exception():
                         LOG.exception(_LE('Failed to delete the tunnel '
@@ -859,7 +869,7 @@ class EdgeManager(object):
         else:
             return []
 
-    @lockutils.synchronized("edge-router", "bind-")
+    @lockutils.synchronized("edge-router", "bind-", external=True)
     def bind_router_on_available_edge(
         self, context, target_router_id,
         optional_router_ids, conflict_router_ids,
@@ -912,7 +922,7 @@ class EdgeManager(object):
                 appliance_size=vcns_const.SERVICE_SIZE_MAPPING['router'])
             return True
 
-    @lockutils.synchronized("edge-router", "bind-")
+    @lockutils.synchronized("edge-router", "bind-", external=True)
     def unbind_router_on_edge(self, context, router_id):
         """Unbind a logical router from edge.
         Return True if no logical router bound to the edge.
@@ -925,7 +935,7 @@ class EdgeManager(object):
         else:
             nsxv_db.delete_nsxv_router_binding(context.session, router_id)
 
-    @lockutils.synchronized("edge-router", "bind-")
+    @lockutils.synchronized("edge-router", "bind-", external=True)
     def is_router_conflict_on_edge(self, context, router_id,
                                    conflict_router_ids,
                                    conflict_network_ids,
