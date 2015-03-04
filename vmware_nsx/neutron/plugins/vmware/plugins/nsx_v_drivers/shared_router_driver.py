@@ -15,6 +15,7 @@
 from oslo.config import cfg
 from oslo_concurrency import lockutils
 
+from neutron import context as neutron_context
 from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron.openstack.common import log as logging
@@ -242,14 +243,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         intf_num = len(router_net_ids)
         return (conflict_network_ids, conflict_router_ids, intf_num)
 
-    def _get_optional_and_conflict_router_ids_by_gw(self, context, router_id):
-        """Collect conflict routers and optional routers based on GW port.
-        Collect conflict router if it has different external network,
-        else, collect optional router if it is not distributed and exclusive
-        Returns:
-        optional_router_ids: routers we can use its edge for the shared router.
-        conflict_router_ids: conflict routers which has different gateway
-        """
+    def _get_external_network_id_by_router(self, context, router_id):
+        """Get router's external network id if it has."""
         router = self.plugin.get_router(context, router_id)
         ports_qry = context.session.query(models_v2.Port)
         gw_ports = ports_qry.filter_by(
@@ -258,9 +253,55 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             id=router['gw_port_id']).all()
 
         if gw_ports:
-            ext_net_id = gw_ports[0]['network_id']
-        else:
-            ext_net_id = None
+            return gw_ports[0]['network_id']
+
+    def _get_conflict_network_ids_by_ext_net(self, context, router_id):
+        """Collect conflicting networks based on external network.
+        Collect conflicting networks which has overlapping subnet with the
+        router's external network
+        """
+        conflict_network_ids = []
+        ext_net_id = self._get_external_network_id_by_router(context,
+                                                             router_id)
+        if ext_net_id:
+            ext_net = self.plugin._get_network(context, ext_net_id)
+            if ext_net.subnets:
+                ext_subnet = ext_net.subnets[0]
+                if ext_subnet:
+                    conflict_network_ids.extend(
+                        self.plugin._get_conflict_network_ids_by_overlapping(
+                            context, [ext_subnet]))
+        return conflict_network_ids
+
+    def _get_conflict_router_ids_by_ext_net(self, context,
+                                            conflict_network_ids):
+        """Collect conflict routers based on its external network.
+        Collect conflict router if it has external network and the external
+        network is in conflict_network_ids
+        """
+        ext_net_filters = {'router:external': [True]}
+        ext_nets = self.plugin.get_networks(
+            neutron_context.get_admin_context(), filters=ext_net_filters)
+        ext_net_ids = [ext_net.get('id') for ext_net in ext_nets]
+        conflict_ext_net_ids = list(set(ext_net_ids) &
+                                    set(conflict_network_ids))
+        gw_ports_filter = {'network_id': conflict_ext_net_ids,
+                           'device_owner': [l3_db.DEVICE_OWNER_ROUTER_GW]}
+        ports_qry = context.session.query(models_v2.Port)
+        gw_ports = self.plugin._apply_filters_to_query(
+            ports_qry, models_v2.Port, gw_ports_filter).all()
+        return list(set([gw_port['device_id'] for gw_port in gw_ports]))
+
+    def _get_optional_and_conflict_router_ids_by_gw(self, context, router_id):
+        """Collect conflict routers and optional routers based on GW port.
+        Collect conflict router if it has different external network,
+        else, collect optional router if it is not distributed and exclusive
+        Returns:
+        optional_router_ids: routers we can use its edge for the shared router.
+        conflict_router_ids: conflict routers which has different gateway
+        """
+        ext_net_id = self._get_external_network_id_by_router(context,
+                                                             router_id)
         routers = context.session.query(l3_db.Router).all()
         optional_router_ids = []
         conflict_router_ids = []
@@ -294,6 +335,13 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         conflict_network_ids, conflict_router_ids, intf_num = (
             self._get_conflict_network_and_router_ids_by_intf(context,
                                                               router_id))
+        conflict_network_ids_by_ext_net = (
+            self._get_conflict_network_ids_by_ext_net(context, router_id))
+        conflict_network_ids.extend(conflict_network_ids_by_ext_net)
+        conflict_router_ids_by_ext_net = (
+            self._get_conflict_router_ids_by_ext_net(context,
+                                                     conflict_network_ids))
+        conflict_router_ids.extend(conflict_router_ids_by_ext_net)
         optional_router_ids, conflict_router_ids_by_gw = (
             self._get_optional_and_conflict_router_ids_by_gw(
                 context, router_id))
@@ -391,39 +439,55 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                 newaddr, newmask, newnexthop = (
                     self.plugin._get_external_attachment_info(
                         context, router))
-                ext_net_ids = self._get_ext_net_ids(context, router_ids)
-                if len(ext_net_ids) > 1:
-                    # move all routing service of the router from existing edge
-                    # to a new available edge if new_ext_net_id is changed.
-                    self._remove_router_services_on_edge(context, router_id)
-                    self._unbind_router_on_edge(context, router_id)
-                    is_migrated = True
-                else:
-                    # Clear gateway info if all routers has no gw conf
-                    if (orgnexthop and
-                        (org_ext_net_id != new_ext_net_id or
-                         len(ext_net_ids) == 0)):
-                        LOG.debug("Delete default gateway %s", orgnexthop)
-                        edge_utils.clear_gateway(self.nsx_v, context,
-                                                 router_id)
+                if new_ext_net_id and new_ext_net_id != org_ext_net_id:
+                    # Check whether the gw address has overlapping
+                    # with networks attached to the same edge
+                    conflict_network_ids = (
+                        self._get_conflict_network_ids_by_ext_net(
+                            context, router_id))
+                    is_migrated = self.edge_manager.is_router_conflict_on_edge(
+                        context, router_id, [], conflict_network_ids)
+                    if is_migrated:
+                        self._remove_router_services_on_edge(context,
+                                                             router_id)
+                        self._unbind_router_on_edge(context, router_id)
 
-                    # Update external vnic if addr or mask is changed
-                    if orgaddr != newaddr or orgmask != newmask:
-                        self._update_external_interface_on_routers(
+                if not is_migrated:
+                    ext_net_ids = self._get_ext_net_ids(context, router_ids)
+                    if len(ext_net_ids) > 1:
+                        # move all routing service of the router from existing
+                        # edge to a new available edge if new_ext_net_id is
+                        # changed.
+                        self._remove_router_services_on_edge(context,
+                                                             router_id)
+                        self._unbind_router_on_edge(context, router_id)
+                        is_migrated = True
+                    else:
+                        # Clear gateway info if all routers has no gw conf
+                        if (orgnexthop and
+                            (org_ext_net_id != new_ext_net_id or
+                             len(ext_net_ids) == 0)):
+                            LOG.debug("Delete default gateway %s", orgnexthop)
+                            edge_utils.clear_gateway(self.nsx_v, context,
+                                                     router_id)
+
+                        # Update external vnic if addr or mask is changed
+                        if orgaddr != newaddr or orgmask != newmask:
+                            self._update_external_interface_on_routers(
+                                context, router_id, router_ids)
+
+                        # Update SNAT rules if ext net changed and snat enabled
+                        # or ext net not changed but snat is changed.
+                        if ((new_ext_net_id != org_ext_net_id) or
+                            (new_ext_net_id == org_ext_net_id and
+                             new_enable_snat != org_enable_snat)):
+                            self._update_nat_rules_on_routers(context,
+                                                              router_id,
+                                                              router_ids)
+
+                        # Update static routes in all.
+                        self._update_routes_on_routers(
                             context, router_id, router_ids)
-
-                    # Update SNAT rules if ext net changed and snat enabled
-                    # or ext net not changed but snat is changed.
-                    if ((new_ext_net_id != org_ext_net_id) or
-                        (new_ext_net_id == org_ext_net_id and
-                         new_enable_snat != org_enable_snat)):
-                        self._update_nat_rules_on_routers(context,
-                                                          router_id,
-                                                          router_ids)
-
-                    # Update static routes in all.
-                    self._update_routes_on_routers(
-                        context, router_id, router_ids)
             if is_migrated:
                 self._bind_router_on_available_edge(context, router_id)
                 edge_id = edge_utils.get_router_edge_id(context, router_id)
@@ -455,6 +519,10 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                 conflict_network_ids, conflict_router_ids, _ = (
                     self._get_conflict_network_and_router_ids_by_intf(
                         context, router_id))
+                conflict_router_ids_by_ext_net = (
+                    self._get_conflict_router_ids_by_ext_net(
+                        context, conflict_network_ids))
+                conflict_router_ids.extend(conflict_router_ids_by_ext_net)
 
                 interface_ports = (
                     self.plugin._get_router_interface_ports_by_network(
