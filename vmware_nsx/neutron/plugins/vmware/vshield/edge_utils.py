@@ -978,7 +978,7 @@ class EdgeManager(object):
                     available_edge_id = edge_id
         if available_edge_id:
             edge_binding = nsxv_db.get_nsxv_router_bindings_by_edge(
-                context.session, edge_id)[0]
+                context.session, available_edge_id)[0]
             nsxv_db.add_nsxv_router_binding(
                 context.session, target_router_id,
                 edge_binding.edge_id, None,
