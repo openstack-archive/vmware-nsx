@@ -24,8 +24,8 @@ from neutron.db import db_base_plugin_v2
 from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron.i18n import _LE, _LI, _LW
-from neutron.openstack.common import log as logging
 from oslo.config import cfg
+from oslo_log import log as logging
 
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import config

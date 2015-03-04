@@ -12,9 +12,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.openstack.common import log as logging
 from neutron.openstack.common import uuidutils
 from oslo.serialization import jsonutils
+from oslo_log import log as logging
 import six.moves.urllib.parse as urlparse
 
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc

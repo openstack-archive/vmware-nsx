@@ -16,8 +16,8 @@
 import hashlib
 
 from neutron.api.v2 import attributes
-from neutron.openstack.common import log
 from neutron import version
+from oslo_log import log
 
 
 LOG = log.getLogger(__name__)

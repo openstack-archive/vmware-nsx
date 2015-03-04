@@ -19,9 +19,9 @@ import urllib
 
 import eventlet
 from oslo.serialization import jsonutils
+from oslo_log import log as logging
 
 from neutron.i18n import _LI, _LW
-from neutron.openstack.common import log as logging
 from vmware_nsx.neutron.plugins.vmware.api_client import request
 
 LOG = logging.getLogger(__name__)

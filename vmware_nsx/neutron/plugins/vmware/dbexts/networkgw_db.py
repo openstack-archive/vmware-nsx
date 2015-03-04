@@ -17,10 +17,10 @@ from sqlalchemy.orm import exc as sa_orm_exc
 from neutron.api.v2 import attributes
 from neutron.common import exceptions
 from neutron.common import utils
-from neutron.openstack.common import log as logging
 from neutron.openstack.common import uuidutils
 from neutron.plugins.vmware.dbexts import nsx_models
 from neutron.plugins.vmware.extensions import networkgw
+from oslo_log import log as logging
 
 
 LOG = logging.getLogger(__name__)

@@ -15,9 +15,9 @@
 #    under the License.
 #
 
-from neutron.openstack.common import log as logging
 from neutron.plugins.vmware.dbexts import nsx_models
 from oslo.db import exception as d_exc
+from oslo_log import log as logging
 from sqlalchemy import orm
 
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as p_exc

@@ -18,10 +18,9 @@ import random
 import eventlet
 from eventlet.green import urllib2
 import mock
-
 from neutron.i18n import _LI
-from neutron.openstack.common import log as logging
 from neutron.tests import base
+from oslo_log import log as logging
 from vmware_nsx.neutron.plugins.vmware.api_client import (
     eventlet_client as client)
 from vmware_nsx.neutron.plugins.vmware.api_client import (

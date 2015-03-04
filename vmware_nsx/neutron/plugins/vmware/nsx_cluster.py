@@ -14,8 +14,8 @@
 #    under the License.
 
 from neutron.i18n import _LI
-from neutron.openstack.common import log as logging
 from oslo.config import cfg
+from oslo_log import log as logging
 
 from vmware_nsx.neutron.plugins.vmware.common import exceptions
 

@@ -15,7 +15,7 @@
 
 import xml.etree.ElementTree as et
 
-from neutron.openstack.common import log as logging
+from oslo_log import log as logging
 
 WAIT_INTERVAL = 2000
 MAX_ATTEMPTS = 5

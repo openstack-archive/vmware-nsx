@@ -19,10 +19,10 @@ from neutron.api.v2 import attributes as attr
 from neutron.db import db_base_plugin_v2
 from neutron.db import models_v2
 from neutron.i18n import _LI
-from neutron.openstack.common import log
 from neutron.openstack.common import uuidutils
 from neutron.plugins.vmware.dbexts import nsx_models
 from neutron.plugins.vmware.extensions import qos
+from oslo_log import log
 
 
 LOG = log.getLogger(__name__)

@@ -16,12 +16,12 @@
 
 from oslo.db import exception as db_exc
 from oslo.utils import excutils
+from oslo_log import log as logging
 from sqlalchemy.orm import exc
 from sqlalchemy.sql import expression as expr
 
 import neutron.db.api as db
 from neutron.i18n import _, _LE
-from neutron.openstack.common import log as logging
 from neutron.plugins.vmware.dbexts import nsxv_models
 
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc

@@ -13,7 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.openstack.common import log
+from oslo_log import log
+
 from vmware_nsx.neutron.plugins.vmware.common import nsx_utils
 
 LOG = log.getLogger(__name__)

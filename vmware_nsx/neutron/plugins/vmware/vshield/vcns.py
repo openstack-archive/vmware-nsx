@@ -16,10 +16,10 @@
 
 from oslo.config import cfg
 from oslo.serialization import jsonutils
+from oslo_log import log as logging
 import retrying
 import xml.etree.ElementTree as et
 
-from neutron.openstack.common import log as logging
 from vmware_nsx.neutron.plugins.vmware.vshield.common import exceptions
 from vmware_nsx.neutron.plugins.vmware.vshield.common import VcnsApiClient
 

@@ -14,7 +14,8 @@
 #    under the License.
 #
 
-from neutron.openstack.common import log as logging
+from oslo_log import log as logging
+
 from vmware_nsx.neutron.plugins.vmware.vshield import nsxv_edge_cfg_obj
 
 

@@ -14,9 +14,9 @@
 #    under the License.
 
 from neutron.common import exceptions as exception
-from neutron.openstack.common import log
 from neutron import version
 from oslo.serialization import jsonutils
+from oslo_log import log
 
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc

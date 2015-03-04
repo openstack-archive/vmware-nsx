@@ -16,7 +16,7 @@
 from oslo.config import cfg
 import stevedore
 
-from neutron.openstack.common import log
+from oslo_log import log
 
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 

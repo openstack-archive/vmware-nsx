@@ -19,6 +19,7 @@ from oslo.config import cfg
 from oslo.db import exception as db_exc
 from oslo.utils import excutils
 from oslo_concurrency import lockutils
+from oslo_log import log as logging
 from sqlalchemy import exc as sql_exc
 from sqlalchemy.orm import exc as sa_exc
 import webob.exc
@@ -53,7 +54,6 @@ from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.i18n import _LE, _LI, _LW
-from neutron.openstack.common import log as logging
 from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.vmware.dbexts import nsx_models
 from neutron.plugins.vmware.extensions import maclearning as mac_ext

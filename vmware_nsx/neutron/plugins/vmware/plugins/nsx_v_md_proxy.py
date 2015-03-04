@@ -26,7 +26,7 @@ from oslo_utils import excutils
 from neutron.api.v2 import attributes as attr
 from neutron.common import constants
 from neutron import context as neutron_context
-from neutron.openstack.common import log as logging
+from oslo_log import log as logging
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsxv_exc
 from vmware_nsx.neutron.plugins.vmware.common import nsxv_constants
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db

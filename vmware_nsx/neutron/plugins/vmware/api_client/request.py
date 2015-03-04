@@ -22,11 +22,11 @@ import time
 
 import eventlet
 from oslo.utils import excutils
+from oslo_log import log as logging
 import six
 import six.moves.urllib.parse as urlparse
 
 from neutron.i18n import _LI, _LW
-from neutron.openstack.common import log as logging
 from vmware_nsx.neutron.plugins.vmware import api_client
 
 LOG = logging.getLogger(__name__)

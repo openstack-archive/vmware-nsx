@@ -20,9 +20,9 @@ import six
 import time
 
 from oslo.config import cfg
+from oslo_log import log as logging
 
 from neutron.i18n import _LE, _LI, _LW
-from neutron.openstack.common import log as logging
 from vmware_nsx.neutron.plugins.vmware import api_client
 
 LOG = logging.getLogger(__name__)

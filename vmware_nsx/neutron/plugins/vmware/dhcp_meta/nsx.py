@@ -22,9 +22,9 @@ from neutron.db import db_base_plugin_v2
 from neutron.db import l3_db
 from neutron.extensions import external_net
 from neutron.i18n import _LE, _LI
-from neutron.openstack.common import log as logging
 from oslo.config import cfg
 from oslo.utils import excutils
+from oslo_log import log as logging
 
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as p_exc
 from vmware_nsx.neutron.plugins.vmware.dhcp_meta import constants as d_const

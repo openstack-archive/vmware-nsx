@@ -18,11 +18,11 @@ import uuid
 
 from eventlet import event
 from eventlet import greenthread
-
 from neutron.common import exceptions
 from neutron.i18n import _LE, _LI
-from neutron.openstack.common import log as logging
 from neutron.openstack.common import loopingcall
+from oslo_log import log as logging
+
 from vmware_nsx.neutron.plugins.vmware.vshield.tasks import constants
 
 DEFAULT_INTERVAL = 1000

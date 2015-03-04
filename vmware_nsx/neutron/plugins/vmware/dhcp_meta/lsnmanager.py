@@ -17,10 +17,10 @@
 
 from neutron.common import exceptions as n_exc
 from neutron.i18n import _LE, _LW
-from neutron.openstack.common import log as logging
 from oslo.config import cfg
 from oslo.db import exception as db_exc
 from oslo.utils import excutils
+from oslo_log import log as logging
 
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as p_exc

@@ -15,8 +15,8 @@
 #    under the License.
 
 from oslo.config import cfg
+from oslo_log import log as logging
 
-from neutron.openstack.common import log as logging
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
 from vmware_nsx.neutron.plugins.vmware.vshield import edge_appliance_driver
 from vmware_nsx.neutron.plugins.vmware.vshield import edge_firewall_driver

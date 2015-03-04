@@ -18,7 +18,7 @@ from neutron.common import exceptions as n_exc
 from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import providernet as pnet
 from neutron.i18n import _LW
-from neutron.openstack.common import log
+from oslo_log import log
 
 from vmware_nsx.neutron.plugins.vmware.api_client import client
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc

@@ -19,6 +19,7 @@ import netaddr
 from oslo.config import cfg
 from oslo.utils import excutils
 from oslo_concurrency import lockutils
+from oslo_log import log as logging
 from sqlalchemy.orm import exc as sa_exc
 
 from neutron.api import extensions as neutron_extensions
@@ -46,7 +47,6 @@ from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.i18n import _LE, _LW
-from neutron.openstack.common import log as logging
 from neutron.openstack.common import uuidutils
 from neutron.plugins.vmware.extensions import (
     advancedserviceproviders as as_providers)

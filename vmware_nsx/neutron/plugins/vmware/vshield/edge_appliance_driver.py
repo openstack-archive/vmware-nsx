@@ -19,9 +19,9 @@ import time
 from oslo.config import cfg
 from oslo.serialization import jsonutils
 from oslo.utils import excutils
+from oslo_log import log as logging
 
 from neutron.i18n import _LE, _LI, _LW
-from neutron.openstack.common import log as logging
 from vmware_nsx.neutron.plugins.vmware.common import nsxv_constants
 from vmware_nsx.neutron.plugins.vmware.common import utils
 from vmware_nsx.neutron.plugins.vmware.vshield.common import constants
