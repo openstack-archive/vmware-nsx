@@ -680,19 +680,20 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
         # Update the DHCP edge for metadata and clean the vnic in DHCP edge
         # if there is only no other existing port besides DHCP port
-        filters = {'network_id': [id], 'enable_dhcp': [True]}
-        subnet_ids = self.get_subnets(context, filters=filters, fields=['id'])
-        dhcp_port_count = 0
-        for subnet_id in subnet_ids:
-            filters = {'fixed_ips': {'subnet_id': [subnet_id['id']]}}
-            dhcp_port_count += self.get_ports_count(context, filters=filters)
-        if (dhcp_port_count == len(subnet_ids)) and dhcp_port_count > 0:
-            try:
-                self._cleanup_dhcp_edge_before_deletion(context, id)
-                self._delete_dhcp_edge_service(context, id)
-            except Exception:
-                with excutils.save_and_reraise_exception():
-                    LOG.exception(_('Failed to delete network'))
+        filters = {'network_id': [id]}
+        ports = self.get_ports(context, filters=filters)
+        auto_del = all(p['device_owner'] in [constants.DEVICE_OWNER_DHCP]
+                       for p in ports)
+        if auto_del:
+            filters = {'network_id': [id], 'enable_dhcp': [True]}
+            sids = self.get_subnets(context, filters=filters, fields=['id'])
+            if len(sids) > 0:
+                try:
+                    self._cleanup_dhcp_edge_before_deletion(context, id)
+                    self._delete_dhcp_edge_service(context, id)
+                except Exception:
+                    with excutils.save_and_reraise_exception():
+                        LOG.exception(_('Failed to delete network'))
 
         with context.session.begin(subtransactions=True):
             self._process_l3_delete(context, id)
@@ -952,7 +953,9 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         if l3_port_check:
             self.prevent_l3_port_deletion(context, id)
         neutron_db_port = self.get_port(context, id)
-
+        if neutron_db_port['device_owner'] in [constants.DEVICE_OWNER_DHCP]:
+            msg = (_('Can not delete DHCP port %s') % neutron_db_port['id'])
+            raise n_exc.BadRequest(resource='port', msg=msg)
         # If this port is attached to a device, remove the corresponding vnic
         # from all NSXv Security-Groups and the spoofguard policy
         port_index = neutron_db_port.get(ext_vnic_idx.VNIC_INDEX)
