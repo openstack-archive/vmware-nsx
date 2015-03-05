@@ -193,7 +193,7 @@ class EdgeManager(object):
         with context.session.begin(subtransactions=True):
             filters = {'status': [plugin_const.ERROR]}
             like_filters = {'router_id': vcns_const.BACKUP_ROUTER_PREFIX + "%"}
-            error_router_bindings = nsxv_db.get_nsxv_router_bindings_with_lock(
+            error_router_bindings = nsxv_db.get_nsxv_router_bindings(
                 context.session, filters=filters, like_filters=like_filters)
             self._delete_backup_edges_on_db(context,
                                             error_router_bindings)
@@ -209,12 +209,8 @@ class EdgeManager(object):
                    'status': [plugin_const.PENDING_CREATE,
                               plugin_const.ACTIVE]}
         like_filters = {'router_id': vcns_const.BACKUP_ROUTER_PREFIX + "%"}
-        if db_update_lock:
-            return nsxv_db.get_nsxv_router_bindings_with_lock(
-                context.session, filters=filters, like_filters=like_filters)
-        else:
-            return nsxv_db.get_nsxv_router_bindings(
-                context.session, filters=filters, like_filters=like_filters)
+        return nsxv_db.get_nsxv_router_bindings(
+            context.session, filters=filters, like_filters=like_filters)
 
     def _check_backup_edge_pools(self):
         admin_ctx = q_context.get_admin_context()
@@ -249,9 +245,17 @@ class EdgeManager(object):
                     admin_ctx,
                     backup_router_bindings[:backup_num - maximum_pooled_edges])
             elif backup_num < minimum_pooled_edges:
-                router_ids = self._deploy_backup_edges_on_db(
-                    admin_ctx, minimum_pooled_edges - backup_num,
-                    appliance_size=appliance_size, edge_type=edge_type)
+                new_backup_num = backup_num
+                router_ids = []
+                while (new_backup_num < minimum_pooled_edges):
+                    router_ids.extend(
+                        self._deploy_backup_edges_on_db(
+                            admin_ctx, 1, appliance_size=appliance_size,
+                            edge_type=edge_type))
+                    new_backup_num = len(
+                        self._get_backup_edge_bindings(
+                            admin_ctx, appliance_size=appliance_size,
+                            edge_type=edge_type, db_update_lock=True))
 
         if backup_num > maximum_pooled_edges:
             self._delete_backup_edges_at_backend(
@@ -428,10 +432,10 @@ class EdgeManager(object):
             task.wait(task_const.TaskState.RESULT)
             return
 
-        self._clean_all_error_edge_bindings(context)
         with lockutils.lock('nsx-edge-request',
                             lock_file_prefix='get-',
                             external=True):
+            self._clean_all_error_edge_bindings(context)
             available_router_binding = self._get_available_router_binding(
                 context, appliance_size=appliance_size, edge_type=edge_type)
         # Synchronously deploy an edge if no avaliable edge in pool.
@@ -514,10 +518,10 @@ class EdgeManager(object):
                 router_id, binding['edge_id'], jobdata=jobdata, dist=dist)
             return
 
-        self._clean_all_error_edge_bindings(context)
         with lockutils.lock('nsx-edge-request',
                             lock_file_prefix='get-',
                             external=True):
+            self._clean_all_error_edge_bindings(context)
             backup_router_bindings = self._get_backup_edge_bindings(
                 context, appliance_size=binding['appliance_size'],
                 edge_type=binding['edge_type'])
