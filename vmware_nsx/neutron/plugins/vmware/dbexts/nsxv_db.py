@@ -14,9 +14,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo.db import exception as db_exc
-from oslo.utils import excutils
+from oslo_db import exception as db_exc
 from oslo_log import log as logging
+from oslo_utils import excutils
 from sqlalchemy.orm import exc
 from sqlalchemy.sql import expression as expr
 

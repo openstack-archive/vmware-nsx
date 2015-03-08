@@ -21,8 +21,8 @@ import httplib
 import time
 
 import eventlet
-from oslo.utils import excutils
 from oslo_log import log as logging
+from oslo_utils import excutils
 import six
 import six.moves.urllib.parse as urlparse
 

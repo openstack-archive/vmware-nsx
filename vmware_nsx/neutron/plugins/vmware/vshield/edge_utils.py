@@ -16,10 +16,10 @@
 import eventlet
 import time
 
-from oslo.config import cfg
-from oslo.utils import excutils
 from oslo_concurrency import lockutils
+from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_utils import excutils
 from sqlalchemy.orm import exc as sa_exc
 
 from neutron.common import exceptions as n_exc
@@ -702,9 +702,9 @@ class EdgeManager(object):
                         except Exception:
                             with excutils.save_and_reraise_exception():
                                 LOG.exception(
-                                    _('Failed to delete vnic %(vnic_index)d '
-                                      'tunnel %(tunnel_index)d on edge '
-                                      '%(edge_id)s'),
+                                    _LE('Failed to delete vnic %(vnic_index)d '
+                                        'tunnel %(tunnel_index)d on edge '
+                                        '%(edge_id)s'),
                                     {'vnic_index': old_vnic_index,
                                      'tunnel_index': old_tunnel_index,
                                      'edge_id': edge_id})
@@ -1361,8 +1361,8 @@ def delete_interface(nsxv_manager, context, router_id, network_id,
     edge_vnic_binding = nsxv_db.get_edge_vnic_binding(
         context.session, edge_id, network_id)
     if not edge_vnic_binding:
-        LOG.warning(_("Failed to find the network %(net_id)s "
-                      "corresponding vnic index on edge %(edge_id)s"),
+        LOG.warning(_LW("Failed to find the network %(net_id)s "
+                        "corresponding vnic index on edge %(edge_id)s"),
                     {'net_id': network_id,
                      'edge_id': edge_id})
 
@@ -1429,8 +1429,8 @@ def check_network_in_use_at_backend(context, network_id):
             context.session, network_id)
         if not edge_vnic_bindings:
             return
-        LOG.warning(_('NSXv: network is still in use at the backend'))
-    LOG.error(_('NSXv: network is still in use at the backend'))
+        LOG.warning(_LW('NSXv: network is still in use at the backend'))
+    LOG.error(_LE('NSXv: network is still in use at the backend'))
 
 
 class NsxVCallbacks(object):

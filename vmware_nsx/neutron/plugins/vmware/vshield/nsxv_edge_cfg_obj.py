@@ -15,7 +15,7 @@
 
 import abc
 
-from oslo.serialization import jsonutils
+from oslo_serialization import jsonutils
 import six
 
 from vmware_nsx.neutron.plugins.vmware.vshield import vcns

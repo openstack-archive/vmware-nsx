@@ -13,10 +13,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.i18n import _LI
-from oslo.config import cfg
+from oslo_config import cfg
 from oslo_log import log as logging
 
+from neutron.i18n import _LI
 from vmware_nsx.neutron.plugins.vmware.common import exceptions
 
 LOG = logging.getLogger(__name__)

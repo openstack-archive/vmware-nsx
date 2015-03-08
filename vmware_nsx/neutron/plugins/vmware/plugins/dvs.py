@@ -15,8 +15,8 @@
 
 import uuid
 
-from oslo.utils import excutils
 from oslo_log import log as logging
+from oslo_utils import excutils
 
 from neutron.api import extensions as neutron_extensions
 from neutron.api.v2 import attributes as attr
@@ -32,7 +32,7 @@ from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import portbindings as pbin
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
-
+from neutron.i18n import _LE, _LW
 from vmware_nsx.neutron.plugins import vmware
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
@@ -119,9 +119,9 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
     def _dvs_create_network(self, context, network):
         net_data = network['network']
         if net_data['admin_state_up'] is False:
-            LOG.warning(_("Network with admin_state_up=False are not yet "
-                          "supported by this plugin. Ignoring setting for "
-                          "network %s"), net_data.get('name', '<unknown>'))
+            LOG.warning(_LW("Network with admin_state_up=False are not yet "
+                            "supported by this plugin. Ignoring setting for "
+                            "network %s"), net_data.get('name', '<unknown>'))
         net_data['id'] = str(uuid.uuid4())
         vlan_tag = 0
         if net_data.get(pnet.NETWORK_TYPE) == c_utils.NetworkTypes.VLAN:
@@ -144,7 +144,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                     vlan_tag)
         except Exception:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_('Failed to create network'))
+                LOG.exception(_LE('Failed to create network'))
                 self._dvs.delete_port_group(dvs_id)
 
         new_net[pnet.NETWORK_TYPE] = net_data.get(pnet.NETWORK_TYPE)
@@ -164,7 +164,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         try:
             self._dvs.delete_port_group(dvs_id)
         except Exception:
-            LOG.exception(_('Unable to delete DVS port group %s'), id)
+            LOG.exception(_LE('Unable to delete DVS port group %s'), id)
         self.handle_network_dhcp_access(context, id, action='delete_network')
 
     def delete_network(self, context, id):
@@ -232,8 +232,8 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                 # remove ATTR_NOT_SPECIFIED
                 port_data[addr_pair.ADDRESS_PAIRS] = []
 
-            LOG.debug(_("create_port completed on NSX for tenant "
-                        "%(tenant_id)s: (%(id)s)"), port_data)
+            LOG.debug("create_port completed on NSX for tenant "
+                      "%(tenant_id)s: (%(id)s)", port_data)
 
             self._process_portbindings_create_and_update(context,
                                                          port['port'],
@@ -289,7 +289,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._process_port_port_security_update(
                     context, port['port'], ret_port)
 
-            LOG.debug(_("Updating port: %s"), port)
+            LOG.debug("Updating port: %s", port)
             self._process_portbindings_create_and_update(context,
                                                          port['port'],
                                                          ret_port)

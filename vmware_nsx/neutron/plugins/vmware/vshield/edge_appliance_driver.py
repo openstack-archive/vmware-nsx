@@ -16,10 +16,10 @@
 
 import time
 
-from oslo.config import cfg
-from oslo.serialization import jsonutils
-from oslo.utils import excutils
+from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_serialization import jsonutils
+from oslo_utils import excutils
 
 from neutron.i18n import _LE, _LI, _LW
 from vmware_nsx.neutron.plugins.vmware.common import nsxv_constants
@@ -497,7 +497,7 @@ class EdgeApplianceDriver(object):
                 header = self.vcns.deploy_edge(edge,
                                                async=False)[0]
                 edge_id = header['location'].split('/')[-1]
-                LOG.debug(_("VCNS: deploying edge %s"), edge_id)
+                LOG.debug("VCNS: deploying edge %s", edge_id)
 
                 self.callbacks.edge_deploy_started_sync(
                     jobdata['context'], edge_id, name,
@@ -512,7 +512,7 @@ class EdgeApplianceDriver(object):
                     jobdata['context'], edge_id, name, jobdata['router_id'],
                     dist, False)
                 with excutils.save_and_reraise_exception():
-                    LOG.exception(_("NSXv: deploy edge failed."))
+                    LOG.exception(_LE("NSXv: deploy edge failed."))
 
     def update_edge(self, router_id, edge_id, name, internal_network,
                     jobdata=None, dist=False, loadbalancer_enable=True,

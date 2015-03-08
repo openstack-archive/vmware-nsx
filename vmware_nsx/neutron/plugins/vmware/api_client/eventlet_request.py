@@ -18,8 +18,8 @@ import httplib
 import urllib
 
 import eventlet
-from oslo.serialization import jsonutils
 from oslo_log import log as logging
+from oslo_serialization import jsonutils
 
 from neutron.i18n import _LI, _LW
 from vmware_nsx.neutron.plugins.vmware.api_client import request

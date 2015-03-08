@@ -15,7 +15,7 @@
 import contextlib
 import mock
 
-from oslo.config import cfg
+from oslo_config import cfg
 from webob import exc
 import webtest
 
@@ -33,7 +33,6 @@ from neutron.tests.unit import test_api_v2
 from neutron.tests.unit import test_db_plugin
 from neutron.tests.unit import test_extensions
 from neutron.tests.unit import testlib_plugin
-
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.dbexts import networkgw_db

@@ -14,12 +14,13 @@
 # limitations under the License.
 
 import mock
+from oslo_config import cfg
+
 from neutron.common import constants as n_consts
 from neutron.common import exceptions as n_exc
 from neutron import context
 from neutron.tests import base
 from neutron.tests.unit import testlib_api
-from oslo.config import cfg
 
 from vmware_nsx.neutron.plugins.vmware.api_client import exception
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as p_exc

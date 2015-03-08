@@ -16,10 +16,10 @@
 import uuid
 
 import netaddr
-from oslo.config import cfg
-from oslo.utils import excutils
 from oslo_concurrency import lockutils
+from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_utils import excutils
 from sqlalchemy.orm import exc as sa_exc
 
 from neutron.api import extensions as neutron_extensions
@@ -46,13 +46,12 @@ from neutron.extensions import portbindings as pbin
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
-from neutron.i18n import _LE, _LW
+from neutron.i18n import _LE, _LI, _LW
 from neutron.openstack.common import uuidutils
 from neutron.plugins.vmware.extensions import (
     advancedserviceproviders as as_providers)
 from neutron.plugins.vmware.extensions import (
     vnicindex as ext_vnic_idx)
-
 from vmware_nsx.neutron.plugins import vmware
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
@@ -457,8 +456,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             try:
                 h, c = self.nsx_v.vcns.add_member_to_security_group(
                     sg_id, vnic_id)
-                LOG.info(_("Added %s(sg_id)s member to NSX security "
-                           "group %(vnic_id)s"),
+                LOG.info(_LI("Added %s(sg_id)s member to NSX security "
+                             "group %(vnic_id)s"),
                          {'sg_id': sg_id, 'vnic_id': vnic_id})
             except Exception as e:
                 LOG.debug("NSX security group %(sg_id)s member add "
@@ -693,7 +692,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                     self._delete_dhcp_edge_service(context, id)
                 except Exception:
                     with excutils.save_and_reraise_exception():
-                        LOG.exception(_('Failed to delete network'))
+                        LOG.exception(_LE('Failed to delete network'))
 
         with context.session.begin(subtransactions=True):
             self._process_l3_delete(context, id)
@@ -752,10 +751,10 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                        original_network[psec.PORTSECURITY] !=
                        net_attrs[psec.PORTSECURITY])
         if psec_update and not net_attrs[psec.PORTSECURITY]:
-            LOG.warning(_("Disabling port-security on network %s would "
-                          "require instance in the network to have VM tools "
-                          "installed in order for security-groups to "
-                          "function properly."))
+            LOG.warning(_LW("Disabling port-security on network %s would "
+                            "require instance in the network to have VM tools "
+                            "installed in order for security-groups to "
+                            "function properly."))
 
         with context.session.begin(subtransactions=True):
             net_res = super(NsxVPluginV2, self).update_network(context, id,
@@ -848,10 +847,10 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 self._update_vnic_assigned_addresses(
                     context.session, original_port, vnic_id)
             else:
-                LOG.warning(_("port-security is disabled on port %(id)s, "
-                              "VM tools must be installed on instance "
-                              "%(device_id)s for security-groups to function "
-                              "properly "),
+                LOG.warning(_LW("port-security is disabled on port %(id)s, "
+                                "VM tools must be installed on instance "
+                                "%(device_id)s for security-groups to "
+                                "function properly."),
                             {'id': id,
                              'device_id': original_port['device_id']})
 
@@ -921,10 +920,11 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                     self._update_vnic_assigned_addresses(
                         context.session, ret_port, vnic_id)
                 if not has_port_security and has_security_groups:
-                    LOG.warning(_("port-security is disabled on port %(id)s, "
-                                  "VM tools must be installed on instance "
-                                  "%(device_id)s for security-groups to "
-                                  "function properly "),
+                    LOG.warning(_LW("port-security is disabled on "
+                                    "port %(id)s, "
+                                    "VM tools must be installed on instance "
+                                    "%(device_id)s for security-groups to "
+                                    "function properly "),
                                 {'id': id,
                                  'device_id': original_port['device_id']})
                 if delete_security_groups or has_security_groups:
@@ -1846,7 +1846,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         try:
             self.nsx_v.vcns.edges_lock_operation()
         except Exception:
-            LOG.info(_("Unable to set manager lock operation"))
+            LOG.info(_LI("Unable to set manager lock operation"))
 
     def _validate_config(self):
         if not self.nsx_v.vcns.validate_dvs(cfg.CONF.nsxv.dvs_id):

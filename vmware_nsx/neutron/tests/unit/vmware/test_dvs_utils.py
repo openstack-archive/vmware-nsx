@@ -14,8 +14,8 @@
 # limitations under the License.
 
 import mock
-from oslo.config import cfg
-from oslo.vmware import api
+from oslo_config import cfg
+from oslo_vmware import api
 
 from neutron.tests import base
 from vmware_nsx.neutron.plugins.vmware.dvs import dvs_utils

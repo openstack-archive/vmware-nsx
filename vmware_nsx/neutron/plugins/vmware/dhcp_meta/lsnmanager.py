@@ -15,13 +15,13 @@
 #    under the License.
 #
 
+from oslo_config import cfg
+from oslo_db import exception as db_exc
+from oslo_log import log as logging
+from oslo_utils import excutils
+
 from neutron.common import exceptions as n_exc
 from neutron.i18n import _LE, _LW
-from oslo.config import cfg
-from oslo.db import exception as db_exc
-from oslo.utils import excutils
-from oslo_log import log as logging
-
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as p_exc
 from vmware_nsx.neutron.plugins.vmware.common import nsx_utils
