@@ -15,6 +15,10 @@
 #    under the License.
 #
 
+from oslo_config import cfg
+from oslo_log import log as logging
+from oslo_utils import excutils
+
 from neutron.api.v2 import attributes as attr
 from neutron.common import constants as const
 from neutron.common import exceptions as n_exc
@@ -22,10 +26,6 @@ from neutron.db import db_base_plugin_v2
 from neutron.db import l3_db
 from neutron.extensions import external_net
 from neutron.i18n import _LE, _LI
-from oslo.config import cfg
-from oslo.utils import excutils
-from oslo_log import log as logging
-
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as p_exc
 from vmware_nsx.neutron.plugins.vmware.dhcp_meta import constants as d_const
 from vmware_nsx.neutron.plugins.vmware.nsxlib import lsn as lsn_api

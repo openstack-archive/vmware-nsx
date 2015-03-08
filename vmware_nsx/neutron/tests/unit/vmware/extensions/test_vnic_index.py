@@ -13,8 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo.config import cfg
-from oslo.db import exception as d_exc
+from oslo_config import cfg
+from oslo_db import exception as d_exc
 
 from neutron.api.v2 import attributes as attr
 from neutron import context as neutron_context

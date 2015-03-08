@@ -13,11 +13,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from oslo_log import log
+from oslo_serialization import jsonutils
+
 from neutron.common import exceptions as exception
 from neutron import version
-from oslo.serialization import jsonutils
-from oslo_log import log
-
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 

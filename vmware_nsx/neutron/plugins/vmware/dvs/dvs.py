@@ -12,11 +12,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo.utils import excutils
-from oslo.vmware import vim_util
-
+from oslo_utils import excutils
+from oslo_vmware import vim_util
 
 from neutron.common import exceptions
+from neutron.i18n import _LE, _LI
 from neutron.openstack.common import log as logging
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.dvs import dvs_utils
@@ -87,10 +87,10 @@ class DvsManager(object):
         except Exception:
             # NOTE(garyk): handle more specific exceptions
             with excutils.save_and_reraise_exception():
-                LOG.exception(_('Failed to create port group for '
-                                '%(net_id)s with tag %(tag)s.'),
+                LOG.exception(_LE('Failed to create port group for '
+                                  '%(net_id)s with tag %(tag)s.'),
                               {'net_id': net_id, 'tag': vlan_tag})
-        LOG.info("%(net_id)s with tag %(vlan_tag)s created on %(dvs)s.",
+        LOG.info(_LI("%(net_id)s with tag %(vlan_tag)s created on %(dvs)s."),
                  {'net_id': net_id,
                   'vlan_tag': vlan_tag,
                   'dvs': dvs_utils.dvs_name_get()})
@@ -129,7 +129,8 @@ class DvsManager(object):
         except Exception:
             # NOTE(garyk): handle more specific exceptions
             with excutils.save_and_reraise_exception():
-                LOG.exception(_('Failed to delete port group for %s.'), net_id)
-        LOG.info("%(net_id)s delete from %(dvs)s.",
+                LOG.exception(_LE('Failed to delete port group for %s.'),
+                              net_id)
+        LOG.info(_LI("%(net_id)s delete from %(dvs)s."),
                  {'net_id': net_id,
                   'dvs': dvs_utils.dvs_name_get()})

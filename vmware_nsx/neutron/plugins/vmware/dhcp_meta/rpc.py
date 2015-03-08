@@ -16,6 +16,9 @@
 
 from eventlet import greenthread
 import netaddr
+from oslo_config import cfg
+from oslo_log import log as logging
+
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
 from neutron.api.v2 import attributes
 from neutron.common import constants as const
@@ -24,9 +27,6 @@ from neutron.db import db_base_plugin_v2
 from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron.i18n import _LE, _LI, _LW
-from oslo.config import cfg
-from oslo_log import log as logging
-
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import config
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc

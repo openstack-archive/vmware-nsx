@@ -13,9 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import json
-
 import mock
+from oslo_serialization import jsonutils
 
 from neutron.tests import base
 from vmware_nsx.neutron.plugins.vmware.vshield import nsxv_loadbalancer
@@ -79,7 +78,7 @@ class NsxvLoadbalancerTestCase(base.BaseTestCase):
 
     def test_get_edge_loadbalancer(self):
         h = None
-        v = json.loads(self.EDGE_OBJ_JSON)
+        v = jsonutils.loads(self.EDGE_OBJ_JSON)
 
         with mock.patch.object(self._vcns, 'do_request',
                                return_value=(h, v)) as mock_do_request:

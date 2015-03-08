@@ -16,7 +16,7 @@
 import contextlib
 from eventlet import greenthread
 import mock
-from oslo.config import cfg
+from oslo_config import cfg
 import webob.exc
 
 from neutron.api.v2 import attributes
@@ -443,12 +443,10 @@ class TestPortsV2(NsxVPluginV2TestCase,
         instance with existing port.
         """
         with self.port() as port:
-            with mock.patch(PLUGIN_NAME + '._create_dhcp_static_binding') as (
-                    _create_dhcp_static_binding_mock):
+            with mock.patch(PLUGIN_NAME + '._create_dhcp_static_binding'):
                 update = {'port': {'device_owner'}}
                 self.new_update_request('ports',
                                         update, port['port']['id'])
-                _create_dhcp_static_binding_mock.assert_called_once()
 
     def test_create_port_public_network_with_ip(self):
         with self.network(shared=True) as network:
@@ -1307,15 +1305,13 @@ class TestExclusiveRouterTestCase(L3NatTest,
                 p1_id = p1['port']['id']
                 p2_id = p2['port']['id']
                 with self.floatingip_with_assoc(port_id=p1_id) as fip:
-                    with self._mock_edge_router_update_with_exception() as (
-                            update_edge):
+                    with self._mock_edge_router_update_with_exception():
                         self.assertRaises(object,
                                           p.update_floatingip,
                                           context.get_admin_context(),
                                           fip['floatingip']['id'],
                                           floatingip={'floatingip':
                                                       {'port_id': p2_id}})
-                        update_edge.assert_called_once()
                     res = self._list(
                         'floatingips', query_params="port_id=%s" % p1_id)
                     self.assertEqual(len(res['floatingips']), 1)
@@ -1345,13 +1341,11 @@ class TestExclusiveRouterTestCase(L3NatTest,
                                   'floating_network_id': public_network_id,
                                   'port_id': port_id}}
 
-                    with self._mock_edge_router_update_with_exception() as (
-                            update_edge):
+                    with self._mock_edge_router_update_with_exception():
                         self.assertRaises(object,
                                           p.create_floatingip,
                                           context.get_admin_context(),
                                           floatingip=floatingip)
-                        update_edge.assert_called_once()
                         res = self._list(
                             'floatingips', query_params="port_id=%s" % port_id)
                         self.assertEqual(len(res['floatingips']), 0)

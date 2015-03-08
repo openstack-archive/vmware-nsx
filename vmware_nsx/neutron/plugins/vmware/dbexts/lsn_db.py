@@ -15,11 +15,11 @@
 #    under the License.
 #
 
-from neutron.plugins.vmware.dbexts import nsx_models
-from oslo.db import exception as d_exc
+from oslo_db import exception as d_exc
 from oslo_log import log as logging
 from sqlalchemy import orm
 
+from neutron.plugins.vmware.dbexts import nsx_models
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as p_exc
 
 

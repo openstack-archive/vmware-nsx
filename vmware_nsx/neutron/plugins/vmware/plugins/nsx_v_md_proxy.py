@@ -19,14 +19,15 @@ import hmac
 import time
 
 import netaddr
-from oslo.config import cfg
-from oslo.db import exception as db_exc
+from oslo_config import cfg
+from oslo_db import exception as db_exc
+from oslo_log import log as logging
 from oslo_utils import excutils
 
 from neutron.api.v2 import attributes as attr
 from neutron.common import constants
 from neutron import context as neutron_context
-from oslo_log import log as logging
+from neutron.i18n import _LE
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsxv_exc
 from vmware_nsx.neutron.plugins.vmware.common import nsxv_constants
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
@@ -155,8 +156,8 @@ class NsxVMetadataProxyHandler:
                 if internal_net:
                     self.nsxv_plugin.delete_network(self.context, internal_net)
 
-                LOG.exception(_("Exception %s while creating internal network "
-                                "for metadata service"), e)
+                LOG.exception(_LE("Exception %s while creating internal "
+                                  "network for metadata service"), e)
 
         # Update the new network_id in DB
         nsxv_db.update_nsxv_internal_network(
@@ -307,8 +308,8 @@ class NsxVMetadataProxyHandler:
 
                 if rtr_id:
                     self.nsxv_plugin.delete_router(self.context, rtr_id)
-                LOG.exception(_("Exception %s while creating internal edge "
-                                "for metadata service"), e)
+                LOG.exception(_LE("Exception %s while creating internal edge "
+                                  "for metadata service"), e)
 
     def _get_address_groups(self, context, network_id, device_id, is_proxy):
 
