@@ -85,7 +85,7 @@ class FakeVcns(object):
         response = {"edgeJob": []}
         return (header, response)
 
-    def deploy_edge(self, request):
+    def deploy_edge(self, request, async=True):
         if (self._unique_router_name and
             not self._validate_edge_name(request['name'])):
             header = {
