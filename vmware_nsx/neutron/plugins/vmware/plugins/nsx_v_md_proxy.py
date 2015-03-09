@@ -411,7 +411,7 @@ class NsxVMetadataProxyHandler:
             self.nsxv_plugin.nsx_v.vcns,
             edge_id)
 
-    def configure_router_edge(self, rtr_id):
+    def configure_router_edge(self, rtr_id, context=None):
         # Connect router interface to inter-edge network
         port_data = {
             'port': {
@@ -425,17 +425,20 @@ class NsxVMetadataProxyHandler:
                 'port_security_enabled': False,
                 'tenant_id': None}}
 
-        self.nsxv_plugin.create_port(self.context, port_data)
+        if context is None:
+            context = self.context
+
+        self.nsxv_plugin.create_port(context, port_data)
 
         address_groups = self._get_address_groups(
-            self.context,
+            context,
             self.internal_net,
             rtr_id,
             is_proxy=False)
 
         edge_utils.update_internal_interface(
             self.nsxv_plugin.nsx_v,
-            self.context,
+            context,
             rtr_id,
             self.internal_net,
             address_groups=address_groups)
