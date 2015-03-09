@@ -1026,8 +1026,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         with lockutils.lock('nsx-edge-pool',
                             lock_file_prefix='edge-bind-',
                             external=True):
-            with context.session.begin(subtransactions=True):
-                s = super(NsxVPluginV2, self).create_subnet(context, subnet)
+            s = super(NsxVPluginV2, self).create_subnet(context, subnet)
         if s['enable_dhcp']:
             try:
                 self._update_dhcp_service_with_subnet(context, s)
