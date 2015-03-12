@@ -28,7 +28,6 @@ from neutron.api.v2 import attributes as attr
 from neutron.common import constants
 from neutron.common import exceptions as n_exc
 from neutron.common import utils
-from neutron import context as neutron_context
 from neutron.db import agents_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
@@ -984,13 +983,13 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
         with context.session.begin(subtransactions=True):
             super(NsxVPluginV2, self).delete_subnet(context, id)
+            if subnet['enable_dhcp']:
+                # There is only DHCP port available
+                if len(ports) == 1:
+                    port = ports.pop()
+                    self._delete_port(context, port['id'])
 
         if subnet['enable_dhcp']:
-            # There is only DHCP port available
-            if len(ports) == 1:
-                port = ports.pop()
-                self._delete_port(context, port['id'])
-
             # Delete the DHCP edge service
             network_id = subnet['network_id']
             filters = {'network_id': [network_id]}
@@ -1055,7 +1054,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         # The DHCP for network with different physical network can not be used
         # The flat network should be located in different DHCP
         conflicting_networks = []
-        network_ids = self.get_networks(neutron_context.get_admin_context(),
+        network_ids = self.get_networks(context.elevated(),
                                         fields=['id'])
         phy_net = nsxv_db.get_network_bindings(context.session, network_id)
         if phy_net:
@@ -1186,7 +1185,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
     def _extract_external_gw(self, context, router, is_extract=True):
         r = router['router']
-        gw_info = None
+        gw_info = attr.ATTR_NOT_SPECIFIED
         # First extract the gateway info in case of updating
         # gateway before edge is deployed.
         if 'external_gateway_info' in r:

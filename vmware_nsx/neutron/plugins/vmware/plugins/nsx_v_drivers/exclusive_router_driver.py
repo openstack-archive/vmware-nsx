@@ -14,6 +14,8 @@
 
 from oslo_log import log as logging
 
+from neutron.api.v2 import attributes as attr
+
 from vmware_nsx.neutron.plugins.vmware.plugins import nsx_v
 from vmware_nsx.neutron.plugins.vmware.plugins.nsx_v_drivers import (
     abstract_router_driver as router_driver)
@@ -35,16 +37,18 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
 
     def update_router(self, context, router_id, router):
         gw_info = self.plugin._extract_external_gw(context, router,
-                                                   is_extract=False)
-        router_updated = super(nsx_v.NsxVPluginV2, self.plugin).update_router(
+                                                   is_extract=True)
+        super(nsx_v.NsxVPluginV2, self.plugin).update_router(
             context, router_id, router)
-        # here is used to handle routes which tenant updates.
-        if gw_info is None:
+        if gw_info != attr.ATTR_NOT_SPECIFIED:
+            self._update_router_gw_info(context, router_id, gw_info)
+        else:
+            # here is used to handle routes which tenant updates.
             router_db = self.plugin._get_router(context, router_id)
             nexthop = self.plugin._get_external_attachment_info(
                 context, router_db)[2]
             self.update_routes(context, router_id, nexthop)
-        return router_updated
+        return self.plugin.get_router(context, router_id)
 
     def delete_router(self, context, router_id):
         self.edge_manager.delete_lrouter(context, router_id, dist=False)

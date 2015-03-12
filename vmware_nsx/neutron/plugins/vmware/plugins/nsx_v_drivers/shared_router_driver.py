@@ -15,7 +15,7 @@
 from oslo_concurrency import lockutils
 from oslo_config import cfg
 
-from neutron import context as neutron_context
+from neutron.api.v2 import attributes as attr
 from neutron.db import l3_db
 from neutron.db import models_v2
 from oslo_log import log as logging
@@ -55,7 +55,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                 super(nsx_v.NsxVPluginV2, self.plugin).update_router(
                     context, router_id, router)
             # here is used to handle routes which tenant updates.
-            if gw_info is not None:
+            if gw_info != attr.ATTR_NOT_SPECIFIED:
                 self._update_router_gw_info(context, router_id, gw_info)
             else:
                 with lockutils.lock(str(edge_id),
@@ -280,7 +280,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         """
         ext_net_filters = {'router:external': [True]}
         ext_nets = self.plugin.get_networks(
-            neutron_context.get_admin_context(), filters=ext_net_filters)
+            context.elevated(), filters=ext_net_filters)
         ext_net_ids = [ext_net.get('id') for ext_net in ext_nets]
         conflict_ext_net_ids = list(set(ext_net_ids) &
                                     set(conflict_network_ids))

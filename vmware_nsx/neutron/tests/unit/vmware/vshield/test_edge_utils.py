@@ -318,12 +318,12 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
     def test_get_available_router_bindings(self):
         appliance_size = nsxv_constants.LARGE
         edge_type = nsxv_constants.SERVICE_EDGE
-        pool_edges = (self._create_edge_pools(1, 2, 3, 4, 5) +
+        pool_edges = (self._create_edge_pools(1, 2, 3, 0, 5) +
                       self._create_edge_pools(
-                          1, 2, 3, 4, 5, size=nsxv_constants.COMPACT))
+                          1, 2, 3, 0, 5, size=nsxv_constants.COMPACT))
         self._populate_vcns_router_binding(pool_edges)
         expect_backup_bindings = self._create_backup_router_bindings(
-            1, 2, 3, 4, 5, error_status=plugin_const.ERROR)
+            1, 2, 3, 0, 5, error_status=plugin_const.ERROR)
         binding = self.edge_manager._get_available_router_binding(
             self.ctx, appliance_size=appliance_size, edge_type=edge_type)
         router_bindings = [

@@ -57,40 +57,30 @@ def add_nsxv_router_binding(session, router_id, vse_id, lswitch_id, status,
             appliance_size=appliance_size,
             edge_type=edge_type)
         session.add(binding)
-        return binding
+    return binding
 
 
 def get_nsxv_router_binding(session, router_id):
-    with session.begin(subtransactions=True):
-        return (session.query(nsxv_models.NsxvRouterBinding).
-                filter_by(router_id=router_id).first())
+    return session.query(nsxv_models.NsxvRouterBinding).filter_by(
+        router_id=router_id).first()
+
+
+def get_nsxv_router_binding_by_edge(session, edge_id):
+    return session.query(nsxv_models.NsxvRouterBinding).filter_by(
+        edge_id=edge_id).first()
 
 
 def get_nsxv_router_bindings_by_edge(session, edge_id):
-    with session.begin(subtransactions=True):
-        return (session.query(nsxv_models.NsxvRouterBinding).
-                filter_by(edge_id=edge_id).all())
+    return session.query(nsxv_models.NsxvRouterBinding).filter_by(
+        edge_id=edge_id).all()
 
 
 def get_nsxv_router_bindings(session, filters=None,
                              like_filters=None):
-    with session.begin(subtransactions=True):
-        query = session.query(nsxv_models.NsxvRouterBinding)
-        return _apply_filters_to_query(
-            query, nsxv_models.NsxvRouterBinding,
-            filters, like_filters).all()
-
-
-def get_nsxv_router_bindings_with_lock(session, filters=None,
-                                       like_filters=None):
-    """Get rows of nsxv_router_bindings data with "select for update" lock.
-
-    More accurate filters mean smaller db lock range
-    """
+    session = db.get_session()
     query = session.query(nsxv_models.NsxvRouterBinding)
-    return _apply_filters_to_query(
-        query, nsxv_models.NsxvRouterBinding,
-        filters, like_filters).with_lockmode('update').all()
+    return _apply_filters_to_query(query, nsxv_models.NsxvRouterBinding,
+                                   filters, like_filters).all()
 
 
 def update_nsxv_router_binding(session, router_id, **kwargs):
@@ -99,9 +89,11 @@ def update_nsxv_router_binding(session, router_id, **kwargs):
                    filter_by(router_id=router_id).one())
         for key, value in kwargs.iteritems():
             binding[key] = value
+    return binding
 
 
 def delete_nsxv_router_binding(session, router_id):
+    session = db.get_session()
     with session.begin(subtransactions=True):
         binding = (session.query(nsxv_models.NsxvRouterBinding).
                    filter_by(router_id=router_id).first())
@@ -110,23 +102,20 @@ def delete_nsxv_router_binding(session, router_id):
 
 
 def get_edge_vnic_binding(session, edge_id, network_id):
-    with session.begin(subtransactions=True):
-        return (session.query(nsxv_models.NsxvEdgeVnicBinding).
-                filter_by(edge_id=edge_id, network_id=network_id).first())
+    return session.query(nsxv_models.NsxvEdgeVnicBinding).filter_by(
+        edge_id=edge_id, network_id=network_id).first()
 
 
 def get_edge_vnic_bindings_by_edge(session, edge_id):
     query = session.query(nsxv_models.NsxvEdgeVnicBinding)
-    query = query.filter(
+    return query.filter(
         nsxv_models.NsxvEdgeVnicBinding.edge_id == edge_id,
-        nsxv_models.NsxvEdgeVnicBinding.network_id != expr.null())
-    return query.all()
+        nsxv_models.NsxvEdgeVnicBinding.network_id != expr.null()).all()
 
 
 def get_edge_vnic_bindings_by_int_lswitch(session, lswitch_id):
-    with session.begin(subtransactions=True):
-        return (session.query(nsxv_models.NsxvEdgeVnicBinding).
-                filter_by(network_id=lswitch_id).all())
+    return session.query(nsxv_models.NsxvEdgeVnicBinding).filter_by(
+        network_id=lswitch_id).all()
 
 
 def create_edge_vnic_binding(session, edge_id, vnic_index,
@@ -138,6 +127,7 @@ def create_edge_vnic_binding(session, edge_id, vnic_index,
             tunnel_index=tunnel_index,
             network_id=network_id)
         session.add(binding)
+    return binding
 
 
 def delete_edge_vnic_binding_by_network(session, edge_id, network_id):
@@ -219,6 +209,7 @@ def allocate_edge_vnic_with_tunnel_index(session, edge_id, network_id):
             raise nsx_exc.NsxPluginException(err_msg=msg)
         binding['network_id'] = network_id
         session.add(binding)
+        session.flush()
     return binding
 
 
@@ -268,12 +259,12 @@ def create_edge_dhcp_static_binding(session, edge_id, mac_address, binding_id):
             mac_address=mac_address,
             binding_id=binding_id)
         session.add(binding)
+    return binding
 
 
 def get_edge_dhcp_static_binding(session, edge_id, mac_address):
-    with session.begin(subtransactions=True):
-        return (session.query(nsxv_models.NsxvEdgeDhcpStaticBinding).
-                filter_by(edge_id=edge_id, mac_address=mac_address).first())
+    return session.query(nsxv_models.NsxvEdgeDhcpStaticBinding).filter_by(
+        edge_id=edge_id, mac_address=mac_address).first()
 
 
 def delete_edge_dhcp_static_binding(session, edge_id, mac_address):
