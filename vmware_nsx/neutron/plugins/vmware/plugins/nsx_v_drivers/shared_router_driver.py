@@ -18,7 +18,7 @@ from oslo_config import cfg
 from neutron import context as neutron_context
 from neutron.db import l3_db
 from neutron.db import models_v2
-from neutron.openstack.common import log as logging
+from oslo_log import log as logging
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
 from vmware_nsx.neutron.plugins.vmware.plugins import nsx_v

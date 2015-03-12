@@ -17,6 +17,7 @@
 
 from oslo_concurrency import lockutils
 from oslo_config import cfg
+from oslo_log import log as logging
 from oslo_utils import importutils
 
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
@@ -27,7 +28,6 @@ from neutron.common import rpc as n_rpc
 from neutron.common import topics
 from neutron.db import agents_db
 from neutron.i18n import _LW
-from neutron.openstack.common import log as logging
 from neutron.plugins.vmware.extensions import lsn
 
 from vmware_nsx.neutron.plugins.vmware.common import config
