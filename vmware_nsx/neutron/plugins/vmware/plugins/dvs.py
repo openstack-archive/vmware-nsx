@@ -27,6 +27,7 @@ from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
 from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
+from neutron.db import securitygroups_db
 from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import portbindings as pbin
@@ -51,16 +52,18 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                dhcpmeta_modes.DhcpMetadataAccess,
                external_net_db.External_net_db_mixin,
                portbindings_db.PortBindingMixin,
-               portsecurity_db.PortSecurityDbMixin):
+               portsecurity_db.PortSecurityDbMixin,
+               securitygroups_db.SecurityGroupDbMixin):
 
     supported_extension_aliases = ["allowed-address-pairs",
                                    "binding",
+                                   "external-net",
                                    "mac-learning",
                                    "multi-provider",
                                    "port-security",
                                    "provider",
                                    "quotas",
-                                   "external-net"]
+                                   "security-group"]
 
     __native_bulk_support = True
     __native_pagination_support = True
