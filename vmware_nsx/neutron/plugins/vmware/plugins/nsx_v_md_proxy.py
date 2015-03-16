@@ -344,10 +344,13 @@ class NsxVMetadataProxyHandler:
             address_groups.append(address_group)
         return address_groups
 
-    def _setup_metadata_lb(
-            self, rtr_id, vip, v_port, s_port, member_ips, proxy_lb=False):
+    def _setup_metadata_lb(self, rtr_id, vip, v_port, s_port, member_ips,
+                           proxy_lb=False, context=None):
 
-        binding = nsxv_db.get_nsxv_router_binding(self.context.session, rtr_id)
+        if context is None:
+            context = self.context
+
+        binding = nsxv_db.get_nsxv_router_binding(context.session, rtr_id)
         edge_id = binding['edge_id']
         LOG.debug('Setting up Edge device %s', edge_id)
 
@@ -425,16 +428,16 @@ class NsxVMetadataProxyHandler:
                 'port_security_enabled': False,
                 'tenant_id': None}}
 
-        if context is None:
-            context = self.context
-
-        self.nsxv_plugin.create_port(context, port_data)
+        self.nsxv_plugin.create_port(self.context, port_data)
 
         address_groups = self._get_address_groups(
-            context,
+            self.context,
             self.internal_net,
             rtr_id,
             is_proxy=False)
+
+        if context is None:
+            context = self.context
 
         edge_utils.update_internal_interface(
             self.nsxv_plugin.nsx_v,
@@ -448,7 +451,8 @@ class NsxVMetadataProxyHandler:
                                 METADATA_TCP_PORT,
                                 cfg.CONF.nsxv.nova_metadata_port,
                                 self.proxy_edge_ips,
-                                proxy_lb=False)
+                                proxy_lb=False,
+                                context=context)
 
     def cleanup_router_edge(self, rtr_id):
         filters = {
