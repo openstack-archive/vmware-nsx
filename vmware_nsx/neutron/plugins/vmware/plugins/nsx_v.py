@@ -1101,7 +1101,9 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 context, network_id, address_groups=address_groups)
 
             if resource_id and self.metadata_proxy_handler:
-                self.metadata_proxy_handler.configure_router_edge(resource_id)
+                LOG.debug('Update metadata for resource %s', resource_id)
+                self.metadata_proxy_handler.configure_router_edge(resource_id,
+                                                                  context)
                 fw_rules = {
                     'firewall_rule_list':
                     self.metadata_proxy_handler.get_router_fw_rules()}
