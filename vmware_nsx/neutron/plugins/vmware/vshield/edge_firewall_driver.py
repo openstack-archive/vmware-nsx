@@ -12,18 +12,18 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron.db import db_base_plugin_v2
+from neutron.plugins.common import constants
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from neutron.db import db_base_plugin_v2
-from neutron.i18n import _, _LE
-from neutron.plugins.common import constants
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
 from vmware_nsx.neutron.plugins.vmware.vshield.common import (
     exceptions as vcns_exc)
 from vmware_nsx.neutron.plugins.vmware.vshield.tasks import (
     constants as task_const)
 from vmware_nsx.neutron.plugins.vmware.vshield.tasks import tasks
+from vmware_nsx.openstack.common._i18n import _, _LE
 
 LOG = logging.getLogger(__name__)
 

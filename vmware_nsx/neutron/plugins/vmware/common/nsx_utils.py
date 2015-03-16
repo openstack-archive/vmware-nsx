@@ -17,7 +17,6 @@ from neutron.api.v2 import attributes as attr
 from neutron.common import exceptions as n_exc
 from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import providernet as pnet
-from neutron.i18n import _LW
 from oslo_log import log
 
 from vmware_nsx.neutron.plugins.vmware.api_client import client
@@ -30,6 +29,7 @@ from vmware_nsx.neutron.plugins.vmware.nsxlib import l2gateway as l2gwlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import router as routerlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import secgroup as secgrouplib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import switch as switchlib
+from vmware_nsx.openstack.common._i18n import _LW
 
 LOG = log.getLogger(__name__)
 

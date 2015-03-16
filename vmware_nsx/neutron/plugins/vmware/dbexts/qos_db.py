@@ -18,11 +18,12 @@ from sqlalchemy.orm import exc
 from neutron.api.v2 import attributes as attr
 from neutron.db import db_base_plugin_v2
 from neutron.db import models_v2
-from neutron.i18n import _LI
 from neutron.plugins.vmware.dbexts import nsx_models
 from neutron.plugins.vmware.extensions import qos
 from oslo_log import log
 from oslo_utils import uuidutils
+
+from vmware_nsx.openstack.common._i18n import _LI
 
 LOG = log.getLogger(__name__)
 

@@ -26,8 +26,8 @@ from oslo_utils import excutils
 import six
 import six.moves.urllib.parse as urlparse
 
-from neutron.i18n import _LI, _LW
 from vmware_nsx.neutron.plugins.vmware import api_client
+from vmware_nsx.openstack.common._i18n import _LI, _LW
 
 LOG = logging.getLogger(__name__)
 

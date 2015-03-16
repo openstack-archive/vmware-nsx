@@ -25,7 +25,7 @@ from neutron.common import constants as const
 from neutron.common import exceptions as ntn_exc
 from neutron.db import db_base_plugin_v2
 from neutron.db import models_v2
-from neutron.i18n import _LE, _LI, _LW
+from vmware_nsx.openstack.common._i18n import _LE, _LI, _LW
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import config
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc

@@ -47,11 +47,11 @@ from neutron.extensions import portbindings as pbin
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
-from neutron.i18n import _LE, _LI, _LW
 from neutron.plugins.vmware.extensions import (
     advancedserviceproviders as as_providers)
 from neutron.plugins.vmware.extensions import (
     vnicindex as ext_vnic_idx)
+
 from vmware_nsx.neutron.plugins import vmware
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
@@ -70,6 +70,7 @@ from vmware_nsx.neutron.plugins.vmware.vshield.common import (
 from vmware_nsx.neutron.plugins.vmware.vshield import edge_utils
 from vmware_nsx.neutron.plugins.vmware.vshield import securitygroup_utils
 from vmware_nsx.neutron.plugins.vmware.vshield import vcns_driver
+from vmware_nsx.openstack.common._i18n import _LE, _LI, _LW
 
 LOG = logging.getLogger(__name__)
 PORTGROUP_PREFIX = 'dvportgroup'

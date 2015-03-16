@@ -12,12 +12,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from oslo_log import log as logging
 from oslo_utils import excutils
 
-from neutron.i18n import _LE, _LW
-from oslo_log import log as logging
 from vmware_nsx.neutron.plugins.vmware.vshield.common import (
     exceptions as vcns_exc)
+from vmware_nsx.openstack.common._i18n import _LE, _LW
 
 LOG = logging.getLogger(__name__)
 

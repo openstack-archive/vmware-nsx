@@ -16,8 +16,8 @@ import logging
 
 from oslo_config import cfg
 
-from neutron.i18n import _LW
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
+from vmware_nsx.openstack.common._i18n import _LW
 
 LOG = logging.getLogger(__name__)
 

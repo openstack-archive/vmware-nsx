@@ -21,7 +21,6 @@ from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import excutils
 
-from neutron.i18n import _LE, _LI, _LW
 from vmware_nsx.neutron.plugins.vmware.common import nsxv_constants
 from vmware_nsx.neutron.plugins.vmware.common import utils
 from vmware_nsx.neutron.plugins.vmware.vshield.common import constants
@@ -29,6 +28,7 @@ from vmware_nsx.neutron.plugins.vmware.vshield.common import exceptions
 from vmware_nsx.neutron.plugins.vmware.vshield.tasks import (
     constants as task_constants)
 from vmware_nsx.neutron.plugins.vmware.vshield.tasks import tasks
+from vmware_nsx.openstack.common._i18n import _LE, _LI, _LW
 
 LOG = logging.getLogger(__name__)
 

@@ -21,13 +21,12 @@ from sqlalchemy.orm import exc
 from sqlalchemy.sql import expression as expr
 
 import neutron.db.api as db
-from neutron.i18n import _, _LE
 from neutron.plugins.vmware.dbexts import nsxv_models
 
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import nsxv_constants
 from vmware_nsx.neutron.plugins.vmware.vshield.common import constants
-
+from vmware_nsx.openstack.common._i18n import _, _LE
 
 LOG = logging.getLogger(__name__)
 

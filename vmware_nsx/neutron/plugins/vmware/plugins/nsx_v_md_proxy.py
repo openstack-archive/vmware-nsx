@@ -19,15 +19,14 @@ import hmac
 import time
 
 import netaddr
+from neutron.api.v2 import attributes as attr
+from neutron.common import constants
+from neutron import context as neutron_context
 from oslo_config import cfg
 from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from neutron.api.v2 import attributes as attr
-from neutron.common import constants
-from neutron import context as neutron_context
-from neutron.i18n import _LE
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsxv_exc
 from vmware_nsx.neutron.plugins.vmware.common import nsxv_constants
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
@@ -36,6 +35,7 @@ from vmware_nsx.neutron.plugins.vmware.vshield import (
 from vmware_nsx.neutron.plugins.vmware.vshield.common import (
     constants as vcns_const)
 from vmware_nsx.neutron.plugins.vmware.vshield import edge_utils
+from vmware_nsx.openstack.common._i18n import _LE
 
 METADATA_IP_ADDR = '169.254.169.254'
 METADATA_TCP_PORT = 80

@@ -16,8 +16,8 @@
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from neutron.i18n import _LI
 from vmware_nsx.neutron.plugins.vmware.common import exceptions
+from vmware_nsx.openstack.common._i18n import _LI
 
 LOG = logging.getLogger(__name__)
 DEFAULT_PORT = 443

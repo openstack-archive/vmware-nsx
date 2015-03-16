@@ -14,13 +14,15 @@
 
 from oslo_utils import excutils
 
-from neutron.i18n import _LE
 from oslo_log import log as logging
+
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
 from vmware_nsx.neutron.plugins.vmware.vshield.common import (
     constants as vcns_const)
 from vmware_nsx.neutron.plugins.vmware.vshield.common import (
     exceptions as vcns_exc)
+from vmware_nsx.openstack.common._i18n import _LE
+
 try:
     from neutron_lbaas.services.loadbalancer import constants as lb_constants
 except Exception:
