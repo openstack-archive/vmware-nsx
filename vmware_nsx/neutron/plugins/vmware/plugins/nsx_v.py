@@ -20,6 +20,7 @@ from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
+from oslo_utils import uuidutils
 from sqlalchemy.orm import exc as sa_exc
 
 from neutron.api import extensions as neutron_extensions
@@ -47,7 +48,6 @@ from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.i18n import _LE, _LI, _LW
-from neutron.openstack.common import uuidutils
 from neutron.plugins.vmware.extensions import (
     advancedserviceproviders as as_providers)
 from neutron.plugins.vmware.extensions import (

@@ -21,6 +21,7 @@ import netaddr
 from oslo_config import cfg
 from oslo_db import exception as db_exc
 from oslo_log import log
+from oslo_utils import uuidutils
 from sqlalchemy import exc as sql_exc
 import webob.exc
 
@@ -37,7 +38,6 @@ from neutron.extensions import portbindings
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as secgrp
 from neutron import manager
-from neutron.openstack.common import uuidutils
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.test_db_plugin as test_plugin
 import neutron.tests.unit.test_extension_ext_gw_mode as test_ext_gw_mode

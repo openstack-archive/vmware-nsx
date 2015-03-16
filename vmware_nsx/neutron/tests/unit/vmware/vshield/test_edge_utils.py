@@ -15,10 +15,10 @@
 
 import mock
 from oslo_config import cfg
+from oslo_utils import uuidutils
 
 from neutron.common import exceptions as n_exc
 from neutron import context
-from neutron.openstack.common import uuidutils
 from neutron.plugins.common import constants as plugin_const
 from neutron.tests.unit import testlib_api
 from vmware_nsx.neutron.plugins.vmware.common import nsxv_constants
