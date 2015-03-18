@@ -1675,6 +1675,26 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                   {'subnet_id': subnet_id, 'router_id': router_id})
         return router_iface_info
 
+    def get_l3_agents_hosting_routers(self, context, routers):
+        # This method is just a stub added because is required by the l3 dvr
+        # mixin. That's so much for a management layer which is plugin
+        # agnostic
+        return []
+
+    def create_snat_intf_ports_if_not_exists(self, context, router):
+        # VMware plugins do not need SNAT interface ports
+        return []
+
+    def add_csnat_router_interface_port(self, context, router, network_id,
+                                        subnet_id, do_pop=True):
+        # VMware plugins do not need SNAT interface ports
+        return
+
+    def delete_csnat_router_interface_ports(self, context, router,
+                                            subnet_id=None):
+        # VMware plugins do not need SNAT interface ports
+        return
+
     def remove_router_interface(self, context, router_id, interface_info):
         # The code below is duplicated from base class, but comes handy
         # as we need to retrieve the router port id before removing the port
@@ -1686,8 +1706,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             port = self._get_port(context, port_id)
             if port.get('fixed_ips'):
                 subnet_id = port['fixed_ips'][0]['subnet_id']
-            if not (port['device_owner'] == l3_db.DEVICE_OWNER_ROUTER_INTF and
-                    port['device_id'] == router_id):
+            if not (port['device_owner'] in constants.ROUTER_INTERFACE_OWNERS
+                    and port['device_id'] == router_id):
                 raise l3.RouterInterfaceNotFound(router_id=router_id,
                                                  port_id=port_id)
         elif 'subnet_id' in interface_info:
@@ -1696,8 +1716,9 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             rport_qry = context.session.query(models_v2.Port)
             ports = rport_qry.filter_by(
                 device_id=router_id,
-                device_owner=l3_db.DEVICE_OWNER_ROUTER_INTF,
-                network_id=subnet['network_id'])
+                network_id=subnet['network_id']).filter(
+                    models_v2.Port.device_owner.in_(
+                        constants.ROUTER_INTERFACE_OWNERS))
             for p in ports:
                 if p['fixed_ips'][0]['subnet_id'] == subnet_id:
                     port_id = p['id']
