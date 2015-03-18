@@ -371,6 +371,7 @@ class SecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
 
         instance.return_value.request.side_effect = self.fc.fake_request
         super(SecurityGroupsTestCase, self).setUp(vmware.PLUGIN_NAME)
+        self.plugin = manager.NeutronManager.get_plugin()
 
 
 class TestSecurityGroup(ext_sg.TestSecurityGroups, SecurityGroupsTestCase):
@@ -395,6 +396,20 @@ class TestSecurityGroup(ext_sg.TestSecurityGroups, SecurityGroupsTestCase):
             res = self._create_security_group_rule(self.fmt, rule)
             self.deserialize(self.fmt, res)
             self.assertEqual(res.status_int, 400)
+
+    def test_skip_duplicate_default_sg_error(self):
+        # can't always raise, or create_security_group will hang
+        with mock.patch.object(self.plugin,
+                               'create_security_group',
+                               side_effect=[db_exc.DBDuplicateEntry(),
+                                            {'id': 'foo'}]):
+            self.plugin.create_network(
+                context.get_admin_context(),
+                {'network': {'name': 'foo',
+                             'admin_state_up': True,
+                             'shared': False,
+                             'tenant_id': 'bar',
+                             'port_security_enabled': True}})
 
 
 class TestL3ExtensionManager(object):
@@ -795,7 +810,7 @@ class TestL3NatTestCase(L3NatTest,
                                                   r['router']['id'],
                                                   s['subnet']['id'],
                                                   None)
-            # Verify that the metadata network gets scheduled first, so that
+            # Verify that the metadata network gets scheduled, so that
             # an active dhcp agent can pick it up
             expected_meta_net = {
                 'status': 'ACTIVE',
@@ -805,9 +820,10 @@ class TestL3NatTestCase(L3NatTest,
                 'tenant_id': '',
                 'port_security_enabled': False,
                 'shared': False,
-                'id': mock.ANY
+                'id': mock.ANY,
+                'mtu': mock.ANY
             }
-            f.assert_called_once_with(mock.ANY, expected_meta_net)
+            f.assert_any_call(mock.ANY, expected_meta_net)
         self._metadata_teardown()
 
     def test_metadata_network_create_rollback_on_create_subnet_failure(self):

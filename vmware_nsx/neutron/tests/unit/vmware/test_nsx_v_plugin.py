@@ -17,6 +17,7 @@ import contextlib
 from eventlet import greenthread
 import mock
 from oslo_config import cfg
+from oslo_db import exception as db_exc
 import webob.exc
 
 from neutron.api.v2 import attributes
@@ -1486,6 +1487,7 @@ class NsxVSecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
         mock_delete_dhcp_service.start()
         super(NsxVSecurityGroupsTestCase, self).setUp(plugin=plugin,
                                                       ext_mgr=ext_mgr)
+        self.plugin = manager.NeutronManager.get_plugin()
         self.addCleanup(self.fc2.reset_all)
 
 
@@ -1532,6 +1534,20 @@ class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
         #TODO(kobis): Port is not removed automatically
         # (self.fc2.remove_member_from_security_group
         #  .assert_called_once_with(nsx_sg_id, vnic_id))
+
+    def test_skip_duplicate_default_sg_error(self):
+        # can't always raise, or create_security_group will hang
+        with mock.patch.object(self.plugin,
+                               'create_security_group',
+                               side_effect=[db_exc.DBDuplicateEntry(),
+                                            {'id': 'foo'}]):
+            self.plugin.create_network(
+                context.get_admin_context(),
+                {'network': {'name': 'foo',
+                             'admin_state_up': True,
+                             'shared': False,
+                             'tenant_id': 'bar',
+                             'port_security_enabled': True}})
 
 
 class TestVdrTestCase(L3NatTest,
