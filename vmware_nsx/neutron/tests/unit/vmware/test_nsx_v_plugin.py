@@ -138,6 +138,9 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
 
 class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
 
+    def test_create_network_vlan_transparent(self):
+        self.skipTest("Currently no support in plugin for this")
+
     def _test_create_bridge_network(self, vlan_id=0):
         net_type = vlan_id and 'vlan' or 'flat'
         name = 'bridge_net'
@@ -902,6 +905,30 @@ class TestPortsV2(NsxVPluginV2TestCase,
                     eui_addr = str(ipv6_utils.get_ipv6_addr_by_EUI64(
                             subnet_cidr, port_mac))
                     self.assertEqual(ips[1]['ip_address'], eui_addr)
+
+    def _test_create_port_with_ipv6_subnet_in_fixed_ips(self, addr_mode):
+        """Test port create with an IPv6 subnet incl in fixed IPs."""
+        with self.network(name='net') as network:
+            subnet = self._make_v6_subnet(network, addr_mode)
+            subnet_id = subnet['subnet']['id']
+            fixed_ips = [{'subnet_id': subnet_id}]
+            with self.port(subnet=subnet, fixed_ips=fixed_ips) as port:
+                if addr_mode == constants.IPV6_SLAAC:
+                    exp_ip_addr = self._calc_ipv6_addr_by_EUI64(port, subnet)
+                else:
+                    exp_ip_addr = 'fe80::3'
+                port_fixed_ips = port['port']['fixed_ips']
+                self.assertEqual(1, len(port_fixed_ips))
+                self.assertEqual(exp_ip_addr,
+                                 port_fixed_ips[0]['ip_address'])
+
+    def test_create_port_with_ipv6_slaac_subnet_in_fixed_ips(self):
+        self._test_create_port_with_ipv6_subnet_in_fixed_ips(
+            addr_mode=constants.IPV6_SLAAC)
+
+    def test_create_port_with_ipv6_dhcp_stateful_subnet_in_fixed_ips(self):
+        self._test_create_port_with_ipv6_subnet_in_fixed_ips(
+            addr_mode=constants.DHCPV6_STATEFUL)
 
 
 class TestSubnetsV2(NsxVPluginV2TestCase,

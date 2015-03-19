@@ -234,6 +234,9 @@ class TestPortsV2(NsxPluginV2TestCase,
 
 class TestNetworksV2(test_plugin.TestNetworksV2, NsxPluginV2TestCase):
 
+    def test_create_network_vlan_transparent(self):
+        self.skipTest("Currently no support in plugin for this")
+
     def _test_create_bridge_network(self, vlan_id=0):
         net_type = 'vlan' if vlan_id else 'flat'
         name = 'bridge_net'
@@ -821,7 +824,8 @@ class TestL3NatTestCase(L3NatTest,
                 'port_security_enabled': False,
                 'shared': False,
                 'id': mock.ANY,
-                'mtu': mock.ANY
+                'mtu': mock.ANY,
+                'vlan_transparent': mock.ANY
             }
             f.assert_any_call(mock.ANY, expected_meta_net)
         self._metadata_teardown()
