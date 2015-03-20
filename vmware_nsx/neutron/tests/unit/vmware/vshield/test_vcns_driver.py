@@ -343,9 +343,17 @@ class VcnsDriverTestCase(base.BaseTestCase):
     def edge_deploy_started(self, task):
         self.edge_id = task.userdata['edge_id']
 
+    def edge_deploy_started_sync(self, context, edge_id, name, router_id,
+                                 dist):
+        pass
+
     def edge_deploy_result(self, task):
         if task.status == ts_const.TaskStatus.COMPLETED:
             task.userdata['jobdata']['edge_deploy_result'] = True
+
+    def edge_deploy_result_sync(self, context, edge_id, name, router_id,
+                                dist, deploy_successful):
+        pass
 
     def edge_delete_result(self, task):
         if task.status == ts_const.TaskStatus.COMPLETED:
@@ -379,7 +387,7 @@ class VcnsDriverTestCase(base.BaseTestCase):
         if task.status == ts_const.TaskStatus.COMPLETED:
             task.userdata['jobdata']['interface_update_result'] = True
 
-    def test_deploy_edge(self):
+    def test_deploy_edge_with_async(self):
         jobdata = {}
         task = self.vcns_driver.deploy_edge(
             'router-id', 'myedge', 'internal-network', jobdata=jobdata,
@@ -388,6 +396,15 @@ class VcnsDriverTestCase(base.BaseTestCase):
         task.wait(ts_const.TaskState.RESULT)
         self.assertEqual(task.status, ts_const.TaskStatus.COMPLETED)
         self.assertTrue(jobdata.get('edge_deploy_result'))
+
+    def test_deploy_edge_with_sync(self):
+        jobdata = {"context": "fake_context",
+                   "router_id": "fake_router_id"}
+        self.vcns_driver.deploy_edge(
+            'router-id', 'myedge', 'internal-network', jobdata=jobdata,
+            wait_for_exec=True, async=False)
+        status = self.vcns_driver.get_edge_status('edge-1')
+        self.assertEqual(status, vcns_const.RouterStatus.ROUTER_STATUS_ACTIVE)
 
     def test_deploy_edge_fail(self):
         task1 = self.vcns_driver.deploy_edge(
