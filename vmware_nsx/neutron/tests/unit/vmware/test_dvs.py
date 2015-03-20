@@ -16,12 +16,12 @@
 import contextlib
 import mock
 from oslo_config import cfg
+from oslo_utils import uuidutils
 
 from neutron.common import exceptions as exp
 from neutron import context
 from neutron.extensions import portbindings
 from neutron import manager
-from neutron.openstack.common import uuidutils
 from neutron.tests import base
 import neutron.tests.unit.test_db_plugin as test_plugin
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc

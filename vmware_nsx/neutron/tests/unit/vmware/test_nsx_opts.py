@@ -17,9 +17,9 @@ import fixtures
 
 import mock
 from oslo_config import cfg
+from oslo_utils import uuidutils
 
 from neutron import manager
-from neutron.openstack.common import uuidutils
 from neutron.tests import base
 from vmware_nsx.neutron.plugins.vmware.api_client import client
 from vmware_nsx.neutron.plugins.vmware.api_client import version

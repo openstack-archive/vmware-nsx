@@ -15,9 +15,9 @@
 import copy
 
 from oslo_serialization import jsonutils
+from oslo_utils import uuidutils
 import xml.etree.ElementTree as ET
 
-from neutron.openstack.common import uuidutils
 from vmware_nsx.neutron.plugins.vmware.vshield.common import exceptions
 
 SECTION_LOCATION_HEADER = '/api/4.0/firewall/globalroot-0/config/%s/%s'

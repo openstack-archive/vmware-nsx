@@ -20,13 +20,13 @@ from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
+from oslo_utils import uuidutils
 from sqlalchemy.orm import exc as sa_exc
 
 from neutron.common import exceptions as n_exc
 from neutron import context as q_context
 from neutron.extensions import l3
 from neutron.i18n import _LE, _LW
-from neutron.openstack.common import uuidutils
 from neutron.plugins.common import constants as plugin_const
 from vmware_nsx.neutron.plugins.vmware.common import nsxv_constants
 from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db

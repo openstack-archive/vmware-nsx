@@ -14,9 +14,9 @@
 
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
+from oslo_utils import uuidutils
 import six.moves.urllib.parse as urlparse
 
-from neutron.openstack.common import uuidutils
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 
 

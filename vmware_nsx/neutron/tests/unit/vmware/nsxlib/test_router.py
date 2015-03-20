@@ -15,12 +15,10 @@
 #
 
 import mock
-
-from oslo_config import cfg
-
 from neutron.common import exceptions
-from neutron.openstack.common import uuidutils
 from neutron.tests.unit import test_api_v2
+from oslo_config import cfg
+from oslo_utils import uuidutils
 
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.api_client import version as ver_module
