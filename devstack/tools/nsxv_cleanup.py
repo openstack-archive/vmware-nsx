@@ -139,11 +139,24 @@ class VSMClient(object):
                                  verify=self.verify, data=json.dumps(body))
         return response
 
+    def get_vdn_scope_id(self):
+        """
+        Retrieve existing network scope id
+        """
+        self.__set_api_version('2.0');
+        self.__set_endpoint("/vdn/scopes")
+        response = self.get();
+        vdn_scope_id = response.json()['allScopes'][0]['objectId']
+        return vdn_scope_id
+
+
     # TODO(Tong): Get exact vdnscope-id instead using of default one
     def query_all_logical_switches(self):
         lswitches = []
         self.__set_api_version('2.0')
-        self.__set_endpoint("/vdn/scopes/vdnscope-1/virtualwires")
+        vdn_scope_id = self.get_vdn_scope_id();
+        endpoint = "/vdn/scopes/%s/virtualwires" % (vdn_scope_id)
+        self.__set_endpoint(endpoint)
         # Query all logical switches
         response = self.get()
         paging_info = response.json()['dataPage']['pagingInfo']
