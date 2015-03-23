@@ -122,9 +122,9 @@ class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
         self._plugin = manager.NeutronManager.get_plugin()
 
     def _create_and_delete_dvs_network(self, network_type='flat', vlan_tag=0):
-        params = {'provider:network_type': network_type,
-                  'provider:physical_network': 'dvs',
-                  'provider:segmentation_id': vlan_tag}
+        params = {'provider:network_type': network_type}
+        if network_type == 'vlan':
+            params['provider:segmentation_id'] = vlan_tag
         params['arg_list'] = tuple(params.keys())
         with contextlib.nested(
             mock.patch.object(self._plugin._dvs, 'add_port_group'),
