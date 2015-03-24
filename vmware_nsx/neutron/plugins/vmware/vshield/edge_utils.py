@@ -973,7 +973,8 @@ class EdgeManager(object):
         for router_id in optional_router_ids:
             binding = nsxv_db.get_nsxv_router_binding(
                 context.session, router_id)
-            if binding and binding.edge_id not in optional_edge_ids:
+            if (binding and binding.status == plugin_const.ACTIVE and
+                binding.edge_id not in optional_edge_ids):
                 optional_edge_ids.append(binding.edge_id)
 
         for router_id in conflict_router_ids:
