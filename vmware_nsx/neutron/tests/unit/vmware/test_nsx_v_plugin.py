@@ -1132,10 +1132,43 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
         return self.network(name=name,
                             router__external=True)
 
+    def _create_router(self, fmt, tenant_id, name=None,
+                       admin_state_up=None, set_context=False,
+                       arg_list=None, **kwargs):
+        data = {'router': {'tenant_id': tenant_id}}
+        if name:
+            data['router']['name'] = name
+        if admin_state_up:
+            data['router']['admin_state_up'] = admin_state_up
+        for arg in (('admin_state_up', 'tenant_id') + (arg_list or ())):
+            # Arg must be present and not empty
+            if kwargs.get(arg):
+                data['router'][arg] = kwargs[arg]
+        router_req = self.new_create_request('routers', data, fmt)
+        if set_context and tenant_id:
+            # create a specific auth context for this request
+            router_req.environ['neutron.context'] = context.Context(
+                '', tenant_id)
+
+        return router_req.get_response(self.ext_api)
+
+    def _make_router(self, fmt, tenant_id, name=None, admin_state_up=None,
+                     external_gateway_info=None, set_context=False,
+                     arg_list=None, **kwargs):
+        if external_gateway_info:
+            arg_list = ('external_gateway_info', ) + (arg_list or ())
+        res = self._create_router(fmt, tenant_id, name,
+                                  admin_state_up, set_context,
+                                  arg_list=arg_list,
+                                  external_gateway_info=external_gateway_info,
+                                  **kwargs)
+        return self.deserialize(fmt, res)
+
     @contextlib.contextmanager
     def router(self, name=None, admin_state_up=True,
                fmt=None, tenant_id=_uuid(),
                external_gateway_info=None, set_context=False,
+               no_delete=False,
                **kwargs):
         # avoid name duplication of edge
         if not name:
@@ -1144,10 +1177,61 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
                                    admin_state_up, external_gateway_info,
                                    set_context, **kwargs)
         yield router
-        self._delete('routers', router['router']['id'])
+        if not no_delete:
+            self._delete('routers', router['router']['id'])
 
 
-class TestExclusiveRouterTestCase(L3NatTest,
+class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
+
+    def test_floatingip_multi_external_one_internal(self):
+        with contextlib.nested(self.subnet(cidr="10.0.0.0/24",
+                                           enable_dhcp=False),
+                               self.subnet(cidr="11.0.0.0/24",
+                                           enable_dhcp=False),
+                               self.subnet(cidr="12.0.0.0/24",
+                                           enable_dhcp=False)
+                               ) as (exs1, exs2, ins1):
+            network_ex_id1 = exs1['subnet']['network_id']
+            network_ex_id2 = exs2['subnet']['network_id']
+            self._set_net_external(network_ex_id1)
+            self._set_net_external(network_ex_id2)
+
+            r2i_fixed_ips = [{'ip_address': '12.0.0.2'}]
+            with contextlib.nested(self.router(no_delete=True),
+                                   self.router(no_delete=True),
+                                   self.port(subnet=ins1,
+                                             fixed_ips=r2i_fixed_ips)
+                                   ) as (r1, r2, r2i_port):
+                self._add_external_gateway_to_router(
+                    r1['router']['id'],
+                    network_ex_id1)
+                self._router_interface_action('add', r1['router']['id'],
+                                              ins1['subnet']['id'],
+                                              None)
+                self._add_external_gateway_to_router(
+                    r2['router']['id'],
+                    network_ex_id2)
+                self._router_interface_action('add', r2['router']['id'],
+                                              None,
+                                              r2i_port['port']['id'])
+
+                with self.port(subnet=ins1,
+                               fixed_ips=[{'ip_address': '12.0.0.3'}]
+                               ) as private_port:
+
+                    fp1 = self._make_floatingip(self.fmt, network_ex_id1,
+                                            private_port['port']['id'],
+                                            floating_ip='10.0.0.3')
+                    fp2 = self._make_floatingip(self.fmt, network_ex_id2,
+                                            private_port['port']['id'],
+                                            floating_ip='11.0.0.3')
+                    self.assertEqual(fp1['floatingip']['router_id'],
+                                     r1['router']['id'])
+                    self.assertEqual(fp2['floatingip']['router_id'],
+                                     r2['router']['id'])
+
+
+class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                   test_l3_plugin.L3NatDBIntTestCase,
                                   NsxVPluginV2TestCase):
     def _create_router(self, fmt, tenant_id, name=None,
@@ -1577,7 +1661,7 @@ class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
                              'port_security_enabled': True}})
 
 
-class TestVdrTestCase(L3NatTest,
+class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                       test_l3_plugin.L3NatDBIntTestCase,
                       NsxVPluginV2TestCase):
 
@@ -1747,7 +1831,7 @@ class TestNSXPortSecurity(test_psec.TestPortSecurity,
                                       port['port']['id'], update_port)
 
 
-class TestSharedRouterTestCase(L3NatTest,
+class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                test_l3_plugin.L3NatTestCaseMixin,
                                NsxVPluginV2TestCase):
 
