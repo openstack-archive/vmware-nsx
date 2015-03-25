@@ -222,6 +222,13 @@ class FakeVcns(object):
         response = ''
         return (header, response)
 
+    def get_interfaces(self, edge_id):
+        header = {
+            'status': 200
+        }
+        response = ''
+        return (header, response)
+
     def update_interface(self, edge_id, vnic):
         header = {
             'status': 200

@@ -35,6 +35,7 @@ LOG = logging.getLogger(__name__)
 
 class EdgeApplianceDriver(object):
     def __init__(self):
+        super(EdgeApplianceDriver, self).__init__()
         # store the last task per edge that has the latest config
         self.updated_task = {
             'nat': {},

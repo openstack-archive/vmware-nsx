@@ -1,7 +1,8 @@
-# Copyright 2013 VMware, Inc
+# Copyright 2015 VMware, Inc.
+# All Rights Reserved
 #
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
 #    a copy of the License at
 #
 #         http://www.apache.org/licenses/LICENSE-2.0
@@ -12,395 +13,777 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import xml.etree.ElementTree as et
+
+import netaddr
+from oslo_log import log as logging
 from oslo_utils import excutils
 
-from oslo_log import log as logging
-
+from neutron import manager
+from neutron.plugins.common import constants
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
 from vmware_nsx.neutron.plugins.vmware.vshield.common import (
-    constants as vcns_const)
-from vmware_nsx.neutron.plugins.vmware.vshield.common import (
-    exceptions as vcns_exc)
+    exceptions as nsxv_exc)
+from vmware_nsx.neutron.plugins.vmware.vshield import vcns as nsxv_api
 from vmware_nsx.openstack.common._i18n import _LE
 
-try:
-    from neutron_lbaas.services.loadbalancer import constants as lb_constants
-except Exception:
-    print("WARNING: missing neutron-lbaas package")
+
+# TODO(kobis): protect in nsx_v.py against detaching of interface while
+# TODO(kobis): LBs are provisioned on a router edge
 
 LOG = logging.getLogger(__name__)
 
+LB_METHOD_ROUND_ROBIN = 'ROUND_ROBIN'
+LB_METHOD_LEAST_CONNECTIONS = 'LEAST_CONNECTIONS'
+LB_METHOD_SOURCE_IP = 'SOURCE_IP'
+
+LB_PROTOCOL_TCP = 'TCP'
+LB_PROTOCOL_HTTP = 'HTTP'
+LB_PROTOCOL_HTTPS = 'HTTPS'
+
+LB_HEALTH_MONITOR_PING = 'PING'
+LB_HEALTH_MONITOR_TCP = 'TCP'
+LB_HEALTH_MONITOR_HTTP = 'HTTP'
+LB_HEALTH_MONITOR_HTTPS = 'HTTPS'
+
+LB_SESSION_PERSISTENCE_SOURCE_IP = 'SOURCE_IP'
+LB_SESSION_PERSISTENCE_HTTP_COOKIE = 'HTTP_COOKIE'
+LB_SESSION_PERSISTENCE_APP_COOKIE = 'APP_COOKIE'
+
 BALANCE_MAP = {
-    lb_constants.LB_METHOD_ROUND_ROBIN: 'round-robin',
-    lb_constants.LB_METHOD_LEAST_CONNECTIONS: 'leastconn',
-    lb_constants.LB_METHOD_SOURCE_IP: 'source'
-}
+    LB_METHOD_ROUND_ROBIN: 'round-robin',
+    LB_METHOD_LEAST_CONNECTIONS: 'leastconn',
+    LB_METHOD_SOURCE_IP: 'source'}
+
 PROTOCOL_MAP = {
-    lb_constants.PROTOCOL_TCP: 'tcp',
-    lb_constants.PROTOCOL_HTTP: 'http',
-    lb_constants.PROTOCOL_HTTPS: 'tcp'
-}
+    LB_PROTOCOL_TCP: 'tcp',
+    LB_PROTOCOL_HTTP: 'http',
+    LB_PROTOCOL_HTTPS: 'tcp'}
+
+HEALTH_MONITOR_MAP = {
+    LB_HEALTH_MONITOR_PING: 'icmp',
+    LB_HEALTH_MONITOR_TCP: 'tcp',
+    LB_HEALTH_MONITOR_HTTP: 'http',
+    LB_HEALTH_MONITOR_HTTPS: 'tcp'}
+
 SESSION_PERSISTENCE_METHOD_MAP = {
-    lb_constants.SESSION_PERSISTENCE_SOURCE_IP: 'sourceip',
-    lb_constants.SESSION_PERSISTENCE_APP_COOKIE: 'cookie',
-    lb_constants.SESSION_PERSISTENCE_HTTP_COOKIE: 'cookie'}
+    LB_SESSION_PERSISTENCE_SOURCE_IP: 'sourceip',
+    LB_SESSION_PERSISTENCE_APP_COOKIE: 'cookie',
+    LB_SESSION_PERSISTENCE_HTTP_COOKIE: 'cookie'}
+
 SESSION_PERSISTENCE_COOKIE_MAP = {
-    lb_constants.SESSION_PERSISTENCE_APP_COOKIE: 'app',
-    lb_constants.SESSION_PERSISTENCE_HTTP_COOKIE: 'insert'}
+    LB_SESSION_PERSISTENCE_APP_COOKIE: 'app',
+    LB_SESSION_PERSISTENCE_HTTP_COOKIE: 'insert'}
+
+LBAAS_FW_SECTION_NAME = 'LBaaS FW Rules'
 
 
-class EdgeLbDriver():
-    """Implementation of driver APIs for
-       Edge Loadbalancer feature configuration
+def convert_lbaas_pool(lbaas_pool):
     """
+    Transform OpenStack pool dict to NSXv pool dict.
+    """
+    edge_pool = {
+        'name': 'pool_' + lbaas_pool['id'],
+        'description': lbaas_pool.get('description',
+                                      lbaas_pool.get('name')),
+        'algorithm': BALANCE_MAP.get(
+            lbaas_pool.get('lb_method'), 'round-robin'),
+        'transparent': False
+    }
+    return edge_pool
 
-    def _convert_lb_vip(self, context, edge_id, vip, app_profileid):
-        pool_id = vip.get('pool_id')
-        poolid_map = nsxv_db.get_vcns_edge_pool_binding(
-            context.session, pool_id, edge_id)
-        pool_vseid = poolid_map['pool_vseid']
-        return {
-            'name': vip.get(
-                'name', '') + vip['id'][-vcns_const.SUFFIX_LENGTH:],
-            'description': vip.get('description'),
-            'ipAddress': vip.get('address'),
-            'protocol': vip.get('protocol'),
-            'port': vip.get('protocol_port'),
-            'connectionLimit': max(0, vip.get('connection_limit')),
-            'defaultPoolId': pool_vseid,
-            'applicationProfileId': app_profileid
-        }
 
-    def _restore_lb_vip(self, context, edge_id, vip_vse):
-        pool_binding = nsxv_db.get_vcns_edge_pool_binding_by_vseid(
-            context.session,
-            edge_id,
-            vip_vse['defaultPoolId'])
+def convert_lbaas_app_profile(name, sess_persist, protocol):
+    """
+    Create app profile dict for lbaas VIP.
 
-        return {
-            'name': vip_vse['name'][:-vcns_const.SUFFIX_LENGTH],
-            'address': vip_vse['ipAddress'],
-            'protocol': vip_vse['protocol'],
-            'protocol_port': vip_vse['port'],
-            'pool_id': pool_binding['pool_id']
-        }
+    Neutron-lbaas VIP objects breaks into an application profile object, and
+    a virtual server object in NSXv.
+    """
+    vcns_app_profile = {
+        'insertXForwardedFor': False,
+        'name': name,
+        'serverSslEnabled': False,
+        'sslPassthrough': False,
+        'template': protocol,
+    }
+    # Since SSL Termination is not supported right now, so just use
+    # sslPassthrough method if the protocol is HTTPS.
+    if protocol == LB_PROTOCOL_HTTPS:
+        vcns_app_profile['sslPassthrough'] = True
 
-    def _convert_lb_pool(self, context, edge_id, pool, members):
-        vsepool = {
-            'name': pool.get(
-                'name', '') + pool['id'][-vcns_const.SUFFIX_LENGTH:],
-            'description': pool.get('description'),
-            'algorithm': BALANCE_MAP.get(
-                pool.get('lb_method'),
-                'round-robin'),
-            'transparent': True,
-            'member': [],
-            'monitorId': []
-        }
-        for member in members:
-            vsepool['member'].append({
-                'ipAddress': member['address'],
-                'weight': member['weight'],
-                'port': member['protocol_port']
-            })
-        ##TODO(linb) right now, vse only accept at most one monitor per pool
-        monitors = pool.get('health_monitors')
-        if not monitors:
-            return vsepool
-        monitorid_map = nsxv_db.get_vcns_edge_monitor_binding(
-            context.session,
-            monitors[0],
-            edge_id)
-        vsepool['monitorId'].append(monitorid_map['monitor_vseid'])
-        return vsepool
+    persist_type = sess_persist.get('type')
+    if persist_type:
+        # If protocol is not HTTP, only source_ip is supported
+        if (protocol != LB_PROTOCOL_HTTP and
+                persist_type != LB_SESSION_PERSISTENCE_SOURCE_IP):
+            msg = (_('Invalid %(protocol)s persistence method: %(type)s') %
+                   {'protocol': protocol,
+                    'type': persist_type})
+            raise nsxv_exc.VcnsBadRequest(resource='sess_persist', msg=msg)
+        persistence = {
+            'method': SESSION_PERSISTENCE_METHOD_MAP.get(persist_type)}
+        if persist_type in SESSION_PERSISTENCE_COOKIE_MAP:
+            persistence.update({
+                'cookieName': sess_persist.get('cookie_name',
+                                               'default_cookie_name'),
+                'cookieMode': SESSION_PERSISTENCE_COOKIE_MAP[persist_type]})
 
-    def _restore_lb_pool(self, context, edge_id, pool_vse):
-        #TODO(linb): Get more usefule info
-        return {
-            'name': pool_vse['name'][:-vcns_const.SUFFIX_LENGTH],
-        }
+        vcns_app_profile['persistence'] = persistence
+    return vcns_app_profile
 
-    def _convert_lb_monitor(self, context, monitor):
-        return {
-            'type': PROTOCOL_MAP.get(
-                monitor.get('type'), 'http'),
-            'interval': monitor.get('delay'),
-            'timeout': monitor.get('timeout'),
-            'maxRetries': monitor.get('max_retries'),
-            'name': monitor.get('id')
-        }
 
-    def _restore_lb_monitor(self, context, edge_id, monitor_vse):
-        return {
-            'delay': monitor_vse['interval'],
-            'timeout': monitor_vse['timeout'],
-            'max_retries': monitor_vse['maxRetries'],
-            'id': monitor_vse['name']
-        }
+def convert_lbaas_vip(vip, app_profile_id, pool_mapping):
+    """
+    Transform OpenStack VIP dict to NSXv virtual server dict.
+    """
+    pool_id = pool_mapping['edge_pool_id']
+    return {
+        'name': 'vip_' + vip['id'],
+        'description': vip['description'],
+        'ipAddress': vip['address'],
+        'protocol': vip.get('protocol'),
+        'port': vip['protocol_port'],
+        'connectionLimit': max(0, vip.get('connection_limit')),
+        'defaultPoolId': pool_id,
+        'applicationProfileId': app_profile_id}
 
-    def _convert_app_profile(self, name, sess_persist, protocol):
-        vcns_app_profile = {
-            'insertXForwardedFor': False,
-            'name': name,
-            'serverSslEnabled': False,
-            'sslPassthrough': False,
-            'template': protocol,
-        }
-        # Since SSL Termination is not supported right now, so just use
-        # sslPassthrough mehtod if the protocol is HTTPS.
-        if protocol == lb_constants.PROTOCOL_HTTPS:
-            vcns_app_profile['sslPassthrough'] = True
 
-        if sess_persist.get('type'):
-            # If protocol is not HTTP, only sourceip is supported
-            if (protocol != lb_constants.PROTOCOL_HTTP and
-                sess_persist['type'] != (
-                    lb_constants.SESSION_PERSISTENCE_SOURCE_IP)):
-                msg = (_("Invalid %(protocol)s persistence method: %(type)s") %
-                       {'protocol': protocol,
-                        'type': sess_persist['type']})
-                raise vcns_exc.VcnsBadRequest(resource='sess_persist', msg=msg)
-            persistence = {
-                'method': SESSION_PERSISTENCE_METHOD_MAP.get(
-                    sess_persist['type'])}
-            if sess_persist['type'] in SESSION_PERSISTENCE_COOKIE_MAP:
-                if sess_persist.get('cookie_name'):
-                    persistence['cookieName'] = sess_persist['cookie_name']
+def convert_lbaas_member(member):
+    """
+    Transform OpenStack pool member dict to NSXv pool member dict.
+    """
+    return {
+        'ipAddress': member['address'],
+        'weight': member['weight'],
+        'port': member['protocol_port'],
+        'monitorPort': member['protocol_port'],
+        'name': get_member_id(member['id']),
+        'condition': 'enabled' if member['admin_state_up'] else 'disabled'}
+
+
+def convert_lbaas_monitor(monitor):
+    """
+    Transform OpenStack health monitor dict to NSXv health monitor dict.
+    """
+    return {
+        'type': HEALTH_MONITOR_MAP.get(
+            monitor['type'], 'icmp'),
+        'interval': monitor['delay'],
+        'timeout': monitor['timeout'],
+        'maxRetries': monitor['max_retries'],
+        'name': monitor['id']}
+
+
+def extract_resource_id(location_uri):
+    """
+    Edge assigns an ID for each resource that is being created:
+    it is postfixes the uri specified in the Location header.
+    This ID should be used while updating/deleting this resource.
+    """
+    uri_elements = location_uri.split('/')
+    return uri_elements[-1]
+
+
+def get_subnet_primary_ip(ip_addr, address_groups):
+    """
+    Retrieve the primary IP of an interface that's attached to the same subnet.
+    """
+    addr_group = find_address_in_same_subnet(ip_addr, address_groups)
+    return addr_group['primaryAddress'] if addr_group else None
+
+
+def find_address_in_same_subnet(ip_addr, address_groups):
+    """
+    Lookup an address group with a matching subnet to ip_addr.
+    If found, return address_group.
+    """
+    for address_group in address_groups['addressGroups']:
+        net_addr = '%(primaryAddress)s/%(subnetPrefixLength)s' % address_group
+        if netaddr.IPAddress(ip_addr) in netaddr.IPNetwork(net_addr):
+            return address_group
+
+
+def add_address_to_address_groups(ip_addr, address_groups):
+    """
+    Add ip_addr as a secondary IP address to an address group which belongs to
+    the same subnet.
+    """
+    address_group = find_address_in_same_subnet(
+        ip_addr, address_groups)
+    if address_group:
+        sec_addr = address_group.get('secondaryAddresses')
+        if not sec_addr:
+            sec_addr = {
+                'type': 'secondary_addresses',
+                'ipAddress': [ip_addr]}
+        else:
+            sec_addr['ipAddress'].append(ip_addr)
+        address_group['secondaryAddresses'] = sec_addr
+        return True
+    return False
+
+
+def del_address_from_address_groups(ip_addr, address_groups):
+    """
+    Delete ip_addr from secondary address list in address groups.
+    """
+    address_group = find_address_in_same_subnet(ip_addr, address_groups)
+    if address_group:
+        sec_addr = address_group.get('secondaryAddresses')
+        if sec_addr and ip_addr in sec_addr['ipAddress']:
+            sec_addr['ipAddress'].remove(ip_addr)
+            return True
+    return False
+
+
+def get_member_id(member_id):
+    return 'member-' + member_id
+
+
+class EdgeLbDriver(object):
+    def __init__(self):
+        super(EdgeLbDriver, self).__init__()
+        LOG.debug('Initializing Edge loadbalancer')
+        # self.vcns is initialized by subclass
+        self.vcns = None
+        self._fw_section_id = None
+        self._lb_driver_prop = None
+
+    def _get_lb_plugin(self):
+        loaded_plugins = manager.NeutronManager().get_service_plugins()
+        return loaded_plugins[constants.LOADBALANCER]
+
+    @property
+    def _lb_driver(self):
+        if not self._lb_driver_prop:
+            plugin = self._get_lb_plugin()
+            self._lb_driver_prop = plugin.drivers['vmwareedge']
+
+        return self._lb_driver_prop
+
+    def _get_lbaas_fw_section_id(self):
+        if not self._fw_section_id:
+            fw_section_id = self.vcns.get_section_id(LBAAS_FW_SECTION_NAME)
+            if not fw_section_id:
+                section = et.Element('section')
+                section.attrib['name'] = LBAAS_FW_SECTION_NAME
+                sect = self.vcns.create_section('ip', et.tostring(section))[1]
+                fw_section_id = et.fromstring(sect).attrib['id']
+            self._fw_section_id = fw_section_id
+        return self._fw_section_id
+
+    def _get_lb_edge_id(self, context, subnet_id):
+        """
+        Grab the id of an Edge appliance that is connected to subnet_id.
+        """
+        subnet = self.callbacks.plugin.get_subnet(context, subnet_id)
+        net_id = subnet.get('network_id')
+        filters = {'network_id': [net_id],
+                   'device_owner': ['network:router_interface']}
+        attached_routers = self.callbacks.plugin.get_ports(
+            context.elevated(), filters=filters,
+            fields=['device_id'])
+
+        for attached_router in attached_routers:
+            router = self.callbacks.plugin.get_router(
+                context, attached_router['device_id'])
+            if router['router_type'] == 'exclusive':
+                rtr_bindings = nsxv_db.get_nsxv_router_binding(
+                    context.session, router['id'])
+                return rtr_bindings['edge_id']
+
+    def _vip_as_secondary_ip(self, edge_id, vip, handler):
+        r = self.vcns.get_interfaces(edge_id)[1]
+        vnics = r.get('vnics', [])
+        for vnic in vnics:
+            if vnic['type'] == 'trunk':
+                for sub_interface in vnic.get('subInterfaces').get(
+                        'subInterfaces'):
+                    address_groups = sub_interface.get('addressGroups')
+                    if handler(vip, address_groups):
+                        self.vcns.update_interface(edge_id, vnic)
+                        return True
+            else:
+                address_groups = vnic.get('addressGroups')
+                if handler(vip, address_groups):
+                    self.vcns.update_interface(edge_id, vnic)
+                    return True
+        return False
+
+    def _add_vip_as_secondary_ip(self, edge_id, vip):
+        """
+        Edge appliance requires that a VIP will be configured as a primary
+        or a secondary IP address on an interface.
+        To do so, we locate an interface which is connected to the same subnet
+        that vip belongs to.
+        This can be a regular interface, on a sub-interface on a trunk.
+        """
+        if not self._vip_as_secondary_ip(
+                edge_id, vip, add_address_to_address_groups):
+
+            msg = _('Failed to add VIP %(vip)s as secondary IP on '
+                    'Edge %(edge_id)s') % {'vip': vip, 'edge_id': edge_id}
+            raise nsxv_exc.VcnsApiException(msg=msg)
+
+    def _del_vip_as_secondary_ip(self, edge_id, vip):
+        """
+        While removing vip, delete the secondary interface from Edge config.
+        """
+        if not self._vip_as_secondary_ip(
+                edge_id, vip, del_address_from_address_groups):
+
+            msg = _('Failed to delete VIP %(vip)s as secondary IP on '
+                    'Edge %(edge_id)s') % {'vip': vip, 'edge_id': edge_id}
+            raise nsxv_exc.VcnsApiException(msg=msg)
+
+    def _get_edge_ips(self, edge_id):
+        edge_ips = []
+        r = self.vcns.get_interfaces(edge_id)[1]
+        vnics = r.get('vnics', [])
+        for vnic in vnics:
+            if vnic['type'] == 'trunk':
+                for sub_interface in vnic.get('subInterfaces').get(
+                        'subInterfaces'):
+                    address_groups = sub_interface.get('addressGroups')
+                    for address_group in address_groups['addressGroups']:
+                        edge_ips.append(address_group['primaryAddress'])
+
+            else:
+                address_groups = vnic.get('addressGroups')
+                for address_group in address_groups['addressGroups']:
+                    edge_ips.append(address_group['primaryAddress'])
+        return edge_ips
+
+    def _update_pool_fw_rule(self, context, pool_id, edge_id,
+                             operation=None, address=None):
+        edge_ips = self._get_edge_ips(edge_id)
+
+        plugin = self._get_lb_plugin()
+        members = plugin.get_members(
+            context,
+            filters={'pool_id': [pool_id]},
+            fields=['address'])
+        member_ips = [member['address'] for member in members]
+        if operation == 'add' and address not in member_ips:
+            member_ips.append(address)
+        elif operation == 'del' and address in member_ips:
+            member_ips.remove(address)
+
+        section_uri = '%s/%s/%s' % (nsxv_api.FIREWALL_PREFIX,
+                                    'layer3sections',
+                                    self._get_lbaas_fw_section_id())
+        xml_section = self.vcns.get_section(section_uri)[1]
+        section = et.fromstring(xml_section)
+        pool_rule = None
+        for rule in section.iter('rule'):
+            if rule.find('name').text == pool_id:
+                pool_rule = rule
+                if member_ips:
+                    pool_rule.find('sources').find('source').find(
+                        'value').text = (','.join(edge_ips))
+                    pool_rule.find('destinations').find('destination').find(
+                        'value').text = ','.join(member_ips)
                 else:
-                    persistence['cookieName'] = 'default_cookie_name'
-                persistence['cookieMode'] = SESSION_PERSISTENCE_COOKIE_MAP.get(
-                    sess_persist['type'])
-            vcns_app_profile['persistence'] = persistence
-        return vcns_app_profile
+                    section.remove(pool_rule)
+                break
 
-    def create_vip(self, context, edge_id, vip):
-        app_profile = self._convert_app_profile(
-            vip['name'], (vip.get('session_persistence') or {}),
+        if member_ips and pool_rule is None:
+            pool_rule = et.SubElement(section, 'rule')
+            et.SubElement(pool_rule, 'name').text = pool_id
+            et.SubElement(pool_rule, 'action').text = 'allow'
+            sources = et.SubElement(pool_rule, 'sources')
+            sources.attrib['excluded'] = 'false'
+            source = et.SubElement(sources, 'source')
+            et.SubElement(source, 'type').text = 'Ipv4Address'
+            et.SubElement(source, 'value').text = ','.join(edge_ips)
+
+            destinations = et.SubElement(pool_rule, 'destinations')
+            destinations.attrib['excluded'] = 'false'
+            destination = et.SubElement(destinations, 'destination')
+            et.SubElement(destination, 'type').text = 'Ipv4Address'
+            et.SubElement(destination, 'value').text = ','.join(member_ips)
+
+        self.vcns.update_section(section_uri, et.tostring(section), None)
+
+    def _add_vip_fw_rule(self, edge_id, vip_id, ip_address):
+        fw_rule = {
+            'firewallRules': [
+                {'action': 'accept', 'destination': {
+                    'ipAddress': [ip_address]},
+                 'enabled': True,
+                 'name': vip_id}]}
+
+        h = self.vcns.add_firewall_rule(edge_id, fw_rule)[0]
+        fw_rule_id = extract_resource_id(h['location'])
+
+        return fw_rule_id
+
+    def _del_vip_fw_rule(self, edge_id, vip_fw_rule_id):
+        self.vcns.delete_firewall_rule(edge_id, vip_fw_rule_id)
+
+    def create_pool(self, context, pool):
+        LOG.debug('Creating pool %s', pool)
+        edge_id = self._get_lb_edge_id(context, pool['subnet_id'])
+
+        if edge_id is None:
+            msg = _(
+                'No suitable Edge found for subnet %s') % pool['subnet_id']
+            raise nsxv_exc.VcnsApiException(msg=msg)
+
+        edge_pool = convert_lbaas_pool(pool)
+        try:
+            h = self.vcns.create_pool(edge_id, edge_pool)[0]
+            edge_pool_id = extract_resource_id(h['location'])
+            self._lb_driver.create_pool_successful(
+                context, pool, edge_id, edge_pool_id)
+
+        except nsxv_exc.VcnsApiException:
+            with excutils.save_and_reraise_exception():
+                self._lb_driver.pool_failed(context, pool)
+                LOG.error(_LE('Failed to create pool %s'), pool['id'])
+
+    def update_pool(self, context, old_pool, pool, pool_mapping):
+        LOG.debug('Updating pool %s to %s', (old_pool, pool))
+        edge_pool = convert_lbaas_pool(pool)
+        try:
+            self.vcns.update_pool(pool_mapping['edge_id'],
+                                  pool_mapping['edge_pool_id'],
+                                  edge_pool)
+            self._lb_driver.pool_successful(context, pool)
+
+        except nsxv_exc.VcnsApiException:
+            with excutils.save_and_reraise_exception():
+                self._lb_driver.pool_failed(context, pool)
+                LOG.error(_LE('Failed to update pool %s'), pool['id'])
+
+    def delete_pool(self, context, pool, pool_mapping):
+        LOG.debug('Deleting pool %s', pool)
+
+        if pool_mapping:
+            try:
+                self.vcns.delete_pool(pool_mapping['edge_id'],
+                                      pool_mapping['edge_pool_id'])
+            except nsxv_exc.VcnsApiException:
+                with excutils.save_and_reraise_exception():
+                    self._lb_driver.pool_failed(context, pool)
+                    LOG.error(_LE('Failed to delete pool %s'), pool['id'])
+        else:
+            LOG.error(_LE('No mapping found for pool %s'), pool['id'])
+
+        self._lb_driver.delete_pool_successful(context, pool)
+
+    def create_vip(self, context, vip, pool_mapping):
+        LOG.debug('Create VIP %s', vip)
+
+        app_profile = convert_lbaas_app_profile(
+            vip['id'], vip.get('session_persistence', {}),
+            vip.get('protocol'))
+
+        if not pool_mapping:
+            msg = _('Pool %s in not mapped to any Edge appliance') % (
+                vip['pool_id'])
+            raise nsxv_exc.VcnsApiException(msg=msg)
+        edge_id = pool_mapping['edge_id']
+
+        app_profile_id = None
+        try:
+            h = (self.vcns.create_app_profile(edge_id, app_profile))[0]
+            app_profile_id = extract_resource_id(h['location'])
+        except nsxv_exc.VcnsApiException:
+            with excutils.save_and_reraise_exception():
+                self._lb_driver.vip_failed(context, vip)
+                LOG.error(_LE('Failed to create app profile on edge: %s'),
+                          edge_id)
+
+        edge_vip = convert_lbaas_vip(vip, app_profile_id, pool_mapping)
+        try:
+            self._add_vip_as_secondary_ip(edge_id, vip['address'])
+            h = self.vcns.create_vip(edge_id, edge_vip)[0]
+            edge_vip_id = extract_resource_id(h['location'])
+            edge_fw_rule_id = self._add_vip_fw_rule(edge_id, vip['id'],
+                                                    vip['address'])
+            self._lb_driver.create_vip_successful(
+                context, vip, edge_id, app_profile_id, edge_vip_id,
+                edge_fw_rule_id)
+
+        except nsxv_exc.VcnsApiException:
+            with excutils.save_and_reraise_exception():
+                self._lb_driver.vip_failed(context, vip)
+                LOG.error(_LE('Failed to create vip on Edge: %s'), edge_id)
+                self.vcns.delete_app_profile(edge_id, app_profile_id)
+
+    def update_vip(self, context, old_vip, vip, pool_mapping, vip_mapping):
+        LOG.debug('Updating VIP %s to %s', (old_vip, vip))
+
+        edge_id = vip_mapping['edge_id']
+        edge_vip_id = vip_mapping['edge_vse_id']
+        app_profile_id = vip_mapping['edge_app_profile_id']
+        app_profile = convert_lbaas_app_profile(
+            vip['name'], vip.get('session_persistence', {}),
             vip.get('protocol'))
         try:
-            header, response = self.vcns.create_app_profile(
-                edge_id, app_profile)
-        except vcns_exc.VcnsApiException:
+            self.vcns.update_app_profile(edge_id, app_profile_id, app_profile)
+        except nsxv_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to create app profile on edge: %s"),
-                              edge_id)
-        objuri = header['location']
-        app_profileid = objuri[objuri.rfind("/") + 1:]
+                self._lb_driver.vip_failed(context, vip)
+                LOG.error(_LE('Failed to update app profile on edge: %s'),
+                          edge_id)
 
-        vip_new = self._convert_lb_vip(context, edge_id, vip, app_profileid)
+        edge_vip = convert_lbaas_vip(vip, app_profile_id, pool_mapping)
         try:
-            header, response = self.vcns.create_vip(
-                edge_id, vip_new)
-        except vcns_exc.VcnsApiException:
+            self.vcns.update_vip(edge_id, edge_vip_id, edge_vip)
+            self._lb_driver.vip_successful(context, vip)
+        except nsxv_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to create vip on vshield edge: %s"),
-                              edge_id)
-                self.vcns.delete_app_profile(edge_id, app_profileid)
-        objuri = header['location']
-        vip_vseid = objuri[objuri.rfind("/") + 1:]
+                self._lb_driver.vip_failed(context, vip)
+                LOG.error(_LE('Failed to update vip on edge: %s'), edge_id)
 
-        # Add the vip mapping
-        map_info = {
-            "vip_id": vip['id'],
-            "vip_vseid": vip_vseid,
-            "edge_id": edge_id,
-            "app_profileid": app_profileid
-        }
-        nsxv_db.add_nsxv_edge_vip_binding(context.session, map_info)
+    def delete_vip(self, context, vip, vip_mapping):
+        LOG.debug('Deleting VIP %s', vip)
 
-    def _get_vip_binding(self, session, id):
-        vip_binding = nsxv_db.get_nsxv_edge_vip_binding(session, id)
-        if not vip_binding:
-            msg = (_("vip_binding not found with id: %(id)s "
-                     "edge_id: %(edge_id)s") % {
-                   'id': id,
-                   'edge_id': vip_binding[vcns_const.EDGE_ID]})
-            LOG.error(msg)
-            raise vcns_exc.VcnsNotFound(
-                resource='router_service_binding', msg=msg)
-        return vip_binding
+        if not vip_mapping:
+            LOG.error(_LE('No mapping found for vip %s'), vip['id'])
+            return
 
-    def get_vip(self, context, id):
-        vip_binding = nsxv_db.get_nsxv_edge_vip_binding(context.session, id)
-        edge_id = vip_binding[vcns_const.EDGE_ID]
-        vip_vseid = vip_binding['vip_vseid']
+        edge_id = vip_mapping['edge_id']
+        edge_vse_id = vip_mapping['edge_vse_id']
+        app_profile_id = vip_mapping['edge_app_profile_id']
+
         try:
-            response = self.vcns.get_vip(edge_id, vip_vseid)[1]
-        except vcns_exc.VcnsApiException:
+            self.vcns.delete_vip(edge_id, edge_vse_id)
+            self._del_vip_as_secondary_ip(edge_id, vip['address'])
+            self._del_vip_fw_rule(edge_id, vip_mapping['edge_fw_rule_id'])
+        except nsxv_exc.ResourceNotFound:
+            LOG.error(_LE('vip not found on edge: %s'), edge_id)
+        except nsxv_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to get vip on edge"))
-        return self._restore_lb_vip(context, edge_id, response)
+                self._lb_driver.vip_failed(context, vip)
+                LOG.error(
+                    _LE('Failed to delete vip on edge: %s'), edge_id)
 
-    def update_vip(self, context, vip, session_persistence_update=True):
-        vip_binding = self._get_vip_binding(context.session, vip['id'])
-        edge_id = vip_binding[vcns_const.EDGE_ID]
-        vip_vseid = vip_binding.get('vip_vseid')
-        if session_persistence_update:
-            app_profileid = vip_binding.get('app_profileid')
-            app_profile = self._convert_app_profile(
-                vip['name'], vip.get('session_persistence', {}),
-                vip.get('protocol'))
+        try:
+            self.vcns.delete_app_profile(edge_id, app_profile_id)
+        except nsxv_exc.ResourceNotFound:
+            LOG.error(_LE('app profile not found on edge: %s'), edge_id)
+        except nsxv_exc.VcnsApiException:
+            with excutils.save_and_reraise_exception():
+                self._lb_driver.vip_failed(context, vip)
+                LOG.error(
+                    _LE('Failed to delete app profile on Edge: %s'),
+                    edge_id)
+
+        self._lb_driver.delete_vip_successful(context, vip)
+
+    def create_member(self, context, member, pool_mapping):
+        LOG.debug('Creating member %s', member)
+
+        edge_pool = self.vcns.get_pool(pool_mapping['edge_id'],
+                                       pool_mapping['edge_pool_id'])[1]
+        edge_member = convert_lbaas_member(member)
+
+        if edge_pool['member']:
+            edge_pool['member'].append(edge_member)
+        else:
+            edge_pool['member'] = [edge_member]
+
+        try:
+            self.vcns.update_pool(
+                pool_mapping['edge_id'],
+                pool_mapping['edge_pool_id'],
+                edge_pool)
+
+            self._update_pool_fw_rule(context, member['pool_id'],
+                                      pool_mapping['edge_id'],
+                                      'add',
+                                      member['address'])
+            self._lb_driver.member_successful(context, member)
+
+        except nsxv_exc.VcnsApiException:
+            with excutils.save_and_reraise_exception():
+                self._lb_driver.member_failed(context, member)
+                LOG.error(_LE('Failed to create member on edge: %s'),
+                          pool_mapping['edge_id'])
+
+    def update_member(self, context, old_member, member, pool_mapping):
+        LOG.debug('Updating member %s to %s', old_member, member)
+
+        edge_pool = self.vcns.get_pool(pool_mapping['edge_id'],
+                                       pool_mapping['edge_pool_id'])[1]
+
+        edge_member = convert_lbaas_member(member)
+        for i, m in enumerate(edge_pool['member']):
+            if m['name'] == get_member_id(member['id']):
+                edge_pool['member'][i] = edge_member
+                break
+
+        try:
+            self.vcns.update_pool(pool_mapping['edge_id'],
+                                  pool_mapping['edge_pool_id'],
+                                  edge_pool)
+            self._lb_driver.member_successful(context, member)
+        except nsxv_exc.VcnsApiException:
+            with excutils.save_and_reraise_exception():
+                self._lb_driver.member_failed(context, member)
+                LOG.error(_LE('Failed to update member on edge: %s'),
+                          pool_mapping['edge_id'])
+
+    def delete_member(self, context, member, pool_mapping):
+        LOG.debug('Deleting member %s', member)
+
+        if pool_mapping:
+            edge_pool = self.vcns.get_pool(
+                pool_mapping['edge_id'],
+                pool_mapping['edge_pool_id'])[1]
+
+            for i, m in enumerate(edge_pool['member']):
+                if m['name'] == get_member_id(member['id']):
+                    edge_pool['member'].pop(i)
+                    break
+
             try:
-                self.vcns.update_app_profile(
-                    edge_id, app_profileid, app_profile)
-            except vcns_exc.VcnsApiException:
+                self.vcns.update_pool(pool_mapping['edge_id'],
+                                      pool_mapping['edge_pool_id'],
+                                      edge_pool)
+                self._update_pool_fw_rule(context, member['pool_id'],
+                                          pool_mapping['edge_id'],
+                                          'del',
+                                          member['address'])
+            except nsxv_exc.VcnsApiException:
                 with excutils.save_and_reraise_exception():
-                    LOG.exception(_LE("Failed to update app profile on "
-                                      "edge: %s"), edge_id)
+                    self._lb_driver.member_failed(context, member)
+                    LOG.error(_LE('Failed to update member on edge: %s'),
+                              pool_mapping['edge_id'])
 
-        vip_new = self._convert_lb_vip(context, edge_id, vip, app_profileid)
+        self._lb_driver.member_successful(context, member)
+
+    def create_pool_health_monitor(self, context, health_monitor, pool_id,
+                                   pool_mapping, mon_mappings):
+        LOG.debug('Create HM %s', health_monitor)
+
+        edge_mon_id = None
+        # 1st, we find if we already have a pool with the same monitor, on
+        # the same Edge appliance.
+        # If there is no pool on this Edge which is already associated with
+        # this monitor, create this monitor on Edge
+        if mon_mappings:
+            edge_mon_id = mon_mappings['edge_monitor_id']
+        else:
+            edge_monitor = convert_lbaas_monitor(health_monitor)
+            try:
+                h = self.vcns.create_health_monitor(
+                    pool_mapping['edge_id'], edge_monitor)[0]
+                edge_mon_id = extract_resource_id(h['location'])
+
+            except nsxv_exc.VcnsApiException:
+                self._lb_driver.pool_health_monitor_failed(context,
+                                                           health_monitor,
+                                                           pool_id)
+                with excutils.save_and_reraise_exception():
+                    LOG.error(
+                        _LE('Failed to associate monitor on edge: %s'),
+                        pool_mapping['edge_id'])
+
         try:
-            self.vcns.update_vip(edge_id, vip_vseid, vip_new)
-        except vcns_exc.VcnsApiException:
+            # Associate monitor with Edge pool
+            edge_pool = self.vcns.get_pool(pool_mapping['edge_id'],
+                                           pool_mapping['edge_pool_id'])[1]
+            if edge_pool['monitorId']:
+                edge_pool['monitorId'].append(edge_mon_id)
+            else:
+                edge_pool['monitorId'] = [edge_mon_id]
+
+            self.vcns.update_pool(pool_mapping['edge_id'],
+                                  pool_mapping['edge_pool_id'],
+                                  edge_pool)
+
+        except nsxv_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to update vip on edge: %s"), edge_id)
+                self._lb_driver.pool_health_monitor_failed(context,
+                                                           health_monitor,
+                                                           pool_id)
+                LOG.error(
+                    _LE('Failed to associate monitor on edge: %s'),
+                    pool_mapping['edge_id'])
 
-    def delete_vip(self, context, id):
-        vip_binding = self._get_vip_binding(context.session, id)
-        edge_id = vip_binding[vcns_const.EDGE_ID]
-        vip_vseid = vip_binding['vip_vseid']
-        app_profileid = vip_binding['app_profileid']
+        self._lb_driver.create_pool_health_monitor_successful(
+            context, health_monitor, pool_id, pool_mapping['edge_id'],
+            edge_mon_id)
 
-        try:
-            self.vcns.delete_vip(edge_id, vip_vseid)
-        except vcns_exc.ResourceNotFound:
-            LOG.exception(_LE("vip not found on edge: %s"), edge_id)
-        except vcns_exc.VcnsApiException:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to delete vip on edge: %s"), edge_id)
+    def update_pool_health_monitor(self, context, old_health_monitor,
+                                   health_monitor, pool_id, mon_mapping):
+        LOG.debug('Update HM %s to %s', old_health_monitor, health_monitor)
 
-        try:
-            self.vcns.delete_app_profile(edge_id, app_profileid)
-        except vcns_exc.ResourceNotFound:
-            LOG.exception(_LE("app profile not found on edge: %s"), edge_id)
-        except vcns_exc.VcnsApiException:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to delete app profile on edge: %s"),
-                              edge_id)
-
-        nsxv_db.delete_nsxv_edge_vip_binding(context.session, id)
-
-    def create_pool(self, context, edge_id, pool, members):
-        pool_new = self._convert_lb_pool(context, edge_id, pool, members)
-        try:
-            header = self.vcns.create_pool(edge_id, pool_new)[0]
-        except vcns_exc.VcnsApiException:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to create pool"))
-
-        objuri = header['location']
-        pool_vseid = objuri[objuri.rfind("/") + 1:]
-
-        # update the pool mapping table
-        map_info = {
-            "pool_id": pool['id'],
-            "pool_vseid": pool_vseid,
-            "edge_id": edge_id
-        }
-        nsxv_db.add_vcns_edge_pool_binding(context.session, map_info)
-
-    def get_pool(self, context, id, edge_id):
-        pool_binding = nsxv_db.get_vcns_edge_pool_binding(
-            context.session, id, edge_id)
-        if not pool_binding:
-            msg = (_("pool_binding not found with id: %(id)s "
-                     "edge_id: %(edge_id)s") % {'id': id, 'edge_id': edge_id})
-            LOG.error(msg)
-            raise vcns_exc.VcnsNotFound(
-                resource='router_service_binding', msg=msg)
-        pool_vseid = pool_binding['pool_vseid']
-        try:
-            response = self.vcns.get_pool(edge_id, pool_vseid)[1]
-        except vcns_exc.VcnsApiException:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to get pool on edge"))
-        return self._restore_lb_pool(context, edge_id, response)
-
-    def update_pool(self, context, edge_id, pool, members):
-        pool_binding = nsxv_db.get_vcns_edge_pool_binding(
-            context.session, pool['id'], edge_id)
-        pool_vseid = pool_binding['pool_vseid']
-        pool_new = self._convert_lb_pool(context, edge_id, pool, members)
-        try:
-            self.vcns.update_pool(edge_id, pool_vseid, pool_new)
-        except vcns_exc.VcnsApiException:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to update pool"))
-
-    def delete_pool(self, context, id, edge_id):
-        pool_binding = nsxv_db.get_vcns_edge_pool_binding(
-            context.session, id, edge_id)
-        pool_vseid = pool_binding['pool_vseid']
-        try:
-            self.vcns.delete_pool(edge_id, pool_vseid)
-        except vcns_exc.VcnsApiException:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to delete pool"))
-        nsxv_db.delete_vcns_edge_pool_binding(
-            context.session, id, edge_id)
-
-    def create_health_monitor(self, context, edge_id, health_monitor):
-        monitor_new = self._convert_lb_monitor(context, health_monitor)
-        try:
-            header = self.vcns.create_health_monitor(edge_id, monitor_new)[0]
-        except vcns_exc.VcnsApiException:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to create monitor on edge: %s"),
-                              edge_id)
-
-        objuri = header['location']
-        monitor_vseid = objuri[objuri.rfind("/") + 1:]
-
-        # update the health_monitor mapping table
-        map_info = {
-            "monitor_id": health_monitor['id'],
-            "monitor_vseid": monitor_vseid,
-            "edge_id": edge_id
-        }
-        nsxv_db.add_vcns_edge_monitor_binding(context.session, map_info)
-
-    def get_health_monitor(self, context, id, edge_id):
-        monitor_binding = nsxv_db.get_vcns_edge_monitor_binding(
-            context.session, id, edge_id)
-        if not monitor_binding:
-            msg = (_("monitor_binding not found with id: %(id)s "
-                     "edge_id: %(edge_id)s") % {'id': id, 'edge_id': edge_id})
-            LOG.error(msg)
-            raise vcns_exc.VcnsNotFound(
-                resource='router_service_binding', msg=msg)
-        monitor_vseid = monitor_binding['monitor_vseid']
-        try:
-            response = self.vcns.get_health_monitor(edge_id, monitor_vseid)[1]
-        except vcns_exc.VcnsApiException as e:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to get monitor on edge: %s"),
-                              e.response)
-        return self._restore_lb_monitor(context, edge_id, response)
-
-    def update_health_monitor(self, context, edge_id,
-                              old_health_monitor, health_monitor):
-        monitor_binding = nsxv_db.get_vcns_edge_monitor_binding(
-            context.session,
-            old_health_monitor['id'], edge_id)
-        monitor_vseid = monitor_binding['monitor_vseid']
-        monitor_new = self._convert_lb_monitor(
-            context, health_monitor)
+        edge_monitor = convert_lbaas_monitor(health_monitor)
         try:
             self.vcns.update_health_monitor(
-                edge_id, monitor_vseid, monitor_new)
-        except vcns_exc.VcnsApiException:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to update monitor on edge: %s"),
-                              edge_id)
+                mon_mapping['edge_id'],
+                mon_mapping['edge_monitor_id'],
+                edge_monitor)
 
-    def delete_health_monitor(self, context, id, edge_id):
-        monitor_binding = nsxv_db.get_vcns_edge_monitor_binding(
-            context.session, id, edge_id)
-        monitor_vseid = monitor_binding['monitor_vseid']
-        try:
-            self.vcns.delete_health_monitor(edge_id, monitor_vseid)
-        except vcns_exc.VcnsApiException:
+        except nsxv_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to delete monitor"))
-        nsxv_db.delete_vcns_edge_monitor_binding(
-            context.session, id, edge_id)
+                self._lb_driver.pool_health_monitor_failed(context,
+                                                           health_monitor,
+                                                           pool_id)
+                LOG.error(
+                    _LE('Failed to update monitor on edge: %s'),
+                    mon_mapping['edge_id'])
+
+        self._lb_driver.pool_health_monitor_successful(context,
+                                                       health_monitor,
+                                                       pool_id)
+
+    def delete_pool_health_monitor(self, context, health_monitor, pool_id,
+                                   pool_mapping, mon_mapping):
+        LOG.debug('Deleting HM %s', health_monitor)
+
+        edge_id = pool_mapping['edge_id']
+        if not mon_mapping:
+            return
+
+        edge_pool = self.vcns.get_pool(edge_id,
+                                       pool_mapping['edge_pool_id'])[1]
+        edge_pool['monitorId'].remove(mon_mapping['edge_monitor_id'])
+
+        try:
+            self.vcns.update_pool(edge_id,
+                                  pool_mapping['edge_pool_id'],
+                                  edge_pool)
+        except nsxv_exc.VcnsApiException:
+            with excutils.save_and_reraise_exception():
+                self._lb_driver.pool_health_monitor_failed(context,
+                                                           health_monitor,
+                                                           pool_id)
+                LOG.error(
+                    _LE('Failed to delete monitor mapping on edge: %s'),
+                    mon_mapping['edge_id'])
+
+        # If this monitor is not used on this edge anymore, delete it
+        if not edge_pool['monitorId']:
+            try:
+                self.vcns.delete_health_monitor(
+                    mon_mapping['edge_id'],
+                    mon_mapping['edge_monitor_id'])
+            except nsxv_exc.VcnsApiException:
+                with excutils.save_and_reraise_exception():
+                    self._lb_driver.pool_health_monitor_failed(
+                        context, health_monitor, pool_id)
+                    LOG.error(
+                        _LE('Failed to delete monitor on edge: %s'),
+                        mon_mapping['edge_id'])
+
+        self._lb_driver.delete_pool_health_monitor_successful(
+            context, health_monitor, pool_id, mon_mapping)
+
+    def stats(self, context, pool_id):
+        LOG.debug('Retrieving stats for pool %s', pool_id)
+
+        # NSXv LBaaS API doesn't provide stats
+        return {'bytes_in': 0,
+                'bytes_out': 0,
+                'active_connections': 0,
+                'total_connections': 0}
+
+    def is_edge_in_use(self, edge_id):
+        return self._lb_driver.is_edge_in_use(edge_id)
