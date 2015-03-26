@@ -44,6 +44,7 @@ SPOOFGUARD_PREFIX = '/api/4.0/services/spoofguard'
 
 #LbaaS Constants
 LOADBALANCER_SERVICE = "loadbalancer/config"
+LOADBALANCER_STATS = "loadbalancer/statistics"
 VIP_RESOURCE = "virtualservers"
 POOL_RESOURCE = "pools"
 MONITOR_RESOURCE = "monitors"
@@ -198,6 +199,10 @@ class Vcns(object):
 
     def get_loadbalancer_config(self, edge_id):
         uri = self._build_uri_path(edge_id, LOADBALANCER_SERVICE)
+        return self.do_request(HTTP_GET, uri, decode=True)
+
+    def get_loadbalancer_statistics(self, edge_id):
+        uri = self._build_uri_path(edge_id, LOADBALANCER_STATS)
         return self.do_request(HTTP_GET, uri, decode=True)
 
     def enable_service_loadbalancer(self, edge_id, config):
