@@ -600,3 +600,49 @@ class TestEdgeLbDriver(base.BaseTestCase):
             mock_del_mon.assert_called_with(EDGE_ID, EDGE_MON_ID)
             mock_del_successful.assert_called_with(self.context, hmon, POOL_ID,
                                                    mon_mapping)
+
+    def test_stats(self):
+        pool_mapping = {'edge_id': EDGE_ID, 'edge_pool_id': EDGE_POOL_ID}
+        pool_stats = {
+            'timeStamp': 1427358733,
+            'virtualServer': [
+                {'name': 'MdSrv',
+                 'virtualServerId': 'virtualServer-1',
+                 'bytesIn': 0,
+                 'bytesOut': 0,
+                 'totalSessions': 0,
+                 'ipAddress': '169.254.128.2',
+                 'curSessions': 0}],
+            'pool': [
+                {'status': 'UP',
+                 'totalSessions': 10000,
+                 'rateMax': 0,
+                 'name': 'MDSrvPool',
+                 'bytesOut': 100000,
+                 'rateLimit': 0,
+                 'member': [
+                     {'status': 'UP',
+                      'name': 'Member-1',
+                      'bytesOut': 0,
+                      'memberId': 'member-1',
+                      'totalSessions': 20000,
+                      'ipAddress': '192.168.55.101',
+                      'httpReqRateMax': 0,
+                      'curSessions': 0,
+                      'bytesIn': 0}],
+                 'poolId': EDGE_POOL_ID,
+                 'maxSessions': 10000,
+                 'httpReqRateMax': 0,
+                 'curSessions': 5000,
+                 'bytesIn': 1000000}]}
+        expected_stats = {
+            'active_connections': 5000,
+            'bytes_in': 1000000,
+            'bytes_out': 100000,
+            'total_connections': 10000}
+
+        with mock.patch.object(self.edge_driver.vcns,
+                               'get_loadbalancer_statistics',
+                               return_value=pool_stats):
+            stats = self.edge_driver.stats(self.context, POOL_ID, pool_mapping)
+            self.assertEqual(stats, expected_stats)
