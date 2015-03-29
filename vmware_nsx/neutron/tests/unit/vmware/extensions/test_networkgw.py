@@ -32,7 +32,6 @@ from neutron.tests import base
 from neutron.tests.unit import test_api_v2
 from neutron.tests.unit import test_db_plugin
 from neutron.tests.unit import test_extensions
-from neutron.tests.unit import testlib_plugin
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.dbexts import networkgw_db
@@ -63,8 +62,7 @@ class TestExtensionManager(object):
         return []
 
 
-class NetworkGatewayExtensionTestCase(base.BaseTestCase,
-                                      testlib_plugin.PluginSetupHelper):
+class NetworkGatewayExtensionTestCase(base.BaseTestCase):
 
     def setUp(self):
         super(NetworkGatewayExtensionTestCase, self).setUp()
