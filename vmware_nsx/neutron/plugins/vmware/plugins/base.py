@@ -1234,7 +1234,9 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             self._delete_port_queue_mapping(context, ret_port['id'])
             self._process_port_queue_mapping(context, ret_port,
                                              port_queue_id)
-            LOG.debug("Updating port: %s", port)
+            self._process_portbindings_create_and_update(context,
+                                                         port['port'],
+                                                         ret_port)
             nsx_switch_id, nsx_port_id = nsx_utils.get_nsx_switch_and_port_id(
                 context.session, self.cluster, id)
             # Convert Neutron security groups identifiers into NSX security
@@ -1244,41 +1246,39 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     context.session, self.cluster, neutron_sg_id) for
                 neutron_sg_id in (ret_port[ext_sg.SECURITYGROUPS] or [])]
 
-            if nsx_port_id:
-                try:
-                    switchlib.update_port(
-                        self.cluster, nsx_switch_id, nsx_port_id,
-                        id, tenant_id,
-                        ret_port['name'],
-                        ret_port['device_id'],
-                        ret_port['admin_state_up'],
-                        ret_port['mac_address'],
-                        ret_port['fixed_ips'],
-                        ret_port[psec.PORTSECURITY],
-                        nsx_sec_profile_ids,
-                        ret_port[qos.QUEUE],
-                        ret_port.get(mac_ext.MAC_LEARNING),
-                        ret_port.get(addr_pair.ADDRESS_PAIRS))
+        # Perform the NSX operation outside of the DB transaction
+        LOG.debug("Updating port %s on NSX backend", ret_port['id'])
+        if nsx_port_id:
+            try:
+                switchlib.update_port(
+                    self.cluster, nsx_switch_id, nsx_port_id,
+                    id, tenant_id,
+                    ret_port['name'],
+                    ret_port['device_id'],
+                    ret_port['admin_state_up'],
+                    ret_port['mac_address'],
+                    ret_port['fixed_ips'],
+                    ret_port[psec.PORTSECURITY],
+                    nsx_sec_profile_ids,
+                    ret_port[qos.QUEUE],
+                    ret_port.get(mac_ext.MAC_LEARNING),
+                    ret_port.get(addr_pair.ADDRESS_PAIRS))
 
-                    # Update the port status from nsx. If we fail here hide it
-                    # since the port was successfully updated but we were not
-                    # able to retrieve the status.
-                    ret_port['status'] = switchlib.get_port_status(
-                        self.cluster, nsx_switch_id,
-                        nsx_port_id)
-                # FIXME(arosen) improve exception handling.
-                except Exception:
-                    ret_port['status'] = constants.PORT_STATUS_ERROR
-                    LOG.exception(_LE("Unable to update port id: %s."),
-                                  nsx_port_id)
-
-            # If nsx_port_id is not in database or in nsx put in error state.
-            else:
+                # Update the port status from nsx. If we fail here hide it
+                # since the port was successfully updated but we were not
+                # able to retrieve the status.
+                ret_port['status'] = switchlib.get_port_status(
+                    self.cluster, nsx_switch_id,
+                    nsx_port_id)
+            # FIXME(arosen) improve exception handling.
+            except Exception:
                 ret_port['status'] = constants.PORT_STATUS_ERROR
+                LOG.exception(_LE("Unable to update port id: %s."),
+                              nsx_port_id)
 
-            self._process_portbindings_create_and_update(context,
-                                                         port['port'],
-                                                         ret_port)
+        # If nsx_port_id is not in database or in nsx put in error state.
+        else:
+            ret_port['status'] = constants.PORT_STATUS_ERROR
         return ret_port
 
     def delete_port(self, context, id, l3_port_check=True,

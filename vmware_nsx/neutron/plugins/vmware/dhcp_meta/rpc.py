@@ -43,13 +43,7 @@ def handle_network_dhcp_access(plugin, context, network, action):
 
 
 def handle_port_dhcp_access(plugin, context, port_data, action):
-    active_port = (cfg.CONF.NSX.metadata_mode == config.MetadataModes.INDIRECT
-                   and port_data.get('device_owner') == const.DEVICE_OWNER_DHCP
-                   and port_data.get('fixed_ips', []))
-    if active_port:
-        subnet_id = port_data['fixed_ips'][0]['subnet_id']
-        subnet = plugin.get_subnet(context, subnet_id)
-        _notify_rpc_agent(context, {'subnet': subnet}, 'subnet.update.end')
+    pass
 
 
 def handle_port_metadata_access(plugin, context, port, is_delete=False):
