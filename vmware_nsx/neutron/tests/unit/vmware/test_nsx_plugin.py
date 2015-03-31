@@ -1038,6 +1038,9 @@ class TestL3NatTestCase(L3NatTest,
                                               None,
                                               p['port']['id'])
 
+    def test_floating_port_status_not_applicable(self):
+        self.skipTest('Plugin changes floating port status')
+
 
 class ExtGwModeTestCase(NsxPluginV2TestCase,
                         test_ext_gw_mode.ExtGwModeIntTestCase):
