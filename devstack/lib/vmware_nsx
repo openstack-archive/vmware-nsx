@@ -178,6 +178,8 @@ function init_vmware_nsx {
     # Try to create it anyway
     sudo ovs-vsctl --may-exist add-br $PUBLIC_BRIDGE
     sudo ovs-vsctl --may-exist add-port $PUBLIC_BRIDGE $NSX_GATEWAY_NETWORK_INTERFACE
+    # Flush all existing addresses on public bridge
+    sudo ip addr flush dev $PUBLIC_BRIDGE
     nsx_gw_net_if_mac=$(ip link show $NSX_GATEWAY_NETWORK_INTERFACE | awk '/ether/ {print $2}')
     sudo ip link set address $nsx_gw_net_if_mac dev $PUBLIC_BRIDGE
     for address in $addresses; do
