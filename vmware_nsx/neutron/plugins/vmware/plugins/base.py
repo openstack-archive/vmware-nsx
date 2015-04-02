@@ -117,7 +117,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                    "quotas",
                                    "external-net",
                                    "router",
-                                   "security-group"]
+                                   "security-group",
+                                   constants.SUBNET_ALLOCATION_EXT_ALIAS]
 
     __native_bulk_support = True
     __native_pagination_support = True
