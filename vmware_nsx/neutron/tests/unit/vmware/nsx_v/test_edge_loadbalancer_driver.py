@@ -412,6 +412,10 @@ class TestEdgeLbDriver(base.BaseTestCase):
             mock_member_successful.assert_called_with(self.context, member_to)
 
     def test_delete_member(self):
+        def _del_member(context, member_id):
+            self.assertEqual(context, self.context)
+            self.assertEqual(member_id, MEMBER_ID)
+
         lbaas_member = lbaas_member_maker(status='PENDING_DELETE')
         edge_pool = {
             'monitorId': [], 'name': POOL_ID, 'applicationRuleId': [],
@@ -422,23 +426,25 @@ class TestEdgeLbDriver(base.BaseTestCase):
             'transparent': False}
 
         pool_mapping = {'edge_id': EDGE_ID, 'edge_pool_id': EDGE_POOL_ID}
+        mock_lb_plugin = mock.Mock()
 
         with contextlib.nested(
             mock.patch.object(self.edge_driver.vcns, 'get_pool'),
             mock.patch.object(self.edge_driver.vcns, 'update_pool'),
             mock.patch.object(self.edge_driver, '_update_pool_fw_rule'),
-            mock.patch.object(self.edge_driver._lb_driver, 'member_successful')
+            mock.patch.object(self.edge_driver, '_get_lb_plugin'),
+            mock.patch.object(mock_lb_plugin, '_delete_db_member',
+                              side_effect=_del_member)
         ) as (mock_get_pool, mock_update_pool, mock_upd_fw_rule,
-              mock_member_successful):
+              mock_get_lb_plugin, mock_del_member):
 
             mock_get_pool.return_value = (None, edge_pool)
             self.edge_driver.delete_member(self.context, lbaas_member,
                                            pool_mapping)
+            mock_get_lb_plugin.return_value = mock_lb_plugin
             edge_pool['member'] = []
             mock_update_pool.assert_called_with(EDGE_ID, EDGE_POOL_ID,
                                                 edge_pool)
-            mock_member_successful.assert_called_with(self.context,
-                                                      lbaas_member)
 
     def test__update_pool_fw_rule_add(self):
         edge_fw_section = (

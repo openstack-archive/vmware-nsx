@@ -477,7 +477,7 @@ class EdgeLbDriver(object):
         LOG.debug('Create VIP %s', vip)
 
         app_profile = convert_lbaas_app_profile(
-            vip['id'], vip.get('session_persistence', {}),
+            vip['id'], vip.get('session_persistence') or {},
             vip.get('protocol'))
 
         if not pool_mapping:
@@ -520,7 +520,7 @@ class EdgeLbDriver(object):
         edge_vip_id = vip_mapping['edge_vse_id']
         app_profile_id = vip_mapping['edge_app_profile_id']
         app_profile = convert_lbaas_app_profile(
-            vip['name'], vip.get('session_persistence', {}),
+            vip['name'], vip.get('session_persistence') or {},
             vip.get('protocol'))
         try:
             self.vcns.update_app_profile(edge_id, app_profile_id, app_profile)
@@ -544,34 +544,33 @@ class EdgeLbDriver(object):
 
         if not vip_mapping:
             LOG.error(_LE('No mapping found for vip %s'), vip['id'])
-            return
+        else:
+            edge_id = vip_mapping['edge_id']
+            edge_vse_id = vip_mapping['edge_vse_id']
+            app_profile_id = vip_mapping['edge_app_profile_id']
 
-        edge_id = vip_mapping['edge_id']
-        edge_vse_id = vip_mapping['edge_vse_id']
-        app_profile_id = vip_mapping['edge_app_profile_id']
+            try:
+                self.vcns.delete_vip(edge_id, edge_vse_id)
+                self._del_vip_as_secondary_ip(edge_id, vip['address'])
+                self._del_vip_fw_rule(edge_id, vip_mapping['edge_fw_rule_id'])
+            except nsxv_exc.ResourceNotFound:
+                LOG.error(_LE('vip not found on edge: %s'), edge_id)
+            except nsxv_exc.VcnsApiException:
+                with excutils.save_and_reraise_exception():
+                    self._lb_driver.vip_failed(context, vip)
+                    LOG.error(
+                        _LE('Failed to delete vip on edge: %s'), edge_id)
 
-        try:
-            self.vcns.delete_vip(edge_id, edge_vse_id)
-            self._del_vip_as_secondary_ip(edge_id, vip['address'])
-            self._del_vip_fw_rule(edge_id, vip_mapping['edge_fw_rule_id'])
-        except nsxv_exc.ResourceNotFound:
-            LOG.error(_LE('vip not found on edge: %s'), edge_id)
-        except nsxv_exc.VcnsApiException:
-            with excutils.save_and_reraise_exception():
-                self._lb_driver.vip_failed(context, vip)
-                LOG.error(
-                    _LE('Failed to delete vip on edge: %s'), edge_id)
-
-        try:
-            self.vcns.delete_app_profile(edge_id, app_profile_id)
-        except nsxv_exc.ResourceNotFound:
-            LOG.error(_LE('app profile not found on edge: %s'), edge_id)
-        except nsxv_exc.VcnsApiException:
-            with excutils.save_and_reraise_exception():
-                self._lb_driver.vip_failed(context, vip)
-                LOG.error(
-                    _LE('Failed to delete app profile on Edge: %s'),
-                    edge_id)
+            try:
+                self.vcns.delete_app_profile(edge_id, app_profile_id)
+            except nsxv_exc.ResourceNotFound:
+                LOG.error(_LE('app profile not found on edge: %s'), edge_id)
+            except nsxv_exc.VcnsApiException:
+                with excutils.save_and_reraise_exception():
+                    self._lb_driver.vip_failed(context, vip)
+                    LOG.error(
+                        _LE('Failed to delete app profile on Edge: %s'),
+                        edge_id)
 
         self._lb_driver.delete_vip_successful(context, vip)
 
@@ -655,7 +654,8 @@ class EdgeLbDriver(object):
                     LOG.error(_LE('Failed to update member on edge: %s'),
                               pool_mapping['edge_id'])
 
-        self._lb_driver.member_successful(context, member)
+        lb_plugin = self._get_lb_plugin()
+        lb_plugin._delete_db_member(context, member['id'])
 
     def create_pool_health_monitor(self, context, health_monitor, pool_id,
                                    pool_mapping, mon_mappings):
