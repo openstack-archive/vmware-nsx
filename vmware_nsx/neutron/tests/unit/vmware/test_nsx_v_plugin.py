@@ -930,6 +930,25 @@ class TestPortsV2(NsxVPluginV2TestCase,
         self._test_create_port_with_ipv6_subnet_in_fixed_ips(
             addr_mode=constants.DHCPV6_STATEFUL)
 
+    def test_create_router_port_ipv4_and_ipv6_slaac_no_fixed_ips(self):
+        with self.network() as network:
+            # Create an IPv4 and an IPv6 SLAAC subnet on the network
+            with contextlib.nested(
+                self.subnet(network),
+                self.subnet(network,
+                            cidr='2607:f0d0:1002:51::/64',
+                            ip_version=6,
+                            gateway_ip='fe80::1',
+                            ipv6_address_mode=constants.IPV6_SLAAC)):
+                # Create a router port without specifying fixed_ips
+                port = self._make_port(
+                    self.fmt, network['network']['id'],
+                    device_owner=constants.DEVICE_OWNER_ROUTER_INTF)
+                # Router port should only have an IPv4 address
+                fixed_ips = port['port']['fixed_ips']
+                self.assertEqual(1, len(fixed_ips))
+                self.assertEqual('10.0.0.3', fixed_ips[0]['ip_address'])
+
 
 class TestSubnetsV2(NsxVPluginV2TestCase,
                     test_plugin.TestSubnetsV2):
@@ -1168,7 +1187,6 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
     def router(self, name=None, admin_state_up=True,
                fmt=None, tenant_id=_uuid(),
                external_gateway_info=None, set_context=False,
-               no_delete=False,
                **kwargs):
         # avoid name duplication of edge
         if not name:
@@ -1177,8 +1195,6 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
                                    admin_state_up, external_gateway_info,
                                    set_context, **kwargs)
         yield router
-        if not no_delete:
-            self._delete('routers', router['router']['id'])
 
 
 class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
@@ -1312,17 +1328,14 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                     'network_id': s['subnet']['network_id']}
                 router_req = self.new_create_request('routers', data,
                                                      self.fmt)
-                try:
-                    res = router_req.get_response(self.ext_api)
-                    router = self.deserialize(self.fmt, res)
-                    self.assertEqual(
-                        s['subnet']['network_id'],
-                        (router['router']['external_gateway_info']
-                         ['network_id']))
-                    if validate_ext_gw:
-                        pass
-                finally:
-                    self._delete('routers', router['router']['id'])
+                res = router_req.get_response(self.ext_api)
+                router = self.deserialize(self.fmt, res)
+                self.assertEqual(
+                    s['subnet']['network_id'],
+                    (router['router']['external_gateway_info']
+                     ['network_id']))
+                if validate_ext_gw:
+                    pass
 
     def test_router_create_with_gwinfo_and_l3_ext_net(self):
         self._test_router_create_with_gwinfo_and_l3_ext_net()
@@ -1694,7 +1707,7 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
     def test_update_port_device_id_to_different_tenants_router(self):
         self.skipTest('TBD')
 
-    def test_router_add_gateway_tenant_ctx(self):
+    def test_router_add_and_remove_gateway_tenant_ctx(self):
         self.skipTest('TBD')
 
     def _create_router(self, fmt, tenant_id, name=None,
@@ -1730,17 +1743,13 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
         data['distributed'] = dist_input
         router_req = self.new_create_request(
             'routers', {'router': data}, self.fmt)
-        try:
-            res = router_req.get_response(self.ext_api)
-            self.assertEqual(return_code, res.status_int)
-            if res.status_int == 201:
-                router = self.deserialize(self.fmt, res)
-                self.assertIn('distributed', router['router'])
-                self.assertEqual(dist_expected,
-                                 router['router']['distributed'])
-        finally:
-            if res.status_int == 201:
-                self._delete('routers', router['router']['id'])
+        res = router_req.get_response(self.ext_api)
+        self.assertEqual(return_code, res.status_int)
+        if res.status_int == 201:
+            router = self.deserialize(self.fmt, res)
+            self.assertIn('distributed', router['router'])
+            self.assertEqual(dist_expected,
+                             router['router']['distributed'])
 
     def test_router_create_distributed(self):
         self._test_router_create_with_distributed(True, True)
@@ -1797,6 +1806,18 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
             self._set_net_external(net_id)
             with self.subnet(network=net, enable_dhcp=False):
                 self._make_floatingip(self.fmt, net_id)
+
+    def test_router_add_interface_multiple_ipv4_subnets(self):
+        self.skipTest('TBD')
+
+    def test_router_remove_ipv6_subnet_from_interface(self):
+        self.skipTest('TBD')
+
+    def test_router_add_interface_multiple_ipv6_subnets_same_net(self):
+        self.skipTest('TBD')
+
+    def test_router_add_interface_multiple_ipv6_subnets_different_net(self):
+        self.skipTest('TBD')
 
 
 class TestNSXvAllowedAddressPairs(test_addr_pair.TestAllowedAddressPairs,
@@ -1908,21 +1929,18 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
                     'network_id': s['subnet']['network_id']}
                 router_req = self.new_create_request('routers', data,
                                                      self.fmt)
-                try:
-                    res = router_req.get_response(self.ext_api)
-                    router = self.deserialize(self.fmt, res)
-                    self.assertEqual(
-                        s['subnet']['network_id'],
-                        (router['router']['external_gateway_info']
-                         ['network_id']))
-                    self.assertEqual(
-                        [],
-                        self.plugin_instance.edge_manager.
-                        get_routers_on_same_edge(
-                            context.get_admin_context(),
-                            router['router']['id']))
-                finally:
-                    self._delete('routers', router['router']['id'])
+                res = router_req.get_response(self.ext_api)
+                router = self.deserialize(self.fmt, res)
+                self.assertEqual(
+                    s['subnet']['network_id'],
+                    (router['router']['external_gateway_info']
+                     ['network_id']))
+                self.assertEqual(
+                    [],
+                    self.plugin_instance.edge_manager.
+                    get_routers_on_same_edge(
+                        context.get_admin_context(),
+                        router['router']['id']))
 
     def test_router_update_gateway_with_no_edge(self):
         with self.router() as r:

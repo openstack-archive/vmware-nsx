@@ -543,18 +543,15 @@ class TestL3NatTestCase(L3NatTest,
                     'network_id': s['subnet']['network_id']}
                 router_req = self.new_create_request('routers', data,
                                                      self.fmt)
-                try:
-                    res = router_req.get_response(self.ext_api)
-                    router = self.deserialize(self.fmt, res)
-                    self.assertEqual(
-                        s['subnet']['network_id'],
-                        (router['router']['external_gateway_info']
-                         ['network_id']))
-                    if validate_ext_gw:
-                        self._nsx_validate_ext_gw(router['router']['id'],
-                                                  'l3_gw_uuid', vlan_id)
-                finally:
-                    self._delete('routers', router['router']['id'])
+                res = router_req.get_response(self.ext_api)
+                router = self.deserialize(self.fmt, res)
+                self.assertEqual(
+                    s['subnet']['network_id'],
+                    (router['router']['external_gateway_info']
+                     ['network_id']))
+                if validate_ext_gw:
+                    self._nsx_validate_ext_gw(router['router']['id'],
+                                              'l3_gw_uuid', vlan_id)
 
     def test_router_create_with_gwinfo_and_l3_ext_net(self):
         self._test_router_create_with_gwinfo_and_l3_ext_net()
@@ -572,17 +569,13 @@ class TestL3NatTestCase(L3NatTest,
         data['distributed'] = dist_input
         router_req = self.new_create_request(
             'routers', {'router': data}, self.fmt)
-        try:
-            res = router_req.get_response(self.ext_api)
-            self.assertEqual(return_code, res.status_int)
-            if res.status_int == 201:
-                router = self.deserialize(self.fmt, res)
-                self.assertIn('distributed', router['router'])
-                self.assertEqual(dist_expected,
-                                 router['router']['distributed'])
-        finally:
-            if res.status_int == 201:
-                self._delete('routers', router['router']['id'])
+        res = router_req.get_response(self.ext_api)
+        self.assertEqual(return_code, res.status_int)
+        if res.status_int == 201:
+            router = self.deserialize(self.fmt, res)
+            self.assertIn('distributed', router['router'])
+            self.assertEqual(dist_expected,
+                             router['router']['distributed'])
 
     def test_router_create_distributed_with_3_1(self):
         self._test_router_create_with_distributed(True, True)
