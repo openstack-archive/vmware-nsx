@@ -1699,6 +1699,26 @@ class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
                              'tenant_id': 'bar',
                              'port_security_enabled': True}})
 
+    def test_create_secgroup_deleted_upon_fw_section_create_fail(self):
+        _context = context.Context('', 'tenant_id')
+        sg = {'security_group': {'name': 'default',
+                                 'tenant_id': 'tenant_id',
+                                 'description': ''}}
+        expected_id = str(self.fc2._securitygroups['ids'])
+        with contextlib.nested(
+            mock.patch.object(self.fc2, 'create_section'),
+            mock.patch.object(self.fc2, 'delete_security_group')) as (
+                create_section, delete_security_group):
+            create_section.side_effect = webob.exc.HTTPInternalServerError
+            self.assertRaises(webob.exc.HTTPInternalServerError,
+                              self.plugin.create_security_group,
+                              _context.elevated(), sg, default_sg=True)
+            delete_security_group.assert_called_once_with(expected_id)
+
+    def test_create_security_group_rule_with_specific_id(self):
+        # This test is aimed to test the security-group db mixin
+        pass
+
 
 class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                       test_l3_plugin.L3NatDBIntTestCase,

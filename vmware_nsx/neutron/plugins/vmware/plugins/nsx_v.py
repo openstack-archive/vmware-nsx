@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import six
 import uuid
 
 import netaddr
@@ -342,11 +343,6 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                      pnet.PHYSICAL_NETWORK: binding.phy_uuid,
                      pnet.SEGMENTATION_ID: binding.vlan_id}
                     for binding in bindings]
-
-    def _get_name(self, id, name):
-        if name is not None:
-            return '%s (%s)' % (name, id)
-        return id
 
     def _get_subnet_as_providers(self, context, subnet):
         net_id = subnet.get('network_id')
@@ -1528,135 +1524,103 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                                    allow_external=allow_external)
 
     # Security group handling section #
-    def _delete_security_group(self, nsx_sg_id):
+    def _delete_nsx_security_group(self, nsx_sg_id):
         """Helper method to delete nsx security group."""
         if nsx_sg_id is not None:
-            h, c = self.nsx_v.vcns.delete_security_group(nsx_sg_id)
+            self.nsx_v.vcns.delete_security_group(nsx_sg_id)
 
     def _delete_section(self, section_uri):
         """Helper method to delete nsx rule section."""
         if section_uri is not None:
-            h, c = self.nsx_v.vcns.delete_section(section_uri)
+            self.nsx_v.vcns.delete_section(section_uri)
 
-    def _get_section_uri(self, session, security_group_id, type):
+    def _get_section_uri(self, session, security_group_id):
         mapping = nsxv_db.get_nsx_section(session, security_group_id)
         if mapping is not None:
-            if type == 'ip':
-                return mapping['ip_section_id']
-            else:
-                None
+            return mapping['ip_section_id']
 
     def create_security_group(self, context, security_group,
                               default_sg=False):
         """Create a security group."""
-        sg_data = security_group["security_group"]
-        tenant_id = self._get_tenant_id_for_create(context, sg_data)
-        if not default_sg:
-            self._ensure_default_security_group(context, tenant_id)
-
+        sg_data = security_group['security_group']
         sg_data["id"] = str(uuid.uuid4())
 
-        nsx_sg_name = self._get_name(sg_data['id'],
-                                     sg_data['name'])
-        security_group_config = {"name": nsx_sg_name,
-                                 "description": sg_data["name"]}
-        security_group_dict = {"securitygroup": security_group_config}
+        new_security_group = super(NsxVPluginV2, self).create_security_group(
+            context, security_group, default_sg)
 
-        # Create the nsx security group container
-        h, c = self.nsx_v.vcns.create_security_group(security_group_dict)
-        nsx_sg_id = c
-        section_uri = None
+        nsx_sg_name = '%(name)s (%(id)s)' % sg_data
+        # NSX security-group config
+        sg_dict = {"securitygroup":
+                   {"name": nsx_sg_name,
+                    "description": sg_data['name']}}
+        # Translate Neutron rules to NSXv fw rules and construct the fw section
+        nsx_sg_id = section_uri = None
         try:
-            with context.session.begin(subtransactions=True):
-                new_security_group = super(
-                    NsxVPluginV2, self).create_security_group(
-                        context, security_group, default_sg)
+            # Create the nsx security group
+            h, nsx_sg_id = self.nsx_v.vcns.create_security_group(sg_dict)
 
-                # Save moref in the DB for future access
-                nsx_db.add_neutron_nsx_security_group_mapping(
-                    context.session, new_security_group['id'],
-                    nsx_sg_id)
+            nsx_rules = [self._create_nsx_rule(context, rule, nsx_sg_id) for
+                         rule in new_security_group['security_group_rules']]
+            section = self.nsx_sg_utils.get_section_with_rules(
+                'SG Section: %s' % nsx_sg_name, nsx_rules)
 
-                # (shadabs): For now only IPv4 rules are processed while group
-                # creation. This is to avoid duplicate rules since NSXv manager
-                # does not distinguish between IPv4 and IPv6 rules. Remove the
-                # TODO(shadabs): comment once NSXv provides API to define ether
-                # type.
-                nsx_rules = []
-                rules = new_security_group['security_group_rules']
-                for rule in rules:
-                    _r, _n = self._create_nsx_rule(context, rule, nsx_sg_id)
-                    nsx_rules.append(_r)
+            # Execute REST API for creating the section
+            h, c = self.nsx_v.vcns.create_section(
+                'ip', self.nsx_sg_utils.to_xml_string(section))
+            section_uri = h['location']
+            rule_pairs = self.nsx_sg_utils.get_rule_id_pair_from_section(c)
 
-                section_name = ('SG Section: %(name)s (%(id)s)'
-                                % new_security_group)
-                section = self.nsx_sg_utils.get_section_with_rules(
-                    section_name, nsx_rules)
+            # Save moref in the DB for future access
+            nsx_db.add_neutron_nsx_security_group_mapping(
+                context.session, new_security_group['id'], nsx_sg_id)
+            # Add database associations for fw section and rules
+            nsxv_db.add_neutron_nsx_section_mapping(
+                context.session, new_security_group['id'], section_uri)
+            for pair in rule_pairs:
+                # Save nsx rule id in the DB for future access
+                nsxv_db.add_neutron_nsx_rule_mapping(context.session,
+                                                     pair['neutron_id'],
+                                                     pair['nsx_id'])
 
-                # Execute REST API for creating the section
-                h, c = self.nsx_v.vcns.create_section(
-                    'ip', self.nsx_sg_utils.to_xml_string(section))
-
-                # Save ip section uri in DB for furture access
-                section_uri = h['location']
-                nsxv_db.add_neutron_nsx_section_mapping(
-                    context.session, new_security_group['id'],
-                    section_uri)
-
-                # Parse the rule id pairs and save in db
-                rule_pairs = self.nsx_sg_utils.get_rule_id_pair_from_section(c)
-                for pair in rule_pairs:
-                    _nsx_id = pair.get('nsx_id')  # nsx_rule_id
-                    _neutron_id = pair.get('neutron_id')  # neutron_rule_id
-                    # Save nsx rule id in the DB for future access
-                    LOG.debug('rules %s-%s', _nsx_id, _neutron_id)
-                    nsxv_db.add_neutron_nsx_rule_mapping(
-                        context.session, _neutron_id, _nsx_id)
-
-                # Add this Security Group to the Security Groups container
-                self._add_member_to_security_group(self.sg_container_id,
-                                                   nsx_sg_id)
-
+            # Add this Security Group to the Security Groups container
+            self._add_member_to_security_group(self.sg_container_id, nsx_sg_id)
         except Exception:
             with excutils.save_and_reraise_exception():
-                # Delete the nsx rule section
+                # Delete security-group and its associations from database,
+                # Only admin can delete the default security-group
+                if default_sg:
+                    context = context.elevated()
+                super(NsxVPluginV2, self).delete_security_group(
+                    context, new_security_group['id'])
+                # Delete the created nsx security-group and the fw section
                 self._delete_section(section_uri)
-                # Delete the nsx security group container
-                self._delete_security_group(nsx_sg_id)
-                LOG.exception(_LE('Failed to create security group'))
-
+                self._delete_nsx_security_group(nsx_sg_id)
+                LOG.exception(_('Failed to create security group'))
         return new_security_group
 
     def delete_security_group(self, context, id):
         """Delete a security group."""
         try:
-            with context.session.begin(subtransactions=True):
-                security_group = super(
-                    NsxVPluginV2, self).get_security_group(context, id)
+            # Find nsx rule sections
+            section_mapping = nsxv_db.get_nsx_section(context.session, id)
 
-                # Find nsx rule sections
-                section_mapping = nsxv_db.get_nsx_section(
-                    context.session, security_group['id'])
+            # Find nsx security group
+            nsx_sg_id = nsx_db.get_nsx_security_group_id(context.session, id)
 
-                # Find nsx security group
-                nsx_sg_id = nsx_db.get_nsx_security_group_id(
-                    context.session, security_group['id'])
+            # Delete neutron security group
+            super(NsxVPluginV2, self).delete_security_group(context, id)
 
-                # Delete neutron security group
-                super(NsxVPluginV2, self).delete_security_group(
-                    context, id)
+            # Delete nsx rule sections
+            self._delete_section(section_mapping['ip_section_id'])
 
-                # Delete nsx rule sections
-                self._delete_section(section_mapping['ip_section_id'])
-
-                # Delete nsx security group
-                self._delete_security_group(nsx_sg_id)
+            # Delete nsx security group
+            self._delete_nsx_security_group(nsx_sg_id)
 
         except Exception:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Failed to delete security group'))
+                LOG.exception(_("Failed to delete security group"))
 
-    def _create_nsx_rule(self, context, rule, nsx_sg_id):
+    def _create_nsx_rule(self, context, rule, nsx_sg_id=None):
         src = None
         dest = None
         port = None
@@ -1669,10 +1633,6 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             # Find nsx security group for neutron security group
             nsx_sg_id = nsx_db.get_nsx_security_group_id(
                 context.session, rule['security_group_id'])
-            if nsx_sg_id is None:
-                # TODO(shadabs): raise an exception here
-                LOG.warning(_LW("NSX security group not found for %s"),
-                            rule['security_group_id'])
 
         # Find the remote nsx security group id, if given in rule
         remote_nsx_sg_id = nsx_db.get_nsx_security_group_id(
@@ -1714,7 +1674,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             destination=dest,
             services=services,
             flags=flags)
-        return nsx_rule, nsx_sg_id
+        return nsx_rule
 
     def create_security_group_rule(self, context, security_group_rule):
         """Create a single security group rule."""
@@ -1726,91 +1686,75 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
         :param security_group_rule: list of rules to create
         """
+        ruleids = set()
+        nsx_rules = []
+
+        self._validate_security_group_rules(context, security_group_rule)
+        # Translating Neutron rules to Nsx DFW rules
+        for r in security_group_rule['security_group_rules']:
+            rule = r['security_group_rule']
+            rule['id'] = uuidutils.generate_uuid()
+            ruleids.add(rule['id'])
+            nsx_rules.append(self._create_nsx_rule(context, rule))
+
+        # Find section uri for the security group, retrieve it and update with
+        # the new rules
+        section_uri = self._get_section_uri(
+            context.session, rule['security_group_id'])
+        _h, _c = self.nsx_v.vcns.get_section(section_uri)
+        section = self.nsx_sg_utils.parse_section(_c)
+        self.nsx_sg_utils.extend_section_with_rules(section, nsx_rules)
+        h, c = self.nsx_v.vcns.update_section(
+            section_uri, self.nsx_sg_utils.to_xml_string(section), _h)
+        rule_pairs = self.nsx_sg_utils.get_rule_id_pair_from_section(c)
+
         try:
+            # Save new rules in Database, including mappings between Nsx rules
+            # and Neutron security-groups rules
             with context.session.begin(subtransactions=True):
-                # Validate and store rule in neutron DB
                 new_rule_list = super(
                     NsxVPluginV2, self).create_security_group_rule_bulk_native(
                         context, security_group_rule)
-                ruleids = set()
-                nsx_sg_id = None
-                section_uri = None
-                section = None
-                _h = None
-                for rule in new_rule_list:
-                    # Find nsx rule section for neutron security group
-                    if section_uri is None:
-                        section_uri = self._get_section_uri(
-                            context.session, rule['security_group_id'], 'ip')
-                        if section_uri is None:
-                            # TODO(shadabs): raise an exception here
-                            LOG.warning(_LW("NSX rule section not found for "
-                                            "%s"), rule['security_group_id'])
-
-                    # Parse neutron rule and get nsx rule xml
-                    _r, _n = self._create_nsx_rule(context, rule, nsx_sg_id)
-                    nsx_rule = _r
-                    nsx_sg_id = _n
-                    if section is None:
-                        _h, _c = self.nsx_v.vcns.get_section(section_uri)
-                        section = self.nsx_sg_utils.parse_section(_c)
-
-                    # Insert rule in nsx section
-                    self.nsx_sg_utils.insert_rule_in_section(section, nsx_rule)
-                    ruleids.add(rule['id'])
-
-                # Update the section
-                h, c = self.nsx_v.vcns.update_section(
-                    section_uri, self.nsx_sg_utils.to_xml_string(section), _h)
-
-                # Parse the rule id pairs and save in db
-                rule_pairs = self.nsx_sg_utils.get_rule_id_pair_from_section(c)
                 for pair in rule_pairs:
-                    _nsx_id = pair.get('nsx_id')  # nsx_rule_id
-                    _neutron_id = pair.get('neutron_id')  # neutron_rule_id
-                    # Save nsx rule id in the DB for future access
-                    if _neutron_id in ruleids:
+                    neutron_rule_id = pair['neutron_id']
+                    nsx_rule_id = pair['nsx_id']
+                    if neutron_rule_id in ruleids:
                         nsxv_db.add_neutron_nsx_rule_mapping(
-                            context.session, _neutron_id, _nsx_id)
-
+                            context.session, neutron_rule_id, nsx_rule_id)
         except Exception:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Failed to update security group rule'))
-
+                for nsx_rule_id in [p['nsx_id'] for p in rule_pairs]:
+                    self.nsx_v.vcns.remove_rule_from_section(
+                        section_uri, nsx_rule_id)
+                LOG.exception(_("Failed to create security group rule"))
         return new_rule_list
 
-    def delete_security_group_rule(self, context, sgrid):
+    def delete_security_group_rule(self, context, id):
         """Delete a security group rule."""
         try:
+            rule_db = self._get_security_group_rule(context, id)
+            security_group_id = rule_db['security_group_id']
+
+            # Get the nsx rule from neutron DB and delete it
+            nsx_rule_id = nsxv_db.get_nsx_rule_id(context.session, id)
+            section_uri = self._get_section_uri(
+                context.session, security_group_id)
+            if nsx_rule_id and section_uri:
+                self.nsx_v.vcns.remove_rule_from_section(
+                    section_uri, nsx_rule_id)
+
             with context.session.begin(subtransactions=True):
-                # Get security group rule from DB
-                security_group_rule = super(
-                    NsxVPluginV2, self).get_security_group_rule(
-                        context, sgrid)
-                if not security_group_rule:
-                    raise ext_sg.SecurityGroupRuleNotFound(id=sgrid)
-
-                # Get the nsx rule from neutron DB
-                nsx_rule_id = nsxv_db.get_nsx_rule_id(
-                    context.session, security_group_rule['id'])
-                section_uri = self._get_section_uri(
-                    context.session, security_group_rule['security_group_id'],
-                    'ip')
-
-                # Delete the rule from neutron DB
-                ret = super(NsxVPluginV2, self).delete_security_group_rule(
-                    context, sgrid)
-
-                # Delete the nsx rule
-                if nsx_rule_id is not None and section_uri is not None:
-                    h, c = self.nsx_v.vcns.remove_rule_from_section(
-                        section_uri, nsx_rule_id)
-
+                context.session.delete(rule_db)
         except Exception:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Failed to delete security group rule'))
+                LOG.exception(_("Failed to delete security group rule"))
 
-        return ret
+    def _check_for_duplicate_rules(self, context, rules):
+        # Remove rule id's before comparing between rules
+        rules = [{'security_group_rule':
+                  {k: v for k, v in six.iteritems(r['security_group_rule'])
+                   if k != 'id'}} for r in rules]
+        super(NsxVPluginV2, self)._check_for_duplicate_rules(context, rules)
 
     def _remove_vnic_from_spoofguard_policy(self, session, net_id, vnic_id):
         policy_id = nsxv_db.get_spoofguard_policy_id(session, net_id)

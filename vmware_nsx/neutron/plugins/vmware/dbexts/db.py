@@ -107,7 +107,7 @@ def add_neutron_nsx_security_group_mapping(session, neutron_id, nsx_id):
         mapping = nsx_models.NeutronNsxSecurityGroupMapping(
             neutron_id=neutron_id, nsx_id=nsx_id)
         session.add(mapping)
-        return mapping
+    return mapping
 
 
 def get_nsx_switch_ids(session, neutron_id):

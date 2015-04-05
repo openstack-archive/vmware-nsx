@@ -128,8 +128,8 @@ class NsxSecurityGroupUtils(object):
             pairs.append(pair)
         return pairs
 
-    def insert_rule_in_section(self, section, nsx_rule):
-        section.insert(0, nsx_rule)
+    def extend_section_with_rules(self, section, nsx_rules):
+        section.extend(nsx_rules)
 
     def parse_section(self, xml_string):
         return et.fromstring(xml_string)
