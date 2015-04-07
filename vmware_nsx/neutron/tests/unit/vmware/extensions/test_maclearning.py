@@ -21,7 +21,7 @@ from neutron.api.v2 import attributes
 from neutron.common import test_lib
 from neutron import context
 from neutron.extensions import agent
-from neutron.tests.unit import test_db_plugin
+from neutron.tests.unit.db import test_db_base_plugin_v2 as test_db_plugin
 from vmware_nsx.neutron.plugins.vmware.api_client import version
 from vmware_nsx.neutron.plugins.vmware.common import sync
 from vmware_nsx.neutron.tests.unit import vmware

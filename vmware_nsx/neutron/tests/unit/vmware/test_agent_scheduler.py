@@ -18,14 +18,15 @@ from oslo_config import cfg
 
 from neutron.common import constants
 from neutron.common import test_lib
-from neutron.tests.unit.openvswitch import test_agent_scheduler as test_base
+from neutron.tests.unit.plugins.openvswitch import test_agent_scheduler
 from vmware_nsx.neutron.plugins.vmware.common import sync
 from vmware_nsx.neutron.plugins.vmware.dhcp_meta import rpc
 from vmware_nsx.neutron.tests.unit import vmware
 from vmware_nsx.neutron.tests.unit.vmware.apiclient import fake
 
 
-class DhcpAgentNotifierTestCase(test_base.OvsDhcpAgentNotifierTestCase):
+class DhcpAgentNotifierTestCase(
+    test_agent_scheduler.OvsDhcpAgentNotifierTestCase):
     plugin_str = vmware.PLUGIN_NAME
 
     def setUp(self):

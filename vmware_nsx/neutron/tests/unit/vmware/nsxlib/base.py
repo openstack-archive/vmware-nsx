@@ -16,7 +16,7 @@
 
 import mock
 from neutron.tests import base
-from neutron.tests.unit import test_api_v2
+from neutron.tests.unit.api.v2 import test_base
 
 from vmware_nsx.neutron.plugins.vmware.api_client import client
 from vmware_nsx.neutron.plugins.vmware.api_client import exception
@@ -26,7 +26,7 @@ from vmware_nsx.neutron.plugins.vmware import nsx_cluster as cluster
 from vmware_nsx.neutron.tests.unit import vmware
 from vmware_nsx.neutron.tests.unit.vmware.apiclient import fake
 
-_uuid = test_api_v2._uuid
+_uuid = test_base._uuid
 
 
 class NsxlibTestCase(base.BaseTestCase):

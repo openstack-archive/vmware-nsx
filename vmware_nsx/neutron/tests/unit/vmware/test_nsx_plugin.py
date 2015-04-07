@@ -39,10 +39,10 @@ from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as secgrp
 from neutron import manager
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
-import neutron.tests.unit.test_db_plugin as test_plugin
-import neutron.tests.unit.test_extension_ext_gw_mode as test_ext_gw_mode
-import neutron.tests.unit.test_extension_security_group as ext_sg
-import neutron.tests.unit.test_l3_plugin as test_l3_plugin
+import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
+import neutron.tests.unit.extensions.test_l3 as test_l3_plugin
+import neutron.tests.unit.extensions.test_l3_ext_gw_mode as test_ext_gw_mode
+import neutron.tests.unit.extensions.test_securitygroup as ext_sg
 from neutron.tests.unit import testlib_api
 
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc

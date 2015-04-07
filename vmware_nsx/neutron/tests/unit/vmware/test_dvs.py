@@ -23,7 +23,7 @@ from neutron import context
 from neutron.extensions import portbindings
 from neutron import manager
 from neutron.tests import base
-import neutron.tests.unit.test_db_plugin as test_plugin
+import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
 from vmware_nsx.neutron.plugins.vmware.dvs import dvs

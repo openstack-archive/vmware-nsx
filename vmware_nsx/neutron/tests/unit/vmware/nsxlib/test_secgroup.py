@@ -16,13 +16,13 @@
 
 from neutron.common import constants
 from neutron.common import exceptions
-from neutron.tests.unit import test_api_v2
+from neutron.tests.unit.api.v2 import test_base
 
 from vmware_nsx.neutron.plugins.vmware import nsxlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import secgroup as secgrouplib
 from vmware_nsx.neutron.tests.unit.vmware.nsxlib import base
 
-_uuid = test_api_v2._uuid
+_uuid = test_base._uuid
 
 
 class SecurityProfileTestCase(base.NsxlibTestCase):

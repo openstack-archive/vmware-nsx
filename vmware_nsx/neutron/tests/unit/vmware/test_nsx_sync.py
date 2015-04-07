@@ -28,7 +28,7 @@ from neutron.common import exceptions as n_exc
 from neutron import context
 from neutron.extensions import l3
 from neutron.tests import base
-from neutron.tests.unit import test_api_v2
+from neutron.tests.unit.api.v2 import test_base
 from neutron.tests.unit import testlib_api
 
 from vmware_nsx.neutron.plugins.vmware.api_client import client
@@ -44,7 +44,7 @@ from vmware_nsx.neutron.tests.unit.vmware.apiclient import fake
 
 LOG = log.getLogger(__name__)
 
-_uuid = test_api_v2._uuid
+_uuid = test_base._uuid
 LSWITCHES = [{'uuid': _uuid(), 'name': 'ls-1'},
              {'uuid': _uuid(), 'name': 'ls-2'}]
 LSWITCHPORTS = [{'uuid': _uuid(), 'name': 'lp-1'},

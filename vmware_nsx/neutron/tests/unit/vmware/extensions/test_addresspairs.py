@@ -14,7 +14,8 @@
 #    under the License.
 
 from neutron.extensions import allowedaddresspairs as addr_pair
-from neutron.tests.unit import test_extension_allowedaddresspairs as ext_pairs
+from neutron.tests.unit.db import test_allowedaddresspairs_db as ext_pairs
+
 from vmware_nsx.neutron.tests.unit.vmware import test_nsx_plugin
 
 

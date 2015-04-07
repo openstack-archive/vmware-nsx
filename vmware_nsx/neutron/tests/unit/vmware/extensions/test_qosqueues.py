@@ -21,7 +21,7 @@ import webob.exc
 
 from neutron import context
 from neutron.plugins.vmware.extensions import qos as ext_qos
-from neutron.tests.unit import test_extensions
+from neutron.tests.unit.api import test_extensions
 from vmware_nsx.neutron.plugins.vmware.dbexts import qos_db
 from vmware_nsx.neutron.plugins.vmware import nsxlib
 from vmware_nsx.neutron.tests.unit import vmware

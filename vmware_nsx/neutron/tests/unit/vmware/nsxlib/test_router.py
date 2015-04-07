@@ -16,7 +16,7 @@
 
 import mock
 from neutron.common import exceptions
-from neutron.tests.unit import test_api_v2
+from neutron.tests.unit.api.v2 import test_base
 from oslo_config import cfg
 from oslo_utils import uuidutils
 
@@ -29,7 +29,7 @@ from vmware_nsx.neutron.plugins.vmware.nsxlib import router as routerlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import switch as switchlib
 from vmware_nsx.neutron.tests.unit.vmware.nsxlib import base
 
-_uuid = test_api_v2._uuid
+_uuid = test_base._uuid
 
 
 class TestNatRules(base.NsxlibTestCase):
