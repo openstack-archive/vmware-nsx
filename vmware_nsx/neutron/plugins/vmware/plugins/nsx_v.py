@@ -1548,21 +1548,22 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         new_security_group = super(NsxVPluginV2, self).create_security_group(
             context, security_group, default_sg)
 
-        nsx_sg_name = '%(name)s (%(id)s)' % sg_data
+        nsx_sg_name = self.nsx_sg_utils.get_nsx_sg_name(sg_data)
         # NSX security-group config
         sg_dict = {"securitygroup":
                    {"name": nsx_sg_name,
-                    "description": sg_data['name']}}
+                    "description": sg_data['description']}}
         # Translate Neutron rules to NSXv fw rules and construct the fw section
         nsx_sg_id = section_uri = None
         try:
             # Create the nsx security group
             h, nsx_sg_id = self.nsx_v.vcns.create_security_group(sg_dict)
 
+            section_name = self.nsx_sg_utils.get_nsx_section_name(nsx_sg_name)
             nsx_rules = [self._create_nsx_rule(context, rule, nsx_sg_id) for
                          rule in new_security_group['security_group_rules']]
             section = self.nsx_sg_utils.get_section_with_rules(
-                'SG Section: %s' % nsx_sg_name, nsx_rules)
+                section_name, nsx_rules)
 
             # Execute REST API for creating the section
             h, c = self.nsx_v.vcns.create_section(
@@ -1598,11 +1599,30 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 LOG.exception(_('Failed to create security group'))
         return new_security_group
 
+    def update_security_group(self, context, id, security_group):
+        s = security_group['security_group']
+        nsx_sg_id = nsx_db.get_nsx_security_group_id(context.session, id)
+        section_uri = self._get_section_uri(context.session, id)
+        h, c = self.nsx_v.vcns.get_section(section_uri)
+        section = self.nsx_sg_utils.parse_section(c)
+
+        sg_data = super(NsxVPluginV2, self).update_security_group(
+            context, id, security_group)
+        if set(['name', 'description']) & set(s.keys()):
+            nsx_sg_name = self.nsx_sg_utils.get_nsx_sg_name(sg_data)
+            self.nsx_v.vcns.update_security_group(
+                nsx_sg_id, nsx_sg_name, sg_data['description'])
+            section_name = self.nsx_sg_utils.get_nsx_section_name(nsx_sg_name)
+            section.attrib['name'] = section_name
+            self.nsx_v.vcns.update_section(
+                section_uri, self.nsx_sg_utils.to_xml_string(section), h)
+        return sg_data
+
     def delete_security_group(self, context, id):
         """Delete a security group."""
         try:
             # Find nsx rule sections
-            section_mapping = nsxv_db.get_nsx_section(context.session, id)
+            section_uri = self._get_section_uri(context.session, id)
 
             # Find nsx security group
             nsx_sg_id = nsx_db.get_nsx_security_group_id(context.session, id)
@@ -1611,7 +1631,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             super(NsxVPluginV2, self).delete_security_group(context, id)
 
             # Delete nsx rule sections
-            self._delete_section(section_mapping['ip_section_id'])
+            self._delete_section(section_uri)
 
             # Delete nsx security group
             self._delete_nsx_security_group(nsx_sg_id)

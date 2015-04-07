@@ -458,6 +458,16 @@ class Vcns(object):
         uri = '%s/%s?force=true' % (SECURITYGROUP_PREFIX, securitygroup_id)
         return self.do_request(HTTP_DELETE, uri, format='xml', decode=False)
 
+    def update_security_group(self, sg_id, sg_name, description):
+        """Updates the NSXv security group name."""
+        uri = '%s/%s' % (SECURITYGROUP_PREFIX, sg_id)
+        h, c = self.do_request(HTTP_GET, uri, format='xml', decode=False)
+        sg = et.fromstring(c)
+        sg.find('name').text = sg_name
+        sg.find('description').text = description
+        return self.do_request(HTTP_PUT, uri, et.tostring(sg),
+                               format='xml', decode=False, encode=False)
+
     def get_security_group_id(self, sg_name):
         """Returns NSXv security group id which match the given name."""
         uri = '%s/scope/globalroot-0' % SECURITYGROUP_PREFIX
