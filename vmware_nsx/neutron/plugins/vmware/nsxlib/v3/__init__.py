@@ -115,7 +115,7 @@ def create_logical_port(lswitch_id,
 
 
 def delete_logical_port(logical_port_id):
-    controller = _get_controller_endpoint()
+    controller, user, password = _get_controller_endpoint()
     url = controller + "/api/v1/logical-ports/%s?detach=true" % logical_port_id
     headers = {'Content-Type': 'application/json'}
     result = requests.delete(url, auth=auth.HTTPBasicAuth('admin', 'default'),
