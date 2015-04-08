@@ -24,6 +24,7 @@ from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
 from neutron.api.v2 import attributes
 from neutron.extensions import l3
+from neutron.extensions import portbindings as pbin
 
 from neutron.common import constants as const
 from neutron.common import rpc as n_rpc
@@ -33,6 +34,7 @@ from neutron.db import agentschedulers_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import l3_db
 from neutron.db import models_v2
+from neutron.db import portbindings_db
 from neutron.db import securitygroups_db
 
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
@@ -46,6 +48,7 @@ LOG = log.getLogger(__name__)
 class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                   securitygroups_db.SecurityGroupDbMixin,
                   l3_db.L3_NAT_dbonly_mixin,
+                  portbindings_db.PortBindingMixin,
                   agentschedulers_db.DhcpAgentSchedulerDbMixin):
     # NOTE(salv-orlando): Security groups are not actually implemented by this
     # plugin at the moment
@@ -55,12 +58,20 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
     __native_sorting_support = True
 
     supported_extension_aliases = ["quotas",
+                                   "binding",
                                    "security-group",
                                    "router"]
 
     def __init__(self):
         super(NsxV3Plugin, self).__init__()
         LOG.info(_("Starting NsxV3Plugin"))
+
+        self.base_binding_dict = {
+            pbin.VIF_TYPE: pbin.VIF_TYPE_OVS,
+            pbin.VIF_DETAILS: {
+                # TODO(rkukura): Replace with new VIF security details
+                pbin.CAP_PORT_FILTER:
+                'security-group' in self.supported_extension_aliases}}
         self._setup_rpc()
 
     def _setup_rpc(self):
@@ -104,25 +115,31 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         return super(NsxV3Plugin, self).update_network(context, id,
                                                        network)
 
-    def create_port(self, context, port_data):
+    def create_port(self, context, port):
         # NOTE(salv-orlando): This method currently first performs the backend
         # operation. However it is important to note that this workflow might
         # change in the future as the backend might need parameter generated
         # from the neutron side such as port MAC address
         port_id = uuidutils.generate_uuid()
         result = nsxlib.create_logical_port(
-            lswitch_id=port_data['network_id'],
+            lswitch_id=port['port']['network_id'],
             vif_uuid=port_id)
-        port_data['port']['id'] = port_id
+        port['port']['id'] = port_id
         # TODO(salv-orlando): Undo logical switch creation on failure
         with context.session.begin():
-            port = super(NsxV3Plugin, self).create_port(context, port_data)
+            neutron_db = super(NsxV3Plugin, self).create_port(context, port)
+            port["port"].update(neutron_db)
             # TODO(salv-orlando): The logical switch identifier in the mapping
             # object is not necessary anymore.
             nsx_db.add_neutron_nsx_port_mapping(
-                context.session, port['id'],
-                port['network_id'], result['id'])
-        return port
+                context.session, neutron_db['id'],
+                neutron_db['network_id'], result['id'])
+            self._process_portbindings_create_and_update(context,
+                                                         port['port'],
+                                                         neutron_db)
+
+            neutron_db[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
+        return neutron_db
 
     def delete_port(self, context, port_id, l3_port_check=True):
         _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
