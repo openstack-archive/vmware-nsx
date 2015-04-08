@@ -38,9 +38,10 @@ from neutron.db import portbindings_db
 from neutron.db import securitygroups_db
 
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
+from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
 from vmware_nsx.neutron.plugins.vmware.nsxlib import v3 as nsxlib
-
+from vmware_nsx.openstack.common._i18n import _LW
 
 LOG = log.getLogger(__name__)
 
@@ -156,22 +157,45 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                                                     port)
 
     def create_router(self, context, router):
-        # NOTE(salv-orlando): tier0 routers are expensive, consider whether
-        # tier1 can be employed (especially as there's no NAT atm)
         result = nsxlib.create_logical_router(
-            display_name=router['router']['name'],
-            tier0=True,
+            display_name=router['router'].get('name', 'a_router_with_no_name'),
+            tier_0=False,
             edge_cluster_uuid=cfg.CONF.nsx_v3.default_edge_cluster_uuid)
 
-        router['router']['id'] = result['id']
-        router = super(NsxV3Plugin, self).create_router(context,
-                                                        router)
+        with context.session.begin():
+            router = super(NsxV3Plugin, self).create_router(
+                context, router)
+            nsx_db.add_neutron_nsx_router_mapping(
+                context.session, router['id'], result['id'])
+
         return router
 
     def delete_router(self, context, router_id):
-        # TODO(arosen) - call to backend
-        return super(NsxV3Plugin, self).delete_router(context,
-                                                      router_id)
+        nsx_router_id = nsx_db.get_nsx_router_id(context.session,
+                                                 router_id)
+        ret_val = super(NsxV3Plugin, self).delete_router(context,
+                                                         router_id)
+        # Remove logical router from the NSX backend
+        # It is safe to do now as db-level checks for resource deletion were
+        # passed (and indeed the resource was removed from the Neutron DB
+        try:
+            nsxlib.delete_logical_router(nsx_router_id)
+        except nsx_exc.LogicalRouterNotFound:
+            # If the logical router was not found on the backend do not worry
+            # about it. The conditions has already been logged, so there is no
+            # need to do further logging
+            pass
+        except nsx_exc.NsxPluginException:
+            # if there is a failure in deleting the router do not fail the
+            # operation, especially since the router object has already been
+            # removed from the neutron DB. Take corrective steps to ensure the
+            # resulting zombie object does not forward any traffic and is
+            # eventually removed.
+            LOG.warning(_LW("Backend router deletion for neutron router %s "
+                            "failed. The object was however removed from the "
+                            "Neutron datanase"), router_id)
+
+        return ret_val
 
     def update_router(self, context, router_id, router):
         # TODO(arosen) - call to backend

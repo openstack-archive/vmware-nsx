@@ -90,6 +90,10 @@ class PortConfigurationError(NsxPluginException):
         self.port_id = kwargs.get('port_id')
 
 
+class LogicalRouterNotFound(n_exc.NotFound):
+    message = _('Unable to find logical router for %(entity_id)s')
+
+
 class LsnNotFound(n_exc.NotFound):
     message = _('Unable to find LSN for %(entity)s %(entity_id)s')
 

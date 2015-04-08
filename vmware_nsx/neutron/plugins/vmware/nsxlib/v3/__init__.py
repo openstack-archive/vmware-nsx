@@ -21,7 +21,7 @@ from requests import auth
 
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import nsx_constants
-from vmware_nsx.openstack.common._i18n import _LW
+from vmware_nsx.openstack.common._i18n import _LI, _LW
 
 LOG = log.getLogger(__name__)
 
@@ -142,7 +142,7 @@ def create_logical_router(display_name, edge_cluster_uuid, tier_0=False):
     body = {'edge_cluster_id': edge_cluster_uuid,
             'display_name': display_name,
             'router_type': router_type}
-
+    # TODO(salv-orlando): Must handle connection exceptions
     result = requests.post(url, auth=auth.HTTPBasicAuth(user, password),
                            verify=False, headers=headers,
                            data=jsonutils.dumps(body))
@@ -155,6 +155,27 @@ def create_logical_router(display_name, edge_cluster_uuid, tier_0=False):
             err_msg=_("Unexpected error in backend while "
                       "creating logical router"))
     return result.json()
+
+
+def delete_logical_router(lrouter_id):
+    controller, user, password = _get_controller_endpoint()
+    url = controller + "/api/v1/logical-routers/%s/" % lrouter_id
+    headers = {'Content-Type': 'application/json'}
+
+    # TODO(salv-orlando): Must handle connection exceptions
+    result = requests.delete(url, auth=auth.HTTPBasicAuth(user, password),
+                             verify=False, headers=headers)
+    if result.status_code == requests.codes.not_found:
+        LOG.info(_LI("Logical router %s not found on NSX backend"), lrouter_id)
+        raise nsx_exc.LogicalRouterNotFound(entity_id=lrouter_id)
+    if result.status_code != requests.codes.ok:
+        # Do not reveal internal details in the exception message, as it will
+        # be user-visible
+        LOG.warning(_LW("The HTTP request returned error code %d, whereas a "
+                        "200 response code was expected"), result.status_code)
+        raise nsx_exc.NsxPluginException(
+            err_msg=_("Unexpected error in backend while "
+                      "deleting logical router"))
 
 
 def create_logical_router_port(logical_router_id,
