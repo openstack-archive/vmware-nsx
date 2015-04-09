@@ -187,6 +187,7 @@ def create_logical_router_port(logical_router_id,
     url = controller + "/api/v1/logical-router-ports"
     headers = {'Content-Type': 'application/json'}
     body = {'resource_type': resource_type,
+            'edge_cluster_member_index': [0],
             'logical_router_id': logical_router_id,
             'subnets': [{"prefix_length": cidr_length,
                          "ip_addresses": [ip_address]}],
@@ -195,6 +196,7 @@ def create_logical_router_port(logical_router_id,
     result = requests.post(url, auth=auth.HTTPBasicAuth(user, password),
                            verify=False, headers=headers,
                            data=jsonutils.dumps(body))
+
     if result.status_code != requests.codes.created:
         # Do not reveal internal details in the exception message, as it will
         # be user-visible

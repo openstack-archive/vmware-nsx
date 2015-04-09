@@ -159,7 +159,7 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
     def create_router(self, context, router):
         result = nsxlib.create_logical_router(
             display_name=router['router'].get('name', 'a_router_with_no_name'),
-            tier_0=False,
+            tier_0=True,
             edge_cluster_uuid=cfg.CONF.nsx_v3.default_edge_cluster_uuid)
 
         with context.session.begin():
@@ -213,11 +213,16 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                          'fixed_ips': [{'subnet_id': subnet['id'],
                                         'ip_address': subnet['gateway_ip']}]}}
         port = self.create_port(context, port)
+        _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
+            context.session, port['id'])
+
+        nsx_router_id = nsx_db.get_nsx_router_id(context.session,
+                                                 router_id)
         result = nsxlib.create_logical_router_port(
-            router_id=router_id,
+            logical_router_id=nsx_router_id,
+            logical_switch_port_id=nsx_port_id,
             resource_type="LogicalRouterUpLinkPort",
-            cidr_length=24, ip_addresses=subnet['gateway_ip'],
-            port_id=port['id'])
+            cidr_length=24, ip_address=subnet['gateway_ip'])
         interface_info['port_id'] = port['id']
         del interface_info['subnet_id']
         result = super(NsxV3Plugin, self).add_router_interface(
@@ -240,6 +245,8 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             else:
                 raise l3.RouterInterfaceNotFoundForSubnet(router_id=router_id,
                                                           subnet_id=subnet_id)
-            nsxlib.delete_logical_router_port(port_id)
+            _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
+                context.session, port_id)
+            nsxlib.delete_logical_router_port(nsx_port_id)
         return super(NsxV3Plugin, self).remove_router_interface(
             context, router_id, interface_info)
