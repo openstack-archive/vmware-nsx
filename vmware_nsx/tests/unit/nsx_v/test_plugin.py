@@ -50,6 +50,7 @@ from vmware_nsx.common import nsx_constants
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.extensions import routersize as router_size
 from vmware_nsx.extensions import routertype as router_type
+from vmware_nsx.extensions import securitygrouplogging
 from vmware_nsx.extensions import vnicindex as ext_vnic_idx
 from vmware_nsx.plugins.nsx_v.vshield.common import constants as vcns_const
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
@@ -2368,6 +2369,8 @@ class NsxVSecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
               ext_mgr=None,
               service_plugins=None):
         test_utils.override_nsx_ini_test()
+        attributes.RESOURCE_ATTRIBUTE_MAP.update(
+            securitygrouplogging.RESOURCE_ATTRIBUTE_MAP)
         mock_vcns = mock.patch(vmware.VCNS_NAME, autospec=True)
         mock_vcns_instance = mock_vcns.start()
         self.fc2 = fake_vcns.FakeVcns()
@@ -2509,6 +2512,43 @@ class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
     def test_create_security_group_rule_with_specific_id(self):
         # This test is aimed to test the security-group db mixin
         pass
+
+    def _plugin_update_security_group(self, context, id, logging):
+        data = {'security_group': {'logging': logging}}
+        security_group = (
+            self.plugin.update_security_group(context, id, data))
+        return security_group
+
+    def _plugin_create_security_group(self, context, logging=False):
+        data = {'security_group': {'name': 'SG',
+                                   'tenant_id': 'tenant_id',
+                                   'description': ''}}
+        if logging:
+            data['security_group']['logging'] = True
+        security_group = (
+            self.plugin.create_security_group(context, data, False))
+        return security_group
+
+    def test_create_security_group_default_logging(self):
+        _context = context.get_admin_context()
+        sg = self._plugin_create_security_group(_context)
+        self.assertFalse(sg['logging'])
+
+    def test_create_security_group_with_logging(self):
+        _context = context.get_admin_context()
+        sg = self._plugin_create_security_group(_context, logging=True)
+        self.assertTrue(sg['logging'])
+
+    def test_update_security_group_with_logging(self):
+        _context = context.get_admin_context()
+        sg = self._plugin_create_security_group(_context)
+        sg = self._plugin_update_security_group(_context, sg['id'], True)
+        self.assertTrue(sg['logging'])
+
+    def test_security_group_logging_not_visible_for_user(self):
+        _context = context.Context('user', 'tenant_id')
+        sg = self._plugin_create_security_group(_context)
+        self.assertFalse('logging' in sg)
 
 
 class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,

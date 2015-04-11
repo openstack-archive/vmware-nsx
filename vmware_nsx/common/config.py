@@ -401,6 +401,14 @@ nsxv_opts = [
                        'involves configuring the dvs backing nsx_v directly. '
                        'If False, only features exposed via nsx_v will be '
                        'supported')),
+    cfg.BoolOpt('log_security_groups_blocked_traffic',
+                default=False,
+                help=_("Indicates whether distributed-firewall rule for "
+                       "security-groups blocked traffic is logged")),
+    cfg.BoolOpt('log_security_groups_allowed_traffic',
+                default=False,
+                help=_("Indicates whether distributed-firewall "
+                       "security-groups allowed traffic is logged")),
 ]
 
 # Register the configuration options
