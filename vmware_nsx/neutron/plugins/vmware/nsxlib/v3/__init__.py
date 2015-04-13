@@ -103,16 +103,20 @@ def update_logical_port(lport_id, name=None, admin_state=None):
     return client.update_resource(resource, lport)
 
 
-def create_logical_router(display_name, edge_cluster_uuid, tags, tier_0=False):
+def create_logical_router(display_name, tags, edge_cluster_uuid=None,
+                          tier_0=False):
     # TODO(salv-orlando): If possible do not manage edge clusters in the main
     # plugin logic.
     router_type = (nsx_constants.ROUTER_TYPE_TIER0 if tier_0 else
                    nsx_constants.ROUTER_TYPE_TIER1)
     resource = 'logical-routers'
-    body = {'edge_cluster_id': edge_cluster_uuid,
-            'display_name': display_name,
+    body = {'display_name': display_name,
             'router_type': router_type,
             'tags': tags}
+    # TODO(salv-orlando): raise if tier_0 but no edge_cluster_uuid was
+    # specified
+    if edge_cluster_uuid:
+        body['edge_cluster_id'] = edge_cluster_uuid
     return client.create_resource(resource, body)
 
 
