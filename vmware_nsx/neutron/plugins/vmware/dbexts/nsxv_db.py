@@ -93,7 +93,6 @@ def update_nsxv_router_binding(session, router_id, **kwargs):
 
 
 def delete_nsxv_router_binding(session, router_id):
-    session = db.get_session()
     with session.begin(subtransactions=True):
         binding = (session.query(nsxv_models.NsxvRouterBinding).
                    filter_by(router_id=router_id).first())
