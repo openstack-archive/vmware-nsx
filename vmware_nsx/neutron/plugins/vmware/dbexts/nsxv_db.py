@@ -504,3 +504,35 @@ def get_spoofguard_policy_id(session, network_id):
     except exc.NoResultFound:
         LOG.debug("SpoofGuard Policy for network %s was not found",
                   network_id)
+
+
+def add_vdr_dhcp_binding(session, vdr_router_id, dhcp_router_id, dhcp_edge_id):
+    with session.begin(subtransactions=True):
+        binding = nsxv_models.NsxvVdrDhcpBinding(vdr_router_id=vdr_router_id,
+                                                 dhcp_router_id=dhcp_router_id,
+                                                 dhcp_edge_id=dhcp_edge_id)
+        session.add(binding)
+    return binding
+
+
+def get_vdr_dhcp_bindings(session):
+    try:
+        bindings = session.query(nsxv_models.NsxvVdrDhcpBinding).all()
+        return bindings
+    except exc.NoResultFound:
+        return None
+
+
+def get_vdr_dhcp_binding_by_vdr(session, vdr_router_id):
+    try:
+        binding = session.query(
+            nsxv_models.NsxvVdrDhcpBinding).filter_by(
+            vdr_router_id=vdr_router_id).one()
+        return binding
+    except exc.NoResultFound:
+        return None
+
+
+def delete_vdr_dhcp_binding(session, vdr_router_id):
+    return (session.query(nsxv_models.NsxvVdrDhcpBinding).
+            filter_by(vdr_router_id=vdr_router_id).delete())

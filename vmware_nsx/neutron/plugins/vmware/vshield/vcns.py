@@ -58,6 +58,9 @@ IPSEC_VPN_SERVICE = 'ipsec/config'
 DHCP_SERVICE = "dhcp/config"
 DHCP_BINDING_RESOURCE = "bindings"
 
+# Syetem control constants
+SYSCTL_SERVICE = 'systemcontrol/config'
+
 
 def retry_upon_exception(exc, delay=500, max_delay=2000,
                          max_attempts=cfg.CONF.nsxv.retries):
@@ -184,6 +187,10 @@ class Vcns(object):
     def get_edge_interfaces(self, edge_id):
         uri = "%s/%s/interfaces" % (URI_PREFIX, edge_id)
         return self.do_request(HTTP_GET, uri, decode=True)
+
+    def get_routes(self, edge_id):
+        uri = "%s/%s/routing/config/static" % (URI_PREFIX, edge_id)
+        return self.do_request(HTTP_GET, uri)
 
     def update_routes(self, edge_id, routes):
         uri = "%s/%s/routing/config/static?async=true" % (URI_PREFIX, edge_id)
@@ -554,6 +561,17 @@ class Vcns(object):
         uri = '%s/%s/members/%s' % (SECURITYGROUP_PREFIX,
                                     security_group_id, member_id)
         return self.do_request(HTTP_DELETE, uri, format='xml', decode=False)
+
+    def set_system_control(self, edge_id, prop):
+        uri = self._build_uri_path(edge_id, SYSCTL_SERVICE)
+
+        payload = {
+            'featureType': 'systemcontrol',
+            'property': [
+                prop
+            ]
+        }
+        return self.do_request(HTTP_PUT, uri, payload, decode=True)
 
     @retry_upon_exception(exceptions.RequestBad)
     def create_spoofguard_policy(self, enforcement_point, name, enable):
