@@ -29,7 +29,6 @@ from neutron.api.v2 import attributes as attr
 from neutron.api.v2 import base
 from neutron.common import constants
 from neutron.common import exceptions as n_exc
-from neutron.common import utils
 from neutron import context as q_context
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
@@ -54,6 +53,7 @@ from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import constants as plugin_const
+from neutron.plugins.common import utils
 from neutron.plugins.vmware.dbexts import nsx_models
 from neutron.plugins.vmware.extensions import maclearning as mac_ext
 from neutron.plugins.vmware.extensions import networkgw
@@ -780,8 +780,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     err_msg = (_("%(segmentation_id)s out of range "
                                  "(%(min_id)s through %(max_id)s)") %
                                {'segmentation_id': segmentation_id,
-                                'min_id': constants.MIN_VLAN_TAG,
-                                'max_id': constants.MAX_VLAN_TAG})
+                                'min_id': plugin_const.MIN_VLAN_TAG,
+                                'max_id': plugin_const.MAX_VLAN_TAG})
                 else:
                     # Verify segment is not already allocated
                     bindings = (
@@ -799,8 +799,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     err_msg = (_("%(segmentation_id)s out of range "
                                  "(%(min_id)s through %(max_id)s)") %
                                {'segmentation_id': segmentation_id,
-                                'min_id': constants.MIN_VLAN_TAG,
-                                'max_id': constants.MAX_VLAN_TAG})
+                                'min_id': plugin_const.MIN_VLAN_TAG,
+                                'max_id': plugin_const.MAX_VLAN_TAG})
             else:
                 err_msg = (_("%(net_type_param)s %(net_type_value)s not "
                              "supported") %

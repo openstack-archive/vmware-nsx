@@ -13,7 +13,6 @@
 #    under the License.
 
 from neutron.db import db_base_plugin_v2
-from neutron.plugins.common import constants
 from oslo_log import log as logging
 from oslo_utils import excutils
 
@@ -30,15 +29,18 @@ LOG = logging.getLogger(__name__)
 VSE_FWAAS_ALLOW = "accept"
 VSE_FWAAS_DENY = "deny"
 
+FWAAS_ALLOW = "allow"
+FWAAS_DENY = "deny"
+
 
 class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
     """Implementation of driver APIs for
        Edge Firewall feature configuration
     """
     def _convert_firewall_action(self, action):
-        if action == constants.FWAAS_ALLOW:
+        if action == FWAAS_ALLOW:
             return VSE_FWAAS_ALLOW
-        elif action == constants.FWAAS_DENY:
+        elif action == FWAAS_DENY:
             return VSE_FWAAS_DENY
         else:
             msg = _("Invalid action value %s in a firewall rule") % action
@@ -46,9 +48,9 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
 
     def _restore_firewall_action(self, action):
         if action == VSE_FWAAS_ALLOW:
-            return constants.FWAAS_ALLOW
+            return FWAAS_ALLOW
         elif action == VSE_FWAAS_DENY:
-            return constants.FWAAS_DENY
+            return FWAAS_DENY
         else:
             msg = (_("Invalid action value %s in "
                      "a vshield firewall rule") % action)

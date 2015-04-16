@@ -952,7 +952,6 @@ class TestPortsV2(NsxVPluginV2TestCase,
 
 class TestSubnetsV2(NsxVPluginV2TestCase,
                     test_plugin.TestSubnetsV2):
-
     def setUp(self,
               plugin=PLUGIN_NAME,
               ext_mgr=None,
@@ -1061,6 +1060,9 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
                 dhcp_server_id_1 = nsxv_db.get_nsxv_router_binding(
                     self.context.session, router_id)['edge_id']
                 self.assertNotEqual(dhcp_server_id, dhcp_server_id_1)
+
+    def test_create_subnet_ipv6_slaac_with_db_reference_error(self):
+        self.skipTest('Currently not support')
 
 
 class TestBasicGet(test_plugin.TestBasicGet, NsxVPluginV2TestCase):

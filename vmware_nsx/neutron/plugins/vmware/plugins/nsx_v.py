@@ -28,7 +28,6 @@ from neutron.api import extensions as neutron_extensions
 from neutron.api.v2 import attributes as attr
 from neutron.common import constants
 from neutron.common import exceptions as n_exc
-from neutron.common import utils
 from neutron.db import agents_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
@@ -47,6 +46,8 @@ from neutron.extensions import portbindings as pbin
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
+from neutron.plugins.common import constants as plugin_const
+from neutron.plugins.common import utils
 from neutron.plugins.vmware.extensions import (
     advancedserviceproviders as as_providers)
 from neutron.plugins.vmware.extensions import (
@@ -278,8 +279,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                     err_msg = (_("%(segmentation_id)s out of range "
                                  "(%(min_id)s through %(max_id)s)") %
                                {'segmentation_id': segmentation_id,
-                                'min_id': constants.MIN_VLAN_TAG,
-                                'max_id': constants.MAX_VLAN_TAG})
+                                'min_id': plugin_const.MIN_VLAN_TAG,
+                                'max_id': plugin_const.MAX_VLAN_TAG})
                 else:
                     # Verify segment is not already allocated
                     bindings = nsxv_db.get_network_bindings_by_vlanid(

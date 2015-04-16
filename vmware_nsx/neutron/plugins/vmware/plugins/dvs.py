@@ -20,9 +20,7 @@ from oslo_utils import excutils
 
 from neutron.api import extensions as neutron_extensions
 from neutron.api.v2 import attributes as attr
-from neutron.common import constants
 from neutron.common import exceptions as n_exc
-from neutron.common import utils
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import db_base_plugin_v2
@@ -35,6 +33,8 @@ from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import portbindings as pbin
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
+from neutron.plugins.common import constants
+from neutron.plugins.common import utils
 
 from vmware_nsx.neutron.plugins import vmware
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
