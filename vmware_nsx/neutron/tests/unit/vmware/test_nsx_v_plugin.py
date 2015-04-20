@@ -2403,3 +2403,87 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
                     self._remove_external_gateway_from_router(
                         r2['router']['id'],
                         ext2['network']['id'])
+
+    def test_get_available_and_conflicting_ids_with_no_conflict(self):
+        with contextlib.nested(
+            self.router(),
+            self.router()) as (r1, r2):
+            with contextlib.nested(
+                self.subnet(cidr='11.0.0.0/24'),
+                self.subnet(cidr='12.0.0.0/24')) as (s1, s2):
+                    self._router_interface_action('add',
+                                                  r1['router']['id'],
+                                                  s1['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('add',
+                                                  r2['router']['id'],
+                                                  s2['subnet']['id'],
+                                                  None)
+                    router_driver = (self.plugin_instance._router_managers.
+                        get_tenant_router_driver(context, 'shared'))
+                    available_router_ids, conflict_router_ids = (
+                        router_driver._get_available_and_conflicting_ids(
+                            context.get_admin_context(), r1['router']['id']))
+                    self.assertIn(r2['router']['id'], available_router_ids)
+                    self.assertEqual(0, len(conflict_router_ids))
+
+    def test_get_available_and_conflicting_ids_with_conflict(self):
+        with contextlib.nested(
+            self.router(),
+            self.router()) as (r1, r2):
+            with contextlib.nested(
+                self.subnet(cidr='11.0.0.0/24'),
+                self.subnet(cidr='11.0.0.0/24')) as (s1, s2):
+                    self._router_interface_action('add',
+                                                  r1['router']['id'],
+                                                  s1['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('add',
+                                                  r2['router']['id'],
+                                                  s2['subnet']['id'],
+                                                  None)
+                    router_driver = (self.plugin_instance._router_managers.
+                        get_tenant_router_driver(context, 'shared'))
+                    available_router_ids, conflict_router_ids = (
+                        router_driver._get_available_and_conflicting_ids(
+                            context.get_admin_context(), r1['router']['id']))
+                    self.assertIn(r2['router']['id'], conflict_router_ids)
+                    self.assertEqual(0, len(available_router_ids))
+
+    def test_get_available_and_conflicting_ids_with_diff_gw(self):
+        with contextlib.nested(
+            self.router(),
+            self.router(),
+            self.network(),
+            self.network()) as (r1, r2, ext1, ext2):
+            with contextlib.nested(
+                self.subnet(cidr='11.0.0.0/24'),
+                self.subnet(cidr='12.0.0.0/24'),
+                self.subnet(network=ext1,
+                            cidr='13.0.0.0/24'),
+                self.subnet(network=ext2,
+                            cidr='14.0.0.0/24')
+            ) as (s1, s2, ext_sub1, ext_sub2):
+                    self._set_net_external(ext1['network']['id'])
+                    self._set_net_external(ext2['network']['id'])
+                    self._router_interface_action('add',
+                                                  r1['router']['id'],
+                                                  s1['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('add',
+                                                  r2['router']['id'],
+                                                  s2['subnet']['id'],
+                                                  None)
+                    self._add_external_gateway_to_router(
+                        r1['router']['id'],
+                        ext1['network']['id'])
+                    self._add_external_gateway_to_router(
+                        r2['router']['id'],
+                        ext2['network']['id'])
+                    router_driver = (self.plugin_instance._router_managers.
+                        get_tenant_router_driver(context, 'shared'))
+                    available_router_ids, conflict_router_ids = (
+                        router_driver._get_available_and_conflicting_ids(
+                            context.get_admin_context(), r1['router']['id']))
+                    self.assertIn(r2['router']['id'], conflict_router_ids)
+                    self.assertEqual(0, len(available_router_ids))

@@ -998,6 +998,9 @@ class EdgeManager(object):
                 if not (set(conflict_network_ids) & set(net_ids)):
                     max_net_number = net_number
                     available_edge_id = edge_id
+                else:
+                    # TODO(yangyu): Remove conflict_network_ids
+                    LOG.exception(_LE("Failed to query conflict_router_ids"))
         if available_edge_id:
             edge_binding = nsxv_db.get_nsxv_router_bindings_by_edge(
                 context.session, available_edge_id)[0]
