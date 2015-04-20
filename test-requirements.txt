@@ -2,8 +2,7 @@
 # of appearance. Changing the order has an impact on the overall integration
 # process, which may cause wedges in the gate later.
 
-# Need to update when Neutron is stable
--e git://git.openstack.org/openstack/neutron.git@proposed/kilo#egg=neutron
+-e git://git.openstack.org/openstack/neutron.git@stable/kilo#egg=neutron
 
 hacking>=0.9.2,<0.10
 
