@@ -835,6 +835,14 @@ class FakeVcns(object):
             status, response = 201, sg_id
         return ({'status': status}, response)
 
+    def update_security_group(self, sg_id, sg_name, description):
+        sg = self._securitygroups[sg_id]
+        self._securitygroups['names'].remove(sg['name'])
+        sg['name'] = sg_name
+        sg['description'] = description
+        self._securitygroups['names'].add(sg_name)
+        return {'status': 200}, ''
+
     def delete_security_group(self, securitygroup_id):
         try:
             del self._securitygroups[securitygroup_id]
