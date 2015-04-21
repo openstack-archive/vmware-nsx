@@ -171,6 +171,9 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                     'enabled': True,
                     'destination_ip_address': dnat_cidrs}
                 fake_fw_rules.append(fake_dnat_fw_rule)
+            nosnat_fw_rules = self.plugin._get_nosnat_subnets_fw_rules(
+                context, router)
+            fake_fw_rules.extend(nosnat_fw_rules)
 
         # If metadata service is enabled, block access to inter-edge network
         if self.plugin.metadata_proxy_handler:
@@ -483,6 +486,12 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                             self._update_nat_rules_on_routers(context,
                                                               router_id,
                                                               router_ids)
+
+                        if (new_ext_net_id != org_ext_net_id or
+                            new_enable_snat != org_enable_snat):
+                            self._update_subnets_and_dnat_firewall_on_routers(
+                                context, router_id, router_ids,
+                                allow_external=True)
 
                         # Update static routes in all.
                         self._update_routes_on_routers(

@@ -98,6 +98,10 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
              new_enable_snat != org_enable_snat)):
             self.plugin._update_nat_rules(context, router)
 
+        if (new_ext_net_id != org_ext_net_id or
+            new_enable_snat != org_enable_snat):
+            self.plugin._update_subnets_and_dnat_firewall(context, router)
+
         # Update static routes in all.
         self.plugin._update_routes(context, router_id, newnexthop)
 

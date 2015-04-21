@@ -1236,6 +1236,34 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
                                    set_context, **kwargs)
         yield router
 
+    def _recursive_sort_list(self, lst):
+        sorted_list = []
+        for ele in lst:
+            if isinstance(ele, list):
+                sorted_list.append(self._recursive_sort_list(ele))
+            elif isinstance(ele, dict):
+                sorted_list.append(self._recursive_sort_dict(ele))
+            else:
+                sorted_list.append(ele)
+        return sorted(sorted_list)
+
+    def _recursive_sort_dict(self, dct):
+        sorted_dict = {}
+        for k, v in dct.items():
+            if isinstance(v, list):
+                sorted_dict[k] = self._recursive_sort_list(v)
+            elif isinstance(v, dict):
+                sorted_dict[k] = self._recursive_sort_dict(v)
+            else:
+                sorted_dict[k] = v
+        return sorted_dict
+
+    def _update_router_enable_snat(self, router_id, network_id, enable_snat):
+        return self._update('routers', router_id,
+                            {'router': {'external_gateway_info':
+                                        {'network_id': network_id,
+                                         'enable_snat': enable_snat}}})
+
 
 class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
 
@@ -1311,6 +1339,87 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
                 self.assertEqual(s2['subnet']['id'], fip2['subnet_id'])
                 self.assertNotEqual(fip1['subnet_id'], fip2['subnet_id'])
                 self.assertNotEqual(fip1['ip_address'], fip2['ip_address'])
+
+    @mock.patch.object(edge_utils, "update_firewall")
+    def test_router_set_gateway_with_nosnat(self, mock):
+        expected_fw = [{'action': 'allow',
+                        'enabled': True,
+                        'source_ip_address': [],
+                        'destination_ip_address': []}]
+        nosnat_fw = [{'action': 'allow',
+                      'enabled': True,
+                      'source_vnic_groups': ["external"],
+                      'destination_ip_address': []}]
+        with contextlib.nested(
+            self.router(),
+            self.subnet()) as (r1, ext_subnet):
+            self._set_net_external(ext_subnet['subnet']['network_id'])
+            with contextlib.nested(
+                self.subnet(cidr='11.0.0.0/24'),
+                self.subnet(cidr='12.0.0.0/24')) as (s1, s2):
+                self._router_interface_action(
+                    'add', r1['router']['id'],
+                    s1['subnet']['id'], None)
+                expected_fw[0]['source_ip_address'] = ['11.0.0.0/24']
+                expected_fw[0]['destination_ip_address'] = ['11.0.0.0/24']
+                fw_rules = mock.call_args[0][3]['firewall_rule_list']
+                self.assertEqual(self._recursive_sort_list(expected_fw),
+                                 self._recursive_sort_list(fw_rules))
+                self._add_external_gateway_to_router(
+                    r1['router']['id'],
+                    ext_subnet['subnet']['network_id'])
+                fw_rules = mock.call_args[0][3]['firewall_rule_list']
+                self.assertEqual(self._recursive_sort_list(expected_fw),
+                                 self._recursive_sort_list(fw_rules))
+                self._update_router_enable_snat(
+                    r1['router']['id'],
+                    ext_subnet['subnet']['network_id'],
+                    False)
+                nosnat_fw[0]['destination_ip_address'] = ['11.0.0.0/24']
+                fw_rules = mock.call_args[0][3]['firewall_rule_list']
+                self.assertEqual(
+                    self._recursive_sort_list(expected_fw + nosnat_fw),
+                    self._recursive_sort_list(fw_rules))
+                self._router_interface_action('add',
+                                              r1['router']['id'],
+                                              s2['subnet']['id'],
+                                              None)
+                expected_fw[0]['source_ip_address'] = ['12.0.0.0/24',
+                                                       '11.0.0.0/24']
+                expected_fw[0]['destination_ip_address'] = ['12.0.0.0/24',
+                                                            '11.0.0.0/24']
+                nosnat_fw[0]['destination_ip_address'] = ['11.0.0.0/24',
+                                                          '12.0.0.0/24']
+                fw_rules = mock.call_args[0][3]['firewall_rule_list']
+                self.assertEqual(
+                    self._recursive_sort_list(expected_fw + nosnat_fw),
+                    self._recursive_sort_list(fw_rules))
+                self._router_interface_action('remove',
+                                              r1['router']['id'],
+                                              s1['subnet']['id'],
+                                              None)
+                expected_fw[0]['source_ip_address'] = ['12.0.0.0/24']
+                expected_fw[0]['destination_ip_address'] = ['12.0.0.0/24']
+                nosnat_fw[0]['destination_ip_address'] = ['12.0.0.0/24']
+                fw_rules = mock.call_args[0][3]['firewall_rule_list']
+                self.assertEqual(
+                    self._recursive_sort_list(expected_fw + nosnat_fw),
+                    self._recursive_sort_list(fw_rules))
+                self._update_router_enable_snat(
+                    r1['router']['id'],
+                    ext_subnet['subnet']['network_id'],
+                    True)
+                fw_rules = mock.call_args[0][3]['firewall_rule_list']
+                self.assertEqual(
+                    self._recursive_sort_list(expected_fw),
+                    self._recursive_sort_list(fw_rules))
+                self._router_interface_action('remove',
+                                              r1['router']['id'],
+                                              s2['subnet']['id'],
+                                              None)
+                self._remove_external_gateway_from_router(
+                    r1['router']['id'],
+                    ext_subnet['subnet']['network_id'])
 
 
 class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
@@ -2142,6 +2251,108 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
                     self._remove_external_gateway_from_router(
                         r['router']['id'],
                         s1['subnet']['network_id'])
+
+    @mock.patch.object(edge_utils, "update_firewall")
+    def test_routers_set_gateway_with_nosnat(self, mock):
+        expected_fw1 = [{'action': 'allow',
+                         'enabled': True,
+                         'source_ip_address': [],
+                         'destination_ip_address': []}]
+        expected_fw2 = [{'action': 'allow',
+                         'enabled': True,
+                         'source_ip_address': [],
+                         'destination_ip_address': []}]
+        nosnat_fw1 = [{'action': 'allow',
+                       'enabled': True,
+                       'source_vnic_groups': ["external"],
+                       'destination_ip_address': []}]
+        nosnat_fw2 = [{'action': 'allow',
+                       'enabled': True,
+                       'source_vnic_groups': ["external"],
+                       'destination_ip_address': []}]
+        with contextlib.nested(
+            self.router(),
+            self.router(),
+            self.subnet()) as (r1, r2, ext_subnet):
+            self._set_net_external(ext_subnet['subnet']['network_id'])
+            with contextlib.nested(
+                self.subnet(cidr='11.0.0.0/24'),
+                self.subnet(cidr='12.0.0.0/24')) as (s1, s2):
+                self._router_interface_action(
+                    'add', r1['router']['id'],
+                    s1['subnet']['id'], None)
+                expected_fw1[0]['source_ip_address'] = ['11.0.0.0/24']
+                expected_fw1[0]['destination_ip_address'] = ['11.0.0.0/24']
+                fw_rules = mock.call_args[0][3]['firewall_rule_list']
+                self.assertEqual(self._recursive_sort_list(expected_fw1),
+                                 self._recursive_sort_list(fw_rules))
+                self._router_interface_action('add',
+                                              r2['router']['id'],
+                                              s2['subnet']['id'],
+                                              None)
+                self._add_external_gateway_to_router(
+                    r1['router']['id'],
+                    ext_subnet['subnet']['network_id'])
+                self._add_external_gateway_to_router(
+                    r2['router']['id'],
+                    ext_subnet['subnet']['network_id'])
+                expected_fw2[0]['source_ip_address'] = ['12.0.0.0/24']
+                expected_fw2[0]['destination_ip_address'] = ['12.0.0.0/24']
+                fw_rules = mock.call_args[0][3]['firewall_rule_list']
+                self.assertEqual(
+                    self._recursive_sort_list(expected_fw1 + expected_fw2),
+                    self._recursive_sort_list(fw_rules))
+                self._update_router_enable_snat(
+                    r1['router']['id'],
+                    ext_subnet['subnet']['network_id'],
+                    False)
+                nosnat_fw1[0]['destination_ip_address'] = ['11.0.0.0/24']
+                fw_rules = mock.call_args[0][3]['firewall_rule_list']
+                self.assertEqual(
+                    self._recursive_sort_list(expected_fw1 + expected_fw2 +
+                                              nosnat_fw1),
+                    self._recursive_sort_list(fw_rules))
+                self._update_router_enable_snat(
+                    r2['router']['id'],
+                    ext_subnet['subnet']['network_id'],
+                    False)
+                nosnat_fw2[0]['destination_ip_address'] = ['12.0.0.0/24']
+                fw_rules = mock.call_args[0][3]['firewall_rule_list']
+                self.assertEqual(
+                    self._recursive_sort_list(expected_fw1 + expected_fw2 +
+                                              nosnat_fw1 + nosnat_fw2),
+                    self._recursive_sort_list(fw_rules))
+                self._update_router_enable_snat(
+                    r2['router']['id'],
+                    ext_subnet['subnet']['network_id'],
+                    True)
+                fw_rules = mock.call_args[0][3]['firewall_rule_list']
+                self.assertEqual(
+                    self._recursive_sort_list(expected_fw1 + expected_fw2 +
+                                              nosnat_fw1),
+                    self._recursive_sort_list(fw_rules))
+                self._router_interface_action('remove',
+                                              r2['router']['id'],
+                                              s2['subnet']['id'],
+                                              None)
+                fw_rules = mock.call_args[0][3]['firewall_rule_list']
+                self.assertEqual(
+                    self._recursive_sort_list(expected_fw1 + nosnat_fw1),
+                    self._recursive_sort_list(fw_rules))
+                self._remove_external_gateway_from_router(
+                    r1['router']['id'],
+                    ext_subnet['subnet']['network_id'])
+                fw_rules = mock.call_args[0][3]['firewall_rule_list']
+                self.assertEqual(
+                    self._recursive_sort_list(expected_fw1),
+                    self._recursive_sort_list(fw_rules))
+                self._router_interface_action('remove',
+                                              r1['router']['id'],
+                                              s1['subnet']['id'],
+                                              None)
+                self._remove_external_gateway_from_router(
+                    r2['router']['id'],
+                    ext_subnet['subnet']['network_id'])
 
     def test_routers_with_interface_on_same_edge(self):
         with contextlib.nested(

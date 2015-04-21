@@ -1377,7 +1377,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 for fip in fip_db if fip.fixed_port_id]
 
         gw_port = router.gw_port
-        if gw_port and router.enable_snat:
+        if gw_port and gw_port.get('fixed_ips') and router.enable_snat:
             snat_ip = gw_port['fixed_ips'][0]['ip_address']
             subnets = self._find_router_subnets_cidrs(context.elevated(),
                                                       router['id'])
@@ -1387,6 +1387,21 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                     'translated': snat_ip
                 })
         return (snat, dnat)
+
+    def _get_nosnat_subnets_fw_rules(self, context, router):
+        """Open edge firewall holes for nosnat subnets to do static routes."""
+        no_snat_fw_rules = []
+        gw_port = router.gw_port
+        if gw_port and not router.enable_snat:
+            subnet_cidrs = self._find_router_subnets_cidrs(context.elevated(),
+                                                           router['id'])
+            if subnet_cidrs:
+                no_snat_fw_rules.append({
+                    'action': 'allow',
+                    'enabled': True,
+                    'source_vnic_groups': ["external"],
+                    'destination_ip_address': subnet_cidrs})
+        return no_snat_fw_rules
 
     def _update_nat_rules(self, context, router, router_id=None):
         snat, dnat = self._get_nat_rules(context, router)
@@ -1536,6 +1551,9 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 'enabled': True,
                 'destination_ip_address': sorted(dnat_cidrs)}
             fake_fw_rules.append(fake_dnat_fw_rule)
+        nosnat_fw_rules = self._get_nosnat_subnets_fw_rules(
+            context, router)
+        fake_fw_rules.extend(nosnat_fw_rules)
         # TODO(berlin): Add fw rules if fw service is supported
         fake_fw = {'firewall_rule_list': fake_fw_rules}
         edge_utils.update_firewall(self.nsx_v, context, router_id, fake_fw,
