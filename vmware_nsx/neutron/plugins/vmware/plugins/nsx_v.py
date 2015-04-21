@@ -1217,7 +1217,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         router_driver.create_router(
             context, lrouter,
             allow_metadata=(allow_metadata and self.metadata_proxy_handler))
-        if gw_info is not None:
+        if gw_info != attr.ATTR_NOT_SPECIFIED:
             router_driver._update_router_gw_info(
                 context, lrouter['id'], gw_info)
         return self.get_router(context, lrouter['id'])
