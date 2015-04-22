@@ -1347,7 +1347,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 subnet_qry = context.session.query(models_v2.Subnet)
                 subnet = subnet_qry.filter_by(id=ip.subnet_id).one()
                 cidrs.append(subnet.cidr)
-        return sorted(cidrs)
+        return cidrs
 
     def _get_nat_rules(self, context, router):
         fip_qry = context.session.query(l3_db.FloatingIP)
@@ -1502,8 +1502,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             fake_subnet_fw_rule = {
                 'action': 'allow',
                 'enabled': True,
-                'source_ip_address': sorted(subnet_cidrs),
-                'destination_ip_address': sorted(subnet_cidrs)}
+                'source_ip_address': subnet_cidrs,
+                'destination_ip_address': subnet_cidrs}
             fake_fw_rules.append(fake_subnet_fw_rule)
         _, dnat_rules = self._get_nat_rules(context, router)
 
@@ -1517,7 +1517,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             fake_dnat_fw_rule = {
                 'action': 'allow',
                 'enabled': True,
-                'destination_ip_address': sorted(dnat_cidrs)}
+                'destination_ip_address': dnat_cidrs}
             fake_fw_rules.append(fake_dnat_fw_rule)
         # TODO(berlin): Add fw rules if fw service is supported
         fake_fw = {'firewall_rule_list': fake_fw_rules}
