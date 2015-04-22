@@ -1062,6 +1062,9 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
                     self.context.session, router_id)['edge_id']
                 self.assertNotEqual(dhcp_server_id, dhcp_server_id_1)
 
+    def test_create_subnet_ipv6_slaac_with_db_reference_error(self):
+        self.skipTest('Currently not support')
+
 
 class TestBasicGet(test_plugin.TestBasicGet, NsxVPluginV2TestCase):
     pass
