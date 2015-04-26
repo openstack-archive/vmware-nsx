@@ -1,0 +1,106 @@
+#!/bin/bash
+
+# Copyright 2015 VMware, Inc.
+#
+# All Rights Reserved
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
+# Neutron VMware DVS plugin
+# -------------------------
+
+# Save trace setting
+DVS_XTRACE=$(set +o | grep xtrace)
+set +o xtrace
+
+source $TOP_DIR/lib/neutron_plugins/ovs_base
+
+DVS_BRIDGE=${DVS_BRIDGE:-br-dvs}
+DVS_INTERFACE=${DVS_INTERFACE:-eth1}
+
+function setup_integration_bridge {
+    # remove integration bridge created by Neutron
+    for bridge in $(sudo ovs-vsctl list-br | grep -o -e $DVS_BRIDGE); do
+        sudo ovs-vsctl del-br ${bridge}
+    done
+    _neutron_ovs_base_setup_bridge $DVS_BRIDGE
+    sudo ovs-vsctl add-port $DVS_BRIDGE $DVS_INTERFACE
+}
+
+function is_neutron_ovs_base_plugin {
+    # DVS uses OVS, but not the l3-agent
+    return 0
+}
+
+function neutron_plugin_create_nova_conf {
+    # if n-cpu is enabled, then setup integration bridge
+    if is_service_enabled n-cpu; then
+        setup_integration_bridge
+    fi
+}
+
+function neutron_plugin_install_agent_packages {
+    # VMware DVS Plugin does not run q-agt, but it currently needs dhcp and metadata agents
+    _neutron_ovs_base_install_agent_packages
+}
+
+function neutron_plugin_configure_common {
+    Q_PLUGIN_CONF_PATH=etc/neutron/plugins/vmware
+    Q_PLUGIN_CONF_FILENAME=nsx.ini
+    Q_DB_NAME="neutron_nsx"
+    Q_PLUGIN_CLASS="vmware_nsx.neutron.plugins.vmware.plugin.NsxDvsPlugin"
+}
+
+function neutron_plugin_configure_debug_command {
+    # TBD (garyk)
+    :
+}
+
+function neutron_plugin_configure_dhcp_agent {
+    iniset $Q_DHCP_CONF_FILE DEFAULT enable_isolated_metadata True
+    iniset $Q_DHCP_CONF_FILE DEFAULT enable_metadata_network True
+}
+
+function neutron_plugin_configure_l3_agent {
+    # VMware DVS plugin does not run L3 agent
+    die $LINENO "q-l3 should not be executed with VMware DVS plugin!"
+}
+
+function neutron_plugin_configure_plugin_agent {
+    # VMware DVS plugin does not run L2 agent
+    die $LINENO "q-agt must not be executed with VMware DVS plugin!"
+}
+
+function neutron_plugin_configure_service {
+    iniset /$Q_PLUGIN_CONF_FILE dvs host_ip "$VMWAREAPI_IP"
+    iniset /$Q_PLUGIN_CONF_FILE dvs host_username "$VMWAREAPI_USER"
+    iniset /$Q_PLUGIN_CONF_FILE dvs host_password "$VMWAREAPI_PASSWORD"
+    iniset /$Q_PLUGIN_CONF_FILE dvs dvs_name "$VMWARE_DVS_NAME"
+}
+
+function neutron_plugin_setup_interface_driver {
+    local conf_file=$1
+    iniset $conf_file DEFAULT interface_driver neutron.agent.linux.interface.OVSInterfaceDriver
+}
+
+function has_neutron_plugin_security_group {
+    # 0 means True here
+    return 0
+}
+
+function neutron_plugin_check_adv_test_requirements {
+    is_service_enabled q-dhcp && return 0
+}
+
+# Restore xtrace
+$DVS_XTRACE
