@@ -37,4 +37,6 @@ elif [[ $Q_PLUGIN == 'vmware_nsx' ]]; then
     elif [[ "$1" == "unstack" ]]; then
         stop_vmware_nsx
     fi
+elif [[ $Q_PLUGIN == 'vmware_dvs' ]]; then
+    source $dir/lib/vmware_dvs
 fi
