@@ -25,6 +25,7 @@ from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
+from neutron.db import l3_db
 from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
 from neutron.db import securitygroups_db
@@ -55,6 +56,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                db_base_plugin_v2.NeutronDbPluginV2,
                dhcpmeta_modes.DhcpMetadataAccess,
                external_net_db.External_net_db_mixin,
+               l3_db.L3_NAT_dbonly_mixin,
                portbindings_db.PortBindingMixin,
                portsecurity_db.PortSecurityDbMixin,
                securitygroups_db.SecurityGroupDbMixin):
@@ -66,6 +68,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                                    "port-security",
                                    "provider",
                                    "quotas",
+                                   "router",
                                    "security-group"]
 
     __native_bulk_support = True
