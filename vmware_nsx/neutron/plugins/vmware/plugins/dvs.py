@@ -33,6 +33,7 @@ from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import portbindings as pbin
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
+from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import constants
 from neutron.plugins.common import utils
 
@@ -61,7 +62,6 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
     supported_extension_aliases = ["allowed-address-pairs",
                                    "binding",
                                    "external-net",
-                                   "mac-learning",
                                    "multi-provider",
                                    "port-security",
                                    "provider",
@@ -250,15 +250,28 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         with context.session.begin(subtransactions=True):
             # First we allocate port in neutron database
             neutron_db = super(NsxDvsV2, self).create_port(context, port)
-            # Update fields obtained from neutron db (eg: MAC address)
-            port["port"].update(neutron_db)
-            self.handle_port_metadata_access(context, neutron_db)
-            # port security extension checks
-            (port_security, has_ip) = self._determine_port_security_and_has_ip(
-                context, port_data)
+            port_security = self._get_network_security_binding(
+                context, neutron_db['network_id'])
             port_data[psec.PORTSECURITY] = port_security
             self._process_port_port_security_create(
                 context, port_data, neutron_db)
+            # Update fields obtained from neutron db (eg: MAC address)
+            port["port"].update(neutron_db)
+            has_ip = self._ip_on_port(neutron_db)
+
+            # security group extension checks
+            if has_ip:
+                self._ensure_default_security_group_on_port(context, port)
+            elif attr.is_attr_set(port_data.get(ext_sg.SECURITYGROUPS)):
+                raise psec.PortSecurityAndIPRequiredForSecurityGroups()
+            port_data[ext_sg.SECURITYGROUPS] = (
+                self._get_security_groups_on_port(context, port))
+            self._process_port_create_security_group(
+                context, port_data, port_data[ext_sg.SECURITYGROUPS])
+            self._process_portbindings_create_and_update(context,
+                                                         port['port'],
+                                                         port_data)
+
             # allowed address pair checks
             if attr.is_attr_set(port_data.get(addr_pair.ADDRESS_PAIRS)):
                 if not port_security:
