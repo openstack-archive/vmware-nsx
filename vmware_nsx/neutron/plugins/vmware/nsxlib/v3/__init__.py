@@ -118,7 +118,7 @@ def delete_logical_port(logical_port_id):
     controller, user, password = _get_controller_endpoint()
     url = controller + "/api/v1/logical-ports/%s?detach=true" % logical_port_id
     headers = {'Content-Type': 'application/json'}
-    result = requests.delete(url, auth=auth.HTTPBasicAuth('admin', 'default'),
+    result = requests.delete(url, auth=auth.HTTPBasicAuth(user, password),
                              verify=False, headers=headers)
 
     if result.status_code != requests.codes.ok:
@@ -213,7 +213,7 @@ def delete_logical_router_port(logical_port_id):
     url = ("%s/api/v1/logical-router-ports/%s?detach=true" %
            (controller, logical_port_id))
     headers = {'Content-Type': 'application/json'}
-    result = requests.delete(url, auth=auth.HTTPBasicAuth('admin', 'default'),
+    result = requests.delete(url, auth=auth.HTTPBasicAuth(user, password),
                              verify=False, headers=headers)
 
     if result.status_code != requests.codes.ok:
