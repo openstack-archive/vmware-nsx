@@ -145,9 +145,8 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
     def delete_port(self, context, port_id, l3_port_check=True):
         _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
             context.session, port_id)
-        ret_val = super(NsxV3Plugin, self).delete_port(context, port_id)
-
         nsxlib.delete_logical_port(nsx_port_id)
+        ret_val = super(NsxV3Plugin, self).delete_port(context, port_id)
 
         return ret_val
 
