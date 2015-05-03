@@ -1198,6 +1198,28 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
                                    set_context, **kwargs)
         yield router
 
+    def _recursive_sort_list(self, lst):
+        sorted_list = []
+        for ele in lst:
+            if isinstance(ele, list):
+                sorted_list.append(self._recursive_sort_list(ele))
+            elif isinstance(ele, dict):
+                sorted_list.append(self._recursive_sort_dict(ele))
+            else:
+                sorted_list.append(ele)
+        return sorted(sorted_list)
+
+    def _recursive_sort_dict(self, dct):
+        sorted_dict = {}
+        for k, v in dct.items():
+            if isinstance(v, list):
+                sorted_dict[k] = self._recursive_sort_list(v)
+            elif isinstance(v, dict):
+                sorted_dict[k] = self._recursive_sort_dict(v)
+            else:
+                sorted_dict[k] = v
+        return sorted_dict
+
 
 class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
 
@@ -1517,91 +1539,83 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
             update_edge.side_effect = object()
             yield update_edge
 
-    def test_router_interfaces_with_update_firewall(self):
-        with mock.patch.object(edge_utils, "update_firewall") as firewall:
-            with self.router() as r:
-                s1_cidr = '10.0.0.0/24'
-                s2_cidr = '11.0.0.0/24'
-                with contextlib.nested(
-                    self.subnet(cidr=s1_cidr),
-                    self.subnet(cidr=s2_cidr)) as (s1, s2):
-                    self._router_interface_action('add',
-                                                  r['router']['id'],
-                                                  s1['subnet']['id'],
-                                                  None)
-                    firewall.reset_mock()
-                    self._router_interface_action('add',
-                                                  r['router']['id'],
-                                                  s2['subnet']['id'],
-                                                  None)
-                    expected_cidrs = sorted([s1_cidr, s2_cidr])
-                    expected_fw = {
-                        'firewall_rule_list': [
-                            {'action': 'allow',
-                             'enabled': True,
-                             'source_ip_address': expected_cidrs,
-                             'destination_ip_address': expected_cidrs}]}
-                    firewall.assert_called_once_with(
-                        mock.ANY, mock.ANY, mock.ANY,
-                        expected_fw, allow_external=True)
-                    self._router_interface_action('remove',
-                                                  r['router']['id'],
-                                                  s1['subnet']['id'],
-                                                  None)
-                    self._router_interface_action('remove',
-                                                  r['router']['id'],
-                                                  s2['subnet']['id'],
-                                                  None)
+    @mock.patch.object(edge_utils, "update_firewall")
+    def test_router_interfaces_with_update_firewall(self, mock):
+        with self.router() as r:
+            s1_cidr = '10.0.0.0/24'
+            s2_cidr = '11.0.0.0/24'
+            with contextlib.nested(
+                self.subnet(cidr=s1_cidr),
+                self.subnet(cidr=s2_cidr)) as (s1, s2):
+                self._router_interface_action('add',
+                                              r['router']['id'],
+                                              s1['subnet']['id'],
+                                              None)
+                self._router_interface_action('add',
+                                              r['router']['id'],
+                                              s2['subnet']['id'],
+                                              None)
+                expected_cidrs = [s1_cidr, s2_cidr]
+                expected_fw = [{'action': 'allow',
+                                'enabled': True,
+                                'source_ip_address': expected_cidrs,
+                                'destination_ip_address': expected_cidrs}]
+                fw_rules = mock.call_args[0][3]['firewall_rule_list']
+                self.assertEqual(self._recursive_sort_list(expected_fw),
+                                 self._recursive_sort_list(fw_rules))
+                self._router_interface_action('remove',
+                                              r['router']['id'],
+                                              s1['subnet']['id'],
+                                              None)
+                self._router_interface_action('remove',
+                                              r['router']['id'],
+                                              s2['subnet']['id'],
+                                              None)
 
-    def test_router_interfaces_different_tenants_update_firewall(self):
+    @mock.patch.object(edge_utils, "update_firewall")
+    def test_router_interfaces_different_tenants_update_firewall(self, mock):
         tenant_id = _uuid()
         other_tenant_id = _uuid()
-        with mock.patch.object(edge_utils, "update_firewall") as firewall:
+        with contextlib.nested(
+            self.router(tenant_id=tenant_id),
+            self.network(tenant_id=tenant_id),
+            self.network(tenant_id=other_tenant_id)
+        ) as (r, n1, n2):
+            s1_cidr = '10.0.0.0/24'
+            s2_cidr = '11.0.0.0/24'
             with contextlib.nested(
-                self.router(tenant_id=tenant_id),
-                self.network(tenant_id=tenant_id),
-                self.network(tenant_id=other_tenant_id)
-            ) as (r, n1, n2):
-                s1_cidr = '10.0.0.0/24'
-                s2_cidr = '11.0.0.0/24'
-                with contextlib.nested(
-                    self.subnet(network=n1, cidr=s1_cidr),
-                    self.subnet(network=n2, cidr=s2_cidr)
-                ) as (s1, s2):
-                    self._router_interface_action('add',
-                                                  r['router']['id'],
-                                                  s2['subnet']['id'],
-                                                  None)
-                    firewall.reset_mock()
-                    self._router_interface_action('add',
-                                                  r['router']['id'],
-                                                  s1['subnet']['id'],
-                                                  None,
-                                                  tenant_id=tenant_id)
-                    expected_cidrs = sorted([s1_cidr, s2_cidr])
-                    expected_fw = {
-                        'firewall_rule_list': [
-                            {'action': 'allow',
-                             'enabled': True,
-                             'source_ip_address': expected_cidrs,
-                             'destination_ip_address': expected_cidrs}]}
-                    firewall.assert_called_once_with(
-                        mock.ANY, mock.ANY, mock.ANY,
-                        expected_fw, allow_external=True)
-                    self._router_interface_action('remove',
-                                                  r['router']['id'],
-                                                  s1['subnet']['id'],
-                                                  None,
-                                                  tenant_id=tenant_id)
-                    firewall.reset_mock()
-                    self._router_interface_action('remove',
-                                                  r['router']['id'],
-                                                  s2['subnet']['id'],
-                                                  None)
-                    expected_fw = {'firewall_rule_list': []}
-                    firewall.assert_called_once_with(
-                        mock.ANY, mock.ANY, mock.ANY,
-                        expected_fw, allow_external=True)
+                self.subnet(network=n1, cidr=s1_cidr),
+                self.subnet(network=n2, cidr=s2_cidr)
+            ) as (s1, s2):
+                self._router_interface_action('add',
+                                              r['router']['id'],
+                                              s2['subnet']['id'],
+                                              None)
+                self._router_interface_action('add',
+                                              r['router']['id'],
+                                              s1['subnet']['id'],
+                                              None,
+                                              tenant_id=tenant_id)
+                expected_cidrs = [s1_cidr, s2_cidr]
+                expected_fw = [{'action': 'allow',
+                                'enabled': True,
+                                'source_ip_address': expected_cidrs,
+                                'destination_ip_address': expected_cidrs}]
+                fw_rules = mock.call_args[0][3]['firewall_rule_list']
+                self.assertEqual(self._recursive_sort_list(expected_fw),
+                                 self._recursive_sort_list(fw_rules))
+                self._router_interface_action('remove',
+                                              r['router']['id'],
+                                              s1['subnet']['id'],
+                                              None,
+                                              tenant_id=tenant_id)
+                self._router_interface_action('remove',
+                                              r['router']['id'],
+                                              s2['subnet']['id'],
+                                              None)
+                expected_fw = []
+                fw_rules = mock.call_args[0][3]['firewall_rule_list']
+                self.assertEqual(expected_fw, fw_rules)
 
     def test_delete_ext_net_with_disassociated_floating_ips(self):
         with self.network() as net:
