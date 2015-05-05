@@ -12,12 +12,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import netaddr
 from oslo_concurrency import lockutils
 from oslo_config import cfg
 
 from neutron.api.v2 import attributes as attr
 from neutron.db import l3_db
 from neutron.db import models_v2
+from neutron.plugins.vmware.dbexts import nsxv_models
 from oslo_log import log as logging
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
@@ -54,17 +56,10 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                     context, router, is_extract=True)
                 super(nsx_v.NsxVPluginV2, self.plugin).update_router(
                     context, router_id, router)
+                self.update_routes(context, router_id, None)
             # here is used to handle routes which tenant updates.
             if gw_info != attr.ATTR_NOT_SPECIFIED:
                 self._update_router_gw_info(context, router_id, gw_info)
-            else:
-                with lockutils.lock(str(edge_id),
-                                    lock_file_prefix=NSXV_ROUTER_RECONFIG,
-                                    external=True):
-                    router_db = self.plugin._get_router(context, router_id)
-                    nexthop = self.plugin._get_external_attachment_info(
-                        context, router_db)[2]
-                    self.update_routes(context, router_id, nexthop)
             return self.plugin.get_router(context, router_id)
 
     def delete_router(self, context, router_id):
@@ -186,10 +181,27 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                                    fake_fw, allow_external=allow_external)
 
     def update_routes(self, context, router_id, nexthop):
-        router_ids = self.edge_manager.get_routers_on_same_edge(
-            context, router_id)
-        if router_ids:
-            self._update_routes_on_routers(context, router_id, router_ids)
+        edge_id = edge_utils.get_router_edge_id(context, router_id)
+        if edge_id:
+            available_router_ids, conflict_router_ids = (
+                self._get_available_and_conflicting_ids(context, router_id))
+            is_conflict = self.edge_manager.is_router_conflict_on_edge(
+                context, router_id, conflict_router_ids, [], 0)
+            if is_conflict:
+                self._remove_router_services_on_edge(context, router_id)
+                self._unbind_router_on_edge(context, router_id)
+                self._bind_router_on_available_edge(context, router_id)
+                new_edge_id = edge_utils.get_router_edge_id(context,
+                                                            router_id)
+                with lockutils.lock(str(new_edge_id),
+                                    lock_file_prefix=NSXV_ROUTER_RECONFIG,
+                                    external=True):
+                    self._add_router_services_on_available_edge(context,
+                                                                router_id)
+            router_ids = self.edge_manager.get_routers_on_same_edge(
+                context, router_id)
+            if router_ids:
+                self._update_routes_on_routers(context, router_id, router_ids)
 
     def _get_ext_net_ids(self, context, router_ids):
         ext_net_ids = []
@@ -200,6 +212,95 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             if ext_net_id and ext_net_id not in ext_net_ids:
                 ext_net_ids.append(ext_net_id)
         return ext_net_ids
+
+    def _get_shared_routers(self, context):
+        shared_routers = []
+        routers_qry = context.session.query(l3_db.Router).all()
+        for r in routers_qry:
+            nsx_attr = (context.session.query(
+                nsxv_models.NsxvRouterExtAttributes).filter_by(
+                    router_id=r['id']).first())
+            if nsx_attr['router_type'] == 'shared':
+                shared_routers.append(r)
+        return shared_routers
+
+    def _get_available_and_conflicting_ids(self, context, router_id):
+        """Query all conflicting router ids with existing router id.
+        The router with static routes will be conflict with all other routers.
+        The routers with different gateway will be conflict.
+        The routers with overlapping interface will be conflict.
+        """
+        # 1. Check gateway
+        # 2. Check subnet interface
+        # 3. Check static routes
+        router_list = []
+        src_router_dict = {}
+        ports_qry = context.session.query(models_v2.Port)
+        intf_ports = ports_qry.filter_by(
+            device_owner=l3_db.DEVICE_OWNER_ROUTER_INTF).all()
+        gw_ports = ports_qry.filter_by(
+            device_owner=l3_db.DEVICE_OWNER_ROUTER_GW).all()
+        shared_routers = self._get_shared_routers(context)
+        for r in shared_routers:
+            router_dict = {}
+            router_dict['id'] = r['id']
+            router_dict['gateway'] = None
+            for gwp in gw_ports:
+                if gwp['id'] == r['gw_port_id']:
+                    router_dict['gateway'] = (
+                        gwp['fixed_ips'][0]['subnet_id'])
+            subnet_ids = [p['fixed_ips'][0]['subnet_id'] for p in
+                          intf_ports if p['device_id'] == r['id']]
+            router_dict['subnet_ids'] = subnet_ids
+            extra_routes = self.plugin._get_extra_routes_by_router_id(
+                context, r['id'])
+            destinations = [routes['destination'] for routes in extra_routes]
+            router_dict['destinations'] = destinations
+
+            LOG.debug('The router configuration is %s for router %s',
+                      router_dict, router_dict['id'])
+            if router_id != r['id']:
+                router_list.append(router_dict)
+            else:
+                src_router_dict = router_dict
+
+        # Router with static routes is conflict with other routers
+        available_routers = []
+        conflict_routers = []
+        if src_router_dict['destinations'] != []:
+            conflict_routers = [r['id'] for r in router_list]
+            return (available_routers, conflict_routers)
+
+        subnets_qry = context.session.query(models_v2.Subnet).all()
+        conflict_cidr_set = []
+        for subnet in subnets_qry:
+            if subnet['id'] in src_router_dict['subnet_ids']:
+                conflict_cidr_set.append(subnet['cidr'])
+            if (src_router_dict['gateway'] is not None and
+                subnet['id'] == src_router_dict['gateway']):
+                conflict_cidr_set.append(subnet['cidr'])
+        conflict_ip_set = netaddr.IPSet(conflict_cidr_set)
+        # Check conflict router ids with gateway and interface
+        for r in router_list:
+            if r['destinations'] != []:
+                conflict_routers.append(r['id'])
+            else:
+                cidr_set = []
+                for subnet in subnets_qry:
+                    if subnet['id'] in r['subnet_ids']:
+                        cidr_set.append(subnet['cidr'])
+                ip_set = netaddr.IPSet(cidr_set)
+                if (src_router_dict['gateway'] is None or
+                    r['gateway'] is None or
+                    src_router_dict['gateway'] == r['gateway']):
+                    if (conflict_ip_set & ip_set):
+                        conflict_routers.append(r['id'])
+                    else:
+                        available_routers.append(r['id'])
+                else:
+                    conflict_routers.append(r['id'])
+
+        return (available_routers, conflict_routers)
 
     def _get_conflict_network_and_router_ids_by_intf(self, context, router_id):
         """Collect conflicting networks and routers based on interface ports.
@@ -340,15 +441,11 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         conflict_network_ids_by_ext_net = (
             self._get_conflict_network_ids_by_ext_net(context, router_id))
         conflict_network_ids.extend(conflict_network_ids_by_ext_net)
-        conflict_router_ids_by_ext_net = (
-            self._get_conflict_router_ids_by_ext_net(context,
-                                                     conflict_network_ids))
-        conflict_router_ids.extend(conflict_router_ids_by_ext_net)
-        optional_router_ids, conflict_router_ids_by_gw = (
-            self._get_optional_and_conflict_router_ids_by_gw(
-                context, router_id))
-        conflict_router_ids.extend(conflict_router_ids_by_gw)
+        optional_router_ids, new_conflict_router_ids = (
+            self._get_available_and_conflicting_ids(context, router_id))
+        conflict_router_ids.extend(new_conflict_router_ids)
         conflict_router_ids = list(set(conflict_router_ids))
+
         new = self.edge_manager.bind_router_on_available_edge(
             context, router_id, optional_router_ids,
             conflict_router_ids, conflict_network_ids, intf_num)
@@ -527,10 +624,12 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                 conflict_network_ids, conflict_router_ids, _ = (
                     self._get_conflict_network_and_router_ids_by_intf(
                         context, router_id))
-                conflict_router_ids_by_ext_net = (
-                    self._get_conflict_router_ids_by_ext_net(
-                        context, conflict_network_ids))
-                conflict_router_ids.extend(conflict_router_ids_by_ext_net)
+
+                _, new_conflict_router_ids = (
+                    self._get_available_and_conflicting_ids(context,
+                                                            router_id))
+                conflict_router_ids.extend(new_conflict_router_ids)
+                conflict_router_ids = list(set(conflict_router_ids))
 
                 interface_ports = (
                     self.plugin._get_router_interface_ports_by_network(
