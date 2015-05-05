@@ -1033,6 +1033,20 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                     self.delete_subnet(context, s['id'])
         return s
 
+    def update_subnet(self, context, id, subnet):
+        orig = self._get_subnet(context, id)
+        subnet = super(NsxVPluginV2, self).update_subnet(context, id, subnet)
+        if (orig['gateway_ip'] != subnet['gateway_ip'] or
+            set(orig['dns_nameservers']) != set(subnet['dns_nameservers'])):
+            # Need to ensure that all of the subnet attributes will be reloaded
+            # when creating the edge bindings. Without adding this the original
+            # subnet details are provided.
+            context.session.expire_all()
+            # Update the edge
+            network_id = subnet['network_id']
+            self.edge_manager.update_dhcp_edge_bindings(context, network_id)
+        return subnet
+
     @lockutils.synchronized('vmware', 'neutron-dhcp-')
     def _get_conflict_network_ids_by_overlapping(self, context, subnets):
         conflict_network_ids = []
