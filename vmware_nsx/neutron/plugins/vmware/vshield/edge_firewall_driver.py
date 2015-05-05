@@ -84,9 +84,17 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
             vcns_rule['source'] = {
                 "ipAddress": rule['source_ip_address']
             }
+        if rule.get('source_vnic_groups'):
+            vcns_rule['source'] = {
+                "vnicGroupId": rule['source_vnic_groups']
+            }
         if rule.get('destination_ip_address'):
             vcns_rule['destination'] = {
                 "ipAddress": rule['destination_ip_address']
+            }
+        if rule.get('destination_vnic_groups'):
+            vcns_rule['destination'] = {
+                "vnicGroupId": rule['destination_vnic_groups']
             }
         service = {}
         if rule.get('source_port'):
