@@ -220,7 +220,7 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         result = nsxlib.create_logical_router_port(
             logical_router_id=nsx_router_id,
             logical_switch_port_id=nsx_port_id,
-            resource_type="LogicalRouterUpLinkPort",
+            resource_type="LogicalRouterDownLinkPort",
             cidr_length=24, ip_address=subnet['gateway_ip'])
         interface_info['port_id'] = port['id']
         del interface_info['subnet_id']
