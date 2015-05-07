@@ -50,6 +50,24 @@ EDGE_CHECK_INTERVAL = 10
 LOG = logging.getLogger(__name__)
 
 
+def get_router_fw_rules():
+    fw_rules = [
+        {
+            'name': 'MDServiceIP',
+            'enabled': True,
+            'action': 'allow',
+            'destination_ip_address': [METADATA_IP_ADDR]
+        },
+        {
+            'name': 'MDInterEdgeNet',
+            'enabled': True,
+            'action': 'deny',
+            'destination_ip_address': [INTERNAL_SUBNET]
+        }]
+
+    return fw_rules
+
+
 class NsxVMetadataProxyHandler:
 
     def __init__(self, nsxv_plugin):
@@ -467,20 +485,3 @@ class NsxVMetadataProxyHandler:
             self.nsxv_plugin.delete_port(
                 self.context, ports[0]['id'],
                 l3_port_check=False)
-
-    def get_router_fw_rules(self):
-        fw_rules = [
-            {
-                'name': 'MDServiceIP',
-                'enabled': True,
-                'action': 'allow',
-                'destination_ip_address': [METADATA_IP_ADDR]
-            },
-            {
-                'name': 'MDInterEdgeNet',
-                'enabled': True,
-                'action': 'deny',
-                'destination_ip_address': [INTERNAL_SUBNET]
-            }]
-
-        return fw_rules

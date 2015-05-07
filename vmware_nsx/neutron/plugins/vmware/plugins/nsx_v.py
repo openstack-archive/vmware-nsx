@@ -1121,17 +1121,35 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 LOG.debug('Update metadata for resource %s', resource_id)
                 self.metadata_proxy_handler.configure_router_edge(resource_id,
                                                                   context)
-                fw_rules = {
-                    'firewall_rule_list':
-                    self.metadata_proxy_handler.get_router_fw_rules()}
-                edge_utils.update_firewall(
-                    self.nsx_v, context, resource_id, fw_rules,
-                    allow_external=False)
+
+            self.setup_dhcp_edge_fw_rules(context, self, resource_id)
 
         except Exception:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("Failed to update DHCP for subnet %s"),
                               subnet['id'])
+
+    def setup_dhcp_edge_fw_rules(self, context, plugin, router_id):
+        # application-70, application-327 are ICMP Echo request, ICMPv6 Echo
+        # request application codes
+        rules = [{"name": "ICMPPing",
+                  "enabled": True,
+                  "action": "allow",
+                  "application": {
+                      "applicationId": ["application-70", "application-327"]}}]
+
+        if plugin.metadata_proxy_handler:
+            rules += nsx_v_md_proxy.get_router_fw_rules()
+
+        try:
+            edge_utils.update_firewall(plugin.nsx_v, context, router_id,
+                                       {'firewall_rule_list': rules},
+                                       allow_external=False)
+        except Exception as e:
+            # On failure, log that we couldn't configure the firewall on the
+            # Edge appliance. This won't break the DHCP functionality
+            LOG.error(
+                _LE('Could not set up DHCP Edge firewall. Exception %s'), e)
 
     def _create_network_dhcp_address_group(self, context, network_id):
         """Create dhcp address group for subnets attached to the network."""
@@ -1543,7 +1561,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
         # If metadata service is enabled, block access to inter-edge network
         if self.metadata_proxy_handler:
-            fake_fw_rules += self.metadata_proxy_handler.get_router_fw_rules()
+            fake_fw_rules += nsx_v_md_proxy.get_router_fw_rules()
 
         dnat_cidrs = [rule['dst'] for rule in dnat_rules]
         if dnat_cidrs:

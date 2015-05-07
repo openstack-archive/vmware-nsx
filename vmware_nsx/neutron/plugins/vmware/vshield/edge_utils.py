@@ -912,12 +912,8 @@ class EdgeManager(object):
 
             self.plugin.metadata_proxy_handler.configure_router_edge(
                 resource_id, context)
-            fw_rules = {
-                'firewall_rule_list':
-                self.plugin.metadata_proxy_handler.get_router_fw_rules()}
-            update_firewall(
-                self.plugin.nsx_v, context, resource_id, fw_rules,
-                allow_external=False)
+            self.plugin.setup_dhcp_edge_fw_rules(
+                context, self.plugin, resource_id)
 
             self.nsxv_manager.vcns.set_system_control(
                 dhcp_edge_id, RP_FILTER_PROPERTY_OFF)
