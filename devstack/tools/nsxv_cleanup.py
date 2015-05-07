@@ -54,7 +54,7 @@ class VSMClient(object):
         self.password = password
         self.version = None
         self.endpoint = None
-        self.content_type = "applicatioon/json"
+        self.content_type = "application/json"
         self.accept_type = "application/json"
         self.verify = False
         self.secure = True
