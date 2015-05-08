@@ -1711,6 +1711,17 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
             with self.subnet(network=net, enable_dhcp=False):
                 self._make_floatingip(self.fmt, net_id)
 
+    def test_router_update_gateway_upon_subnet_create_max_ips_ipv6(self):
+        # Expected to fail for now as we dont't support IPv6 for NSXv
+        # Make pep8 happy
+        supercall = super(
+            TestExclusiveRouterTestCase,
+            self).test_router_update_gateway_upon_subnet_create_max_ips_ipv6
+        with testlib_api.ExpectedException(KeyError):
+            # The test is expected to fail because of a KeyError while
+            # attempting to parse the response of a failed create_subnet req
+            supercall()
+
 
 class ExtGwModeTestCase(NsxVPluginV2TestCase,
                         test_ext_gw_mode.ExtGwModeIntTestCase):
@@ -1941,6 +1952,17 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
 
     def test_router_add_interface_multiple_ipv6_subnets_different_net(self):
         self.skipTest('TBD')
+
+    def test_router_update_gateway_upon_subnet_create_max_ips_ipv6(self):
+        # Expected to fail for now as we dont't support IPv6 for NSXv
+        # Make pep8 happy
+        supercall = super(
+            TestVdrTestCase,
+            self).test_router_update_gateway_upon_subnet_create_max_ips_ipv6
+        with testlib_api.ExpectedException(KeyError):
+            # The test is expected to fail because of a KeyError while
+            # attempting to parse the response of a failed create_subnet req
+            supercall()
 
 
 class TestNSXvAllowedAddressPairs(test_addr_pair.TestAllowedAddressPairs,
