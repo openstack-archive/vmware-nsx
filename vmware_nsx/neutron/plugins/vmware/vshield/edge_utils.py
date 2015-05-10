@@ -1396,8 +1396,8 @@ def update_external_interface(
                                   secondary=secondary)
 
 
-def update_internal_interface(
-    nsxv_manager, context, router_id, int_net_id, address_groups):
+def update_internal_interface(nsxv_manager, context, router_id, int_net_id,
+                              address_groups, is_connected=True):
     # Get the pg/wire id of the network id
     mappings = nsx_db.get_nsx_switch_ids(context.session, int_net_id)
     if mappings:
@@ -1420,11 +1420,12 @@ def update_internal_interface(
     nsxv_manager.update_interface(router_id, edge_id,
                                   edge_vnic_binding.vnic_index,
                                   vcns_network_id,
+                                  is_connected=is_connected,
                                   address_groups=address_groups)
 
 
-def add_vdr_internal_interface(
-    nsxv_manager, context, router_id, int_net_id, address_groups):
+def add_vdr_internal_interface(nsxv_manager, context, router_id,
+                               int_net_id, address_groups, is_connected=True):
     # Get the pg/wire id of the network id
     mappings = nsx_db.get_nsx_switch_ids(context.session, int_net_id)
     if mappings:
@@ -1439,8 +1440,8 @@ def add_vdr_internal_interface(
         context.session, edge_id, int_net_id)
     if not edge_vnic_binding:
         vnic_index = nsxv_manager.add_vdr_internal_interface(
-            edge_id, vcns_network_id,
-            address_groups=address_groups)
+            edge_id, vcns_network_id, address_groups=address_groups,
+            is_connected=is_connected)
         nsxv_db.create_edge_vnic_binding(
             context.session, edge_id, vnic_index, int_net_id)
     else:
@@ -1449,8 +1450,8 @@ def add_vdr_internal_interface(
         raise n_exc.BadRequest(resource='vdr', msg=msg)
 
 
-def update_vdr_internal_interface(
-    nsxv_manager, context, router_id, int_net_id, address_groups):
+def update_vdr_internal_interface(nsxv_manager, context, router_id, int_net_id,
+                                  address_groups, is_connected=True):
     # Get the pg/wire id of the network id
     mappings = nsx_db.get_nsx_switch_ids(context.session, int_net_id)
     if mappings:
@@ -1463,10 +1464,10 @@ def update_vdr_internal_interface(
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
     edge_id = binding['edge_id']
     edge_vnic_binding = nsxv_db.get_edge_vnic_binding(
-        context.session, edge_id, binding.network_id)
+        context.session, edge_id, int_net_id)
     nsxv_manager.update_vdr_internal_interface(
-        edge_id, edge_vnic_binding.vnic_index,
-        vcns_network_id, address_groups=address_groups)
+        edge_id, edge_vnic_binding.vnic_index, vcns_network_id,
+        address_groups=address_groups, is_connected=is_connected)
 
 
 def delete_interface(nsxv_manager, context, router_id, network_id,

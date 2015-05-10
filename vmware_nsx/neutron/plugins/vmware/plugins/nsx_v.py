@@ -1243,9 +1243,6 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         return self.get_router(context, lrouter['id'])
 
     def update_router(self, context, router_id, router):
-        # TODO(berlin): admin_state_up update
-        if router['router'].get('admin_state_up') is False:
-            LOG.warning(_LW("admin_state_up=False router is not supported."))
         router_driver = self._find_router_driver(context, router_id)
         return router_driver.update_router(context, router_id, router)
 
@@ -1323,6 +1320,14 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
     def _update_router_gw_info(self, context, router_id, info):
         router_driver = self._find_router_driver(context, router_id)
         router_driver._update_router_gw_info(context, router_id, info)
+
+    def _get_internal_network_ids_by_router(self, context, router_id):
+        ports_qry = context.session.query(models_v2.Port)
+        intf_ports = ports_qry.filter_by(
+            device_id=router_id,
+            device_owner=l3_db.DEVICE_OWNER_ROUTER_INTF).all()
+        intf_net_ids = list(set([port['network_id'] for port in intf_ports]))
+        return intf_net_ids
 
     def _get_router_interface_ports_by_network(
         self, context, router_id, network_id):
@@ -1424,6 +1429,22 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                                          'number': vcns_const.MAX_INTF_NUM}
             raise nsx_exc.ServiceOverQuota(overs="router-interface-add",
                                            err_msg=err_msg)
+
+    def _update_router_admin_state(self, context,
+                                   router_id, router_type, admin_state):
+        # Collecting all router interfaces and updating the connection status
+        # for each one to reflect the router admin-state-up status.
+        intf_net_ids = (
+            self._get_internal_network_ids_by_router(context, router_id))
+        for network_id in intf_net_ids:
+            address_groups = (
+                self._get_address_groups(context, router_id, network_id))
+            update_args = (self.nsx_v, context, router_id, network_id,
+                           address_groups, admin_state)
+            if router_type == 'distributed':
+                edge_utils.update_vdr_internal_interface(*update_args)
+            else:
+                edge_utils.update_internal_interface(*update_args)
 
     def add_router_interface(self, context, router_id, interface_info):
         router_driver = self._find_router_driver(context, router_id)
