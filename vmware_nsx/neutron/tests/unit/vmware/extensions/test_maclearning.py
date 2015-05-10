@@ -13,7 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import contextlib
 import mock
 from oslo_config import cfg
 
@@ -122,12 +121,11 @@ class MacLearningDBTestCase(test_db_plugin.NeutronDbPluginV2TestCase):
     def test_list_ports(self):
         # for this test we need to enable overlapping ips
         cfg.CONF.set_default('allow_overlapping_ips', True)
-        with contextlib.nested(self.port(arg_list=('mac_learning_enabled',),
-                                         mac_learning_enabled=True),
-                               self.port(arg_list=('mac_learning_enabled',),
-                                         mac_learning_enabled=True),
-                               self.port(arg_list=('mac_learning_enabled',),
-                                         mac_learning_enabled=True)):
+        no_mac_learning_p = (lambda:
+                             self.port(arg_list=('mac_learning_enabled',),
+                                       mac_learning_enabled=True))
+
+        with no_mac_learning_p(), no_mac_learning_p(), no_mac_learning_p():
             for port in self._list('ports')['ports']:
                 self.assertEqual(True, port['mac_learning_enabled'])
 

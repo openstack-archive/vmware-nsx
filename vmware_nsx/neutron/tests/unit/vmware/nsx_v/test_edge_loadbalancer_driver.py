@@ -13,7 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import contextlib
 import mock
 
 from neutron import context
@@ -178,6 +177,15 @@ class TestEdgeLbDriver(base.BaseTestCase):
         self.edge_driver = vcns_driver.VcnsDriver(self)
         self.edge_driver._lb_driver_prop = mock.Mock()
 
+    def _mock_edge_driver(self, attr):
+        return mock.patch.object(self.edge_driver, attr)
+
+    def _mock_edge_driver_vcns(self, attr):
+        return mock.patch.object(self.edge_driver.vcns, attr)
+
+    def _mock_edge_lb_driver(self, attr):
+        return mock.patch.object(self.edge_driver._lb_driver, attr)
+
     def test_create_pool(self):
         lbaas_pool = lbaas_pool_maker()
 
@@ -185,20 +193,18 @@ class TestEdgeLbDriver(base.BaseTestCase):
             'transparent': False, 'name': 'pool_' + POOL_ID,
             'algorithm': 'round-robin', 'description': ''}
 
-        with contextlib.nested(
-            mock.patch.object(self.edge_driver, '_get_lb_edge_id'),
-            mock.patch.object(self.edge_driver._lb_driver,
-                              'create_pool_successful'),
-            mock.patch.object(self.edge_driver.vcns, 'create_pool')
-        ) as (mock_get_edge, mock_create_pool_successful, mock_create_pool):
+        with self._mock_edge_driver('_get_lb_edge_id') as _get_lb_edge_id,\
+                self._mock_edge_lb_driver(
+                    'create_pool_successful') as create_pool_successful,\
+                self._mock_edge_driver_vcns('create_pool') as create_pool:
 
-            mock_get_edge.return_value = EDGE_ID
-            mock_create_pool.return_value = ({'location': 'x/' + EDGE_POOL_ID},
-                                             None)
+            _get_lb_edge_id.return_value = EDGE_ID
+            create_pool.return_value = ({'location': 'x/' + EDGE_POOL_ID},
+                                        None)
 
             self.edge_driver.create_pool(self.context, lbaas_pool)
-            mock_create_pool.assert_called_with(EDGE_ID, edge_pool)
-            mock_create_pool_successful.assert_called_with(
+            create_pool.assert_called_with(EDGE_ID, edge_pool)
+            create_pool_successful.assert_called_with(
                 self.context, lbaas_pool, EDGE_ID, EDGE_POOL_ID)
 
     def test_update_pool(self):
@@ -211,39 +217,33 @@ class TestEdgeLbDriver(base.BaseTestCase):
             'algorithm': 'leastconn', 'description': ''}
 
         pool_mapping = {'edge_id': EDGE_ID, 'edge_pool_id': EDGE_POOL_ID}
-        with contextlib.nested(
-            mock.patch.object(self.edge_driver._lb_driver, 'pool_successful'),
-            mock.patch.object(self.edge_driver.vcns, 'update_pool')) as (
-                mock_pool_successful, mock_update_pool):
+        with self._mock_edge_lb_driver('pool_successful') as pool_successful,\
+                self._mock_edge_driver_vcns('update_pool') as update_pool:
 
-            self.edge_driver.update_pool(self.context, from_pool, to_pool,
-                                         pool_mapping)
-            mock_update_pool.assert_called_with(EDGE_ID, EDGE_POOL_ID,
-                                                edge_pool)
-            mock_pool_successful.assert_called_with(self.context, to_pool)
+            self.edge_driver.update_pool(
+                self.context, from_pool, to_pool, pool_mapping)
+            update_pool.assert_called_with(EDGE_ID, EDGE_POOL_ID, edge_pool)
+            pool_successful.assert_called_with(self.context, to_pool)
 
     def test_delete_pool(self):
         lbaas_pool = lbaas_pool_maker()
 
         pool_mapping = {'edge_id': EDGE_ID, 'edge_pool_id': EDGE_POOL_ID}
 
-        with contextlib.nested(
-            mock.patch.object(self.edge_driver._lb_driver,
-                              'delete_pool_successful'),
-            mock.patch.object(self.edge_driver.vcns, 'delete_pool')
-        ) as (mock_delete_successful, mock_delete_pool):
+        with self._mock_edge_driver_vcns('delete_pool'),\
+                self._mock_edge_lb_driver(
+                    'delete_pool_successful') as mock_delete_successful:
 
-            self.edge_driver.delete_pool(self.context, lbaas_pool,
-                                         pool_mapping)
+            self.edge_driver.delete_pool(
+                self.context, lbaas_pool, pool_mapping)
             mock_delete_successful.assert_called_with(self.context, lbaas_pool)
 
     def test__add_vip_as_secondary_ip(self):
         update_if = if_maker(['10.0.0.6', '10.0.0.8'])
 
-        with contextlib.nested(
-            mock.patch.object(self.edge_driver.vcns, 'get_interfaces'),
-            mock.patch.object(self.edge_driver.vcns, 'update_interface')
-        ) as (mock_get_if, mock_update_if):
+        with self._mock_edge_driver_vcns('get_interfaces') as mock_get_if,\
+                self._mock_edge_driver_vcns(
+                    'update_interface') as mock_update_if:
 
             mock_get_if.return_value = (None, if_list_maker(['10.0.0.6']))
 
@@ -253,10 +253,9 @@ class TestEdgeLbDriver(base.BaseTestCase):
     def test__del_vip_as_secondary_ip(self):
         update_if = if_maker(['10.0.0.6'])
 
-        with contextlib.nested(
-            mock.patch.object(self.edge_driver.vcns, 'get_interfaces'),
-            mock.patch.object(self.edge_driver.vcns, 'update_interface')
-        ) as (mock_get_if, mock_update_if):
+        with self._mock_edge_driver_vcns('get_interfaces') as mock_get_if,\
+                self._mock_edge_driver_vcns(
+                    'update_interface') as mock_update_if:
 
             mock_get_if.return_value = (None, if_list_maker(['10.0.0.6',
                                                              '10.0.0.8']))
@@ -278,15 +277,14 @@ class TestEdgeLbDriver(base.BaseTestCase):
 
         pool_mapping = {'edge_id': EDGE_ID, 'edge_pool_id': EDGE_POOL_ID}
 
-        with contextlib.nested(
-            mock.patch.object(self.edge_driver, '_add_vip_as_secondary_ip'),
-            mock.patch.object(self.edge_driver.vcns, 'create_app_profile'),
-            mock.patch.object(self.edge_driver.vcns, 'create_vip'),
-            mock.patch.object(self.edge_driver, '_add_vip_fw_rule'),
-            mock.patch.object(self.edge_driver._lb_driver,
-                              'create_vip_successful'),
-        ) as (mock_sec_ip, mock_create_app_profile, mock_create_vip,
-              mock_add_fw_rule, mock_vip_successful):
+        with self._mock_edge_driver('_add_vip_as_secondary_ip'),\
+                self._mock_edge_driver_vcns(
+                    'create_app_profile') as mock_create_app_profile,\
+                self._mock_edge_driver_vcns('create_vip') as mock_create_vip,\
+                self._mock_edge_driver(
+                    '_add_vip_fw_rule') as mock_add_fw_rule,\
+                self._mock_edge_lb_driver(
+                    'create_vip_successful') as mock_vip_successful:
 
             mock_create_app_profile.return_value = (
                 {'location': 'x/' + APP_PROFILE_ID}, None)
@@ -321,11 +319,11 @@ class TestEdgeLbDriver(base.BaseTestCase):
         vip_mapping = {'edge_id': EDGE_ID, 'edge_vse_id': EDGE_VSE_ID,
                        'edge_app_profile_id': APP_PROFILE_ID}
 
-        with contextlib.nested(
-            mock.patch.object(self.edge_driver.vcns, 'update_app_profile'),
-            mock.patch.object(self.edge_driver.vcns, 'update_vip'),
-            mock.patch.object(self.edge_driver._lb_driver, 'vip_successful')
-        ) as (mock_upd_app_prof, mock_upd_vip, mock_vip_successful):
+        with self._mock_edge_driver_vcns('update_vip') as mock_upd_vip,\
+                self._mock_edge_driver_vcns(
+                    'update_app_profile') as mock_upd_app_prof,\
+                self._mock_edge_lb_driver(
+                    'vip_successful') as mock_vip_successful:
 
             self.edge_driver.update_vip(self.context, vip_from, vip_to,
                                         pool_mapping, vip_mapping)
@@ -341,15 +339,14 @@ class TestEdgeLbDriver(base.BaseTestCase):
                        'edge_app_profile_id': APP_PROFILE_ID,
                        'edge_fw_rule_id': EDGE_FW_RULE_ID}
 
-        with contextlib.nested(
-            mock.patch.object(self.edge_driver, '_del_vip_as_secondary_ip'),
-            mock.patch.object(self.edge_driver.vcns, 'delete_app_profile'),
-            mock.patch.object(self.edge_driver.vcns, 'delete_vip'),
-            mock.patch.object(self.edge_driver, '_del_vip_fw_rule'),
-            mock.patch.object(self.edge_driver._lb_driver,
-                              'delete_vip_successful')
-        ) as (mock_sec_ip, mock_del_app_profile, mock_del_vip,
-              mock_del_fw_rule, mock_del_successful):
+        with self._mock_edge_driver('_del_vip_as_secondary_ip'),\
+                self._mock_edge_driver_vcns(
+                    'delete_app_profile') as mock_del_app_profile,\
+                self._mock_edge_driver_vcns('delete_vip') as mock_del_vip,\
+                self._mock_edge_driver(
+                    '_del_vip_fw_rule') as mock_del_fw_rule,\
+                self._mock_edge_lb_driver(
+                    'delete_vip_successful') as mock_del_successful:
 
             self.edge_driver.delete_vip(self.context, lbaas_vip, vip_mapping)
             mock_del_app_profile.assert_called_with(EDGE_ID, APP_PROFILE_ID)
@@ -369,13 +366,11 @@ class TestEdgeLbDriver(base.BaseTestCase):
 
         pool_mapping = {'edge_id': EDGE_ID, 'edge_pool_id': EDGE_POOL_ID}
 
-        with contextlib.nested(
-            mock.patch.object(self.edge_driver.vcns, 'get_pool'),
-            mock.patch.object(self.edge_driver.vcns, 'update_pool'),
-            mock.patch.object(self.edge_driver, '_update_pool_fw_rule'),
-            mock.patch.object(self.edge_driver._lb_driver, 'member_successful')
-        ) as (mock_get_pool, mock_update_pool, mock_upd_fw_rule,
-              mock_member_successful):
+        with self._mock_edge_driver_vcns('update_pool'),\
+                self._mock_edge_driver('_update_pool_fw_rule'),\
+                self._mock_edge_driver_vcns('get_pool') as mock_get_pool,\
+                self._mock_edge_lb_driver(
+                    'member_successful') as mock_member_successful:
 
             mock_get_pool.return_value = (None, edge_pool)
             self.edge_driver.create_member(self.context, lbaas_member,
@@ -397,11 +392,11 @@ class TestEdgeLbDriver(base.BaseTestCase):
 
         pool_mapping = {'edge_id': EDGE_ID, 'edge_pool_id': EDGE_POOL_ID}
 
-        with contextlib.nested(
-            mock.patch.object(self.edge_driver.vcns, 'get_pool'),
-            mock.patch.object(self.edge_driver.vcns, 'update_pool'),
-            mock.patch.object(self.edge_driver._lb_driver, 'member_successful')
-        ) as (mock_get_pool, mock_update_pool, mock_member_successful):
+        with self._mock_edge_driver_vcns('get_pool') as mock_get_pool,\
+                self._mock_edge_driver_vcns(
+                    'update_pool') as mock_update_pool,\
+                self._mock_edge_lb_driver(
+                    'member_successful') as mock_member_successful:
 
             mock_get_pool.return_value = (None, edge_pool)
             self.edge_driver.update_member(self.context, member_from,
@@ -427,16 +422,13 @@ class TestEdgeLbDriver(base.BaseTestCase):
 
         pool_mapping = {'edge_id': EDGE_ID, 'edge_pool_id': EDGE_POOL_ID}
         mock_lb_plugin = mock.Mock()
+        mock_lb_plugin._delete_db_member = _del_member
 
-        with contextlib.nested(
-            mock.patch.object(self.edge_driver.vcns, 'get_pool'),
-            mock.patch.object(self.edge_driver.vcns, 'update_pool'),
-            mock.patch.object(self.edge_driver, '_update_pool_fw_rule'),
-            mock.patch.object(self.edge_driver, '_get_lb_plugin'),
-            mock.patch.object(mock_lb_plugin, '_delete_db_member',
-                              side_effect=_del_member)
-        ) as (mock_get_pool, mock_update_pool, mock_upd_fw_rule,
-              mock_get_lb_plugin, mock_del_member):
+        with self._mock_edge_driver('_get_lb_plugin') as mock_get_lb_plugin,\
+                self._mock_edge_driver_vcns('get_pool') as mock_get_pool,\
+                self._mock_edge_driver_vcns(
+                    'update_pool') as mock_update_pool,\
+                self._mock_edge_driver('_update_pool_fw_rule'):
 
             mock_get_pool.return_value = (None, edge_pool)
             self.edge_driver.delete_member(self.context, lbaas_member,
@@ -464,20 +456,20 @@ class TestEdgeLbDriver(base.BaseTestCase):
 
         mock_lb_plugin = mock.Mock()
 
-        with contextlib.nested(
-            mock.patch.object(self.edge_driver, '_get_edge_ips'),
-            mock.patch.object(self.edge_driver, '_get_lb_plugin'),
-            mock.patch.object(mock_lb_plugin, 'get_members'),
-            mock.patch.object(self.edge_driver.vcns, 'get_section'),
-            mock.patch.object(self.edge_driver, '_get_lbaas_fw_section_id',
-                              return_value='1111'),
-            mock.patch.object(self.edge_driver.vcns, 'update_section')
-        ) as (mock_get_edge_ips, mock_get_lb_plugin, mock_get_members,
-              mock_get_section, mock_get_section_id, mock_update_section):
+        with self._mock_edge_driver('_get_lb_plugin') as mock_get_lb_plugin,\
+                self._mock_edge_driver('_get_edge_ips') as mock_get_edge_ips,\
+                self._mock_edge_driver_vcns(
+                    'get_section') as mock_get_section,\
+                self._mock_edge_driver(
+                    '_get_lbaas_fw_section_id') as mock_get_section_id,\
+                self._mock_edge_driver_vcns(
+                    'update_section') as mock_update_section:
 
+            mock_get_section_id.return_value = '1111'
             mock_get_edge_ips.return_value = ['10.0.0.1', '11.0.0.1']
             mock_get_lb_plugin.return_value = mock_lb_plugin
-            mock_get_members.return_value = [{'address': '10.0.0.10'}]
+            mock_lb_plugin.get_members.return_value = [{'address':
+                                                        '10.0.0.10'}]
             mock_get_section.return_value = (None, edge_fw_section)
             self.edge_driver._update_pool_fw_rule(
                 self.context, POOL_ID, EDGE_ID, 'add', '11.0.0.10')
@@ -491,21 +483,21 @@ class TestEdgeLbDriver(base.BaseTestCase):
 
         mock_lb_plugin = mock.Mock()
 
-        with contextlib.nested(
-            mock.patch.object(self.edge_driver, '_get_edge_ips'),
-            mock.patch.object(self.edge_driver, '_get_lb_plugin'),
-            mock.patch.object(mock_lb_plugin, 'get_members'),
-            mock.patch.object(self.edge_driver.vcns, 'get_section'),
-            mock.patch.object(self.edge_driver, '_get_lbaas_fw_section_id',
-                              return_value='1111'),
-            mock.patch.object(self.edge_driver.vcns, 'update_section')
-        ) as (mock_get_edge_ips, mock_get_lb_plugin, mock_get_members,
-              mock_get_section, mock_get_section_id, mock_update_section):
+        with self._mock_edge_driver('_get_edge_ips') as mock_get_edge_ips,\
+                self._mock_edge_driver(
+                    '_get_lb_plugin') as mock_get_lb_plugin,\
+                self._mock_edge_driver_vcns(
+                    'get_section') as mock_get_section,\
+                self._mock_edge_driver(
+                    '_get_lbaas_fw_section_id') as mock_get_section_id,\
+                self._mock_edge_driver_vcns(
+                    'update_section') as mock_update_section:
 
+            mock_get_section_id.return_value = '1111'
             mock_get_edge_ips.return_value = ['10.0.0.1', '11.0.0.1']
             mock_get_lb_plugin.return_value = mock_lb_plugin
-            mock_get_members.return_value = [{'address': '10.0.0.10'},
-                                             {'address': '11.0.0.10'}]
+            mock_lb_plugin.get_members.return_value = [
+                {'address': '10.0.0.10'}, {'address': '11.0.0.10'}]
             mock_get_section.return_value = (None, edge_fw_section)
             self.edge_driver._update_pool_fw_rule(
                 self.context, POOL_ID, EDGE_ID, 'del', '11.0.0.10')
@@ -532,14 +524,13 @@ class TestEdgeLbDriver(base.BaseTestCase):
 
         pool_mapping = {'edge_id': EDGE_ID, 'edge_pool_id': EDGE_POOL_ID}
 
-        with contextlib.nested(
-            mock.patch.object(self.edge_driver.vcns, 'create_health_monitor'),
-            mock.patch.object(self.edge_driver.vcns, 'get_pool'),
-            mock.patch.object(self.edge_driver.vcns, 'update_pool'),
-            mock.patch.object(self.edge_driver._lb_driver,
-                              'create_pool_health_monitor_successful')
-        ) as (mock_create_mon, mock_get_pool, mock_update_pool,
-              mock_create_successful):
+        with self._mock_edge_driver_vcns('update_pool') as mock_update_pool,\
+                self._mock_edge_driver_vcns('get_pool') as mock_get_pool,\
+                self._mock_edge_driver_vcns(
+                    'create_health_monitor') as mock_create_mon,\
+                self._mock_edge_lb_driver(
+                    'create_pool_health_monitor_successful') as (
+                        mock_create_successful):
 
             mock_create_mon.return_value = ({'location': 'x/' + HEALTHMON_ID},
                                             None)
@@ -562,12 +553,10 @@ class TestEdgeLbDriver(base.BaseTestCase):
 
         mon_mapping = {'edge_id': EDGE_ID, 'edge_monitor_id': EDGE_MON_ID}
 
-        with contextlib.nested(
-            mock.patch.object(self.edge_driver.vcns, 'update_health_monitor'),
-            mock.patch.object(self.edge_driver._lb_driver,
-                              'pool_health_monitor_successful')
-        ) as (
-                mock_update_mon, mock_hmon_successful):
+        with self._mock_edge_driver_vcns(
+            'update_health_monitor') as mock_update_mon,\
+                self._mock_edge_lb_driver(
+                    'pool_health_monitor_successful') as mock_hmon_successful:
 
             self.edge_driver.update_pool_health_monitor(
                 self.context, from_hmon, to_hmon, POOL_ID, mon_mapping)
@@ -586,15 +575,13 @@ class TestEdgeLbDriver(base.BaseTestCase):
         pool_mapping = {'edge_id': EDGE_ID, 'edge_pool_id': EDGE_POOL_ID}
         mon_mapping = {'edge_id': EDGE_ID, 'edge_monitor_id': EDGE_MON_ID}
 
-        with contextlib.nested(
-            mock.patch.object(self.edge_driver.vcns, 'get_pool'),
-            mock.patch.object(self.edge_driver.vcns, 'update_pool'),
-            mock.patch.object(self.edge_driver.vcns,
-                              'delete_health_monitor'),
-            mock.patch.object(self.edge_driver._lb_driver,
-                              'delete_pool_health_monitor_successful')
-        ) as (mock_get_pool, mock_update_pool, mock_del_mon,
-              mock_del_successful):
+        with self._mock_edge_driver_vcns('update_pool') as mock_update_pool,\
+                self._mock_edge_driver_vcns('get_pool') as mock_get_pool,\
+                self._mock_edge_driver_vcns(
+                    'delete_health_monitor') as mock_del_mon,\
+                self._mock_edge_lb_driver(
+                    'delete_pool_health_monitor_successful') as (
+                        mock_del_successful):
 
             mock_get_pool.return_value = (None, edge_pool)
             self.edge_driver.delete_pool_health_monitor(

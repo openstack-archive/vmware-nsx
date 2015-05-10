@@ -516,22 +516,22 @@ class NetworkGatewayDbTestCase(test_db_plugin.NeutronDbPluginV2TestCase):
 
     def test_create_network_gateway(self):
         tenant_id = _uuid()
-        with contextlib.nested(
-            self._gateway_device(name='dev_1',
-                                 tenant_id=tenant_id),
-            self._gateway_device(name='dev_2',
-                                 tenant_id=tenant_id)) as (dev_1, dev_2):
-            name = 'test-gw'
-            dev_1_id = dev_1[self.dev_resource]['id']
-            dev_2_id = dev_2[self.dev_resource]['id']
-            devices = [{'id': dev_1_id, 'interface_name': 'xxx'},
-                       {'id': dev_2_id, 'interface_name': 'yyy'}]
-            keys = [('devices', devices), ('name', name)]
-            with self._network_gateway(name=name,
-                                       devices=devices,
-                                       tenant_id=tenant_id) as gw:
-                for k, v in keys:
-                    self.assertEqual(gw[self.gw_resource][k], v)
+        _gateway_device = (lambda name:
+            self._gateway_device(name=name, tenant_id=tenant_id))
+
+        with _gateway_device('dev_1') as dev_1:
+            with _gateway_device('dev_2') as dev_2:
+                name = 'test-gw'
+                dev_1_id = dev_1[self.dev_resource]['id']
+                dev_2_id = dev_2[self.dev_resource]['id']
+                devices = [{'id': dev_1_id, 'interface_name': 'xxx'},
+                        {'id': dev_2_id, 'interface_name': 'yyy'}]
+                keys = [('devices', devices), ('name', name)]
+                with self._network_gateway(name=name,
+                                           devices=devices,
+                                           tenant_id=tenant_id) as gw:
+                    for k, v in keys:
+                        self.assertEqual(gw[self.gw_resource][k], v)
 
     def test_create_network_gateway_no_interface_name(self):
         tenant_id = _uuid()
@@ -845,15 +845,14 @@ class NetworkGatewayDbTestCase(test_db_plugin.NeutronDbPluginV2TestCase):
             self.assertEqual(dev[self.dev_resource]['status'], expected_status)
 
     def test_list_gateway_devices(self):
-        with contextlib.nested(
-            self._gateway_device(name='test-dev-1',
-                                 connector_type='stt',
-                                 connector_ip='1.1.1.1',
-                                 client_certificate='xyz'),
-            self._gateway_device(name='test-dev-2',
-                                 connector_type='stt',
-                                 connector_ip='2.2.2.2',
-                                 client_certificate='qwe')) as (dev_1, dev_2):
+        gateway_device = (lambda name, connector_ip, client_cert:
+                          self._gateway_device(name=name,
+                                               connector_type='stt',
+                                               connector_ip=connector_ip,
+                                               client_certificate=client_cert))
+
+        with gateway_device('test-dev-1', '1.1.1.1', 'xyz') as dev_1,\
+                gateway_device('test-dev-2', '2.2.2.2', 'qwe') as dev_2:
             req = self.new_list_request(networkgw.GATEWAY_DEVICES)
             res = self.deserialize('json', req.get_response(self.ext_api))
         devices = res[networkgw.GATEWAY_DEVICES.replace('-', '_')]

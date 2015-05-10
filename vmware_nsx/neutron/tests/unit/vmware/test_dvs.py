@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import contextlib
 import mock
 from oslo_config import cfg
 from oslo_utils import uuidutils
@@ -126,10 +125,9 @@ class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
         if network_type == 'vlan':
             params['provider:segmentation_id'] = vlan_tag
         params['arg_list'] = tuple(params.keys())
-        with contextlib.nested(
-            mock.patch.object(self._plugin._dvs, 'add_port_group'),
-            mock.patch.object(self._plugin._dvs, 'delete_port_group')
-        ) as (mock_add, mock_delete):
+        with mock.patch.object(self._plugin._dvs,
+                               'add_port_group') as mock_add,\
+                mock.patch.object(self._plugin._dvs, 'delete_port_group'):
             with self.network(**params) as network:
                 ctx = context.get_admin_context()
                 id = network['network']['id']
@@ -158,17 +156,15 @@ class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
                   'provider:physical_network': 'dvs',
                   'provider:segmentation_id': 7}
         params['arg_list'] = tuple(params.keys())
-        with contextlib.nested(
-            mock.patch.object(self._plugin._dvs, 'add_port_group'),
-            mock.patch.object(self._plugin._dvs, 'delete_port_group')
-        ) as (mock_add, mock_delete):
-            with self.network(**params) as network:
-                with self.subnet(network) as subnet:
-                    with self.port(subnet) as port:
-                        self.assertEqual('dvs',
-                                         port['port'][portbindings.VIF_TYPE])
-                        port_status = port['port']['status']
-                        self.assertEqual(port_status, 'ACTIVE')
+        with mock.patch.object(self._plugin._dvs, 'add_port_group'),\
+                mock.patch.object(self._plugin._dvs, 'delete_port_group'):
+            with self.network(**params) as network,\
+                    self.subnet(network) as subnet,\
+                    self.port(subnet) as port:
+                self.assertEqual('dvs',
+                                 port['port'][portbindings.VIF_TYPE])
+                port_status = port['port']['status']
+                self.assertEqual(port_status, 'ACTIVE')
 
     def test_create_router_only_dvs_backend(self):
         data = {'router': {'tenant_id': 'whatever'}}

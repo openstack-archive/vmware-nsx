@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import contextlib
 import uuid
 
 import mock
@@ -272,14 +271,14 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxPluginV2TestCase):
     def test_list_networks_filter_by_id(self):
         # We add this unit test to cover some logic specific to the
         # nsx plugin
-        with contextlib.nested(self.network(name='net1'),
-                               self.network(name='net2')) as (net1, net2):
-            query_params = 'id=%s' % net1['network']['id']
-            self._test_list_resources('network', [net1],
-                                      query_params=query_params)
-            query_params += '&id=%s' % net2['network']['id']
-            self._test_list_resources('network', [net1, net2],
-                                      query_params=query_params)
+        with self.network(name='net1') as net1:
+            with self.network(name='net2') as net2:
+                query_params = 'id=%s' % net1['network']['id']
+                self._test_list_resources('network', [net1],
+                                          query_params=query_params)
+                query_params += '&id=%s' % net2['network']['id']
+                self._test_list_resources('network', [net1, net2],
+                                          query_params=query_params)
 
     def test_delete_network_after_removing_subet(self):
         gateway_ip = '10.0.0.1'
@@ -715,12 +714,10 @@ class TestL3NatTestCase(L3NatTest,
         self._test_router_update_gateway_on_l3_ext_net(444)
 
     def test_router_list_by_tenant_id(self):
-        with contextlib.nested(self.router(tenant_id='custom'),
-                               self.router(),
-                               self.router()
-                               ) as routers:
-            self._test_list_resources('router', [routers[0]],
-                                      query_params="tenant_id=custom")
+        with self.router(), self.router():
+            with self.router(tenant_id='custom') as router1:
+                self._test_list_resources('router', [router1],
+                                          query_params="tenant_id=custom")
 
     def test_create_l3_ext_network_with_vlan(self):
         self._test_create_l3_ext_network(666)
