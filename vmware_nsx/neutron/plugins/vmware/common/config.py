@@ -250,7 +250,13 @@ nsxv_opts = [
     cfg.ListOpt('tenant_router_types',
                 default=['shared', 'distributed', 'exclusive'],
                 help=_("Ordered list of router_types to allocate as tenant "
-                       "routers."))
+                       "routers.")),
+    cfg.StrOpt('edge_appliance_user',
+               secret=True,
+               help=_('Username to configure for Edge appliance login')),
+    cfg.StrOpt('edge_appliance_password',
+               secret=True,
+               help=_('Password to configure for Edge appliance login'))
 ]
 
 # Register the configuration options

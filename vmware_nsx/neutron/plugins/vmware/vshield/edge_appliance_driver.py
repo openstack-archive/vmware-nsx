@@ -467,6 +467,13 @@ class EdgeApplianceDriver(object):
                 constants.INTEGRATION_SUBNET_NETMASK,
                 type="internal")
             edge['vnics']['vnics'].append(vnic_inside)
+        # If default login credentials for Edge are set, configure accordingly
+        if (cfg.CONF.nsxv.edge_appliance_user and
+            cfg.CONF.nsxv.edge_appliance_password):
+            edge['cliSettings'] = {
+                'userName': cfg.CONF.nsxv.edge_appliance_user,
+                'password': cfg.CONF.nsxv.edge_appliance_password}
+
         if not dist and loadbalancer_enable:
             self._enable_loadbalancer(edge)
 
