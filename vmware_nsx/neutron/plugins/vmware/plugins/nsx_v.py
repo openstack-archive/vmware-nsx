@@ -819,7 +819,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             self._create_dhcp_static_binding(context, neutron_db)
         except Exception:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Failed to create network'))
+                LOG.exception(_LE('Failed to create port'))
                 # Revert what we have created and raise the exception
                 self.delete_port(context, port_data['id'])
         return port_data
