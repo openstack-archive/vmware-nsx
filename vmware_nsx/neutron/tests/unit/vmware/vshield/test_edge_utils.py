@@ -16,6 +16,7 @@
 import mock
 from oslo_config import cfg
 from oslo_utils import uuidutils
+from six import moves
 
 from neutron.common import exceptions as n_exc
 from neutron import context
@@ -197,7 +198,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
                                id_prefix + str(i)),
                  'appliance_size': size,
                  'edge_type': edge_type}
-                for i in xrange(num)]
+                for i in moves.range(num)]
 
     def _create_creating_router_bindings(
         self, num, size=nsxv_constants.LARGE,
@@ -209,7 +210,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
                                id_prefix + str(i)),
                  'appliance_size': size,
                  'edge_type': edge_type}
-                for i in xrange(num)]
+                for i in moves.range(num)]
 
     def _create_error_router_bindings(
         self, num, status=plugin_const.ERROR,
@@ -222,7 +223,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
                                id_prefix + str(i)),
                  'appliance_size': size,
                  'edge_type': edge_type}
-                for i in xrange(num)]
+                for i in moves.range(num)]
 
     def _create_error_router_bindings_at_backend(
         self, num, status=plugin_const.ACTIVE,
@@ -235,7 +236,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
                                id_prefix + str(i)),
                  'appliance_size': size,
                  'edge_type': edge_type}
-                for i in xrange(num)]
+                for i in moves.range(num)]
 
     def _create_deleting_router_bindings(
         self, num, size=nsxv_constants.LARGE,
@@ -247,7 +248,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
                                id_prefix + str(i)),
                  'appliance_size': size,
                  'edge_type': edge_type}
-                for i in xrange(num)]
+                for i in moves.range(num)]
 
     def _create_edge_pools(self, avail, creating, error,
                            error_at_backend, deleting,

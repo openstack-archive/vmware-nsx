@@ -23,6 +23,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import uuidutils
+from six import moves
 from sqlalchemy.orm import exc as sa_exc
 
 from neutron.common import exceptions as n_exc
@@ -133,7 +134,7 @@ class EdgeManager(object):
                                    edge_type=nsxv_constants.SERVICE_EDGE):
         router_ids = [(vcns_const.BACKUP_ROUTER_PREFIX +
                        _uuid())[:vcns_const.EDGE_NAME_LEN]
-                      for i in xrange(num)]
+                      for i in moves.range(num)]
 
         for router_id in router_ids:
             nsxv_db.add_nsxv_router_binding(
