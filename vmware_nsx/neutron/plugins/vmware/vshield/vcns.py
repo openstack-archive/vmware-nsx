@@ -611,9 +611,8 @@ class Vcns(object):
         uri = '%s/policies/%s' % (SPOOFGUARD_PREFIX, policy_id)
         return self.do_request(HTTP_DELETE, uri, decode=False)
 
-    @retry_upon_exception(exceptions.RequestBad)
-    def approve_assigned_addresses(self, policy_id,
-                                   vnic_id, mac_addr, addresses):
+    def _approve_assigned_addresses(self, policy_id,
+                                    vnic_id, mac_addr, addresses):
         uri = '%s/%s' % (SPOOFGUARD_PREFIX, policy_id)
         addresses = [{'ipAddress': ip_addr} for ip_addr in addresses]
         body = {'spoofguardList':
@@ -628,6 +627,12 @@ class Vcns(object):
         return self.do_request(HTTP_POST, '%s?action=approve' % uri,
                                body, format='xml', decode=False)
 
+    @retry_upon_exception(exceptions.RequestBad)
+    def approve_assigned_addresses(self, policy_id,
+                                   vnic_id, mac_addr, addresses):
+        return self._approve_assigned_addresses(
+            policy_id, vnic_id, mac_addr, addresses)
+
     @retry_upon_exception(exceptions.VcnsApiException)
     def publish_assigned_addresses(self, policy_id):
         uri = '%s/%s' % (SPOOFGUARD_PREFIX, policy_id)
@@ -635,7 +640,13 @@ class Vcns(object):
                                decode=False)
 
     def inactivate_vnic_assigned_addresses(self, policy_id, vnic_id):
-        return self.approve_assigned_addresses(policy_id, vnic_id, '', [])
+        try:
+            self._approve_assigned_addresses(policy_id, vnic_id, '', [])
+        except exceptions.RequestBad:
+            LOG.debug("Request failed: inactivate vnic %s assigned addresses",
+                      vnic_id)
+        else:
+            return self.publish_assigned_addresses(policy_id)
 
     def _build_uri_path(self, edge_id,
                         service,
