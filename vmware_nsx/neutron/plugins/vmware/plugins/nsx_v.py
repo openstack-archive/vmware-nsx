@@ -1176,6 +1176,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         static_config = {}
         static_config['macAddress'] = port['mac_address']
         static_config['hostname'] = port['id']
+        static_config['leaseTime'] = cfg.CONF.nsxv.dhcp_lease_time
 
         for fixed_ip in port['fixed_ips']:
             static_config['ipAddress'] = fixed_ip['ip_address']
