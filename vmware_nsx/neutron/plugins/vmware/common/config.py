@@ -256,7 +256,10 @@ nsxv_opts = [
                help=_('Username to configure for Edge appliance login')),
     cfg.StrOpt('edge_appliance_password',
                secret=True,
-               help=_('Password to configure for Edge appliance login'))
+               help=_('Password to configure for Edge appliance login')),
+    cfg.IntOpt('dhcp_lease_time',
+               default=86400,
+               help=_('DHCP default lease time.')),
 ]
 
 # Register the configuration options
