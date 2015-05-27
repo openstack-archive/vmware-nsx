@@ -1229,11 +1229,15 @@ def create_dhcp_bindings(context, nsxv_manager, network_id, bindings):
             nsxv_manager.vcns.create_dhcp_binding(edge_id, binding)
         bindings_get = get_dhcp_binding_mappings(nsxv_manager, edge_id)
         mac_address_list = [binding['macAddress'] for binding in bindings]
-        for mac_address, binding_id in bindings_get.items():
-            if mac_address in mac_address_list:
+        for mac_address in mac_address_list:
+            binding_id = bindings_get.get(mac_address)
+            if binding_id:
                 nsxv_db.create_edge_dhcp_static_binding(
                     context.session, edge_id,
                     mac_address, binding_id)
+            else:
+                LOG.warning(_LW("Unable to configure binding for: %s"),
+                            mac_address)
 
 
 def get_dhcp_binding_mappings(nsxv_manager, edge_id):
