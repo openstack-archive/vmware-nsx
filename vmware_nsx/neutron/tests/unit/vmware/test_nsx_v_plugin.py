@@ -135,6 +135,16 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
         self.assertEqual(expected,
                          p._get_vlan_network_name(net))
 
+    def test_create_port_anticipating_allocation(self):
+        with self.network(shared=True) as network:
+            with self.subnet(network=network, cidr='10.0.0.0/24') as subnet:
+                fixed_ips = [{'subnet_id': subnet['subnet']['id']},
+                             {'subnet_id': subnet['subnet']['id'],
+                              'ip_address': '10.0.0.3'}]
+                self._create_port(self.fmt, network['network']['id'],
+                                  webob.exc.HTTPCreated.code,
+                                  fixed_ips=fixed_ips)
+
 
 class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
 

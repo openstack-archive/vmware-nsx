@@ -30,3 +30,6 @@ class TestAllowedAddressPairs(test_nsx_plugin.NsxPluginV2TestCase,
             port = self.deserialize(self.fmt, res)
             self.assertEqual(port['port'][addr_pair.ADDRESS_PAIRS], [])
             self._delete('ports', port['port']['id'])
+
+    def test_create_port_security_false_allowed_address_pairs(self):
+        self.skipTest('TBD')
