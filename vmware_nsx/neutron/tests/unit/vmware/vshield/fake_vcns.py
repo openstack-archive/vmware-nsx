@@ -1018,7 +1018,7 @@ class FakeVcns(object):
                                    vnic_id, mac_addr, addresses):
         pass
 
-    def publish_assigned_addresses(self, policy_id):
+    def publish_assigned_addresses(self, policy_id, vnic_id):
         pass
 
     def inactivate_vnic_assigned_addresses(self, policy_id, vnic_id):

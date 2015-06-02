@@ -616,10 +616,10 @@ class Vcns(object):
             policy_id, vnic_id, mac_addr, addresses)
 
     @retry_upon_exception(exceptions.VcnsApiException)
-    def publish_assigned_addresses(self, policy_id):
+    def publish_assigned_addresses(self, policy_id, vnic_id):
         uri = '%s/%s' % (SPOOFGUARD_PREFIX, policy_id)
-        return self.do_request(HTTP_POST, '%s?action=publish' % uri,
-                               decode=False)
+        publish_vnic_uri = '%s?action=publish&vnicId=%s' % (uri, vnic_id)
+        return self.do_request(HTTP_POST, publish_vnic_uri, decode=False)
 
     def inactivate_vnic_assigned_addresses(self, policy_id, vnic_id):
         try:
@@ -628,7 +628,7 @@ class Vcns(object):
             LOG.debug("Request failed: inactivate vnic %s assigned addresses",
                       vnic_id)
         else:
-            return self.publish_assigned_addresses(policy_id)
+            return self.publish_assigned_addresses(policy_id, vnic_id)
 
     def _build_uri_path(self, edge_id,
                         service,
