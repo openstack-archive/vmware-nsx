@@ -18,7 +18,6 @@ import random
 from sqlalchemy import exc as db_base_exc
 import time
 
-from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -31,6 +30,7 @@ from neutron import context as q_context
 from neutron.extensions import l3
 from neutron.plugins.common import constants as plugin_const
 
+from vmware_nsx.neutron.plugins.vmware.common import locking
 from vmware_nsx.neutron.plugins.vmware.common import nsxv_constants
 from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
@@ -446,9 +446,8 @@ class EdgeManager(object):
             task.wait(task_const.TaskState.RESULT)
             return
 
-        with lockutils.lock('nsx-edge-request',
-                            lock_file_prefix='get-',
-                            external=True):
+        with locking.LockManager.get_lock(
+                'nsx-edge-request', lock_file_prefix='get-', external=True):
             self._clean_all_error_edge_bindings(context)
             available_router_binding = self._get_available_router_binding(
                 context, appliance_size=appliance_size, edge_type=edge_type)
@@ -534,9 +533,8 @@ class EdgeManager(object):
                 router_id, binding['edge_id'], jobdata=jobdata, dist=dist)
             return
 
-        with lockutils.lock('nsx-edge-request',
-                            lock_file_prefix='get-',
-                            external=True):
+        with locking.LockManager.get_lock(
+                'nsx-edge-request', lock_file_prefix='get-', external=True):
             self._clean_all_error_edge_bindings(context)
             backup_router_bindings = self._get_backup_edge_bindings(
                 context, appliance_size=binding['appliance_size'],
@@ -726,9 +724,8 @@ class EdgeManager(object):
 
     def allocate_new_dhcp_edge(self, context, network_id, resource_id):
         self._allocate_dhcp_edge_appliance(context, resource_id)
-        with lockutils.lock('nsx-edge-pool',
-                            lock_file_prefix='edge-bind-',
-                            external=True):
+        with locking.LockManager.get_lock(
+                'nsx-edge-pool', lock_file_prefix='edge-bind-', external=True):
             new_edge = nsxv_db.get_nsxv_router_binding(context.session,
                                                        resource_id)
             nsxv_db.allocate_edge_vnic_with_tunnel_index(
@@ -750,17 +747,17 @@ class EdgeManager(object):
         allocate_new_edge = False
         # case 1: update a subnet to an existing dhcp edge
         if dhcp_edge_binding:
-            with lockutils.lock('nsx-edge-pool',
-                                lock_file_prefix='edge-bind-',
-                                external=True):
+            with locking.LockManager.get_lock(
+                    'nsx-edge-pool', lock_file_prefix='edge-bind-',
+                    external=True):
                 edge_id = dhcp_edge_binding['edge_id']
                 (conflict_edge_ids,
                  available_edge_ids) = self._get_used_edges(context, subnet)
                 LOG.debug('The available edges %s, the conflict edges %s',
                           available_edge_ids, conflict_edge_ids)
-                with lockutils.lock(str(edge_id),
-                                    lock_file_prefix='nsxv-dhcp-config-',
-                                    external=True):
+                with locking.LockManager.get_lock(
+                        str(edge_id), lock_file_prefix='nsxv-dhcp-config-',
+                        external=True):
                     # Delete the existing vnic interface if there is
                     # and overlapping subnet
                     if edge_id in conflict_edge_ids:
@@ -781,9 +778,9 @@ class EdgeManager(object):
                             allocate_new_edge = True
         # case 2: attach the subnet to a new edge and update vnic
         else:
-            with lockutils.lock('nsx-edge-pool',
-                                lock_file_prefix='edge-bind-',
-                                external=True):
+            with locking.LockManager.get_lock(
+                    'nsx-edge-pool', lock_file_prefix='edge-bind-',
+                    external=True):
                 (conflict_edge_ids,
                  available_edge_ids) = self._get_used_edges(context, subnet)
                 LOG.debug('The available edges %s, the conflict edges %s',
@@ -821,9 +818,9 @@ class EdgeManager(object):
             LOG.debug('Update the dhcp service for %s on vnic %d tunnel %d',
                       edge_id, vnic_index, tunnel_index)
             try:
-                with lockutils.lock(str(edge_id),
-                                    lock_file_prefix='nsxv-dhcp-config-',
-                                    external=True):
+                with locking.LockManager.get_lock(
+                        str(edge_id), lock_file_prefix='nsxv-dhcp-config-',
+                        external=True):
                     self._update_dhcp_internal_interface(
                         context, edge_id, vnic_index, tunnel_index, network_id,
                         address_groups)
@@ -863,9 +860,9 @@ class EdgeManager(object):
                                                   edge_id,
                                                   network_id)
                 try:
-                    with lockutils.lock(str(edge_id),
-                                        lock_file_prefix='nsxv-dhcp-config-',
-                                        external=True):
+                    with locking.LockManager.get_lock(
+                            str(edge_id), lock_file_prefix='nsxv-dhcp-config-',
+                            external=True):
                         self._delete_dhcp_internal_interface(context, edge_id,
                                                              vnic_index,
                                                              tunnel_index,
@@ -889,13 +886,13 @@ class EdgeManager(object):
                                                             resource_id)
 
         if dhcp_edge_binding:
-            with lockutils.lock('nsx-edge-pool',
-                                lock_file_prefix='edge-bind-',
-                                external=True):
+            with locking.LockManager.get_lock(
+                    'nsx-edge-pool', lock_file_prefix='edge-bind-',
+                    external=True):
                 edge_id = dhcp_edge_binding['edge_id']
-                with lockutils.lock(str(edge_id),
-                                    lock_file_prefix='nsxv-dhcp-config-',
-                                    external=True):
+                with locking.LockManager.get_lock(
+                        str(edge_id), lock_file_prefix='nsxv-dhcp-config-',
+                        external=True):
                     self.remove_network_from_dhcp_edge(context, network_id,
                                                        edge_id)
 
@@ -1034,7 +1031,6 @@ class EdgeManager(object):
         else:
             return []
 
-    @lockutils.synchronized("edge-router", "bind-", external=True)
     def bind_router_on_available_edge(
         self, context, target_router_id,
         optional_router_ids, conflict_router_ids,
@@ -1042,88 +1038,97 @@ class EdgeManager(object):
         """Bind logical router on an available edge.
         Return True if the logical router is bound to a new edge.
         """
-        optional_edge_ids = []
-        conflict_edge_ids = []
-        for router_id in optional_router_ids:
-            binding = nsxv_db.get_nsxv_router_binding(
-                context.session, router_id)
-            if (binding and binding.status == plugin_const.ACTIVE and
-                binding.edge_id not in optional_edge_ids):
-                optional_edge_ids.append(binding.edge_id)
+        with locking.LockManager.get_lock(
+                "edge-router", lock_file_prefix="bind-", external=True):
+            optional_edge_ids = []
+            conflict_edge_ids = []
+            for router_id in optional_router_ids:
+                binding = nsxv_db.get_nsxv_router_binding(
+                    context.session, router_id)
+                if (binding and binding.status == plugin_const.ACTIVE and
+                    binding.edge_id not in optional_edge_ids):
+                    optional_edge_ids.append(binding.edge_id)
 
-        for router_id in conflict_router_ids:
-            binding = nsxv_db.get_nsxv_router_binding(
-                context.session, router_id)
-            if binding and binding.edge_id not in conflict_edge_ids:
-                conflict_edge_ids.append(binding.edge_id)
-        optional_edge_ids = list(
-            set(optional_edge_ids) - set(conflict_edge_ids))
+            for router_id in conflict_router_ids:
+                binding = nsxv_db.get_nsxv_router_binding(
+                    context.session, router_id)
+                if binding and binding.edge_id not in conflict_edge_ids:
+                    conflict_edge_ids.append(binding.edge_id)
+            optional_edge_ids = list(
+                set(optional_edge_ids) - set(conflict_edge_ids))
 
-        max_net_number = 0
-        available_edge_id = None
-        for edge_id in optional_edge_ids:
-            edge_vnic_bindings = nsxv_db.get_edge_vnic_bindings_by_edge(
-                context.session, edge_id)
-            # one vnic is used to provide external access.
-            net_number = vcns_const.MAX_VNIC_NUM - len(edge_vnic_bindings) - 1
-            if net_number > max_net_number and net_number >= network_number:
-                net_ids = [vnic_binding.network_id
-                           for vnic_binding in edge_vnic_bindings]
-                if not (set(conflict_network_ids) & set(net_ids)):
-                    max_net_number = net_number
-                    available_edge_id = edge_id
-                else:
-                    # TODO(yangyu): Remove conflict_network_ids
-                    LOG.exception(_LE("Failed to query conflict_router_ids"))
-        if available_edge_id:
-            edge_binding = nsxv_db.get_nsxv_router_bindings_by_edge(
-                context.session, available_edge_id)[0]
-            nsxv_db.add_nsxv_router_binding(
-                context.session, target_router_id,
-                edge_binding.edge_id, None,
-                edge_binding.status,
-                edge_binding.appliance_size,
-                edge_binding.edge_type)
-        else:
-            router_name = ('shared' + '-' + _uuid())[:vcns_const.EDGE_NAME_LEN]
-            self._allocate_edge_appliance(
-                context, target_router_id, router_name,
-                appliance_size=vcns_const.SERVICE_SIZE_MAPPING['router'])
-            return True
+            max_net_number = 0
+            available_edge_id = None
+            for edge_id in optional_edge_ids:
+                edge_vnic_bindings = nsxv_db.get_edge_vnic_bindings_by_edge(
+                    context.session, edge_id)
+                # one vnic is used to provide external access.
+                net_number = (
+                    vcns_const.MAX_VNIC_NUM - len(edge_vnic_bindings) - 1)
+                if (net_number > max_net_number
+                    and net_number >= network_number):
+                    net_ids = [vnic_binding.network_id
+                               for vnic_binding in edge_vnic_bindings]
+                    if not (set(conflict_network_ids) & set(net_ids)):
+                        max_net_number = net_number
+                        available_edge_id = edge_id
+                    else:
+                        # TODO(yangyu): Remove conflict_network_ids
+                        LOG.exception(
+                            _LE("Failed to query conflict_router_ids"))
+            if available_edge_id:
+                edge_binding = nsxv_db.get_nsxv_router_bindings_by_edge(
+                    context.session, available_edge_id)[0]
+                nsxv_db.add_nsxv_router_binding(
+                    context.session, target_router_id,
+                    edge_binding.edge_id, None,
+                    edge_binding.status,
+                    edge_binding.appliance_size,
+                    edge_binding.edge_type)
+            else:
+                router_name = ('shared' + '-' + _uuid())[
+                              :vcns_const.EDGE_NAME_LEN]
+                self._allocate_edge_appliance(
+                    context, target_router_id, router_name,
+                    appliance_size=vcns_const.SERVICE_SIZE_MAPPING['router'])
+                return True
 
-    @lockutils.synchronized("edge-router", "bind-", external=True)
     def unbind_router_on_edge(self, context, router_id):
         """Unbind a logical router from edge.
         Return True if no logical router bound to the edge.
         """
-        # free edge if no other routers bound to the edge
-        router_ids = self.get_routers_on_same_edge(context, router_id)
-        if router_ids == [router_id]:
-            self._free_edge_appliance(context, router_id)
-            return True
-        else:
-            nsxv_db.delete_nsxv_router_binding(context.session, router_id)
+        with locking.LockManager.get_lock(
+                "edge-router", lock_file_prefix="bind-", external=True):
+            # free edge if no other routers bound to the edge
+            router_ids = self.get_routers_on_same_edge(context, router_id)
+            if router_ids == [router_id]:
+                self._free_edge_appliance(context, router_id)
+                return True
+            else:
+                nsxv_db.delete_nsxv_router_binding(context.session, router_id)
 
-    @lockutils.synchronized("edge-router", "bind-", external=True)
     def is_router_conflict_on_edge(self, context, router_id,
                                    conflict_router_ids,
                                    conflict_network_ids,
                                    intf_num=0):
-        router_ids = self.get_routers_on_same_edge(context, router_id)
-        if set(router_ids) & set(conflict_router_ids):
-            return True
-        router_binding = nsxv_db.get_nsxv_router_binding(context.session,
-                                                         router_id)
-        edge_vnic_bindings = nsxv_db.get_edge_vnic_bindings_by_edge(
-            context.session, router_binding.edge_id)
-        if vcns_const.MAX_VNIC_NUM - len(edge_vnic_bindings) - 1 < intf_num:
-            LOG.debug("There isn't available edge vnic for the router: %s",
-                      router_id)
-            return True
-        for binding in edge_vnic_bindings:
-            if binding.network_id in conflict_network_ids:
+        with locking.LockManager.get_lock(
+                "edge-router", lock_file_prefix="bind-", external=True):
+            router_ids = self.get_routers_on_same_edge(context, router_id)
+            if set(router_ids) & set(conflict_router_ids):
                 return True
-        return False
+            router_binding = nsxv_db.get_nsxv_router_binding(context.session,
+                                                             router_id)
+            edge_vnic_bindings = nsxv_db.get_edge_vnic_bindings_by_edge(
+                context.session, router_binding.edge_id)
+            if (vcns_const.MAX_VNIC_NUM - len(edge_vnic_bindings
+                                              ) - 1 < intf_num):
+                LOG.debug("There isn't available edge vnic for the router: %s",
+                          router_id)
+                return True
+            for binding in edge_vnic_bindings:
+                if binding.network_id in conflict_network_ids:
+                    return True
+            return False
 
 
 def create_lrouter(nsxv_manager, context, lrouter, lswitch=None, dist=False):

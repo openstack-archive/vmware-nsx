@@ -17,7 +17,6 @@ import six
 import uuid
 
 import netaddr
-from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -56,6 +55,7 @@ from neutron.plugins.vmware.extensions import (
 from vmware_nsx.neutron.plugins import vmware
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
+from vmware_nsx.neutron.plugins.vmware.common import locking
 from vmware_nsx.neutron.plugins.vmware.common import utils as c_utils
 from vmware_nsx.neutron.plugins.vmware.dbexts import (
     routertype as rt_rtr)
@@ -453,8 +453,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         return self._ensure_default_security_group(context, tenant_id)
 
     def _add_member_to_security_group(self, sg_id, vnic_id):
-        with lockutils.lock(str(sg_id),
-                            lock_file_prefix='neutron-security-ops'):
+        with locking.LockManager.get_lock(
+                str(sg_id), lock_file_prefix='neutron-security-ops'):
             try:
                 h, c = self.nsx_v.vcns.add_member_to_security_group(
                     sg_id, vnic_id)
@@ -480,8 +480,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 self._add_member_to_security_group(nsx_sg_id, vnic_id)
 
     def _remove_member_from_security_group(self, sg_id, vnic_id):
-        with lockutils.lock(str(sg_id),
-                            lock_file_prefix='neutron-security-ops'):
+        with locking.LockManager.get_lock(
+                str(sg_id), lock_file_prefix='neutron-security-ops'):
             try:
                 h, c = self.nsx_v.vcns.remove_member_from_security_group(
                     sg_id, vnic_id)
@@ -1026,9 +1026,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 err_msg = _("No support for DHCP for IPv6")
                 raise n_exc.InvalidInput(error_message=err_msg)
 
-        with lockutils.lock('nsx-edge-pool',
-                            lock_file_prefix='edge-bind-',
-                            external=True):
+        with locking.LockManager.get_lock(
+                'nsx-edge-pool', lock_file_prefix='edge-bind-', external=True):
             s = super(NsxVPluginV2, self).create_subnet(context, subnet)
         if s['enable_dhcp']:
             try:
@@ -1052,19 +1051,21 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             self.edge_manager.update_dhcp_edge_bindings(context, network_id)
         return subnet
 
-    @lockutils.synchronized('vmware', 'neutron-dhcp-')
     def _get_conflict_network_ids_by_overlapping(self, context, subnets):
-        conflict_network_ids = []
-        subnet_ids = [subnet['id'] for subnet in subnets]
-        conflict_set = netaddr.IPSet([subnet['cidr'] for subnet in subnets])
-        subnets_qry = context.session.query(models_v2.Subnet).all()
-        subnets_all = [subnet for subnet in subnets_qry
-                       if subnet['id'] not in subnet_ids]
-        for subnet in subnets_all:
-            cidr_set = netaddr.IPSet([subnet['cidr']])
-            if cidr_set & conflict_set:
-                conflict_network_ids.append(subnet['network_id'])
-        return conflict_network_ids
+        with locking.LockManager.get_lock(
+                'vmware', lock_file_prefix='neutron-dhcp-'):
+            conflict_network_ids = []
+            subnet_ids = [subnet['id'] for subnet in subnets]
+            conflict_set = netaddr.IPSet(
+                [subnet['cidr'] for subnet in subnets])
+            subnets_qry = context.session.query(models_v2.Subnet).all()
+            subnets_all = [subnet for subnet in subnets_qry
+                           if subnet['id'] not in subnet_ids]
+            for subnet in subnets_all:
+                cidr_set = netaddr.IPSet([subnet['cidr']])
+                if cidr_set & conflict_set:
+                    conflict_network_ids.append(subnet['network_id'])
+            return conflict_network_ids
 
     def _get_conflicting_networks_for_subnet(self, context, subnet):
         network_id = subnet['network_id']
