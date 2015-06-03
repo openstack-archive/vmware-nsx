@@ -1289,6 +1289,10 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
 class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                   test_l3_plugin.L3NatDBIntTestCase,
                                   NsxVPluginV2TestCase):
+
+    def test_router_update_gateway_upon_subnet_create_max_ips_ipv6(self):
+        self.skipTest('TBD')
+
     def _create_router(self, fmt, tenant_id, name=None,
                        admin_state_up=None, set_context=False,
                        arg_list=None, **kwargs):
@@ -1736,6 +1740,9 @@ class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
 class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                       test_l3_plugin.L3NatDBIntTestCase,
                       NsxVPluginV2TestCase):
+
+    def test_router_update_gateway_upon_subnet_create_max_ips_ipv6(self):
+        self.skipTest('TBD')
 
     def test_update_port_device_id_to_different_tenants_router(self):
         self.skipTest('TBD')
