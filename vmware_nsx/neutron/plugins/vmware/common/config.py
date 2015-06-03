@@ -283,7 +283,7 @@ def validate_nsxv_config_options():
     if (cfg.CONF.nsxv.manager_uri is None or
         cfg.CONF.nsxv.user is None or
         cfg.CONF.nsxv.password is None):
-        error = _("manager_uri, user and passwork be configured!")
+        error = _("manager_uri, user and password must be configured!")
         raise nsx_exc.NsxPluginException(err_msg=error)
     if cfg.CONF.nsxv.dvs_id is None:
         LOG.warning(_LW("dvs_id must be configured to support VLAN's!"))
