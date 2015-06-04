@@ -26,6 +26,7 @@ from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
 from vmware_nsx.neutron.plugins.vmware.plugins import nsx_v
 from vmware_nsx.neutron.plugins.vmware.plugins.nsx_v_drivers import (
     abstract_router_driver as router_driver)
+from vmware_nsx.neutron.plugins.vmware.plugins import nsx_v_md_proxy
 from vmware_nsx.neutron.plugins.vmware.vshield.common import (
     constants as vcns_const)
 from vmware_nsx.neutron.plugins.vmware.vshield import edge_utils
@@ -173,7 +174,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         # If metadata service is enabled, block access to inter-edge network
         if self.plugin.metadata_proxy_handler:
             fake_fw_rules += (
-                self.plugin.metadata_proxy_handler.get_router_fw_rules())
+                nsx_v_md_proxy.get_router_fw_rules())
 
         # TODO(berlin): Add fw rules if fw service is supported
         fake_fw = {'firewall_rule_list': fake_fw_rules}
