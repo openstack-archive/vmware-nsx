@@ -304,11 +304,11 @@ class VSMClient(object):
                 print "ERROR: reponse status code %s" % response.status_code
 
     def cleanup_all(self):
-        self.cleanup_logical_switch()
         self.cleanup_firewall_section()
         self.cleanup_security_group()
         self.cleanup_spoofguard_policies()
         self.cleanup_edge()
+        self.cleanup_logical_switch()
 
 
 def ceil(a, b):
