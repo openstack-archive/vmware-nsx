@@ -18,6 +18,7 @@ import random
 from oslo_log import log
 from oslo_serialization import jsonutils
 from oslo_utils import timeutils
+import six
 
 from neutron.common import constants
 from neutron.common import exceptions
@@ -117,7 +118,7 @@ class NsxCache(object):
     def _delete_resources(self, resources):
         # Mark for removal all the elements which have not been visited.
         # And clear the 'hit' attribute.
-        for to_delete in [k for (k, v) in resources.iteritems()
+        for to_delete in [k for (k, v) in six.iteritems(resources)
                           if not v.pop('hit', False)]:
             resources[to_delete]['changed'] = True
             resources[to_delete]['data_bk'] = (
@@ -125,7 +126,7 @@ class NsxCache(object):
 
     def _get_resource_ids(self, resources, changed_only):
         if changed_only:
-            return [k for (k, v) in resources.iteritems()
+            return [k for (k, v) in six.iteritems(resources)
                     if v.get('changed')]
         return resources.keys()
 

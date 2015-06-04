@@ -18,6 +18,7 @@ from neutron.common import exceptions as n_exc
 from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import providernet as pnet
 from oslo_log import log
+import six
 
 from vmware_nsx.neutron.plugins.vmware.api_client import client
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
@@ -241,7 +242,7 @@ def get_nsx_device_statuses(cluster, tenant_id):
         return dict((nsx_device_id,
                      networkgw_db.STATUS_ACTIVE if connected
                      else networkgw_db.STATUS_DOWN) for
-                    (nsx_device_id, connected) in status_dict.iteritems())
+                    (nsx_device_id, connected) in six.iteritems(status_dict))
     except api_exc.NsxApiException:
         # Do not make a NSX API exception fatal
         if tenant_id:

@@ -15,6 +15,7 @@
 
 from oslo_config import cfg
 from oslo_log import log as logging
+import six
 
 from vmware_nsx.neutron.plugins.vmware.common import exceptions
 from vmware_nsx.openstack.common._i18n import _LI
@@ -46,7 +47,7 @@ class NSXCluster(object):
         self._deprecated_attributes = {}
         self._sanity_check(kwargs)
 
-        for opt, val in self._deprecated_attributes.iteritems():
+        for opt, val in six.iteritems(self._deprecated_attributes):
             LOG.deprecated(_("Attribute '%s' has been deprecated or moved "
                              "to a new section. See new configuration file "
                              "for details."), opt)

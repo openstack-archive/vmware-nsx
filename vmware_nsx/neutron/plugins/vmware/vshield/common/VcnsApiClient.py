@@ -16,6 +16,7 @@ import base64
 
 import eventlet
 from oslo_serialization import jsonutils
+import six
 
 from vmware_nsx.neutron.plugins.vmware.vshield.common import exceptions
 
@@ -34,7 +35,7 @@ def _xmldump(obj):
     config = ""
     attr = ""
     if isinstance(obj, dict):
-        for key, value in obj.iteritems():
+        for key, value in six.iteritems(obj):
             if (key.startswith('_')):
                 attr += ' %s="%s"' % (key[1:], value)
             else:

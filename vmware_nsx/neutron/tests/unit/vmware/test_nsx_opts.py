@@ -16,11 +16,12 @@
 import fixtures
 
 import mock
-from oslo_config import cfg
-from oslo_utils import uuidutils
-
 from neutron import manager
 from neutron.tests import base
+from oslo_config import cfg
+from oslo_utils import uuidutils
+import six
+
 from vmware_nsx.neutron.plugins.vmware.api_client import client
 from vmware_nsx.neutron.plugins.vmware.api_client import version
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
@@ -53,14 +54,14 @@ class NSXClusterTest(base.BaseTestCase):
 
     def test_create_cluster(self):
         cluster = nsx_cluster.NSXCluster(**self.cluster_opts)
-        for (k, v) in self.cluster_opts.iteritems():
+        for (k, v) in six.iteritems(self.cluster_opts):
             self.assertEqual(v, getattr(cluster, k))
 
     def test_create_cluster_default_port(self):
         opts = self.cluster_opts.copy()
         opts['nsx_controllers'] = ['1.1.1.1']
         cluster = nsx_cluster.NSXCluster(**opts)
-        for (k, v) in self.cluster_opts.iteritems():
+        for (k, v) in six.iteritems(self.cluster_opts):
             self.assertEqual(v, getattr(cluster, k))
 
     def test_create_cluster_missing_required_attribute_raises(self):

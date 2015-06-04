@@ -18,7 +18,7 @@ import hashlib
 from neutron.api.v2 import attributes
 from neutron import version
 from oslo_log import log
-
+import six
 
 LOG = log.getLogger(__name__)
 MAX_DISPLAY_NAME_LEN = 40
@@ -47,7 +47,7 @@ class NsxVNetworkTypes:
 
 def get_tags(**kwargs):
     tags = ([dict(tag=value, scope=key)
-            for key, value in kwargs.iteritems()])
+            for key, value in six.iteritems(kwargs)])
     tags.append({"tag": NEUTRON_VERSION, "scope": "quantum"})
     return sorted(tags)
 

@@ -16,6 +16,7 @@ import copy
 
 from oslo_serialization import jsonutils
 from oslo_utils import uuidutils
+import six
 import xml.etree.ElementTree as ET
 
 from vmware_nsx.neutron.plugins.vmware.vshield.common import exceptions
@@ -71,7 +72,7 @@ class FakeVcns(object):
         self._fake_nsx_api = fake_nsx_api
 
     def _validate_edge_name(self, name):
-        for edge_id, edge in self._edges.iteritems():
+        for edge_id, edge in six.iteritems(self._edges):
             if edge['name'] == name:
                 return False
         return True

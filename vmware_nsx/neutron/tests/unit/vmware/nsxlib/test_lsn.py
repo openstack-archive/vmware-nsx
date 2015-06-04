@@ -14,10 +14,10 @@
 # limitations under the License.
 
 import mock
-from oslo_serialization import jsonutils
-
 from neutron.common import exceptions
 from neutron.tests import base
+from oslo_serialization import jsonutils
+import six
 
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
@@ -252,7 +252,7 @@ class LSNTestCase(base.BaseTestCase):
             self.cluster, lsn_id, lsn_port_id, is_enabled, opts)
         opt_array = [
             {"name": key, "value": val}
-            for key, val in opts.iteritems()
+            for key, val in six.iteritems(opts)
         ]
         self.mock_request.assert_has_calls([
             mock.call("PUT", "/ws.v1/lservices-node/%s/dhcp" % lsn_id,

@@ -21,6 +21,7 @@ from neutron.plugins.vmware.dbexts import nsx_models
 from neutron.plugins.vmware.extensions import networkgw
 from oslo_log import log as logging
 from oslo_utils import uuidutils
+import six
 
 LOG = logging.getLogger(__name__)
 DEVICE_OWNER_NET_GW_INTF = 'network:gateway-interface'
@@ -155,7 +156,7 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
     def _retrieve_gateway_connections(self, context, gateway_id,
                                       mapping_info={}, only_one=False):
         filters = {'network_gateway_id': [gateway_id]}
-        for k, v in mapping_info.iteritems():
+        for k, v in six.iteritems(mapping_info):
             if v and k != NETWORK_ID:
                 filters[k] = [v]
         query = self._get_collection_query(context,

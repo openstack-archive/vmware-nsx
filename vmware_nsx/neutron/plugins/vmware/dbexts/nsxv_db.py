@@ -14,14 +14,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import neutron.db.api as db
+from neutron.plugins.vmware.dbexts import nsxv_models
 from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
+import six
 from sqlalchemy.orm import exc
 from sqlalchemy.sql import expression as expr
-
-import neutron.db.api as db
-from neutron.plugins.vmware.dbexts import nsxv_models
 
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import nsxv_constants
@@ -33,12 +33,12 @@ LOG = logging.getLogger(__name__)
 
 def _apply_filters_to_query(query, model, filters, like_filters=None):
     if filters:
-        for key, value in filters.iteritems():
+        for key, value in six.iteritems(filters):
             column = getattr(model, key, None)
             if column:
                 query = query.filter(column.in_(value))
     if like_filters:
-        for key, search_term in like_filters.iteritems():
+        for key, search_term in six.iteritems(like_filters):
             column = getattr(model, key, None)
             if column:
                 query = query.filter(column.like(search_term))
@@ -87,7 +87,7 @@ def update_nsxv_router_binding(session, router_id, **kwargs):
     with session.begin(subtransactions=True):
         binding = (session.query(nsxv_models.NsxvRouterBinding).
                    filter_by(router_id=router_id).one())
-        for key, value in kwargs.iteritems():
+        for key, value in six.iteritems(kwargs):
             binding[key] = value
     return binding
 

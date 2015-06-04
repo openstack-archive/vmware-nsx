@@ -13,11 +13,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo_log import log
-from oslo_serialization import jsonutils
-
 from neutron.common import exceptions as exception
 from neutron import version
+from oslo_log import log
+from oslo_serialization import jsonutils
+import six
+
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 
@@ -82,7 +83,7 @@ def format_exception(etype, e, exception_locals):
     """
     msg = [_("Error. %(type)s exception: %(exc)s.") %
            {'type': etype, 'exc': e}]
-    l = dict((k, v) for k, v in exception_locals.iteritems()
+    l = dict((k, v) for k, v in six.iteritems(exception_locals)
              if k != 'request')
     msg.append(_("locals=[%s]") % str(l))
     return ' '.join(msg)

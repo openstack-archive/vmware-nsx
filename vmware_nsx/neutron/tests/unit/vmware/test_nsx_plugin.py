@@ -17,13 +17,6 @@ import uuid
 
 import mock
 import netaddr
-from oslo_config import cfg
-from oslo_db import exception as db_exc
-from oslo_log import log
-from oslo_utils import uuidutils
-from sqlalchemy import exc as sql_exc
-import webob.exc
-
 from neutron.api.v2 import attributes
 from neutron.common import constants
 from neutron.common import exceptions as ntn_exc
@@ -43,6 +36,13 @@ import neutron.tests.unit.extensions.test_l3 as test_l3_plugin
 import neutron.tests.unit.extensions.test_l3_ext_gw_mode as test_ext_gw_mode
 import neutron.tests.unit.extensions.test_securitygroup as ext_sg
 from neutron.tests.unit import testlib_api
+from oslo_config import cfg
+from oslo_db import exception as db_exc
+from oslo_log import log
+from oslo_utils import uuidutils
+import six
+from sqlalchemy import exc as sql_exc
+import webob.exc
 
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.api_client import version as ver_module
@@ -452,7 +452,7 @@ class TestL3SecGrpExtensionManager(TestL3ExtensionManager):
 def backup_l3_attribute_map():
     """Return a backup of the original l3 attribute map."""
     return dict((res, attrs.copy()) for
-                (res, attrs) in l3.RESOURCE_ATTRIBUTE_MAP.iteritems())
+                (res, attrs) in six.iteritems(l3.RESOURCE_ATTRIBUTE_MAP))
 
 
 def restore_l3_attribute_map(map_to_restore):

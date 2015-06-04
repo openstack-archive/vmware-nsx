@@ -20,6 +20,7 @@ from eventlet import event
 from eventlet import greenthread
 from neutron.common import exceptions
 from oslo_log import log as logging
+import six
 
 from vmware_nsx.neutron.plugins.vmware.vshield.tasks import constants
 from vmware_nsx.openstack.common._i18n import _LE, _LI
@@ -348,7 +349,7 @@ class TaskManager():
     def show_pending_tasks(self):
         for task in self._tasks_queue:
             LOG.info(str(task))
-        for resource, tasks in self._tasks.iteritems():
+        for resource, tasks in six.iteritems(self._tasks):
             for task in tasks:
                 LOG.info(str(task))
         if self._main_thread_exec_task:
@@ -356,7 +357,7 @@ class TaskManager():
 
     def count(self):
         count = 0
-        for resource_id, tasks in self._tasks.iteritems():
+        for resource_id, tasks in six.iteritems(self._tasks):
             count += len(tasks)
         return count
 

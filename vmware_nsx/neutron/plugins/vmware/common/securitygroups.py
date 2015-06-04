@@ -14,6 +14,7 @@
 #    under the License.
 
 from oslo_log import log
+import six
 
 from vmware_nsx.neutron.plugins.vmware.common import nsx_utils
 
@@ -82,7 +83,7 @@ def get_security_group_rules_nsx_format(session, cluster,
                    'port_range_min', 'port_range_max', 'protocol', 'ethertype']
         if with_id:
             _fields.append('id')
-        return dict((k, v) for k, v in rule.iteritems() if k in _fields)
+        return dict((k, v) for k, v in six.iteritems(rule) if k in _fields)
 
     ingress_rules = []
     egress_rules = []

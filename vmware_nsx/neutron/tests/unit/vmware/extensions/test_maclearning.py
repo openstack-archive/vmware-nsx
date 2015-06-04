@@ -14,13 +14,14 @@
 #    under the License.
 
 import mock
-from oslo_config import cfg
-
 from neutron.api.v2 import attributes
 from neutron.common import test_lib
 from neutron import context
 from neutron.extensions import agent
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_db_plugin
+from oslo_config import cfg
+import six
+
 from vmware_nsx.neutron.plugins.vmware.api_client import version
 from vmware_nsx.neutron.plugins.vmware.common import sync
 from vmware_nsx.neutron.tests.unit import vmware
@@ -54,7 +55,8 @@ class MacLearningDBTestCase(test_db_plugin.NeutronDbPluginV2TestCase):
         cfg.CONF.set_override('api_extensions_path', vmware.NSXEXT_PATH)
         # Save the original RESOURCE_ATTRIBUTE_MAP
         self.saved_attr_map = {}
-        for resource, attrs in attributes.RESOURCE_ATTRIBUTE_MAP.iteritems():
+        for resource, attrs in six.iteritems(
+                attributes.RESOURCE_ATTRIBUTE_MAP):
             self.saved_attr_map[resource] = attrs.copy()
         ext_mgr = MacLearningExtensionManager()
         # mock api client

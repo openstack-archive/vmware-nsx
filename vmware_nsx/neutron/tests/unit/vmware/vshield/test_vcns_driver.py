@@ -17,6 +17,8 @@ from eventlet import greenthread
 import mock
 
 from neutron.tests import base
+import six
+
 from vmware_nsx.neutron.plugins.vmware.vshield.common import (
     constants as vcns_const)
 from vmware_nsx.neutron.plugins.vmware.vshield.tasks import (
@@ -241,7 +243,7 @@ class VcnsDriverTaskManagerTestCase(base.BaseTestCase):
         # if _thread is None it means it was killed in stop()
         self.assertIsNone(manager._thread)
 
-        for res, tasks in alltasks.iteritems():
+        for res, tasks in six.iteritems(alltasks):
             for task in tasks:
                 self.assertEqual(task.status, ts_const.TaskStatus.ABORT)
 
@@ -424,7 +426,7 @@ class VcnsDriverTestCase(base.BaseTestCase):
         self._deploy_edge()
         edges = self.vcns_driver.get_edges_statuses()
         found = False
-        for edge_id, status in edges.iteritems():
+        for edge_id, status in six.iteritems(edges):
             if edge_id == self.edge_id:
                 found = True
                 break

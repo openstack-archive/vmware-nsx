@@ -13,12 +13,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron.common import exceptions as exception
 from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
 from oslo_utils import excutils
-
-from neutron.common import exceptions as exception
+import six
 
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
@@ -566,7 +566,7 @@ def delete_nat_rules_by_match(cluster, router_id, rule_type,
         if (r['type'] != rule_type):
             continue
 
-        for key, value in kwargs.iteritems():
+        for key, value in six.iteritems(kwargs):
             if not (key in r['match'] and r['match'][key] == value):
                 break
         else:

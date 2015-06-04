@@ -13,12 +13,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron.api.v2 import attributes as attr
+from neutron.common import exceptions as exception
 from oslo_log import log
 from oslo_serialization import jsonutils
 from oslo_utils import excutils
+import six
 
-from neutron.api.v2 import attributes as attr
-from neutron.common import exceptions as exception
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import utils
 from vmware_nsx.neutron.plugins.vmware import nsxlib
@@ -41,7 +42,7 @@ def create_lqueue(cluster, queue_data):
     }
     queue_obj = dict(
         (nsx_name, queue_data.get(api_name))
-        for api_name, nsx_name in params.iteritems()
+        for api_name, nsx_name in six.iteritems(params)
         if attr.is_attr_set(queue_data.get(api_name))
     )
     if 'display_name' in queue_obj:
