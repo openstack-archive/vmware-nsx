@@ -255,7 +255,7 @@ class QoSDbMixin(qos.QueuePluginBase):
                     return queues[0]['queue_id']
 
             # get the size of the queue we want to create
-            queue_to_create = self._get_qos_queue(
+            queue_to_create = self.get_qos_queue(
                 context, network_queue_id[0]['queue_id'])
 
         else:
