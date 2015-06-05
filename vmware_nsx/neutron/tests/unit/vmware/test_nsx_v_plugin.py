@@ -432,15 +432,42 @@ class TestPortsV2(NsxVPluginV2TestCase,
                 self.assertEqual(res['port']['fixed_ips'],
                                  data['port']['fixed_ips'])
 
+    def _update_port_index(self, port_id, device_id, index):
+        data = {'port': {'device_id': device_id, 'vnic_index': index}}
+        req = self.new_update_request('ports',
+                                      data, port_id)
+        res = self.deserialize('json', req.get_response(self.api))
+        return res
+
     def test_update_port_index(self):
+        q_context = context.Context('', 'tenant_1')
+        device_id = _uuid()
         with self.subnet() as subnet:
-            with self.port(subnet=subnet) as port:
+            with self.port(subnet=subnet,
+                           device_id=device_id,
+                           device_owner='compute:None') as port:
                 self.assertIsNone(port['port']['vnic_index'])
-                data = {'port': {'vnic_index': 1}}
-                req = self.new_update_request('ports',
-                                              data, port['port']['id'])
-                res = self.deserialize('json', req.get_response(self.api))
-                self.assertEqual(1, res['port']['vnic_index'])
+
+                vnic_index = 3
+                res = self._update_port_index(
+                    port['port']['id'], device_id, vnic_index)
+                self.assertEqual(vnic_index, res['port']['vnic_index'])
+
+                # Updating the vnic_index to None implies the vnic does
+                # no longer obtain the addresses associated with this port,
+                # we need to inactivate previous addresses configurations for
+                # this vnic in the context of this network spoofguard policy.
+                self.fc2.inactivate_vnic_assigned_addresses = (
+                    mock.Mock().inactivate_vnic_assigned_addresses)
+
+                policy_id = nsxv_db.get_spoofguard_policy_id(
+                    q_context.session, port['port']['network_id'])
+
+                res = self._update_port_index(port['port']['id'], '', None)
+
+                vnic_id = '%s.%03d' % (device_id, vnic_index)
+                (self.fc2.inactivate_vnic_assigned_addresses.
+                 assert_called_once_with(policy_id, vnic_id))
 
     def test_update_port_with_compute_device_owner(self):
         """
