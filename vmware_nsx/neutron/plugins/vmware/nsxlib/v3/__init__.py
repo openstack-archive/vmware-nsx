@@ -13,9 +13,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from oslo_config import cfg
 from oslo_log import log
 
+from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import nsx_constants
+from vmware_nsx.neutron.plugins.vmware.common import utils
 from vmware_nsx.neutron.plugins.vmware.nsxlib.v3 import client
 
 LOG = log.getLogger(__name__)
@@ -68,6 +71,29 @@ def create_logical_port(lswitch_id, vif_uuid, tags,
 def delete_logical_port(logical_port_id):
     resource = 'logical-ports/%s?detach=true' % logical_port_id
     client.delete_resource(resource)
+
+
+def get_logical_port(logical_port_id):
+    resource = "logical-ports/%s" % logical_port_id
+    return client.get_resource(resource)
+
+
+@utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision,
+                                  max_attempts=cfg.CONF.nsx_v3.retries)
+def update_logical_port(lport_id, name=None, admin_state=None):
+    resource = "logical-ports/%s" % lport_id
+    lport = get_logical_port(lport_id)
+    if name is not None:
+        lport['display_name'] = name
+    if admin_state is not None:
+        if admin_state:
+            lport['admin_state'] = nsx_constants.ADMIN_STATE_UP
+        else:
+            lport['admin_state'] = nsx_constants.ADMIN_STATE_DOWN
+    # If revision_id of the payload that we send is older than what NSX has
+    # then we will get a 412: Precondition Failed. In that case we need to
+    # re-fetch, patch the response and send it again with the new revision_id
+    return client.update_resource(resource, lport)
 
 
 def create_logical_router(display_name, edge_cluster_uuid, tags, tier_0=False):

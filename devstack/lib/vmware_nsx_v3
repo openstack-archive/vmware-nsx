@@ -112,6 +112,9 @@ function neutron_plugin_configure_service {
     if [[ "$NSX_PASSWORD" != "" ]]; then
         iniset /$Q_PLUGIN_CONF_FILE nsx_v3 nsx_password $NSX_PASSWORD
     fi
+    if [[ "$NSX_RETRIES" != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE nsx_v3 retries $NSX_RETRIES
+    fi
 }
 
 function neutron_plugin_setup_interface_driver {

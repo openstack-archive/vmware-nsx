@@ -171,7 +171,10 @@ nsx_v3_opts = [
     cfg.StrOpt('default_edge_cluster_uuid',
                help=_("Default edge cluster identifier")),
     cfg.StrOpt('nsx_l2gw_driver',
-               help=_("Class path for the L2 gateway backend driver"))]
+               help=_("Class path for the L2 gateway backend driver")),
+    cfg.IntOpt('retries',
+               default=10,
+               help=_('Maximum number of times to retry API request'))]
 
 DEFAULT_STATUS_CHECK_INTERVAL = 2000
 DEFAULT_MINIMUM_POOLED_EDGES = 1
