@@ -908,7 +908,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             vnic_id = self._get_port_vnic_id(vnic_idx, device_id)
             curr_sgids = original_port.get(ext_sg.SECURITYGROUPS)
             if ret_port['device_id'] != device_id:
-                # Update change device_id - remove port-vnic assosiation and
+                # Update change device_id - remove port-vnic association and
                 # delete security-groups memberships for the vnic
                 self._delete_security_groups_port_mapping(
                     context.session, vnic_id, curr_sgids)
@@ -916,6 +916,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                     self._remove_vnic_from_spoofguard_policy(
                         context.session, original_port['network_id'], vnic_id)
                 self._delete_port_vnic_index_mapping(context, id)
+                self._delete_dhcp_static_binding(context, original_port)
             else:
                 # Update vnic with the newest approved IP addresses
                 if has_port_security and updates_fixed_ips:

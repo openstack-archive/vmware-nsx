@@ -439,7 +439,8 @@ class TestPortsV2(NsxVPluginV2TestCase,
         res = self.deserialize('json', req.get_response(self.api))
         return res
 
-    def test_update_port_index(self):
+    @mock.patch.object(edge_utils, 'delete_dhcp_binding')
+    def test_update_port_index(self, delete_dhcp_binding):
         q_context = context.Context('', 'tenant_1')
         device_id = _uuid()
         with self.subnet() as subnet:
@@ -468,6 +469,7 @@ class TestPortsV2(NsxVPluginV2TestCase,
                 vnic_id = '%s.%03d' % (device_id, vnic_index)
                 (self.fc2.inactivate_vnic_assigned_addresses.
                  assert_called_once_with(policy_id, vnic_id))
+                self.assertTrue(delete_dhcp_binding.called)
 
     def test_update_port_with_compute_device_owner(self):
         """
