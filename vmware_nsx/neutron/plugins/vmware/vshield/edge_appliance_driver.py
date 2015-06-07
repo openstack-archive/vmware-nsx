@@ -233,7 +233,7 @@ class EdgeApplianceDriver(object):
 
     def update_interface(self, router_id, edge_id, index, network,
                          tunnel_index=-1, address=None, netmask=None,
-                         secondary=None, jobdata=None,
+                         secondary=None, jobdata=None, is_connected=True,
                          address_groups=None):
         LOG.debug("VCNS: update vnic %(index)d: %(addr)s %(netmask)s", {
             'index': index, 'addr': address, 'netmask': netmask})
@@ -250,21 +250,21 @@ class EdgeApplianceDriver(object):
         config = self._assemble_edge_vnic(
             name, index, network, tunnel_index,
             address, netmask, secondary, type=intf_type,
-            address_groups=address_groups)
+            address_groups=address_groups, is_connected=is_connected)
 
         self.vcns.update_interface(edge_id, config)
 
     def add_vdr_internal_interface(self, edge_id,
                                    network, address=None, netmask=None,
                                    secondary=None, address_groups=None,
-                                   type="internal"):
+                                   type="internal", is_connected=True):
         LOG.debug("Add VDR interface on edge: %s", edge_id)
         if address_groups is None:
             address_groups = []
-        interface_req = self._assemble_vdr_interface(
-            network, address, netmask, secondary,
-            address_groups=address_groups,
-            type=type)
+        interface_req = (
+            self._assemble_vdr_interface(network, address, netmask, secondary,
+                                         address_groups=address_groups,
+                                         is_connected=is_connected, type=type))
         self.vcns.add_vdr_internal_interface(edge_id, interface_req)
         header, response = self.vcns.get_edge_interfaces(edge_id)
         for interface in response['interfaces']:
@@ -273,13 +273,17 @@ class EdgeApplianceDriver(object):
                 return vnic_index
 
     def update_vdr_internal_interface(self, edge_id, index, network,
-                                      address=None, netmask=None,
-                                      secondary=None, address_groups=None):
+                                      address_groups=None, is_connected=True):
         if not address_groups:
             address_groups = []
-        interface_req = self._assemble_vdr_interface(
-            network, address, netmask, secondary,
-            address_groups=address_groups)
+        interface = {
+            'type': 'internal',
+            'connectedToId': network,
+            'mtu': 1500,
+            'isConnected': is_connected,
+            'addressGroups': {'addressGroup': address_groups}
+        }
+        interface_req = {'interface': interface}
         try:
             header, response = self.vcns.update_vdr_internal_interface(
                 edge_id, index, interface_req)

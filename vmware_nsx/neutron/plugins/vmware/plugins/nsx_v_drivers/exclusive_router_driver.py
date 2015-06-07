@@ -36,6 +36,7 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
                 lrouter['id'])
 
     def update_router(self, context, router_id, router):
+        r = router['router']
         gw_info = self.plugin._extract_external_gw(context, router,
                                                    is_extract=True)
         super(nsx_v.NsxVPluginV2, self.plugin).update_router(
@@ -48,6 +49,9 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
             nexthop = self.plugin._get_external_attachment_info(
                 context, router_db)[2]
             self.update_routes(context, router_id, nexthop)
+        if 'admin_state_up' in r:
+            self.plugin._update_router_admin_state(
+                context, router_id, self.get_type(), r['admin_state_up'])
         return self.plugin.get_router(context, router_id)
 
     def delete_router(self, context, router_id):
@@ -115,8 +119,9 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
         network_id = subnet['network_id']
         address_groups = self.plugin._get_address_groups(
             context, router_id, network_id)
-        edge_utils.update_internal_interface(
-            self.nsx_v, context, router_id, network_id, address_groups)
+        edge_utils.update_internal_interface(self.nsx_v, context, router_id,
+                                             network_id, address_groups,
+                                             router_db['admin_state_up'])
         # Update edge's firewall rules to accept subnets flows.
         self.plugin._update_subnets_and_dnat_firewall(context, router_db)
 

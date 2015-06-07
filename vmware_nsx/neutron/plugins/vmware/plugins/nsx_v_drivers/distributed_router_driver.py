@@ -86,6 +86,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         self.edge_manager.create_lrouter(context, lrouter, dist=True)
 
     def update_router(self, context, router_id, router):
+        r = router['router']
         gw_info = self.plugin._extract_external_gw(context, router,
                                                    is_extract=True)
         super(nsx_v.NsxVPluginV2, self.plugin).update_router(
@@ -98,6 +99,9 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
             nexthop = self.plugin._get_external_attachment_info(
                 context, router_db)[2]
             self.update_routes(context, router_id, nexthop)
+        if 'admin_state_up' in r:
+            self.plugin._update_router_admin_state(
+                context, router_id, self.get_type(), r['admin_state_up'])
         return self.plugin.get_router(context, router_id)
 
     def delete_router(self, context, router_id):
@@ -178,9 +182,10 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         address_groups = self.plugin._get_address_groups(
             context, router_id, network_id)
         try:
-            edge_utils.add_vdr_internal_interface(
-                self.nsx_v, context, router_id,
-                network_id, address_groups)
+            edge_utils.add_vdr_internal_interface(self.nsx_v, context,
+                                                  router_id, network_id,
+                                                  address_groups,
+                                                  router_db.admin_state_up)
         except n_exc.BadRequest:
             with excutils.save_and_reraise_exception():
                 super(nsx_v.NsxVPluginV2, self.plugin).remove_router_interface(
@@ -325,20 +330,11 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                 context, router_db)[2]
             self.update_routes(context, router_id, nexthop)
 
-        ports = self.plugin._get_router_interface_ports_by_network(
-            context, router_id, network_id)
         self.plugin._update_subnets_and_dnat_firewall(context, router_db)
-        # No subnet on the network connects to the edge vnic
-        if not ports:
-            edge_utils.delete_interface(self.nsx_v, context,
-                                        router_id, network_id,
-                                        dist=True)
-        else:
-            address_groups = self.plugin._get_address_groups(
-                context, router_id, network_id)
-            edge_utils.update_vdr_internal_interface(
-                self.nsx_v, context, router_id,
-                network_id, address_groups)
+        # Safly remove interface, VDR can have interface to only one subnet in
+        # a given network.
+        edge_utils.delete_interface(
+            self.nsx_v, context, router_id, network_id, dist=True)
 
         if self.plugin.metadata_proxy_handler:
             # Detach network from VDR-dedicated DHCP Edge
