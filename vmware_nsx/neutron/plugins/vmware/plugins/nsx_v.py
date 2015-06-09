@@ -463,8 +463,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                          {'sg_id': sg_id, 'vnic_id': vnic_id})
             except Exception as e:
                 LOG.debug("NSX security group %(sg_id)s member add "
-                          "failed %(vnic_id)s - attempt %(attempt)d. "
-                          "Exception: %(exc)s",
+                          "failed %(vnic_id)s. Exception: %(exc)s",
                           {'sg_id': sg_id,
                            'vnic_id': vnic_id,
                            'exc': e})
