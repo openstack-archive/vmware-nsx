@@ -1410,6 +1410,12 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
                 r1['router']['id'],
                 ext_subnet['subnet']['network_id'])
 
+    def test_router_add_interface_port_bad_tenant_returns_404(self):
+        self.skipTest('TBD')
+
+    def test_router_add_interface_subnet_with_bad_tenant_returns_404(self):
+        self.skipTest('TBD')
+
 
 class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                   test_l3_plugin.L3NatDBIntTestCase,
