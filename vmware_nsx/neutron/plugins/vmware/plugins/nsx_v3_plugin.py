@@ -111,9 +111,9 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         nsxlib.delete_logical_switch(network_id)
         return ret_val
 
-    def update_network(self, context, id, network):
+    def update_network(self, context, network_id, network):
         # TODO(arosen) - call to backend
-        return super(NsxV3Plugin, self).update_network(context, id,
+        return super(NsxV3Plugin, self).update_network(context, network_id,
                                                        network)
 
     def create_port(self, context, port):
@@ -124,7 +124,7 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         port_id = uuidutils.generate_uuid()
         result = nsxlib.create_logical_port(
             lswitch_id=port['port']['network_id'],
-            vif_uuid=port_id)
+            vif_uuid=port_id, name=port['port']['name'])
         port['port']['id'] = port_id
         # TODO(salv-orlando): Undo logical switch creation on failure
         with context.session.begin():
