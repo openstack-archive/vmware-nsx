@@ -1,0 +1,127 @@
+#!/bin/bash
+
+# Copyright 2015 VMware, Inc.
+#
+# All Rights Reserved
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
+
+# Neutron VMware NSX plugin
+# -------------------------
+
+# Save trace setting
+NSX_XTRACE=$(set +o | grep xtrace)
+set +o xtrace
+
+source $TOP_DIR/lib/neutron_plugins/ovs_base
+
+function setup_integration_bridge {
+    _neutron_ovs_base_setup_bridge $OVS_BRIDGE
+    # Set manager to NSX controller (1st of list)
+    if [[ "$NSX_CONTROLLERS" != "" ]]; then
+        # Get the first controller
+        controllers=(${NSX_CONTROLLERS//,/ })
+        OVS_MGR_IP=${controllers[0]}
+    else
+        die $LINENO "Error - No controller specified. Unable to set a manager for OVS"
+    fi
+    sudo ovs-vsctl set-manager ssl:$OVS_MGR_IP
+}
+
+function is_neutron_ovs_base_plugin {
+    # NSX uses OVS, but not the l3-agent
+    return 0
+}
+
+function neutron_plugin_create_nova_conf {
+    # if n-cpu is enabled, then setup integration bridge
+    if is_service_enabled n-cpu; then
+        setup_integration_bridge
+    fi
+}
+
+function neutron_plugin_install_agent_packages {
+    # VMware NSX Plugin does not run q-agt, but it currently needs dhcp and metadata agents
+    _neutron_ovs_base_install_agent_packages
+}
+
+function neutron_plugin_configure_common {
+    Q_PLUGIN_CONF_PATH=etc/neutron/plugins/vmware
+    Q_PLUGIN_CONF_FILENAME=nsx.ini
+    Q_PLUGIN_CLASS="vmware_nsx.neutron.plugins.vmware.plugins.nsx_v3_plugin.NsxV3Plugin"
+}
+
+function neutron_plugin_configure_debug_command {
+    sudo ovs-vsctl --no-wait -- --may-exist add-br $PUBLIC_BRIDGE
+    iniset $NEUTRON_TEST_CONFIG_FILE DEFAULT external_network_bridge "$PUBLIC_BRIDGE"
+}
+
+function neutron_plugin_configure_dhcp_agent {
+    setup_integration_bridge
+    iniset $Q_DHCP_CONF_FILE DEFAULT enable_isolated_metadata True
+    iniset $Q_DHCP_CONF_FILE DEFAULT enable_metadata_network True
+    iniset $Q_DHCP_CONF_FILE DEFAULT ovs_use_veth True
+}
+
+function neutron_plugin_configure_l3_agent {
+    # VMware NSX plugin does not run L3 agent
+    die $LINENO "q-l3 should not be executed with VMware NSX plugin!"
+}
+
+function neutron_plugin_configure_plugin_agent {
+    # VMware NSX plugin does not run L2 agent
+    die $LINENO "q-agt must not be executed with VMware NSX plugin!"
+}
+
+function neutron_plugin_configure_service {
+    if [[ "$DEFAULT_TZ_UUID" != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE DEFAULT default_tz_uuid $DEFAULT_TZ_UUID
+    else
+        die $LINENO "The VMware NSX plugin won't work without a default transport zone."
+    fi
+    if [[ "$DEFAULT_EDGE_CLUSTER_UUID" != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE nsx_v3 default_edge_cluster_uuid $DEFAULT_EDGE_CLUSTER_UUID
+        Q_L3_ENABLED=True
+        Q_L3_ROUTER_PER_TENANT=True
+    fi
+    # NSX_CONTROLLERS must be a comma separated string
+    if [[ "$NSX_CONTROLLERS" != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_controllers $NSX_CONTROLLERS
+    else
+        die $LINENO "The VMware NSX plugin needs at least an NSX controller."
+    fi
+    if [[ "$NSX_USER" != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_user $NSX_USER
+    fi
+    if [[ "$NSX_PASSWORD" != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_password $NSX_PASSWORD
+    fi
+}
+
+function neutron_plugin_setup_interface_driver {
+    local conf_file=$1
+    iniset $conf_file DEFAULT interface_driver neutron.agent.linux.interface.OVSInterfaceDriver
+}
+
+function has_neutron_plugin_security_group {
+    # 0 means True here
+    return 0
+}
+
+function neutron_plugin_check_adv_test_requirements {
+    is_service_enabled q-dhcp && return 0
+}
+
+# Restore xtrace
+$NSX_XTRACE
