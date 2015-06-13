@@ -1,5 +1,5 @@
 [gerrit]
 host=review.openstack.org
 port=29418
-project=stackforge/vmware-nsx.git
+project=openstack/vmware-nsx.git
 defaultbranch=stable/kilo
