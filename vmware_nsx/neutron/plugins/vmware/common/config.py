@@ -260,6 +260,8 @@ nsxv_opts = [
     cfg.IntOpt('dhcp_lease_time',
                default=86400,
                help=_('DHCP default lease time.')),
+    cfg.StrOpt('locking_coordinator_url',
+               help=_('A URL to a locking mechanism coordinator')),
 ]
 
 # Register the configuration options
