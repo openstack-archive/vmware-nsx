@@ -4,7 +4,7 @@ Devstack external plugin
 
 Add and set the following in your local.conf/localrc file:
 
-enable_plugin vmware-nsx https://git.openstack.org/stackforge/vmware-nsx
+enable_plugin vmware-nsx https://git.openstack.org/vmware-nsx
 
 For Nsx-mh:
 -----------
