@@ -193,7 +193,6 @@ def create_logical_router_port(logical_router_id,
     url = controller + "/api/v1/logical-router-ports"
     headers = {'Content-Type': 'application/json'}
     body = {'resource_type': resource_type,
-            'edge_cluster_member_index': [0],
             'logical_router_id': logical_router_id,
             'subnets': [{"prefix_length": cidr_length,
                          "ip_addresses": [ip_address]}],
