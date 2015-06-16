@@ -124,7 +124,8 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         port_id = uuidutils.generate_uuid()
         result = nsxlib.create_logical_port(
             lswitch_id=port['port']['network_id'],
-            vif_uuid=port_id, name=port['port']['name'])
+            vif_uuid=port_id, name=port['port']['name'],
+            admin_state=port['port']['admin_state_up'])
         port['port']['id'] = port_id
         # TODO(salv-orlando): Undo logical switch creation on failure
         with context.session.begin():

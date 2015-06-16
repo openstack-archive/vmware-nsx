@@ -91,18 +91,20 @@ def delete_logical_switch(lswitch_id):
 def create_logical_port(lswitch_id,
                         vif_uuid,
                         attachment_type=nsx_constants.ATTACHMENT_VIF,
-                        admin_state=nsx_constants.ADMIN_STATE_UP,
-                        name=None):
+                        admin_state=True, name=None):
 
     controller, user, password = _get_controller_endpoint()
     url = controller + "/api/v1/logical-ports"
     headers = {'Content-Type': 'application/json'}
     body = {'logical_switch_id': lswitch_id,
             'attachment': {'attachment_type': attachment_type,
-                           'id': vif_uuid},
-            'admin_state': admin_state}
+                           'id': vif_uuid}}
     if name:
         body['display_name'] = name
+    if admin_state:
+        body['admin_state'] = nsx_constants.ADMIN_STATE_UP
+    else:
+        body['admin_state'] = nsx_constants.ADMIN_STATE_DOWN
 
     result = requests.post(url, auth=auth.HTTPBasicAuth(user, password),
                            verify=False, headers=headers,
