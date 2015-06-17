@@ -536,3 +536,153 @@ def get_vdr_dhcp_binding_by_vdr(session, vdr_router_id):
 def delete_vdr_dhcp_binding(session, vdr_router_id):
     return (session.query(nsxv_models.NsxvVdrDhcpBinding).
             filter_by(vdr_router_id=vdr_router_id).delete())
+
+
+def add_nsxv_lbaas_loadbalancer_binding(
+        session, loadbalancer_id, edge_id, edge_fw_rule_id, vip_address):
+    with session.begin(subtransactions=True):
+        binding = nsxv_models.NsxvLbaasLoadbalancerBinding(
+            loadbalancer_id=loadbalancer_id,
+            edge_id=edge_id,
+            edge_fw_rule_id=edge_fw_rule_id,
+            vip_address=vip_address)
+        session.add(binding)
+    return binding
+
+
+def get_nsxv_lbaas_loadbalancer_binding(session, loadbalancer_id):
+    try:
+        return session.query(
+            nsxv_models.NsxvLbaasLoadbalancerBinding).filter_by(
+            loadbalancer_id=loadbalancer_id).one()
+    except exc.NoResultFound:
+        return
+
+
+def del_nsxv_lbaas_loadbalancer_binding(session, loadbalancer_id):
+    return (session.query(nsxv_models.NsxvLbaasLoadbalancerBinding).
+            filter_by(loadbalancer_id=loadbalancer_id).delete())
+
+
+def add_nsxv_lbaas_listener_binding(session, loadbalancer_id, listener_id,
+                                    app_profile_id, vse_id):
+    with session.begin(subtransactions=True):
+        binding = nsxv_models.NsxvLbaasListenerBinding(
+            loadbalancer_id=loadbalancer_id,
+            listener_id=listener_id,
+            app_profile_id=app_profile_id,
+            vse_id=vse_id)
+        session.add(binding)
+    return binding
+
+
+def get_nsxv_lbaas_listener_binding(session, loadbalancer_id, listener_id):
+    try:
+        return session.query(
+            nsxv_models.NsxvLbaasListenerBinding).filter_by(
+            loadbalancer_id=loadbalancer_id, listener_id=listener_id).one()
+    except exc.NoResultFound:
+        return
+
+
+def del_nsxv_lbaas_listener_binding(session, loadbalancer_id, listener_id):
+    return (session.query(nsxv_models.NsxvLbaasListenerBinding).
+            filter_by(loadbalancer_id=loadbalancer_id,
+                      listener_id=listener_id).delete())
+
+
+def add_nsxv_lbaas_pool_binding(session, loadbalancer_id, listener_id,
+                                pool_id, edge_pool_id):
+    with session.begin(subtransactions=True):
+        binding = nsxv_models.NsxvLbaasPoolBinding(
+            loadbalancer_id=loadbalancer_id,
+            listener_id=listener_id,
+            pool_id=pool_id,
+            edge_pool_id=edge_pool_id)
+        session.add(binding)
+    return binding
+
+
+def get_nsxv_lbaas_pool_binding(session, loadbalancer_id, listener_id,
+                                pool_id):
+    try:
+        return session.query(
+            nsxv_models.NsxvLbaasPoolBinding).filter_by(
+            loadbalancer_id=loadbalancer_id,
+            listener_id=listener_id,
+            pool_id=pool_id).one()
+    except exc.NoResultFound:
+        return
+
+
+def del_nsxv_lbaas_pool_binding(session, loadbalancer_id, listener_id,
+                                pool_id):
+    return (session.query(nsxv_models.NsxvLbaasPoolBinding).
+            filter_by(loadbalancer_id=loadbalancer_id,
+                      listener_id=listener_id,
+                      pool_id=pool_id).delete())
+
+
+def add_nsxv_lbaas_monitor_binding(session, loadbalancer_id, listener_id,
+                                   pool_id, hm_id, edge_id, edge_mon_id):
+    with session.begin(subtransactions=True):
+        binding = nsxv_models.NsxvLbaasMonitorBinding(
+            loadbalancer_id=loadbalancer_id,
+            listener_id=listener_id,
+            pool_id=pool_id,
+            hm_id=hm_id,
+            edge_id=edge_id,
+            edge_mon_id=edge_mon_id)
+        session.add(binding)
+    return binding
+
+
+def get_nsxv_lbaas_monitor_binding(session, loadbalancer_id, listener_id,
+                                   pool_id, hm_id, edge_id):
+    try:
+        return session.query(
+            nsxv_models.NsxvLbaasMonitorBinding).filter_by(
+            loadbalancer_id=loadbalancer_id,
+            listener_id=listener_id,
+            pool_id=pool_id,
+            hm_id=hm_id,
+            edge_id=edge_id).one()
+    except exc.NoResultFound:
+        return
+
+
+def del_nsxv_lbaas_monitor_binding(session, loadbalancer_id, listener_id,
+                                   pool_id, hm_id, edge_id):
+    return (session.query(nsxv_models.NsxvLbaasMonitorBinding).
+            filter_by(loadbalancer_id=loadbalancer_id,
+                      listener_id=listener_id,
+                      pool_id=pool_id,
+                      hm_id=hm_id,
+                      edge_id=edge_id).delete())
+
+
+def add_nsxv_lbaas_certificate_binding(session, cert_id, edge_id,
+                                       edge_cert_id):
+    with session.begin(subtransactions=True):
+        binding = nsxv_models.NsxvLbaasCertificateBinding(
+            cert_id=cert_id,
+            edge_id=edge_id,
+            edge_cert_id=edge_cert_id)
+        session.add(binding)
+    return binding
+
+
+def get_nsxv_lbaas_certificate_binding(session, cert_id, edge_id):
+    try:
+        return session.query(
+            nsxv_models.NsxvLbaasCertificateBinding).filter_by(
+            cert_id=cert_id,
+            edge_id=edge_id).one()
+    except exc.NoResultFound:
+        return
+
+
+def del_nsxv_lbaas_certificate_binding(session, cert_id, edge_id):
+    return (session.query(nsxv_models.NsxvLbaasCertificateBinding).
+            filter_by(cert_id=cert_id,
+                      edge_id=edge_id).delete())

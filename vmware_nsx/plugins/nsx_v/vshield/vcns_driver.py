@@ -19,18 +19,20 @@ import os
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from vmware_nsx.common import config  # noqa
 from vmware_nsx.plugins.nsx_v.vshield import edge_appliance_driver
 from vmware_nsx.plugins.nsx_v.vshield import edge_firewall_driver
-from vmware_nsx.plugins.nsx_v.vshield import edge_loadbalancer_driver
 from vmware_nsx.plugins.nsx_v.vshield.tasks import tasks
 from vmware_nsx.plugins.nsx_v.vshield import vcns
+from vmware_nsx.services.lbaas.nsx_v.v1 import edge_loadbalancer_driver
+from vmware_nsx.services.lbaas.nsx_v.v2 import (
+    edge_loadbalancer_driver_v2 as lbaas_v2)
 
 LOG = logging.getLogger(__name__)
 
 
 class VcnsDriver(edge_appliance_driver.EdgeApplianceDriver,
                  edge_loadbalancer_driver.EdgeLbDriver,
+                 lbaas_v2.EdgeLoadbalancerDriverV2,
                  edge_firewall_driver.EdgeFirewallDriver):
 
     def __init__(self, callbacks):

@@ -254,3 +254,59 @@ class NsxvVdrDhcpBinding(model_base.BASEV2):
             dhcp_edge_id,
             name='unique_nsxv_vdr_dhcp_bindings0dhcp_edge_id'),
         model_base.BASEV2.__table_args__)
+
+
+class NsxvLbaasLoadbalancerBinding(model_base.BASEV2):
+    """Mapping between Edge LB and LBaaSv2"""
+
+    __tablename__ = 'nsxv_lbaas_loadbalancer_bindings'
+
+    loadbalancer_id = sa.Column(sa.String(36), primary_key=True)
+    edge_id = sa.Column(sa.String(36), nullable=False)
+    edge_fw_rule_id = sa.Column(sa.String(36), nullable=False)
+    vip_address = sa.Column(sa.String(36), nullable=False)
+
+
+class NsxvLbaasListenerBinding(model_base.BASEV2):
+    """Mapping between Edge VSE and LBaaSv2"""
+
+    __tablename__ = 'nsxv_lbaas_listener_bindings'
+
+    loadbalancer_id = sa.Column(sa.String(36), primary_key=True)
+    listener_id = sa.Column(sa.String(36), primary_key=True)
+    app_profile_id = sa.Column(sa.String(36), nullable=False)
+    vse_id = sa.Column(sa.String(36), nullable=False)
+
+
+class NsxvLbaasPoolBinding(model_base.BASEV2):
+    """Mapping between Edge Pool and LBaaSv2"""
+
+    __tablename__ = 'nsxv_lbaas_pool_bindings'
+
+    loadbalancer_id = sa.Column(sa.String(36), primary_key=True)
+    listener_id = sa.Column(sa.String(36), primary_key=True)
+    pool_id = sa.Column(sa.String(36), primary_key=True)
+    edge_pool_id = sa.Column(sa.String(36), nullable=False)
+
+
+class NsxvLbaasMonitorBinding(model_base.BASEV2):
+    """Mapping between Edge Monitor and LBaaSv2"""
+
+    __tablename__ = 'nsxv_lbaas_monitor_bindings'
+
+    loadbalancer_id = sa.Column(sa.String(36), primary_key=True)
+    listener_id = sa.Column(sa.String(36), primary_key=True)
+    pool_id = sa.Column(sa.String(36), primary_key=True)
+    hm_id = sa.Column(sa.String(36), primary_key=True)
+    edge_id = sa.Column(sa.String(36), primary_key=True)
+    edge_mon_id = sa.Column(sa.String(36), nullable=False)
+
+
+class NsxvLbaasCertificateBinding(model_base.BASEV2):
+    """Mapping between Edge certificate and LBaaSv2 object"""
+
+    __tablename__ = 'nsxv_lbaas_certificate_bindings'
+
+    cert_id = sa.Column(sa.String(36), primary_key=True)
+    edge_id = sa.Column(sa.String(36), primary_key=True)
+    edge_cert_id = sa.Column(sa.String(36), nullable=False)

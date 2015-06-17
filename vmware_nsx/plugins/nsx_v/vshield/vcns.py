@@ -792,3 +792,8 @@ class Vcns(object):
         """Enable HA in the given edge."""
         uri = "/api/4.0/edges/%s/highavailability/config?async=true" % edge_id
         return self.do_request(HTTP_PUT, uri, request_config)
+
+    def upload_edge_certificate(self, edge_id, request):
+        """Creates a certificate on the specified Edge appliance."""
+        uri = '/api/2.0/services/truststore/certificate/%s' % edge_id
+        return self.do_request(HTTP_POST, uri, request, decode=True)

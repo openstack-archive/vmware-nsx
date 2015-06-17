@@ -16,6 +16,7 @@
 ZUUL_CLONER=/usr/zuul-env/bin/zuul-cloner
 neutron_installed=$(echo "import neutron" | python 2>/dev/null ; echo $?)
 networking_l2gw_installed=$(echo "import networking_l2gw" | python 2>/dev/null ; echo $?)
+neutron_lbaas_installed=$(echo "import neutron_lbaas" | python 2>/dev/null ; echo $?)
 
 set -ex
 
@@ -54,6 +55,15 @@ elif [ -x "$ZUUL_CLONER" ]; then
     zuul_cloner openstack/networking-l2gw
 else
     pip_hardcode openstack/networking-l2gw#egg=networking-l2gw
+fi
+
+if [ $neutron_lbaas_installed -eq 0 ]; then
+    echo "NEUTRON_LBAAS ALREADY INSTALLED" >> /tmp/tox_install.txt
+    echo "Neutron_lbaas already installed; using existing package"
+elif [ -x "$ZUUL_CLONER" ]; then
+    zuul_cloner openstack/neutron-lbaas
+else
+    pip_hardcode openstack/neutron-lbaas#egg=neutron-lbaas
 fi
 
 pip install -U $*
