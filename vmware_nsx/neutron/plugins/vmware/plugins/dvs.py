@@ -202,7 +202,9 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
     def _dvs_delete_network(self, context, id):
         network = self._get_network(context, id)
         dvs_id = self._dvs_get_id(network)
-        super(NsxDvsV2, self).delete_network(context, id)
+        with context.session.begin(subtransactions=True):
+            nsx_db.delete_network_bindings(context.session, id)
+            super(NsxDvsV2, self).delete_network(context, id)
         try:
             self._dvs.delete_port_group(dvs_id)
         except Exception:
