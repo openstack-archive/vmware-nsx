@@ -64,6 +64,8 @@ from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.common import utils as c_utils
 from vmware_nsx.db import (
+    extended_security_group_rule as extend_sg_rule)
+from vmware_nsx.db import (
     routertype as rt_rtr)
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import nsxv_db
@@ -74,6 +76,7 @@ from vmware_nsx.extensions import (
     vnicindex as ext_vnic_idx)
 from vmware_nsx.extensions import dns_search_domain as ext_dns_search_domain
 from vmware_nsx.extensions import routersize
+from vmware_nsx.extensions import secgroup_rule_local_ip_prefix as ext_loip
 from vmware_nsx.plugins.nsx_v import managers
 from vmware_nsx.plugins.nsx_v import md_proxy as nsx_v_md_proxy
 from vmware_nsx.plugins.nsx_v.vshield.common import (
@@ -99,6 +102,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                    l3_gwmode_db.L3_NAT_db_mixin,
                    portbindings_db.PortBindingMixin,
                    portsecurity_db.PortSecurityDbMixin,
+                   extend_sg_rule.ExtendedSecurityGroupRuleMixin,
                    securitygroups_db.SecurityGroupDbMixin,
                    vnic_index_db.VnicIndexDbMixin,
                    dns_db.DNSDbMixin):
@@ -117,6 +121,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                    "extraroute",
                                    "router",
                                    "security-group",
+                                   "secgroup-rule-local-ip-prefix",
                                    "nsxv-router-type",
                                    "nsxv-router-size",
                                    "vnic-index",
@@ -2029,9 +2034,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         # Get source and destination containers from rule
         if rule['direction'] == 'ingress':
+            if rule.get(ext_loip.LOCAL_IP_PREFIX):
+                dest = self.nsx_sg_utils.get_remote_container(
+                    None, rule[ext_loip.LOCAL_IP_PREFIX])
             src = self.nsx_sg_utils.get_remote_container(
                 remote_nsx_sg_id, rule['remote_ip_prefix'])
-            dest = self.nsx_sg_utils.get_container(nsx_sg_id)
+            dest = dest or self.nsx_sg_utils.get_container(nsx_sg_id)
             flags['direction'] = 'in'
         else:
             dest = self.nsx_sg_utils.get_remote_container(
@@ -2075,13 +2083,16 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         :param security_group_rules: list of rules to create
         """
+        sg_rules = security_group_rules['security_group_rules']
         ruleids = set()
         nsx_rules = []
 
         self._validate_security_group_rules(context, security_group_rules)
         # Translating Neutron rules to Nsx DFW rules
-        for r in security_group_rules['security_group_rules']:
+        for r in sg_rules:
             rule = r['security_group_rule']
+            if not self._check_local_ip_prefix(context, rule):
+                rule[ext_loip.LOCAL_IP_PREFIX] = None
             rule['id'] = uuidutils.generate_uuid()
             ruleids.add(rule['id'])
             nsx_rules.append(self._create_nsx_rule(context, rule))
@@ -2110,6 +2121,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     if neutron_rule_id in ruleids:
                         nsxv_db.add_neutron_nsx_rule_mapping(
                             context.session, neutron_rule_id, nsx_rule_id)
+                for i, r in enumerate(sg_rules):
+                    self._save_extended_rule_properties(context, rule)
+                    self._get_security_group_rule_properties(context,
+                                                             new_rule_list[i])
         except Exception:
             with excutils.save_and_reraise_exception():
                 for nsx_rule_id in [p['nsx_id'] for p in rule_pairs]:

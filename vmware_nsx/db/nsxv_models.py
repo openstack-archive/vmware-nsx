@@ -21,6 +21,7 @@ from sqlalchemy import orm
 from neutron.db import l3_db
 from neutron.db import model_base
 from neutron.db import models_v2
+from neutron.db import securitygroups_db
 
 from vmware_nsx.common import nsxv_constants
 
@@ -326,4 +327,24 @@ class NsxvSubnetExtAttributes(model_base.BASEV2):
     subnet = orm.relationship(
         models_v2.Subnet,
         backref=orm.backref("nsxv_subnet_attributes", lazy='joined',
+                            uselist=False, cascade='delete'))
+
+
+class NsxvExtendedSecurityGroupRuleProperties(model_base.BASEV2):
+    """Persist security group rule properties for the
+    extended-security-group-rule extension.
+    """
+
+    __tablename__ = 'nsxv_extended_security_group_rule_properties'
+
+    rule_id = sa.Column(sa.String(36),
+                        sa.ForeignKey('securitygrouprules.id',
+                                      ondelete='CASCADE'),
+                        primary_key=True,
+                        nullable=False)
+    local_ip_prefix = sa.Column(sa.String(255), nullable=False)
+
+    rule = orm.relationship(
+        securitygroups_db.SecurityGroupRule,
+        backref=orm.backref('ext_properties', lazy='joined',
                             uselist=False, cascade='delete'))
