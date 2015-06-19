@@ -16,18 +16,17 @@
 import eventlet
 import hashlib
 import hmac
-import time
 
 import netaddr
 from neutron.api.v2 import attributes as attr
 from neutron.common import constants
 from neutron import context as neutron_context
 from oslo_config import cfg
-from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
 
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsxv_exc
+from vmware_nsx.neutron.plugins.vmware.common import locking
 from vmware_nsx.neutron.plugins.vmware.common import nsxv_constants
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
 from vmware_nsx.neutron.plugins.vmware.vshield import (
@@ -68,16 +67,30 @@ def get_router_fw_rules():
     return fw_rules
 
 
+def get_db_internal_edge_ips(context):
+    ip_list = []
+    edge_list = nsxv_db.get_nsxv_internal_edges_by_purpose(
+        context.session,
+        vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE)
+
+    if edge_list:
+        ip_list = [edge['ext_ip_address'] for edge in edge_list]
+    return ip_list
+
+
 class NsxVMetadataProxyHandler:
 
     def __init__(self, nsxv_plugin):
         self.nsxv_plugin = nsxv_plugin
         self.context = neutron_context.get_admin_context()
 
-        self.internal_net, self.internal_subnet = (
-            self._get_internal_network_and_subnet())
+        # Init cannot run concurrently on multiple nodes
+        with locking.LockManager.get_lock('metadata-init',
+                                          lock_file_prefix='nsxv-metadata'):
+            self.internal_net, self.internal_subnet = (
+                self._get_internal_network_and_subnet())
 
-        self.proxy_edge_ips = self._get_proxy_edges()
+            self.proxy_edge_ips = self._get_proxy_edges()
 
     def _create_metadata_internal_network(self, cidr):
         # Neutron requires a network to have some tenant_id
@@ -108,39 +121,17 @@ class NsxVMetadataProxyHandler:
 
         return net['id'], subnet['id']
 
-    def _get_internal_net_wait_for_creation(self):
-        ctr = 0
-        net_id = None
-        while net_id is None and ctr < NET_WAIT_INTERVAL:
-            # Another neutron instance may be in the process of creating this
-            # network. If so, we will have a network with a NULL network id.
-            # Therefore, if we have a network entry, we wail for its ID to show
-            # up in the DB entry. If no entry exists, we exit and create the
-            # network.
-            net_list = nsxv_db.get_nsxv_internal_network(
-                self.context.session,
-                vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE)
-
-            if net_list:
-                net_id = net_list[0]['network_id']
-
-                # Network found - do we have an ID?
-                if net_id:
-                    return net_id
-            else:
-                # No network creation in progress - exit.
-                return
-
-            self.context.session.expire_all()
-            ctr += NET_CHECK_INTERVAL
-            time.sleep(NET_CHECK_INTERVAL)
-
-        error = _('Network creation on other neutron instance timed out')
-        raise nsxv_exc.NsxPluginException(err_msg=error)
-
-    def _get_internal_network(self):
-        internal_net = self._get_internal_net_wait_for_creation()
+    def _get_internal_network_and_subnet(self):
+        internal_net = None
         internal_subnet = None
+
+        # Try to find internal net, internal subnet. If not found, create new
+        net_list = nsxv_db.get_nsxv_internal_network(
+            self.context.session,
+            vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE)
+
+        if net_list:
+            internal_net = net_list[0]['network_id']
 
         if internal_net:
             internal_subnet = self.nsxv_plugin.get_subnets(
@@ -148,43 +139,30 @@ class NsxVMetadataProxyHandler:
                 fields=['id'],
                 filters={'network_id': [internal_net]})[0]['id']
 
-        return internal_net, internal_subnet
+        if internal_net is None or internal_subnet is None:
+            # Couldn't find net, subnet - create new
+            try:
+                internal_net, internal_subnet = (
+                    self._create_metadata_internal_network(INTERNAL_SUBNET))
+            except Exception as e:
+                with excutils.save_and_reraise_exception():
+                    nsxv_db.delete_nsxv_internal_network(
+                        self.context.session,
+                        vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE)
 
-    def _get_internal_network_and_subnet(self):
-        internal_net = None
-        internal_subnet = None
+                    # if network is created, clean up
+                    if internal_net:
+                        self.nsxv_plugin.delete_network(self.context,
+                                                        internal_net)
 
-        try:
+                    LOG.exception(_LE("Exception %s while creating internal "
+                                      "network for metadata service"), e)
+
+            # Update the new network_id in DB
             nsxv_db.create_nsxv_internal_network(
                 self.context.session,
                 nsxv_constants.INTER_EDGE_PURPOSE,
-                None)
-        except db_exc.DBDuplicateEntry:
-            # We may have a race condition, where another Neutron instance
-            #  initialized these elements. Use existing elements
-            return self._get_internal_network()
-
-        try:
-            internal_net, internal_subnet = (
-                self._create_metadata_internal_network(INTERNAL_SUBNET))
-        except Exception as e:
-            with excutils.save_and_reraise_exception():
-                nsxv_db.delete_nsxv_internal_network(
-                    self.context.session,
-                    vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE)
-
-                # if network is created, clean up
-                if internal_net:
-                    self.nsxv_plugin.delete_network(self.context, internal_net)
-
-                LOG.exception(_LE("Exception %s while creating internal "
-                                  "network for metadata service"), e)
-
-        # Update the new network_id in DB
-        nsxv_db.update_nsxv_internal_network(
-            self.context.session,
-            nsxv_constants.INTER_EDGE_PURPOSE,
-            internal_net)
+                internal_net)
 
         return internal_net, internal_subnet
 
@@ -195,51 +173,123 @@ class NsxVMetadataProxyHandler:
             ports = self.nsxv_plugin.get_ports(self.context, filters=filters)
             return ports[0]['fixed_ips'][0]['ip_address']
 
+    def _get_edge_rtr_id_by_ext_ip(self, edge_ip):
+        rtr_list = nsxv_db.get_nsxv_internal_edge(
+            self.context.session, edge_ip)
+        if rtr_list:
+            return rtr_list[0]['router_id']
+
+    def _get_edge_id_by_rtr_id(self, rtr_id, context=None):
+        if not context:
+            context = self.context
+        binding = nsxv_db.get_nsxv_router_binding(
+            context.session,
+            rtr_id)
+
+        if binding:
+            return binding['edge_id']
+
     def _get_proxy_edges(self):
         proxy_edge_ips = []
+
+        db_edge_ips = get_db_internal_edge_ips(self.context)
+        if len(db_edge_ips) > len(cfg.CONF.nsxv.mgt_net_proxy_ips):
+            error = _('Number of configured metadata proxy IPs is smaller '
+                      'than number of Edges which are already provisioned')
+            raise nsxv_exc.NsxPluginException(err_msg=error)
 
         pool = eventlet.GreenPool(min(MAX_INIT_THREADS,
                                       len(cfg.CONF.nsxv.mgt_net_proxy_ips)))
 
-        for edge_ip in pool.imap(
-                self._get_proxy_edge,
-                cfg.CONF.nsxv.mgt_net_proxy_ips):
-            proxy_edge_ips.append(edge_ip)
+        # Edge IPs that exist in both lists have to be validated that their
+        # Edge appliance settings are valid
+        for edge_inner_ip in pool.imap(
+                self._setup_proxy_edge_route_and_connectivity,
+                list(set(db_edge_ips) & set(cfg.CONF.nsxv.mgt_net_proxy_ips))):
+            proxy_edge_ips.append(edge_inner_ip)
+
+        # Edges that exist only in the CFG list, should be paired with Edges
+        # that exist only in the DB list. The existing Edge from the list will
+        # be reconfigured to match the new config
+        edge_to_convert_ips = (
+            list(set(db_edge_ips) - set(cfg.CONF.nsxv.mgt_net_proxy_ips)))
+        edge_ip_to_set = (
+            list(set(cfg.CONF.nsxv.mgt_net_proxy_ips) - set(db_edge_ips)))
+
+        for edge_inner_ip in pool.imap(
+                self._setup_proxy_edge_external_interface_ip,
+                zip(edge_to_convert_ips, edge_ip_to_set)):
+            proxy_edge_ips.append(edge_inner_ip)
+
+        # Edges that exist in the CFG list but do not have a matching DB
+        # element will be created.
+        remaining_cfg_ips = edge_ip_to_set[len(edge_to_convert_ips):]
+        for edge_inner_ip in pool.imap(
+                self._setup_new_proxy_edge, remaining_cfg_ips):
+            proxy_edge_ips.append(edge_inner_ip)
 
         pool.waitall()
         return proxy_edge_ips
 
-    def _get_proxy_edge(self, rtr_ip):
+    def _setup_proxy_edge_route_and_connectivity(self, rtr_ext_ip,
+                                                 rtr_id=None, edge_id=None):
+        if not rtr_id:
+            rtr_id = self._get_edge_rtr_id_by_ext_ip(rtr_ext_ip)
+        if not edge_id:
+            edge_id = self._get_edge_id_by_rtr_id(rtr_id)
 
-        # If DB Entry already defined by another Neutron instance, retrieve
-        # its IP address and exit
-        try:
-            nsxv_db.create_nsxv_internal_edge(
-                self.context.session,
-                rtr_ip,
-                vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE,
-                None)
-        except db_exc.DBDuplicateEntry:
-            edge_ip = None
-            ctr = 0
-            while edge_ip is None and ctr < EDGE_WAIT_INTERVAL:
-                rtr_list = nsxv_db.get_nsxv_internal_edge(
-                    self.context.session, rtr_ip)
-                if rtr_list:
-                    rtr_id = rtr_list[0]['router_id']
-                    if rtr_id:
-                        edge_ip = self._get_edge_internal_ip(rtr_id)
-                        if edge_ip:
-                            return edge_ip
+        # Read and validate DGW. If different, replace with new value
+        h, routes = self.nsxv_plugin.nsx_v.vcns.get_routes(edge_id)
+        dgw = routes.get('defaultRoute', {}).get('gatewayAddress')
 
-                self.context.session.expire_all()
-                ctr += EDGE_CHECK_INTERVAL
-                time.sleep(EDGE_CHECK_INTERVAL)
+        if dgw != cfg.CONF.nsxv.mgt_net_default_gateway:
+            self.nsxv_plugin._update_routes(
+                self.context, rtr_id,
+                cfg.CONF.nsxv.mgt_net_default_gateway)
 
-            error = _('Metadata proxy creation on other neutron instance '
-                      'timed out')
-            raise nsxv_exc.NsxPluginException(err_msg=error)
+        # Read and validate connectivity
+        h, if_data = self.nsxv_plugin.nsx_v.get_interface(
+            edge_id, vcns_const.EXTERNAL_VNIC_INDEX)
+        cur_ip = if_data.get('addressGroups', {}
+                             ).get('addressGroups', {}
+                                   )[0].get('primaryAddress')
+        cur_pgroup = if_data['portgroupId']
+        if (if_data and cur_pgroup != cfg.CONF.nsxv.mgt_net_moid
+                or cur_ip != rtr_ext_ip):
+            self.nsxv_plugin.nsx_v.update_interface(
+                rtr_id,
+                edge_id,
+                vcns_const.EXTERNAL_VNIC_INDEX,
+                cfg.CONF.nsxv.mgt_net_moid,
+                address=rtr_ext_ip,
+                netmask=cfg.CONF.nsxv.mgt_net_proxy_netmask,
+                secondary=[])
 
+        edge_ip = self._get_edge_internal_ip(rtr_id)
+
+        if edge_ip:
+            return edge_ip
+
+    def _setup_proxy_edge_external_interface_ip(self, rtr_ext_ips):
+        rtr_old_ext_ip, rtr_new_ext_ip = rtr_ext_ips
+
+        rtr_id = self._get_edge_rtr_id_by_ext_ip(rtr_old_ext_ip)
+        edge_id = self._get_edge_id_by_rtr_id(rtr_id)
+
+        # Replace DB entry as we cannot update the table PK
+        nsxv_db.delete_nsxv_internal_edge(self.context.session, rtr_old_ext_ip)
+
+        edge_ip = self._setup_proxy_edge_route_and_connectivity(
+            rtr_new_ext_ip, rtr_id, edge_id)
+
+        nsxv_db.create_nsxv_internal_edge(
+            self.context.session, rtr_new_ext_ip,
+            vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE, rtr_id)
+
+        if edge_ip:
+            return edge_ip
+
+    def _setup_new_proxy_edge(self, rtr_ext_ip):
         rtr_id = None
         try:
             router_data = {
@@ -255,16 +305,14 @@ class NsxVMetadataProxyHandler:
                 allow_metadata=False)
 
             rtr_id = rtr['id']
-            binding = nsxv_db.get_nsxv_router_binding(
-                self.context.session,
-                rtr_id)
+            edge_id = self._get_edge_id_by_rtr_id(rtr_id)
 
             self.nsxv_plugin.nsx_v.update_interface(
                 rtr['id'],
-                binding['edge_id'],
+                edge_id,
                 vcns_const.EXTERNAL_VNIC_INDEX,
                 cfg.CONF.nsxv.mgt_net_moid,
-                address=rtr_ip,
+                address=rtr_ext_ip,
                 netmask=cfg.CONF.nsxv.mgt_net_proxy_netmask,
                 secondary=[])
 
@@ -314,23 +362,23 @@ class NsxVMetadataProxyHandler:
                     self.context, rtr_id,
                     cfg.CONF.nsxv.mgt_net_default_gateway)
 
-            nsxv_db.update_nsxv_internal_edge(
-                self.context.session,
-                rtr_ip,
-                rtr_id)
+            nsxv_db.create_nsxv_internal_edge(
+                self.context.session, rtr_ext_ip,
+                vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE, rtr_id)
 
             return edge_ip
 
         except Exception as e:
             with excutils.save_and_reraise_exception():
+                LOG.exception(_LE("Exception %s while creating internal edge "
+                                  "for metadata service"), e)
+
                 nsxv_db.delete_nsxv_internal_edge(
                     self.context.session,
-                    rtr_ip)
+                    rtr_ext_ip)
 
                 if rtr_id:
                     self.nsxv_plugin.delete_router(self.context, rtr_id)
-                LOG.exception(_LE("Exception %s while creating internal edge "
-                                  "for metadata service"), e)
 
     def _get_address_groups(self, context, network_id, device_id, is_proxy):
 
@@ -371,8 +419,7 @@ class NsxVMetadataProxyHandler:
         if context is None:
             context = self.context
 
-        binding = nsxv_db.get_nsxv_router_binding(context.session, rtr_id)
-        edge_id = binding['edge_id']
+        edge_id = self._get_edge_id_by_rtr_id(rtr_id, context=context)
         LOG.debug('Setting up Edge device %s', edge_id)
 
         lb_obj = nsxv_lb.NsxvLoadbalancer()
