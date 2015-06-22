@@ -1,4 +1,4 @@
-# Copyright (c) 2015 OpenStack Foundation.
+# Copyright (c) 2015 VMware, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,14 +17,15 @@
 from oslo_utils import uuidutils
 
 FAKE_NAME = "fake_name"
-FAKE_UUID = uuidutils.generate_uuid()
+FAKE_TZ_UUID = uuidutils.generate_uuid()
+FAKE_SWITCH_UUID = uuidutils.generate_uuid()
 
 FAKE_SWITCH = {
-    "id": FAKE_UUID,
+    "id": FAKE_SWITCH_UUID,
     "display_name": FAKE_NAME,
     "resource_type": "LogicalSwitch",
     "address_bindings": [],
-    "transport_zone_id": "dc9ffa3b-3f7b-4e06-b55e-07ec3ebd5a56",
+    "transport_zone_id": FAKE_TZ_UUID,
     "replication_mode": "MTEP",
     "admin_state": "UP",
     "vni": 50056,
@@ -58,7 +59,7 @@ FAKE_PORT = {
     "display_name": FAKE_NAME,
     "resource_type": "LogicalPort",
     "address_bindings": [],
-    "logical_switch_id": "e3360f8a-3392-413e-972c-7aa91647693f",
+    "logical_switch_id": FAKE_SWITCH_UUID,
     "admin_state": "UP",
     "attachment": {
         "id": "9ca8d413-f7bf-4276-b4c9-62f42516bdb2",
