@@ -1039,8 +1039,9 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
     def update_subnet(self, context, id, subnet):
         orig = self._get_subnet(context, id)
+        gateway_ip = orig['gateway_ip']
         subnet = super(NsxVPluginV2, self).update_subnet(context, id, subnet)
-        if (orig['gateway_ip'] != subnet['gateway_ip'] or
+        if (gateway_ip != subnet['gateway_ip'] or
             set(orig['dns_nameservers']) != set(subnet['dns_nameservers'])):
             # Need to ensure that all of the subnet attributes will be reloaded
             # when creating the edge bindings. Without adding this the original
