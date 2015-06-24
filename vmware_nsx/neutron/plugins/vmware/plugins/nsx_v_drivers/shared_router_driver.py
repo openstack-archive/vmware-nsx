@@ -98,7 +98,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         for router_id in router_ids:
             router_qry = context.session.query(l3_db.Router)
             router = router_qry.filter_by(id=router_id).one()
-            if router.gw_port and router.enable_snat:
+            if router.gw_port:
                 snat, dnat = self.plugin._get_nat_rules(context, router)
                 snats.extend(snat)
                 dnats.extend(dnat)
@@ -478,7 +478,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                             self._update_external_interface_on_routers(
                                 context, router_id, router_ids)
 
-                        # Update SNAT rules if ext net changed and snat enabled
+                        # Update SNAT rules if ext net changed
                         # or ext net not changed but snat is changed.
                         if ((new_ext_net_id != org_ext_net_id) or
                             (new_ext_net_id == org_ext_net_id and

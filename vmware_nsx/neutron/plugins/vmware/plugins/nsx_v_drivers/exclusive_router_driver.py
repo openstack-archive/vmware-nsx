@@ -80,9 +80,6 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
             # vnic can be configured
             LOG.debug("Delete default gateway %s", orgnexthop)
             edge_utils.clear_gateway(self.nsx_v, context, router_id)
-            # Delete SNAT rules
-            if org_enable_snat:
-                edge_utils.clear_nat_rules(self.nsx_v, context, router_id)
 
         # Update external vnic if addr or mask is changed
         if orgaddr != newaddr or orgmask != newmask:
@@ -90,10 +87,9 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
                 self.nsx_v, context, router_id,
                 new_ext_net_id, newaddr, newmask)
 
-        # Update SNAT rules if ext net changed and snat enabled
+        # Update SNAT rules if ext net changed
         # or ext net not changed but snat is changed.
-        if ((new_ext_net_id != org_ext_net_id and
-             newnexthop and new_enable_snat) or
+        if (new_ext_net_id != org_ext_net_id or
             (new_ext_net_id == org_ext_net_id and
              new_enable_snat != org_enable_snat)):
             self.plugin._update_nat_rules(context, router)
