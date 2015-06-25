@@ -149,7 +149,7 @@ def main():
     # Use different exit codes, so that we can distinguish
     # between config and runtime errors
     if len(node_errors):
-        print("\nThere are one or mode transport nodes that are "
+        print("\nThere are one or more transport nodes that are "
               "not connected: %s. Please, revise!" % node_errors)
         sys.exit(10)
     elif errors:
