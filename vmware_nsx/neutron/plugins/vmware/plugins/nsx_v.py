@@ -1041,6 +1041,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
     def update_subnet(self, context, id, subnet):
         orig = self._get_subnet(context, id)
         gateway_ip = orig['gateway_ip']
+        enable_dhcp = orig['enable_dhcp']
         subnet = super(NsxVPluginV2, self).update_subnet(context, id, subnet)
         if (gateway_ip != subnet['gateway_ip'] or
             set(orig['dns_nameservers']) != set(subnet['dns_nameservers'])):
@@ -1051,7 +1052,36 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             # Update the edge
             network_id = subnet['network_id']
             self.edge_manager.update_dhcp_edge_bindings(context, network_id)
+        if enable_dhcp != subnet['enable_dhcp']:
+            self._update_subnet_dhcp_status(subnet, context)
         return subnet
+
+    def _update_subnet_dhcp_status(self, subnet, context):
+        network_id = subnet['network_id']
+        if subnet['enable_dhcp']:
+            # create dhcp port
+            port_dict = {'name': '',
+                         'admin_state_up': True,
+                         'network_id': subnet['network_id'],
+                         'tenant_id': subnet['tenant_id'],
+                         'fixed_ips': [{'subnet_id': subnet['id']}],
+                         'device_owner': constants.DEVICE_OWNER_DHCP,
+                         'device_id': '',
+                         'mac_address': attr.ATTR_NOT_SPECIFIED
+                         }
+            self.create_port(context, {'port': port_dict})
+
+        else:
+            # delete dhcp port
+            filters = {'fixed_ips': {'subnet_id': [subnet['id']]}}
+            ports = self.get_ports(context, filters=filters)
+            for port in ports:
+                if port["device_owner"] == constants.DEVICE_OWNER_DHCP:
+                    self._delete_port(context, port['id'])
+        address_groups = self._create_network_dhcp_address_group(context,
+                                                                 network_id)
+        self._update_dhcp_edge_service(context, network_id,
+                                       address_groups)
 
     def _get_conflict_network_ids_by_overlapping(self, context, subnets):
         with locking.LockManager.get_lock(
