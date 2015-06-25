@@ -36,7 +36,7 @@ def _get_controller_endpoint():
     return "https://%s" % controller, username, password
 
 
-def create_logical_switch(display_name, transport_zone_id,
+def create_logical_switch(display_name, transport_zone_id, tags,
                           replication_mode=nsx_constants.MTEP,
                           admin_state=nsx_constants.ADMIN_STATE_UP):
     # TODO(salv-orlando): Validate Replication mode and admin_state
@@ -49,7 +49,8 @@ def create_logical_switch(display_name, transport_zone_id,
     body = {'transport_zone_id': transport_zone_id,
             'replication_mode': replication_mode,
             'admin_state': admin_state,
-            'display_name': display_name}
+            'display_name': display_name,
+            'tags': tags}
 
     # TODO(salv-orlando): Move actual HTTP request to separate module which
     # should be accessed through interface, in order to be able to switch API
@@ -88,8 +89,7 @@ def delete_logical_switch(lswitch_id):
                       "deleting logical switch"))
 
 
-def create_logical_port(lswitch_id,
-                        vif_uuid,
+def create_logical_port(lswitch_id, vif_uuid, tags,
                         attachment_type=nsx_constants.ATTACHMENT_VIF,
                         admin_state=True, name=None):
 
@@ -98,7 +98,8 @@ def create_logical_port(lswitch_id,
     headers = {'Content-Type': 'application/json'}
     body = {'logical_switch_id': lswitch_id,
             'attachment': {'attachment_type': attachment_type,
-                           'id': vif_uuid}}
+                           'id': vif_uuid},
+            'tags': tags}
     if name:
         body['display_name'] = name
     if admin_state:
@@ -137,7 +138,7 @@ def delete_logical_port(logical_port_id):
                       "deleting logical port"))
 
 
-def create_logical_router(display_name, edge_cluster_uuid, tier_0=False):
+def create_logical_router(display_name, edge_cluster_uuid, tags, tier_0=False):
     # TODO(salv-orlando): If possible do not manage edge clusters in the main
     # plugin logic.
     router_type = (nsx_constants.ROUTER_TYPE_TIER0 if tier_0 else
@@ -147,7 +148,8 @@ def create_logical_router(display_name, edge_cluster_uuid, tier_0=False):
     headers = {'Content-Type': 'application/json'}
     body = {'edge_cluster_id': edge_cluster_uuid,
             'display_name': display_name,
-            'router_type': router_type}
+            'router_type': router_type,
+            'tags': tags}
     # TODO(salv-orlando): Must handle connection exceptions
     result = requests.post(url, auth=auth.HTTPBasicAuth(user, password),
                            verify=False, headers=headers,

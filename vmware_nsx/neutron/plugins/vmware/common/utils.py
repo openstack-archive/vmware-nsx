@@ -74,3 +74,17 @@ def check_and_truncate(display_name):
                   "It will be truncated on NSX", display_name)
         return display_name[:MAX_DISPLAY_NAME_LEN]
     return display_name or ''
+
+
+def build_v3_tags_payload(logical_entity):
+    """
+    Construct the tags payload that will be pushed to NSX-v3
+    Add os-tid:<tenant-id>, os-api-version:<neutron-api-version>
+    """
+    tags = []
+    tags.append({
+        "scope": "os-tid",
+        "tag": logical_entity.get("tenant_id")
+    })
+    #TODO(abhide): Add API version to tags
+    return tags
