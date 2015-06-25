@@ -1119,12 +1119,13 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             self.edge_manager.update_dhcp_edge_service(
                 context, network_id, address_groups=address_groups)
 
-            if resource_id and self.metadata_proxy_handler:
-                LOG.debug('Update metadata for resource %s', resource_id)
-                self.metadata_proxy_handler.configure_router_edge(resource_id,
-                                                                  context)
+            if resource_id:
+                if self.metadata_proxy_handler:
+                    LOG.debug('Update metadata for resource %s', resource_id)
+                    self.metadata_proxy_handler.configure_router_edge(
+                        resource_id, context)
 
-            self.setup_dhcp_edge_fw_rules(context, self, resource_id)
+                self.setup_dhcp_edge_fw_rules(context, self, resource_id)
 
         except Exception:
             with excutils.save_and_reraise_exception():

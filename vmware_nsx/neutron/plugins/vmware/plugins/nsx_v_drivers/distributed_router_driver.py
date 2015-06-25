@@ -171,6 +171,8 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
 
         # update static routes in all
         self.update_routes(context, router_id, newnexthop)
+        if self.plugin.metadata_proxy_handler:
+            self._metadata_route_setup(context, router_id)
 
     def add_router_interface(self, context, router_id, interface_info):
         info = super(nsx_v.NsxVPluginV2, self.plugin).add_router_interface(
@@ -233,7 +235,8 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         # Get all subnets which are attached to the VDR and have DHCP enabled
         vdr_ports = self.plugin.get_ports(
             context,
-            filters={'device_id': [router_id]},
+            filters={'device_id': [router_id],
+                     'enable_dhcp': True},
             fields=['fixed_ips'])
         vdr_subnets = [port['fixed_ips'][0]['subnet_id'] for port in vdr_ports]
 
