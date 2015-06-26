@@ -20,7 +20,6 @@ from neutron.api.v2 import attributes
 from neutron.common import constants
 from neutron.common import exceptions as n_exc
 from neutron.common import ipv6_utils
-import neutron.common.test_lib as test_lib
 from neutron import context
 from neutron.extensions import dvr as dist_router
 from neutron.extensions import external_net
@@ -55,6 +54,7 @@ from vmware_nsx.neutron.plugins.vmware.vshield.common import (
 from vmware_nsx.neutron.plugins.vmware.vshield import edge_utils
 from vmware_nsx.neutron.tests.unit import vmware
 from vmware_nsx.neutron.tests.unit.vmware.extensions import test_vnic_index
+from vmware_nsx.neutron.tests.unit.vmware import test_utils
 from vmware_nsx.neutron.tests.unit.vmware.vshield import fake_vcns
 
 PLUGIN_NAME = 'vmware_nsx.neutron.plugins.vmware.plugin.NsxVPlugin'
@@ -95,8 +95,7 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
               plugin=PLUGIN_NAME,
               ext_mgr=None,
               service_plugins=None):
-        test_lib.test_config['config_files'] = [
-            vmware.get_fake_conf('nsx.ini.test')]
+        test_utils.override_nsx_ini_test()
         mock_vcns = mock.patch(vmware.VCNS_NAME, autospec=True)
         mock_vcns_instance = mock_vcns.start()
         self.fc2 = fake_vcns.FakeVcns()
@@ -1761,8 +1760,7 @@ class NsxVSecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
               plugin=PLUGIN_NAME,
               ext_mgr=None,
               service_plugins=None):
-        test_lib.test_config['config_files'] = [
-            vmware.get_fake_conf('nsx.ini.test')]
+        test_utils.override_nsx_ini_test()
         mock_vcns = mock.patch(vmware.VCNS_NAME, autospec=True)
         mock_vcns_instance = mock_vcns.start()
         self.fc2 = fake_vcns.FakeVcns()

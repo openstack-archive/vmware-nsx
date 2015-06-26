@@ -15,7 +15,6 @@
 
 import mock
 from neutron.api.v2 import attributes
-from neutron.common import test_lib
 from neutron import context
 from neutron.extensions import agent
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_db_plugin
@@ -26,6 +25,7 @@ from vmware_nsx.neutron.plugins.vmware.api_client import version
 from vmware_nsx.neutron.plugins.vmware.common import sync
 from vmware_nsx.neutron.tests.unit import vmware
 from vmware_nsx.neutron.tests.unit.vmware.apiclient import fake
+from vmware_nsx.neutron.tests.unit.vmware import test_utils
 
 
 class MacLearningExtensionManager(object):
@@ -50,8 +50,7 @@ class MacLearningDBTestCase(test_db_plugin.NeutronDbPluginV2TestCase):
     fmt = 'json'
 
     def setUp(self):
-        test_lib.test_config['config_files'] = [
-            vmware.get_fake_conf('nsx.ini.full.test')]
+        test_utils.override_nsx_ini_full_test()
         cfg.CONF.set_override('api_extensions_path', vmware.NSXEXT_PATH)
         # Save the original RESOURCE_ATTRIBUTE_MAP
         self.saved_attr_map = {}

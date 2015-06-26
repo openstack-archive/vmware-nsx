@@ -15,18 +15,17 @@
 
 import mock
 
-from neutron.common import test_lib
 from neutron.tests.unit.extensions import test_portsecurity as psec
 from vmware_nsx.neutron.plugins.vmware.common import sync
 from vmware_nsx.neutron.tests.unit import vmware
 from vmware_nsx.neutron.tests.unit.vmware.apiclient import fake
+from vmware_nsx.neutron.tests.unit.vmware import test_utils
 
 
 class PortSecurityTestCase(psec.PortSecurityDBTestCase):
 
     def setUp(self):
-        test_lib.test_config['config_files'] = [
-            vmware.get_fake_conf('nsx.ini.test')]
+        test_utils.override_nsx_ini_test()
         # mock api client
         self.fc = fake.FakeClient(vmware.STUBS_PATH)
         self.mock_nsx = mock.patch(vmware.NSXAPI_NAME, autospec=True)

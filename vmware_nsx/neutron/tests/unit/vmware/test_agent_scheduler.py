@@ -17,12 +17,13 @@ import mock
 from oslo_config import cfg
 
 from neutron.common import constants
-from neutron.common import test_lib
-from neutron.tests.unit.plugins.openvswitch import test_agent_scheduler
+from neutron.tests.unit.plugins.ml2.drivers.openvswitch.agent import (
+    test_agent_scheduler)  # noqa
 from vmware_nsx.neutron.plugins.vmware.common import sync
 from vmware_nsx.neutron.plugins.vmware.dhcp_meta import rpc
 from vmware_nsx.neutron.tests.unit import vmware
 from vmware_nsx.neutron.tests.unit.vmware.apiclient import fake
+from vmware_nsx.neutron.tests.unit.vmware import test_utils
 
 
 class DhcpAgentNotifierTestCase(
@@ -30,9 +31,7 @@ class DhcpAgentNotifierTestCase(
     plugin_str = vmware.PLUGIN_NAME
 
     def setUp(self):
-        test_lib.test_config['config_files'] = [
-            vmware.get_fake_conf('nsx.ini.full.test')]
-
+        test_utils.override_nsx_ini_full_test()
         # mock api client
         self.fc = fake.FakeClient(vmware.STUBS_PATH)
         self.mock_nsx_api = mock.patch(vmware.NSXAPI_NAME, autospec=True)
