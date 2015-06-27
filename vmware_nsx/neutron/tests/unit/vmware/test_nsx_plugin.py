@@ -267,6 +267,23 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxPluginV2TestCase):
             self._test_create_bridge_network(vlan_id=5000)
         self.assertEqual(ctx_manager.exception.code, 400)
 
+    def test_create_l3_ext_network_fails_if_not_external(self):
+        net_type = 'l3_ext'
+        name = 'l3_ext_net'
+        providernet_args = {pnet.NETWORK_TYPE: net_type,
+                            pnet.PHYSICAL_NETWORK: 'l3gwuuid',
+                            pnet.SEGMENTATION_ID: 123}
+        with testlib_api.ExpectedException(
+                webob.exc.HTTPClientError) as ctx_manager:
+            with self.network(name=name,
+                              providernet_args=providernet_args,
+                              arg_list=(pnet.NETWORK_TYPE,
+                                        pnet.PHYSICAL_NETWORK,
+                                        pnet.SEGMENTATION_ID)):
+                pass
+        self.assertEqual(ctx_manager.exception.code,
+                         webob.exc.HTTPBadRequest.code)
+
     def test_list_networks_filter_by_id(self):
         # We add this unit test to cover some logic specific to the
         # nsx plugin

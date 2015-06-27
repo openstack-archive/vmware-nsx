@@ -802,6 +802,10 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                {'segmentation_id': segmentation_id,
                                 'min_id': plugin_const.MIN_VLAN_TAG,
                                 'max_id': plugin_const.MAX_VLAN_TAG})
+                # Network must be external
+                if not network.get(ext_net_extn.EXTERNAL):
+                    err_msg = (_("The l3_ext provide network type can be "
+                                 "used with external networks only"))
             else:
                 err_msg = (_("%(net_type_param)s %(net_type_value)s not "
                              "supported") %
