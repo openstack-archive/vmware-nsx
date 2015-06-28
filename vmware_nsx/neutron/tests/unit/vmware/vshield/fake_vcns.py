@@ -1059,3 +1059,9 @@ class FakeVcns(object):
 
     def edges_lock_operation(self):
         pass
+
+    def validate_inventory(self, moref):
+        return True
+
+    def get_version(self):
+        return '6.2.0'
