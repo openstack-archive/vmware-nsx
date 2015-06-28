@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from distutils import version
 import six
 import uuid
 
@@ -1916,3 +1917,21 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 cfg.CONF.nsxv.mgt_net_moid)):
             error = _("configured mgt_net_moid not found")
             raise nsx_exc.NsxPluginException(err_msg=error)
+
+        ver = self.nsx_v.vcns.get_version()
+        if version.LooseVersion(ver) < version.LooseVersion('6.2.0'):
+            LOG.warning(_LW("Skipping validations. Not supported by version."))
+            return
+        # Validations below only supported by 6.2.0 and above
+        inventory = [(cfg.CONF.nsxv.resource_pool_id,
+                      'resource_pool_id'),
+                     (cfg.CONF.nsxv.datastore_id,
+                      'datastore_id')]
+        # Treat the cluster list
+        for cluster in cfg.CONF.nsxv.cluster_moid:
+            inventory.append((cluster, 'cluster_moid'))
+
+        for moref, field in inventory:
+            if moref and not self.nsx_v.vcns.validate_inventory(moref):
+                error = _("configured %s not found") % field
+                raise nsx_exc.NsxPluginException(err_msg=error)
