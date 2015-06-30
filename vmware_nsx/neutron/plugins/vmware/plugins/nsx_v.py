@@ -1318,10 +1318,12 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         for route in routes:
             for port in ports:
                 for ip in port['fixed_ips']:
-                    subnet = self.get_subnet(context, ip['subnet_id'])
+                    subnet = self.get_subnet(context.elevated(),
+                                             ip['subnet_id'])
                     if netaddr.all_matching_cidrs(
                         route['nexthop'], [subnet['cidr']]):
-                        net = self.get_network(context, subnet['network_id'])
+                        net = self.get_network(context.elevated(),
+                                               subnet['network_id'])
                         route['network_id'] = net['id']
                         if net.get(ext_net_extn.EXTERNAL):
                             route['external'] = True

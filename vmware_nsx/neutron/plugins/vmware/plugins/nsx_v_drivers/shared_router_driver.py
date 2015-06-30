@@ -83,7 +83,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             routes = self.plugin._get_extra_routes_by_router_id(
                 context, router_id)
             filters = {'device_id': [router_id]}
-            ports = self.plugin.get_ports(context, filters)
+            ports = self.plugin.get_ports(context.elevated(), filters)
             self.plugin._add_network_info_for_routes(context, routes, ports)
             all_routes.extend(routes)
             if not nexthop:
