@@ -502,7 +502,7 @@ class TestPortsV2(NsxVPluginV2TestCase,
                 self._delete('ports', port['port']['id'])
 
     def test_no_more_port_exception(self):
-        with self.subnet(enable_dhcp=False, cidr='10.0.0.0/32',
+        with self.subnet(enable_dhcp=False, cidr='10.0.0.0/31',
                          gateway_ip=None) as subnet:
             id = subnet['subnet']['network_id']
             res = self._create_port(self.fmt, id)
