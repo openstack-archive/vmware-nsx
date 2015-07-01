@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import mock
 from oslo_config import cfg
 
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
@@ -38,150 +38,13 @@ class NsxPluginV3TestCase(test_plugin.NeutronDbPluginV2TestCase):
         # TODO(salv-orlando): supply unit tests for nsxlib.v3
         nsxlib.create_logical_switch = nsx_v3_mocks.create_logical_switch
         nsxlib.create_logical_port = nsx_v3_mocks.create_logical_port
+        nsxlib.delete_logical_port = mock.Mock()
+        nsxlib.delete_logical_switch = mock.Mock()
 
 
 class TestNetworksV2(test_plugin.TestNetworksV2, NsxPluginV3TestCase):
-    def test_create_networks_bulk_emulated(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_invalid_admin_status(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_create_networks_bulk_native(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_networks_with_parameters(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_networks_with_pagination_native(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_networks_with_sort_remote_key_native_returns_400(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_create_networks_bulk_tenants_and_quotas(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_networks(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_networks_without_pk_in_fields_pagination_emulated(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_networks_with_pagination_emulated(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_networks_with_parameters_invalid_values(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_networks_with_pagination_reverse_emulated(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_networks_with_sort_extended_attr_native_returns_400(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_networks_with_sort_emulated(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_networks_with_pagination_reverse_native(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_networks_with_sort_native(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_shared_networks_with_non_admin_user(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_update_network_set_not_shared_other_tenant_returns_409(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_update_network_set_not_shared_multi_tenants2_returns_409(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_update_network_set_not_shared_multi_tenants_returns_409(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_update_network_set_not_shared_single_tenant(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_networks_without_pk_in_fields_pagination_native(self):
-        self.skipTest("Need to investigate test failure")
+    pass
 
 
 class TestPortsV2(test_plugin.TestPortsV2, NsxPluginV3TestCase):
-    def test_create_port_public_network(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_create_port_public_network_with_ip(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_create_ports_bulk_native(self):
-        self.skipTest("Need to investigate test failure"
-                      "InvalidRequestError: A transaction is already begun")
-
-    def test_create_ports_bulk_emulated(self):
-        self.skipTest("Need to investigate test failure"
-                      "InvalidRequestError: A transaction is already begun")
-
-    def test_list_ports(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_ports_filtered_by_fixed_ip(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_ports_with_sort_native(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_ports_with_sort_emulated(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_ports_with_pagination_native(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_ports_with_pagination_emulated(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_ports_with_pagination_reverse_native(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_list_ports_with_pagination_reverse_emulated(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_delete_port(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_delete_port_public_network(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_delete_network_port_exists_owned_by_network(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_requested_subnet_id(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_requested_subnet_id_not_on_network(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_requested_subnet_id_v4_and_v6(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_delete_port_with_ipv6_slaac_address(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_range_allocation(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_requested_invalid_fixed_ips(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_requested_split(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_requested_ips_only(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_delete_ports_by_device_id(self):
-        self.skipTest("Need to investigate test failure")
-
-    def test_delete_ports_by_device_id_second_call_failure(self):
-        self.skipTest("Need to investigate test failure")
+    pass
