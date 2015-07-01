@@ -147,10 +147,6 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                 # network changed, so need to remove default gateway
                 # and all static routes before vnic can be configured
                 edge_utils.clear_gateway(self.nsx_v, context, plr_id)
-                # Delete SNAT rules
-                if org_enable_snat:
-                    edge_utils.clear_nat_rules(self.nsx_v, context,
-                                               plr_id)
 
             # Update external vnic if addr or mask is changed
             if orgaddr != newaddr or orgmask != newmask:
@@ -158,10 +154,9 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                     self.nsx_v, context, plr_id,
                     new_ext_net_id, newaddr, newmask)
 
-            # Update SNAT rules if ext net changed and snat enabled
+            # Update SNAT rules if ext net changed
             # or ext net not changed but snat is changed.
-            if ((new_ext_net_id != org_ext_net_id and
-                 newnexthop and new_enable_snat) or
+            if (new_ext_net_id != org_ext_net_id or
                 (new_ext_net_id == org_ext_net_id and
                  new_enable_snat != org_enable_snat)):
                 self.plugin._update_nat_rules(context, router, plr_id)
