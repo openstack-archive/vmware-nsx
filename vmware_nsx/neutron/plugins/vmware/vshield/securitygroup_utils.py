@@ -32,11 +32,13 @@ class NsxSecurityGroupUtils(object):
     def to_xml_string(self, element):
         return et.tostring(element)
 
-    def get_section_with_rules(self, name, rules):
+    def get_section_with_rules(self, name, rules, section_id=None):
         """Helper method to create section dict with rules."""
 
         section = et.Element('section')
         section.attrib['name'] = name
+        if section_id:
+            section.attrib['id'] = section_id
         for rule in rules:
             section.append(rule)
         return section
@@ -53,7 +55,7 @@ class NsxSecurityGroupUtils(object):
             container = {'type': 'Ipv4Address', 'value': remote_ip_mac}
         return container
 
-    def get_rule_config(self, applied_to_id, name, action='allow',
+    def get_rule_config(self, applied_to_ids, name, action='allow',
                         applied_to='SecurityGroup',
                         source=None, destination=None, services=None,
                         flags=None):
@@ -65,11 +67,12 @@ class NsxSecurityGroupUtils(object):
         actionTag.text = action
 
         apList = et.SubElement(ruleTag, 'appliedToList')
-        apTag = et.SubElement(apList, 'appliedTo')
-        apTypeTag = et.SubElement(apTag, 'type')
-        apTypeTag.text = applied_to
-        apValueTag = et.SubElement(apTag, 'value')
-        apValueTag.text = applied_to_id
+        for applied_to_id in applied_to_ids:
+            apTag = et.SubElement(apList, 'appliedTo')
+            apTypeTag = et.SubElement(apTag, 'type')
+            apTypeTag.text = applied_to
+            apValueTag = et.SubElement(apTag, 'value')
+            apValueTag.text = applied_to_id
 
         if source is not None:
             sources = et.SubElement(ruleTag, 'sources')

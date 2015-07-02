@@ -197,9 +197,6 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
     def _create_cluster_default_fw_rules(self):
         section_name = 'OS Cluster Security Group section'
         section_id = self.nsx_v.vcns.get_section_id(section_name)
-        if section_id:
-            # Section exists already
-            return
 
         # Default cluster rules
         rules = [{'name': 'Default DHCP rule for OS Security Groups',
@@ -211,28 +208,40 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                   'services': [('58', None, '135', None),
                                ('58', None, '136', None)]}]
 
+        if cfg.CONF.nsxv.cluster_moid:
+            applied_to_ids = cfg.CONF.nsxv.cluster_moid
+            applied_to_type = 'ClusterComputeResource'
+        else:
+            applied_to_ids = [self.sg_container_id]
+            applied_to_type = 'SecurityGroup'
+
         rule_list = []
-        for cluster_moid in cfg.CONF.nsxv.cluster_moid:
-            for rule in rules:
-                rule_config = self.nsx_sg_utils.get_rule_config(
-                    cluster_moid, rule['name'], rule['action'],
-                    'ClusterComputeResource', services=rule['services'])
-                rule_list.append(rule_config)
+        for rule in rules:
+            rule_config = self.nsx_sg_utils.get_rule_config(
+                applied_to_ids, rule['name'], rule['action'],
+                applied_to_type, services=rule['services'])
+            rule_list.append(rule_config)
 
         # Default security-group rules
         block_rule = self.nsx_sg_utils.get_rule_config(
-            self.sg_container_id, 'Block All', 'deny')
+            [self.sg_container_id], 'Block All', 'deny')
         rule_list.append(block_rule)
 
         section = (
-            self.nsx_sg_utils.get_section_with_rules(section_name, rule_list))
+            self.nsx_sg_utils.get_section_with_rules(
+                section_name, rule_list, section_id))
+        section_req_body = self.nsx_sg_utils.to_xml_string(section)
         try:
-            self.nsx_v.vcns.create_section(
-                'ip', self.nsx_sg_utils.to_xml_string(section))
+            if section_id:
+                self.nsx_v.vcns.update_section_by_id(
+                    section_id, 'ip', section_req_body)
+            else:
+                self.nsx_v.vcns.create_section(
+                    'ip', section_req_body)
         except vsh_exc.RequestBad as e:
             # Section already created, probably by other Neutron service.
-            LOG.debug("Could not create NSX fw section for cluster"
-                      " %s: %s", cluster_moid, e.response)
+            LOG.debug("Could not create NSX fw section for clusters"
+                      " %s: %s", cfg.CONF.nsxv.cluster_moid, e.response)
 
     def _create_dhcp_static_binding(self, context, neutron_port_db):
 
@@ -1807,7 +1816,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         flags['ethertype'] = rule.get('ethertype')
         # Add rule in nsx rule section
         nsx_rule = self.nsx_sg_utils.get_rule_config(
-            applied_to_id=nsx_sg_id,
+            applied_to_ids=[nsx_sg_id],
             name=name,
             source=src,
             destination=dest,
