@@ -433,15 +433,14 @@ class Vcns(object):
     def create_dhcp_binding(self, edge_id, request_config):
         """Append one dhcp static binding on the edge."""
         uri = self._build_uri_path(edge_id,
-                                   DHCP_SERVICE, DHCP_BINDING_RESOURCE,
-                                   is_async=True)
+                                   DHCP_SERVICE, DHCP_BINDING_RESOURCE)
         return self.do_request(HTTP_POST, uri, request_config, decode=False)
 
     def delete_dhcp_binding(self, edge_id, binding_id):
         """Delete one dhcp static binding on the edge."""
         uri = self._build_uri_path(edge_id,
                                    DHCP_SERVICE, DHCP_BINDING_RESOURCE,
-                                   binding_id, is_async=True)
+                                   binding_id)
         return self.do_request(HTTP_DELETE, uri, decode=False)
 
     def create_security_group(self, request):
