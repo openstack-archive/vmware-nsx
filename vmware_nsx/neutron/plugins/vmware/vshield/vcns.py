@@ -716,3 +716,21 @@ class Vcns(object):
                 return True
 
         return False
+
+    def validate_inventory(self, object_id):
+        uri = '%s/inventory/%s/basicinfo' % (SERVICES_PREFIX, object_id)
+        try:
+            h, c = self.do_request(HTTP_GET, uri, decode=False)
+        except exceptions.ResourceNotFound:
+            return False
+        return True
+
+    def get_version(self):
+        uri = '/api/1.0/appliance-management/summary/system'
+        h, c = self.do_request(HTTP_GET, uri, decode=True)
+        version = '%s.%s.%s' % (c['versionInfo']['majorVersion'],
+                                c['versionInfo']['minorVersion'],
+                                c['versionInfo']['patchVersion'])
+        LOG.debug("NSX Version: %s, Build: %s",
+                  version, c['versionInfo']['buildNumber'])
+        return version
