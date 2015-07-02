@@ -54,6 +54,10 @@ class EdgeApplianceDriver(object):
             'cliSettings': {
                 'remoteAccess': remote_access
             },
+            'autoConfiguration': {
+                'enabled': False,
+                'rulePriority': 'high'
+            },
             'appliances': {
                 'applianceSize': appliance_size
             },

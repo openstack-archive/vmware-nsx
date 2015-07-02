@@ -52,6 +52,12 @@ LOG = logging.getLogger(__name__)
 def get_router_fw_rules():
     fw_rules = [
         {
+            'name': 'VSERule',
+            'enabled': True,
+            'action': 'allow',
+            'vnicGroupId': ['vse']
+        },
+        {
             'name': 'MDServiceIP',
             'enabled': True,
             'action': 'allow',
@@ -345,16 +351,23 @@ class NsxVMetadataProxyHandler:
                                     cfg.CONF.nsxv.nova_metadata_ips,
                                     proxy_lb=True)
 
-            firewall_rule = {
-                'action': 'allow',
-                'enabled': True,
-                'source_ip_address': [INTERNAL_SUBNET]}
+            firewall_rules = [
+                {
+                    'name': 'VSERule',
+                    'enabled': True,
+                    'action': 'allow',
+                    'vnicGroupId': ['vse']
+                },
+                {
+                    'action': 'allow',
+                    'enabled': True,
+                    'source_ip_address': [INTERNAL_SUBNET]}]
 
             edge_utils.update_firewall(
                 self.nsxv_plugin.nsx_v,
                 self.context,
                 rtr_id,
-                {'firewall_rule_list': [firewall_rule]},
+                {'firewall_rule_list': firewall_rules},
                 allow_external=False)
 
             if cfg.CONF.nsxv.mgt_net_default_gateway:
