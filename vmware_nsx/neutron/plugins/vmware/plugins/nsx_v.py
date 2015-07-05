@@ -393,7 +393,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 as_provider = self._get_subnet_as_providers(context, subnet)
                 md_filter = (
                     None if filters is None
-                    else filters.get('as_providers.ADV_SERVICE_PROVIDERS'))
+                    else filters.get(as_providers.ADV_SERVICE_PROVIDERS))
 
                 if md_filter is None or len(set(as_provider) & set(md_filter)):
                     # Include metadata_providers only if requested in results
