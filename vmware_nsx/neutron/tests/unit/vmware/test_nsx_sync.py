@@ -376,13 +376,13 @@ class SyncTestCase(testlib_api.SqlTestCase):
     def _test_sync(self, exp_net_status,
                    exp_port_status, exp_router_status,
                    action_callback=None, sp=None):
-        ls_uuid = self.fc._fake_lswitch_dict.keys()[0]
+        ls_uuid = list(self.fc._fake_lswitch_dict)[0]
         neutron_net_id = self._get_tag_dict(
             self.fc._fake_lswitch_dict[ls_uuid]['tags'])['quantum_net_id']
-        lp_uuid = self.fc._fake_lswitch_lport_dict.keys()[0]
+        lp_uuid = list(self.fc._fake_lswitch_lport_dict)[0]
         neutron_port_id = self._get_tag_dict(
             self.fc._fake_lswitch_lport_dict[lp_uuid]['tags'])['q_port_id']
-        lr_uuid = self.fc._fake_lrouter_dict.keys()[0]
+        lr_uuid = list(self.fc._fake_lrouter_dict)[0]
         neutron_rtr_id = self._get_tag_dict(
             self.fc._fake_lrouter_dict[lr_uuid]['tags'])['q_router_id']
         if action_callback:
@@ -547,7 +547,7 @@ class SyncTestCase(testlib_api.SqlTestCase):
         ctx = context.get_admin_context()
         with self._populate_data(ctx):
             # Put a network down to verify synchronization
-            ls_uuid = self.fc._fake_lswitch_dict.keys()[0]
+            ls_uuid = list(self.fc._fake_lswitch_dict)[0]
             q_net_id = self._get_tag_dict(
                 self.fc._fake_lswitch_dict[ls_uuid]['tags'])['quantum_net_id']
             self.fc._fake_lswitch_dict[ls_uuid]['status'] = 'false'
@@ -566,7 +566,7 @@ class SyncTestCase(testlib_api.SqlTestCase):
         ctx = context.get_admin_context()
         with self._populate_data(ctx):
             # Put a network down to verify synchronization
-            ls_uuid = self.fc._fake_lswitch_dict.keys()[0]
+            ls_uuid = list(self.fc._fake_lswitch_dict)[0]
             q_net_id = self._get_tag_dict(
                 self.fc._fake_lswitch_dict[ls_uuid]['tags'])['quantum_net_id']
             self.fc._fake_lswitch_dict[ls_uuid]['status'] = 'false'
@@ -582,7 +582,7 @@ class SyncTestCase(testlib_api.SqlTestCase):
         ctx = context.get_admin_context()
         with self._populate_data(ctx):
             # Put a network down to verify punctual synchronization
-            ls_uuid = self.fc._fake_lswitch_dict.keys()[0]
+            ls_uuid = list(self.fc._fake_lswitch_dict)[0]
             q_net_id = self._get_tag_dict(
                 self.fc._fake_lswitch_dict[ls_uuid]['tags'])['quantum_net_id']
             self.fc._fake_lswitch_dict[ls_uuid]['status'] = 'false'
@@ -593,7 +593,7 @@ class SyncTestCase(testlib_api.SqlTestCase):
         ctx = context.get_admin_context()
         with self._populate_data(ctx):
             # Put a port down to verify synchronization
-            lp_uuid = self.fc._fake_lswitch_lport_dict.keys()[0]
+            lp_uuid = list(self.fc._fake_lswitch_lport_dict)[0]
             lport = self.fc._fake_lswitch_lport_dict[lp_uuid]
             q_port_id = self._get_tag_dict(lport['tags'])['q_port_id']
             lport['status'] = 'true'
@@ -608,7 +608,7 @@ class SyncTestCase(testlib_api.SqlTestCase):
         ctx = context.get_admin_context()
         with self._populate_data(ctx):
             # Put a port down to verify synchronization
-            lp_uuid = self.fc._fake_lswitch_lport_dict.keys()[0]
+            lp_uuid = list(self.fc._fake_lswitch_lport_dict)[0]
             lport = self.fc._fake_lswitch_lport_dict[lp_uuid]
             q_port_id = self._get_tag_dict(lport['tags'])['q_port_id']
             lport['status'] = 'true'
@@ -628,7 +628,7 @@ class SyncTestCase(testlib_api.SqlTestCase):
         ctx = context.get_admin_context()
         with self._populate_data(ctx):
             # Put a port down to verify punctual synchronization
-            lp_uuid = self.fc._fake_lswitch_lport_dict.keys()[0]
+            lp_uuid = list(self.fc._fake_lswitch_lport_dict)[0]
             lport = self.fc._fake_lswitch_lport_dict[lp_uuid]
             q_port_id = self._get_tag_dict(lport['tags'])['q_port_id']
             lport['status'] = 'false'
@@ -640,7 +640,7 @@ class SyncTestCase(testlib_api.SqlTestCase):
         ctx = context.get_admin_context()
         with self._populate_data(ctx):
             # Put a router down to verify synchronization
-            lr_uuid = self.fc._fake_lrouter_dict.keys()[0]
+            lr_uuid = list(self.fc._fake_lrouter_dict)[0]
             q_rtr_id = self._get_tag_dict(
                 self.fc._fake_lrouter_dict[lr_uuid]['tags'])['q_router_id']
             self.fc._fake_lrouter_dict[lr_uuid]['status'] = 'false'
@@ -655,7 +655,7 @@ class SyncTestCase(testlib_api.SqlTestCase):
         ctx = context.get_admin_context()
         with self._populate_data(ctx):
             # Put a router down to verify synchronization
-            lr_uuid = self.fc._fake_lrouter_dict.keys()[0]
+            lr_uuid = list(self.fc._fake_lrouter_dict)[0]
             q_rtr_id = self._get_tag_dict(
                 self.fc._fake_lrouter_dict[lr_uuid]['tags'])['q_router_id']
             self.fc._fake_lrouter_dict[lr_uuid]['status'] = 'false'
@@ -674,7 +674,7 @@ class SyncTestCase(testlib_api.SqlTestCase):
         ctx = context.get_admin_context()
         with self._populate_data(ctx):
             # Put a router down to verify synchronization
-            lr_uuid = self.fc._fake_lrouter_dict.keys()[0]
+            lr_uuid = list(self.fc._fake_lrouter_dict)[0]
             q_rtr_id = self._get_tag_dict(
                 self.fc._fake_lrouter_dict[lr_uuid]['tags'])['q_router_id']
             self.fc._fake_lrouter_dict[lr_uuid]['status'] = 'false'
@@ -703,7 +703,7 @@ class SyncTestCase(testlib_api.SqlTestCase):
         ctx = context.get_admin_context()
         with self._populate_data(ctx):
             # Put a router down to verify punctual synchronization
-            lr_uuid = self.fc._fake_lrouter_dict.keys()[0]
+            lr_uuid = list(self.fc._fake_lrouter_dict)[0]
             q_rtr_id = self._get_tag_dict(
                 self.fc._fake_lrouter_dict[lr_uuid]['tags'])['q_router_id']
             self.fc._fake_lrouter_dict[lr_uuid]['status'] = 'false'
