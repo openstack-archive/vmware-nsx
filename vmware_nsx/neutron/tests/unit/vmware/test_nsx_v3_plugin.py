@@ -45,7 +45,7 @@ class NsxPluginV3TestCase(test_plugin.NeutronDbPluginV2TestCase):
             test_constants_v3.FAKE_PORT)
 
 
-class TestNetworksV3(test_plugin.TestNetworksV2, NsxPluginV3TestCase):
+class TestNetworksV2(test_plugin.TestNetworksV2, NsxPluginV3TestCase):
     def test_create_networks_bulk_emulated(self):
         self.skipTest("Need to investigate test failure")
 
@@ -113,7 +113,7 @@ class TestNetworksV3(test_plugin.TestNetworksV2, NsxPluginV3TestCase):
         self.skipTest("Need to investigate test failure")
 
 
-class TestPortsV3(test_plugin.TestPortsV2, NsxPluginV3TestCase):
+class TestPortsV2(test_plugin.TestPortsV2, NsxPluginV3TestCase):
     def test_create_port_public_network(self):
         self.skipTest("Need to investigate test failure")
 
