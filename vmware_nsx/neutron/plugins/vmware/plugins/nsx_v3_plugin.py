@@ -118,22 +118,31 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         return super(NsxV3Plugin, self).update_network(context, network_id,
                                                        network)
 
+    def _build_address_bindings(self, port):
+        address_bindings = []
+        for fixed_ip in port['fixed_ips']:
+            address_bindings.append(
+                {'mac_address': port['mac_address'],
+                 'ip_address': fixed_ip['ip_address']})
+        return address_bindings
+
     def create_port(self, context, port):
-        # NOTE(salv-orlando): This method currently first performs the backend
-        # operation. However it is important to note that this workflow might
-        # change in the future as the backend might need parameter generated
-        # from the neutron side such as port MAC address
         port_id = uuidutils.generate_uuid()
         tags = utils.build_v3_tags_payload(port['port'])
-        result = nsxlib.create_logical_port(
-            lswitch_id=port['port']['network_id'],
-            vif_uuid=port_id, name=port['port']['name'], tags=tags,
-            admin_state=port['port']['admin_state_up'])
         port['port']['id'] = port_id
         # TODO(salv-orlando): Undo logical switch creation on failure
         with context.session.begin():
             neutron_db = super(NsxV3Plugin, self).create_port(context, port)
             port["port"].update(neutron_db)
+            address_bindings = self._build_address_bindings(port['port'])
+            # FIXME(arosen): we might need to pull this out of the transaction
+            # here later.
+            result = nsxlib.create_logical_port(
+                lswitch_id=port['port']['network_id'],
+                vif_uuid=port_id, name=port['port']['name'], tags=tags,
+                admin_state=port['port']['admin_state_up'],
+                address_bindings=address_bindings)
+
             # TODO(salv-orlando): The logical switch identifier in the mapping
             # object is not necessary anymore.
             nsx_db.add_neutron_nsx_port_mapping(
