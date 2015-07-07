@@ -19,13 +19,13 @@ import netaddr
 from oslo_log import log as logging
 from oslo_utils import excutils
 
+from neutron.i18n import _LE
 from neutron import manager
 from neutron.plugins.common import constants
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
 from vmware_nsx.neutron.plugins.vmware.vshield.common import (
     exceptions as nsxv_exc)
 from vmware_nsx.neutron.plugins.vmware.vshield import vcns as nsxv_api
-from vmware_nsx.openstack.common._i18n import _LE
 
 
 # TODO(kobis): protect in nsx_v.py against detaching of interface while

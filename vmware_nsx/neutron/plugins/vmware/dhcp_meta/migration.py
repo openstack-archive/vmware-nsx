@@ -20,10 +20,10 @@ from neutron.common import exceptions as n_exc
 from neutron.extensions import external_net
 from oslo_log import log as logging
 
+from neutron.i18n import _LE
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as p_exc
 from vmware_nsx.neutron.plugins.vmware.dhcp_meta import nsx
 from vmware_nsx.neutron.plugins.vmware.dhcp_meta import rpc
-from vmware_nsx.openstack.common._i18n import _LE
 
 LOG = logging.getLogger(__name__)
 

@@ -21,6 +21,7 @@ from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
 
+from neutron.i18n import _LE, _LW
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as p_exc
 from vmware_nsx.neutron.plugins.vmware.common import nsx_utils
@@ -28,7 +29,6 @@ from vmware_nsx.neutron.plugins.vmware.dbexts import lsn_db
 from vmware_nsx.neutron.plugins.vmware.dhcp_meta import constants as const
 from vmware_nsx.neutron.plugins.vmware.nsxlib import lsn as lsn_api
 from vmware_nsx.neutron.plugins.vmware.nsxlib import switch as switch_api
-from vmware_nsx.openstack.common._i18n import _LE, _LW
 
 LOG = logging.getLogger(__name__)
 

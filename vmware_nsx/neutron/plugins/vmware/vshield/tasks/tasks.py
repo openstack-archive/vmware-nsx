@@ -20,11 +20,11 @@ from eventlet import event
 from eventlet import greenthread
 from neutron.common import exceptions
 from oslo_log import log as logging
+from oslo_service import loopingcall
 import six
 
+from neutron.i18n import _LE, _LI
 from vmware_nsx.neutron.plugins.vmware.vshield.tasks import constants
-from vmware_nsx.openstack.common._i18n import _LE, _LI
-from vmware_nsx.openstack.common import loopingcall
 
 DEFAULT_INTERVAL = 1000
 

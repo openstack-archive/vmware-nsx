@@ -22,8 +22,8 @@ import time
 from oslo_config import cfg
 from oslo_log import log as logging
 
+from neutron.i18n import _LE, _LI, _LW
 from vmware_nsx.neutron.plugins.vmware import api_client
-from vmware_nsx.openstack.common._i18n import _LE, _LI, _LW
 
 LOG = logging.getLogger(__name__)
 

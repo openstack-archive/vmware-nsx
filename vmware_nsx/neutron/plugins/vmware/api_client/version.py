@@ -17,7 +17,7 @@
 
 from oslo_log import log as logging
 
-from vmware_nsx.openstack.common._i18n import _LW
+from neutron.i18n import _LW
 
 
 LOG = logging.getLogger(__name__)

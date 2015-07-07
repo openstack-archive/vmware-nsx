@@ -19,10 +19,10 @@ from oslo_utils import excutils
 
 from neutron.common import constants
 from neutron.common import exceptions
+from neutron.i18n import _LW
 
 from vmware_nsx.neutron.plugins.vmware.common import utils
 from vmware_nsx.neutron.plugins.vmware import nsxlib
-from vmware_nsx.openstack.common._i18n import _LW
 
 HTTP_GET = "GET"
 HTTP_POST = "POST"

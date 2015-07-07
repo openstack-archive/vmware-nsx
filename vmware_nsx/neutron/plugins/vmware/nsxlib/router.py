@@ -20,13 +20,13 @@ from oslo_serialization import jsonutils
 from oslo_utils import excutils
 import six
 
+from neutron.i18n import _LE, _LI, _LW
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import utils
 from vmware_nsx.neutron.plugins.vmware import nsxlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import switch
 from vmware_nsx.neutron.plugins.vmware.nsxlib import versioning
-from vmware_nsx.openstack.common._i18n import _LE, _LI, _LW
 
 # @versioning.versioned decorator makes the apparent function body
 # totally unrelated to the real function.  This confuses pylint :(
