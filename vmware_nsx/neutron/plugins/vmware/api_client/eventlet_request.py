@@ -21,8 +21,8 @@ import eventlet
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
+from neutron.i18n import _LI, _LW
 from vmware_nsx.neutron.plugins.vmware.api_client import request
-from vmware_nsx.openstack.common._i18n import _LI, _LW
 
 LOG = logging.getLogger(__name__)
 USER_AGENT = "Neutron eventlet client/2.0"

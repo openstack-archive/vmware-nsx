@@ -17,6 +17,7 @@ import random
 
 from oslo_log import log
 from oslo_serialization import jsonutils
+from oslo_service import loopingcall
 from oslo_utils import timeutils
 import six
 
@@ -27,6 +28,7 @@ from neutron.db import external_net_db
 from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron.extensions import l3
+from neutron.i18n import _LE, _LI, _LW
 
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
@@ -34,8 +36,6 @@ from vmware_nsx.neutron.plugins.vmware.common import nsx_utils
 from vmware_nsx.neutron.plugins.vmware import nsxlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import router as routerlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import switch as switchlib
-from vmware_nsx.openstack.common._i18n import _LE, _LI, _LW
-from vmware_nsx.openstack.common import loopingcall
 
 # Maximum page size for a single request
 # NOTE(salv-orlando): This might become a version-dependent map should the

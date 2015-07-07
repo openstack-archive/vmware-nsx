@@ -18,8 +18,8 @@ import stevedore
 
 from oslo_log import log
 
+from neutron.i18n import _LE, _LI
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
-from vmware_nsx.openstack.common._i18n import _LE, _LI
 
 LOG = log.getLogger(__name__)
 ROUTER_TYPE_DRIVERS = ["distributed", "exclusive", "shared"]

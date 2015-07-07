@@ -35,6 +35,7 @@ from neutron.extensions import portbindings as pbin
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
+from neutron.i18n import _LE, _LW
 from neutron.plugins.common import constants
 from neutron.plugins.common import utils
 
@@ -46,7 +47,6 @@ from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
 from vmware_nsx.neutron.plugins.vmware import dhcpmeta_modes
 from vmware_nsx.neutron.plugins.vmware.dvs import dvs
 from vmware_nsx.neutron.plugins.vmware.dvs import dvs_utils
-from vmware_nsx.openstack.common._i18n import _LE, _LW
 
 LOG = logging.getLogger(__name__)
 

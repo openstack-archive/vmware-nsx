@@ -19,9 +19,9 @@ from oslo_serialization import jsonutils
 import requests
 from requests import auth
 
+from neutron.i18n import _LI, _LW
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import nsx_constants
-from vmware_nsx.openstack.common._i18n import _LI, _LW
 
 LOG = log.getLogger(__name__)
 

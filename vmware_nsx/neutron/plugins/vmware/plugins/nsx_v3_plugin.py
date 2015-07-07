@@ -36,13 +36,13 @@ from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron.db import portbindings_db
 from neutron.db import securitygroups_db
+from neutron.i18n import _LW
 
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import utils
 from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
 from vmware_nsx.neutron.plugins.vmware.nsxlib import v3 as nsxlib
-from vmware_nsx.openstack.common._i18n import _LW
 
 LOG = log.getLogger(__name__)
 

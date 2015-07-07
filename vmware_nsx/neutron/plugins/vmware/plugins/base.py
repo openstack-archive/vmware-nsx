@@ -53,6 +53,7 @@ from neutron.extensions import portbindings as pbin
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
+from neutron.i18n import _LE, _LI, _LW
 from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils
 from neutron.plugins.vmware.dbexts import nsx_models
@@ -78,7 +79,6 @@ from vmware_nsx.neutron.plugins.vmware.nsxlib import queue as queuelib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import router as routerlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import secgroup as secgrouplib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import switch as switchlib
-from vmware_nsx.openstack.common._i18n import _LE, _LI, _LW
 
 LOG = logging.getLogger(__name__)
 

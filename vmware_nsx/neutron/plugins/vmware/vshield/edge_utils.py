@@ -28,6 +28,7 @@ from sqlalchemy.orm import exc as sa_exc
 from neutron.common import exceptions as n_exc
 from neutron import context as q_context
 from neutron.extensions import l3
+from neutron.i18n import _LE, _LW
 from neutron.plugins.common import constants as plugin_const
 
 from vmware_nsx.neutron.plugins.vmware.common import locking
@@ -39,7 +40,6 @@ from vmware_nsx.neutron.plugins.vmware.vshield.common import (
 from vmware_nsx.neutron.plugins.vmware.vshield.tasks import (
     constants as task_const)
 from vmware_nsx.neutron.plugins.vmware.vshield.tasks import tasks
-from vmware_nsx.openstack.common._i18n import _LE, _LW
 from vmware_nsx.neutron.plugins.vmware.vshield import vcns
 
 WORKER_POOL_SIZE = 8
