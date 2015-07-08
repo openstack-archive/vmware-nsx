@@ -249,7 +249,6 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         if not attr.is_attr_set(network.get(mpnet.SEGMENTS)):
             return
 
-        external = network.get(ext_net_extn.EXTERNAL)
         for segment in network[mpnet.SEGMENTS]:
             network_type = segment.get(pnet.NETWORK_TYPE)
             physical_network = segment.get(pnet.PHYSICAL_NETWORK)
@@ -261,10 +260,6 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             err_msg = None
             if not network_type_set:
                 err_msg = _("%s required") % pnet.NETWORK_TYPE
-            elif (attr.is_attr_set(external) and external and
-                  network_type != c_utils.NsxVNetworkTypes.PORTGROUP):
-                    err_msg = _("portgroup only supported on external "
-                                "networks")
             elif network_type == c_utils.NsxVNetworkTypes.FLAT:
                 if segmentation_id_set:
                     err_msg = _("Segmentation ID cannot be specified with "
@@ -300,15 +295,19 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             elif network_type == c_utils.NsxVNetworkTypes.PORTGROUP:
                 if segmentation_id_set:
                     err_msg = _("Segmentation ID cannot be set with portgroup")
-                if (not attr.is_attr_set(external) or
-                    attr.is_attr_set(external) and not external):
-                    err_msg = _("portgroup only supported on external "
-                                "networks")
                 physical_net_set = attr.is_attr_set(physical_network)
                 if (physical_net_set
                     and not self.nsx_v.vcns.validate_network(
                         physical_network)):
                     err_msg = _("Physical network doesn't exist")
+                # A provider network portgroup will need the network name to
+                # match the portgroup name
+                external = network.get(ext_net_extn.EXTERNAL)
+                if (not attr.is_attr_set(external) or
+                    attr.is_attr_set(external) and not external and
+                    not self.nsx_v.vcns.validate_network_name(
+                        physical_network, network['name'])):
+                    err_msg = _("portgroup name must match network name")
             else:
                 err_msg = (_("%(net_type_param)s %(net_type_value)s not "
                              "supported") %
@@ -552,6 +551,9 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 h, c = self.nsx_v.vcns.create_virtual_wire(self.vdn_scope_id,
                                                            config_spec)
                 net_moref = c
+            elif network_type == c_utils.NsxVNetworkTypes.PORTGROUP:
+                segment = net_data[mpnet.SEGMENTS][0]
+                net_moref = segment.get(pnet.PHYSICAL_NETWORK)
             else:
                 network_name = self._get_vlan_network_name(net_data)
                 vlan_tag = 0
@@ -697,6 +699,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         # an external network
         if (bindings and
             bindings[0].binding_type == c_utils.NsxVNetworkTypes.PORTGROUP):
+            if cfg.CONF.nsxv.spoofguard_enabled and sg_policy_id:
+                self.nsx_v.vcns.delete_spoofguard_policy(sg_policy_id)
             return
 
         # Delete the backend network if necessary. This is done after

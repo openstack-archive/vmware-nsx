@@ -652,7 +652,7 @@ class Vcns(object):
         else:
             return uri_path
 
-    def _scopingobjects_lookup(self, type_name, object_id):
+    def _scopingobjects_lookup(self, type_name, object_id, name=None):
         uri = '%s/usermgmt/scopingobjects' % SERVICES_PREFIX
         h, so_list = self.do_request(HTTP_GET, uri, decode=False,
                                      format='xml')
@@ -660,7 +660,8 @@ class Vcns(object):
         root = et.fromstring(so_list)
         for obj in root.iter('object'):
             if (obj.find('objectTypeName').text == type_name and
-                    obj.find('objectId').text == object_id):
+                    obj.find('objectId').text == object_id and
+                    (name is None or obj.find('name').text == name)):
                 return True
 
         return False
@@ -673,6 +674,12 @@ class Vcns(object):
                 self._scopingobjects_lookup('DistributedVirtualPortgroup',
                                             object_id) or
                 self._scopingobjects_lookup('VirtualWire', object_id))
+
+    def validate_network_name(self, object_id, name):
+        return (self._scopingobjects_lookup('Network', object_id, name) or
+                self._scopingobjects_lookup('DistributedVirtualPortgroup',
+                                            object_id, name) or
+                self._scopingobjects_lookup('VirtualWire', object_id, name))
 
     def validate_vdn_scope(self, object_id):
         uri = '%s/scopes' % VDN_PREFIX

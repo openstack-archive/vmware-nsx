@@ -1048,6 +1048,9 @@ class FakeVcns(object):
     def validate_network(self, object_id):
         return True
 
+    def validate_network_name(self, object_id, name):
+        return True
+
     def validate_vdn_scope(self, object_id):
         return True
 
