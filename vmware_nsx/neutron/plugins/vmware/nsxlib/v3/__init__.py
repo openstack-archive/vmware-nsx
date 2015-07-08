@@ -31,8 +31,8 @@ def _get_controller_endpoint():
     # NOTE: The same options defined for 'old' NSX controller connection can be
     # reused for connecting to next-gen NSX controllers
     controller = cfg.CONF.nsx_controllers[0]
-    username = cfg.CONF.nsx_user
-    password = cfg.CONF.nsx_password
+    username = cfg.CONF.nsx_v3.nsx_user
+    password = cfg.CONF.nsx_v3.nsx_password
     return "https://%s" % controller, username, password
 
 
