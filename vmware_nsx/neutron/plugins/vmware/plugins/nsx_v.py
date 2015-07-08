@@ -1068,18 +1068,26 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
     def _update_subnet_dhcp_status(self, subnet, context):
         network_id = subnet['network_id']
         if subnet['enable_dhcp']:
-            # create dhcp port
-            port_dict = {'name': '',
-                         'admin_state_up': True,
-                         'network_id': subnet['network_id'],
-                         'tenant_id': subnet['tenant_id'],
-                         'fixed_ips': [{'subnet_id': subnet['id']}],
-                         'device_owner': constants.DEVICE_OWNER_DHCP,
-                         'device_id': '',
-                         'mac_address': attr.ATTR_NOT_SPECIFIED
-                         }
-            self.create_port(context, {'port': port_dict})
-
+            # Check if the network has one related dhcp edge
+            resource_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
+            edge_binding = nsxv_db.get_nsxv_router_binding(context.session,
+                                                           resource_id)
+            if edge_binding:
+                # Create DHCP port
+                port_dict = {'name': '',
+                             'admin_state_up': True,
+                             'network_id': network_id,
+                             'tenant_id': subnet['tenant_id'],
+                             'fixed_ips': [{'subnet_id': subnet['id']}],
+                             'device_owner': constants.DEVICE_OWNER_DHCP,
+                             'device_id': '',
+                             'mac_address': attr.ATTR_NOT_SPECIFIED
+                             }
+                self.create_port(context, {'port': port_dict})
+            # First time binding network with dhcp edge
+            else:
+                self._update_dhcp_service_with_subnet(context, subnet)
+                return
         else:
             # delete dhcp port
             filters = {'fixed_ips': {'subnet_id': [subnet['id']]}}
@@ -1089,8 +1097,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                     self.ipam.delete_port(context, port['id'])
         address_groups = self._create_network_dhcp_address_group(context,
                                                                  network_id)
-        self._update_dhcp_edge_service(context, network_id,
-                                       address_groups)
+        self._update_dhcp_edge_service(context, network_id, address_groups)
 
     def _get_conflict_network_ids_by_overlapping(self, context, subnets):
         with locking.LockManager.get_lock(
