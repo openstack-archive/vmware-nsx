@@ -131,7 +131,7 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         tags = utils.build_v3_tags_payload(port['port'])
         port['port']['id'] = port_id
         # TODO(salv-orlando): Undo logical switch creation on failure
-        with context.session.begin():
+        with context.session.begin(subtransactions=True):
             neutron_db = super(NsxV3Plugin, self).create_port(context, port)
             port["port"].update(neutron_db)
             address_bindings = self._build_address_bindings(port['port'])
