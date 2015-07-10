@@ -227,7 +227,7 @@ class NsxvLoadbalancer(nsxv_edge_cfg_obj.NsxvEdgeCfgObj):
         return lb_obj
 
 
-class NsxvLBAppProfile():
+class NsxvLBAppProfile(object):
     def __init__(
             self,
             name,

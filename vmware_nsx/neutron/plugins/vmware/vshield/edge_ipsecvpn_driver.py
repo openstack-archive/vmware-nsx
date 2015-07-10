@@ -36,7 +36,7 @@ TRANSFORM_PROTOCOL_ALLOWED = ('esp',)
 ENCAPSULATION_MODE_ALLOWED = ('tunnel',)
 
 
-class EdgeIPsecVpnDriver():
+class EdgeIPsecVpnDriver(object):
 
     """Driver APIs for Edge IPsec VPN bulk configuration."""
 

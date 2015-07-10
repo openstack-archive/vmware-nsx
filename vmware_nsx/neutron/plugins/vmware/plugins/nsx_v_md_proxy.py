@@ -50,7 +50,7 @@ EDGE_CHECK_INTERVAL = 10
 LOG = logging.getLogger(__name__)
 
 
-class NsxVMetadataProxyHandler:
+class NsxVMetadataProxyHandler(object):
 
     def __init__(self, nsxv_plugin):
         self.nsxv_plugin = nsxv_plugin

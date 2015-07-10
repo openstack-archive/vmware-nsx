@@ -22,18 +22,18 @@ from vmware_nsx.openstack.common._i18n import _LW
 LOG = logging.getLogger(__name__)
 
 
-class AgentModes:
+class AgentModes(object):
     AGENT = 'agent'
     AGENTLESS = 'agentless'
     COMBINED = 'combined'
 
 
-class MetadataModes:
+class MetadataModes(object):
     DIRECT = 'access_network'
     INDIRECT = 'dhcp_host_route'
 
 
-class ReplicationModes:
+class ReplicationModes(object):
     SERVICE = 'service'
     SOURCE = 'source'
 
