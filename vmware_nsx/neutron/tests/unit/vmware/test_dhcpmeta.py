@@ -914,7 +914,7 @@ class DhcpAgentNotifyAPITestCase(base.BaseTestCase):
                    'mac_address': 'fa:16:3e:da:1d:46'}],
             meta=[{'instance_id': 'foo_device_id',
                    'ip_address': '1.2.3.4'}])
-        self._test_notify_port_update(ports, 1, call_args)
+        self._test_notify_port_update(ports, 1, [call_args])
 
     def test_notify_ports_update_ports_with_empty_device_id(self):
         ports = [{
@@ -930,7 +930,7 @@ class DhcpAgentNotifyAPITestCase(base.BaseTestCase):
                    'mac_address': 'fa:16:3e:da:1d:46'}],
             meta=[]
         )
-        self._test_notify_port_update(ports, 1, call_args)
+        self._test_notify_port_update(ports, 1, [call_args])
 
     def test_notify_ports_update_ports_with_no_fixed_ips(self):
         ports = [{
@@ -941,7 +941,7 @@ class DhcpAgentNotifyAPITestCase(base.BaseTestCase):
         }]
         call_args = mock.call(
             mock.ANY, 'foo_network_id', 'foo_subnet_id', dhcp=[], meta=[])
-        self._test_notify_port_update(ports, 1, call_args)
+        self._test_notify_port_update(ports, 1, [call_args])
 
     def test_notify_ports_update_ports_with_no_fixed_ips_and_no_device(self):
         ports = [{
@@ -952,7 +952,7 @@ class DhcpAgentNotifyAPITestCase(base.BaseTestCase):
         }]
         call_args = mock.call(
             mock.ANY, 'foo_network_id', 'foo_subnet_id', dhcp=[], meta=[])
-        self._test_notify_port_update(ports, 0, call_args)
+        self._test_notify_port_update(ports, 0, [call_args])
 
     def test_notify_ports_update_with_special_ports(self):
         ports = [{'fixed_ips': [],
@@ -966,7 +966,7 @@ class DhcpAgentNotifyAPITestCase(base.BaseTestCase):
                   'mac_address': 'fa:16:3e:da:1d:46'}]
         call_args = mock.call(
             mock.ANY, 'foo_network_id', 'foo_subnet_id', dhcp=[], meta=[])
-        self._test_notify_port_update(ports, 0, call_args)
+        self._test_notify_port_update(ports, 0, [call_args])
 
     def test_notify_ports_update_many_ports(self):
         ports = [{'fixed_ips': [],
@@ -984,7 +984,7 @@ class DhcpAgentNotifyAPITestCase(base.BaseTestCase):
                    'mac_address': 'fa:16:3e:da:1d:46'}],
             meta=[{'instance_id': 'foo_device_id',
                    'ip_address': '1.2.3.4'}])
-        self._test_notify_port_update(ports, 1, call_args)
+        self._test_notify_port_update(ports, 1, [call_args])
 
     def _test_notify_subnet_action(self, action):
         with mock.patch.object(self.notifier, '_subnet_%s' % action) as f:
