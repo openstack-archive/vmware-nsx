@@ -1156,7 +1156,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 LOG.error(_LE("Unable to create port or set port "
                               "attachment in NSX."))
                 with context.session.begin(subtransactions=True):
-                    self._delete_port(context, neutron_port_id)
+                    self.ipam.delete_port(context, neutron_port_id)
 
         self.handle_port_dhcp_access(context, port_data, action='create_port')
         return port_data

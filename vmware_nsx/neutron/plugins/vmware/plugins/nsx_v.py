@@ -999,7 +999,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 # There is only DHCP port available
                 if len(ports) == 1:
                     port = ports.pop()
-                    self._delete_port(context, port['id'])
+                    self.ipam.delete_port(context, port['id'])
 
         if subnet['enable_dhcp']:
             # Delete the DHCP edge service
@@ -1086,7 +1086,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             ports = self.get_ports(context, filters=filters)
             for port in ports:
                 if port["device_owner"] == constants.DEVICE_OWNER_DHCP:
-                    self._delete_port(context, port['id'])
+                    self.ipam.delete_port(context, port['id'])
         address_groups = self._create_network_dhcp_address_group(context,
                                                                  network_id)
         self._update_dhcp_edge_service(context, network_id,
