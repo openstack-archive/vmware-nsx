@@ -855,6 +855,9 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             self._add_security_groups_port_mapping(
                 context.session, vnic_id, original_port['security_groups'])
             if has_port_security:
+                LOG.debug("Assigning vnic port fixed-ips: port %s, "
+                          "vnic %s, with fixed-ips %s", id, vnic_id,
+                          original_port['fixed_ips'])
                 self._update_vnic_assigned_addresses(
                     context.session, original_port, vnic_id)
             else:
@@ -929,6 +932,9 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             else:
                 # Update vnic with the newest approved IP addresses
                 if has_port_security and updates_fixed_ips:
+                    LOG.debug("Updating vnic port fixed-ips: port %s, vnic "
+                              "%s, fixed-ips %s",
+                              id, vnic_id, ret_port['fixed_ips'])
                     self._update_vnic_assigned_addresses(
                         context.session, ret_port, vnic_id)
                 if not has_port_security and has_security_groups:
