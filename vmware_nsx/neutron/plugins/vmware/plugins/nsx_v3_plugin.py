@@ -28,8 +28,10 @@ from neutron.api.rpc.handlers import metadata_rpc
 from neutron.api.v2 import attributes
 from neutron.extensions import l3
 from neutron.extensions import portbindings as pbin
+from neutron.extensions import providernet as pnet
 
 from neutron.common import constants as const
+from neutron.common import exceptions as n_exc
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
 from neutron.db import agents_db
@@ -40,6 +42,8 @@ from neutron.db import models_v2
 from neutron.db import portbindings_db
 from neutron.db import securitygroups_db
 from neutron.i18n import _LE, _LW
+from neutron.plugins.common import constants as plugin_const
+from neutron.plugins.common import utils as n_utils
 
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
@@ -65,7 +69,8 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
     supported_extension_aliases = ["quotas",
                                    "binding",
                                    "security-group",
-                                   "router"]
+                                   "router",
+                                   "provider"]
 
     def __init__(self):
         super(NsxV3Plugin, self).__init__()
@@ -95,17 +100,130 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         self.supported_extension_aliases.extend(
             ['agent', 'dhcp_agent_scheduler'])
 
+    def _validate_provider_create(self, context, network_data):
+        physical_net = network_data.get(pnet.PHYSICAL_NETWORK)
+        if not attributes.is_attr_set(physical_net):
+            physical_net = None
+
+        vlan_id = network_data.get(pnet.SEGMENTATION_ID)
+        if not attributes.is_attr_set(vlan_id):
+            vlan_id = None
+
+        err_msg = None
+        net_type = network_data.get(pnet.NETWORK_TYPE)
+        if attributes.is_attr_set(net_type):
+            if net_type == utils.NsxV3NetworkTypes.FLAT:
+                if vlan_id is not None:
+                    err_msg = (_("Segmentation ID cannot be specified with "
+                                 "%s network type") %
+                               utils.NsxV3NetworkTypes.FLAT)
+                else:
+                    # Set VLAN id to 0 for flat networks
+                    vlan_id = '0'
+                    if physical_net is None:
+                        physical_net = cfg.CONF.nsx_v3.default_vlan_tz_uuid
+            elif net_type == utils.NsxV3NetworkTypes.VLAN:
+                # Use default VLAN transport zone if physical network not given
+                if physical_net is None:
+                    physical_net = cfg.CONF.nsx_v3.default_vlan_tz_uuid
+
+                # Validate VLAN id
+                if not vlan_id:
+                    err_msg = (_('Segmentation ID must be specified with %s '
+                                 'network type') %
+                               utils.NsxV3NetworkTypes.VLAN)
+                elif not n_utils.is_valid_vlan_tag(vlan_id):
+                    err_msg = (_('Segmentation ID %(segmentation_id)s out of '
+                                 'range (%(min_id)s through %(max_id)s)') %
+                               {'segmentation_id': vlan_id,
+                                'min_id': plugin_const.MIN_VLAN_TAG,
+                                'max_id': plugin_const.MAX_VLAN_TAG})
+                else:
+                    # Verify VLAN id is not already allocated
+                    bindings = (
+                        nsx_db.get_network_bindings_by_vlanid_and_physical_net(
+                            context.session, vlan_id, physical_net)
+                    )
+                    if bindings:
+                        raise n_exc.VlanIdInUse(
+                            vlan_id=vlan_id, physical_network=physical_net)
+            elif net_type == utils.NsxV3NetworkTypes.VXLAN:
+                if vlan_id:
+                    err_msg = (_("Segmentation ID cannot be specified with "
+                                 "%s network type") %
+                               utils.NsxV3NetworkTypes.VXLAN)
+            else:
+                err_msg = (_('%(net_type_param)s %(net_type_value)s not '
+                             'supported') %
+                           {'net_type_param': pnet.NETWORK_TYPE,
+                            'net_type_value': net_type})
+        else:
+            net_type = None
+
+        if err_msg:
+            raise n_exc.InvalidInput(error_message=err_msg)
+
+        if physical_net is None:
+            # Default to transport type overlay
+            physical_net = cfg.CONF.nsx_v3.default_overlay_tz_uuid
+
+        return net_type, physical_net, vlan_id
+
+    def _extend_network_dict_provider(self, context, network, bindings=None):
+        if not bindings:
+            bindings = nsx_db.get_network_bindings(context.session,
+                                                   network['id'])
+        # With NSX plugin, "normal" overlay networks will have no binding
+        if bindings:
+            # Network came in through provider networks API
+            network[pnet.NETWORK_TYPE] = bindings[0].binding_type
+            network[pnet.PHYSICAL_NETWORK] = bindings[0].phy_uuid
+            network[pnet.SEGMENTATION_ID] = bindings[0].vlan_id
+
     def create_network(self, context, network):
+        # TODO(jwy): Handle creating external network (--router:external)
+        is_provider_net = any(attributes.is_attr_set(network['network'].get(f))
+                              for f in (pnet.NETWORK_TYPE,
+                                        pnet.PHYSICAL_NETWORK,
+                                        pnet.SEGMENTATION_ID))
+        net_type, physical_net, vlan_id = self._validate_provider_create(
+            context, network['network'])
+        net_name = network['network']['name']
         tags = utils.build_v3_tags_payload(network['network'])
-        result = nsxlib.create_logical_switch(
-            network['network']['name'],
-            cfg.CONF.default_tz_uuid, tags)
-        network['network']['id'] = result['id']
+        admin_state = network['network'].get('admin_state_up', True)
+
+        # Create network on the backend
+        LOG.debug('create_network: %(net_name)s, %(physical_net)s, %(tags)s, '
+                  '%(admin_state)s, %(vlan_id)s',
+                  {'net_name': net_name,
+                   'physical_net': physical_net,
+                   'tags': tags,
+                   'admin_state': admin_state,
+                   'vlan_id': vlan_id})
+        result = nsxlib.create_logical_switch(net_name, physical_net, tags,
+                                              admin_state=admin_state,
+                                              vlan_id=vlan_id)
+        net_id = result['id']
+        network['network']['id'] = net_id
         tenant_id = self._get_tenant_id_for_create(context, network['network'])
 
         self._ensure_default_security_group(context, tenant_id)
-        network = super(NsxV3Plugin, self).create_network(context, network)
-        # TODO(salv-orlando): Undo logical switch creation on failure
+        with context.session.begin(subtransactions=True):
+            # Create network in Neutron
+            try:
+                network = super(NsxV3Plugin, self).create_network(context,
+                                                                  network)
+            except Exception:
+                with excutils.save_and_reraise_exception():
+                    # Undo creation on the backend
+                    LOG.exception(_LE('Failed to create network %s'), net_id)
+                    nsxlib.delete_logical_switch(net_id)
+
+            if is_provider_net:
+                # Save provider network fields, needed by get_network()
+                nsx_db.add_network_binding(context.session, net_id, net_type,
+                                           physical_net, vlan_id)
+
         return network
 
     def delete_network(self, context, network_id):
@@ -135,6 +253,31 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                 {'mac_address': port['mac_address'],
                  'ip_address': fixed_ip['ip_address']})
         return address_bindings
+
+    def get_network(self, context, id, fields=None):
+        with context.session.begin(subtransactions=True):
+            # Get network from Neutron database
+            network = self._get_network(context, id)
+            # Don't do field selection here otherwise we won't be able to add
+            # provider networks fields
+            net = self._make_network_dict(network, context=context)
+            self._extend_network_dict_provider(context, net)
+        return self._fields(net, fields)
+
+    def get_networks(self, context, filters=None, fields=None,
+                     sorts=None, limit=None, marker=None,
+                     page_reverse=False):
+        # Get networks from Neutron database
+        filters = filters or {}
+        with context.session.begin(subtransactions=True):
+            networks = (
+                super(NsxV3Plugin, self).get_networks(
+                    context, filters, fields, sorts,
+                    limit, marker, page_reverse))
+            # Add provider network fields
+            for net in networks:
+                self._extend_network_dict_provider(context, net)
+        return [self._fields(network, fields) for network in networks]
 
     def create_port(self, context, port):
         port_id = uuidutils.generate_uuid()
