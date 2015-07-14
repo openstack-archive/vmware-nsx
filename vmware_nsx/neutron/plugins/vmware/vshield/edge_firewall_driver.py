@@ -96,6 +96,8 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
             vcns_rule['destination'] = {
                 "vnicGroupId": rule['destination_vnic_groups']
             }
+        if rule.get('application'):
+            vcns_rule['application'] = rule['application']
         service = {}
         if rule.get('source_port'):
             min_port, max_port = self._get_min_max_ports_from_range(
