@@ -1749,6 +1749,15 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
             # attempting to parse the response of a failed create_subnet req
             supercall()
 
+    def test_create_floatingip_ipv6_and_ipv4_network_creates_ipv4(self):
+        with self.network() as n,\
+                self.subnet(cidr="2001:db8::/48", ip_version=6, network=n),\
+                self.subnet(cidr="192.168.1.0/24", ip_version=4, network=n):
+            self._set_net_external(n['network']['id'])
+            fip = self._make_floatingip(self.fmt, n['network']['id'])
+            self.assertEqual(fip['floatingip']['floating_ip_address'],
+                             '192.168.1.3')
+
 
 class ExtGwModeTestCase(NsxVPluginV2TestCase,
                         test_ext_gw_mode.ExtGwModeIntTestCase):
@@ -1988,6 +1997,15 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
             # The test is expected to fail because of a KeyError while
             # attempting to parse the response of a failed create_subnet req
             supercall()
+
+    def test_create_floatingip_ipv6_and_ipv4_network_creates_ipv4(self):
+        with self.network() as n,\
+                self.subnet(cidr="2001:db8::/48", ip_version=6, network=n),\
+                self.subnet(cidr="192.168.1.0/24", ip_version=4, network=n):
+            self._set_net_external(n['network']['id'])
+            fip = self._make_floatingip(self.fmt, n['network']['id'])
+            self.assertEqual(fip['floatingip']['floating_ip_address'],
+                             '192.168.1.3')
 
 
 class TestNSXvAllowedAddressPairs(test_addr_pair.TestAllowedAddressPairs,
