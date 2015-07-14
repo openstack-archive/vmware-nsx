@@ -107,13 +107,16 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
     def delete_router(self, context, router_id):
         self.edge_manager.delete_lrouter(context, router_id, dist=True)
 
-    def update_routes(self, context, router_id, newnexthop):
+    def update_routes(self, context, router_id, newnexthop,
+                      metadata_gateway=None):
         plr_id = self.edge_manager.get_plr_by_tlr_id(context, router_id)
         if plr_id:
             self._update_routes_on_plr(context, router_id, plr_id, newnexthop)
-            self._update_routes_on_tlr(context, router_id)
+            self._update_routes_on_tlr(context, router_id,
+                                       metadata_gateway=metadata_gateway)
         else:
-            self._update_routes_on_tlr(context, router_id, newnexthop=None)
+            self._update_routes_on_tlr(context, router_id, newnexthop=None,
+                                       metadata_gateway=metadata_gateway)
 
     def _update_router_gw_info(self, context, router_id, info):
         router = self.plugin._get_router(context, router_id)
@@ -190,6 +193,19 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         # Update edge's firewall rules to accept subnets flows.
         self.plugin._update_subnets_and_dnat_firewall(context, router_db)
 
+        md_route_data = None
+        if self.plugin.metadata_proxy_handler:
+            self.edge_manager.configure_dhcp_for_vdr_network(
+                context, network_id, router_id)
+
+            md_route = self._get_metadata_gw_data(context, router_id)
+
+            if md_route:
+                # Setup metadata route on VDR
+                md_gw_ip, md_gw_net = md_route
+                md_route_data = {
+                    'ip_address': md_gw_ip, 'network_id': md_gw_net}
+
         if router_db.gw_port and router_db.enable_snat:
             plr_id = self.edge_manager.get_plr_by_tlr_id(context, router_id)
             self.plugin._update_nat_rules(context, router_db, plr_id)
@@ -199,16 +215,11 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
             # Update static routes of plr
             nexthop = self.plugin._get_external_attachment_info(
                 context, router_db)[2]
-            self.update_routes(context, router_id, nexthop)
+            self.update_routes(context, router_id, nexthop, md_route_data)
 
-        # If metadata is configured, setup metadata via DHCP Edge
-        if self.plugin.metadata_proxy_handler:
-            self.edge_manager.configure_dhcp_for_vdr_network(
-                context, network_id, router_id)
-
-            if self._metadata_cfg_required_after_port_add(
-                    context, router_id, subnet):
-                self._metadata_route_setup(context, router_id)
+        elif self._metadata_cfg_required_after_port_add(
+                context, router_id, subnet):
+            self._metadata_route_setup(context, router_id)
 
         return info
 
