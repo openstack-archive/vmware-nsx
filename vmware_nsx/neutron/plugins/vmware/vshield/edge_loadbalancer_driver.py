@@ -19,6 +19,7 @@ import netaddr
 from oslo_log import log as logging
 from oslo_utils import excutils
 
+from neutron.common import exceptions as n_exc
 from neutron.i18n import _LE
 from neutron import manager
 from neutron.plugins.common import constants
@@ -120,7 +121,7 @@ def convert_lbaas_app_profile(name, sess_persist, protocol):
             msg = (_('Invalid %(protocol)s persistence method: %(type)s') %
                    {'protocol': protocol,
                     'type': persist_type})
-            raise nsxv_exc.VcnsBadRequest(resource='sess_persist', msg=msg)
+            raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
         persistence = {
             'method': SESSION_PERSISTENCE_METHOD_MAP.get(persist_type)}
         if persist_type in SESSION_PERSISTENCE_COOKIE_MAP:
@@ -324,7 +325,7 @@ class EdgeLbDriver(object):
 
             msg = _('Failed to add VIP %(vip)s as secondary IP on '
                     'Edge %(edge_id)s') % {'vip': vip, 'edge_id': edge_id}
-            raise nsxv_exc.VcnsApiException(msg=msg)
+            raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
 
     def _del_vip_as_secondary_ip(self, edge_id, vip):
         """
@@ -335,7 +336,7 @@ class EdgeLbDriver(object):
 
             msg = _('Failed to delete VIP %(vip)s as secondary IP on '
                     'Edge %(edge_id)s') % {'vip': vip, 'edge_id': edge_id}
-            raise nsxv_exc.VcnsApiException(msg=msg)
+            raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
 
     def _get_edge_ips(self, edge_id):
         edge_ips = []
@@ -429,7 +430,7 @@ class EdgeLbDriver(object):
         if edge_id is None:
             msg = _(
                 'No suitable Edge found for subnet %s') % pool['subnet_id']
-            raise nsxv_exc.VcnsApiException(msg=msg)
+            raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
 
         edge_pool = convert_lbaas_pool(pool)
         try:
@@ -483,7 +484,7 @@ class EdgeLbDriver(object):
         if not pool_mapping:
             msg = _('Pool %s in not mapped to any Edge appliance') % (
                 vip['pool_id'])
-            raise nsxv_exc.VcnsApiException(msg=msg)
+            raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
         edge_id = pool_mapping['edge_id']
 
         app_profile_id = None
