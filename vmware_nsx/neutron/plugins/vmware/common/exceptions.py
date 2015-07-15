@@ -65,6 +65,11 @@ class L2GatewayAlreadyInUse(n_exc.Conflict):
     message = _("Gateway Service %(gateway)s is already in use")
 
 
+class InvalidTransportType(NsxPluginException):
+    message = _("The transport type %(transport_type)s is not recognized "
+                "by the backend")
+
+
 class InvalidSecurityCertificate(NsxPluginException):
     message = _("An invalid security certificate was specified for the "
                 "gateway device. Certificates must be enclosed between "

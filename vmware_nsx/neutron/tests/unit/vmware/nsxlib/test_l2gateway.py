@@ -19,6 +19,7 @@ from neutron.tests.unit.api.v2 import test_base
 from oslo_serialization import jsonutils
 
 from vmware_nsx.neutron.plugins.vmware.api_client import exception
+from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import utils as nsx_utils
 from vmware_nsx.neutron.plugins.vmware import nsxlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import l2gateway as l2gwlib
@@ -194,6 +195,18 @@ class L2GatewayTestCase(base.NsxlibTestCase):
                 "/ws.v1/transport-node",
                 jsonutils.dumps(expected_req_body, sort_keys=True),
                 cluster=self.fake_cluster)
+
+    def test_create_gw_device_with_invalid_transport_type_raises(self):
+        display_name = 'fake-device'
+        neutron_id = 'whatever'
+        connector_type = 'foo'
+        connector_ip = '1.1.1.1'
+        client_certificate = 'this_should_be_a_certificate'
+        self.assertRaises(nsx_exc.InvalidTransportType,
+                          l2gwlib.create_gateway_device,
+                          self.fake_cluster, 'fake_tenant', display_name,
+                          neutron_id, 'fake_tz_uuid', connector_type,
+                          connector_ip, client_certificate)
 
     def test_update_gw_device(self):
         # NOTE(salv-orlando): This unit test mocks backend calls rather than

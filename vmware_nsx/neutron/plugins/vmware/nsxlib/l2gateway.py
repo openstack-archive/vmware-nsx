@@ -14,6 +14,7 @@
 #    under the License.
 #
 
+from neutron.i18n import _LE
 from oslo_log import log
 from oslo_serialization import jsonutils
 
@@ -121,8 +122,15 @@ def _build_gateway_device_body(tenant_id, display_name, neutron_id,
         utils.NetworkTypes.GRE: "GREConnector",
         utils.NetworkTypes.BRIDGE: "BridgeConnector",
         'ipsec%s' % utils.NetworkTypes.STT: "IPsecSTT",
-        'ipsec%s' % utils.NetworkTypes.GRE: "IPsecGRE"}
+        'ipsec%s' % utils.NetworkTypes.GRE: "IPsecGRE",
+        'ipsec_%s' % utils.NetworkTypes.STT: "IPsecSTT",
+        'ipsec_%s' % utils.NetworkTypes.GRE: "IPsecGRE"}
     nsx_connector_type = connector_type_mappings.get(connector_type)
+    if connector_type and not nsx_connector_type:
+        LOG.error(_LE("There is no NSX mapping for connector type %s"),
+                  connector_type)
+        raise nsx_exc.InvalidTransportType(transport_type=connector_type)
+
     body = {"display_name": utils.check_and_truncate(display_name),
             "tags": utils.get_tags(os_tid=tenant_id,
                                    q_gw_dev_id=neutron_id),
