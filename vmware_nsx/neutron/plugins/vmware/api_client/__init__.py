@@ -15,7 +15,7 @@
 # under the License.
 #
 
-import httplib
+from six.moves import http_client as httplib
 
 
 def ctrl_conn_to_str(conn):

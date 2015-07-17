@@ -166,7 +166,7 @@ class L2GatewayTestCase(base.NsxlibTestCase):
                     "type": '%sConnector' % connector_type}],
             "admin_status_enabled": True
         }
-        body.get("tags").sort()
+        body.get("tags").sort(key=lambda x: x['tag'])
         if client_certificate:
             body["credential"] = {
                 "client_certificate": {

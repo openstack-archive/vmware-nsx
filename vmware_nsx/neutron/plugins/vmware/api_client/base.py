@@ -15,14 +15,14 @@
 # under the License.
 
 import abc
-import httplib
-import six
 import time
 
+from neutron.i18n import _LE, _LI, _LW
 from oslo_config import cfg
 from oslo_log import log as logging
+import six
+from six.moves import http_client as httplib
 
-from neutron.i18n import _LE, _LI, _LW
 from vmware_nsx.neutron.plugins.vmware import api_client
 
 LOG = logging.getLogger(__name__)

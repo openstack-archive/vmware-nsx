@@ -149,9 +149,9 @@ def lbaas_hmon_maker(**kwargs):
     hmon = {
         'admin_state_up': True,
         'tenant_id': TENANT_ID,
-        'delay': 5L,
-        'max_retries': 5L,
-        'timeout': 5L,
+        'delay': 5,
+        'max_retries': 5,
+        'timeout': 5,
         'pools': [{'status': 'PENDING_CREATE', 'status_description': None,
                    'pool_id': POOL_ID}],
         'type': 'PING',
@@ -313,7 +313,7 @@ class TestEdgeLbDriver(base.BaseTestCase):
         edge_vip = {
             'protocol': 'HTTP', 'name': 'vip_' + VIP_ID, 'connectionLimit': 0,
             'defaultPoolId': EDGE_POOL_ID, 'ipAddress': '10.0.0.8',
-            'port': 555L, 'applicationProfileId': '333', 'description': ''}
+            'port': 555, 'applicationProfileId': '333', 'description': ''}
 
         pool_mapping = {'edge_pool_id': '111'}
         vip_mapping = {'edge_id': EDGE_ID, 'edge_vse_id': EDGE_VSE_ID,
@@ -515,8 +515,8 @@ class TestEdgeLbDriver(base.BaseTestCase):
 
     def test_create_pool_health_monitor(self):
         hmon = lbaas_hmon_maker()
-        edge_hm = {'maxRetries': 5L, 'interval': 5L, 'type': 'icmp',
-                   'name': HEALTHMON_ID, 'timeout': 5L}
+        edge_hm = {'maxRetries': 5, 'interval': 5, 'type': 'icmp',
+                   'name': HEALTHMON_ID, 'timeout': 5}
         edge_pool = {'monitorId': [], 'name': POOL_ID,
                      'applicationRuleId': [], 'member': [],
                      'poolId': 'pool-1', 'algorithm': 'round-robin',
@@ -547,9 +547,9 @@ class TestEdgeLbDriver(base.BaseTestCase):
     def test_update_pool_health_monitor(self):
         from_hmon = lbaas_hmon_maker(status='ACTIVE')
         to_hmon = lbaas_hmon_maker(status='PENDING_UPDATE',
-                                   max_retries=10L)
-        edge_hmon = {'maxRetries': 10L, 'interval': 5L, 'type': 'icmp',
-                     'name': HEALTHMON_ID, 'timeout': 5L}
+                                   max_retries=10)
+        edge_hmon = {'maxRetries': 10, 'interval': 5, 'type': 'icmp',
+                     'name': HEALTHMON_ID, 'timeout': 5}
 
         mon_mapping = {'edge_id': EDGE_ID, 'edge_monitor_id': EDGE_MON_ID}
 

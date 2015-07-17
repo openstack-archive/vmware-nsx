@@ -14,12 +14,12 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import httplib
-import urllib
 
 import eventlet
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
+from six.moves import http_client as httplib
+from six.moves.urllib import parse
 
 from neutron.i18n import _LI, _LW
 from vmware_nsx.neutron.plugins.vmware.api_client import request
@@ -169,7 +169,7 @@ class LoginRequestEventlet(EventletApiRequest):
         if headers is None:
             headers = {}
         headers.update({"Content-Type": "application/x-www-form-urlencoded"})
-        body = urllib.urlencode({"username": user, "password": password})
+        body = parse.urlencode({"username": user, "password": password})
         super(LoginRequestEventlet, self).__init__(
             client_obj, "/ws.v1/login", "POST", body, headers,
             auto_login=False, client_conn=client_conn)

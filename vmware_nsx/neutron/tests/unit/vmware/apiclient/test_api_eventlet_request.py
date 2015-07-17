@@ -12,15 +12,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import httplib
 import random
+import urllib
 
 import eventlet
-from eventlet.green import urllib2
 import mock
 from neutron.i18n import _LI
 from neutron.tests import base
 from oslo_log import log as logging
+from six.moves import http_client as httplib
+
 
 from vmware_nsx.neutron.plugins.vmware.api_client import (
     eventlet_client as client)
@@ -35,7 +36,7 @@ REQUEST_TIMEOUT = 1
 
 
 def fetch(url):
-    return urllib2.urlopen(url).read()
+    return urllib.urlopen(url).read()
 
 
 class ApiRequestEventletTest(base.BaseTestCase):

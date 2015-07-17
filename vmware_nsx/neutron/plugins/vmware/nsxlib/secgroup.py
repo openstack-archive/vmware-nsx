@@ -209,10 +209,9 @@ def is_sg_rule_subset(sgr1, sgr2):
 
     return (sgr1['ethertype'] == sgr2['ethertype'] and
             sgr1_protocols.issubset(sgr2_protocols) and
-            sgr1.get('port_range_min', 0L) >= sgr2.get('port_range_min',
-                                                       0L) and
-            sgr1.get('port_range_max', 65535L) <= sgr2.get('port_range_max',
-                                                           65535L) and
+            sgr1.get('port_range_min', 0) >= sgr2.get('port_range_min', 0) and
+            sgr1.get('port_range_max', 65535) <= sgr2.get('port_range_max',
+                                                          65535) and
             (sgr2.get('ip_prefix') is None or
              sgr1.get('ip_prefix') == sgr2.get('prefix')) and
             (sgr2.get('profile_uuid') is None or

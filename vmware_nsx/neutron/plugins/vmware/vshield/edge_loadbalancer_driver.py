@@ -405,7 +405,9 @@ class EdgeLbDriver(object):
             et.SubElement(destination, 'type').text = 'Ipv4Address'
             et.SubElement(destination, 'value').text = ','.join(member_ips)
 
-        self.vcns.update_section(section_uri, et.tostring(section), None)
+        self.vcns.update_section(section_uri,
+                                 et.tostring(section, encoding="us-ascii"),
+                                 None)
 
     def _add_vip_fw_rule(self, edge_id, vip_id, ip_address):
         fw_rule = {
