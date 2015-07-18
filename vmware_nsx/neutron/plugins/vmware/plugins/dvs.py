@@ -220,7 +220,8 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             network = self._get_network(context, id)
             # Don't do field selection here otherwise we won't be able
             # to add provider networks fields
-            net_result = self._make_network_dict(network)
+            net_result = self._make_network_dict(network,
+                                                 context=context)
             self._extend_network_dict_provider(context, net_result)
         return self._fields(net_result, fields)
 
