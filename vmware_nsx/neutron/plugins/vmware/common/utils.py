@@ -49,7 +49,7 @@ def get_tags(**kwargs):
     tags = ([dict(tag=value, scope=key)
             for key, value in six.iteritems(kwargs)])
     tags.append({"tag": NEUTRON_VERSION, "scope": "quantum"})
-    return sorted(tags)
+    return sorted(tags, key=lambda x: x['tag'])
 
 
 def device_id_to_vm_id(device_id, obfuscate=False):
@@ -62,7 +62,7 @@ def device_id_to_vm_id(device_id, obfuscate=False):
     # used for ports associated to VM's are small enough so let's skip the
     # hashing
     if len(device_id) > MAX_DISPLAY_NAME_LEN or obfuscate:
-        return hashlib.sha1(device_id).hexdigest()
+        return hashlib.sha1(device_id.encode()).hexdigest()
     else:
         return device_id or "N/A"
 

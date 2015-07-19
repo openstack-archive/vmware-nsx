@@ -265,7 +265,7 @@ class LogicalPortsTestCase(base.NsxlibTestCase):
 
     def test_get_ports_with_obsolete_and_new_vm_id_tag(self):
         def obsolete(device_id, obfuscate=False):
-            return hashlib.sha1(device_id).hexdigest()
+            return hashlib.sha1(device_id.encode()).hexdigest()
 
         with mock.patch.object(utils, 'device_id_to_vm_id', new=obsolete):
             dev_id1 = "short-dev-id-1"

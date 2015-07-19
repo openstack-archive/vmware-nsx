@@ -14,9 +14,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import httplib
 
 from neutron.tests import base
+from six.moves import http_client as httplib
+
 from vmware_nsx.neutron.plugins.vmware import api_client
 
 

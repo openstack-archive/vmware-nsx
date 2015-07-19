@@ -15,9 +15,9 @@
 #    under the License.
 #
 
-import httplib
 
 from oslo_log import log as logging
+from six.moves import http_client as httplib
 
 from neutron.i18n import _LE
 from vmware_nsx.neutron.plugins.vmware.api_client import base

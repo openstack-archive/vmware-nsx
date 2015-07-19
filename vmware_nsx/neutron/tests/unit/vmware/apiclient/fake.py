@@ -436,7 +436,7 @@ class FakeClient:
                                              resource_type, relation)
                 return item
 
-            for item in res_dict.itervalues():
+            for item in res_dict.values():
                 if 'tags' in item:
                     item['tags_json'] = jsonutils.dumps(item['tags'])
             if resource_type in (self.LSWITCH_LPORT_RESOURCE,
@@ -481,7 +481,7 @@ class FakeClient:
         with open("%s/%s" % (self.fake_files_path, response_file)) as f:
             response_template = f.read()
             res_dict = getattr(self, '_fake_%s_dict' % resource_type)
-            for item in res_dict.itervalues():
+            for item in res_dict.values():
                 if 'tags' in item:
                     item['tags_json'] = jsonutils.dumps(item['tags'])
 

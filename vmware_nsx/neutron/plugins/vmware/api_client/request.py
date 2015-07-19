@@ -17,13 +17,13 @@
 
 import abc
 import copy
-import httplib
 import time
 
 import eventlet
 from oslo_log import log as logging
 from oslo_utils import excutils
 import six
+from six.moves import http_client as httplib
 import six.moves.urllib.parse as urlparse
 
 from neutron.i18n import _LI, _LW
@@ -190,7 +190,7 @@ class ApiRequest(object):
             if isinstance(e, httplib.BadStatusLine):
                 msg = (_("Invalid server response"))
             else:
-                msg = unicode(e)
+                msg = str(e)
             if response is None:
                 elapsed_time = time.time() - issued_time
             LOG.warn(_LW("[%(rid)d] Failed request '%(conn)s': '%(msg)s' "
