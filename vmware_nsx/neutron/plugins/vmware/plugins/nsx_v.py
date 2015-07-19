@@ -451,7 +451,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             try:
                 self.nsx_v.vcns.add_member_to_security_group(
                     sg_id, vnic_id)
-                LOG.info(_LI("Added %s(sg_id)s member to NSX security "
+                LOG.info(_LI("Added %(sg_id)s member to NSX security "
                              "group %(vnic_id)s"),
                          {'sg_id': sg_id, 'vnic_id': vnic_id})
             except Exception as e:
