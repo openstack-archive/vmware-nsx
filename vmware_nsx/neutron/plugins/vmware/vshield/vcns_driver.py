@@ -43,7 +43,15 @@ class VcnsDriver(edge_appliance_driver.EdgeApplianceDriver,
         self.resource_pool_id = cfg.CONF.nsxv.resource_pool_id
         self.datastore_id = cfg.CONF.nsxv.datastore_id
         self.external_network = cfg.CONF.nsxv.external_network
-        interval = cfg.CONF.nsxv.task_status_check_interval
-        self.task_manager = tasks.TaskManager(interval)
-        self.task_manager.start()
+        self._task_manager = None
         self.vcns = vcns.Vcns(self.vcns_uri, self.vcns_user, self.vcns_passwd)
+
+    @property
+    def task_manager(self):
+        if self._task_manager is None:
+            LOG.debug("Creating task manager")
+            interval = cfg.CONF.nsxv.task_status_check_interval
+            self._task_manager = tasks.TaskManager(interval)
+            LOG.debug("Starting task manager")
+            self._task_manager.start()
+        return self._task_manager
