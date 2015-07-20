@@ -224,13 +224,15 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         return info
 
     def _metadata_route_setup(self, context, router_id):
+        plr_id = self.edge_manager.get_plr_by_tlr_id(context, router_id)
+        newnexthop = vcns_const.INTEGRATION_EDGE_IPADDRESS if plr_id else None
         md_route = self._get_metadata_gw_data(context, router_id)
 
         if md_route:
             # Setup metadata route on VDR
             md_gw_ip, md_gw_net = md_route
             self._update_routes_on_tlr(
-                context, router_id, newnexthop=None,
+                context, router_id, newnexthop,
                 metadata_gateway={'ip_address': md_gw_ip,
                                   'network_id': md_gw_net})
         else:
