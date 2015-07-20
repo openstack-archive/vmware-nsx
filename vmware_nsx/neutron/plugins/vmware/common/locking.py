@@ -46,6 +46,7 @@ class LockManager:
                       LockManager._connect_string)
             LockManager._coordinator = coordination.get_coordinator(
                 LockManager._connect_string, 'vmware-neutron-plugin')
+            LockManager._coordinator.start()
 
         LOG.debug('Retrieved lock for ', name)
         return LockManager._coordinator.get_lock(name)
