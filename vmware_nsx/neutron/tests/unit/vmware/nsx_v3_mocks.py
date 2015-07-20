@@ -193,3 +193,26 @@ def get_logical_router(lrouter_uuid):
         "id": lrouter_uuid,
         "edge_cluster_uuid": uuidutils.generate_uuid()}
     return FAKE_LROUTER
+
+
+def add_rules_in_section(rules, section_id):
+    for rule in rules:
+        rule['id'] = uuidutils.generate_uuid()
+    return {'rules': rules}
+
+
+def get_resource(resource):
+    return {'id': resource.split('/')[-1]}
+
+
+def create_resource(resource, data):
+    data['id'] = uuidutils.generate_uuid()
+    return data
+
+
+def update_resource(resource, data):
+    return resource
+
+
+def delete_resource(resource):
+    pass

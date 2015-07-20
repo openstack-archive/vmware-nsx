@@ -20,6 +20,7 @@ import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
 from neutron.tests.unit.extensions import test_extra_dhcp_opt as test_dhcpopts
 import neutron.tests.unit.extensions.test_securitygroup as ext_sg
 from vmware_nsx.neutron.plugins.vmware.nsxlib import v3 as nsxlib
+from vmware_nsx.neutron.plugins.vmware.nsxlib.v3 import dfw_api as firewall
 from vmware_nsx.neutron.tests.unit.vmware import nsx_v3_mocks
 
 PLUGIN_NAME = ('vmware_nsx.neutron.plugins.vmware.'
@@ -49,6 +50,11 @@ class NsxPluginV3TestCase(test_plugin.NeutronDbPluginV2TestCase):
         # TODO(berlin): fill valid data
         nsxlib.get_edge_cluster = nsx_v3_mocks.get_edge_cluster
         nsxlib.get_logical_router = nsx_v3_mocks.get_logical_router
+        firewall.add_rules_in_section = nsx_v3_mocks.add_rules_in_section
+        firewall.nsclient.create_resource = nsx_v3_mocks.create_resource
+        firewall.nsclient.update_resource = nsx_v3_mocks.update_resource
+        firewall.nsclient.get_resource = nsx_v3_mocks.get_resource
+        firewall.nsclient.delete_resource = nsx_v3_mocks.delete_resource
 
 
 class TestNetworksV2(test_plugin.TestNetworksV2, NsxPluginV3TestCase):
@@ -64,14 +70,20 @@ class SecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
     def setUp(self,
               plugin=PLUGIN_NAME,
               ext_mgr=None):
+        super(SecurityGroupsTestCase, self).setUp(plugin=PLUGIN_NAME,
+                                                  ext_mgr=ext_mgr)
         nsxlib.create_logical_switch = nsx_v3_mocks.create_logical_switch
         nsxlib.create_logical_port = nsx_v3_mocks.create_logical_port
         nsxlib.update_logical_port = nsx_v3_mocks.update_logical_port
         nsxlib.delete_logical_port = mock.Mock()
         nsxlib.delete_logical_switch = mock.Mock()
-
-        super(SecurityGroupsTestCase, self).setUp(plugin=PLUGIN_NAME,
-                                                  ext_mgr=ext_mgr)
+        nsxlib.get_logical_port = nsx_v3_mocks.get_logical_port
+        nsxlib.update_logical_port = nsx_v3_mocks.update_logical_port
+        firewall.add_rules_in_section = nsx_v3_mocks.add_rules_in_section
+        firewall.nsclient.create_resource = nsx_v3_mocks.create_resource
+        firewall.nsclient.update_resource = nsx_v3_mocks.update_resource
+        firewall.nsclient.get_resource = nsx_v3_mocks.get_resource
+        firewall.nsclient.delete_resource = nsx_v3_mocks.delete_resource
 
 
 class TestSecurityGroups(ext_sg.TestSecurityGroups, SecurityGroupsTestCase):

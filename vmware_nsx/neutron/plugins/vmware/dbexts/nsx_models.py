@@ -89,6 +89,34 @@ class NeutronNsxSecurityGroupMapping(model_base.BASEV2):
     nsx_id = sa.Column(sa.String(36), primary_key=True)
 
 
+class NeutronNsxFirewallSectionMapping(model_base.BASEV2):
+    """Backend mappings for Neutron Security-group associated fw sections."""
+
+    __tablename__ = 'neutron_nsx_firewall_section_mappings'
+    neutron_id = sa.Column(sa.String(36),
+                           sa.ForeignKey('securitygroups.id',
+                                         ondelete='CASCADE'),
+                           primary_key=True,
+                           nullable=False)
+    nsx_id = sa.Column(sa.String(36), nullable=False)
+
+
+class NeutronNsxRuleMapping(model_base.BASEV2):
+    """Backend mappings for firewall rules.
+
+    This class maps a neutron security group rule with NSX firewall rule.
+    """
+
+    __tablename__ = 'neutron_nsx_rule_mappings'
+
+    neutron_id = sa.Column(sa.String(36),
+                           sa.ForeignKey('securitygrouprules.id',
+                                         ondelete="CASCADE"),
+                           primary_key=True,
+                           nullable=False)
+    nsx_id = sa.Column(sa.String(36), nullable=False)
+
+
 class NeutronNsxPortMapping(model_base.BASEV2):
     """Represents the mapping between neutron and nsx port uuids."""
 

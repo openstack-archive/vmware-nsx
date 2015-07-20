@@ -86,7 +86,7 @@ def create_resource(resource, data):
                            verify=verify, headers=headers,
                            data=jsonutils.dumps(data),
                            cert=cfg.CONF.nsx_v3.ca_file)
-    _validate_result(result, [requests.codes.created],
+    _validate_result(result, [requests.codes.created, requests.codes.ok],
                      _("creating resource at: %s") % resource)
     return result.json()
 
