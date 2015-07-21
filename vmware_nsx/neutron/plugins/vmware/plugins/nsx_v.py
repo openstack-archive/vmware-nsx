@@ -111,6 +111,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
     def __init__(self):
         super(NsxVPluginV2, self).__init__()
+        self.metadata_proxy_handler = None
         config.validate_nsxv_config_options()
         neutron_extensions.append_api_extensions_path([vmware.NSX_EXT_PATH])
 
@@ -141,9 +142,9 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             and cfg.CONF.nsxv.mgt_net_moid
             and cfg.CONF.nsxv.mgt_net_proxy_ips
             and cfg.CONF.nsxv.mgt_net_proxy_netmask)
-        self.metadata_proxy_handler = (
-            nsx_v_md_proxy.NsxVMetadataProxyHandler(self)
-            if has_metadata_cfg else None)
+        if has_metadata_cfg:
+            self.metadata_proxy_handler = (
+                nsx_v_md_proxy.NsxVMetadataProxyHandler(self))
 
     def _create_security_group_container(self):
         name = "OpenStack Security Group container"
