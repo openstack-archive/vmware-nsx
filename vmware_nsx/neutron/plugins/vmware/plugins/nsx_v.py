@@ -1188,13 +1188,11 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                               subnet['id'])
 
     def setup_dhcp_edge_fw_rules(self, context, plugin, router_id):
-        # application-70, application-327 are ICMP Echo request, ICMPv6 Echo
-        # request application codes
         rules = [{"name": "ICMPPing",
                   "enabled": True,
                   "action": "allow",
-                  "application": {
-                      "applicationId": ["application-70", "application-327"]}}]
+                  "protocol": "icmp",
+                  "icmp_type": 8}]
 
         if plugin.metadata_proxy_handler:
             rules += nsx_v_md_proxy.get_router_fw_rules()
