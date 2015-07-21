@@ -29,6 +29,7 @@ from neutron.api.v2 import attributes as attr
 from neutron.common import constants
 from neutron.common import exceptions as n_exc
 from neutron.db import agents_db
+from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
 from neutron.db import extraroute_db
@@ -39,6 +40,7 @@ from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
 from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db
+from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import external_net as ext_net_extn
 from neutron.extensions import l3
 from neutron.extensions import multiprovidernet as mpnet
@@ -83,7 +85,8 @@ ROUTER_SIZE = routersize.ROUTER_SIZE
 VALID_EDGE_SIZES = routersize.VALID_EDGE_SIZES
 
 
-class NsxVPluginV2(agents_db.AgentDbMixin,
+class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
+                   agents_db.AgentDbMixin,
                    db_base_plugin_v2.NeutronDbPluginV2,
                    rt_rtr.RouterType_mixin,
                    external_net_db.External_net_db_mixin,
@@ -95,6 +98,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                    vnic_index_db.VnicIndexDbMixin):
 
     supported_extension_aliases = ["agent",
+                                   "allowed-address-pairs",
                                    "binding",
                                    "dvr",
                                    "ext-gw-mode",
@@ -813,6 +817,14 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                         context, id, {'network': revert_update})
         return net_res
 
+    def _validate_address_pairs(self, attrs, db_port):
+        # Check that the MAC address is the same as the port
+        for ap in attrs[addr_pair.ADDRESS_PAIRS]:
+            if ('mac_address' in ap and
+                ap['mac_address'] != db_port['mac_address']):
+                msg = _('Address pairs should have same MAC as the port')
+                raise n_exc.BadRequest(resource='address_pairs', msg=msg)
+
     def create_port(self, context, port):
         port_data = port['port']
         with context.session.begin(subtransactions=True):
@@ -829,6 +841,16 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             port["port"].update(neutron_db)
             has_ip = self._ip_on_port(neutron_db)
 
+            # allowed address pair checks
+            attrs = port[attr.PORT]
+            if self._check_update_has_allowed_address_pairs(port):
+                if not port_security:
+                    raise addr_pair.AddressPairAndPortSecurityRequired()
+                self._validate_address_pairs(attrs, neutron_db)
+            else:
+                # remove ATTR_NOT_SPECIFIED
+                attrs[addr_pair.ADDRESS_PAIRS] = []
+
             # security group extension checks
             if has_ip:
                 self._ensure_default_security_group_on_port(context, port)
@@ -841,6 +863,11 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             self._process_portbindings_create_and_update(context,
                                                          port['port'],
                                                          port_data)
+            neutron_db[addr_pair.ADDRESS_PAIRS] = (
+                self._process_create_allowed_address_pairs(
+                    context, neutron_db,
+                    attrs.get(addr_pair.ADDRESS_PAIRS)))
+
         try:
             # Configure NSX - this should not be done in the DB transaction
             # Configure the DHCP Edge service
@@ -853,8 +880,11 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         return port_data
 
     def update_port(self, context, id, port):
+        attrs = port[attr.PORT]
         port_data = port['port']
         original_port = super(NsxVPluginV2, self).get_port(context, id)
+        if addr_pair.ADDRESS_PAIRS in attrs:
+            self._validate_address_pairs(attrs, original_port)
         is_compute_port = self._is_compute_port(original_port)
         device_id = original_port['device_id']
         has_port_security = (cfg.CONF.nsxv.spoofguard_enabled and
@@ -928,6 +958,11 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             self._process_portbindings_create_and_update(context,
                                                          port['port'],
                                                          ret_port)
+
+            if addr_pair.ADDRESS_PAIRS in attrs:
+                self.update_address_pairs_on_port(context, id, port,
+                                                  original_port,
+                                                  ret_port)
 
         if comp_owner_update:
             # Create dhcp bindings, the port is now owned by an instance
@@ -2047,6 +2082,9 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             session, port['network_id'])
         mac_addr = port['mac_address']
         approved_addrs = [addr['ip_address'] for addr in port['fixed_ips']]
+        # add in the address pair
+        approved_addrs.extend(
+            addr['ip_address'] for addr in port[addr_pair.ADDRESS_PAIRS])
         self.nsx_v.vcns.approve_assigned_addresses(
             sg_policy_id, vnic_id, mac_addr, approved_addrs)
         self.nsx_v.vcns.publish_assigned_addresses(sg_policy_id, vnic_id)

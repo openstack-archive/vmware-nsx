@@ -2568,7 +2568,7 @@ class TestNSXvAllowedAddressPairs(NsxVPluginV2TestCase,
     def test_create_port_security_false_allowed_address_pairs(self):
         pass
 
-    def test_create_port_remove_allowed_address_pairs(self):
+    def _test_create_port_remove_allowed_address_pairs(self, update_value):
         pass
 
     def test_create_overlap_with_fixed_ip(self):
