@@ -16,6 +16,8 @@ from oslo_log import log as logging
 
 from neutron.api.v2 import attributes as attr
 
+from vmware_nsx.neutron.plugins.vmware.common import locking
+from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
 from vmware_nsx.neutron.plugins.vmware.plugins import nsx_v
 from vmware_nsx.neutron.plugins.vmware.plugins.nsx_v_drivers import (
     abstract_router_driver as router_driver)
@@ -37,6 +39,7 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
 
     def update_router(self, context, router_id, router):
         r = router['router']
+
         gw_info = self.plugin._extract_external_gw(context, router,
                                                    is_extract=True)
         super(nsx_v.NsxVPluginV2, self.plugin).update_router(
@@ -55,12 +58,17 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
         return self.plugin.get_router(context, router_id)
 
     def delete_router(self, context, router_id):
-        self.edge_manager.delete_lrouter(context, router_id, dist=False)
-        if self.plugin.metadata_proxy_handler:
-            self.plugin.metadata_proxy_handler.cleanup_router_edge(router_id)
+        with locking.LockManager.get_lock(
+                self._get_router_edge_id(context, router_id), external=True):
+            self.edge_manager.delete_lrouter(context, router_id, dist=False)
+            if self.plugin.metadata_proxy_handler:
+                self.plugin.metadata_proxy_handler.cleanup_router_edge(
+                    router_id)
 
     def update_routes(self, context, router_id, nexthop):
-        self.plugin._update_routes(context, router_id, nexthop)
+        with locking.LockManager.get_lock(
+                self._get_router_edge_id(context, router_id), external=True):
+            self.plugin._update_routes(context, router_id, nexthop)
 
     def _update_router_gw_info(self, context, router_id, info):
         router = self.plugin._get_router(context, router_id)
@@ -79,31 +87,33 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
             self.plugin._get_external_attachment_info(
                 context, router))
 
-        if new_ext_net_id != org_ext_net_id and orgnexthop:
-            # network changed, so need to remove default gateway before
-            # vnic can be configured
-            LOG.debug("Delete default gateway %s", orgnexthop)
-            edge_utils.clear_gateway(self.nsx_v, context, router_id)
+        edge_id = self._get_router_edge_id(context, router_id)
+        with locking.LockManager.get_lock(edge_id, external=True):
+            if new_ext_net_id != org_ext_net_id and orgnexthop:
+                # network changed, so need to remove default gateway before
+                # vnic can be configured
+                LOG.debug("Delete default gateway %s", orgnexthop)
+                edge_utils.clear_gateway(self.nsx_v, context, router_id)
 
-        # Update external vnic if addr or mask is changed
-        if orgaddr != newaddr or orgmask != newmask:
-            edge_utils.update_external_interface(
-                self.nsx_v, context, router_id,
-                new_ext_net_id, newaddr, newmask)
+            # Update external vnic if addr or mask is changed
+            if orgaddr != newaddr or orgmask != newmask:
+                edge_utils.update_external_interface(
+                    self.nsx_v, context, router_id,
+                    new_ext_net_id, newaddr, newmask)
 
-        # Update SNAT rules if ext net changed
-        # or ext net not changed but snat is changed.
-        if (new_ext_net_id != org_ext_net_id or
-            (new_ext_net_id == org_ext_net_id and
-             new_enable_snat != org_enable_snat)):
-            self.plugin._update_nat_rules(context, router)
+            # Update SNAT rules if ext net changed
+            # or ext net not changed but snat is changed.
+            if (new_ext_net_id != org_ext_net_id or
+                (new_ext_net_id == org_ext_net_id and
+                 new_enable_snat != org_enable_snat)):
+                self.plugin._update_nat_rules(context, router)
 
-        if (new_ext_net_id != org_ext_net_id or
-            new_enable_snat != org_enable_snat):
-            self.plugin._update_subnets_and_dnat_firewall(context, router)
+            if (new_ext_net_id != org_ext_net_id or
+                new_enable_snat != org_enable_snat):
+                self.plugin._update_subnets_and_dnat_firewall(context, router)
 
-        # Update static routes in all.
-        self.plugin._update_routes(context, router_id, newnexthop)
+            # Update static routes in all.
+            self.plugin._update_routes(context, router_id, newnexthop)
 
     def add_router_interface(self, context, router_id, interface_info):
         self.plugin._check_intf_number_of_router(context, router_id)
@@ -115,15 +125,17 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
         network_id = subnet['network_id']
         address_groups = self.plugin._get_address_groups(
             context, router_id, network_id)
-        edge_utils.update_internal_interface(self.nsx_v, context, router_id,
-                                             network_id, address_groups,
-                                             router_db['admin_state_up'])
-        # Update edge's firewall rules to accept subnets flows.
-        self.plugin._update_subnets_and_dnat_firewall(context, router_db)
+        with locking.LockManager.get_lock(
+                self._get_router_edge_id(context, router_id), external=True):
+            edge_utils.update_internal_interface(
+                self.nsx_v, context, router_id, network_id, address_groups,
+                router_db['admin_state_up'])
+            # Update edge's firewall rules to accept subnets flows.
+            self.plugin._update_subnets_and_dnat_firewall(context, router_db)
 
-        if router_db.gw_port and router_db.enable_snat:
-            # Update Nat rules on external edge vnic
-            self.plugin._update_nat_rules(context, router_db)
+            if router_db.gw_port and router_db.enable_snat:
+                # Update Nat rules on external edge vnic
+                self.plugin._update_nat_rules(context, router_db)
         return info
 
     def remove_router_interface(self, context, router_id, interface_info):
@@ -132,27 +144,35 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
         router_db = self.plugin._get_router(context, router_id)
         subnet = self.plugin.get_subnet(context, info['subnet_id'])
         network_id = subnet['network_id']
-        if router_db.gw_port and router_db.enable_snat:
-            # First update nat rules
-            self.plugin._update_nat_rules(context, router_db)
-        ports = self.plugin._get_router_interface_ports_by_network(
-            context, router_id, network_id)
-        self.plugin._update_subnets_and_dnat_firewall(context, router_db)
-        # No subnet on the network connects to the edge vnic
-        if not ports:
-            edge_utils.delete_interface(self.nsx_v, context,
-                                        router_id, network_id,
-                                        dist=False)
-        else:
-            address_groups = self.plugin._get_address_groups(
+        with locking.LockManager.get_lock(
+                self._get_router_edge_id(context, router_id), external=True):
+            if router_db.gw_port and router_db.enable_snat:
+                # First update nat rules
+                self.plugin._update_nat_rules(context, router_db)
+            ports = self.plugin._get_router_interface_ports_by_network(
                 context, router_id, network_id)
-            edge_utils.update_internal_interface(self.nsx_v, context,
-                                                 router_id, network_id,
-                                                 address_groups)
+            self.plugin._update_subnets_and_dnat_firewall(context, router_db)
+            # No subnet on the network connects to the edge vnic
+            if not ports:
+                edge_utils.delete_interface(self.nsx_v, context,
+                                            router_id, network_id,
+                                            dist=False)
+            else:
+                address_groups = self.plugin._get_address_groups(
+                    context, router_id, network_id)
+                edge_utils.update_internal_interface(self.nsx_v, context,
+                                                     router_id, network_id,
+                                                     address_groups)
         return info
 
     def _update_edge_router(self, context, router_id):
         router = self.plugin._get_router(context, router_id)
-        self.plugin._update_external_interface(context, router)
-        self.plugin._update_nat_rules(context, router)
-        self.plugin._update_subnets_and_dnat_firewall(context, router)
+        with locking.LockManager.get_lock(
+                self._get_router_edge_id(context, router_id), external=True):
+            self.plugin._update_external_interface(context, router)
+            self.plugin._update_nat_rules(context, router)
+            self.plugin._update_subnets_and_dnat_firewall(context, router)
+
+    def _get_router_edge_id(self, context, router_id):
+        binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
+        return binding['edge_id']
