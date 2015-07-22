@@ -153,8 +153,8 @@ class Vcns(object):
         return self.do_request(HTTP_GET, uri, decode=True)
 
     def update_interface(self, edge_id, vnic):
-        uri = "%s/%s/vnics/%d?async=true" % (URI_PREFIX, edge_id,
-                                             vnic['index'])
+        uri = "%s/%s/vnics/%d" % (URI_PREFIX, edge_id,
+                                  vnic['index'])
         return self.do_request(HTTP_PUT, uri, vnic, decode=True)
 
     def delete_interface(self, edge_id, vnic_index):
