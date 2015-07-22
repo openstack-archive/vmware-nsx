@@ -544,15 +544,15 @@ class Vcns(object):
 
     def add_member_to_security_group(self, security_group_id, member_id):
         """Adds a vnic member to nsx security group."""
-        uri = '%s/%s/members/%s' % (SECURITYGROUP_PREFIX,
-                                    security_group_id, member_id)
+        uri = '%s/%s/members/%s?failIfExists=false' % (
+            SECURITYGROUP_PREFIX, security_group_id, member_id)
         return self.do_request(HTTP_PUT, uri, format='xml', decode=False)
 
     def remove_member_from_security_group(self, security_group_id,
                                           member_id):
         """Removes a vnic member from nsx security group."""
-        uri = '%s/%s/members/%s' % (SECURITYGROUP_PREFIX,
-                                    security_group_id, member_id)
+        uri = '%s/%s/members/%s?failIfAbsent=false' % (
+            SECURITYGROUP_PREFIX, security_group_id, member_id)
         return self.do_request(HTTP_DELETE, uri, format='xml', decode=False)
 
     @retry_upon_exception(exceptions.RequestBad)
