@@ -80,7 +80,6 @@ class Vcns(object):
                                                           password, 'json')
         self.xmlapi_client = VcnsApiClient.VcnsApiHelper(address, user,
                                                          password, 'xml')
-        self.route_feature_type = None
 
     @retry_upon_exception(exceptions.ServiceConflict)
     def _client_request(self, client, method, uri,
@@ -194,18 +193,7 @@ class Vcns(object):
         uri = "%s/%s/routing/config/static" % (URI_PREFIX, edge_id)
         return self.do_request(HTTP_GET, uri)
 
-    def get_route_feature_type(self, edge_id):
-        routes = self.get_routes(edge_id)[1]
-        if routes.get('featureType'):
-            self.route_feature_type = routes['featureType']
-        else:
-            self.route_feature_type = False
-
     def update_routes(self, edge_id, routes):
-        if self.route_feature_type is None:
-            self.get_route_feature_type(edge_id)
-        if self.route_feature_type:
-            routes['featureType'] = self.route_feature_type
         uri = "%s/%s/routing/config/static?async=true" % (URI_PREFIX, edge_id)
         return self.do_request(HTTP_PUT, uri, routes)
 
