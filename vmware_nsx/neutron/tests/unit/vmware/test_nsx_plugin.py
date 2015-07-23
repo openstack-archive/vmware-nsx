@@ -31,6 +31,7 @@ from neutron.extensions import securitygroup as secgrp
 from neutron import manager
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
+from neutron.tests.unit.extensions import test_extra_dhcp_opt as test_dhcpopts
 import neutron.tests.unit.extensions.test_l3 as test_l3_plugin
 import neutron.tests.unit.extensions.test_l3_ext_gw_mode as test_ext_gw_mode
 import neutron.tests.unit.extensions.test_securitygroup as ext_sg
@@ -1275,3 +1276,10 @@ class NeutronNsxOutOfSync(NsxPluginV2TestCase,
             sec_group['security_group']['id'])
         res = req.get_response(self.ext_api)
         self.assertEqual(res.status_int, 204)
+
+
+class DHCPOptsTestCase(test_dhcpopts.TestExtraDhcpOpt, NsxPluginV2TestCase):
+
+    def setUp(self, plugin=None):
+        super(test_dhcpopts.ExtraDhcpOptDBTestCase, self).setUp(
+            plugin=vmware.PLUGIN_NAME)
