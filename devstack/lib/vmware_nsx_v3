@@ -101,6 +101,11 @@ function neutron_plugin_configure_service {
     else
         die $LINENO "The VMware NSX plugin needs at least an NSX controller."
     fi
+    if [[ "$NSX_MANAGER" != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE nsx_v3 nsx_manager $NSX_MANAGER
+    else
+        die $LINENO "The VMware NSX plugin needs a NSX manager."
+    fi
     if [[ "$NSX_USER" != "" ]]; then
         iniset /$Q_PLUGIN_CONF_FILE nsx_v3 nsx_user $NSX_USER
     fi
