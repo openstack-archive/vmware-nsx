@@ -160,11 +160,13 @@ cluster_opts = [
 nsx_v3_opts = [
     cfg.StrOpt('nsx_user',
                default='admin',
-               help=_('User name for NSX controllers in this cluster')),
+               help=_('User name for the NSX manager')),
     cfg.StrOpt('nsx_password',
                default='default',
                secret=True,
-               help=_('Password for NSX controllers in this cluster')),
+               help=_('Password for the NSX manager')),
+    cfg.StrOpt('nsx_manager',
+               help=_('IP address of the NSX manager')),
     cfg.StrOpt('default_edge_cluster_uuid',
                help=_("Default edge cluster identifier"))]
 

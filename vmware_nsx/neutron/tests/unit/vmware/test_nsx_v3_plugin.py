@@ -32,7 +32,7 @@ class NsxPluginV3TestCase(test_plugin.NeutronDbPluginV2TestCase):
               service_plugins=None):
         super(NsxPluginV3TestCase, self).setUp(plugin=plugin,
                                                ext_mgr=ext_mgr)
-        cfg.CONF.set_override('nsx_controllers', ["1.1.1.1"])
+        cfg.CONF.set_override('nsx_manager', '1.2.3.4', 'nsx_v3')
         # Mock entire nsxlib methods as this is the best approach to perform
         # white-box testing on the plugin class
         # TODO(salv-orlando): supply unit tests for nsxlib.v3

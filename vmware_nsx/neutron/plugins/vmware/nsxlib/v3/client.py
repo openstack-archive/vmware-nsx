@@ -25,14 +25,17 @@ from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 LOG = log.getLogger(__name__)
 
 
-def _get_controller_endpoint():
-    # For now only work with one controller
-    # NOTE: The same options defined for 'old' NSX controller connection can be
-    # reused for connecting to next-gen NSX controllers
-    controller = cfg.CONF.nsx_controllers[0]
+def _get_manager_endpoint():
+    manager = _get_manager_ip()
     username = cfg.CONF.nsx_v3.nsx_user
     password = cfg.CONF.nsx_v3.nsx_password
-    return "https://%s" % controller, username, password
+    return "https://%s" % manager, username, password
+
+
+def _get_manager_ip():
+    # NOTE: In future this may return the IP address from a pool
+    manager = cfg.CONF.nsx_v3.nsx_manager
+    return manager
 
 
 def _validate_result(result, expected, operation):
@@ -48,8 +51,8 @@ def _validate_result(result, expected, operation):
 
 
 def get_resource(resource):
-    controller, user, password = _get_controller_endpoint()
-    url = controller + "/api/v1/%s" % resource
+    manager, user, password = _get_manager_endpoint()
+    url = manager + "/api/v1/%s" % resource
     headers = {'Accept': 'application/json'}
     result = requests.get(url, auth=auth.HTTPBasicAuth(user, password),
                           verify=False, headers=headers)
@@ -59,8 +62,8 @@ def get_resource(resource):
 
 
 def create_resource(resource, data):
-    controller, user, password = _get_controller_endpoint()
-    url = controller + "/api/v1/%s" % resource
+    manager, user, password = _get_manager_endpoint()
+    url = manager + "/api/v1/%s" % resource
     headers = {'Content-Type': 'application/json',
                'Accept': 'application/json'}
     result = requests.post(url, auth=auth.HTTPBasicAuth(user, password),
@@ -72,8 +75,8 @@ def create_resource(resource, data):
 
 
 def update_resource(resource, data):
-    controller, user, password = _get_controller_endpoint()
-    url = controller + "/api/v1/%s" % resource
+    manager, user, password = _get_manager_endpoint()
+    url = manager + "/api/v1/%s" % resource
     headers = {'Content-Type': 'application/json',
                'Accept': 'application/json'}
     result = requests.put(url, auth=auth.HTTPBasicAuth(user, password),
@@ -85,8 +88,8 @@ def update_resource(resource, data):
 
 
 def delete_resource(resource):
-    controller, user, password = _get_controller_endpoint()
-    url = controller + "/api/v1/%s" % resource
+    manager, user, password = _get_manager_endpoint()
+    url = manager + "/api/v1/%s" % resource
     result = requests.delete(url, auth=auth.HTTPBasicAuth(user, password),
                              verify=False)
     _validate_result(result, [requests.codes.ok, requests.codes.not_found],
