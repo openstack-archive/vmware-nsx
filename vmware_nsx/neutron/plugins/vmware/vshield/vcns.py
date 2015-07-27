@@ -567,11 +567,14 @@ class Vcns(object):
 
         payload = {
             'featureType': 'systemcontrol',
-            'property': [
-                prop
-            ]
+            'property': prop
         }
         return self.do_request(HTTP_PUT, uri, payload, decode=True)
+
+    def get_system_control(self, edge_id):
+        uri = self._build_uri_path(edge_id, SYSCTL_SERVICE)
+
+        return self.do_request(HTTP_GET, uri)
 
     @retry_upon_exception(exceptions.RequestBad)
     def create_spoofguard_policy(self, enforcement_point, name, enable):
