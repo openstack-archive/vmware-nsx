@@ -1317,6 +1317,12 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         return self.get_router(context, lrouter['id'])
 
     def update_router(self, context, router_id, router):
+        # Toggling the distributed flag is not supported
+        if 'distributed' in router['router']:
+            r = self.get_router(context, router_id)
+            if r['distributed'] != router['router']['distributed']:
+                err_msg = _('Unable to update distributed mode')
+                raise n_exc.InvalidInput(error_message=err_msg)
         router_driver = self._find_router_driver(context, router_id)
         return router_driver.update_router(context, router_id, router)
 
