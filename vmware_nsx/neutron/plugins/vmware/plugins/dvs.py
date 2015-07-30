@@ -302,7 +302,6 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         return port_data
 
     def update_port(self, context, id, port):
-        changed_fixed_ips = 'fixed_ips' in port['port']
         delete_addr_pairs = self._check_update_deletes_allowed_address_pairs(
             port)
         has_addr_pairs = self._check_update_has_allowed_address_pairs(port)
@@ -338,9 +337,6 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._delete_allowed_address_pairs(context, id)
                 self._process_create_allowed_address_pairs(
                     context, ret_port, ret_port[addr_pair.ADDRESS_PAIRS])
-            elif changed_fixed_ips:
-                self._check_fixed_ips_and_address_pairs_no_overlap(context,
-                                                                   ret_port)
 
             if psec.PORTSECURITY in port['port']:
                 self._process_port_port_security_update(
