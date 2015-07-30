@@ -1302,8 +1302,6 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         # First extract the gateway info in case of updating
         # gateway before edge is deployed.
         # TODO(berlin): admin_state_up and routes update
-        if router['router'].get('admin_state_up') is False:
-            LOG.warning(_LW("admin_state_up=False router is not supported."))
         gw_info = self._extract_external_gw(context, router)
         lrouter = super(NsxVPluginV2, self).create_router(context, router)
         r = router['router']
