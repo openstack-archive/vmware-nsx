@@ -49,7 +49,7 @@ class NSXClusterTest(base.BaseTestCase):
                     'http_timeout': 25,
                     'retries': 7,
                     'redirects': 23,
-                    'default_interface_name': 'baz',
+                    'nsx_default_interface_name': 'baz',
                     'nsx_controllers': ['1.1.1.1:443']}
 
     def test_create_cluster(self):
@@ -94,7 +94,7 @@ class ConfigurationTest(base.BaseTestCase):
         self.assertEqual(11, cluster.retries)
         self.assertEqual('whatever', cluster.default_l2_gw_service_uuid)
         self.assertEqual('whatever', cluster.default_l3_gw_service_uuid)
-        self.assertEqual('whatever', cluster.default_interface_name)
+        self.assertEqual('whatever', cluster.nsx_default_interface_name)
 
     def test_load_plugin_with_full_options(self):
         self.config_parse(args=['--config-file', BASE_CONF_PATH,
@@ -129,7 +129,7 @@ class ConfigurationTest(base.BaseTestCase):
         self.assertIsNone(cfg.CONF.nsx_controllers)
         self.assertIsNone(cfg.CONF.default_l3_gw_service_uuid)
         self.assertIsNone(cfg.CONF.default_l2_gw_service_uuid)
-        self.assertEqual('breth0', cfg.CONF.default_interface_name)
+        self.assertEqual('breth0', cfg.CONF.nsx_default_interface_name)
         self.assertEqual(900, cfg.CONF.conn_idle_timeout)
 
     def test_load_api_extensions(self):
