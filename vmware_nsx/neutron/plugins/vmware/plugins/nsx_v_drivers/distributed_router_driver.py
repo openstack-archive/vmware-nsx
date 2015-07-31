@@ -12,10 +12,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from oslo_log import log as logging
 from oslo_utils import excutils
 
 from neutron.api.v2 import attributes as attr
 from neutron.common import exceptions as n_exc
+from neutron.i18n import _LE
 
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
 from vmware_nsx.neutron.plugins.vmware.plugins import nsx_v
@@ -25,6 +27,7 @@ from vmware_nsx.neutron.plugins.vmware.vshield.common import (
     constants as vcns_const)
 from vmware_nsx.neutron.plugins.vmware.vshield import edge_utils
 
+LOG = logging.getLogger(__name__)
 METADATA_CIDR = '169.254.169.254/32'
 
 
@@ -350,11 +353,17 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
             vdr_dhcp_binding = nsxv_db.get_vdr_dhcp_binding_by_vdr(
                 context.session, router_id)
 
-            self.edge_manager.reset_sysctl_rp_filter_for_vdr_dhcp(
-                context, vdr_dhcp_binding['dhcp_edge_id'], network_id)
+            # A case where we do not have a vdr_dhcp_binding indicates a DB
+            # inconsistency. We check for this anyway, in case that something
+            # is broken.
+            if vdr_dhcp_binding:
+                self.edge_manager.reset_sysctl_rp_filter_for_vdr_dhcp(
+                    context, vdr_dhcp_binding['dhcp_edge_id'], network_id)
 
-            self.edge_manager.remove_network_from_dhcp_edge(
-                context, network_id, vdr_dhcp_binding['dhcp_edge_id'])
+                self.edge_manager.remove_network_from_dhcp_edge(
+                    context, network_id, vdr_dhcp_binding['dhcp_edge_id'])
+            else:
+                LOG.error(_LE('VDR DHCP binding is missing for %s'), router_id)
 
             # Reattach to regular DHCP Edge
             self.edge_manager.create_dhcp_edge_service(
