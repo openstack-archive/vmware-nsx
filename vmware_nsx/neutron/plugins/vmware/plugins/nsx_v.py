@@ -1640,8 +1640,11 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         if not router_id:
             router_id = router['id']
         subnet_cidrs = self._find_router_subnets_cidrs(context, router['id'])
+        routes = self._get_extra_routes_by_router_id(context, router_id)
+        subnet_cidrs.extend([route['destination'] for route in routes])
         if subnet_cidrs:
-            # Fake fw rule to open subnets firewall flows
+            # Fake fw rule to open subnets firewall flows and static routes
+            # relative flows
             fake_subnet_fw_rule = {
                 'action': 'allow',
                 'enabled': True,

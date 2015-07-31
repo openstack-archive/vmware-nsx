@@ -46,6 +46,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
 
     def update_router(self, context, router_id, router):
         r = router['router']
+        is_routes_update = True if 'routes' in r else False
         edge_id = edge_utils.get_router_edge_id(context, router_id)
         if not edge_id:
             return super(nsx_v.NsxVPluginV2, self.plugin).update_router(
@@ -61,7 +62,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                 self.update_routes(context, router_id, None)
             # here is used to handle routes which tenant updates.
             if gw_info != attr.ATTR_NOT_SPECIFIED:
-                self._update_router_gw_info(context, router_id, gw_info)
+                self._update_router_gw_info(context, router_id, gw_info,
+                                            is_routes_update)
             if 'admin_state_up' in r:
                 # If router was deployed on a different edge then
                 # admin-state-up is already updated on the new edge.
@@ -160,8 +162,12 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             router = router_qry.filter_by(id=router_id).one()
             subnet_cidrs = self.plugin._find_router_subnets_cidrs(
                 context, router['id'])
+            routes = self.plugin._get_extra_routes_by_router_id(
+                context, router['id'])
+            subnet_cidrs.extend([route['destination'] for route in routes])
             if subnet_cidrs:
-                # Fake fw rule to open subnets firewall flows
+                # Fake fw rule to open subnets firewall flows and static routes
+                # relative flows
                 fake_subnet_fw_rule = {
                     'action': 'allow',
                     'enabled': True,
@@ -211,10 +217,12 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                         lock_file_prefix=NSXV_ROUTER_RECONFIG, external=True):
                     self._add_router_services_on_available_edge(context,
                                                                 router_id)
-            router_ids = self.edge_manager.get_routers_on_same_edge(
-                context, router_id)
-            if router_ids:
-                self._update_routes_on_routers(context, router_id, router_ids)
+            else:
+                router_ids = self.edge_manager.get_routers_on_same_edge(
+                    context, router_id)
+                if router_ids:
+                    self._update_routes_on_routers(
+                        context, router_id, router_ids)
 
     def _get_ext_net_ids(self, context, router_ids):
         ext_net_ids = []
@@ -520,7 +528,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             edge_utils.delete_interface(self.nsx_v, context, router_id, net_id,
                                         is_wait=False)
 
-    def _update_router_gw_info(self, context, router_id, info):
+    def _update_router_gw_info(self, context, router_id, info,
+                               is_routes_update=False):
         router = self.plugin._get_router(context, router_id)
         edge_id = edge_utils.get_router_edge_id(context, router_id)
         if not edge_id:
@@ -596,7 +605,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                                                               router_ids)
 
                         if (new_ext_net_id != org_ext_net_id or
-                            new_enable_snat != org_enable_snat):
+                            new_enable_snat != org_enable_snat or
+                            is_routes_update):
                             self._update_subnets_and_dnat_firewall_on_routers(
                                 context, router_id, router_ids,
                                 allow_external=True)

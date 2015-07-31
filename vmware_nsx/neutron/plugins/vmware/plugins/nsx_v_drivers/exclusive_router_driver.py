@@ -40,18 +40,21 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
 
     def update_router(self, context, router_id, router):
         r = router['router']
+        is_routes_update = True if 'routes' in r else False
 
         gw_info = self.plugin._extract_external_gw(context, router,
                                                    is_extract=True)
         super(nsx_v.NsxVPluginV2, self.plugin).update_router(
             context, router_id, router)
         if gw_info != attr.ATTR_NOT_SPECIFIED:
-            self._update_router_gw_info(context, router_id, gw_info)
-        else:
+            self._update_router_gw_info(context, router_id, gw_info,
+                                        is_routes_update)
+        elif is_routes_update:
             # here is used to handle routes which tenant updates.
             router_db = self.plugin._get_router(context, router_id)
             nexthop = self.plugin._get_external_attachment_info(
                 context, router_db)[2]
+            self.plugin._update_subnets_and_dnat_firewall(context, router_db)
             self.update_routes(context, router_id, nexthop)
         if 'admin_state_up' in r:
             self.plugin._update_router_admin_state(
@@ -71,7 +74,8 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
                 self._get_router_edge_id(context, router_id), external=True):
             self.plugin._update_routes(context, router_id, nexthop)
 
-    def _update_router_gw_info(self, context, router_id, info):
+    def _update_router_gw_info(self, context, router_id, info,
+                               is_routes_update=False):
         router = self.plugin._get_router(context, router_id)
         org_ext_net_id = router.gw_port_id and router.gw_port.network_id
         org_enable_snat = router.enable_snat
@@ -110,7 +114,8 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
                 self.plugin._update_nat_rules(context, router)
 
             if (new_ext_net_id != org_ext_net_id or
-                new_enable_snat != org_enable_snat):
+                new_enable_snat != org_enable_snat or
+                is_routes_update):
                 self.plugin._update_subnets_and_dnat_firewall(context, router)
 
             # Update static routes in all.
