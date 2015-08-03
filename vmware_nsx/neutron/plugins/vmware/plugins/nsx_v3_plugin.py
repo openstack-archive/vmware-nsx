@@ -27,6 +27,7 @@ from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
 from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
 from neutron.api.v2 import attributes
+from neutron.extensions import external_net as ext_net_extn
 from neutron.extensions import extra_dhcp_opt as edo_ext
 from neutron.extensions import l3
 from neutron.extensions import portbindings as pbin
@@ -39,6 +40,7 @@ from neutron.common import topics
 from neutron.db import agents_db
 from neutron.db import agentschedulers_db
 from neutron.db import db_base_plugin_v2
+from neutron.db import external_net_db
 from neutron.db import extradhcpopt_db
 from neutron.db import l3_db
 from neutron.db import models_v2
@@ -59,6 +61,7 @@ LOG = log.getLogger(__name__)
 
 class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                   securitygroups_db.SecurityGroupDbMixin,
+                  external_net_db.External_net_db_mixin,
                   l3_db.L3_NAT_dbonly_mixin,
                   portbindings_db.PortBindingMixin,
                   agentschedulers_db.DhcpAgentSchedulerDbMixin,
@@ -74,8 +77,9 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                                    "binding",
                                    "extra_dhcp_opt",
                                    "security-group",
-                                   "router",
-                                   "provider"]
+                                   "provider",
+                                   "external-net",
+                                   "router"]
 
     def __init__(self):
         super(NsxV3Plugin, self).__init__()
@@ -87,6 +91,7 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                 # TODO(rkukura): Replace with new VIF security details
                 pbin.CAP_PORT_FILTER:
                 'security-group' in self.supported_extension_aliases}}
+        self.tier0_groups_dict = {}
         self._setup_rpc()
 
     def _setup_rpc(self):
@@ -174,6 +179,73 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return net_type, physical_net, vlan_id
 
+    def _validate_tier0(self, tier0_uuid):
+        if tier0_uuid in self.tier0_groups_dict:
+            return
+        err_msg = None
+        try:
+            lrouter = nsxlib.get_logical_router(tier0_uuid)
+        except nsx_exc.ResourceNotFound:
+            err_msg = _("Failed to validate tier0 router %s since it is "
+                        "not found at the backend") % tier0_uuid
+        else:
+            edge_cluster_uuid = lrouter.get('edge_cluster_id')
+            if not edge_cluster_uuid:
+                err_msg = _("Failed to get edge cluster uuid from tier0 "
+                            "router %s at the backend") % lrouter
+            else:
+                edge_cluster = nsxlib.get_edge_cluster(edge_cluster_uuid)
+                member_index_list = [member['member_index']
+                                     for member in edge_cluster['members']]
+                if not member_index_list:
+                    err_msg = _("No edge members found in edge_cluster "
+                                "%(cluster)s from tier0 router %(tier0)s") % {
+                        'cluster': edge_cluster_uuid,
+                        'tier0': tier0_uuid}
+        if err_msg:
+            raise n_exc.InvalidInput(error_message=err_msg)
+        else:
+            self.tier0_groups_dict[tier0_uuid] = {
+                'edge_cluster_uuid': edge_cluster_uuid,
+                'member_index_list': member_index_list}
+
+    def _validate_external_net_create(self, net_data):
+        is_provider_net = False
+        if not attributes.is_attr_set(net_data.get(pnet.PHYSICAL_NETWORK)):
+            tier0_uuid = cfg.CONF.nsx_v3.default_tier0_router_uuid
+        else:
+            tier0_uuid = net_data[pnet.PHYSICAL_NETWORK]
+            is_provider_net = True
+        self._validate_tier0(tier0_uuid)
+        return (is_provider_net, utils.NetworkTypes.L3_EXT, tier0_uuid, 0)
+
+    def _create_network_at_the_backend(self, context, net_data):
+        is_provider_net = any(
+            attributes.is_attr_set(net_data.get(f))
+            for f in (pnet.NETWORK_TYPE,
+                      pnet.PHYSICAL_NETWORK,
+                      pnet.SEGMENTATION_ID))
+        net_type, physical_net, vlan_id = self._validate_provider_create(
+            context, net_data)
+        net_name = net_data['name']
+        tags = utils.build_v3_tags_payload(net_data)
+        admin_state = net_data.get('admin_state_up', True)
+
+        # Create network on the backend
+        LOG.debug('create_network: %(net_name)s, %(physical_net)s, '
+                  '%(tags)s, %(admin_state)s, %(vlan_id)s',
+                  {'net_name': net_name,
+                   'physical_net': physical_net,
+                   'tags': tags,
+                   'admin_state': admin_state,
+                   'vlan_id': vlan_id})
+        result = nsxlib.create_logical_switch(net_name, physical_net, tags,
+                                              admin_state=admin_state,
+                                              vlan_id=vlan_id)
+        network_id = result['id']
+        net_data['id'] = network_id
+        return (is_provider_net, net_type, physical_net, vlan_id)
+
     def _extend_network_dict_provider(self, context, network, bindings=None):
         if not bindings:
             bindings = nsx_db.get_network_bindings(context.session,
@@ -186,58 +258,56 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             network[pnet.SEGMENTATION_ID] = bindings[0].vlan_id
 
     def create_network(self, context, network):
-        is_provider_net = any(attributes.is_attr_set(network['network'].get(f))
-                              for f in (pnet.NETWORK_TYPE,
-                                        pnet.PHYSICAL_NETWORK,
-                                        pnet.SEGMENTATION_ID))
-        net_type, physical_net, vlan_id = self._validate_provider_create(
-            context, network['network'])
-        net_name = network['network']['name']
-        tags = utils.build_v3_tags_payload(network['network'])
-        admin_state = network['network'].get('admin_state_up', True)
-
-        # Create network on the backend
-        LOG.debug('create_network: %(net_name)s, %(physical_net)s, %(tags)s, '
-                  '%(admin_state)s, %(vlan_id)s',
-                  {'net_name': net_name,
-                   'physical_net': physical_net,
-                   'tags': tags,
-                   'admin_state': admin_state,
-                   'vlan_id': vlan_id})
-        result = nsxlib.create_logical_switch(net_name, physical_net, tags,
-                                              admin_state=admin_state,
-                                              vlan_id=vlan_id)
-        net_id = result['id']
-        network['network']['id'] = net_id
-        tenant_id = self._get_tenant_id_for_create(context, network['network'])
-
+        net_data = network['network']
+        external = net_data.get(ext_net_extn.EXTERNAL)
+        if attributes.is_attr_set(external) and external:
+            is_provider_net, net_type, physical_net, vlan_id = (
+                self._validate_external_net_create(net_data))
+        else:
+            is_provider_net, net_type, physical_net, vlan_id = (
+                self._create_network_at_the_backend(context, net_data))
+        tenant_id = self._get_tenant_id_for_create(
+            context, net_data)
         self._ensure_default_security_group(context, tenant_id)
         with context.session.begin(subtransactions=True):
             # Create network in Neutron
             try:
                 created_net = super(NsxV3Plugin, self).create_network(context,
                                                                       network)
+                self._process_l3_create(context, created_net, net_data)
             except Exception:
                 with excutils.save_and_reraise_exception():
                     # Undo creation on the backend
-                    LOG.exception(_LE('Failed to create network %s'), net_id)
-                    nsxlib.delete_logical_switch(net_id)
+                    LOG.exception(_LE('Failed to create network %s'),
+                                  created_net['id'])
+                    if net_type != utils.NetworkTypes.L3_EXT:
+                        nsxlib.delete_logical_switch(created_net['id'])
 
             if is_provider_net:
                 # Save provider network fields, needed by get_network()
-                nsx_db.add_network_binding(context.session, net_id, net_type,
-                                           physical_net, vlan_id)
+                net_bindings = [nsx_db.add_network_binding(
+                    context.session, created_net['id'],
+                    net_type, physical_net, vlan_id)]
+                self._extend_network_dict_provider(context, created_net,
+                                                   bindings=net_bindings)
 
         return created_net
 
     def delete_network(self, context, network_id):
         # First call DB operation for delete network as it will perform
         # checks on active ports
-        ret_val = super(NsxV3Plugin, self).delete_network(context, network_id)
-        # TODO(salv-orlando): Handle backend failure, possibly without
-        # requiring us to un-delete the DB object. For instance, ignore
-        # failures occuring if logical switch is not found
-        nsxlib.delete_logical_switch(network_id)
+        with context.session.begin(subtransactions=True):
+            self._process_l3_delete(context, network_id)
+            ret_val = super(NsxV3Plugin, self).delete_network(
+                context, network_id)
+        if not self._network_is_external(context, network_id):
+            # TODO(salv-orlando): Handle backend failure, possibly without
+            # requiring us to un-delete the DB object. For instance, ignore
+            # failures occuring if logical switch is not found
+            nsxlib.delete_logical_switch(network_id)
+        else:
+            # TODO(berlin): delete subnets public announce on the network
+            pass
         return ret_val
 
     def update_network(self, context, id, network):
@@ -248,7 +318,8 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         updated_net = super(NsxV3Plugin, self).update_network(context, id,
                                                               network)
 
-        if 'name' in net_data or 'admin_state_up' in net_data:
+        if (not self._network_is_external(context, id) and
+            'name' in net_data or 'admin_state_up' in net_data):
             try:
                 nsxlib.update_logical_switch(
                     id, name=net_data.get('name'),
@@ -264,6 +335,14 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                         context, id, {'network': original_net})
 
         return updated_net
+
+    def create_subnet(self, context, subnet):
+        # TODO(berlin): public external subnet announcement
+        return super(NsxV3Plugin, self).create_subnet(context, subnet)
+
+    def delete_subnet(self, context, subnet_id):
+        # TODO(berlin): cancel public external subnet announcement
+        return super(NsxV3Plugin, self).delete_subnet(context, subnet_id)
 
     def _build_address_bindings(self, port):
         address_bindings = []
@@ -340,57 +419,70 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         # self.get_port(context, parent_name)
         return parent_name, tag
 
+    def _create_port_at_the_backend(self, context, neutron_db, port_data):
+        tags = utils.build_v3_tags_payload(port_data)
+        parent_name, tag = self._get_data_from_binding_profile(
+            context, port_data)
+        address_bindings = self._build_address_bindings(port_data)
+        # FIXME(arosen): we might need to pull this out of the
+        # transaction here later.
+        result = nsxlib.create_logical_port(
+            lswitch_id=port_data['network_id'],
+            vif_uuid=port_data['id'], name=port_data['name'], tags=tags,
+            admin_state=port_data['admin_state_up'],
+            address_bindings=address_bindings,
+            parent_name=parent_name, parent_tag=tag)
+
+        # TODO(salv-orlando): The logical switch identifier in the
+        # mapping object is not necessary anymore.
+        nsx_db.add_neutron_nsx_port_mapping(
+            context.session, neutron_db['id'],
+            neutron_db['network_id'], result['id'])
+
     def create_port(self, context, port):
         dhcp_opts = port['port'].get(edo_ext.EXTRADHCPOPTS, [])
         port_id = uuidutils.generate_uuid()
-        tags = utils.build_v3_tags_payload(port['port'])
         port['port']['id'] = port_id
 
         self._ensure_default_security_group_on_port(context, port)
         # TODO(salv-orlando): Undo logical switch creation on failure
         with context.session.begin(subtransactions=True):
-            parent_name, tag = self._get_data_from_binding_profile(
-                context, port['port'])
             neutron_db = super(NsxV3Plugin, self).create_port(context, port)
             self._process_portbindings_create_and_update(context,
                                                          port['port'],
                                                          neutron_db)
 
             port["port"].update(neutron_db)
-            address_bindings = self._build_address_bindings(port['port'])
-            # FIXME(arosen): we might need to pull this out of the transaction
-            # here later.
-            result = nsxlib.create_logical_port(
-                lswitch_id=port['port']['network_id'],
-                vif_uuid=port_id, name=port['port']['name'], tags=tags,
-                admin_state=port['port']['admin_state_up'],
-                address_bindings=address_bindings,
-                parent_name=parent_name, parent_tag=tag)
 
-            # TODO(salv-orlando): The logical switch identifier in the mapping
-            # object is not necessary anymore.
-            nsx_db.add_neutron_nsx_port_mapping(
-                context.session, neutron_db['id'],
-                neutron_db['network_id'], result['id'])
+            if not self._network_is_external(
+                context, port['port']['network_id']):
+                self._create_port_at_the_backend(
+                    context, neutron_db, port['port'])
             self._process_portbindings_create_and_update(context,
                                                          port['port'],
                                                          neutron_db)
+
             neutron_db[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
             if (pbin.PROFILE in port['port'] and
-                    attributes.is_attr_set(port['port'][pbin.PROFILE])):
+                attributes.is_attr_set(port['port'][pbin.PROFILE])):
                 neutron_db[pbin.PROFILE] = port['port'][pbin.PROFILE]
             sgids = self._get_security_groups_on_port(context, port)
             self._process_port_create_security_group(
                 context, neutron_db, sgids)
             self._process_port_create_extra_dhcp_opts(context, neutron_db,
                                                       dhcp_opts)
-
         return neutron_db
 
     def delete_port(self, context, port_id, l3_port_check=True):
-        _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
-            context.session, port_id)
-        nsxlib.delete_logical_port(nsx_port_id)
+        # if needed, check to see if this is a port owned by
+        # a l3 router.  If so, we should prevent deletion here
+        if l3_port_check:
+            self.prevent_l3_port_deletion(context, port_id)
+        port = self.get_port(context, port_id)
+        if not self._network_is_external(context, port['network_id']):
+            _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
+                context.session, port_id)
+            nsxlib.delete_logical_port(nsx_port_id)
         ret_val = super(NsxV3Plugin, self).delete_port(context, port_id)
 
         return ret_val

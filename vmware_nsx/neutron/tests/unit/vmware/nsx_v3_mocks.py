@@ -177,3 +177,19 @@ def update_logical_port(lport_id, name=None, admin_state=None):
         else:
             lport['admin_state'] = nsx_constants.ADMIN_STATE_DOWN
     return lport
+
+
+def get_edge_cluster(edge_cluster_uuid):
+    FAKE_CLUSTER = {
+        "id": edge_cluster_uuid,
+        "members": [
+            {"member_index": 0},
+            {"member_index": 1}]}
+    return FAKE_CLUSTER
+
+
+def get_logical_router(lrouter_uuid):
+    FAKE_LROUTER = {
+        "id": lrouter_uuid,
+        "edge_cluster_uuid": uuidutils.generate_uuid()}
+    return FAKE_LROUTER

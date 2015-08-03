@@ -195,6 +195,8 @@ nsx_v3_opts = [
                        'verified. If false, then the default CA truststore is '
                        'used for verification. This option is ignored if '
                        '"ca_file" is set.')),
+    cfg.StrOpt('default_tier0_router_uuid',
+               help=_("Default tier0 router identifier"))
 ]
 
 DEFAULT_STATUS_CHECK_INTERVAL = 2000

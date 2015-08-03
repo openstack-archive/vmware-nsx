@@ -24,6 +24,11 @@ from vmware_nsx.neutron.plugins.vmware.nsxlib.v3 import client
 LOG = log.getLogger(__name__)
 
 
+def get_edge_cluster(edge_cluster_uuid):
+    resource = "edge-clusters/%s" % edge_cluster_uuid
+    return client.get_resource(resource)
+
+
 def create_logical_switch(display_name, transport_zone_id, tags,
                           replication_mode=nsx_constants.MTEP,
                           admin_state=True, vlan_id=None):
@@ -155,6 +160,11 @@ def create_logical_router(display_name, tags, edge_cluster_uuid=None,
     if edge_cluster_uuid:
         body['edge_cluster_id'] = edge_cluster_uuid
     return client.create_resource(resource, body)
+
+
+def get_logical_router(lrouter_id):
+    resource = 'logical-routers/%s' % lrouter_id
+    return client.get_resource(resource)
 
 
 def delete_logical_router(lrouter_id):

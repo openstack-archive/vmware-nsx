@@ -106,6 +106,7 @@ function neutron_plugin_configure_service {
     else
         die $LINENO "The VMware NSX plugin needs at least an NSX controller."
     fi
+    _nsxv3_ini_set default_tier0_router_uuid $DEFAULT_TIER0_ROUTER_UUID
     _nsxv3_ini_set nsx_manager $NSX_MANAGER "The VMWare NSX plugin needs a NSX manager."
     _nsxv3_ini_set nsx_user $NSX_USER
     _nsxv3_ini_set nsx_password $NSX_PASSWORD

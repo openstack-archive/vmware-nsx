@@ -46,6 +46,9 @@ class NsxPluginV3TestCase(test_plugin.NeutronDbPluginV2TestCase):
         nsxlib.delete_logical_port = mock.Mock()
         nsxlib.get_logical_port = nsx_v3_mocks.get_logical_port
         nsxlib.update_logical_port = nsx_v3_mocks.update_logical_port
+        # TODO(berlin): fill valid data
+        nsxlib.get_edge_cluster = nsx_v3_mocks.get_edge_cluster
+        nsxlib.get_logical_router = nsx_v3_mocks.get_logical_router
 
 
 class TestNetworksV2(test_plugin.TestNetworksV2, NsxPluginV3TestCase):
@@ -63,6 +66,7 @@ class SecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
               ext_mgr=None):
         nsxlib.create_logical_switch = nsx_v3_mocks.create_logical_switch
         nsxlib.create_logical_port = nsx_v3_mocks.create_logical_port
+        nsxlib.update_logical_port = nsx_v3_mocks.update_logical_port
         nsxlib.delete_logical_port = mock.Mock()
         nsxlib.delete_logical_switch = mock.Mock()
 
