@@ -17,6 +17,7 @@ import mock
 from oslo_config import cfg
 
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
+import neutron.tests.unit.extensions.test_securitygroup as ext_sg
 from vmware_nsx.neutron.plugins.vmware.nsxlib import v3 as nsxlib
 from vmware_nsx.neutron.tests.unit.vmware import nsx_v3_mocks
 
@@ -47,4 +48,22 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxPluginV3TestCase):
 
 
 class TestPortsV2(test_plugin.TestPortsV2, NsxPluginV3TestCase):
+    pass
+
+
+class SecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
+
+    def setUp(self,
+              plugin=PLUGIN_NAME,
+              ext_mgr=None):
+        nsxlib.create_logical_switch = nsx_v3_mocks.create_logical_switch
+        nsxlib.create_logical_port = nsx_v3_mocks.create_logical_port
+        nsxlib.delete_logical_port = mock.Mock()
+        nsxlib.delete_logical_switch = mock.Mock()
+
+        super(SecurityGroupsTestCase, self).setUp(plugin=PLUGIN_NAME,
+                                                  ext_mgr=ext_mgr)
+
+
+class TestSecurityGroups(ext_sg.TestSecurityGroups, SecurityGroupsTestCase):
     pass
