@@ -14,10 +14,7 @@
 #    under the License.
 
 from oslo_log import log
-import requests
 
-from neutron.i18n import _LI
-from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import nsx_constants
 from vmware_nsx.neutron.plugins.vmware.nsxlib.v3 import client
 
@@ -38,8 +35,7 @@ def create_logical_switch(display_name, transport_zone_id, tags,
             'display_name': display_name,
             'tags': tags}
 
-    result = client.create_resource(resource, body)
-    return result.json()
+    return client.create_resource(resource, body)
 
 
 def delete_logical_switch(lswitch_id):
@@ -66,8 +62,7 @@ def create_logical_port(lswitch_id, vif_uuid, tags,
     if address_bindings:
         body['address_bindings'] = address_bindings
 
-    result = client.create_resource(resource, body)
-    return result.json()
+    return client.create_resource(resource, body)
 
 
 def delete_logical_port(logical_port_id):
@@ -85,18 +80,14 @@ def create_logical_router(display_name, edge_cluster_uuid, tags, tier_0=False):
             'display_name': display_name,
             'router_type': router_type,
             'tags': tags}
-    result = client.create_resource(resource, body)
-    return result.json()
+    return client.create_resource(resource, body)
 
 
 def delete_logical_router(lrouter_id):
     resource = 'logical-routers/%s/' % lrouter_id
 
     # TODO(salv-orlando): Must handle connection exceptions
-    result = client.delete_resource(resource)
-    if result.status_code == requests.codes.not_found:
-        LOG.info(_LI("Logical router %s not found on NSX backend"), lrouter_id)
-        raise nsx_exc.LogicalRouterNotFound(entity_id=lrouter_id)
+    return client.delete_resource(resource)
 
 
 def create_logical_router_port(logical_router_id,

@@ -15,7 +15,6 @@
 #
 
 import mock
-import requests
 
 from oslo_log import log
 
@@ -28,22 +27,15 @@ LOG = log.getLogger(__name__)
 
 class NsxLibSwitchTestCase(nsxlib_testcase.NsxLibTestCase):
 
-    def _create_mock_object(self, fake_object):
-        """Construct mock response object"""
-        mock_response = mock.Mock()
-        mock_response.json.return_value = fake_object
-        return mock_response
-
-    @mock.patch("vmware_nsx.neutron.plugins.vmware.nsxlib.v3.requests.post")
-    def test_create_logical_switch(self, mock_post):
+    @mock.patch("vmware_nsx.neutron.plugins.vmware.nsxlib.v3"
+                ".client.create_resource")
+    def test_create_logical_switch(self, mock_create_resource):
         """
         Test creating a switch returns the correct response and 200 status
         """
-        mock_post.return_value = self._create_mock_object(
-                                     test_constants_v3.FAKE_SWITCH)
-        mock_post.return_value.status_code = requests.codes.created
+        mock_create_resource.return_value = test_constants_v3.FAKE_SWITCH
 
-        result = nsxlib.create_logical_switch(
-                    test_constants_v3.FAKE_NAME,
-                    test_constants_v3.FAKE_TZ_UUID, tags={})
+        result = nsxlib.create_logical_switch(test_constants_v3.FAKE_NAME,
+                                              test_constants_v3.FAKE_TZ_UUID,
+                                              tags={})
         self.assertEqual(test_constants_v3.FAKE_SWITCH, result)

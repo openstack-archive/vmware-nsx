@@ -24,6 +24,12 @@ from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 
 LOG = log.getLogger(__name__)
 
+NOT_FOUND = 404
+PRECONDITION_FAILED = 412
+
+ERRORS = {NOT_FOUND: nsx_exc.ResourceNotFound,
+          PRECONDITION_FAILED: nsx_exc.StaleRevision}
+
 
 def _get_manager_endpoint():
     manager = _get_manager_ip()
@@ -38,16 +44,19 @@ def _get_manager_ip():
     return manager
 
 
-def _validate_result(result, expected, operation):
-    if result.status_code not in expected:
+def _validate_result(result_status_code, expected, operation):
+    if result_status_code not in expected:
         # Do not reveal internal details in the exception message, as it will
         # be user-visible
         LOG.warning(_LW("The HTTP request returned error code %(result)d, "
                         "whereas %(expected)s response codes were expected"),
-                    {'result': result.status_code,
+                    {'result': result_status_code,
                      'expected': '/'.join([str(code) for code in expected])})
-        raise nsx_exc.NsxPluginException(
-            err_msg=_("Unexpected error in backend while %s") % operation)
+
+        manager_ip = _get_manager_ip()
+
+        manager_error = ERRORS.get(result_status_code, nsx_exc.ManagerError)
+        raise manager_error(manager=manager_ip, operation=operation)
 
 
 def get_resource(resource):
@@ -56,9 +65,9 @@ def get_resource(resource):
     headers = {'Accept': 'application/json'}
     result = requests.get(url, auth=auth.HTTPBasicAuth(user, password),
                           verify=False, headers=headers)
-    _validate_result(
-        result, [requests.codes.ok], _("reading resource: %s") % resource)
-    return result
+    _validate_result(result.status_code, [requests.codes.ok],
+                     _("reading resource: %s") % resource)
+    return result.json()
 
 
 def create_resource(resource, data):
@@ -69,9 +78,9 @@ def create_resource(resource, data):
     result = requests.post(url, auth=auth.HTTPBasicAuth(user, password),
                            verify=False, headers=headers,
                            data=jsonutils.dumps(data))
-    _validate_result(result, [requests.codes.created],
+    _validate_result(result.status_code, [requests.codes.created],
                      _("creating resource at: %s") % resource)
-    return result
+    return result.json()
 
 
 def update_resource(resource, data):
@@ -82,9 +91,9 @@ def update_resource(resource, data):
     result = requests.put(url, auth=auth.HTTPBasicAuth(user, password),
                           verify=False, headers=headers,
                           data=jsonutils.dumps(data))
-    _validate_result(result, [requests.codes.ok],
+    _validate_result(result.status_code, [requests.codes.ok],
                      _("updating resource: %s") % resource)
-    return result
+    return result.json()
 
 
 def delete_resource(resource):
@@ -92,6 +101,6 @@ def delete_resource(resource):
     url = manager + "/api/v1/%s" % resource
     result = requests.delete(url, auth=auth.HTTPBasicAuth(user, password),
                              verify=False)
-    _validate_result(result, [requests.codes.ok, requests.codes.not_found],
+    _validate_result(result.status_code, [requests.codes.ok],
                      _("deleting resource: %s") % resource)
-    return result
+    return result.json()

@@ -123,3 +123,17 @@ class DvsNotFound(n_exc.NotFound):
 class NoRouterAvailable(n_exc.ResourceExhausted):
     message = _("Unable to create the router. "
                 "No tenant router is available for allocation.")
+
+
+class ManagerError(NsxPluginException):
+    message = _("Unexpected error from backend manager (%(manager)s) "
+                "for %(operation)s")
+
+
+class ResourceNotFound(ManagerError):
+    message = _("Resource could not be found on backend (%(manager)s) for "
+                "%(operation)s")
+
+
+class StaleRevision(ManagerError):
+    pass
