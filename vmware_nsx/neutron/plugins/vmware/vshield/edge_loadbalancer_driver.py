@@ -823,21 +823,21 @@ class EdgeLbDriver(object):
             lb_stats = self.vcns.get_loadbalancer_statistics(
                 pool_mapping['edge_id'])
 
-            pools_stats = lb_stats.get('pool', [])
-            for pool_stats in pools_stats:
-                if pool_stats['poolId'] == pool_mapping['edge_pool_id']:
-                    return {'bytes_in': pool_stats.get('bytesIn', 0),
-                            'bytes_out': pool_stats.get('bytesOut', 0),
-                            'active_connections':
-                                pool_stats.get('curSessions', 0),
-                            'total_connections':
-                                pool_stats.get('totalSessions', 0)}
-
         except nsxv_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
                 LOG.error(
                     _LE('Failed to read load balancer statistics, edge: %s'),
                     pool_mapping['edge_id'])
+
+        pools_stats = lb_stats[1].get('pool', [])
+        for pool_stats in pools_stats:
+            if pool_stats['poolId'] == pool_mapping['edge_pool_id']:
+                return {'bytes_in': pool_stats.get('bytesIn', 0),
+                        'bytes_out': pool_stats.get('bytesOut', 0),
+                        'active_connections':
+                            pool_stats.get('curSessions', 0),
+                        'total_connections':
+                            pool_stats.get('totalSessions', 0)}
 
         return {'bytes_in': 0,
                 'bytes_out': 0,

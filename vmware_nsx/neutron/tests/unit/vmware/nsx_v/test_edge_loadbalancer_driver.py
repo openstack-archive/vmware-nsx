@@ -596,38 +596,48 @@ class TestEdgeLbDriver(base.BaseTestCase):
 
     def test_stats(self):
         pool_mapping = {'edge_id': EDGE_ID, 'edge_pool_id': EDGE_POOL_ID}
-        pool_stats = {
-            'timeStamp': 1427358733,
-            'virtualServer': [
-                {'name': 'MdSrv',
-                 'virtualServerId': 'virtualServer-1',
-                 'bytesIn': 0,
-                 'bytesOut': 0,
-                 'totalSessions': 0,
-                 'ipAddress': '169.254.128.2',
-                 'curSessions': 0}],
-            'pool': [
-                {'status': 'UP',
-                 'totalSessions': 10000,
-                 'rateMax': 0,
-                 'name': 'MDSrvPool',
-                 'bytesOut': 100000,
-                 'rateLimit': 0,
-                 'member': [
-                     {'status': 'UP',
-                      'name': 'Member-1',
-                      'bytesOut': 0,
-                      'memberId': 'member-1',
-                      'totalSessions': 20000,
-                      'ipAddress': '192.168.55.101',
-                      'httpReqRateMax': 0,
-                      'curSessions': 0,
-                      'bytesIn': 0}],
-                 'poolId': EDGE_POOL_ID,
-                 'maxSessions': 10000,
-                 'httpReqRateMax': 0,
-                 'curSessions': 5000,
-                 'bytesIn': 1000000}]}
+        pool_stats = (
+            {
+                'status': '200',
+                'content-location': '',
+                'transfer-encoding': 'chunked',
+                'expires': 'Thu, 01 Jan 1970 00:00:00 GMT',
+                'server': '',
+                'cache-control': 'private, no-cache',
+                'date': 'Thu, 30 Jul 2015 08:59:27 GMT',
+                'content-type': 'application/json'},
+            {
+                'timeStamp': 1427358733,
+                'virtualServer': [
+                    {'name': 'MdSrv',
+                     'virtualServerId': 'virtualServer-1',
+                     'bytesIn': 0,
+                     'bytesOut': 0,
+                     'totalSessions': 0,
+                     'ipAddress': '169.254.128.2',
+                     'curSessions': 0}],
+                'pool': [
+                    {'status': 'UP',
+                     'totalSessions': 10000,
+                     'rateMax': 0,
+                     'name': 'MDSrvPool',
+                     'bytesOut': 100000,
+                     'rateLimit': 0,
+                     'member': [
+                         {'status': 'UP',
+                          'name': 'Member-1',
+                          'bytesOut': 0,
+                          'memberId': 'member-1',
+                          'totalSessions': 20000,
+                          'ipAddress': '192.168.55.101',
+                          'httpReqRateMax': 0,
+                          'curSessions': 0,
+                          'bytesIn': 0}],
+                     'poolId': EDGE_POOL_ID,
+                     'maxSessions': 10000,
+                     'httpReqRateMax': 0,
+                     'curSessions': 5000,
+                     'bytesIn': 1000000}]})
         expected_stats = {
             'active_connections': 5000,
             'bytes_in': 1000000,
