@@ -13,6 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import os
+
 from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log
@@ -23,6 +25,7 @@ LOG = log.getLogger(__name__)
 
 class LockManager:
     _coordinator = None
+    _coordinator_pid = None
     _connect_string = cfg.CONF.nsxv.locking_coordinator_url
 
     def __init__(self):
@@ -41,7 +44,12 @@ class LockManager:
 
     @staticmethod
     def _get_lock_distributed(name):
-        if not LockManager._coordinator:
+        if LockManager._coordinator_pid != os.getpid():
+            # We should use a per-process coordinator. If PID is different
+            # start a new coordinator.
+            # While the API workers are spawned, we have to re-initialize
+            # a coordinator, so we validate that the PID is still the same.
+            LockManager._coordinator_pid = os.getpid()
             LOG.debug('Initialized coordinator with connect string %s',
                       LockManager._connect_string)
             LockManager._coordinator = coordination.get_coordinator(
