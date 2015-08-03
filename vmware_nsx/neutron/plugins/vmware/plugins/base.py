@@ -1693,17 +1693,17 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # agnostic
         return []
 
-    def create_snat_intf_ports_if_not_exists(self, context, router):
+    def _create_snat_intf_ports_if_not_exists(self, context, router):
         # VMware plugins do not need SNAT interface ports
         return []
 
-    def add_csnat_router_interface_port(self, context, router, network_id,
-                                        subnet_id, do_pop=True):
+    def _add_csnat_router_interface_port(self, context, router, network_id,
+                                         subnet_id, do_pop=True):
         # VMware plugins do not need SNAT interface ports
         return
 
-    def delete_csnat_router_interface_ports(self, context, router,
-                                            subnet_id=None):
+    def _delete_csnat_router_interface_ports(self, context, router,
+                                             subnet_id=None):
         # VMware plugins do not need SNAT interface ports
         return
 
