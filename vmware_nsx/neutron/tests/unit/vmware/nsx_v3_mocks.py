@@ -71,7 +71,8 @@ def create_logical_switch(display_name, transport_zone_id, tags,
 
 def create_logical_port(lswitch_id, vif_uuid, tags,
                         attachment_type=nsx_constants.ATTACHMENT_VIF,
-                        admin_state=True, name=None, address_bindings=None):
+                        admin_state=True, name=None, address_bindings=None,
+                        parent_name=None, parent_tag=None):
     FAKE_SWITCH_UUID = uuidutils.generate_uuid()
     FAKE_PORT_UUID = uuidutils.generate_uuid()
     FAKE_PORT = {
