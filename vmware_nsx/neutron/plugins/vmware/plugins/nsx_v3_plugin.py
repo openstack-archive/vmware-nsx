@@ -14,6 +14,7 @@
 #    under the License.
 
 
+import netaddr
 from oslo_config import cfg
 from oslo_log import log
 from oslo_utils import importutils
@@ -123,6 +124,11 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
     def _build_address_bindings(self, port):
         address_bindings = []
         for fixed_ip in port['fixed_ips']:
+            # NOTE(arosen): nsx-v3 doesn't seem to handle ipv6 addresses
+            # currently so for now we remove them here and do not pass
+            # them to the backend which would raise an error.
+            if(netaddr.IPNetwork(fixed_ip['ip_address']).version == 6):
+                continue
             address_bindings.append(
                 {'mac_address': port['mac_address'],
                  'ip_address': fixed_ip['ip_address']})
