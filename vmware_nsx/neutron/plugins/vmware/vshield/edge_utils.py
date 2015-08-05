@@ -753,8 +753,9 @@ class EdgeManager(object):
                 edge_id = dhcp_edge_binding['edge_id']
                 (conflict_edge_ids,
                  available_edge_ids) = self._get_used_edges(context, subnet)
-                LOG.debug('The available edges %s, the conflict edges %s',
-                          available_edge_ids, conflict_edge_ids)
+                LOG.debug("The available edges %s, the conflict edges %s "
+                          "at present is using edge %s",
+                          available_edge_ids, conflict_edge_ids, edge_id)
                 with locking.LockManager.get_lock(
                         str(edge_id), lock_file_prefix='nsxv-dhcp-config-',
                         external=True):
@@ -771,7 +772,9 @@ class EdgeManager(object):
                         #   one
                         #4. Update the address groups to the vnic
                         if available_edge_ids:
-                            new_id = available_edge_ids.pop()
+                            new_id = random.choice(available_edge_ids)
+                            LOG.debug("Select edge %s to support dhcp for "
+                                      "network %s", new_id, network_id)
                             self.reuse_existing_dhcp_edge(
                                 context, new_id, resource_id, network_id)
                         else:
@@ -787,7 +790,9 @@ class EdgeManager(object):
                           available_edge_ids, conflict_edge_ids)
                 # There is available one
                 if available_edge_ids:
-                    new_id = available_edge_ids.pop()
+                    new_id = random.choice(available_edge_ids)
+                    LOG.debug("Select edge %s to support dhcp for network %s",
+                              new_id, network_id)
                     self.reuse_existing_dhcp_edge(
                         context, new_id, resource_id, network_id)
                 else:
