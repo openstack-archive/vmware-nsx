@@ -14,6 +14,7 @@
 #    under the License.
 
 import eventlet
+import netaddr
 import random
 from sqlalchemy import exc as db_base_exc
 import time
@@ -31,6 +32,7 @@ from neutron.extensions import l3
 from neutron.i18n import _LE, _LW
 from neutron.plugins.common import constants as plugin_const
 
+from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import locking
 from vmware_nsx.neutron.plugins.vmware.common import nsxv_constants
 from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
@@ -383,6 +385,14 @@ class EdgeManager(object):
                 return
         self._free_dhcp_edge_appliance(context, network_id)
 
+    def _addr_groups_convert_to_ipset(self, address_groups):
+        cidr_list = []
+        for addr_group in address_groups:
+            cidr = "/".join([addr_group['primaryAddress'],
+                             addr_group['subnetPrefixLength']])
+            cidr_list.append(cidr)
+        return netaddr.IPSet(cidr_list)
+
     def _update_dhcp_internal_interface(self, context, edge_id, vnic_index,
                                         tunnel_index, network_id,
                                         address_groups):
@@ -400,12 +410,40 @@ class EdgeManager(object):
         # Update the sub interface address groups for specific tunnel
         if sub_iface_dict:
             sub_interfaces = sub_iface_dict.get('subInterfaces')
+            addr_groups_ipset = self._addr_groups_convert_to_ipset(
+                address_groups)
             for sb in sub_interfaces:
                 if tunnel_index == sb['tunnelId']:
                     new_tunnel_creation = False
                     sb['addressGroups']['addressGroups'] = address_groups
-                    break
-            iface_list = sub_interfaces
+                else:
+                    sb_ipset = self._addr_groups_convert_to_ipset(
+                        sb['addressGroups']['addressGroups'])
+                    if addr_groups_ipset & sb_ipset:
+                        ls_id = sb['logicalSwitchId']
+                        net_ids = nsx_db.get_net_ids(context.session, ls_id)
+                        if net_ids:
+                            # Here should never happen, else one bug occurs
+                            LOG.error(_LE("net %(id)s on edge %(edge_id)s "
+                                          "overlaps with new net %(net_id)s"),
+                                      {'id': net_ids[0],
+                                       'edge_id': edge_id,
+                                       'net_id': network_id})
+                            raise nsx_exc.NsxPluginException(
+                                err_msg=_("update dhcp interface for net %s "
+                                          "failed") % network_id)
+                        else:
+                            # Occurs when there are DB inconsistency
+                            sb["is_overlapped"] = True
+                            LOG.error(_LE("unexpected sub intf %(id)s on edge "
+                                          "%(edge_id)s overlaps with new net "
+                                          "%(net_id)s. we would update with "
+                                          "deleting it for DB consistency"),
+                                      {'id': net_ids[0],
+                                       'edge_id': edge_id,
+                                       'net_id': network_id})
+            iface_list = [sub for sub in sub_interfaces
+                          if not sub.get('is_overlapped', False)]
 
         # The first DHCP service creation, not update
         if new_tunnel_creation:

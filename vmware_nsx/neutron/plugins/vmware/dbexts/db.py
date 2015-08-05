@@ -118,6 +118,12 @@ def get_nsx_switch_ids(session, neutron_id):
                 neutron_id=neutron_id)]
 
 
+def get_net_ids(session, nsx_id):
+    return [mapping['neutron_id'] for mapping in
+            session.query(nsx_models.NeutronNsxNetworkMapping).filter_by(
+                nsx_id=nsx_id)]
+
+
 def get_nsx_switch_and_port_id(session, neutron_id):
     try:
         mapping = (session.query(nsx_models.NeutronNsxPortMapping).
