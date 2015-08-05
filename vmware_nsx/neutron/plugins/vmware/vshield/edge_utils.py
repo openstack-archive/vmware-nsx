@@ -314,6 +314,11 @@ class EdgeManager(object):
         mappings = nsx_db.get_nsx_switch_ids(context.session, network_id)
         if mappings:
             vcns_network_id = mappings[0]
+        else:
+            LOG.error(_LE("Create sub interface failed since network %s not "
+                          "found at the backend."), network_id)
+            raise nsx_exc.NsxPluginException(
+                err_msg=_("network %s not found at the backend") % network_id)
         if port_group_id is None:
             portgroup = {'vlanId': 0,
                          'networkName': network_name,
@@ -727,6 +732,12 @@ class EdgeManager(object):
     def remove_network_from_dhcp_edge(self, context, network_id, edge_id):
         old_binding = nsxv_db.get_edge_vnic_binding(
             context.session, edge_id, network_id)
+        if not old_binding:
+            LOG.error(_LE("Remove network %(id)s failed since no binding "
+                          "found on edge %(edge_id)s"),
+                      {'id': network_id,
+                       'edge_id': edge_id})
+            return
         old_vnic_index = old_binding['vnic_index']
         old_tunnel_index = old_binding['tunnel_index']
         # Cut off the port group/virtual wire connection
