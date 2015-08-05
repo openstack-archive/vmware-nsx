@@ -232,7 +232,20 @@ class EdgeApplianceDriver(object):
             h, jobs = self.vcns.get_edge_jobs(edge_id)
             if jobs['edgeJob'] == []:
                 return
-            LOG.warning(_LW('NSXv: jobs still running.'))
+            job_number = len(jobs['edgeJob'])
+            # Assume one job would wait time out after 20 minutes and one
+            # job takes about 1 minute to be completed.
+            if job_number < 20:
+                LOG.warning(_LW("NSXv: %(num)s jobs still running on edge "
+                                "%(edge_id)s."),
+                            {'num': job_number,
+                             'edge_id': edge_id})
+            else:
+                LOG.error(_LE("NSXv: %(num)s jobs still running on edge "
+                              "%(edge_id)s. Too many jobs may lead to job "
+                              "time out at the backend"),
+                          {'num': job_number,
+                           'edge_id': edge_id})
         LOG.error(_LE('NSXv: jobs are still runnings!'))
 
     def update_interface(self, router_id, edge_id, index, network,
