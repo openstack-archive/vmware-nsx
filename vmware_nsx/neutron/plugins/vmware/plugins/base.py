@@ -2032,7 +2032,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Populate default physical network where not specified
         for device in devices:
             if not device.get('interface_name'):
-                device['interface_name'] = self.cluster.default_interface_name
+                device['interface_name'] = (self.cluster.
+                                            nsx_default_interface_name)
         try:
             # Replace Neutron device identifiers with NSX identifiers
             dev_map = dict((dev['id'], dev['interface_name']) for

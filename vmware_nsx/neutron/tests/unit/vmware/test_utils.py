@@ -39,7 +39,7 @@ def override_nsx_ini_full_test():
     cfg.CONF.set_override("nsx_password", "bar")
     cfg.CONF.set_override("default_l3_gw_service_uuid", "whatever")
     cfg.CONF.set_override("default_l2_gw_service_uuid", "whatever")
-    cfg.CONF.set_override("default_interface_name", "whatever")
+    cfg.CONF.set_override("nsx_default_interface_name", "whatever")
     cfg.CONF.set_override("http_timeout", 13)
     cfg.CONF.set_override("redirects", 12)
     cfg.CONF.set_override("retries", "11")
