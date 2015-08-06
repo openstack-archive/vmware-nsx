@@ -47,15 +47,16 @@ EDGE_CHECK_INTERVAL = 10
 
 LOG = logging.getLogger(__name__)
 
+DEFAULT_EDGE_FIREWALL_RULE = {
+    'name': 'VSERule',
+    'enabled': True,
+    'action': 'allow',
+    'source_vnic_groups': ['vse']}
+
 
 def get_router_fw_rules():
     fw_rules = [
-        {
-            'name': 'VSERule',
-            'enabled': True,
-            'action': 'allow',
-            'vnicGroupId': ['vse']
-        },
+        DEFAULT_EDGE_FIREWALL_RULE,
         {
             'name': 'MDServiceIP',
             'enabled': True,
@@ -380,12 +381,7 @@ class NsxVMetadataProxyHandler:
                                     proxy_lb=True)
 
             firewall_rules = [
-                {
-                    'name': 'VSERule',
-                    'enabled': True,
-                    'action': 'allow',
-                    'vnicGroupId': ['vse']
-                },
+                DEFAULT_EDGE_FIREWALL_RULE,
                 {
                     'action': 'allow',
                     'enabled': True,
