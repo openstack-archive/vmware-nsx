@@ -88,3 +88,45 @@ FAKE_PORT = {
         }
     ]
 }
+
+FAKE_QOS_PROFILE = {
+    "resource_type": "QosSwitchingProfile",
+    "id": uuidutils.generate_uuid(),
+    "display_name": FAKE_NAME,
+    "system_defined": False,
+    "dscp": {
+        "priority": 25,
+        "mode": "UNTRUSTED"
+    },
+    "tags": [],
+    "description": FAKE_NAME,
+    "class_of_service": 0,
+    "shaper_configuration": [
+        {
+            "resource_type": "IngressRateShaper",
+            "enabled": False,
+            "peak_bandwidth_mbps": 0,
+            "burst_size_bytes": 0,
+            "average_bandwidth_mbps": 0
+        },
+        {
+            "resource_type": "IngressBroadcastRateShaper",
+            "enabled": False,
+            "peak_bandwidth_kbps": 0,
+            "average_bandwidth_kbps": 0,
+            "burst_size_bytes": 0
+        },
+        {
+            "resource_type": "EgressRateShaper",
+            "enabled": False,
+            "peak_bandwidth_mbps": 0,
+            "burst_size_bytes": 0,
+            "average_bandwidth_mbps": 0
+        }
+    ],
+    "_last_modified_user": "admin",
+    "_last_modified_time": 1438383180608,
+    "_create_time": 1438383180608,
+    "_create_user": "admin",
+    "_revision": 0
+}
