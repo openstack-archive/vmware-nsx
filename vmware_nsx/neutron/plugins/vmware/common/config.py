@@ -271,6 +271,10 @@ nsxv_opts = [
                help=_('DHCP default lease time.')),
     cfg.StrOpt('locking_coordinator_url',
                help=_('A URL to a locking mechanism coordinator')),
+    cfg.BoolOpt('metadata_initializer',
+                default=True,
+                help=_("If True, the server instance will attempt to "
+                       "initialize the metadata infrastructure")),
 ]
 
 # Register the configuration options
