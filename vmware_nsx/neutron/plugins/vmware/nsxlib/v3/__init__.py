@@ -16,12 +16,24 @@
 from oslo_config import cfg
 from oslo_log import log
 
+from neutron.i18n import _LW
+
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import nsx_constants
 from vmware_nsx.neutron.plugins.vmware.common import utils
 from vmware_nsx.neutron.plugins.vmware.nsxlib.v3 import client
 
 LOG = log.getLogger(__name__)
+
+# TODO(berlin): move them to nsx_constants file
+# Router logical port types
+LROUTERPORT_UPLINK = "LogicalRouterUplinkPort"
+LROUTERPORT_DOWNLINK = "LogicalRouterDownLinkPort"
+LROUTERPORT_LINK = "LogicalRouterLinkPort"
+
+LROUTER_TYPES = [LROUTERPORT_UPLINK,
+                 LROUTERPORT_DOWNLINK,
+                 LROUTERPORT_LINK]
 
 ROUTER_INTF_PORT_NAME = "Tier1-RouterDownLinkPort"
 
@@ -37,6 +49,32 @@ def update_resource_with_retry(resource, payload):
     for key_name in payload.keys():
         revised_payload[key_name] = payload[key_name]
     return client.update_resource(resource, revised_payload)
+
+
+def delete_resource_by_values(resource, res_id='id', skip_not_found=True,
+                              **kwargs):
+    resources_get = client.get_resource(resource)
+    for res in resources_get['results']:
+        is_matched = True
+        for (key, value) in kwargs.items():
+            if res.get(key) != value:
+                is_matched = False
+                break
+        if is_matched:
+            LOG.debug("Deleting %s from resource %s", res, resource)
+            delete_resource = resource + "/" + str(res[res_id])
+            client.delete_resource(delete_resource)
+            return
+    if skip_not_found:
+        LOG.warning(_LW("No resource in %(res)s matched for values: "
+                        "%(values)s"), {'res': resource,
+                                        'values': kwargs})
+    else:
+        err_msg = (_("No resource in %(res)s matched for values: %(values)s") %
+                   {'res': resource,
+                    'values': kwargs})
+        raise nsx_exc.ResourceNotFound(manager=client._get_manager_ip(),
+                                       operation=err_msg)
 
 
 def create_logical_switch(display_name, transport_zone_id, tags,
@@ -181,6 +219,8 @@ def update_logical_router(lrouter_id, **kwargs):
 
 
 def delete_logical_router(lrouter_id):
+    # TODO(berlin): need to verify whether cascade prefix is valid to delete
+    # router link port and its relative nat rules
     resource = 'logical-routers/%s/' % lrouter_id
 
     # TODO(salv-orlando): Must handle connection exceptions
@@ -213,8 +253,8 @@ def create_logical_router_port_by_ls_id(logical_router_id,
     except nsx_exc.ResourceNotFound:
         return create_logical_router_port(logical_router_id,
                                           ROUTER_INTF_PORT_NAME,
-                                          logical_switch_port_id,
                                           resource_type,
+                                          logical_switch_port_id,
                                           address_groups)
     else:
         return update_logical_router_port(port['id'], subnets=address_groups)
@@ -222,15 +262,23 @@ def create_logical_router_port_by_ls_id(logical_router_id,
 
 def create_logical_router_port(logical_router_id,
                                display_name,
-                               logical_switch_port_id,
                                resource_type,
-                               address_groups):
+                               logical_port_id,
+                               address_groups,
+                               edge_cluster_member_index=None):
     resource = 'logical-router-ports'
     body = {'display_name': display_name,
             'resource_type': resource_type,
-            'logical_router_id': logical_router_id,
-            'subnets': address_groups,
-            'linked_logical_switch_port_id': logical_switch_port_id}
+            'logical_router_id': logical_router_id}
+    if address_groups:
+        body['subnets'] = address_groups
+    if resource_type in [LROUTERPORT_UPLINK,
+                         LROUTERPORT_DOWNLINK]:
+        body['linked_logical_switch_port_id'] = logical_port_id
+    elif logical_port_id:
+        body['linked_logical_router_port_id'] = logical_port_id
+    if edge_cluster_member_index:
+        body['edge_cluster_member_index'] = edge_cluster_member_index
 
     return client.create_resource(resource, body)
 
@@ -254,6 +302,56 @@ def delete_logical_router_port_by_ls_id(ls_id):
 def delete_logical_router_port(logical_port_id):
     resource = 'logical-router-ports/%s?detach=true' % logical_port_id
     client.delete_resource(resource)
+
+
+def get_logical_router_ports_by_router_id(logical_router_id):
+    resource = 'logical-router-ports'
+    logical_router_ports = client.get_resource(
+        resource, logical_router_id=logical_router_id)
+    return logical_router_ports['results']
+
+
+def get_tier1_logical_router_link_port(logical_router_id):
+    logical_router_ports = get_logical_router_ports_by_router_id(
+        logical_router_id)
+    for port in logical_router_ports:
+        if port['resource_type'] == LROUTERPORT_LINK:
+            return port
+    raise nsx_exc.ResourceNotFound(
+        manager=client._get_manager_ip(),
+        operation="get router link port")
+
+
+def add_nat_rule(logical_router_id, action, translated_network,
+                 source_net=None, dest_net=None,
+                 enabled=True, rule_priority=None):
+    resource = 'logical-routers/%s/nat/rules' % logical_router_id
+    body = {'action': action,
+            'enabled': enabled,
+            'translated_network': translated_network}
+    if source_net:
+        body['match_source_network'] = source_net
+    if dest_net:
+        body['match_destination_network'] = dest_net
+    if rule_priority:
+        body['rule_priority'] = rule_priority
+    return client.create_resource(resource, body)
+
+
+def delete_nat_rule(logical_router_id, nat_rule_id):
+    resource = 'logical-routers/%s/nat/rules/%s' % (logical_router_id,
+                                                    nat_rule_id)
+    client.delete_resource(resource)
+
+
+def delete_nat_rule_by_values(logical_router_id, **kwargs):
+    resource = 'logical-routers/%s/nat/rules' % logical_router_id
+    return delete_resource_by_values(resource, res_id='rule_id', **kwargs)
+
+
+def update_logical_router_advertisement(logical_router_id, **kwargs):
+    resource = 'logical-routers/%s/routing/advertisement' % logical_router_id
+    return update_resource_with_retry(resource, kwargs)
 
 
 def create_qos_switching_profile(tags, qos_marking=None, dscp=None, name=None,

@@ -210,6 +210,7 @@ class NsxV3Mock(object):
         self.logical_routers = {}
         self.logical_router_ports = {}
         self.logical_ports = {}
+        self.logical_router_nat_rules = {}
         if default_tier0_router_uuid:
             self.create_logical_router(
                 DEFAULT_TIER0_ROUTER_UUID, None,
@@ -268,10 +269,11 @@ class NsxV3Mock(object):
     def get_logical_router_port_by_ls_id(self, logical_switch_id):
         router_ports = []
         for router_port in self.logical_router_ports.values():
-            ls_port_id = router_port['linked_logical_switch_port_id']
-            port = self.get_logical_port(ls_port_id)
-            if port['logical_switch_id'] == logical_switch_id:
-                router_ports.append(router_port)
+            ls_port_id = router_port.get('linked_logical_switch_port_id')
+            if ls_port_id:
+                port = self.get_logical_port(ls_port_id)
+                if port['logical_switch_id'] == logical_switch_id:
+                    router_ports.append(router_port)
         if len(router_ports) >= 2:
             raise nsx_exc.NsxPluginException(
                 err_msg=_("Can't support more than one logical router ports "
@@ -305,18 +307,34 @@ class NsxV3Mock(object):
             raise nsx_exc.ResourceNotFound(
                 manager=FAKE_MANAGER, operation="get_logical_port")
 
+    def get_logical_router_ports_by_router_id(self, logical_router_id):
+        logical_router_ports = []
+        for port_id in self.logical_router_ports.keys():
+            if (self.logical_router_ports[port_id]['logical_router_id'] ==
+                logical_router_id):
+                logical_router_ports.append(self.logical_router_ports[port_id])
+        return logical_router_ports
+
     def create_logical_router_port(self, logical_router_id,
                                    display_name,
-                                   logical_switch_port_id,
                                    resource_type,
-                                   address_groups):
+                                   logical_port_id,
+                                   address_groups,
+                                   edge_cluster_member_index=None):
         fake_router_port_uuid = uuidutils.generate_uuid()
-        body = {'id': fake_router_port_uuid,
-                'display_name': display_name,
+        body = {'display_name': display_name,
                 'resource_type': resource_type,
-                'logical_router_id': logical_router_id,
-                'subnets': address_groups,
-                'linked_logical_switch_port_id': logical_switch_port_id}
+                'logical_router_id': logical_router_id}
+        if address_groups:
+            body['subnets'] = address_groups
+        if resource_type in ["LogicalRouterUplinkPort",
+                             "LogicalRouterDownLinkPort"]:
+            body['linked_logical_switch_port_id'] = logical_port_id
+        elif logical_port_id:
+            body['linked_logical_router_port_id'] = logical_port_id
+        if edge_cluster_member_index:
+            body['edge_cluster_member_index'] = edge_cluster_member_index
+        body['id'] = fake_router_port_uuid
         self.logical_router_ports[fake_router_port_uuid] = body
         return body
 
@@ -335,3 +353,58 @@ class NsxV3Mock(object):
         else:
             raise nsx_exc.ResourceNotFound(
                 manager=FAKE_MANAGER, operation="update_logical_router_port")
+
+    def add_nat_rule(self, logical_router_id, action, translated_network,
+                     source_net=None, dest_net=None, enabled=True,
+                     rule_priority=None):
+        fake_rule_id = uuidutils.generate_uuid()
+        if logical_router_id not in self.logical_routers.keys():
+            raise nsx_exc.ResourceNotFound(
+                manager=FAKE_MANAGER, operation="get_logical_router")
+        body = {'action': action,
+                'enabled': enabled,
+                'translated_network': translated_network}
+        if source_net:
+            body['match_source_network'] = source_net
+        if dest_net:
+            body['match_destination_network'] = dest_net
+        if rule_priority:
+            body['rule_priority'] = rule_priority
+        body['rule_id'] = fake_rule_id
+        if self.logical_router_nat_rules.get(logical_router_id):
+            self.logical_router_nat_rules[logical_router_id][fake_rule_id] = (
+                body)
+        else:
+            self.logical_router_nat_rules[logical_router_id] = {
+                fake_rule_id: body}
+        return body
+
+    def delete_nat_rule(self, logical_router_id, nat_rule_id):
+        if (self.logical_router_nat_rules.get(logical_router_id) and
+            self.logical_router_nat_rules[logical_router_id].get(nat_rule_id)):
+            del self.logical_router_nat_rules[logical_router_id][nat_rule_id]
+        else:
+            raise nsx_exc.ResourceNotFound(
+                manager=FAKE_MANAGER, operation="delete_nat_rule")
+
+    def delete_nat_rule_by_values(self, logical_router_id, **kwargs):
+        if self.logical_router_nat_rules.get(logical_router_id):
+            nat_rules = self.logical_router_nat_rules[logical_router_id]
+            remove_nat_rule_ids = []
+            for nat_id, nat_body in nat_rules.items():
+                remove_flag = True
+                for k, v in kwargs.items():
+                    if nat_body[k] != v:
+                        remove_flag = False
+                        break
+                if remove_flag:
+                    remove_nat_rule_ids.append(nat_id)
+            for nat_id in remove_nat_rule_ids:
+                del nat_rules[nat_id]
+        else:
+            raise nsx_exc.ResourceNotFound(
+                manager=FAKE_MANAGER, operation="delete_nat_rule_by_values")
+
+    def update_logical_router_advertisement(self, logical_router_id, **kwargs):
+        # TODO(berlin): implement this latter.
+        pass
