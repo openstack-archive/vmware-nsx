@@ -145,29 +145,35 @@ class NsxVMetadataProxyHandler:
                 filters={'network_id': [internal_net]})[0]['id']
 
         if internal_net is None or internal_subnet is None:
-            # Couldn't find net, subnet - create new
-            try:
-                internal_net, internal_subnet = (
-                    self._create_metadata_internal_network(INTERNAL_SUBNET))
-            except Exception as e:
-                nsxv_db.delete_nsxv_internal_network(
+            if cfg.CONF.nsxv.metadata_initializer:
+                # Couldn't find net, subnet - create new
+                try:
+                    internal_net, internal_subnet = (
+                        self._create_metadata_internal_network(
+                            INTERNAL_SUBNET))
+                except Exception as e:
+                    nsxv_db.delete_nsxv_internal_network(
+                        self.context.session,
+                        vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE)
+
+                    # if network is created, clean up
+                    if internal_net:
+                        self.nsxv_plugin.delete_network(self.context,
+                                                        internal_net)
+
+                    LOG.exception(_LE("Exception %s while creating internal "
+                                      "network for metadata service"), e)
+                    return
+
+                # Update the new network_id in DB
+                nsxv_db.create_nsxv_internal_network(
                     self.context.session,
-                    vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE)
-
-                # if network is created, clean up
-                if internal_net:
-                    self.nsxv_plugin.delete_network(self.context,
-                                                    internal_net)
-
-                LOG.exception(_LE("Exception %s while creating internal "
-                                  "network for metadata service"), e)
-                return
-
-            # Update the new network_id in DB
-            nsxv_db.create_nsxv_internal_network(
-                self.context.session,
-                nsxv_constants.INTER_EDGE_PURPOSE,
-                internal_net)
+                    nsxv_constants.INTER_EDGE_PURPOSE,
+                    internal_net)
+            else:
+                error = _('Metadata initialization is incomplete on '
+                          'initializer node')
+                raise nsxv_exc.NsxPluginException(err_msg=error)
 
         return internal_net, internal_subnet
 
@@ -221,19 +227,32 @@ class NsxVMetadataProxyHandler:
         edge_ip_to_set = (
             list(set(cfg.CONF.nsxv.mgt_net_proxy_ips) - set(db_edge_ips)))
 
-        for edge_inner_ip in pool.imap(
-                self._setup_proxy_edge_external_interface_ip,
-                zip(edge_to_convert_ips, edge_ip_to_set)):
-            proxy_edge_ips.append(edge_inner_ip)
+        if edge_to_convert_ips:
+            if cfg.CONF.nsxv.metadata_initializer:
+                for edge_inner_ip in pool.imap(
+                        self._setup_proxy_edge_external_interface_ip,
+                        zip(edge_to_convert_ips, edge_ip_to_set)):
+                    proxy_edge_ips.append(edge_inner_ip)
+            else:
+                error = _('Metadata initialization is incomplete on '
+                          'initializer node')
+                raise nsxv_exc.NsxPluginException(err_msg=error)
 
         # Edges that exist in the CFG list but do not have a matching DB
         # element will be created.
         remaining_cfg_ips = edge_ip_to_set[len(edge_to_convert_ips):]
-        for edge_inner_ip in pool.imap(
-                self._setup_new_proxy_edge, remaining_cfg_ips):
-            proxy_edge_ips.append(edge_inner_ip)
+        if remaining_cfg_ips:
+            if cfg.CONF.nsxv.metadata_initializer:
+                for edge_inner_ip in pool.imap(
+                        self._setup_new_proxy_edge, remaining_cfg_ips):
+                    proxy_edge_ips.append(edge_inner_ip)
 
-        pool.waitall()
+                pool.waitall()
+            else:
+                error = _('Metadata initialization is incomplete on '
+                          'initializer node')
+                raise nsxv_exc.NsxPluginException(err_msg=error)
+
         return proxy_edge_ips
 
     def _setup_proxy_edge_route_and_connectivity(self, rtr_ext_ip,
@@ -248,9 +267,14 @@ class NsxVMetadataProxyHandler:
         dgw = routes.get('defaultRoute', {}).get('gatewayAddress')
 
         if dgw != cfg.CONF.nsxv.mgt_net_default_gateway:
-            self.nsxv_plugin._update_routes(
-                self.context, rtr_id,
-                cfg.CONF.nsxv.mgt_net_default_gateway)
+            if cfg.CONF.nsxv.metadata_initializer:
+                self.nsxv_plugin._update_routes(
+                    self.context, rtr_id,
+                    cfg.CONF.nsxv.mgt_net_default_gateway)
+            else:
+                error = _('Metadata initialization is incomplete on '
+                          'initializer node')
+                raise nsxv_exc.NsxPluginException(err_msg=error)
 
         # Read and validate connectivity
         h, if_data = self.nsxv_plugin.nsx_v.get_interface(
@@ -261,14 +285,19 @@ class NsxVMetadataProxyHandler:
         cur_pgroup = if_data['portgroupId']
         if (if_data and cur_pgroup != cfg.CONF.nsxv.mgt_net_moid
                 or cur_ip != rtr_ext_ip):
-            self.nsxv_plugin.nsx_v.update_interface(
-                rtr_id,
-                edge_id,
-                vcns_const.EXTERNAL_VNIC_INDEX,
-                cfg.CONF.nsxv.mgt_net_moid,
-                address=rtr_ext_ip,
-                netmask=cfg.CONF.nsxv.mgt_net_proxy_netmask,
-                secondary=[])
+            if cfg.CONF.nsxv.metadata_initializer:
+                self.nsxv_plugin.nsx_v.update_interface(
+                    rtr_id,
+                    edge_id,
+                    vcns_const.EXTERNAL_VNIC_INDEX,
+                    cfg.CONF.nsxv.mgt_net_moid,
+                    address=rtr_ext_ip,
+                    netmask=cfg.CONF.nsxv.mgt_net_proxy_netmask,
+                    secondary=[])
+            else:
+                error = _('Metadata initialization is incomplete on '
+                          'initializer node')
+                raise nsxv_exc.NsxPluginException(err_msg=error)
 
         edge_ip = self._get_edge_internal_ip(rtr_id)
 
