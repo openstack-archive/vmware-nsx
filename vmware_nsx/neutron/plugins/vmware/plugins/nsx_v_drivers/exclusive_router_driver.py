@@ -16,6 +16,7 @@ from oslo_log import log as logging
 
 from neutron.api.v2 import attributes as attr
 
+from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsxv_exc
 from vmware_nsx.neutron.plugins.vmware.common import locking
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
 from vmware_nsx.neutron.plugins.vmware.plugins import nsx_v
@@ -139,11 +140,28 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
         return info
 
     def remove_router_interface(self, context, router_id, interface_info):
+
+        # If a loadbalancer is attached to this Edge appliance, we cannot
+        # detach the subnet from the exclusive router.
+        subnet = interface_info.get('subnet_id')
+        if not subnet and interface_info.get('port_id'):
+            port = self.plugin.get_port(context, interface_info['port_id'])
+            port_subnets = [
+                fixed_ip['subnet_id'] for fixed_ip in port.get(
+                    'fixed_ips', [])]
+            subnet = port_subnets[0]
+
+        if subnet and self.nsx_v.is_subnet_in_use(context, subnet):
+            error = _('Cannot delete router interface while loadbalancers are '
+                      'provisioned on attached subnet')
+            raise nsxv_exc.NsxPluginException(err_msg=error)
+
         info = super(nsx_v.NsxVPluginV2, self.plugin).remove_router_interface(
             context, router_id, interface_info)
         router_db = self.plugin._get_router(context, router_id)
         subnet = self.plugin.get_subnet(context, info['subnet_id'])
         network_id = subnet['network_id']
+
         with locking.LockManager.get_lock(
                 self._get_router_edge_id(context, router_id), external=True):
             if router_db.gw_port and router_db.enable_snat:

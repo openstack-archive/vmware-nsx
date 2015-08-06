@@ -30,9 +30,6 @@ from vmware_nsx.neutron.plugins.vmware.vshield.common import (
 from vmware_nsx.neutron.plugins.vmware.vshield import vcns as nsxv_api
 
 
-# TODO(kobis): protect in nsx_v.py against detaching of interface while
-# TODO(kobis): LBs are provisioned on a router edge
-
 LOG = logging.getLogger(__name__)
 
 LB_METHOD_ROUND_ROBIN = 'ROUND_ROBIN'
@@ -845,3 +842,11 @@ class EdgeLbDriver(object):
 
     def is_edge_in_use(self, edge_id):
         return self._lb_driver.is_edge_in_use(edge_id)
+
+    def is_subnet_in_use(self, context, subnet_id):
+        plugin = self._get_lb_plugin()
+        if plugin:
+            pools = plugin.get_pools(context,
+                                     filters={'subnet_id': [subnet_id]})
+            if pools:
+                return True

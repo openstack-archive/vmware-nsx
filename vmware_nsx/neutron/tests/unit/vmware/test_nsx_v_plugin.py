@@ -1462,6 +1462,13 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
 class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                   test_l3_plugin.L3NatDBIntTestCase,
                                   NsxVPluginV2TestCase):
+
+    def setUp(self, plugin=PLUGIN_NAME, ext_mgr=None, service_plugins=None):
+        super(TestExclusiveRouterTestCase, self).setUp(
+            plugin=plugin, ext_mgr=ext_mgr, service_plugins=service_plugins)
+        self.plugin_instance.nsx_v.is_subnet_in_use = mock.Mock()
+        self.plugin_instance.nsx_v.is_subnet_in_use.return_value = False
+
     def _create_router(self, fmt, tenant_id, name=None,
                        admin_state_up=None, set_context=False,
                        arg_list=None, **kwargs):
