@@ -21,6 +21,7 @@ from sqlalchemy.orm import exc
 
 import neutron.db.api as db
 
+from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsx_models
 
 LOG = logging.getLogger(__name__)
@@ -203,3 +204,23 @@ def is_multiprovider_network(session, network_id):
         return bool(
             session.query(nsx_models.MultiProviderNetworks).filter_by(
                 network_id=network_id).first())
+
+
+# NSXv3 L2 Gateway DB methods.
+def add_l2gw_connection_mapping(session, connection_id, bridge_endpoint_id,
+                                port_id):
+    with session.begin(subtransactions=True):
+        mapping = nsx_models.NsxL2GWConnectionMapping(
+            connection_id=connection_id,
+            port_id=port_id,
+            bridge_endpoint_id=bridge_endpoint_id)
+        session.add(mapping)
+        return mapping
+
+
+def get_l2gw_connection_mapping(session, connection_id):
+    try:
+        return (session.query(nsx_models.NsxL2GWConnectionMapping).
+                filter_by(connection_id=connection_id).one())
+    except exc.NoResultFound:
+        raise nsx_exc.NsxL2GWConnectionMappingNotFound(conn=connection_id)

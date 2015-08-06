@@ -183,6 +183,10 @@ nsx_v3_opts = [
                       "starting Neutron with the NSX plugin.")),
     cfg.StrOpt('default_edge_cluster_uuid',
                help=_("Default edge cluster identifier")),
+    cfg.StrOpt('default_bridge_cluster_uuid',
+               help=_("Default bridge cluster identifier for L2 gateway. "
+                      "This needs to be created in NSX before using the L2 "
+                      "gateway service plugin.")),
     cfg.IntOpt('retries',
                default=10,
                help=_('Maximum number of times to retry API request')),
