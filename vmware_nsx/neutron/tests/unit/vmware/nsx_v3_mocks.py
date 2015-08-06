@@ -16,10 +16,13 @@
 
 from oslo_utils import uuidutils
 
+from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import nsx_constants
 
 
 FAKE_NAME = "fake_name"
+DEFAULT_TIER0_ROUTER_UUID = "fake_default_tier0_router_uuid"
+FAKE_MANAGER = "fake_manager_ip"
 
 
 def make_fake_switch(switch_uuid=None, tz_uuid=None, name=FAKE_NAME):
@@ -179,22 +182,6 @@ def update_logical_port(lport_id, name=None, admin_state=None):
     return lport
 
 
-def get_edge_cluster(edge_cluster_uuid):
-    FAKE_CLUSTER = {
-        "id": edge_cluster_uuid,
-        "members": [
-            {"member_index": 0},
-            {"member_index": 1}]}
-    return FAKE_CLUSTER
-
-
-def get_logical_router(lrouter_uuid):
-    FAKE_LROUTER = {
-        "id": lrouter_uuid,
-        "edge_cluster_uuid": uuidutils.generate_uuid()}
-    return FAKE_LROUTER
-
-
 def add_rules_in_section(rules, section_id):
     for rule in rules:
         rule['id'] = uuidutils.generate_uuid()
@@ -216,3 +203,135 @@ def update_resource(resource, data):
 
 def delete_resource(resource):
     pass
+
+
+class NsxV3Mock(object):
+    def __init__(self, default_tier0_router_uuid=DEFAULT_TIER0_ROUTER_UUID):
+        self.logical_routers = {}
+        self.logical_router_ports = {}
+        self.logical_ports = {}
+        if default_tier0_router_uuid:
+            self.create_logical_router(
+                DEFAULT_TIER0_ROUTER_UUID, None,
+                edge_cluster_uuid="fake_edge_cluster_uuid",
+                tier_0=True)
+
+    def get_edge_cluster(self, edge_cluster_uuid):
+        FAKE_CLUSTER = {
+            "id": edge_cluster_uuid,
+            "members": [
+                {"member_index": 0},
+                {"member_index": 1}]}
+        return FAKE_CLUSTER
+
+    def create_logical_router(self, display_name, tags,
+                              edge_cluster_uuid=None,
+                              tier_0=False):
+        router_type = (nsx_constants.ROUTER_TYPE_TIER0 if tier_0 else
+                       nsx_constants.ROUTER_TYPE_TIER1)
+        if display_name == DEFAULT_TIER0_ROUTER_UUID:
+            fake_router_uuid = DEFAULT_TIER0_ROUTER_UUID
+        else:
+            fake_router_uuid = uuidutils.generate_uuid()
+        result = {'display_name': display_name,
+                  'router_type': router_type,
+                  'tags': tags,
+                  'id': fake_router_uuid}
+        if edge_cluster_uuid:
+            result['edge_cluster_id'] = edge_cluster_uuid
+        self.logical_routers[fake_router_uuid] = result
+        return result
+
+    def get_logical_router(self, lrouter_id):
+        if lrouter_id in self.logical_routers:
+            return self.logical_routers[lrouter_id]
+        else:
+            raise nsx_exc.ResourceNotFound(manager=FAKE_MANAGER,
+                                           operation="get_logical_router")
+
+    def update_logical_router(self, lrouter_id, **kwargs):
+        if lrouter_id in self.logical_routers:
+            payload = self.logical_routers[lrouter_id]
+            payload.update(kwargs)
+            return payload
+        else:
+            raise nsx_exc.ResourceNotFound(manager=FAKE_MANAGER,
+                                           operation="update_logical_router")
+
+    def delete_logical_router(self, lrouter_id):
+        if lrouter_id in self.logical_routers:
+            del self.logical_routers[lrouter_id]
+        else:
+            raise nsx_exc.ResourceNotFound(manager=FAKE_MANAGER,
+                                           operation="delete_logical_router")
+
+    def get_logical_router_port_by_ls_id(self, logical_switch_id):
+        router_ports = []
+        for router_port in self.logical_router_ports.values():
+            ls_port_id = router_port['linked_logical_switch_port_id']
+            port = self.get_logical_port(ls_port_id)
+            if port['logical_switch_id'] == logical_switch_id:
+                router_ports.append(router_port)
+        if len(router_ports) >= 2:
+            raise nsx_exc.NsxPluginException(
+                err_msg=_("Can't support more than one logical router ports "
+                          "on same logical switch %s ") % logical_switch_id)
+        elif len(router_ports) == 1:
+            return router_ports[0]
+        else:
+            err_msg = (_("Logical router link port not found on logical "
+                         "switch %s") % logical_switch_id)
+            raise nsx_exc.ResourceNotFound(manager=FAKE_MANAGER,
+                                           operation=err_msg)
+
+    def create_logical_port(self, lswitch_id, vif_uuid, tags,
+                            attachment_type=nsx_constants.ATTACHMENT_VIF,
+                            admin_state=True, name=None, address_bindings=None,
+                            parent_name=None, parent_tag=None):
+        fake_port = create_logical_port(
+            lswitch_id, vif_uuid, tags,
+            attachment_type=attachment_type,
+            admin_state=admin_state, name=name,
+            address_bindings=address_bindings,
+            parent_name=parent_name, parent_tag=parent_tag)
+        fake_port_uuid = fake_port['id']
+        self.logical_ports[fake_port_uuid] = fake_port
+        return fake_port
+
+    def get_logical_port(self, logical_port_id):
+        if logical_port_id in self.logical_ports:
+            return self.logical_ports[logical_port_id]
+        else:
+            raise nsx_exc.ResourceNotFound(
+                manager=FAKE_MANAGER, operation="get_logical_port")
+
+    def create_logical_router_port(self, logical_router_id,
+                                   display_name,
+                                   logical_switch_port_id,
+                                   resource_type,
+                                   address_groups):
+        fake_router_port_uuid = uuidutils.generate_uuid()
+        body = {'id': fake_router_port_uuid,
+                'display_name': display_name,
+                'resource_type': resource_type,
+                'logical_router_id': logical_router_id,
+                'subnets': address_groups,
+                'linked_logical_switch_port_id': logical_switch_port_id}
+        self.logical_router_ports[fake_router_port_uuid] = body
+        return body
+
+    def update_logical_router_port(self, logical_port_id, **kwargs):
+        if logical_port_id in self.logical_router_ports:
+            payload = self.logical_router_ports[logical_port_id]
+            payload.update(kwargs)
+            return payload
+        else:
+            raise nsx_exc.ResourceNotFound(
+                manager=FAKE_MANAGER, operation="update_logical_router_port")
+
+    def delete_logical_router_port(self, logical_port_id):
+        if logical_port_id in self.logical_router_ports:
+            del self.logical_router_ports[logical_port_id]
+        else:
+            raise nsx_exc.ResourceNotFound(
+                manager=FAKE_MANAGER, operation="update_logical_router_port")

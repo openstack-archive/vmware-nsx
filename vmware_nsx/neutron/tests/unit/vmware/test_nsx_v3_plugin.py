@@ -15,12 +15,26 @@
 
 import mock
 from oslo_config import cfg
+import six
 
+from neutron.api.v2 import attributes
+from neutron import context
+from neutron.extensions import external_net
+from neutron.extensions import extraroute
+from neutron.extensions import l3
+from neutron.extensions import l3_ext_gw_mode
+from neutron.extensions import providernet as pnet
+from neutron import manager
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
 from neutron.tests.unit.extensions import test_extra_dhcp_opt as test_dhcpopts
+import neutron.tests.unit.extensions.test_extraroute as test_ext_route
+import neutron.tests.unit.extensions.test_l3 as test_l3_plugin
+import neutron.tests.unit.extensions.test_l3_ext_gw_mode as test_ext_gw_mode
 import neutron.tests.unit.extensions.test_securitygroup as ext_sg
+from vmware_nsx.neutron.plugins.vmware.common import utils
 from vmware_nsx.neutron.plugins.vmware.nsxlib import v3 as nsxlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib.v3 import dfw_api as firewall
+from vmware_nsx.neutron.tests.unit import vmware
 from vmware_nsx.neutron.tests.unit.vmware import nsx_v3_mocks
 
 PLUGIN_NAME = ('vmware_nsx.neutron.plugins.vmware.'
@@ -45,9 +59,6 @@ class NsxPluginV3TestCase(test_plugin.NeutronDbPluginV2TestCase):
         nsxlib.delete_logical_port = mock.Mock()
         nsxlib.get_logical_port = nsx_v3_mocks.get_logical_port
         nsxlib.update_logical_port = nsx_v3_mocks.update_logical_port
-        # TODO(berlin): fill valid data
-        nsxlib.get_edge_cluster = nsx_v3_mocks.get_edge_cluster
-        nsxlib.get_logical_router = nsx_v3_mocks.get_logical_router
         firewall.add_rules_in_section = nsx_v3_mocks.add_rules_in_section
         firewall.nsclient.create_resource = nsx_v3_mocks.create_resource
         firewall.nsclient.update_resource = nsx_v3_mocks.update_resource
@@ -56,6 +67,36 @@ class NsxPluginV3TestCase(test_plugin.NeutronDbPluginV2TestCase):
 
         super(NsxPluginV3TestCase, self).setUp(plugin=plugin,
                                                ext_mgr=ext_mgr)
+        self.v3_mock = nsx_v3_mocks.NsxV3Mock()
+        nsxlib.get_edge_cluster = self.v3_mock.get_edge_cluster
+        nsxlib.get_logical_router = self.v3_mock.get_logical_router
+
+    def _create_network(self, fmt, name, admin_state_up,
+                        arg_list=None, providernet_args=None, **kwargs):
+        data = {'network': {'name': name,
+                            'admin_state_up': admin_state_up,
+                            'tenant_id': self._tenant_id}}
+        # Fix to allow the router:external attribute and any other
+        # attributes containing a colon to be passed with
+        # a double underscore instead
+        kwargs = dict((k.replace('__', ':'), v) for k, v in kwargs.items())
+        if external_net.EXTERNAL in kwargs:
+            arg_list = (external_net.EXTERNAL, ) + (arg_list or ())
+
+        attrs = kwargs
+        if providernet_args:
+            attrs.update(providernet_args)
+        for arg in (('admin_state_up', 'tenant_id', 'shared') +
+                    (arg_list or ())):
+            # Arg must be present and not empty
+            if arg in kwargs and kwargs[arg]:
+                data['network'][arg] = kwargs[arg]
+        network_req = self.new_create_request('networks', data, fmt)
+        if (kwargs.get('set_context') and 'tenant_id' in kwargs):
+            # create a specific auth context for this request
+            network_req.environ['neutron.context'] = context.Context(
+                '', kwargs['tenant_id'])
+        return network_req.get_response(self.api)
 
 
 class TestNetworksV2(test_plugin.TestNetworksV2, NsxPluginV3TestCase):
@@ -97,3 +138,111 @@ class DHCPOptsTestCase(test_dhcpopts.TestExtraDhcpOpt, NsxPluginV3TestCase):
     def setUp(self, plugin=None):
         super(test_dhcpopts.ExtraDhcpOptDBTestCase, self).setUp(
             plugin=PLUGIN_NAME)
+
+
+class TestL3ExtensionManager(object):
+
+    def get_resources(self):
+        # Simulate extension of L3 attribute map
+        # First apply attribute extensions
+        for key in l3.RESOURCE_ATTRIBUTE_MAP.keys():
+            l3.RESOURCE_ATTRIBUTE_MAP[key].update(
+                l3_ext_gw_mode.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
+            l3.RESOURCE_ATTRIBUTE_MAP[key].update(
+                extraroute.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
+        # Finally add l3 resources to the global attribute map
+        attributes.RESOURCE_ATTRIBUTE_MAP.update(
+            l3.RESOURCE_ATTRIBUTE_MAP)
+        return l3.L3.get_resources()
+
+    def get_actions(self):
+        return []
+
+    def get_request_extensions(self):
+        return []
+
+
+def backup_l3_attribute_map():
+    """Return a backup of the original l3 attribute map."""
+    return dict((res, attrs.copy()) for
+                (res, attrs) in six.iteritems(l3.RESOURCE_ATTRIBUTE_MAP))
+
+
+def restore_l3_attribute_map(map_to_restore):
+    """Ensure changes made by fake ext mgrs are reverted."""
+    l3.RESOURCE_ATTRIBUTE_MAP = map_to_restore
+
+
+class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxPluginV3TestCase):
+
+    def _restore_l3_attribute_map(self):
+        l3.RESOURCE_ATTRIBUTE_MAP = self._l3_attribute_map_bk
+
+    def setUp(self, plugin=PLUGIN_NAME, ext_mgr=None,
+              service_plugins=None):
+        self._l3_attribute_map_bk = backup_l3_attribute_map()
+        cfg.CONF.set_override('api_extensions_path', vmware.NSXEXT_PATH)
+        cfg.CONF.set_default('max_routes', 3)
+        self.addCleanup(restore_l3_attribute_map, self._l3_attribute_map_bk)
+        ext_mgr = ext_mgr or TestL3ExtensionManager()
+        super(L3NatTest, self).setUp(
+            plugin=plugin, ext_mgr=ext_mgr, service_plugins=service_plugins)
+        plugin_instance = manager.NeutronManager.get_plugin()
+        self._plugin_name = "%s.%s" % (
+            plugin_instance.__module__,
+            plugin_instance.__class__.__name__)
+        self._plugin_class = plugin_instance.__class__
+        nsxlib.create_logical_port = self.v3_mock.create_logical_port
+        nsxlib.create_logical_router = self.v3_mock.create_logical_router
+        nsxlib.update_logical_router = self.v3_mock.update_logical_router
+        nsxlib.delete_logical_router = self.v3_mock.delete_logical_router
+        nsxlib.get_logical_router_port_by_ls_id = (
+            self.v3_mock.get_logical_router_port_by_ls_id)
+        nsxlib.create_logical_router_port = (
+            self.v3_mock.create_logical_router_port)
+        nsxlib.update_logical_router_port = (
+            self.v3_mock.update_logical_router_port)
+        nsxlib.delete_logical_router_port = (
+            self.v3_mock.delete_logical_router_port)
+
+    def _create_l3_ext_network(
+        self, physical_network=nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID):
+        name = 'l3_ext_net'
+        net_type = utils.NetworkTypes.L3_EXT
+        providernet_args = {pnet.NETWORK_TYPE: net_type,
+                            pnet.PHYSICAL_NETWORK: physical_network}
+        return self.network(name=name,
+                            router__external=True,
+                            providernet_args=providernet_args,
+                            arg_list=(pnet.NETWORK_TYPE,
+                                      pnet.PHYSICAL_NETWORK))
+
+
+class TestL3NatTestCase(L3NatTest,
+                        test_l3_plugin.L3NatDBIntTestCase,
+                        NsxPluginV3TestCase,
+                        test_ext_route.ExtraRouteDBTestCaseBase):
+
+    def _test_create_l3_ext_network(
+        self, physical_network=nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID):
+        name = 'l3_ext_net'
+        net_type = utils.NetworkTypes.L3_EXT
+        expected = [('subnets', []), ('name', name), ('admin_state_up', True),
+                    ('status', 'ACTIVE'), ('shared', False),
+                    (external_net.EXTERNAL, True),
+                    (pnet.NETWORK_TYPE, net_type),
+                    (pnet.PHYSICAL_NETWORK, physical_network)]
+        with self._create_l3_ext_network(physical_network) as net:
+            for k, v in expected:
+                self.assertEqual(net['network'][k], v)
+
+    def test_create_l3_ext_network_with_default_tier0(self):
+        self._test_create_l3_ext_network()
+
+    def test_floatingip_with_invalid_create_port(self):
+        self._test_floatingip_with_invalid_create_port(self._plugin_name)
+
+
+class ExtGwModeTestCase(L3NatTest,
+                        test_ext_gw_mode.ExtGwModeIntTestCase):
+    pass
