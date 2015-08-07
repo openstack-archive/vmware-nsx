@@ -1302,6 +1302,49 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
                     self.assertEqual(fp2['floatingip']['router_id'],
                                      r2['router']['id'])
 
+    def test_create_floatingip_with_multisubnet_id(self):
+        with self.network() as network:
+            self._set_net_external(network['network']['id'])
+            with self.subnet(network,
+                             enable_dhcp=False,
+                             cidr='10.0.12.0/24') as subnet1:
+                with self.subnet(network,
+                                 enable_dhcp=False,
+                                 cidr='10.0.13.0/24') as subnet2:
+                    with self.router():
+                        res = self._create_floatingip(
+                            self.fmt,
+                            subnet1['subnet']['network_id'],
+                            subnet_id=subnet1['subnet']['id'])
+                        fip1 = self.deserialize(self.fmt, res)
+                        res = self._create_floatingip(
+                            self.fmt,
+                            subnet1['subnet']['network_id'],
+                            subnet_id=subnet2['subnet']['id'])
+                        fip2 = self.deserialize(self.fmt, res)
+        self.assertTrue(
+            fip1['floatingip']['floating_ip_address'].startswith('10.0.12'))
+        self.assertTrue(
+            fip2['floatingip']['floating_ip_address'].startswith('10.0.13'))
+
+    def test_create_floatingip_with_wrong_subnet_id(self):
+        with self.network() as network1:
+            self._set_net_external(network1['network']['id'])
+            with self.subnet(network1,
+                             enable_dhcp=False,
+                             cidr='10.0.12.0/24') as subnet1:
+                with self.network() as network2:
+                    self._set_net_external(network2['network']['id'])
+                    with self.subnet(network2,
+                                     enable_dhcp=False,
+                                     cidr='10.0.13.0/24') as subnet2:
+                        with self.router():
+                            res = self._create_floatingip(
+                                self.fmt,
+                                subnet1['subnet']['network_id'],
+                                subnet_id=subnet2['subnet']['id'])
+        self.assertEqual(res.status_int, webob.exc.HTTPBadRequest.code)
+
     def test_router_update_gateway_upon_subnet_create_ipv6(self):
         with self.network() as n:
             with self.subnet(network=n, enable_dhcp=False) as s1,\
