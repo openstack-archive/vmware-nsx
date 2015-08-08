@@ -1542,7 +1542,7 @@ def delete_interface(nsxv_manager, context, router_id, network_id,
                         "corresponding vnic index on edge %(edge_id)s"),
                     {'net_id': network_id,
                      'edge_id': edge_id})
-
+        return
     if not dist:
         task = nsxv_manager.delete_interface(
             router_id, edge_id, edge_vnic_binding.vnic_index)
