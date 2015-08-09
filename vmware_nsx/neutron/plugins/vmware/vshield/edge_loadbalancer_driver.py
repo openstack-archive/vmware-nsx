@@ -437,6 +437,7 @@ class EdgeLbDriver(object):
         edge_id = self._get_lb_edge_id(context, pool['subnet_id'])
 
         if edge_id is None:
+            self._lb_driver.pool_failed(context, pool)
             msg = _(
                 'No suitable Edge found for subnet %s') % pool['subnet_id']
             raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
