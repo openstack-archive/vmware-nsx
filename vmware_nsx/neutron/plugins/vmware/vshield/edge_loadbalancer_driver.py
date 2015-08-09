@@ -76,6 +76,8 @@ SESSION_PERSISTENCE_COOKIE_MAP = {
 
 LBAAS_FW_SECTION_NAME = 'LBaaS FW Rules'
 
+MEMBER_ID_PFX = 'member-'
+
 
 def convert_lbaas_pool(lbaas_pool):
     """
@@ -237,7 +239,7 @@ def del_address_from_address_groups(ip_addr, address_groups):
 
 
 def get_member_id(member_id):
-    return 'member-' + member_id
+    return MEMBER_ID_PFX + member_id
 
 
 class EdgeLbDriver(object):
@@ -828,12 +830,23 @@ class EdgeLbDriver(object):
         pools_stats = lb_stats[1].get('pool', [])
         for pool_stats in pools_stats:
             if pool_stats['poolId'] == pool_mapping['edge_pool_id']:
-                return {'bytes_in': pool_stats.get('bytesIn', 0),
-                        'bytes_out': pool_stats.get('bytesOut', 0),
-                        'active_connections':
-                            pool_stats.get('curSessions', 0),
-                        'total_connections':
-                            pool_stats.get('totalSessions', 0)}
+                stats = {'bytes_in': pool_stats.get('bytesIn', 0),
+                         'bytes_out': pool_stats.get('bytesOut', 0),
+                         'active_connections':
+                             pool_stats.get('curSessions', 0),
+                         'total_connections':
+                             pool_stats.get('totalSessions', 0)}
+
+                member_stats = {}
+                for member in pool_stats.get('member', []):
+                    member_id = member['name'][len(MEMBER_ID_PFX):]
+                    member_stats[member_id] = {
+                        'status': ('INACTIVE'
+                                   if member['status'] == 'DOWN'
+                                   else 'ACTIVE')}
+
+                stats['members'] = member_stats
+                return stats
 
         return {'bytes_in': 0,
                 'bytes_out': 0,

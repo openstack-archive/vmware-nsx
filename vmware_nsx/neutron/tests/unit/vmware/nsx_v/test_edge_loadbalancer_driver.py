@@ -638,11 +638,11 @@ class TestEdgeLbDriver(base.BaseTestCase):
                      'httpReqRateMax': 0,
                      'curSessions': 5000,
                      'bytesIn': 1000000}]})
-        expected_stats = {
-            'active_connections': 5000,
-            'bytes_in': 1000000,
-            'bytes_out': 100000,
-            'total_connections': 10000}
+        expected_stats = {'active_connections': 5000,
+                          'bytes_in': 1000000,
+                          'bytes_out': 100000,
+                          'total_connections': 10000,
+                          'members': {'1': {'status': 'ACTIVE'}}}
 
         with mock.patch.object(self.edge_driver.vcns,
                                'get_loadbalancer_statistics',
