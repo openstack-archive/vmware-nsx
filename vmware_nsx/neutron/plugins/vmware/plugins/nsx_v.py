@@ -1257,7 +1257,6 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         static_config['leaseTime'] = cfg.CONF.nsxv.dhcp_lease_time
 
         for fixed_ip in port['fixed_ips']:
-            static_config['ipAddress'] = fixed_ip['ip_address']
             # Query the subnet to get gateway and DNS
             try:
                 subnet_id = fixed_ip['subnet_id']
@@ -1265,6 +1264,10 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             except n_exc.SubnetNotFound:
                 LOG.debug("No related subnet for port %s", port['id'])
                 continue
+            # Only configure if subnet has DHCP support
+            if not subnet['enable_dhcp']:
+                continue
+            static_config['ipAddress'] = fixed_ip['ip_address']
             # Set gateway for static binding
             static_config['defaultGateway'] = subnet['gateway_ip']
             # set primary and secondary dns
