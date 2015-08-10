@@ -169,7 +169,9 @@ nsx_v3_opts = [
     cfg.StrOpt('nsx_manager',
                help=_('IP address of the NSX manager')),
     cfg.StrOpt('default_edge_cluster_uuid',
-               help=_("Default edge cluster identifier"))]
+               help=_("Default edge cluster identifier")),
+    cfg.StrOpt('nsx_l2gw_driver',
+               help=_("Class path for the L2 gateway backend driver"))]
 
 DEFAULT_STATUS_CHECK_INTERVAL = 2000
 DEFAULT_MINIMUM_POOLED_EDGES = 1
