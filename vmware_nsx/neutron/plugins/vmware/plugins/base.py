@@ -58,7 +58,6 @@ from neutron.extensions import securitygroup as ext_sg
 from neutron.i18n import _LE, _LI, _LW
 from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils
-from neutron.plugins.vmware.dbexts import nsx_models
 
 from vmware_nsx.neutron.plugins import vmware
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
@@ -71,6 +70,7 @@ from vmware_nsx.neutron.plugins.vmware.common import utils as c_utils
 from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
 from vmware_nsx.neutron.plugins.vmware.dbexts import maclearning as mac_db
 from vmware_nsx.neutron.plugins.vmware.dbexts import networkgw_db
+from vmware_nsx.neutron.plugins.vmware.dbexts import nsx_models
 from vmware_nsx.neutron.plugins.vmware.dbexts import qos_db
 from vmware_nsx.neutron.plugins.vmware import dhcpmeta_modes
 from vmware_nsx.neutron.plugins.vmware.extensions import maclearning as mac_ext
@@ -2406,18 +2406,18 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         bulk_rule = {'security_group_rules': [security_group_rule]}
         return self.create_security_group_rule_bulk(context, bulk_rule)[0]
 
-    def create_security_group_rule_bulk(self, context, security_group_rule):
+    def create_security_group_rule_bulk(self, context, security_group_rules):
         """Create security group rules.
 
         :param security_group_rule: list of rules to create
         """
-        s = security_group_rule.get('security_group_rules')
+        s = security_group_rules.get('security_group_rules')
 
         # TODO(arosen) is there anyway we could avoid having the update of
         # the security group rules in nsx outside of this transaction?
         with context.session.begin(subtransactions=True):
             security_group_id = self._validate_security_group_rules(
-                context, security_group_rule)
+                context, security_group_rules)
             # Check to make sure security group exists
             security_group = super(NsxPluginV2, self).get_security_group(
                 context, security_group_id)
@@ -2439,7 +2439,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                                     combined_rules)
             return super(
                 NsxPluginV2, self).create_security_group_rule_bulk_native(
-                    context, security_group_rule)
+                    context, security_group_rules)
 
     def delete_security_group_rule(self, context, sgrid):
         """Delete a security group rule

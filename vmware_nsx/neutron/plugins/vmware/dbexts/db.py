@@ -20,7 +20,8 @@ from oslo_utils import excutils
 from sqlalchemy.orm import exc
 
 import neutron.db.api as db
-from neutron.plugins.vmware.dbexts import nsx_models
+
+from vmware_nsx.neutron.plugins.vmware.dbexts import nsx_models
 
 LOG = logging.getLogger(__name__)
 

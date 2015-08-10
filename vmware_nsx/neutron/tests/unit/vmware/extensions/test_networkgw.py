@@ -25,7 +25,6 @@ from neutron import context
 from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron import manager
-from neutron.plugins.vmware.dbexts import nsx_models
 from neutron import quota
 from neutron.tests import base
 from neutron.tests.unit.api import test_extensions
@@ -35,6 +34,7 @@ from neutron.tests.unit.db import test_db_base_plugin_v2 as test_db_plugin
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.dbexts import networkgw_db
+from vmware_nsx.neutron.plugins.vmware.dbexts import nsx_models
 from vmware_nsx.neutron.plugins.vmware.extensions import networkgw
 from vmware_nsx.neutron.plugins.vmware import nsxlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import l2gateway as l2gwlib

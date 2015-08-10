@@ -18,11 +18,11 @@ from oslo_config import cfg
 from neutron.api.v2 import attributes as attr
 from neutron.db import l3_db
 from neutron.db import models_v2
-from neutron.plugins.vmware.dbexts import nsxv_models
 from oslo_log import log as logging
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import locking
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
+from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_models
 from vmware_nsx.neutron.plugins.vmware.plugins import nsx_v
 from vmware_nsx.neutron.plugins.vmware.plugins.nsx_v_drivers import (
     abstract_router_driver as router_driver)

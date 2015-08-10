@@ -1871,17 +1871,17 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         bulk_rule = {'security_group_rules': [security_group_rule]}
         return self.create_security_group_rule_bulk(context, bulk_rule)[0]
 
-    def create_security_group_rule_bulk(self, context, security_group_rule):
+    def create_security_group_rule_bulk(self, context, security_group_rules):
         """Create security group rules.
 
-        :param security_group_rule: list of rules to create
+        :param security_group_rules: list of rules to create
         """
         ruleids = set()
         nsx_rules = []
 
-        self._validate_security_group_rules(context, security_group_rule)
+        self._validate_security_group_rules(context, security_group_rules)
         # Translating Neutron rules to Nsx DFW rules
-        for r in security_group_rule['security_group_rules']:
+        for r in security_group_rules['security_group_rules']:
             rule = r['security_group_rule']
             rule['id'] = uuidutils.generate_uuid()
             ruleids.add(rule['id'])
@@ -1904,7 +1904,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             with context.session.begin(subtransactions=True):
                 new_rule_list = super(
                     NsxVPluginV2, self).create_security_group_rule_bulk_native(
-                        context, security_group_rule)
+                        context, security_group_rules)
                 for pair in rule_pairs:
                     neutron_rule_id = pair['neutron_id']
                     nsx_rule_id = pair['nsx_id']
