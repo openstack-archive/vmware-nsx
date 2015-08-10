@@ -61,6 +61,9 @@ DHCP_BINDING_RESOURCE = "bindings"
 # Syetem control constants
 SYSCTL_SERVICE = 'systemcontrol/config'
 
+# L2 gateway constants
+BRIDGE = "bridging/config"
+
 
 def retry_upon_exception(exc, delay=500, max_delay=2000,
                          max_attempts=cfg.CONF.nsxv.retries):
@@ -488,6 +491,19 @@ class Vcns(object):
         for sg in root.iter('securitygroup'):
             if sg.find('name').text == sg_name:
                 return sg.find('objectId').text
+
+    @retry_upon_exception(exceptions.VcnsApiException)
+    def create_bridge(self, edge_id, request):
+        """Create a bridge."""
+        uri = self._build_uri_path(edge_id, BRIDGE)
+        return self.do_request(HTTP_PUT, uri, request, format='xml',
+                               decode=False)
+
+    @retry_upon_exception(exceptions.VcnsApiException)
+    def delete_bridge(self, edge_id):
+        """Delete a bridge."""
+        uri = self._build_uri_path(edge_id, BRIDGE)
+        return self.do_request(HTTP_DELETE, uri, format='xml', decode=False)
 
     def create_section(self, type, request):
         """Creates a layer 3 or layer 2 section in nsx rule table.

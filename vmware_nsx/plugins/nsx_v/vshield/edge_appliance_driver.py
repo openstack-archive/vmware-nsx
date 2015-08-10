@@ -1045,3 +1045,18 @@ class EdgeApplianceDriver(object):
                           status_callback=self._retry_task,
                           userdata=userdata)
         self.task_manager.add(task)
+
+    def create_bridge(self, device_name, bridge):
+        try:
+            self.vcns.create_bridge(device_name, bridge)
+        except exceptions.VcnsApiException:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE("Failed to create bridge in the %s"),
+                              device_name)
+
+    def delete_bridge(self, device_name):
+        try:
+            self.vcns.delete_bridge(device_name)
+        except exceptions.VcnsApiException:
+            LOG.exception(_LE("Failed to delete bridge in the %s"),
+                          device_name)
