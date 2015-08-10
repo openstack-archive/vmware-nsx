@@ -510,7 +510,7 @@ class NsxVMetadataProxyHandler:
             name='MDSrvPool')
 
         monitor = nsxv_lb.NsxvLBMonitor(
-            name='MDSrvMon')
+            name='MDSrvMon', mon_type='http' if proxy_lb else 'icmp')
         pool.add_monitor(monitor)
 
         i = 0
