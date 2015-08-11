@@ -113,6 +113,9 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
         super(NsxVPluginV2TestCase, self).setUp(plugin=plugin,
                                                 ext_mgr=ext_mgr)
         self.addCleanup(self.fc2.reset_all)
+        plugin_instance = manager.NeutronManager.get_plugin()
+        plugin_instance._get_edge_id_by_rtr_id = mock.Mock()
+        plugin_instance._get_edge_id_by_rtr_id.return_value = False
 
     def test_get_vlan_network_name(self):
         p = manager.NeutronManager.get_plugin()
@@ -1842,6 +1845,16 @@ class NsxVSecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
 
 class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
                             NsxVSecurityGroupsTestCase):
+    def setUp(self,
+              plugin=PLUGIN_NAME,
+              ext_mgr=None,
+              service_plugins=None):
+
+        super(NsxVTestSecurityGroup, self).setUp(
+            plugin=plugin, ext_mgr=ext_mgr, service_plugins=service_plugins)
+        plugin_instance = manager.NeutronManager.get_plugin()
+        plugin_instance._get_edge_id_by_rtr_id = mock.Mock()
+        plugin_instance._get_edge_id_by_rtr_id.return_value = False
 
     def test_list_ports_security_group(self):
         with self.network() as n:
