@@ -35,6 +35,7 @@ from vmware_nsx.neutron.plugins.vmware.vshield.common import (
     constants as vcns_const)
 from vmware_nsx.neutron.plugins.vmware.vshield import edge_utils
 
+METADATA_VSE_NAME = 'MdSrv'
 METADATA_IP_ADDR = '169.254.169.254'
 METADATA_TCP_PORT = 80
 INTERNAL_SUBNET = '169.254.128.0/17'
@@ -300,6 +301,34 @@ class NsxVMetadataProxyHandler:
                           'initializer node')
                 raise nsxv_exc.NsxPluginException(err_msg=error)
 
+        # Read and validate LB pool member configuration
+        # When the Nova IP address is changed in the ini file, we should apply
+        # this change to the LB pool
+        lb_obj = nsxv_lb.NsxvLoadbalancer.get_loadbalancer(
+            self.nsxv_plugin.nsx_v.vcns, edge_id)
+
+        vs = lb_obj.virtual_servers.get(METADATA_VSE_NAME)
+        if vs:
+            md_members = {member.payload['ipAddress']: member.payload['name']
+                          for member in vs.default_pool.members.values()}
+
+            if len(cfg.CONF.nsxv.nova_metadata_ips) == len(md_members):
+                m_ips = md_members.keys()
+                m_to_convert = (list(set(m_ips) -
+                                     set(cfg.CONF.nsxv.nova_metadata_ips)))
+                m_ip_to_set = (list(set(cfg.CONF.nsxv.nova_metadata_ips)
+                                    - set(m_ips)))
+
+                for m_ip in m_to_convert:
+                    m_name = md_members[m_ip]
+                    vs.default_pool.members[m_name].payload['ipAddress'] = (
+                        m_ip_to_set.pop())
+            else:
+                error = _('Number of metadata members should not change')
+                raise nsxv_exc.NsxPluginException(err_msg=error)
+
+            lb_obj.submit_to_backend(self.nsxv_plugin.nsx_v.vcns, edge_id)
+
         edge_ip = self._get_edge_internal_ip(rtr_id)
 
         if edge_ip:
@@ -470,7 +499,7 @@ class NsxVMetadataProxyHandler:
 
         # Create virtual server
         virt_srvr = nsxv_lb.NsxvLBVirtualServer(
-            name='MdSrv',
+            name=METADATA_VSE_NAME,
             ip_address=vip,
             port=v_port)
 

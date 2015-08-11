@@ -136,7 +136,7 @@ class NsxvLoadbalancer(nsxv_edge_cfg_obj.NsxvEdgeCfgObj):
         edge_lb = nsxv_edge_cfg_obj.NsxvEdgeCfgObj.get_object(
             vcns_obj,
             edge_id,
-            NsxvLoadbalancer.SERVICE_NAME)
+            '%s/config' % NsxvLoadbalancer.SERVICE_NAME)
 
         lb_obj = NsxvLoadbalancer(
             edge_lb['enabled'],
@@ -165,7 +165,7 @@ class NsxvLoadbalancer(nsxv_edge_cfg_obj.NsxvEdgeCfgObj):
                         app_prof['template'],
                         app_prof['insertXForwardedFor'])
 
-                    if app_prof['persistence']:
+                    if app_prof.get('persistence'):
                         a_p.set_persistence(
                             True,
                             app_prof['persistence']['method'],
@@ -227,7 +227,7 @@ class NsxvLoadbalancer(nsxv_edge_cfg_obj.NsxvEdgeCfgObj):
         return lb_obj
 
 
-class NsxvLBAppProfile():
+class NsxvLBAppProfile(object):
     def __init__(
             self,
             name,
