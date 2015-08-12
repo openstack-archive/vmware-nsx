@@ -1,4 +1,4 @@
-# Copyright 2012 VMware, Inc.
+#m Copyright 2012 VMware, Inc.
 # All Rights Reserved
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -1828,33 +1828,6 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                           ips_to_add=[],
                                           ips_to_remove=nsx_floating_ips)
 
-    def _get_fip_assoc_data(self, context, fip, floatingip_db):
-        if (('fixed_ip_address' in fip and fip['fixed_ip_address']) and
-            not ('port_id' in fip and fip['port_id'])):
-            msg = _("fixed_ip_address cannot be specified without a port_id")
-            raise n_exc.BadRequest(resource='floatingip', msg=msg)
-        port_id = internal_ip = router_id = None
-        if 'port_id' in fip and fip['port_id']:
-            fip_qry = context.session.query(l3_db.FloatingIP)
-            port_id, internal_ip, router_id = self.get_assoc_data(
-                context,
-                fip,
-                floatingip_db['floating_network_id'])
-            try:
-                fip_qry.filter_by(
-                    fixed_port_id=fip['port_id'],
-                    floating_network_id=floatingip_db['floating_network_id'],
-                    fixed_ip_address=internal_ip).one()
-                raise l3.FloatingIPPortAlreadyAssociated(
-                    port_id=fip['port_id'],
-                    fip_id=floatingip_db['id'],
-                    floating_ip_address=floatingip_db['floating_ip_address'],
-                    fixed_ip=floatingip_db['fixed_ip_address'],
-                    net_id=floatingip_db['floating_network_id'])
-            except sa_exc.NoResultFound:
-                pass
-        return (port_id, internal_ip, router_id)
-
     def _floatingip_status(self, floatingip_db, associated):
         if (associated and
             floatingip_db['status'] != constants.FLOATINGIP_STATUS_ACTIVE):
@@ -1873,7 +1846,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         """
         # Store router currently serving the floating IP
         old_router_id = floatingip_db.router_id
-        port_id, internal_ip, router_id = self._get_fip_assoc_data(
+        port_id, internal_ip, router_id = self._check_and_get_fip_assoc(
             context, fip, floatingip_db)
         floating_ip = floatingip_db['floating_ip_address']
         # If there's no association router_id will be None
@@ -1882,8 +1855,6 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 context.session, self.cluster, router_id)
             self._retrieve_and_delete_nat_rules(
                 context, floating_ip, internal_ip, nsx_router_id)
-            # Fetch logical port of router's external gateway
-        # Fetch logical port of router's external gateway
         nsx_floating_ips = self._build_ip_address_list(
             context.elevated(), external_port['fixed_ips'])
         floating_ip = floatingip_db['floating_ip_address']
