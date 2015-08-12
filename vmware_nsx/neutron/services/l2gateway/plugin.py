@@ -44,9 +44,9 @@ class NsxL2GatewayPlugin(l2gateway_db.L2GatewayMixin):
         """Initialize service plugin and load backend driver."""
         super(NsxL2GatewayPlugin, self).__init__()
         LOG.debug("Starting service plugin for NSX L2Gateway")
-        self._nsx_l2gw_driver = cfg.CONF.nsx_v3.nsx_l2gw_driver
+        self._nsx_l2gw_driver = cfg.CONF.NSX.nsx_l2gw_driver
         if not getattr(self, "_nsx_l2gw_driver"):
-            raise cfg.RequiredOptError("nsx_l2gw_driver", "nsx_v3")
+            raise cfg.RequiredOptError("nsx_l2gw_driver", "NSX")
         self._driver = importutils.import_object(self._nsx_l2gw_driver)
 
     @staticmethod

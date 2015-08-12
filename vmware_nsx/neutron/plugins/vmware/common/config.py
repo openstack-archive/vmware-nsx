@@ -78,7 +78,9 @@ base_opts = [
                       "'source' to perform replication locally. This is useful"
                       " if one does not want to deploy a service node(s). "
                       "It must be set to 'service' for leveraging distributed "
-                      "routers."))
+                      "routers.")),
+    cfg.StrOpt('nsx_l2gw_driver',
+               help=_("Class path for the L2 gateway backend driver"))
 ]
 
 sync_opts = [
@@ -170,8 +172,6 @@ nsx_v3_opts = [
                help=_('IP address of the NSX manager')),
     cfg.StrOpt('default_edge_cluster_uuid',
                help=_("Default edge cluster identifier")),
-    cfg.StrOpt('nsx_l2gw_driver',
-               help=_("Class path for the L2 gateway backend driver")),
     cfg.IntOpt('retries',
                default=10,
                help=_('Maximum number of times to retry API request'))]
