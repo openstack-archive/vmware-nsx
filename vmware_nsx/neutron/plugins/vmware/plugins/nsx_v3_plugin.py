@@ -1,4 +1,4 @@
-# Copyright 2015 OpenStack Foundation
+# Copyright 2015 VMware, Inc.
 # All Rights Reserved
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -15,8 +15,10 @@
 
 
 import netaddr
+
 from oslo_config import cfg
 from oslo_log import log
+from oslo_utils import excutils
 from oslo_utils import importutils
 from oslo_utils import uuidutils
 
@@ -37,7 +39,7 @@ from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron.db import portbindings_db
 from neutron.db import securitygroups_db
-from neutron.i18n import _LW
+from neutron.i18n import _LE, _LW
 
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
@@ -179,13 +181,32 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         return ret_val
 
     def update_port(self, context, id, port):
-        # TODO(arosen) - call to backend
         original_port = super(NsxV3Plugin, self).get_port(context, id)
+        _, nsx_lport_id = nsx_db.get_nsx_switch_and_port_id(
+            context.session, id)
         with context.session.begin(subtransactions=True):
             updated_port = super(NsxV3Plugin, self).update_port(context,
                                                                 id, port)
-            self.update_security_group_on_port(
-                context, id, port, original_port, updated_port)
+            sec_grp_updated = self.update_security_group_on_port(
+                                  context, id, port, original_port,
+                                  updated_port)
+        try:
+            nsxlib.update_logical_port(
+                nsx_lport_id, name=port['port'].get('name'),
+                admin_state=port['port'].get('admin_state_up'))
+        except nsx_exc.ManagerError:
+            # In case if there is a failure on NSX-v3 backend, rollback the
+            # previous update operation on neutron side.
+            LOG.exception(_LE("Unable to update NSX backend, rolling back "
+                              "changes on neutron"))
+            with excutils.save_and_reraise_exception():
+                with context.session.begin(subtransactions=True):
+                    super(NsxV3Plugin, self).update_port(
+                        context, id, original_port)
+                    if sec_grp_updated:
+                        self.update_security_group_on_port(
+                            context, id, {'port': original_port}, updated_port,
+                            original_port)
 
         return updated_port
 

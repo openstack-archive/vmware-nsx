@@ -24,11 +24,8 @@ from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 
 LOG = log.getLogger(__name__)
 
-NOT_FOUND = 404
-PRECONDITION_FAILED = 412
-
-ERRORS = {NOT_FOUND: nsx_exc.ResourceNotFound,
-          PRECONDITION_FAILED: nsx_exc.StaleRevision}
+ERRORS = {requests.codes.NOT_FOUND: nsx_exc.ResourceNotFound,
+          requests.codes.PRECONDITION_FAILED: nsx_exc.StaleRevision}
 
 
 def _get_manager_endpoint():
@@ -59,8 +56,8 @@ def _validate_result(result, expected, operation):
                             "%(result)d, whereas %(expected)s response "
                             "codes were expected."),
                         {'result': result.status_code,
-                        'expected': '/'.join([str(code)
-                                              for code in expected])})
+                         'expected': '/'.join([str(code)
+                                               for code in expected])})
         manager_ip = _get_manager_ip()
 
         manager_error = ERRORS.get(result.status_code, nsx_exc.ManagerError)
