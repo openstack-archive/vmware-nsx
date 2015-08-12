@@ -549,6 +549,7 @@ class Vcns(object):
         return self.do_request(HTTP_DELETE, uri, format='xml',
                                headers=headers)
 
+    @retry_upon_exception(exceptions.RequestBad)
     def add_member_to_security_group(self, security_group_id, member_id):
         """Adds a vnic member to nsx security group."""
         uri = '%s/%s/members/%s?failIfExists=false' % (
