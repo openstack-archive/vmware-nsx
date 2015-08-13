@@ -650,33 +650,34 @@ class EdgeManager(object):
                                                        resource_id)
         if not edge_binding:
             return
-        self.update_dhcp_service_config(context, edge_binding['edge_id'])
+        with locking.LockManager.get_lock(
+                str(edge_binding['edge_id']),
+                lock_file_prefix='nsxv-dhcp-config-',
+                external=True):
+            self.update_dhcp_service_config(context, edge_binding['edge_id'])
 
     def update_dhcp_service_config(self, context, edge_id):
         """Reconfigure the DHCP to the edge."""
-        with locking.LockManager.get_lock(
-                str(edge_id), lock_file_prefix='nsxv-dhcp-bindings-config-',
-                external=True):
-            # Get all networks attached to the edge
-            edge_vnic_bindings = nsxv_db.get_edge_vnic_bindings_by_edge(
-                context.session, edge_id)
-            dhcp_networks = [edge_vnic_binding.network_id
-                             for edge_vnic_binding in edge_vnic_bindings]
-            ports = self.nsxv_plugin.get_ports(
-                context, filters={'network_id': dhcp_networks})
-            inst_ports = [port
-                          for port in ports
-                          if port['device_owner'].startswith("compute")]
-            static_bindings = []
-            for port in inst_ports:
-                static_bindings.extend(
-                    self.nsxv_plugin._create_static_binding(context, port))
-            dhcp_request = {
-                'featureType': "dhcp_4.0",
-                'enabled': True,
-                'staticBindings': {'staticBindings': static_bindings}}
-            self.nsxv_manager.vcns.reconfigure_dhcp_service(
-                edge_id, dhcp_request)
+        # Get all networks attached to the edge
+        edge_vnic_bindings = nsxv_db.get_edge_vnic_bindings_by_edge(
+            context.session, edge_id)
+        dhcp_networks = [edge_vnic_binding.network_id
+                         for edge_vnic_binding in edge_vnic_bindings]
+        ports = self.nsxv_plugin.get_ports(
+            context, filters={'network_id': dhcp_networks})
+        inst_ports = [port
+                      for port in ports
+                      if port['device_owner'].startswith("compute")]
+        static_bindings = []
+        for port in inst_ports:
+            static_bindings.extend(
+                self.nsxv_plugin._create_static_binding(context, port))
+        dhcp_request = {
+            'featureType': "dhcp_4.0",
+            'enabled': True,
+            'staticBindings': {'staticBindings': static_bindings}}
+        self.nsxv_manager.vcns.reconfigure_dhcp_service(
+            edge_id, dhcp_request)
         bindings_get = get_dhcp_binding_mappings(self.nsxv_manager, edge_id)
         # Refresh edge_dhcp_static_bindings attached to edge
         nsxv_db.clean_edge_dhcp_static_bindings_by_edge(
@@ -890,14 +891,17 @@ class EdgeManager(object):
                                   {'edge_id': edge_id,
                                    'vnic_index': vnic_index,
                                    'tunnel_index': tunnel_index})
-            ports = self.nsxv_plugin.get_ports(
-                context, filters={'network_id': [network_id]})
-            inst_ports = [port
-                          for port in ports
-                          if port['device_owner'].startswith("compute")]
-            if inst_ports:
-                # update dhcp service config for the new added network
-                self.update_dhcp_service_config(context, edge_id)
+            with locking.LockManager.get_lock(
+                    str(edge_id), lock_file_prefix='nsxv-dhcp-config-',
+                    external=True):
+                ports = self.nsxv_plugin.get_ports(
+                    context, filters={'network_id': [network_id]})
+                inst_ports = [port
+                              for port in ports
+                              if port['device_owner'].startswith("compute")]
+                if inst_ports:
+                    # update dhcp service config for the new added network
+                    self.update_dhcp_service_config(context, edge_id)
 
     def delete_dhcp_edge_service(self, context, network_id):
         """Delete an edge for dhcp service."""
@@ -1336,7 +1340,8 @@ def create_dhcp_bindings(context, nsxv_manager, network_id, bindings):
     edge_id = get_dhcp_edge_id(context, network_id)
     if edge_id:
         with locking.LockManager.get_lock(
-                str(edge_id), lock_file_prefix='nsxv-dhcp-bindings-config-',
+                str(edge_id),
+                lock_file_prefix='nsxv-dhcp-config-',
                 external=True):
             for binding in bindings:
                 nsxv_manager.vcns.create_dhcp_binding(edge_id, binding)
@@ -1372,7 +1377,8 @@ def delete_dhcp_binding(context, nsxv_manager, network_id, mac_address):
         context.session, edge_id, mac_address)
     if edge_id and dhcp_binding:
         with locking.LockManager.get_lock(
-                str(edge_id), lock_file_prefix='nsxv-dhcp-bindings-config-',
+                str(edge_id),
+                lock_file_prefix='nsxv-dhcp-config-',
                 external=True):
             nsxv_manager.vcns.delete_dhcp_binding(
                 edge_id, dhcp_binding.binding_id)
