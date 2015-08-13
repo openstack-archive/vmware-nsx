@@ -1344,13 +1344,18 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         with context.session.begin(subtransactions=True):
             router_db = self._get_router(context, lrouter['id'])
             self._process_nsx_router_create(context, router_db, r)
-        router_driver = self._get_router_driver(context, router_db)
-        router_driver.create_router(
-            context, lrouter,
-            allow_metadata=(allow_metadata and self.metadata_proxy_handler))
-        if gw_info != attr.ATTR_NOT_SPECIFIED:
-            router_driver._update_router_gw_info(
-                context, lrouter['id'], gw_info)
+        try:
+            router_driver = self._get_router_driver(context, router_db)
+            router_driver.create_router(
+                context, lrouter,
+                allow_metadata=(allow_metadata and
+                                self.metadata_proxy_handler))
+            if gw_info != attr.ATTR_NOT_SPECIFIED:
+                router_driver._update_router_gw_info(
+                    context, lrouter['id'], gw_info)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                self.delete_router(context, lrouter['id'])
         return self.get_router(context, lrouter['id'])
 
     def update_router(self, context, router_id, router):
@@ -1382,8 +1387,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
     def delete_router(self, context, id):
         self._check_router_in_use(context, id)
         router_driver = self._find_router_driver(context, id)
-        router_driver.delete_router(context, id)
         super(NsxVPluginV2, self).delete_router(context, id)
+        router_driver.delete_router(context, id)
 
     def get_router(self, context, id, fields=None):
         router = super(NsxVPluginV2, self).get_router(context, id, fields)
