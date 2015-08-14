@@ -184,6 +184,10 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         router_type = None
         if attr.is_attr_set(r.get("distributed")) and r.get("distributed"):
             router_type = "distributed"
+            if attr.is_attr_set(r.get("router_type")):
+                err_msg = _('Can not support router_type extension for '
+                            'distributed router')
+                raise n_exc.InvalidInput(error_message=err_msg)
         elif attr.is_attr_set(r.get("router_type")):
             router_type = r.get("router_type")
 
@@ -1380,6 +1384,12 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         router_driver = self._find_router_driver(context, id)
         router_driver.delete_router(context, id)
         super(NsxVPluginV2, self).delete_router(context, id)
+
+    def get_router(self, context, id, fields=None):
+        router = super(NsxVPluginV2, self).get_router(context, id, fields)
+        if router.get("distributed") and 'router_type' in router:
+            del router['router_type']
+        return router
 
     def _get_external_attachment_info(self, context, router):
         gw_port = router.gw_port

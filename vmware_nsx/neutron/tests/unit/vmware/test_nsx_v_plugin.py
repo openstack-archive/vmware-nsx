@@ -2009,10 +2009,12 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
         return router_req.get_response(self.ext_api)
 
     def _test_router_create_with_distributed(self, dist_input, dist_expected,
-                                             return_code=201):
+                                             return_code=201, **kwargs):
         data = {'tenant_id': 'whatever'}
         data['name'] = 'router1'
         data['distributed'] = dist_input
+        for k, v in six.iteritems(kwargs):
+            data[k] = v
         router_req = self.new_create_request(
             'routers', {'router': data}, self.fmt)
         res = router_req.get_response(self.ext_api)
@@ -2020,8 +2022,15 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
         if res.status_int == 201:
             router = self.deserialize(self.fmt, res)
             self.assertIn('distributed', router['router'])
+            if dist_input:
+                self.assertNotIn('router_type', router['router'])
             self.assertEqual(dist_expected,
                              router['router']['distributed'])
+
+    def test_create_router_fails_with_router_type(self):
+        self._test_router_create_with_distributed(True, True,
+                                                  return_code=400,
+                                                  router_type="shared")
 
     def test_router_create_distributed(self):
         self._test_router_create_with_distributed(True, True)
