@@ -108,4 +108,3 @@ def delete_resource(resource):
                              verify=False)
     _validate_result(result, [requests.codes.ok],
                      _("deleting resource: %s") % resource)
-    return result.json()
