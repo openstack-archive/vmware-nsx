@@ -1036,6 +1036,9 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         the subnet is attached is not bound to an DHCP Edge, nsx_v will
         create the Edge and make sure the network is bound to the Edge
         """
+        if subnet['subnet']['host_routes'] != attr.ATTR_NOT_SPECIFIED:
+            err_msg = _("Host routes not supported by plugin")
+            raise n_exc.InvalidInput(error_message=err_msg)
         if subnet['subnet']['enable_dhcp']:
             filters = {'id': [subnet['subnet']['network_id']],
                        'router:external': [True]}
@@ -1060,6 +1063,10 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         return s
 
     def update_subnet(self, context, id, subnet):
+        s = subnet['subnet']
+        if "host_routes" in s:
+            err_msg = _("Host routes not supported by plugin")
+            raise n_exc.InvalidInput(error_message=err_msg)
         orig = self._get_subnet(context, id)
         gateway_ip = orig['gateway_ip']
         enable_dhcp = orig['enable_dhcp']
