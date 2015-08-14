@@ -1,4 +1,4 @@
-# Copyright 2015 VMware, Inc.
+# Copyright 2015 VMware, Inc
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -11,24 +11,4 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-#
-
-"""Initial Liberty no-op expand script.
-
-Revision ID: 53a3254aa95e
-Revises: kilo
-Create Date: 2015-08-13 06:34:29.842396
-
-"""
-
-from neutron.db.migration import cli
-
-
-# revision identifiers, used by Alembic.
-revision = '53a3254aa95e'
-down_revision = 'kilo'
-branch_labels = (cli.EXPAND_BRANCH,)
-
-
-def upgrade():
-    pass
+VERSION_TABLE = 'vmware_alembic_version'
