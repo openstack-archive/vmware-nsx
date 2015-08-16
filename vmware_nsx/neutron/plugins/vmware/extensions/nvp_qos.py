@@ -1,5 +1,6 @@
-# Copyright 2014 VMware, Inc.  All rights reserved.
+# Copyright 2013 VMware, Inc.
 #
+# All Rights Reserved
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -13,17 +14,23 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 #
+# TODO(arosen): This is deprecated in Juno, and
+# to be removed in Kxxxx.
 
-from vmware_nsx.neutron.plugins.vmware.dbexts import (
-    distributedrouter as dist_rtr)
-from vmware_nsx.neutron.plugins.vmware.extensions import routertype as rt_rtr
+from vmware_nsx.neutron.plugins.vmware.extensions import qos
 
 
-class RouterType_mixin(dist_rtr.DistributedRouter_mixin):
-    """Mixin class to enable Router type support."""
+class Nvp_qos(qos.Qos):
+    """(Deprecated) Port Queue extension."""
 
-    nsx_attributes = (
-        dist_rtr.DistributedRouter_mixin.nsx_attributes + [{
-            'name': rt_rtr.ROUTER_TYPE,
-            'default': False
-        }])
+    @classmethod
+    def get_name(cls):
+        return "nvp-qos"
+
+    @classmethod
+    def get_alias(cls):
+        return "nvp-qos"
+
+    @classmethod
+    def get_description(cls):
+        return "NVP QoS extension (deprecated)."

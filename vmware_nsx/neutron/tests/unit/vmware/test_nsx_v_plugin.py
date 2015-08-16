@@ -30,9 +30,6 @@ from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as secgrp
 from neutron import manager
-from neutron.plugins.vmware.extensions import (
-    vnicindex as ext_vnic_idx)
-from neutron.plugins.vmware.extensions import routertype as router_type
 
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.db.test_allowedaddresspairs_db as test_addr_pair
@@ -49,6 +46,10 @@ import six
 import webob.exc
 
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
+from vmware_nsx.neutron.plugins.vmware.extensions import (
+    routertype as router_type)
+from vmware_nsx.neutron.plugins.vmware.extensions import (
+    vnicindex as ext_vnic_idx)
 from vmware_nsx.neutron.plugins.vmware.vshield.common import (
     constants as vcns_const)
 from vmware_nsx.neutron.plugins.vmware.vshield import edge_utils

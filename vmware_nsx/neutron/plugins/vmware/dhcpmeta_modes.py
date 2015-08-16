@@ -28,7 +28,6 @@ from neutron.common import rpc as n_rpc
 from neutron.common import topics
 from neutron.db import agents_db
 from neutron.i18n import _LW
-from neutron.plugins.vmware.extensions import lsn
 
 from vmware_nsx.neutron.plugins.vmware.common import config
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
@@ -37,6 +36,7 @@ from vmware_nsx.neutron.plugins.vmware.dhcp_meta import lsnmanager
 from vmware_nsx.neutron.plugins.vmware.dhcp_meta import migration
 from vmware_nsx.neutron.plugins.vmware.dhcp_meta import nsx as nsx_svc
 from vmware_nsx.neutron.plugins.vmware.dhcp_meta import rpc as nsx_rpc
+from vmware_nsx.neutron.plugins.vmware.extensions import lsn
 
 LOG = logging.getLogger(__name__)
 

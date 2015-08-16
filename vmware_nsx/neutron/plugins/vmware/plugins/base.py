@@ -59,9 +59,6 @@ from neutron.i18n import _LE, _LI, _LW
 from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils
 from neutron.plugins.vmware.dbexts import nsx_models
-from neutron.plugins.vmware.extensions import maclearning as mac_ext
-from neutron.plugins.vmware.extensions import networkgw
-from neutron.plugins.vmware.extensions import qos
 
 from vmware_nsx.neutron.plugins import vmware
 from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
@@ -76,6 +73,9 @@ from vmware_nsx.neutron.plugins.vmware.dbexts import maclearning as mac_db
 from vmware_nsx.neutron.plugins.vmware.dbexts import networkgw_db
 from vmware_nsx.neutron.plugins.vmware.dbexts import qos_db
 from vmware_nsx.neutron.plugins.vmware import dhcpmeta_modes
+from vmware_nsx.neutron.plugins.vmware.extensions import maclearning as mac_ext
+from vmware_nsx.neutron.plugins.vmware.extensions import networkgw
+from vmware_nsx.neutron.plugins.vmware.extensions import qos
 from vmware_nsx.neutron.plugins.vmware.nsxlib import l2gateway as l2gwlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import queue as queuelib
 from vmware_nsx.neutron.plugins.vmware.nsxlib import router as routerlib

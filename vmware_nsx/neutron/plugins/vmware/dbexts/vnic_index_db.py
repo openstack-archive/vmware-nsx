@@ -18,8 +18,9 @@ from sqlalchemy.orm import exc
 from neutron.api.v2 import attributes as attr
 from neutron.db import db_base_plugin_v2
 from neutron.plugins.vmware.dbexts import nsxv_models
-from neutron.plugins.vmware.extensions import vnicindex as vnicidx
 from oslo_log import log as logging
+
+from vmware_nsx.neutron.plugins.vmware.extensions import vnicindex as vnicidx
 
 LOG = logging.getLogger(__name__)
 

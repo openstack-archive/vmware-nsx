@@ -49,10 +49,6 @@ from neutron.extensions import securitygroup as ext_sg
 from neutron.i18n import _LE, _LI, _LW
 from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils
-from neutron.plugins.vmware.extensions import (
-    advancedserviceproviders as as_providers)
-from neutron.plugins.vmware.extensions import (
-    vnicindex as ext_vnic_idx)
 
 from vmware_nsx.neutron.plugins import vmware
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
@@ -64,6 +60,10 @@ from vmware_nsx.neutron.plugins.vmware.dbexts import (
 from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
 from vmware_nsx.neutron.plugins.vmware.dbexts import vnic_index_db
+from vmware_nsx.neutron.plugins.vmware.extensions import (
+    advancedserviceproviders as as_providers)
+from vmware_nsx.neutron.plugins.vmware.extensions import (
+    vnicindex as ext_vnic_idx)
 from vmware_nsx.neutron.plugins.vmware.plugins import managers
 from vmware_nsx.neutron.plugins.vmware.plugins import nsx_v_md_proxy
 from vmware_nsx.neutron.plugins.vmware.vshield.common import (

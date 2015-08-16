@@ -1,5 +1,3 @@
 import os
 
-from neutron.plugins.vmware import extensions
-
-NSX_EXT_PATH = os.path.dirname(extensions.__file__)
+NSX_EXT_PATH = os.path.join(os.path.dirname(__file__), 'extensions')

@@ -21,9 +21,9 @@ from neutron.api.v2 import attributes as attr
 from neutron import context as neutron_context
 from neutron.db import db_base_plugin_v2
 from neutron import manager
-from neutron.plugins.vmware.extensions import vnicindex as vnicidx
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_db_plugin
 from vmware_nsx.neutron.plugins.vmware.dbexts import vnic_index_db
+from vmware_nsx.neutron.plugins.vmware.extensions import vnicindex as vnicidx
 from vmware_nsx.neutron.tests.unit import vmware
 
 

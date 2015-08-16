@@ -18,10 +18,11 @@ from neutron.api.v2 import attributes
 from neutron.common import exceptions
 from neutron.plugins.common import utils
 from neutron.plugins.vmware.dbexts import nsx_models
-from neutron.plugins.vmware.extensions import networkgw
 from oslo_log import log as logging
 from oslo_utils import uuidutils
 import six
+
+from vmware_nsx.neutron.plugins.vmware.extensions import networkgw
 
 LOG = logging.getLogger(__name__)
 DEVICE_OWNER_NET_GW_INTF = 'network:gateway-interface'
