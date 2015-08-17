@@ -189,7 +189,7 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
         return info
 
     def _update_edge_router(self, context, router_id):
-        router = self.plugin._get_router(context, router_id)
+        router = self.plugin._get_router(context.elevated(), router_id)
         with locking.LockManager.get_lock(
                 self._get_router_edge_id(context, router_id), external=True):
             self.plugin._update_external_interface(context, router)

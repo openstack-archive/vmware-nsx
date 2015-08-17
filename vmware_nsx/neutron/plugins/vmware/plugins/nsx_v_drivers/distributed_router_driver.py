@@ -387,7 +387,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         return info
 
     def _update_edge_router(self, context, router_id):
-        router = self.plugin._get_router(context, router_id)
+        router = self.plugin._get_router(context.elevated(), router_id)
         plr_id = self.edge_manager.get_plr_by_tlr_id(context, router_id)
         self.plugin._update_external_interface(
             context, router, router_id=plr_id)
