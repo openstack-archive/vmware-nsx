@@ -48,6 +48,10 @@ class EdgeUtilsTestCaseMixin(testlib_api.SqlTestCase):
         task = mock.Mock()
         nsxv_manager_p.return_value = task
         self.nsxv_manager.callbacks = mock.Mock()
+        self.nsxv_manager.vcns = mock.Mock()
+        get_ver = mock.patch.object(self.nsxv_manager.vcns,
+                                    'get_version').start()
+        get_ver.return_value = '6.1.4'
         self.ctx = context.get_admin_context()
         self.addCleanup(nsxv_manager_p.stop)
 
