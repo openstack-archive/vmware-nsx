@@ -241,7 +241,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             nsx_attr = (context.session.query(
                 nsxv_models.NsxvRouterExtAttributes).filter_by(
                     router_id=r['id']).first())
-            if nsx_attr['router_type'] == 'shared':
+            if nsx_attr and nsx_attr['router_type'] == 'shared':
                 shared_routers.append(r)
         return shared_routers
 
