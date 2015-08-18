@@ -109,8 +109,16 @@ class EdgeManager(object):
         self.edge_pool_dicts = parse_backup_edge_pool_opt()
         self.nsxv_plugin = nsxv_manager.callbacks.plugin
         self.plugin = plugin
+        self.per_interface_rp_filter = self._get_per_edge_rp_filter_state()
         self.worker_pool = eventlet.GreenPool(WORKER_POOL_SIZE)
         self._check_backup_edge_pools()
+
+    def _get_per_edge_rp_filter_state(self):
+        version = self.nsxv_manager.vcns.get_version()
+        # TODO(kobis): should have better mapping of versions here for this
+        if version[:3] == '6.2':
+            return True
+        return False
 
     def _deploy_edge(self, context, lrouter,
                      lswitch=None, appliance_size=nsxv_constants.LARGE,
@@ -975,6 +983,14 @@ class EdgeManager(object):
             self.plugin.setup_dhcp_edge_fw_rules(
                 context, self.plugin, resource_id)
 
+            if not self.per_interface_rp_filter:
+                with locking.LockManager.get_lock(
+                        'nsx-edge-pool', lock_file_prefix='edge-bind-',
+                        external=True):
+                    self.nsxv_manager.vcns.set_system_control(
+                        dhcp_edge_id,
+                        [RP_FILTER_PROPERTY_OFF_TEMPLATE % ('all', '0')])
+
             nsxv_db.add_vdr_dhcp_binding(context.session, vdr_router_id,
                                          str(resource_id), dhcp_edge_id)
 
@@ -1002,6 +1018,8 @@ class EdgeManager(object):
                         return sub_interface['index']
 
     def set_sysctl_rp_filter_for_vdr_dhcp(self, context, edge_id, network_id):
+        if not self.per_interface_rp_filter:
+            return
 
         vnic_index = self._get_sub_interface_id(context, edge_id, network_id)
         if vnic_index:
@@ -1020,6 +1038,9 @@ class EdgeManager(object):
 
     def reset_sysctl_rp_filter_for_vdr_dhcp(self, context, edge_id,
                                             network_id):
+        if not self.per_interface_rp_filter:
+            return
+
         vnic_index = self._get_sub_interface_id(context, edge_id, network_id)
         if vnic_index:
             vnic_id = 'vNic_%d' % vnic_index
