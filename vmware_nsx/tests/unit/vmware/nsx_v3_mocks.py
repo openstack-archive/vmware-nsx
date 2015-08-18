@@ -205,6 +205,17 @@ def delete_resource(resource):
     pass
 
 
+def create_bridge_endpoint(device_name, seg_id, tags):
+    FAKE_BE = {
+        "id": uuidutils.generate_uuid(),
+        "display_name": FAKE_NAME,
+        "resource_type": "BridgeEndpoint",
+        "bridge_endpoint_id": device_name,
+        "vlan": seg_id,
+    }
+    return FAKE_BE
+
+
 class NsxV3Mock(object):
     def __init__(self, default_tier0_router_uuid=DEFAULT_TIER0_ROUTER_UUID):
         self.logical_routers = {}
