@@ -18,6 +18,7 @@
 import abc
 import copy
 import httplib
+import socket
 import time
 
 import eventlet
@@ -186,9 +187,12 @@ class ApiRequest(object):
                           'url': self._url, 'status': response.status})
                 raise Exception(_('Server error return: %s'), response.status)
             return response
+        except socket.error:
+            is_conn_service_unavail = True
         except Exception as e:
             if isinstance(e, httplib.BadStatusLine):
                 msg = (_("Invalid server response"))
+
             else:
                 msg = unicode(e)
             if response is None:
