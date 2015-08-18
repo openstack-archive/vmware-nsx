@@ -1060,6 +1060,14 @@ class TestL3NatTestCase(L3NatTest,
                                               None,
                                               p['port']['id'])
 
+    def test_update_subnet_gateway_for_external_net(self):
+        plugin = manager.NeutronManager.get_plugin()
+        port_mock = {'uuid': uuidutils.generate_uuid()}
+        with mock.patch.object(plugin, '_find_router_gw_port',
+                               return_value=port_mock):
+            super(TestL3NatTestCase,
+                  self).test_update_subnet_gateway_for_external_net()
+
     def test_floating_port_status_not_applicable(self):
         self.skipTest('Plugin changes floating port status')
 
