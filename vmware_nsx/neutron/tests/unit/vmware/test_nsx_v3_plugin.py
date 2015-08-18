@@ -18,6 +18,7 @@ from oslo_config import cfg
 import six
 
 from neutron.api.v2 import attributes
+from neutron.common import exceptions as n_exc
 from neutron import context
 from neutron.extensions import external_net
 from neutron.extensions import extraroute
@@ -188,11 +189,11 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxPluginV3TestCase):
         ext_mgr = ext_mgr or TestL3ExtensionManager()
         super(L3NatTest, self).setUp(
             plugin=plugin, ext_mgr=ext_mgr, service_plugins=service_plugins)
-        plugin_instance = manager.NeutronManager.get_plugin()
+        self.plugin_instance = manager.NeutronManager.get_plugin()
         self._plugin_name = "%s.%s" % (
-            plugin_instance.__module__,
-            plugin_instance.__class__.__name__)
-        self._plugin_class = plugin_instance.__class__
+            self.plugin_instance.__module__,
+            self.plugin_instance.__class__.__name__)
+        self._plugin_class = self.plugin_instance.__class__
         nsxlib.create_logical_port = self.v3_mock.create_logical_port
         nsxlib.create_logical_router = self.v3_mock.create_logical_router
         nsxlib.update_logical_router = self.v3_mock.update_logical_router
@@ -250,6 +251,33 @@ class TestL3NatTestCase(L3NatTest,
 
     def test_floatingip_with_invalid_create_port(self):
         self._test_floatingip_with_invalid_create_port(self._plugin_name)
+
+    def test_routes_update_for_multiple_routers(self):
+        self.skipTest('not supported')
+
+    def test_floatingip_multi_external_one_internal(self):
+        self.skipTest('not supported')
+
+    def test_multiple_subnets_on_different_routers(self):
+        with self.network() as network:
+            with self.subnet(network=network) as s1,\
+                    self.subnet(network=network,
+                                cidr='11.0.0.0/24') as s2,\
+                    self.router() as r1,\
+                    self.router() as r2:
+                self._router_interface_action('add', r1['router']['id'],
+                                              s1['subnet']['id'], None)
+                self.assertRaises(n_exc.InvalidInput,
+                                  self.plugin_instance.add_router_interface,
+                                  context.get_admin_context(),
+                                  r2['router']['id'],
+                                  {'subnet_id': s2['subnet']['id']})
+                self._router_interface_action('remove', r1['router']['id'],
+                                              s1['subnet']['id'], None)
+                self._router_interface_action('add', r2['router']['id'],
+                                              s2['subnet']['id'], None)
+                self._router_interface_action('remove', r2['router']['id'],
+                                              s2['subnet']['id'], None)
 
 
 class ExtGwModeTestCase(L3NatTest,
