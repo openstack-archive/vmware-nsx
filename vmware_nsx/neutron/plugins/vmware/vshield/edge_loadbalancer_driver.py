@@ -837,6 +837,13 @@ class EdgeLbDriver(object):
                     pool_mapping['edge_id'])
 
         pools_stats = lb_stats[1].get('pool', [])
+        plugin = self._get_lb_plugin()
+        members = plugin.get_members(
+            context,
+            filters={'pool_id': [pool_id]},
+            fields=['id', 'status'])
+        member_map = {m['id']: m['status'] for m in members}
+
         for pool_stats in pools_stats:
             if pool_stats['poolId'] == pool_mapping['edge_pool_id']:
                 stats = {'bytes_in': pool_stats.get('bytesIn', 0),
@@ -849,10 +856,11 @@ class EdgeLbDriver(object):
                 member_stats = {}
                 for member in pool_stats.get('member', []):
                     member_id = member['name'][len(MEMBER_ID_PFX):]
-                    member_stats[member_id] = {
-                        'status': ('INACTIVE'
-                                   if member['status'] == 'DOWN'
-                                   else 'ACTIVE')}
+                    if member_map[member_id] != 'ERROR':
+                        member_stats[member_id] = {
+                            'status': ('INACTIVE'
+                                       if member['status'] == 'DOWN'
+                                       else 'ACTIVE')}
 
                 stats['members'] = member_stats
                 return stats
