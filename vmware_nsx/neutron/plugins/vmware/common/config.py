@@ -172,9 +172,23 @@ nsx_v3_opts = [
                help=_('IP address of the NSX manager')),
     cfg.StrOpt('default_edge_cluster_uuid',
                help=_("Default edge cluster identifier")),
+    cfg.StrOpt('default_overlay_tz_uuid',
+               deprecated_name='default_tz_uuid',
+               help=_("This is the UUID of the default NSX overlay transport "
+                      "zone that will be used for creating tunneled isolated "
+                      "Neutron networks. It needs to be created in NSX "
+                      "before starting Neutron with the NSX plugin.")),
+    cfg.StrOpt('default_vlan_tz_uuid',
+               help=_("This is the UUID of the default NSX VLAN transport "
+                      "zone that will be used for bridging between Neutron "
+                      "networks. It needs to be created in NSX before "
+                      "starting Neutron with the NSX plugin.")),
+    cfg.StrOpt('default_edge_cluster_uuid',
+               help=_("Default edge cluster identifier")),
     cfg.IntOpt('retries',
                default=10,
-               help=_('Maximum number of times to retry API request'))]
+               help=_('Maximum number of times to retry API request'))
+]
 
 DEFAULT_STATUS_CHECK_INTERVAL = 2000
 DEFAULT_MINIMUM_POOLED_EDGES = 1

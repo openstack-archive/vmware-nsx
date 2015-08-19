@@ -22,18 +22,18 @@ from vmware_nsx.neutron.plugins.vmware.common import nsx_constants
 FAKE_NAME = "fake_name"
 
 
-def create_logical_switch(display_name, transport_zone_id, tags,
-                          replication_mode=nsx_constants.MTEP,
-                          admin_state=nsx_constants.ADMIN_STATE_UP):
-    FAKE_TZ_UUID = uuidutils.generate_uuid()
-    FAKE_SWITCH_UUID = uuidutils.generate_uuid()
+def make_fake_switch(switch_uuid=None, tz_uuid=None, name=FAKE_NAME):
+    if not switch_uuid:
+        switch_uuid = uuidutils.generate_uuid()
+    if not tz_uuid:
+        tz_uuid = uuidutils.generate_uuid()
 
-    FAKE_SWITCH = {
-        "id": FAKE_SWITCH_UUID,
-        "display_name": FAKE_NAME,
+    fake_switch = {
+        "id": switch_uuid,
+        "display_name": name,
         "resource_type": "LogicalSwitch",
         "address_bindings": [],
-        "transport_zone_id": FAKE_TZ_UUID,
+        "transport_zone_id": tz_uuid,
         "replication_mode": nsx_constants.MTEP,
         "admin_state": nsx_constants.ADMIN_STATE_UP,
         "vni": 50056,
@@ -60,7 +60,13 @@ def create_logical_switch(display_name, transport_zone_id, tags,
             }
         ],
     }
-    return FAKE_SWITCH
+    return fake_switch
+
+
+def create_logical_switch(display_name, transport_zone_id, tags,
+                          replication_mode=nsx_constants.MTEP,
+                          admin_state=True, vlan_id=None):
+    return make_fake_switch()
 
 
 def create_logical_port(lswitch_id, vif_uuid, tags,

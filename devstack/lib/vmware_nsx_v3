@@ -85,10 +85,13 @@ function neutron_plugin_configure_plugin_agent {
 }
 
 function neutron_plugin_configure_service {
-    if [[ "$DEFAULT_TZ_UUID" != "" ]]; then
-        iniset /$Q_PLUGIN_CONF_FILE DEFAULT default_tz_uuid $DEFAULT_TZ_UUID
+    if [[ "$DEFAULT_OVERLAY_TZ_UUID" != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE nsx_v3 default_overlay_tz_uuid $DEFAULT_OVERLAY_TZ_UUID
     else
         die $LINENO "The VMware NSX plugin won't work without a default transport zone."
+    fi
+    if [[ "$DEFAULT_VLAN_TZ_UUID" != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE nsx_v3 default_vlan_tz_uuid $DEFAULT_VLAN_TZ_UUID
     fi
     if [[ "$DEFAULT_EDGE_CLUSTER_UUID" != "" ]]; then
         iniset /$Q_PLUGIN_CONF_FILE nsx_v3 default_edge_cluster_uuid $DEFAULT_EDGE_CLUSTER_UUID
