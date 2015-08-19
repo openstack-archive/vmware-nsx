@@ -999,6 +999,27 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
         kwargs.update({'override': overrides})
         return self._create_bulk(fmt, number, 'subnet', base_data, **kwargs)
 
+    def test_create_subnet_with_two_host_routes(self):
+        self.skipTest("Skip test for not implemented host_routes feature")
+
+    def test_delete_subnet_with_route(self):
+        self.skipTest("Skip test for not implemented host_routes feature")
+
+    def test_update_subnet_adding_additional_host_routes_and_dns(self):
+        self.skipTest("Skip test for not implemented host_routes feature")
+
+    def test_delete_subnet_with_dns_and_route(self):
+        self.skipTest("Skip test for not implemented host_routes feature")
+
+    def test_update_subnet_route(self):
+        self.skipTest("Skip test for not implemented host_routes feature")
+
+    def test_update_subnet_route_to_None(self):
+        self.skipTest("Skip test for not implemented host_routes feature")
+
+    def test_create_subnet_with_one_host_route(self):
+        self.skipTest("Skip test for not implemented host_routes feature")
+
     def test_create_subnet_nonzero_cidr(self):
             awkward_cidrs = [{'nonezero': '10.129.122.5/8',
                               'corrected': '10.0.0.0/8'},
