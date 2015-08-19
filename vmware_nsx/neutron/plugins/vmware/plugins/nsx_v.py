@@ -973,8 +973,13 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 context.session, vnic_id, sgids)
             if (cfg.CONF.nsxv.spoofguard_enabled and
                 neutron_db_port[psec.PORTSECURITY]):
-                self._remove_vnic_from_spoofguard_policy(
-                    context.session, neutron_db_port['network_id'], vnic_id)
+                try:
+                    self._remove_vnic_from_spoofguard_policy(
+                        context.session, neutron_db_port['network_id'],
+                        vnic_id)
+                except Exception as e:
+                    LOG.error(_LE('Could not delete the spoofguard policy. '
+                                  'Exception %s'), e)
 
         self.disassociate_floatingips(context, id)
         with context.session.begin(subtransactions=True):
