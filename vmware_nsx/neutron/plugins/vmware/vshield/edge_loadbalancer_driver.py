@@ -466,7 +466,7 @@ class EdgeLbDriver(object):
                 LOG.error(_LE('Failed to create pool %s'), pool['id'])
 
     def update_pool(self, context, old_pool, pool, pool_mapping):
-        LOG.debug('Updating pool %s to %s', (old_pool, pool))
+        LOG.debug('Updating pool %s to %s', old_pool, pool)
         edge_pool = convert_lbaas_pool(pool)
         try:
             with locking.LockManager.get_lock(pool_mapping['edge_id'],
