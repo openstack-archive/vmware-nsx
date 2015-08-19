@@ -324,7 +324,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                     attr.is_attr_set(external) and not external and
                     not self.nsx_v.vcns.validate_network_name(
                         physical_network, network['name'])):
-                    err_msg = _("portgroup name must match network name")
+                    err_msg = _("Portgroup name must match network name")
             else:
                 err_msg = (_("%(net_type_param)s %(net_type_value)s not "
                              "supported") %
@@ -1524,7 +1524,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         intf_ports = self._get_port_by_device_id(
             context, router_id, l3_db.DEVICE_OWNER_ROUTER_INTF)
         if len(intf_ports) >= (vcns_const.MAX_INTF_NUM):
-            err_msg = _("interfaces number on router: %(router_id)s "
+            err_msg = _("Interfaces number on router: %(router_id)s "
                         "has reached the maximum %(number)d which NSXv can "
                         "support. Please use vdr if you want to add unlimited "
                         "interfaces") % {'router_id': router_id,
@@ -1979,27 +1979,27 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
     def _validate_config(self):
         if not self.nsx_v.vcns.validate_dvs(cfg.CONF.nsxv.dvs_id):
-            error = _("configured dvs_id not found")
+            error = _("Configured dvs_id not found")
             raise nsx_exc.NsxPluginException(err_msg=error)
 
         if not self.nsx_v.vcns.validate_datacenter_moid(
                 cfg.CONF.nsxv.datacenter_moid):
-            error = _("configured datacenter_moid not found")
+            error = _("Configured datacenter_moid not found")
             raise nsx_exc.NsxPluginException(err_msg=error)
 
         if not self.nsx_v.vcns.validate_network(
                 cfg.CONF.nsxv.external_network):
-            error = _("configured external_network not found")
+            error = _("Configured external_network not found")
             raise nsx_exc.NsxPluginException(err_msg=error)
 
         if not self.nsx_v.vcns.validate_vdn_scope(cfg.CONF.nsxv.vdn_scope_id):
-            error = _("configured vdn_scope_id not found")
+            error = _("Configured vdn_scope_id not found")
             raise nsx_exc.NsxPluginException(err_msg=error)
 
         if (cfg.CONF.nsxv.mgt_net_moid
             and not self.nsx_v.vcns.validate_network(
                 cfg.CONF.nsxv.mgt_net_moid)):
-            error = _("configured mgt_net_moid not found")
+            error = _("Configured mgt_net_moid not found")
             raise nsx_exc.NsxPluginException(err_msg=error)
 
         ver = self.nsx_v.vcns.get_version()
@@ -2017,5 +2017,5 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
         for moref, field in inventory:
             if moref and not self.nsx_v.vcns.validate_inventory(moref):
-                error = _("configured %s not found") % field
+                error = _("Configured %s not found") % field
                 raise nsx_exc.NsxPluginException(err_msg=error)
