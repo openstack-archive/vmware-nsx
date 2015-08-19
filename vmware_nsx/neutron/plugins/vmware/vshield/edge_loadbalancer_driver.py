@@ -374,54 +374,55 @@ class EdgeLbDriver(object):
         edge_ips = self._get_edge_ips(edge_id)
 
         plugin = self._get_lb_plugin()
-        members = plugin.get_members(
-            context,
-            filters={'pool_id': [pool_id]},
-            fields=['address'])
-        member_ips = [member['address'] for member in members]
-        if operation == 'add' and address not in member_ips:
-            member_ips.append(address)
-        elif operation == 'del' and address in member_ips:
-            member_ips.remove(address)
+        with locking.LockManager.get_lock('lbaas-fw-section', external=True):
+            members = plugin.get_members(
+                context,
+                filters={'pool_id': [pool_id]},
+                fields=['address'])
+            member_ips = [member['address'] for member in members]
+            if operation == 'add' and address not in member_ips:
+                member_ips.append(address)
+            elif operation == 'del' and address in member_ips:
+                member_ips.remove(address)
 
-        section_uri = '%s/%s/%s' % (nsxv_api.FIREWALL_PREFIX,
-                                    'layer3sections',
-                                    self._get_lbaas_fw_section_id())
-        xml_section = self.vcns.get_section(section_uri)[1]
-        section = et.fromstring(xml_section)
-        pool_rule = None
-        for rule in section.iter('rule'):
-            if rule.find('name').text == pool_id:
-                pool_rule = rule
-                if member_ips:
-                    pool_rule.find('sources').find('source').find(
-                        'value').text = (','.join(edge_ips))
-                    pool_rule.find('destinations').find(
-                        'destination').find('value').text = ','.join(
-                        member_ips)
-                else:
-                    section.remove(pool_rule)
-                break
+            section_uri = '%s/%s/%s' % (nsxv_api.FIREWALL_PREFIX,
+                                        'layer3sections',
+                                        self._get_lbaas_fw_section_id())
+            xml_section = self.vcns.get_section(section_uri)[1]
+            section = et.fromstring(xml_section)
+            pool_rule = None
+            for rule in section.iter('rule'):
+                if rule.find('name').text == pool_id:
+                    pool_rule = rule
+                    if member_ips:
+                        pool_rule.find('sources').find('source').find(
+                            'value').text = (','.join(edge_ips))
+                        pool_rule.find('destinations').find(
+                            'destination').find('value').text = ','.join(
+                            member_ips)
+                    else:
+                        section.remove(pool_rule)
+                    break
 
-        if member_ips and pool_rule is None:
-            pool_rule = et.SubElement(section, 'rule')
-            et.SubElement(pool_rule, 'name').text = pool_id
-            et.SubElement(pool_rule, 'action').text = 'allow'
-            sources = et.SubElement(pool_rule, 'sources')
-            sources.attrib['excluded'] = 'false'
-            source = et.SubElement(sources, 'source')
-            et.SubElement(source, 'type').text = 'Ipv4Address'
-            et.SubElement(source, 'value').text = ','.join(edge_ips)
+            if member_ips and pool_rule is None:
+                pool_rule = et.SubElement(section, 'rule')
+                et.SubElement(pool_rule, 'name').text = pool_id
+                et.SubElement(pool_rule, 'action').text = 'allow'
+                sources = et.SubElement(pool_rule, 'sources')
+                sources.attrib['excluded'] = 'false'
+                source = et.SubElement(sources, 'source')
+                et.SubElement(source, 'type').text = 'Ipv4Address'
+                et.SubElement(source, 'value').text = ','.join(edge_ips)
 
-            destinations = et.SubElement(pool_rule, 'destinations')
-            destinations.attrib['excluded'] = 'false'
-            destination = et.SubElement(destinations, 'destination')
-            et.SubElement(destination, 'type').text = 'Ipv4Address'
-            et.SubElement(destination, 'value').text = ','.join(member_ips)
+                destinations = et.SubElement(pool_rule, 'destinations')
+                destinations.attrib['excluded'] = 'false'
+                destination = et.SubElement(destinations, 'destination')
+                et.SubElement(destination, 'type').text = 'Ipv4Address'
+                et.SubElement(destination, 'value').text = ','.join(member_ips)
 
-        self.vcns.update_section(section_uri,
-                                 et.tostring(section, encoding="us-ascii"),
-                                 None)
+            self.vcns.update_section(section_uri,
+                                     et.tostring(section, encoding="us-ascii"),
+                                     None)
 
     def _add_vip_fw_rule(self, edge_id, vip_id, ip_address):
         fw_rule = {
@@ -465,7 +466,7 @@ class EdgeLbDriver(object):
                 LOG.error(_LE('Failed to create pool %s'), pool['id'])
 
     def update_pool(self, context, old_pool, pool, pool_mapping):
-        LOG.debug('Updating pool %s to %s', old_pool, pool)
+        LOG.debug('Updating pool %s to %s', (old_pool, pool))
         edge_pool = convert_lbaas_pool(pool)
         try:
             with locking.LockManager.get_lock(pool_mapping['edge_id'],
