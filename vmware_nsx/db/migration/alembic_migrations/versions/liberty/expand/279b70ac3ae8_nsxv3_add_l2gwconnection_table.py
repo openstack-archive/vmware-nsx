@@ -30,19 +30,13 @@ import sqlalchemy as sa
 
 
 def upgrade():
-    try:
-        op.create_table(
-            'nsx_l2gw_connection_mappings',
-            sa.Column('connection_id', sa.String(length=36), nullable=False),
-            sa.Column('port_id', sa.String(length=36), nullable=False),
-            sa.Column('bridge_endpoint_id', sa.String(length=36),
-                      nullable=False),
-            sa.ForeignKeyConstraint(['connection_id'],
-                                    ['l2gatewayconnections.id'],
-                                    ondelete='CASCADE'),
-            sa.ForeignKeyConstraint(['port_id'], ['ports.id'],
-                                    ondelete='CASCADE'),
-            sa.PrimaryKeyConstraint('connection_id'),
-        )
-    except Exception:
-        pass
+    op.create_table(
+        'nsx_l2gw_connection_mappings',
+        sa.Column('connection_id', sa.String(length=36), nullable=False),
+        sa.Column('port_id', sa.String(length=36), nullable=False),
+        sa.Column('bridge_endpoint_id', sa.String(length=36),
+                  nullable=False),
+        sa.ForeignKeyConstraint(['port_id'], ['ports.id'],
+                                ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('connection_id'),
+    )
