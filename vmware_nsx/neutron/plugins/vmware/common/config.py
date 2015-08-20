@@ -170,8 +170,6 @@ nsx_v3_opts = [
                help=_('Password for the NSX manager')),
     cfg.StrOpt('nsx_manager',
                help=_('IP address of the NSX manager')),
-    cfg.StrOpt('default_edge_cluster_uuid',
-               help=_("Default edge cluster identifier")),
     cfg.StrOpt('default_overlay_tz_uuid',
                deprecated_name='default_tz_uuid',
                help=_("This is the UUID of the default NSX overlay transport "
