@@ -516,6 +516,15 @@ def add_vdr_dhcp_binding(session, vdr_router_id, dhcp_router_id, dhcp_edge_id):
     return binding
 
 
+def update_vdr_dhcp_binding(session, vdr_router_id, **kwargs):
+    with session.begin(subtransactions=True):
+        binding = (session.query(nsxv_models.NsxvVdrDhcpBinding).
+                   filter_by(vdr_router_id=vdr_router_id).one())
+        for key, value in six.iteritems(kwargs):
+            binding[key] = value
+    return binding
+
+
 def get_vdr_dhcp_bindings(session):
     try:
         bindings = session.query(nsxv_models.NsxvVdrDhcpBinding).all()
