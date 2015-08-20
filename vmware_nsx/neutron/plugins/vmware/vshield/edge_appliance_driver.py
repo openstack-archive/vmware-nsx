@@ -173,11 +173,19 @@ class EdgeApplianceDriver(object):
         return status_level
 
     def _enable_loadbalancer(self, edge):
-        if not edge.get('featureConfigs') or (
+        if (not edge.get('featureConfigs') or
             not edge['featureConfigs'].get('features')):
             edge['featureConfigs'] = {'features': []}
         edge['featureConfigs']['features'].append(
             {'featureType': 'loadbalancer_4.0',
+             'enabled': True})
+
+    def _enable_high_availability(self, edge):
+        if (not edge.get('featureConfigs') or
+            not edge['featureConfigs'].get('features')):
+            edge['featureConfigs'] = {'features': []}
+        edge['featureConfigs']['features'].append(
+            {'featureType': 'highavailability_4.0',
              'enabled': True})
 
     def get_edge_status(self, edge_id):
@@ -469,6 +477,9 @@ class EdgeApplianceDriver(object):
             edge['vnics']['vnics'].append(vnic_inside)
         if not dist and loadbalancer_enable:
             self._enable_loadbalancer(edge)
+
+        if not dist and cfg.CONF.nsxv.edge_ha:
+            self._enable_high_availability(edge)
 
         if async:
             userdata = {

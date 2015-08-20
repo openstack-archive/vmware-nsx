@@ -98,6 +98,7 @@ function neutron_plugin_configure_service {
     _nsxv_ini_set nova_metadata_port "$NSXV_NOVA_METADATA_PORT"
     _nsxv_ini_set nova_metadata_ips "$NSXV_NOVA_METADATA_IPS"
     _nsxv_ini_set metadata_shared_secret "$NSXV_METADATA_SHARED_SECRET"
+    _nsxv_ini_set edge_ha "$NSXV_EDGE_HA"
 }
 
 function neutron_plugin_setup_interface_driver {
