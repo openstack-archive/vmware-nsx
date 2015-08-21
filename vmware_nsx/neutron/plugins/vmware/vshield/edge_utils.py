@@ -608,14 +608,15 @@ class EdgeManager(object):
         dhcp_networks = [edge_vnic_binding.network_id
                          for edge_vnic_binding in edge_vnic_bindings]
         ports = self.nsxv_plugin.get_ports(
-            context, filters={'network_id': dhcp_networks})
+            context.elevated(), filters={'network_id': dhcp_networks})
         inst_ports = [port
                       for port in ports
                       if port['device_owner'].startswith("compute")]
         static_bindings = []
         for port in inst_ports:
             static_bindings.extend(
-                self.nsxv_plugin._create_static_binding(context, port))
+                self.nsxv_plugin._create_static_binding(
+                    context.elevated(), port))
         dhcp_request = {
             'featureType': "dhcp_4.0",
             'enabled': True,
