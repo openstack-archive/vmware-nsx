@@ -39,9 +39,11 @@ class NsxPluginV3TestCase(test_plugin.NeutronDbPluginV2TestCase):
         # white-box testing on the plugin class
         # TODO(salv-orlando): supply unit tests for nsxlib.v3
         nsxlib.create_logical_switch = nsx_v3_mocks.create_logical_switch
+        nsxlib.delete_logical_switch = mock.Mock()
+        nsxlib.get_logical_switch = nsx_v3_mocks.get_logical_switch
+        nsxlib.update_logical_switch = nsx_v3_mocks.update_logical_switch
         nsxlib.create_logical_port = nsx_v3_mocks.create_logical_port
         nsxlib.delete_logical_port = mock.Mock()
-        nsxlib.delete_logical_switch = mock.Mock()
         nsxlib.get_logical_port = nsx_v3_mocks.get_logical_port
         nsxlib.update_logical_port = nsx_v3_mocks.update_logical_port
 

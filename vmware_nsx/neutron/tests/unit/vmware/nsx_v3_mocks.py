@@ -69,6 +69,22 @@ def create_logical_switch(display_name, transport_zone_id, tags,
     return make_fake_switch()
 
 
+def get_logical_switch(lswitch_id):
+    return make_fake_switch(switch_uuid=lswitch_id)
+
+
+def update_logical_switch(lswitch_id, name=None, admin_state=None):
+    lswitch = get_logical_switch(lswitch_id)
+    if name is not None:
+        lswitch['display_name'] = name
+    if admin_state is not None:
+        if admin_state:
+            lswitch['admin_state'] = nsx_constants.ADMIN_STATE_UP
+        else:
+            lswitch['admin_state'] = nsx_constants.ADMIN_STATE_DOWN
+    return lswitch
+
+
 def create_logical_port(lswitch_id, vif_uuid, tags,
                         attachment_type=nsx_constants.ATTACHMENT_VIF,
                         admin_state=True, name=None, address_bindings=None,

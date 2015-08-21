@@ -53,6 +53,26 @@ def delete_logical_switch(lswitch_id):
     client.delete_resource(resource)
 
 
+def get_logical_switch(logical_switch_id):
+    resource = "logical-switches/%s" % logical_switch_id
+    return client.get_resource(resource)
+
+
+@utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision,
+                                  max_attempts=cfg.CONF.nsx_v3.retries)
+def update_logical_switch(lswitch_id, name=None, admin_state=None):
+    resource = "logical-switches/%s" % lswitch_id
+    lswitch = get_logical_switch(lswitch_id)
+    if name is not None:
+        lswitch['display_name'] = name
+    if admin_state is not None:
+        if admin_state:
+            lswitch['admin_state'] = nsx_constants.ADMIN_STATE_UP
+        else:
+            lswitch['admin_state'] = nsx_constants.ADMIN_STATE_DOWN
+    return client.update_resource(resource, lswitch)
+
+
 def create_logical_port(lswitch_id, vif_uuid, tags,
                         attachment_type=nsx_constants.ATTACHMENT_VIF,
                         admin_state=True, name=None, address_bindings=None,
