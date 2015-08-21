@@ -357,9 +357,9 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         tags = utils.build_v3_tags_payload(router['router'])
         result = nsxlib.create_logical_router(
             display_name=router['router'].get('name', 'a_router_with_no_name'),
+            tags=tags,
             tier_0=True,
-            edge_cluster_uuid=cfg.CONF.nsx_v3.default_edge_cluster_uuid,
-            tags=tags)
+            edge_cluster_uuid=cfg.CONF.nsx_v3.default_edge_cluster_uuid)
 
         with context.session.begin():
             router = super(NsxV3Plugin, self).create_router(
