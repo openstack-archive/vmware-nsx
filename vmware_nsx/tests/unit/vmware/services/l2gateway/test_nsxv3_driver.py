@@ -44,7 +44,7 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
     def setUp(self):
         super(TestNsxV3L2GatewayDriver, self).setUp()
         cfg.CONF.set_override("nsx_l2gw_driver",
-                              NSX_V3_L2GW_DRIVER_CLASS_PATH, 'NSX')
+                              NSX_V3_L2GW_DRIVER_CLASS_PATH)
         self.core_plugin = importutils.import_object(NSX_V3_PLUGIN_CLASS)
         self.l2gw_plugin = l2gw_plugin.NsxL2GatewayPlugin()
         self.driver = nsx_v3_driver.NsxV3Driver()

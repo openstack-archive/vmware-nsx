@@ -79,8 +79,6 @@ base_opts = [
                       " if one does not want to deploy a service node(s). "
                       "It must be set to 'service' for leveraging distributed "
                       "routers.")),
-    cfg.StrOpt('nsx_l2gw_driver',
-               help=_("Class path for the L2 gateway backend driver"))
 ]
 
 sync_opts = [
@@ -158,6 +156,11 @@ cluster_opts = [
                help=_("Name of the interface on a L2 Gateway transport node"
                       "which should be used by default when setting up a "
                       "network connection")),
+]
+
+nsx_common_opts = [
+    cfg.StrOpt('nsx_l2gw_driver',
+               help=_("Class path for the L2 gateway backend driver"))
 ]
 
 nsx_v3_opts = [
@@ -327,6 +330,7 @@ nsxv_opts = [
 # Register the configuration options
 cfg.CONF.register_opts(connection_opts)
 cfg.CONF.register_opts(cluster_opts)
+cfg.CONF.register_opts(nsx_common_opts)
 cfg.CONF.register_opts(nsx_v3_opts, group="nsx_v3")
 cfg.CONF.register_opts(nsxv_opts, group="nsxv")
 cfg.CONF.register_opts(base_opts, group="NSX")
