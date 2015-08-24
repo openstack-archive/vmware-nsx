@@ -24,11 +24,11 @@ httplib2 = eventlet.import_patched('httplib2')
 
 
 def _xmldump(obj):
-    """Sort of imporved xml creation method.
+    """Sort of improved xml creation method.
 
     This converts the dict to xml with following assumptions:
-    keys starting with _(underscore) are to be used as attributes and not
-    elements keys starting with @ are to there so that dict can be made.
+    Keys starting with _(underscore) are to be used as attributes and not
+    element keys starting with @ so that dict can be made.
     The keys are not part of any xml schema.
     """
 
