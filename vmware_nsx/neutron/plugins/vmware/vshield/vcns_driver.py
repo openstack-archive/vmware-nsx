@@ -38,13 +38,16 @@ class VcnsDriver(edge_appliance_driver.EdgeApplianceDriver,
         self.vcns_uri = cfg.CONF.nsxv.manager_uri
         self.vcns_user = cfg.CONF.nsxv.user
         self.vcns_passwd = cfg.CONF.nsxv.password
+        self.ca_file = cfg.CONF.nsxv.ca_file
+        self.insecure = cfg.CONF.nsxv.insecure
         self.datacenter_moid = cfg.CONF.nsxv.datacenter_moid
         self.deployment_container_id = cfg.CONF.nsxv.deployment_container_id
         self.resource_pool_id = cfg.CONF.nsxv.resource_pool_id
         self.datastore_id = cfg.CONF.nsxv.datastore_id
         self.external_network = cfg.CONF.nsxv.external_network
         self._task_manager = None
-        self.vcns = vcns.Vcns(self.vcns_uri, self.vcns_user, self.vcns_passwd)
+        self.vcns = vcns.Vcns(self.vcns_uri, self.vcns_user, self.vcns_passwd,
+                              self.ca_file, self.insecure)
 
     @property
     def task_manager(self):

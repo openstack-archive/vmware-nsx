@@ -206,6 +206,15 @@ nsxv_opts = [
     cfg.StrOpt('manager_uri',
                deprecated_group="vcns",
                help=_('uri for vsm')),
+    cfg.StrOpt('ca_file',
+               help='Specify a CA bundle file to use in verifying the NSXv '
+                    'server certificate.'),
+    cfg.BoolOpt('insecure',
+                default=True,
+                help='If true, the NSXv server certificate is not verified. '
+                     'If false, then the default CA truststore is used for '
+                     'verification. This option is ignored if "ca_file" is '
+                     'set.'),
     cfg.ListOpt('cluster_moid',
                 default=[],
                 help=_('Parameter listing the IDs of the clusters '
