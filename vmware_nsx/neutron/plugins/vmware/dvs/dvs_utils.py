@@ -29,6 +29,15 @@ dvs_opts = [
     cfg.FloatOpt('task_poll_interval',
                  default=0.5,
                  help='The interval used for polling of remote tasks.'),
+    cfg.StrOpt('ca_file',
+               help='Specify a CA bundle file to use in verifying the '
+                    'vCenter server certificate.'),
+    cfg.BoolOpt('insecure',
+                default=False,
+                help='If true, the vCenter server certificate is not '
+                     'verified. If false, then the default CA truststore is '
+                     'used for verification. This option is ignored if '
+                     '"ca_file" is set.'),
     cfg.IntOpt('api_retry_count',
                default=10,
                help='The number of times we retry on failures, e.g., '
@@ -53,7 +62,9 @@ def dvs_create_session():
                                 CONF.dvs.host_password,
                                 CONF.dvs.api_retry_count,
                                 CONF.dvs.task_poll_interval,
-                                port=CONF.dvs.host_port)
+                                port=CONF.dvs.host_port,
+                                cacert=CONF.dvs.ca_file,
+                                insecure=CONF.dvs.insecure)
 
 
 def dvs_name_get():
