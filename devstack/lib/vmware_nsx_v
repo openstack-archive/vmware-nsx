@@ -84,6 +84,8 @@ function neutron_plugin_configure_service {
     _nsxv_ini_set vdn_scope_id "$NSXV_VDN_SCOPE_ID"
     _nsxv_ini_set dvs_id "$NSXV_DVS_ID"
     _nsxv_ini_set manager_uri "$NSXV_MANAGER_URI"
+    _nsxv_ini_set ca_file "$NSXV_CA_FILE"
+    _nsxv_ini_set insecure "$NSXV_INSECURE"
     _nsxv_ini_set datacenter_moid "$NSXV_DATACENTER_MOID"
     _nsxv_ini_set datastore_id "$NSXV_DATASTORE_ID"
     _nsxv_ini_set resource_pool_id "$NSXV_RESOURCE_POOL_ID"

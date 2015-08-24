@@ -72,7 +72,8 @@ class VcnsApiHelper(object):
         503: exceptions.ServiceUnavailable
     }
 
-    def __init__(self, address, user, password, format='json'):
+    def __init__(self, address, user, password, format='json', ca_file=None,
+                 insecure=True):
         self.authToken = base64.encodestring("%s:%s" % (user, password))
         self.user = user
         self.passwd = password
@@ -82,12 +83,18 @@ class VcnsApiHelper(object):
             self.encode = jsonutils.dumps
         else:
             self.encode = xmldumps
+        self.ca_file = ca_file
+        self.insecure = insecure
 
     def request(self, method, uri, params=None, headers=None,
                 encodeparams=True):
         uri = self.address + uri
         http = httplib2.Http()
-        http.disable_ssl_certificate_validation = True
+        if self.ca_file is not None:
+            http.ca_certs = self.ca_file
+            http.disable_ssl_certificate_validation = False
+        else:
+            http.disable_ssl_certificate_validation = self.insecure
         if headers is None:
             headers = {}
 

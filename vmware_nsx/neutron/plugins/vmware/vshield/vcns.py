@@ -69,14 +69,22 @@ def retry_upon_exception(exc, delay=500, max_delay=2000,
 
 class Vcns(object):
 
-    def __init__(self, address, user, password):
+    def __init__(self, address, user, password, ca_file, insecure):
         self.address = address
         self.user = user
         self.password = password
+        self.ca_file = ca_file
+        self.insecure = insecure
         self.jsonapi_client = VcnsApiClient.VcnsApiHelper(address, user,
-                                                          password, 'json')
+                                                          password,
+                                                          format='json',
+                                                          ca_file=ca_file,
+                                                          insecure=insecure)
         self.xmlapi_client = VcnsApiClient.VcnsApiHelper(address, user,
-                                                         password, 'xml')
+                                                         password,
+                                                         format='xml',
+                                                         ca_file=ca_file,
+                                                         insecure=insecure)
 
     @retry_upon_exception(exceptions.ServiceConflict)
     def _client_request(self, client, method, uri,
