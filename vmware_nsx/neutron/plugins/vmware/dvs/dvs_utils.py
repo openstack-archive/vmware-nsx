@@ -17,14 +17,14 @@ from oslo_vmware import api
 
 dvs_opts = [
     cfg.StrOpt('host_ip',
-               help='Hostname or IP address for connection to VMware VC '
+               help='Hostname or IP address for connection to VMware vCenter '
                     'host.'),
     cfg.IntOpt('host_port', default=443,
-               help='Port for connection to VMware VC host.'),
+               help='Port for connection to VMware vCenter host.'),
     cfg.StrOpt('host_username',
-               help='Username for connection to VMware VC host.'),
+               help='Username for connection to VMware vCenter host.'),
     cfg.StrOpt('host_password',
-               help='Password for connection to VMware VC host.',
+               help='Password for connection to VMware vCenter host.',
                secret=True),
     cfg.FloatOpt('task_poll_interval',
                  default=0.5,
