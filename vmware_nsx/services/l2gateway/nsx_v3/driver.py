@@ -203,7 +203,10 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
                         'device_owner': nsx_constants.BRIDGE_ENDPOINT,
                         'name': '', }}
         try:
-            port = self._core_plugin.create_port(context, port_dict)
+            #TODO(abhiraut): Consider adding UT for port check once UTs are
+            #                refactored
+            port = self._core_plugin.create_port(context, port_dict,
+                                                 l2gw_port_check=True)
             # Deallocate IP address from the port.
             for fixed_ip in port.get('fixed_ips', []):
                 self._core_plugin._delete_ip_allocation(context, network_id,
