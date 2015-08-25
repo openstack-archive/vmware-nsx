@@ -32,7 +32,8 @@ def _get_manager_endpoint():
     manager = _get_manager_ip()
     username = cfg.CONF.nsx_v3.nsx_user
     password = cfg.CONF.nsx_v3.nsx_password
-    return "https://%s" % manager, username, password
+    verify_cert = not cfg.CONF.nsx_v3.insecure
+    return "https://%s" % manager, username, password, verify_cert
 
 
 def _get_manager_ip():
@@ -65,46 +66,49 @@ def _validate_result(result, expected, operation):
 
 
 def get_resource(resource):
-    manager, user, password = _get_manager_endpoint()
+    manager, user, password, verify = _get_manager_endpoint()
     url = manager + "/api/v1/%s" % resource
     headers = {'Accept': 'application/json'}
     result = requests.get(url, auth=auth.HTTPBasicAuth(user, password),
-                          verify=False, headers=headers)
+                          verify=verify, headers=headers,
+                          cert=cfg.CONF.nsx_v3.ca_file)
     _validate_result(result, [requests.codes.ok],
                      _("reading resource: %s") % resource)
     return result.json()
 
 
 def create_resource(resource, data):
-    manager, user, password = _get_manager_endpoint()
+    manager, user, password, verify = _get_manager_endpoint()
     url = manager + "/api/v1/%s" % resource
     headers = {'Content-Type': 'application/json',
                'Accept': 'application/json'}
     result = requests.post(url, auth=auth.HTTPBasicAuth(user, password),
-                           verify=False, headers=headers,
-                           data=jsonutils.dumps(data))
+                           verify=verify, headers=headers,
+                           data=jsonutils.dumps(data),
+                           cert=cfg.CONF.nsx_v3.ca_file)
     _validate_result(result, [requests.codes.created],
                      _("creating resource at: %s") % resource)
     return result.json()
 
 
 def update_resource(resource, data):
-    manager, user, password = _get_manager_endpoint()
+    manager, user, password, verify = _get_manager_endpoint()
     url = manager + "/api/v1/%s" % resource
     headers = {'Content-Type': 'application/json',
                'Accept': 'application/json'}
     result = requests.put(url, auth=auth.HTTPBasicAuth(user, password),
-                          verify=False, headers=headers,
-                          data=jsonutils.dumps(data))
+                          verify=verify, headers=headers,
+                          data=jsonutils.dumps(data),
+                          cert=cfg.CONF.nsx_v3.ca_file)
     _validate_result(result, [requests.codes.ok],
                      _("updating resource: %s") % resource)
     return result.json()
 
 
 def delete_resource(resource):
-    manager, user, password = _get_manager_endpoint()
+    manager, user, password, verify = _get_manager_endpoint()
     url = manager + "/api/v1/%s" % resource
     result = requests.delete(url, auth=auth.HTTPBasicAuth(user, password),
-                             verify=False)
+                             verify=verify, cert=cfg.CONF.nsx_v3.ca_file)
     _validate_result(result, [requests.codes.ok],
                      _("deleting resource: %s") % resource)

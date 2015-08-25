@@ -110,6 +110,8 @@ function neutron_plugin_configure_service {
     _nsxv3_ini_set nsx_user $NSX_USER
     _nsxv3_ini_set nsx_password $NSX_PASSWORD
     _nsxv3_ini_set retries $NSX_RETRIES
+    _nsxv3_ini_set insecure $NSX_INSECURE
+    _nsxv3_ini_set ca_file $NSX_CA_FILE
 }
 
 function neutron_plugin_setup_interface_driver {
