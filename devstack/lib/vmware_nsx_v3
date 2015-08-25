@@ -84,15 +84,17 @@ function neutron_plugin_configure_plugin_agent {
     die $LINENO "q-agt must not be executed with VMware NSX plugin!"
 }
 
+function _nsxv3_ini_set {
+    if [[ $2 != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE nsx_v3 $1 $2
+    elif [[ $3 != "" ]]; then
+        die $LINENO $3
+    fi
+}
+
 function neutron_plugin_configure_service {
-    if [[ "$DEFAULT_OVERLAY_TZ_UUID" != "" ]]; then
-        iniset /$Q_PLUGIN_CONF_FILE nsx_v3 default_overlay_tz_uuid $DEFAULT_OVERLAY_TZ_UUID
-    else
-        die $LINENO "The VMware NSX plugin won't work without a default transport zone."
-    fi
-    if [[ "$DEFAULT_VLAN_TZ_UUID" != "" ]]; then
-        iniset /$Q_PLUGIN_CONF_FILE nsx_v3 default_vlan_tz_uuid $DEFAULT_VLAN_TZ_UUID
-    fi
+    _nsxv3_ini_set default_overlay_tz_uuid $DEFAULT_OVERLAY_TZ_UUID "The VMware NSX plugin won't work without a default transport zone."
+    _nsxv3_ini_set default_vlan_tz_uuid $DEFAULT_VLAN_TZ_UUID
     if [[ "$DEFAULT_EDGE_CLUSTER_UUID" != "" ]]; then
         iniset /$Q_PLUGIN_CONF_FILE nsx_v3 default_edge_cluster_uuid $DEFAULT_EDGE_CLUSTER_UUID
         Q_L3_ENABLED=True
@@ -104,20 +106,10 @@ function neutron_plugin_configure_service {
     else
         die $LINENO "The VMware NSX plugin needs at least an NSX controller."
     fi
-    if [[ "$NSX_MANAGER" != "" ]]; then
-        iniset /$Q_PLUGIN_CONF_FILE nsx_v3 nsx_manager $NSX_MANAGER
-    else
-        die $LINENO "The VMware NSX plugin needs a NSX manager."
-    fi
-    if [[ "$NSX_USER" != "" ]]; then
-        iniset /$Q_PLUGIN_CONF_FILE nsx_v3 nsx_user $NSX_USER
-    fi
-    if [[ "$NSX_PASSWORD" != "" ]]; then
-        iniset /$Q_PLUGIN_CONF_FILE nsx_v3 nsx_password $NSX_PASSWORD
-    fi
-    if [[ "$NSX_RETRIES" != "" ]]; then
-        iniset /$Q_PLUGIN_CONF_FILE nsx_v3 retries $NSX_RETRIES
-    fi
+    _nsxv3_ini_set nsx_manager $NSX_MANAGER "The VMWare NSX plugin needs a NSX manager."
+    _nsxv3_ini_set nsx_user $NSX_USER
+    _nsxv3_ini_set nsx_password $NSX_PASSWORD
+    _nsxv3_ini_set retries $NSX_RETRIES
 }
 
 function neutron_plugin_setup_interface_driver {
