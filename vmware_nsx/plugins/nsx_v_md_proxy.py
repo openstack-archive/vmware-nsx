@@ -553,7 +553,7 @@ class NsxVMetadataProxyHandler:
 
         lb_obj.submit_to_backend(
             self.nsxv_plugin.nsx_v.vcns,
-            edge_id)
+            edge_id, async=False)
 
     def configure_router_edge(self, rtr_id, context=None):
         # Connect router interface to inter-edge network
