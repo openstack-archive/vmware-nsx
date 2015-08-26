@@ -125,8 +125,10 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         self._psec_profile = self._init_port_security_profile()
         if not self._psec_profile:
             msg = (_("Unable to initialize NSX v3 port spoofguard "
-                    "switching profile: %s") % NSX_V3_PSEC_PROFILE_NAME)
+                     "switching profile: %s") % NSX_V3_PSEC_PROFILE_NAME)
             raise nsx_exc.NsxPluginException(msg)
+        LOG.debug("Initializing NSX v3 DHCP switching profile")
+        self._dhcp_profile = self._init_dhcp_switching_profile()
         self._unsubscribe_callback_events()
 
     def _unsubscribe_callback_events(self):
@@ -137,6 +139,39 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         registry.unsubscribe(l3_db._prevent_l3_port_delete_callback,
                              resources.PORT,
                              events.BEFORE_DELETE)
+
+    def _validate_dhcp_profile(self, dhcp_profile_uuid):
+        dhcp_profile = self._switching_profiles.get(dhcp_profile_uuid)
+        if (dhcp_profile.get('resource_type') !=
+            nsx_resources.SwitchingProfileTypes.SWITCH_SECURITY):
+            msg = _("Invalid configuration on the backend for DHCP "
+                    "switching profile %s. Switching Profile must be of type "
+                    "'Switch Security'") % dhcp_profile_uuid
+            raise n_exc.InvalidInput(error_message=msg)
+        dhcp_filter = dhcp_profile.get('dhcp_filter')
+        if (not dhcp_filter or dhcp_filter.get('client_block_enabled') or
+            dhcp_filter.get('server_block_enabled')):
+            msg = _("Invalid configuration on the backend for DHCP "
+                    "switching profile %s. DHCP Server Block and Client Block "
+                    "must be disabled") % dhcp_profile_uuid
+            raise n_exc.InvalidInput(error_message=msg)
+
+    def _init_dhcp_switching_profile(self):
+        dhcp_profile_uuid = cfg.CONF.nsx_v3.default_switching_profile_dhcp_uuid
+        if not dhcp_profile_uuid:
+            LOG.warning(_LW("Switching profile for DHCP ports not configured "
+                            "in the config file."))
+            return
+        if not uuidutils.is_uuid_like(dhcp_profile_uuid):
+            LOG.warning(_LW("default_switching_profile_dhcp_uuid: %s. DHCP "
+                            "profile must be configured with a UUID"),
+                        dhcp_profile_uuid)
+            return
+        self._validate_dhcp_profile(dhcp_profile_uuid)
+        return nsx_resources.SwitchingProfileTypeId(
+            profile_type=(nsx_resources.SwitchingProfileTypes.
+                          SWITCH_SECURITY),
+            profile_id=dhcp_profile_uuid)
 
     def _get_port_security_profile_id(self):
         return nsx_resources.SwitchingProfile.build_switch_profile_ids(
@@ -503,9 +538,17 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             vif_uuid = port_data.get('device_id')
             attachment_type = port_data.get('device_owner')
 
-        profiles = None
+        profiles = []
         if psec_is_on:
             profiles = [self._get_port_security_profile_id()]
+        if port_data.get('device_owner') == const.DEVICE_OWNER_DHCP:
+            if self._dhcp_profile:
+                profiles.append(self._dhcp_profile)
+            else:
+                LOG.warning(_LW("No DHCP switching profile configured in the "
+                                "config file. DHCP port: %s configured with "
+                                "default profile on the backend"),
+                            port_data['id'])
 
         result = self._port_client.create(
             port_data['network_id'], vif_uuid,
