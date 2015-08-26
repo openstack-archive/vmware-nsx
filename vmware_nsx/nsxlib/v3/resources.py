@@ -71,6 +71,7 @@ class SwitchingProfileTypes(object):
     PORT_MIRRORING = 'PortMirroringSwitchingProfile'
     QOS = 'QosSwitchingProfile'
     SPOOF_GUARD = 'SpoofGuardSwitchingProfile'
+    SWITCH_SECURITY = 'SwitchSecuritySwitchingProfile'
 
 
 class WhiteListAddressTypes(object):
