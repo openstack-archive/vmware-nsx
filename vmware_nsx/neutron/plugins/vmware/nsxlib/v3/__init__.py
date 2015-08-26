@@ -55,7 +55,20 @@ def delete_logical_switch(lswitch_id):
 
 def create_logical_port(lswitch_id, vif_uuid, tags,
                         attachment_type=nsx_constants.ATTACHMENT_VIF,
-                        admin_state=True, name=None, address_bindings=None):
+                        admin_state=True, name=None, address_bindings=None,
+                        parent_name=None, parent_tag=None):
+
+    # NOTE(arosen): if a parent_name is specified we need to use the
+    # CIF's attachment.
+    key_values = None
+    if parent_name:
+        attachment_type = nsx_constants.ATTACHMENT_CIF
+        key_values = [
+            {'key': 'VLAN_ID', 'value': parent_tag},
+            {'key': 'Host_VIF_ID', 'value': parent_name},
+            {'key': 'IP', 'value': address_bindings[0]['ip_address']},
+            {'key': 'MAC', 'value': address_bindings[0]['mac_address']}]
+        # NOTE(arosen): The above api body structure might change in the future
 
     resource = 'logical-ports'
     body = {'logical_switch_id': lswitch_id,
@@ -69,6 +82,10 @@ def create_logical_port(lswitch_id, vif_uuid, tags,
     else:
         body['admin_state'] = nsx_constants.ADMIN_STATE_DOWN
 
+    if key_values:
+        body['attachment']['context'] = {'key_values': key_values}
+        body['attachment']['context']['resource_type'] = \
+            nsx_constants.CIF_RESOURCE_TYPE
     if address_bindings:
         body['address_bindings'] = address_bindings
 
