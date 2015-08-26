@@ -328,6 +328,9 @@ class TestL3NatTestCase(L3NatTest,
                 gw_info = body['router']['external_gateway_info']
                 self.assertIsNone(gw_info)
 
+    def test_create_router_gateway_fails(self):
+        self.skipTest('not supported')
+
 
 class ExtGwModeTestCase(L3NatTest,
                         test_ext_gw_mode.ExtGwModeIntTestCase):

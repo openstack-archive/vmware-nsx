@@ -2219,6 +2219,9 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
             with self.subnet(network=net, enable_dhcp=False):
                 self._make_floatingip(self.fmt, net_id)
 
+    def test_create_router_gateway_fails(self):
+        self.skipTest('not supported')
+
 
 class ExtGwModeTestCase(NsxVPluginV2TestCase,
                         test_ext_gw_mode.ExtGwModeIntTestCase):
@@ -2497,6 +2500,9 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
 
     def test_router_add_interface_multiple_ipv6_subnets_different_net(self):
         self.skipTest('TBD')
+
+    def test_create_router_gateway_fails(self):
+        self.skipTest('not supported')
 
 
 class TestNSXvAllowedAddressPairs(test_addr_pair.TestAllowedAddressPairs,

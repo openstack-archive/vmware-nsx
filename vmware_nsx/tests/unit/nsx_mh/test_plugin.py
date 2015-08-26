@@ -1071,6 +1071,9 @@ class TestL3NatTestCase(L3NatTest,
     def test_floating_port_status_not_applicable(self):
         self.skipTest('Plugin changes floating port status')
 
+    def test_create_router_gateway_fails(self):
+        self.skipTest('not supported')
+
 
 class ExtGwModeTestCase(NsxPluginV2TestCase,
                         test_ext_gw_mode.ExtGwModeIntTestCase):
