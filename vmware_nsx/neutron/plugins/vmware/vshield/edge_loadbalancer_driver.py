@@ -256,11 +256,14 @@ class EdgeLbDriver(object):
         # self.vcns is initialized by subclass
         self.vcns = None
         self._fw_section_id = None
+        self._lb_plugin = None
         self._lb_driver_prop = None
 
     def _get_lb_plugin(self):
-        loaded_plugins = manager.NeutronManager().get_service_plugins()
-        return loaded_plugins[constants.LOADBALANCER]
+        if not self._lb_plugin:
+            loaded_plugins = manager.NeutronManager().get_service_plugins()
+            self._lb_plugin = loaded_plugins[constants.LOADBALANCER]
+        return self._lb_plugin
 
     @property
     def _lb_driver(self):
