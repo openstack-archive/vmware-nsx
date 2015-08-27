@@ -35,6 +35,8 @@ class DvsUtilsTestCase(base.BaseTestCase):
                               group='dvs')
         cfg.CONF.set_override('dvs_name', 'fake_dvs', group='dvs')
         cfg.CONF.set_override('host_port', '443', group='dvs')
+        cfg.CONF.set_override('ca_file', 'cacert', group='dvs')
+        cfg.CONF.set_override('insecure', False, group='dvs')
 
     def test_dvs_set(self):
         self._dvs_fake_cfg_set()
@@ -49,7 +51,9 @@ class DvsUtilsTestCase(base.BaseTestCase):
                                           cfg.CONF.dvs.host_password,
                                           cfg.CONF.dvs.api_retry_count,
                                           cfg.CONF.dvs.task_poll_interval,
-                                          port=cfg.CONF.dvs.host_port)
+                                          port=cfg.CONF.dvs.host_port,
+                                          cacert=cfg.CONF.dvs.ca_file,
+                                          insecure=cfg.CONF.dvs.insecure)
 
     def test_dvs_name_get(self):
         cfg.CONF.set_override('dvs_name', 'fake-dvs', group='dvs')
