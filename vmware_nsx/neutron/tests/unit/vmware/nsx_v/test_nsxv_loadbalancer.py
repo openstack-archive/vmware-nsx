@@ -74,7 +74,7 @@ class NsxvLoadbalancerTestCase(base.BaseTestCase):
     def setUp(self):
         super(NsxvLoadbalancerTestCase, self).setUp()
         self._lb = nsxv_loadbalancer.NsxvLoadbalancer()
-        self._vcns = vcns.Vcns(None, None, None)
+        self._vcns = vcns.Vcns(None, None, None, None, True)
 
     def test_get_edge_loadbalancer(self):
         h = None
