@@ -57,6 +57,7 @@ metadata_opts = [
     cfg.IntOpt('metadata_server_port',
                deprecated_group='NVP_METADATA',
                default=8775,
+               min=1, max=65535,
                help=_("TCP Port used by Metadata server.")),
     cfg.StrOpt('metadata_shared_secret',
                deprecated_group='NVP_METADATA',

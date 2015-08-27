@@ -248,8 +248,9 @@ nsxv_opts = [
                help=_('DVS ID for VLANs')),
     cfg.IntOpt('maximum_tunnels_per_vnic',
                default=DEFAULT_MAXIMUM_TUNNELS_PER_VNIC,
+               min=1, max=110,
                help=_('Maximum number of sub interfaces supported '
-                      'per vnic in edge. The value should be in 1-110.')),
+                      'per vnic in edge.')),
     cfg.ListOpt('backup_edge_pool',
                 default=['service:large:4:10',
                          'service:compact:4:10',
@@ -275,6 +276,7 @@ nsxv_opts = [
                 help=_('IP addresses used by Nova metadata service')),
     cfg.IntOpt('nova_metadata_port',
                default=8775,
+               min=1, max=65535,
                help=_("TCP Port used by Nova metadata server")),
     cfg.StrOpt('metadata_shared_secret',
                secret=True,
