@@ -45,6 +45,7 @@ from oslo_utils import uuidutils
 import six
 import webob.exc
 
+from vmware_nsx.neutron.plugins.vmware.common import nsx_constants
 from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
 from vmware_nsx.neutron.plugins.vmware.extensions import (
     routertype as router_type)
@@ -317,7 +318,7 @@ class TestPortsV2(NsxVPluginV2TestCase,
                   test_bindings.PortBindingsHostTestCaseMixin,
                   test_bindings.PortBindingsVnicTestCaseMixin):
 
-    VIF_TYPE = portbindings.VIF_TYPE_DVS
+    VIF_TYPE = nsx_constants.VIF_TYPE_DVS
     HAS_PORT_FILTER = True
 
     def test_create_port_json(self):

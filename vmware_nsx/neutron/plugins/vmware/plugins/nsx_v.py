@@ -54,6 +54,7 @@ from vmware_nsx.neutron.plugins import vmware
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
 from vmware_nsx.neutron.plugins.vmware.common import locking
+from vmware_nsx.neutron.plugins.vmware.common import nsx_constants
 from vmware_nsx.neutron.plugins.vmware.common import utils as c_utils
 from vmware_nsx.neutron.plugins.vmware.dbexts import (
     routertype as rt_rtr)
@@ -117,7 +118,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
         self.base_binding_dict = {
             pbin.VNIC_TYPE: pbin.VNIC_NORMAL,
-            pbin.VIF_TYPE: pbin.VIF_TYPE_DVS,
+            pbin.VIF_TYPE: nsx_constants.VIF_TYPE_DVS,
             pbin.VIF_DETAILS: {
                 # TODO(rkukura): Replace with new VIF security details
                 pbin.CAP_PORT_FILTER:

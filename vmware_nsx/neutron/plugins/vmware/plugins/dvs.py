@@ -42,6 +42,7 @@ from neutron.plugins.common import utils
 from vmware_nsx.neutron.plugins import vmware
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
+from vmware_nsx.neutron.plugins.vmware.common import nsx_constants
 from vmware_nsx.neutron.plugins.vmware.common import utils as c_utils
 from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
 from vmware_nsx.neutron.plugins.vmware import dhcpmeta_modes
@@ -84,7 +85,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
 
         # Common driver code
         self.base_binding_dict = {
-            pbin.VIF_TYPE: pbin.VIF_TYPE_DVS,
+            pbin.VIF_TYPE: nsx_constants.VIF_TYPE_DVS,
             pbin.VIF_DETAILS: {
                 # TODO(rkukura): Replace with new VIF security details
                 pbin.CAP_PORT_FILTER:
