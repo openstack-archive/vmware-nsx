@@ -116,9 +116,9 @@ class EdgeManager(object):
     def _get_per_edge_rp_filter_state(self):
         version = self.nsxv_manager.vcns.get_version()
         # TODO(kobis): should have better mapping of versions here for this
-        if version[:3] == '6.2':
-            return True
-        return False
+        if version[:3] == '6.1':
+            return False
+        return True
 
     def _deploy_edge(self, context, lrouter,
                      lswitch=None, appliance_size=nsxv_constants.LARGE,
