@@ -1527,6 +1527,20 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
             for k, v in expected:
                 self.assertEqual(net['network'][k], v)
 
+    def test_create_router_fail_at_the_backend(self):
+        p = manager.NeutronManager.get_plugin()
+        edge_manager = p.edge_manager
+        with mock.patch.object(edge_manager, 'create_lrouter',
+                               side_effect=[n_exc.NeutronException]):
+            router = {'router': {'admin_state_up': True,
+                      'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
+                      'router_type': 'exclusive'}}
+            self.assertRaises(n_exc.NeutronException,
+                              p.create_router,
+                              context.get_admin_context(),
+                              router)
+            self._test_list_resources('router', ())
+
     def test_create_l3_ext_network_with_dhcp(self):
         with self._create_l3_ext_network() as net:
             with testlib_api.ExpectedException(
@@ -1975,6 +1989,20 @@ class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
 class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                       test_l3_plugin.L3NatDBIntTestCase,
                       NsxVPluginV2TestCase):
+
+    def test_create_router_fail_at_the_backend(self):
+        p = manager.NeutronManager.get_plugin()
+        edge_manager = p.edge_manager
+        with mock.patch.object(edge_manager, 'create_lrouter',
+                               side_effect=[n_exc.NeutronException]):
+            router = {'router': {'admin_state_up': True,
+                      'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
+                      'distributed': True}}
+            self.assertRaises(n_exc.NeutronException,
+                              p.create_router,
+                              context.get_admin_context(),
+                              router)
+            self._test_list_resources('router', ())
 
     def test_update_port_device_id_to_different_tenants_router(self):
         self.skipTest('TBD')
