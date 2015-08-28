@@ -625,11 +625,20 @@ class TestEdgeLbDriver(base.BaseTestCase):
                      'rateLimit': 0,
                      'member': [
                          {'status': 'UP',
-                          'name': 'Member-1',
+                          'name': 'member-xxx-xxx-xxx-xxx',
                           'bytesOut': 0,
                           'memberId': 'member-1',
                           'totalSessions': 20000,
                           'ipAddress': '192.168.55.101',
+                          'httpReqRateMax': 0,
+                          'curSessions': 0,
+                          'bytesIn': 0},
+                         {'status': 'UP',
+                          'name': 'member-yyy-yyy-yyy-yyy',
+                          'bytesOut': 0,
+                          'memberId': 'member-2',
+                          'totalSessions': 20000,
+                          'ipAddress': '192.168.55.102',
                           'httpReqRateMax': 0,
                           'curSessions': 0,
                           'bytesIn': 0}],
@@ -642,10 +651,18 @@ class TestEdgeLbDriver(base.BaseTestCase):
                           'bytes_in': 1000000,
                           'bytes_out': 100000,
                           'total_connections': 10000,
-                          'members': {'1': {'status': 'ACTIVE'}}}
+                          'members': {'xxx-xxx-xxx-xxx': {'status': 'ACTIVE'}}}
 
+        members = [{'id': 'xxx-xxx-xxx-xxx', 'status': 'ACTIVE'},
+                   {'id': 'yyy-yyy-yyy-yyy', 'status': 'ERROR'}]
+        mock_lb_plugin = mock.Mock()
         with mock.patch.object(self.edge_driver.vcns,
                                'get_loadbalancer_statistics',
-                               return_value=pool_stats):
+                               return_value=pool_stats), \
+            mock.patch.object(self.edge_driver,
+                              '_get_lb_plugin',
+                              return_value=mock_lb_plugin), \
+            mock.patch.object(mock_lb_plugin, 'get_members',
+                              return_value=members):
             stats = self.edge_driver.stats(self.context, POOL_ID, pool_mapping)
             self.assertEqual(stats, expected_stats)
