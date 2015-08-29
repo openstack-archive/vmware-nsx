@@ -26,6 +26,9 @@ from vmware_nsx.neutron.plugins.vmware.nsxlib.v3 import client as nsclient
 # firewall section types
 LAYER3 = 'LAYER3'
 
+INSERT_BEFORE = 'insert_before'
+INSERT_BOTTOM = 'insert_bottom'
+
 # firewall rule actions
 ALLOW = 'ALLOW'
 DROP = 'DROP'
@@ -42,6 +45,7 @@ IPV6ADDRESS = 'IPv6Address'
 
 IN = 'IN'
 OUT = 'OUT'
+IN_OUT = 'IN_OUT'
 
 # NSServices resource types
 L4_PORT_SET_NSSERVICE = 'L4PortSetNSService'
@@ -55,6 +59,7 @@ ICMPV6 = 'ICMPv6'
 
 IPV4 = 'IPV4'
 IPV6 = 'IPV6'
+IPV4_IPV6 = 'IPV4_IPV6'
 
 
 def get_nsservice(resource_type, **properties):
@@ -71,7 +76,7 @@ def create_nsgroup(display_name, description, tags):
 
 
 def list_nsgroups():
-    return nsclient.get_resource('ns-groups')
+    return nsclient.get_resource('ns-groups').get('results', [])
 
 
 @utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision)
@@ -124,9 +129,12 @@ def _build_section(display_name, description, applied_tos, tags):
             'tags': tags}
 
 
-def create_empty_section(display_name, description, applied_tos, tags):
-    resource = 'firewall/sections'
+def create_empty_section(display_name, description, applied_tos, tags,
+                         operation=INSERT_BOTTOM, other_section=None):
+    resource = 'firewall/sections?operation=%s' % operation
     body = _build_section(display_name, description, applied_tos, tags)
+    if other_section:
+        resource += '&id=%s' % other_section
     return nsclient.create_resource(resource, body)
 
 
@@ -148,7 +156,7 @@ def read_section(section_id):
 
 def list_sections():
     resource = 'firewall/sections'
-    return nsclient.get_resource(resource)
+    return nsclient.get_resource(resource).get('results', [])
 
 
 def delete_section(section_id):
@@ -167,8 +175,9 @@ def get_ip_cidr_reference(ip_cidr_block, ip_protocol):
             'target_type': target_type}
 
 
-def get_firewall_rule_dict(display_name, source, destination, direction,
-                           ip_protocol, service, action):
+def get_firewall_rule_dict(display_name, source=None, destination=None,
+                           direction=IN_OUT, ip_protocol=IPV4_IPV6,
+                           service=None, action=ALLOW):
     return {'display_name': display_name,
             'sources': [source] if source else [],
             'destinations': [destination] if destination else [],

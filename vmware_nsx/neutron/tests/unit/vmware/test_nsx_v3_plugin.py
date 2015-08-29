@@ -33,8 +33,6 @@ class NsxPluginV3TestCase(test_plugin.NeutronDbPluginV2TestCase):
               plugin=PLUGIN_NAME,
               ext_mgr=None,
               service_plugins=None):
-        super(NsxPluginV3TestCase, self).setUp(plugin=plugin,
-                                               ext_mgr=ext_mgr)
         cfg.CONF.set_override('nsx_manager', '1.2.3.4', 'nsx_v3')
         # Mock entire nsxlib methods as this is the best approach to perform
         # white-box testing on the plugin class
@@ -56,6 +54,9 @@ class NsxPluginV3TestCase(test_plugin.NeutronDbPluginV2TestCase):
         firewall.nsclient.get_resource = nsx_v3_mocks.get_resource
         firewall.nsclient.delete_resource = nsx_v3_mocks.delete_resource
 
+        super(NsxPluginV3TestCase, self).setUp(plugin=plugin,
+                                               ext_mgr=ext_mgr)
+
 
 class TestNetworksV2(test_plugin.TestNetworksV2, NsxPluginV3TestCase):
     pass
@@ -70,8 +71,6 @@ class SecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
     def setUp(self,
               plugin=PLUGIN_NAME,
               ext_mgr=None):
-        super(SecurityGroupsTestCase, self).setUp(plugin=PLUGIN_NAME,
-                                                  ext_mgr=ext_mgr)
         nsxlib.create_logical_switch = nsx_v3_mocks.create_logical_switch
         nsxlib.create_logical_port = nsx_v3_mocks.create_logical_port
         nsxlib.update_logical_port = nsx_v3_mocks.update_logical_port
@@ -84,6 +83,9 @@ class SecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
         firewall.nsclient.update_resource = nsx_v3_mocks.update_resource
         firewall.nsclient.get_resource = nsx_v3_mocks.get_resource
         firewall.nsclient.delete_resource = nsx_v3_mocks.delete_resource
+
+        super(SecurityGroupsTestCase, self).setUp(plugin=PLUGIN_NAME,
+                                                  ext_mgr=ext_mgr)
 
 
 class TestSecurityGroups(ext_sg.TestSecurityGroups, SecurityGroupsTestCase):

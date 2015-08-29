@@ -24,6 +24,10 @@ from vmware_nsx.neutron.plugins.vmware.dbexts import nsx_models
 from vmware_nsx.neutron.plugins.vmware.nsxlib.v3 import dfw_api as firewall
 
 
+NSGROUP_CONTAINER = 'NSGroup Container'
+DEFAULT_SECTION = 'OS default section for security-groups'
+
+
 def _get_l4_protocol_name(proto_num):
     if proto_num == 6:
         return firewall.TCP
@@ -170,3 +174,48 @@ def update_lport_with_security_groups(context, lport_id, original, updated):
         nsgroup_id, _ = get_sg_mappings(context.session, sg_id)
         firewall.remove_nsgroup_member(
             nsgroup_id, lport_id)
+
+
+def init_nsgroup_container_and_default_section_rules():
+    # REVISIT(roeyc): Should handle Neutron active-active
+    # deployment scenario.
+    nsgroup_description = ('This NSGroup is necessary for OpenStack '
+                           'integration, do not delete.')
+    section_description = ("This section is handled by OpenStack to contain "
+                           "default rules on security-groups.")
+
+    nsgroup_id = _init_nsgroup_container(NSGROUP_CONTAINER,
+                                         nsgroup_description)
+    section_id = _init_default_section(
+        DEFAULT_SECTION, section_description, nsgroup_id)
+    return nsgroup_id, section_id
+
+
+def _init_nsgroup_container(name, description):
+    nsgroups = firewall.list_nsgroups()
+    for nsg in nsgroups:
+        if nsg['display_name'] == name:
+            # NSGroup container exists and so should the OS default
+            # security-groups section.
+            break
+    else:
+        # Need to create the nsgroup container and the OS default
+        # security-groups section.
+        nsg = firewall.create_nsgroup(name, description, [])
+    return nsg['id']
+
+
+def _init_default_section(name, description, nsgroup_id):
+    fw_sections = firewall.list_sections()
+    for section in fw_sections:
+        if section['display_name'] == name:
+            break
+    else:
+        section = firewall.create_empty_section(
+            name, description, [nsgroup_id], [])
+        # TODO(roeyc): Add aditional rules to allow IPV6 NDP.
+        block_rule = firewall.get_firewall_rule_dict(
+            'Block All', action=firewall.DROP)
+        firewall.add_rule_in_section(block_rule, section['id'])
+
+    return section['id']

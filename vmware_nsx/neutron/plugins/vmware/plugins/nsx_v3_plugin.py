@@ -94,6 +94,8 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                 'security-group' in self.supported_extension_aliases}}
         self.tier0_groups_dict = {}
         self._setup_rpc()
+        self.nsgroup_container, self.default_section = (
+            security.init_nsgroup_container_and_default_section_rules())
 
     def _setup_rpc(self):
         self.topic = topics.PLUGIN
@@ -645,8 +647,11 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             ns_group = firewall.create_nsgroup(
                 name, secgroup['description'], tags)
             # security-group rules are located in a dedicated firewall section.
-            firewall_section = firewall.create_empty_section(
-                name, secgroup.get('description', ''), [ns_group['id']], tags)
+            firewall_section = (
+                firewall.create_empty_section(
+                    name, secgroup.get('description', ''), [ns_group['id']],
+                    tags, operation=firewall.INSERT_BEFORE,
+                    other_section=self.default_section))
 
             # REVISIT(roeyc): Idealy, at this point we need not be under an
             # open db transactions, however, unittests fail if omitting
@@ -680,6 +685,9 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             rules = security.create_firewall_rules(
                 context, firewall_section['id'], ns_group['id'], sg_rules)
             security.save_sg_rule_mappings(context.session, rules['rules'])
+
+            firewall.add_nsgroup_member(self.nsgroup_container,
+                                        firewall.NSGROUP, ns_group['id'])
         except nsx_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("Failed to create backend firewall rules "
