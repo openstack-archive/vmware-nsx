@@ -27,6 +27,7 @@ from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
 from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
 from neutron.api.v2 import attributes
+from neutron.extensions import extra_dhcp_opt as edo_ext
 from neutron.extensions import l3
 from neutron.extensions import portbindings as pbin
 from neutron.extensions import providernet as pnet
@@ -38,6 +39,7 @@ from neutron.common import topics
 from neutron.db import agents_db
 from neutron.db import agentschedulers_db
 from neutron.db import db_base_plugin_v2
+from neutron.db import extradhcpopt_db
 from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron.db import portbindings_db
@@ -59,7 +61,8 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                   securitygroups_db.SecurityGroupDbMixin,
                   l3_db.L3_NAT_dbonly_mixin,
                   portbindings_db.PortBindingMixin,
-                  agentschedulers_db.DhcpAgentSchedulerDbMixin):
+                  agentschedulers_db.DhcpAgentSchedulerDbMixin,
+                  extradhcpopt_db.ExtraDhcpOptMixin):
     # NOTE(salv-orlando): Security groups are not actually implemented by this
     # plugin at the moment
 
@@ -69,6 +72,7 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     supported_extension_aliases = ["quotas",
                                    "binding",
+                                   "extra_dhcp_opt",
                                    "security-group",
                                    "router",
                                    "provider"]
@@ -318,6 +322,7 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         return parent_name, tag
 
     def create_port(self, context, port):
+        dhcp_opts = port['port'].get(edo_ext.EXTRADHCPOPTS, [])
         port_id = uuidutils.generate_uuid()
         tags = utils.build_v3_tags_payload(port['port'])
         port['port']['id'] = port_id
@@ -358,6 +363,8 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             sgids = self._get_security_groups_on_port(context, port)
             self._process_port_create_security_group(
                 context, neutron_db, sgids)
+            self._process_port_create_extra_dhcp_opts(context, neutron_db,
+                                                      dhcp_opts)
 
         return neutron_db
 
@@ -376,6 +383,8 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         with context.session.begin(subtransactions=True):
             updated_port = super(NsxV3Plugin, self).update_port(context,
                                                                 id, port)
+            self._update_extra_dhcp_opts_on_port(context, id, port,
+                                                 updated_port)
             sec_grp_updated = self.update_security_group_on_port(
                                   context, id, port, original_port,
                                   updated_port)

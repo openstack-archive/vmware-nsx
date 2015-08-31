@@ -17,6 +17,7 @@ import mock
 from oslo_config import cfg
 
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
+from neutron.tests.unit.extensions import test_extra_dhcp_opt as test_dhcpopts
 import neutron.tests.unit.extensions.test_securitygroup as ext_sg
 from vmware_nsx.neutron.plugins.vmware.nsxlib import v3 as nsxlib
 from vmware_nsx.neutron.tests.unit.vmware import nsx_v3_mocks
@@ -69,3 +70,10 @@ class SecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
 
 class TestSecurityGroups(ext_sg.TestSecurityGroups, SecurityGroupsTestCase):
     pass
+
+
+class DHCPOptsTestCase(test_dhcpopts.TestExtraDhcpOpt, NsxPluginV3TestCase):
+
+    def setUp(self, plugin=None):
+        super(test_dhcpopts.ExtraDhcpOptDBTestCase, self).setUp(
+            plugin=PLUGIN_NAME)
