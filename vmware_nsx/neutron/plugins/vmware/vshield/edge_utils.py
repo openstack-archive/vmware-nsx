@@ -631,7 +631,8 @@ class EdgeManager(object):
                 router_id, binding['edge_id'], jobdata=jobdata, dist=dist)
 
     def _allocate_dhcp_edge_appliance(self, context, resource_id):
-        resource_name = resource_id
+        resource_name = (vcns_const.DHCP_EDGE_PREFIX +
+                         _uuid())[:vcns_const.EDGE_NAME_LEN]
         self._allocate_edge_appliance(
             context, resource_id, resource_name,
             appliance_size=vcns_const.SERVICE_SIZE_MAPPING['dhcp'])
