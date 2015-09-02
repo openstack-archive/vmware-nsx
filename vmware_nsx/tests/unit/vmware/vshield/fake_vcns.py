@@ -1066,3 +1066,15 @@ class FakeVcns(object):
 
     def get_version(self):
         return '6.2.0'
+
+    def get_tuning_configration(self):
+        return {
+            'lockUpdatesOnEdge': True,
+            'edgeVMHealthCheckIntervalInMin': 0,
+            'aggregatePublishing': False,
+            'publishingTimeoutInMs': 1200000,
+            'healthCheckCommandTimeoutInMs': 120000,
+            'maxParallelVixCallsForHealthCheck': 25}
+
+    def configure_aggregate_publishing(self):
+        pass

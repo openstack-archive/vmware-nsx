@@ -18,6 +18,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 import retrying
+import six
 import xml.etree.ElementTree as et
 
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
@@ -749,3 +750,24 @@ class Vcns(object):
         LOG.debug("NSX Version: %s, Build: %s",
                   version, c['versionInfo']['buildNumber'])
         return version
+
+    def get_tuning_configration(self):
+        uri = '/api/4.0/edgePublish/tuningConfiguration'
+        h, c = self.do_request(HTTP_GET, uri, decode=True)
+        return c
+
+    def configure_aggregate_publishing(self):
+        uri = "/api/4.0/edgePublish/tuningConfiguration"
+        # Ensure that configured values are not changed
+        config = self.get_tuning_configration()
+        LOG.debug("Tuning configuration: %s", config)
+        tuning = et.Element('tuningConfiguration')
+        for opt, val in six.iteritems(config):
+            child = et.Element(opt)
+            if opt == 'aggregatePublishing':
+                child.text = 'true'
+            else:
+                child.text = str(val)
+            tuning.append(child)
+        return self.do_request(HTTP_PUT, uri, et.tostring(tuning),
+                               format='xml', decode=True)
