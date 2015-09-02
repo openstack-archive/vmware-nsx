@@ -934,10 +934,11 @@ class TestPortsV2(NsxVPluginV2TestCase,
                     subnet_cidr, port_mac))
                 self.assertEqual(ips[1]['ip_address'], eui_addr)
 
-    def _test_create_port_with_ipv6_subnet_in_fixed_ips(self, addr_mode):
+    def _test_create_port_with_ipv6_subnet_in_fixed_ips(self, addr_mode,
+                                                        ipv6_pd=False):
         """Test port create with an IPv6 subnet incl in fixed IPs."""
         with self.network(name='net') as network:
-            subnet = self._make_v6_subnet(network, addr_mode)
+            subnet = self._make_v6_subnet(network, addr_mode, ipv6_pd)
             subnet_id = subnet['subnet']['id']
             fixed_ips = [{'subnet_id': subnet_id}]
             with self.port(subnet=subnet, fixed_ips=fixed_ips) as port:
@@ -955,8 +956,11 @@ class TestPortsV2(NsxVPluginV2TestCase,
             addr_mode=constants.IPV6_SLAAC)
 
     def test_create_port_with_ipv6_dhcp_stateful_subnet_in_fixed_ips(self):
-        self._test_create_port_with_ipv6_subnet_in_fixed_ips(
-            addr_mode=constants.DHCPV6_STATEFUL)
+        with testlib_api.ExpectedException(
+                webob.exc.HTTPClientError) as ctx_manager:
+            self._test_create_port_with_ipv6_subnet_in_fixed_ips(
+                addr_mode=constants.DHCPV6_STATEFUL)
+            self.assertEqual(ctx_manager.exception.code, 400)
 
     def test_create_router_port_ipv4_and_ipv6_slaac_no_fixed_ips(self):
         # Create an IPv4 and an IPv6 SLAAC subnet on the network
@@ -975,6 +979,15 @@ class TestPortsV2(NsxVPluginV2TestCase,
                 fixed_ips = port['port']['fixed_ips']
                 self.assertEqual(1, len(fixed_ips))
                 self.assertEqual('10.0.0.3', fixed_ips[0]['ip_address'])
+
+    def test_create_port_with_multiple_ipv4_and_ipv6_subnets(self):
+        # This test should fail as the NSX-v plugin should cause Neutron to
+        # return a 400 status code
+        with testlib_api.ExpectedException(
+                webob.exc.HTTPClientError) as ctx_manager:
+            super(TestPortsV2, self).\
+                test_create_port_with_multiple_ipv4_and_ipv6_subnets()
+            self.assertEqual(ctx_manager.exception.code, 400)
 
 
 class TestSubnetsV2(NsxVPluginV2TestCase,
@@ -1116,6 +1129,14 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
 
     def test_create_subnet_ipv6_slaac_with_db_reference_error(self):
         self.skipTest('Currently not support')
+
+    def test_create_subnet_ipv6_gw_values(self):
+        # This test should fail with response code 400 as IPv6 subnets with
+        # DHCP are not supported by this plugin
+        with testlib_api.ExpectedException(
+                webob.exc.HTTPClientError) as ctx_manager:
+            super(TestSubnetsV2, self).test_create_subnet_ipv6_gw_values()
+            self.assertEqual(ctx_manager.exception.code, 400)
 
 
 class TestBasicGet(test_plugin.TestBasicGet, NsxVPluginV2TestCase):
@@ -1485,8 +1506,37 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
         self.skipTest('TBD')
 
 
+class IPv6ExpectedFailuresTestMixin(object):
+
+    def test_router_add_interface_ipv6_subnet(self):
+        # Expect a 400 statuc code as IPv6 subnets w/DHCP are not supported
+        with testlib_api.ExpectedException(
+                webob.exc.HTTPClientError) as ctx_manager:
+            super(IPv6ExpectedFailuresTestMixin, self).\
+                test_router_add_interface_ipv6_subnet()
+            self.assertEqual(ctx_manager.exception.code, 400)
+
+    def test_router_add_iface_ipv6_ext_ra_subnet_returns_400(self):
+        # This returns a 400 too, but as an exception is raised the response
+        # code need to be asserted differently
+        with testlib_api.ExpectedException(
+                webob.exc.HTTPClientError) as ctx_manager:
+            super(IPv6ExpectedFailuresTestMixin, self).\
+                test_router_add_iface_ipv6_ext_ra_subnet_returns_400()
+            self.assertEqual(ctx_manager.exception.code, 400)
+
+    def test_router_add_gateway_multiple_subnets_ipv6(self):
+        # Expect a 400 statuc code as IPv6 subnets w/DHCP are not supported
+        with testlib_api.ExpectedException(
+                webob.exc.HTTPClientError) as ctx_manager:
+            super(IPv6ExpectedFailuresTestMixin, self).\
+                test_router_add_gateway_multiple_subnets_ipv6()
+            self.assertEqual(ctx_manager.exception.code, 400)
+
+
 class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                   test_l3_plugin.L3NatDBIntTestCase,
+                                  IPv6ExpectedFailuresTestMixin,
                                   NsxVPluginV2TestCase):
 
     def setUp(self, plugin=PLUGIN_NAME, ext_mgr=None, service_plugins=None):
@@ -1988,6 +2038,7 @@ class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
 
 class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                       test_l3_plugin.L3NatDBIntTestCase,
+                      IPv6ExpectedFailuresTestMixin,
                       NsxVPluginV2TestCase):
 
     def test_create_router_fail_at_the_backend(self):
