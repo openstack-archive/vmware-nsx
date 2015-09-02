@@ -174,6 +174,8 @@ def get_nsx_router_id(session, cluster, neutron_router_id):
     First, look up the Neutron database. If not found, execute
     a query on NSX platform as the mapping might be missing.
     """
+    if not neutron_router_id:
+        return
     nsx_router_id = nsx_db.get_nsx_router_id(
         session, neutron_router_id)
     if not nsx_router_id:

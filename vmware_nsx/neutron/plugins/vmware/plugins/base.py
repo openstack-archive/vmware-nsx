@@ -554,8 +554,10 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 context.session, selected_lswitch['uuid'],
                 port_data, False)
             # Assuming subnet being attached is on first fixed ip
-            # element in port data
-            subnet_id = port_data['fixed_ips'][0]['subnet_id']
+            # element in port data - if specified
+            subnet_id = None
+            if port_data['fixed_ips']:
+                subnet_id = port_data['fixed_ips'][0]['subnet_id']
             nsx_router_id = nsx_utils.get_nsx_router_id(
                 context.session, self.cluster, port_data['device_id'])
             # Create peer port on logical router

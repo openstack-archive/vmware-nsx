@@ -85,7 +85,9 @@ class NsxUtilsTestCase(base.BaseTestCase):
     def _verify_get_nsx_router_id(self, exp_lr_uuid):
         # The nsxlib and db calls are  mocked, therefore the cluster
         # and the neutron_router_id parameters can be set to None
-        lr_uuid = nsx_utils.get_nsx_router_id(db_api.get_session(), None, None)
+        neutron_router_id = uuidutils.generate_uuid()
+        lr_uuid = nsx_utils.get_nsx_router_id(db_api.get_session(), None,
+                                              neutron_router_id)
         self.assertEqual(exp_lr_uuid, lr_uuid)
 
     def test_get_nsx_switch_and_port_id_from_db_mappings(self):
