@@ -193,6 +193,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         network_id = subnet['network_id']
         address_groups = self.plugin._get_address_groups(
             context, router_id, network_id)
+        port = self.plugin.get_port(context, info['port_id'])
         try:
             edge_utils.add_vdr_internal_interface(self.nsx_v, context,
                                                   router_id, network_id,
@@ -205,9 +206,15 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         # Update edge's firewall rules to accept subnets flows.
         self.plugin._update_subnets_and_dnat_firewall(context, router_db)
 
+        do_metadata = False
         if self.plugin.metadata_proxy_handler:
-            self.edge_manager.configure_dhcp_for_vdr_network(
-                context, network_id, router_id)
+            for fixed_ip in port.get("fixed_ips", []):
+                if fixed_ip['ip_address'] == subnet['gateway_ip']:
+                    do_metadata = True
+
+            if do_metadata:
+                self.edge_manager.configure_dhcp_for_vdr_network(
+                    context, network_id, router_id)
 
         if router_db.gw_port and router_db.enable_snat:
             plr_id = self.edge_manager.get_plr_by_tlr_id(context, router_id)
@@ -218,10 +225,13 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
             # Update static routes of plr
             nexthop = self.plugin._get_external_attachment_info(
                 context, router_db)[2]
-            md_gw_data = self._get_metadata_gw_data(context, router_id)
+            if do_metadata:
+                md_gw_data = self._get_metadata_gw_data(context, router_id)
+            else:
+                md_gw_data = None
             self.update_routes(context, router_id, nexthop, md_gw_data)
 
-        elif self._metadata_cfg_required_after_port_add(
+        elif do_metadata and self._metadata_cfg_required_after_port_add(
                 context, router_id, subnet):
             self._metadata_route_update(context, router_id)
 
