@@ -1391,6 +1391,11 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
     def delete_router(self, context, id):
         self._check_router_in_use(context, id)
         router_driver = self._find_router_driver(context, id)
+        # Clear vdr's gw relative components if the router has gw info
+        if router_driver.get_type() == "distributed":
+            router = self.get_router(context, id)
+            if router.get(l3.EXTERNAL_GW_INFO):
+                router_driver._update_router_gw_info(context, id, {})
         super(NsxVPluginV2, self).delete_router(context, id)
         router_driver.delete_router(context, id)
 
