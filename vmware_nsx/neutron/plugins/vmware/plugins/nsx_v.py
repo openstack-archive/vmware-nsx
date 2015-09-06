@@ -469,19 +469,19 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
     def _add_member_to_security_group(self, sg_id, vnic_id):
         with locking.LockManager.get_lock(
-                str(sg_id), lock_file_prefix='neutron-security-ops'):
+                str(sg_id), lock_file_prefix='neutron-security-ops',
+                external=True):
             try:
                 self.nsx_v.vcns.add_member_to_security_group(
                     sg_id, vnic_id)
                 LOG.info(_LI("Added %(sg_id)s member to NSX security "
                              "group %(vnic_id)s"),
                          {'sg_id': sg_id, 'vnic_id': vnic_id})
-            except Exception as e:
+            except Exception:
                 LOG.debug("NSX security group %(sg_id)s member add "
-                          "failed %(vnic_id)s. Exception: %(exc)s",
+                          "failed %(vnic_id)s.",
                           {'sg_id': sg_id,
-                           'vnic_id': vnic_id,
-                           'exc': e.response})
+                           'vnic_id': vnic_id})
 
     def _add_security_groups_port_mapping(self, session, vnic_id,
                                           added_sgids):
@@ -496,7 +496,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
     def _remove_member_from_security_group(self, sg_id, vnic_id):
         with locking.LockManager.get_lock(
-                str(sg_id), lock_file_prefix='neutron-security-ops'):
+                str(sg_id), lock_file_prefix='neutron-security-ops',
+                external=True):
             try:
                 h, c = self.nsx_v.vcns.remove_member_from_security_group(
                     sg_id, vnic_id)
