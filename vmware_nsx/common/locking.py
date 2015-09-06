@@ -36,6 +36,8 @@ class LockManager:
         if cfg.CONF.nsxv.locking_coordinator_url:
             return LockManager._get_lock_distributed(name)
         else:
+            # Ensure that external=True
+            kwargs['external'] = True
             return LockManager._get_lock_local(name, **kwargs)
 
     @staticmethod

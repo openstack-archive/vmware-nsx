@@ -277,8 +277,7 @@ class EdgeLbDriver(object):
         if not self._fw_section_id:
             # Avoid concurrent creation of section by multiple neutron
             # instances
-            with locking.LockManager.get_lock('lbaas-section-creation',
-                                              external=True):
+            with locking.LockManager.get_lock('lbaas-section-creation'):
                 fw_section_id = self.vcns.get_section_id(LBAAS_FW_SECTION_NAME)
                 if not fw_section_id:
                     section = et.Element('section')
@@ -310,7 +309,7 @@ class EdgeLbDriver(object):
                 return rtr_bindings['edge_id']
 
     def _vip_as_secondary_ip(self, edge_id, vip, handler):
-        with locking.LockManager.get_lock(edge_id, external=True):
+        with locking.LockManager.get_lock(edge_id):
             r = self.vcns.get_interfaces(edge_id)[1]
             vnics = r.get('vnics', [])
             for vnic in vnics:
@@ -377,7 +376,7 @@ class EdgeLbDriver(object):
         edge_ips = self._get_edge_ips(edge_id)
 
         plugin = self._get_lb_plugin()
-        with locking.LockManager.get_lock('lbaas-fw-section', external=True):
+        with locking.LockManager.get_lock('lbaas-fw-section'):
             members = plugin.get_members(
                 context,
                 filters={'pool_id': [pool_id]},
@@ -435,14 +434,14 @@ class EdgeLbDriver(object):
                  'enabled': True,
                  'name': vip_id}]}
 
-        with locking.LockManager.get_lock(edge_id, external=True):
+        with locking.LockManager.get_lock(edge_id):
             h = self.vcns.add_firewall_rule(edge_id, fw_rule)[0]
         fw_rule_id = extract_resource_id(h['location'])
 
         return fw_rule_id
 
     def _del_vip_fw_rule(self, edge_id, vip_fw_rule_id):
-        with locking.LockManager.get_lock(edge_id, external=True):
+        with locking.LockManager.get_lock(edge_id):
             self.vcns.delete_firewall_rule(edge_id, vip_fw_rule_id)
 
     def create_pool(self, context, pool):
@@ -457,7 +456,7 @@ class EdgeLbDriver(object):
 
         edge_pool = convert_lbaas_pool(pool)
         try:
-            with locking.LockManager.get_lock(edge_id, external=True):
+            with locking.LockManager.get_lock(edge_id):
                 h = self.vcns.create_pool(edge_id, edge_pool)[0]
             edge_pool_id = extract_resource_id(h['location'])
             self._lb_driver.create_pool_successful(
@@ -472,8 +471,7 @@ class EdgeLbDriver(object):
         LOG.debug('Updating pool %s to %s', old_pool, pool)
         edge_pool = convert_lbaas_pool(pool)
         try:
-            with locking.LockManager.get_lock(pool_mapping['edge_id'],
-                                              external=True):
+            with locking.LockManager.get_lock(pool_mapping['edge_id']):
                 self.vcns.update_pool(pool_mapping['edge_id'],
                                       pool_mapping['edge_pool_id'],
                                       edge_pool)
@@ -489,8 +487,7 @@ class EdgeLbDriver(object):
 
         if pool_mapping:
             try:
-                with locking.LockManager.get_lock(pool_mapping['edge_id'],
-                                                  external=True):
+                with locking.LockManager.get_lock(pool_mapping['edge_id']):
                     self.vcns.delete_pool(pool_mapping['edge_id'],
                                           pool_mapping['edge_pool_id'])
             except nsxv_exc.VcnsApiException:
@@ -517,7 +514,7 @@ class EdgeLbDriver(object):
 
         app_profile_id = None
         try:
-            with locking.LockManager.get_lock(edge_id, external=True):
+            with locking.LockManager.get_lock(edge_id):
                 h = (self.vcns.create_app_profile(edge_id, app_profile))[0]
             app_profile_id = extract_resource_id(h['location'])
         except nsxv_exc.VcnsApiException:
@@ -529,7 +526,7 @@ class EdgeLbDriver(object):
         edge_vip = convert_lbaas_vip(vip, app_profile_id, pool_mapping)
         try:
             self._add_vip_as_secondary_ip(edge_id, vip['address'])
-            with locking.LockManager.get_lock(edge_id, external=True):
+            with locking.LockManager.get_lock(edge_id):
                 h = self.vcns.create_vip(edge_id, edge_vip)[0]
             edge_vip_id = extract_resource_id(h['location'])
             edge_fw_rule_id = self._add_vip_fw_rule(edge_id, vip['id'],
@@ -542,7 +539,7 @@ class EdgeLbDriver(object):
             with excutils.save_and_reraise_exception():
                 self._lb_driver.vip_failed(context, vip)
                 LOG.error(_LE('Failed to create vip on Edge: %s'), edge_id)
-                with locking.LockManager.get_lock(edge_id, external=True):
+                with locking.LockManager.get_lock(edge_id):
                     self.vcns.delete_app_profile(edge_id, app_profile_id)
 
     def update_vip(self, context, old_vip, vip, pool_mapping, vip_mapping):
@@ -555,7 +552,7 @@ class EdgeLbDriver(object):
             vip['name'], vip.get('session_persistence') or {},
             vip.get('protocol'))
         try:
-            with locking.LockManager.get_lock(edge_id, external=True):
+            with locking.LockManager.get_lock(edge_id):
                 self.vcns.update_app_profile(edge_id, app_profile_id,
                                              app_profile)
         except nsxv_exc.VcnsApiException:
@@ -566,7 +563,7 @@ class EdgeLbDriver(object):
 
         edge_vip = convert_lbaas_vip(vip, app_profile_id, pool_mapping)
         try:
-            with locking.LockManager.get_lock(edge_id, external=True):
+            with locking.LockManager.get_lock(edge_id):
                 self.vcns.update_vip(edge_id, edge_vip_id, edge_vip)
             self._lb_driver.vip_successful(context, vip)
         except nsxv_exc.VcnsApiException:
@@ -585,7 +582,7 @@ class EdgeLbDriver(object):
             app_profile_id = vip_mapping['edge_app_profile_id']
 
             try:
-                with locking.LockManager.get_lock(edge_id, external=True):
+                with locking.LockManager.get_lock(edge_id):
                     self.vcns.delete_vip(edge_id, edge_vse_id)
                 self._del_vip_as_secondary_ip(edge_id, vip['address'])
                 self._del_vip_fw_rule(edge_id, vip_mapping['edge_fw_rule_id'])
@@ -598,7 +595,7 @@ class EdgeLbDriver(object):
                         _LE('Failed to delete vip on edge: %s'), edge_id)
 
             try:
-                with locking.LockManager.get_lock(edge_id, external=True):
+                with locking.LockManager.get_lock(edge_id):
                     self.vcns.delete_app_profile(edge_id, app_profile_id)
             except nsxv_exc.ResourceNotFound:
                 LOG.error(_LE('app profile not found on edge: %s'), edge_id)
@@ -614,8 +611,7 @@ class EdgeLbDriver(object):
     def create_member(self, context, member, pool_mapping):
         LOG.debug('Creating member %s', member)
 
-        with locking.LockManager.get_lock(pool_mapping['edge_id'],
-                                          external=True):
+        with locking.LockManager.get_lock(pool_mapping['edge_id']):
             edge_pool = self.vcns.get_pool(pool_mapping['edge_id'],
                                            pool_mapping['edge_pool_id'])[1]
             edge_member = convert_lbaas_member(member)
@@ -646,8 +642,7 @@ class EdgeLbDriver(object):
     def update_member(self, context, old_member, member, pool_mapping):
         LOG.debug('Updating member %s to %s', old_member, member)
 
-        with locking.LockManager.get_lock(pool_mapping['edge_id'],
-                                          external=True):
+        with locking.LockManager.get_lock(pool_mapping['edge_id']):
             edge_pool = self.vcns.get_pool(pool_mapping['edge_id'],
                                            pool_mapping['edge_pool_id'])[1]
 
@@ -672,8 +667,7 @@ class EdgeLbDriver(object):
         LOG.debug('Deleting member %s', member)
 
         if pool_mapping:
-            with locking.LockManager.get_lock(pool_mapping['edge_id'],
-                                              external=True):
+            with locking.LockManager.get_lock(pool_mapping['edge_id']):
                 edge_pool = self.vcns.get_pool(
                     pool_mapping['edge_id'],
                     pool_mapping['edge_pool_id'])[1]
@@ -705,8 +699,7 @@ class EdgeLbDriver(object):
         LOG.debug('Create HM %s', health_monitor)
 
         edge_mon_id = None
-        with locking.LockManager.get_lock(pool_mapping['edge_id'],
-                                          external=True):
+        with locking.LockManager.get_lock(pool_mapping['edge_id']):
             # 1st, we find if we already have a pool with the same monitor, on
             # the same Edge appliance.
             # If there is no pool on this Edge which is already associated with
@@ -762,8 +755,7 @@ class EdgeLbDriver(object):
         edge_monitor = convert_lbaas_monitor(health_monitor)
 
         try:
-            with locking.LockManager.get_lock(mon_mapping['edge_id'],
-                                              external=True):
+            with locking.LockManager.get_lock(mon_mapping['edge_id']):
                 self.vcns.update_health_monitor(
                     mon_mapping['edge_id'],
                     mon_mapping['edge_monitor_id'],
@@ -790,8 +782,7 @@ class EdgeLbDriver(object):
         if not mon_mapping:
             return
 
-        with locking.LockManager.get_lock(pool_mapping['edge_id'],
-                                          external=True):
+        with locking.LockManager.get_lock(pool_mapping['edge_id']):
             edge_pool = self.vcns.get_pool(edge_id,
                                            pool_mapping['edge_pool_id'])[1]
             edge_pool['monitorId'].remove(mon_mapping['edge_monitor_id'])
