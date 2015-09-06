@@ -144,20 +144,17 @@ class Vcns(object):
         return self.do_request(HTTP_DELETE, uri)
 
     def add_vdr_internal_interface(self, edge_id, interface):
-        uri = "%s/%s/interfaces?action=patch&async=true" % (URI_PREFIX,
-                                                            edge_id)
+        uri = "%s/%s/interfaces?action=patch" % (URI_PREFIX, edge_id)
         return self.do_request(HTTP_POST, uri, interface, decode=True)
 
     def update_vdr_internal_interface(self, edge_id,
                                       interface_index, interface):
-        uri = "%s/%s/interfaces/%s?async=true" % (URI_PREFIX, edge_id,
-                                                  interface_index)
+        uri = "%s/%s/interfaces/%s" % (URI_PREFIX, edge_id, interface_index)
         return self.do_request(HTTP_PUT, uri, interface,
                                format='xml', decode=True)
 
     def delete_vdr_internal_interface(self, edge_id, interface_index):
-        uri = "%s/%s/interfaces/%d?async=true" % (URI_PREFIX, edge_id,
-                                                  interface_index)
+        uri = "%s/%s/interfaces/%d" % (URI_PREFIX, edge_id, interface_index)
         return self.do_request(HTTP_DELETE, uri, decode=True)
 
     def get_interfaces(self, edge_id):
