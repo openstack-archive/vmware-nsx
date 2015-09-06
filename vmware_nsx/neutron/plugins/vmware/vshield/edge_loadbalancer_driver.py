@@ -546,7 +546,7 @@ class EdgeLbDriver(object):
                     self.vcns.delete_app_profile(edge_id, app_profile_id)
 
     def update_vip(self, context, old_vip, vip, pool_mapping, vip_mapping):
-        LOG.debug('Updating VIP %s to %s', (old_vip, vip))
+        LOG.debug('Updating VIP %s to %s', old_vip, vip)
 
         edge_id = vip_mapping['edge_id']
         edge_vip_id = vip_mapping['edge_vse_id']
