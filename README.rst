@@ -1,17 +1,26 @@
-Welcome!
-========
-
-You have come across the VMware-NSX family of driver for Neutron.
-
-External Resources:
+===================
+VMware-NSX package
 ===================
 
-The homepage for VMware-NSX is: http://launchpad.net/vmware-nsx.  Use this
-site for asking for help, and filing bugs. Code is available on
-git.openstack.org at <https://github.com/stackforge/vmware-nsx>.
+You have come across the VMware-NSX family of Neutron plugins
 
-For help on usage and hacking of VMware-NSX, please send mail to
-<mailto:openstack-dev@lists.openstack.org>.
+External Resources:
+-------------------
+
+The homepage for the VMware-NSX project is on Launchpad_.
+
+.. _Launchpad: http://launchpad.net/vmware-nsx.
+
+Use this site for asking for help, and filing bugs.
+Code is available both git.openstack.org_ and github_.
+
+.. _git.openstack.org: http://git.openstack.org/cgit/openstack/vmware-nsx/tree/
+.. _github: https://github.com/openstack/vmware-nsx
+
+For help on usage and hacking of VMware-NSX, please send a message to the
+openstack-dev_ mailing list.
+
+.. _openstack-dev: mailto:openstack-dev@lists.openstack.org
 
 For information on how to contribute to VMware-NSX, please see the
 contents of the CONTRIBUTING.rst file.
