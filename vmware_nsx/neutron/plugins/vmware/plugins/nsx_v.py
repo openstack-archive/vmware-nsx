@@ -1016,29 +1016,40 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         filters = {'fixed_ips': {'subnet_id': [id]}}
         ports = self.get_ports(context, filters=filters)
 
-        with context.session.begin(subtransactions=True):
-            super(NsxVPluginV2, self).delete_subnet(context, id)
-            if subnet['enable_dhcp']:
-                # There is only DHCP port available
-                if len(ports) == 1:
-                    port = ports.pop()
-                    self.ipam.delete_port(context, port['id'])
+        # Add nsx-edge-pool here is because we first delete the subnet in db.
+        # if the subnet overlaps with another new creating subnet, there is a
+        # chance that the new creating subnet select the deleting subnet's edge
+        # and send update dhcp interface rest call before deleting subnet's
+        # corresponding dhcp interface rest call and lead to overlap response
+        # from backend.
+        with locking.LockManager.get_lock(
+                'nsx-edge-pool', lock_file_prefix='edge-bind-', external=True):
+            with context.session.begin(subtransactions=True):
+                super(NsxVPluginV2, self).delete_subnet(context, id)
+                if subnet['enable_dhcp']:
+                    # There is only DHCP port available
+                    if len(ports) == 1:
+                        port = ports.pop()
+                        self.ipam.delete_port(context, port['id'])
 
-        if subnet['enable_dhcp']:
-            # Delete the DHCP edge service
-            network_id = subnet['network_id']
-            filters = {'network_id': [network_id]}
-            remaining_subnets = self.get_subnets(context, filters=filters)
-            if len(remaining_subnets) == 0:
-                self._cleanup_dhcp_edge_before_deletion(context, network_id)
-                LOG.debug("Delete the DHCP Edge for network %s", network_id)
-                self._delete_dhcp_edge_service(context, network_id)
-            else:
-                # Update address group and delete the DHCP port only
-                address_groups = self._create_network_dhcp_address_group(
-                    context, network_id)
-                self._update_dhcp_edge_service(context, network_id,
-                                               address_groups)
+            if subnet['enable_dhcp']:
+                # Delete the DHCP edge service
+                network_id = subnet['network_id']
+                filters = {'network_id': [network_id]}
+                remaining_subnets = self.get_subnets(context,
+                                                     filters=filters)
+                if len(remaining_subnets) == 0:
+                    self._cleanup_dhcp_edge_before_deletion(
+                        context, network_id)
+                    LOG.debug("Delete the DHCP service for network %s",
+                              network_id)
+                    self._delete_dhcp_edge_service(context, network_id)
+                else:
+                    # Update address group and delete the DHCP port only
+                    address_groups = self._create_network_dhcp_address_group(
+                        context, network_id)
+                    self._update_dhcp_edge_service(context, network_id,
+                                                   address_groups)
 
     def create_subnet(self, context, subnet):
         """Create subnet on nsx_v provider network.
