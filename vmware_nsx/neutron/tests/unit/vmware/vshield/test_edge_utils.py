@@ -111,10 +111,9 @@ class EdgeDHCPManagerTestCase(EdgeUtilsTestCaseMixin):
             self.edge_manager.create_dhcp_edge_service(self.ctx,
                                                        fake_network['id'],
                                                        fake_subnet)
-        resource_id = resource_name = (vcns_const.DHCP_EDGE_PREFIX +
-                                       fake_network['id'])[:36]
+        resource_id = (vcns_const.DHCP_EDGE_PREFIX + fake_network['id'])[:36]
         self.nsxv_manager.update_edge.assert_called_once_with(
-            resource_id, 'edge-1', resource_name, None,
+            resource_id, 'edge-1', mock.ANY, None,
             appliance_size=vcns_const.SERVICE_SIZE_MAPPING['dhcp'],
             dist=False)
 
