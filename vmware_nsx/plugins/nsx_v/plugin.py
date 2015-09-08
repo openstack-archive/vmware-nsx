@@ -1068,10 +1068,9 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 err_msg = _("Can not enable DHCP on external network")
                 raise n_exc.InvalidInput(error_message=err_msg)
             data = subnet['subnet']
-            if (((data['cidr'] not in (attr.ATTR_NOT_SPECIFIED, None)
-                  and netaddr.IPNetwork(data['cidr']).version == 6) or
-                 data.get('ip_version') == 6) and
-                data['ipv6_address_mode'] == constants.DHCPV6_STATEFUL):
+            if (data.get('ip_version') == 6 or
+                (data['cidr'] not in (attr.ATTR_NOT_SPECIFIED, None)
+                 and netaddr.IPNetwork(data['cidr']).version == 6)):
                 err_msg = _("No support for DHCP for IPv6")
                 raise n_exc.InvalidInput(error_message=err_msg)
 
