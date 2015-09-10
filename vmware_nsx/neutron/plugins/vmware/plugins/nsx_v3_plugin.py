@@ -43,11 +43,13 @@ from neutron.db import agentschedulers_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
 from neutron.db import extradhcpopt_db
+from neutron.db import extraroute_db
 from neutron.db import l3_db
+from neutron.db import l3_gwmode_db
 from neutron.db import models_v2
 from neutron.db import portbindings_db
 from neutron.db import securitygroups_db
-from neutron.i18n import _LE, _LW
+from neutron.i18n import _LE, _LI, _LW
 from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils as n_utils
 
@@ -65,7 +67,8 @@ LOG = log.getLogger(__name__)
 class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                   securitygroups_db.SecurityGroupDbMixin,
                   external_net_db.External_net_db_mixin,
-                  l3_db.L3_NAT_dbonly_mixin,
+                  extraroute_db.ExtraRoute_db_mixin,
+                  l3_gwmode_db.L3_NAT_db_mixin,
                   portbindings_db.PortBindingMixin,
                   agentschedulers_db.DhcpAgentSchedulerDbMixin,
                   extradhcpopt_db.ExtraDhcpOptMixin):
@@ -77,9 +80,11 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
     supported_extension_aliases = ["quotas",
                                    "binding",
                                    "extra_dhcp_opt",
+                                   "ext-gw-mode",
                                    "security-group",
                                    "provider",
                                    "external-net",
+                                   "extraroute",
                                    "router"]
 
     def __init__(self):
@@ -320,6 +325,8 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         pnet._raise_if_updates_provider_attributes(net_data)
         updated_net = super(NsxV3Plugin, self).update_network(context, id,
                                                               network)
+        self._process_l3_update(context, updated_net, network['network'])
+        self._extend_network_dict_provider(context, updated_net)
 
         if (not self._network_is_external(context, id) and
             'name' in net_data or 'admin_state_up' in net_data):
@@ -491,6 +498,7 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
                 context.session, port_id)
             nsxlib.delete_logical_port(nsx_port_id)
+        self.disassociate_floatingips(context, port_id)
         ret_val = super(NsxV3Plugin, self).delete_port(context, port_id)
 
         return ret_val
@@ -532,13 +540,32 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return updated_port
 
+    def _extract_external_gw(self, context, router, is_extract=True):
+        r = router['router']
+        gw_info = attributes.ATTR_NOT_SPECIFIED
+        # First extract the gateway info in case of updating
+        # gateway before edge is deployed.
+        if 'external_gateway_info' in r:
+            gw_info = r.get('external_gateway_info', {})
+            if is_extract:
+                del r['external_gateway_info']
+            network_id = (gw_info.get('network_id') if gw_info
+                          else None)
+            if network_id:
+                ext_net = self._get_network(context, network_id)
+                if not ext_net.external:
+                    msg = (_("Network '%s' is not a valid external network") %
+                           network_id)
+                    raise n_exc.BadRequest(resource='router', msg=msg)
+        return gw_info
+
     def create_router(self, context, router):
+        # TODO(berlin): admin_state_up support
+        gw_info = self._extract_external_gw(context, router, is_extract=True)
         tags = utils.build_v3_tags_payload(router['router'])
         result = nsxlib.create_logical_router(
-            display_name=router['router'].get('name', 'a_router_with_no_name'),
-            tags=tags,
-            tier_0=True,
-            edge_cluster_uuid=cfg.CONF.nsx_v3.default_edge_cluster_uuid)
+            display_name=router['router'].get('name'),
+            tags=tags)
 
         with context.session.begin():
             router = super(NsxV3Plugin, self).create_router(
@@ -546,7 +573,21 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             nsx_db.add_neutron_nsx_router_mapping(
                 context.session, router['id'], result['id'])
 
-        return router
+        if gw_info != attributes.ATTR_NOT_SPECIFIED:
+            try:
+                self._update_router_gw_info(context, router['id'], gw_info)
+            except nsx_exc.ManagerError:
+                with excutils.save_and_reraise_exception():
+                    LOG.error(_LE("Failed to set gateway info for router "
+                                  "being created: %s - removing router"),
+                              router['id'])
+                    self.delete_router(context, router['id'])
+                    LOG.info(_LI("Create router failed while setting external "
+                                 "gateway. Router:%s has been removed from "
+                                 "DB and backend"),
+                             router['id'])
+
+        return self.get_router(context, router['id'])
 
     def delete_router(self, context, router_id):
         nsx_router_id = nsx_db.get_nsx_router_id(context.session,
@@ -558,12 +599,12 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         # passed (and indeed the resource was removed from the Neutron DB
         try:
             nsxlib.delete_logical_router(nsx_router_id)
-        except nsx_exc.LogicalRouterNotFound:
+        except nsx_exc.ResourceNotFound:
             # If the logical router was not found on the backend do not worry
             # about it. The conditions has already been logged, so there is no
             # need to do further logging
             pass
-        except nsx_exc.NsxPluginException:
+        except nsx_exc.ManagerError:
             # if there is a failure in deleting the router do not fail the
             # operation, especially since the router object has already been
             # removed from the neutron DB. Take corrective steps to ensure the
@@ -571,44 +612,92 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             # eventually removed.
             LOG.warning(_LW("Backend router deletion for neutron router %s "
                             "failed. The object was however removed from the "
-                            "Neutron datanase"), router_id)
+                            "Neutron database"), router_id)
 
         return ret_val
 
     def update_router(self, context, router_id, router):
-        # TODO(arosen) - call to backend
-        return super(NsxV3Plugin, self).update_router(context, id,
-                                                      router)
+        # TODO(berlin): admin_state_up support
+        try:
+            return super(NsxV3Plugin, self).update_router(context, router_id,
+                                                          router)
+        except nsx_exc.ResourceNotFound:
+            with context.session.begin(subtransactions=True):
+                router_db = self._get_router(context, router_id)
+                router_db['status'] = const.NET_STATUS_ERROR
+            raise nsx_exc.NsxPluginException(
+                err_msg=(_("logical router %s not found at the backend")
+                         % router_id))
+        except nsx_exc.ManagerError:
+            raise nsx_exc.NsxPluginException(
+                err_msg=(_("Unable to update router %s at the backend")
+                         % router_id))
+
+    def _get_router_interface_ports_by_network(
+        self, context, router_id, network_id):
+        port_filters = {'device_id': [router_id],
+                        'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF],
+                        'network_id': [network_id]}
+        return self.get_ports(context, filters=port_filters)
+
+    def _get_ports_and_address_groups(self, context, router_id, network_id,
+                                      exclude_sub_ids=None):
+        exclude_sub_ids = [] if not exclude_sub_ids else exclude_sub_ids
+        address_groups = []
+        ports = self._get_router_interface_ports_by_network(
+            context, router_id, network_id)
+        ports = [port for port in ports
+                 if port['fixed_ips'] and
+                 port['fixed_ips'][0]['subnet_id'] not in exclude_sub_ids]
+        for port in ports:
+            address_group = {}
+            gateway_ip = port['fixed_ips'][0]['ip_address']
+            subnet = self.get_subnet(context,
+                                     port['fixed_ips'][0]['subnet_id'])
+            prefixlen = str(netaddr.IPNetwork(subnet['cidr']).prefixlen)
+            address_group['ip_addresses'] = [gateway_ip]
+            address_group['prefix_length'] = prefixlen
+            address_groups.append(address_group)
+        return (ports, address_groups)
 
     def add_router_interface(self, context, router_id, interface_info):
-        # NOTE(arosen): I think there is a bug here since I believe we
-        # can also get a port or ip here....
-        subnet = self.get_subnet(context, interface_info['subnet_id'])
-        port = {'port': {'network_id': subnet['network_id'], 'name': '',
-                         'admin_state_up': True, 'device_id': '',
-                         'device_owner': l3_db.DEVICE_OWNER_ROUTER_INTF,
-                         'mac_address': attributes.ATTR_NOT_SPECIFIED,
-                         'fixed_ips': [{'subnet_id': subnet['id'],
-                                        'ip_address': subnet['gateway_ip']}]}}
-        port = self.create_port(context, port)
-        _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
+        # TODO(berlin): disallow multiple subnets attached to different routers
+        info = super(NsxV3Plugin, self).add_router_interface(
+            context, router_id, interface_info)
+        subnet = self.get_subnet(context, info['subnet_ids'][0])
+        port = self.get_port(context, info['port_id'])
+        network_id = subnet['network_id']
+        nsx_net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
             context.session, port['id'])
 
         nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                  router_id)
-        result = nsxlib.create_logical_router_port(
+        _ports, address_groups = self._get_ports_and_address_groups(
+            context, router_id, network_id)
+        nsxlib.create_logical_router_port_by_ls_id(
             logical_router_id=nsx_router_id,
+            ls_id=nsx_net_id,
             logical_switch_port_id=nsx_port_id,
             resource_type="LogicalRouterDownLinkPort",
-            cidr_length=24, ip_address=subnet['gateway_ip'])
-        interface_info['port_id'] = port['id']
-        del interface_info['subnet_id']
-        result = super(NsxV3Plugin, self).add_router_interface(
-            context, router_id, interface_info)
-        return result
+            address_groups=address_groups)
+        return info
 
     def remove_router_interface(self, context, router_id, interface_info):
-        if 'subnet_id' in interface_info:
+        subnet = None
+        subnet_id = None
+        port_id = None
+        self._validate_interface_info(interface_info, for_removal=True)
+        if 'port_id' in interface_info:
+            port_id = interface_info['port_id']
+            # find subnet_id - it is need for removing the SNAT rule
+            port = self._get_port(context, port_id)
+            if port.get('fixed_ips'):
+                subnet_id = port['fixed_ips'][0]['subnet_id']
+            if not (port['device_owner'] in const.ROUTER_INTERFACE_OWNERS
+                    and port['device_id'] == router_id):
+                raise l3.RouterInterfaceNotFound(router_id=router_id,
+                                                 port_id=port_id)
+        elif 'subnet_id' in interface_info:
             subnet_id = interface_info['subnet_id']
             subnet = self._get_subnet(context, subnet_id)
             rport_qry = context.session.query(models_v2.Port)
@@ -623,9 +712,30 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             else:
                 raise l3.RouterInterfaceNotFoundForSubnet(router_id=router_id,
                                                           subnet_id=subnet_id)
-            _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
+        try:
+            nsx_net_id, _nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
                 context.session, port_id)
-            nsxlib.delete_logical_router_port(nsx_port_id)
+            subnet = self.get_subnet(context, subnet_id)
+            ports, address_groups = self._get_ports_and_address_groups(
+                context, router_id, subnet['network_id'],
+                exclude_sub_ids=[subnet['id']])
+            nsx_router_id = nsx_db.get_nsx_router_id(
+                context.session, router_id)
+            if len(ports) >= 1:
+                new_using_port_id = ports[0]['id']
+                _net_id, new_nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
+                    context.session, new_using_port_id)
+                nsxlib.update_logical_router_port_by_ls_id(
+                    nsx_router_id, nsx_net_id,
+                    linked_logical_switch_port_id=new_nsx_port_id,
+                    subnets=address_groups)
+            else:
+                nsxlib.delete_logical_router_port_by_ls_id(nsx_net_id)
+        except nsx_exc.ResourceNotFound:
+            LOG.error(_LE("router port on router %(router_id)s for net "
+                          "%(net_id)s not found at the backend"),
+                      {'router_id': router_id,
+                       'net_id': subnet['network_id']})
         return super(NsxV3Plugin, self).remove_router_interface(
             context, router_id, interface_info)
 
