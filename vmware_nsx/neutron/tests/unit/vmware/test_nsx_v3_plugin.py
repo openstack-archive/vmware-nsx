@@ -31,6 +31,7 @@ import neutron.tests.unit.extensions.test_extraroute as test_ext_route
 import neutron.tests.unit.extensions.test_l3 as test_l3_plugin
 import neutron.tests.unit.extensions.test_l3_ext_gw_mode as test_ext_gw_mode
 import neutron.tests.unit.extensions.test_securitygroup as ext_sg
+from neutron import version
 from vmware_nsx.neutron.plugins.vmware.common import utils
 from vmware_nsx.neutron.plugins.vmware.nsxlib import v3 as nsxlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib.v3 import dfw_api as firewall
@@ -246,3 +247,16 @@ class TestL3NatTestCase(L3NatTest,
 class ExtGwModeTestCase(L3NatTest,
                         test_ext_gw_mode.ExtGwModeIntTestCase):
     pass
+
+
+class TestNsxV3Utils(NsxPluginV3TestCase):
+
+    def test_build_v3_tags_payload(self):
+        result = utils.build_v3_tags_payload(
+            {'id': 'fake_id',
+             'tenant_id': 'fake_tenant_id'})
+        expected = [{'scope': 'neutron-id', 'tag': 'fake_id'},
+                    {'scope': 'os-tid', 'tag': 'fake_tenant_id'},
+                    {'scope': 'os-api-version',
+                     'tag': version.version_info.release_string()}]
+        self.assertEqual(expected, result)
