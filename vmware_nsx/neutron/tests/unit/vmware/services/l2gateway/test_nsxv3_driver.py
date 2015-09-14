@@ -19,14 +19,14 @@ from neutron.tests import base
 
 from networking_l2gw.tests.unit.db import test_l2gw_db
 
-from vmware_nsx.neutron.services.l2gateway import nsx_v3_driver
-from vmware_nsx.neutron.services.l2gateway import plugin as l2gw_plugin
+from vmware_nsx.services.l2gateway import nsx_v3_driver
+from vmware_nsx.services.l2gateway import plugin as l2gw_plugin
 
 from oslo_config import cfg
 from oslo_utils import uuidutils
 
 
-NSX_V3_DRIVER_CLASS_PATH = ('vmware_nsx.neutron.services.l2gateway.'
+NSX_V3_DRIVER_CLASS_PATH = ('vmware_nsx.services.l2gateway.'
                             'nsx_v3_driver.NsxV3Driver')
 
 
