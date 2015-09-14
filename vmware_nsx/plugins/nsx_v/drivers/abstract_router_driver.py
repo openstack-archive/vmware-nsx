@@ -26,7 +26,8 @@ class RouterAbstractDriver(object):
         pass
 
     @abc.abstractmethod
-    def create_router(self, context, lrouter):
+    def create_router(self, context, lrouter, appliance_size=None,
+                      allow_metadata=True):
         pass
 
     @abc.abstractmethod

@@ -55,6 +55,7 @@ from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import locking
 from vmware_nsx.common import nsx_constants
+from vmware_nsx.common import nsxv_constants
 from vmware_nsx.common import utils as c_utils
 from vmware_nsx.db import (
     routertype as rt_rtr)
@@ -65,6 +66,7 @@ from vmware_nsx.extensions import (
     advancedserviceproviders as as_providers)
 from vmware_nsx.extensions import (
     vnicindex as ext_vnic_idx)
+from vmware_nsx.extensions import routersize
 from vmware_nsx.plugins.nsx_v import managers
 from vmware_nsx.plugins.nsx_v import md_proxy as nsx_v_md_proxy
 from vmware_nsx.plugins.nsx_v.vshield.common import (
@@ -77,6 +79,7 @@ from vmware_nsx.plugins.nsx_v.vshield import vcns_driver
 
 LOG = logging.getLogger(__name__)
 PORTGROUP_PREFIX = 'dvportgroup'
+ROUTER_SIZE = routersize.ROUTER_SIZE
 
 
 class NsxVPluginV2(agents_db.AgentDbMixin,
@@ -103,6 +106,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                                    "router",
                                    "security-group",
                                    "nsxv-router-type",
+                                   "nsxv-router-size",
                                    "vnic-index",
                                    "advanced-service-providers"]
 
@@ -1347,23 +1351,47 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                     raise n_exc.BadRequest(resource='router', msg=msg)
         return gw_info
 
+    def _validate_router_size(self, router):
+        # Check if router-size is specified. router-size can only be specified
+        # for a exclusive non-distributed router; else raise a BadRequest
+        # exception.
+        r = router['router']
+        if r.get(ROUTER_SIZE) != attr.ATTR_NOT_SPECIFIED:
+            if r.get('router_type') == nsxv_constants.SHARED:
+                msg = _("Cannot specify router-size for shared router")
+                raise n_exc.BadRequest(resource="router", msg=msg)
+            elif r.get('distributed') is True:
+                msg = _("Cannot specify router-size for distributed router")
+                raise n_exc.BadRequest(resource="router", msg=msg)
+        elif r.get(ROUTER_SIZE) == attr.ATTR_NOT_SPECIFIED:
+            if r.get('router_type') == nsxv_constants.EXCLUSIVE:
+                r[ROUTER_SIZE] = nsxv_constants.COMPACT
+
     def create_router(self, context, router, allow_metadata=True):
+        self._validate_router_size(router)
+        r = router['router']
+        self._decide_router_type(context, r)
         # First extract the gateway info in case of updating
         # gateway before edge is deployed.
         # TODO(berlin): admin_state_up and routes update
-        r = router['router']
         gw_info = self._extract_external_gw(context, router)
-        self._decide_router_type(context, r)
         lrouter = super(NsxVPluginV2, self).create_router(context, router)
         with context.session.begin(subtransactions=True):
             router_db = self._get_router(context, lrouter['id'])
             self._process_nsx_router_create(context, router_db, r)
         try:
             router_driver = self._get_router_driver(context, router_db)
-            router_driver.create_router(
-                context, lrouter,
-                allow_metadata=(allow_metadata and
-                                self.metadata_proxy_handler))
+            if router_driver.get_type() == nsxv_constants.EXCLUSIVE:
+                router_driver.create_router(
+                    context, lrouter,
+                    appliance_size=r.get(ROUTER_SIZE),
+                    allow_metadata=(allow_metadata and
+                                    self.metadata_proxy_handler))
+            else:
+                router_driver.create_router(
+                    context, lrouter,
+                    allow_metadata=(allow_metadata and
+                                    self.metadata_proxy_handler))
             if gw_info != attr.ATTR_NOT_SPECIFIED:
                 router_driver._update_router_gw_info(
                     context, lrouter['id'], gw_info)
@@ -1413,6 +1441,10 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
         router = super(NsxVPluginV2, self).get_router(context, id, fields)
         if router.get("distributed") and 'router_type' in router:
             del router['router_type']
+        if router.get("router_type") == nsxv_constants.EXCLUSIVE:
+            binding = nsxv_db.get_nsxv_router_binding(context.session,
+                                                      router.get("id"))
+            router[ROUTER_SIZE] = binding.get("appliance_size")
         return router
 
     def _get_external_attachment_info(self, context, router):

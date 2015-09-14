@@ -41,7 +41,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
     def get_type(self):
         return "shared"
 
-    def create_router(self, context, lrouter, allow_metadata=True):
+    def create_router(self, context, lrouter,
+                      appliance_size=None, allow_metadata=True):
         pass
 
     def update_router(self, context, router_id, router):

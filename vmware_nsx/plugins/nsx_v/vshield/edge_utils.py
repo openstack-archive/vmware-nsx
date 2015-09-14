@@ -641,12 +641,14 @@ class EdgeManager(object):
         router_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
         self._free_edge_appliance(context, router_id)
 
-    def create_lrouter(self, context, lrouter, lswitch=None, dist=False):
+    def create_lrouter(
+        self, context, lrouter, lswitch=None, dist=False,
+        appliance_size=vcns_const.SERVICE_SIZE_MAPPING['router']):
         """Create an edge for logical router support."""
         router_name = lrouter['name'] + '-' + lrouter['id']
         self._allocate_edge_appliance(
             context, lrouter['id'], router_name,
-            appliance_size=vcns_const.SERVICE_SIZE_MAPPING['router'],
+            appliance_size=appliance_size,
             dist=dist)
 
     def delete_lrouter(self, context, router_id, dist=False):

@@ -48,6 +48,8 @@ import webob.exc
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.extensions import (
+    routersize as router_size)
+from vmware_nsx.extensions import (
     routertype as router_type)
 from vmware_nsx.extensions import (
     vnicindex as ext_vnic_idx)
@@ -1159,6 +1161,8 @@ class TestL3ExtensionManager(object):
                 dist_router.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
             l3.RESOURCE_ATTRIBUTE_MAP[key].update(
                 router_type.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
+            l3.RESOURCE_ATTRIBUTE_MAP[key].update(
+                router_size.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
         # Finally add l3 resources to the global attribute map
         attributes.RESOURCE_ATTRIBUTE_MAP.update(
             l3.RESOURCE_ATTRIBUTE_MAP)
@@ -1625,6 +1629,18 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
 
     def test_router_create_with_gwinfo_and_l3_ext_net_with_vlan(self):
         self._test_router_create_with_gwinfo_and_l3_ext_net(444)
+
+    def test_router_create_with_different_sizes(self):
+        data = {'router': {
+                    'tenant_id': 'whatever',
+                    'name': 'test_router',
+                    'router_type': 'exclusive'}}
+        for size in ['compact', 'large', 'xlarge', 'quadlarge']:
+            data['router']['router_size'] = size
+            router_req = self.new_create_request('routers', data, self.fmt)
+            res = router_req.get_response(self.ext_api)
+            router = self.deserialize(self.fmt, res)
+            self.assertEqual(size, router['router']['router_size'])
 
     def test_router_add_gateway_invalid_network_returns_404(self):
         # NOTE(salv-orlando): This unit test has been overriden
@@ -2297,6 +2313,19 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
                 [],
                 self.plugin_instance.edge_manager.get_routers_on_same_edge(
                     context.get_admin_context(), router['router']['id']))
+
+    def test_router_create_with_size_fail_at_backend(self):
+        data = {'router': {
+                    'tenant_id': 'whatever',
+                    'router_type': 'shared',
+                    'router_size': 'large'}}
+        router_req = self.new_create_request('routers', data, self.fmt)
+        res = router_req.get_response(self.ext_api)
+        router = self.deserialize(self.fmt, res)
+        msg = ('Bad router request: '
+               'Cannot specify router-size for shared router')
+        self.assertEqual("BadRequest", router['NeutronError']['type'])
+        self.assertEqual(msg, router['NeutronError']['message'])
 
     def test_router_create_with_gwinfo_with_no_edge(self):
         with self._create_l3_ext_network() as net:

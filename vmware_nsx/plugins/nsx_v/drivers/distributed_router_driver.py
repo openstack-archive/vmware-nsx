@@ -86,7 +86,8 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                                  router_id, routes, newnexthop,
                                  gateway_vnic_index=internal_vnic_index)
 
-    def create_router(self, context, lrouter, allow_metadata=True):
+    def create_router(self, context, lrouter, appliance_size=None,
+                      allow_metadata=True):
         self.edge_manager.create_lrouter(context, lrouter, dist=True)
 
     def update_router(self, context, router_id, router):
