@@ -63,6 +63,7 @@ from vmware_nsx.neutron.plugins.vmware.common import utils
 from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
 from vmware_nsx.neutron.plugins.vmware.nsxlib import v3 as nsxlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib.v3 import dfw_api as firewall
+from vmware_nsx.neutron.plugins.vmware.nsxlib.v3 import router as routerlib
 from vmware_nsx.neutron.plugins.vmware.nsxlib.v3 import security
 
 LOG = log.getLogger(__name__)
@@ -191,35 +192,11 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return net_type, physical_net, vlan_id
 
-    def _validate_tier0(self, tier0_uuid):
-        if tier0_uuid in self.tier0_groups_dict:
-            return
-        err_msg = None
-        try:
-            lrouter = nsxlib.get_logical_router(tier0_uuid)
-        except nsx_exc.ResourceNotFound:
-            err_msg = _("Failed to validate tier0 router %s since it is "
-                        "not found at the backend") % tier0_uuid
-        else:
-            edge_cluster_uuid = lrouter.get('edge_cluster_id')
-            if not edge_cluster_uuid:
-                err_msg = _("Failed to get edge cluster uuid from tier0 "
-                            "router %s at the backend") % lrouter
-            else:
-                edge_cluster = nsxlib.get_edge_cluster(edge_cluster_uuid)
-                member_index_list = [member['member_index']
-                                     for member in edge_cluster['members']]
-                if not member_index_list:
-                    err_msg = _("No edge members found in edge_cluster "
-                                "%(cluster)s from tier0 router %(tier0)s") % {
-                        'cluster': edge_cluster_uuid,
-                        'tier0': tier0_uuid}
-        if err_msg:
-            raise n_exc.InvalidInput(error_message=err_msg)
-        else:
-            self.tier0_groups_dict[tier0_uuid] = {
-                'edge_cluster_uuid': edge_cluster_uuid,
-                'member_index_list': member_index_list}
+    def _get_edge_cluster_and_members(self, tier0_uuid):
+        routerlib.validate_tier0(self.tier0_groups_dict, tier0_uuid)
+        tier0_info = self.tier0_groups_dict[tier0_uuid]
+        return (tier0_info['edge_cluster_uuid'],
+                tier0_info['member_index_list'])
 
     def _validate_external_net_create(self, net_data):
         is_provider_net = False
@@ -228,7 +205,7 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         else:
             tier0_uuid = net_data[pnet.PHYSICAL_NETWORK]
             is_provider_net = True
-        self._validate_tier0(tier0_uuid)
+        routerlib.validate_tier0(self.tier0_groups_dict, tier0_uuid)
         return (is_provider_net, utils.NetworkTypes.L3_EXT, tier0_uuid, 0)
 
     def _create_network_at_the_backend(self, context, net_data):
@@ -593,6 +570,129 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                     raise n_exc.BadRequest(resource='router', msg=msg)
         return gw_info
 
+    def _get_external_attachment_info(self, context, router):
+        gw_port = router.gw_port
+        ipaddress = None
+        netmask = None
+        nexthop = None
+
+        if gw_port:
+            # gw_port may have multiple IPs, only configure the first one
+            if gw_port.get('fixed_ips'):
+                ipaddress = gw_port['fixed_ips'][0]['ip_address']
+
+            network_id = gw_port.get('network_id')
+            if network_id:
+                ext_net = self._get_network(context, network_id)
+                if not ext_net.external:
+                    msg = (_("Network '%s' is not a valid external "
+                             "network") % network_id)
+                    raise n_exc.BadRequest(resource='router', msg=msg)
+                if ext_net.subnets:
+                    ext_subnet = ext_net.subnets[0]
+                    netmask = str(netaddr.IPNetwork(ext_subnet.cidr).netmask)
+                    nexthop = ext_subnet.gateway_ip
+
+        return (ipaddress, netmask, nexthop)
+
+    def _get_tier0_uuid_by_net(self, context, network_id):
+        if not network_id:
+            return
+        network = self.get_network(context, network_id)
+        if not network.get(pnet.PHYSICAL_NETWORK):
+            return cfg.CONF.nsx_v3.default_tier0_router_uuid
+        else:
+            return network.get(pnet.PHYSICAL_NETWORK)
+
+    def _update_router_gw_info(self, context, router_id, info):
+        router = self._get_router(context, router_id)
+        org_ext_net_id = router.gw_port_id and router.gw_port.network_id
+        org_tier0_uuid = self._get_tier0_uuid_by_net(context, org_ext_net_id)
+        org_enable_snat = router.enable_snat
+        new_ext_net_id = info and info.get('network_id')
+        orgaddr, orgmask, _orgnexthop = (
+            self._get_external_attachment_info(
+                context, router))
+
+        # TODO(berlin): For nonat user case, we actually don't need a gw port
+        # which consumes one external ip. But after looking at the DB logic
+        # and we need to make a big change so don't touch it at present.
+        super(NsxV3Plugin, self)._update_router_gw_info(
+            context, router_id, info, router=router)
+
+        new_ext_net_id = router.gw_port_id and router.gw_port.network_id
+        new_tier0_uuid = self._get_tier0_uuid_by_net(context, new_ext_net_id)
+        new_enable_snat = router.enable_snat
+        newaddr, newmask, _newnexthop = (
+            self._get_external_attachment_info(
+                context, router))
+        nsx_router_id = nsx_db.get_nsx_router_id(context.session, router_id)
+
+        # Remove router link port between tier1 and tier0 if tier0 router link
+        # is removed or changed
+        remove_router_link_port = (org_tier0_uuid and
+                                   (not new_tier0_uuid or
+                                    org_tier0_uuid != new_tier0_uuid))
+
+        # Remove SNAT rules for gw ip if gw ip is deleted/changed or
+        # enable_snat is updated from True to False
+        remove_snat_rules = (org_enable_snat and orgaddr and
+                             (newaddr != orgaddr or
+                              not new_enable_snat))
+
+        # Revocate bgp announce for nonat subnets if tier0 router link is
+        # changed or enable_snat is updated from False to True
+        revocate_bgp_announce = (not org_enable_snat and org_tier0_uuid and
+                                 (new_tier0_uuid != org_tier0_uuid or
+                                  new_enable_snat))
+
+        # Add router link port between tier1 and tier0 if tier0 router link is
+        # added or changed to a new one
+        add_router_link_port = (new_tier0_uuid and
+                                (not org_tier0_uuid or
+                                 org_tier0_uuid != new_tier0_uuid))
+
+        # Add SNAT rules for gw ip if gw ip is add/changed or
+        # enable_snat is updated from False to True
+        add_snat_rules = (new_enable_snat and newaddr and
+                          (newaddr != orgaddr or
+                           not org_enable_snat))
+
+        # Bgp announce for nonat subnets if tier0 router link is changed or
+        # enable_snat is updated from True to False
+        bgp_announce = (not new_enable_snat and new_tier0_uuid and
+                        (new_tier0_uuid != org_tier0_uuid or
+                         not org_enable_snat))
+
+        advertise_route_nat_flag = True if new_enable_snat else False
+        advertise_route_connected_flag = True if not new_enable_snat else False
+
+        if revocate_bgp_announce:
+            # TODO(berlin): revocate bgp announce on org tier0 router
+            pass
+        if remove_snat_rules:
+            routerlib.delete_gw_snat_rule(nsx_router_id, orgaddr)
+        if remove_router_link_port:
+            routerlib.remove_router_link_port(nsx_router_id, org_tier0_uuid)
+        if add_router_link_port:
+            # First update edge cluster info for router
+            edge_cluster_uuid, members = self._get_edge_cluster_and_members(
+                new_tier0_uuid)
+            routerlib.update_router_edge_cluster(
+                nsx_router_id, edge_cluster_uuid)
+            routerlib.add_router_link_port(nsx_router_id, new_tier0_uuid,
+                                           members)
+        if add_snat_rules:
+            routerlib.add_gw_snat_rule(nsx_router_id, newaddr)
+        if bgp_announce:
+            # TODO(berlin): bgp announce on new tier0 router
+            pass
+
+        if remove_snat_rules or add_snat_rules:
+            routerlib.update_advertisement(nsx_router_id,
+                                           advertise_route_nat_flag,
+                                           advertise_route_connected_flag)
+
     def create_router(self, context, router):
         # TODO(berlin): admin_state_up support
         gw_info = self._extract_external_gw(context, router, is_extract=True)
@@ -624,6 +724,9 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         return self.get_router(context, router['id'])
 
     def delete_router(self, context, router_id):
+        router = self.get_router(context, router_id)
+        if router.get(l3.EXTERNAL_GW_INFO):
+            self._update_router_gw_info(context, router_id, {})
         nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                  router_id)
         ret_val = super(NsxV3Plugin, self).delete_router(context,

@@ -65,13 +65,14 @@ def _validate_result(result, expected, operation):
         raise manager_error(manager=manager_ip, operation=operation)
 
 
-def get_resource(resource):
+def get_resource(resource, **params):
     manager, user, password, verify = _get_manager_endpoint()
     url = manager + "/api/v1/%s" % resource
     headers = {'Accept': 'application/json'}
     result = requests.get(url, auth=auth.HTTPBasicAuth(user, password),
                           verify=verify, headers=headers,
-                          cert=cfg.CONF.nsx_v3.ca_file)
+                          cert=cfg.CONF.nsx_v3.ca_file,
+                          params=params)
     _validate_result(result, [requests.codes.ok],
                      _("reading resource: %s") % resource)
     return result.json()
