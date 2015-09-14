@@ -34,6 +34,7 @@ MIN_EDGE_NODE_NUM = 1
 
 TIER0_ROUTER_LINK_PORT_NAME = "TIER0-RouterLinkPort"
 TIER1_ROUTER_LINK_PORT_NAME = "TIER1-RouterLinkPort"
+ROUTER_INTF_PORT_NAME = "Tier1-RouterDownLinkPort"
 
 
 def validate_tier0(tier0_groups_dict, tier0_uuid):
@@ -126,3 +127,20 @@ def add_gw_snat_rule(logical_router_id, gw_ip):
 def update_router_edge_cluster(nsx_router_id, edge_cluster_uuid):
     return nsxlib.update_logical_router(nsx_router_id,
                                         edge_cluster_id=edge_cluster_uuid)
+
+
+def create_logical_router_intf_port_by_ls_id(logical_router_id,
+                                             ls_id,
+                                             logical_switch_port_id,
+                                             address_groups):
+    try:
+        port = nsxlib.get_logical_router_port_by_ls_id(ls_id)
+    except nsx_exc.ResourceNotFound:
+        return nsxlib.create_logical_router_port(logical_router_id,
+                                                 ROUTER_INTF_PORT_NAME,
+                                                 nsxlib.LROUTERPORT_DOWNLINK,
+                                                 logical_switch_port_id,
+                                                 address_groups)
+    else:
+        return nsxlib.update_logical_router_port(
+            port['id'], subnets=address_groups)

@@ -35,8 +35,6 @@ LROUTER_TYPES = [LROUTERPORT_UPLINK,
                  LROUTERPORT_DOWNLINK,
                  LROUTERPORT_LINK]
 
-ROUTER_INTF_PORT_NAME = "Tier1-RouterDownLinkPort"
-
 
 def get_edge_cluster(edge_cluster_uuid):
     resource = "edge-clusters/%s" % edge_cluster_uuid
@@ -241,23 +239,6 @@ def get_logical_router_port_by_ls_id(logical_switch_id):
                      "switch %s") % logical_switch_id)
         raise nsx_exc.ResourceNotFound(manager=client._get_manager_ip(),
                                        operation=err_msg)
-
-
-def create_logical_router_port_by_ls_id(logical_router_id,
-                                        ls_id,
-                                        logical_switch_port_id,
-                                        resource_type,
-                                        address_groups):
-    try:
-        port = get_logical_router_port_by_ls_id(ls_id)
-    except nsx_exc.ResourceNotFound:
-        return create_logical_router_port(logical_router_id,
-                                          ROUTER_INTF_PORT_NAME,
-                                          resource_type,
-                                          logical_switch_port_id,
-                                          address_groups)
-    else:
-        return update_logical_router_port(port['id'], subnets=address_groups)
 
 
 def create_logical_router_port(logical_router_id,
