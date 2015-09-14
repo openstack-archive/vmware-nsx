@@ -24,7 +24,7 @@ from neutron.db.migration.alembic_migrations import external
 from neutron.db.migration.models import head  # noqa
 from neutron.db import model_base
 
-from vmware_nsx.neutron.db.migration import alembic_migrations
+from vmware_nsx.db.migration import alembic_migrations
 
 
 MYSQL_ENGINE = None
