@@ -27,13 +27,10 @@ from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
 from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
 from neutron.api.v2 import attributes
-from neutron.extensions import external_net as ext_net_extn
-from neutron.extensions import extra_dhcp_opt as edo_ext
-from neutron.extensions import l3
-from neutron.extensions import portbindings as pbin
-from neutron.extensions import providernet as pnet
-from neutron.extensions import securitygroup as ext_sg
-
+from neutron.callbacks import events
+from neutron.callbacks import exceptions as callback_exc
+from neutron.callbacks import registry
+from neutron.callbacks import resources
 from neutron.common import constants as const
 from neutron.common import exceptions as n_exc
 from neutron.common import rpc as n_rpc
@@ -49,12 +46,19 @@ from neutron.db import l3_gwmode_db
 from neutron.db import models_v2
 from neutron.db import portbindings_db
 from neutron.db import securitygroups_db
+from neutron.extensions import external_net as ext_net_extn
+from neutron.extensions import extra_dhcp_opt as ext_edo
+from neutron.extensions import l3
+from neutron.extensions import portbindings as pbin
+from neutron.extensions import providernet as pnet
+from neutron.extensions import securitygroup as ext_sg
 from neutron.i18n import _LE, _LI, _LW
 from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils as n_utils
 
 from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
 from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
+from vmware_nsx.neutron.plugins.vmware.common import nsx_constants
 from vmware_nsx.neutron.plugins.vmware.common import utils
 from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
 from vmware_nsx.neutron.plugins.vmware.nsxlib import v3 as nsxlib
@@ -429,18 +433,28 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         # self.get_port(context, parent_name)
         return parent_name, tag
 
-    def _create_port_at_the_backend(self, context, neutron_db, port_data):
+    def _create_port_at_the_backend(self, context, neutron_db,
+                                    port_data, l2gw_port_check):
         tags = utils.build_v3_tags_payload(port_data)
         parent_name, tag = self._get_data_from_binding_profile(
             context, port_data)
         address_bindings = self._build_address_bindings(port_data)
         # FIXME(arosen): we might need to pull this out of the
         # transaction here later.
+        vif_uuid = port_data['id']
+        attachment_type = nsx_constants.ATTACHMENT_VIF
+        # Change the attachment type for L2 gateway owned ports.
+        if l2gw_port_check:
+            # NSX backend requires the vif id be set to bridge endpoint id
+            # for ports plugged into a Bridge Endpoint.
+            vif_uuid = port_data.get('device_id')
+            attachment_type = port_data.get('device_owner')
         result = nsxlib.create_logical_port(
             lswitch_id=port_data['network_id'],
-            vif_uuid=port_data['id'], name=port_data['name'], tags=tags,
+            vif_uuid=vif_uuid, name=port_data['name'], tags=tags,
             admin_state=port_data['admin_state_up'],
             address_bindings=address_bindings,
+            attachment_type=attachment_type,
             parent_name=parent_name, parent_tag=tag)
 
         # TODO(salv-orlando): The logical switch identifier in the
@@ -450,8 +464,8 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             neutron_db['network_id'], result['id'])
         return result
 
-    def create_port(self, context, port):
-        dhcp_opts = port['port'].get(edo_ext.EXTRADHCPOPTS, [])
+    def create_port(self, context, port, l2gw_port_check=False):
+        dhcp_opts = port['port'].get(ext_edo.EXTRADHCPOPTS, [])
         port_id = uuidutils.generate_uuid()
         port['port']['id'] = port_id
 
@@ -468,7 +482,7 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             if not self._network_is_external(
                 context, port['port']['network_id']):
                 lport = self._create_port_at_the_backend(
-                    context, neutron_db, port['port'])
+                    context, neutron_db, port['port'], l2gw_port_check)
             self._process_portbindings_create_and_update(context,
                                                          port['port'],
                                                          neutron_db)
@@ -488,7 +502,27 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                     context, lport['id'], [], sgids)
         return neutron_db
 
-    def delete_port(self, context, port_id, l3_port_check=True):
+    def _pre_delete_port_check(self, context, port_id, l2gw_port_check):
+        """Perform checks prior to deleting a port."""
+        try:
+            kwargs = {
+                'context': context,
+                'port_check': l2gw_port_check,
+                'port_id': port_id,
+            }
+            # Send delete port notification to any interested service plugin
+            registry.notify(
+                resources.PORT, events.BEFORE_DELETE, self, **kwargs)
+        except callback_exc.CallbackFailure as e:
+            if len(e.errors) == 1:
+                raise e.errors[0].error
+            raise n_exc.ServicePortInUse(port_id=port_id, reason=e)
+
+    def delete_port(self, context, port_id,
+                    l3_port_check=True, l2gw_port_check=True):
+        # if needed, check to see if this is a port owned by
+        # a l2 gateway.  If so, we should prevent deletion here
+        self._pre_delete_port_check(context, port_id, l2gw_port_check)
         # if needed, check to see if this is a port owned by
         # a l3 router.  If so, we should prevent deletion here
         if l3_port_check:

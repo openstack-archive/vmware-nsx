@@ -282,3 +282,30 @@ def get_qos_switching_profile(profile_id):
 def delete_qos_switching_profile(profile_id):
     resource = 'switching-profiles/%s' % profile_id
     client.delete_resource(resource)
+
+
+def create_bridge_endpoint(device_name, seg_id, tags):
+    """Create a bridge endpoint on the backend.
+
+    Create a bridge endpoint resource on a bridge cluster for the L2 gateway
+    network connection.
+    :param device_name: device_name actually refers to the bridge cluster's
+                        UUID.
+    :param seg_id: integer representing the VLAN segmentation ID.
+    :param tags: nsx backend specific tags.
+    """
+    resource = 'bridge-endpoints'
+    body = {'bridge_cluster_id': device_name,
+            'tags': tags,
+            'vlan': seg_id}
+    return client.create_resource(resource, body)
+
+
+def delete_bridge_endpoint(bridge_endpoint_id):
+    """Delete a bridge endpoint on the backend.
+
+    :param bridge_endpoint_id: string representing the UUID of the bridge
+                               endpoint to be deleted.
+    """
+    resource = 'bridge-endpoints/%s' % bridge_endpoint_id
+    client.delete_resource(resource)

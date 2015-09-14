@@ -300,3 +300,17 @@ class NetworkQueueMapping(model_base.BASEV2):
         models_v2.Network,
         backref=orm.backref("qos_queue", uselist=False,
                             cascade='delete', lazy='joined'))
+
+
+class NsxL2GWConnectionMapping(model_base.BASEV2):
+    """Define a mapping between L2 gateway connection and bridge endpoint."""
+    __tablename__ = 'nsx_l2gw_connection_mappings'
+    connection_id = sa.Column(sa.String(36),
+                              sa.ForeignKey("l2gatewayconnections.id",
+                                            ondelete="CASCADE"),
+                              nullable=False,
+                              primary_key=True)
+    port_id = sa.Column(sa.String(36),
+                        sa.ForeignKey("ports.id", ondelete="CASCADE"),
+                        nullable=False)
+    bridge_endpoint_id = sa.Column(sa.String(36), nullable=False)

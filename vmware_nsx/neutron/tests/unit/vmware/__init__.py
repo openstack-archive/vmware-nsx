@@ -16,6 +16,8 @@
 
 import os
 
+from networking_l2gw.db.l2gateway import l2gateway_models  # noqa
+
 from vmware_nsx.neutron.plugins.vmware.api_client import client as nsx_client
 from vmware_nsx.neutron.plugins.vmware.api_client import eventlet_client
 from vmware_nsx.neutron.plugins.vmware import extensions
