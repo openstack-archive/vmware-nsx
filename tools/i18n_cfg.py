@@ -92,4 +92,4 @@ msg_format_checkers = [
 ]
 
 
-file_black_list = ["./vmware_nsx/neutron/tests/unit"]
+file_black_list = ["./vmware_nsx/tests/unit"]

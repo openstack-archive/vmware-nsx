@@ -125,13 +125,13 @@ For executing a specific test case, specify the name of the test case
 class separating it from the module path with a colon.
 
 For example, the following would run only the TestSubnetsV2 tests from
-vmware_nsx/neutron/tests/unit/vmware/test_nsx_v_plugin.py::
+vmware_nsx/tests/unit/vmware/test_nsx_v_plugin.py::
 
-      $ ./run_tests.sh vmware_nsx.neutron.tests.unit.vmware.test_nsx_v_plugin.TestSubnetsV2
+      $ ./run_tests.sh vmware_nsx.tests.unit.vmware.test_nsx_v_plugin.TestSubnetsV2
 
 or::
 
-      $ tox -e py27 vmware_nsx.neutron.tests.unit.vmware.test_nsx_v_plugin.TestSubnetsV2
+      $ tox -e py27 vmware_nsx.tests.unit.vmware.test_nsx_v_plugin.TestSubnetsV2
 
 Adding more tests
 ~~~~~~~~~~~~~~~~~
