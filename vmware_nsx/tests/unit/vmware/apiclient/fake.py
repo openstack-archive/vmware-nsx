@@ -18,7 +18,7 @@ from oslo_utils import uuidutils
 import six
 import six.moves.urllib.parse as urlparse
 
-from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
+from vmware_nsx.api_client import exception as api_exc
 
 
 LOG = logging.getLogger(__name__)

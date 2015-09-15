@@ -16,7 +16,7 @@
 import mock
 
 from neutron.tests.unit.extensions import test_portsecurity as psec
-from vmware_nsx.neutron.plugins.vmware.common import sync
+from vmware_nsx.common import sync
 from vmware_nsx.tests.unit import vmware
 from vmware_nsx.tests.unit.vmware.apiclient import fake
 from vmware_nsx.tests.unit.vmware import test_utils

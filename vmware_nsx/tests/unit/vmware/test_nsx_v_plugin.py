@@ -45,21 +45,21 @@ from oslo_utils import uuidutils
 import six
 import webob.exc
 
-from vmware_nsx.neutron.plugins.vmware.common import nsx_constants
-from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
-from vmware_nsx.neutron.plugins.vmware.extensions import (
+from vmware_nsx.common import nsx_constants
+from vmware_nsx.db import nsxv_db
+from vmware_nsx.extensions import (
     routertype as router_type)
-from vmware_nsx.neutron.plugins.vmware.extensions import (
+from vmware_nsx.extensions import (
     vnicindex as ext_vnic_idx)
-from vmware_nsx.neutron.plugins.vmware.vshield.common import (
-    constants as vcns_const)
-from vmware_nsx.neutron.plugins.vmware.vshield import edge_utils
 from vmware_nsx.tests.unit import vmware
 from vmware_nsx.tests.unit.vmware.extensions import test_vnic_index
 from vmware_nsx.tests.unit.vmware import test_utils
 from vmware_nsx.tests.unit.vmware.vshield import fake_vcns
+from vmware_nsx.vshield.common import (
+    constants as vcns_const)
+from vmware_nsx.vshield import edge_utils
 
-PLUGIN_NAME = 'vmware_nsx.neutron.plugins.vmware.plugin.NsxVPlugin'
+PLUGIN_NAME = 'vmware_nsx.plugin.NsxVPlugin'
 
 _uuid = uuidutils.generate_uuid
 

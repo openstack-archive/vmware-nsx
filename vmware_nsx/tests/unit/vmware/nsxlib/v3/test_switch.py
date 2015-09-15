@@ -19,8 +19,8 @@ import mock
 from oslo_log import log
 from oslo_utils import uuidutils
 
-from vmware_nsx.neutron.plugins.vmware.common import nsx_constants
-from vmware_nsx.neutron.plugins.vmware.nsxlib import v3 as nsxlib
+from vmware_nsx.common import nsx_constants
+from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.tests.unit.vmware import nsx_v3_mocks
 from vmware_nsx.tests.unit.vmware.nsxlib.v3 import nsxlib_testcase
 
@@ -29,7 +29,7 @@ LOG = log.getLogger(__name__)
 
 class NsxLibSwitchTestCase(nsxlib_testcase.NsxLibTestCase):
 
-    @mock.patch("vmware_nsx.neutron.plugins.vmware.nsxlib.v3"
+    @mock.patch("vmware_nsx.nsxlib.v3"
                 ".client.create_resource")
     def test_create_logical_switch(self, mock_create_resource):
         """
@@ -43,7 +43,7 @@ class NsxLibSwitchTestCase(nsxlib_testcase.NsxLibTestCase):
                                               [])
         self.assertEqual(fake_switch, result)
 
-    @mock.patch("vmware_nsx.neutron.plugins.vmware.nsxlib.v3"
+    @mock.patch("vmware_nsx.nsxlib.v3"
                 ".client.create_resource")
     def test_create_logical_switch_admin_down(self, mock_create_resource):
         """
@@ -58,7 +58,7 @@ class NsxLibSwitchTestCase(nsxlib_testcase.NsxLibTestCase):
                                               [], admin_state=False)
         self.assertEqual(fake_switch, result)
 
-    @mock.patch("vmware_nsx.neutron.plugins.vmware.nsxlib.v3"
+    @mock.patch("vmware_nsx.nsxlib.v3"
                 ".client.create_resource")
     def test_create_logical_switch_vlan(self, mock_create_resource):
         """
@@ -73,7 +73,7 @@ class NsxLibSwitchTestCase(nsxlib_testcase.NsxLibTestCase):
                                               [])
         self.assertEqual(fake_switch, result)
 
-    @mock.patch("vmware_nsx.neutron.plugins.vmware.nsxlib.v3"
+    @mock.patch("vmware_nsx.nsxlib.v3"
                 ".client.delete_resource")
     def test_delete_logical_switch(self, mock_delete_resource):
         """

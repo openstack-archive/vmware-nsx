@@ -22,13 +22,13 @@ from oslo_config import cfg
 from oslo_utils import uuidutils
 import six
 
-from vmware_nsx.neutron.plugins.vmware.api_client import client
-from vmware_nsx.neutron.plugins.vmware.api_client import version
-from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
-from vmware_nsx.neutron.plugins.vmware.common import exceptions
-from vmware_nsx.neutron.plugins.vmware.common import sync
-from vmware_nsx.neutron.plugins.vmware import nsx_cluster
-from vmware_nsx.neutron.plugins.vmware.nsxlib import lsn as lsnlib
+from vmware_nsx.api_client import client
+from vmware_nsx.api_client import version
+from vmware_nsx.common import config  # noqa
+from vmware_nsx.common import exceptions
+from vmware_nsx.common import sync
+from vmware_nsx import nsx_cluster
+from vmware_nsx.nsxlib import lsn as lsnlib
 from vmware_nsx.tests.unit import vmware
 
 BASE_CONF_PATH = vmware.get_fake_conf('neutron.conf.test')

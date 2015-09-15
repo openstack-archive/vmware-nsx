@@ -16,8 +16,8 @@
 
 from oslo_utils import uuidutils
 
-from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
-from vmware_nsx.neutron.plugins.vmware.common import nsx_constants
+from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.common import nsx_constants
 
 
 FAKE_NAME = "fake_name"

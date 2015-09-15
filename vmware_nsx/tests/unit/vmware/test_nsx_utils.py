@@ -20,12 +20,12 @@ from neutron.extensions import providernet as pnet
 from neutron.tests import base
 from oslo_utils import uuidutils
 
-from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
-from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
-from vmware_nsx.neutron.plugins.vmware.common import nsx_utils
-from vmware_nsx.neutron.plugins.vmware.common import utils
-from vmware_nsx.neutron.plugins.vmware.dbexts import nsx_models
-from vmware_nsx.neutron.plugins.vmware import nsxlib
+from vmware_nsx.api_client import exception as api_exc
+from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.common import nsx_utils
+from vmware_nsx.common import utils
+from vmware_nsx.db import nsx_models
+from vmware_nsx import nsxlib
 from vmware_nsx.tests.unit import vmware
 from vmware_nsx.tests.unit.vmware.nsxlib import base as nsx_base
 
@@ -37,32 +37,32 @@ class NsxUtilsTestCase(base.BaseTestCase):
         # This will allow for avoiding setting up the plugin
         # for creating db entries
         mock.patch(vmware.nsx_method('get_nsx_switch_and_port_id',
-                                     module_name='dbexts.db'),
+                                     module_name='db.db'),
                    return_value=ret_value).start()
         mock.patch(vmware.nsx_method('add_neutron_nsx_port_mapping',
-                                     module_name='dbexts.db')).start()
+                                     module_name='db.db')).start()
         mock.patch(vmware.nsx_method('delete_neutron_nsx_port_mapping',
-                                     module_name='dbexts.db')).start()
+                                     module_name='db.db')).start()
 
     def _mock_network_mapping_db_calls(self, ret_value):
         # Mock relevant db calls
         # This will allow for avoiding setting up the plugin
         # for creating db entries
         mock.patch(vmware.nsx_method('get_nsx_switch_ids',
-                                     module_name='dbexts.db'),
+                                     module_name='db.db'),
                    return_value=ret_value).start()
         mock.patch(vmware.nsx_method('add_neutron_nsx_network_mapping',
-                                     module_name='dbexts.db')).start()
+                                     module_name='db.db')).start()
 
     def _mock_router_mapping_db_calls(self, ret_value):
         # Mock relevant db calls
         # This will allow for avoiding setting up the plugin
         # for creating db entries
         mock.patch(vmware.nsx_method('get_nsx_router_id',
-                                     module_name='dbexts.db'),
+                                     module_name='db.db'),
                    return_value=ret_value).start()
         mock.patch(vmware.nsx_method('add_neutron_nsx_router_mapping',
-                                     module_name='dbexts.db')).start()
+                                     module_name='db.db')).start()
 
     def _verify_get_nsx_switch_and_port_id(self, exp_ls_uuid, exp_lp_uuid):
         # The nsxlib and db calls are mocked, therefore the cluster
@@ -271,10 +271,10 @@ class NsxUtilsTestCase(base.BaseTestCase):
 
     def _mock_sec_group_mapping_db_calls(self, ret_value):
         mock.patch(vmware.nsx_method('get_nsx_security_group_id',
-                                     module_name='dbexts.db'),
+                                     module_name='db.db'),
                    return_value=ret_value).start()
         mock.patch(vmware.nsx_method('add_neutron_nsx_security_group_mapping',
-                                     module_name='dbexts.db')).start()
+                                     module_name='db.db')).start()
 
     def _verify_get_nsx_sec_profile_id(self, exp_sec_prof_uuid):
         # The nsxlib and db calls are  mocked, therefore the cluster

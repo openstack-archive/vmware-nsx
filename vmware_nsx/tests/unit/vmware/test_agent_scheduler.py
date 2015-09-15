@@ -19,8 +19,8 @@ from oslo_config import cfg
 from neutron.common import constants
 from neutron.tests.unit.db import test_agentschedulers_db  # noqa
 
-from vmware_nsx.neutron.plugins.vmware.common import sync
-from vmware_nsx.neutron.plugins.vmware.dhcp_meta import rpc
+from vmware_nsx.common import sync
+from vmware_nsx.dhcp_meta import rpc
 from vmware_nsx.tests.unit import vmware
 from vmware_nsx.tests.unit.vmware.apiclient import fake
 from vmware_nsx.tests.unit.vmware import test_utils

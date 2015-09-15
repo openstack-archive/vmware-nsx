@@ -21,8 +21,8 @@ from neutron.tests.unit.db import test_db_base_plugin_v2 as test_db_plugin
 from oslo_config import cfg
 import six
 
-from vmware_nsx.neutron.plugins.vmware.api_client import version
-from vmware_nsx.neutron.plugins.vmware.common import sync
+from vmware_nsx.api_client import version
+from vmware_nsx.common import sync
 from vmware_nsx.tests.unit import vmware
 from vmware_nsx.tests.unit.vmware.apiclient import fake
 from vmware_nsx.tests.unit.vmware import test_utils

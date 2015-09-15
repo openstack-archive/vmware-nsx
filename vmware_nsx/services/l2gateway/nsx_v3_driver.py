@@ -34,11 +34,11 @@ from neutron.i18n import _LE, _LI
 from neutron import manager
 from neutron.plugins.common import utils as n_utils
 
-from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
-from vmware_nsx.neutron.plugins.vmware.common import nsx_constants
-from vmware_nsx.neutron.plugins.vmware.common import utils as nsx_utils
-from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
-from vmware_nsx.neutron.plugins.vmware.nsxlib import v3 as nsxlib
+from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.common import nsx_constants
+from vmware_nsx.common import utils as nsx_utils
+from vmware_nsx.db import db as nsx_db
+from vmware_nsx.nsxlib import v3 as nsxlib
 
 LOG = logging.getLogger(__name__)
 

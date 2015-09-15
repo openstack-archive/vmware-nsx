@@ -18,7 +18,7 @@
 from neutron.tests import base
 from six.moves import http_client as httplib
 
-from vmware_nsx.neutron.plugins.vmware import api_client
+from vmware_nsx import api_client
 
 
 class ApiCommonTest(base.BaseTestCase):

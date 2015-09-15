@@ -31,14 +31,14 @@ from neutron.tests import base
 from neutron.tests.unit.api.v2 import test_base
 from neutron.tests.unit import testlib_api
 
-from vmware_nsx.neutron.plugins.vmware.api_client import client
-from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
-from vmware_nsx.neutron.plugins.vmware.api_client import version
-from vmware_nsx.neutron.plugins.vmware.common import sync
-from vmware_nsx.neutron.plugins.vmware.dbexts import db
-from vmware_nsx.neutron.plugins.vmware import nsx_cluster as cluster
-from vmware_nsx.neutron.plugins.vmware import nsxlib
-from vmware_nsx.neutron.plugins.vmware import plugin
+from vmware_nsx.api_client import client
+from vmware_nsx.api_client import exception as api_exc
+from vmware_nsx.api_client import version
+from vmware_nsx.common import sync
+from vmware_nsx.db import db
+from vmware_nsx import nsx_cluster as cluster
+from vmware_nsx import nsxlib
+from vmware_nsx import plugin
 from vmware_nsx.tests.unit import vmware
 from vmware_nsx.tests.unit.vmware.apiclient import fake
 

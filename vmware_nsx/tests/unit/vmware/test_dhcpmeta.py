@@ -22,14 +22,14 @@ from neutron import context
 from neutron.tests import base
 from neutron.tests.unit import testlib_api
 
-from vmware_nsx.neutron.plugins.vmware.api_client import exception
-from vmware_nsx.neutron.plugins.vmware.common import exceptions as p_exc
-from vmware_nsx.neutron.plugins.vmware.dbexts import lsn_db
-from vmware_nsx.neutron.plugins.vmware.dhcp_meta import constants
-from vmware_nsx.neutron.plugins.vmware.dhcp_meta import lsnmanager as lsn_man
-from vmware_nsx.neutron.plugins.vmware.dhcp_meta import migration as mig_man
-from vmware_nsx.neutron.plugins.vmware.dhcp_meta import nsx
-from vmware_nsx.neutron.plugins.vmware.dhcp_meta import rpc
+from vmware_nsx.api_client import exception
+from vmware_nsx.common import exceptions as p_exc
+from vmware_nsx.db import lsn_db
+from vmware_nsx.dhcp_meta import constants
+from vmware_nsx.dhcp_meta import lsnmanager as lsn_man
+from vmware_nsx.dhcp_meta import migration as mig_man
+from vmware_nsx.dhcp_meta import nsx
+from vmware_nsx.dhcp_meta import rpc
 
 
 class DhcpMetadataBuilderTestCase(base.BaseTestCase):

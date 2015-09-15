@@ -22,12 +22,12 @@ from neutron.common import exceptions as n_exc
 from neutron import context
 from neutron.plugins.common import constants as plugin_const
 from neutron.tests.unit import testlib_api
-from vmware_nsx.neutron.plugins.vmware.common import nsxv_constants
-from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_db
-from vmware_nsx.neutron.plugins.vmware.vshield.common import (
-    constants as vcns_const)
-from vmware_nsx.neutron.plugins.vmware.vshield import edge_utils
+from vmware_nsx.common import nsxv_constants
+from vmware_nsx.db import nsxv_db
 from vmware_nsx.tests.unit import vmware
+from vmware_nsx.vshield.common import (
+    constants as vcns_const)
+from vmware_nsx.vshield import edge_utils
 
 _uuid = uuidutils.generate_uuid
 

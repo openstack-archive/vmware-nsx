@@ -23,9 +23,9 @@ from oslo_log import log as logging
 from six.moves import http_client as httplib
 
 
-from vmware_nsx.neutron.plugins.vmware.api_client import (
+from vmware_nsx.api_client import (
     eventlet_client as client)
-from vmware_nsx.neutron.plugins.vmware.api_client import (
+from vmware_nsx.api_client import (
     eventlet_request as request)
 from vmware_nsx.tests.unit import vmware
 

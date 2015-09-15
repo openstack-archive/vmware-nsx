@@ -21,7 +21,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import importutils
 
-from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
+from vmware_nsx.common import config  # noqa
 
 LOG = logging.getLogger(__name__)
 

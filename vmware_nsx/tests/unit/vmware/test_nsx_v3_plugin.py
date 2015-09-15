@@ -33,13 +33,13 @@ import neutron.tests.unit.extensions.test_l3 as test_l3_plugin
 import neutron.tests.unit.extensions.test_l3_ext_gw_mode as test_ext_gw_mode
 import neutron.tests.unit.extensions.test_securitygroup as ext_sg
 from neutron import version
-from vmware_nsx.neutron.plugins.vmware.common import utils
-from vmware_nsx.neutron.plugins.vmware.nsxlib import v3 as nsxlib
-from vmware_nsx.neutron.plugins.vmware.nsxlib.v3 import dfw_api as firewall
+from vmware_nsx.common import utils
+from vmware_nsx.nsxlib import v3 as nsxlib
+from vmware_nsx.nsxlib.v3 import dfw_api as firewall
 from vmware_nsx.tests.unit import vmware
 from vmware_nsx.tests.unit.vmware import nsx_v3_mocks
 
-PLUGIN_NAME = ('vmware_nsx.neutron.plugins.vmware.'
+PLUGIN_NAME = ('vmware_nsx.'
                'plugins.nsx_v3_plugin.NsxV3Plugin')
 
 

@@ -14,9 +14,9 @@
 
 from neutron.db.migration.models import head
 
-from vmware_nsx.neutron.plugins.vmware.dbexts import nsx_models  # noqa
-from vmware_nsx.neutron.plugins.vmware.dbexts import nsxv_models  # noqa
-from vmware_nsx.neutron.plugins.vmware.dbexts import vcns_models  # noqa
+from vmware_nsx.db import nsx_models  # noqa
+from vmware_nsx.db import nsxv_models  # noqa
+from vmware_nsx.db import vcns_models  # noqa
 
 
 def get_metadata():

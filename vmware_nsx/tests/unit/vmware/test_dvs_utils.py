@@ -18,7 +18,7 @@ from oslo_config import cfg
 from oslo_vmware import api
 
 from neutron.tests import base
-from vmware_nsx.neutron.plugins.vmware.dvs import dvs_utils
+from vmware_nsx.dvs import dvs_utils
 
 
 class DvsUtilsTestCase(base.BaseTestCase):

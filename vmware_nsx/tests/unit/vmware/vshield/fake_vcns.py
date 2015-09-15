@@ -19,7 +19,7 @@ from oslo_utils import uuidutils
 import six
 import xml.etree.ElementTree as ET
 
-from vmware_nsx.neutron.plugins.vmware.vshield.common import exceptions
+from vmware_nsx.vshield.common import exceptions
 
 SECTION_LOCATION_HEADER = '/api/4.0/firewall/globalroot-0/config/%s/%s'
 

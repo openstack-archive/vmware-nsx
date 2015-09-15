@@ -44,13 +44,13 @@ import six
 from sqlalchemy import exc as sql_exc
 import webob.exc
 
-from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
-from vmware_nsx.neutron.plugins.vmware.api_client import version as ver_module
-from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
-from vmware_nsx.neutron.plugins.vmware.common import sync
-from vmware_nsx.neutron.plugins.vmware.common import utils
-from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
-from vmware_nsx.neutron.plugins.vmware import nsxlib
+from vmware_nsx.api_client import exception as api_exc
+from vmware_nsx.api_client import version as ver_module
+from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.common import sync
+from vmware_nsx.common import utils
+from vmware_nsx.db import db as nsx_db
+from vmware_nsx import nsxlib
 from vmware_nsx.tests.unit import vmware
 from vmware_nsx.tests.unit.vmware.apiclient import fake
 from vmware_nsx.tests.unit.vmware import test_utils

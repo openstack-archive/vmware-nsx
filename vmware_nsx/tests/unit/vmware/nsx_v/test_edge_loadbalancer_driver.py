@@ -18,7 +18,7 @@ import mock
 from neutron import context
 from neutron.tests import base
 
-from vmware_nsx.neutron.plugins.vmware.vshield import vcns_driver
+from vmware_nsx.vshield import vcns_driver
 
 EDGE_PROVIDER = ('LOADBALANCER:vmwareedge:neutron.services.'
                  'loadbalancer.drivers.vmware.edge_driver.'

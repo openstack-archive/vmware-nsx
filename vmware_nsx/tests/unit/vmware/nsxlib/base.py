@@ -18,11 +18,11 @@ import mock
 from neutron.tests import base
 from neutron.tests.unit.api.v2 import test_base
 
-from vmware_nsx.neutron.plugins.vmware.api_client import client
-from vmware_nsx.neutron.plugins.vmware.api_client import exception
-from vmware_nsx.neutron.plugins.vmware.api_client import version
-from vmware_nsx.neutron.plugins.vmware.common import config  # noqa
-from vmware_nsx.neutron.plugins.vmware import nsx_cluster as cluster
+from vmware_nsx.api_client import client
+from vmware_nsx.api_client import exception
+from vmware_nsx.api_client import version
+from vmware_nsx.common import config  # noqa
+from vmware_nsx import nsx_cluster as cluster
 from vmware_nsx.tests.unit import vmware
 from vmware_nsx.tests.unit.vmware.apiclient import fake
 

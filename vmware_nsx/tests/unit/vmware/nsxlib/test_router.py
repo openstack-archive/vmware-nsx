@@ -20,13 +20,13 @@ from neutron.tests.unit.api.v2 import test_base
 from oslo_config import cfg
 from oslo_utils import uuidutils
 
-from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
-from vmware_nsx.neutron.plugins.vmware.api_client import version as ver_module
-from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
-from vmware_nsx.neutron.plugins.vmware.common import utils
-from vmware_nsx.neutron.plugins.vmware import nsxlib
-from vmware_nsx.neutron.plugins.vmware.nsxlib import router as routerlib
-from vmware_nsx.neutron.plugins.vmware.nsxlib import switch as switchlib
+from vmware_nsx.api_client import exception as api_exc
+from vmware_nsx.api_client import version as ver_module
+from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.common import utils
+from vmware_nsx import nsxlib
+from vmware_nsx.nsxlib import router as routerlib
+from vmware_nsx.nsxlib import switch as switchlib
 from vmware_nsx.tests.unit.vmware.nsxlib import base
 
 _uuid = test_base._uuid

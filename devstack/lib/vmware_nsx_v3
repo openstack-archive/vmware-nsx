@@ -62,7 +62,7 @@ function neutron_plugin_configure_common {
     Q_PLUGIN_SRC_CONF_PATH=vmware-nsx/etc
     mkdir -p /$Q_PLUGIN_CONF_PATH
     cp $DEST/$Q_PLUGIN_SRC_CONF_PATH/$Q_PLUGIN_CONF_FILENAME /$Q_PLUGIN_CONF_PATH/$Q_PLUGIN_CONF_FILENAME
-    Q_PLUGIN_CLASS="vmware_nsx.neutron.plugins.vmware.plugins.nsx_v3_plugin.NsxV3Plugin"
+    Q_PLUGIN_CLASS="vmware_nsx.plugins.nsx_v3_plugin.NsxV3Plugin"
 }
 
 function neutron_plugin_configure_debug_command {

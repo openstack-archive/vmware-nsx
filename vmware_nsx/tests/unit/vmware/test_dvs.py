@@ -23,12 +23,12 @@ from neutron.extensions import portbindings
 from neutron import manager
 from neutron.tests import base
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
-from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
-from vmware_nsx.neutron.plugins.vmware.dbexts import db as nsx_db
-from vmware_nsx.neutron.plugins.vmware.dvs import dvs
-from vmware_nsx.neutron.plugins.vmware.dvs import dvs_utils
+from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.db import db as nsx_db
+from vmware_nsx.dvs import dvs
+from vmware_nsx.dvs import dvs_utils
 
-PLUGIN_NAME = 'vmware_nsx.neutron.plugins.vmware.plugin.NsxDvsPlugin'
+PLUGIN_NAME = 'vmware_nsx.plugin.NsxDvsPlugin'
 
 
 class fake_session(object):

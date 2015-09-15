@@ -31,13 +31,13 @@ from neutron.tests.unit.api import test_extensions
 from neutron.tests.unit.api.v2 import test_base
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_db_plugin
 
-from vmware_nsx.neutron.plugins.vmware.api_client import exception as api_exc
-from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
-from vmware_nsx.neutron.plugins.vmware.dbexts import networkgw_db
-from vmware_nsx.neutron.plugins.vmware.dbexts import nsx_models
-from vmware_nsx.neutron.plugins.vmware.extensions import networkgw
-from vmware_nsx.neutron.plugins.vmware import nsxlib
-from vmware_nsx.neutron.plugins.vmware.nsxlib import l2gateway as l2gwlib
+from vmware_nsx.api_client import exception as api_exc
+from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.db import networkgw_db
+from vmware_nsx.db import nsx_models
+from vmware_nsx.extensions import networkgw
+from vmware_nsx import nsxlib
+from vmware_nsx.nsxlib import l2gateway as l2gwlib
 from vmware_nsx.tests.unit import vmware
 from vmware_nsx.tests.unit.vmware import test_nsx_plugin
 

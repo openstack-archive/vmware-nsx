@@ -19,14 +19,14 @@ import mock
 from neutron.tests import base
 import six
 
-from vmware_nsx.neutron.plugins.vmware.vshield.common import (
-    constants as vcns_const)
-from vmware_nsx.neutron.plugins.vmware.vshield.tasks import (
-    constants as ts_const)
-from vmware_nsx.neutron.plugins.vmware.vshield.tasks import tasks as ts
-from vmware_nsx.neutron.plugins.vmware.vshield import vcns_driver
 from vmware_nsx.tests.unit import vmware
 from vmware_nsx.tests.unit.vmware.vshield import fake_vcns
+from vmware_nsx.vshield.common import (
+    constants as vcns_const)
+from vmware_nsx.vshield.tasks import (
+    constants as ts_const)
+from vmware_nsx.vshield.tasks import tasks as ts
+from vmware_nsx.vshield import vcns_driver
 
 VCNS_CONFIG_FILE = vmware.get_fake_conf("vcns.ini.test")
 

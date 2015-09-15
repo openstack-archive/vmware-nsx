@@ -18,12 +18,12 @@ import mock
 from neutron.tests.unit.api.v2 import test_base
 from oslo_serialization import jsonutils
 
-from vmware_nsx.neutron.plugins.vmware.api_client import exception
-from vmware_nsx.neutron.plugins.vmware.common import exceptions as nsx_exc
-from vmware_nsx.neutron.plugins.vmware.common import utils as nsx_utils
-from vmware_nsx.neutron.plugins.vmware import nsxlib
-from vmware_nsx.neutron.plugins.vmware.nsxlib import l2gateway as l2gwlib
-from vmware_nsx.neutron.plugins.vmware.nsxlib import switch as switchlib
+from vmware_nsx.api_client import exception
+from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.common import utils as nsx_utils
+from vmware_nsx import nsxlib
+from vmware_nsx.nsxlib import l2gateway as l2gwlib
+from vmware_nsx.nsxlib import switch as switchlib
 from vmware_nsx.tests.unit.vmware.nsxlib import base
 
 _uuid = test_base._uuid

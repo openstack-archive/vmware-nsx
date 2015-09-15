@@ -18,7 +18,7 @@ import mock
 
 from oslo_log import log
 
-from vmware_nsx.neutron.plugins.vmware.nsxlib import v3 as nsxlib
+from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.tests.unit.vmware.nsxlib.v3 import nsxlib_testcase
 from vmware_nsx.tests.unit.vmware import test_constants_v3
 
@@ -27,7 +27,7 @@ LOG = log.getLogger(__name__)
 
 class NsxLibPortTestCase(nsxlib_testcase.NsxLibTestCase):
 
-    @mock.patch("vmware_nsx.neutron.plugins.vmware.nsxlib.v3"
+    @mock.patch("vmware_nsx.nsxlib.v3"
                 ".client.create_resource")
     def test_create_logical_port(self, mock_create_resource):
         """
@@ -42,7 +42,7 @@ class NsxLibPortTestCase(nsxlib_testcase.NsxLibTestCase):
 
         self.assertEqual(test_constants_v3.FAKE_PORT, result)
 
-    @mock.patch("vmware_nsx.neutron.plugins.vmware.nsxlib.v3"
+    @mock.patch("vmware_nsx.nsxlib.v3"
                 ".client.create_resource")
     def test_create_logical_port_admin_down(self, mock_create_resource):
         """
@@ -59,7 +59,7 @@ class NsxLibPortTestCase(nsxlib_testcase.NsxLibTestCase):
 
         self.assertEqual(fake_port, result)
 
-    @mock.patch("vmware_nsx.neutron.plugins.vmware.nsxlib.v3"
+    @mock.patch("vmware_nsx.nsxlib.v3"
                 ".client.delete_resource")
     def test_delete_logical_port(self, mock_delete_resource):
         """

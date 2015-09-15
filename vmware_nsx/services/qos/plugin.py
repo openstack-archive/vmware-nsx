@@ -22,8 +22,8 @@ from neutron.i18n import _LE, _LI
 from neutron.objects.qos import policy as policy_object
 from neutron.services.qos import qos_plugin
 
-from vmware_nsx.neutron.plugins.vmware.common import utils
-from vmware_nsx.neutron.plugins.vmware.nsxlib import v3 as nsxlib
+from vmware_nsx.common import utils
+from vmware_nsx.nsxlib import v3 as nsxlib
 
 LOG = logging.getLogger(__name__)
 

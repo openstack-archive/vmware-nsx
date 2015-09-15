@@ -17,8 +17,8 @@ import mock
 from oslo_serialization import jsonutils
 
 from neutron.tests import base
-from vmware_nsx.neutron.plugins.vmware.vshield import nsxv_loadbalancer
-from vmware_nsx.neutron.plugins.vmware.vshield import vcns
+from vmware_nsx.vshield import nsxv_loadbalancer
+from vmware_nsx.vshield import vcns
 
 
 class NsxvLoadbalancerTestCase(base.BaseTestCase):

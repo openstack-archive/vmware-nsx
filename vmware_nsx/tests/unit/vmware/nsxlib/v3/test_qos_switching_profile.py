@@ -18,7 +18,7 @@ import mock
 
 from oslo_log import log
 
-from vmware_nsx.neutron.plugins.vmware.nsxlib import v3 as nsxlib
+from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.tests.unit.vmware.nsxlib.v3 import nsxlib_testcase
 from vmware_nsx.tests.unit.vmware import test_constants_v3
 
@@ -27,7 +27,7 @@ LOG = log.getLogger(__name__)
 
 class NsxLibQosTestCase(nsxlib_testcase.NsxLibTestCase):
 
-    @mock.patch("vmware_nsx.neutron.plugins.vmware.nsxlib.v3"
+    @mock.patch("vmware_nsx.nsxlib.v3"
                 ".client.create_resource")
     def test_create_qos_switching_profile_untrusted(
         self, mock_create_resource):
@@ -45,7 +45,7 @@ class NsxLibQosTestCase(nsxlib_testcase.NsxLibTestCase):
                      description=test_constants_v3.FAKE_NAME)
         self.assertEqual(fake_qos_profile, result)
 
-    @mock.patch("vmware_nsx.neutron.plugins.vmware.nsxlib.v3"
+    @mock.patch("vmware_nsx.nsxlib.v3"
                 ".client.create_resource")
     def test_create_qos_switching_profile_trusted(
         self, mock_create_resource):
@@ -63,7 +63,7 @@ class NsxLibQosTestCase(nsxlib_testcase.NsxLibTestCase):
                      description=test_constants_v3.FAKE_NAME)
         self.assertEqual(fake_qos_profile, result)
 
-    @mock.patch("vmware_nsx.neutron.plugins.vmware.nsxlib.v3"
+    @mock.patch("vmware_nsx.nsxlib.v3"
                 ".client.delete_resource")
     def test_delete_qos_switching_profile(self, mock_delete_resource):
         """
