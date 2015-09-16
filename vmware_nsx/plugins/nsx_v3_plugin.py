@@ -910,6 +910,109 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         return super(NsxV3Plugin, self).remove_router_interface(
             context, router_id, interface_info)
 
+    def create_floatingip(self, context, floatingip):
+        new_fip = super(NsxV3Plugin, self).create_floatingip(
+            context, floatingip)
+        router_id = new_fip['router_id']
+        if not router_id:
+            return new_fip
+        try:
+            nsx_router_id = nsx_db.get_nsx_router_id(context.session,
+                                                     router_id)
+            routerlib.add_fip_nat_rules(
+                nsx_router_id, new_fip['floating_ip_address'],
+                new_fip['fixed_ip_address'])
+        except nsx_exc.ManagerError:
+            with excutils.save_and_reraise_exception():
+                self.delete_floatingip(context, new_fip['id'])
+        return new_fip
+
+    def delete_floatingip(self, context, fip_id):
+        fip = self.get_floatingip(context, fip_id)
+        router_id = fip['router_id']
+        if router_id:
+            try:
+                nsx_router_id = nsx_db.get_nsx_router_id(context.session,
+                                                         router_id)
+                routerlib.delete_fip_nat_rules(
+                    nsx_router_id, fip['floating_ip_address'],
+                    fip['fixed_ip_address'])
+            except nsx_exc.ResourceNotFound:
+                LOG.warning(_LW("Backend NAT rules for fip: %(fip_id)s "
+                                "(ext_ip: %(ext_ip)s int_ip: %(int_ip)s) "
+                                "not found"),
+                            {'fip_id': fip_id,
+                             'ext_ip': fip['floating_ip_address'],
+                             'int_ip': fip['fixed_ip_address']})
+        super(NsxV3Plugin, self).delete_floatingip(context, fip_id)
+
+    def update_floatingip(self, context, fip_id, floatingip):
+        old_fip = self.get_floatingip(context, fip_id)
+        old_port_id = old_fip['port_id']
+        new_fip = super(NsxV3Plugin, self).update_floatingip(
+            context, fip_id, floatingip)
+        router_id = new_fip['router_id']
+        try:
+            # Delete old router's fip rules if old_router_id is not None.
+            if old_fip['router_id']:
+
+                try:
+                    old_nsx_router_id = nsx_db.get_nsx_router_id(
+                        context.session, old_fip['router_id'])
+                    routerlib.delete_fip_nat_rules(
+                        old_nsx_router_id, old_fip['floating_ip_address'],
+                        old_fip['fixed_ip_address'])
+                except nsx_exc.ResourceNotFound:
+                    LOG.warning(_LW("Backend NAT rules for fip: %(fip_id)s "
+                                    "(ext_ip: %(ext_ip)s int_ip: %(int_ip)s) "
+                                    "not found"),
+                                {'fip_id': old_fip['id'],
+                                 'ext_ip': old_fip['floating_ip_address'],
+                                 'int_ip': old_fip['fixed_ip_address']})
+
+            # TODO(berlin): Associating same FIP to different internal IPs
+            # would lead to creating multiple times of FIP nat rules at the
+            # backend. Let's see how to fix the problem latter.
+
+            # Update current router's nat rules if router_id is not None.
+            if router_id:
+                nsx_router_id = nsx_db.get_nsx_router_id(context.session,
+                                                         router_id)
+                routerlib.add_fip_nat_rules(
+                    nsx_router_id, new_fip['floating_ip_address'],
+                    new_fip['fixed_ip_address'])
+        except nsx_exc.ManagerError:
+            with excutils.save_and_reraise_exception():
+                super(NsxV3Plugin, self).update_floatingip(
+                    context, fip_id, {'floatingip': {'port_id': old_port_id}})
+                self._set_floatingip_status(
+                    context, const.FLOATINGIP_STATUS_ERROR)
+        return new_fip
+
+    def disassociate_floatingips(self, context, port_id):
+        fip_qry = context.session.query(l3_db.FloatingIP)
+        fip_dbs = fip_qry.filter_by(fixed_port_id=port_id)
+
+        for fip_db in fip_dbs:
+            if not fip_db.router_id:
+                continue
+            try:
+                nsx_router_id = nsx_db.get_nsx_router_id(context.session,
+                                                         fip_db.router_id)
+                routerlib.delete_fip_nat_rules(
+                    nsx_router_id, fip_db.floating_ip_address,
+                    fip_db.fixed_ip_address)
+            except nsx_exc.ResourceNotFound:
+                LOG.warning(_LW("Backend NAT rules for fip: %(fip_id)s "
+                                "(ext_ip: %(ext_ip)s int_ip: %(int_ip)s) "
+                                "not found"),
+                            {'fip_id': fip_db.id,
+                             'ext_ip': fip_db.floating_ip_address,
+                             'int_ip': fip_db.fixed_ip_address})
+
+        super(NsxV3Plugin, self).disassociate_floatingips(
+            context, port_id, do_notify=False)
+
     def extend_port_dict_binding(self, port_res, port_db):
         super(NsxV3Plugin, self).extend_port_dict_binding(port_res, port_db)
         port_res[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
