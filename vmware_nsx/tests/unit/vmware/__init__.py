@@ -22,11 +22,11 @@ from vmware_nsx.api_client import client as nsx_client
 from vmware_nsx.api_client import eventlet_client
 from vmware_nsx import extensions
 import vmware_nsx.plugin as neutron_plugin
-from vmware_nsx.vshield.common import (
+from vmware_nsx.plugins.nsx_v.vshield.common import (
     VcnsApiClient as vcnsapi)
-from vmware_nsx.vshield import edge_utils
-from vmware_nsx.vshield import vcns
-import vmware_nsx.vshield.vcns_driver as vcnsdriver
+from vmware_nsx.plugins.nsx_v.vshield import edge_utils
+from vmware_nsx.plugins.nsx_v.vshield import vcns
+import vmware_nsx.plugins.nsx_v.vshield.vcns_driver as vcnsdriver
 
 
 plugin = neutron_plugin.NsxPlugin

@@ -24,7 +24,7 @@ from oslo_service import loopingcall
 import six
 
 from neutron.i18n import _LE, _LI
-from vmware_nsx.vshield.tasks import constants
+from vmware_nsx.plugins.nsx_v.vshield.tasks import constants
 
 DEFAULT_INTERVAL = 1000
 

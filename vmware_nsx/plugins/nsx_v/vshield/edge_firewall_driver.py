@@ -18,11 +18,11 @@ from oslo_utils import excutils
 
 from neutron.i18n import _, _LE
 from vmware_nsx.db import nsxv_db
-from vmware_nsx.vshield.common import (
+from vmware_nsx.plugins.nsx_v.vshield.common import (
     exceptions as vcns_exc)
-from vmware_nsx.vshield.tasks import (
+from vmware_nsx.plugins.nsx_v.vshield.tasks import (
     constants as task_const)
-from vmware_nsx.vshield.tasks import tasks
+from vmware_nsx.plugins.nsx_v.vshield.tasks import tasks
 
 LOG = logging.getLogger(__name__)
 

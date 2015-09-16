@@ -39,8 +39,7 @@ from vmware_nsx.nsxlib.v3 import dfw_api as firewall
 from vmware_nsx.tests.unit import vmware
 from vmware_nsx.tests.unit.vmware import nsx_v3_mocks
 
-PLUGIN_NAME = ('vmware_nsx.'
-               'plugins.nsx_v3_plugin.NsxV3Plugin')
+PLUGIN_NAME = ('vmware_nsx.plugin.NsxV3Plugin')
 
 
 class NsxPluginV3TestCase(test_plugin.NeutronDbPluginV2TestCase):

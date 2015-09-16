@@ -20,8 +20,8 @@ from oslo_serialization import jsonutils
 import retrying
 import xml.etree.ElementTree as et
 
-from vmware_nsx.vshield.common import exceptions
-from vmware_nsx.vshield.common import VcnsApiClient
+from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
+from vmware_nsx.plugins.nsx_v.vshield.common import VcnsApiClient
 
 LOG = logging.getLogger(__name__)
 

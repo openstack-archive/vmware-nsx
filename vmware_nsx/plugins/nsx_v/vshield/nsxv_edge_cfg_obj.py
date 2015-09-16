@@ -18,7 +18,7 @@ import abc
 from oslo_serialization import jsonutils
 import six
 
-from vmware_nsx.vshield import vcns
+from vmware_nsx.plugins.nsx_v.vshield import vcns
 
 
 @six.add_metaclass(abc.ABCMeta)
