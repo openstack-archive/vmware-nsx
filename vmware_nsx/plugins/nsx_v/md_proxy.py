@@ -29,11 +29,11 @@ from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import locking
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_db
-from vmware_nsx.vshield import (
+from vmware_nsx.plugins.nsx_v.vshield import (
     nsxv_loadbalancer as nsxv_lb)
-from vmware_nsx.vshield.common import (
+from vmware_nsx.plugins.nsx_v.vshield.common import (
     constants as vcns_const)
-from vmware_nsx.vshield import edge_utils
+from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 
 METADATA_VSE_NAME = 'MdSrv'
 METADATA_IP_ADDR = '169.254.169.254'

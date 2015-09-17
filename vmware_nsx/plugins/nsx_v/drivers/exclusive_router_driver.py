@@ -19,10 +19,10 @@ from neutron.api.v2 import attributes as attr
 from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
-from vmware_nsx.plugins import nsx_v
-from vmware_nsx.plugins.nsx_v_drivers import (
+from vmware_nsx.plugins.nsx_v.drivers import (
     abstract_router_driver as router_driver)
-from vmware_nsx.vshield import edge_utils
+from vmware_nsx.plugins.nsx_v import plugin as nsx_v
+from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 
 LOG = logging.getLogger(__name__)
 

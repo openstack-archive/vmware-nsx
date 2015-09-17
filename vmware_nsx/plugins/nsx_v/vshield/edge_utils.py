@@ -37,12 +37,12 @@ from vmware_nsx.common import locking
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import nsxv_db
-from vmware_nsx.vshield.common import (
+from vmware_nsx.plugins.nsx_v.vshield.common import (
     constants as vcns_const)
-from vmware_nsx.vshield.tasks import (
+from vmware_nsx.plugins.nsx_v.vshield.tasks import (
     constants as task_const)
-from vmware_nsx.vshield.tasks import tasks
-from vmware_nsx.vshield import vcns
+from vmware_nsx.plugins.nsx_v.vshield.tasks import tasks
+from vmware_nsx.plugins.nsx_v.vshield import vcns
 
 WORKER_POOL_SIZE = 8
 RP_FILTER_PROPERTY_OFF_TEMPLATE = 'sysctl.net.ipv4.conf.%s.rp_filter=%s'

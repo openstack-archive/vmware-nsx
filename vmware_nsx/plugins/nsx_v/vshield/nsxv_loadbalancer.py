@@ -16,7 +16,7 @@
 
 from oslo_log import log as logging
 
-from vmware_nsx.vshield import nsxv_edge_cfg_obj
+from vmware_nsx.plugins.nsx_v.vshield import nsxv_edge_cfg_obj
 
 
 LOG = logging.getLogger(__name__)

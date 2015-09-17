@@ -18,7 +18,7 @@ import eventlet
 from oslo_serialization import jsonutils
 import six
 
-from vmware_nsx.vshield.common import exceptions
+from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
 
 httplib2 = eventlet.import_patched('httplib2')
 

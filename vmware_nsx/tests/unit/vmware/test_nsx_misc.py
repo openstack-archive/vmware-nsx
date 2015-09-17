@@ -15,8 +15,8 @@
 
 from neutron.tests import base
 
-from vmware_nsx.vshield.common import exceptions
-from vmware_nsx.vshield import vcns
+from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
+from vmware_nsx.plugins.nsx_v.vshield import vcns
 
 
 def raise_until_attempt(attempt, exception):

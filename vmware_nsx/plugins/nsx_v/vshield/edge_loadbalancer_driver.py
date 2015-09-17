@@ -25,9 +25,9 @@ from neutron import manager
 from neutron.plugins.common import constants
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
-from vmware_nsx.vshield.common import (
+from vmware_nsx.plugins.nsx_v.vshield.common import (
     exceptions as nsxv_exc)
-from vmware_nsx.vshield import vcns as nsxv_api
+from vmware_nsx.plugins.nsx_v.vshield import vcns as nsxv_api
 
 
 LOG = logging.getLogger(__name__)

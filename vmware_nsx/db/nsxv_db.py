@@ -27,7 +27,7 @@ from neutron.i18n import _, _LE
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_models
-from vmware_nsx.vshield.common import constants
+from vmware_nsx.plugins.nsx_v.vshield.common import constants
 
 LOG = logging.getLogger(__name__)
 

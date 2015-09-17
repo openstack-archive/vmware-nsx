@@ -16,7 +16,7 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 
 from neutron.i18n import _LE, _LW
-from vmware_nsx.vshield.common import (
+from vmware_nsx.plugins.nsx_v.vshield.common import (
     exceptions as vcns_exc)
 
 LOG = logging.getLogger(__name__)

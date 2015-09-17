@@ -15,12 +15,12 @@
 #    under the License.
 #
 
-from vmware_nsx.plugins import base
-from vmware_nsx.plugins import dvs
-from vmware_nsx.plugins import nsx_v
-from vmware_nsx.plugins import nsx_v3_plugin
+from vmware_nsx.plugins.dvs import plugin as dvs
+from vmware_nsx.plugins.nsx_mh import plugin as nsx_mh
+from vmware_nsx.plugins.nsx_v import plugin as nsx_v
+from vmware_nsx.plugins.nsx_v3 import plugin as nsx_v3
 
-NsxPlugin = base.NsxPluginV2
-NsxVPlugin = nsx_v.NsxVPluginV2
 NsxDvsPlugin = dvs.NsxDvsV2
-NsxV3Plugin = nsx_v3_plugin.NsxV3Plugin
+NsxPlugin = nsx_mh.NsxPluginV2
+NsxVPlugin = nsx_v.NsxVPluginV2
+NsxV3Plugin = nsx_v3.NsxV3Plugin
