@@ -36,8 +36,8 @@ from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import networkgw_db
 from vmware_nsx.db import nsx_models
 from vmware_nsx.extensions import networkgw
-from vmware_nsx import nsxlib
-from vmware_nsx.nsxlib import l2gateway as l2gwlib
+from vmware_nsx.nsxlib import mh as nsxlib
+from vmware_nsx.nsxlib.mh import l2gateway as l2gwlib
 from vmware_nsx.tests.unit import vmware
 from vmware_nsx.tests.unit.vmware import test_nsx_plugin
 

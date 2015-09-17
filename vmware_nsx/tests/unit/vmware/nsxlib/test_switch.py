@@ -22,7 +22,7 @@ from neutron.common import exceptions
 from neutron.tests.unit.api.v2 import test_base
 
 from vmware_nsx.common import utils
-from vmware_nsx.nsxlib import switch as switchlib
+from vmware_nsx.nsxlib.mh import switch as switchlib
 from vmware_nsx.tests.unit.vmware.nsxlib import base
 
 _uuid = test_base._uuid

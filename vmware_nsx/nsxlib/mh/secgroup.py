@@ -22,7 +22,7 @@ from neutron.common import exceptions
 from neutron.i18n import _LW
 
 from vmware_nsx.common import utils
-from vmware_nsx import nsxlib
+from vmware_nsx.nsxlib import mh as nsxlib
 
 HTTP_GET = "GET"
 HTTP_POST = "POST"

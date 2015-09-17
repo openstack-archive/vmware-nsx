@@ -19,8 +19,8 @@ from neutron.tests import base
 from vmware_nsx.api_client import (
     version as version_module)
 from vmware_nsx.api_client import exception
-from vmware_nsx.nsxlib import router as routerlib
-from vmware_nsx.nsxlib import versioning
+from vmware_nsx.nsxlib.mh import router as routerlib
+from vmware_nsx.nsxlib.mh import versioning
 
 
 class TestVersioning(base.BaseTestCase):

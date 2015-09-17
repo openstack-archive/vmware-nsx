@@ -50,7 +50,7 @@ from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import sync
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
-from vmware_nsx import nsxlib
+from vmware_nsx.nsxlib import mh as nsxlib
 from vmware_nsx.tests.unit import vmware
 from vmware_nsx.tests.unit.vmware.apiclient import fake
 from vmware_nsx.tests.unit.vmware import test_utils

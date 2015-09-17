@@ -27,10 +27,10 @@ from vmware_nsx.common import utils as vmw_utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import networkgw_db
 from vmware_nsx import nsx_cluster
-from vmware_nsx.nsxlib import l2gateway as l2gwlib
-from vmware_nsx.nsxlib import router as routerlib
-from vmware_nsx.nsxlib import secgroup as secgrouplib
-from vmware_nsx.nsxlib import switch as switchlib
+from vmware_nsx.nsxlib.mh import l2gateway as l2gwlib
+from vmware_nsx.nsxlib.mh import router as routerlib
+from vmware_nsx.nsxlib.mh import secgroup as secgrouplib
+from vmware_nsx.nsxlib.mh import switch as switchlib
 
 LOG = log.getLogger(__name__)
 

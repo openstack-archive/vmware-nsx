@@ -28,7 +28,7 @@ from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import exceptions
 from vmware_nsx.common import sync
 from vmware_nsx import nsx_cluster
-from vmware_nsx.nsxlib import lsn as lsnlib
+from vmware_nsx.nsxlib.mh import lsn as lsnlib
 from vmware_nsx.tests.unit import vmware
 
 BASE_CONF_PATH = vmware.get_fake_conf('neutron.conf.test')

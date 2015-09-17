@@ -28,7 +28,7 @@ from neutron.extensions import external_net
 from neutron.i18n import _LE, _LI
 from vmware_nsx.common import exceptions as p_exc
 from vmware_nsx.dhcp_meta import constants as d_const
-from vmware_nsx.nsxlib import lsn as lsn_api
+from vmware_nsx.nsxlib.mh import lsn as lsn_api
 
 LOG = logging.getLogger(__name__)
 
