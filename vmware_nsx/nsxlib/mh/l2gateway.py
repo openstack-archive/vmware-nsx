@@ -21,8 +21,8 @@ from oslo_serialization import jsonutils
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils
-from vmware_nsx import nsxlib
-from vmware_nsx.nsxlib import switch
+from vmware_nsx.nsxlib import mh as nsxlib
+from vmware_nsx.nsxlib.mh import switch
 
 HTTP_GET = "GET"
 HTTP_POST = "POST"

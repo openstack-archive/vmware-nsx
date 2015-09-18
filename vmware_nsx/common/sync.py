@@ -33,9 +33,9 @@ from neutron.i18n import _LE, _LI, _LW
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsx_utils
-from vmware_nsx import nsxlib
-from vmware_nsx.nsxlib import router as routerlib
-from vmware_nsx.nsxlib import switch as switchlib
+from vmware_nsx.nsxlib import mh as nsxlib
+from vmware_nsx.nsxlib.mh import router as routerlib
+from vmware_nsx.nsxlib.mh import switch as switchlib
 
 # Maximum page size for a single request
 # NOTE(salv-orlando): This might become a version-dependent map should the

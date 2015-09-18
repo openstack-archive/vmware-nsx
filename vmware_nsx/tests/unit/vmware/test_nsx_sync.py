@@ -37,7 +37,7 @@ from vmware_nsx.api_client import version
 from vmware_nsx.common import sync
 from vmware_nsx.db import db
 from vmware_nsx import nsx_cluster as cluster
-from vmware_nsx import nsxlib
+from vmware_nsx.nsxlib import mh as nsxlib
 from vmware_nsx import plugin
 from vmware_nsx.tests.unit import vmware
 from vmware_nsx.tests.unit.vmware.apiclient import fake

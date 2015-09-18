@@ -76,11 +76,11 @@ from vmware_nsx import dhcpmeta_modes
 from vmware_nsx.extensions import maclearning as mac_ext
 from vmware_nsx.extensions import networkgw
 from vmware_nsx.extensions import qos
-from vmware_nsx.nsxlib import l2gateway as l2gwlib
-from vmware_nsx.nsxlib import queue as queuelib
-from vmware_nsx.nsxlib import router as routerlib
-from vmware_nsx.nsxlib import secgroup as secgrouplib
-from vmware_nsx.nsxlib import switch as switchlib
+from vmware_nsx.nsxlib.mh import l2gateway as l2gwlib
+from vmware_nsx.nsxlib.mh import queue as queuelib
+from vmware_nsx.nsxlib.mh import router as routerlib
+from vmware_nsx.nsxlib.mh import secgroup as secgrouplib
+from vmware_nsx.nsxlib.mh import switch as switchlib
 
 LOG = logging.getLogger(__name__)
 

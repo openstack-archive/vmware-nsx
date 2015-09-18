@@ -27,8 +27,8 @@ from vmware_nsx.common import exceptions as p_exc
 from vmware_nsx.common import nsx_utils
 from vmware_nsx.db import lsn_db
 from vmware_nsx.dhcp_meta import constants as const
-from vmware_nsx.nsxlib import lsn as lsn_api
-from vmware_nsx.nsxlib import switch as switch_api
+from vmware_nsx.nsxlib.mh import lsn as lsn_api
+from vmware_nsx.nsxlib.mh import switch as switch_api
 
 LOG = logging.getLogger(__name__)
 

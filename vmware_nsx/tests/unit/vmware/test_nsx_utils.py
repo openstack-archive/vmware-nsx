@@ -25,7 +25,7 @@ from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsx_utils
 from vmware_nsx.common import utils
 from vmware_nsx.db import nsx_models
-from vmware_nsx import nsxlib
+from vmware_nsx.nsxlib import mh as nsxlib
 from vmware_nsx.tests.unit import vmware
 from vmware_nsx.tests.unit.vmware.nsxlib import base as nsx_base
 
@@ -105,7 +105,7 @@ class NsxUtilsTestCase(base.BaseTestCase):
         ret_value = None, exp_lp_uuid
         self._mock_port_mapping_db_calls(ret_value)
         with mock.patch(vmware.nsx_method('query_lswitch_lports',
-                                          module_name='nsxlib.switch'),
+                                          module_name='nsxlib.mh.switch'),
                         return_value=[{'uuid': exp_lp_uuid,
                                        '_relations': {
                                            'LogicalSwitchConfig': {
@@ -121,7 +121,7 @@ class NsxUtilsTestCase(base.BaseTestCase):
         ret_value = None, None
         self._mock_port_mapping_db_calls(ret_value)
         with mock.patch(vmware.nsx_method('query_lswitch_lports',
-                                          module_name='nsxlib.switch'),
+                                          module_name='nsxlib.mh.switch'),
                         return_value=[{'uuid': exp_lp_uuid,
                                        '_relations': {
                                            'LogicalSwitchConfig': {
@@ -135,7 +135,7 @@ class NsxUtilsTestCase(base.BaseTestCase):
         ret_value = None, None
         self._mock_port_mapping_db_calls(ret_value)
         with mock.patch(vmware.nsx_method('query_lswitch_lports',
-                                          module_name='nsxlib.switch'),
+                                          module_name='nsxlib.mh.switch'),
                         return_value=[]):
             self._verify_get_nsx_switch_and_port_id(None, None)
 
@@ -152,7 +152,7 @@ class NsxUtilsTestCase(base.BaseTestCase):
         exp_ls_uuids = [uuidutils.generate_uuid()]
         self._mock_network_mapping_db_calls(None)
         with mock.patch(vmware.nsx_method('get_lswitches',
-                                          module_name='nsxlib.switch'),
+                                          module_name='nsxlib.mh.switch'),
                         return_value=[{'uuid': uuid}
                                       for uuid in exp_ls_uuids]):
             self._verify_get_nsx_switch_ids(exp_ls_uuids)
@@ -162,7 +162,7 @@ class NsxUtilsTestCase(base.BaseTestCase):
         # are not found both in the db and in the backend
         self._mock_network_mapping_db_calls(None)
         with mock.patch(vmware.nsx_method('get_lswitches',
-                                          module_name='nsxlib.switch'),
+                                          module_name='nsxlib.mh.switch'),
                         return_value=[]):
             self._verify_get_nsx_switch_ids(None)
 
@@ -179,7 +179,7 @@ class NsxUtilsTestCase(base.BaseTestCase):
         exp_lr_uuid = uuidutils.generate_uuid()
         self._mock_router_mapping_db_calls(None)
         with mock.patch(vmware.nsx_method('query_lrouters',
-                                          module_name='nsxlib.router'),
+                                          module_name='nsxlib.mh.router'),
                         return_value=[{'uuid': exp_lr_uuid}]):
             self._verify_get_nsx_router_id(exp_lr_uuid)
 
@@ -188,7 +188,7 @@ class NsxUtilsTestCase(base.BaseTestCase):
         # are not found both in the db and in the backend
         self._mock_router_mapping_db_calls(None)
         with mock.patch(vmware.nsx_method('query_lrouters',
-                                          module_name='nsxlib.router'),
+                                          module_name='nsxlib.mh.router'),
                         return_value=[]):
             self._verify_get_nsx_router_id(None)
 
@@ -296,7 +296,7 @@ class NsxUtilsTestCase(base.BaseTestCase):
         exp_sec_prof_uuid = uuidutils.generate_uuid()
         self._mock_sec_group_mapping_db_calls(None)
         with mock.patch(vmware.nsx_method('query_security_profiles',
-                                          module_name='nsxlib.secgroup'),
+                                          module_name='nsxlib.mh.secgroup'),
                         return_value=[{'uuid': exp_sec_prof_uuid}]):
             self._verify_get_nsx_sec_profile_id(exp_sec_prof_uuid)
 
@@ -305,7 +305,7 @@ class NsxUtilsTestCase(base.BaseTestCase):
         # are not found both in the db and in the backend
         self._mock_sec_group_mapping_db_calls(None)
         with mock.patch(vmware.nsx_method('query_security_profiles',
-                                          module_name='nsxlib.secgroup'),
+                                          module_name='nsxlib.mh.secgroup'),
                         return_value=[]):
             self._verify_get_nsx_sec_profile_id(None)
 

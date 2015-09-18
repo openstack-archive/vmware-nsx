@@ -24,9 +24,9 @@ from neutron.i18n import _LE, _LI, _LW
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils
-from vmware_nsx import nsxlib
-from vmware_nsx.nsxlib import switch
-from vmware_nsx.nsxlib import versioning
+from vmware_nsx.nsxlib import mh as nsxlib
+from vmware_nsx.nsxlib.mh import switch
+from vmware_nsx.nsxlib.mh import versioning
 
 # @versioning.versioned decorator makes the apparent function body
 # totally unrelated to the real function.  This confuses pylint :(
