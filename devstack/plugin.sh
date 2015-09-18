@@ -39,6 +39,9 @@ elif [[ $Q_PLUGIN == 'vmware_nsx' ]]; then
     fi
 elif [[ $Q_PLUGIN == 'vmware_nsx_v3' ]]; then
     source $dir/lib/vmware_nsx_v3
+    if [[ "$1" == "unstack" ]]; then
+        python $dir/tools/nsxt_cleanup.py --mgr-ip $NSX_MANAGER --user $NSX_USER --password $NSX_PASSWORD
+    fi
 elif [[ $Q_PLUGIN == 'vmware_dvs' ]]; then
     source $dir/lib/vmware_dvs
 fi
