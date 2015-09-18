@@ -475,6 +475,10 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             if sgids is not None:
                 self._process_port_create_security_group(
                     context, neutron_db, sgids)
+                #FIXME(abhiraut): Security group should not be processed for
+                #                 a port belonging to an external network.
+                #                 Below call will fail since there is no lport
+                #                 in the backend.
                 security.update_lport_with_security_groups(
                     context, lport['id'], [], sgids)
         return neutron_db
@@ -508,6 +512,11 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         if not self._network_is_external(context, port['network_id']):
             _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
                 context.session, port_id)
+            # Update port to remove security group bindings from the
+            # backend and change it's admin state to DOWN
+            updated_port = {'port': {ext_sg.SECURITYGROUPS: [],
+                                     'admin_state_up': False}}
+            self.update_port(context, port_id, updated_port)
             nsxlib.delete_logical_port(nsx_port_id)
         self.disassociate_floatingips(context, port_id)
         ret_val = super(NsxV3Plugin, self).delete_port(context, port_id)
