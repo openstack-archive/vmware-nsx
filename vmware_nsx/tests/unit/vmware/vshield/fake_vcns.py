@@ -304,6 +304,24 @@ class FakeVcns(object):
         response = ''
         return (header, response)
 
+    def create_bridge(self, edge_id, request):
+        if edge_id not in self._edges:
+            raise Exception(_("Edge %s does not exist") % edge_id)
+        header = {
+            'status': 204
+        }
+        response = ''
+        return (header, response)
+
+    def delete_bridge(self, edge_id):
+        if edge_id not in self._edges:
+            raise Exception(_("Edge %s does not exist") % edge_id)
+        header = {
+            'status': 204
+        }
+        response = ''
+        return (header, response)
+
     def get_nat_config(self, edge_id):
         if edge_id not in self._edges:
             raise Exception(_("Edge %s does not exist") % edge_id)

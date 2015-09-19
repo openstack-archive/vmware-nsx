@@ -29,3 +29,6 @@ INTER_EDGE_PURPOSE = 'inter_edge_net'
 
 # etc
 INTERNAL_TENANT_ID = 'a1b2c3d4-e5f6-eeff-ffee-6f5e4d3c2b1a'
+
+# L2 gateway edge name prefix
+L2_GATEWAY_EDGE = 'L2 bridging'
