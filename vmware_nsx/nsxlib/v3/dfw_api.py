@@ -20,7 +20,7 @@ NSX-V3 Distributed Firewall
 
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils
-from vmware_nsx.nsxlib.v3 import client as nsclient
+from vmware_nsx.nsxlib.v3 import client as nsxclient
 
 
 # firewall section types
@@ -72,11 +72,11 @@ def create_nsgroup(display_name, description, tags):
     body = {'display_name': display_name,
             'description': description,
             'tags': tags}
-    return nsclient.create_resource('ns-groups', body)
+    return nsxclient.create_resource('ns-groups', body)
 
 
 def list_nsgroups():
-    return nsclient.get_resource('ns-groups').get('results', [])
+    return nsxclient.get_resource('ns-groups').get('results', [])
 
 
 @utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision)
@@ -84,7 +84,7 @@ def update_nsgroup(nsgroup_id, display_name, description):
     nsgroup = read_nsgroup(nsgroup_id)
     nsgroup.update({'display_name': display_name,
                     'description': description})
-    return nsclient.update_resource('ns-groups/%s' % nsgroup_id, nsgroup)
+    return nsxclient.update_resource('ns-groups/%s' % nsgroup_id, nsgroup)
 
 
 @utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision)
@@ -96,7 +96,7 @@ def add_nsgroup_member(nsgroup_id, target_type, target_id):
                                'target_type': target_type,
                                'op': EQUALS,
                                'value': target_id})
-    return nsclient.update_resource('ns-groups/%s' % nsgroup_id, nsgroup)
+    return nsxclient.update_resource('ns-groups/%s' % nsgroup_id, nsgroup)
 
 
 @utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision)
@@ -108,15 +108,15 @@ def remove_nsgroup_member(nsgroup_id, target_id):
     else:
         return
     del nsgroup['members'][i]
-    return nsclient.update_resource('ns-groups/%s' % nsgroup_id, nsgroup)
+    return nsxclient.update_resource('ns-groups/%s' % nsgroup_id, nsgroup)
 
 
 def read_nsgroup(nsgroup_id):
-    return nsclient.get_resource('ns-groups/%s' % nsgroup_id)
+    return nsxclient.get_resource('ns-groups/%s' % nsgroup_id)
 
 
 def delete_nsgroup(nsgroup_id):
-    return nsclient.delete_resource('ns-groups/%s' % nsgroup_id)
+    return nsxclient.delete_resource('ns-groups/%s' % nsgroup_id)
 
 
 def _build_section(display_name, description, applied_tos, tags):
@@ -135,7 +135,7 @@ def create_empty_section(display_name, description, applied_tos, tags,
     body = _build_section(display_name, description, applied_tos, tags)
     if other_section:
         resource += '&id=%s' % other_section
-    return nsclient.create_resource(resource, body)
+    return nsxclient.create_resource(resource, body)
 
 
 @utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision)
@@ -146,22 +146,22 @@ def update_section(section_id, display_name, description, applied_tos=None):
                     'description': description})
     if applied_tos is not None:
         section['applied_tos'] = applied_tos
-    return nsclient.update_resource(resource, section)
+    return nsxclient.update_resource(resource, section)
 
 
 def read_section(section_id):
     resource = 'firewall/sections/%s' % section_id
-    return nsclient.get_resource(resource)
+    return nsxclient.get_resource(resource)
 
 
 def list_sections():
     resource = 'firewall/sections'
-    return nsclient.get_resource(resource).get('results', [])
+    return nsxclient.get_resource(resource).get('results', [])
 
 
 def delete_section(section_id):
     resource = 'firewall/sections/%s?cascade=true' % section_id
-    return nsclient.delete_resource(resource)
+    return nsxclient.delete_resource(resource)
 
 
 def get_nsgroup_reference(nsgroup_id):
@@ -189,14 +189,14 @@ def get_firewall_rule_dict(display_name, source=None, destination=None,
 
 def add_rule_in_section(rule, section_id):
     resource = 'firewall/sections/%s/rules' % section_id
-    return nsclient.create_resource(resource, rule)
+    return nsxclient.create_resource(resource, rule)
 
 
 def add_rules_in_section(rules, section_id):
     resource = 'firewall/sections/%s/rules?action=create_multiple' % section_id
-    return nsclient.create_resource(resource, {'rules': rules})
+    return nsxclient.create_resource(resource, {'rules': rules})
 
 
 def delete_rule(section_id, rule_id):
     resource = 'firewall/sections/%s/rules/%s' % (section_id, rule_id)
-    return nsclient.delete_resource(resource)
+    return nsxclient.delete_resource(resource)

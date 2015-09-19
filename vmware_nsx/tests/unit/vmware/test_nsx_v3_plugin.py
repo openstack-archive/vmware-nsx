@@ -61,10 +61,10 @@ class NsxPluginV3TestCase(test_plugin.NeutronDbPluginV2TestCase):
         nsxlib.get_logical_port = nsx_v3_mocks.get_logical_port
         nsxlib.update_logical_port = nsx_v3_mocks.update_logical_port
         firewall.add_rules_in_section = nsx_v3_mocks.add_rules_in_section
-        firewall.nsclient.create_resource = nsx_v3_mocks.create_resource
-        firewall.nsclient.update_resource = nsx_v3_mocks.update_resource
-        firewall.nsclient.get_resource = nsx_v3_mocks.get_resource
-        firewall.nsclient.delete_resource = nsx_v3_mocks.delete_resource
+        firewall.nsxclient.create_resource = nsx_v3_mocks.create_resource
+        firewall.nsxclient.update_resource = nsx_v3_mocks.update_resource
+        firewall.nsxclient.get_resource = nsx_v3_mocks.get_resource
+        firewall.nsxclient.delete_resource = nsx_v3_mocks.delete_resource
 
         super(NsxPluginV3TestCase, self).setUp(plugin=plugin,
                                                ext_mgr=ext_mgr)
@@ -121,10 +121,10 @@ class SecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
         nsxlib.get_logical_port = nsx_v3_mocks.get_logical_port
         nsxlib.update_logical_port = nsx_v3_mocks.update_logical_port
         firewall.add_rules_in_section = nsx_v3_mocks.add_rules_in_section
-        firewall.nsclient.create_resource = nsx_v3_mocks.create_resource
-        firewall.nsclient.update_resource = nsx_v3_mocks.update_resource
-        firewall.nsclient.get_resource = nsx_v3_mocks.get_resource
-        firewall.nsclient.delete_resource = nsx_v3_mocks.delete_resource
+        firewall.nsxclient.create_resource = nsx_v3_mocks.create_resource
+        firewall.nsxclient.update_resource = nsx_v3_mocks.update_resource
+        firewall.nsxclient.get_resource = nsx_v3_mocks.get_resource
+        firewall.nsxclient.delete_resource = nsx_v3_mocks.delete_resource
 
         super(SecurityGroupsTestCase, self).setUp(plugin=PLUGIN_NAME,
                                                   ext_mgr=ext_mgr)
