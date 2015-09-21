@@ -87,7 +87,7 @@ def update_logical_switch(lswitch_id, name=None, admin_state=None):
     return lswitch
 
 
-def create_logical_port(lswitch_id, vif_uuid, tags,
+def create_logical_port(client, lswitch_id, vif_uuid, tags=[],
                         attachment_type=nsx_constants.ATTACHMENT_VIF,
                         admin_state=True, name=None, address_bindings=None,
                         parent_name=None, parent_tag=None):
@@ -130,7 +130,7 @@ def create_logical_port(lswitch_id, vif_uuid, tags,
     return FAKE_PORT
 
 
-def get_logical_port(lport_id):
+def get_logical_port(client, lport_id):
     FAKE_SWITCH_UUID = uuidutils.generate_uuid()
     FAKE_PORT = {
         "id": lport_id,
@@ -169,8 +169,8 @@ def get_logical_port(lport_id):
     return FAKE_PORT
 
 
-def update_logical_port(lport_id, name=None, admin_state=None):
-    lport = get_logical_port(lport_id)
+def update_logical_port(client, lport_id, name=None, admin_state=None):
+    lport = get_logical_port(client, lport_id)
     if name:
         lport['display_name'] = name
     if admin_state is not None:

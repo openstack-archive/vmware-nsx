@@ -62,7 +62,9 @@ from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.nsxlib import v3 as nsxlib
+from vmware_nsx.nsxlib.v3 import client as nsx_client
 from vmware_nsx.nsxlib.v3 import dfw_api as firewall
+from vmware_nsx.nsxlib.v3 import resources as nsx_resources
 from vmware_nsx.nsxlib.v3 import router as routerlib
 from vmware_nsx.nsxlib.v3 import security
 
@@ -104,6 +106,7 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                 'security-group' in self.supported_extension_aliases}}
         self.tier0_groups_dict = {}
         self._setup_rpc()
+        self._nsx_client = nsx_client.NSX3Client()
         self.nsgroup_container, self.default_section = (
             security.init_nsgroup_container_and_default_section_rules())
 
@@ -426,9 +429,11 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             # for ports plugged into a Bridge Endpoint.
             vif_uuid = port_data.get('device_id')
             attachment_type = port_data.get('device_owner')
-        result = nsxlib.create_logical_port(
-            lswitch_id=port_data['network_id'],
-            vif_uuid=vif_uuid, name=port_data['name'], tags=tags,
+        port_client = nsx_resources.LogicalPort(self._nsx_client)
+        result = port_client.create(
+            port_data['network_id'], vif_uuid,
+            tags=tags,
+            name=port_data['name'],
             admin_state=port_data['admin_state_up'],
             address_bindings=address_bindings,
             attachment_type=attachment_type,
@@ -517,7 +522,7 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             updated_port = {'port': {ext_sg.SECURITYGROUPS: [],
                                      'admin_state_up': False}}
             self.update_port(context, port_id, updated_port)
-            nsxlib.delete_logical_port(nsx_port_id)
+            nsx_resources.LogicalPort(self._nsx_client).delete(nsx_port_id)
         self.disassociate_floatingips(context, port_id)
         ret_val = super(NsxV3Plugin, self).delete_port(context, port_id)
 
@@ -535,7 +540,7 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             sec_grp_updated = self.update_security_group_on_port(
                 context, id, port, original_port, updated_port)
         try:
-            nsxlib.update_logical_port(
+            nsx_resources.LogicalPort(self._nsx_client).update(
                 nsx_lport_id, name=port['port'].get('name'),
                 admin_state=port['port'].get('admin_state_up'))
             security.update_lport_with_security_groups(
