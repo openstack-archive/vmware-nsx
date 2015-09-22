@@ -12,8 +12,7 @@
 # implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
+from oslo_serialization import jsonutils
 from oslo_utils import uuidutils
 
 from vmware_nsx.common import exceptions as nsx_exc
@@ -419,3 +418,12 @@ class NsxV3Mock(object):
     def update_logical_router_advertisement(self, logical_router_id, **kwargs):
         # TODO(berlin): implement this latter.
         pass
+
+
+class MockRequestsResponse(object):
+    def __init__(self, status_code, content=None):
+        self.status_code = status_code
+        self.content = content
+
+    def json(self):
+        return jsonutils.loads(self.content)
