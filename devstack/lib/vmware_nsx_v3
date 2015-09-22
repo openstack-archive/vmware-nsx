@@ -28,15 +28,7 @@ source $TOP_DIR/lib/neutron_plugins/ovs_base
 
 function setup_integration_bridge {
     _neutron_ovs_base_setup_bridge $OVS_BRIDGE
-    # Set manager to NSX controller (1st of list)
-    if [[ "$NSX_CONTROLLERS" != "" ]]; then
-        # Get the first controller
-        controllers=(${NSX_CONTROLLERS//,/ })
-        OVS_MGR_IP=${controllers[0]}
-    else
-        die $LINENO "Error - No controller specified. Unable to set a manager for OVS"
-    fi
-    sudo ovs-vsctl set-manager ssl:$OVS_MGR_IP
+    sudo ovs-vsctl set-manager tcp:127.0.0.1:6632
 }
 
 function is_neutron_ovs_base_plugin {
