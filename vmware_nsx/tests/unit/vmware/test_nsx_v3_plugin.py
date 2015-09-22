@@ -36,6 +36,7 @@ from neutron import version
 from vmware_nsx.common import utils
 from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.nsxlib.v3 import dfw_api as firewall
+from vmware_nsx.nsxlib.v3 import resources as nsx_resources
 from vmware_nsx.tests.unit import vmware
 from vmware_nsx.tests.unit.vmware import nsx_v3_mocks
 
@@ -56,10 +57,10 @@ class NsxPluginV3TestCase(test_plugin.NeutronDbPluginV2TestCase):
         nsxlib.delete_logical_switch = mock.Mock()
         nsxlib.get_logical_switch = nsx_v3_mocks.get_logical_switch
         nsxlib.update_logical_switch = nsx_v3_mocks.update_logical_switch
-        nsxlib.create_logical_port = nsx_v3_mocks.create_logical_port
-        nsxlib.delete_logical_port = mock.Mock()
-        nsxlib.get_logical_port = nsx_v3_mocks.get_logical_port
-        nsxlib.update_logical_port = nsx_v3_mocks.update_logical_port
+        nsx_resources.LogicalPort.create = nsx_v3_mocks.create_logical_port
+        nsx_resources.LogicalPort.delete = mock.Mock()
+        nsx_resources.LogicalPort.get = nsx_v3_mocks.get_logical_port
+        nsx_resources.LogicalPort.update = nsx_v3_mocks.update_logical_port
         firewall.add_rules_in_section = nsx_v3_mocks.add_rules_in_section
         firewall.nsxclient.create_resource = nsx_v3_mocks.create_resource
         firewall.nsxclient.update_resource = nsx_v3_mocks.update_resource
@@ -114,12 +115,11 @@ class SecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
               plugin=PLUGIN_NAME,
               ext_mgr=None):
         nsxlib.create_logical_switch = nsx_v3_mocks.create_logical_switch
-        nsxlib.create_logical_port = nsx_v3_mocks.create_logical_port
-        nsxlib.update_logical_port = nsx_v3_mocks.update_logical_port
-        nsxlib.delete_logical_port = mock.Mock()
         nsxlib.delete_logical_switch = mock.Mock()
-        nsxlib.get_logical_port = nsx_v3_mocks.get_logical_port
-        nsxlib.update_logical_port = nsx_v3_mocks.update_logical_port
+        nsx_resources.LogicalPort.create = nsx_v3_mocks.create_logical_port
+        nsx_resources.LogicalPort.delete = mock.Mock()
+        nsx_resources.LogicalPort.get = nsx_v3_mocks.get_logical_port
+        nsx_resources.LogicalPort.update = nsx_v3_mocks.update_logical_port
         firewall.add_rules_in_section = nsx_v3_mocks.add_rules_in_section
         firewall.nsxclient.create_resource = nsx_v3_mocks.create_resource
         firewall.nsxclient.update_resource = nsx_v3_mocks.update_resource
@@ -193,7 +193,7 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxPluginV3TestCase):
             self.plugin_instance.__module__,
             self.plugin_instance.__class__.__name__)
         self._plugin_class = self.plugin_instance.__class__
-        nsxlib.create_logical_port = self.v3_mock.create_logical_port
+        nsx_resources.LogicalPort.create = self.v3_mock.create_logical_port
         nsxlib.create_logical_router = self.v3_mock.create_logical_router
         nsxlib.update_logical_router = self.v3_mock.update_logical_router
         nsxlib.delete_logical_router = self.v3_mock.delete_logical_router
