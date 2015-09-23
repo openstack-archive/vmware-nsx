@@ -480,10 +480,6 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             if sgids is not None:
                 self._process_port_create_security_group(
                     context, neutron_db, sgids)
-                #FIXME(abhiraut): Security group should not be processed for
-                #                 a port belonging to an external network.
-                #                 Below call will fail since there is no lport
-                #                 in the backend.
                 security.update_lport_with_security_groups(
                     context, lport['id'], [], sgids)
         return neutron_db
@@ -1089,7 +1085,7 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         except nsx_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("Failed to create backend firewall rules "
-                                  " for security-group %(name)s (%(id)s), "
+                                  "for security-group %(name)s (%(id)s), "
                                   "rolling back changes."), secgroup_db)
                 # default security group deletion requires admin context
                 if default_sg:

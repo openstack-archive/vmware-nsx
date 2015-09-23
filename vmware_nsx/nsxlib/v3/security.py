@@ -37,21 +37,32 @@ def _get_l4_protocol_name(proto_num):
         return firewall.ICMPV4
 
 
+def _get_direction(sg_rule):
+    return firewall.IN if sg_rule['direction'] == 'ingress' else firewall.OUT
+
+
 def _decide_service(sg_rule):
     ip_proto = securitygroups_db.IP_PROTOCOL_MAP.get(sg_rule['protocol'],
                                                      sg_rule['protocol'])
     l4_protocol = _get_l4_protocol_name(ip_proto)
+    direction = _get_direction(sg_rule)
 
     if l4_protocol in [firewall.TCP, firewall.UDP]:
         # If port_range_min is not specified then we assume all ports are
         # matched, relying on neutron to perform validation.
+        source_ports = []
         if sg_rule['port_range_min'] is None:
-            source_ports = []
+            destination_ports = []
         else:
-            source_ports = ['%(port_range_min)s-%(port_range_max)s' % sg_rule]
+            destination_ports = ['%(port_range_min)s-%(port_range_max)s'
+                                 % sg_rule]
+        if direction == firewall.OUT:
+            source_ports, destination_ports = destination_ports, []
+
         return firewall.get_nsservice(firewall.L4_PORT_SET_NSSERVICE,
                                       l4_protocol=l4_protocol,
-                                      source_ports=source_ports)
+                                      source_ports=source_ports,
+                                      destination_ports=destination_ports)
     elif l4_protocol == firewall.ICMPV4:
         return firewall.get_nsservice(firewall.ICMP_TYPE_NSSERVICE,
                                       protocol=l4_protocol,
@@ -65,8 +76,7 @@ def _decide_service(sg_rule):
 def _get_fw_rule_from_sg_rule(sg_rule, nsgroup_id, rmt_nsgroup_id):
     # IPV4 or IPV6
     ip_protocol = sg_rule['ethertype'].upper()
-    direction = (
-        firewall.IN if sg_rule['direction'] == 'ingress' else firewall.OUT)
+    direction = _get_direction(sg_rule)
 
     source = None
     local_group = firewall.get_nsgroup_reference(nsgroup_id)
@@ -105,9 +115,9 @@ def create_firewall_rules(context, section_id, nsgroup_id,
         fw_rule = _get_fw_rule_from_sg_rule(
             sg_rule, nsgroup_id, remote_nsgroup_id)
 
-        firewall_rules.append(
-            firewall.add_rule_in_section(fw_rule, section_id))
-    return {'rules': firewall_rules}
+        firewall_rules.append(fw_rule)
+
+    return firewall.add_rules_in_section(firewall_rules, section_id)
 
 
 def get_nsgroup_name(security_group):
@@ -195,8 +205,7 @@ def _init_nsgroup_container(name, description):
     nsgroups = firewall.list_nsgroups()
     for nsg in nsgroups:
         if nsg['display_name'] == name:
-            # NSGroup container exists and so should the OS default
-            # security-groups section.
+            # NSGroup container exists.
             break
     else:
         # Need to create the nsgroup container and the OS default
@@ -216,6 +225,13 @@ def _init_default_section(name, description, nsgroup_id):
         # TODO(roeyc): Add aditional rules to allow IPV6 NDP.
         block_rule = firewall.get_firewall_rule_dict(
             'Block All', action=firewall.DROP)
-        firewall.add_rule_in_section(block_rule, section['id'])
+        dhcp_client = firewall.get_nsservice(firewall.L4_PORT_SET_NSSERVICE,
+                                             l4_protocol=firewall.TCP,
+                                             source_ports=[67],
+                                             destination_ports=[68])
+        dhcp_client_rule = firewall.get_firewall_rule_dict(
+            'DHCP-Client', direction=firewall.IN, service=dhcp_client)
+        firewall.add_rules_in_section([dhcp_client_rule, block_rule],
+                                      section['id'])
 
     return section['id']
