@@ -4,7 +4,7 @@ Testing VMware-NSX
 Overview
 --------
 
-The unit tests (vmware_nsx/neutron/test/unit/) are meant to cover as much
+The unit tests (vmware_nsx/tests/unit/) are meant to cover as much
 code as possible and should be executed without the service running. They
 are designed to test the various pieces of the neutron and VMware NSX tree
 to make sure any new changes don't break existing functionality.
@@ -125,13 +125,13 @@ For executing a specific test case, specify the name of the test case
 class separating it from the module path with a colon.
 
 For example, the following would run only the TestSubnetsV2 tests from
-vmware_nsx/tests/unit/vmware/test_nsx_v_plugin.py::
+vmware_nsx/tests/unit/nsx_v/test_plugin.py::
 
-      $ ./run_tests.sh vmware_nsx.tests.unit.vmware.test_nsx_v_plugin.TestSubnetsV2
+      $ ./run_tests.sh vmware_nsx.tests.unit.nsx_v.test_plugin.TestSubnetsV2
 
 or::
 
-      $ tox -e py27 vmware_nsx.tests.unit.vmware.test_nsx_v_plugin.TestSubnetsV2
+      $ tox -e py27 vmware_nsx.tests.unit.nsx_v.test_plugin.TestSubnetsV2
 
 Adding more tests
 ~~~~~~~~~~~~~~~~~
