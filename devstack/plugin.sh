@@ -19,7 +19,7 @@
 
 dir=${GITDIR['vmware-nsx']}/devstack
 
-if [[ "$1" == "stack" && "$2" == "post-config" ]]; then
+if [[ "$1" == "stack" && "$2" == "install" ]]; then
     setup_develop ${GITDIR['vmware-nsx']}
 fi
 
