@@ -697,20 +697,22 @@ class EdgeManager(object):
             nsxv_db.create_edge_dhcp_static_binding(context.session, edge_id,
                                                     mac_address, binding_id)
 
+    def _get_vdr_dhcp_edges(self, context):
+        bindings = nsxv_db.get_vdr_dhcp_bindings(context.session)
+        edges = [binding['dhcp_edge_id'] for binding in bindings]
+        return edges
+
     def _get_available_edges(self, context, network_id, conflicting_nets):
         if conflicting_nets is None:
             conflicting_nets = []
         conflict_edge_ids = []
         available_edge_ids = []
         router_bindings = nsxv_db.get_nsxv_router_bindings(context.session)
-        vdr_dhcp_bindings = nsxv_db.get_vdr_dhcp_bindings(context.session)
-        vdr_dhcp_router_ids = [
-            binding['dhcp_router_id'] for binding in vdr_dhcp_bindings]
         all_dhcp_edges = {binding['router_id']: binding['edge_id'] for
                           binding in router_bindings if (binding['router_id'].
                           startswith(vcns_const.DHCP_EDGE_PREFIX) and
-                          binding['status'] == plugin_const.ACTIVE and
-                          binding['router_id'] not in vdr_dhcp_router_ids)}
+                          binding['status'] == plugin_const.ACTIVE)}
+        vdr_dhcp_edges = self._get_vdr_dhcp_edges(context)
 
         if all_dhcp_edges:
             for dhcp_edge_id in set(all_dhcp_edges.values()):
@@ -731,7 +733,8 @@ class EdgeManager(object):
 
             for x in all_dhcp_edges.values():
                 if (x not in conflict_edge_ids and
-                    x not in available_edge_ids):
+                    x not in available_edge_ids and
+                    x not in vdr_dhcp_edges):
                     available_edge_ids.append(x)
         return (conflict_edge_ids, available_edge_ids)
 
@@ -967,9 +970,6 @@ class EdgeManager(object):
             self.reuse_existing_dhcp_edge(
                 context, dhcp_edge_id, resource_id, network_id)
         else:
-            temp_edge_id = ("fake_id_" + _uuid())[:36]
-            nsxv_db.add_vdr_dhcp_binding(context.session, vdr_router_id,
-                                         str(resource_id), temp_edge_id)
             # Attach to DHCP Edge
             dhcp_edge_id = self.allocate_new_dhcp_edge(
                 context, network_id, resource_id)
@@ -986,8 +986,8 @@ class EdgeManager(object):
                         dhcp_edge_id,
                         [RP_FILTER_PROPERTY_OFF_TEMPLATE % ('all', '0')])
 
-            nsxv_db.update_vdr_dhcp_binding(context.session, vdr_router_id,
-                                            dhcp_edge_id=dhcp_edge_id)
+            nsxv_db.add_vdr_dhcp_binding(context.session, vdr_router_id,
+                                         str(resource_id), dhcp_edge_id)
 
         address_groups = self.plugin._create_network_dhcp_address_group(
             context, network_id)
