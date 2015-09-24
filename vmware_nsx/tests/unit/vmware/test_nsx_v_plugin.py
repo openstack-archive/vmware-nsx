@@ -16,10 +16,10 @@
 import contextlib
 from eventlet import greenthread
 import mock
+import netaddr
 from neutron.api.v2 import attributes
 from neutron.common import constants
 from neutron.common import exceptions as n_exc
-from neutron.common import ipv6_utils
 from neutron import context
 from neutron.extensions import dvr as dist_router
 from neutron.extensions import external_net
@@ -320,6 +320,40 @@ class TestPortsV2(NsxVPluginV2TestCase,
 
     VIF_TYPE = nsx_constants.VIF_TYPE_DVS
     HAS_PORT_FILTER = True
+
+    def test_update_port_mac_v6_slaac(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_update_port_invalid_fixed_ip_address_v6_slaac(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_update_port_excluding_ipv6_slaac_subnet_from_fixed_ips(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_requested_subnet_id_v6_slaac(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_ip_allocation_for_ipv6_subnet_slaac_address_mode(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_requested_fixed_ip_address_v6_slaac_router_iface(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_update_port_with_ipv6_slaac_subnet_in_fixed_ips(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_requested_invalid_fixed_ip_address_v6_slaac(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_delete_port_with_ipv6_slaac_address(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_ip_allocation_for_ipv6_2_subnet_slaac_mode(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def _test_create_port_with_ipv6_subnet_in_fixed_ips(self, addr_mode,
+                                                        ipv6_pd=False):
+        self.skipTest('No DHCP v6 Support yet')
 
     def test_create_port_json(self):
         keys = [('admin_state_up', True), ('status', self.port_create_status)]
@@ -913,72 +947,10 @@ class TestPortsV2(NsxVPluginV2TestCase,
                 self.assertEqual(ips[1]['subnet_id'], subnet['subnet']['id'])
 
     def test_requested_subnet_id_v4_and_v6_slaac(self):
-        with self.network() as network,\
-                self.subnet(network, enable_dhcp=False) as subnet,\
-                self.subnet(network,
-                            cidr='2607:f0d0:1002:51::/64',
-                            ip_version=6,
-                            ipv6_address_mode=constants.IPV6_SLAAC,
-                            gateway_ip='fe80::1') as subnet2:
-            with self.port(subnet,
-                           fixed_ips=[{'subnet_id': subnet['subnet']['id']},
-                                      {'subnet_id': subnet2['subnet']['id']}]
-                           ) as port:
-
-                ips = port['port']['fixed_ips']
-                self.assertEqual(len(ips), 2)
-                self.assertEqual(ips[0]['ip_address'], '10.0.0.2')
-                port_mac = port['port']['mac_address']
-                subnet_cidr = subnet2['subnet']['cidr']
-                eui_addr = str(ipv6_utils.get_ipv6_addr_by_EUI64(
-                    subnet_cidr, port_mac))
-                self.assertEqual(ips[1]['ip_address'], eui_addr)
-
-    def _test_create_port_with_ipv6_subnet_in_fixed_ips(self, addr_mode,
-                                                        ipv6_pd=False):
-        """Test port create with an IPv6 subnet incl in fixed IPs."""
-        with self.network(name='net') as network:
-            subnet = self._make_v6_subnet(network, addr_mode, ipv6_pd)
-            subnet_id = subnet['subnet']['id']
-            fixed_ips = [{'subnet_id': subnet_id}]
-            with self.port(subnet=subnet, fixed_ips=fixed_ips) as port:
-                if addr_mode == constants.IPV6_SLAAC:
-                    exp_ip_addr = self._calc_ipv6_addr_by_EUI64(port, subnet)
-                else:
-                    exp_ip_addr = 'fe80::3'
-                port_fixed_ips = port['port']['fixed_ips']
-                self.assertEqual(1, len(port_fixed_ips))
-                self.assertEqual(exp_ip_addr,
-                                 port_fixed_ips[0]['ip_address'])
-
-    def test_create_port_with_ipv6_slaac_subnet_in_fixed_ips(self):
-        self._test_create_port_with_ipv6_subnet_in_fixed_ips(
-            addr_mode=constants.IPV6_SLAAC)
-
-    def test_create_port_with_ipv6_dhcp_stateful_subnet_in_fixed_ips(self):
-        with testlib_api.ExpectedException(
-                webob.exc.HTTPClientError) as ctx_manager:
-            self._test_create_port_with_ipv6_subnet_in_fixed_ips(
-                addr_mode=constants.DHCPV6_STATEFUL)
-            self.assertEqual(ctx_manager.exception.code, 400)
+        self.skipTest('No DHCP v6 Support yet')
 
     def test_create_router_port_ipv4_and_ipv6_slaac_no_fixed_ips(self):
-        # Create an IPv4 and an IPv6 SLAAC subnet on the network
-        with self.network() as network,\
-            self.subnet(network),\
-            self.subnet(network,
-                        cidr='2607:f0d0:1002:51::/64',
-                        ip_version=6,
-                        gateway_ip='fe80::1',
-                        ipv6_address_mode=constants.IPV6_SLAAC):
-                # Create a router port without specifying fixed_ips
-                port = self._make_port(
-                    self.fmt, network['network']['id'],
-                    device_owner=constants.DEVICE_OWNER_ROUTER_INTF)
-                # Router port should only have an IPv4 address
-                fixed_ips = port['port']['fixed_ips']
-                self.assertEqual(1, len(fixed_ips))
-                self.assertEqual('10.0.0.3', fixed_ips[0]['ip_address'])
+        self.skipTest('No DHCP v6 Support yet')
 
     def test_create_port_with_multiple_ipv4_and_ipv6_subnets(self):
         # This test should fail as the NSX-v plugin should cause Neutron to
@@ -998,6 +970,74 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
               service_plugins=None):
         super(TestSubnetsV2, self).setUp()
         self.context = context.get_admin_context()
+
+    def test__subnet_ipv6_not_supported(self):
+        with self.network() as network:
+            data = {'subnet': {'network_id': network['network']['id'],
+                               'gateway': 'fe80::1',
+                               'cidr': '2607:f0d0:1002:51::/64',
+                               'ip_version': '6',
+                               'tenant_id': network['network']['tenant_id']}}
+            subnet_req = self.new_create_request('subnets', data)
+            res = subnet_req.get_response(self.api)
+            self.assertEqual(res.status_int, webob.exc.HTTPClientError.code)
+
+    def test_create_subnet_ipv6_pd_gw_values(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_create_subnet_ipv6_slaac_with_port_on_network(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_create_subnet_ipv6_slaac_with_snat_intf_on_network(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_create_subnet_dhcpv6_stateless_with_port_on_network(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_create_subnet_ipv6_slaac_with_dhcp_port_on_network(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_delete_subnet_ipv6_slaac_port_exists(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_create_subnet_ipv6_slaac_with_router_intf_on_network(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_create_subnet_ipv6_out_of_cidr_lla(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_update_subnet_inconsistent_ipv6_hostroute_dst_v4(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_create_subnet_only_ip_version_v6(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_update_subnet_ipv6_address_mode_fails(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_create_subnet_with_v6_allocation_pool(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_create_subnet_with_v6_pd_allocation_pool(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_update_subnet_ipv6_ra_mode_fails(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_delete_subnet_ipv6_slaac_router_port_exists(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_update_subnet_inconsistent_ipv6_hostroute_np_v4(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_update_subnet_inconsistent_ipv6_gatewayv4(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_update_subnet_ipv6_attributes_fails(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_update_subnet_ipv6_cannot_disable_dhcp(self):
+        self.skipTest('No DHCP v6 Support yet')
 
     def _create_subnet_bulk(self, fmt, number, net_id, name,
                             ip_version=4, **kwargs):
@@ -1392,32 +1432,6 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
                                 subnet_id=subnet2['subnet']['id'])
         self.assertEqual(res.status_int, webob.exc.HTTPBadRequest.code)
 
-    def test_router_update_gateway_upon_subnet_create_ipv6(self):
-        with self.network() as n:
-            with self.subnet(network=n, enable_dhcp=False) as s1,\
-                    self.router() as r:
-                self._set_net_external(n['network']['id'])
-                res1 = self._add_external_gateway_to_router(
-                    r['router']['id'],
-                    n['network']['id'],
-                    ext_ips=[{'subnet_id': s1['subnet']['id']}])
-                fip1 = (res1['router']['external_gateway_info']
-                        ['external_fixed_ips'][0])
-                sres = self._create_subnet(self.fmt, net_id=n['network']['id'],
-                                           ip_version=6, cidr='2001:db8::/32',
-                                           enable_dhcp=False,
-                                           expected_res_status=(
-                                               webob.exc.HTTPCreated.code))
-                s2 = self.deserialize(self.fmt, sres)
-                res2 = self._show('routers', r['router']['id'])
-                self.assertEqual(fip1, res2['router']['external_gateway_info']
-                                 ['external_fixed_ips'][0])
-                fip2 = (res2['router']['external_gateway_info']
-                        ['external_fixed_ips'][1])
-                self.assertEqual(s2['subnet']['id'], fip2['subnet_id'])
-                self.assertNotEqual(fip1['subnet_id'], fip2['subnet_id'])
-                self.assertNotEqual(fip1['ip_address'], fip2['ip_address'])
-
     @mock.patch.object(edge_utils, "update_firewall")
     def test_router_set_gateway_with_nosnat(self, mock):
         expected_fw = [{'action': 'allow',
@@ -1504,6 +1518,200 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
 
     def test_router_add_interface_subnet_with_bad_tenant_returns_404(self):
         self.skipTest('TBD')
+
+    def test_create_floatingip_ipv6_only_network_returns_400(self):
+        with self.subnet(cidr="2001:db8::/48", ip_version=6,
+                         enable_dhcp=False) as public_sub:
+            self._set_net_external(public_sub['subnet']['network_id'])
+            res = self._create_floatingip(
+                self.fmt,
+                public_sub['subnet']['network_id'])
+            self.assertEqual(res.status_int, webob.exc.HTTPBadRequest.code)
+
+    def test_create_floatingip_ipv6_and_ipv4_network_creates_ipv4(self):
+        with self.network() as n,\
+                self.subnet(cidr="2001:db8::/48", ip_version=6, network=n,
+                            enable_dhcp=False),\
+                self.subnet(cidr="192.168.1.0/24", ip_version=4, network=n,
+                            enable_dhcp=False):
+            self._set_net_external(n['network']['id'])
+            fip = self._make_floatingip(self.fmt, n['network']['id'])
+            self.assertEqual(fip['floatingip']['floating_ip_address'],
+                             '192.168.1.2')
+
+    def test_create_floatingip_with_assoc_to_ipv6_subnet(self):
+        with self.subnet() as public_sub:
+            self._set_net_external(public_sub['subnet']['network_id'])
+            with self.subnet(cidr="2001:db8::/48",
+                             ip_version=6, enable_dhcp=False) as private_sub:
+                with self.port(subnet=private_sub) as private_port:
+                    res = self._create_floatingip(
+                        self.fmt,
+                        public_sub['subnet']['network_id'],
+                        port_id=private_port['port']['id'])
+                    self.assertEqual(res.status_int,
+                                     webob.exc.HTTPBadRequest.code)
+
+    def test_create_floatingip_with_assoc_to_ipv4_and_ipv6_port(self):
+        with self.network() as n,\
+                self.subnet(cidr='10.0.0.0/24', network=n) as s4,\
+                self.subnet(cidr='2001:db8::/64', ip_version=6, network=n,
+                            enable_dhcp=False),\
+                self.port(subnet=s4) as p:
+            self.assertEqual(len(p['port']['fixed_ips']), 2)
+            ipv4_address = next(i['ip_address'] for i in
+                    p['port']['fixed_ips'] if
+                    netaddr.IPAddress(i['ip_address']).version == 4)
+            with self.floatingip_with_assoc(port_id=p['port']['id']) as fip:
+                self.assertEqual(fip['floatingip']['fixed_ip_address'],
+                                 ipv4_address)
+                floating_ip = netaddr.IPAddress(
+                        fip['floatingip']['floating_ip_address'])
+                self.assertEqual(floating_ip.version, 4)
+
+    def test_router_add_interface_multiple_ipv6_subnets_same_net(self):
+        """Test router-interface-add for multiple ipv6 subnets on a network.
+
+        Verify that adding multiple ipv6 subnets from the same network
+        to a router places them all on the same router interface.
+        """
+        with self.router() as r, self.network() as n:
+            with (self.subnet(network=n, cidr='fd00::1/64',
+                              enable_dhcp=False, ip_version=6)
+                  ) as s1, self.subnet(network=n, cidr='fd01::1/64',
+                                       ip_version=6, enable_dhcp=False) as s2:
+                    body = self._router_interface_action('add',
+                                                         r['router']['id'],
+                                                         s1['subnet']['id'],
+                                                         None)
+                    pid1 = body['port_id']
+                    body = self._router_interface_action('add',
+                                                         r['router']['id'],
+                                                         s2['subnet']['id'],
+                                                         None)
+                    pid2 = body['port_id']
+                    self.assertEqual(pid1, pid2)
+                    port = self._show('ports', pid1)
+                    self.assertEqual(2, len(port['port']['fixed_ips']))
+                    port_subnet_ids = [fip['subnet_id'] for fip in
+                                       port['port']['fixed_ips']]
+                    self.assertIn(s1['subnet']['id'], port_subnet_ids)
+                    self.assertIn(s2['subnet']['id'], port_subnet_ids)
+                    self._router_interface_action('remove', r['router']['id'],
+                                                  s1['subnet']['id'], None)
+                    self._router_interface_action('remove', r['router']['id'],
+                                                  s2['subnet']['id'], None)
+
+    def test_router_add_interface_multiple_ipv6_subnets_different_net(self):
+        """Test router-interface-add for ipv6 subnets on different networks.
+
+        Verify that adding multiple ipv6 subnets from different networks
+        to a router places them on different router interfaces.
+        """
+        with self.router() as r, self.network() as n1, self.network() as n2:
+            with (self.subnet(network=n1, cidr='fd00::1/64',
+                              enable_dhcp=False, ip_version=6)
+                  ) as s1, self.subnet(network=n2, cidr='fd01::1/64',
+                                       ip_version=6, enable_dhcp=False) as s2:
+                    body = self._router_interface_action('add',
+                                                         r['router']['id'],
+                                                         s1['subnet']['id'],
+                                                         None)
+                    pid1 = body['port_id']
+                    body = self._router_interface_action('add',
+                                                         r['router']['id'],
+                                                         s2['subnet']['id'],
+                                                         None)
+                    pid2 = body['port_id']
+                    self.assertNotEqual(pid1, pid2)
+                    self._router_interface_action('remove', r['router']['id'],
+                                                  s1['subnet']['id'], None)
+                    self._router_interface_action('remove', r['router']['id'],
+                                                  s2['subnet']['id'], None)
+
+    def test_router_add_interface_ipv6_port_existing_network_returns_400(self):
+        """Ensure unique IPv6 router ports per network id.
+
+        Adding a router port containing one or more IPv6 subnets with the same
+        network id as an existing router port should fail. This is so
+        there is no ambiguity regarding on which port to add an IPv6 subnet
+        when executing router-interface-add with a subnet and no port.
+        """
+        with self.network() as n, self.router() as r:
+            with self.subnet(network=n, cidr='fd00::/64',
+                             ip_version=6, enable_dhcp=False) as s1, (
+                 self.subnet(network=n, cidr='fd01::/64',
+                             ip_version=6, enable_dhcp=False)) as s2:
+                with self.port(subnet=s1) as p:
+                    self._router_interface_action('add',
+                                                  r['router']['id'],
+                                                  s2['subnet']['id'],
+                                                  None)
+                    exp_code = webob.exc.HTTPBadRequest.code
+                    self._router_interface_action('add',
+                                                  r['router']['id'],
+                                                  None,
+                                                  p['port']['id'],
+                                                  expected_code=exp_code)
+                    self._router_interface_action('remove',
+                                                  r['router']['id'],
+                                                  s2['subnet']['id'],
+                                                  None)
+
+    def test_router_add_interface_multiple_ipv6_subnet_port(self):
+        """A port with multiple IPv6 subnets can be added to a router
+
+        Create a port with multiple associated IPv6 subnets and attach
+        it to a router. The action should succeed.
+        """
+        with self.network() as n, self.router() as r:
+            with self.subnet(network=n, cidr='fd00::/64',
+                             ip_version=6, enable_dhcp=False) as s1, (
+                 self.subnet(network=n, cidr='fd01::/64',
+                             ip_version=6, enable_dhcp=False)) as s2:
+                fixed_ips = [{'subnet_id': s1['subnet']['id']},
+                             {'subnet_id': s2['subnet']['id']}]
+                with self.port(subnet=s1, fixed_ips=fixed_ips) as p:
+                    self._router_interface_action('add',
+                                                  r['router']['id'],
+                                                  None,
+                                                  p['port']['id'])
+                    self._router_interface_action('remove',
+                                                  r['router']['id'],
+                                                  None,
+                                                  p['port']['id'])
+
+    def test_router_add_interface_ipv6_subnet_without_gateway_ip(self):
+        with self.router() as r:
+            with self.subnet(ip_version=6, cidr='fe80::/64',
+                             gateway_ip=None, enable_dhcp=False) as s:
+                error_code = webob.exc.HTTPBadRequest.code
+                self._router_interface_action('add',
+                                              r['router']['id'],
+                                              s['subnet']['id'],
+                                              None,
+                                              expected_code=error_code)
+
+    def test_router_delete_ipv6_slaac_subnet_inuse_returns_409(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_router_delete_dhcpv6_stateless_subnet_inuse_returns_409(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_router_add_iface_ipv6_ext_ra_subnet_returns_400(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_router_remove_ipv6_subnet_from_interface(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_router_update_gateway_add_multiple_prefixes_ipv6(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_router_update_gateway_upon_subnet_create_ipv6(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_router_update_gateway_upon_subnet_create_max_ips_ipv6(self):
+        self.skipTest('No DHCP v6 Support yet')
 
 
 class IPv6ExpectedFailuresTestMixin(object):
@@ -1878,26 +2086,6 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
             with self.subnet(network=net, enable_dhcp=False):
                 self._make_floatingip(self.fmt, net_id)
 
-    def test_router_update_gateway_upon_subnet_create_max_ips_ipv6(self):
-        # Expected to fail for now as we dont't support IPv6 for NSXv
-        # Make pep8 happy
-        supercall = super(
-            TestExclusiveRouterTestCase,
-            self).test_router_update_gateway_upon_subnet_create_max_ips_ipv6
-        with testlib_api.ExpectedException(KeyError):
-            # The test is expected to fail because of a KeyError while
-            # attempting to parse the response of a failed create_subnet req
-            supercall()
-
-    def test_create_floatingip_ipv6_and_ipv4_network_creates_ipv4(self):
-        with self.network() as n,\
-                self.subnet(cidr="2001:db8::/48", ip_version=6, network=n),\
-                self.subnet(cidr="192.168.1.0/24", ip_version=4, network=n):
-            self._set_net_external(n['network']['id'])
-            fip = self._make_floatingip(self.fmt, n['network']['id'])
-            self.assertEqual(fip['floatingip']['floating_ip_address'],
-                             '192.168.1.3')
-
 
 class ExtGwModeTestCase(NsxVPluginV2TestCase,
                         test_ext_gw_mode.ExtGwModeIntTestCase):
@@ -2176,26 +2364,6 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
 
     def test_router_add_interface_multiple_ipv6_subnets_different_net(self):
         self.skipTest('TBD')
-
-    def test_router_update_gateway_upon_subnet_create_max_ips_ipv6(self):
-        # Expected to fail for now as we dont't support IPv6 for NSXv
-        # Make pep8 happy
-        supercall = super(
-            TestVdrTestCase,
-            self).test_router_update_gateway_upon_subnet_create_max_ips_ipv6
-        with testlib_api.ExpectedException(KeyError):
-            # The test is expected to fail because of a KeyError while
-            # attempting to parse the response of a failed create_subnet req
-            supercall()
-
-    def test_create_floatingip_ipv6_and_ipv4_network_creates_ipv4(self):
-        with self.network() as n,\
-                self.subnet(cidr="2001:db8::/48", ip_version=6, network=n),\
-                self.subnet(cidr="192.168.1.0/24", ip_version=4, network=n):
-            self._set_net_external(n['network']['id'])
-            fip = self._make_floatingip(self.fmt, n['network']['id'])
-            self.assertEqual(fip['floatingip']['floating_ip_address'],
-                             '192.168.1.3')
 
 
 class TestNSXvAllowedAddressPairs(test_addr_pair.TestAllowedAddressPairs,
