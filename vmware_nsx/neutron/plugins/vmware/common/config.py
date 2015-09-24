@@ -261,7 +261,7 @@ nsxv_opts = [
                 help=_("Ordered list of router_types to allocate as tenant "
                        "routers.")),
     cfg.BoolOpt('edge_ha',
-                default=True,
+                default=False,
                 help=_("Enable HA for NSX Edges"))
 ]
 
