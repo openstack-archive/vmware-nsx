@@ -80,6 +80,7 @@ from vmware_nsx.plugins.nsx_v.vshield import vcns_driver
 LOG = logging.getLogger(__name__)
 PORTGROUP_PREFIX = 'dvportgroup'
 ROUTER_SIZE = routersize.ROUTER_SIZE
+VALID_EDGE_SIZES = routersize.VALID_EDGE_SIZES
 
 
 class NsxVPluginV2(agents_db.AgentDbMixin,
@@ -1366,7 +1367,16 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                 raise n_exc.BadRequest(resource="router", msg=msg)
         elif r.get(ROUTER_SIZE) == attr.ATTR_NOT_SPECIFIED:
             if r.get('router_type') == nsxv_constants.EXCLUSIVE:
-                r[ROUTER_SIZE] = nsxv_constants.COMPACT
+                appliance_size = cfg.CONF.nsxv.exclusive_router_appliance_size
+                if appliance_size not in VALID_EDGE_SIZES:
+                    msg = (_("Invalid edge size specified in nsx.ini file. "
+                             "Specified value: %(specified)s; "
+                             "Valid values: %(valid)s") %
+                           {'specified': appliance_size,
+                            'valid': VALID_EDGE_SIZES})
+                    raise n_exc.BadRequest(resource="router", msg=msg)
+                else:
+                    r[ROUTER_SIZE] = appliance_size
 
     def create_router(self, context, router, allow_metadata=True):
         self._validate_router_size(router)
