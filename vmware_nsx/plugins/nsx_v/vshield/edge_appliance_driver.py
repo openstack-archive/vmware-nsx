@@ -1060,3 +1060,9 @@ class EdgeApplianceDriver(object):
         except exceptions.VcnsApiException:
             LOG.exception(_LE("Failed to delete bridge in the %s"),
                           device_name)
+
+    def update_edge_ha(self, edge_id):
+        ha_request = {
+            'featureType': "highavailability_4.0",
+            'enabled': True}
+        self.vcns.enable_ha(edge_id, ha_request)

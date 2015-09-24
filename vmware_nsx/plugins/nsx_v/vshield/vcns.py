@@ -787,3 +787,8 @@ class Vcns(object):
             tuning.append(child)
         return self.do_request(HTTP_PUT, uri, et.tostring(tuning),
                                format='xml', decode=True)
+
+    def enable_ha(self, edge_id, request_config):
+        """Enable HA in the given edge."""
+        uri = "/api/4.0/edges/%s/highavailability/config?async=true" % edge_id
+        return self.do_request(HTTP_PUT, uri, request_config)
