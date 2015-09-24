@@ -20,6 +20,9 @@ XLARGE = 'xlarge'
 QUADLARGE = 'quadlarge'
 
 
+SHARED = "shared"
+EXCLUSIVE = "exclusive"
+
 # Edge type
 SERVICE_EDGE = 'service'
 VDR_EDGE = 'vdr'

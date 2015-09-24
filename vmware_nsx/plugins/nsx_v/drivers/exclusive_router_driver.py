@@ -32,8 +32,10 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
     def get_type(self):
         return "exclusive"
 
-    def create_router(self, context, lrouter, allow_metadata=True):
-        self.edge_manager.create_lrouter(context, lrouter, dist=False)
+    def create_router(self, context, lrouter, appliance_size=None,
+                      allow_metadata=True):
+        self.edge_manager.create_lrouter(
+            context, lrouter, dist=False, appliance_size=appliance_size)
         if allow_metadata:
             self.plugin.metadata_proxy_handler.configure_router_edge(
                 lrouter['id'])
