@@ -323,7 +323,7 @@ nsxv_opts = [
                 help=_("If True, the server instance will attempt to "
                        "initialize the metadata infrastructure")),
     cfg.BoolOpt('edge_ha',
-                default=True,
+                default=False,
                 help=_("Enable HA for NSX Edges"))
 ]
 
