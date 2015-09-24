@@ -134,6 +134,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             self.nsx_v)
         # Ensure that edges do concurrency
         self._ensure_lock_operations()
+        # Configure aggregate publishing
+        self._aggregate_publishing()
         self.sg_container_id = self._create_security_group_container()
         self._validate_config()
         self._create_cluster_default_fw_rules()
@@ -2023,6 +2025,12 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
             self.nsx_v.vcns.edges_lock_operation()
         except Exception:
             LOG.info(_LI("Unable to set manager lock operation"))
+
+    def _aggregate_publishing(self):
+        try:
+            self.nsx_v.vcns.configure_aggregate_publishing()
+        except Exception:
+            LOG.info(_LI("Unable to configure aggregate publishing"))
 
     def _validate_config(self):
         if not self.nsx_v.vcns.validate_dvs(cfg.CONF.nsxv.dvs_id):
