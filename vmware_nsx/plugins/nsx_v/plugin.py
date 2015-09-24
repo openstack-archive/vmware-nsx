@@ -1089,7 +1089,7 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
 
     def update_subnet(self, context, id, subnet):
         s = subnet['subnet']
-        if "host_routes" in s:
+        if "host_routes" in s and s["host_routes"]:
             err_msg = _("Host routes not supported by plugin")
             raise n_exc.InvalidInput(error_message=err_msg)
         orig = self._get_subnet(context, id)
