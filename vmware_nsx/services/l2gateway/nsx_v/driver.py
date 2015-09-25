@@ -35,6 +35,8 @@ LOG = logging.getLogger(__name__)
 
 class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
 
+    """Class to handle API calls for L2 gateway and NSXv backend."""
+    @property
     def _core_plugin(self):
         return manager.NeutronManager.get_plugin()
 
@@ -95,6 +97,9 @@ class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
                                                        lrouter['id'])
         if not edge_binding:
             raise nsx_exc.NsxL2GWDeviceNotFound()
+        # Enable edge HA on the DLR
+        edge_id = edge_binding['edge_id']
+        self._edge_manager.nsxv_manager.update_edge_ha(edge_id)
         return edge_binding['edge_id']
 
     def _get_device(self, context, l2gw_id):

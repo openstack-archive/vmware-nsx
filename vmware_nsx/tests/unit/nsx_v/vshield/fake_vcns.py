@@ -1096,3 +1096,10 @@ class FakeVcns(object):
 
     def configure_aggregate_publishing(self):
         pass
+
+    def enable_ha(self, edge_id, request_config):
+        header = {
+            'status': 201
+        }
+        response = ''
+        return (header, response)
