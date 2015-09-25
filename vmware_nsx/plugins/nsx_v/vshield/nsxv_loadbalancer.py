@@ -235,6 +235,7 @@ class NsxvLBAppProfile(object):
             ssl_pass_through=False,
             template='TCP',
             insert_xff=False,
+            client_ssl_cert=None,
             persist=False,
             persist_method='cookie',
             persist_cookie_name='JSESSIONID',
@@ -255,6 +256,12 @@ class NsxvLBAppProfile(object):
             if persist_cookie_mode == 'cookie':
                 self.payload['persistence']['cookieMode'] = persist_cookie_mode
                 self.payload['persistence']['cookieName'] = persist_cookie_name
+
+        if client_ssl_cert:
+            self.payload['clientSsl'] = {
+                'clientAuth': 'ignore',
+                'serviceCertificate': [client_ssl_cert]
+            }
 
     def set_persistence(
             self,

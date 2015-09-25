@@ -28,16 +28,20 @@ from neutron.i18n import _LE
 from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import locking
 from vmware_nsx.common import nsxv_constants
+from vmware_nsx.common import utils
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield import (
     nsxv_loadbalancer as nsxv_lb)
 from vmware_nsx.plugins.nsx_v.vshield.common import (
     constants as vcns_const)
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
+from vmware_nsx.services.lbaas.nsx_v import lbaas_common
 
 METADATA_VSE_NAME = 'MdSrv'
 METADATA_IP_ADDR = '169.254.169.254'
 METADATA_TCP_PORT = 80
+METADATA_HTTPS_PORT = 443
+METADATA_HTTPS_VIP_PORT = 8775
 INTERNAL_SUBNET = '169.254.128.0/17'
 MAX_INIT_THREADS = 3
 
@@ -486,6 +490,39 @@ class NsxVMetadataProxyHandler:
             address_groups.append(address_group)
         return address_groups
 
+    def _create_ssl_cert(self, edge_id=None):
+        # Create a self signed certificate in the backend if both Cert details
+        # and private key are not supplied in nsx.ini
+        if (not cfg.CONF.nsxv.metadata_nova_client_cert and
+            not cfg.CONF.nsxv.metadata_nova_client_priv_key):
+            h = self.nsxv_plugin.nsx_v.vcns.create_csr(edge_id)[0]
+            # Extract the CSR ID from header
+            csr_id = lbaas_common.extract_resource_id(h['location'])
+            # Create a self signed certificate
+            cert = self.nsxv_plugin.nsx_v.vcns.create_csr_cert(csr_id)[1]
+            cert_id = cert['objectId']
+        else:
+            # Raise an error if either the Cert path or the private key is not
+            # configured
+            error = None
+            if not cfg.CONF.nsxv.metadata_nova_client_cert:
+                error = _('Metadata certificate path not configured')
+            elif not cfg.CONF.nsxv.metadata_nova_client_priv_key:
+                error = _('Metadata client private key not configured')
+            if error:
+                raise nsxv_exc.NsxPluginException(err_msg=error)
+            pem_encoding = utils.read_file(
+                cfg.CONF.nsxv.metadata_nova_client_cert)
+            priv_key = utils.read_file(
+                cfg.CONF.nsxv.metadata_nova_client_priv_key)
+            request = {
+                'pemEncoding': pem_encoding,
+                'privateKey': priv_key}
+            cert = self.nsxv_plugin.nsx_v.vcns.upload_edge_certificate(
+                edge_id, request)[1]
+            cert_id = cert.get('certificates')[0]['objectId']
+        return cert_id
+
     def _setup_metadata_lb(self, rtr_id, vip, v_port, s_port, member_ips,
                            proxy_lb=False, context=None):
 
@@ -497,10 +534,26 @@ class NsxVMetadataProxyHandler:
 
         lb_obj = nsxv_lb.NsxvLoadbalancer()
 
+        protocol = 'HTTP'
+        ssl_pass_through = False
+        cert_id = None
+        # Set protocol to HTTPS with default port of 443 if metadata_insecure
+        # is set to False.
+        if not cfg.CONF.nsxv.metadata_insecure:
+            protocol = 'HTTPS'
+            if proxy_lb:
+                v_port = METADATA_HTTPS_VIP_PORT
+            else:
+                v_port = METADATA_HTTPS_PORT
+                # Create the certificate on the backend
+                cert_id = self._create_ssl_cert(edge_id)
+            ssl_pass_through = proxy_lb
+        mon_type = protocol if proxy_lb else 'tcp'
         # Create virtual server
         virt_srvr = nsxv_lb.NsxvLBVirtualServer(
             name=METADATA_VSE_NAME,
             ip_address=vip,
+            protocol=protocol,
             port=v_port)
 
         # For router Edge, we add X-LB-Proxy-ID header
@@ -525,8 +578,11 @@ class NsxVMetadataProxyHandler:
         #  XFF is inserted in router LBs
         app_profile = nsxv_lb.NsxvLBAppProfile(
             name='MDSrvProxy',
-            template='HTTP',
-            insert_xff=not proxy_lb)
+            template=protocol,
+            server_ssl_enabled=not cfg.CONF.nsxv.metadata_insecure,
+            ssl_pass_through=ssl_pass_through,
+            insert_xff=not proxy_lb,
+            client_ssl_cert=cert_id)
 
         virt_srvr.set_app_profile(app_profile)
 
@@ -534,8 +590,8 @@ class NsxVMetadataProxyHandler:
         pool = nsxv_lb.NsxvLBPool(
             name='MDSrvPool')
 
-        monitor = nsxv_lb.NsxvLBMonitor(
-            name='MDSrvMon', mon_type='http' if proxy_lb else 'icmp')
+        monitor = nsxv_lb.NsxvLBMonitor(name='MDSrvMon',
+                                        mon_type=mon_type.lower())
         pool.add_monitor(monitor)
 
         i = 0

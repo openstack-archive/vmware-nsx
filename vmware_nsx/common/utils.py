@@ -16,6 +16,7 @@
 import hashlib
 
 from neutron.api.v2 import attributes
+from neutron.i18n import _LE
 from neutron import version
 from oslo_config import cfg
 from oslo_log import log
@@ -147,3 +148,12 @@ def dict_match(dict1, dict2):
         elif v1 != v2:
             return False
     return True
+
+
+def read_file(path):
+    try:
+        with open(path) as file:
+            return file.read().strip()
+    except IOError as e:
+        LOG.error(_LE("Error while opening file "
+                      "%(path)s: %(err)s"), {'path': path, 'err': str(e)})
