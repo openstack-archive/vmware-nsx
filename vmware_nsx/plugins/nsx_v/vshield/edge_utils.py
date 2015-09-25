@@ -987,7 +987,7 @@ class EdgeManager(object):
                         [RP_FILTER_PROPERTY_OFF_TEMPLATE % ('all', '0')])
 
             nsxv_db.add_vdr_dhcp_binding(context.session, vdr_router_id,
-                                         str(resource_id), dhcp_edge_id)
+                                         dhcp_edge_id)
 
         address_groups = self.plugin._create_network_dhcp_address_group(
             context, network_id)
