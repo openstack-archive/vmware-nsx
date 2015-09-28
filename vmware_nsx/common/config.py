@@ -324,7 +324,14 @@ nsxv_opts = [
                        "initialize the metadata infrastructure")),
     cfg.BoolOpt('edge_ha',
                 default=False,
-                help=_("Enable HA for NSX Edges"))
+                help=_("Enable HA for NSX Edges")),
+    cfg.StrOpt('exclusive_router_appliance_size',
+               default="compact",
+               help=_("Edge appliance size to be used for creating exclusive "
+                      "router. Valid values: ['compact', 'large', 'xlarge', "
+                      "'quadlarge']. This edge_appliance_size will be picked "
+                      "up if --router-size parameter is not specified while "
+                      "doing neutron router-create")),
 ]
 
 # Register the configuration options

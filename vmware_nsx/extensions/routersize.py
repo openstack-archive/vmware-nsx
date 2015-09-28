@@ -17,11 +17,11 @@ from neutron.api.v2 import attributes
 
 
 ROUTER_SIZE = 'router_size'
+VALID_EDGE_SIZES = ['compact', 'large', 'xlarge', 'quadlarge']
 EXTENDED_ATTRIBUTES_2_0 = {
     'routers': {
         ROUTER_SIZE: {'allow_post': True, 'allow_put': False,
-                      'validate': {'type:values': ['compact', 'large',
-                                                   'xlarge', 'quadlarge']},
+                      'validate': {'type:values': VALID_EDGE_SIZES},
                       'default': attributes.ATTR_NOT_SPECIFIED,
                       'is_visible': True},
     }
