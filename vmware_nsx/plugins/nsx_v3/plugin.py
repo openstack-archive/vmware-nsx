@@ -35,6 +35,7 @@ from neutron.common import constants as const
 from neutron.common import exceptions as n_exc
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
+from neutron.common import utils as neutron_utils
 from neutron.db import agents_db
 from neutron.db import agentschedulers_db
 from neutron.db import db_base_plugin_v2
@@ -763,11 +764,52 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return ret_val
 
+    def _validate_ext_routes(self, context, router_id, gw_info, new_routes):
+        ext_net_id = (gw_info['network_id']
+                      if attributes.is_attr_set(gw_info) and gw_info else None)
+        if not ext_net_id:
+            port_filters = {'device_id': [router_id],
+                            'device_owner': [l3_db.DEVICE_OWNER_ROUTER_GW]}
+            gw_ports = self.get_ports(context, filters=port_filters)
+            if gw_ports:
+                ext_net_id = gw_ports[0]['network_id']
+        if ext_net_id:
+            subnets = self._get_subnets_by_network(context, ext_net_id)
+            ext_cidrs = [subnet['cidr'] for subnet in subnets]
+            for route in new_routes:
+                if netaddr.all_matching_cidrs(
+                    route['nexthop'], ext_cidrs):
+                    error_message = (_("route with destination %(dest)s have "
+                                       "an external nexthop %(nexthop)s which "
+                                       "can't be supported") %
+                                     {'dest': route['destination'],
+                                      'nexthop': route['nexthop']})
+                    raise n_exc.InvalidInput(error_message=error_message)
+
     def update_router(self, context, router_id, router):
         # TODO(berlin): admin_state_up support
+        gw_info = self._extract_external_gw(context, router, is_extract=False)
+        router_data = router['router']
+        nsx_router_id = None
         try:
-            return super(NsxV3Plugin, self).update_router(context, router_id,
-                                                          router)
+            if 'routes' in router_data:
+                new_routes = router_data['routes']
+                self._validate_ext_routes(context, router_id, gw_info,
+                                          new_routes)
+                self._validate_routes(context, router_id, new_routes)
+                old_routes, routes_dict = (
+                    self._get_extra_routes_dict_by_router_id(
+                        context, router_id))
+                routes_added, routes_removed = neutron_utils.diff_list_of_dict(
+                    old_routes, new_routes)
+                nsx_router_id = nsx_db.get_nsx_router_id(context.session,
+                                                         router_id)
+                for route in routes_removed:
+                    routerlib.delete_static_routes(nsx_router_id, route)
+                for route in routes_added:
+                    routerlib.add_static_routes(nsx_router_id, route)
+            return super(NsxV3Plugin, self).update_router(
+                context, router_id, router)
         except nsx_exc.ResourceNotFound:
             with context.session.begin(subtransactions=True):
                 router_db = self._get_router(context, router_id)
@@ -776,9 +818,16 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                 err_msg=(_("logical router %s not found at the backend")
                          % router_id))
         except nsx_exc.ManagerError:
-            raise nsx_exc.NsxPluginException(
-                err_msg=(_("Unable to update router %s at the backend")
-                         % router_id))
+            with excutils.save_and_reraise_exception():
+                router_db = self._get_router(context, router_id)
+                curr_status = router_db['status']
+                router_db['status'] = const.NET_STATUS_ERROR
+                if nsx_router_id:
+                    for route in routes_added:
+                        routerlib.delete_static_routes(nsx_router_id, route)
+                    for route in routes_removed:
+                        routerlib.add_static_routes(nsx_router_id, route)
+                router_db['status'] = curr_status
 
     def _get_router_interface_ports_by_network(
         self, context, router_id, network_id):

@@ -169,3 +169,14 @@ def delete_fip_nat_rules(logical_router_id, ext_ip, int_ip):
                                      action="DNAT",
                                      translated_network=int_ip,
                                      match_destination_network=ext_ip)
+
+
+def add_static_routes(nsx_router_id, route):
+    return nsxlib.add_static_route(nsx_router_id, route['destination'],
+                                   route['nexthop'])
+
+
+def delete_static_routes(nsx_router_id, route):
+    return nsxlib.delete_static_route_by_values(
+        nsx_router_id, dest_cidr=route['destination'],
+        nexthop=route['nexthop'])
