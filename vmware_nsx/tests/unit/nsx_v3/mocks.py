@@ -221,6 +221,7 @@ class NsxV3Mock(object):
         self.logical_router_ports = {}
         self.logical_ports = {}
         self.logical_router_nat_rules = {}
+        self.static_routes = {}
         if default_tier0_router_uuid:
             self.create_logical_router(
                 DEFAULT_TIER0_ROUTER_UUID, None,
@@ -411,9 +412,52 @@ class NsxV3Mock(object):
                     remove_nat_rule_ids.append(nat_id)
             for nat_id in remove_nat_rule_ids:
                 del nat_rules[nat_id]
+
+    def add_static_route(self, logical_router_id, dest_cidr, nexthop):
+        fake_rule_id = uuidutils.generate_uuid()
+        if logical_router_id not in self.logical_routers.keys():
+            raise nsx_exc.ResourceNotFound(
+                manager=FAKE_MANAGER, operation="get_logical_router")
+        body = {}
+        if dest_cidr:
+            body['network'] = dest_cidr
+        if nexthop:
+            body['next_hops'] = [{"ip_address": nexthop}]
+        body['id'] = fake_rule_id
+        if self.static_routes.get(logical_router_id):
+            self.static_routes[logical_router_id][fake_rule_id] = body
+        else:
+            self.static_routes[logical_router_id] = {fake_rule_id: body}
+        return body
+
+    def delete_static_route(self, logical_router_id, static_route_id):
+        if (self.static_routes.get(logical_router_id) and
+            self.static_routes[logical_router_id].get(static_route_id)):
+            del self.static_routes[logical_router_id][static_route_id]
         else:
             raise nsx_exc.ResourceNotFound(
-                manager=FAKE_MANAGER, operation="delete_nat_rule_by_values")
+                manager=FAKE_MANAGER, operation="delete_static_route")
+
+    def delete_static_route_by_values(self, logical_router_id,
+                                      dest_cidr=None, nexthop=None):
+        kwargs = {}
+        if dest_cidr:
+            kwargs['network'] = dest_cidr
+        if nexthop:
+            kwargs['next_hops'] = [{"ip_address": nexthop}]
+        if self.static_routes.get(logical_router_id):
+            static_rules = self.static_routes[logical_router_id]
+            remove_static_rule_ids = []
+            for rule_id, rule_body in static_rules.items():
+                remove_flag = True
+                for k, v in kwargs.items():
+                    if rule_body[k] != v:
+                        remove_flag = False
+                        break
+                if remove_flag:
+                    remove_static_rule_ids.append(rule_id)
+            for rule_id in remove_static_rule_ids:
+                del static_rules[rule_id]
 
     def update_logical_router_advertisement(self, logical_router_id, **kwargs):
         # TODO(berlin): implement this latter.

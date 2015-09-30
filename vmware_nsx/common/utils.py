@@ -106,3 +106,44 @@ def retry_upon_exception_nsxv3(exc, delay=500, max_delay=2000,
                           wait_exponential_multiplier=delay,
                           wait_exponential_max=max_delay,
                           stop_max_attempt_number=max_attempts)
+
+
+def list_match(list1, list2):
+    # Check if list1 and list2 have identical elements, but relaxed on
+    # dict elements where list1's dict element can be a subset of list2's
+    # corresponding element.
+    if (not isinstance(list1, list) or
+        not isinstance(list2, list) or
+        len(list1) != len(list2)):
+        return False
+    list1 = sorted(list1)
+    list2 = sorted(list2)
+    for (v1, v2) in zip(list1, list2):
+        if isinstance(v1, dict):
+            if not dict_match(v1, v2):
+                return False
+        elif isinstance(v1, list):
+            if not list_match(v1, v2):
+                return False
+        elif v1 != v2:
+            return False
+    return True
+
+
+def dict_match(dict1, dict2):
+    # Check if dict1 is a subset of dict2.
+    if not isinstance(dict1, dict) or not isinstance(dict2, dict):
+        return False
+    for k1, v1 in dict1.items():
+        if k1 not in dict2:
+            return False
+        v2 = dict2[k1]
+        if isinstance(v1, dict):
+            if not dict_match(v1, v2):
+                return False
+        elif isinstance(v1, list):
+            if not list_match(v1, v2):
+                return False
+        elif v1 != v2:
+            return False
+    return True

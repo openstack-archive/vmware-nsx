@@ -18,6 +18,7 @@ from oslo_config import cfg
 import six
 
 from neutron.api.v2 import attributes
+from neutron.common import constants
 from neutron.common import exceptions as n_exc
 from neutron import context
 from neutron.extensions import external_net
@@ -213,6 +214,10 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxPluginV3TestCase):
             self.v3_mock.get_logical_router_ports_by_router_id)
         nsxlib.update_logical_router_advertisement = (
             self.v3_mock.update_logical_router_advertisement)
+        nsxlib.add_static_route = self.v3_mock.add_static_route
+        nsxlib.delete_static_route = self.v3_mock.delete_static_route
+        nsxlib.delete_static_route_by_values = (
+            self.v3_mock.delete_static_route_by_values)
 
     def _create_l3_ext_network(
         self, physical_network=nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID):
@@ -277,6 +282,41 @@ class TestL3NatTestCase(L3NatTest,
                                               s2['subnet']['id'], None)
                 self._router_interface_action('remove', r2['router']['id'],
                                               s2['subnet']['id'], None)
+
+    def test_router_update_on_external_port(self):
+        with self.router() as r:
+            with self.subnet(cidr='10.0.1.0/24') as s:
+                self._set_net_external(s['subnet']['network_id'])
+                self._add_external_gateway_to_router(
+                    r['router']['id'],
+                    s['subnet']['network_id'])
+                body = self._show('routers', r['router']['id'])
+                net_id = body['router']['external_gateway_info']['network_id']
+                self.assertEqual(net_id, s['subnet']['network_id'])
+                port_res = self._list_ports(
+                    'json',
+                    200,
+                    s['subnet']['network_id'],
+                    tenant_id=r['router']['tenant_id'],
+                    device_owner=constants.DEVICE_OWNER_ROUTER_GW)
+                port_list = self.deserialize('json', port_res)
+                self.assertEqual(len(port_list['ports']), 1)
+
+                routes = [{'destination': '135.207.0.0/16',
+                           'nexthop': '10.0.1.3'}]
+
+                self.assertRaises(n_exc.InvalidInput,
+                                  self.plugin_instance.update_router,
+                                  context.get_admin_context(),
+                                  r['router']['id'],
+                                  {'router': {'routes':
+                                              routes}})
+                self._remove_external_gateway_from_router(
+                    r['router']['id'],
+                    s['subnet']['network_id'])
+                body = self._show('routers', r['router']['id'])
+                gw_info = body['router']['external_gateway_info']
+                self.assertIsNone(gw_info)
 
 
 class ExtGwModeTestCase(L3NatTest,
