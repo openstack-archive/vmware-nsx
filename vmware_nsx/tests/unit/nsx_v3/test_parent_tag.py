@@ -12,14 +12,11 @@
 # implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 from neutron.extensions import portbindings as pbin
-
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_nsx_v3_plugin
 
 
-class TestParentTagPortBinding(test_nsx_v3_plugin.NsxPluginV3TestCase):
+class TestParentTagPortBinding(test_nsx_v3_plugin.NsxV3PluginTestCaseMixin):
 
     # NOTE(arosen): commenting out this test for now for demo setup.
     # def test_create_port_with_invalid_parent(self):

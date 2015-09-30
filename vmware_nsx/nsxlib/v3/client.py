@@ -19,6 +19,7 @@ from neutron.i18n import _LW, _
 from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
+
 from vmware_nsx.common import exceptions as nsx_exc
 
 LOG = log.getLogger(__name__)
@@ -204,20 +205,25 @@ class NSX3Client(JSONRESTClient):
 
 
 # NOTE(boden): tmp until all refs use client class
-def get_resource(resource):
-    return NSX3Client().get(resource)
+def _get_client(client, *args, **kwargs):
+    return client or NSX3Client(*args, **kwargs)
 
 
 # NOTE(boden): tmp until all refs use client class
-def create_resource(resource, data):
-    return NSX3Client(url_prefix=resource).create(body=data)
+def get_resource(resource, client=None):
+    return _get_client(client).get(resource)
 
 
 # NOTE(boden): tmp until all refs use client class
-def update_resource(resource, data):
-    return NSX3Client().update(resource, body=data)
+def create_resource(resource, data, client=None):
+    return _get_client(client).url_post(resource, body=data)
 
 
 # NOTE(boden): tmp until all refs use client class
-def delete_resource(resource):
-    return NSX3Client().delete(resource)
+def update_resource(resource, data, client=None):
+    return _get_client(client).update(resource, body=data)
+
+
+# NOTE(boden): tmp until all refs use client class
+def delete_resource(resource, client=None):
+    return _get_client(client).delete(resource)

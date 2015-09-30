@@ -12,16 +12,8 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
-import six
-
 import netaddr
-
-from oslo_config import cfg
-from oslo_log import log
-from oslo_utils import excutils
-from oslo_utils import importutils
-from oslo_utils import uuidutils
+import six
 
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
 from neutron.api.rpc.handlers import dhcp_rpc
@@ -56,7 +48,11 @@ from neutron.extensions import securitygroup as ext_sg
 from neutron.i18n import _LE, _LI, _LW
 from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils as n_utils
-
+from oslo_config import cfg
+from oslo_log import log
+from oslo_utils import excutils
+from oslo_utils import importutils
+from oslo_utils import uuidutils
 from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsx_constants
@@ -68,6 +64,7 @@ from vmware_nsx.nsxlib.v3 import dfw_api as firewall
 from vmware_nsx.nsxlib.v3 import resources as nsx_resources
 from vmware_nsx.nsxlib.v3 import router as routerlib
 from vmware_nsx.nsxlib.v3 import security
+
 
 LOG = log.getLogger(__name__)
 
@@ -108,6 +105,7 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         self.tier0_groups_dict = {}
         self._setup_rpc()
         self._nsx_client = nsx_client.NSX3Client()
+        self._port_client = nsx_resources.LogicalPort(self._nsx_client)
         self.nsgroup_container, self.default_section = (
             security.init_nsgroup_container_and_default_section_rules())
 
@@ -430,8 +428,7 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             # for ports plugged into a Bridge Endpoint.
             vif_uuid = port_data.get('device_id')
             attachment_type = port_data.get('device_owner')
-        port_client = nsx_resources.LogicalPort(self._nsx_client)
-        result = port_client.create(
+        result = self._port_client.create(
             port_data['network_id'], vif_uuid,
             tags=tags,
             name=port_data['name'],
@@ -519,7 +516,7 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             updated_port = {'port': {ext_sg.SECURITYGROUPS: [],
                                      'admin_state_up': False}}
             self.update_port(context, port_id, updated_port)
-            nsx_resources.LogicalPort(self._nsx_client).delete(nsx_port_id)
+            self._port_client.delete(nsx_port_id)
         self.disassociate_floatingips(context, port_id)
         ret_val = super(NsxV3Plugin, self).delete_port(context, port_id)
 
@@ -537,7 +534,7 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             sec_grp_updated = self.update_security_group_on_port(
                 context, id, port, original_port, updated_port)
         try:
-            nsx_resources.LogicalPort(self._nsx_client).update(
+            self._port_client.update(
                 nsx_lport_id, name=port['port'].get('name'),
                 admin_state=port['port'].get('admin_state_up'))
             security.update_lport_with_security_groups(
@@ -1083,6 +1080,7 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         tags = utils.build_v3_tags_payload(secgroup)
         name = security.get_nsgroup_name(secgroup)
         ns_group = None
+        firewall_section = None
 
         try:
             # NOTE(roeyc): We first create the nsgroup so that once the sg is
