@@ -29,11 +29,13 @@ LOG = log.getLogger(__name__)
 # Router logical port types
 LROUTERPORT_UPLINK = "LogicalRouterUplinkPort"
 LROUTERPORT_DOWNLINK = "LogicalRouterDownLinkPort"
-LROUTERPORT_LINK = "LogicalRouterLinkPort"
+LROUTERPORT_LINKONTIER0 = "LogicalRouterLinkPortOnTIER0"
+LROUTERPORT_LINKONTIER1 = "LogicalRouterLinkPortOnTIER1"
 
 LROUTER_TYPES = [LROUTERPORT_UPLINK,
                  LROUTERPORT_DOWNLINK,
-                 LROUTERPORT_LINK]
+                 LROUTERPORT_LINKONTIER0,
+                 LROUTERPORT_LINKONTIER1]
 
 
 def get_edge_cluster(edge_cluster_uuid):
@@ -188,7 +190,11 @@ def create_logical_router_port(logical_router_id,
         body['subnets'] = address_groups
     if resource_type in [LROUTERPORT_UPLINK,
                          LROUTERPORT_DOWNLINK]:
-        body['linked_logical_switch_port_id'] = logical_port_id
+        body['linked_logical_switch_port_id'] = {
+            'target_id': logical_port_id}
+    elif resource_type == LROUTERPORT_LINKONTIER1:
+        body['linked_logical_router_port_id'] = {
+            'target_id': logical_port_id}
     elif logical_port_id:
         body['linked_logical_router_port_id'] = logical_port_id
     if edge_cluster_member_index:
@@ -229,7 +235,7 @@ def get_tier1_logical_router_link_port(logical_router_id):
     logical_router_ports = get_logical_router_ports_by_router_id(
         logical_router_id)
     for port in logical_router_ports:
-        if port['resource_type'] == LROUTERPORT_LINK:
+        if port['resource_type'] == LROUTERPORT_LINKONTIER1:
             return port
     raise nsx_exc.ResourceNotFound(
         manager=client._get_manager_ip(),
