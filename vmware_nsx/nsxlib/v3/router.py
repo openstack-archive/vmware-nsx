@@ -78,7 +78,7 @@ def add_router_link_port(tier1_uuid, tier0_uuid, edge_members):
     # Create Tier0 logical router link port
     tier0_link_port = nsxlib.create_logical_router_port(
         tier0_uuid, display_name=TIER0_ROUTER_LINK_PORT_NAME,
-        resource_type=nsxlib.LROUTERPORT_LINK,
+        resource_type=nsxlib.LROUTERPORT_LINKONTIER0,
         logical_port_id=None,
         address_groups=None)
     linked_logical_port_id = tier0_link_port['id']
@@ -88,7 +88,7 @@ def add_router_link_port(tier1_uuid, tier0_uuid, edge_members):
     # Create Tier1 logical router link port
     nsxlib.create_logical_router_port(
         tier1_uuid, display_name=TIER1_ROUTER_LINK_PORT_NAME,
-        resource_type=nsxlib.LROUTERPORT_LINK,
+        resource_type=nsxlib.LROUTERPORT_LINKONTIER1,
         logical_port_id=linked_logical_port_id,
         address_groups=None,
         edge_cluster_member_index=edge_cluster_member_index)
@@ -113,7 +113,7 @@ def update_advertisement(logical_router_id, advertise_route_nat,
     return nsxlib.update_logical_router_advertisement(
         logical_router_id,
         advertise_nat_routes=advertise_route_nat,
-        advertise_connected_routes=advertise_route_connected)
+        advertise_nsx_connected_routes=advertise_route_connected)
 
 
 def delete_gw_snat_rule(logical_router_id, gw_ip):
