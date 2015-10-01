@@ -9,7 +9,7 @@ External Resources:
 
 The homepage for the VMware-NSX project is on Launchpad_.
 
-.. _Launchpad: http://launchpad.net/vmware-nsx.
+.. _Launchpad: http://launchpad.net/vmware-nsx
 
 Use this site for asking for help, and filing bugs.
 Code is available both git.openstack.org_ and github_.
