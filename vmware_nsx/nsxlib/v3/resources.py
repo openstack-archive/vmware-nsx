@@ -14,12 +14,21 @@
 #    under the License.
 #
 import abc
+import collections
 import six
 
 from oslo_config import cfg
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils
+
+
+SwitchingProfileTypeId = collections.namedtuple(
+    'SwitchingProfileTypeId', 'profile_type, profile_id')
+
+
+PacketAddressClassifier = collections.namedtuple(
+    'PacketAddressClassifier', 'ip_address, mac_address, vlan')
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -111,15 +120,17 @@ class SwitchingProfile(AbstractRESTResource):
                            white_list_providers=whitelist_providers,
                            tags=tags or [])
 
-    def build_switch_profile_ids(self, *profiles):
+    @classmethod
+    def build_switch_profile_ids(cls, client, *profiles):
         ids = []
         for profile in profiles:
             if type(profile) is str:
-                profile = self.get(profile)
-            ids.append({
-                'value': profile['id'],
-                'key': profile['resource_type']
-            })
+                profile = client.get(profile)
+            if not isinstance(profile, SwitchingProfileTypeId):
+                profile = SwitchingProfileTypeId(
+                    profile.get('key', profile.get('resource_type')),
+                    profile.get('value', profile.get('id')))
+            ids.append(profile)
         return ids
 
 
@@ -128,6 +139,46 @@ class LogicalPort(AbstractRESTResource):
     @property
     def uri_segment(self):
         return 'logical-ports'
+
+    def _build_body_attrs(
+            self, display_name=None,
+            admin_state=True, tags=[],
+            address_bindings=[],
+            switch_profile_ids=[]):
+
+        body = {}
+        if tags:
+            body['tags'] = tags
+        if display_name is not None:
+            body['display_name'] = display_name
+
+        if admin_state:
+            body['admin_state'] = nsx_constants.ADMIN_STATE_UP
+        else:
+            body['admin_state'] = nsx_constants.ADMIN_STATE_DOWN
+
+        if address_bindings:
+            bindings = []
+            for binding in address_bindings:
+                address_classifier = {
+                    'ip_address': binding.ip_address,
+                    'mac_address': binding.mac_address
+                }
+                if binding.vlan is not None:
+                    address_classifier['vlan'] = int(binding.vlan)
+                bindings.append(address_classifier)
+            body['address_bindings'] = bindings
+
+        if switch_profile_ids:
+            profiles = []
+            for profile in switch_profile_ids:
+                profiles.append({
+                    'value': profile.profile_id,
+                    'key': profile.profile_type
+                })
+            body['switching_profile_ids'] = profiles
+
+        return body
 
     def create(self, lswitch_id, vif_uuid, tags=[],
                attachment_type=nsx_constants.ATTACHMENT_VIF,
@@ -143,8 +194,8 @@ class LogicalPort(AbstractRESTResource):
             key_values = [
                 {'key': 'VLAN_ID', 'value': parent_tag},
                 {'key': 'Host_VIF_ID', 'value': parent_name},
-                {'key': 'IP', 'value': address_bindings[0]['ip_address']},
-                {'key': 'MAC', 'value': address_bindings[0]['mac_address']}]
+                {'key': 'IP', 'value': address_bindings[0].ip_address},
+                {'key': 'MAC', 'value': address_bindings[0].mac_address}]
             # NOTE(arosen): The above api body structure might change
             # in the future
 
@@ -152,25 +203,16 @@ class LogicalPort(AbstractRESTResource):
                 'attachment': {'attachment_type': attachment_type,
                                'id': vif_uuid}}
 
-        if tags:
-            body['tags'] = tags
-        if name:
-            body['display_name'] = name
-        if admin_state:
-            body['admin_state'] = nsx_constants.ADMIN_STATE_UP
-        else:
-            body['admin_state'] = nsx_constants.ADMIN_STATE_DOWN
-
         if key_values:
             body['attachment']['context'] = {'key_values': key_values}
             body['attachment']['context']['resource_type'] = \
                 nsx_constants.CIF_RESOURCE_TYPE
-        if address_bindings:
-            body['address_bindings'] = address_bindings
 
-        if switch_profile_ids:
-            body['switching_profile_ids'] = switch_profile_ids
-
+        body.update(self._build_body_attrs(
+            display_name=name,
+            admin_state=admin_state, tags=tags,
+            address_bindings=address_bindings,
+            switch_profile_ids=switch_profile_ids))
         return self._client.create(body=body)
 
     def delete(self, lport_id):
@@ -179,15 +221,17 @@ class LogicalPort(AbstractRESTResource):
     @utils.retry_upon_exception_nsxv3(
         nsx_exc.StaleRevision,
         max_attempts=cfg.CONF.nsx_v3.retries)
-    def update(self, lport_id, name=None, admin_state=None):
+    def update(self, lport_id, name=None, admin_state=None,
+               address_bindings=None, switch_profile_ids=None,
+               tags=None):
         lport = self.get(lport_id)
-        if name is not None:
-            lport['display_name'] = name
-        if admin_state is not None:
-            if admin_state:
-                lport['admin_state'] = nsx_constants.ADMIN_STATE_UP
-            else:
-                lport['admin_state'] = nsx_constants.ADMIN_STATE_DOWN
+
+        lport.update(self._build_body_attrs(
+            display_name=name,
+            admin_state=admin_state, tags=tags,
+            address_bindings=address_bindings,
+            switch_profile_ids=switch_profile_ids))
+
         # If revision_id of the payload that we send is older than what NSX has
         # then we will get a 412: Precondition Failed. In that case we need to
         # re-fetch, patch the response and send it again with the

@@ -345,9 +345,8 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             # them to the backend which would raise an error.
             if(netaddr.IPNetwork(fixed_ip['ip_address']).version == 6):
                 continue
-            address_bindings.append(
-                {'mac_address': port['mac_address'],
-                 'ip_address': fixed_ip['ip_address']})
+            address_bindings.append(nsx_resources.PacketAddressClassifier(
+                fixed_ip['ip_address'], port['mac_address'], None))
         return address_bindings
 
     def get_network(self, context, id, fields=None):
