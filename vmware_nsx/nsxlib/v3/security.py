@@ -28,13 +28,20 @@ NSGROUP_CONTAINER = 'NSGroup Container'
 DEFAULT_SECTION = 'OS default section for security-groups'
 
 
-def _get_l4_protocol_name(proto_num):
-    if proto_num == 6:
+def _get_l4_protocol_name(protocol_number):
+    if protocol_number is None:
+        return
+    protocol_number = securitygroups_db.IP_PROTOCOL_MAP.get(protocol_number,
+                                                            protocol_number)
+    protocol_number = int(protocol_number)
+    if protocol_number == 6:
         return firewall.TCP
-    elif proto_num == 17:
+    elif protocol_number == 17:
         return firewall.UDP
-    elif proto_num == 1:
+    elif protocol_number == 1:
         return firewall.ICMPV4
+    else:
+        return protocol_number
 
 
 def _get_direction(sg_rule):
@@ -42,9 +49,7 @@ def _get_direction(sg_rule):
 
 
 def _decide_service(sg_rule):
-    ip_proto = securitygroups_db.IP_PROTOCOL_MAP.get(sg_rule['protocol'],
-                                                     sg_rule['protocol'])
-    l4_protocol = _get_l4_protocol_name(ip_proto)
+    l4_protocol = _get_l4_protocol_name(sg_rule['protocol'])
     direction = _get_direction(sg_rule)
 
     if l4_protocol in [firewall.TCP, firewall.UDP]:
@@ -68,9 +73,9 @@ def _decide_service(sg_rule):
                                       protocol=l4_protocol,
                                       icmp_type=sg_rule['port_range_min'],
                                       icmp_code=sg_rule['port_range_max'])
-    elif ip_proto is not None:
+    elif l4_protocol is not None:
         return firewall.get_nsservice(firewall.IP_PROTOCOL_NSSERVICE,
-                                      protocol_number=ip_proto)
+                                      protocol_number=l4_protocol)
 
 
 def _get_fw_rule_from_sg_rule(sg_rule, nsgroup_id, rmt_nsgroup_id):
