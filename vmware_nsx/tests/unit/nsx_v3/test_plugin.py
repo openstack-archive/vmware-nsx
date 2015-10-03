@@ -12,9 +12,6 @@
 # implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import mock
-from oslo_config import cfg
 import six
 
 from neutron.api.v2 import attributes
@@ -27,52 +24,65 @@ from neutron.extensions import l3
 from neutron.extensions import l3_ext_gw_mode
 from neutron.extensions import providernet as pnet
 from neutron import manager
-import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
+from neutron.tests.unit.db import test_db_base_plugin_v2 as test_plugin
 from neutron.tests.unit.extensions import test_extra_dhcp_opt as test_dhcpopts
-import neutron.tests.unit.extensions.test_extraroute as test_ext_route
-import neutron.tests.unit.extensions.test_l3 as test_l3_plugin
-import neutron.tests.unit.extensions.test_l3_ext_gw_mode as test_ext_gw_mode
-import neutron.tests.unit.extensions.test_securitygroup as ext_sg
+from neutron.tests.unit.extensions import test_extraroute as test_ext_route
+from neutron.tests.unit.extensions import test_l3 as test_l3_plugin
+from neutron.tests.unit.extensions \
+    import test_l3_ext_gw_mode as test_ext_gw_mode
+from neutron.tests.unit.extensions import test_securitygroup as ext_sg
 from neutron import version
+
+from oslo_config import cfg
+from oslo_serialization import jsonutils
+from oslo_utils import uuidutils
+
 from vmware_nsx.common import utils
-from vmware_nsx.nsxlib import v3 as nsxlib
-from vmware_nsx.nsxlib.v3 import dfw_api as firewall
-from vmware_nsx.nsxlib.v3 import resources as nsx_resources
+from vmware_nsx.nsxlib.v3 import client as nsx_client
+from vmware_nsx.plugins.nsx_v3 import plugin as nsx_plugin
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.nsx_v3 import mocks as nsx_v3_mocks
+from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
 
-PLUGIN_NAME = ('vmware_nsx.plugin.NsxV3Plugin')
+
+PLUGIN_NAME = 'vmware_nsx.plugin.NsxV3Plugin'
 
 
-class NsxPluginV3TestCase(test_plugin.NeutronDbPluginV2TestCase):
+class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
+                               nsxlib_testcase.NsxClientTestCase):
 
-    def setUp(self,
-              plugin=PLUGIN_NAME,
+    def setUp(self, plugin=PLUGIN_NAME,
               ext_mgr=None,
               service_plugins=None):
-        cfg.CONF.set_override('nsx_manager', '1.2.3.4', 'nsx_v3')
-        # Mock entire nsxlib methods as this is the best approach to perform
-        # white-box testing on the plugin class
-        # TODO(salv-orlando): supply unit tests for nsxlib.v3
-        nsxlib.create_logical_switch = nsx_v3_mocks.create_logical_switch
-        nsxlib.delete_logical_switch = mock.Mock()
-        nsxlib.get_logical_switch = nsx_v3_mocks.get_logical_switch
-        nsxlib.update_logical_switch = nsx_v3_mocks.update_logical_switch
-        nsx_resources.LogicalPort.create = nsx_v3_mocks.create_logical_port
-        nsx_resources.LogicalPort.delete = mock.Mock()
-        nsx_resources.LogicalPort.get = nsx_v3_mocks.get_logical_port
-        nsx_resources.LogicalPort.update = nsx_v3_mocks.update_logical_port
-        firewall.add_rules_in_section = nsx_v3_mocks.add_rules_in_section
-        firewall.nsxclient.create_resource = nsx_v3_mocks.create_resource
-        firewall.nsxclient.update_resource = nsx_v3_mocks.update_resource
-        firewall.nsxclient.get_resource = nsx_v3_mocks.get_resource
-        firewall.nsxclient.delete_resource = nsx_v3_mocks.delete_resource
+        self._patchers = []
+        self.mock_api = nsx_v3_mocks.MockRequestSessionApi()
+        self.client = nsx_client.NSX3Client()
 
-        super(NsxPluginV3TestCase, self).setUp(plugin=plugin,
-                                               ext_mgr=ext_mgr)
-        self.v3_mock = nsx_v3_mocks.NsxV3Mock()
-        nsxlib.get_edge_cluster = self.v3_mock.get_edge_cluster
-        nsxlib.get_logical_router = self.v3_mock.get_logical_router
+        mocked = nsxlib_testcase.NsxClientTestCase.mocked_session_module(
+            nsx_plugin.security.firewall, self.client,
+            mock_session=self.mock_api)
+        mocked.start()
+        self._patchers.append(mocked)
+
+        mocked = nsxlib_testcase.NsxClientTestCase.mocked_session_module(
+            nsx_plugin.routerlib.nsxlib, self.client,
+            mock_session=self.mock_api)
+        mocked.start()
+        self._patchers.append(mocked)
+        super(NsxV3PluginTestCaseMixin, self).setUp(plugin=plugin,
+                                                    ext_mgr=ext_mgr)
+
+        if getattr(self.plugin, '_nsx_client', None):
+            self.plugin._nsx_client = self.client
+        if getattr(self.plugin, '_port_client', None):
+            self.plugin._port_client._client._session = self.mock_api
+
+        self.maxDiff = None
+
+    def tearDown(self):
+        for patcher in self._patchers:
+            patcher.stop()
+        super(NsxV3PluginTestCaseMixin, self).tearDown()
 
     def _create_network(self, fmt, name, admin_state_up,
                         arg_list=None, providernet_args=None, **kwargs):
@@ -102,40 +112,20 @@ class NsxPluginV3TestCase(test_plugin.NeutronDbPluginV2TestCase):
         return network_req.get_response(self.api)
 
 
-class TestNetworksV2(test_plugin.TestNetworksV2, NsxPluginV3TestCase):
+class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
     pass
 
 
-class TestPortsV2(test_plugin.TestPortsV2, NsxPluginV3TestCase):
+class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin):
     pass
 
 
-class SecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
-
-    def setUp(self,
-              plugin=PLUGIN_NAME,
-              ext_mgr=None):
-        nsxlib.create_logical_switch = nsx_v3_mocks.create_logical_switch
-        nsxlib.delete_logical_switch = mock.Mock()
-        nsx_resources.LogicalPort.create = nsx_v3_mocks.create_logical_port
-        nsx_resources.LogicalPort.delete = mock.Mock()
-        nsx_resources.LogicalPort.get = nsx_v3_mocks.get_logical_port
-        nsx_resources.LogicalPort.update = nsx_v3_mocks.update_logical_port
-        firewall.add_rules_in_section = nsx_v3_mocks.add_rules_in_section
-        firewall.nsxclient.create_resource = nsx_v3_mocks.create_resource
-        firewall.nsxclient.update_resource = nsx_v3_mocks.update_resource
-        firewall.nsxclient.get_resource = nsx_v3_mocks.get_resource
-        firewall.nsxclient.delete_resource = nsx_v3_mocks.delete_resource
-
-        super(SecurityGroupsTestCase, self).setUp(plugin=PLUGIN_NAME,
-                                                  ext_mgr=ext_mgr)
-
-
-class TestSecurityGroups(ext_sg.TestSecurityGroups, SecurityGroupsTestCase):
+class TestSecurityGroups(ext_sg.TestSecurityGroups, NsxV3PluginTestCaseMixin):
     pass
 
 
-class DHCPOptsTestCase(test_dhcpopts.TestExtraDhcpOpt, NsxPluginV3TestCase):
+class DHCPOptsTestCase(test_dhcpopts.TestExtraDhcpOpt,
+                       NsxV3PluginTestCaseMixin):
 
     def setUp(self, plugin=None):
         super(test_dhcpopts.ExtraDhcpOptDBTestCase, self).setUp(
@@ -175,7 +165,7 @@ def restore_l3_attribute_map(map_to_restore):
     l3.RESOURCE_ATTRIBUTE_MAP = map_to_restore
 
 
-class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxPluginV3TestCase):
+class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxV3PluginTestCaseMixin):
 
     def _restore_l3_attribute_map(self):
         l3.RESOURCE_ATTRIBUTE_MAP = self._l3_attribute_map_bk
@@ -194,30 +184,6 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxPluginV3TestCase):
             self.plugin_instance.__module__,
             self.plugin_instance.__class__.__name__)
         self._plugin_class = self.plugin_instance.__class__
-        nsx_resources.LogicalPort.create = self.v3_mock.create_logical_port
-        nsxlib.create_logical_router = self.v3_mock.create_logical_router
-        nsxlib.update_logical_router = self.v3_mock.update_logical_router
-        nsxlib.delete_logical_router = self.v3_mock.delete_logical_router
-        nsxlib.get_logical_router_port_by_ls_id = (
-            self.v3_mock.get_logical_router_port_by_ls_id)
-        nsxlib.create_logical_router_port = (
-            self.v3_mock.create_logical_router_port)
-        nsxlib.update_logical_router_port = (
-            self.v3_mock.update_logical_router_port)
-        nsxlib.delete_logical_router_port = (
-            self.v3_mock.delete_logical_router_port)
-        nsxlib.add_nat_rule = self.v3_mock.add_nat_rule
-        nsxlib.delete_nat_rule = self.v3_mock.delete_nat_rule
-        nsxlib.delete_nat_rule_by_values = (
-            self.v3_mock.delete_nat_rule_by_values)
-        nsxlib.get_logical_router_ports_by_router_id = (
-            self.v3_mock.get_logical_router_ports_by_router_id)
-        nsxlib.update_logical_router_advertisement = (
-            self.v3_mock.update_logical_router_advertisement)
-        nsxlib.add_static_route = self.v3_mock.add_static_route
-        nsxlib.delete_static_route = self.v3_mock.delete_static_route
-        nsxlib.delete_static_route_by_values = (
-            self.v3_mock.delete_static_route_by_values)
 
     def _create_l3_ext_network(
         self, physical_network=nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID):
@@ -234,11 +200,37 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxPluginV3TestCase):
 
 class TestL3NatTestCase(L3NatTest,
                         test_l3_plugin.L3NatDBIntTestCase,
-                        NsxPluginV3TestCase,
+                        NsxV3PluginTestCaseMixin,
                         test_ext_route.ExtraRouteDBTestCaseBase):
 
+    def setUp(self, plugin=PLUGIN_NAME,
+              ext_mgr=None,
+              service_plugins=None):
+        super(TestL3NatTestCase, self).setUp(plugin=plugin, ext_mgr=ext_mgr)
+
+        cluster_id = uuidutils.generate_uuid()
+
+        self.mock_api.post(
+            'api/v1/logical-routers',
+            data=jsonutils.dumps({
+                'display_name': nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID,
+                'router_type': "TIER0",
+                'id': nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID,
+                'edge_cluster_id': cluster_id}),
+            headers=nsx_client.JSONRESTClient._DEFAULT_HEADERS)
+
+        self.mock_api.post(
+            'api/v1/edge-clusters',
+            data=jsonutils.dumps({
+                'id': cluster_id,
+                'members': [
+                    {'member_index': 0},
+                    {'member_index': 1}
+                ]}),
+            headers=nsx_client.JSONRESTClient._DEFAULT_HEADERS)
+
     def _test_create_l3_ext_network(
-        self, physical_network=nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID):
+            self, physical_network=nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID):
         name = 'l3_ext_net'
         net_type = utils.NetworkTypes.L3_EXT
         expected = [('subnets', []), ('name', name), ('admin_state_up', True),
@@ -324,7 +316,7 @@ class ExtGwModeTestCase(L3NatTest,
     pass
 
 
-class TestNsxV3Utils(NsxPluginV3TestCase):
+class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
 
     def test_build_v3_tags_payload(self):
         result = utils.build_v3_tags_payload(

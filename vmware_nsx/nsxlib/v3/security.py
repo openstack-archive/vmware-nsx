@@ -217,7 +217,7 @@ def _init_nsgroup_container(name, description):
 def _init_default_section(name, description, nsgroup_id):
     fw_sections = firewall.list_sections()
     for section in fw_sections:
-        if section['display_name'] == name:
+        if section.get('display_name') == name:
             break
     else:
         section = firewall.create_empty_section(

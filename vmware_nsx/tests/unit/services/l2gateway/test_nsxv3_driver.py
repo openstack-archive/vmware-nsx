@@ -26,11 +26,10 @@ from neutron import context
 from neutron.tests import base
 
 from vmware_nsx.common import nsx_constants
-from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.services.l2gateway.common import plugin as l2gw_plugin
 from vmware_nsx.services.l2gateway.nsx_v3 import driver as nsx_v3_driver
-from vmware_nsx.tests.unit.nsx_v3 import mocks as nsx_v3_mocks
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_nsx_v3_plugin
+
 
 NSX_V3_PLUGIN_CLASS = ('vmware_nsx.plugins.nsx_v3.plugin.NsxV3Plugin')
 NSX_V3_L2GW_DRIVER_CLASS_PATH = ('vmware_nsx.services.l2gateway.'
@@ -38,20 +37,23 @@ NSX_V3_L2GW_DRIVER_CLASS_PATH = ('vmware_nsx.services.l2gateway.'
 
 
 class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
-                               test_nsx_v3_plugin.NsxPluginV3TestCase,
+                               test_nsx_v3_plugin.NsxV3PluginTestCaseMixin,
                                base.BaseTestCase):
 
     def setUp(self):
         super(TestNsxV3L2GatewayDriver, self).setUp()
         cfg.CONF.set_override("nsx_l2gw_driver",
                               NSX_V3_L2GW_DRIVER_CLASS_PATH)
+
         self.core_plugin = importutils.import_object(NSX_V3_PLUGIN_CLASS)
-        self.l2gw_plugin = l2gw_plugin.NsxL2GatewayPlugin()
+
+        self.core_plugin._nsx_client = self.client
+        self.core_plugin._port_client._client._session = self.mock_api
+
+        self.maxDiff = None
         self.driver = nsx_v3_driver.NsxV3Driver()
+        self.l2gw_plugin = l2gw_plugin.NsxL2GatewayPlugin()
         self.context = context.get_admin_context()
-        # Mock NSX lib backend calls
-        nsxlib.create_bridge_endpoint = nsx_v3_mocks.create_bridge_endpoint
-        nsxlib.delete_bridge_endpoint = mock.Mock()
 
     def test_nsxl2gw_driver_init(self):
         with mock.patch.object(nsx_v3_driver.NsxV3Driver,

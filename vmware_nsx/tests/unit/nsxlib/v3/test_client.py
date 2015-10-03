@@ -13,28 +13,18 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 #
-import mock
-
-import vmware_nsx.common.exceptions as exep
-
-from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
+
+from vmware_nsx.common import exceptions as exep
 from vmware_nsx.nsxlib.v3 import client
 from vmware_nsx.tests.unit.nsx_v3 import mocks
 from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
 
+
 LOG = log.getLogger(__name__)
 
 CLIENT_PKG = 'vmware_nsx.nsxlib.v3.client'
-
-# Cache the pointers to those functions because they are overridden
-# by tests/unit/nsx_v3/test_plugin.py. This is only needed when running
-# tox on multiple tests.
-client_get_resource = client.get_resource
-client_create_resource = client.create_resource
-client_update_resource = client.update_resource
-client_delete_resource = client.delete_resource
 
 
 def assert_session_call(mock_call, url, verify, data, headers, cert):
@@ -42,336 +32,298 @@ def assert_session_call(mock_call, url, verify, data, headers, cert):
         url, verify=verify, data=data, headers=headers, cert=cert)
 
 
-class BaseClientTestCase(nsxlib_testcase.NsxLibTestCase):
-    nsx_manager = '1.2.3.4'
-    nsx_user = 'testuser'
-    nsx_password = 'pass123'
-    ca_file = '/path/to/ca.pem'
-    insecure = True
-
-    def setUp(self):
-        cfg.CONF.set_override(
-            'nsx_manager', BaseClientTestCase.nsx_manager, 'nsx_v3')
-        cfg.CONF.set_override(
-            'nsx_user', BaseClientTestCase.nsx_user, 'nsx_v3')
-        cfg.CONF.set_override(
-            'nsx_password', BaseClientTestCase.nsx_password, 'nsx_v3')
-        cfg.CONF.set_override(
-            'ca_file', BaseClientTestCase.ca_file, 'nsx_v3')
-        cfg.CONF.set_override(
-            'insecure', BaseClientTestCase.insecure, 'nsx_v3')
-        super(BaseClientTestCase, self).setUp()
-
-    def new_client(
-            self, clazz, host_ip=nsx_manager,
-            user_name=nsx_user, password=nsx_password,
-            insecure=insecure, url_prefix=None,
-            default_headers=None, cert_file=ca_file):
-
-        return clazz(host_ip=host_ip, user_name=user_name,
-                     password=password, insecure=insecure,
-                     url_prefix=url_prefix, default_headers=default_headers,
-                     cert_file=cert_file)
-
-
-class NsxV3RESTClientTestCase(BaseClientTestCase):
+class NsxV3RESTClientTestCase(nsxlib_testcase.NsxClientTestCase):
 
     def test_client_conf_init(self):
         api = self.new_client(client.RESTClient)
         self.assertEqual((
-            BaseClientTestCase.nsx_user, BaseClientTestCase.nsx_password),
+            nsxlib_testcase.NSX_USER, nsxlib_testcase.NSX_PASSWORD),
             api._session.auth)
-        self.assertEqual(BaseClientTestCase.nsx_manager, api._host_ip)
-        self.assertEqual(BaseClientTestCase.ca_file, api._cert_file)
+        self.assertEqual(nsxlib_testcase.NSX_MANAGER, api._host_ip)
+        self.assertEqual(nsxlib_testcase.NSX_CERT, api._cert_file)
 
     def test_client_params_init(self):
         api = self.new_client(
             client.RESTClient, host_ip='11.12.13.14', password='mypass')
         self.assertEqual((
-            BaseClientTestCase.nsx_user, 'mypass'),
+            nsxlib_testcase.NSX_USER, 'mypass'),
             api._session.auth)
         self.assertEqual('11.12.13.14', api._host_ip)
-        self.assertEqual(BaseClientTestCase.ca_file, api._cert_file)
+        self.assertEqual(nsxlib_testcase.NSX_CERT, api._cert_file)
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.get'))
-    @mock.patch(CLIENT_PKG + '.RESTClient._validate_result')
-    def test_client_url_prefix(self, mock_validate, mock_get):
-        mock_get.return_value = {}
+    def test_client_url_prefix(self):
         api = self.new_client(client.RESTClient, url_prefix='/cloud/api')
-        api.list()
+        with self.mocked_client(api) as mocked:
+            mock_get = mocked.get('get')
+            mock_get.return_value = {}
+            api.list()
 
-        assert_session_call(
-            mock_get,
-            'https://1.2.3.4/cloud/api',
-            False, None, {}, BaseClientTestCase.ca_file)
+            assert_session_call(
+                mocked.get('get'),
+                'https://1.2.3.4/cloud/api',
+                False, None, {}, nsxlib_testcase.NSX_CERT)
 
-        mock_get.reset_mock()
+            mock_get.reset_mock()
 
-        api.url_list('v1/ports')
-        assert_session_call(
-            mock_get,
-            'https://1.2.3.4/cloud/api/v1/ports', False, None, {},
-            BaseClientTestCase.ca_file)
+            api.url_list('v1/ports')
+            assert_session_call(
+                mock_get,
+                'https://1.2.3.4/cloud/api/v1/ports', False, None, {},
+                nsxlib_testcase.NSX_CERT)
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.get'))
-    @mock.patch(CLIENT_PKG + '.RESTClient._validate_result')
-    def test_client_headers(self, mock_validate, mock_get):
+    def test_client_headers(self):
         default_headers = {'Content-Type': 'application/golang'}
-
-        mock_get.return_value = {}
         api = self.new_client(
             client.RESTClient, default_headers=default_headers,
             url_prefix='/v1/api')
-        api.list()
 
-        assert_session_call(
-            mock_get,
-            'https://1.2.3.4/v1/api',
-            False, None, default_headers, BaseClientTestCase.ca_file)
+        with self.mocked_client(api) as mocked:
+            mock_get = mocked.get('get')
 
-        mock_get.reset_mock()
+            mock_get.return_value = {}
 
-        method_headers = {'X-API-Key': 'strong-crypt'}
-        api.url_list('ports/33', headers=method_headers)
-        method_headers.update(default_headers)
-        assert_session_call(
-            mock_get,
-            'https://1.2.3.4/v1/api/ports/33', False, None,
-            method_headers,
-            BaseClientTestCase.ca_file)
+            api.list()
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.get'))
-    @mock.patch(CLIENT_PKG + '.RESTClient._validate_result')
-    def test_client_for(self, mock_validate, mock_get):
+            assert_session_call(
+                mock_get,
+                'https://1.2.3.4/v1/api',
+                False, None, default_headers, nsxlib_testcase.NSX_CERT)
+
+            mock_get.reset_mock()
+
+            method_headers = {'X-API-Key': 'strong-crypt'}
+            api.url_list('ports/33', headers=method_headers)
+            method_headers.update(default_headers)
+            assert_session_call(
+                mock_get,
+                'https://1.2.3.4/v1/api/ports/33', False, None,
+                method_headers,
+                nsxlib_testcase.NSX_CERT)
+
+    def test_client_for(self):
         api = self.new_client(client.RESTClient, url_prefix='api/v1/')
         sub_api = api.new_client_for('switch/ports')
-        sub_api.get('11a2b')
 
-        assert_session_call(
-            mock_get,
-            'https://1.2.3.4/api/v1/switch/ports/11a2b',
-            False, None, {}, BaseClientTestCase.ca_file)
+        with self.mocked_client(sub_api) as mocked:
+            sub_api.get('11a2b')
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.get'))
-    @mock.patch(CLIENT_PKG + '.RESTClient._validate_result')
-    def test_client_list(self, mock_validate, mock_get):
+            assert_session_call(
+                mocked.get('get'),
+                'https://1.2.3.4/api/v1/switch/ports/11a2b',
+                False, None, {}, nsxlib_testcase.NSX_CERT)
+
+    def test_client_list(self):
         api = self.new_client(client.RESTClient, url_prefix='api/v1/ports')
-        api.list()
+        with self.mocked_client(api) as mocked:
+            api.list()
 
-        assert_session_call(
-            mock_get,
-            'https://1.2.3.4/api/v1/ports',
-            False, None, {}, BaseClientTestCase.ca_file)
+            assert_session_call(
+                mocked.get('get'),
+                'https://1.2.3.4/api/v1/ports',
+                False, None, {}, nsxlib_testcase.NSX_CERT)
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.get'))
-    @mock.patch(CLIENT_PKG + '.RESTClient._validate_result')
-    def test_client_get(self, mock_validate, mock_get):
+    def test_client_get(self):
         api = self.new_client(client.RESTClient, url_prefix='api/v1/ports')
-        api.get('unique-id')
+        with self.mocked_client(api) as mocked:
+            api.get('unique-id')
 
-        assert_session_call(
-            mock_get,
-            'https://1.2.3.4/api/v1/ports/unique-id',
-            False, None, {}, BaseClientTestCase.ca_file)
+            assert_session_call(
+                mocked.get('get'),
+                'https://1.2.3.4/api/v1/ports/unique-id',
+                False, None, {}, nsxlib_testcase.NSX_CERT)
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.delete'))
-    @mock.patch(CLIENT_PKG + '.RESTClient._validate_result')
-    def test_client_delete(self, mock_validate, mock_delete):
+    def test_client_delete(self):
         api = self.new_client(client.RESTClient, url_prefix='api/v1/ports')
-        api.delete('unique-id')
+        with self.mocked_client(api) as mocked:
+            api.delete('unique-id')
 
-        assert_session_call(
-            mock_delete,
-            'https://1.2.3.4/api/v1/ports/unique-id',
-            False, None, {}, BaseClientTestCase.ca_file)
+            assert_session_call(
+                mocked.get('delete'),
+                'https://1.2.3.4/api/v1/ports/unique-id',
+                False, None, {}, nsxlib_testcase.NSX_CERT)
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.put'))
-    @mock.patch(CLIENT_PKG + '.RESTClient._validate_result')
-    def test_client_update(self, mock_validate, mock_put):
+    def test_client_update(self):
         api = self.new_client(client.RESTClient, url_prefix='api/v1/ports')
-        api.update('unique-id', {'name': 'a-new-name'})
+        with self.mocked_client(api) as mocked:
+            api.update('unique-id', {'name': 'a-new-name'})
 
-        assert_session_call(
-            mock_put,
-            'https://1.2.3.4/api/v1/ports/unique-id',
-            False, {'name': 'a-new-name'},
-            {}, BaseClientTestCase.ca_file)
+            assert_session_call(
+                mocked.get('put'),
+                'https://1.2.3.4/api/v1/ports/unique-id',
+                False, {'name': 'a-new-name'},
+                {}, nsxlib_testcase.NSX_CERT)
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.post'))
-    @mock.patch(CLIENT_PKG + '.RESTClient._validate_result')
-    def test_client_create(self, mock_validate, mock_post):
+    def test_client_create(self):
         api = self.new_client(client.RESTClient, url_prefix='api/v1/ports')
-        api.create({'resource-name': 'port1'})
+        with self.mocked_client(api) as mocked:
+            api.create({'resource-name': 'port1'})
 
-        assert_session_call(
-            mock_post,
-            'https://1.2.3.4/api/v1/ports',
-            False, {'resource-name': 'port1'},
-            {}, BaseClientTestCase.ca_file)
+            assert_session_call(
+                mocked.get('post'),
+                'https://1.2.3.4/api/v1/ports',
+                False, {'resource-name': 'port1'},
+                {}, nsxlib_testcase.NSX_CERT)
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.get'))
-    @mock.patch(CLIENT_PKG + '.RESTClient._validate_result')
-    def test_client_url_list(self, mock_validate, mock_get):
+    def test_client_url_list(self):
         api = self.new_client(client.RESTClient, url_prefix='api/v1/ports')
-        api.url_list('/connections', {'Content-Type': 'application/json'})
+        with self.mocked_client(api) as mocked:
+            api.url_list('/connections', {'Content-Type': 'application/json'})
 
-        assert_session_call(
-            mock_get,
-            'https://1.2.3.4/api/v1/ports/connections',
-            False, None,
-            {'Content-Type': 'application/json'},
-            BaseClientTestCase.ca_file)
+            assert_session_call(
+                mocked.get('get'),
+                'https://1.2.3.4/api/v1/ports/connections',
+                False, None,
+                {'Content-Type': 'application/json'},
+                nsxlib_testcase.NSX_CERT)
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.get'))
-    @mock.patch(CLIENT_PKG + '.RESTClient._validate_result')
-    def test_client_url_get(self, mock_validate, mock_get):
+    def test_client_url_get(self):
         api = self.new_client(client.RESTClient, url_prefix='api/v1/ports')
-        api.url_get('connections/1')
+        with self.mocked_client(api) as mocked:
+            api.url_get('connections/1')
 
-        assert_session_call(
-            mock_get,
-            'https://1.2.3.4/api/v1/ports/connections/1',
-            False, None, {}, BaseClientTestCase.ca_file)
+            assert_session_call(
+                mocked.get('get'),
+                'https://1.2.3.4/api/v1/ports/connections/1',
+                False, None, {}, nsxlib_testcase.NSX_CERT)
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.delete'))
-    @mock.patch(CLIENT_PKG + '.RESTClient._validate_result')
-    def test_client_url_delete(self, mock_validate, mock_delete):
+    def test_client_url_delete(self):
         api = self.new_client(client.RESTClient, url_prefix='api/v1/ports')
-        api.url_delete('1')
+        with self.mocked_client(api) as mocked:
+            api.url_delete('1')
 
-        assert_session_call(
-            mock_delete,
-            'https://1.2.3.4/api/v1/ports/1',
-            False, None, {}, BaseClientTestCase.ca_file)
+            assert_session_call(
+                mocked.get('delete'),
+                'https://1.2.3.4/api/v1/ports/1',
+                False, None, {}, nsxlib_testcase.NSX_CERT)
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.put'))
-    @mock.patch(CLIENT_PKG + '.RESTClient._validate_result')
-    def test_client_url_put(self, mock_validate, mock_put):
+    def test_client_url_put(self):
         api = self.new_client(client.RESTClient, url_prefix='api/v1/ports')
-        api.url_put('connections/1', {'name': 'conn1'})
+        with self.mocked_client(api) as mocked:
+            api.url_put('connections/1', {'name': 'conn1'})
 
-        assert_session_call(
-            mock_put,
-            'https://1.2.3.4/api/v1/ports/connections/1',
-            False, {'name': 'conn1'},
-            {}, BaseClientTestCase.ca_file)
+            assert_session_call(
+                mocked.get('put'),
+                'https://1.2.3.4/api/v1/ports/connections/1',
+                False, {'name': 'conn1'},
+                {}, nsxlib_testcase.NSX_CERT)
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.post'))
-    @mock.patch(CLIENT_PKG + '.RESTClient._validate_result')
-    def test_client_url_post(self, mock_validate, mock_post):
+    def test_client_url_post(self):
         api = self.new_client(client.RESTClient, url_prefix='api/v1/ports')
-        api.url_post('1/connections', {'name': 'conn1'})
+        with self.mocked_client(api) as mocked:
+            api.url_post('1/connections', {'name': 'conn1'})
 
-        assert_session_call(
-            mock_post,
-            'https://1.2.3.4/api/v1/ports/1/connections',
-            False, {'name': 'conn1'},
-            {}, BaseClientTestCase.ca_file)
+            assert_session_call(
+                mocked.get('post'),
+                'https://1.2.3.4/api/v1/ports/1/connections',
+                False, {'name': 'conn1'},
+                {}, nsxlib_testcase.NSX_CERT)
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.get'))
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.put'))
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.post'))
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.delete'))
-    def test_client_validate_result(self, *args):
+    def test_client_validate_result(self):
 
-        def _verb_response_code(http_verb, status_code):
-            response = mocks.MockRequestsResponse(status_code, None)
-            api = self.new_client(client.RESTClient)
-            for mocked in args:
-                mocked.return_value = response
-            client_call = getattr(api, "url_%s" % http_verb)
-            client_call('', None)
+        api = self.new_client(client.RESTClient)
+        with self.mocked_client(api, mock_validate=False) as mocked:
+            def _verb_response_code(http_verb, status_code):
+                response = mocks.MockRequestsResponse(
+                    status_code, None)
+                for _verb in ['get', 'post', 'put', 'delete']:
+                    mocked.get(_verb).return_value = response
+                client_call = getattr(api, "url_%s" % http_verb)
+                client_call('', None)
 
-        for verb in ['get', 'post', 'put', 'delete']:
-            for code in client.RESTClient._VERB_RESP_CODES.get(verb):
-                _verb_response_code(verb, code)
-            self.assertRaises(
-                exep.ManagerError, _verb_response_code, verb, 500)
+            for verb in ['get', 'post', 'put', 'delete']:
+                for code in client.RESTClient._VERB_RESP_CODES.get(
+                        verb):
+                    _verb_response_code(verb, code)
+                self.assertRaises(
+                    exep.ManagerError,
+                    _verb_response_code, verb, 500)
 
 
-class NsxV3JSONClientTestCase(BaseClientTestCase):
+class NsxV3JSONClientTestCase(nsxlib_testcase.NsxClientTestCase):
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.post'))
-    @mock.patch(CLIENT_PKG + '.RESTClient._validate_result')
-    def test_json_request(self, mock_validate, mock_post):
-        mock_post.return_value = mocks.MockRequestsResponse(
-            200, jsonutils.dumps({'result': {'ok': 200}}))
-
+    def test_json_request(self):
         api = self.new_client(client.JSONRESTClient, url_prefix='api/v2/nat')
-        resp = api.create(body={'name': 'mgmt-egress'})
+        with self.mocked_client(api) as mocked:
+            mock_post = mocked.get('post')
+            mock_post.return_value = mocks.MockRequestsResponse(
+                200, jsonutils.dumps({'result': {'ok': 200}}))
 
-        assert_session_call(
-            mock_post,
-            'https://1.2.3.4/api/v2/nat',
-            False, jsonutils.dumps({'name': 'mgmt-egress'}),
-            client.JSONRESTClient._DEFAULT_HEADERS,
-            BaseClientTestCase.ca_file)
+            resp = api.create(body={'name': 'mgmt-egress'})
 
-        self.assertEqual(resp, {'result': {'ok': 200}})
+            assert_session_call(
+                mock_post,
+                'https://1.2.3.4/api/v2/nat',
+                False, jsonutils.dumps({'name': 'mgmt-egress'}),
+                client.JSONRESTClient._DEFAULT_HEADERS,
+                nsxlib_testcase.NSX_CERT)
+
+            self.assertEqual(resp, {'result': {'ok': 200}})
 
 
-class NsxV3APIClientTestCase(BaseClientTestCase):
+class NsxV3APIClientTestCase(nsxlib_testcase.NsxClientTestCase):
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.get'))
-    @mock.patch(CLIENT_PKG + '.RESTClient._validate_result')
-    def test_api_call(self, mock_validate, mock_get):
+    def test_api_call(self):
         api = self.new_client(client.NSX3Client)
-        api.get('ports')
+        with self.mocked_client(api) as mocked:
+            api.get('ports')
 
-        assert_session_call(
-            mock_get,
-            'https://1.2.3.4/api/v1/ports',
-            False, None,
-            client.JSONRESTClient._DEFAULT_HEADERS,
-            NsxV3APIClientTestCase.ca_file)
+            assert_session_call(
+                mocked.get('get'),
+                'https://1.2.3.4/api/v1/ports',
+                False, None,
+                client.JSONRESTClient._DEFAULT_HEADERS,
+                nsxlib_testcase.NSX_CERT)
 
 
 # NOTE(boden): remove this when tmp brigding removed
-class NsxV3APIClientBridgeTestCase(BaseClientTestCase):
+class NsxV3APIClientBridgeTestCase(nsxlib_testcase.NsxClientTestCase):
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.get'))
-    @mock.patch(CLIENT_PKG + '.RESTClient._validate_result')
-    def test_get_resource(self, mock_validate, mock_get):
-        client_get_resource('ports')
+    def test_get_resource(self):
+        api = self.new_client(client.NSX3Client)
+        with self.mocked_client(api) as mocked:
+            client.get_resource('ports', client=api)
 
-        assert_session_call(
-            mock_get,
-            'https://1.2.3.4/api/v1/ports',
-            False, None,
-            client.JSONRESTClient._DEFAULT_HEADERS,
-            NsxV3APIClientTestCase.ca_file)
+            assert_session_call(
+                mocked.get('get'),
+                'https://1.2.3.4/api/v1/ports',
+                False, None,
+                client.JSONRESTClient._DEFAULT_HEADERS,
+                nsxlib_testcase.NSX_CERT)
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.post'))
-    @mock.patch(CLIENT_PKG + '.RESTClient._validate_result')
-    def test_create_resource(self, mock_validate, mock_post):
-        client_create_resource('ports', {'resource-name': 'port1'})
+    def test_create_resource(self):
+        api = self.new_client(client.NSX3Client)
+        with self.mocked_client(api) as mocked:
+            client.create_resource(
+                'ports', {'resource-name': 'port1'},
+                client=api)
 
-        assert_session_call(
-            mock_post,
-            'https://1.2.3.4/api/v1/ports',
-            False, jsonutils.dumps({'resource-name': 'port1'}),
-            client.JSONRESTClient._DEFAULT_HEADERS,
-            BaseClientTestCase.ca_file)
+            assert_session_call(
+                mocked.get('post'),
+                'https://1.2.3.4/api/v1/ports',
+                False, jsonutils.dumps({'resource-name': 'port1'}),
+                client.JSONRESTClient._DEFAULT_HEADERS,
+                nsxlib_testcase.NSX_CERT)
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.put'))
-    @mock.patch(CLIENT_PKG + '.RESTClient._validate_result')
-    def test_update_resource(self, mock_validate, mock_put):
-        client_update_resource('ports/1', {'name': 'a-new-name'})
+    def test_update_resource(self):
+        api = self.new_client(client.NSX3Client)
+        with self.mocked_client(api) as mocked:
+            client.update_resource(
+                'ports/1', {'name': 'a-new-name'}, client=api)
 
-        assert_session_call(
-            mock_put,
-            'https://1.2.3.4/api/v1/ports/1',
-            False, jsonutils.dumps({'name': 'a-new-name'}),
-            client.JSONRESTClient._DEFAULT_HEADERS,
-            BaseClientTestCase.ca_file)
+            assert_session_call(
+                mocked.get('put'),
+                'https://1.2.3.4/api/v1/ports/1',
+                False, jsonutils.dumps({'name': 'a-new-name'}),
+                client.JSONRESTClient._DEFAULT_HEADERS,
+                nsxlib_testcase.NSX_CERT)
 
-    @mock.patch("%s.%s" % (CLIENT_PKG, 'requests.Session.delete'))
-    @mock.patch(CLIENT_PKG + '.RESTClient._validate_result')
-    def test_delete_resource(self, mock_validate, mock_delete):
-        client_delete_resource('ports/11')
+    def test_delete_resource(self):
+        api = self.new_client(client.NSX3Client)
+        with self.mocked_client(api) as mocked:
+            client.delete_resource('ports/11', client=api)
 
-        assert_session_call(
-            mock_delete,
-            'https://1.2.3.4/api/v1/ports/11',
-            False, None, client.JSONRESTClient._DEFAULT_HEADERS,
-            BaseClientTestCase.ca_file)
+            assert_session_call(
+                mocked.get('delete'),
+                'https://1.2.3.4/api/v1/ports/11',
+                False, None, client.JSONRESTClient._DEFAULT_HEADERS,
+                nsxlib_testcase.NSX_CERT)
