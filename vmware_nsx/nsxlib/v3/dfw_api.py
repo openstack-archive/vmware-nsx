@@ -71,7 +71,8 @@ def get_nsservice(resource_type, **properties):
 def create_nsgroup(display_name, description, tags):
     body = {'display_name': display_name,
             'description': description,
-            'tags': tags}
+            'tags': tags,
+            'members': []}
     return nsxclient.create_resource('ns-groups', body)
 
 
