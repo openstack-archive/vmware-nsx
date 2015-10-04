@@ -164,6 +164,9 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                           agents_db.AgentExtRpcCallback(),
                           metadata_rpc.MetadataRpcCallback()]
         self.conn.create_consumer(self.topic, self.endpoints, fanout=False)
+        self.conn.create_consumer(topics.REPORTS,
+                                  [agents_db.AgentExtRpcCallback()],
+                                  fanout=False)
         self.agent_notifiers[const.AGENT_TYPE_DHCP] = (
             dhcp_rpc_agent_api.DhcpAgentNotifyAPI())
         self.conn.consume_in_threads()
