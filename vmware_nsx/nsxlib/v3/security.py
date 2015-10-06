@@ -231,7 +231,7 @@ def _init_default_section(name, description, nsgroup_id):
         block_rule = firewall.get_firewall_rule_dict(
             'Block All', action=firewall.DROP)
         dhcp_client = firewall.get_nsservice(firewall.L4_PORT_SET_NSSERVICE,
-                                             l4_protocol=firewall.TCP,
+                                             l4_protocol=firewall.UDP,
                                              source_ports=[67],
                                              destination_ports=[68])
         dhcp_client_rule = firewall.get_firewall_rule_dict(
