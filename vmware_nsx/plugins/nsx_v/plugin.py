@@ -1394,14 +1394,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # for a exclusive non-distributed router; else raise a BadRequest
         # exception.
         r = router['router']
-        if r.get(ROUTER_SIZE) != attr.ATTR_NOT_SPECIFIED:
+        if attr.is_attr_set(r.get(ROUTER_SIZE)):
             if r.get('router_type') == nsxv_constants.SHARED:
                 msg = _("Cannot specify router-size for shared router")
                 raise n_exc.BadRequest(resource="router", msg=msg)
             elif r.get('distributed') is True:
                 msg = _("Cannot specify router-size for distributed router")
                 raise n_exc.BadRequest(resource="router", msg=msg)
-        elif r.get(ROUTER_SIZE) == attr.ATTR_NOT_SPECIFIED:
+        else:
             if r.get('router_type') == nsxv_constants.EXCLUSIVE:
                 appliance_size = cfg.CONF.nsxv.exclusive_router_appliance_size
                 if appliance_size not in VALID_EDGE_SIZES:
@@ -1415,9 +1415,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     r[ROUTER_SIZE] = appliance_size
 
     def create_router(self, context, router, allow_metadata=True):
-        self._validate_router_size(router)
         r = router['router']
         self._decide_router_type(context, r)
+        self._validate_router_size(router)
         # First extract the gateway info in case of updating
         # gateway before edge is deployed.
         # TODO(berlin): admin_state_up and routes update
