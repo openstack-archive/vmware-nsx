@@ -19,10 +19,12 @@ from neutron.tests.unit.extensions import test_portsecurity as psec
 from vmware_nsx.common import sync
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.nsx_mh.apiclient import fake
+from vmware_nsx.tests.unit.nsx_v3 import test_constants as v3_constants
+from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
 from vmware_nsx.tests.unit import test_utils
 
 
-class PortSecurityTestCase(psec.PortSecurityDBTestCase):
+class PortSecurityTestCaseNSXv2(psec.PortSecurityDBTestCase):
 
     def setUp(self):
         test_utils.override_nsx_ini_test()
@@ -36,11 +38,23 @@ class PortSecurityTestCase(psec.PortSecurityDBTestCase):
         patch_sync.start()
 
         instance.return_value.request.side_effect = self.fc.fake_request
-        super(PortSecurityTestCase, self).setUp(vmware.PLUGIN_NAME)
+        super(PortSecurityTestCaseNSXv2, self).setUp(vmware.PLUGIN_NAME)
         self.addCleanup(self.fc.reset_all)
         self.addCleanup(self.mock_nsx.stop)
         self.addCleanup(patch_sync.stop)
 
 
-class TestPortSecurity(PortSecurityTestCase, psec.TestPortSecurity):
+class TestPortSecurityNSXv2(PortSecurityTestCaseNSXv2, psec.TestPortSecurity):
         pass
+
+
+class PortSecurityTestCaseNSXv3(nsxlib_testcase.NsxClientTestCase,
+                                psec.PortSecurityDBTestCase):
+    def setUp(self, *args, **kwargs):
+        super(PortSecurityTestCaseNSXv3, self).setUp(
+            plugin=v3_constants.PLUGIN_NAME)
+
+
+class TestPortSecurityNSXv3(PortSecurityTestCaseNSXv3,
+                            psec.TestPortSecurity):
+    pass
