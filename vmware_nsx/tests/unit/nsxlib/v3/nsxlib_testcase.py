@@ -19,6 +19,7 @@ import types
 import unittest
 
 from oslo_config import cfg
+from oslo_utils import uuidutils
 from vmware_nsx.nsxlib.v3 import client as nsx_client
 from vmware_nsx.tests.unit.nsx_v3 import mocks
 
@@ -38,6 +39,9 @@ class NsxLibTestCase(unittest.TestCase):
         super(NsxLibTestCase, self).setUp()
         cfg.CONF.set_override('nsx_user', NSX_USER)
         cfg.CONF.set_override('nsx_password', NSX_PASSWORD)
+        cfg.CONF.set_override('default_tz_uuid',
+                              uuidutils.generate_uuid())
+        cfg.CONF.set_override('nsx_controllers', ['11.9.8.7', '11.9.8.77'])
 
         cfg.CONF.set_override('nsx_user', NSX_USER, 'nsx_v3')
         cfg.CONF.set_override('nsx_password', NSX_PASSWORD, 'nsx_v3')
@@ -148,8 +152,17 @@ class NsxClientTestCase(NsxLibTestCase):
                 return client_fn(*args, **kwargs)
             return _client
 
+        def _mock_client_init(*args, **kwargs):
+            return with_client
+
         fn_map = {}
         for fn in BRIDGE_FNS:
             fn_map[fn] = _call_client(fn)
-        fn_map['NSX3Client'] = nsx_client.NSX3Client
+
+        fn_map['NSX3Client'] = _mock_client_init
+        fn_map['JSONRESTClient'] = _mock_client_init
+        fn_map['RESTClient'] = _mock_client_init
+
+        with_client.new_client_for = _mock_client_init
+
         return cls.patch_client_module(in_module, fn_map)

@@ -23,6 +23,7 @@ from neutron.extensions import extraroute
 from neutron.extensions import l3
 from neutron.extensions import l3_ext_gw_mode
 from neutron.extensions import providernet as pnet
+from neutron.extensions import securitygroup as secgrp
 from neutron import manager
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_plugin
 from neutron.tests.unit.extensions import test_extra_dhcp_opt as test_dhcpopts
@@ -58,17 +59,17 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
         self.mock_api = nsx_v3_mocks.MockRequestSessionApi()
         self.client = nsx_client.NSX3Client()
 
-        mocked = nsxlib_testcase.NsxClientTestCase.mocked_session_module(
-            nsx_plugin.security.firewall, self.client,
-            mock_session=self.mock_api)
-        mocked.start()
-        self._patchers.append(mocked)
+        def mock_client_module(mod):
+            mocked = nsxlib_testcase.NsxClientTestCase.mocked_session_module(
+                mod, self.client,
+                mock_session=self.mock_api)
+            mocked.start()
+            self._patchers.append(mocked)
 
-        mocked = nsxlib_testcase.NsxClientTestCase.mocked_session_module(
-            nsx_plugin.routerlib.nsxlib, self.client,
-            mock_session=self.mock_api)
-        mocked.start()
-        self._patchers.append(mocked)
+        mock_client_module(nsx_plugin.security.firewall)
+        mock_client_module(nsx_plugin.routerlib.nsxlib)
+        mock_client_module(nsx_plugin)
+
         super(NsxV3PluginTestCaseMixin, self).setUp(plugin=plugin,
                                                     ext_mgr=ext_mgr)
 
@@ -117,7 +118,24 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
 
 
 class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin):
-    pass
+
+    def test_update_port_delete_ip(self):
+        # This test case overrides the default because the nsx plugin
+        # implements port_security/security groups and it is not allowed
+        # to remove an ip address from a port unless the security group
+        # is first removed.
+        with self.subnet() as subnet:
+            with self.port(subnet=subnet) as port:
+                data = {'port': {'admin_state_up': False,
+                                 'fixed_ips': [],
+                                 secgrp.SECURITYGROUPS: []}}
+                req = self.new_update_request('ports',
+                                              data, port['port']['id'])
+                res = self.deserialize('json', req.get_response(self.api))
+                self.assertEqual(res['port']['admin_state_up'],
+                                 data['port']['admin_state_up'])
+                self.assertEqual(res['port']['fixed_ips'],
+                                 data['port']['fixed_ips'])
 
 
 class TestSecurityGroups(ext_sg.TestSecurityGroups, NsxV3PluginTestCaseMixin):

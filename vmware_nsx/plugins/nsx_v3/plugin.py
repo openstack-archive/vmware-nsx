@@ -30,6 +30,7 @@ from neutron.common import topics
 from neutron.common import utils as neutron_utils
 from neutron.db import agents_db
 from neutron.db import agentschedulers_db
+from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
 from neutron.db import extradhcpopt_db
@@ -38,11 +39,14 @@ from neutron.db import l3_db
 from neutron.db import l3_gwmode_db
 from neutron.db import models_v2
 from neutron.db import portbindings_db
+from neutron.db import portsecurity_db
 from neutron.db import securitygroups_db
+from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import external_net as ext_net_extn
 from neutron.extensions import extra_dhcp_opt as ext_edo
 from neutron.extensions import l3
 from neutron.extensions import portbindings as pbin
+from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.i18n import _LE, _LI, _LW
@@ -67,14 +71,17 @@ from vmware_nsx.nsxlib.v3 import security
 
 
 LOG = log.getLogger(__name__)
+NSX_V3_PSEC_PROFILE_NAME = 'neutron_port_spoof_guard_profile'
 
 
-class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
+class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
+                  db_base_plugin_v2.NeutronDbPluginV2,
                   securitygroups_db.SecurityGroupDbMixin,
                   external_net_db.External_net_db_mixin,
                   extraroute_db.ExtraRoute_db_mixin,
                   l3_gwmode_db.L3_NAT_db_mixin,
                   portbindings_db.PortBindingMixin,
+                  portsecurity_db.PortSecurityDbMixin,
                   agentschedulers_db.DhcpAgentSchedulerDbMixin,
                   extradhcpopt_db.ExtraDhcpOptMixin):
 
@@ -82,11 +89,13 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
     __native_pagination_support = True
     __native_sorting_support = True
 
-    supported_extension_aliases = ["quotas",
+    supported_extension_aliases = ["allowed-address-pairs",
+                                   "quotas",
                                    "binding",
                                    "extra_dhcp_opt",
                                    "ext-gw-mode",
                                    "security-group",
+                                   "port-security",
                                    "provider",
                                    "external-net",
                                    "extraroute",
@@ -108,6 +117,45 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         self._port_client = nsx_resources.LogicalPort(self._nsx_client)
         self.nsgroup_container, self.default_section = (
             security.init_nsgroup_container_and_default_section_rules())
+
+        LOG.debug("Initializing NSX v3 port spoofguard switching profile")
+        self._switching_profiles = nsx_resources.SwitchingProfile(
+            self._nsx_client)
+        self._psec_profile = None
+        self._psec_profile = self._init_port_security_profile()
+        if not self._psec_profile:
+            msg = (_("Unable to initialize NSX v3 port spoofguard "
+                    "switching profile: %s") % NSX_V3_PSEC_PROFILE_NAME)
+            raise nsx_exc.NsxPluginException(msg)
+
+    def _get_port_security_profile_id(self):
+        return nsx_resources.SwitchingProfile.build_switch_profile_ids(
+            self._switching_profiles, self._get_port_security_profile())[0]
+
+    def _get_port_security_profile(self):
+        if self._psec_profile:
+            return self._psec_profile
+        profile = self._switching_profiles.find_by_display_name(
+            NSX_V3_PSEC_PROFILE_NAME)
+        return profile[0] if profile else None
+
+    @utils.retry_upon_exception_nsxv3(Exception)
+    def _init_port_security_profile(self):
+        # NOTE(boden): potential race cond with distributed plugins
+        # whereupon a different plugin could create the profile
+        # after we don't find an existing one and create another
+        profile = self._get_port_security_profile()
+        if profile:
+            return profile
+
+        self._switching_profiles.create_spoofguard_profile(
+            NSX_V3_PSEC_PROFILE_NAME, 'Neutron Port Security Profile',
+            whitelist_ports=True, whitelist_switches=False,
+            tags=utils.build_v3_tags_payload({
+                'id': NSX_V3_PSEC_PROFILE_NAME,
+                'tenant_id': 'neutron-nsx-plugin'}))
+
+        return self._get_port_security_profile()
 
     def _setup_rpc(self):
         self.topic = topics.PLUGIN
@@ -259,12 +307,16 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                 self._create_network_at_the_backend(context, net_data))
         tenant_id = self._get_tenant_id_for_create(
             context, net_data)
+
         self._ensure_default_security_group(context, tenant_id)
         with context.session.begin(subtransactions=True):
             # Create network in Neutron
             try:
                 created_net = super(NsxV3Plugin, self).create_network(context,
                                                                       network)
+
+                self._process_network_port_security_create(
+                    context, net_data, created_net)
                 self._process_l3_create(context, created_net, net_data)
             except Exception:
                 with excutils.save_and_reraise_exception():
@@ -308,6 +360,10 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         pnet._raise_if_updates_provider_attributes(net_data)
         updated_net = super(NsxV3Plugin, self).update_network(context, id,
                                                               network)
+
+        if psec.PORTSECURITY in network['network']:
+            self._process_network_port_security_update(
+                context, network['network'], updated_net)
         self._process_l3_update(context, updated_net, network['network'])
         self._extend_network_dict_provider(context, updated_net)
 
@@ -343,10 +399,18 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             # NOTE(arosen): nsx-v3 doesn't seem to handle ipv6 addresses
             # currently so for now we remove them here and do not pass
             # them to the backend which would raise an error.
-            if(netaddr.IPNetwork(fixed_ip['ip_address']).version == 6):
+            if netaddr.IPNetwork(fixed_ip['ip_address']).version == 6:
                 continue
             address_bindings.append(nsx_resources.PacketAddressClassifier(
                 fixed_ip['ip_address'], port['mac_address'], None))
+
+        for pair in port.get(addr_pair.ADDRESS_PAIRS):
+            address_bindings.append(nsx_resources.PacketAddressClassifier(
+                pair['ip_address'], pair['mac_address'], None))
+
+        # TODO(boden): this default pair is not needed with nsxv3 for dhcp
+        address_bindings.append(nsx_resources.PacketAddressClassifier(
+            '0.0.0.0', port['mac_address'], None))
         return address_bindings
 
     def get_network(self, context, id, fields=None):
@@ -412,7 +476,8 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         return parent_name, tag
 
     def _create_port_at_the_backend(self, context, neutron_db,
-                                    port_data, l2gw_port_check):
+                                    port_data, l2gw_port_check,
+                                    psec_is_on):
         tags = utils.build_v3_tags_payload(port_data)
         parent_name, tag = self._get_data_from_binding_profile(
             context, port_data)
@@ -427,6 +492,11 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             # for ports plugged into a Bridge Endpoint.
             vif_uuid = port_data.get('device_id')
             attachment_type = port_data.get('device_owner')
+
+        profiles = None
+        if psec_is_on:
+            profiles = [self._get_port_security_profile_id()]
+
         result = self._port_client.create(
             port_data['network_id'], vif_uuid,
             tags=tags,
@@ -434,7 +504,8 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             admin_state=port_data['admin_state_up'],
             address_bindings=address_bindings,
             attachment_type=attachment_type,
-            parent_name=parent_name, parent_tag=tag)
+            parent_name=parent_name, parent_tag=tag,
+            switch_profile_ids=profiles)
 
         # TODO(salv-orlando): The logical switch identifier in the
         # mapping object is not necessary anymore.
@@ -443,43 +514,73 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             neutron_db['network_id'], result['id'])
         return result
 
-    def create_port(self, context, port, l2gw_port_check=False):
-        dhcp_opts = port['port'].get(ext_edo.EXTRADHCPOPTS, [])
-        port_id = uuidutils.generate_uuid()
-        port['port']['id'] = port_id
+    def _create_port_preprocess_security(
+            self, context, port, port_data, neutron_db):
+        (port_security, has_ip) = self._determine_port_security_and_has_ip(
+            context, port_data)
+        port_data[psec.PORTSECURITY] = port_security
+        self._process_port_port_security_create(
+                context, port_data, neutron_db)
+        # allowed address pair checks
+        if attributes.is_attr_set(port_data.get(addr_pair.ADDRESS_PAIRS)):
+            if not port_security:
+                raise addr_pair.AddressPairAndPortSecurityRequired()
+            else:
+                self._process_create_allowed_address_pairs(
+                    context, neutron_db,
+                    port_data[addr_pair.ADDRESS_PAIRS])
+        else:
+            # remove ATTR_NOT_SPECIFIED
+            port_data[addr_pair.ADDRESS_PAIRS] = []
 
-        self._ensure_default_security_group_on_port(context, port)
+        if port_security and has_ip:
+            self._ensure_default_security_group_on_port(context, port)
+        elif self._check_update_has_security_groups(
+                {'port': port_data}):
+            raise psec.PortSecurityAndIPRequiredForSecurityGroups()
+        port_data[ext_sg.SECURITYGROUPS] = (
+            self._get_security_groups_on_port(context, port))
+        return port_security, has_ip
+
+    def create_port(self, context, port, l2gw_port_check=False):
+        port_data = port['port']
+        dhcp_opts = port_data.get(ext_edo.EXTRADHCPOPTS, [])
+
         # TODO(salv-orlando): Undo logical switch creation on failure
         with context.session.begin(subtransactions=True):
             neutron_db = super(NsxV3Plugin, self).create_port(context, port)
-            self._process_portbindings_create_and_update(context,
-                                                         port['port'],
-                                                         neutron_db)
-
             port["port"].update(neutron_db)
 
-            if not self._network_is_external(
-                context, port['port']['network_id']):
-                lport = self._create_port_at_the_backend(
-                    context, neutron_db, port['port'], l2gw_port_check)
-            self._process_portbindings_create_and_update(context,
-                                                         port['port'],
-                                                         neutron_db)
+            (is_psec_on, has_ip) = self._create_port_preprocess_security(
+                context, port, port_data, neutron_db)
+            self._process_portbindings_create_and_update(
+                context, port['port'], port_data)
+            self._process_port_create_extra_dhcp_opts(
+                context, port_data, dhcp_opts)
 
-            neutron_db[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
-            if (pbin.PROFILE in port['port'] and
-                attributes.is_attr_set(port['port'][pbin.PROFILE])):
-                neutron_db[pbin.PROFILE] = port['port'][pbin.PROFILE]
-            self._process_port_create_extra_dhcp_opts(context, neutron_db,
-                                                      dhcp_opts)
+            context.session.flush()
+
+            if not self._network_is_external(context, port_data['network_id']):
+                lport = self._create_port_at_the_backend(
+                    context, neutron_db, port_data,
+                    l2gw_port_check, is_psec_on)
+
+            # For some reason the port bindings DB mixin does not handle
+            # the VNIC_TYPE attribute, which is required by nova for
+            # setting up VIFs.
+            port_data[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
 
             sgids = self._get_security_groups_on_port(context, port)
             if sgids is not None:
                 self._process_port_create_security_group(
-                    context, neutron_db, sgids)
+                    context, port_data, sgids)
+                #FIXME(abhiraut): Security group should not be processed for
+                #                 a port belonging to an external network.
+                #                 Below call will fail since there is no lport
+                #                 in the backend.
                 security.update_lport_with_security_groups(
                     context, lport['id'], [], sgids)
-        return neutron_db
+        return port_data
 
     def _pre_delete_port_check(self, context, port_id, l2gw_port_check):
         """Perform checks prior to deleting a port."""
@@ -521,21 +622,100 @@ class NsxV3Plugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return ret_val
 
+    def _update_port_preprocess_security(
+            self, context, port, id, updated_port):
+        delete_addr_pairs = self._check_update_deletes_allowed_address_pairs(
+            port)
+        has_addr_pairs = self._check_update_has_allowed_address_pairs(port)
+        has_security_groups = self._check_update_has_security_groups(port)
+        delete_security_groups = self._check_update_deletes_security_groups(
+            port)
+
+        # populate port_security setting
+        if psec.PORTSECURITY not in port['port']:
+            updated_port[psec.PORTSECURITY] = \
+                self._get_port_security_binding(context, id)
+        has_ip = self._ip_on_port(updated_port)
+        # validate port security and allowed address pairs
+        if not updated_port[psec.PORTSECURITY]:
+            #  has address pairs in request
+            if has_addr_pairs:
+                raise addr_pair.AddressPairAndPortSecurityRequired()
+            elif not delete_addr_pairs:
+                # check if address pairs are in db
+                updated_port[addr_pair.ADDRESS_PAIRS] = (
+                    self.get_allowed_address_pairs(context, id))
+                if updated_port[addr_pair.ADDRESS_PAIRS]:
+                    raise addr_pair.AddressPairAndPortSecurityRequired()
+
+        if delete_addr_pairs or has_addr_pairs:
+            # delete address pairs and read them in
+            self._delete_allowed_address_pairs(context, id)
+            self._process_create_allowed_address_pairs(
+                context, updated_port,
+                updated_port[addr_pair.ADDRESS_PAIRS])
+
+        # checks if security groups were updated adding/modifying
+        # security groups, port security is set and port has ip
+        if not (has_ip and updated_port[psec.PORTSECURITY]):
+            if has_security_groups:
+                raise psec.PortSecurityAndIPRequiredForSecurityGroups()
+            # Update did not have security groups passed in. Check
+            # that port does not have any security groups already on it.
+            filters = {'port_id': [id]}
+            security_groups = (
+                super(NsxV3Plugin, self)._get_port_security_group_bindings(
+                    context, filters)
+            )
+            if security_groups and not delete_security_groups:
+                raise psec.PortSecurityPortHasSecurityGroup()
+
+        if delete_security_groups or has_security_groups:
+            # delete the port binding and read it with the new rules.
+            self._delete_port_security_group_bindings(context, id)
+            sgids = self._get_security_groups_on_port(context, port)
+            self._process_port_create_security_group(context, updated_port,
+                                                     sgids)
+
+        if psec.PORTSECURITY in port['port']:
+            self._process_port_port_security_update(
+                context, port['port'], updated_port)
+
+        return updated_port
+
     def update_port(self, context, id, port):
         original_port = super(NsxV3Plugin, self).get_port(context, id)
         _, nsx_lport_id = nsx_db.get_nsx_switch_and_port_id(
             context.session, id)
+
         with context.session.begin(subtransactions=True):
             updated_port = super(NsxV3Plugin, self).update_port(context,
                                                                 id, port)
+
+            # copy values over - except fixed_ips as
+            # they've already been processed
+            port['port'].pop('fixed_ips', None)
+            updated_port.update(port['port'])
+            self._update_extra_dhcp_opts_on_port(
+                context, id, port, updated_port)
+
+            updated_port = self._update_port_preprocess_security(
+                context, port, id, updated_port)
+
             self._update_extra_dhcp_opts_on_port(context, id, port,
                                                  updated_port)
             sec_grp_updated = self.update_security_group_on_port(
                 context, id, port, original_port, updated_port)
+            (port_security, has_ip) = self._determine_port_security_and_has_ip(
+                context, updated_port)
         try:
             self._port_client.update(
-                nsx_lport_id, name=port['port'].get('name'),
-                admin_state=port['port'].get('admin_state_up'))
+                nsx_lport_id, name=updated_port.get('name'),
+                admin_state=updated_port.get('admin_state_up'),
+                address_bindings=self._build_address_bindings(updated_port),
+                switch_profile_ids=[self._get_port_security_profile_id()]
+                if port_security else None)
+
             security.update_lport_with_security_groups(
                 context, nsx_lport_id,
                 original_port.get(ext_sg.SECURITYGROUPS, []),

@@ -16,6 +16,7 @@
 
 from oslo_utils import uuidutils
 
+PLUGIN_NAME = 'vmware_nsx.plugins.nsx_v3.plugin.NsxV3Plugin'
 FAKE_NAME = "fake_name"
 FAKE_SWITCH_UUID = uuidutils.generate_uuid()
 
