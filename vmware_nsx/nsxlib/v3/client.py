@@ -209,6 +209,13 @@ def _get_client(client, *args, **kwargs):
     return client or NSX3Client(*args, **kwargs)
 
 
+# NOTE(shihli): tmp until all refs use client class
+def _get_manager_ip(client=None):
+    # NOTE: In future this may return the IP address from a pool
+    return (client._host_ip if client is not None
+            else cfg.CONF.nsx_v3.nsx_manager)
+
+
 # NOTE(boden): tmp until all refs use client class
 def get_resource(resource, client=None):
     return _get_client(client).get(resource)
