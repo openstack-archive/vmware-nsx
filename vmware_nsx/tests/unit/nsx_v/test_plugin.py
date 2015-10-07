@@ -1181,6 +1181,99 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
             self.assertEqual(ctx_manager.exception.code, 400)
 
 
+class TestSubnetPoolsV2(NsxVPluginV2TestCase, test_plugin.TestSubnetsV2):
+    def setUp(self,
+              plugin=PLUGIN_NAME,
+              ext_mgr=None,
+              service_plugins=None):
+        super(TestSubnetPoolsV2, self).setUp()
+        self.context = context.get_admin_context()
+
+    def test_create_subnet_dhcpv6_stateless_with_port_on_network(self):
+        self.skipTest('Not supported')
+
+    def test_create_subnet_ipv6_gw_values(self):
+        self.skipTest('Not supported')
+
+    def test_create_subnet_ipv6_out_of_cidr_lla(self):
+        self.skipTest('Not supported')
+
+    def test_create_subnet_ipv6_pd_gw_values(self):
+        self.skipTest('Not supported')
+
+    def test_create_subnet_ipv6_slaac_with_db_reference_error(self):
+        self.skipTest('Not supported')
+
+    def test_create_subnet_ipv6_slaac_with_dhcp_port_on_network(self):
+        self.skipTest('Not supported')
+
+    def test_create_subnet_ipv6_slaac_with_port_on_network(self):
+        self.skipTest('Not supported')
+
+    def test_create_subnet_ipv6_slaac_with_router_intf_on_network(self):
+        self.skipTest('Not supported')
+
+    def test_create_subnet_ipv6_slaac_with_snat_intf_on_network(self):
+        self.skipTest('Not supported')
+
+    def test_create_subnet_only_ip_version_v6(self):
+        self.skipTest('Not supported')
+
+    def test_create_subnet_with_one_host_route(self):
+        self.skipTest("Skip test for not implemented host_routes feature")
+
+    def test_create_subnet_with_two_host_routes(self):
+        self.skipTest("Skip test for not implemented host_routes feature")
+
+    def test_create_subnet_with_v6_allocation_pool(self):
+        self.skipTest('Not supported')
+
+    def test_create_subnet_with_v6_pd_allocation_pool(self):
+        self.skipTest('Not supported')
+
+    def test_delete_subnet_ipv6_slaac_port_exists(self):
+        self.skipTest('Not supported')
+
+    def test_delete_subnet_ipv6_slaac_router_port_exists(self):
+        self.skipTest('Not supported')
+
+    def test_delete_subnet_with_dns_and_route(self):
+        self.skipTest("Skip test for not implemented host_routes feature")
+
+    def test_delete_subnet_with_route(self):
+        self.skipTest("Skip test for not implemented host_routes feature")
+
+    def test_update_subnet_adding_additional_host_routes_and_dns(self):
+        self.skipTest("Skip test for not implemented host_routes feature")
+
+    def test_update_subnet_inconsistent_ipv6_gatewayv4(self):
+        self.skipTest('Not supported')
+
+    def test_update_subnet_inconsistent_ipv6_hostroute_dst_v4(self):
+        self.skipTest('Not supported')
+
+    def test_update_subnet_inconsistent_ipv6_hostroute_np_v4(self):
+        self.skipTest('Not supported')
+
+    def test_update_subnet_ipv6_address_mode_fails(self):
+        self.skipTest('Not supported')
+
+    def test_update_subnet_ipv6_attributes_fails(self):
+        self.skipTest('Not supported')
+
+    def test_update_subnet_ipv6_cannot_disable_dhcp(self):
+        self.skipTest('Not supported')
+
+    def test_update_subnet_ipv6_ra_mode_fails(self):
+        self.skipTest('Not supported')
+
+    def test_update_subnet_route(self):
+        self.skipTest("Skip test for not implemented host_routes feature")
+
+    def test_update_subnet_route_to_None(self):
+        self.skipTest("Skip test for not implemented host_routes feature")
+
+
 class TestBasicGet(test_plugin.TestBasicGet, NsxVPluginV2TestCase):
     pass
 
