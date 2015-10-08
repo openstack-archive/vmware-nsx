@@ -218,7 +218,6 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxV3PluginTestCaseMixin):
 
 class TestL3NatTestCase(L3NatTest,
                         test_l3_plugin.L3NatDBIntTestCase,
-                        NsxV3PluginTestCaseMixin,
                         test_ext_route.ExtraRouteDBTestCaseBase):
 
     def setUp(self, plugin=PLUGIN_NAME,

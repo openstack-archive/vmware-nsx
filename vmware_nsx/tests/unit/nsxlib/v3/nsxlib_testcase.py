@@ -94,10 +94,10 @@ class NsxClientTestCase(NsxLibTestCase):
     @contextlib.contextmanager
     def mocked_client(self, client, mock_validate=True):
         session = client._session
-        with mock.patch.object(session, 'get')as _get:
-            with mock.patch.object(session, 'post')as _post:
-                with mock.patch.object(session, 'delete')as _delete:
-                    with mock.patch.object(session, 'put')as _put:
+        with mock.patch.object(session, 'get') as _get:
+            with mock.patch.object(session, 'post') as _post:
+                with mock.patch.object(session, 'delete') as _delete:
+                    with mock.patch.object(session, 'put') as _put:
                         rep = {
                             'get': _get,
                             'put': _put,
