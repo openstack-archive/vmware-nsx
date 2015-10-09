@@ -152,10 +152,11 @@ class LogicalPort(AbstractRESTResource):
         if display_name is not None:
             body['display_name'] = display_name
 
-        if admin_state:
-            body['admin_state'] = nsx_constants.ADMIN_STATE_UP
-        else:
-            body['admin_state'] = nsx_constants.ADMIN_STATE_DOWN
+        if admin_state is not None:
+            if admin_state:
+                body['admin_state'] = nsx_constants.ADMIN_STATE_UP
+            else:
+                body['admin_state'] = nsx_constants.ADMIN_STATE_DOWN
 
         if address_bindings:
             bindings = []
