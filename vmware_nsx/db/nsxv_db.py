@@ -507,10 +507,9 @@ def get_spoofguard_policy_id(session, network_id):
                   network_id)
 
 
-def add_vdr_dhcp_binding(session, vdr_router_id, dhcp_router_id, dhcp_edge_id):
+def add_vdr_dhcp_binding(session, vdr_router_id, dhcp_edge_id):
     with session.begin(subtransactions=True):
         binding = nsxv_models.NsxvVdrDhcpBinding(vdr_router_id=vdr_router_id,
-                                                 dhcp_router_id=dhcp_router_id,
                                                  dhcp_edge_id=dhcp_edge_id)
         session.add(binding)
     return binding

@@ -247,13 +247,10 @@ class NsxvVdrDhcpBinding(model_base.BASEV2):
     __tablename__ = 'nsxv_vdr_dhcp_bindings'
 
     vdr_router_id = sa.Column(sa.String(36), primary_key=True)
-    dhcp_router_id = sa.Column(sa.String(36), nullable=False)
     dhcp_edge_id = sa.Column(sa.String(36), nullable=False)
 
     __table_args__ = (
         sa.UniqueConstraint(
-            dhcp_router_id,
-            name='unique_nsxv_vdr_dhcp_bindings0dhcp_router_id'),
-        sa.UniqueConstraint(
             dhcp_edge_id,
-            name='unique_nsxv_vdr_dhcp_bindings0dhcp_edge_id'))
+            name='unique_nsxv_vdr_dhcp_bindings0dhcp_edge_id'),
+        model_base.BASEV2.__table_args__)
