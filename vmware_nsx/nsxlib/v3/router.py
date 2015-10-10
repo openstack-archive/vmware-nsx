@@ -103,7 +103,8 @@ def remove_router_link_port(tier1_uuid, tier0_uuid):
                         "not found at the backend"), tier1_uuid)
         return
     tier1_link_port_id = tier1_link_port['id']
-    tier0_link_port_id = tier1_link_port['linked_logical_router_port_id']
+    tier0_link_port_id = (
+        tier1_link_port['linked_logical_router_port_id'].get('target_id'))
     nsxlib.delete_logical_router_port(tier1_link_port_id)
     nsxlib.delete_logical_router_port(tier0_link_port_id)
 
