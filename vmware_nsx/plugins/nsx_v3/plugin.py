@@ -127,6 +127,16 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             msg = (_("Unable to initialize NSX v3 port spoofguard "
                     "switching profile: %s") % NSX_V3_PSEC_PROFILE_NAME)
             raise nsx_exc.NsxPluginException(msg)
+        self._unsubscribe_callback_events()
+
+    def _unsubscribe_callback_events(self):
+        # l3_db explicitly subscribes to the port delete callback. This
+        # callback is unsubscribed here since l3 APIs are handled by
+        # core_plugin instead of an advanced service, in case of NSXv3 plugin,
+        # and the prevention logic is handled by NSXv3 plugin itself.
+        registry.unsubscribe(l3_db._prevent_l3_port_delete_callback,
+                             resources.PORT,
+                             events.BEFORE_DELETE)
 
     def _get_port_security_profile_id(self):
         return nsx_resources.SwitchingProfile.build_switch_profile_ids(
