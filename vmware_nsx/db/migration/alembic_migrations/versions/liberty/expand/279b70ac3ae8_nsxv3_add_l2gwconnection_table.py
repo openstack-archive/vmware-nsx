@@ -21,12 +21,18 @@ Create Date: 2015-08-14 02:04:09.807926
 
 """
 
+from alembic import op
+import sqlalchemy as sa
+
+from neutron.db import migration
+
+
 # revision identifiers, used by Alembic.
 revision = '279b70ac3ae8'
 down_revision = '28430956782d'
 
-from alembic import op
-import sqlalchemy as sa
+# milestone identifier, used by neutron-db-manage
+neutron_milestone = [migration.LIBERTY]
 
 
 def upgrade():
