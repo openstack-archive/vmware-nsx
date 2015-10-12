@@ -453,9 +453,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             address_bindings.append(nsx_resources.PacketAddressClassifier(
                 pair['ip_address'], pair['mac_address'], None))
 
-        # TODO(boden): this default pair is not needed with nsxv3 for dhcp
-        address_bindings.append(nsx_resources.PacketAddressClassifier(
-            '0.0.0.0', port['mac_address'], None))
         return address_bindings
 
     def get_network(self, context, id, fields=None):
@@ -539,7 +536,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             attachment_type = port_data.get('device_owner')
 
         profiles = []
-        if psec_is_on:
+        if psec_is_on and address_bindings:
             profiles = [self._get_port_security_profile_id()]
         if port_data.get('device_owner') == const.DEVICE_OWNER_DHCP:
             if self._dhcp_profile:
@@ -740,6 +737,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         original_port = super(NsxV3Plugin, self).get_port(context, id)
         _, nsx_lport_id = nsx_db.get_nsx_switch_and_port_id(
             context.session, id)
+        switch_profile_ids = None
 
         with context.session.begin(subtransactions=True):
             updated_port = super(NsxV3Plugin, self).update_port(context,
@@ -761,13 +759,17 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 context, id, port, original_port, updated_port)
             (port_security, has_ip) = self._determine_port_security_and_has_ip(
                 context, updated_port)
+
+        address_bindings = self._build_address_bindings(updated_port)
+        if port_security and address_bindings:
+            switch_profile_ids = [self._get_port_security_profile_id()]
+
         try:
             self._port_client.update(
                 nsx_lport_id, name=updated_port.get('name'),
                 admin_state=updated_port.get('admin_state_up'),
-                address_bindings=self._build_address_bindings(updated_port),
-                switch_profile_ids=[self._get_port_security_profile_id()]
-                if port_security else None)
+                address_bindings=address_bindings,
+                switch_profile_ids=switch_profile_ids)
 
             security.update_lport_with_security_groups(
                 context, nsx_lport_id,
