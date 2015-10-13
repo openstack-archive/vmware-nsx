@@ -67,7 +67,7 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
             self._patchers.append(mocked)
 
         mock_client_module(nsx_plugin.security.firewall)
-        mock_client_module(nsx_plugin.routerlib.nsxlib)
+        mock_client_module(nsx_plugin.router.nsxlib)
         mock_client_module(nsx_plugin)
 
         super(NsxV3PluginTestCaseMixin, self).setUp(plugin=plugin,

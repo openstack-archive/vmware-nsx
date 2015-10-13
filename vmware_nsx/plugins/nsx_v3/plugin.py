@@ -66,7 +66,7 @@ from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.nsxlib.v3 import client as nsx_client
 from vmware_nsx.nsxlib.v3 import dfw_api as firewall
 from vmware_nsx.nsxlib.v3 import resources as nsx_resources
-from vmware_nsx.nsxlib.v3 import router as routerlib
+from vmware_nsx.nsxlib.v3 import router
 from vmware_nsx.nsxlib.v3 import security
 
 
@@ -117,6 +117,11 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         self._port_client = nsx_resources.LogicalPort(self._nsx_client)
         self.nsgroup_container, self.default_section = (
             security.init_nsgroup_container_and_default_section_rules())
+        self._router_client = nsx_resources.LogicalRouter(self._nsx_client)
+        self._router_port_client = nsx_resources.LogicalRouterPort(
+            self._nsx_client)
+        self._routerlib = router.RouterLib(self._router_client,
+                                           self._router_port_client)
 
         LOG.debug("Initializing NSX v3 port spoofguard switching profile")
         self._switching_profiles = nsx_resources.SwitchingProfile(
@@ -288,7 +293,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         return net_type, physical_net, vlan_id
 
     def _get_edge_cluster_and_members(self, tier0_uuid):
-        routerlib.validate_tier0(self.tier0_groups_dict, tier0_uuid)
+        self._routerlib.validate_tier0(self.tier0_groups_dict, tier0_uuid)
         tier0_info = self.tier0_groups_dict[tier0_uuid]
         return (tier0_info['edge_cluster_uuid'],
                 tier0_info['member_index_list'])
@@ -300,7 +305,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         else:
             tier0_uuid = net_data[pnet.PHYSICAL_NETWORK]
             is_provider_net = True
-        routerlib.validate_tier0(self.tier0_groups_dict, tier0_uuid)
+        self._routerlib.validate_tier0(self.tier0_groups_dict, tier0_uuid)
         return (is_provider_net, utils.NetworkTypes.L3_EXT, tier0_uuid, 0)
 
     def _create_network_at_the_backend(self, context, net_data):
@@ -925,25 +930,26 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             # TODO(berlin): revocate bgp announce on org tier0 router
             pass
         if remove_snat_rules:
-            routerlib.delete_gw_snat_rule(nsx_router_id, orgaddr)
+            self._routerlib.delete_gw_snat_rule(nsx_router_id, orgaddr)
         if remove_router_link_port:
-            routerlib.remove_router_link_port(nsx_router_id, org_tier0_uuid)
+            self._routerlib.remove_router_link_port(
+                nsx_router_id, org_tier0_uuid)
         if add_router_link_port:
             # First update edge cluster info for router
             edge_cluster_uuid, members = self._get_edge_cluster_and_members(
                 new_tier0_uuid)
-            routerlib.update_router_edge_cluster(
+            self._routerlib.update_router_edge_cluster(
                 nsx_router_id, edge_cluster_uuid)
-            routerlib.add_router_link_port(nsx_router_id, new_tier0_uuid,
+            self._routerlib.add_router_link_port(nsx_router_id, new_tier0_uuid,
                                            members)
         if add_snat_rules:
-            routerlib.add_gw_snat_rule(nsx_router_id, newaddr)
+            self._routerlib.add_gw_snat_rule(nsx_router_id, newaddr)
         if bgp_announce:
             # TODO(berlin): bgp announce on new tier0 router
             pass
 
         if remove_snat_rules or add_snat_rules:
-            routerlib.update_advertisement(nsx_router_id,
+            self._routerlib.update_advertisement(nsx_router_id,
                                            advertise_route_nat_flag,
                                            advertise_route_connected_flag)
 
@@ -951,7 +957,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         # TODO(berlin): admin_state_up support
         gw_info = self._extract_external_gw(context, router, is_extract=True)
         tags = utils.build_v3_tags_payload(router['router'])
-        result = nsxlib.create_logical_router(
+        result = self._router_client.create(
             display_name=router['router'].get('name'),
             tags=tags)
 
@@ -989,7 +995,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         # It is safe to do now as db-level checks for resource deletion were
         # passed (and indeed the resource was removed from the Neutron DB
         try:
-            nsxlib.delete_logical_router(nsx_router_id)
+            self._router_client.delete(nsx_router_id)
         except nsx_exc.ResourceNotFound:
             # If the logical router was not found on the backend do not worry
             # about it. The conditions has already been logged, so there is no
@@ -1048,9 +1054,9 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                          router_id)
                 for route in routes_removed:
-                    routerlib.delete_static_routes(nsx_router_id, route)
+                    self._routerlib.delete_static_routes(nsx_router_id, route)
                 for route in routes_added:
-                    routerlib.add_static_routes(nsx_router_id, route)
+                    self._routerlib.add_static_routes(nsx_router_id, route)
             return super(NsxV3Plugin, self).update_router(
                 context, router_id, router)
         except nsx_exc.ResourceNotFound:
@@ -1067,9 +1073,10 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 router_db['status'] = const.NET_STATUS_ERROR
                 if nsx_router_id:
                     for route in routes_added:
-                        routerlib.delete_static_routes(nsx_router_id, route)
+                        self._routerlib.delete_static_routes(
+                            nsx_router_id, route)
                     for route in routes_removed:
-                        routerlib.add_static_routes(nsx_router_id, route)
+                        self._routerlib.add_static_routes(nsx_router_id, route)
                 router_db['status'] = curr_status
 
     def _get_router_interface_ports_by_network(
@@ -1128,7 +1135,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                                                      router_id)
             _ports, address_groups = self._get_ports_and_address_groups(
                 context, router_id, network_id)
-            routerlib.create_logical_router_intf_port_by_ls_id(
+            self._routerlib.create_logical_router_intf_port_by_ls_id(
                 logical_router_id=nsx_router_id,
                 ls_id=nsx_net_id,
                 logical_switch_port_id=nsx_port_id,
@@ -1198,12 +1205,12 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 new_using_port_id = ports[0]['id']
                 _net_id, new_nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
                     context.session, new_using_port_id)
-                nsxlib.update_logical_router_port_by_ls_id(
+                self._router_port_client.update_by_lswitch_id(
                     nsx_router_id, nsx_net_id,
                     linked_logical_switch_port_id=new_nsx_port_id,
                     subnets=address_groups)
             else:
-                nsxlib.delete_logical_router_port_by_ls_id(nsx_net_id)
+                self._router_port_client.delete_by_lswitch_id(nsx_net_id)
         except nsx_exc.ResourceNotFound:
             LOG.error(_LE("router port on router %(router_id)s for net "
                           "%(net_id)s not found at the backend"),
@@ -1221,7 +1228,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         try:
             nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                      router_id)
-            routerlib.add_fip_nat_rules(
+            self._routerlib.add_fip_nat_rules(
                 nsx_router_id, new_fip['floating_ip_address'],
                 new_fip['fixed_ip_address'])
         except nsx_exc.ManagerError:
@@ -1236,7 +1243,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             try:
                 nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                          router_id)
-                routerlib.delete_fip_nat_rules(
+                self._routerlib.delete_fip_nat_rules(
                     nsx_router_id, fip['floating_ip_address'],
                     fip['fixed_ip_address'])
             except nsx_exc.ResourceNotFound:
@@ -1261,7 +1268,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 try:
                     old_nsx_router_id = nsx_db.get_nsx_router_id(
                         context.session, old_fip['router_id'])
-                    routerlib.delete_fip_nat_rules(
+                    self._routerlib.delete_fip_nat_rules(
                         old_nsx_router_id, old_fip['floating_ip_address'],
                         old_fip['fixed_ip_address'])
                 except nsx_exc.ResourceNotFound:
@@ -1280,7 +1287,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             if router_id:
                 nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                          router_id)
-                routerlib.add_fip_nat_rules(
+                self._routerlib.add_fip_nat_rules(
                     nsx_router_id, new_fip['floating_ip_address'],
                     new_fip['fixed_ip_address'])
         except nsx_exc.ManagerError:
@@ -1301,7 +1308,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             try:
                 nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                          fip_db.router_id)
-                routerlib.delete_fip_nat_rules(
+                self._routerlib.delete_fip_nat_rules(
                     nsx_router_id, fip_db.floating_ip_address,
                     fip_db.fixed_ip_address)
             except nsx_exc.ResourceNotFound:
