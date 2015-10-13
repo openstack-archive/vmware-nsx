@@ -241,3 +241,110 @@ class LogicalPortTestCase(nsxlib_testcase.NsxClientTestCase):
                 None,
                 client.JSONRESTClient._DEFAULT_HEADERS,
                 nsxlib_testcase.NSX_CERT)
+
+
+class LogicalRouterTestCase(nsxlib_testcase.NsxClientTestCase):
+
+    def test_create_logical_router(self):
+        """
+        Test creating a router returns the correct response and 201 status
+        """
+        fake_router = test_constants_v3.FAKE_ROUTER.copy()
+
+        api = resources.LogicalRouter(client.NSX3Client())
+        with self.mocked_resource(api) as mocked:
+            mocked.get('post').return_value = mocks.MockRequestsResponse(
+                201, jsonutils.dumps(fake_router))
+
+            tier0_router = True
+            result = api.create(fake_router['display_name'], None, None,
+                                tier0_router)
+
+            data = {
+                'display_name': fake_router['display_name'],
+                'router_type': 'TIER0' if tier0_router else 'TIER1',
+                'tags': None
+            }
+
+            self.assertEqual(fake_router, result)
+            test_client.assert_session_call(
+                mocked.get('post'),
+                'https://1.2.3.4/api/v1/logical-routers',
+                False,
+                jsonutils.dumps(data),
+                client.JSONRESTClient._DEFAULT_HEADERS,
+                nsxlib_testcase.NSX_CERT)
+
+    def test_delete_logical_router(self):
+        """
+        Test deleting router
+        """
+        api = resources.LogicalRouter(client.NSX3Client())
+        with self.mocked_resource(api) as mocked:
+            mocked.get('delete').return_value = mocks.MockRequestsResponse(
+                200, None)
+
+            uuid = test_constants_v3.FAKE_ROUTER['id']
+            result = api.delete(uuid)
+            self.assertIsNone(result.content)
+            test_client.assert_session_call(
+                mocked.get('delete'),
+                'https://1.2.3.4/api/v1/logical-routers/%s' % uuid,
+                False,
+                None,
+                client.JSONRESTClient._DEFAULT_HEADERS,
+                nsxlib_testcase.NSX_CERT)
+
+
+class LogicalRouterPortTestCase(nsxlib_testcase.NsxClientTestCase):
+
+    def test_create_logical_router_port(self):
+        """
+        Test creating a router returns the correct response and 201 status
+        """
+        fake_router_port = test_constants_v3.FAKE_ROUTER_PORT.copy()
+
+        api = resources.LogicalRouterPort(client.NSX3Client())
+        with self.mocked_resource(api) as mocked:
+            mocked.get('post').return_value = mocks.MockRequestsResponse(
+                201, jsonutils.dumps(fake_router_port))
+
+            result = api.create(fake_router_port['logical_router_id'],
+                                fake_router_port['display_name'],
+                                fake_router_port['resource_type'],
+                                None, None, None)
+
+            data = {
+                'display_name': fake_router_port['display_name'],
+                'logical_router_id': fake_router_port['logical_router_id'],
+                'resource_type': fake_router_port['resource_type']
+            }
+
+            self.assertEqual(fake_router_port, result)
+            test_client.assert_session_call(
+                mocked.get('post'),
+                'https://1.2.3.4/api/v1/logical-router-ports',
+                False,
+                jsonutils.dumps(data),
+                client.JSONRESTClient._DEFAULT_HEADERS,
+                nsxlib_testcase.NSX_CERT)
+
+    def test_delete_logical_router_port(self):
+        """
+        Test deleting router port
+        """
+        api = resources.LogicalRouterPort(client.NSX3Client())
+        with self.mocked_resource(api) as mocked:
+            mocked.get('delete').return_value = mocks.MockRequestsResponse(
+                200, None)
+
+            uuid = test_constants_v3.FAKE_ROUTER_PORT['id']
+            result = api.delete(uuid)
+            self.assertIsNone(result.content)
+            test_client.assert_session_call(
+                mocked.get('delete'),
+                'https://1.2.3.4/api/v1/logical-router-ports/%s' % uuid,
+                False,
+                None,
+                client.JSONRESTClient._DEFAULT_HEADERS,
+                nsxlib_testcase.NSX_CERT)
