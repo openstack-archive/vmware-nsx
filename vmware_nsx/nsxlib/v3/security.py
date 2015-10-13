@@ -58,9 +58,13 @@ def _decide_service(sg_rule):
         source_ports = []
         if sg_rule['port_range_min'] is None:
             destination_ports = []
-        else:
+        elif sg_rule['port_range_min'] != sg_rule['port_range_max']:
+            # NSX API requires a non-empty range (e.g - '22-23')
             destination_ports = ['%(port_range_min)s-%(port_range_max)s'
                                  % sg_rule]
+        else:
+            destination_ports = ['%(port_range_min)s' % sg_rule]
+
         if direction == firewall.OUT:
             source_ports, destination_ports = destination_ports, []
 
