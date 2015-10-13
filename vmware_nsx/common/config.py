@@ -203,7 +203,13 @@ nsx_v3_opts = [
                        'used for verification. This option is ignored if '
                        '"ca_file" is set.')),
     cfg.StrOpt('default_tier0_router_uuid',
-               help=_("Default tier0 router identifier"))
+               help=_("Default tier0 router identifier")),
+    cfg.StrOpt('default_switching_profile_dhcp_uuid',
+               help=_("UUID of the default NSX switching profile to allow "
+                      "DHCP traffic. This will be applied on the DHCP ports, "
+                      "if neutron's DHCP service is enabled. This profile "
+                      "must be created on the backend, out of band, with DHCP "
+                      "Server/Client Block disabled.")),
 ]
 
 DEFAULT_STATUS_CHECK_INTERVAL = 2000
