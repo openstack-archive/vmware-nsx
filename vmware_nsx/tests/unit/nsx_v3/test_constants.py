@@ -97,3 +97,20 @@ FAKE_QOS_PROFILE = {
     "_create_user": "admin",
     "_revision": 0
 }
+
+FAKE_ROUTER_UUID = uuidutils.generate_uuid()
+FAKE_ROUTER = {
+    "resource_type": "LogicalRouter",
+    "revision": 0,
+    "id": FAKE_ROUTER_UUID,
+    "display_name": FAKE_NAME
+}
+
+FAKE_ROUTER_PORT_UUID = uuidutils.generate_uuid()
+FAKE_ROUTER_PORT = {
+    "resource_type": "LogicalRouterLinkPort",
+    "revision": 0,
+    "id": FAKE_ROUTER_PORT_UUID,
+    "display_name": FAKE_NAME,
+    "logical_router_id": FAKE_ROUTER_UUID
+}
