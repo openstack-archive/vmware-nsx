@@ -113,7 +113,12 @@ def remove_nsgroup_member(nsgroup_id, target_id):
 
 
 def read_nsgroup(nsgroup_id):
-    return nsxclient.get_resource('ns-groups/%s' % nsgroup_id)
+    nsgroup = nsxclient.get_resource('ns-groups/%s' % nsgroup_id)
+    # NSX API will not specify the 'members' attribute if its empty, but
+    # requires it on update.
+    if 'members' not in nsgroup:
+        nsgroup['members'] = []
+    return nsgroup
 
 
 def delete_nsgroup(nsgroup_id):
