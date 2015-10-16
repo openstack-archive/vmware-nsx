@@ -59,6 +59,7 @@ from oslo_utils import importutils
 from oslo_utils import uuidutils
 from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.common import locking
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
@@ -191,19 +192,22 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
 
     @utils.retry_upon_exception_nsxv3(Exception)
     def _init_port_security_profile(self):
-        # NOTE(boden): potential race cond with distributed plugins
-        # whereupon a different plugin could create the profile
-        # after we don't find an existing one and create another
         profile = self._get_port_security_profile()
         if profile:
             return profile
 
-        self._switching_profiles.create_spoofguard_profile(
-            NSX_V3_PSEC_PROFILE_NAME, 'Neutron Port Security Profile',
-            whitelist_ports=True, whitelist_switches=False,
-            tags=utils.build_v3_tags_payload({
-                'id': NSX_V3_PSEC_PROFILE_NAME,
-                'tenant_id': 'neutron-nsx-plugin'}))
+        with locking.LockManager.get_lock('nsxv3_psec_profile_init'):
+            # NOTE(boden): double-checked locking pattern
+            profile = self._get_port_security_profile()
+            if profile:
+                return profile
+
+            self._switching_profiles.create_spoofguard_profile(
+                NSX_V3_PSEC_PROFILE_NAME, 'Neutron Port Security Profile',
+                whitelist_ports=True, whitelist_switches=False,
+                tags=utils.build_v3_tags_payload({
+                    'id': NSX_V3_PSEC_PROFILE_NAME,
+                    'tenant_id': 'neutron-nsx-plugin'}))
 
         return self._get_port_security_profile()
 
