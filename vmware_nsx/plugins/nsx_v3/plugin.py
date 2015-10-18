@@ -120,8 +120,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         self._start_rpc_notifiers()
         self._nsx_client = nsx_client.NSX3Client()
         self._port_client = nsx_resources.LogicalPort(self._nsx_client)
-        self.nsgroup_container, self.default_section = (
-            security.init_nsgroup_container_and_default_section_rules())
+        self.no_secgroup, self.default_section = (
+            security.init_no_secgroup_container_and_default_section_rules())
         self._router_client = nsx_resources.LogicalRouter(self._nsx_client)
         self._router_port_client = nsx_resources.LogicalRouterPort(
             self._nsx_client)
@@ -658,7 +658,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 context, port_data, sgids)
             if sgids:
                 security.update_lport_with_security_groups(
-                    context, lport['id'], [], sgids)
+                    context, self.no_secgroup, lport['id'], [], sgids)
         return port_data
 
     def _pre_delete_port_check(self, context, port_id, l2gw_port_check):
@@ -800,10 +800,11 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 address_bindings=address_bindings,
                 switch_profile_ids=switch_profile_ids)
 
-            security.update_lport_with_security_groups(
-                context, nsx_lport_id,
-                original_port.get(ext_sg.SECURITYGROUPS, []),
-                updated_port.get(ext_sg.SECURITYGROUPS, []))
+            if sec_grp_updated:
+                security.update_lport_with_security_groups(
+                    context, self.no_secgroup, nsx_lport_id,
+                    original_port.get(ext_sg.SECURITYGROUPS, []),
+                    updated_port.get(ext_sg.SECURITYGROUPS, []))
         except nsx_exc.ManagerError:
             # In case if there is a failure on NSX-v3 backend, rollback the
             # previous update operation on neutron side.
@@ -1345,7 +1346,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         tags = utils.build_v3_tags_payload(secgroup)
         name = security.get_nsgroup_name(secgroup)
         ns_group = None
-        firewall_section = None
 
         try:
             # NOTE(roeyc): We first create the nsgroup so that once the sg is
@@ -1392,8 +1392,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 context, firewall_section['id'], ns_group['id'], sg_rules)
             security.save_sg_rule_mappings(context.session, rules['rules'])
 
-            firewall.add_nsgroup_member(self.nsgroup_container,
-                                        firewall.NSGROUP, ns_group['id'])
         except nsx_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("Failed to create backend firewall rules "
