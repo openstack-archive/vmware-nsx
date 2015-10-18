@@ -160,7 +160,10 @@ cluster_opts = [
 
 nsx_common_opts = [
     cfg.StrOpt('nsx_l2gw_driver',
-               help=_("Class path for the L2 gateway backend driver"))
+               help=_("Class path for the L2 gateway backend driver")),
+    cfg.StrOpt('locking_coordinator_url',
+               deprecated_group='nsxv',
+               help=_('A URL to a locking mechanism coordinator')),
 ]
 
 nsx_v3_opts = [
@@ -322,8 +325,6 @@ nsxv_opts = [
     cfg.IntOpt('dhcp_lease_time',
                default=86400,
                help=_('DHCP default lease time.')),
-    cfg.StrOpt('locking_coordinator_url',
-               help=_('A URL to a locking mechanism coordinator')),
     cfg.BoolOpt('metadata_initializer',
                 default=True,
                 help=_("If True, the server instance will attempt to "
