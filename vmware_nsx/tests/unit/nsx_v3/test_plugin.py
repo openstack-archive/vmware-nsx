@@ -80,6 +80,11 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
         if getattr(self.plugin, '_port_client', None):
             self.plugin._port_client._client._session = self.mock_api
 
+        mocked_locking = mock.patch.object(
+            nsx_plugin, 'locking', new=mock.Mock())
+        mocked_locking.start()
+        self._patchers.append(mocked_locking)
+
         self.maxDiff = None
 
     def tearDown(self):
