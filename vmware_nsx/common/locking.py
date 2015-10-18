@@ -26,14 +26,14 @@ LOG = log.getLogger(__name__)
 class LockManager:
     _coordinator = None
     _coordinator_pid = None
-    _connect_string = cfg.CONF.nsxv.locking_coordinator_url
+    _connect_string = cfg.CONF.locking_coordinator_url
 
     def __init__(self):
         LOG.debug('LockManager initialized!')
 
     @staticmethod
     def get_lock(name, **kwargs):
-        if cfg.CONF.nsxv.locking_coordinator_url:
+        if cfg.CONF.locking_coordinator_url:
             return LockManager._get_lock_distributed(name)
         else:
             # Ensure that external=True
