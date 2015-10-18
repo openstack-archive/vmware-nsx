@@ -12,6 +12,7 @@
 # implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import mock
 import six
 
 from neutron.api.v2 import attributes
@@ -40,6 +41,7 @@ from oslo_utils import uuidutils
 
 from vmware_nsx.common import utils
 from vmware_nsx.nsxlib.v3 import client as nsx_client
+from vmware_nsx.nsxlib.v3 import resources as nsx_resources
 from vmware_nsx.plugins.nsx_v3 import plugin as nsx_plugin
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.nsx_v3 import mocks as nsx_v3_mocks
@@ -347,3 +349,54 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
                     {'scope': 'os-api-version',
                      'tag': version.version_info.release_string()}]
         self.assertEqual(expected, result)
+
+
+class TestNsxV3DHCPSwitchingProfile(TestPortsV2):
+
+    def setUp(self, plugin=PLUGIN_NAME,
+              ext_mgr=None,
+              service_plugins=None):
+        super(TestNsxV3DHCPSwitchingProfile, self).setUp(plugin=plugin,
+                                                         ext_mgr=ext_mgr)
+        dhcp_profile_uuid = uuidutils.generate_uuid()
+        cfg.CONF.set_override('default_switching_profile_dhcp_uuid',
+                              dhcp_profile_uuid, 'nsx_v3')
+        self.plugin._dhcp_profile = nsx_resources.SwitchingProfileTypeId(
+            profile_type=(nsx_resources.SwitchingProfileTypes.
+                          SWITCH_SECURITY),
+            profile_id=dhcp_profile_uuid)
+
+    def test_create_port_dhcp_profile(self):
+        with mock.patch.object(self.plugin._port_client,
+                               'create') as port_create:
+            with self.network() as network:
+                with self.subnet(network=network):
+                    data = {'port': {'network_id': network['network']['id'],
+                                     'tenant_id':
+                                     network['network']['tenant_id'],
+                                     'name': 'port1',
+                                     'admin_state_up': True,
+                                     'device_owner':
+                                     constants.DEVICE_OWNER_DHCP}}
+                    port_req = self.new_create_request('ports', data)
+                    port_req.get_response(self.api)
+                    args, kwargs = port_create.call_args
+                    self.assertEqual(kwargs['switch_profile_ids'],
+                                     [self.plugin._dhcp_profile])
+
+    def test_create_non_dhcp_port_with_dhcp_profile(self):
+        with mock.patch.object(self.plugin._port_client,
+                               'create') as port_create:
+            with self.network() as network:
+                with self.subnet(network=network):
+                    data = {'port': {'network_id': network['network']['id'],
+                                     'tenant_id':
+                                     network['network']['tenant_id'],
+                                     'name': 'port1',
+                                     'admin_state_up': True,
+                                     'device_owner': 'not-dhcp'}}
+                    port_req = self.new_create_request('ports', data)
+                    port_req.get_response(self.api)
+                    args, kwargs = port_create.call_args
+                    self.assertNotEqual(kwargs['switch_profile_ids'],
+                                        [self.plugin._dhcp_profile])
