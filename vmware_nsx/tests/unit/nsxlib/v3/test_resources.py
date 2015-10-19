@@ -44,7 +44,7 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
                     'resource_type': profile_types.PORT_MIRRORING,
                     'display_name': 'pm-profile',
                     'description': 'port mirror prof'
-                }),
+                }, sort_keys=True),
                 client.JSONRESTClient._DEFAULT_HEADERS,
                 nsxlib_testcase.NSX_CERT)
 
@@ -71,7 +71,7 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
                 False, jsonutils.dumps({
                     'resource_type': profile_types.PORT_MIRRORING,
                     'tags': tags
-                }),
+                }, sort_keys=True),
                 client.JSONRESTClient._DEFAULT_HEADERS,
                 nsxlib_testcase.NSX_CERT)
 
@@ -104,7 +104,53 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
                     'description': 'spoofguard-for-neutron',
                     'white_list_providers': ['LPORT_BINDINGS'],
                     'tags': tags
-                }),
+                }, sort_keys=True),
+                client.JSONRESTClient._DEFAULT_HEADERS,
+                nsxlib_testcase.NSX_CERT)
+
+    def test_create_dhcp_profile(self):
+
+        tags = [
+            {
+                'scope': 'os-tid',
+                'tag': 'tenant-1'
+            },
+            {
+                'scope': 'os-api-version',
+                'tag': '2.1.1.0'
+            }
+        ]
+
+        api = resources.SwitchingProfile(client.NSX3Client())
+        with self.mocked_resource(api) as mocked:
+            api.create_dhcp_profile(
+                'neutron-dhcp', 'dhcp-for-neutron',
+                tags=tags)
+
+            test_client.assert_session_call(
+                mocked.get('post'),
+                'https://1.2.3.4/api/v1/switching-profiles',
+                False,
+                jsonutils.dumps({
+                    'bpdu_filter': {
+                        'enabled': False,
+                        'white_list': []
+                    },
+                    'resource_type': profile_types.SWITCH_SECURITY,
+                    'display_name': 'neutron-dhcp',
+                    'description': 'dhcp-for-neutron',
+                    'tags': tags,
+                    'dhcp_filter': {
+                        'client_block_enabled': False,
+                        'server_block_enabled': False
+                    },
+                    'rate_limits': {
+                        'rx_broadcast': 0,
+                        'tx_broadcast': 0,
+                        'rx_multicast': 0,
+                        'tx_multicast': 0
+                    }
+                }, sort_keys=True),
                 client.JSONRESTClient._DEFAULT_HEADERS,
                 nsxlib_testcase.NSX_CERT)
 
@@ -200,7 +246,7 @@ class LogicalPortTestCase(nsxlib_testcase.NsxClientTestCase):
                 mocked.get('post'),
                 'https://1.2.3.4/api/v1/logical-ports',
                 False,
-                jsonutils.dumps(resp_body),
+                jsonutils.dumps(resp_body, sort_keys=True),
                 client.JSONRESTClient._DEFAULT_HEADERS,
                 nsxlib_testcase.NSX_CERT)
 
@@ -271,7 +317,7 @@ class LogicalRouterTestCase(nsxlib_testcase.NsxClientTestCase):
                 mocked.get('post'),
                 'https://1.2.3.4/api/v1/logical-routers',
                 False,
-                jsonutils.dumps(data),
+                jsonutils.dumps(data, sort_keys=True),
                 client.JSONRESTClient._DEFAULT_HEADERS,
                 nsxlib_testcase.NSX_CERT)
 
@@ -325,7 +371,7 @@ class LogicalRouterPortTestCase(nsxlib_testcase.NsxClientTestCase):
                 mocked.get('post'),
                 'https://1.2.3.4/api/v1/logical-router-ports',
                 False,
-                jsonutils.dumps(data),
+                jsonutils.dumps(data, sort_keys=True),
                 client.JSONRESTClient._DEFAULT_HEADERS,
                 nsxlib_testcase.NSX_CERT)
 

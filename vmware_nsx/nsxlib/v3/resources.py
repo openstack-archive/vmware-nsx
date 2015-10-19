@@ -122,6 +122,30 @@ class SwitchingProfile(AbstractRESTResource):
                            white_list_providers=whitelist_providers,
                            tags=tags or [])
 
+    def create_dhcp_profile(self, display_name,
+                            description, tags=None):
+        dhcp_filter = {
+            'client_block_enabled': False,
+            'server_block_enabled': False
+        }
+        rate_limits = {
+            'rx_broadcast': 0,
+            'tx_broadcast': 0,
+            'rx_multicast': 0,
+            'tx_multicast': 0
+        }
+        bpdu_filter = {
+            'enabled': False,
+            'white_list': []
+        }
+        return self.create(SwitchingProfileTypes.SWITCH_SECURITY,
+                           display_name=display_name,
+                           description=description,
+                           tags=tags or [],
+                           dhcp_filter=dhcp_filter,
+                           rate_limits=rate_limits,
+                           bpdu_filter=bpdu_filter)
+
     @classmethod
     def build_switch_profile_ids(cls, client, *profiles):
         ids = []

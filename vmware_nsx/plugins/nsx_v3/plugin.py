@@ -73,6 +73,7 @@ from vmware_nsx.nsxlib.v3 import security
 
 LOG = log.getLogger(__name__)
 NSX_V3_PSEC_PROFILE_NAME = 'neutron_port_spoof_guard_profile'
+NSX_V3_DHCP_PROFILE_NAME = 'neutron_port_dhcp_profile'
 
 
 class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
@@ -130,11 +131,16 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         self._psec_profile = None
         self._psec_profile = self._init_port_security_profile()
         if not self._psec_profile:
-            msg = (_("Unable to initialize NSX v3 port spoofguard "
-                     "switching profile: %s") % NSX_V3_PSEC_PROFILE_NAME)
+            msg = _("Unable to initialize NSX v3 port spoofguard "
+                    "switching profile: %s") % NSX_V3_PSEC_PROFILE_NAME
             raise nsx_exc.NsxPluginException(msg)
         LOG.debug("Initializing NSX v3 DHCP switching profile")
+        self._dhcp_profile = None
         self._dhcp_profile = self._init_dhcp_switching_profile()
+        if not self._dhcp_profile:
+            msg = _("Unable to initialize NSX v3 DHCP "
+                    "switching profile: %s") % NSX_V3_DHCP_PROFILE_NAME
+            raise nsx_exc.NsxPluginException(msg)
         self._unsubscribe_callback_events()
 
     def _unsubscribe_callback_events(self):
@@ -162,22 +168,27 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                     "must be disabled") % dhcp_profile_uuid
             raise n_exc.InvalidInput(error_message=msg)
 
+    @utils.retry_upon_exception_nsxv3(Exception)
     def _init_dhcp_switching_profile(self):
-        dhcp_profile_uuid = cfg.CONF.nsx_v3.default_switching_profile_dhcp_uuid
-        if not dhcp_profile_uuid:
-            LOG.warning(_LW("Switching profile for DHCP ports not configured "
-                            "in the config file."))
-            return
-        if not uuidutils.is_uuid_like(dhcp_profile_uuid):
-            LOG.warning(_LW("default_switching_profile_dhcp_uuid: %s. DHCP "
-                            "profile must be configured with a UUID"),
-                        dhcp_profile_uuid)
-            return
-        self._validate_dhcp_profile(dhcp_profile_uuid)
+        with locking.LockManager.get_lock('nsxv3_dhcp_profile_init'):
+            profile = self._get_dhcp_security_profile()
+            if not profile:
+                self._switching_profiles.create_dhcp_profile(
+                    NSX_V3_DHCP_PROFILE_NAME, 'Neutron DHCP Security Profile',
+                    tags=utils.build_v3_tags_payload({
+                        'id': NSX_V3_DHCP_PROFILE_NAME,
+                        'tenant_id': 'neutron-nsx-plugin'}))
+            return self._get_dhcp_security_profile()
+
+    def _get_dhcp_security_profile(self):
+        if self._dhcp_profile:
+            return self._dhcp_profile
+        profile = self._switching_profiles.find_by_display_name(
+            NSX_V3_DHCP_PROFILE_NAME)
         return nsx_resources.SwitchingProfileTypeId(
             profile_type=(nsx_resources.SwitchingProfileTypes.
                           SWITCH_SECURITY),
-            profile_id=dhcp_profile_uuid)
+            profile_id=profile[0]['id']) if profile else None
 
     def _get_port_security_profile_id(self):
         return nsx_resources.SwitchingProfile.build_switch_profile_ids(

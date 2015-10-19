@@ -12,7 +12,6 @@
 # implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import mock
 import six
 
 from neutron.api.v2 import attributes
@@ -78,11 +77,6 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
             self.plugin._nsx_client = self.client
         if getattr(self.plugin, '_port_client', None):
             self.plugin._port_client._client._session = self.mock_api
-
-        mocked_locking = mock.patch.object(
-            nsx_plugin, 'locking', new=mock.Mock())
-        mocked_locking.start()
-        self._patchers.append(mocked_locking)
 
         self.maxDiff = None
 
