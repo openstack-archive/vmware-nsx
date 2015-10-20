@@ -53,7 +53,7 @@ class NsxLibSwitchTestCase(nsxlib_testcase.NsxClientTestCase):
             test_client.assert_session_call(
                 mocked.get('post'),
                 'https://1.2.3.4/api/v1/logical-switches',
-                False, jsonutils.dumps(self._create_body()),
+                False, jsonutils.dumps(self._create_body(), sort_keys=True),
                 nsxlib.client.JSONRESTClient._DEFAULT_HEADERS,
                 nsxlib_testcase.NSX_CERT)
 
@@ -71,7 +71,8 @@ class NsxLibSwitchTestCase(nsxlib_testcase.NsxClientTestCase):
                 'https://1.2.3.4/api/v1/logical-switches',
                 False,
                 jsonutils.dumps(self._create_body(
-                    admin_state=nsx_constants.ADMIN_STATE_DOWN)),
+                    admin_state=nsx_constants.ADMIN_STATE_DOWN),
+                    sort_keys=True),
                 nsxlib.client.JSONRESTClient._DEFAULT_HEADERS,
                 nsxlib_testcase.NSX_CERT)
 
@@ -87,7 +88,8 @@ class NsxLibSwitchTestCase(nsxlib_testcase.NsxClientTestCase):
             test_client.assert_session_call(
                 mocked.get('post'),
                 'https://1.2.3.4/api/v1/logical-switches',
-                False, jsonutils.dumps(self._create_body(vlan_id='123')),
+                False, jsonutils.dumps(self._create_body(vlan_id='123'),
+                                       sort_keys=True),
                 nsxlib.client.JSONRESTClient._DEFAULT_HEADERS,
                 nsxlib_testcase.NSX_CERT)
 

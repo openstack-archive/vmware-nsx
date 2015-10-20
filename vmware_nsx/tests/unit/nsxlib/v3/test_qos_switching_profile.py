@@ -58,7 +58,8 @@ class NsxLibQosTestCase(nsxlib_testcase.NsxClientTestCase):
                 mocked.get('post'),
                 'https://1.2.3.4/api/v1/switching-profiles',
                 False,
-                jsonutils.dumps(self._body(qos_marking='UNTRUSTED', dscp=25)),
+                jsonutils.dumps(self._body(qos_marking='UNTRUSTED', dscp=25),
+                                sort_keys=True),
                 _JSON_HEADERS,
                 nsxlib_testcase.NSX_CERT)
 
@@ -77,7 +78,8 @@ class NsxLibQosTestCase(nsxlib_testcase.NsxClientTestCase):
                 mocked.get('post'),
                 'https://1.2.3.4/api/v1/switching-profiles',
                 False,
-                jsonutils.dumps(self._body(qos_marking='trusted', dscp=0)),
+                jsonutils.dumps(self._body(qos_marking='trusted', dscp=0),
+                                sort_keys=True),
                 _JSON_HEADERS,
                 nsxlib_testcase.NSX_CERT)
 

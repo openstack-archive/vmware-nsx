@@ -114,7 +114,6 @@ function neutron_plugin_configure_service {
     _nsxv3_ini_set insecure $NSX_INSECURE
     _nsxv3_ini_set ca_file $NSX_CA_FILE
     _nsxv3_ini_set default_bridge_cluster_uuid $DEFAULT_BRIDGE_CLUSTER_UUID
-    _nsxv3_ini_set default_switching_profile_dhcp_uuid $DEFAULT_SWITCHING_PROFILE_DHCP_UUID
 }
 
 function neutron_plugin_setup_interface_driver {
