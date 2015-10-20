@@ -1033,6 +1033,12 @@ class FakeVcns(object):
     def delete_spoofguard_policy(self, policy_id):
         self._spoofguard_policies[int(policy_id)] = {}
 
+    def get_spoofguard_policy(self, policy_id):
+        return None, self._spoofguard_policies[int(policy_id)]
+
+    def get_spoofguard_policies(self):
+        return None, self._spoofguard_policies
+
     def approve_assigned_addresses(self, policy_id,
                                    vnic_id, mac_addr, addresses):
         pass

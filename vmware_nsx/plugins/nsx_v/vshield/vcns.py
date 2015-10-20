@@ -637,6 +637,14 @@ class Vcns(object):
         uri = '%s/policies/%s' % (SPOOFGUARD_PREFIX, policy_id)
         return self.do_request(HTTP_DELETE, uri, decode=False)
 
+    def get_spoofguard_policy(self, policy_id):
+        uri = '%s/policies/%s' % (SPOOFGUARD_PREFIX, policy_id)
+        return self.do_request(HTTP_GET, uri, decode=True)
+
+    def get_spoofguard_policies(self):
+        uri = '%s/policies/' % SPOOFGUARD_PREFIX
+        return self.do_request(HTTP_GET, uri, decode=True)
+
     def _approve_assigned_addresses(self, policy_id,
                                     vnic_id, mac_addr, addresses):
         uri = '%s/%s' % (SPOOFGUARD_PREFIX, policy_id)
