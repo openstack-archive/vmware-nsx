@@ -818,7 +818,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             with excutils.save_and_reraise_exception():
                 with context.session.begin(subtransactions=True):
                     super(NsxV3Plugin, self).update_port(
-                        context, id, original_port)
+                        context, id, {'port': original_port})
                     if sec_grp_updated:
                         self.update_security_group_on_port(
                             context, id, {'port': original_port}, updated_port,
