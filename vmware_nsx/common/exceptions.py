@@ -127,7 +127,13 @@ class NoRouterAvailable(n_exc.ResourceExhausted):
 
 class ManagerError(NsxPluginException):
     message = _("Unexpected error from backend manager (%(manager)s) "
-                "for %(operation)s")
+                "for %(operation)s %(details)s")
+
+    def __init__(self, **kwargs):
+        kwargs['details'] = (': %s' % kwargs['details']
+                             if 'details' in kwargs
+                             else '')
+        super(ManagerError, self).__init__(**kwargs)
 
 
 class ResourceNotFound(ManagerError):
