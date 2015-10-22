@@ -101,17 +101,23 @@ class RESTClient(object):
 
     def _validate_result(self, result, expected, operation):
         if result.status_code not in expected:
+            result_msg = result.json() if result.content else ''
             LOG.warning(_LW("The HTTP request returned error code "
                             "%(result)d, whereas %(expected)s response "
                             "codes were expected. Response body %(body)s"),
                         {'result': result.status_code,
                          'expected': '/'.join([str(code)
                                                for code in expected]),
-                         'body': result.json() if result.content else ''})
+                         'body': result_msg})
 
             manager_error = ERRORS.get(
                 result.status_code, nsx_exc.ManagerError)
-            raise manager_error(manager=self._host_ip, operation=operation)
+            if type(result_msg) is dict:
+                result_msg = result_msg.get('error_message', result_msg)
+            raise manager_error(
+                manager=self._host_ip,
+                operation=operation,
+                details=result_msg)
 
     @classmethod
     def merge_headers(cls, *headers):
