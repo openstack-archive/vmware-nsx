@@ -39,7 +39,7 @@ def update_resource_with_retry(resource, payload):
     return client.update_resource(resource, revised_payload)
 
 
-def delete_resource_by_values(resource, res_id='id', results_key='results',
+def delete_resource_by_values(resource, results_key='results',
                               skip_not_found=True,
                               **kwargs):
     resources_get = client.get_resource(resource)
@@ -47,7 +47,7 @@ def delete_resource_by_values(resource, res_id='id', results_key='results',
     for res in resources_get[results_key]:
         if utils.dict_match(kwargs, res):
             LOG.debug("Deleting %s from resource %s", res, resource)
-            delete_resource = resource + "/" + str(res[res_id])
+            delete_resource = resource + "/" + str(res['id'])
             client.delete_resource(delete_resource)
             matched_num = matched_num + 1
     if matched_num == 0:
@@ -168,7 +168,7 @@ def delete_nat_rule(logical_router_id, nat_rule_id):
 
 def delete_nat_rule_by_values(logical_router_id, **kwargs):
     resource = 'logical-routers/%s/nat/rules' % logical_router_id
-    return delete_resource_by_values(resource, res_id='rule_id', **kwargs)
+    return delete_resource_by_values(resource, **kwargs)
 
 
 def update_logical_router_advertisement(logical_router_id, **kwargs):

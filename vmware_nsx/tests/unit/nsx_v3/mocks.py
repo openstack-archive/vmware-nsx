@@ -164,9 +164,6 @@ class MockRequestSessionApi(object):
         resource_id = resource_id or uuidutils.generate_uuid()
         content['id'] = resource_id
 
-        if urlparse.urlparse(url).path.endswith('/rules/'):
-            content['rule_id'] = resource_id
-
         self._store["%s%s" % (url, resource_id)] = content.copy()
         return content
 
