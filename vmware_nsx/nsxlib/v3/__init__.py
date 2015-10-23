@@ -39,12 +39,10 @@ def update_resource_with_retry(resource, payload):
     return client.update_resource(resource, revised_payload)
 
 
-def delete_resource_by_values(resource, results_key='results',
-                              skip_not_found=True,
-                              **kwargs):
+def delete_resource_by_values(resource, skip_not_found=True, **kwargs):
     resources_get = client.get_resource(resource)
     matched_num = 0
-    for res in resources_get[results_key]:
+    for res in resources_get['results']:
         if utils.dict_match(kwargs, res):
             LOG.debug("Deleting %s from resource %s", res, resource)
             delete_resource = resource + "/" + str(res['id'])
@@ -157,7 +155,7 @@ def delete_static_route_by_values(logical_router_id,
         kwargs['network'] = dest_cidr
     if nexthop:
         kwargs['next_hops'] = [{"ip_address": nexthop}]
-    return delete_resource_by_values(resource, results_key='routes', **kwargs)
+    return delete_resource_by_values(resource, **kwargs)
 
 
 def delete_nat_rule(logical_router_id, nat_rule_id):
