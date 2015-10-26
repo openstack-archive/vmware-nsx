@@ -34,6 +34,16 @@ def output_header(func):
     return func_desc
 
 
+def parse_multi_keyval_opt(opt_list):
+    """Converts a MutliStrOpt to a key-value dict"""
+
+    result = dict()
+    for opt_value in opt_list:
+        key, value = opt_value.split('=')
+        result[key] = value
+    return result
+
+
 def query_yes_no(question, default="yes"):
     """Ask a yes/no question via raw_input() and return their answer.
 

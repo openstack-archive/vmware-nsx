@@ -22,7 +22,6 @@ TODO: Define commands instead of -r -o like get-security-groups,
 delete-security-groups, nsx neutron nsxv3 can be options
 TODO: Add support for other resources, ports, logical switches etc.
 TODO: Autocomplete command line args
-TODO: Error handling, print only options which are supported
 """
 
 from enum import Enum
@@ -56,11 +55,13 @@ class Operations(Enum):
     LIST = 'list'
     CLEAN = 'clean'
 
-    NEUTRON_LIST = 'neutron_list'
-    NEUTRON_CLEAN = 'neutron_clean'
+    NEUTRON_LIST = 'neutron-list'
+    NEUTRON_CLEAN = 'neutron-clean'
+    NEUTRON_UPDATE = 'neutron-update'
 
-    NSX_LIST = 'nsx_list'
-    NSX_CLEAN = 'nsx_clean'
+    NSX_LIST = 'nsx-list'
+    NSX_CLEAN = 'nsx-clean'
+    NSX_UPDATE = 'nsx-update'
 
 
 ops = [op.value for op in Operations]
@@ -133,7 +134,11 @@ cli_opts = [cfg.StrOpt('neutron-conf',
             cfg.BoolOpt('force',
                         default=False,
                         help='Enables \'force\' mode. No confirmations will '
-                             'be made before deletions.')
+                             'be made before deletions.'),
+            cfg.MultiStrOpt('property',
+                            short='p',
+                            help='Key-value pair containing the information '
+                                 'to be updated. For ex: key=value.')
             ]
 
 
@@ -163,7 +168,7 @@ def _init_cfg():
                                    cfg.CONF.nsx_conf])
 
 
-def validate_resource_choice(resource, nsx_plugin):
+def _validate_resource_choice(resource, nsx_plugin):
     if nsx_plugin == 'nsxv' and resource not in nsxv_resources:
         LOG.error('Supported list of NSX-V resources: %s',
                   nsxv_resources_names)
@@ -174,7 +179,7 @@ def validate_resource_choice(resource, nsx_plugin):
         sys.exit(1)
 
 
-def validate_op_choice(choice, nsx_plugin):
+def _validate_op_choice(choice, nsx_plugin):
     if choice is None and nsx_plugin == 'nsxv':
         LOG.error('Supported list of operations for the NSX-V resource %s',
                   nsxv_resources[cfg.CONF.resource].supported_ops)
@@ -192,11 +197,11 @@ def main(argv=sys.argv[1:]):
     nsx_plugin_in_use = _get_plugin()
     LOG.info('NSX Plugin in use: %s', nsx_plugin_in_use)
 
-    validate_resource_choice(cfg.CONF.resource, nsx_plugin_in_use)
-    validate_op_choice(cfg.CONF.operation, nsx_plugin_in_use)
+    _validate_resource_choice(cfg.CONF.resource, nsx_plugin_in_use)
+    _validate_op_choice(cfg.CONF.operation, nsx_plugin_in_use)
 
-    registry.notify(cfg.CONF.resource, cfg.CONF.operation,
-                    'nsxadmin', force=cfg.CONF.force)
+    registry.notify(cfg.CONF.resource, cfg.CONF.operation, 'nsxadmin',
+                    force=cfg.CONF.force, property=cfg.CONF.property)
 
 
 if __name__ == "__main__":
