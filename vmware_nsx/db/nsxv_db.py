@@ -19,6 +19,7 @@ from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
 import six
+from sqlalchemy import func
 from sqlalchemy.orm import exc
 from sqlalchemy.sql import expression as expr
 
@@ -29,6 +30,7 @@ from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_models
 from vmware_nsx.plugins.nsx_v.vshield.common import constants
 
+NsxvEdgeDhcpStaticBinding = nsxv_models.NsxvEdgeDhcpStaticBinding
 LOG = logging.getLogger(__name__)
 
 
@@ -695,3 +697,11 @@ def del_nsxv_lbaas_certificate_binding(session, cert_id, edge_id):
     return (session.query(nsxv_models.NsxvLbaasCertificateBinding).
             filter_by(cert_id=cert_id,
                       edge_id=edge_id).delete())
+
+
+def get_nsxv_dhcp_bindings_count_per_edge(session):
+    return (
+        session.query(
+            NsxvEdgeDhcpStaticBinding.edge_id,
+            func.count(NsxvEdgeDhcpStaticBinding.mac_address)).group_by(
+            NsxvEdgeDhcpStaticBinding.edge_id).all())
