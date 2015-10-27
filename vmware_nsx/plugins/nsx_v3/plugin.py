@@ -643,8 +643,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             self._process_port_create_extra_dhcp_opts(
                 context, port_data, dhcp_opts)
 
-            context.session.flush()
-
             if not self._network_is_external(context, port_data['network_id']):
                 lport = self._create_port_at_the_backend(
                     context, neutron_db, port_data,
