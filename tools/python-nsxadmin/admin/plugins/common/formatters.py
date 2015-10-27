@@ -12,10 +12,12 @@
 #    License for the specific language governing permissions and limitations
 #     under the License.
 
-import json
 import logging
 
+from neutron.i18n import _LI
 from oslo_config import cfg
+from oslo_serialization import jsonutils
+
 from tabulate import tabulate
 
 LOG = logging.getLogger(__name__)
@@ -27,9 +29,9 @@ def output_formatter(resource_name, resources_list, attrs):
     Depending on the --fmt cli option we format the output as
     JSON or as a table.
     """
-    LOG.info('%(resource_name)s', {'resource_name': resource_name})
+    LOG.info(_LI('%(resource_name)s'), {'resource_name': resource_name})
     if not resources_list:
-        LOG.info('No resources found')
+        LOG.info(_LI('No resources found'))
         return ''
 
     fmt = cfg.CONF.fmt
@@ -50,4 +52,4 @@ def output_formatter(resource_name, resources_list, attrs):
             for attr in attrs:
                 result[attr] = resource[attr]
             js_output[resource_name].append(result)
-        return json.dumps(js_output, sort_keys=True, indent=4)
+        return jsonutils.dumps(js_output, sort_keys=True, indent=4)
