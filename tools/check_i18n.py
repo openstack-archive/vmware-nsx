@@ -59,7 +59,7 @@ class Visitor(object):
                           (self.filename, node.lineno,
                            self.lines[node.lineno - 1][:-1],
                            checker.__name__, msg),
-                           file=sys.stderr)
+                          file=sys.stderr)
                     self.error = 1
                     return
             if debug:
@@ -82,7 +82,7 @@ class Visitor(object):
                               (self.filename, node.lineno,
                                self.lines[node.lineno - 1][:-1],
                                predicate.__name__, msg),
-                               file=sys.stderr)
+                              file=sys.stderr)
                         self.error = 1
                         return
                     elif action == 'warn':

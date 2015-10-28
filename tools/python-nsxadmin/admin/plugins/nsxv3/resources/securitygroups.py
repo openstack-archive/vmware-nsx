@@ -24,6 +24,7 @@ from neutron.callbacks import registry
 from neutron import context as neutron_context
 from neutron.db import common_db_mixin as common_db
 from neutron.db import securitygroups_db as sg_db
+from neutron.i18n import _LI
 
 from vmware_nsx.nsxlib.v3 import dfw_api as firewall
 
@@ -66,7 +67,7 @@ def nsx_delete_security_groups(resource, event, trigger, **kwargs):
                                         default='no')
 
             if user_confirm is False:
-                LOG.info('NSX security groups cleanup aborted by user')
+                LOG.info(_LI('NSX security groups cleanup aborted by user'))
                 return
 
     sections = firewall.list_sections()
@@ -75,8 +76,8 @@ def nsx_delete_security_groups(resource, event, trigger, **kwargs):
     if sections:
         NON_DEFAULT_SECURITY_GROUPS = -1
         for section in sections[:NON_DEFAULT_SECURITY_GROUPS]:
-            LOG.info("Deleting firewall section %(display_name)s, "
-                     "section id %(id)s",
+            LOG.info(_LI("Deleting firewall section %(display_name)s, "
+                         "section id %(id)s"),
                      {'display_name': section['display_name'],
                       'id': section['id']})
             firewall.delete_section(section['id'])
@@ -84,8 +85,8 @@ def nsx_delete_security_groups(resource, event, trigger, **kwargs):
     nsgroups = firewall.list_nsgroups()
     if nsgroups:
         for nsgroup in nsgroups:
-            LOG.info("Deleting ns-group %(display_name)s, "
-                     "ns-group id %(id)s",
+            LOG.info(_LI("Deleting ns-group %(display_name)s, "
+                         "ns-group id %(id)s"),
                      {'display_name': nsgroup['display_name'],
                       'id': nsgroup['id']})
             firewall.delete_nsgroup(nsgroup['id'])
@@ -107,7 +108,8 @@ def neutron_delete_security_groups(resource, event, trigger, **kwargs):
                                         'neutron security groups?',
                                         default='no')
             if user_confirm is False:
-                LOG.info('Neutron security groups cleanup aborted by user')
+                LOG.info(_LI('Neutron security groups cleanup aborted by '
+                             'user'))
                 return
 
     security_groups = neutron_sg.get_security_groups()
@@ -116,10 +118,10 @@ def neutron_delete_security_groups(resource, event, trigger, **kwargs):
 
     for security_group in security_groups:
         try:
-            LOG.info('Trying to delete %(sg_id)s',
+            LOG.info(_LI('Trying to delete %(sg_id)s'),
                      {'sg_id': security_group['id']})
             neutron_sg.delete_security_group(security_group['id'])
-            LOG.info("Deleted security group name: %(name)s id: %(id)s",
+            LOG.info(_LI("Deleted security group name: %(name)s id: %(id)s"),
                      {'name': security_group['name'],
                       'id': security_group['id']})
         except Exception as e:

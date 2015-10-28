@@ -15,6 +15,8 @@
 import logging
 import sys
 
+from neutron.i18n import _LI
+
 LOG = logging.getLogger(__name__)
 
 
@@ -28,7 +30,8 @@ def output_header(func):
     def func_desc(*args, **kwargs):
         component = '[%s]' % func.func_name.split('_')[0].upper()
         op_desc = [n.capitalize() for n in func.func_name.split('_')[1:]]
-        LOG.info('==== %s %s ====', component, ' '.join(op_desc))
+        LOG.info(_LI('==== %(component)s %(operation)s ===='),
+                 {'component': component, 'operation': ' '.join(op_desc)})
         return func(*args, **kwargs)
     func_desc.__name__ = func.func_name
     return func_desc

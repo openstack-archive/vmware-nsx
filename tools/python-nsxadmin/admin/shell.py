@@ -24,18 +24,18 @@ TODO: Add support for other resources, ports, logical switches etc.
 TODO: Autocomplete command line args
 """
 
-from enum import Enum
-
+import enum
 import glob
 import importlib
 import logging
 import os
-from os.path import basename
 import requests
 import sys
 
 from neutron.callbacks import registry
 from neutron.common import config as neutron_config
+from neutron.i18n import _LE
+from neutron.i18n import _LI
 
 from vmware_nsx.common import config  # noqa
 
@@ -51,7 +51,7 @@ requests.packages.urllib3.disable_warnings()
 LOG = logging.getLogger(__name__)
 
 
-class Operations(Enum):
+class Operations(enum.Enum):
     LIST = 'list'
     CLEAN = 'clean'
 
@@ -106,7 +106,8 @@ def _get_plugin_dir():
 
 def _get_resources():
     modules = glob.glob(_get_plugin_dir() + "/*.py")
-    return map(lambda module: os.path.splitext(basename(module))[0], modules)
+    return map(lambda module: os.path.splitext(os.path.basename(module))[0],
+               modules)
 
 
 cli_opts = [cfg.StrOpt('neutron-conf',
@@ -170,22 +171,24 @@ def _init_cfg():
 
 def _validate_resource_choice(resource, nsx_plugin):
     if nsx_plugin == 'nsxv' and resource not in nsxv_resources:
-        LOG.error('Supported list of NSX-V resources: %s',
+        LOG.error(_LE('Supported list of NSX-V resources: %s'),
                   nsxv_resources_names)
         sys.exit(1)
     elif nsx_plugin == 'nsxv3'and resource not in nsxv3_resources:
-        LOG.error('Supported list of NSX-V3 resources: %s',
+        LOG.error(_LE('Supported list of NSX-V3 resources: %s'),
                   nsxv3_resources_names)
         sys.exit(1)
 
 
 def _validate_op_choice(choice, nsx_plugin):
     if choice is None and nsx_plugin == 'nsxv':
-        LOG.error('Supported list of operations for the NSX-V resource %s',
+        LOG.error(_LE('Supported list of operations for the NSX-V resource '
+                      '%s'),
                   nsxv_resources[cfg.CONF.resource].supported_ops)
         exit(1)
     elif choice is None and nsx_plugin == 'nsxv3':
-        LOG.error('Supported list of operations for the NSX-V resource %s',
+        LOG.error(_LE('Supported list of operations for the NSX-V3 resource '
+                      '%s'),
                   nsxv3_resources[cfg.CONF.resource].supported_ops)
         sys.exit(1)
 
@@ -195,7 +198,7 @@ def main(argv=sys.argv[1:]):
     _init_resource_plugin()
 
     nsx_plugin_in_use = _get_plugin()
-    LOG.info('NSX Plugin in use: %s', nsx_plugin_in_use)
+    LOG.info(_LI('NSX Plugin in use: %s'), nsx_plugin_in_use)
 
     _validate_resource_choice(cfg.CONF.resource, nsx_plugin_in_use)
     _validate_op_choice(cfg.CONF.operation, nsx_plugin_in_use)
