@@ -38,6 +38,7 @@ REJECT = 'REJECT'
 EQUALS = 'EQUALS'
 
 NSGROUP = 'NSGroup'
+NSGROUP_SIMPLE_EXPRESSION = 'NSGroupSimpleExpression'
 LOGICAL_SWITCH = 'LogicalSwitch'
 LOGICAL_PORT = 'LogicalPort'
 IPV4ADDRESS = 'IPv4Address'
@@ -93,7 +94,8 @@ def add_nsgroup_member(nsgroup_id, target_type, target_id):
     nsgroup = read_nsgroup(nsgroup_id)
     if 'members' not in nsgroup:
         nsgroup['members'] = []
-    nsgroup['members'].append({'target_property': 'id',
+    nsgroup['members'].append({"resource_type": NSGROUP_SIMPLE_EXPRESSION,
+                               'target_property': 'id',
                                'target_type': target_type,
                                'op': EQUALS,
                                'value': target_id})
