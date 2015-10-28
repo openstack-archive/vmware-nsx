@@ -269,10 +269,23 @@ def get_edge_dhcp_static_binding(session, edge_id, mac_address):
         edge_id=edge_id, mac_address=mac_address).first()
 
 
+def get_dhcp_static_bindings_by_edge(session, edge_id):
+    return session.query(nsxv_models.NsxvEdgeDhcpStaticBinding).filter_by(
+        edge_id=edge_id).all()
+
+
 def delete_edge_dhcp_static_binding(session, edge_id, mac_address):
     with session.begin(subtransactions=True):
         session.query(nsxv_models.NsxvEdgeDhcpStaticBinding).filter_by(
             edge_id=edge_id, mac_address=mac_address).delete()
+
+
+def get_nsxv_dhcp_bindings_count_per_edge(session):
+    return (
+        session.query(
+            NsxvEdgeDhcpStaticBinding.edge_id,
+            func.count(NsxvEdgeDhcpStaticBinding.mac_address)).group_by(
+            NsxvEdgeDhcpStaticBinding.edge_id).all())
 
 
 def clean_edge_dhcp_static_bindings_by_edge(session, edge_id):
@@ -697,11 +710,3 @@ def del_nsxv_lbaas_certificate_binding(session, cert_id, edge_id):
     return (session.query(nsxv_models.NsxvLbaasCertificateBinding).
             filter_by(cert_id=cert_id,
                       edge_id=edge_id).delete())
-
-
-def get_nsxv_dhcp_bindings_count_per_edge(session):
-    return (
-        session.query(
-            NsxvEdgeDhcpStaticBinding.edge_id,
-            func.count(NsxvEdgeDhcpStaticBinding.mac_address)).group_by(
-            NsxvEdgeDhcpStaticBinding.edge_id).all())

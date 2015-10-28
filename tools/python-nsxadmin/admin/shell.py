@@ -83,7 +83,9 @@ nsxv_resources = {
     constants.EDGES: Resource(constants.EDGES, [Operations.LIST.name,
                                                 Operations.CLEAN.name]),
     constants.SPOOFGUARD_POLICY: Resource(constants.SPOOFGUARD_POLICY,
-                                          [Operations.LIST.name])
+                                          [Operations.LIST.name]),
+    constants.DHCP_BINDING: Resource(constants.DHCP_BINDING,
+                                     [Operations.LIST.name]),
 }
 
 nsxv3_resources_names = map(lambda res: res.name, nsxv3_resources.itervalues())
