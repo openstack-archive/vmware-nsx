@@ -507,6 +507,15 @@ def get_spoofguard_policy_id(session, network_id):
                   network_id)
 
 
+def get_nsxv_spoofguard_policy_network_mappings(session, filters=None,
+                                                like_filters=None):
+    session = db.get_session()
+    query = session.query(nsxv_models.NsxvSpoofGuardPolicyNetworkMapping)
+    return _apply_filters_to_query(
+               query, nsxv_models.NsxvSpoofGuardPolicyNetworkMapping,
+               filters, like_filters).all()
+
+
 def add_vdr_dhcp_binding(session, vdr_router_id, dhcp_edge_id):
     with session.begin(subtransactions=True):
         binding = nsxv_models.NsxvVdrDhcpBinding(vdr_router_id=vdr_router_id,
