@@ -621,13 +621,9 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             port_data[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
 
             sgids = self._get_security_groups_on_port(context, port)
-            if sgids is not None:
-                self._process_port_create_security_group(
-                    context, port_data, sgids)
-                #FIXME(abhiraut): Security group should not be processed for
-                #                 a port belonging to an external network.
-                #                 Below call will fail since there is no lport
-                #                 in the backend.
+            self._process_port_create_security_group(
+                context, port_data, sgids)
+            if sgids:
                 security.update_lport_with_security_groups(
                     context, lport['id'], [], sgids)
         return port_data
