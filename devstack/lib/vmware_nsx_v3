@@ -41,6 +41,7 @@ function neutron_plugin_create_nova_conf {
     # if n-cpu is enabled, then setup integration bridge
     if is_service_enabled n-cpu; then
         setup_integration_bridge
+        iniset $NOVA_CONF neutron ovs_bridge $OVS_BRIDGE
     fi
 }
 
