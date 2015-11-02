@@ -168,10 +168,12 @@ class LogicalPort(AbstractRESTResource):
 
     def _build_body_attrs(
             self, display_name=None,
-            admin_state=True, tags=[],
-            address_bindings=[],
-            switch_profile_ids=[]):
-
+            admin_state=True, tags=None,
+            address_bindings=None,
+            switch_profile_ids=None):
+        tags = tags or []
+        address_bindings = address_bindings or []
+        switch_profile_ids = switch_profile_ids or []
         body = {}
         if tags:
             body['tags'] = tags
@@ -207,11 +209,12 @@ class LogicalPort(AbstractRESTResource):
 
         return body
 
-    def create(self, lswitch_id, vif_uuid, tags=[],
+    def create(self, lswitch_id, vif_uuid, tags=None,
                attachment_type=nsx_constants.ATTACHMENT_VIF,
                admin_state=True, name=None, address_bindings=None,
                parent_name=None, parent_tag=None,
                switch_profile_ids=None):
+        tags = tags or []
 
         # NOTE(arosen): if a parent_name is specified we need to use the
         # CIF's attachment.

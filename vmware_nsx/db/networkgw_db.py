@@ -163,7 +163,8 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
         return network_id
 
     def _retrieve_gateway_connections(self, context, gateway_id,
-                                      mapping_info={}, only_one=False):
+                                      mapping_info=None, only_one=False):
+        mapping_info = mapping_info or {}
         filters = {'network_gateway_id': [gateway_id]}
         for k, v in six.iteritems(mapping_info):
             if v and k != NETWORK_ID:

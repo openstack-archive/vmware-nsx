@@ -1519,7 +1519,8 @@ def clear_gateway(nsxv_manager, context, router_id):
 
 def update_external_interface(
     nsxv_manager, context, router_id, ext_net_id,
-    ipaddr, netmask, secondary=[]):
+    ipaddr, netmask, secondary=None):
+    secondary = secondary or []
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
     net_bindings = nsxv_db.get_network_bindings(context.session, ext_net_id)
     if not net_bindings:
