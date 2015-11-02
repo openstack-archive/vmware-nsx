@@ -19,8 +19,8 @@ dvs_opts = [
     cfg.StrOpt('host_ip',
                help='Hostname or IP address for connection to VMware vCenter '
                     'host.'),
-    cfg.IntOpt('host_port', default=443, min=1, max=65535,
-               help='Port for connection to VMware vCenter host.'),
+    cfg.PortOpt('host_port', default=443,
+                help='Port for connection to VMware vCenter host.'),
     cfg.StrOpt('host_username',
                help='Username for connection to VMware vCenter host.'),
     cfg.StrOpt('host_password',
