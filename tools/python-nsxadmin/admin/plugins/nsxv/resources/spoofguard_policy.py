@@ -38,9 +38,8 @@ def get_spoofguard_policies():
 def nsx_list_spoofguard_policies(resource, event, trigger, **kwargs):
     """List spoofguard policies from NSXv backend"""
     policies = get_spoofguard_policies()
-    LOG.info(formatters.output_formatter(
-                 constants.SPOOFGUARD_POLICY, policies,
-                 ['policyId', 'name']))
+    LOG.info(formatters.output_formatter(constants.SPOOFGUARD_POLICY, policies,
+                                         ['policyId', 'name']))
 
 
 def get_spoofguard_policy_network_mappings():
@@ -53,9 +52,8 @@ def get_spoofguard_policy_network_mappings():
 def neutron_list_spoofguard_policy_mappings(resource, event, trigger,
                                             **kwargs):
     mappings = get_spoofguard_policy_network_mappings()
-    LOG.info(formatters.output_formatter(
-                 constants.SPOOFGUARD_POLICY, mappings,
-                 ['network_id', 'policy_id']))
+    LOG.info(formatters.output_formatter(constants.SPOOFGUARD_POLICY, mappings,
+                                         ['network_id', 'policy_id']))
 
 
 def get_missing_spoofguard_policy_mappings():

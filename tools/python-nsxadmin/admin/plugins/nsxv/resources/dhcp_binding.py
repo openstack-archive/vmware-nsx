@@ -50,7 +50,7 @@ def nsx_get_static_bindings_by_edge(edge_id):
 def neutron_get_static_bindings_by_edge(edge_id):
     neutron_db_dhcp_bindings = set()
     for binding in nsxv_db.get_dhcp_static_bindings_by_edge(
-        neutron_db.context.session, edge_id):
+            neutron_db.context.session, edge_id):
         neutron_db_dhcp_bindings.add(
             (binding.edge_id, binding.mac_address.lower(),
              binding.binding_id.lower()))
@@ -66,13 +66,12 @@ def list_missing_dhcp_bindings(resource, event, trigger, **kwargs):
     """
 
     for (edge_id, _) in nsxv_db.get_nsxv_dhcp_bindings_count_per_edge(
-        neutron_db.context.session):
+            neutron_db.context.session):
         LOG.info(_LI("%s"), "=" * 60)
         LOG.info(_LI("For edge: %s"), edge_id)
-        nsx_dhcp_static_bindings = nsx_get_static_bindings_by_edge(
-                                       edge_id)
-        neutron_dhcp_static_bindings = neutron_get_static_bindings_by_edge(
-                                           edge_id)
+        nsx_dhcp_static_bindings = nsx_get_static_bindings_by_edge(edge_id)
+        neutron_dhcp_static_bindings = \
+            neutron_get_static_bindings_by_edge(edge_id)
         LOG.info(_LI("# of DHCP bindings in Neutron DB: %s"),
                  len(neutron_dhcp_static_bindings))
         LOG.info(_LI("# of DHCP bindings on NSXv backend: %s"),

@@ -40,9 +40,8 @@ def get_nsxv_edges():
 def nsx_list_edges(resource, event, trigger, **kwargs):
     """List edges from NSXv backend"""
     edges = get_nsxv_edges()
-    LOG.info(formatters.output_formatter(
-                 constants.EDGES, edges,
-                 ['id']))
+    LOG.info(formatters.output_formatter(constants.EDGES, edges,
+                                         ['id']))
 
 
 def get_router_edge_bindings():
@@ -54,8 +53,8 @@ def get_router_edge_bindings():
 def neutron_list_router_edge_bindings(resource, event, trigger, **kwargs):
     """List NSXv edges from Neutron DB"""
     edges = get_router_edge_bindings()
-    LOG.info(formatters.output_formatter(
-                 constants.EDGES, edges, ['edge_id', 'router_id']))
+    LOG.info(formatters.output_formatter(constants.EDGES, edges,
+                                         ['edge_id', 'router_id']))
 
 
 def get_orphaned_edges():
