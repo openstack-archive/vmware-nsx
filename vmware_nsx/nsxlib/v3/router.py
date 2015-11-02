@@ -52,8 +52,7 @@ class RouterLib(object):
             return
         err_msg = None
         try:
-            resource = 'logical-routers/%s' % tier0_uuid
-            lrouter = self._router_client.get(resource)
+            lrouter = self._router_client.get(tier0_uuid)
         except nsx_exc.ResourceNotFound:
             err_msg = _("Failed to validate tier0 router %s since it is "
                         "not found at the backend") % tier0_uuid

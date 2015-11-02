@@ -327,14 +327,14 @@ class LogicalRouterPort(AbstractRESTResource):
         return self._client.url_delete(logical_port_id)
 
     def get_by_lswitch_id(self, logical_switch_id):
-        resource = ('logical-router-ports?logical_switch_id=%s' %
-                    logical_switch_id)
+        resource = '?logical_switch_id=%s' % logical_switch_id
         router_ports = self._client.url_get(resource)
-        if int(router_ports['result_count']) >= 2:
+        result_count = int(router_ports.get('result_count', "0"))
+        if result_count >= 2:
             raise nsx_exc.NsxPluginException(
                 err_msg=_("Can't support more than one logical router ports "
                           "on same logical switch %s ") % logical_switch_id)
-        elif int(router_ports['result_count']) == 1:
+        elif result_count == 1:
             return router_ports['results'][0]
         else:
             err_msg = (_("Logical router link port not found on logical "
@@ -351,8 +351,7 @@ class LogicalRouterPort(AbstractRESTResource):
         self.delete(port['id'])
 
     def get_by_router_id(self, logical_router_id):
-        resource = ('logical-router-ports/?logical_router_id=%s' %
-                    logical_router_id)
+        resource = '?logical_router_id=%s' % logical_router_id
         logical_router_ports = self._client.url_get(resource)
         return logical_router_ports['results']
 

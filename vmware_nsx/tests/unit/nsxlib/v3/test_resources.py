@@ -300,7 +300,7 @@ class LogicalRouterPortTestCase(nsxlib_testcase.NsxClientTestCase):
 
     def test_create_logical_router_port(self):
         """
-        Test creating a router returns the correct response and 201 status
+        Test creating a router port returns the correct response and 201 status
         """
         fake_router_port = test_constants_v3.FAKE_ROUTER_PORT.copy()
 
@@ -344,6 +344,57 @@ class LogicalRouterPortTestCase(nsxlib_testcase.NsxClientTestCase):
             test_client.assert_session_call(
                 mocked.get('delete'),
                 'https://1.2.3.4/api/v1/logical-router-ports/%s' % uuid,
+                False,
+                None,
+                client.JSONRESTClient._DEFAULT_HEADERS,
+                nsxlib_testcase.NSX_CERT)
+
+    def test_get_logical_router_port_by_router_id(self):
+        """
+        Test getting a router port by router id
+        """
+        fake_router_port = test_constants_v3.FAKE_ROUTER_PORT.copy()
+        resp_resources = {'results': [fake_router_port]}
+
+        api = resources.LogicalRouterPort(client.NSX3Client())
+        with self.mocked_resource(api) as mocked:
+            mocked.get('get').return_value = mocks.MockRequestsResponse(
+                200, jsonutils.dumps(resp_resources))
+
+            router_id = fake_router_port['logical_router_id']
+            result = api.get_by_router_id(router_id)
+            self.assertEqual(fake_router_port, result[0])
+            test_client.assert_session_call(
+                mocked.get('get'),
+                'https://1.2.3.4/api/v1/logical-router-ports/?'
+                'logical_router_id=%s' % router_id,
+                False,
+                None,
+                client.JSONRESTClient._DEFAULT_HEADERS,
+                nsxlib_testcase.NSX_CERT)
+
+    def test_get_logical_router_port_by_switch_id(self):
+        """
+        Test getting a router port by switch id
+        """
+        fake_router_port = test_constants_v3.FAKE_ROUTER_PORT.copy()
+        resp_resources = {
+            'result_count': 1,
+            'results': [fake_router_port]
+        }
+
+        api = resources.LogicalRouterPort(client.NSX3Client())
+        with self.mocked_resource(api) as mocked:
+            mocked.get('get').return_value = mocks.MockRequestsResponse(
+                200, jsonutils.dumps(resp_resources))
+
+            switch_id = test_constants_v3.FAKE_SWITCH_UUID
+            result = api.get_by_lswitch_id(switch_id)
+            self.assertEqual(fake_router_port, result)
+            test_client.assert_session_call(
+                mocked.get('get'),
+                'https://1.2.3.4/api/v1/logical-router-ports/?'
+                'logical_switch_id=%s' % switch_id,
                 False,
                 None,
                 client.JSONRESTClient._DEFAULT_HEADERS,
