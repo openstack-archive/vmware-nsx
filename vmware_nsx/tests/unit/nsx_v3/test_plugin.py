@@ -73,11 +73,6 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
         super(NsxV3PluginTestCaseMixin, self).setUp(plugin=plugin,
                                                     ext_mgr=ext_mgr)
 
-        if getattr(self.plugin, '_nsx_client', None):
-            self.plugin._nsx_client = self.client
-        if getattr(self.plugin, '_port_client', None):
-            self.plugin._port_client._client._session = self.mock_api
-
         self.maxDiff = None
 
     def tearDown(self):

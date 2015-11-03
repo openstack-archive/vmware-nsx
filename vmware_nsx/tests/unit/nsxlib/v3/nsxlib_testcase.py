@@ -152,17 +152,39 @@ class NsxClientTestCase(NsxLibTestCase):
                 return client_fn(*args, **kwargs)
             return _client
 
-        def _mock_client_init(*args, **kwargs):
-            return with_client
+        def _proxy_new_client_for(client):
+
+            new_client_fn = client.new_client_for
+
+            def _new_client_for(*uri_segs):
+                new_client = new_client_fn(*uri_segs)
+                new_client._session = mock_session
+                new_client.new_client_for = _proxy_new_client_for(new_client)
+                return new_client
+            return _new_client_for
+
+        def _proxy_init(class_name):
+            client_init = getattr(nsx_client, class_name)
+
+            def _init_client(*args, **kwargs):
+                if (not args and not kwargs and
+                        with_client.__class__.__name__ == class_name):
+                    return with_client
+
+                client = client_init(*args, **kwargs)
+                client._session = mock_session
+                return client
+
+            return _init_client
 
         fn_map = {}
         for fn in BRIDGE_FNS:
             fn_map[fn] = _call_client(fn)
 
-        fn_map['NSX3Client'] = _mock_client_init
-        fn_map['JSONRESTClient'] = _mock_client_init
-        fn_map['RESTClient'] = _mock_client_init
+        fn_map['NSX3Client'] = _proxy_init('NSX3Client')
+        fn_map['JSONRESTClient'] = _proxy_init('JSONRESTClient')
+        fn_map['RESTClient'] = _proxy_init('RESTClient')
 
-        with_client.new_client_for = _mock_client_init
+        with_client.new_client_for = _proxy_new_client_for(with_client)
 
         return cls.patch_client_module(in_module, fn_map)
