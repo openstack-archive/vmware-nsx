@@ -368,8 +368,9 @@ class LogicalRouterPort(AbstractRESTResource):
         else:
             err_msg = (_("Logical router link port not found on logical "
                          "switch %s") % logical_switch_id)
-            raise nsx_exc.ResourceNotFound(manager=client._get_manager_ip(),
-                                           operation=err_msg)
+            raise nsx_exc.ResourceNotFound(
+                manager=client._get_nsx_managers_from_conf(),
+                operation=err_msg)
 
     def update_by_lswitch_id(self, logical_router_id, ls_id, **payload):
         port = self.get_by_lswitch_id(ls_id)
@@ -390,5 +391,5 @@ class LogicalRouterPort(AbstractRESTResource):
             if port['resource_type'] == nsx_constants.LROUTERPORT_LINKONTIER1:
                 return port
         raise nsx_exc.ResourceNotFound(
-            manager=client._get_manager_ip(),
+            manager=client._get_nsx_managers_from_conf(),
             operation="get router link port")

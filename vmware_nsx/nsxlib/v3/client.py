@@ -14,11 +14,11 @@
 #    under the License.
 #
 import requests
+import urlparse
 
 from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
-
 from vmware_nsx._i18n import _, _LW
 from vmware_nsx.common import exceptions as nsx_exc
 
@@ -37,37 +37,19 @@ class RESTClient(object):
         'delete': [requests.codes.ok]
     }
 
-    def __init__(self, host_ip=None, user_name=None,
-                 password=None, insecure=None,
-                 url_prefix=None, default_headers=None,
-                 cert_file=None):
-        self._host_ip = host_ip
-        self._user_name = user_name
-        self._password = password
-        self._insecure = insecure if insecure is not None else False
+    def __init__(self, connection, url_prefix=None,
+                 default_headers=None):
+        self._conn = connection
         self._url_prefix = url_prefix or ""
         self._default_headers = default_headers or {}
-        self._cert_file = cert_file
-
-        self._session = requests.Session()
-        self._session.auth = (self._user_name, self._password)
-        if not insecure and self._cert_file:
-            self._session.cert = self._cert_file
 
     def new_client_for(self, *uri_segments):
-        uri = "%s/%s" % (self._url_prefix, '/'.join(uri_segments))
-        uri = uri.replace('//', '/')
+        uri = self._build_url('/'.join(uri_segments))
 
         return self.__class__(
-            host_ip=self._host_ip, user_name=self._user_name,
-            password=self._password, insecure=self._insecure,
+            self._conn,
             url_prefix=uri,
-            default_headers=self._default_headers,
-            cert_file=self._cert_file)
-
-    @property
-    def validate_certificate(self):
-        return not self._insecure
+            default_headers=self._default_headers)
 
     def list(self, headers=None):
         return self.url_list('')
@@ -115,7 +97,7 @@ class RESTClient(object):
             if type(result_msg) is dict:
                 result_msg = result_msg.get('error_message', result_msg)
             raise manager_error(
-                manager=self._host_ip,
+                manager=_get_nsx_managers_from_conf(),
                 operation=operation,
                 details=result_msg)
 
@@ -128,25 +110,28 @@ class RESTClient(object):
         return merged
 
     def _build_url(self, uri):
-        uri = ("/%s/%s" % (self._url_prefix, uri)).replace('//', '/')
-        return ("https://%s%s" % (self._host_ip, uri)).strip('/')
+        prefix = urlparse.urlparse(self._url_prefix)
+        uri = ("/%s/%s" % (prefix.path, uri)).replace('//', '/').strip('/')
+        if prefix.netloc:
+            uri = "%s/%s" % (prefix.netloc, uri)
+        if prefix.scheme:
+            uri = "%s://%s" % (prefix.scheme, uri)
+        return uri
 
     def _rest_call(self, url, method='GET', body=None, headers=None):
         request_headers = headers.copy() if headers else {}
         request_headers.update(self._default_headers)
         request_url = self._build_url(url)
 
-        do_request = getattr(self._session, method.lower())
+        do_request = getattr(self._conn, method.lower())
 
         LOG.debug("REST call: %s %s\nHeaders: %s\nBody: %s",
                   method, request_url, request_headers, body)
 
         result = do_request(
             request_url,
-            verify=self.validate_certificate,
             data=body,
-            headers=request_headers,
-            cert=self._cert_file)
+            headers=request_headers)
 
         self._validate_result(
             result, RESTClient._VERB_RESP_CODES[method.lower()],
@@ -161,18 +146,14 @@ class JSONRESTClient(RESTClient):
         'Content-Type': 'application/json'
     }
 
-    def __init__(self, host_ip=None, user_name=None,
-                 password=None, insecure=None,
-                 url_prefix=None, default_headers=None,
-                 cert_file=None):
+    def __init__(self, connection, url_prefix=None,
+                 default_headers=None):
 
         super(JSONRESTClient, self).__init__(
-            host_ip=host_ip, user_name=user_name,
-            password=password, insecure=insecure,
+            connection,
             url_prefix=url_prefix,
             default_headers=RESTClient.merge_headers(
-                JSONRESTClient._DEFAULT_HEADERS, default_headers),
-            cert_file=cert_file)
+                JSONRESTClient._DEFAULT_HEADERS, default_headers))
 
     def _rest_call(self, *args, **kwargs):
         if kwargs.get('body') is not None:
@@ -183,60 +164,64 @@ class JSONRESTClient(RESTClient):
 
 class NSX3Client(JSONRESTClient):
 
-    _NSX_V1_API_PREFIX = '/api/v1/'
+    _NSX_V1_API_PREFIX = 'api/v1/'
 
-    def __init__(self, host_ip=None, user_name=None,
-                 password=None, insecure=None,
-                 url_prefix=None, default_headers=None,
-                 cert_file=None):
+    def __init__(self, connection, url_prefix=None,
+                 default_headers=None):
 
         url_prefix = url_prefix or NSX3Client._NSX_V1_API_PREFIX
-        if (url_prefix and not url_prefix.startswith(
-                NSX3Client._NSX_V1_API_PREFIX)):
-            url_prefix = "%s/%s" % (NSX3Client._NSX_V1_API_PREFIX,
-                                    url_prefix or '')
-        host_ip = host_ip or cfg.CONF.nsx_v3.nsx_manager
-        user_name = user_name or cfg.CONF.nsx_v3.nsx_user
-        password = password or cfg.CONF.nsx_v3.nsx_password
-        cert_file = cert_file or cfg.CONF.nsx_v3.ca_file
-        insecure = (insecure if insecure is not None
-                    else cfg.CONF.nsx_v3.insecure)
+        if url_prefix and NSX3Client._NSX_V1_API_PREFIX not in url_prefix:
+            if url_prefix.startswith('http'):
+                url_prefix += '/' + NSX3Client._NSX_V1_API_PREFIX
+            else:
+                url_prefix = "%s/%s" % (NSX3Client._NSX_V1_API_PREFIX,
+                                        url_prefix or '')
 
         super(NSX3Client, self).__init__(
-            host_ip=host_ip, user_name=user_name,
-            password=password, insecure=insecure,
-            url_prefix=url_prefix,
-            default_headers=default_headers,
-            cert_file=cert_file)
+            connection, url_prefix=url_prefix,
+            default_headers=default_headers)
 
 
-# NOTE(boden): tmp until all refs use client class
-def _get_client(client, *args, **kwargs):
-    return client or NSX3Client(*args, **kwargs)
+# TODO(boden): remove mod level fns and vars below
+_DEFAULT_API_CLUSTER = None
+
+
+def _get_default_api_cluster():
+    global _DEFAULT_API_CLUSTER
+    if _DEFAULT_API_CLUSTER is None:
+        # removes circular ref between client / cluster
+        import vmware_nsx.nsxlib.v3.cluster as nsx_cluster
+        _DEFAULT_API_CLUSTER = nsx_cluster.NSXClusteredAPI()
+    return _DEFAULT_API_CLUSTER
+
+
+def _set_default_api_cluster(cluster):
+    global _DEFAULT_API_CLUSTER
+    old = _DEFAULT_API_CLUSTER
+    _DEFAULT_API_CLUSTER = cluster
+    return old
+
+
+def _get_client(client):
+    return client or NSX3Client(_get_default_api_cluster())
 
 
 # NOTE(shihli): tmp until all refs use client class
-def _get_manager_ip(client=None):
-    # NOTE: In future this may return the IP address from a pool
-    return (client._host_ip if client is not None
-            else cfg.CONF.nsx_v3.nsx_manager)
+def _get_nsx_managers_from_conf():
+    return cfg.CONF.nsx_v3.nsx_managers
 
 
-# NOTE(boden): tmp until all refs use client class
 def get_resource(resource, client=None):
     return _get_client(client).get(resource)
 
 
-# NOTE(boden): tmp until all refs use client class
 def create_resource(resource, data, client=None):
     return _get_client(client).url_post(resource, body=data)
 
 
-# NOTE(boden): tmp until all refs use client class
 def update_resource(resource, data, client=None):
     return _get_client(client).update(resource, body=data)
 
 
-# NOTE(boden): tmp until all refs use client class
 def delete_resource(resource, client=None):
     return _get_client(client).delete(resource)

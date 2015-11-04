@@ -56,8 +56,9 @@ def delete_resource_by_values(resource, skip_not_found=True, **kwargs):
             err_msg = (_("No resource in %(res)s matched for values: "
                          "%(values)s") % {'res': resource,
                                           'values': kwargs})
-            raise nsx_exc.ResourceNotFound(manager=client._get_manager_ip(),
-                                           operation=err_msg)
+            raise nsx_exc.ResourceNotFound(
+                manager=client._get_nsx_managers_from_conf(),
+                operation=err_msg)
     elif matched_num > 1:
         LOG.warning(_LW("%(num)s resources in %(res)s matched for values: "
                         "%(values)s"), {'num': matched_num,

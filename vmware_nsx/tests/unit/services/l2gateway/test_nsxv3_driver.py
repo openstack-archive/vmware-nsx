@@ -47,9 +47,6 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
 
         self.core_plugin = importutils.import_object(NSX_V3_PLUGIN_CLASS)
 
-        self.core_plugin._nsx_client = self.client
-        self.core_plugin._port_client._client._session = self.mock_api
-
         self.driver = nsx_v3_driver.NsxV3Driver()
         self.l2gw_plugin = l2gw_plugin.NsxL2GatewayPlugin()
         self.context = context.get_admin_context()

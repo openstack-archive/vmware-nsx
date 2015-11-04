@@ -12,6 +12,7 @@
 # implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import mock
 import six
 
 from neutron.api.v2 import attributes
@@ -39,6 +40,7 @@ from oslo_utils import uuidutils
 
 from vmware_nsx.common import utils
 from vmware_nsx.nsxlib.v3 import client as nsx_client
+from vmware_nsx.nsxlib.v3 import cluster as nsx_cluster
 from vmware_nsx.plugins.nsx_v3 import plugin as nsx_plugin
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.nsx_v3 import mocks as nsx_v3_mocks
@@ -54,25 +56,64 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
     def setUp(self, plugin=PLUGIN_NAME,
               ext_mgr=None,
               service_plugins=None):
+
         self._patchers = []
+
         self.mock_api = nsx_v3_mocks.MockRequestSessionApi()
-        self.client = nsx_client.NSX3Client()
+        nsxlib_testcase.NsxClientTestCase.setup_conf_overrides()
+        self.cluster = nsx_cluster.NSXClusteredAPI(
+            http_provider=nsxlib_testcase.MemoryMockAPIProvider(self.mock_api))
 
-        def mock_client_module(mod):
-            mocked = nsxlib_testcase.NsxClientTestCase.mocked_session_module(
-                mod, self.client,
-                mock_session=self.mock_api)
-            mocked.start()
-            self._patchers.append(mocked)
+        self.cluster.revalidate_endpoints()
 
-        mock_client_module(nsx_plugin.security.firewall)
-        mock_client_module(nsx_plugin.router.nsxlib)
-        mock_client_module(nsx_plugin)
+        def _patch_object(*args, **kwargs):
+            patcher = mock.patch.object(*args, **kwargs)
+            patcher.start()
+            self._patchers.append(patcher)
+
+        def _new_cluster(*args, **kwargs):
+            return self.cluster
+
+        self.mocked_rest_fns(
+            nsx_plugin.security.firewall, 'nsxclient',
+            mock_cluster=self.cluster)
+        self.mocked_rest_fns(
+            nsx_plugin.router.nsxlib, 'client', mock_cluster=self.cluster)
+
+        mock_client_module = mock.Mock()
+        mock_cluster_module = mock.Mock()
+        mocked_client = self.new_mocked_client(
+            nsx_client.NSX3Client, mock_cluster=self.cluster)
+        mock_cluster_module.NSXClusteredAPI.return_value = self.cluster
+        mock_client_module.NSX3Client.return_value = mocked_client
+        _patch_object(nsx_plugin, 'nsx_client', new=mock_client_module)
+        _patch_object(nsx_plugin, 'nsx_cluster', new=mock_cluster_module)
 
         super(NsxV3PluginTestCaseMixin, self).setUp(plugin=plugin,
                                                     ext_mgr=ext_mgr)
 
         self.maxDiff = None
+
+        # populate pre-existing mock resources
+        cluster_id = uuidutils.generate_uuid()
+        self.mock_api.post(
+            'api/v1/logical-routers',
+            data=jsonutils.dumps({
+                'display_name': nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID,
+                'router_type': "TIER0",
+                'id': nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID,
+                'edge_cluster_id': cluster_id}),
+            headers=nsx_client.JSONRESTClient._DEFAULT_HEADERS)
+
+        self.mock_api.post(
+            'api/v1/edge-clusters',
+            data=jsonutils.dumps({
+                'id': cluster_id,
+                'members': [
+                    {'member_index': 0},
+                    {'member_index': 1}
+                ]}),
+            headers=nsx_client.JSONRESTClient._DEFAULT_HEADERS)
 
     def tearDown(self):
         for patcher in self._patchers:
@@ -214,27 +255,6 @@ class TestL3NatTestCase(L3NatTest,
               ext_mgr=None,
               service_plugins=None):
         super(TestL3NatTestCase, self).setUp(plugin=plugin, ext_mgr=ext_mgr)
-
-        cluster_id = uuidutils.generate_uuid()
-
-        self.mock_api.post(
-            'api/v1/logical-routers',
-            data=jsonutils.dumps({
-                'display_name': nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID,
-                'router_type': "TIER0",
-                'id': nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID,
-                'edge_cluster_id': cluster_id}),
-            headers=nsx_client.JSONRESTClient._DEFAULT_HEADERS)
-
-        self.mock_api.post(
-            'api/v1/edge-clusters',
-            data=jsonutils.dumps({
-                'id': cluster_id,
-                'members': [
-                    {'member_index': 0},
-                    {'member_index': 1}
-                ]}),
-            headers=nsx_client.JSONRESTClient._DEFAULT_HEADERS)
 
     def _test_create_l3_ext_network(
             self, physical_network=nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID):
