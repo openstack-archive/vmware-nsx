@@ -127,8 +127,10 @@ class Vcns(object):
             uri += "?async=true"
         return self.do_request(HTTP_POST, uri, request, decode=False)
 
-    def update_edge(self, edge_id, request):
-        uri = "%s/%s?async=true" % (URI_PREFIX, edge_id)
+    def update_edge(self, edge_id, request, async=False):
+        uri = "%s/%s" % (URI_PREFIX, edge_id)
+        if async:
+            uri += "?async=true"
         return self.do_request(HTTP_PUT, uri, request, decode=False)
 
     def get_edge_id(self, job_id):
