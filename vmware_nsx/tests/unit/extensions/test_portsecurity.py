@@ -20,7 +20,7 @@ from vmware_nsx.common import sync
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.nsx_mh.apiclient import fake
 from vmware_nsx.tests.unit.nsx_v3 import test_constants as v3_constants
-from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
+from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_nsxv3
 from vmware_nsx.tests.unit import test_utils
 
 
@@ -48,13 +48,7 @@ class TestPortSecurityNSXv2(PortSecurityTestCaseNSXv2, psec.TestPortSecurity):
         pass
 
 
-class PortSecurityTestCaseNSXv3(nsxlib_testcase.NsxClientTestCase,
-                                psec.PortSecurityDBTestCase):
-    def setUp(self, *args, **kwargs):
-        super(PortSecurityTestCaseNSXv3, self).setUp(
-            plugin=v3_constants.PLUGIN_NAME)
-
-
-class TestPortSecurityNSXv3(PortSecurityTestCaseNSXv3,
-                            psec.TestPortSecurity):
-    pass
+class TestPortSecurityNSXv3(psec.TestPortSecurity,
+                            test_nsxv3.NsxV3PluginTestCaseMixin):
+    def setUp(self, plugin=v3_constants.PLUGIN_NAME):
+        super(TestPortSecurityNSXv3, self).setUp(plugin=plugin)
