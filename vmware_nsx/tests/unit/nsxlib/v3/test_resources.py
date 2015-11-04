@@ -17,7 +17,6 @@ import mock
 
 from oslo_serialization import jsonutils
 
-from vmware_nsx.nsxlib.v3 import client
 from vmware_nsx.nsxlib.v3 import resources
 from vmware_nsx.tests.unit.nsx_v3 import mocks
 from vmware_nsx.tests.unit.nsx_v3 import test_constants as test_constants_v3
@@ -31,22 +30,24 @@ profile_types = resources.SwitchingProfileTypes
 
 class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
 
-    def test_switching_profile_create(self):
-        api = resources.SwitchingProfile(client.NSX3Client())
-        with self.mocked_resource(api) as mocked:
-            api.create(profile_types.PORT_MIRRORING,
-                       'pm-profile', 'port mirror prof')
+    def _mocked_switching_profile(self, session_response=None):
+        return self.mocked_resource(
+            resources.SwitchingProfile, session_response=session_response)
 
-            test_client.assert_session_call(
-                mocked.get('post'),
-                'https://1.2.3.4/api/v1/switching-profiles',
-                False, jsonutils.dumps({
-                    'resource_type': profile_types.PORT_MIRRORING,
-                    'display_name': 'pm-profile',
-                    'description': 'port mirror prof'
-                }, sort_keys=True),
-                client.JSONRESTClient._DEFAULT_HEADERS,
-                nsxlib_testcase.NSX_CERT)
+    def test_switching_profile_create(self):
+        mocked_resource = self._mocked_switching_profile()
+
+        mocked_resource.create(profile_types.PORT_MIRRORING,
+                               'pm-profile', 'port mirror prof')
+
+        test_client.assert_json_call(
+            'post', mocked_resource,
+            'https://1.2.3.4/api/v1/switching-profiles',
+            data=jsonutils.dumps({
+                'resource_type': profile_types.PORT_MIRRORING,
+                'display_name': 'pm-profile',
+                'description': 'port mirror prof'
+            }, sort_keys=True))
 
     def test_switching_profile_update(self):
 
@@ -61,19 +62,18 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
             }
         ]
 
-        api = resources.SwitchingProfile(client.NSX3Client())
-        with self.mocked_resource(api) as mocked:
-            api.update('a12bc1', profile_types.PORT_MIRRORING, tags=tags)
+        mocked_resource = self._mocked_switching_profile()
 
-            test_client.assert_session_call(
-                mocked.get('put'),
-                'https://1.2.3.4/api/v1/switching-profiles/a12bc1',
-                False, jsonutils.dumps({
-                    'resource_type': profile_types.PORT_MIRRORING,
-                    'tags': tags
-                }, sort_keys=True),
-                client.JSONRESTClient._DEFAULT_HEADERS,
-                nsxlib_testcase.NSX_CERT)
+        mocked_resource.update(
+            'a12bc1', profile_types.PORT_MIRRORING, tags=tags)
+
+        test_client.assert_json_call(
+            'put', mocked_resource,
+            'https://1.2.3.4/api/v1/switching-profiles/a12bc1',
+            data=jsonutils.dumps({
+                'resource_type': profile_types.PORT_MIRRORING,
+                'tags': tags
+            }, sort_keys=True))
 
     def test_spoofgaurd_profile_create(self):
 
@@ -88,25 +88,22 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
             }
         ]
 
-        api = resources.SwitchingProfile(client.NSX3Client())
-        with self.mocked_resource(api) as mocked:
-            api.create_spoofguard_profile(
-                'neutron-spoof', 'spoofguard-for-neutron',
-                whitelist_ports=True, tags=tags)
+        mocked_resource = self._mocked_switching_profile()
 
-            test_client.assert_session_call(
-                mocked.get('post'),
-                'https://1.2.3.4/api/v1/switching-profiles',
-                False,
-                jsonutils.dumps({
-                    'resource_type': profile_types.SPOOF_GUARD,
-                    'display_name': 'neutron-spoof',
-                    'description': 'spoofguard-for-neutron',
-                    'white_list_providers': ['LPORT_BINDINGS'],
-                    'tags': tags
-                }, sort_keys=True),
-                client.JSONRESTClient._DEFAULT_HEADERS,
-                nsxlib_testcase.NSX_CERT)
+        mocked_resource.create_spoofguard_profile(
+            'neutron-spoof', 'spoofguard-for-neutron',
+            whitelist_ports=True, tags=tags)
+
+        test_client.assert_json_call(
+            'post', mocked_resource,
+            'https://1.2.3.4/api/v1/switching-profiles',
+            data=jsonutils.dumps({
+                'resource_type': profile_types.SPOOF_GUARD,
+                'display_name': 'neutron-spoof',
+                'description': 'spoofguard-for-neutron',
+                'white_list_providers': ['LPORT_BINDINGS'],
+                'tags': tags
+            }, sort_keys=True))
 
     def test_create_dhcp_profile(self):
 
@@ -121,39 +118,36 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
             }
         ]
 
-        api = resources.SwitchingProfile(client.NSX3Client())
-        with self.mocked_resource(api) as mocked:
-            api.create_dhcp_profile(
-                'neutron-dhcp', 'dhcp-for-neutron',
-                tags=tags)
+        mocked_resource = self._mocked_switching_profile()
 
-            test_client.assert_session_call(
-                mocked.get('post'),
-                'https://1.2.3.4/api/v1/switching-profiles',
-                False,
-                jsonutils.dumps({
-                    'bpdu_filter': {
-                        'enabled': False,
-                        'white_list': []
-                    },
-                    'resource_type': profile_types.SWITCH_SECURITY,
-                    'display_name': 'neutron-dhcp',
-                    'description': 'dhcp-for-neutron',
-                    'tags': tags,
-                    'dhcp_filter': {
-                        'client_block_enabled': False,
-                        'server_block_enabled': False
-                    },
-                    'rate_limits': {
-                        'enabled': False,
-                        'rx_broadcast': 0,
-                        'tx_broadcast': 0,
-                        'rx_multicast': 0,
-                        'tx_multicast': 0
-                    }
-                }, sort_keys=True),
-                client.JSONRESTClient._DEFAULT_HEADERS,
-                nsxlib_testcase.NSX_CERT)
+        mocked_resource.create_dhcp_profile(
+            'neutron-dhcp', 'dhcp-for-neutron',
+            tags=tags)
+
+        test_client.assert_json_call(
+            'post', mocked_resource,
+            'https://1.2.3.4/api/v1/switching-profiles',
+            data=jsonutils.dumps({
+                'bpdu_filter': {
+                    'enabled': False,
+                    'white_list': []
+                },
+                'resource_type': profile_types.SWITCH_SECURITY,
+                'display_name': 'neutron-dhcp',
+                'description': 'dhcp-for-neutron',
+                'tags': tags,
+                'dhcp_filter': {
+                    'client_block_enabled': False,
+                    'server_block_enabled': False
+                },
+                'rate_limits': {
+                    'enabled': False,
+                    'rx_broadcast': 0,
+                    'tx_broadcast': 0,
+                    'rx_multicast': 0,
+                    'tx_multicast': 0
+                }
+            }, sort_keys=True))
 
     def test_find_by_display_name(self):
         resp_resources = {
@@ -163,34 +157,38 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
                 {'display_name': 'resource-3'}
             ]
         }
-        api = resources.SwitchingProfile(client.NSX3Client())
-        with self.mocked_resource(api) as mocked:
-            mock_get = mocked.get('get')
-            mock_get.return_value = mocks.MockRequestsResponse(
-                200, jsonutils.dumps(resp_resources))
-            self.assertEqual([{'display_name': 'resource-1'}],
-                             api.find_by_display_name('resource-1'))
-            self.assertEqual([{'display_name': 'resource-2'}],
-                             api.find_by_display_name('resource-2'))
-            self.assertEqual([{'display_name': 'resource-3'}],
-                             api.find_by_display_name('resource-3'))
+        session_response = mocks.MockRequestsResponse(
+            200, jsonutils.dumps(resp_resources))
+        mocked_resource = self._mocked_switching_profile(
+            session_response=session_response)
 
-            mock_get.reset_mock()
+        self.assertEqual([{'display_name': 'resource-1'}],
+                         mocked_resource.find_by_display_name('resource-1'))
+        self.assertEqual([{'display_name': 'resource-2'}],
+                         mocked_resource.find_by_display_name('resource-2'))
+        self.assertEqual([{'display_name': 'resource-3'}],
+                         mocked_resource.find_by_display_name('resource-3'))
 
-            resp_resources = {
-                'results': [
-                    {'display_name': 'resource-1'},
-                    {'display_name': 'resource-1'},
-                    {'display_name': 'resource-1'}
-                ]
-            }
-            mock_get.return_value = mocks.MockRequestsResponse(
-                200, jsonutils.dumps(resp_resources))
-            self.assertEqual(resp_resources['results'],
-                             api.find_by_display_name('resource-1'))
+        resp_resources = {
+            'results': [
+                {'display_name': 'resource-1'},
+                {'display_name': 'resource-1'},
+                {'display_name': 'resource-1'}
+            ]
+        }
+        session_response = mocks.MockRequestsResponse(
+            200, jsonutils.dumps(resp_resources))
+        mocked_resource = self._mocked_switching_profile(
+            session_response=session_response)
+        self.assertEqual(resp_resources['results'],
+                         mocked_resource.find_by_display_name('resource-1'))
 
 
 class LogicalPortTestCase(nsxlib_testcase.NsxClientTestCase):
+
+    def _mocked_lport(self, session_response=None):
+        return self.mocked_resource(
+            resources.LogicalPort, session_response=session_response)
 
     def test_create_logical_port(self):
         """
@@ -217,39 +215,31 @@ class LogicalPortTestCase(nsxlib_testcase.NsxClientTestCase):
 
         fake_port['address_bindings'] = binding_repr
 
-        api = resources.LogicalPort(client.NSX3Client())
-        with self.mocked_resource(api) as mocked:
+        mocked_resource = self._mocked_lport()
 
-            mocked.get('post').return_value = mocks.MockRequestsResponse(
-                200, jsonutils.dumps(fake_port))
+        switch_profile = resources.SwitchingProfile
+        mocked_resource.create(
+            fake_port['logical_switch_id'],
+            fake_port['attachment']['id'],
+            address_bindings=pkt_classifiers,
+            switch_profile_ids=switch_profile.build_switch_profile_ids(
+                mock.Mock(), *profile_dicts))
 
-            switch_profile = resources.SwitchingProfile
-            result = api.create(
-                fake_port['logical_switch_id'],
-                fake_port['attachment']['id'],
-                address_bindings=pkt_classifiers,
-                switch_profile_ids=switch_profile.build_switch_profile_ids(
-                    mock.Mock(), *profile_dicts))
+        resp_body = {
+            'logical_switch_id': fake_port['logical_switch_id'],
+            'switching_profile_ids': fake_port['switching_profile_ids'],
+            'attachment': {
+                'attachment_type': 'VIF',
+                'id': fake_port['attachment']['id']
+            },
+            'admin_state': 'UP',
+            'address_bindings': fake_port['address_bindings']
+        }
 
-            resp_body = {
-                'logical_switch_id': fake_port['logical_switch_id'],
-                'switching_profile_ids': fake_port['switching_profile_ids'],
-                'attachment': {
-                    'attachment_type': 'VIF',
-                    'id': fake_port['attachment']['id']
-                },
-                'admin_state': 'UP',
-                'address_bindings': fake_port['address_bindings']
-            }
-
-            self.assertEqual(fake_port, result)
-            test_client.assert_session_call(
-                mocked.get('post'),
-                'https://1.2.3.4/api/v1/logical-ports',
-                False,
-                jsonutils.dumps(resp_body, sort_keys=True),
-                client.JSONRESTClient._DEFAULT_HEADERS,
-                nsxlib_testcase.NSX_CERT)
+        test_client.assert_json_call(
+            'post', mocked_resource,
+            'https://1.2.3.4/api/v1/logical-ports',
+            data=jsonutils.dumps(resp_body, sort_keys=True))
 
     def test_create_logical_port_admin_down(self):
         """
@@ -257,40 +247,36 @@ class LogicalPortTestCase(nsxlib_testcase.NsxClientTestCase):
         """
         fake_port = test_constants_v3.FAKE_PORT
         fake_port['admin_state'] = "DOWN"
-        api = resources.LogicalPort(client.NSX3Client())
-        with self.mocked_resource(api) as mocked:
-            mocked.get('post').return_value = mocks.MockRequestsResponse(
-                200, jsonutils.dumps(fake_port))
 
-            result = api.create(
-                test_constants_v3.FAKE_PORT['logical_switch_id'],
-                test_constants_v3.FAKE_PORT['attachment']['id'],
-                tags={}, admin_state=False)
+        mocked_resource = self._mocked_lport(
+            session_response=mocks.MockRequestsResponse(
+                200, jsonutils.dumps(fake_port)))
 
-            self.assertEqual(fake_port, result)
+        result = mocked_resource.create(
+            test_constants_v3.FAKE_PORT['logical_switch_id'],
+            test_constants_v3.FAKE_PORT['attachment']['id'],
+            tags={}, admin_state=False)
+
+        self.assertEqual(fake_port, result)
 
     def test_delete_logical_port(self):
         """
         Test deleting port
         """
-        api = resources.LogicalPort(client.NSX3Client())
-        with self.mocked_resource(api) as mocked:
-            mocked.get('delete').return_value = mocks.MockRequestsResponse(
-                200, None)
+        mocked_resource = self._mocked_lport()
 
-            uuid = test_constants_v3.FAKE_PORT['id']
-            result = api.delete(uuid)
-            self.assertIsNone(result.content)
-            test_client.assert_session_call(
-                mocked.get('delete'),
-                'https://1.2.3.4/api/v1/logical-ports/%s?detach=true' % uuid,
-                False,
-                None,
-                client.JSONRESTClient._DEFAULT_HEADERS,
-                nsxlib_testcase.NSX_CERT)
+        uuid = test_constants_v3.FAKE_PORT['id']
+        mocked_resource.delete(uuid)
+        test_client.assert_json_call(
+            'delete', mocked_resource,
+            'https://1.2.3.4/api/v1/logical-ports/%s?detach=true' % uuid)
 
 
 class LogicalRouterTestCase(nsxlib_testcase.NsxClientTestCase):
+
+    def _mocked_lrouter(self, session_response=None):
+        return self.mocked_resource(
+            resources.LogicalRouter, session_response=session_response)
 
     def test_create_logical_router(self):
         """
@@ -298,52 +284,39 @@ class LogicalRouterTestCase(nsxlib_testcase.NsxClientTestCase):
         """
         fake_router = test_constants_v3.FAKE_ROUTER.copy()
 
-        api = resources.LogicalRouter(client.NSX3Client())
-        with self.mocked_resource(api) as mocked:
-            mocked.get('post').return_value = mocks.MockRequestsResponse(
-                201, jsonutils.dumps(fake_router))
+        router = self._mocked_lrouter()
 
-            tier0_router = True
-            result = api.create(fake_router['display_name'], None, None,
-                                tier0_router)
+        tier0_router = True
+        router.create(fake_router['display_name'], None, None, tier0_router)
 
-            data = {
-                'display_name': fake_router['display_name'],
-                'router_type': 'TIER0' if tier0_router else 'TIER1',
-                'tags': None
-            }
+        data = {
+            'display_name': fake_router['display_name'],
+            'router_type': 'TIER0' if tier0_router else 'TIER1',
+            'tags': None
+        }
 
-            self.assertEqual(fake_router, result)
-            test_client.assert_session_call(
-                mocked.get('post'),
-                'https://1.2.3.4/api/v1/logical-routers',
-                False,
-                jsonutils.dumps(data, sort_keys=True),
-                client.JSONRESTClient._DEFAULT_HEADERS,
-                nsxlib_testcase.NSX_CERT)
+        test_client.assert_json_call(
+            'post', router,
+            'https://1.2.3.4/api/v1/logical-routers',
+            data=jsonutils.dumps(data, sort_keys=True))
 
     def test_delete_logical_router(self):
         """
         Test deleting router
         """
-        api = resources.LogicalRouter(client.NSX3Client())
-        with self.mocked_resource(api) as mocked:
-            mocked.get('delete').return_value = mocks.MockRequestsResponse(
-                200, None)
-
-            uuid = test_constants_v3.FAKE_ROUTER['id']
-            result = api.delete(uuid)
-            self.assertIsNone(result.content)
-            test_client.assert_session_call(
-                mocked.get('delete'),
-                'https://1.2.3.4/api/v1/logical-routers/%s' % uuid,
-                False,
-                None,
-                client.JSONRESTClient._DEFAULT_HEADERS,
-                nsxlib_testcase.NSX_CERT)
+        router = self._mocked_lrouter()
+        uuid = test_constants_v3.FAKE_ROUTER['id']
+        router.delete(uuid)
+        test_client.assert_json_call(
+            'delete', router,
+            'https://1.2.3.4/api/v1/logical-routers/%s' % uuid)
 
 
 class LogicalRouterPortTestCase(nsxlib_testcase.NsxClientTestCase):
+
+    def _mocked_lrport(self, session_response=None):
+        return self.mocked_resource(
+            resources.LogicalRouterPort, session_response=session_response)
 
     def test_create_logical_router_port(self):
         """
@@ -351,50 +324,35 @@ class LogicalRouterPortTestCase(nsxlib_testcase.NsxClientTestCase):
         """
         fake_router_port = test_constants_v3.FAKE_ROUTER_PORT.copy()
 
-        api = resources.LogicalRouterPort(client.NSX3Client())
-        with self.mocked_resource(api) as mocked:
-            mocked.get('post').return_value = mocks.MockRequestsResponse(
-                201, jsonutils.dumps(fake_router_port))
+        lrport = self._mocked_lrport()
 
-            result = api.create(fake_router_port['logical_router_id'],
-                                fake_router_port['display_name'],
-                                fake_router_port['resource_type'],
-                                None, None, None)
+        lrport.create(fake_router_port['logical_router_id'],
+                      fake_router_port['display_name'],
+                      fake_router_port['resource_type'],
+                      None, None, None)
 
-            data = {
-                'display_name': fake_router_port['display_name'],
-                'logical_router_id': fake_router_port['logical_router_id'],
-                'resource_type': fake_router_port['resource_type']
-            }
+        data = {
+            'display_name': fake_router_port['display_name'],
+            'logical_router_id': fake_router_port['logical_router_id'],
+            'resource_type': fake_router_port['resource_type']
+        }
 
-            self.assertEqual(fake_router_port, result)
-            test_client.assert_session_call(
-                mocked.get('post'),
-                'https://1.2.3.4/api/v1/logical-router-ports',
-                False,
-                jsonutils.dumps(data, sort_keys=True),
-                client.JSONRESTClient._DEFAULT_HEADERS,
-                nsxlib_testcase.NSX_CERT)
+        test_client.assert_json_call(
+            'post', lrport,
+            'https://1.2.3.4/api/v1/logical-router-ports',
+            data=jsonutils.dumps(data, sort_keys=True))
 
     def test_delete_logical_router_port(self):
         """
         Test deleting router port
         """
-        api = resources.LogicalRouterPort(client.NSX3Client())
-        with self.mocked_resource(api) as mocked:
-            mocked.get('delete').return_value = mocks.MockRequestsResponse(
-                200, None)
+        lrport = self._mocked_lrport()
 
-            uuid = test_constants_v3.FAKE_ROUTER_PORT['id']
-            result = api.delete(uuid)
-            self.assertIsNone(result.content)
-            test_client.assert_session_call(
-                mocked.get('delete'),
-                'https://1.2.3.4/api/v1/logical-router-ports/%s' % uuid,
-                False,
-                None,
-                client.JSONRESTClient._DEFAULT_HEADERS,
-                nsxlib_testcase.NSX_CERT)
+        uuid = test_constants_v3.FAKE_ROUTER_PORT['id']
+        lrport.delete(uuid)
+        test_client.assert_json_call(
+            'delete', lrport,
+            'https://1.2.3.4/api/v1/logical-router-ports/%s' % uuid)
 
     def test_get_logical_router_port_by_router_id(self):
         """
@@ -403,22 +361,17 @@ class LogicalRouterPortTestCase(nsxlib_testcase.NsxClientTestCase):
         fake_router_port = test_constants_v3.FAKE_ROUTER_PORT.copy()
         resp_resources = {'results': [fake_router_port]}
 
-        api = resources.LogicalRouterPort(client.NSX3Client())
-        with self.mocked_resource(api) as mocked:
-            mocked.get('get').return_value = mocks.MockRequestsResponse(
-                200, jsonutils.dumps(resp_resources))
+        lrport = self._mocked_lrport(
+            session_response=mocks.MockRequestsResponse(
+                200, jsonutils.dumps(resp_resources)))
 
-            router_id = fake_router_port['logical_router_id']
-            result = api.get_by_router_id(router_id)
-            self.assertEqual(fake_router_port, result[0])
-            test_client.assert_session_call(
-                mocked.get('get'),
-                'https://1.2.3.4/api/v1/logical-router-ports/?'
-                'logical_router_id=%s' % router_id,
-                False,
-                None,
-                client.JSONRESTClient._DEFAULT_HEADERS,
-                nsxlib_testcase.NSX_CERT)
+        router_id = fake_router_port['logical_router_id']
+        result = lrport.get_by_router_id(router_id)
+        self.assertEqual(fake_router_port, result[0])
+        test_client.assert_json_call(
+            'get', lrport,
+            'https://1.2.3.4/api/v1/logical-router-ports/?'
+            'logical_router_id=%s' % router_id)
 
     def test_get_logical_router_port_by_switch_id(self):
         """
@@ -430,19 +383,13 @@ class LogicalRouterPortTestCase(nsxlib_testcase.NsxClientTestCase):
             'results': [fake_router_port]
         }
 
-        api = resources.LogicalRouterPort(client.NSX3Client())
-        with self.mocked_resource(api) as mocked:
-            mocked.get('get').return_value = mocks.MockRequestsResponse(
-                200, jsonutils.dumps(resp_resources))
+        lrport = self._mocked_lrport(
+            session_response=mocks.MockRequestsResponse(
+                200, jsonutils.dumps(resp_resources)))
 
-            switch_id = test_constants_v3.FAKE_SWITCH_UUID
-            result = api.get_by_lswitch_id(switch_id)
-            self.assertEqual(fake_router_port, result)
-            test_client.assert_session_call(
-                mocked.get('get'),
-                'https://1.2.3.4/api/v1/logical-router-ports/?'
-                'logical_switch_id=%s' % switch_id,
-                False,
-                None,
-                client.JSONRESTClient._DEFAULT_HEADERS,
-                nsxlib_testcase.NSX_CERT)
+        switch_id = test_constants_v3.FAKE_SWITCH_UUID
+        lrport.get_by_lswitch_id(switch_id)
+        test_client.assert_json_call(
+            'get', lrport,
+            'https://1.2.3.4/api/v1/logical-router-ports/?'
+            'logical_switch_id=%s' % switch_id)

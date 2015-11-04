@@ -198,6 +198,9 @@ class MockRequestSessionApi(object):
         else:
             response_content = self._create(url, body, **kwargs)
 
+        if isinstance(response_content, MockRequestsResponse):
+            return response_content
+
         return self._build_response(
             url, content=response_content, status=requests.codes.ok, **kwargs)
 

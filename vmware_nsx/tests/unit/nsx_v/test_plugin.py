@@ -1180,6 +1180,9 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
             super(TestSubnetsV2, self).test_create_subnet_ipv6_gw_values()
             self.assertEqual(ctx_manager.exception.code, 400)
 
+    def test_create_subnet_only_ip_version_v6_old(self):
+        self.skipTest('Currently not supported')
+
 
 class TestSubnetPoolsV2(NsxVPluginV2TestCase, test_plugin.TestSubnetsV2):
     def setUp(self,
@@ -1272,6 +1275,9 @@ class TestSubnetPoolsV2(NsxVPluginV2TestCase, test_plugin.TestSubnetsV2):
 
     def test_update_subnet_route_to_None(self):
         self.skipTest("Skip test for not implemented host_routes feature")
+
+    def test_create_subnet_only_ip_version_v6_old(self):
+        self.skipTest('Currently not supported')
 
 
 class TestBasicGet(test_plugin.TestBasicGet, NsxVPluginV2TestCase):
@@ -2219,6 +2225,9 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
             with self.subnet(network=net, enable_dhcp=False):
                 self._make_floatingip(self.fmt, net_id)
 
+    def test_create_router_gateway_fails(self):
+        self.skipTest('not supported')
+
 
 class ExtGwModeTestCase(NsxVPluginV2TestCase,
                         test_ext_gw_mode.ExtGwModeIntTestCase):
@@ -2498,9 +2507,46 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
     def test_router_add_interface_multiple_ipv6_subnets_different_net(self):
         self.skipTest('TBD')
 
+    def test_create_router_gateway_fails(self):
+        self.skipTest('not supported')
 
-class TestNSXvAllowedAddressPairs(test_addr_pair.TestAllowedAddressPairs,
-                                  NsxVPluginV2TestCase):
+
+class TestNSXvAllowedAddressPairs(NsxVPluginV2TestCase,
+                                  test_addr_pair.TestAllowedAddressPairs):
+
+    def setUp(self, plugin=PLUGIN_NAME):
+        super(TestNSXvAllowedAddressPairs, self).setUp(plugin=plugin)
+
+    # NOTE: the tests below are skipped due to the fact that they update the
+    # mac address. The NSX|V does not support address pairs when a MAC address
+    # is configured.
+    def test_create_port_allowed_address_pairs(self):
+        pass
+
+    def test_create_address_gets_port_mac(self):
+        pass
+
+    def test_update_add_address_pairs(self):
+        pass
+
+    def test_equal_to_max_allowed_address_pair(self):
+        pass
+
+    def test_update_port_security_off_address_pairs(self):
+        pass
+
+    def test_create_port_security_true_allowed_address_pairs(self):
+        pass
+
+    def test_create_port_security_false_allowed_address_pairs(self):
+        pass
+
+    def test_create_port_remove_allowed_address_pairs(self):
+        pass
+
+    def test_create_overlap_with_fixed_ip(self):
+        pass
+
     def test_get_vlan_network_name(self):
         pass
 

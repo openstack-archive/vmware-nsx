@@ -65,6 +65,7 @@ from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.nsxlib.v3 import client as nsx_client
+from vmware_nsx.nsxlib.v3 import cluster as nsx_cluster
 from vmware_nsx.nsxlib.v3 import dfw_api as firewall
 from vmware_nsx.nsxlib.v3 import resources as nsx_resources
 from vmware_nsx.nsxlib.v3 import router
@@ -105,7 +106,11 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
 
     def __init__(self):
         super(NsxV3Plugin, self).__init__()
-        LOG.info(_("Starting NsxV3Plugin"))
+        LOG.info(_LI("Starting NsxV3Plugin"))
+
+        self._api_cluster = nsx_cluster.NSXClusteredAPI()
+        self._nsx_client = nsx_client.NSX3Client(self._api_cluster)
+        nsx_client._set_default_api_cluster(self._api_cluster)
 
         self.base_binding_dict = {
             pbin.VIF_TYPE: pbin.VIF_TYPE_OVS,
@@ -115,7 +120,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 'security-group' in self.supported_extension_aliases}}
         self.tier0_groups_dict = {}
         self._setup_rpc()
-        self._nsx_client = nsx_client.NSX3Client()
+
         self._port_client = nsx_resources.LogicalPort(self._nsx_client)
         self.nsgroup_container, self.default_section = (
             security.init_nsgroup_container_and_default_section_rules())

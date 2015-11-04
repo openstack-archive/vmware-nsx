@@ -46,65 +46,59 @@ class NsxLibSwitchTestCase(nsxlib_testcase.NsxClientTestCase):
         """
         Test creating a switch returns the correct response and 200 status
         """
-        api = self.new_client(nsxlib.client.NSX3Client)
-        with self.mocked_client_bridge(api, nsxlib, 'client') as mocked:
-            nsxlib.create_logical_switch(
-                nsx_v3_mocks.FAKE_NAME, NsxLibSwitchTestCase._tz_id, [])
-            test_client.assert_session_call(
-                mocked.get('post'),
-                'https://1.2.3.4/api/v1/logical-switches',
-                False, jsonutils.dumps(self._create_body(), sort_keys=True),
-                nsxlib.client.JSONRESTClient._DEFAULT_HEADERS,
-                nsxlib_testcase.NSX_CERT)
+        api = self.mocked_rest_fns(nsxlib, 'client')
+
+        nsxlib.create_logical_switch(
+            nsx_v3_mocks.FAKE_NAME, NsxLibSwitchTestCase._tz_id, [])
+
+        test_client.assert_json_call(
+            'post', api,
+            'https://1.2.3.4/api/v1/logical-switches',
+            data=jsonutils.dumps(self._create_body(), sort_keys=True))
 
     def test_create_logical_switch_admin_down(self):
         """
         Test creating switch with admin_state down
         """
-        api = self.new_client(nsxlib.client.NSX3Client)
-        with self.mocked_client_bridge(api, nsxlib, 'client') as mocked:
-            nsxlib.create_logical_switch(
-                nsx_v3_mocks.FAKE_NAME, NsxLibSwitchTestCase._tz_id,
-                [], admin_state=False)
-            test_client.assert_session_call(
-                mocked.get('post'),
-                'https://1.2.3.4/api/v1/logical-switches',
-                False,
-                jsonutils.dumps(self._create_body(
-                    admin_state=nsx_constants.ADMIN_STATE_DOWN),
-                    sort_keys=True),
-                nsxlib.client.JSONRESTClient._DEFAULT_HEADERS,
-                nsxlib_testcase.NSX_CERT)
+        api = self.mocked_rest_fns(nsxlib, 'client')
+
+        nsxlib.create_logical_switch(
+            nsx_v3_mocks.FAKE_NAME, NsxLibSwitchTestCase._tz_id,
+            [], admin_state=False)
+
+        test_client.assert_json_call(
+            'post', api,
+            'https://1.2.3.4/api/v1/logical-switches',
+            data=jsonutils.dumps(self._create_body(
+                admin_state=nsx_constants.ADMIN_STATE_DOWN),
+                sort_keys=True))
 
     def test_create_logical_switch_vlan(self):
         """
         Test creating switch with provider:network_type VLAN
         """
-        api = self.new_client(nsxlib.client.NSX3Client)
-        with self.mocked_client_bridge(api, nsxlib, 'client') as mocked:
-            nsxlib.create_logical_switch(
-                nsx_v3_mocks.FAKE_NAME, NsxLibSwitchTestCase._tz_id,
-                [], vlan_id='123')
-            test_client.assert_session_call(
-                mocked.get('post'),
-                'https://1.2.3.4/api/v1/logical-switches',
-                False, jsonutils.dumps(self._create_body(vlan_id='123'),
-                                       sort_keys=True),
-                nsxlib.client.JSONRESTClient._DEFAULT_HEADERS,
-                nsxlib_testcase.NSX_CERT)
+        api = self.mocked_rest_fns(nsxlib, 'client')
+
+        nsxlib.create_logical_switch(
+            nsx_v3_mocks.FAKE_NAME, NsxLibSwitchTestCase._tz_id,
+            [], vlan_id='123')
+
+        test_client.assert_json_call(
+            'post', api,
+            'https://1.2.3.4/api/v1/logical-switches',
+            data=jsonutils.dumps(self._create_body(vlan_id='123'),
+                                 sort_keys=True))
 
     def test_delete_logical_switch(self):
         """
         Test deleting switch
         """
-        api = self.new_client(nsxlib.client.NSX3Client)
-        with self.mocked_client_bridge(api, nsxlib, 'client') as mocked:
-            fake_switch = nsx_v3_mocks.make_fake_switch()
-            nsxlib.delete_logical_switch(fake_switch['id'])
-            test_client.assert_session_call(
-                mocked.get('delete'),
-                'https://1.2.3.4/api/v1/logical-switches/%s'
-                '?detach=true&cascade=true' % fake_switch['id'],
-                False, None,
-                nsxlib.client.JSONRESTClient._DEFAULT_HEADERS,
-                nsxlib_testcase.NSX_CERT)
+        api = self.mocked_rest_fns(nsxlib, 'client')
+
+        fake_switch = nsx_v3_mocks.make_fake_switch()
+        nsxlib.delete_logical_switch(fake_switch['id'])
+
+        test_client.assert_json_call(
+            'delete', api,
+            'https://1.2.3.4/api/v1/logical-switches/%s'
+            '?detach=true&cascade=true' % fake_switch['id'])

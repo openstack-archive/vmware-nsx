@@ -97,17 +97,18 @@ function neutron_plugin_configure_service {
         Q_L3_ENABLED=True
         Q_L3_ROUTER_PER_TENANT=True
     fi
-    # NSX_CONTROLLERS must be a comma separated string
-    if [[ "$NSX_CONTROLLERS" != "" ]]; then
-        iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_controllers $NSX_CONTROLLERS
+    # NSX_MANAGER must be a comma separated string
+    if [[ "$NSX_MANAGERS" != "" ]]; then
+        _nsxv3_ini_set nsx_managers $NSX_MANAGERS
+    elif [[ "$NSX_MANAGER" != "" ]]; then
+        _nsxv3_ini_set nsx_managers $NSX_MANAGER
     else
-        die $LINENO "The VMware NSX plugin needs at least an NSX controller."
+        die $LINENO "The VMware NSX plugin needs at least one NSX manager."
     fi
     if [[ "$NSX_L2GW_DRIVER" != "" ]]; then
         iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_l2gw_driver $NSX_L2GW_DRIVER
     fi
     _nsxv3_ini_set default_tier0_router_uuid $DEFAULT_TIER0_ROUTER_UUID
-    _nsxv3_ini_set nsx_manager $NSX_MANAGER "The VMWare NSX plugin needs a NSX manager."
     _nsxv3_ini_set nsx_user $NSX_USER
     _nsxv3_ini_set nsx_password $NSX_PASSWORD
     _nsxv3_ini_set retries $NSX_RETRIES
