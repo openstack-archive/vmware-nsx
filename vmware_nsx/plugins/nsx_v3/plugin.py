@@ -395,6 +395,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 created_net = super(NsxV3Plugin, self).create_network(context,
                                                                       network)
 
+                if psec.PORTSECURITY not in net_data:
+                    net_data[psec.PORTSECURITY] = True
                 self._process_network_port_security_create(
                     context, net_data, created_net)
                 self._process_l3_create(context, created_net, net_data)

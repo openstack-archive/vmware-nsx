@@ -77,8 +77,8 @@ class NsxPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
             attrs.update(providernet_args)
         for arg in (('admin_state_up', 'tenant_id', 'shared') +
                     (arg_list or ())):
-            # Arg must be present and not empty
-            if arg in kwargs and kwargs[arg]:
+            # Arg must be present
+            if arg in kwargs:
                 data['network'][arg] = kwargs[arg]
         network_req = self.new_create_request('networks', data, fmt)
         if (kwargs.get('set_context') and 'tenant_id' in kwargs):
