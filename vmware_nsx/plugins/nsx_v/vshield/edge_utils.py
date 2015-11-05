@@ -666,6 +666,50 @@ class EdgeManager(object):
                 lock_file_prefix='nsxv-dhcp-config-'):
             self.update_dhcp_service_config(context, edge_binding['edge_id'])
 
+    def create_static_binding(self, context, port):
+        """Create the DHCP Edge static binding configuration
+
+        <staticBinding>
+            <macAddress></macAddress>
+            <ipAddress></ipAddress>
+            <hostname></hostname> <!--disallow duplicate-->
+            <defaultGateway></defaultGateway> <!--optional.-->
+            <primaryNameServer></primaryNameServer> <!--optional-->
+            <secondaryNameServer></secondaryNameServer> <!--optional-->
+        </staticBinding>
+        """
+        static_bindings = []
+        static_config = {}
+        static_config['macAddress'] = port['mac_address']
+        static_config['hostname'] = port['id']
+        static_config['leaseTime'] = cfg.CONF.nsxv.dhcp_lease_time
+
+        for fixed_ip in port['fixed_ips']:
+            # Query the subnet to get gateway and DNS
+            try:
+                subnet_id = fixed_ip['subnet_id']
+                subnet = self.nsxv_plugin._get_subnet(context, subnet_id)
+            except n_exc.SubnetNotFound:
+                LOG.debug("No related subnet for port %s", port['id'])
+                continue
+            # Only configure if subnet has DHCP support
+            if not subnet['enable_dhcp']:
+                continue
+            static_config['ipAddress'] = fixed_ip['ip_address']
+            # Set gateway for static binding
+            static_config['defaultGateway'] = subnet['gateway_ip']
+            # set primary and secondary dns
+            name_servers = [dns['address']
+                            for dns in subnet['dns_nameservers']]
+            if len(name_servers) == 1:
+                static_config['primaryNameServer'] = name_servers[0]
+            elif len(name_servers) >= 2:
+                static_config['primaryNameServer'] = name_servers[0]
+                static_config['secondaryNameServer'] = name_servers[1]
+
+            static_bindings.append(static_config)
+        return static_bindings
+
     def update_dhcp_service_config(self, context, edge_id):
         """Reconfigure the DHCP to the edge."""
         # Get all networks attached to the edge
@@ -681,7 +725,7 @@ class EdgeManager(object):
         static_bindings = []
         for port in inst_ports:
             static_bindings.extend(
-                self.nsxv_plugin._create_static_binding(
+                self.create_static_binding(
                     context.elevated(), port))
         dhcp_request = {
             'featureType': "dhcp_4.0",
