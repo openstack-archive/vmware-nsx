@@ -2614,7 +2614,7 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
         res = router_req.get_response(self.ext_api)
         router = self.deserialize(self.fmt, res)
         msg = ('Bad router request: '
-               'Cannot specify router-size for shared router')
+               'Cannot specify router-size for shared router.')
         self.assertEqual("BadRequest", router['NeutronError']['type'])
         self.assertEqual(msg, router['NeutronError']['message'])
 
