@@ -111,6 +111,9 @@ class Vcns(object):
             _client = self.xmlapi_client.request
         header, content = self._client_request(_client, method, uri, params,
                                                headers, encodeParams)
+
+        LOG.debug('VcnsApiHelper reply: header=%(header)s content=%(content)s',
+                  {'header': header, 'content': content})
         if content == '':
             return header, {}
         if kwargs.get('decode', True):
