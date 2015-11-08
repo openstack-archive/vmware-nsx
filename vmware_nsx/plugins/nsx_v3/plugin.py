@@ -836,8 +836,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                             context, id, {'port': original_port}, updated_port,
                             original_port)
 
-        #TODO(roeyc): add port to nsgroups
-
         return updated_port
 
     def _extract_external_gw(self, context, router, is_extract=True):
