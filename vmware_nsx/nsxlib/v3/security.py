@@ -235,13 +235,13 @@ def _init_default_section(name, description, nsgroup_id):
             utils.build_v3_api_version_tag())
         block_rule = firewall.get_firewall_rule_dict(
             'Block All', action=firewall.DROP)
-
+        # TODO(roeyc): Add additional rules to allow IPV6 NDP.
         dhcp_client = firewall.get_nsservice(firewall.L4_PORT_SET_NSSERVICE,
                                              l4_protocol=firewall.UDP,
                                              source_ports=[67],
                                              destination_ports=[68])
         dhcp_client_rule_in = firewall.get_firewall_rule_dict(
-            'DHCP-Client-IN', direction=firewall.IN, service=dhcp_client)
+            'DHCP Reply', direction=firewall.IN, service=dhcp_client)
 
         dhcp_server = (
             firewall.get_nsservice(firewall.L4_PORT_SET_NSSERVICE,
@@ -249,7 +249,7 @@ def _init_default_section(name, description, nsgroup_id):
                                    source_ports=[68],
                                    destination_ports=[67]))
         dhcp_client_rule_out = firewall.get_firewall_rule_dict(
-            'DHCP-Client-OUT', direction=firewall.OUT, service=dhcp_server)
+            'DHCP Request', direction=firewall.OUT, service=dhcp_server)
 
         firewall.add_rules_in_section([dhcp_client_rule_out,
                                        dhcp_client_rule_in,

@@ -32,7 +32,6 @@ from neutron.tests.unit.extensions import test_extraroute as test_ext_route
 from neutron.tests.unit.extensions import test_l3 as test_l3_plugin
 from neutron.tests.unit.extensions \
     import test_l3_ext_gw_mode as test_ext_gw_mode
-from neutron.tests.unit.extensions import test_securitygroup as ext_sg
 from neutron import version
 
 from oslo_config import cfg
@@ -173,10 +172,6 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin):
                                  data['port']['admin_state_up'])
                 self.assertEqual(res['port']['fixed_ips'],
                                  data['port']['fixed_ips'])
-
-
-class TestSecurityGroups(NsxV3PluginTestCaseMixin, ext_sg.TestSecurityGroups):
-    pass
 
 
 class DHCPOptsTestCase(test_dhcpopts.TestExtraDhcpOpt,
