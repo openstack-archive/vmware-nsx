@@ -20,6 +20,7 @@ from networking_l2gw.services.l2gateway import exceptions as l2gw_exc
 from neutron.common import exceptions as n_exc
 from neutron.i18n import _LE
 from neutron import manager
+from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import uuidutils
@@ -98,8 +99,9 @@ class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
         if not edge_binding:
             raise nsx_exc.NsxL2GWDeviceNotFound()
         # Enable edge HA on the DLR
-        edge_id = edge_binding['edge_id']
-        self._edge_manager.nsxv_manager.update_edge_ha(edge_id)
+        if cfg.CONF.nsxv.edge_ha:
+            edge_id = edge_binding['edge_id']
+            self._edge_manager.nsxv_manager.update_edge_ha(edge_id)
         return edge_binding['edge_id']
 
     def _get_device(self, context, l2gw_id):
