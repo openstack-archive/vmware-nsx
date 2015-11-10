@@ -664,7 +664,11 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             # backend and change it's admin state to DOWN
             updated_port = {'port': {ext_sg.SECURITYGROUPS: [],
                                      'admin_state_up': False}}
-            self.update_port(context, port_id, updated_port)
+            _, nsx_lport_id = nsx_db.get_nsx_switch_and_port_id(
+                context.session, port_id)
+            self._update_port_on_backend(context, nsx_lport_id,
+                                         port, updated_port,
+                                         [], [])
             self._port_client.delete(nsx_port_id)
         self.disassociate_floatingips(context, port_id)
         ret_val = super(NsxV3Plugin, self).delete_port(context, port_id)
@@ -732,6 +736,21 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
 
         return updated_port
 
+    def _update_port_on_backend(self, context, lport_id,
+                                original_port, updated_port,
+                                address_bindings,
+                                switch_profile_ids):
+        self._port_client.update(
+            lport_id, name=updated_port.get('name'),
+            admin_state=updated_port.get('admin_state_up'),
+            address_bindings=address_bindings,
+            switch_profile_ids=switch_profile_ids)
+
+        security.update_lport_with_security_groups(
+            context, lport_id,
+            original_port.get(ext_sg.SECURITYGROUPS, []),
+            updated_port.get(ext_sg.SECURITYGROUPS, []))
+
     def update_port(self, context, id, port):
         original_port = super(NsxV3Plugin, self).get_port(context, id)
         _, nsx_lport_id = nsx_db.get_nsx_switch_and_port_id(
@@ -764,16 +783,10 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             switch_profile_ids = [self._get_port_security_profile_id()]
 
         try:
-            self._port_client.update(
-                nsx_lport_id, name=updated_port.get('name'),
-                admin_state=updated_port.get('admin_state_up'),
-                address_bindings=address_bindings,
-                switch_profile_ids=switch_profile_ids)
-
-            security.update_lport_with_security_groups(
-                context, nsx_lport_id,
-                original_port.get(ext_sg.SECURITYGROUPS, []),
-                updated_port.get(ext_sg.SECURITYGROUPS, []))
+            self._update_port_on_backend(context, nsx_lport_id,
+                                         original_port, updated_port,
+                                         address_bindings,
+                                         switch_profile_ids)
         except nsx_exc.ManagerError:
             # In case if there is a failure on NSX-v3 backend, rollback the
             # previous update operation on neutron side.
