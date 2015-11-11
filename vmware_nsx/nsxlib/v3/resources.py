@@ -129,6 +129,7 @@ class SwitchingProfile(AbstractRESTResource):
             'server_block_enabled': False
         }
         rate_limits = {
+            'enabled': False,
             'rx_broadcast': 0,
             'tx_broadcast': 0,
             'rx_multicast': 0,
