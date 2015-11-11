@@ -185,16 +185,14 @@ def get_ip_cidr_reference(ip_cidr_block, ip_protocol):
 
 def get_firewall_rule_dict(display_name, source=None, destination=None,
                            direction=IN_OUT, ip_protocol=IPV4_IPV6,
-                           service=None, action=ALLOW, applied_tos=None):
+                           service=None, action=ALLOW):
     return {'display_name': display_name,
             'sources': [source] if source else [],
             'destinations': [destination] if destination else [],
             'direction': direction,
             'ip_protocol': ip_protocol,
             'services': [service] if service else [],
-            'action': action,
-            'applied_tos': [get_nsgroup_reference(t_id) for t_id
-                            in applied_tos] if applied_tos else []}
+            'action': action}
 
 
 def add_rule_in_section(rule, section_id):
