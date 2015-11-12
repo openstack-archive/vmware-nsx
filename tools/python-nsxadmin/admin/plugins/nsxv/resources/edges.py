@@ -18,20 +18,21 @@ import logging
 from admin.plugins.common import constants
 from admin.plugins.common import formatters
 from admin.plugins.common.utils import output_header
+from admin.plugins.common.utils import parse_multi_keyval_opt
 from admin.plugins.common.utils import query_yes_no
 import admin.plugins.nsxv.resources.utils as utils
 from admin.shell import Operations
 
 from neutron.callbacks import registry
-from neutron.i18n import _LI
+from neutron.i18n import _LE, _LI
 
 from vmware_nsx.db import nsxv_db
 
 LOG = logging.getLogger(__name__)
+nsxv = utils.get_nsxv_client()
 
 
 def get_nsxv_edges():
-    nsxv = utils.get_nsxv_client()
     edges = nsxv.get_edges()[1]
     return edges['edgePage'].get('data', [])
 
@@ -102,6 +103,29 @@ def nsx_delete_orphaned_edges(resource, event, trigger, **kwargs):
     LOG.info(_LI("After delete; Orphaned Edges: %s"), get_orphaned_edges())
 
 
+@output_header
+def nsx_update_edge(resource, event, trigger, **kwargs):
+    """Update edge properties"""
+    if not kwargs.get('property'):
+        LOG.error(_LE("Need to specify edge-id parameter and "
+                      "attribute to update. Add --property edge-id=<edge-id> "
+                      "--property highavailability=True"))
+        return
+    properties = parse_multi_keyval_opt(kwargs['property'])
+    if not properties.get('edge-id'):
+        LOG.error(_LE("Need to specify edge-id. "
+                      "Add --property edge-id=<edge-id>"))
+        return
+    LOG.info(_LI("Updating NSXv edge: %(edge)s with properties\n%(prop)s"),
+             {'edge': properties.get('edge-id'), 'prop': properties})
+    if properties.get('highavailability'):
+        ha = bool(properties.get('highavailability').lower() == "true")
+        ha_request = {
+            'featureType': 'highavailability_4.0',
+            'enabled': ha}
+    return nsxv.enable_ha(properties.get('edge-id'), ha_request, async=False)
+
+
 registry.subscribe(nsx_list_edges,
                    constants.EDGES,
                    Operations.LIST.value)
@@ -114,3 +138,6 @@ registry.subscribe(nsx_list_orphaned_edges,
 registry.subscribe(nsx_delete_orphaned_edges,
                    constants.EDGES,
                    Operations.CLEAN.value)
+registry.subscribe(nsx_update_edge,
+                   constants.EDGES,
+                   Operations.NSX_UPDATE.value)

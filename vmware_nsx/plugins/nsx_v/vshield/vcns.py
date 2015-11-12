@@ -801,9 +801,11 @@ class Vcns(object):
         return self.do_request(HTTP_PUT, uri, et.tostring(tuning),
                                format='xml', decode=True)
 
-    def enable_ha(self, edge_id, request_config):
+    def enable_ha(self, edge_id, request_config, async=True):
         """Enable HA in the given edge."""
-        uri = "/api/4.0/edges/%s/highavailability/config?async=true" % edge_id
+        uri = "/api/4.0/edges/%s/highavailability/config" % edge_id
+        if async:
+            uri += "?async=true"
         return self.do_request(HTTP_PUT, uri, request_config)
 
     def upload_edge_certificate(self, edge_id, request):
