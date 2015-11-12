@@ -201,9 +201,10 @@ class LogicalPort(AbstractRESTResource):
             # NOTE(arosen): The above api body structure might change
             # in the future
 
-        body = {'logical_switch_id': lswitch_id,
-                'attachment': {'attachment_type': attachment_type,
-                               'id': vif_uuid}}
+        body = {'logical_switch_id': lswitch_id}
+        if attachment_type and vif_uuid:
+            body['attachment'] = {'attachment_type': attachment_type,
+                                  'id': vif_uuid}
 
         if key_values:
             body['attachment']['context'] = {'key_values': key_values}
