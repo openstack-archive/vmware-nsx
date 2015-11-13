@@ -127,11 +127,7 @@ class MockRequestSessionApi(object):
 
     def _build_response(self, url, content=None,
                         status=requests.codes.ok, **kwargs):
-        if urlparse.urlparse(url).path.endswith('/static-routes/'):
-            content = {
-                'routes': content or []
-            }
-        elif type(content) is list:
+        if type(content) is list:
             content = {
                 'result_count': len(content),
                 'results': content
