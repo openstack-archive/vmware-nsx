@@ -528,7 +528,7 @@ class Vcns(object):
         uri = self._build_uri_path(edge_id, BRIDGE)
         return self.do_request(HTTP_DELETE, uri, format='xml', decode=False)
 
-    def create_section(self, type, request):
+    def create_section(self, type, request, insert_before=None):
         """Creates a layer 3 or layer 2 section in nsx rule table.
 
         The method will return the uri to newly created section.
@@ -538,6 +538,13 @@ class Vcns(object):
         else:
             sec_type = 'layer2sections'
         uri = '%s/%s?autoSaveDraft=false' % (FIREWALL_PREFIX, sec_type)
+        # We want to place security-group sections before the default cluster
+        # section, and we want to place the default cluster section before the
+        # global default section.
+        if insert_before:
+            uri += '&operation=insert_before&anchorId=%s' % insert_before
+        else:
+            uri += '&operation=insert_before&anchorId=1003'
         return self.do_request(HTTP_POST, uri, request, format='xml',
                                decode=False, encode=False)
 

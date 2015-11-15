@@ -142,3 +142,7 @@ class NsxSecurityGroupUtils(object):
 
     def get_nsx_section_name(self, nsx_sg_name):
         return 'SG Section: %s' % nsx_sg_name
+
+    def parse_and_get_section_id(self, section_xml):
+        section = et.fromstring(section_xml)
+        return section.attrib['id']
