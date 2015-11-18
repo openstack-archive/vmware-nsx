@@ -313,7 +313,6 @@ class LogicalRouterPort(AbstractRESTResource):
         nsx_exc.StaleRevision,
         max_attempts=cfg.CONF.nsx_v3.retries)
     def update(self, logical_port_id, **kwargs):
-        resource = '%s?detach=true' % logical_port_id
         logical_router_port = self.get(logical_port_id)
         for k in kwargs:
             logical_router_port[k] = kwargs[k]
@@ -321,7 +320,7 @@ class LogicalRouterPort(AbstractRESTResource):
         # then we will get a 412: Precondition Failed. In that case we need to
         # re-fetch, patch the response and send it again with the
         # new revision_id
-        return self._client.update(resource, body=logical_router_port)
+        return self._client.update(logical_port_id, body=logical_router_port)
 
     def delete(self, logical_port_id):
         return self._client.url_delete(logical_port_id)
