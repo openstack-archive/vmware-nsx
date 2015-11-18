@@ -113,11 +113,12 @@ class RouterLib(object):
         self._router_port_client.delete(tier0_link_port_id)
 
     def update_advertisement(self, logical_router_id, advertise_route_nat,
-                             advertise_route_connected):
+                             advertise_route_connected, enabled=True):
         return nsxlib.update_logical_router_advertisement(
             logical_router_id,
             advertise_nat_routes=advertise_route_nat,
-            advertise_nsx_connected_routes=advertise_route_connected)
+            advertise_nsx_connected_routes=advertise_route_connected,
+            enabled=enabled)
 
     def delete_gw_snat_rule(self, logical_router_id, gw_ip):
         return nsxlib.delete_nat_rule_by_values(logical_router_id,
