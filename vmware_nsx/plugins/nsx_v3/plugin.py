@@ -537,12 +537,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             msg = _('Invalid binding:profile. parent_name "%s" must be '
                     'a string.') % parent_name
             raise n_exc.InvalidInput(error_message=msg)
-        try:
-            # FIXME(arosen): use neutron.plugins.common.utils.is_valid_vlan_tag
-            tag = int(tag)
-            if(tag < 0 or tag > 4095):
-                raise ValueError
-        except ValueError:
+        if not n_utils.is_valid_vlan_tag(tag):
             msg = _('Invalid binding:profile. tag "%s" must be '
                     'an int between 1 and 4096, inclusive.') % tag
             raise n_exc.InvalidInput(error_message=msg)

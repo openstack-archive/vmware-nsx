@@ -407,9 +407,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             return subnets
 
         new_subnets = []
-        if(not fields
-           or as_providers.ADV_SERVICE_PROVIDERS in fields
-           or (filters and filters.get(as_providers.ADV_SERVICE_PROVIDERS))):
+        if (not fields
+            or as_providers.ADV_SERVICE_PROVIDERS in fields
+            or (filters and filters.get(as_providers.ADV_SERVICE_PROVIDERS))):
 
             # We only deal metadata provider field when:
             # - All fields are retrieved
@@ -423,8 +423,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
                 if md_filter is None or len(set(as_provider) & set(md_filter)):
                     # Include metadata_providers only if requested in results
-                    if(not fields
-                       or as_providers.ADV_SERVICE_PROVIDERS in fields):
+                    if (not fields
+                        or as_providers.ADV_SERVICE_PROVIDERS in fields):
                         subnet[as_providers.ADV_SERVICE_PROVIDERS] = (
                             as_provider)
 

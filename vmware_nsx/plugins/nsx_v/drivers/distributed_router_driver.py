@@ -276,9 +276,9 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                          'fixed_ips': {'subnet_id': [vdr_subnets[0]['id']]}},
                 fields=['fixed_ips'])
 
-            if(dhcp_ports
-               and dhcp_ports[0].get('fixed_ips')
-               and dhcp_ports[0]['fixed_ips'][0]):
+            if (dhcp_ports
+                and dhcp_ports[0].get('fixed_ips')
+                and dhcp_ports[0]['fixed_ips'][0]):
                 ip_subnet = dhcp_ports[0]['fixed_ips'][0]
                 ip_address = ip_subnet['ip_address']
                 network_id = self.plugin.get_subnet(
@@ -306,8 +306,8 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                     subnet_id = port['fixed_ips'][0]['subnet_id']
                     port_subnet = self.plugin.get_subnet(
                         context, subnet_id)
-                    if(port_subnet['id'] != subnet['id']
-                       and port_subnet['enable_dhcp']):
+                    if (port_subnet['id'] != subnet['id']
+                        and port_subnet['enable_dhcp']):
                         # We already have a subnet which is connected to
                         # DHCP - hence no need to change the metadata route
                         return False
@@ -322,8 +322,8 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         routes = edge_utils.get_routes(self.nsx_v, context, router_id)
 
         for route in routes:
-            if(route['destination'] == METADATA_CIDR
-               and subnet['network_id'] == route['network_id']):
+            if (route['destination'] == METADATA_CIDR
+                and subnet['network_id'] == route['network_id']):
 
                 # Metadata requests are transferred via this port
                 return True
