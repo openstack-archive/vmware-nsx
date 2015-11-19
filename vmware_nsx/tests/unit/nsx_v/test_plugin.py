@@ -1961,18 +1961,6 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
         router = self.deserialize(self.fmt, res)
         self.assertEqual('xlarge', router['router']['router_size'])
 
-    def test_router_create_fails_when_bad_edge_size_specified(self):
-        data = {'router': {
-                    'tenant_id': 'whatever',
-                    'name': 'test_router',
-                    'router_type': 'exclusive'}}
-        cfg.CONF.set_override('exclusive_router_appliance_size',
-                              'foobar', group='nsxv')
-        router_req = self.new_create_request('routers', data, self.fmt)
-        res = router_req.get_response(self.ext_api)
-        router = self.deserialize(self.fmt, res)
-        self.assertEqual("BadRequest", router['NeutronError']['type'])
-
     def test_router_add_gateway_invalid_network_returns_404(self):
         # NOTE(salv-orlando): This unit test has been overriden
         # as the nsx plugin support the ext_gw_mode extension

@@ -1403,16 +1403,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 raise n_exc.BadRequest(resource="router", msg=msg)
         else:
             if r.get('router_type') == nsxv_constants.EXCLUSIVE:
-                appliance_size = cfg.CONF.nsxv.exclusive_router_appliance_size
-                if appliance_size not in VALID_EDGE_SIZES:
-                    msg = (_("Invalid edge size specified in nsx.ini file. "
-                             "Specified value: %(specified)s; "
-                             "Valid values: %(valid)s") %
-                           {'specified': appliance_size,
-                            'valid': VALID_EDGE_SIZES})
-                    raise n_exc.BadRequest(resource="router", msg=msg)
-                else:
-                    r[ROUTER_SIZE] = appliance_size
+                r[ROUTER_SIZE] = cfg.CONF.nsxv.exclusive_router_appliance_size
 
     def create_router(self, context, router, allow_metadata=True):
         r = router['router']

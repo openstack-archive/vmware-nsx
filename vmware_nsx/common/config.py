@@ -18,6 +18,7 @@ from oslo_config import cfg
 
 from neutron.i18n import _LW
 from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.extensions import routersize
 
 LOG = logging.getLogger(__name__)
 
@@ -327,11 +328,11 @@ nsxv_opts = [
                 help=_("Enable HA for NSX Edges")),
     cfg.StrOpt('exclusive_router_appliance_size',
                default="compact",
+               choices=routersize.VALID_EDGE_SIZES,
                help=_("Edge appliance size to be used for creating exclusive "
-                      "router. Valid values: ['compact', 'large', 'xlarge', "
-                      "'quadlarge']. This edge_appliance_size will be picked "
-                      "up if --router-size parameter is not specified while "
-                      "doing neutron router-create")),
+                      "router. This edge_appliance_size will be picked up if "
+                      "--router-size parameter is not specified while doing "
+                      "neutron router-create")),
 ]
 
 # Register the configuration options
