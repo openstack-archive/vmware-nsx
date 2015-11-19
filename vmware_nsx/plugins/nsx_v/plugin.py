@@ -1391,7 +1391,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _validate_router_size(self, router):
         # Check if router-size is specified. router-size can only be specified
-        # for a exclusive non-distributed router; else raise a BadRequest
+        # for an exclusive non-distributed router; else raise a BadRequest
         # exception.
         r = router['router']
         if attr.is_attr_set(r.get(ROUTER_SIZE)):

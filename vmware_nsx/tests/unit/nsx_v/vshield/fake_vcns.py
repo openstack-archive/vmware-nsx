@@ -833,7 +833,7 @@ class FakeVcns(object):
         return (headers, response)
 
     def _unknown_error(self):
-        msg = "Unknown Error Occured.Please look into tech support logs."
+        msg = "Unknown Error Occurred.Please look into tech support logs."
         response = self._get_bad_req_response(msg, 100046, 'vShield App')
         headers = {'status': 400}
         return (headers, response)

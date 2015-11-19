@@ -428,7 +428,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         if not self._network_is_external(context, network_id):
             # TODO(salv-orlando): Handle backend failure, possibly without
             # requiring us to un-delete the DB object. For instance, ignore
-            # failures occuring if logical switch is not found
+            # failures occurring if logical switch is not found
             nsxlib.delete_logical_switch(network_id)
         else:
             # TODO(berlin): delete subnets public announce on the network
@@ -1375,7 +1375,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                     tags, operation=firewall.INSERT_BEFORE,
                     other_section=self.default_section))
 
-            # REVISIT(roeyc): Idealy, at this point we need not be under an
+            # REVISIT(roeyc): Ideally, at this point we need not be under an
             # open db transactions, however, unittests fail if omitting
             # subtransactions=True.
             with context.session.begin(subtransactions=True):
