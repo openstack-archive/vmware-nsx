@@ -78,7 +78,6 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def __init__(self):
         super(NsxDvsV2, self).__init__()
-        config.validate_config_options()
         LOG.debug('Driver support: DVS: %s' % dvs_utils.dvs_is_enabled())
         neutron_extensions.append_api_extensions_path(
             [vmware_nsx.NSX_EXT_PATH])
