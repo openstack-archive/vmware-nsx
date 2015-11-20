@@ -478,7 +478,7 @@ class EdgeManager(object):
     def _allocate_edge_appliance(self, context, resource_id, name,
                                  appliance_size=nsxv_constants.LARGE,
                                  dist=False):
-        """Try to allocate one avaliable edge from pool."""
+        """Try to allocate one available edge from pool."""
 
         edge_type = (nsxv_constants.VDR_EDGE if dist else
                      nsxv_constants.SERVICE_EDGE)
@@ -502,7 +502,7 @@ class EdgeManager(object):
             self._clean_all_error_edge_bindings(context)
             available_router_binding = self._get_available_router_binding(
                 context, appliance_size=appliance_size, edge_type=edge_type)
-        # Synchronously deploy an edge if no avaliable edge in pool.
+        # Synchronously deploy an edge if no available edge in pool.
         if not available_router_binding:
             # store router-edge mapping binding
             nsxv_db.add_nsxv_router_binding(
@@ -518,7 +518,7 @@ class EdgeManager(object):
             LOG.debug("Select edge: %(edge_id)s from pool for %(name)s",
                       {'edge_id': available_router_binding['edge_id'],
                        'name': name})
-            # select the first avaliable edge in pool.
+            # select the first available edge in pool.
             nsxv_db.delete_nsxv_router_binding(
                 context.session, available_router_binding['router_id'])
             nsxv_db.add_nsxv_router_binding(
@@ -1551,7 +1551,7 @@ def update_internal_interface(nsxv_manager, context, router_id, int_net_id,
     edge_id = binding['edge_id']
     edge_vnic_binding = nsxv_db.get_edge_vnic_binding(
         context.session, edge_id, int_net_id)
-    # if edge_vnic_binding is None, then first select one avaliable
+    # if edge_vnic_binding is None, then first select one available
     # internal vnic for connection.
     if not edge_vnic_binding:
         edge_vnic_binding = nsxv_db.allocate_edge_vnic(

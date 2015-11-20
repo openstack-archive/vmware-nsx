@@ -187,7 +187,7 @@ class VSMClient(object):
             endpoint = '/vdn/virtualwires/%s' % ls['objectId']
             response = self.delete(endpoint=endpoint)
             if response.status_code != 200:
-                print "ERROR: reponse status code %s" % response.status_code
+                print "ERROR: response status code %s" % response.status_code
 
     def query_all_firewall_sections(self):
         firewall_sections = []
@@ -217,7 +217,7 @@ class VSMClient(object):
                        l3sec['id']
             response = self.delete(endpoint=endpoint)
             if response.status_code != 204:
-                print "ERROR: reponse status code %s" % response.status_code
+                print "ERROR: response status code %s" % response.status_code
 
     def query_all_security_groups(self):
         security_groups = []
@@ -247,7 +247,7 @@ class VSMClient(object):
             params = {'force': self.force}
             response = self.delete(endpoint=endpoint, params=params)
             if response.status_code != 200:
-                print "ERROR: reponse status code %s" % response.status_code
+                print "ERROR: response status code %s" % response.status_code
 
     def query_all_spoofguard_policies(self):
         self.__set_api_version('4.0')
@@ -303,7 +303,7 @@ class VSMClient(object):
             endpoint = '/edges/%s' % edge['id']
             response = self.delete(endpoint=endpoint)
             if response.status_code != 204:
-                print "ERROR: reponse status code %s" % response.status_code
+                print "ERROR: response status code %s" % response.status_code
 
     def cleanup_all(self):
         self.cleanup_firewall_section()

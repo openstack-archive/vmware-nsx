@@ -17,7 +17,7 @@
 #    under the License.
 
 # The purpose of this script is to avoid casual introduction of more
-# bash dependency.  Please consider alternatives before commiting code
+# bash dependency.  Please consider alternatives before committing code
 # which uses bash specific features.
 
 # Ignore comments, but include shebangs

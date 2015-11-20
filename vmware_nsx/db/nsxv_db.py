@@ -163,7 +163,7 @@ def clean_edge_vnic_binding(session, edge_id):
 
 
 def allocate_edge_vnic(session, edge_id, network_id):
-    """Allocate an avaliable edge vnic to network."""
+    """Allocate an available edge vnic to network."""
 
     with session.begin(subtransactions=True):
         bindings = (session.query(nsxv_models.NsxvEdgeVnicBinding).
@@ -181,7 +181,7 @@ def allocate_edge_vnic(session, edge_id, network_id):
 
 
 def allocate_edge_vnic_with_tunnel_index(session, edge_id, network_id):
-    """Allocate an avaliable edge vnic with tunnel index to network."""
+    """Allocate an available edge vnic with tunnel index to network."""
 
     # TODO(berlin): temporary solution to let metadata and dhcp use
     # different vnics

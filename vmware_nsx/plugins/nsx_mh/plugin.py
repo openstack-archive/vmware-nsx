@@ -309,7 +309,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             context.session, self.cluster, router_id)
         if remove_snat_rules:
             # Be safe and concede NAT rules might not exist.
-            # Therefore use min_num_expected=0
+            # Therefore, use min_num_expected=0
             for cidr in cidrs:
                 routerlib.delete_nat_rules_by_match(
                     self.cluster, nsx_router_id, "SourceNatRule",
@@ -1907,7 +1907,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                         internal_subnet_cidr,
                                         'destination_ip_addresses':
                                         internal_ip})
-                    # setup snat rule such that src ip of a IP packet when
+                    # setup snat rule such that src ip of an IP packet when
                     # using floating is the floating ip itself.
                     routerlib.create_lrouter_snat_rule(
                         self.cluster, nsx_router_id, floating_ip, floating_ip,

@@ -836,7 +836,7 @@ class TestPortsV2(NsxVPluginV2TestCase,
                 self.assertEqual(len(ips), 1)
                 self.assertEqual(ips[0]['ip_address'], '10.0.0.2')
                 self.assertEqual(ips[0]['subnet_id'], subnet['subnet']['id'])
-                # Request a IP from specific subnet
+                # Request an IP from specific subnet
                 kwargs = {"fixed_ips": [{'subnet_id': subnet['subnet']['id']}]}
                 net_id = port['port']['network_id']
                 res = self._create_port(self.fmt, net_id=net_id, **kwargs)
@@ -849,7 +849,7 @@ class TestPortsV2(NsxVPluginV2TestCase,
 
     def test_requested_subnet_id_v4_and_v6(self):
         with self.subnet(enable_dhcp=False) as subnet:
-                # Get a IPv4 and IPv6 address
+                # Get an IPv4 and IPv6 address
                 tenant_id = subnet['subnet']['tenant_id']
                 net_id = subnet['subnet']['network_id']
                 res = self._create_subnet(
@@ -1104,7 +1104,7 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
                 self.assertEqual('17.129.122.5/32', subnet['subnet']['cidr'])
 
     def test_create_subnet_ipv6_attributes(self):
-        # Expected to fail for now as we dont't support IPv6 for NSXv
+        # Expected to fail for now as we don't support IPv6 for NSXv
         cidr = "fe80::/80"
         with testlib_api.ExpectedException(
                 webob.exc.HTTPClientError) as ctx_manager:
@@ -1962,9 +1962,9 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
         self.assertEqual('xlarge', router['router']['router_size'])
 
     def test_router_add_gateway_invalid_network_returns_404(self):
-        # NOTE(salv-orlando): This unit test has been overriden
+        # NOTE(salv-orlando): This unit test has been overridden
         # as the nsx plugin support the ext_gw_mode extension
-        # which mandates a uuid for the external network identifier
+        # which mandates an uuid for the external network identifier
         with self.router() as r:
             self._add_external_gateway_to_router(
                 r['router']['id'],
@@ -2511,11 +2511,11 @@ class TestNSXPortSecurity(test_psec.TestPortSecurity,
         super(TestNSXPortSecurity, self).setUp(plugin=plugin)
 
     def test_create_port_fails_with_secgroup_and_port_security_false(self):
-        # Security Gropus can be used even when port-security is disabled
+        # Security Groups can be used even when port-security is disabled
         pass
 
     def test_update_port_security_off_with_security_group(self):
-        # Security Gropus can be used even when port-security is disabled
+        # Security Groups can be used even when port-security is disabled
         pass
 
     def test_create_port_security_overrides_network_value(self):

@@ -60,7 +60,7 @@ class NsxCache(object):
     """
 
     def __init__(self):
-        # Maps a uuid to the dict containing it
+        # Maps an uuid to the dict containing it
         self._uuid_dict_mappings = {}
         # Dicts for NSX cached resources
         self._lswitches = {}
@@ -110,7 +110,7 @@ class NsxCache(object):
                 resources[item_id]['hit'] = True
                 resources[item_id]['changed'] = True
                 resources[item_id]['data'] = item
-                # add a uuid to dict mapping for easy retrieval
+                # add an uuid to dict mapping for easy retrieval
                 # with __getitem__
                 self._uuid_dict_mappings[item_id] = resources
                 LOG.debug("Added item %s to NSX object cache", item_id)
@@ -550,7 +550,7 @@ class NsxSynchronizer():
                           'num_requests': num_requests,
                           'max_page_size': MAX_PAGE_SIZE})
             # Only the first request might return the total size,
-            # subsequent requests will definetely not
+            # subsequent requests will definitely not
             results, cursor, total_size = nsxlib.get_single_query_page(
                 uri, self._cluster, cursor,
                 min(page_size, MAX_PAGE_SIZE))

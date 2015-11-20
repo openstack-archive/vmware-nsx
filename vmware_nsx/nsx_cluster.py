@@ -25,7 +25,7 @@ DEFAULT_PORT = 443
 # Raise if one of those attributes is not specified
 REQUIRED_ATTRIBUTES = ['default_tz_uuid', 'nsx_user',
                        'nsx_password', 'nsx_controllers']
-# Emit a INFO log if one of those attributes is not specified
+# Emit an INFO log if one of those attributes is not specified
 IMPORTANT_ATTRIBUTES = ['default_l3_gw_service_uuid']
 # Deprecated attributes
 DEPRECATED_ATTRIBUTES = ['metadata_dhcp_host_route',
