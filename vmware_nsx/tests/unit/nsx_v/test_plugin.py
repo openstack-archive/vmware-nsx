@@ -299,6 +299,21 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                 for k, v in expected_same_vlan:
                     self.assertEqual(net1['network'][k], v)
 
+    def test_create_vxlan_with_tz_provider_network(self):
+        name = 'provider_net_vxlan'
+        expected = [('subnets', []), ('name', name), ('admin_state_up', True),
+                    ('status', 'ACTIVE'), ('shared', False),
+                    (pnet.NETWORK_TYPE, 'vxlan'),
+                    (pnet.PHYSICAL_NETWORK, 'vdnscope-2')]
+        providernet_args = {pnet.NETWORK_TYPE: 'vxlan',
+                            pnet.PHYSICAL_NETWORK: 'vdnscope-2'}
+        with self.network(name=name,
+                          providernet_args=providernet_args,
+                          arg_list=(pnet.NETWORK_TYPE,
+                                    pnet.PHYSICAL_NETWORK)) as net:
+            for k, v in expected:
+                self.assertEqual(net['network'][k], v)
+
 
 class TestVnicIndex(NsxVPluginV2TestCase,
                     test_vnic_index.VnicIndexDbTestCase):

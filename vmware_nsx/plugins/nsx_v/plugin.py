@@ -572,6 +572,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                            attr.is_attr_set(external) and not external)
         if backend_network:
             network_type = None
+            #NOTE(abhiraut): Consider refactoring code below to have more
+            #                readable conditions.
             if provider_type is not None:
                 segment = net_data[mpnet.SEGMENTS][0]
                 network_type = segment.get(pnet.NETWORK_TYPE)
@@ -581,7 +583,16 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 virtual_wire = {"name": net_data['id'],
                                 "tenantId": "virtual wire tenant"}
                 config_spec = {"virtualWireCreateSpec": virtual_wire}
-                h, c = self.nsx_v.vcns.create_virtual_wire(self.vdn_scope_id,
+                vdn_scope_id = self.vdn_scope_id
+                if provider_type is not None:
+                    segment = net_data[mpnet.SEGMENTS][0]
+                    if attr.is_attr_set(segment.get(pnet.PHYSICAL_NETWORK)):
+                        vdn_scope_id = segment.get(pnet.PHYSICAL_NETWORK)
+                        if not (self.nsx_v.vcns.
+                                validate_vdn_scope(vdn_scope_id)):
+                            error = _("Configured vdn_scope_id not found")
+                            raise nsx_exc.NsxPluginException(err_msg=error)
+                h, c = self.nsx_v.vcns.create_virtual_wire(vdn_scope_id,
                                                            config_spec)
                 net_moref = c
             elif network_type == c_utils.NsxVNetworkTypes.PORTGROUP:
