@@ -355,10 +355,11 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
 
         # If DHCP is disabled, this remove cannot trigger metadata change
         # as metadata is served via DHCP Edge
-        elif (subnet['enable_dhcp'] and self.plugin.metadata_proxy_handler and
-              self._metadata_cfg_required_after_port_remove(context, router_id,
-                                                            subnet)):
-            md_gw_data = self._metadata_route_update(context, router_id)
+        elif (subnet['enable_dhcp'] and self.plugin.metadata_proxy_handler):
+            md_gw_data = self._get_metadata_gw_data(context, router_id)
+            if self._metadata_cfg_required_after_port_remove(
+                context, router_id, subnet):
+                self._metadata_route_update(context, router_id)
 
         self.plugin._update_subnets_and_dnat_firewall(context, router_db)
         # Safly remove interface, VDR can have interface to only one subnet in
