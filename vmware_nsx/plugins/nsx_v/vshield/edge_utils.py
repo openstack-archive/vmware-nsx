@@ -1520,6 +1520,16 @@ def clear_gateway(nsxv_manager, context, router_id):
 def update_external_interface(
     nsxv_manager, context, router_id, ext_net_id,
     ipaddr, netmask, secondary=None):
+    with locking.LockManager.get_lock(
+        str(router_id), lock_file_prefix='nsx-edge-interface-', external=True):
+        _update_external_interface(nsxv_manager, context, router_id,
+                                   ext_net_id, ipaddr, netmask,
+                                   secondary=secondary)
+
+
+def _update_external_interface(
+    nsxv_manager, context, router_id, ext_net_id,
+    ipaddr, netmask, secondary=None):
     secondary = secondary or []
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
     net_bindings = nsxv_db.get_network_bindings(context.session, ext_net_id)
@@ -1538,6 +1548,15 @@ def update_external_interface(
 
 def update_internal_interface(nsxv_manager, context, router_id, int_net_id,
                               address_groups, is_connected=True):
+    with locking.LockManager.get_lock(
+        str(router_id), lock_file_prefix='nsx-edge-interface-', external=True):
+        _update_internal_interface(nsxv_manager, context, router_id,
+                                   int_net_id, address_groups,
+                                   is_connected=is_connected)
+
+
+def _update_internal_interface(nsxv_manager, context, router_id, int_net_id,
+                               address_groups, is_connected=True):
     # Get the pg/wire id of the network id
     mappings = nsx_db.get_nsx_switch_ids(context.session, int_net_id)
     if mappings:
@@ -1566,6 +1585,15 @@ def update_internal_interface(nsxv_manager, context, router_id, int_net_id,
 
 def add_vdr_internal_interface(nsxv_manager, context, router_id,
                                int_net_id, address_groups, is_connected=True):
+    with locking.LockManager.get_lock(
+        str(router_id), lock_file_prefix='nsx-edge-interface-', external=True):
+        _add_vdr_internal_interface(nsxv_manager, context, router_id,
+                                   int_net_id, address_groups,
+                                   is_connected=is_connected)
+
+
+def _add_vdr_internal_interface(nsxv_manager, context, router_id,
+                                int_net_id, address_groups, is_connected=True):
     # Get the pg/wire id of the network id
     mappings = nsx_db.get_nsx_switch_ids(context.session, int_net_id)
     if mappings:
@@ -1592,6 +1620,16 @@ def add_vdr_internal_interface(nsxv_manager, context, router_id,
 
 def update_vdr_internal_interface(nsxv_manager, context, router_id, int_net_id,
                                   address_groups, is_connected=True):
+    with locking.LockManager.get_lock(
+        str(router_id), lock_file_prefix='nsx-edge-interface-', external=True):
+        _update_vdr_internal_interface(nsxv_manager, context, router_id,
+                                       int_net_id, address_groups,
+                                       is_connected=is_connected)
+
+
+def _update_vdr_internal_interface(nsxv_manager, context, router_id,
+                                   int_net_id, address_groups,
+                                   is_connected=True):
     # Get the pg/wire id of the network id
     mappings = nsx_db.get_nsx_switch_ids(context.session, int_net_id)
     if mappings:
@@ -1612,6 +1650,14 @@ def update_vdr_internal_interface(nsxv_manager, context, router_id, int_net_id,
 
 def delete_interface(nsxv_manager, context, router_id, network_id,
                      dist=False, is_wait=True):
+    with locking.LockManager.get_lock(
+        str(router_id), lock_file_prefix='nsx-edge-interface-', external=True):
+        _delete_interface(nsxv_manager, context, router_id, network_id,
+                          dist=dist, is_wait=is_wait)
+
+
+def _delete_interface(nsxv_manager, context, router_id, network_id,
+                      dist=False, is_wait=True):
     # Get the pg/wire id of the network id
     mappings = nsx_db.get_nsx_switch_ids(context.session, network_id)
     if mappings:

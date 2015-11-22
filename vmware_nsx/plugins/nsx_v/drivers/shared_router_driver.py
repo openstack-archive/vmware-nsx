@@ -621,68 +621,82 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                     self._add_router_services_on_available_edge(context,
                                                                 router_id)
 
+    def _base_add_router_interface(self, context, router_id, interface_info):
+        with locking.LockManager.get_lock("router", lock_file_prefix="bind-",
+                                          external=True):
+            return super(nsx_v.NsxVPluginV2, self.plugin).add_router_interface(
+                context, router_id, interface_info)
+
     def add_router_interface(self, context, router_id, interface_info):
         self.plugin._check_intf_number_of_router(context, router_id)
         edge_id = edge_utils.get_router_edge_id(context, router_id)
         router_db = self.plugin._get_router(context, router_id)
         if edge_id:
             is_migrated = False
-            with locking.LockManager.get_lock(
-                    str(edge_id),
-                    lock_file_prefix=NSXV_ROUTER_RECONFIG):
-                router_ids = self.edge_manager.get_routers_on_same_edge(
-                    context, router_id)
-                info = super(nsx_v.NsxVPluginV2,
-                       self.plugin).add_router_interface(
-                    context, router_id, interface_info)
-                subnet = self.plugin.get_subnet(context, info['subnet_id'])
-                network_id = subnet['network_id']
-                # Collect all conflict networks whose cidr are overlapped
-                # with networks attached to the router and conflct routers
-                # which has same network with the router's.
-                conflict_network_ids, conflict_router_ids, _ = (
-                    self._get_conflict_network_and_router_ids_by_intf(
-                        context, router_id))
+            with locking.LockManager.get_lock("router",
+                                              lock_file_prefix="bind-",
+                                              external=True):
+                with locking.LockManager.get_lock(
+                        str(edge_id),
+                        lock_file_prefix=NSXV_ROUTER_RECONFIG,
+                        external=True):
+                    router_ids = self.edge_manager.get_routers_on_same_edge(
+                        context, router_id)
+                    info = super(nsx_v.NsxVPluginV2,
+                                 self.plugin).add_router_interface(
+                        context, router_id, interface_info)
+                    subnet = self.plugin.get_subnet(context, info['subnet_id'])
+                    network_id = subnet['network_id']
+                    # Collect all conflict networks whose cidr are overlapped
+                    # with networks attached to the router and conflct routers
+                    # which has same network with the router's.
+                    conflict_network_ids, conflict_router_ids, _ = (
+                        self._get_conflict_network_and_router_ids_by_intf(
+                            context, router_id))
 
-                _, new_conflict_router_ids = (
-                    self._get_available_and_conflicting_ids(context,
-                                                            router_id))
-                conflict_router_ids.extend(new_conflict_router_ids)
-                conflict_router_ids = list(set(conflict_router_ids))
+                    _, new_conflict_router_ids = (
+                        self._get_available_and_conflicting_ids(context,
+                                                                router_id))
+                    conflict_router_ids.extend(new_conflict_router_ids)
+                    conflict_router_ids = list(set(conflict_router_ids))
 
-                interface_ports = (
-                    self.plugin._get_router_interface_ports_by_network(
-                        context, router_id, network_id))
-                # Consider whether another subnet of the same network
-                # has been attached to the router.
-                if len(interface_ports) > 1:
-                    is_conflict = self.edge_manager.is_router_conflict_on_edge(
-                        context, router_id, conflict_router_ids,
-                        conflict_network_ids, 0)
-                else:
-                    is_conflict = self.edge_manager.is_router_conflict_on_edge(
-                        context, router_id, conflict_router_ids,
-                        conflict_network_ids, 1)
-                if is_conflict:
+                    interface_ports = (
+                        self.plugin._get_router_interface_ports_by_network(
+                            context, router_id, network_id))
+                    # Consider whether another subnet of the same network
+                    # has been attached to the router.
                     if len(interface_ports) > 1:
-                        self._remove_router_services_on_edge(
-                            context, router_id)
+                        is_conflict = (
+                            self.edge_manager.is_router_conflict_on_edge(
+                                context, router_id, conflict_router_ids,
+                                conflict_network_ids, 0))
                     else:
-                        self._remove_router_services_on_edge(
+                        is_conflict = (
+                            self.edge_manager.is_router_conflict_on_edge(
+                                context, router_id, conflict_router_ids,
+                                conflict_network_ids, 1))
+                    if is_conflict:
+                        if len(interface_ports) > 1:
+                            self._remove_router_services_on_edge(
+                                context, router_id)
+                        else:
+                            self._remove_router_services_on_edge(
+                                context, router_id, network_id)
+                        self._unbind_router_on_edge(context, router_id)
+                        is_migrated = True
+                    else:
+                        address_groups = self.plugin._get_address_groups(
                             context, router_id, network_id)
-                    self._unbind_router_on_edge(context, router_id)
-                    is_migrated = True
-                else:
-                    address_groups = self.plugin._get_address_groups(
-                        context, router_id, network_id)
-                    edge_utils.update_internal_interface(
-                        self.nsx_v, context, router_id,
-                        network_id, address_groups, router_db.admin_state_up)
-                    if router_db.gw_port and router_db.enable_snat:
-                        self._update_nat_rules_on_routers(
-                            context, router_id, router_ids)
-                    self._update_subnets_and_dnat_firewall_on_routers(
-                        context, router_id, router_ids, allow_external=True)
+                        edge_utils.update_internal_interface(
+                            self.nsx_v, context, router_id,
+                            network_id, address_groups,
+                            router_db.admin_state_up)
+                        if router_db.gw_port and router_db.enable_snat:
+                            self._update_nat_rules_on_routers(
+                                context, router_id, router_ids)
+                        self._update_subnets_and_dnat_firewall_on_routers(
+                            context, router_id, router_ids,
+                            allow_external=True)
             if is_migrated:
                 self._bind_router_on_available_edge(
                     context, router_id, router_db.admin_state_up)
@@ -693,8 +707,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                     self._add_router_services_on_available_edge(context,
                                                                 router_id)
         else:
-            info = super(nsx_v.NsxVPluginV2, self.plugin).add_router_interface(
-                context, router_id, interface_info)
+            info = self._base_add_router_interface(context, router_id,
+                                                   interface_info)
             # bind and configure routing servie on an availab edge
             self._bind_router_on_available_edge(
                 context, router_id, router_db.admin_state_up)
