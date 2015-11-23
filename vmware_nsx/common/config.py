@@ -74,6 +74,7 @@ base_opts = [
                deprecated_group='NVP',
                help=_("The mode used to implement DHCP/metadata services.")),
     cfg.StrOpt('replication_mode', default=ReplicationModes.SERVICE,
+               choices=(ReplicationModes.SERVICE, ReplicationModes.SOURCE),
                help=_("The default option leverages service nodes to perform"
                       " packet replication though one could set to this to "
                       "'source' to perform replication locally. This is useful"
@@ -343,14 +344,6 @@ cfg.CONF.register_opts(nsx_v3_opts, group="nsx_v3")
 cfg.CONF.register_opts(nsxv_opts, group="nsxv")
 cfg.CONF.register_opts(base_opts, group="NSX")
 cfg.CONF.register_opts(sync_opts, group="NSX_SYNC")
-
-
-def validate_config_options():
-    if cfg.CONF.NSX.replication_mode not in (ReplicationModes.SERVICE,
-                                             ReplicationModes.SOURCE):
-        error = (_("Invalid replication_mode: %s") %
-                 cfg.CONF.NSX.replication_mode)
-        raise nsx_exc.NsxPluginException(err_msg=error)
 
 
 def validate_nsxv_config_options():
