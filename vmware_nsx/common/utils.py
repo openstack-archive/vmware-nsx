@@ -24,9 +24,12 @@ import retrying
 import six
 
 LOG = log.getLogger(__name__)
+
 MAX_DISPLAY_NAME_LEN = 40
 MAX_RESOURCE_TYPE_LEN = 20
 NEUTRON_VERSION = version.version_info.release_string()
+NSX_NEUTRON_PLUGIN = 'NSX Neutron plugin'
+OS_NEUTRON_ID_SCOPE = 'os-neutron-id'
 
 
 # Allowed network types for the NSX Plugin
@@ -88,13 +91,24 @@ def check_and_truncate(display_name):
     return display_name or ''
 
 
+def is_internal_resource(nsx_resource):
+    """
+    Indicates whether the passed nsx-resource is owned by the plugin for
+    internal use.
+    """
+    for tag in nsx_resource['tags']:
+        if tag['scope'] == OS_NEUTRON_ID_SCOPE:
+            return tag['tag'] == NSX_NEUTRON_PLUGIN
+    return False
+
+
 def build_v3_api_version_tag():
     """
     Some resources are created on the manager that do not have a corresponding
     Neutron resource.
     """
-    return [{'scope': 'os-neutron-id',
-             'tag': 'NSX Neutron plugin'},
+    return [{'scope': OS_NEUTRON_ID_SCOPE,
+             'tag': NSX_NEUTRON_PLUGIN},
             {'scope': "os-api-version",
              'tag': version.version_info.release_string()}]
 

@@ -123,8 +123,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         self._setup_rpc()
 
         self._port_client = nsx_resources.LogicalPort(self._nsx_client)
-        self.nsgroup_container, self.default_section = (
-            security.init_nsgroup_container_and_default_section_rules())
+        self.nsgroup_manager, self.default_section = (
+            security.init_nsgroup_manager_and_default_section_rules())
         self._router_client = nsx_resources.LogicalRouter(self._nsx_client)
         self._router_port_client = nsx_resources.LogicalRouterPort(
             self._nsx_client)
@@ -1450,8 +1450,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 context, firewall_section['id'], ns_group['id'], sg_rules)
             security.save_sg_rule_mappings(context.session, rules['rules'])
 
-            firewall.add_nsgroup_member(self.nsgroup_container,
-                                        firewall.NSGROUP, ns_group['id'])
+            self.nsgroup_manager.add_nsgroup(ns_group['id'])
         except nsx_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("Failed to create backend firewall rules "
@@ -1493,7 +1492,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         nsgroup_id, section_id = security.get_sg_mappings(context.session, id)
         super(NsxV3Plugin, self).delete_security_group(context, id)
         firewall.delete_section(section_id)
-        firewall.remove_nsgroup_member(self.nsgroup_container, nsgroup_id)
+        self.nsgroup_manager.remove_nsgroup(nsgroup_id)
         firewall.delete_nsgroup(nsgroup_id)
 
     def create_security_group_rule(self, context, security_group_rule):
