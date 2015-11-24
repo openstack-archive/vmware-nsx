@@ -17,11 +17,14 @@
 """
 NSX-V3 Distributed Firewall
 """
+from oslo_log import log
 
+from vmware_nsx._i18n import _, _LW
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils
 from vmware_nsx.nsxlib.v3 import client as nsxclient
 
+LOG = log.getLogger(__name__)
 
 # firewall section types
 LAYER3 = 'LAYER3'
@@ -63,6 +66,14 @@ IPV6 = 'IPV6'
 IPV4_IPV6 = 'IPV4_IPV6'
 
 
+class NSGroupMemberNotFound(nsx_exc.NsxPluginException):
+    pass
+
+
+class NSGroupIsFull(nsx_exc.NsxPluginException):
+    pass
+
+
 def get_nsservice(resource_type, **properties):
     service = {'resource_type': resource_type}
     service.update(properties)
@@ -99,16 +110,31 @@ def add_nsgroup_member(nsgroup_id, target_type, target_id):
                                'target_type': target_type,
                                'op': EQUALS,
                                'value': target_id})
-    return nsxclient.update_resource('ns-groups/%s' % nsgroup_id, nsgroup)
+    try:
+        nsxclient.update_resource('ns-groups/%s' % nsgroup_id, nsgroup)
+    except nsx_exc.ManagerError:
+        # REVISIT(roeyc): A ManagerError might have been raised for a
+        # different reason, e.g - NSGroup does not exists.
+        LOG.warning(_LW("Failed to add %(target_type)s %(target_id)s to "
+                        "NSGroup %(nsgroup_id)s"),
+                    {'target_type': target_type,
+                     'target_id': target_id,
+                     'nsgroup_id': nsgroup_id})
+        raise NSGroupIsFull()
 
 
 @utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision)
-def remove_nsgroup_member(nsgroup_id, target_id):
+def remove_nsgroup_member(nsgroup_id, target_id, verify=False):
     nsgroup = read_nsgroup(nsgroup_id)
     for i, member in enumerate(nsgroup.get('members', [])):
         if target_id == member['value']:
             break
     else:
+        if verify:
+            err_msg = _("Failed to remove member %(tid)s "
+                        "from NSGroup %(nid)s.") % {'tid': target_id,
+                                                    'nid': nsgroup_id}
+            raise NSGroupMemberNotFound(err_msg=err_msg)
         return
     del nsgroup['members'][i]
     return nsxclient.update_resource('ns-groups/%s' % nsgroup_id, nsgroup)

@@ -425,3 +425,17 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
                     {'scope': 'os-api-version',
                      'tag': version.version_info.release_string()}]
         self.assertEqual(expected, result)
+
+    def test_is_internal_resource(self):
+        project_tag = utils.build_v3_tags_payload(
+            {'id': 'fake_id',
+             'tenant_id': 'fake_tenant_id'},
+            resource_type='os-neutron-net-id',
+            project_name=None)
+        internal_tag = utils.build_v3_api_version_tag()
+
+        expect_false = utils.is_internal_resource({'tags': project_tag})
+        self.assertFalse(expect_false)
+
+        expect_true = utils.is_internal_resource({'tags': internal_tag})
+        self.assertTrue(expect_true)
