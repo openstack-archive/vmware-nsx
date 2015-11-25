@@ -572,7 +572,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         # transaction here later.
         vif_uuid = port_data['id']
         attachment_type = nsx_constants.ATTACHMENT_VIF
-        if port_data.get('device_owner') == l3_db.DEVICE_OWNER_ROUTER_INTF:
+        if (not port_data.get('device_owner') or
+            port_data.get('device_owner') == l3_db.DEVICE_OWNER_ROUTER_INTF):
             attachment_type = None
             vif_uuid = None
         # Change the attachment type for L2 gateway owned ports.
