@@ -75,6 +75,9 @@ class EdgeApplianceDriver(object):
         if datacenter_moid:
             edge['datacenterMoid'] = datacenter_moid
 
+        if not dist and cfg.CONF.nsxv.edge_ha:
+            self._enable_high_availability(edge)
+
         return edge
 
     def _assemble_edge_appliance(self, resource_pool_id, datastore_id):
@@ -505,9 +508,6 @@ class EdgeApplianceDriver(object):
 
         if not dist and loadbalancer_enable:
             self._enable_loadbalancer(edge)
-
-        if not dist and cfg.CONF.nsxv.edge_ha:
-            self._enable_high_availability(edge)
 
         if async:
             userdata = {
