@@ -112,12 +112,16 @@ class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
         """Create a L2 gateway connection."""
         gw_connection = l2_gateway_connection.get(l2gw_const.
                                                   CONNECTION_RESOURCE_NAME)
+        l2gw_id = gw_connection.get(l2gw_const.L2GATEWAY_ID)
+        gw_db = self._get_l2_gateway(context, l2gw_id)
+        if gw_db.network_connections:
+            raise nsx_exc.NsxL2GWInUse(gateway_id=l2gw_id)
         l2gw_connection = super(
                 NsxvL2GatewayDriver, self).create_l2_gateway_connection(
                     context, l2_gateway_connection)
         network_id = gw_connection.get('network_id')
         virtual_wire = nsx_db.get_nsx_switch_ids(context.session, network_id)
-        l2gw_id = gw_connection.get(l2gw_const.L2GATEWAY_ID)
+
         # In NSX-v, there will be only one device configured per L2 gateway.
         # The name of the device shall carry the backend DLR.
         device = self._get_device(context, l2gw_id)

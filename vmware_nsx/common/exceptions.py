@@ -151,3 +151,7 @@ class NsxL2GWConnectionMappingNotFound(n_exc.NotFound):
 
 class NsxL2GWDeviceNotFound(n_exc.NotFound):
     message = _('Unable to find logical L2 gateway device.')
+
+
+class NsxL2GWInUse(n_exc.InUse):
+    message = _("L2 Gateway '%(gateway_id)s' has been used")
