@@ -177,7 +177,7 @@ class NsxvTzNetworkBinding(model_base.BASEV2):
                            sa.ForeignKey('networks.id', ondelete="CASCADE"),
                            primary_key=True)
     binding_type = sa.Column(
-        sa.Enum('flat', 'vlan', 'portgroup',
+        sa.Enum('flat', 'vlan', 'portgroup', 'vxlan',
                 name='nsxv_tz_network_bindings_binding_type'),
         nullable=False, primary_key=True)
     phy_uuid = sa.Column(sa.String(36), primary_key=True, nullable=True)
