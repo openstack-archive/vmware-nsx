@@ -1257,6 +1257,72 @@ class EdgeManager(object):
                     return True
             return False
 
+    def delete_dhcp_binding(self, context, port_id, network_id, mac_address):
+        edge_id = get_dhcp_edge_id(context, network_id)
+        if edge_id:
+            with locking.LockManager.get_lock(
+                str(edge_id),
+                lock_file_prefix='nsxv-dhcp-config-',
+                external=True):
+                dhcp_binding = nsxv_db.get_edge_dhcp_static_binding(
+                    context.session, edge_id, mac_address)
+                if dhcp_binding:
+                        self.nsxv_manager.vcns.delete_dhcp_binding(
+                            edge_id, dhcp_binding.binding_id)
+                        nsxv_db.delete_edge_dhcp_static_binding(
+                            context.session, edge_id, mac_address)
+                else:
+                    LOG.warning(_LW("Failed to find dhcp binding on edge "
+                                    "%(edge_id)s to DELETE for port "
+                                    "%(port_id)s"),
+                                {'edge_id': edge_id,
+                                 'port_id': port_id})
+        else:
+            LOG.warning(_LW("Failed to find edge_id to delete dhcp "
+                            "binding for port %(port_id)s"),
+                        {'port_id': port_id})
+
+    def create_dhcp_bindings(self, context, port_id, network_id, bindings):
+        edge_id = get_dhcp_edge_id(context, network_id)
+        if edge_id:
+            with locking.LockManager.get_lock(
+                    str(edge_id),
+                    lock_file_prefix='nsxv-dhcp-config-',
+                    external=True):
+                # Check port is still there
+                try:
+                    # Reload port db info
+                    context.session.expire_all()
+                    self.plugin.get_port(context, port_id)
+                except n_exc.PortNotFound:
+                    LOG.warning(
+                        _LW("port %(port_id)s is deleted, so we would pass "
+                            "creating dhcp binding on edge %(edge_id)s"),
+                        {'port_id': port_id,
+                         'edge_id': edge_id})
+                    return
+
+                for binding in bindings:
+                    self.nsxv_manager.vcns.create_dhcp_binding(
+                        edge_id, binding)
+                bindings_get = get_dhcp_binding_mappings(
+                    self.nsxv_manager, edge_id)
+                mac_address_list = [
+                    binding['macAddress'] for binding in bindings]
+                for mac_address in mac_address_list:
+                    binding_id = bindings_get.get(mac_address)
+                    if binding_id:
+                        nsxv_db.create_edge_dhcp_static_binding(
+                            context.session, edge_id,
+                            mac_address, binding_id)
+                    else:
+                        LOG.warning(_LW("Unable to configure binding for: %s"),
+                                    mac_address)
+        else:
+            LOG.warning(_LW("Failed to create dhcp bindings since dhcp edge "
+                            "for net %s not found at the backend"),
+                        network_id)
+
 
 def create_lrouter(nsxv_manager, context, lrouter, lswitch=None, dist=False):
     """Create an edge for logical router support."""
@@ -1350,31 +1416,6 @@ def get_dhcp_edge_id(context, network_id):
         return edge_id
 
 
-def create_dhcp_bindings(context, nsxv_manager, network_id, bindings):
-    edge_id = get_dhcp_edge_id(context, network_id)
-    if edge_id:
-        with locking.LockManager.get_lock(
-                str(edge_id),
-                lock_file_prefix='nsxv-dhcp-config-'):
-            for binding in bindings:
-                nsxv_manager.vcns.create_dhcp_binding(edge_id, binding)
-            bindings_get = get_dhcp_binding_mappings(nsxv_manager, edge_id)
-            mac_address_list = [binding['macAddress'] for binding in bindings]
-            for mac_address in mac_address_list:
-                binding_id = bindings_get.get(mac_address)
-                if binding_id:
-                    nsxv_db.create_edge_dhcp_static_binding(
-                        context.session, edge_id,
-                        mac_address, binding_id)
-                else:
-                    LOG.warning(_LW("Unable to configure binding for: %s"),
-                                mac_address)
-    else:
-        LOG.warning(_LW("Failed to create dhcp bindings since dhcp edge "
-                        "for net %s not found at the backend"),
-                    network_id)
-
-
 def get_dhcp_binding_mappings(nsxv_manager, edge_id):
     dhcp_config = query_dhcp_service_config(nsxv_manager, edge_id)
     bindings_get = {}
@@ -1382,20 +1423,6 @@ def get_dhcp_binding_mappings(nsxv_manager, edge_id):
         for binding in dhcp_config['staticBindings']['staticBindings']:
             bindings_get[binding['macAddress'].lower()] = binding['bindingId']
     return bindings_get
-
-
-def delete_dhcp_binding(context, nsxv_manager, network_id, mac_address):
-    edge_id = get_dhcp_edge_id(context, network_id)
-    dhcp_binding = nsxv_db.get_edge_dhcp_static_binding(
-        context.session, edge_id, mac_address)
-    if edge_id and dhcp_binding:
-        with locking.LockManager.get_lock(
-                str(edge_id),
-                lock_file_prefix='nsxv-dhcp-config-'):
-            nsxv_manager.vcns.delete_dhcp_binding(
-                edge_id, dhcp_binding.binding_id)
-            nsxv_db.delete_edge_dhcp_static_binding(
-                context.session, edge_id, mac_address)
 
 
 def query_dhcp_service_config(nsxv_manager, edge_id):
