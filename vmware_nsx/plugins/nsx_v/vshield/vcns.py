@@ -14,6 +14,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import time
+
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
@@ -109,11 +111,15 @@ class Vcns(object):
             _client = self.jsonapi_client.request
         else:
             _client = self.xmlapi_client.request
+
+        ts = time.time()
         header, content = self._client_request(_client, method, uri, params,
                                                headers, encodeParams)
+        te = time.time()
 
-        LOG.debug('VcnsApiHelper reply: header=%(header)s content=%(content)s',
-                  {'header': header, 'content': content})
+        LOG.debug('VcnsApiHelper reply: header=%(header)s content=%(content)s'
+                  ' took %(seconds)2.4f',
+                  {'header': header, 'content': content, 'seconds': te - ts})
         if content == '':
             return header, {}
         if kwargs.get('decode', True):
