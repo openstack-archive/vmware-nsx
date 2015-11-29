@@ -188,6 +188,12 @@ class EdgeLbDriver(object):
                 'No suitable Edge found for subnet %s') % pool['subnet_id']
             raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
 
+        # If Edge appliance is used for the 1st time for LB,
+        # enable LB acceleration
+        if not self.is_edge_in_use(context,
+                                   edge_id):
+            lb_common.enable_edge_acceleration(self.vcns, edge_id)
+
         edge_pool = convert_lbaas_pool(pool)
         try:
             with locking.LockManager.get_lock(edge_id, external=True):
@@ -617,8 +623,8 @@ class EdgeLbDriver(object):
                 'active_connections': 0,
                 'total_connections': 0}
 
-    def is_edge_in_use(self, edge_id):
-        return self.lbv1_driver.is_edge_in_use(edge_id)
+    def is_edge_in_use(self, context, edge_id):
+        return self.lbv1_driver.is_edge_in_use(context, edge_id)
 
     def is_subnet_in_use(self, context, subnet_id):
         plugin = self._get_lb_plugin()

@@ -37,6 +37,10 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
             edge_id = lb_common.get_lbaas_edge_id_for_subnet(
                 context, self.core_plugin, lb.vip_subnet_id)
 
+            if not nsxv_db.get_nsxv_lbaas_loadbalancer_binding_by_edge(
+                    context.session, edge_id):
+                lb_common.enable_edge_acceleration(self.vcns, edge_id)
+
             lb_common.add_vip_as_secondary_ip(self.vcns, edge_id,
                                               lb.vip_address)
             edge_fw_rule_id = lb_common.add_vip_fw_rule(
