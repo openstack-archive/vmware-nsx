@@ -81,11 +81,13 @@ nsxv3_resources = {
 # Add supported NSX-V resources in this dictionary
 nsxv_resources = {
     constants.EDGES: Resource(constants.EDGES, [Operations.LIST.name,
-                                                Operations.CLEAN.name]),
+                                                Operations.CLEAN.name,
+                                                Operations.NSX_UPDATE.value]),
     constants.SPOOFGUARD_POLICY: Resource(constants.SPOOFGUARD_POLICY,
                                           [Operations.LIST.name]),
     constants.DHCP_BINDING: Resource(constants.DHCP_BINDING,
-                                     [Operations.LIST.name]),
+                                     [Operations.LIST.name,
+                                      Operations.NSX_UPDATE.value]),
 }
 
 nsxv3_resources_names = map(lambda res: res.name, nsxv3_resources.itervalues())
