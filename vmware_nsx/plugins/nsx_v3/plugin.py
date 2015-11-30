@@ -246,7 +246,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
     def start_rpc_listeners(self):
         self._setup_rpc()
         self.topic = topics.PLUGIN
-        self.conn = n_rpc.create_connection(new=True)
+        self.conn = n_rpc.create_connection()
         self.conn.create_consumer(self.topic, self.endpoints, fanout=False)
         self.conn.create_consumer(topics.REPORTS,
                                   [agents_db.AgentExtRpcCallback()],
