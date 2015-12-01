@@ -494,7 +494,7 @@ class TestPortsV2(NsxVPluginV2TestCase,
         res = self.deserialize('json', req.get_response(self.api))
         return res
 
-    @mock.patch.object(edge_utils, 'delete_dhcp_binding')
+    @mock.patch.object(edge_utils.EdgeManager, 'delete_dhcp_binding')
     def test_update_port_index(self, delete_dhcp_binding):
         q_context = context.Context('', 'tenant_1')
         device_id = _uuid()
