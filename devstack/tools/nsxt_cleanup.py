@@ -305,6 +305,37 @@ class NSXClient(object):
             else:
                 print("Failed to delete NSGroup: %s" % nsg['display_name'])
 
+    def get_switching_profiles(self):
+        """
+        Retrieve all Switching Profiles on NSX backend
+        """
+        response = self.get(endpoint="/switching-profiles")
+        return response.json()['results']
+
+    def get_os_switching_profiles(self):
+        """
+        Retrieve all Switching Profiles created from OpenStack
+        """
+        sw_profiles = self.get_switching_profiles()
+        return self.get_os_resources(sw_profiles)
+
+    def cleanup_os_switching_profiles(self):
+        """
+        Cleanup all Switching Profiles created from OpenStack plugin
+        """
+        sw_profiles = self.get_os_switching_profiles()
+        print("Number of OS SwitchingProfiles to be deleted: %s" %
+              len(sw_profiles))
+        for swp in sw_profiles:
+            endpoint = "/switching-profiles/%s" % swp['id']
+            response = self.delete(endpoint=endpoint)
+            if response.status_code == requests.codes.ok:
+                print("Successfully deleted Switching Profile: %s" %
+                      swp['display_name'])
+            else:
+                print("Failed to delete Switching Profile: %s" %
+                      swp['display_name'])
+
     def get_logical_routers(self, tier=None):
         """
         Retrieve all the logical routers based on router type. If tier
@@ -376,12 +407,14 @@ class NSXClient(object):
             4. Cleanup logical routers
             5. Cleanup logical switch ports
             6. Cleanup logical switches
+            7. Cleanup switching profiles
         """
         self.cleanup_os_firewall_sections()
         self.cleanup_os_ns_groups()
         self.cleanup_os_logical_routers()
         self.cleanup_os_logical_ports()
         self.cleanup_os_logical_switches()
+        self.cleanup_os_switching_profiles()
 
 
 if __name__ == "__main__":
