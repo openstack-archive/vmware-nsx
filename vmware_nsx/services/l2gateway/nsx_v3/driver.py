@@ -30,10 +30,10 @@ from neutron.callbacks import resources
 from neutron.common import exceptions as n_exc
 from neutron import context
 from neutron.extensions import providernet
-from neutron.i18n import _LE, _LI
 from neutron import manager
 from neutron.plugins.common import utils as n_utils
 
+from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils as nsx_utils

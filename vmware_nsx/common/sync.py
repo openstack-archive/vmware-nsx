@@ -28,8 +28,8 @@ from neutron.db import external_net_db
 from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron.extensions import l3
-from neutron.i18n import _LE, _LI, _LW
 
+from vmware_nsx._i18n import _LE, _LI, _LW
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsx_utils

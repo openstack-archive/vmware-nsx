@@ -24,8 +24,8 @@ from neutron.callbacks import registry
 from neutron import context as neutron_context
 from neutron.db import common_db_mixin as common_db
 from neutron.db import securitygroups_db as sg_db
-from neutron.i18n import _LI
 
+from vmware_nsx._i18n import _LI
 from vmware_nsx.nsxlib.v3 import dfw_api as firewall
 
 LOG = logging.getLogger(__name__)

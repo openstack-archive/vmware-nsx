@@ -19,7 +19,7 @@
 from oslo_log import log as logging
 from six.moves import http_client as httplib
 
-from neutron.i18n import _LE
+from vmware_nsx._i18n import _LE
 from vmware_nsx.api_client import base
 from vmware_nsx.api_client import eventlet_client
 from vmware_nsx.api_client import eventlet_request

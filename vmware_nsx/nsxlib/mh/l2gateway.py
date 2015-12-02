@@ -14,10 +14,10 @@
 #    under the License.
 #
 
-from neutron.i18n import _LE
 from oslo_log import log
 from oslo_serialization import jsonutils
 
+from vmware_nsx._i18n import _LE
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils

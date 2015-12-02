@@ -23,8 +23,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import exc
 from sqlalchemy.sql import expression as expr
 
-from neutron.i18n import _, _LE
-
+from vmware_nsx._i18n import _, _LE
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_models

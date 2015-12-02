@@ -18,7 +18,7 @@ import stevedore
 
 from oslo_log import log
 
-from neutron.i18n import _LE, _LI
+from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import exceptions as nsx_exc
 
 LOG = log.getLogger(__name__)

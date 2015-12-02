@@ -15,7 +15,7 @@
 import logging
 import sys
 
-from neutron.i18n import _LI
+from vmware_nsx._i18n import _LI
 
 LOG = logging.getLogger(__name__)
 

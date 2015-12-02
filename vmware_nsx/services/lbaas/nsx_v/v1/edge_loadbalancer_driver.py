@@ -14,12 +14,12 @@
 #    under the License.
 
 from neutron.common import exceptions as n_exc
-from neutron.i18n import _LE
 from neutron import manager
 from neutron.plugins.common import constants
 from oslo_log import log as logging
 from oslo_utils import excutils
 
+from vmware_nsx._i18n import _LE
 from vmware_nsx.common import locking
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as nsxv_exc
 from vmware_nsx.services.lbaas.nsx_v import lbaas_common as lb_common

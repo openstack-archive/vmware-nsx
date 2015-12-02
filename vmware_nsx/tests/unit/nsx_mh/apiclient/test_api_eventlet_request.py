@@ -17,12 +17,11 @@ import urllib
 
 import eventlet
 import mock
-from neutron.i18n import _LI
 from neutron.tests import base
 from oslo_log import log as logging
 from six.moves import http_client as httplib
 
-
+from vmware_nsx._i18n import _LI
 from vmware_nsx.api_client import (
     eventlet_client as client)
 from vmware_nsx.api_client import (

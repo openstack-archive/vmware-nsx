@@ -23,7 +23,7 @@ from oslo_log import log as logging
 from oslo_service import loopingcall
 import six
 
-from neutron.i18n import _LE, _LI
+from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.plugins.nsx_v.vshield.tasks import constants
 
 DEFAULT_INTERVAL = 1000

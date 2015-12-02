@@ -22,8 +22,8 @@ import admin.plugins.nsxv.resources.utils as utils
 from admin.shell import Operations
 
 from neutron.callbacks import registry
-from neutron.i18n import _LI
 
+from vmware_nsx._i18n import _LI
 from vmware_nsx.db import nsxv_db
 
 LOG = logging.getLogger(__name__)

@@ -17,7 +17,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 import six
 
-from neutron.i18n import _LI
+from vmware_nsx._i18n import _LI
 from vmware_nsx.common import exceptions
 
 LOG = logging.getLogger(__name__)

@@ -15,11 +15,11 @@
 #
 import requests
 
-from neutron.i18n import _LW, _
 from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
 
+from vmware_nsx._i18n import _LW, _
 from vmware_nsx.common import exceptions as nsx_exc
 
 LOG = log.getLogger(__name__)

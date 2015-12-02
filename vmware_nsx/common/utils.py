@@ -16,12 +16,13 @@
 import hashlib
 
 from neutron.api.v2 import attributes
-from neutron.i18n import _LE
 from neutron import version
 from oslo_config import cfg
 from oslo_log import log
 import retrying
 import six
+
+from vmware_nsx._i18n import _LE
 
 LOG = log.getLogger(__name__)
 MAX_DISPLAY_NAME_LEN = 40

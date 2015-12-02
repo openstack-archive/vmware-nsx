@@ -18,11 +18,11 @@ from sqlalchemy.orm import exc
 from neutron.api.v2 import attributes as attr
 from neutron.db import db_base_plugin_v2
 from neutron.db import models_v2
-from neutron.i18n import _LI
 
 from oslo_log import log
 from oslo_utils import uuidutils
 
+from vmware_nsx._i18n import _LI
 from vmware_nsx.db import nsx_models
 from vmware_nsx.extensions import qos
 

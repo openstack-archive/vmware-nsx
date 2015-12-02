@@ -18,10 +18,10 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 
 from neutron.db import db_base_plugin_common
-from neutron.i18n import _LE, _LI
 from neutron.objects.qos import policy as policy_object
 from neutron.services.qos import qos_plugin
 
+from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import utils
 from vmware_nsx.nsxlib import v3 as nsxlib
 

@@ -20,9 +20,9 @@ NSX-V3 Plugin router module
 import random
 
 from neutron.common import exceptions as n_exc
-from neutron.i18n import _LW
 from oslo_log import log
 
+from vmware_nsx._i18n import _LW
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.nsxlib import v3 as nsxlib

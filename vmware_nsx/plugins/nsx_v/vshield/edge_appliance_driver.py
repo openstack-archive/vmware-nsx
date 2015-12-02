@@ -21,7 +21,7 @@ from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import excutils
 
-from neutron.i18n import _LE, _LI, _LW
+from vmware_nsx._i18n import _LE, _LI, _LW
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.common import utils
 from vmware_nsx.plugins.nsx_v.vshield.common import constants

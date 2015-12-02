@@ -17,10 +17,10 @@ from neutron.api.v2 import attributes as attr
 from neutron.common import exceptions as n_exc
 from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import providernet as pnet
-from neutron.i18n import _LW
 from oslo_log import log
 import six
 
+from vmware_nsx._i18n import _LW
 from vmware_nsx.api_client import client
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import utils as vmw_utils

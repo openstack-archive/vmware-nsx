@@ -14,11 +14,12 @@
 
 import logging
 
-from neutron.i18n import _LI
+from tabulate import tabulate
+
 from oslo_config import cfg
 from oslo_serialization import jsonutils
 
-from tabulate import tabulate
+from vmware_nsx._i18n import _LI
 
 LOG = logging.getLogger(__name__)
 

@@ -20,7 +20,7 @@ from oslo_serialization import jsonutils
 from oslo_utils import excutils
 import six
 
-from neutron.i18n import _LE, _LI, _LW
+from vmware_nsx._i18n import _LE, _LI, _LW
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils

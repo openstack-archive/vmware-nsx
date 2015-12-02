@@ -16,7 +16,7 @@ from neutron.db import db_base_plugin_v2
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from neutron.i18n import _, _LE
+from vmware_nsx._i18n import _, _LE
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield.common import (
     exceptions as vcns_exc)

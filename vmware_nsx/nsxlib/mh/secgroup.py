@@ -19,8 +19,8 @@ from oslo_utils import excutils
 
 from neutron.common import constants
 from neutron.common import exceptions
-from neutron.i18n import _LW
 
+from vmware_nsx._i18n import _LW
 from vmware_nsx.common import utils
 from vmware_nsx.nsxlib import mh as nsxlib
 

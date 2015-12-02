@@ -24,7 +24,7 @@ from neutron import context as neutron_context
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from neutron.i18n import _LE
+from vmware_nsx._i18n import _LE
 from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import locking
 from vmware_nsx.common import nsxv_constants

@@ -18,13 +18,13 @@ from networking_l2gw.db.l2gateway import l2gateway_db
 from networking_l2gw.services.l2gateway.common import constants as l2gw_const
 from networking_l2gw.services.l2gateway import exceptions as l2gw_exc
 from neutron.common import exceptions as n_exc
-from neutron.i18n import _LE
 from neutron import manager
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import uuidutils
 
+from vmware_nsx._i18n import _LE
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import db as nsx_db

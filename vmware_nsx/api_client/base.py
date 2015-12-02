@@ -17,12 +17,12 @@
 import abc
 import time
 
-from neutron.i18n import _LE, _LI, _LW
 from oslo_config import cfg
 from oslo_log import log as logging
 import six
 from six.moves import http_client as httplib
 
+from vmware_nsx._i18n import _LE, _LI, _LW
 from vmware_nsx import api_client
 
 LOG = logging.getLogger(__name__)

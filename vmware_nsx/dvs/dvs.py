@@ -17,7 +17,7 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_vmware import vim_util
 
-from neutron.i18n import _LE, _LI
+from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.dvs import dvs_utils
 

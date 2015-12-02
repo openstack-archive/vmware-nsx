@@ -34,9 +34,8 @@ import sys
 
 from neutron.callbacks import registry
 from neutron.common import config as neutron_config
-from neutron.i18n import _LE
-from neutron.i18n import _LI
 
+from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import config  # noqa
 
 from oslo_config import cfg

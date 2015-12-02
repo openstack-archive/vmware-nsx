@@ -21,7 +21,7 @@ import eventlet
 eventlet.monkey_patch()
 from oslo_log import log as logging
 
-from neutron.i18n import _LE
+from vmware_nsx._i18n import _LE
 from vmware_nsx.api_client import base
 from vmware_nsx.api_client import eventlet_request
 
