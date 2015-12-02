@@ -79,13 +79,13 @@ nsxv3_resources = {
 
 # Add supported NSX-V resources in this dictionary
 nsxv_resources = {
-    constants.EDGES: Resource(constants.EDGES, [Operations.LIST.name,
-                                                Operations.CLEAN.name,
+    constants.EDGES: Resource(constants.EDGES, [Operations.LIST.value,
+                                                Operations.CLEAN.value,
                                                 Operations.NSX_UPDATE.value]),
     constants.SPOOFGUARD_POLICY: Resource(constants.SPOOFGUARD_POLICY,
-                                          [Operations.LIST.name]),
+                                          [Operations.LIST.value]),
     constants.DHCP_BINDING: Resource(constants.DHCP_BINDING,
-                                     [Operations.LIST.name,
+                                     [Operations.LIST.value,
                                       Operations.NSX_UPDATE.value]),
 }
 
@@ -132,7 +132,6 @@ cli_opts = [cfg.StrOpt('neutron-conf',
                                            ', '.join(nsxv_resources_names))),
             cfg.StrOpt('operation',
                        short='o',
-                       choices=ops,
                        help='Supported list of operations: {}'
                              .format(', '.join(ops))),
             cfg.BoolOpt('force',
@@ -184,16 +183,21 @@ def _validate_resource_choice(resource, nsx_plugin):
 
 
 def _validate_op_choice(choice, nsx_plugin):
-    if choice is None and nsx_plugin == 'nsxv':
-        LOG.error(_LE('Supported list of operations for the NSX-V resource '
-                      '%s'),
-                  nsxv_resources[cfg.CONF.resource].supported_ops)
-        exit(1)
-    elif choice is None and nsx_plugin == 'nsxv3':
-        LOG.error(_LE('Supported list of operations for the NSX-V3 resource '
-                      '%s'),
-                  nsxv3_resources[cfg.CONF.resource].supported_ops)
-        sys.exit(1)
+    if nsx_plugin == 'nsxv':
+        supported_resource_ops = \
+            nsxv_resources[cfg.CONF.resource].supported_ops
+        if choice not in supported_resource_ops:
+            LOG.error(_LE('Supported list of operations for the NSX-V '
+                          'resource %s'), supported_resource_ops)
+            sys.exit(1)
+
+    elif nsx_plugin == 'nsxv3':
+        supported_resource_ops = \
+            nsxv3_resources[cfg.CONF.resource].supported_ops
+        if choice not in supported_resource_ops:
+            LOG.error(_LE('Supported list of operations for the NSX-V3 '
+                          'resource %s'), supported_resource_ops)
+            sys.exit(1)
 
 
 def main(argv=sys.argv[1:]):
