@@ -41,8 +41,8 @@ from vmware_nsx.common import config  # noqa
 from oslo_config import cfg
 from oslo_log import _options
 
-from admin.plugins.common import constants
-from admin import version
+from tools.python_nsxadmin.admin.plugins.common import constants
+from tools.python_nsxadmin.admin import version
 
 # Suppress the Insecure request warning
 requests.packages.urllib3.disable_warnings()
@@ -104,7 +104,8 @@ def _get_plugin():
 
 
 def _get_plugin_dir():
-    return 'admin/plugins/{}/resources'.format(_get_plugin())
+    plugin_dir = 'tools/python_nsxadmin/admin/plugins'
+    return '{}/{}/resources'.format(plugin_dir, _get_plugin())
 
 
 def _get_resources():

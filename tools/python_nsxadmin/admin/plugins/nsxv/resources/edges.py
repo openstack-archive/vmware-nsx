@@ -15,13 +15,12 @@
 
 import logging
 
-from admin.plugins.common import constants
-from admin.plugins.common import formatters
-from admin.plugins.common.utils import output_header
-from admin.plugins.common.utils import parse_multi_keyval_opt
-from admin.plugins.common.utils import query_yes_no
-import admin.plugins.nsxv.resources.utils as utils
-from admin.shell import Operations
+from tools.python_nsxadmin.admin.plugins.common import constants
+from tools.python_nsxadmin.admin.plugins.common import formatters
+
+import tools.python_nsxadmin.admin.plugins.common.utils as admin_utils
+import tools.python_nsxadmin.admin.plugins.nsxv.resources.utils as utils
+import tools.python_nsxadmin.admin.shell as shell
 
 from neutron.callbacks import registry
 
@@ -37,7 +36,7 @@ def get_nsxv_edges():
     return edges['edgePage'].get('data', [])
 
 
-@output_header
+@admin_utils.output_header
 def nsx_list_edges(resource, event, trigger, **kwargs):
     """List edges from NSXv backend"""
     edges = get_nsxv_edges()
@@ -50,7 +49,7 @@ def get_router_edge_bindings():
     return nsxv_db.get_nsxv_router_bindings(edgeapi.context)
 
 
-@output_header
+@admin_utils.output_header
 def neutron_list_router_edge_bindings(resource, event, trigger, **kwargs):
     """List NSXv edges from Neutron DB"""
     edges = get_router_edge_bindings()
@@ -70,7 +69,7 @@ def get_orphaned_edges():
     return nsxv_edge_ids - neutron_edge_bindings
 
 
-@output_header
+@admin_utils.output_header
 def nsx_list_orphaned_edges(resource, event, trigger, **kwargs):
     """List orphaned Edges on NSXv.
 
@@ -81,7 +80,7 @@ def nsx_list_orphaned_edges(resource, event, trigger, **kwargs):
     LOG.info(orphaned_edges)
 
 
-@output_header
+@admin_utils.output_header
 def nsx_delete_orphaned_edges(resource, event, trigger, **kwargs):
     """Delete orphaned edges from NSXv backend"""
     orphaned_edges = get_orphaned_edges()
@@ -89,8 +88,9 @@ def nsx_delete_orphaned_edges(resource, event, trigger, **kwargs):
 
     if not kwargs['force']:
         if len(orphaned_edges):
-            user_confirm = query_yes_no("Do you want to delete "
-                                        "orphaned edges", default="no")
+            user_confirm = admin_utils.query_yes_no("Do you want to delete "
+                                                    "orphaned edges",
+                                                    default="no")
             if not user_confirm:
                 LOG.info(_LI("NSXv Edge deletion aborted by user"))
                 return
@@ -103,7 +103,7 @@ def nsx_delete_orphaned_edges(resource, event, trigger, **kwargs):
     LOG.info(_LI("After delete; Orphaned Edges: %s"), get_orphaned_edges())
 
 
-@output_header
+@admin_utils.output_header
 def nsx_update_edge(resource, event, trigger, **kwargs):
     """Update edge properties"""
     if not kwargs.get('property'):
@@ -111,7 +111,7 @@ def nsx_update_edge(resource, event, trigger, **kwargs):
                       "attribute to update. Add --property edge-id=<edge-id> "
                       "--property highavailability=True"))
         return
-    properties = parse_multi_keyval_opt(kwargs['property'])
+    properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
     if not properties.get('edge-id'):
         LOG.error(_LE("Need to specify edge-id. "
                       "Add --property edge-id=<edge-id>"))
@@ -128,16 +128,16 @@ def nsx_update_edge(resource, event, trigger, **kwargs):
 
 registry.subscribe(nsx_list_edges,
                    constants.EDGES,
-                   Operations.LIST.value)
+                   shell.Operations.LIST.value)
 registry.subscribe(neutron_list_router_edge_bindings,
                    constants.EDGES,
-                   Operations.LIST.value)
+                   shell.Operations.LIST.value)
 registry.subscribe(nsx_list_orphaned_edges,
                    constants.EDGES,
-                   Operations.LIST.value)
+                   shell.Operations.LIST.value)
 registry.subscribe(nsx_delete_orphaned_edges,
                    constants.EDGES,
-                   Operations.CLEAN.value)
+                   shell.Operations.CLEAN.value)
 registry.subscribe(nsx_update_edge,
                    constants.EDGES,
-                   Operations.NSX_UPDATE.value)
+                   shell.Operations.NSX_UPDATE.value)

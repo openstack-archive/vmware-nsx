@@ -14,10 +14,10 @@
 
 import logging
 
-from tabulate import tabulate
-
 from oslo_config import cfg
 from oslo_serialization import jsonutils
+
+import prettytable
 
 from vmware_nsx._i18n import _LI
 
@@ -37,13 +37,15 @@ def output_formatter(resource_name, resources_list, attrs):
 
     fmt = cfg.CONF.fmt
     if fmt == 'psql':
-        resource_attr_values = []
+        tableout = prettytable.PrettyTable(attrs)
+        tableout.padding_width = 1
+        tableout.align = "l"
         for resource in resources_list:
             resource_list = []
             for attr in attrs:
                 resource_list.append(resource.get(attr))
-            resource_attr_values.append(resource_list)
-        return tabulate(resource_attr_values, attrs, tablefmt=fmt)
+            tableout.add_row(resource_list)
+        return tableout
 
     elif fmt == 'json':
         js_output = {}

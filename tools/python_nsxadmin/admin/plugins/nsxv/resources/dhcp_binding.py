@@ -15,10 +15,12 @@
 
 import logging
 
-from admin.plugins.common import constants
-from admin.plugins.common.utils import output_header
-import admin.plugins.nsxv.resources.utils as utils
-from admin.shell import Operations
+from tools.python_nsxadmin.admin.plugins.common import constants
+
+import tools.python_nsxadmin.admin.plugins.common.utils as admin_utils
+import tools.python_nsxadmin.admin.plugins.nsxv.resources.utils as utils
+
+import tools.python_nsxadmin.admin.shell as shell
 
 from neutron.callbacks import registry
 
@@ -57,7 +59,7 @@ def neutron_get_static_bindings_by_edge(edge_id):
     return neutron_db_dhcp_bindings
 
 
-@output_header
+@admin_utils.output_header
 def list_missing_dhcp_bindings(resource, event, trigger, **kwargs):
     """List missing DHCP bindings from NSXv backend.
 
@@ -82,4 +84,4 @@ def list_missing_dhcp_bindings(resource, event, trigger, **kwargs):
 
 registry.subscribe(list_missing_dhcp_bindings,
                    constants.DHCP_BINDING,
-                   Operations.LIST.value)
+                   shell.Operations.LIST.value)

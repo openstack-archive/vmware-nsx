@@ -15,11 +15,13 @@
 
 import logging
 
-from admin.plugins.common import constants
-from admin.plugins.common import formatters
-from admin.plugins.common.utils import output_header
-import admin.plugins.nsxv.resources.utils as utils
-from admin.shell import Operations
+from tools.python_nsxadmin.admin.plugins.common import constants
+from tools.python_nsxadmin.admin.plugins.common import formatters
+
+import tools.python_nsxadmin.admin.plugins.common.utils as admin_utils
+import tools.python_nsxadmin.admin.plugins.nsxv.resources.utils as utils
+
+import tools.python_nsxadmin.admin.shell as shell
 
 from neutron.callbacks import registry
 
@@ -34,7 +36,7 @@ def get_spoofguard_policies():
     return nsxv.get_spoofguard_policies()[1].get("policies")
 
 
-@output_header
+@admin_utils.output_header
 def nsx_list_spoofguard_policies(resource, event, trigger, **kwargs):
     """List spoofguard policies from NSXv backend"""
     policies = get_spoofguard_policies()
@@ -48,7 +50,7 @@ def get_spoofguard_policy_network_mappings():
         spgapi.context)
 
 
-@output_header
+@admin_utils.output_header
 def neutron_list_spoofguard_policy_mappings(resource, event, trigger,
                                             **kwargs):
     mappings = get_spoofguard_policy_network_mappings()
@@ -68,7 +70,7 @@ def get_missing_spoofguard_policy_mappings():
     return neutron_spoofguard_policy_mappings - nsxv_spoofguard_policies
 
 
-@output_header
+@admin_utils.output_header
 def nsx_list_missing_spoofguard_policies(resource, event, trigger,
                                          **kwargs):
     """List missing spoofguard policies on NSXv.
@@ -83,10 +85,10 @@ def nsx_list_missing_spoofguard_policies(resource, event, trigger,
 
 registry.subscribe(neutron_list_spoofguard_policy_mappings,
                    constants.SPOOFGUARD_POLICY,
-                   Operations.LIST.value)
+                   shell.Operations.LIST.value)
 registry.subscribe(nsx_list_spoofguard_policies,
                    constants.SPOOFGUARD_POLICY,
-                   Operations.LIST.value)
+                   shell.Operations.LIST.value)
 registry.subscribe(nsx_list_missing_spoofguard_policies,
                    constants.SPOOFGUARD_POLICY,
-                   Operations.LIST.value)
+                   shell.Operations.LIST.value)
