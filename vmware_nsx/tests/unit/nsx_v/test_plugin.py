@@ -95,7 +95,8 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
                 '', kwargs['tenant_id'])
         return network_req.get_response(self.api)
 
-    def setUp(self,
+    @mock.patch.object(edge_utils.EdgeManager, '_deploy_edge')
+    def setUp(self, mock_deploy_edge,
               plugin=PLUGIN_NAME,
               ext_mgr=None,
               service_plugins=None):
@@ -2265,7 +2266,9 @@ class NsxVSecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
 
 class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
                             NsxVSecurityGroupsTestCase):
-    def setUp(self,
+
+    @mock.patch.object(edge_utils.EdgeManager, '_deploy_edge')
+    def setUp(self, mock_deploy,
               plugin=PLUGIN_NAME,
               ext_mgr=None,
               service_plugins=None):
@@ -2514,8 +2517,39 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
         self.skipTest('not supported')
 
 
-class TestNSXvAllowedAddressPairs(test_addr_pair.TestAllowedAddressPairs,
-                                  NsxVPluginV2TestCase):
+class TestNSXvAllowedAddressPairs(NsxVPluginV2TestCase,
+                                  test_addr_pair.TestAllowedAddressPairs):
+
+    def setUp(self, plugin=PLUGIN_NAME):
+        super(TestNSXvAllowedAddressPairs, self).setUp(plugin=plugin)
+
+    # NOTE: the tests below are skipped due to the fact that they update the
+    # mac address. The NSX|V does not support address pairs when a MAC address
+    # is configured.
+    def test_create_port_allowed_address_pairs(self):
+        pass
+
+    def test_update_add_address_pairs(self):
+        pass
+
+    def test_equal_to_max_allowed_address_pair(self):
+        pass
+
+    def test_update_port_security_off_address_pairs(self):
+        pass
+
+    def test_create_port_security_true_allowed_address_pairs(self):
+        pass
+
+    def test_create_port_security_false_allowed_address_pairs(self):
+        pass
+
+    def test_create_port_remove_allowed_address_pairs(self):
+        pass
+
+    def test_create_overlap_with_fixed_ip(self):
+        pass
+
     def test_get_vlan_network_name(self):
         pass
 
