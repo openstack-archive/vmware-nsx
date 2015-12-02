@@ -104,7 +104,7 @@ def _get_plugin():
 
 
 def _get_plugin_dir():
-    plugin_dir = 'tools/python_nsxadmin/admin/plugins'
+    plugin_dir = os.path.dirname(os.path.realpath(__file__)) + "/plugins"
     return '{}/{}/resources'.format(plugin_dir, _get_plugin())
 
 
@@ -151,7 +151,8 @@ def _init_resource_plugin():
     for resource in resources:
         if resource != '__init__':
             importlib.import_module("." + resource,
-                                    _get_plugin_dir().replace("/", "."))
+                                    "tools.python_nsxadmin.admin.plugins."
+                                    "{}.resources".format(_get_plugin()))
 
 
 def _init_cfg():
