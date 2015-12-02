@@ -303,6 +303,15 @@ nsxv_opts = [
     cfg.StrOpt('metadata_shared_secret',
                secret=True,
                help=_('Shared secret to sign metadata requests')),
+    cfg.BoolOpt('metadata_insecure',
+                default=True,
+                help=_('If True, the end to end connection for metadata '
+                       'service is not verified. If False, the default CA '
+                       'truststore is used for verification')),
+    cfg.StrOpt('metadata_nova_client_cert',
+               help=_('Client certificate for nova metadata api server')),
+    cfg.StrOpt('metadata_nova_client_priv_key',
+               help=_('Private key of client certificate')),
     cfg.BoolOpt('spoofguard_enabled',
                 default=True,
                 help=_("If True then plugin will use NSXV spoofguard "
