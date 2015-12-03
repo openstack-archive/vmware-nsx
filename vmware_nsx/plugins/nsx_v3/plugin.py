@@ -108,7 +108,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
 
     def __init__(self):
         super(NsxV3Plugin, self).__init__()
-        LOG.info(_("Starting NsxV3Plugin"))
+        LOG.info(_LI("Starting NsxV3Plugin"))
 
         self.base_binding_dict = {
             pbin.VIF_TYPE: pbin.VIF_TYPE_OVS,
