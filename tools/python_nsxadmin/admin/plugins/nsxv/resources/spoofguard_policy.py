@@ -78,9 +78,14 @@ def nsx_list_missing_spoofguard_policies(resource, event, trigger,
     Spoofguard policies that have a binding in Neutron Db but there is
     no policy on NSXv backend to back it.
     """
-    LOG.info(_LI("Spoofguard policies in Neutron Db but on present on NSXv"))
+    LOG.info(_LI("Spoofguard policies in Neutron Db but not present on NSXv"))
     missing_policies = get_missing_spoofguard_policy_mappings()
-    LOG.info(missing_policies)
+    if not missing_policies:
+        LOG.info(_LI("\nNo missing spoofguard policies found."
+                     "\nNeutron DB and NSXv backend are in sync\n"))
+    else:
+        LOG.info(formatters.output_formatter(
+            constants.SPOOFGUARD_POLICY, missing_policies, ['policy_id']))
 
 
 registry.subscribe(neutron_list_spoofguard_policy_mappings,
