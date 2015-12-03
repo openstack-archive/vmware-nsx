@@ -88,7 +88,8 @@ nsxv_resources = {
                                      [Operations.LIST.value,
                                       Operations.NSX_UPDATE.value]),
     constants.BACKUP_EDGES: Resource(constants.BACKUP_EDGES,
-                                     [Operations.LIST.value]),
+                                     [Operations.LIST.value,
+                                      Operations.CLEAN.value]),
 }
 
 nsxv3_resources_names = map(lambda res: res.name, nsxv3_resources.itervalues())

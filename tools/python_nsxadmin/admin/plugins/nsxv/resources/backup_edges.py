@@ -23,6 +23,11 @@ import tools.python_nsxadmin.admin.plugins.nsxv.resources.utils as utils
 import tools.python_nsxadmin.admin.shell as shell
 
 from neutron.callbacks import registry
+from neutron.common import exceptions
+
+from vmware_nsx._i18n import _LE, _LI
+from vmware_nsx.common import locking
+from vmware_nsx.db import nsxv_db
 
 
 LOG = logging.getLogger(__name__)
@@ -47,6 +52,51 @@ def nsx_list_backup_edges(resource, event, trigger, **kwargs):
                                          ['id']))
 
 
+def nsx_clean_backup_edge(resource, event, trigger, **kwargs):
+    """Delete backup edge"""
+    errmsg = ("Need to specify edge-id property. Add --property "
+              "edge-id=<edge-id>")
+    if not kwargs.get('property'):
+        LOG.error(_LE("%s"), errmsg)
+        return
+    properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
+    edge_id = properties.get('edge-id')
+    if not edge_id:
+        LOG.error(_LE("%s"), errmsg)
+        return
+    try:
+        edge = nsxv.get_edge(edge_id)
+    except exceptions.NeutronException as e:
+        LOG.error(_LE("%s"), str(e))
+    else:
+        # edge[0] is response status code
+        # edge[1] is response body
+        if not edge[1]['name'].startswith('backup-'):
+            LOG.error(
+                _LE('Edge: %s is not a backup edge; aborting delete'), edge_id)
+            return
+
+        confirm = admin_utils.query_yes_no(
+            "Do you want to delete edge: %s" % edge_id, default="no")
+        if not confirm:
+            LOG.info(_LI("Backup edge deletion aborted by user"))
+            return
+        try:
+            with locking.LockManager.get_lock(
+                'nsx-edge-request', lock_file_prefix='get-'):
+                # Delete from NSXv backend
+                nsxv.delete_edge(edge_id)
+                # Remove bindings from Neutron DB
+                edgeapi = utils.NeutronDbClient()
+                nsxv_db.delete_nsxv_router_binding(
+                    edgeapi.context.session, edge[1]['name'])
+        except Exception as e:
+            LOG.error(_LE("%s"), str(e))
+
+
 registry.subscribe(nsx_list_backup_edges,
                    constants.BACKUP_EDGES,
                    shell.Operations.LIST.value)
+registry.subscribe(nsx_clean_backup_edge,
+                   constants.BACKUP_EDGES,
+                   shell.Operations.CLEAN.value)

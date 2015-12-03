@@ -207,6 +207,10 @@ class Vcns(object):
         uri = "%s/%s/status?getlatest=false" % (URI_PREFIX, edge_id)
         return self.do_request(HTTP_GET, uri, decode=True)
 
+    def get_edge(self, edge_id):
+        uri = "%s/%s" % (URI_PREFIX, edge_id)
+        return self.do_request(HTTP_GET, uri, decode=True)
+
     def get_edges(self):
         uri = URI_PREFIX
         return self.do_request(HTTP_GET, uri, decode=True)

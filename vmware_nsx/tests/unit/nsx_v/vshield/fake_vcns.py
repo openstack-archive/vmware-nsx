@@ -397,6 +397,18 @@ class FakeVcns(object):
         }
         return (header, response)
 
+    def get_edge(self, edge_id):
+        if edge_id not in self._edges:
+            raise Exception(_("Edge %s does not exist!") % edge_id)
+        header = {
+            'status': 200
+        }
+        response = {
+            'name': 'fake-edge',
+            'id': edge_id
+        }
+        return (header, response)
+
     def get_edges(self):
         header = {
             'status': 200
