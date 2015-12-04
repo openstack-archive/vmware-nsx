@@ -14,11 +14,10 @@
 
 import logging
 
-from admin.plugins.common import constants
-from admin.plugins.common import formatters
-from admin.plugins.common.utils import output_header
-from admin.plugins.common.utils import query_yes_no
-from admin.shell import Operations
+from tools.python_nsxadmin.admin.plugins.common import constants
+from tools.python_nsxadmin.admin.plugins.common import formatters
+from tools.python_nsxadmin.admin.plugins.common import utils as admin_utils
+from tools.python_nsxadmin.admin import shell
 
 from neutron.callbacks import registry
 from neutron import context as neutron_context
@@ -47,7 +46,7 @@ class NeutronSecurityGroupApi(sg_db.SecurityGroupDbMixin,
 neutron_sg = NeutronSecurityGroupApi()
 
 
-@output_header
+@admin_utils.output_header
 def nsx_list_security_groups(resource, event, trigger, **kwargs):
     sections = firewall.list_sections()
     LOG.info(formatters.output_formatter(constants.FIREWALL_SECTIONS,
@@ -58,13 +57,13 @@ def nsx_list_security_groups(resource, event, trigger, **kwargs):
     return bool(sections) or bool(nsgroups)
 
 
-@output_header
+@admin_utils.output_header
 def nsx_delete_security_groups(resource, event, trigger, **kwargs):
     if kwargs['force'] is False:
         if nsx_list_security_groups(resource, event, trigger, **kwargs):
-            user_confirm = query_yes_no('Do you want to delete the following '
-                                        'NSX firewall sections/nsgroups?',
-                                        default='no')
+            msg = ('Do you want to delete the following NSX firewall '
+                   'sections/nsgroups?')
+            user_confirm = admin_utils.query_yes_no(msg, default='no')
 
             if user_confirm is False:
                 LOG.info(_LI('NSX security groups cleanup aborted by user'))
@@ -92,7 +91,7 @@ def nsx_delete_security_groups(resource, event, trigger, **kwargs):
             firewall.delete_nsgroup(nsgroup['id'])
 
 
-@output_header
+@admin_utils.output_header
 def neutron_list_security_groups(resource, event, trigger, **kwargs):
     security_groups = neutron_sg.get_security_groups()
     LOG.info(formatters.output_formatter(constants.SECURITY_GROUPS,
@@ -100,13 +99,13 @@ def neutron_list_security_groups(resource, event, trigger, **kwargs):
     return bool(security_groups)
 
 
-@output_header
+@admin_utils.output_header
 def neutron_delete_security_groups(resource, event, trigger, **kwargs):
     if kwargs['force'] is False:
         if neutron_list_security_groups(resource, event, trigger, **kwargs):
-            user_confirm = query_yes_no('Do you want to delete the followin '
-                                        'neutron security groups?',
-                                        default='no')
+            msg = ('Do you want to delete the following neutron '
+                   'security groups?')
+            user_confirm = admin_utils.query_yes_no(msg, default='no')
             if user_confirm is False:
                 LOG.info(_LI('Neutron security groups cleanup aborted by '
                              'user'))
@@ -130,28 +129,28 @@ def neutron_delete_security_groups(resource, event, trigger, **kwargs):
 
 registry.subscribe(nsx_list_security_groups,
                    constants.SECURITY_GROUPS,
-                   Operations.LIST.value)
+                   shell.Operations.LIST.value)
 registry.subscribe(nsx_list_security_groups,
                    constants.SECURITY_GROUPS,
-                   Operations.NSX_LIST.value)
+                   shell.Operations.NSX_LIST.value)
 
 registry.subscribe(neutron_list_security_groups,
                    constants.SECURITY_GROUPS,
-                   Operations.LIST.value)
+                   shell.Operations.LIST.value)
 registry.subscribe(neutron_list_security_groups,
                    constants.SECURITY_GROUPS,
-                   Operations.NEUTRON_LIST.value)
+                   shell.Operations.NEUTRON_LIST.value)
 
 registry.subscribe(nsx_delete_security_groups,
                    constants.SECURITY_GROUPS,
-                   Operations.CLEAN.value)
+                   shell.Operations.CLEAN.value)
 registry.subscribe(nsx_delete_security_groups,
                    constants.SECURITY_GROUPS,
-                   Operations.NSX_CLEAN.value)
+                   shell.Operations.NSX_CLEAN.value)
 
 registry.subscribe(neutron_delete_security_groups,
                    constants.SECURITY_GROUPS,
-                   Operations.CLEAN.value)
+                   shell.Operations.CLEAN.value)
 registry.subscribe(neutron_delete_security_groups,
                    constants.SECURITY_GROUPS,
-                   Operations.NEUTRON_CLEAN.value)
+                   shell.Operations.NEUTRON_CLEAN.value)
