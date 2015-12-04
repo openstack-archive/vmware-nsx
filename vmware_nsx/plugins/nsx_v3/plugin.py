@@ -1128,18 +1128,33 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             address_groups.append(address_group)
         return (ports, address_groups)
 
-    def _validate_multiple_subnets_diff_routers(self, context, network_id):
+    def _validate_multiple_subnets_diff_routers(self, context, router_id,
+                                                interface_info):
+        is_port, is_sub = self._validate_interface_info(interface_info)
+        if is_port:
+            net_id = self.get_port(context,
+                                   interface_info['port_id'])['network_id']
+        elif is_sub:
+            net_id = self.get_subnet(context,
+                                     interface_info['subnet_id'])['network_id']
+
         port_filters = {'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF],
-                        'network_id': [network_id]}
+                        'network_id': [net_id]}
         intf_ports = self.get_ports(context.elevated(), filters=port_filters)
         router_ids = [port['device_id'] for port in intf_ports]
-        router_id_set = set(router_ids)
-        if len(router_id_set) >= 2:
-            err_msg = _("Subnets on network %s cannot be attached to "
-                        "different routers") % network_id
+        router_id_set = set(router_ids) - set([router_id])
+        if len(router_id_set) > 0:
+            err_msg = _("Subnets of network %(net_id)s cannot be attached to "
+                        "multiple routers, already attached to router "
+                        "%(router_id)s") % {'net_id': net_id,
+                                            'router_id': router_ids[0]}
             raise n_exc.InvalidInput(error_message=err_msg)
 
     def add_router_interface(self, context, router_id, interface_info):
+        # disallow multiple subnets belong to same network being attached
+        # to different routers
+        self._validate_multiple_subnets_diff_routers(context,
+                                                     router_id, interface_info)
 
         info = super(NsxV3Plugin, self).add_router_interface(
             context, router_id, interface_info)
@@ -1147,9 +1162,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             subnet = self.get_subnet(context, info['subnet_ids'][0])
             port = self.get_port(context, info['port_id'])
             network_id = subnet['network_id']
-            # disallow multiple subnets belong to same network being attached
-            # to different routers
-            self._validate_multiple_subnets_diff_routers(context, network_id)
             nsx_net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
                 context.session, port['id'])
 
@@ -1168,10 +1180,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 # TODO(berlin): Announce the subnet on tier0 if enable_snat
                 # is False
                 pass
-        except n_exc.InvalidInput:
-            with excutils.save_and_reraise_exception():
-                super(NsxV3Plugin, self).remove_router_interface(
-                    context, router_id, interface_info)
         except nsx_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 self.remove_router_interface(
