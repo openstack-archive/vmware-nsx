@@ -114,13 +114,7 @@ def _get_resources():
                modules)
 
 
-cli_opts = [cfg.StrOpt('neutron-conf',
-                       default='/etc/neutron/neutron.conf',
-                       help='Neutron configuration file'),
-            cfg.StrOpt('nsx-conf',
-                       default='/etc/neutron/plugins/vmware/nsx.ini',
-                       help='NSX configuration file'),
-            cfg.StrOpt('fmt',
+cli_opts = [cfg.StrOpt('fmt',
                        short='f',
                        default='psql',
                        choices=['psql', 'json'],
@@ -169,8 +163,8 @@ def _init_cfg():
              prog='Admin Utility',
              version=version.__version__,
              usage='nsxadmin -r <resources> -o <operation>',
-             default_config_files=[cfg.CONF.neutron_conf,
-                                   cfg.CONF.nsx_conf])
+             default_config_files=[constants.NEUTRON_CONF,
+                                   constants.NSX_INI])
 
 
 def _validate_resource_choice(resource, nsx_plugin):
@@ -205,7 +199,6 @@ def _validate_op_choice(choice, nsx_plugin):
 def main(argv=sys.argv[1:]):
     _init_cfg()
     _init_resource_plugin()
-
     nsx_plugin_in_use = _get_plugin()
     LOG.info(_LI('NSX Plugin in use: %s'), nsx_plugin_in_use)
 
