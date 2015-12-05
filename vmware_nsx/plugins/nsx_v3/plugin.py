@@ -181,7 +181,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                     NSX_V3_DHCP_PROFILE_NAME, 'Neutron DHCP Security Profile',
                     tags=utils.build_v3_tags_payload({
                         'id': NSX_V3_DHCP_PROFILE_NAME,
-                        'tenant_id': 'neutron-nsx-plugin'}))
+                        'tenant_id': nsx_constants.SHARED_TAG_TENANT_ID}))
             return self._get_dhcp_security_profile()
 
     def _get_dhcp_security_profile(self):
@@ -222,7 +222,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 whitelist_ports=True, whitelist_switches=False,
                 tags=utils.build_v3_tags_payload({
                     'id': NSX_V3_PSEC_PROFILE_NAME,
-                    'tenant_id': 'neutron-nsx-plugin'}))
+                    'tenant_id': nsx_constants.SHARED_TAG_TENANT_ID}))
 
         return self._get_port_security_profile()
 
