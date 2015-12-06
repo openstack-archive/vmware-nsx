@@ -39,7 +39,7 @@ from neutron.plugins.common import constants
 from neutron.plugins.common import utils
 
 import vmware_nsx
-from vmware_nsx._i18n import _LE, _LW
+from vmware_nsx._i18n import _, _LE, _LW
 from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsx_constants

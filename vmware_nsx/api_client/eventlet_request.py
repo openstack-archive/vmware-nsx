@@ -21,7 +21,7 @@ from oslo_serialization import jsonutils
 from six.moves import http_client as httplib
 from six.moves.urllib import parse
 
-from vmware_nsx._i18n import _LI, _LW
+from vmware_nsx._i18n import _, _LI, _LW
 from vmware_nsx.api_client import request
 
 LOG = logging.getLogger(__name__)

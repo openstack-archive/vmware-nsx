@@ -16,7 +16,7 @@
 from oslo_config import cfg
 from oslo_log import log
 
-from vmware_nsx._i18n import _LW
+from vmware_nsx._i18n import _, _LW
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils

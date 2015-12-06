@@ -16,6 +16,8 @@
 
 from neutron.common import exceptions as n_exc
 
+from vmware_nsx._i18n import _
+
 
 class NsxPluginException(n_exc.NeutronException):
     message = _("An unexpected error occurred in the NSX Plugin: %(err_msg)s")

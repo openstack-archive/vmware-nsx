@@ -18,6 +18,8 @@ import collections
 import six
 
 from oslo_config import cfg
+
+from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils

@@ -28,7 +28,7 @@ from neutron.common import rpc as n_rpc
 from neutron.common import topics
 from neutron.db import agents_db
 
-from vmware_nsx._i18n import _LW
+from vmware_nsx._i18n import _, _LW
 from vmware_nsx.common import config
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.dhcp_meta import combined

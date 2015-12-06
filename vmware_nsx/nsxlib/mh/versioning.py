@@ -15,6 +15,7 @@
 
 import inspect
 
+from vmware_nsx._i18n import _
 from vmware_nsx.api_client import exception
 
 DEFAULT_VERSION = -1

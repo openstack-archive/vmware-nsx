@@ -16,6 +16,7 @@ from oslo_log import log as logging
 
 from neutron.api.v2 import attributes as attr
 
+from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db

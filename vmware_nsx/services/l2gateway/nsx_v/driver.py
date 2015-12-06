@@ -24,7 +24,7 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import uuidutils
 
-from vmware_nsx._i18n import _LE
+from vmware_nsx._i18n import _, _LE
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import db as nsx_db

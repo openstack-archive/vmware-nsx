@@ -21,6 +21,7 @@ from oslo_log import log as logging
 from oslo_utils import uuidutils
 import six
 
+from vmware_nsx._i18n import _
 from vmware_nsx.db import nsx_models
 from vmware_nsx.extensions import networkgw
 

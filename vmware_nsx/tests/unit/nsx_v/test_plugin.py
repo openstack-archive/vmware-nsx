@@ -45,6 +45,7 @@ from oslo_utils import uuidutils
 import six
 import webob.exc
 
+from vmware_nsx._i18n import _
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.extensions import (

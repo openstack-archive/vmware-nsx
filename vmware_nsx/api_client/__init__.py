@@ -17,6 +17,8 @@
 
 from six.moves import http_client as httplib
 
+from vmware_nsx._i18n import _
+
 
 def ctrl_conn_to_str(conn):
     """Returns a string representing a connection URL to the controller."""
