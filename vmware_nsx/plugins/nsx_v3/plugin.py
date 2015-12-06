@@ -695,9 +695,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             # backend and change it's admin state to DOWN
             updated_port = {'port': {ext_sg.SECURITYGROUPS: [],
                                      'admin_state_up': False}}
-            _, nsx_lport_id = nsx_db.get_nsx_switch_and_port_id(
-                context.session, port_id)
-            self._update_port_on_backend(context, nsx_lport_id,
+            self._update_port_on_backend(context, nsx_port_id,
                                          port, updated_port,
                                          [], [])
             self._port_client.delete(nsx_port_id)
