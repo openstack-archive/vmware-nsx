@@ -770,9 +770,9 @@ class EdgeManager(object):
         except Exception:
             with excutils.save_and_reraise_exception():
                 LOG.exception(
-                    _('Failed to delete vnic %(vnic_index)d '
-                      'tunnel %(tunnel_index)d on edge '
-                      '%(edge_id)s'),
+                    _LE('Failed to delete vnic %(vnic_index)d '
+                        'tunnel %(tunnel_index)d on edge '
+                        '%(edge_id)s'),
                     {'vnic_index': old_vnic_index,
                      'tunnel_index': old_tunnel_index,
                      'edge_id': edge_id})
