@@ -12,6 +12,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+# Default conf file locations
+NEUTRON_CONF = '/etc/neutron/neutron.conf'
+NSX_INI = '/etc/neutron/plugins/vmware/nsx.ini'
+
 # NSX Plugin Constants
 NSXV3_PLUGIN = 'vmware_nsx.plugin.NsxV3Plugin'
 NSXV_PLUGIN = 'vmware_nsx.plugin.NsxVPlugin'
