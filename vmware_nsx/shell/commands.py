@@ -17,6 +17,8 @@
 
 from neutronclient.neutron import v2_0 as client
 
+from vmware_nsx._i18n import _
+
 LSN_PATH = '/lsns'
 
 

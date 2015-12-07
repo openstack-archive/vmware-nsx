@@ -20,7 +20,7 @@ from neutron.common import exceptions as n_exc
 from neutron.extensions import external_net
 from oslo_log import log as logging
 
-from vmware_nsx._i18n import _LE
+from vmware_nsx._i18n import _, _LE
 from vmware_nsx.common import exceptions as p_exc
 from vmware_nsx.dhcp_meta import nsx
 from vmware_nsx.dhcp_meta import rpc

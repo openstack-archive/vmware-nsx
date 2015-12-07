@@ -27,7 +27,7 @@ import six
 from six.moves import http_client as httplib
 import six.moves.urllib.parse as urlparse
 
-from vmware_nsx._i18n import _LI, _LW
+from vmware_nsx._i18n import _, _LI, _LW
 from vmware_nsx import api_client
 
 LOG = logging.getLogger(__name__)

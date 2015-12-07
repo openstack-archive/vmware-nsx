@@ -14,6 +14,8 @@
 
 from neutron.common import exceptions
 
+from vmware_nsx._i18n import _
+
 
 class VcnsException(exceptions.NeutronException):
     pass

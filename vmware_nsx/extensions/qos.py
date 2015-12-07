@@ -22,6 +22,7 @@ from neutron.api.v2 import base
 from neutron.common import exceptions as nexception
 from neutron import manager
 
+from vmware_nsx._i18n import _
 
 # For policy.json/Auth
 qos_queue_create = "create_qos_queue"

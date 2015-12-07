@@ -21,7 +21,7 @@ from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from vmware_nsx._i18n import _LE, _LW
+from vmware_nsx._i18n import _, _LE, _LW
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import exceptions as p_exc
 from vmware_nsx.common import nsx_utils

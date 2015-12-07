@@ -20,6 +20,8 @@ import sys
 from oslo_config import cfg
 
 from neutron.common import config
+
+from vmware_nsx._i18n import _
 from vmware_nsx.common import config as nsx_config  # noqa
 from vmware_nsx.common import nsx_utils
 from vmware_nsx.nsxlib import mh as nsxlib

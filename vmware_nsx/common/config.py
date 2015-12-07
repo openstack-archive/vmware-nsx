@@ -16,7 +16,7 @@ import logging
 
 from oslo_config import cfg
 
-from vmware_nsx._i18n import _LW
+from vmware_nsx._i18n import _, _LW
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.extensions import routersize
 

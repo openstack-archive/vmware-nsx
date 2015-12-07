@@ -57,7 +57,7 @@ from oslo_utils import excutils
 from oslo_utils import importutils
 from oslo_utils import uuidutils
 
-from vmware_nsx._i18n import _LE, _LI, _LW
+from vmware_nsx._i18n import _, _LE, _LI, _LW
 from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import locking

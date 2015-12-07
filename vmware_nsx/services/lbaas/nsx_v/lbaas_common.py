@@ -18,6 +18,7 @@ import xml.etree.ElementTree as et
 
 from neutron.common import exceptions as n_exc
 
+from vmware_nsx._i18n import _
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield import vcns as nsxv_api

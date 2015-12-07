@@ -15,6 +15,8 @@
 #    under the License.
 #
 
+from vmware_nsx._i18n import _
+
 
 class NsxApiException(Exception):
     """Base NSX API Client Exception.

@@ -21,6 +21,8 @@ from neutron.api import extensions
 from neutron.api.v2 import attributes
 from neutron.api.v2 import resource_helper
 
+from vmware_nsx._i18n import _
+
 GATEWAY_RESOURCE_NAME = "network_gateway"
 DEVICE_RESOURCE_NAME = "gateway_device"
 # Use dash for alias and collection name
