@@ -691,13 +691,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         if not self._network_is_external(context, port['network_id']):
             _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
                 context.session, port_id)
-            # Update port to remove security group bindings from the
-            # backend and change it's admin state to DOWN
-            updated_port = {'port': {ext_sg.SECURITYGROUPS: [],
-                                     'admin_state_up': False}}
-            self._update_port_on_backend(context, nsx_port_id,
-                                         port, updated_port,
-                                         [], [])
             self._port_client.delete(nsx_port_id)
         self.disassociate_floatingips(context, port_id)
         ret_val = super(NsxV3Plugin, self).delete_port(context, port_id)
