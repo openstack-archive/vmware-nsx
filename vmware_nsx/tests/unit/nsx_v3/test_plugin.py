@@ -352,7 +352,7 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
         result = utils.build_v3_tags_payload(
             {'id': 'fake_id',
              'tenant_id': 'fake_tenant_id'})
-        expected = [{'scope': 'neutron-id', 'tag': 'fake_id'},
+        expected = [{'scope': 'os-neutron-id', 'tag': 'fake_id'},
                     {'scope': 'os-tid', 'tag': 'fake_tenant_id'},
                     {'scope': 'os-api-version',
                      'tag': version.version_info.release_string()}]
