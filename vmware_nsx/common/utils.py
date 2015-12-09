@@ -92,9 +92,9 @@ def build_v3_tags_payload(logical_entity):
     """
     Construct the tags payload that will be pushed to NSX-v3
     Add os-tid:<tenant-id>, os-api-version:<neutron-api-version>,
-        neutron-id:<resource-id>
+        os-neutron-id:<resource-id>
     """
-    return [{"scope": "neutron-id",
+    return [{"scope": "os-neutron-id",
              "tag": logical_entity.get("id", "")},
             {"scope": "os-tid",
              "tag": logical_entity.get("tenant_id", "")},
