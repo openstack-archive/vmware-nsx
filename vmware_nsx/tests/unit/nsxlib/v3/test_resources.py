@@ -53,7 +53,7 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
 
         tags = [
             {
-                'scope': 'os-tid',
+                'scope': 'os-project-id',
                 'tag': 'tenant-1'
             },
             {
@@ -79,7 +79,7 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
 
         tags = [
             {
-                'scope': 'os-tid',
+                'scope': 'os-project-id',
                 'tag': 'tenant-1'
             },
             {
@@ -109,7 +109,7 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
 
         tags = [
             {
-                'scope': 'os-tid',
+                'scope': 'os-project-id',
                 'tag': 'tenant-1'
             },
             {

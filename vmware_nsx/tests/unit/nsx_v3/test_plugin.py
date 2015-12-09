@@ -353,7 +353,7 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
             {'id': 'fake_id',
              'tenant_id': 'fake_tenant_id'})
         expected = [{'scope': 'os-neutron-id', 'tag': 'fake_id'},
-                    {'scope': 'os-tid', 'tag': 'fake_tenant_id'},
+                    {'scope': 'os-project-id', 'tag': 'fake_tenant_id'},
                     {'scope': 'os-api-version',
                      'tag': version.version_info.release_string()}]
         self.assertEqual(expected, result)

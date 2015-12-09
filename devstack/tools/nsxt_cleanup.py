@@ -180,7 +180,8 @@ class NSXClient(object):
         Get all logical resources created by OpenStack
         """
         os_resources = [r for r in resources if 'tags' in r
-                        for tag in r['tags'] if 'os-tid' in tag.values()]
+                        for tag in r['tags']
+                        if 'os-project-id' in tag.values()]
         return os_resources
 
     def get_logical_switches(self):
