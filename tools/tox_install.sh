@@ -23,6 +23,7 @@ cwd=$(/bin/pwd)
 > /tmp/tox_install.txt
 
 zuul_cloner () {
+    export ZUUL_BRANCH=${ZUUL_BRANCH-$BRANCH}
     echo "ZUUL CLONER" >> /tmp/tox_install.txt
     cd /tmp
     $ZUUL_CLONER --cache-dir \
