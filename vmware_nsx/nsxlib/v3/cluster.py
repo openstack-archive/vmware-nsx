@@ -433,8 +433,8 @@ class NSXClusteredAPI(ClusteredAPI):
                  http_timeout=None,
                  conn_idle_timeout=None,
                  http_provider=None):
-        self.username = username or cfg.CONF.nsx_v3.nsx_user
-        self.password = password or cfg.CONF.nsx_v3.nsx_password
+        self.username = username or cfg.CONF.nsx_v3.nsx_api_user
+        self.password = password or cfg.CONF.nsx_v3.nsx_api_password
         self.retries = retries or cfg.CONF.nsx_v3.retries
         self.insecure = insecure or cfg.CONF.nsx_v3.insecure
         self.ca_file = ca_file or cfg.CONF.nsx_v3.ca_file
@@ -463,7 +463,7 @@ class NSXClusteredAPI(ClusteredAPI):
                 uri if uri.startswith('http') else
                 "%s://%s" % (self._http_provider.default_scheme, uri))
 
-        conf_urls = cfg.CONF.nsx_v3.nsx_managers[:]
+        conf_urls = cfg.CONF.nsx_v3.nsx_api_managers[:]
         urls = []
         providers = []
 
