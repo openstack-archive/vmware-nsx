@@ -266,11 +266,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         network_id = neutron_port_db['network_id']
         device_owner = neutron_port_db['device_owner']
         if device_owner.startswith("compute"):
-            s_bindings = self._create_static_binding(context,
-                                                     neutron_port_db)
-            self.edge_manager.create_dhcp_bindings(
-                context, neutron_port_db['id'],
-                network_id, s_bindings)
+            s_bindings = self.edge_manager.create_static_binding(
+                context, neutron_port_db)
+            self.edge_manager.create_dhcp_bindings(context, self.nsx_v,
+                                            network_id, s_bindings)
 
     def _delete_dhcp_static_binding(self, context, neutron_port_db):
 
@@ -1338,50 +1337,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             address_groups.append(address_group)
         LOG.debug("Update the DHCP address group to %s", address_groups)
         return address_groups
-
-    def _create_static_binding(self, context, port):
-        """Create the DHCP Edge static binding configuration
-
-        <staticBinding>
-            <macAddress></macAddress>
-            <ipAddress></ipAddress>
-            <hostname></hostname> <!--disallow duplicate-->
-            <defaultGateway></defaultGateway> <!--optional.-->
-            <primaryNameServer></primaryNameServer> <!--optional-->
-            <secondaryNameServer></secondaryNameServer> <!--optional-->
-        </staticBinding>
-        """
-        static_bindings = []
-        static_config = {}
-        static_config['macAddress'] = port['mac_address']
-        static_config['hostname'] = port['id']
-        static_config['leaseTime'] = cfg.CONF.nsxv.dhcp_lease_time
-
-        for fixed_ip in port['fixed_ips']:
-            # Query the subnet to get gateway and DNS
-            try:
-                subnet_id = fixed_ip['subnet_id']
-                subnet = self._get_subnet(context, subnet_id)
-            except n_exc.SubnetNotFound:
-                LOG.debug("No related subnet for port %s", port['id'])
-                continue
-            # Only configure if subnet has DHCP support
-            if not subnet['enable_dhcp']:
-                continue
-            static_config['ipAddress'] = fixed_ip['ip_address']
-            # Set gateway for static binding
-            static_config['defaultGateway'] = subnet['gateway_ip']
-            # set primary and secondary dns
-            name_servers = [dns['address']
-                            for dns in subnet['dns_nameservers']]
-            if len(name_servers) == 1:
-                static_config['primaryNameServer'] = name_servers[0]
-            elif len(name_servers) >= 2:
-                static_config['primaryNameServer'] = name_servers[0]
-                static_config['secondaryNameServer'] = name_servers[1]
-
-            static_bindings.append(static_config)
-        return static_bindings
 
     def _extract_external_gw(self, context, router, is_extract=True):
         r = router['router']
