@@ -56,3 +56,16 @@ def output_formatter(resource_name, resources_list, attrs):
                 result[attr] = resource[attr]
             js_output[resource_name].append(result)
         return jsonutils.dumps(js_output, sort_keys=True, indent=4)
+
+
+def tabulate_results(data):
+    """Method to format the data in a tabular format.
+
+    Expects a list of tuple with the first tuple in the list; being treated as
+    column headers.
+    """
+    columns = data.pop(0)
+    table = prettytable.PrettyTable(["%s" % col for col in columns])
+    for contents in data:
+        table.add_row(["%s" % contents])
+    return table
