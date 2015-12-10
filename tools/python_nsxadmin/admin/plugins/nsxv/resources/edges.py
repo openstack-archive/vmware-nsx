@@ -23,6 +23,7 @@ import tools.python_nsxadmin.admin.plugins.nsxv.resources.utils as utils
 import tools.python_nsxadmin.admin.shell as shell
 
 from neutron.callbacks import registry
+from neutron.common import exceptions
 
 from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.db import nsxv_db
@@ -129,7 +130,10 @@ def nsx_update_edge(resource, event, trigger, **kwargs):
         ha_request = {
             'featureType': 'highavailability_4.0',
             'enabled': ha}
-    return nsxv.enable_ha(properties.get('edge-id'), ha_request, async=False)
+    try:
+        nsxv.enable_ha(properties.get('edge-id'), ha_request, async=False)
+    except exceptions.NeutronException as e:
+        LOG.error(_LE("%s"), str(e))
 
 
 registry.subscribe(nsx_list_edges,
