@@ -208,7 +208,7 @@ def _get_client(client):
 
 # NOTE(shihli): tmp until all refs use client class
 def _get_nsx_managers_from_conf():
-    return cfg.CONF.nsx_v3.nsx_managers
+    return cfg.CONF.nsx_v3.nsx_api_managers
 
 
 def get_resource(resource, client=None):

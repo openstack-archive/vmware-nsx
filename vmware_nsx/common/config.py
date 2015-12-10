@@ -169,14 +169,16 @@ nsx_common_opts = [
 ]
 
 nsx_v3_opts = [
-    cfg.StrOpt('nsx_user',
+    cfg.StrOpt('nsx_api_user',
+               deprecated_name='nsx_user',
                default='admin',
                help=_('User name for the NSX manager')),
-    cfg.StrOpt('nsx_password',
+    cfg.StrOpt('nsx_api_password',
+               deprecated_name='nsx_password',
                default='default',
                secret=True,
                help=_('Password for the NSX manager')),
-    cfg.ListOpt('nsx_managers',
+    cfg.ListOpt('nsx_api_managers',
                 deprecated_name='nsx_manager',
                 help=_('IP address of one or more NSX managers separated '
                        'by commas. The IP address can optionally specify a '

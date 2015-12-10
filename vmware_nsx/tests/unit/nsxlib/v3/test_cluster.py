@@ -86,7 +86,7 @@ class NsxV3ClusteredAPITestCase(nsxlib_testcase.NsxClientTestCase):
     def test_conf_providers_no_scheme(self):
         conf_managers = ['8.9.10.11', '9.10.11.12:4433']
         cfg.CONF.set_override(
-            'nsx_managers', conf_managers, 'nsx_v3')
+            'nsx_api_managers', conf_managers, 'nsx_v3')
 
         mock_provider = mock.Mock()
         mock_provider.default_scheme = 'https'
@@ -100,7 +100,7 @@ class NsxV3ClusteredAPITestCase(nsxlib_testcase.NsxClientTestCase):
     def test_conf_providers_with_scheme(self):
         conf_managers = ['http://8.9.10.11:8080', 'https://9.10.11.12:4433']
         cfg.CONF.set_override(
-            'nsx_managers', conf_managers, 'nsx_v3')
+            'nsx_api_managers', conf_managers, 'nsx_v3')
 
         mock_provider = mock.Mock()
         mock_provider.default_scheme = 'https'
@@ -116,7 +116,7 @@ class NsxV3ClusteredAPITestCase(nsxlib_testcase.NsxClientTestCase):
             'concurrent_connections', 11, 'nsx_v3')
         conf_managers = ['8.9.10.11', '9.10.11.12:4433']
         cfg.CONF.set_override(
-            'nsx_managers', conf_managers, 'nsx_v3')
+            'nsx_api_managers', conf_managers, 'nsx_v3')
 
         mock_provider = mock.Mock()
         mock_provider.default_scheme = 'https'
@@ -133,7 +133,7 @@ class ClusteredAPITestCase(nsxlib_testcase.NsxClientTestCase):
     def _test_health(self, validate_fn, expected_health):
         conf_managers = ['8.9.10.11', '9.10.11.12']
         cfg.CONF.set_override(
-            'nsx_managers', conf_managers, 'nsx_v3')
+            'nsx_api_managers', conf_managers, 'nsx_v3')
 
         mock_provider = mock.Mock()
         mock_provider.default_scheme = 'https'
@@ -159,7 +159,7 @@ class ClusteredAPITestCase(nsxlib_testcase.NsxClientTestCase):
     def test_cluster_unavailable(self):
         conf_managers = ['8.9.10.11', '9.10.11.12', '10.11.12.13']
         cfg.CONF.set_override(
-            'nsx_managers', conf_managers, 'nsx_v3')
+            'nsx_api_managers', conf_managers, 'nsx_v3')
 
         mock_provider = mock.Mock()
         mock_provider.default_scheme = 'https'

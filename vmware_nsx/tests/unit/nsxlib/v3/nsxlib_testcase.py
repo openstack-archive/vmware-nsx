@@ -39,9 +39,9 @@ class NsxLibTestCase(unittest.TestCase):
     def setup_conf_overrides(cls):
         cfg.CONF.set_override('default_overlay_tz_uuid',
                               uuidutils.generate_uuid(), 'nsx_v3')
-        cfg.CONF.set_override('nsx_user', NSX_USER, 'nsx_v3')
-        cfg.CONF.set_override('nsx_password', NSX_PASSWORD, 'nsx_v3')
-        cfg.CONF.set_override('nsx_managers', [NSX_MANAGER], 'nsx_v3')
+        cfg.CONF.set_override('nsx_api_user', NSX_USER, 'nsx_v3')
+        cfg.CONF.set_override('nsx_api_password', NSX_PASSWORD, 'nsx_v3')
+        cfg.CONF.set_override('nsx_api_managers', [NSX_MANAGER], 'nsx_v3')
         cfg.CONF.set_override('insecure', NSX_INSECURE, 'nsx_v3')
         cfg.CONF.set_override('ca_file', NSX_CERT, 'nsx_v3')
 
