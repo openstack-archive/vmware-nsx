@@ -793,6 +793,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 context, id, port, original_port, updated_port)
             (port_security, has_ip) = self._determine_port_security_and_has_ip(
                 context, updated_port)
+            self._process_portbindings_create_and_update(
+                context, port['port'], updated_port)
 
         address_bindings = self._build_address_bindings(updated_port)
         if port_security and address_bindings:
