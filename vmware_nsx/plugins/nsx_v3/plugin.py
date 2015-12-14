@@ -1237,7 +1237,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                     context.session, new_using_port_id)
                 self._router_port_client.update_by_lswitch_id(
                     nsx_router_id, nsx_net_id,
-                    linked_logical_switch_port_id=new_nsx_port_id,
+                    linked_logical_switch_port_id={
+                        'target_id': new_nsx_port_id},
                     subnets=address_groups)
             else:
                 self._router_port_client.delete_by_lswitch_id(nsx_net_id)
