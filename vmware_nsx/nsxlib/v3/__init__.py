@@ -102,7 +102,7 @@ def get_logical_switch(logical_switch_id):
 
 @utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision,
                                   max_attempts=cfg.CONF.nsx_v3.retries)
-def update_logical_switch(lswitch_id, name=None, admin_state=None):
+def update_logical_switch(lswitch_id, name=None, admin_state=None, tags=None):
     resource = "logical-switches/%s" % lswitch_id
     lswitch = get_logical_switch(lswitch_id)
     if name is not None:
@@ -112,6 +112,8 @@ def update_logical_switch(lswitch_id, name=None, admin_state=None):
             lswitch['admin_state'] = nsx_constants.ADMIN_STATE_UP
         else:
             lswitch['admin_state'] = nsx_constants.ADMIN_STATE_DOWN
+    if tags is not None:
+        lswitch['tags'] = tags
     return client.update_resource(resource, lswitch)
 
 
