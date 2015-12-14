@@ -23,9 +23,11 @@ from neutron.extensions import external_net
 from neutron.extensions import extraroute
 from neutron.extensions import l3
 from neutron.extensions import l3_ext_gw_mode
+from neutron.extensions import portbindings
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as secgrp
 from neutron import manager
+from neutron.tests.unit import _test_extension_portbindings as test_bindings
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_plugin
 from neutron.tests.unit.extensions import test_extra_dhcp_opt as test_dhcpopts
 from neutron.tests.unit.extensions import test_extraroute as test_ext_route
@@ -152,7 +154,13 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
     pass
 
 
-class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin):
+class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
+                  test_bindings.PortBindingsTestCase,
+                  test_bindings.PortBindingsHostTestCaseMixin,
+                  test_bindings.PortBindingsVnicTestCaseMixin):
+
+    VIF_TYPE = portbindings.VIF_TYPE_OVS
+    HAS_PORT_FILTER = True
 
     def test_update_port_delete_ip(self):
         # This test case overrides the default because the nsx plugin
