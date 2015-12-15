@@ -1119,8 +1119,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             address_groups.append(address_group)
         return (ports, address_groups)
 
-    def _validate_multiple_subnets_diff_routers(self, context, router_id,
-                                                interface_info):
+    def _validate_multiple_subnets_routers(self, context, router_id,
+                                           interface_info):
         is_port, is_sub = self._validate_interface_info(interface_info)
         if is_port:
             net_id = self.get_port(context,
@@ -1133,19 +1133,19 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                         'network_id': [net_id]}
         intf_ports = self.get_ports(context.elevated(), filters=port_filters)
         router_ids = [port['device_id'] for port in intf_ports]
-        router_id_set = set(router_ids) - set([router_id])
-        if len(router_id_set) > 0:
-            err_msg = _("Subnets of network %(net_id)s cannot be attached to "
-                        "multiple routers, already attached to router "
-                        "%(router_id)s") % {'net_id': net_id,
-                                            'router_id': router_ids[0]}
+        if len(router_ids) > 0:
+            err_msg = _("Only one subnet of network %(net_id)s can be "
+                        "attached to router, one subnet is already attached "
+                        "to router %(router_id)s") % {
+                'net_id': net_id,
+                'router_id': router_ids[0]}
             raise n_exc.InvalidInput(error_message=err_msg)
 
     def add_router_interface(self, context, router_id, interface_info):
-        # disallow multiple subnets belong to same network being attached
-        # to different routers
-        self._validate_multiple_subnets_diff_routers(context,
-                                                     router_id, interface_info)
+        # disallow more than one subnets belong to same network being attached
+        # to routers
+        self._validate_multiple_subnets_routers(context,
+                                                router_id, interface_info)
 
         info = super(NsxV3Plugin, self).add_router_interface(
             context, router_id, interface_info)

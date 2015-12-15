@@ -307,6 +307,22 @@ class TestL3NatTestCase(L3NatTest,
                 self._router_interface_action('remove', r2['router']['id'],
                                               s2['subnet']['id'], None)
 
+    def test_multiple_subnets_on_same_router(self):
+        with self.network() as network:
+            with self.subnet(network=network) as s1,\
+                    self.subnet(network=network,
+                                cidr='11.0.0.0/24') as s2,\
+                    self.router() as r1:
+                self._router_interface_action('add', r1['router']['id'],
+                                              s1['subnet']['id'], None)
+                self.assertRaises(n_exc.InvalidInput,
+                                  self.plugin_instance.add_router_interface,
+                                  context.get_admin_context(),
+                                  r1['router']['id'],
+                                  {'subnet_id': s2['subnet']['id']})
+                self._router_interface_action('remove', r1['router']['id'],
+                                              s1['subnet']['id'], None)
+
     def test_router_update_on_external_port(self):
         with self.router() as r:
             with self.subnet(cidr='10.0.1.0/24') as s:
@@ -343,6 +359,15 @@ class TestL3NatTestCase(L3NatTest,
                 self.assertIsNone(gw_info)
 
     def test_create_router_gateway_fails(self):
+        self.skipTest('not supported')
+
+    def test_router_remove_ipv6_subnet_from_interface(self):
+        self.skipTest('not supported')
+
+    def test_router_add_interface_multiple_ipv6_subnets_same_net(self):
+        self.skipTest('not supported')
+
+    def test_router_add_interface_multiple_ipv4_subnets(self):
         self.skipTest('not supported')
 
 
