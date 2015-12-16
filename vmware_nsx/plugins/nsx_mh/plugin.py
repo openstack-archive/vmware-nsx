@@ -72,7 +72,7 @@ from vmware_nsx.db import maclearning as mac_db
 from vmware_nsx.db import networkgw_db
 from vmware_nsx.db import nsx_models
 from vmware_nsx.db import qos_db
-from vmware_nsx import dhcpmeta_modes
+from vmware_nsx.dhcp_meta import modes as dhcpmeta_modes
 from vmware_nsx.extensions import maclearning as mac_ext
 from vmware_nsx.extensions import networkgw
 from vmware_nsx.extensions import qos

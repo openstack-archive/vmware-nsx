@@ -44,6 +44,7 @@ from vmware_nsx.nsxlib.v3 import client as nsx_client
 from vmware_nsx.nsxlib.v3 import cluster as nsx_cluster
 from vmware_nsx.plugins.nsx_v3 import plugin as nsx_plugin
 from vmware_nsx.tests import unit as vmware
+from vmware_nsx.tests.unit.extensions import test_metadata
 from vmware_nsx.tests.unit.nsx_v3 import mocks as nsx_v3_mocks
 from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
 
@@ -254,12 +255,14 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxV3PluginTestCaseMixin):
 
 class TestL3NatTestCase(L3NatTest,
                         test_l3_plugin.L3NatDBIntTestCase,
-                        test_ext_route.ExtraRouteDBTestCaseBase):
+                        test_ext_route.ExtraRouteDBTestCaseBase,
+                        test_metadata.MetaDataTestCase):
 
     def setUp(self, plugin=PLUGIN_NAME,
               ext_mgr=None,
               service_plugins=None):
         super(TestL3NatTestCase, self).setUp(plugin=plugin, ext_mgr=ext_mgr)
+        cfg.CONF.set_override('metadata_mode', None, 'NSX')
 
     def _test_create_l3_ext_network(
             self, physical_network=nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID):
