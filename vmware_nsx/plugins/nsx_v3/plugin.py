@@ -375,9 +375,14 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             if tag['scope'] == 'os-neutron-id':
                 tag['tag'] = network_id
         try:
-            nsxlib.update_logical_switch(network_id, tags=network_tags)
+            nsxlib.update_logical_switch(
+                network_id,
+                name=utils.get_name_and_uuid(net_data.get('name'),
+                                             network_id),
+                tags=network_tags)
         except nsx_exc.ManagerError:
-            LOG.exception(_LE("Unable to update network tags on NSX backend"))
+            LOG.exception(_LE("Unable to update network name and tags on NSX "
+                              "backend for network %s"), network_id)
 
         return (is_provider_net, net_type, physical_net, vlan_id)
 
