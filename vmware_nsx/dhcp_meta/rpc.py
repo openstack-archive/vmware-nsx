@@ -47,41 +47,51 @@ def handle_port_dhcp_access(plugin, context, port_data, action):
 
 
 def handle_port_metadata_access(plugin, context, port, is_delete=False):
+    # For instances supporting DHCP option 121 and created in a
+    # DHCP-enabled but isolated network. This method is useful
+    # only when no network namespace support.
     if (cfg.CONF.NSX.metadata_mode == config.MetadataModes.INDIRECT and
         port.get('device_owner') == const.DEVICE_OWNER_DHCP):
-        if port.get('fixed_ips', []) or is_delete:
-            fixed_ip = port['fixed_ips'][0]
-            query = context.session.query(models_v2.Subnet)
-            subnet = query.filter(
-                models_v2.Subnet.id == fixed_ip['subnet_id']).one()
-            # If subnet does not have a gateway do not create metadata
-            # route. This is done via the enable_isolated_metadata
-            # option if desired.
-            if not subnet.get('gateway_ip'):
-                LOG.info(_LI('Subnet %s does not have a gateway, the '
-                             'metadata route will not be created'),
-                         subnet['id'])
-                return
-            metadata_routes = [r for r in subnet.routes
-                               if r['destination'] == METADATA_DHCP_ROUTE]
-            if metadata_routes:
-                # We should have only a single metadata route at any time
-                # because the route logic forbids two routes with the same
-                # destination. Update next hop with the provided IP address
-                if not is_delete:
-                    metadata_routes[0].nexthop = fixed_ip['ip_address']
-                else:
-                    context.session.delete(metadata_routes[0])
+        if not port.get('fixed_ips'):
+            # If port does not have an IP, the associated subnet is in
+            # deleting state.
+            LOG.info(_LI('Port %s has no IP due to subnet in deleting state'),
+                     port['id'])
+            return
+        fixed_ip = port['fixed_ips'][0]
+        query = context.session.query(models_v2.Subnet)
+        subnet = query.filter(
+            models_v2.Subnet.id == fixed_ip['subnet_id']).one()
+        # If subnet does not have a gateway, do not create metadata
+        # route. This is done via the enable_isolated_metadata
+        # option if desired.
+        if not subnet.get('gateway_ip'):
+            LOG.info(_LI('Subnet %s does not have a gateway, the '
+                         'metadata route will not be created'),
+                     subnet['id'])
+            return
+        metadata_routes = [r for r in subnet.routes
+                           if r['destination'] == METADATA_DHCP_ROUTE]
+        if metadata_routes:
+            # We should have only a single metadata route at any time
+            # because the route logic forbids two routes with the same
+            # destination. Update next hop with the provided IP address
+            if not is_delete:
+                metadata_routes[0].nexthop = fixed_ip['ip_address']
             else:
-                # add the metadata route
-                route = models_v2.SubnetRoute(
-                    subnet_id=subnet.id,
-                    destination=METADATA_DHCP_ROUTE,
-                    nexthop=fixed_ip['ip_address'])
-                context.session.add(route)
+                context.session.delete(metadata_routes[0])
+        else:
+            # add the metadata route
+            route = models_v2.SubnetRoute(
+                subnet_id=subnet.id,
+                destination=METADATA_DHCP_ROUTE,
+                nexthop=fixed_ip['ip_address'])
+            context.session.add(route)
 
 
 def handle_router_metadata_access(plugin, context, router_id, interface=None):
+    # For instances created in a DHCP-disabled network but connected to
+    # a router.
     if cfg.CONF.NSX.metadata_mode != config.MetadataModes.DIRECT:
         LOG.debug("Metadata access network is disabled")
         return
