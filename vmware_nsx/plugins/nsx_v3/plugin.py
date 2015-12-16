@@ -64,6 +64,7 @@ from vmware_nsx.common import locking
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
+from vmware_nsx.dhcp_meta import rpc as nsx_rpc
 from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.nsxlib.v3 import client as nsx_client
 from vmware_nsx.nsxlib.v3 import cluster as nsx_cluster
@@ -641,6 +642,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         with context.session.begin(subtransactions=True):
             neutron_db = super(NsxV3Plugin, self).create_port(context, port)
             port["port"].update(neutron_db)
+            nsx_rpc.handle_port_metadata_access(self, context, neutron_db)
 
             (is_psec_on, has_ip) = self._create_port_preprocess_security(
                 context, port, port_data, neutron_db)
@@ -705,6 +707,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                                          [], [])
             self._port_client.delete(nsx_port_id)
         self.disassociate_floatingips(context, port_id)
+        nsx_rpc.handle_port_metadata_access(self, context, port,
+                                            is_delete=True)
         ret_val = super(NsxV3Plugin, self).delete_port(context, port_id)
 
         return ret_val
@@ -1011,6 +1015,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         return self.get_router(context, router['id'])
 
     def delete_router(self, context, router_id):
+        nsx_rpc.handle_router_metadata_access(self, context, router_id,
+                                              interface=None)
         router = self.get_router(context, router_id)
         if router.get(l3.EXTERNAL_GW_INFO):
             self._update_router_gw_info(context, router_id, {})
@@ -1185,6 +1191,11 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 # TODO(berlin): Announce the subnet on tier0 if enable_snat
                 # is False
                 pass
+            # Ensure the NSX logical router has a connection to a
+            # 'metadata access' network (with a proxy listening on
+            # its DHCP port), by creating it if needed.
+            nsx_rpc.handle_router_metadata_access(self, context, router_id,
+                                                  interface=info)
         except nsx_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 self.remove_router_interface(
@@ -1251,8 +1262,13 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                           "%(net_id)s not found at the backend"),
                       {'router_id': router_id,
                        'net_id': subnet['network_id']})
-        return super(NsxV3Plugin, self).remove_router_interface(
+        info = super(NsxV3Plugin, self).remove_router_interface(
             context, router_id, interface_info)
+        # Ensure the connection to the 'metadata access network' is removed
+        # (with the network) if this the last subnet on the router.
+        nsx_rpc.handle_router_metadata_access(self, context, router_id,
+                                              interface=info)
+        return info
 
     def create_floatingip(self, context, floatingip):
         new_fip = super(NsxV3Plugin, self).create_floatingip(

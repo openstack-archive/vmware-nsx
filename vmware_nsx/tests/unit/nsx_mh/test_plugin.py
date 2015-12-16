@@ -16,7 +16,6 @@
 import uuid
 
 import mock
-import netaddr
 from neutron.api.v2 import attributes
 from neutron.common import constants
 from neutron.common import exceptions as ntn_exc
@@ -52,6 +51,7 @@ from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.nsxlib import mh as nsxlib
 from vmware_nsx.tests import unit as vmware
+from vmware_nsx.tests.unit.extensions import test_metadata
 from vmware_nsx.tests.unit.nsx_mh.apiclient import fake
 from vmware_nsx.tests.unit import test_utils
 
@@ -532,7 +532,8 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxPluginV2TestCase):
 
 class TestL3NatTestCase(L3NatTest,
                         test_l3_plugin.L3NatDBIntTestCase,
-                        NsxPluginV2TestCase):
+                        NsxPluginV2TestCase,
+                        test_metadata.MetaDataTestCase):
 
     def _test_create_l3_ext_network(self, vlan_id=0):
         name = 'l3_ext_net'
@@ -761,22 +762,11 @@ class TestL3NatTestCase(L3NatTest,
     def test_floatingip_with_invalid_create_port(self):
         self._test_floatingip_with_invalid_create_port(self._plugin_name)
 
-    def _metadata_setup(self):
-        cfg.CONF.set_override('metadata_mode', 'access_network', 'NSX')
-
-    def _metadata_teardown(self):
-        cfg.CONF.set_override('metadata_mode', None, 'NSX')
-
     def test_create_router_name_exceeds_40_chars(self):
         name = 'this_is_a_router_whose_name_is_longer_than_40_chars'
         with self.router(name=name) as rtr:
             # Assert Neutron name is not truncated
             self.assertEqual(rtr['router']['name'], name)
-
-    def test_router_add_interface_subnet_with_metadata_access(self):
-        self._metadata_setup()
-        self.test_router_add_interface_subnet()
-        self._metadata_teardown()
 
     def test_router_add_interface_port(self):
         orig_update_port = self.plugin.update_port
@@ -803,216 +793,6 @@ class TestL3NatTestCase(L3NatTest,
                                           r['router']['id'],
                                           None,
                                           p['port']['id'])
-
-    def test_router_add_interface_port_with_metadata_access(self):
-        self._metadata_setup()
-        self.test_router_add_interface_port()
-        self._metadata_teardown()
-
-    def test_router_add_interface_dupsubnet_returns_400_with_metadata(self):
-        self._metadata_setup()
-        self.test_router_add_interface_dup_subnet1_returns_400()
-        self._metadata_teardown()
-
-    def test_router_add_interface_overlapped_cidr_returns_400_with(self):
-        self._metadata_setup()
-        self.test_router_add_interface_overlapped_cidr_returns_400()
-        self._metadata_teardown()
-
-    def test_router_remove_interface_inuse_returns_409_with_metadata(self):
-        self._metadata_setup()
-        self.test_router_remove_interface_inuse_returns_409()
-        self._metadata_teardown()
-
-    def test_router_remove_iface_wrong_sub_returns_400_with_metadata(self):
-        self._metadata_setup()
-        self.test_router_remove_interface_wrong_subnet_returns_400()
-        self._metadata_teardown()
-
-    def test_router_delete_with_metadata_access(self):
-        self._metadata_setup()
-        self.test_router_delete()
-        self._metadata_teardown()
-
-    def test_router_delete_with_port_existed_returns_409_with_metadata(self):
-        self._metadata_setup()
-        self.test_router_delete_with_port_existed_returns_409()
-        self._metadata_teardown()
-
-    def test_metadatata_network_created_with_router_interface_add(self):
-        self._metadata_setup()
-        with mock.patch.object(self._plugin_class, 'schedule_network') as f:
-            with self.router() as r:
-                with self.subnet() as s:
-                    self._router_interface_action('add',
-                                                  r['router']['id'],
-                                                  s['subnet']['id'],
-                                                  None)
-                    r_ports = self._list('ports')['ports']
-                    self.assertEqual(len(r_ports), 2)
-                    ips = []
-                    for port in r_ports:
-                        ips.extend([netaddr.IPAddress(fixed_ip['ip_address'])
-                                    for fixed_ip in port['fixed_ips']])
-                    meta_cidr = netaddr.IPNetwork('169.254.0.0/16')
-                    self.assertTrue(any([ip in meta_cidr for ip in ips]))
-                    # Needed to avoid 409
-                    self._router_interface_action('remove',
-                                                  r['router']['id'],
-                                                  s['subnet']['id'],
-                                                  None)
-            # Verify that the metadata network gets scheduled, so that
-            # an active dhcp agent can pick it up
-            expected_meta_net = {
-                'status': 'ACTIVE',
-                'subnets': [],
-                'name': 'meta-%s' % r['router']['id'],
-                'admin_state_up': True,
-                'tenant_id': '',
-                'port_security_enabled': False,
-                'shared': False,
-                'id': mock.ANY,
-                'mtu': mock.ANY
-            }
-            f.assert_any_call(mock.ANY, expected_meta_net)
-        self._metadata_teardown()
-
-    def test_metadata_network_create_rollback_on_create_subnet_failure(self):
-        self._metadata_setup()
-        with self.router() as r:
-            with self.subnet() as s:
-                # Raise a NeutronException (eg: NotFound)
-                with mock.patch.object(self._plugin_class,
-                                       'create_subnet',
-                                       side_effect=ntn_exc.NotFound):
-                    self._router_interface_action(
-                        'add', r['router']['id'], s['subnet']['id'], None)
-                # Ensure metadata network was removed
-                nets = self._list('networks')['networks']
-                self.assertEqual(len(nets), 1)
-                # Needed to avoid 409
-                self._router_interface_action('remove',
-                                              r['router']['id'],
-                                              s['subnet']['id'],
-                                              None)
-        self._metadata_teardown()
-
-    def test_metadata_network_create_rollback_on_add_rtr_iface_failure(self):
-        self._metadata_setup()
-        with self.router() as r:
-            with self.subnet() as s:
-                # Raise a NeutronException when adding metadata subnet
-                # to router
-                # save function being mocked
-                real_func = self._plugin_class.add_router_interface
-                plugin_instance = manager.NeutronManager.get_plugin()
-
-                def side_effect(*args):
-                    if args[-1]['subnet_id'] == s['subnet']['id']:
-                        # do the real thing
-                        return real_func(plugin_instance, *args)
-                    # otherwise raise
-                    raise api_exc.NsxApiException()
-
-                with mock.patch.object(self._plugin_class,
-                                       'add_router_interface',
-                                       side_effect=side_effect):
-                    self._router_interface_action(
-                        'add', r['router']['id'], s['subnet']['id'], None)
-                # Ensure metadata network was removed
-                nets = self._list('networks')['networks']
-                self.assertEqual(len(nets), 1)
-                # Needed to avoid 409
-                self._router_interface_action('remove',
-                                              r['router']['id'],
-                                              s['subnet']['id'],
-                                              None)
-        self._metadata_teardown()
-
-    def test_metadata_network_removed_with_router_interface_remove(self):
-        self._metadata_setup()
-        with self.router() as r:
-            with self.subnet() as s:
-                self._router_interface_action('add', r['router']['id'],
-                                              s['subnet']['id'], None)
-                subnets = self._list('subnets')['subnets']
-                self.assertEqual(len(subnets), 2)
-                meta_cidr = netaddr.IPNetwork('169.254.0.0/16')
-                for subnet in subnets:
-                    cidr = netaddr.IPNetwork(subnet['cidr'])
-                    if meta_cidr == cidr or meta_cidr in cidr.supernet(16):
-                        meta_sub_id = subnet['id']
-                        meta_net_id = subnet['network_id']
-                ports = self._list(
-                    'ports',
-                    query_params='network_id=%s' % meta_net_id)['ports']
-                self.assertEqual(len(ports), 1)
-                meta_port_id = ports[0]['id']
-                self._router_interface_action('remove', r['router']['id'],
-                                              s['subnet']['id'], None)
-                self._show('networks', meta_net_id,
-                           webob.exc.HTTPNotFound.code)
-                self._show('ports', meta_port_id,
-                           webob.exc.HTTPNotFound.code)
-                self._show('subnets', meta_sub_id,
-                           webob.exc.HTTPNotFound.code)
-        self._metadata_teardown()
-
-    def test_metadata_network_remove_rollback_on_failure(self):
-        self._metadata_setup()
-        with self.router() as r:
-            with self.subnet() as s:
-                self._router_interface_action('add', r['router']['id'],
-                                              s['subnet']['id'], None)
-                networks = self._list('networks')['networks']
-                for network in networks:
-                    if network['id'] != s['subnet']['network_id']:
-                        meta_net_id = network['id']
-                ports = self._list(
-                    'ports',
-                    query_params='network_id=%s' % meta_net_id)['ports']
-                meta_port_id = ports[0]['id']
-                # Raise a NeutronException when removing
-                # metadata subnet from router
-                # save function being mocked
-                real_func = self._plugin_class.remove_router_interface
-                plugin_instance = manager.NeutronManager.get_plugin()
-
-                def side_effect(*args):
-                    if args[-1].get('subnet_id') == s['subnet']['id']:
-                        # do the real thing
-                        return real_func(plugin_instance, *args)
-                    # otherwise raise
-                    raise api_exc.NsxApiException()
-
-                with mock.patch.object(self._plugin_class,
-                                       'remove_router_interface',
-                                       side_effect=side_effect):
-                    self._router_interface_action('remove', r['router']['id'],
-                                                  s['subnet']['id'], None)
-                # Metadata network and subnet should still be there
-                self._show('networks', meta_net_id,
-                           webob.exc.HTTPOk.code)
-                self._show('ports', meta_port_id,
-                           webob.exc.HTTPOk.code)
-        self._metadata_teardown()
-
-    def test_metadata_dhcp_host_route(self):
-        cfg.CONF.set_override('metadata_mode', 'dhcp_host_route', 'NSX')
-        subnets = self._list('subnets')['subnets']
-        with self.subnet() as s:
-            with self.port(subnet=s, device_id='1234',
-                           device_owner=constants.DEVICE_OWNER_DHCP) as port:
-                subnets = self._list('subnets')['subnets']
-                self.assertEqual(len(subnets), 1)
-                self.assertEqual(subnets[0]['host_routes'][0]['nexthop'],
-                                 '10.0.0.2')
-                self.assertEqual(subnets[0]['host_routes'][0]['destination'],
-                                 '169.254.169.254/32')
-            self._delete('ports', port['port']['id'])
-            subnets = self._list('subnets')['subnets']
-            # Test that route is deleted after dhcp port is removed
-            self.assertEqual(len(subnets[0]['host_routes']), 0)
 
     def _test_floatingip_update(self, expected_status):
         super(TestL3NatTestCase, self).test_floatingip_update(
