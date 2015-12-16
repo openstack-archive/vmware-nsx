@@ -158,3 +158,10 @@ def dict_match(dict1, dict2):
         elif v1 != v2:
             return False
     return True
+
+
+def get_name_and_uuid(name, uuid, maxlen=80):
+    # TODO(garyk):the second '_' should be '...'. Pending backend support
+    short_uuid = '_' + uuid[:5] + '_' + uuid[-5:]
+    maxlen = maxlen - len(short_uuid)
+    return name[:maxlen] + short_uuid
