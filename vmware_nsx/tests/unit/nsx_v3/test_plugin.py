@@ -384,12 +384,20 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
     def test_build_v3_tags_payload(self):
         result = utils.build_v3_tags_payload(
             {'id': 'fake_id',
-             'tenant_id': 'fake_tenant_id'})
-        expected = [{'scope': 'neutron-id', 'tag': 'fake_id'},
-                    {'scope': 'os-tid', 'tag': 'fake_tenant_id'},
+             'tenant_id': 'fake_tenant_id'},
+            resource_type='os-neutron-net-id')
+        expected = [{'scope': 'os-neutron-net-id', 'tag': 'fake_id'},
+                    {'scope': 'os-project-id', 'tag': 'fake_tenant_id'},
                     {'scope': 'os-api-version',
                      'tag': version.version_info.release_string()}]
         self.assertEqual(expected, result)
+
+    def test_build_v3_tags_payloadi_invalid_length(self):
+        self.assertRaises(n_exc.InvalidInput,
+                          utils.build_v3_tags_payload,
+                          {'id': 'fake_id',
+                           'tenant_id': 'fake_tenant_id'},
+                          resource_type='os-neutron-maldini-rocks-id')
 
     def test_build_v3_api_version_tag(self):
         result = utils.build_v3_api_version_tag()
