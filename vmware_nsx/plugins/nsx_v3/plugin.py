@@ -225,7 +225,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 NSX_V3_PSEC_PROFILE_NAME, 'Neutron Port Security Profile',
                 whitelist_ports=True, whitelist_switches=False,
                 tags=utils.build_v3_api_version_tag())
-
         return self._get_port_security_profile()
 
     def _setup_rpc(self):
@@ -350,7 +349,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         net_type, physical_net, vlan_id = self._validate_provider_create(
             context, net_data)
         net_name = net_data['name']
-        tags = utils.build_v3_tags_payload(net_data)
+        tags = utils.build_v3_tags_payload(
+            net_data, resource_type='os-neutron-net-id')
         admin_state = net_data.get('admin_state_up', True)
 
         # Create network on the backend
@@ -373,7 +373,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         net_data['id'] = network_id
         network_tags = result['tags']
         for tag in network_tags:
-            if tag['scope'] == 'os-neutron-id':
+            if tag['scope'] == 'os-neutron-net-id':
                 tag['tag'] = network_id
         try:
             nsxlib.update_logical_switch(
@@ -574,7 +574,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
     def _create_port_at_the_backend(self, context, neutron_db,
                                     port_data, l2gw_port_check,
                                     psec_is_on):
-        tags = utils.build_v3_tags_payload(port_data)
+        tags = utils.build_v3_tags_payload(
+            port_data, resource_type='os-neutron-port-id')
         parent_name, tag = self._get_data_from_binding_profile(
             context, port_data)
         address_bindings = self._build_address_bindings(port_data)
@@ -998,7 +999,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         # TODO(berlin): admin_state_up support
         gw_info = self._extract_external_gw(context, router, is_extract=True)
         router['router']['id'] = uuidutils.generate_uuid()
-        tags = utils.build_v3_tags_payload(router['router'])
+        tags = utils.build_v3_tags_payload(
+            router['router'], resource_type='os-neutron-router-id')
         result = self._router_client.create(
             display_name=router['router'].get('name'),
             tags=tags)
@@ -1393,7 +1395,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         secgroup = security_group['security_group']
         secgroup['id'] = uuidutils.generate_uuid()
 
-        tags = utils.build_v3_tags_payload(secgroup)
+        tags = utils.build_v3_tags_payload(
+            secgroup, resource_type='os-neutron-secgr-id')
         name = security.get_nsgroup_name(secgroup)
         ns_group = None
         firewall_section = None
