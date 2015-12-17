@@ -350,7 +350,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             context, net_data)
         net_name = net_data['name']
         tags = utils.build_v3_tags_payload(
-            net_data, resource_type='os-neutron-net-id')
+            net_data, resource_type='os-neutron-net-id',
+            project_name=context.tenant_name)
         admin_state = net_data.get('admin_state_up', True)
 
         # Create network on the backend
@@ -575,7 +576,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                                     port_data, l2gw_port_check,
                                     psec_is_on):
         tags = utils.build_v3_tags_payload(
-            port_data, resource_type='os-neutron-port-id')
+            port_data, resource_type='os-neutron-port-id',
+            project_name=context.tenant_name)
         parent_name, tag = self._get_data_from_binding_profile(
             context, port_data)
         address_bindings = self._build_address_bindings(port_data)
@@ -1000,7 +1002,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         gw_info = self._extract_external_gw(context, router, is_extract=True)
         router['router']['id'] = uuidutils.generate_uuid()
         tags = utils.build_v3_tags_payload(
-            router['router'], resource_type='os-neutron-router-id')
+            router['router'], resource_type='os-neutron-router-id',
+            project_name=context.tenant_name)
         result = self._router_client.create(
             display_name=router['router'].get('name'),
             tags=tags)
@@ -1396,7 +1399,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         secgroup['id'] = uuidutils.generate_uuid()
 
         tags = utils.build_v3_tags_payload(
-            secgroup, resource_type='os-neutron-secgr-id')
+            secgroup, resource_type='os-neutron-secgr-id',
+            project_name=context.tenant_name)
         name = security.get_nsgroup_name(secgroup)
         ns_group = None
         firewall_section = None
