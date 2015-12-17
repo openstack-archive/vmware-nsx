@@ -45,7 +45,7 @@ from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils as c_utils
 from vmware_nsx.db import db as nsx_db
-from vmware_nsx import dhcpmeta_modes
+from vmware_nsx.dhcp_meta import modes as dhcpmeta_modes
 from vmware_nsx.dvs import dvs
 from vmware_nsx.dvs import dvs_utils
 
