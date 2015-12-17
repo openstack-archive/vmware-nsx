@@ -54,8 +54,10 @@ class RouterLib(object):
         try:
             lrouter = self._router_client.get(tier0_uuid)
         except nsx_exc.ResourceNotFound:
-            err_msg = _("Failed to validate tier0 router %s since it is "
-                        "not found at the backend") % tier0_uuid
+            err_msg = (_("Tier0 router %s not found at the backend. Either a "
+                         "valid UUID must be specified or a default tier0 "
+                         "router UUID must be configured in nsx.ini") %
+                       tier0_uuid)
         else:
             edge_cluster_uuid = lrouter.get('edge_cluster_id')
             if not edge_cluster_uuid:
