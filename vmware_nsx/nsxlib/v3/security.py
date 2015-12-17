@@ -20,7 +20,6 @@ NSX-V3 Plugin security integration module
 
 from neutron.db import securitygroups_db
 
-from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils
 from vmware_nsx.db import nsx_models
 from vmware_nsx.nsxlib.v3 import dfw_api as firewall
@@ -234,9 +233,7 @@ def _init_default_section(name, description, nsgroup_id):
     else:
         section = firewall.create_empty_section(
             name, description, [nsgroup_id],
-            utils.build_v3_tags_payload({
-                'id': DEFAULT_SECTION_TAG_NAME,
-                'tenant_id': nsx_constants.SHARED_TAG_TENANT_ID}))
+            utils.build_v3_api_version_tag())
         block_rule = firewall.get_firewall_rule_dict(
             'Block All', action=firewall.DROP)
         # TODO(roeyc): Add additional rules to allow IPV6 NDP.

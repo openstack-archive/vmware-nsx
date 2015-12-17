@@ -54,6 +54,3 @@ VIF_TYPE_DVS = 'dvs'
 
 # NSXv3 L2 Gateway constants
 BRIDGE_ENDPOINT = "BRIDGEENDPOINT"
-
-# NSXv3 tag constants
-SHARED_TAG_TENANT_ID = "neutron-nsx-plugin"
