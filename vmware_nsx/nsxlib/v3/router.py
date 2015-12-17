@@ -32,6 +32,7 @@ LOG = log.getLogger(__name__)
 # TODO(berlin): Remove this when we merges the edge node auto
 # placement feature.
 MIN_EDGE_NODE_NUM = 1
+MAX_EDGE_NODE_SELECT_NUM = 2
 
 TIER0_ROUTER_LINK_PORT_NAME = "TIER0-RouterLinkPort"
 TIER1_ROUTER_LINK_PORT_NAME = "TIER1-RouterLinkPort"
@@ -48,8 +49,6 @@ class RouterLib(object):
         self._router_port_client = router_port_client
 
     def validate_tier0(self, tier0_groups_dict, tier0_uuid):
-        if tier0_uuid in tier0_groups_dict:
-            return
         err_msg = None
         try:
             lrouter = self._router_client.get(tier0_uuid)
@@ -69,7 +68,7 @@ class RouterLib(object):
                     err_msg = _("%(act_num)s edge members found in "
                                 "edge_cluster %(cluster_id)s, however we "
                                 "require at least %(exp_num)s edge nodes "
-                                "in edge cluster for HA use.") % {
+                                "in edge cluster for use.") % {
                         'act_num': len(member_index_list),
                         'exp_num': MIN_EDGE_NODE_NUM,
                         'cluster_id': edge_cluster_uuid}
@@ -88,8 +87,9 @@ class RouterLib(object):
             logical_port_id=None,
             address_groups=None)
         linked_logical_port_id = tier0_link_port['id']
+        edge_select_number = min(len(edge_members), MAX_EDGE_NODE_SELECT_NUM)
         edge_cluster_member_index = random.sample(
-            edge_members, MIN_EDGE_NODE_NUM)
+            edge_members, edge_select_number)
         # Create Tier1 logical router link port
         self._router_port_client.create(
             tier1_uuid, display_name=TIER1_ROUTER_LINK_PORT_NAME,
