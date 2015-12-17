@@ -98,21 +98,25 @@ def build_v3_api_version_tag():
              'tag': version.version_info.release_string()}]
 
 
-def build_v3_tags_payload(resource, resource_type):
+def build_v3_tags_payload(resource, resource_type, project_name):
     """
     Construct the tags payload that will be pushed to NSX-v3
-    Add os-tid:<tenant-id>, os-api-version:<neutron-api-version>,
-        neutron-id:<resource-id>
+    Add os-project-id:<tenant-id>, os-api-version:<neutron-api-version>,
+        <resoutce>:<resource-id>, os-project-name:<project-name>
     """
     # Add in a validation to ensure that we catch this at build time
     if len(resource_type) > 20:
         raise exceptions.InvalidInput(
             error_message=_('scope cannot exceed 20 characters'))
-
+    # There may be cases when the plugin creates the port, for example DHCP
+    if not project_name:
+        project_name = 'NSX neutron plug-in'
     return [{'scope': resource_type,
              'tag': resource.get('id', '')},
             {'scope': 'os-project-id',
              'tag': resource.get('tenant_id', '')},
+            {'scope': 'os-project-name',
+             'tag': project_name},
             {'scope': 'os-api-version',
              'tag': version.version_info.release_string()}]
 

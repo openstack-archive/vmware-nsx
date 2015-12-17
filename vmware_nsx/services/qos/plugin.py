@@ -40,6 +40,8 @@ class NsxQosPlugin(qos_plugin.QoSPlugin):
 
     @db_base_plugin_common.convert_result_to_dict
     def create_policy(self, context, policy):
+        if 'tenant_name' not in policy['policy']:
+            policy['policy']['tenant_name'] = context.tenant_name
         tags = utils.build_v3_tags_payload(policy['policy'])
         result = nsxlib.create_qos_switching_profile(
                      tags=tags, name=policy['policy'].get("name"),
