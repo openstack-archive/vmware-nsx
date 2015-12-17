@@ -129,7 +129,7 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
             'https://1.2.3.4/api/v1/switching-profiles',
             data=jsonutils.dumps({
                 'bpdu_filter': {
-                    'enabled': False,
+                    'enabled': True,
                     'white_list': []
                 },
                 'resource_type': profile_types.SWITCH_SECURITY,
@@ -137,7 +137,7 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
                 'description': 'dhcp-for-neutron',
                 'tags': tags,
                 'dhcp_filter': {
-                    'client_block_enabled': False,
+                    'client_block_enabled': True,
                     'server_block_enabled': False
                 },
                 'rate_limits': {
@@ -146,7 +146,8 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
                     'tx_broadcast': 0,
                     'rx_multicast': 0,
                     'tx_multicast': 0
-                }
+                },
+                'block_non_ip_traffic': True
             }, sort_keys=True))
 
     def test_find_by_display_name(self):
