@@ -19,6 +19,8 @@ from neutron.api.v2 import attributes
 from neutron.common import constants
 from neutron.common import exceptions as n_exc
 from neutron import context
+from neutron.db import models_v2
+from neutron.extensions import availability_zone as az_ext
 from neutron.extensions import external_net
 from neutron.extensions import extraroute
 from neutron.extensions import l3
@@ -34,6 +36,8 @@ from neutron.tests.unit.extensions import test_extraroute as test_ext_route
 from neutron.tests.unit.extensions import test_l3 as test_l3_plugin
 from neutron.tests.unit.extensions \
     import test_l3_ext_gw_mode as test_ext_gw_mode
+from neutron.tests.unit.scheduler \
+    import test_dhcp_agent_scheduler as test_dhcpagent
 from neutron import version
 
 from oslo_config import cfg
@@ -138,8 +142,8 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
         attrs = kwargs
         if providernet_args:
             attrs.update(providernet_args)
-        for arg in (('admin_state_up', 'tenant_id', 'shared') +
-                    (arg_list or ())):
+        for arg in (('admin_state_up', 'tenant_id', 'shared',
+                     'availability_zone_hints') + (arg_list or ())):
             # Arg must be present
             if arg in kwargs:
                 data['network'][arg] = kwargs[arg]
@@ -150,9 +154,25 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
                 '', kwargs['tenant_id'])
         return network_req.get_response(self.api)
 
+    def _save_networks(self, networks):
+        ctx = context.get_admin_context()
+        for network_id in networks:
+            with ctx.session.begin(subtransactions=True):
+                ctx.session.add(models_v2.Network(id=network_id))
+
 
 class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
-    pass
+
+    @mock.patch.object(nsx_plugin.NsxV3Plugin, 'validate_availability_zones')
+    def test_create_network_with_zone(self, mock_validate_az):
+        name = 'net-with-zone'
+        zone = ['zone1']
+
+        mock_validate_az.return_value = None
+        with self.network(name=name, availability_zone_hints=zone) as net:
+            az_hints = net['network']['availability_zone_hints']
+            az_hints_list = az_ext.convert_az_string_to_list(az_hints)
+            self.assertListEqual(az_hints_list, zone)
 
 
 class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
@@ -188,6 +208,20 @@ class DHCPOptsTestCase(test_dhcpopts.TestExtraDhcpOpt,
     def setUp(self, plugin=None):
         super(test_dhcpopts.ExtraDhcpOptDBTestCase, self).setUp(
             plugin=PLUGIN_NAME)
+
+
+class NSXv3DHCPAgentAZAwareWeightSchedulerTestCase(
+        test_dhcpagent.DHCPAgentAZAwareWeightSchedulerTestCase,
+        NsxV3PluginTestCaseMixin):
+
+    def setUp(self):
+        super(NSXv3DHCPAgentAZAwareWeightSchedulerTestCase, self).setUp()
+        self.plugin = manager.NeutronManager.get_plugin()
+        self.ctx = context.get_admin_context()
+
+    def setup_coreplugin(self, core_plugin=None):
+        super(NSXv3DHCPAgentAZAwareWeightSchedulerTestCase,
+              self).setup_coreplugin(core_plugin=PLUGIN_NAME)
 
 
 class TestL3ExtensionManager(object):

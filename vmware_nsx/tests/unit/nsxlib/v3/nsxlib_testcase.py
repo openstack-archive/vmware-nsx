@@ -44,6 +44,8 @@ class NsxLibTestCase(unittest.TestCase):
         cfg.CONF.set_override('nsx_api_managers', [NSX_MANAGER], 'nsx_v3')
         cfg.CONF.set_override('insecure', NSX_INSECURE, 'nsx_v3')
         cfg.CONF.set_override('ca_file', NSX_CERT, 'nsx_v3')
+        cfg.CONF.set_override('network_scheduler_driver',
+            'neutron.scheduler.dhcp_agent_scheduler.AZAwareWeightScheduler')
 
     def setUp(self, *args, **kwargs):
         super(NsxLibTestCase, self).setUp()

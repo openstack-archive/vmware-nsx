@@ -42,6 +42,7 @@ from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
 from neutron.db import securitygroups_db
 from neutron.extensions import allowedaddresspairs as addr_pair
+from neutron.extensions import availability_zone as az_ext
 from neutron.extensions import external_net as ext_net_extn
 from neutron.extensions import extra_dhcp_opt as ext_edo
 from neutron.extensions import l3
@@ -87,7 +88,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                   l3_gwmode_db.L3_NAT_db_mixin,
                   portbindings_db.PortBindingMixin,
                   portsecurity_db.PortSecurityDbMixin,
-                  agentschedulers_db.DhcpAgentSchedulerDbMixin,
+                  agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   extradhcpopt_db.ExtraDhcpOptMixin):
 
     __native_bulk_support = True
@@ -106,7 +107,9 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                                    "provider",
                                    "external-net",
                                    "extraroute",
-                                   "router"]
+                                   "router",
+                                   "availability_zone",
+                                   "network_availability_zone"]
 
     def __init__(self):
         super(NsxV3Plugin, self).__init__()
@@ -426,6 +429,17 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 self._process_network_port_security_create(
                     context, net_data, created_net)
                 self._process_l3_create(context, created_net, net_data)
+
+                if az_ext.AZ_HINTS in net_data:
+                    self.validate_availability_zones(context, 'network',
+                                                     net_data[az_ext.AZ_HINTS])
+                    az_hints = az_ext.convert_az_list_to_string(
+                                                    net_data[az_ext.AZ_HINTS])
+                    net_id = created_net['id']
+                    super(NsxV3Plugin, self).update_network(context,
+                        net_id, {'network': {az_ext.AZ_HINTS: az_hints}})
+                    created_net[az_ext.AZ_HINTS] = az_hints
+
             except Exception:
                 with excutils.save_and_reraise_exception():
                     # Undo creation on the backend
