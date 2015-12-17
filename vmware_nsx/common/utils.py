@@ -86,6 +86,17 @@ def check_and_truncate(display_name):
     return display_name or ''
 
 
+def build_v3_api_version_tag():
+    """
+    Some resources are created on the manager that do not have a corresponding
+    Neutron resource.
+    """
+    return [{'scope': 'os-neutron-id',
+             'tag': 'NSX neutron plug-in'},
+            {'scope': "os-api-version",
+             'tag': version.version_info.release_string()}]
+
+
 def build_v3_tags_payload(logical_entity):
     """
     Construct the tags payload that will be pushed to NSX-v3

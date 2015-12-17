@@ -362,3 +362,11 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
                     {'scope': 'os-api-version',
                      'tag': version.version_info.release_string()}]
         self.assertEqual(expected, result)
+
+    def test_build_v3_api_version_tag(self):
+        result = utils.build_v3_api_version_tag()
+        expected = [{'scope': 'os-neutron-id',
+                     'tag': 'NSX neutron plug-in'},
+                    {'scope': 'os-api-version',
+                     'tag': version.version_info.release_string()}]
+        self.assertEqual(expected, result)
