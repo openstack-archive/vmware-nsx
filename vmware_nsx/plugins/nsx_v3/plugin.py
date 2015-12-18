@@ -657,7 +657,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         with context.session.begin(subtransactions=True):
             neutron_db = super(NsxV3Plugin, self).create_port(context, port)
             port["port"].update(neutron_db)
-            nsx_rpc.handle_port_metadata_access(self, context, neutron_db)
 
             (is_psec_on, has_ip) = self._create_port_preprocess_security(
                 context, port, port_data, neutron_db)
@@ -682,6 +681,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             if sgids:
                 security.update_lport_with_security_groups(
                     context, lport['id'], [], sgids)
+
+        nsx_rpc.handle_port_metadata_access(self, context, neutron_db)
         return port_data
 
     def _pre_delete_port_check(self, context, port_id, l2gw_port_check):
