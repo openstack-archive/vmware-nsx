@@ -136,6 +136,7 @@ class RouterLib(object):
                                           edge_cluster_id=edge_cluster_uuid)
 
     def create_logical_router_intf_port_by_ls_id(self, logical_router_id,
+                                                 display_name,
                                                  ls_id,
                                                  logical_switch_port_id,
                                                  address_groups):
@@ -144,7 +145,7 @@ class RouterLib(object):
         except nsx_exc.ResourceNotFound:
             return self._router_port_client.create(
                 logical_router_id,
-                ROUTER_INTF_PORT_NAME,
+                display_name,
                 nsx_constants.LROUTERPORT_DOWNLINK,
                 logical_switch_port_id,
                 address_groups)
