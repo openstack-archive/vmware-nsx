@@ -992,7 +992,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         router['router']['id'] = uuidutils.generate_uuid()
         tags = utils.build_v3_tags_payload(router['router'])
         result = self._router_client.create(
-            display_name=router['router'].get('name'),
+            display_name=utils.get_name_and_uuid(
+                router['router']['name'], router['router']['id']),
             tags=tags)
 
         with context.session.begin():
