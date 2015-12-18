@@ -16,13 +16,14 @@
 import hashlib
 
 from neutron.api.v2 import attributes
+from neutron.common import exceptions
 from neutron import version
 from oslo_config import cfg
 from oslo_log import log
 import retrying
 import six
 
-from vmware_nsx._i18n import _LE
+from vmware_nsx._i18n import _, _LE
 
 LOG = log.getLogger(__name__)
 MAX_DISPLAY_NAME_LEN = 40
@@ -99,18 +100,23 @@ def build_v3_api_version_tag():
              'tag': version.version_info.release_string()}]
 
 
-def build_v3_tags_payload(logical_entity):
+def build_v3_tags_payload(resource, resource_type):
     """
     Construct the tags payload that will be pushed to NSX-v3
     Add os-project-id:<tenant-id>, os-api-version:<neutron-api-version>,
         os-neutron-id:<resource-id>
     """
-    return [{"scope": "os-neutron-id",
-             "tag": logical_entity.get("id", "")},
-            {"scope": "os-project-id",
-             "tag": logical_entity.get("tenant_id", "")},
-            {"scope": "os-api-version",
-             "tag": version.version_info.release_string()}]
+    # Add in a validation to ensure that we catch this at build time
+    if len(resource_type) > 20:
+        raise exceptions.InvalidInput(
+            error_message=_('scope cannot exceed 20 characters'))
+
+    return [{'scope': resource_type,
+             'tag': resource.get('id', '')},
+            {'scope': 'os-project-id',
+             'tag': resource.get('tenant_id', '')},
+            {'scope': 'os-api-version',
+             'tag': version.version_info.release_string()}]
 
 
 def retry_upon_exception_nsxv3(exc, delay=500, max_delay=2000,

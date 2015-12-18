@@ -173,7 +173,8 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
             seg_id = devices[0]['interfaces'][0].get('segmentation_id')
         self._validate_segment_id(seg_id)
         try:
-            tags = nsx_utils.build_v3_tags_payload(gw_connection)
+            tags = nsx_utils.build_v3_tags_payload(
+                gw_connection, resource_type='os-neutron-l2gw-id')
             bridge_endpoint = nsxlib.create_bridge_endpoint(
                 device_name=device_name,
                 seg_id=seg_id,
