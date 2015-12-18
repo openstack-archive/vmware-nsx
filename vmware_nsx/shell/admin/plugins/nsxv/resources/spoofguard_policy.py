@@ -15,13 +15,13 @@
 
 import logging
 
-from tools.python_nsxadmin.admin.plugins.common import constants
-from tools.python_nsxadmin.admin.plugins.common import formatters
 
-import tools.python_nsxadmin.admin.plugins.common.utils as admin_utils
-import tools.python_nsxadmin.admin.plugins.nsxv.resources.utils as utils
+from vmware_nsx.shell.admin.plugins.common import constants
+from vmware_nsx.shell.admin.plugins.common import formatters
 
-import tools.python_nsxadmin.admin.shell as shell
+import vmware_nsx.shell.admin.plugins.common.utils as admin_utils
+import vmware_nsx.shell.admin.plugins.nsxv.resources.utils as utils
+import vmware_nsx.shell.nsxadmin as shell
 
 from neutron.callbacks import registry
 

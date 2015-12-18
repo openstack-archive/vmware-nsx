@@ -13,11 +13,14 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+import logging
 import sys
 
 from neutronclient import shell
 from vmware_nsx.shell import commands as cmd
+
+logging.basicConfig(format='%(message)s', level=logging.INFO)
+logging.getLogger('requests').setLevel(logging.WARNING)
 
 
 class NsxManage(shell.NeutronShell):
