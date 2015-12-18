@@ -180,9 +180,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             if not profile:
                 self._switching_profiles.create_dhcp_profile(
                     NSX_V3_DHCP_PROFILE_NAME, 'Neutron DHCP Security Profile',
-                    tags=utils.build_v3_tags_payload({
-                        'id': NSX_V3_DHCP_PROFILE_NAME,
-                        'tenant_id': 'neutron-nsx-plugin'}))
+                    tags=utils.build_v3_api_version_tag())
             return self._get_dhcp_security_profile()
 
     def _get_dhcp_security_profile(self):
@@ -221,9 +219,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             self._switching_profiles.create_spoofguard_profile(
                 NSX_V3_PSEC_PROFILE_NAME, 'Neutron Port Security Profile',
                 whitelist_ports=True, whitelist_switches=False,
-                tags=utils.build_v3_tags_payload({
-                    'id': NSX_V3_PSEC_PROFILE_NAME,
-                    'tenant_id': 'neutron-nsx-plugin'}))
+                tags=utils.build_v3_api_version_tag())
 
         return self._get_port_security_profile()
 
