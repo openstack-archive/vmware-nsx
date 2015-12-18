@@ -997,6 +997,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
     def create_router(self, context, router):
         # TODO(berlin): admin_state_up support
         gw_info = self._extract_external_gw(context, router, is_extract=True)
+        router['router']['id'] = uuidutils.generate_uuid()
         tags = utils.build_v3_tags_payload(router['router'])
         result = self._router_client.create(
             display_name=router['router'].get('name'),
