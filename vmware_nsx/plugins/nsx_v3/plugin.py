@@ -1288,8 +1288,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             context, router_id, interface_info)
         # Ensure the connection to the 'metadata access network' is removed
         # (with the network) if this the last subnet on the router.
-        nsx_rpc.handle_router_metadata_access(self, context, router_id,
-                                              interface=info)
+        nsx_rpc.handle_router_metadata_access(self, context, router_id)
         return info
 
     def create_floatingip(self, context, floatingip):
