@@ -27,6 +27,7 @@ from vmware_nsx._i18n import _, _LE
 
 LOG = log.getLogger(__name__)
 MAX_DISPLAY_NAME_LEN = 40
+MAX_RESOURCE_TYPE_LEN = 20
 NEUTRON_VERSION = version.version_info.release_string()
 
 
@@ -95,7 +96,7 @@ def build_v3_api_version_tag():
     Neutron resource.
     """
     return [{'scope': 'os-neutron-id',
-             'tag': 'NSX neutron plug-in'},
+             'tag': 'NSX Neutron plugin'},
             {'scope': "os-api-version",
              'tag': version.version_info.release_string()}]
 
@@ -103,16 +104,19 @@ def build_v3_api_version_tag():
 def build_v3_tags_payload(resource, resource_type, project_name):
     """
     Construct the tags payload that will be pushed to NSX-v3
-    Add os-project-id:<tenant-id>, os-api-version:<neutron-api-version>,
-        <resoutce>:<resource-id>, os-project-name:<project-name>
+    Add <resource_type>:<resource-id>, os-project-id:<tenant-id>,
+    os-project-name:<project_name> os-api-version:<neutron-api-version>
     """
     # Add in a validation to ensure that we catch this at build time
-    if len(resource_type) > 20:
+    if len(resource_type) > MAX_RESOURCE_TYPE_LEN:
         raise exceptions.InvalidInput(
-            error_message=_('scope cannot exceed 20 characters'))
+            error_message=(_('Tag scope name cannot exceed %(max_len)s '
+                             'characters: %(scope)s') %
+                           {'max_len': MAX_RESOURCE_TYPE_LEN,
+                            'scope': resource_type}))
     # There may be cases when the plugin creates the port, for example DHCP
     if not project_name:
-        project_name = 'NSX neutron plug-in'
+        project_name = 'NSX Neutron plugin'
     return [{'scope': resource_type,
              'tag': resource.get('id', '')},
             {'scope': 'os-project-id',
