@@ -402,12 +402,12 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
             project_name=None)
         expected = [{'scope': 'os-neutron-net-id', 'tag': 'fake_id'},
                     {'scope': 'os-project-id', 'tag': 'fake_tenant_id'},
-                    {'scope': 'os-project-name', 'tag': 'NSX neutron plug-in'},
+                    {'scope': 'os-project-name', 'tag': 'NSX Neutron plugin'},
                     {'scope': 'os-api-version',
                      'tag': version.version_info.release_string()}]
         self.assertEqual(expected, result)
 
-    def test_build_v3_tags_payloadi_invalid_length(self):
+    def test_build_v3_tags_payload_invalid_length(self):
         self.assertRaises(n_exc.InvalidInput,
                           utils.build_v3_tags_payload,
                           {'id': 'fake_id',
@@ -418,7 +418,7 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
     def test_build_v3_api_version_tag(self):
         result = utils.build_v3_api_version_tag()
         expected = [{'scope': 'os-neutron-id',
-                     'tag': 'NSX neutron plug-in'},
+                     'tag': 'NSX Neutron plugin'},
                     {'scope': 'os-api-version',
                      'tag': version.version_info.release_string()}]
         self.assertEqual(expected, result)
