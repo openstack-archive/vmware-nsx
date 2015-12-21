@@ -268,8 +268,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if device_owner.startswith("compute"):
             s_bindings = self.edge_manager.create_static_binding(
                 context, neutron_port_db)
-            self.edge_manager.create_dhcp_bindings(context, self.nsx_v,
-                                            network_id, s_bindings)
+            self.edge_manager.create_dhcp_bindings(
+                    context, neutron_port_db['id'], network_id, s_bindings)
 
     def _delete_dhcp_static_binding(self, context, neutron_port_db):
 
