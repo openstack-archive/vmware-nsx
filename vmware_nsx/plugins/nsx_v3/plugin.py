@@ -737,6 +737,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
                 context.session, port_id)
             self._port_client.delete(nsx_port_id)
+            security.update_lport_with_security_groups(
+                context, nsx_port_id, port.get(ext_sg.SECURITYGROUPS, []), [])
         self.disassociate_floatingips(context, port_id)
         nsx_rpc.handle_port_metadata_access(self, context, port,
                                             is_delete=True)
@@ -1520,8 +1522,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         nsgroup_id, section_id = security.get_sg_mappings(context.session, id)
         super(NsxV3Plugin, self).delete_security_group(context, id)
         firewall.delete_section(section_id)
-        self.nsgroup_manager.remove_nsgroup(nsgroup_id)
         firewall.delete_nsgroup(nsgroup_id)
+        self.nsgroup_manager.remove_nsgroup(nsgroup_id)
 
     def create_security_group_rule(self, context, security_group_rule):
         bulk_rule = {'security_group_rules': [security_group_rule]}
