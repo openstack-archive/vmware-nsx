@@ -113,24 +113,26 @@ def convert_lbaas_app_profile(name, sess_persist, protocol):
     if protocol == LB_PROTOCOL_HTTPS:
         vcns_app_profile['sslPassthrough'] = True
 
-    persist_type = sess_persist.get('type')
-    if persist_type:
-        # If protocol is not HTTP, only source_ip is supported
-        if (protocol != LB_PROTOCOL_HTTP and
-                persist_type != LB_SESSION_PERSISTENCE_SOURCE_IP):
-            msg = (_('Invalid %(protocol)s persistence method: %(type)s') %
-                   {'protocol': protocol,
-                    'type': persist_type})
-            raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
-        persistence = {
-            'method': SESSION_PERSISTENCE_METHOD_MAP.get(persist_type)}
-        if persist_type in SESSION_PERSISTENCE_COOKIE_MAP:
-            persistence.update({
-                'cookieName': sess_persist.get('cookie_name',
-                                               'default_cookie_name'),
-                'cookieMode': SESSION_PERSISTENCE_COOKIE_MAP[persist_type]})
+    if sess_persist:
+        persist_type = sess_persist.get('type')
+        if persist_type:
+            # If protocol is not HTTP, only source_ip is supported
+            if (protocol != LB_PROTOCOL_HTTP and
+                    persist_type != LB_SESSION_PERSISTENCE_SOURCE_IP):
+                msg = (_('Invalid %(protocol)s persistence method: %(type)s') %
+                       {'protocol': protocol,
+                        'type': persist_type})
+                raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
+            persistence = {
+                'method': SESSION_PERSISTENCE_METHOD_MAP.get(persist_type)}
+            if persist_type in SESSION_PERSISTENCE_COOKIE_MAP:
+                persistence.update({
+                    'cookieName': sess_persist.get('cookie_name',
+                                                   'default_cookie_name'),
+                    'cookieMode': SESSION_PERSISTENCE_COOKIE_MAP[persist_type]}
+                )
 
-        vcns_app_profile['persistence'] = persistence
+            vcns_app_profile['persistence'] = persistence
     return vcns_app_profile
 
 
@@ -471,10 +473,14 @@ class EdgeLbDriver(object):
         LOG.debug('Updating pool %s to %s', old_pool, pool)
         edge_pool = convert_lbaas_pool(pool)
         try:
-            with locking.LockManager.get_lock(pool_mapping['edge_id']):
+            with locking.LockManager.get_lock(pool_mapping['edge_id'],
+                                              external=True):
+                curr_pool = self.vcns.get_pool(pool_mapping['edge_id'],
+                                               pool_mapping['edge_pool_id'])[1]
+                curr_pool.update(edge_pool)
                 self.vcns.update_pool(pool_mapping['edge_id'],
                                       pool_mapping['edge_pool_id'],
-                                      edge_pool)
+                                      curr_pool)
                 self._lb_driver.pool_successful(context, pool)
 
         except nsxv_exc.VcnsApiException:
