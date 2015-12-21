@@ -542,24 +542,27 @@ class EdgeManager(object):
             LOG.debug("Select edge: %(edge_id)s from pool for %(name)s",
                       {'edge_id': available_router_binding['edge_id'],
                        'name': name})
-            fake_jobdata = {
-                'context': context,
-                'router_id': lrouter['id']}
-            fake_userdata = {'jobdata': fake_jobdata,
-                             'router_name': lrouter['name'],
-                             'edge_id': available_router_binding['edge_id'],
-                             'dist': dist}
-            fake_task = tasks.Task(name='fake-deploy-edge-task',
-                                   resource_id='fake-resource_id',
-                                   execute_callback=None,
-                                   userdata=fake_userdata)
-            fake_task.status = task_const.TaskStatus.COMPLETED
-            self.nsxv_manager.callbacks.edge_deploy_result(fake_task)
-            # change edge's name at backend
-            task = self.nsxv_manager.update_edge(
-                resource_id, available_router_binding['edge_id'],
-                name, None, appliance_size=appliance_size, dist=dist)
-            task.wait(task_const.TaskState.RESULT)
+            edge_id = available_router_binding['edge_id']
+            with locking.LockManager.get_lock(str(edge_id)):
+                fake_jobdata = {
+                    'context': context,
+                    'router_id': lrouter['id']}
+                fake_userdata = {'jobdata': fake_jobdata,
+                                 'router_name': lrouter['name'],
+                                 'edge_id': edge_id,
+                                 'dist': dist}
+                fake_task = tasks.Task(name='fake-deploy-edge-task',
+                                       resource_id='fake-resource_id',
+                                       execute_callback=None,
+                                       userdata=fake_userdata)
+                fake_task.status = task_const.TaskStatus.COMPLETED
+                self.nsxv_manager.callbacks.edge_deploy_result(fake_task)
+                # change edge's name at backend
+                task = self.nsxv_manager.update_edge(
+                    resource_id, available_router_binding['edge_id'],
+                    name, None, appliance_size=appliance_size, dist=dist)
+                task.wait(task_const.TaskState.RESULT)
+
         backup_num = len(self._get_backup_edge_bindings(
             context, appliance_size=appliance_size, edge_type=edge_type,
             db_update_lock=True))
