@@ -16,5 +16,5 @@ testtools>=1.4.0
 testscenarios>=0.4
 WebTest>=2.0
 # This is needed for subunit-trace
-tempest-lib>=0.11.0
+tempest-lib>=0.12.0
 reno>=0.1.1 # Apache2
