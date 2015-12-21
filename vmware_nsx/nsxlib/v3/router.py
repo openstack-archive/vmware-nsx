@@ -17,8 +17,6 @@
 NSX-V3 Plugin router module
 """
 
-import random
-
 from neutron.common import exceptions as n_exc
 from oslo_log import log
 
@@ -29,10 +27,7 @@ from vmware_nsx.nsxlib import v3 as nsxlib
 
 LOG = log.getLogger(__name__)
 
-# TODO(berlin): Remove this when we merges the edge node auto
-# placement feature.
 MIN_EDGE_NODE_NUM = 1
-MAX_EDGE_NODE_SELECT_NUM = 2
 
 TIER0_ROUTER_LINK_PORT_NAME = "TIER0-RouterLinkPort"
 TIER1_ROUTER_LINK_PORT_NAME = "TIER1-RouterLinkPort"
@@ -89,16 +84,12 @@ class RouterLib(object):
             logical_port_id=None,
             address_groups=None)
         linked_logical_port_id = tier0_link_port['id']
-        edge_select_number = min(len(edge_members), MAX_EDGE_NODE_SELECT_NUM)
-        edge_cluster_member_index = random.sample(
-            edge_members, edge_select_number)
         # Create Tier1 logical router link port
         self._router_port_client.create(
             tier1_uuid, display_name=TIER1_ROUTER_LINK_PORT_NAME,
             resource_type=nsx_constants.LROUTERPORT_LINKONTIER1,
             logical_port_id=linked_logical_port_id,
-            address_groups=None,
-            edge_cluster_member_index=edge_cluster_member_index)
+            address_groups=None)
 
     def remove_router_link_port(self, tier1_uuid, tier0_uuid):
         try:
