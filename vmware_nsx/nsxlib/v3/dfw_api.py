@@ -37,11 +37,11 @@ ALLOW = 'ALLOW'
 DROP = 'DROP'
 REJECT = 'REJECT'
 
-# filtering operators
+# filtering operators and expressions
 EQUALS = 'EQUALS'
+NSGROUP_SIMPLE_EXPRESSION = 'NSGroupSimpleExpression'
 
 NSGROUP = 'NSGroup'
-NSGROUP_SIMPLE_EXPRESSION = 'NSGroupSimpleExpression'
 LOGICAL_SWITCH = 'LogicalSwitch'
 LOGICAL_PORT = 'LogicalPort'
 IPV4ADDRESS = 'IPv4Address'
@@ -89,7 +89,8 @@ def create_nsgroup(display_name, description, tags):
 
 
 def list_nsgroups():
-    return nsxclient.get_resource('ns-groups').get('results', [])
+    return nsxclient.get_resource(
+        'ns-groups?populate_references=false').get('results', [])
 
 
 @utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision)
@@ -100,18 +101,20 @@ def update_nsgroup(nsgroup_id, display_name, description):
     return nsxclient.update_resource('ns-groups/%s' % nsgroup_id, nsgroup)
 
 
-@utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision)
+def get_nsgroup_member_expression(target_type, target_id):
+    return {'resource_type': NSGROUP_SIMPLE_EXPRESSION,
+            'target_property': 'id',
+            'target_type': target_type,
+            'op': EQUALS,
+            'value': target_id}
+
+
 def add_nsgroup_member(nsgroup_id, target_type, target_id):
-    nsgroup = read_nsgroup(nsgroup_id)
-    if 'members' not in nsgroup:
-        nsgroup['members'] = []
-    nsgroup['members'].append({"resource_type": NSGROUP_SIMPLE_EXPRESSION,
-                               'target_property': 'id',
-                               'target_type': target_type,
-                               'op': EQUALS,
-                               'value': target_id})
+    member_expr = get_nsgroup_member_expression(target_type, target_id)
+    data = {'members': [member_expr]}
+    add_members = 'ns-groups/%s?action=ADD_MEMBERS' % nsgroup_id
     try:
-        nsxclient.update_resource('ns-groups/%s' % nsgroup_id, nsgroup)
+        return nsxclient.create_resource(add_members, data)
     except nsx_exc.ManagerError:
         # REVISIT(roeyc): A ManagerError might have been raised for a
         # different reason, e.g - NSGroup does not exists.
@@ -123,34 +126,27 @@ def add_nsgroup_member(nsgroup_id, target_type, target_id):
         raise NSGroupIsFull()
 
 
-@utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision)
-def remove_nsgroup_member(nsgroup_id, target_id, verify=False):
-    nsgroup = read_nsgroup(nsgroup_id)
-    for i, member in enumerate(nsgroup.get('members', [])):
-        if target_id == member['value']:
-            break
-    else:
+def remove_nsgroup_member(nsgroup_id, target_type, target_id, verify=False):
+    member_expr = get_nsgroup_member_expression(target_type, target_id)
+    data = {'members': [member_expr]}
+    remove_members = 'ns-groups/%s?action=REMOVE_MEMBERS' % nsgroup_id
+    try:
+        return nsxclient.create_resource(remove_members, data)
+    except nsx_exc.ManagerError:
         if verify:
             err_msg = _("Failed to remove member %(tid)s "
                         "from NSGroup %(nid)s.") % {'tid': target_id,
                                                     'nid': nsgroup_id}
             raise NSGroupMemberNotFound(err_msg=err_msg)
-        return
-    del nsgroup['members'][i]
-    return nsxclient.update_resource('ns-groups/%s' % nsgroup_id, nsgroup)
 
 
 def read_nsgroup(nsgroup_id):
-    nsgroup = nsxclient.get_resource('ns-groups/%s' % nsgroup_id)
-    # NSX API will not specify the 'members' attribute if its empty, but
-    # requires it on update.
-    if 'members' not in nsgroup:
-        nsgroup['members'] = []
-    return nsgroup
+    return nsxclient.get_resource(
+        'ns-groups/%s?populate_references=true' % nsgroup_id)
 
 
 def delete_nsgroup(nsgroup_id):
-    return nsxclient.delete_resource('ns-groups/%s' % nsgroup_id)
+    return nsxclient.delete_resource('ns-groups/%s?force=true' % nsgroup_id)
 
 
 def _build_section(display_name, description, applied_tos, tags):
