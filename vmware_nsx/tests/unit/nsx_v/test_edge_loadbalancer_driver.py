@@ -188,8 +188,10 @@ class TestEdgeLbDriver(base.BaseTestCase):
 
         pool_mapping = {'edge_id': EDGE_ID, 'edge_pool_id': EDGE_POOL_ID}
         with self._mock_edge_lbv1_driver('pool_successful') as pool_successful,\
+                self._mock_edge_driver_vcns('get_pool') as get_pool, \
                 self._mock_edge_driver_vcns('update_pool') as update_pool:
 
+            get_pool.return_value = (None, {})
             self.edge_driver.update_pool(
                 self.context, from_pool, to_pool, pool_mapping)
             update_pool.assert_called_with(EDGE_ID, EDGE_POOL_ID, edge_pool)
