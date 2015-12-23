@@ -562,8 +562,13 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
     def _create_port_at_the_backend(self, context, neutron_db,
                                     port_data, l2gw_port_check,
                                     psec_is_on):
+        device_owner = port_data.get('device_owner')
+        if device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF:
+            resource_type = 'os-neutron-rport-id'
+        else:
+            resource_type = 'os-neutron-port-id'
         tags = utils.build_v3_tags_payload(
-            port_data, resource_type='os-neutron-port-id',
+            port_data, resource_type=resource_type,
             project_name=context.tenant_name)
         parent_name, tag = self._get_data_from_binding_profile(
             context, port_data)
@@ -572,8 +577,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         # transaction here later.
         vif_uuid = port_data['id']
         attachment_type = nsx_constants.ATTACHMENT_VIF
-        if (not port_data.get('device_owner') or
-            port_data.get('device_owner') == l3_db.DEVICE_OWNER_ROUTER_INTF):
+        if not device_owner or device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF:
             attachment_type = None
             vif_uuid = None
         # Change the attachment type for L2 gateway owned ports.
@@ -581,12 +585,12 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             # NSX backend requires the vif id be set to bridge endpoint id
             # for ports plugged into a Bridge Endpoint.
             vif_uuid = port_data.get('device_id')
-            attachment_type = port_data.get('device_owner')
+            attachment_type = device_owner
 
         profiles = []
         if psec_is_on and address_bindings:
             profiles = [self._get_port_security_profile_id()]
-        if port_data.get('device_owner') == const.DEVICE_OWNER_DHCP:
+        if device_owner == const.DEVICE_OWNER_DHCP:
             if self._dhcp_profile:
                 profiles.append(self._dhcp_profile)
             else:
