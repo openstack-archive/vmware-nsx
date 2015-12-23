@@ -79,14 +79,14 @@ class RouterLib(object):
     def add_router_link_port(self, tier1_uuid, tier0_uuid, edge_members):
         # Create Tier0 logical router link port
         tier0_link_port = self._router_port_client.create(
-            tier0_uuid, display_name=TIER0_ROUTER_LINK_PORT_NAME,
+            tier0_uuid, display_name=TIER0_ROUTER_LINK_PORT_NAME, tags=None,
             resource_type=nsx_constants.LROUTERPORT_LINKONTIER0,
             logical_port_id=None,
             address_groups=None)
         linked_logical_port_id = tier0_link_port['id']
         # Create Tier1 logical router link port
         self._router_port_client.create(
-            tier1_uuid, display_name=TIER1_ROUTER_LINK_PORT_NAME,
+            tier1_uuid, display_name=TIER1_ROUTER_LINK_PORT_NAME, tags=None,
             resource_type=nsx_constants.LROUTERPORT_LINKONTIER1,
             logical_port_id=linked_logical_port_id,
             address_groups=None)
@@ -128,6 +128,7 @@ class RouterLib(object):
 
     def create_logical_router_intf_port_by_ls_id(self, logical_router_id,
                                                  display_name,
+                                                 tags,
                                                  ls_id,
                                                  logical_switch_port_id,
                                                  address_groups):
@@ -137,6 +138,7 @@ class RouterLib(object):
             return self._router_port_client.create(
                 logical_router_id,
                 display_name,
+                tags,
                 nsx_constants.LROUTERPORT_DOWNLINK,
                 logical_switch_port_id,
                 address_groups)

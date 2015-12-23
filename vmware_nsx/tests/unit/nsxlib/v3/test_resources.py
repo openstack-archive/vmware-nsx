@@ -329,13 +329,15 @@ class LogicalRouterPortTestCase(nsxlib_testcase.NsxClientTestCase):
 
         lrport.create(fake_router_port['logical_router_id'],
                       fake_router_port['display_name'],
+                      None,
                       fake_router_port['resource_type'],
                       None, None, None)
 
         data = {
             'display_name': fake_router_port['display_name'],
             'logical_router_id': fake_router_port['logical_router_id'],
-            'resource_type': fake_router_port['resource_type']
+            'resource_type': fake_router_port['resource_type'],
+            'tags': []
         }
 
         test_client.assert_json_call(
