@@ -1205,9 +1205,14 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 context, router_id, network_id)
             display_name = utils.get_name_and_uuid(
                 subnet['name'], subnet['id'])
+            tags = utils.build_v3_tags_payload(
+                port, resource_type='os-neutron-rport-id',
+                project_name=context.tenant_name)
+            tags.append({'scope': 'os-subnet-id', 'tag': subnet['id']})
             self._routerlib.create_logical_router_intf_port_by_ls_id(
                 logical_router_id=nsx_router_id,
                 display_name=display_name,
+                tags=tags,
                 ls_id=nsx_net_id,
                 logical_switch_port_id=nsx_port_id,
                 address_groups=address_groups)

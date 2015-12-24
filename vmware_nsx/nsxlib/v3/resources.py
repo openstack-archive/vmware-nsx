@@ -317,13 +317,15 @@ class LogicalRouterPort(AbstractRESTResource):
 
     def create(self, logical_router_id,
                display_name,
+               tags,
                resource_type,
                logical_port_id,
                address_groups,
                edge_cluster_member_index=None):
         body = {'display_name': display_name,
                 'resource_type': resource_type,
-                'logical_router_id': logical_router_id}
+                'logical_router_id': logical_router_id,
+                'tags': tags or []}
         if address_groups:
             body['subnets'] = address_groups
         if resource_type in [nsx_constants.LROUTERPORT_UPLINK,
