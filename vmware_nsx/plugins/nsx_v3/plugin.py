@@ -576,7 +576,9 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                                     port_data, l2gw_port_check,
                                     psec_is_on):
         device_owner = port_data.get('device_owner')
-        if device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF:
+        if device_owner == const.DEVICE_OWNER_DHCP:
+            resource_type = 'os-neutron-dport-id'
+        elif device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF:
             resource_type = 'os-neutron-rport-id'
         else:
             resource_type = 'os-neutron-port-id'
