@@ -439,3 +439,15 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
 
         expect_true = utils.is_internal_resource({'tags': internal_tag})
         self.assertTrue(expect_true)
+
+    def test_get_name_and_uuid(self):
+        uuid = 'afc40f8a-4967-477e-a17a-9d560d1786c7'
+        suffix = '_afc40...786c7'
+        expected = 'maldini%s' % suffix
+        short_name = utils.get_name_and_uuid('maldini', uuid)
+        self.assertEqual(expected, short_name)
+
+        name = 'X' * 255
+        expected = '%s%s' % ('X' * (80 - len(suffix)), suffix)
+        short_name = utils.get_name_and_uuid(name, uuid)
+        self.assertEqual(expected, short_name)
