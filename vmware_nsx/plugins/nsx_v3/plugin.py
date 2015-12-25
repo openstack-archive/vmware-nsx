@@ -576,6 +576,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                                     port_data, l2gw_port_check,
                                     psec_is_on):
         device_owner = port_data.get('device_owner')
+        device_id = port_data.get('device_id')
         if device_owner == const.DEVICE_OWNER_DHCP:
             resource_type = 'os-neutron-dport-id'
         elif device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF:
@@ -599,7 +600,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         if l2gw_port_check:
             # NSX backend requires the vif id be set to bridge endpoint id
             # for ports plugged into a Bridge Endpoint.
-            vif_uuid = port_data.get('device_id')
+            vif_uuid = device_id
             attachment_type = device_owner
 
         profiles = []
@@ -614,10 +615,17 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                                 "default profile on the backend"),
                             port_data['id'])
 
+        if device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF and device_id:
+            router = self._get_router(context, device_id)
+            name = utils.get_name_and_uuid(
+                router['name'], port_data['id'], tag='_port_')
+        else:
+            name = port_data['name']
+
         result = self._port_client.create(
             port_data['network_id'], vif_uuid,
             tags=tags,
-            name=port_data['name'],
+            name=name,
             admin_state=port_data['admin_state_up'],
             address_bindings=address_bindings,
             attachment_type=attachment_type,
