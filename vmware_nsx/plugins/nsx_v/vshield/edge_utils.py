@@ -35,6 +35,7 @@ from vmware_nsx._i18n import _, _LE, _LW
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import locking
 from vmware_nsx.common import nsxv_constants
+from vmware_nsx.common import utils as c_utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield.common import (
@@ -311,9 +312,18 @@ class EdgeManager(object):
             backup_router_bindings.remove(router_binding)
 
     def _get_physical_provider_network(self, context, network_id):
-        phy_net = nsxv_db.get_network_bindings(context.session, network_id)
-        return (phy_net[0]['phy_uuid'] if (
-            phy_net and phy_net[0]['phy_uuid'] != '') else self.dvs_id)
+        bindings = nsxv_db.get_network_bindings(context.session, network_id)
+        # Set the return value as global DVS-ID of the mgmt/edge cluster
+        phys_net = self.dvs_id
+        if bindings:
+            binding = bindings[0]
+            # Return user input physical network value for all network types
+            # except VXLAN networks. The DVS-ID of the mgmt/edge cluster must
+            # be returned for VXLAN network types.
+            if (not binding['binding_type'] == c_utils.NsxVNetworkTypes.VXLAN
+                and binding['phy_uuid'] != ''):
+                phys_net = binding['phy_uuid']
+        return phys_net
 
     def _create_sub_interface(self, context, network_id, network_name,
                               tunnel_index, address_groups,
