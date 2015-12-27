@@ -124,7 +124,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
 
         self._port_client = nsx_resources.LogicalPort(self._nsx_client)
         self.nsgroup_manager, self.default_section = (
-            security.init_nsgroup_manager_and_default_section_rules())
+            self._init_nsgroup_manager_and_default_section_rules())
         self._router_client = nsx_resources.LogicalRouter(self._nsx_client)
         self._router_port_client = nsx_resources.LogicalRouterPort(
             self._nsx_client)
@@ -222,6 +222,10 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 whitelist_ports=True, whitelist_switches=False,
                 tags=utils.build_v3_api_version_tag())
         return self._get_port_security_profile()
+
+    def _init_nsgroup_manager_and_default_section_rules(self):
+        with locking.LockManager.get_lock('nsxv3_nsgroup_manager_init'):
+            return security.init_nsgroup_manager_and_default_section_rules()
 
     def _setup_rpc(self):
         self.topic = topics.PLUGIN

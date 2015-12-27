@@ -207,8 +207,6 @@ def update_lport_with_security_groups(context, lport_id, original, updated):
 
 
 def init_nsgroup_manager_and_default_section_rules():
-    # REVISIT(roeyc): Should handle Neutron active-active
-    # deployment scenario.
     section_description = ("This section is handled by OpenStack to contain "
                            "default rules on security-groups.")
 
