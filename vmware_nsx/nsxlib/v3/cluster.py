@@ -31,7 +31,6 @@ from oslo_log import log
 from oslo_service import loopingcall
 from requests import adapters
 from vmware_nsx._i18n import _, _LI, _LW
-from vmware_nsx.common import exceptions as nsx_err
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.nsxlib.v3 import client as nsx_client
 
@@ -372,7 +371,7 @@ class ClusteredAPI(object):
     def endpoint_connection(self):
         endpoint = self._select_endpoint(revalidate=True)
         if not endpoint:
-            raise nsx_err.ServiceClusterUnavailable(
+            raise nsx_exc.ServiceClusterUnavailable(
                 cluster_id=self.cluster_id)
 
         if endpoint.pool.free() == 0:
