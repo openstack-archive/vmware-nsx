@@ -44,7 +44,7 @@ elif [[ $Q_PLUGIN == 'vmware_nsx_v3' ]]; then
         IFS=','
         NSX_MANAGER=($NSX_MANAGER)
         unset IFS
-        python $dir/tools/nsxt_cleanup.py --mgr-ip $NSX_MANAGER --user $NSX_USER --password $NSX_PASSWORD
+        python $dir/tools/nsxv3_cleanup.py --mgr-ip $NSX_MANAGER --user $NSX_USER --password $NSX_PASSWORD
     fi
 elif [[ $Q_PLUGIN == 'vmware_dvs' ]]; then
     source $dir/lib/vmware_dvs
