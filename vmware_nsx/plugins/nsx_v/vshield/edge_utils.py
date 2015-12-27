@@ -679,6 +679,7 @@ class EdgeManager(object):
             <defaultGateway></defaultGateway> <!--optional.-->
             <primaryNameServer></primaryNameServer> <!--optional-->
             <secondaryNameServer></secondaryNameServer> <!--optional-->
+            <domainName></domainName> <!--optional-->
         </staticBinding>
         """
         static_bindings = []
@@ -709,6 +710,12 @@ class EdgeManager(object):
             elif len(name_servers) >= 2:
                 static_config['primaryNameServer'] = name_servers[0]
                 static_config['secondaryNameServer'] = name_servers[1]
+            # Set search domain for static binding
+            sub_binding = nsxv_db.get_nsxv_subnet_ext_attributes(
+                context.session,
+                subnet_id)
+            if sub_binding:
+                static_config['domainName'] = sub_binding.dns_search_domain
 
             static_bindings.append(static_config)
         return static_bindings

@@ -69,6 +69,7 @@ from vmware_nsx.extensions import (
     advancedserviceproviders as as_providers)
 from vmware_nsx.extensions import (
     vnicindex as ext_vnic_idx)
+from vmware_nsx.extensions import dns_search_domain as ext_dns_search_domain
 from vmware_nsx.extensions import routersize
 from vmware_nsx.plugins.nsx_v import managers
 from vmware_nsx.plugins.nsx_v import md_proxy as nsx_v_md_proxy
@@ -102,6 +103,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     supported_extension_aliases = ["agent",
                                    "allowed-address-pairs",
                                    "binding",
+                                   "dns-search-domain",
                                    "dvr",
                                    "ext-gw-mode",
                                    "multi-provider",
@@ -1136,11 +1138,50 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             s = super(NsxVPluginV2, self).create_subnet(context, subnet)
         if s['enable_dhcp']:
             try:
+                self._process_subnet_ext_attr_create(
+                    session=context.session,
+                    subnet_db=s,
+                    subnet_req=data)
                 self._update_dhcp_service_with_subnet(context, s)
             except Exception:
                 with excutils.save_and_reraise_exception():
                     self.delete_subnet(context, s['id'])
         return s
+
+    def _process_subnet_ext_attr_create(self, session, subnet_db,
+                                        subnet_req):
+        # Verify if dns search domain for subnet is configured
+        dns_search_domain = subnet_req.get(
+            ext_dns_search_domain.DNS_SEARCH_DOMAIN)
+        if not attr.is_attr_set(dns_search_domain):
+            return
+        sub_binding = nsxv_db.get_nsxv_subnet_ext_attributes(
+            session=session,
+            subnet_id=subnet_db['id'])
+        # Create a DNS search domain entry for subnet if it does not exist
+        if not sub_binding:
+            nsxv_db.add_nsxv_subnet_ext_attributes(
+                session=session,
+                subnet_id=subnet_db['id'],
+                dns_search_domain=dns_search_domain)
+        # Else update only if a new value for dns search domain is provided
+        elif sub_binding.dns_search_domain != dns_search_domain:
+            nsxv_db.update_nsxv_subnet_ext_attributes(
+                session=session,
+                subnet_id=subnet_db['id'],
+                dns_search_domain=dns_search_domain)
+        subnet_db['dns_search_domain'] = dns_search_domain
+
+    def _process_subnet_ext_attr_update(self, session, subnet_db,
+                                        subnet_req):
+        update_dns_search_domain = False
+        # Update dns search domain attribute for subnet
+        if ext_dns_search_domain.DNS_SEARCH_DOMAIN in subnet_req:
+            self._process_subnet_ext_attr_create(session,
+                                                 subnet_db,
+                                                 subnet_req)
+            update_dns_search_domain = True
+        return update_dns_search_domain
 
     def update_subnet(self, context, id, subnet):
         s = subnet['subnet']
@@ -1151,7 +1192,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         gateway_ip = orig['gateway_ip']
         enable_dhcp = orig['enable_dhcp']
         subnet = super(NsxVPluginV2, self).update_subnet(context, id, subnet)
-        if (gateway_ip != subnet['gateway_ip'] or
+        update_dns_search_domain = self._process_subnet_ext_attr_update(
+            context.session, subnet, s)
+        if (gateway_ip != subnet['gateway_ip'] or update_dns_search_domain or
             set(orig['dns_nameservers']) != set(subnet['dns_nameservers'])):
             # Need to ensure that all of the subnet attributes will be reloaded
             # when creating the edge bindings. Without adding this the original
@@ -1163,6 +1206,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if enable_dhcp != subnet['enable_dhcp']:
             self._update_subnet_dhcp_status(subnet, context)
         return subnet
+
+    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
+        attr.SUBNETS, ['_extend_subnet_dict_dns_search_domain'])
+
+    def _extend_subnet_dict_dns_search_domain(self, subnet_res, subnet_db):
+        subnet_attr = subnet_db.get('nsxv_subnet_attributes')
+        if subnet_attr:
+            subnet_res['dns_search_domain'] = subnet_attr.dns_search_domain
 
     def _update_subnet_dhcp_status(self, subnet, context):
         network_id = subnet['network_id']

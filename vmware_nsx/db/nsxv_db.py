@@ -27,6 +27,7 @@ from vmware_nsx._i18n import _, _LE
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_models
+from vmware_nsx.extensions import dns_search_domain as ext_dns_search_domain
 from vmware_nsx.plugins.nsx_v.vshield.common import constants
 
 NsxvEdgeDhcpStaticBinding = nsxv_models.NsxvEdgeDhcpStaticBinding
@@ -715,3 +716,29 @@ def del_nsxv_lbaas_certificate_binding(session, cert_id, edge_id):
     return (session.query(nsxv_models.NsxvLbaasCertificateBinding).
             filter_by(cert_id=cert_id,
                       edge_id=edge_id).delete())
+
+
+def add_nsxv_subnet_ext_attributes(session, subnet_id, dns_search_domain):
+    with session.begin(subtransactions=True):
+        binding = nsxv_models.NsxvSubnetExtAttributes(
+            subnet_id=subnet_id,
+            dns_search_domain=dns_search_domain)
+        session.add(binding)
+    return binding
+
+
+def get_nsxv_subnet_ext_attributes(session, subnet_id):
+    try:
+        return session.query(
+            nsxv_models.NsxvSubnetExtAttributes).filter_by(
+            subnet_id=subnet_id).one()
+    except exc.NoResultFound:
+        return
+
+
+def update_nsxv_subnet_ext_attributes(session, subnet_id, dns_search_domain):
+    with session.begin(subtransactions=True):
+        binding = (session.query(nsxv_models.NsxvSubnetExtAttributes).
+                   filter_by(subnet_id=subnet_id).one())
+        binding[ext_dns_search_domain.DNS_SEARCH_DOMAIN] = dns_search_domain
+    return binding
