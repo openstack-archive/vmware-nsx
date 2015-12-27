@@ -98,7 +98,7 @@ def is_internal_resource(nsx_resource):
     Indicates whether the passed nsx-resource is owned by the plugin for
     internal use.
     """
-    for tag in nsx_resource['tags']:
+    for tag in nsx_resource.get('tags', []):
         if tag['scope'] == OS_NEUTRON_ID_SCOPE:
             return tag['tag'] == NSX_NEUTRON_PLUGIN
     return False
