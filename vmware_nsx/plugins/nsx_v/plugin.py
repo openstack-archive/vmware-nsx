@@ -2072,7 +2072,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             LOG.info(_LI("Unable to configure aggregate publishing"))
 
     def _validate_config(self):
-        if not self.nsx_v.vcns.validate_dvs(cfg.CONF.nsxv.dvs_id):
+        if (cfg.CONF.nsxv.dvs_id and
+            not self.nsx_v.vcns.validate_dvs(cfg.CONF.nsxv.dvs_id)):
             error = _("Configured dvs_id not found")
             raise nsx_exc.NsxPluginException(err_msg=error)
 
