@@ -214,3 +214,14 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
                               2: NSG_IDS[3],
                               3: NSG_IDS[2]},
                              cont_manager.nested_groups)
+
+    @_mock_create_and_list_nsgroups
+    def test_suggest_nested_group(self):
+        size = 5
+        cont_manager = security.NSGroupManager(size)
+        # We expect that the first suggested index is 2
+        expected_suggested_groups = NSG_IDS[2:5] + NSG_IDS[:2]
+        suggest_group = lambda: cont_manager._suggest_nested_group('fake-id')
+        with mock.patch.object(cont_manager, '_hash_uuid', return_value=7):
+            for i, suggested in enumerate(suggest_group()):
+                self.assertEqual(expected_suggested_groups[i], suggested)
