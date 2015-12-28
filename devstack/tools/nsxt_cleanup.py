@@ -284,18 +284,11 @@ class NSXClient(object):
         response = self.get(endpoint="/ns-groups")
         return response.json()['results']
 
-    def get_os_ns_groups(self):
-        """
-        Retrieve all NSGroups created from OpenStack
-        """
-        ns_groups = self.get_ns_groups()
-        return self.get_os_resources(ns_groups)
-
     def cleanup_os_ns_groups(self):
         """
         Cleanup all NSGroups created from OpenStack plugin
         """
-        ns_groups = self.get_os_ns_groups()
+        ns_groups = self.get_ns_groups()
         print("Number of OS NSGroups to be deleted: %s" % len(ns_groups))
         for nsg in ns_groups:
             endpoint = "/ns-groups/%s" % nsg['id']
