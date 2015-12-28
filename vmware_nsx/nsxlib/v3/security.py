@@ -22,6 +22,7 @@ import uuid
 
 from neutron.db import securitygroups_db
 from neutron.i18n import _LW
+from oslo_config import cfg
 from oslo_log import log
 
 from vmware_nsx.common import exceptions as nsx_exc
@@ -31,9 +32,6 @@ from vmware_nsx.nsxlib.v3 import dfw_api as firewall
 
 
 LOG = log.getLogger(__name__)
-
-# TODO(roeyc): Make this number configurable
-NUM_OF_NESTED_GROUPS = 8
 
 DEFAULT_SECTION = 'OS Default Section for Neutron Security-Groups'
 DEFAULT_SECTION_TAG_NAME = 'neutron_default_dfw_section'
@@ -210,7 +208,7 @@ def init_nsgroup_manager_and_default_section_rules():
     section_description = ("This section is handled by OpenStack to contain "
                            "default rules on security-groups.")
 
-    nsgroup_manager = NSGroupManager(NUM_OF_NESTED_GROUPS)
+    nsgroup_manager = NSGroupManager(cfg.CONF.nsx_v3.number_of_nested_groups)
     section_id = _init_default_section(
         DEFAULT_SECTION, section_description, nsgroup_manager.nested_groups)
     return nsgroup_manager, section_id
@@ -272,8 +270,8 @@ class NSGroupManager(object):
     NESTED_GROUP_DESCRIPTION = ('OpenStack NSGroup. Do not delete.')
 
     def __init__(self, size):
-        self._size = size
-        self._nested_groups = self._init_nested_groups()
+        self._nested_groups = self._init_nested_groups(size)
+        self._size = len(self._nested_groups)
 
     @property
     def size(self):
@@ -283,18 +281,27 @@ class NSGroupManager(object):
     def nested_groups(self):
         return self._nested_groups
 
-    def _init_nested_groups(self):
+    def _init_nested_groups(self, requested_size):
         # Construct the groups dict -
         # {0: <groups-1>,.., n-1: <groups-n>}
+        size = requested_size
         nested_groups = {
             self._get_nested_group_index_from_name(nsgroup): nsgroup['id']
             for nsgroup in firewall.list_nsgroups()
             if utils.is_internal_resource(nsgroup)}
 
-        absent_groups = set(range(self.size)) - set(nested_groups.keys())
+        if nested_groups:
+            size = max(requested_size, max(nested_groups) + 1)
+            if size > requested_size:
+                LOG.warning(_LW("Lowering the value of "
+                                "nsx_v3:number_of_nested_groups isn't "
+                                "supported, '%s' nested-groups will be used."),
+                            size)
+
+        absent_groups = set(range(size)) - set(nested_groups.keys())
         if absent_groups:
             LOG.warning(
-                _LW("Missing %(num_present)s Nested Groups, "
+                _LW("Found %(num_present)s Nested Groups, "
                     "creating %(num_absent)s more."),
                 {'num_present': len(nested_groups),
                  'num_absent': len(absent_groups)})
@@ -305,7 +312,8 @@ class NSGroupManager(object):
         return nested_groups
 
     def _get_nested_group_index_from_name(self, nested_group):
-        return int(nested_group['display_name'][-1]) - 1
+        # The name format is "Nested Group <index+1>"
+        return int(nested_group['display_name'].split()[-1]) - 1
 
     def _create_nested_group(self, index):
         name_prefix = NSGroupManager.NESTED_GROUP_NAME
@@ -325,7 +333,7 @@ class NSGroupManager(object):
         yield self.nested_groups[index]
 
         for i in range(1, self.size):
-            index = (index + i) % self.size
+            index = (index + 1) % self.size
             yield self.nested_groups[index]
 
     def add_nsgroup(self, nsgroup_id):
