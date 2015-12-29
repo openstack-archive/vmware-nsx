@@ -199,7 +199,11 @@ def read_file(path):
                       "%(path)s: %(err)s"), {'path': path, 'err': str(e)})
 
 
-def get_name_and_uuid(name, uuid, maxlen=80):
+def get_name_and_uuid(name, uuid, tag=None, maxlen=80):
     short_uuid = '_' + uuid[:5] + '...' + uuid[-5:]
     maxlen = maxlen - len(short_uuid)
-    return name[:maxlen] + short_uuid
+    if tag:
+        maxlen = maxlen - len(tag) - 1
+        return name[:maxlen] + '_' + tag + short_uuid
+    else:
+        return name[:maxlen] + short_uuid
