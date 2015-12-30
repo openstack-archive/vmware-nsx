@@ -46,6 +46,7 @@ import six
 import webob.exc
 
 from vmware_nsx._i18n import _
+from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.extensions import (
@@ -318,6 +319,22 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                                     pnet.PHYSICAL_NETWORK)) as net:
             for k, v in expected:
                 self.assertEqual(net['network'][k], v)
+
+    def test_create_vxlan_with_tz_provider_network_not_found_fail(self):
+        name = 'provider_net_vxlan'
+        data = {'network': {
+                   'name': name,
+                   'tenant_id': self._tenant_id,
+                   pnet.SEGMENTATION_ID: attributes.ATTR_NOT_SPECIFIED,
+                   pnet.NETWORK_TYPE: 'vxlan',
+                   pnet.PHYSICAL_NETWORK: 'vdnscope-2'}}
+        p = manager.NeutronManager.get_plugin()
+        with mock.patch.object(p.nsx_v.vcns, 'validate_vdn_scope',
+                               side_effect=[False]):
+            self.assertRaises(nsxv_exc.NsxResourceNotFound,
+                              p.create_network,
+                              context.get_admin_context(),
+                              data)
 
 
 class TestVnicIndex(NsxVPluginV2TestCase,

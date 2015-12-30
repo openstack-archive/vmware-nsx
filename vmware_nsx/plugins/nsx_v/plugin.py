@@ -593,8 +593,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         vdn_scope_id = segment.get(pnet.PHYSICAL_NETWORK)
                         if not (self.nsx_v.vcns.
                                 validate_vdn_scope(vdn_scope_id)):
-                            error = _("Configured vdn_scope_id not found")
-                            raise nsx_exc.NsxPluginException(err_msg=error)
+                            raise nsx_exc.NsxResourceNotFound(
+                                res_name=pnet.PHYSICAL_NETWORK,
+                                res_id=vdn_scope_id)
                 h, c = self.nsx_v.vcns.create_virtual_wire(vdn_scope_id,
                                                            config_spec)
                 net_moref = c
