@@ -38,9 +38,13 @@ def get_nsxv_backup_edges():
     edges = nsxv.get_edges()[1]
     edges = edges['edgePage'].get('data', [])
     backup_edges = []
+    edgeapi = utils.NeutronDbClient()
     for edge in edges:
         if edge['name'].startswith("backup-"):
-            backup_edges.append(edge)
+            edge_vnic_binds = nsxv_db.get_edge_vnic_bindings_by_edge(
+                edgeapi.context.session, edge['id'])
+            if not edge_vnic_binds:
+                backup_edges.append(edge)
     return backup_edges
 
 
@@ -71,7 +75,9 @@ def nsx_clean_backup_edge(resource, event, trigger, **kwargs):
     else:
         # edge[0] is response status code
         # edge[1] is response body
-        if not edge[1]['name'].startswith('backup-'):
+        backup_edges = [e['id'] for e in get_nsxv_backup_edges()]
+        if (not edge[1]['name'].startswith('backup-')
+            or edge[1]['id'] not in backup_edges):
             LOG.error(
                 _LE('Edge: %s is not a backup edge; aborting delete'), edge_id)
             return
