@@ -443,3 +443,16 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
         expected = '%s%s' % ('X' * (80 - len(suffix)), suffix)
         short_name = utils.get_name_and_uuid(name, uuid)
         self.assertEqual(expected, short_name)
+
+    def test_build_v3_tags_max_length_payload(self):
+        result = utils.build_v3_tags_payload(
+            {'id': 'X' * 255,
+             'tenant_id': 'X' * 255},
+            resource_type='os-neutron-net-id',
+            project_name='X' * 255)
+        expected = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+                    {'scope': 'os-project-id', 'tag': 'X' * 40},
+                    {'scope': 'os-project-name', 'tag': 'X' * 40},
+                    {'scope': 'os-api-version',
+                     'tag': version.version_info.release_string()}]
+        self.assertEqual(expected, result)
