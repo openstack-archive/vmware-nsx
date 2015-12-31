@@ -29,6 +29,7 @@ LOG = log.getLogger(__name__)
 
 MAX_DISPLAY_NAME_LEN = 40
 MAX_RESOURCE_TYPE_LEN = 20
+MAX_TAG_LEN = 40
 NEUTRON_VERSION = version.version_info.release_string()
 NSX_NEUTRON_PLUGIN = 'NSX Neutron plugin'
 OS_NEUTRON_ID_SCOPE = 'os-neutron-id'
@@ -132,13 +133,13 @@ def build_v3_tags_payload(resource, resource_type, project_name):
     if not project_name:
         project_name = 'NSX Neutron plugin'
     return [{'scope': resource_type,
-             'tag': resource.get('id', '')},
+             'tag': resource.get('id', '')[:MAX_TAG_LEN]},
             {'scope': 'os-project-id',
-             'tag': resource.get('tenant_id', '')},
+             'tag': resource.get('tenant_id', '')[:MAX_TAG_LEN]},
             {'scope': 'os-project-name',
-             'tag': project_name},
+             'tag': project_name[:MAX_TAG_LEN]},
             {'scope': 'os-api-version',
-             'tag': version.version_info.release_string()}]
+             'tag': version.version_info.release_string()[:MAX_TAG_LEN]}]
 
 
 def retry_upon_exception_nsxv3(exc, delay=500, max_delay=2000,
