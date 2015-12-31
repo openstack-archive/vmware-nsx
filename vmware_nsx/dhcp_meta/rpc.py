@@ -97,8 +97,8 @@ def handle_router_metadata_access(plugin, context, router_id, interface=None):
         LOG.debug("Metadata access network is disabled")
         return
     if not cfg.CONF.allow_overlapping_ips:
-        LOG.warn(_LW("Overlapping IPs must be enabled in order to setup "
-                     "the metadata access network"))
+        LOG.warning(_LW("Overlapping IPs must be enabled in order to setup "
+                        "the metadata access network"))
         return
     ctx_elevated = context.elevated()
     device_filter = {'device_id': [router_id],

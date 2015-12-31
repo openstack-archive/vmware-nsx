@@ -142,8 +142,8 @@ def delete_security_profile(cluster, spid):
     except exceptions.NotFound:
         with excutils.save_and_reraise_exception():
             # This is not necessarily an error condition
-            LOG.warn(_LW("Unable to find security profile %s on NSX backend"),
-                     spid)
+            LOG.warning(_LW("Unable to find security profile %s on NSX "
+                            "backend"), spid)
 
 
 def summarize_security_group_rules(logical_port_rules):

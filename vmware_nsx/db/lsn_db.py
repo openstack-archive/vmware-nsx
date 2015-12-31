@@ -58,7 +58,7 @@ def lsn_get_for_network(context, network_id, raise_on_err=True):
             raise p_exc.LsnNotFound(entity='network',
                                     entity_id=network_id)
         else:
-            LOG.warn(msg, network_id)
+            LOG.warning(msg, network_id)
 
 
 def lsn_port_add_for_lsn(context, lsn_port_id, subnet_id, mac, lsn_id):

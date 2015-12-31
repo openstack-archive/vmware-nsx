@@ -75,9 +75,9 @@ class LsnManager(object):
                 raise p_exc.LsnNotFound(entity='network',
                                         entity_id=network_id)
             else:
-                LOG.warn(_LW('Unable to find Logical Service Node for '
-                             'the requested network %s.'),
-                         network_id)
+                LOG.warning(_LW('Unable to find Logical Service Node for '
+                                'the requested network %s.'),
+                            network_id)
 
     def lsn_create(self, context, network_id):
         """Create a LSN associated to the network."""
@@ -92,7 +92,8 @@ class LsnManager(object):
         try:
             lsn_api.lsn_delete(self.cluster, lsn_id)
         except (n_exc.NotFound, api_exc.NsxApiException):
-            LOG.warn(_LW('Unable to delete Logical Service Node %s'), lsn_id)
+            LOG.warning(_LW('Unable to delete Logical Service Node %s'),
+                        lsn_id)
 
     def lsn_delete_by_network(self, context, network_id):
         """Delete a LSN associated to the network."""
@@ -117,10 +118,10 @@ class LsnManager(object):
                                                 entity='subnet',
                                                 entity_id=subnet_id)
                 else:
-                    LOG.warn(_LW('Unable to find Logical Service Node Port '
-                                 'for LSN %(lsn_id)s and subnet '
-                                 '%(subnet_id)s'),
-                             {'lsn_id': lsn_id, 'subnet_id': subnet_id})
+                    LOG.warning(_LW('Unable to find Logical Service Node Port '
+                                    'for LSN %(lsn_id)s and subnet '
+                                    '%(subnet_id)s'),
+                                {'lsn_id': lsn_id, 'subnet_id': subnet_id})
                 return (lsn_id, None)
             else:
                 return (lsn_id, lsn_port_id)
@@ -144,10 +145,10 @@ class LsnManager(object):
                                                 entity='MAC',
                                                 entity_id=mac)
                 else:
-                    LOG.warn(_LW('Unable to find Logical Service Node '
-                                 'Port for LSN %(lsn_id)s and mac address '
-                                 '%(mac)s'),
-                             {'lsn_id': lsn_id, 'mac': mac})
+                    LOG.warning(_LW('Unable to find Logical Service Node '
+                                    'Port for LSN %(lsn_id)s and mac address '
+                                    '%(mac)s'),
+                                {'lsn_id': lsn_id, 'mac': mac})
                 return (lsn_id, None)
             else:
                 return (lsn_id, lsn_port_id)
@@ -169,7 +170,7 @@ class LsnManager(object):
         try:
             lsn_api.lsn_port_delete(self.cluster, lsn_id, lsn_port_id)
         except (n_exc.NotFound, api_exc.NsxApiException):
-            LOG.warn(_LW('Unable to delete LSN Port %s'), lsn_port_id)
+            LOG.warning(_LW('Unable to delete LSN Port %s'), lsn_port_id)
 
     def lsn_port_dispose(self, context, network_id, mac_address):
         """Delete a LSN port given the network and the mac address."""
@@ -186,11 +187,12 @@ class LsnManager(object):
                         self.cluster, network_id, lswitch_port_id)
                 except (n_exc.PortNotFoundOnNetwork,
                         api_exc.NsxApiException):
-                    LOG.warn(_LW("Metadata port not found while attempting "
-                                 "to delete it from network %s"), network_id)
+                    LOG.warning(_LW("Metadata port not found while attempting "
+                                    "to delete it from network %s"),
+                                network_id)
         else:
-            LOG.warn(_LW("Unable to find Logical Services Node "
-                         "Port with MAC %s"), mac_address)
+            LOG.warning(_LW("Unable to find Logical Services Node "
+                            "Port with MAC %s"), mac_address)
 
     def lsn_port_dhcp_setup(
         self, context, network_id, port_id, port_data, subnet_config=None):
