@@ -122,9 +122,9 @@ class ApiRequest(object):
                     conn.request(self._method, url, self._body, headers)
                 except Exception as e:
                     with excutils.save_and_reraise_exception():
-                        LOG.warn(_LW("[%(rid)d] Exception issuing request: "
-                                     "%(e)s"),
-                                 {'rid': self._rid(), 'e': e})
+                        LOG.warning(_LW("[%(rid)d] Exception issuing request: "
+                                        "%(e)s"),
+                                    {'rid': self._rid(), 'e': e})
 
                 response = conn.getresponse()
                 response.body = response.read()
@@ -181,10 +181,10 @@ class ApiRequest(object):
             # queue.
             if (response.status == httplib.INTERNAL_SERVER_ERROR and
                 response.status > httplib.NOT_IMPLEMENTED):
-                LOG.warn(_LW("[%(rid)d] Request '%(method)s %(url)s' "
-                             "received: %(status)s"),
-                         {'rid': self._rid(), 'method': self._method,
-                          'url': self._url, 'status': response.status})
+                LOG.warning(_LW("[%(rid)d] Request '%(method)s %(url)s' "
+                                "received: %(status)s"),
+                            {'rid': self._rid(), 'method': self._method,
+                             'url': self._url, 'status': response.status})
                 raise Exception(_('Server error return: %s'), response.status)
             return response
         except socket.error:
@@ -197,10 +197,11 @@ class ApiRequest(object):
                 msg = str(e)
             if response is None:
                 elapsed_time = time.time() - issued_time
-            LOG.warn(_LW("[%(rid)d] Failed request '%(conn)s': '%(msg)s' "
-                         "(%(elapsed)s seconds)"),
-                     {'rid': self._rid(), 'conn': self._request_str(conn, url),
-                      'msg': msg, 'elapsed': elapsed_time})
+            LOG.warning(_LW("[%(rid)d] Failed request '%(conn)s': '%(msg)s' "
+                            "(%(elapsed)s seconds)"),
+                        {'rid': self._rid(),
+                         'conn': self._request_str(conn, url),
+                         'msg': msg, 'elapsed': elapsed_time})
             self._request_error = e
             is_conn_error = True
             return e
@@ -231,8 +232,8 @@ class ApiRequest(object):
                 url = value
                 break
         if not url:
-            LOG.warn(_LW("[%d] Received redirect status without location "
-                         "header field"), self._rid())
+            LOG.warning(_LW("[%d] Received redirect status without location "
+                            "header field"), self._rid())
             return (conn, None)
         # Accept location with the following format:
         # 1. /path, redirect to same node
@@ -248,13 +249,14 @@ class ApiRequest(object):
                     url = result.path
                 return (conn, url)      # case 1
             else:
-                LOG.warn(_LW("[%(rid)d] Received invalid redirect location: "
-                             "'%(url)s'"), {'rid': self._rid(), 'url': url})
+                LOG.warning(_LW("[%(rid)d] Received invalid redirect "
+                                "location: '%(url)s'"),
+                            {'rid': self._rid(), 'url': url})
                 return (conn, None)     # case 3
         elif result.scheme not in ["http", "https"] or not result.hostname:
-            LOG.warn(_LW("[%(rid)d] Received malformed redirect "
-                         "location: %(url)s"),
-                     {'rid': self._rid(), 'url': url})
+            LOG.warning(_LW("[%(rid)d] Received malformed redirect "
+                            "location: %(url)s"),
+                        {'rid': self._rid(), 'url': url})
             return (conn, None)         # case 3
         # case 2, redirect location includes a scheme
         # so setup a new connection and authenticate

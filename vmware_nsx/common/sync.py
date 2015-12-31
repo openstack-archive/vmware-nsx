@@ -406,8 +406,8 @@ class NsxSynchronizer():
                 neutron_router_mappings[neutron_router_id] = (
                     self._nsx_cache[lr_uuid])
             else:
-                LOG.warn(_LW("Unable to find Neutron router id for "
-                             "NSX logical router: %s"), lr_uuid)
+                LOG.warning(_LW("Unable to find Neutron router id for "
+                                "NSX logical router: %s"), lr_uuid)
         # Fetch neutron routers from database
         filters = ({} if scan_missing else
                    {'id': neutron_router_mappings.keys()})
@@ -541,14 +541,14 @@ class NsxSynchronizer():
             # be emitted.
             num_requests = page_size / (MAX_PAGE_SIZE + 1) + 1
             if num_requests > 1:
-                LOG.warn(_LW("Requested page size is %(cur_chunk_size)d. "
-                             "It might be necessary to do %(num_requests)d "
-                             "round-trips to NSX for fetching data. Please "
-                             "tune sync parameters to ensure chunk size "
-                             "is less than %(max_page_size)d"),
-                         {'cur_chunk_size': page_size,
-                          'num_requests': num_requests,
-                          'max_page_size': MAX_PAGE_SIZE})
+                LOG.warning(_LW("Requested page size is %(cur_chunk_size)d. "
+                                "It might be necessary to do %(num_requests)d "
+                                "round-trips to NSX for fetching data. Please "
+                                "tune sync parameters to ensure chunk size "
+                                "is less than %(max_page_size)d"),
+                            {'cur_chunk_size': page_size,
+                             'num_requests': num_requests,
+                             'max_page_size': MAX_PAGE_SIZE})
             # Only the first request might return the total size,
             # subsequent requests will definitely not
             results, cursor, total_size = nsxlib.get_single_query_page(

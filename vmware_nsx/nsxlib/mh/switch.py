@@ -246,7 +246,7 @@ def get_ports(cluster, networks=None, devices=None, tenants=None):
             if not ports:
                 ports = nsxlib.get_all_query_pages(lport_query_path, cluster)
         except exception.NotFound:
-            LOG.warn(_LW("Lswitch %s not found in NSX"), lswitch)
+            LOG.warning(_LW("Lswitch %s not found in NSX"), lswitch)
             ports = None
 
         if ports:
@@ -280,11 +280,11 @@ def get_port_by_neutron_tag(cluster, lswitch_uuid, neutron_port_id):
     num_results = len(res["results"])
     if num_results >= 1:
         if num_results > 1:
-            LOG.warn(_LW("Found '%(num_ports)d' ports with "
-                         "q_port_id tag: '%(neutron_port_id)s'. "
-                         "Only 1 was expected."),
-                     {'num_ports': num_results,
-                      'neutron_port_id': neutron_port_id})
+            LOG.warning(_LW("Found '%(num_ports)d' ports with "
+                            "q_port_id tag: '%(neutron_port_id)s'. "
+                            "Only 1 was expected."),
+                        {'num_ports': num_results,
+                         'neutron_port_id': neutron_port_id})
         return res["results"][0]
 
 

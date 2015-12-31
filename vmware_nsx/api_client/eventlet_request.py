@@ -210,8 +210,8 @@ class GetApiProvidersRequestEventlet(EventletApiRequest):
                                 ret.append(_provider_from_listen_addr(addr))
                 return ret
         except Exception as e:
-            LOG.warn(_LW("[%(rid)d] Failed to parse API provider: %(e)s"),
-                     {'rid': self._rid(), 'e': e})
+            LOG.warning(_LW("[%(rid)d] Failed to parse API provider: %(e)s"),
+                        {'rid': self._rid(), 'e': e})
             # intentionally fall through
         return None
 

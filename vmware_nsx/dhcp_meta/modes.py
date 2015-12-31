@@ -121,7 +121,7 @@ class DhcpMetadataAccess(object):
             # This becomes ineffective, as all new networks creations
             # are handled by Logical Services Nodes in NSX
             cfg.CONF.set_override('network_auto_schedule', False)
-            LOG.warn(_LW('network_auto_schedule has been disabled'))
+            LOG.warning(_LW('network_auto_schedule has been disabled'))
             notifier = combined.DhcpAgentNotifyAPI(self.safe_reference,
                                                    lsn_manager)
             self.supported_extension_aliases.append(lsn.EXT_ALIAS)

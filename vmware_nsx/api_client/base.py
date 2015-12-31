@@ -101,7 +101,7 @@ class ApiClientBase(object):
                  api_providers are configured.
         '''
         if not self._api_providers:
-            LOG.warn(_LW("[%d] no API providers currently available."), rid)
+            LOG.warning(_LW("[%d] no API providers currently available."), rid)
             return None
         if self._conn_pool.empty():
             LOG.debug("[%d] Waiting to acquire API client connection.", rid)
@@ -149,10 +149,10 @@ class ApiClientBase(object):
         priority = http_conn.priority
         if bad_state:
             # Reconnect to provider.
-            LOG.warn(_LW("[%(rid)d] Connection returned in bad state, "
-                         "reconnecting to %(conn)s"),
-                     {'rid': rid,
-                      'conn': api_client.ctrl_conn_to_str(http_conn)})
+            LOG.warning(_LW("[%(rid)d] Connection returned in bad state, "
+                            "reconnecting to %(conn)s"),
+                        {'rid': rid,
+                         'conn': api_client.ctrl_conn_to_str(http_conn)})
             http_conn = self._create_connection(*self._conn_params(http_conn))
         elif service_unavail:
             # http_conn returned a service unaviable response, put other

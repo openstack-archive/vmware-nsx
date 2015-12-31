@@ -579,12 +579,12 @@ def delete_nat_rules_by_match(cluster, router_id, rule_type,
                                           min_rules=min_num_expected,
                                           max_rules=max_num_expected)
         else:
-            LOG.warn(_LW("Found %(actual_rule_num)d matching NAT rules, which "
-                         "is not in the expected range (%(min_exp_rule_num)d,"
-                         "%(max_exp_rule_num)d)"),
-                     {'actual_rule_num': num_rules_to_delete,
-                      'min_exp_rule_num': min_num_expected,
-                      'max_exp_rule_num': max_num_expected})
+            LOG.warning(_LW("Found %(actual_rule_num)d matching NAT rules, "
+                            "which is not in the expected range "
+                            "(%(min_exp_rule_num)d,%(max_exp_rule_num)d)"),
+                        {'actual_rule_num': num_rules_to_delete,
+                         'min_exp_rule_num': min_num_expected,
+                         'max_exp_rule_num': max_num_expected})
 
     for rule_id in to_delete_ids:
         delete_router_nat_rule(cluster, router_id, rule_id)

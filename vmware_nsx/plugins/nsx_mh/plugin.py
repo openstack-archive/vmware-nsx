@@ -514,7 +514,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         nsx_switch_id, nsx_port_id = nsx_utils.get_nsx_switch_and_port_id(
             context.session, self.cluster, port_data['id'])
         if not nsx_port_id:
-            LOG.warn(
+            LOG.warning(
                 _LW("Neutron port %(port_id)s not found on NSX backend. "
                     "Terminating delete operation. A dangling router port "
                     "might have been left on router %(router_id)s"),
@@ -1057,19 +1057,19 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             nsx_switch_ids = nsx_utils.get_nsx_switch_ids(
                 context.session, self.cluster, id)
             if not nsx_switch_ids or len(nsx_switch_ids) < 1:
-                LOG.warn(_LW("Unable to find NSX mappings for neutron "
-                             "network:%s"), id)
+                LOG.warning(_LW("Unable to find NSX mappings for neutron "
+                                "network:%s"), id)
             try:
                 switchlib.update_lswitch(self.cluster,
                                          nsx_switch_ids[0],
                                          network['network']['name'])
             except api_exc.NsxApiException as e:
-                LOG.warn(_LW("Logical switch update on NSX backend failed. "
-                             "Neutron network id:%(net_id)s; "
-                             "NSX lswitch id:%(lswitch_id)s;"
-                             "Error:%(error)s"),
-                         {'net_id': id, 'lswitch_id': nsx_switch_ids[0],
-                          'error': e})
+                LOG.warning(_LW("Logical switch update on NSX backend failed. "
+                                "Neutron network id:%(net_id)s; "
+                                "NSX lswitch id:%(lswitch_id)s;"
+                                "Error:%(error)s"),
+                            {'net_id': id, 'lswitch_id': nsx_switch_ids[0],
+                             'error': e})
 
         return net
 
@@ -1473,8 +1473,9 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     # As setting gateway failed, the router must be deleted
                     # in order to ensure atomicity
                     router_id = router_db['id']
-                    LOG.warn(_LW("Failed to set gateway info for router being "
-                                 "created:%s - removing router"), router_id)
+                    LOG.warning(_LW("Failed to set gateway info for router "
+                                    "being created:%s - removing router"),
+                                router_id)
                     self.delete_router(context, router_id)
                     LOG.info(_LI("Create router failed while setting external "
                                  "gateway. Router:%s has been removed from "
@@ -1605,10 +1606,10 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 context.session, router_id)
         except db_exc.DBError as d_exc:
             # Do not make this error fatal
-            LOG.warn(_LW("Unable to remove NSX mapping for Neutron router "
-                         "%(router_id)s because of the following exception:"
-                         "%(d_exc)s"), {'router_id': router_id,
-                                        'd_exc': str(d_exc)})
+            LOG.warning(_LW("Unable to remove NSX mapping for Neutron router "
+                            "%(router_id)s because of the following exception:"
+                            "%(d_exc)s"), {'router_id': router_id,
+                                           'd_exc': str(d_exc)})
         # Perform the actual delete on the Neutron DB
         super(NsxPluginV2, self).delete_router(context, router_id)
 
@@ -2071,8 +2072,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             except api_exc.NsxApiException:
                 # Consider backend failures as non-fatal, but still warn
                 # because this might indicate something dodgy is going on
-                LOG.warn(_LW("Unable to update name on NSX backend "
-                             "for network gateway: %s"), id)
+                LOG.warning(_LW("Unable to update name on NSX backend "
+                                "for network gateway: %s"), id)
         return super(NsxPluginV2, self).update_network_gateway(
             context, id, network_gateway)
 
@@ -2278,10 +2279,10 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         try:
             l2gwlib.delete_gateway_device(self.cluster, nsx_device_id)
         except n_exc.NotFound:
-            LOG.warn(_LW("Removal of gateway device: %(neutron_id)s failed on "
-                         "NSX backend (NSX id:%(nsx_id)s) because the NSX "
-                         "resource was not found"),
-                     {'neutron_id': device_id, 'nsx_id': nsx_device_id})
+            LOG.warning(_LW("Removal of gateway device: %(neutron_id)s failed "
+                            "on NSX backend (NSX id:%(nsx_id)s) because the "
+                            "NSX resource was not found"),
+                        {'neutron_id': device_id, 'nsx_id': nsx_device_id})
         except api_exc.NsxApiException:
             with excutils.save_and_reraise_exception():
                 # In this case a 500 should be returned
