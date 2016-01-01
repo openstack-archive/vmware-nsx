@@ -232,6 +232,9 @@ nsx_v3_opts = [
                help=_('Number of times a HTTP redirect should be followed.')),
     cfg.StrOpt('default_tier0_router_uuid',
                help=_("Default tier0 router identifier")),
+    cfg.IntOpt('number_of_nested_groups',
+               default=8,
+               help=_("The number of nested NSGroups to use.")),
 ]
 
 DEFAULT_STATUS_CHECK_INTERVAL = 2000
