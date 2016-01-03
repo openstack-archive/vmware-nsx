@@ -456,3 +456,20 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
                     {'scope': 'os-api-version',
                      'tag': version.version_info.release_string()}]
         self.assertEqual(expected, result)
+
+    def test_add_v3_tag(self):
+        result = utils.add_v3_tag([], 'fake-scope', 'fake-tag')
+        expected = [{'scope': 'fake-scope', 'tag': 'fake-tag'}]
+        self.assertEqual(expected, result)
+
+    def test_add_v3_tag_max_length_payload(self):
+        result = utils.add_v3_tag([], 'fake-scope', 'X' * 255)
+        expected = [{'scope': 'fake-scope', 'tag': 'X' * 40}]
+        self.assertEqual(expected, result)
+
+    def test_add_v3_tag_invalid_scope_length(self):
+        self.assertRaises(n_exc.InvalidInput,
+                          utils.add_v3_tag,
+                          [],
+                          'fake-scope-name-is-far-too-long',
+                          'fake-tag')

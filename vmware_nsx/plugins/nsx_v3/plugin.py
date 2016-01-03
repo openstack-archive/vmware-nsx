@@ -579,6 +579,9 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         tags = utils.build_v3_tags_payload(
             port_data, resource_type=resource_type,
             project_name=context.tenant_name)
+        if device_id:
+            tags = utils.add_v3_tag(tags, 'os-instance-uuid', device_id)
+
         parent_name, tag = self._get_data_from_binding_profile(
             context, port_data)
         address_bindings = self._build_address_bindings(port_data)
