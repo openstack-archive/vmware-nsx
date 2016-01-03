@@ -266,7 +266,7 @@ class NSGroupManager(object):
     use the same procedure to find which nested group it was added.
     """
 
-    NESTED_GROUP_NAME = 'Nested Group'
+    NESTED_GROUP_NAME = 'OS Nested Group'
     NESTED_GROUP_DESCRIPTION = ('OpenStack NSGroup. Do not delete.')
 
     def __init__(self, size):
