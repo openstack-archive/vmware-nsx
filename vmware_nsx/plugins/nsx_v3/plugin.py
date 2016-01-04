@@ -1424,6 +1424,10 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         ns_group = None
         firewall_section = None
 
+        if not default_sg:
+            tenant_id = self._get_tenant_id_for_create(context, secgroup)
+            self._ensure_default_security_group(context, tenant_id)
+
         try:
             # NOTE(roeyc): We first create the nsgroup so that once the sg is
             # saved into db its already backed up by an nsx resource.
