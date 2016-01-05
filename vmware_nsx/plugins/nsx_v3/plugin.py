@@ -1550,5 +1550,5 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         sg_id = rule_db['security_group_id']
         _, section_id = security.get_sg_mappings(context.session, sg_id)
         fw_rule_id = security.get_sg_rule_mapping(context.session, id)
-        super(NsxV3Plugin, self).delete_security_group_rule(context, id)
         firewall.delete_rule(section_id, fw_rule_id)
+        super(NsxV3Plugin, self).delete_security_group_rule(context, id)
