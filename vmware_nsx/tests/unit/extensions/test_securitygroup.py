@@ -85,7 +85,8 @@ class TestSecurityGroups(test_nsxv3.NsxV3PluginTestCaseMixin,
                  mock.call(NSG_IDS[2], mock.ANY, mock.ANY)]
         add_member_mock.assert_has_calls(calls, any_order=True)
 
-        remove_member_mock.assert_called_with(NSG_IDS[0], mock.ANY)
+        remove_member_mock.assert_called_with(
+            NSG_IDS[0], firewall.LOGICAL_PORT, mock.ANY)
 
     @_mock_create_and_list_nsgroups
     @mock.patch.object(firewall, 'remove_nsgroup_member')
@@ -96,8 +97,10 @@ class TestSecurityGroups(test_nsxv3.NsxV3PluginTestCaseMixin,
         super(TestSecurityGroups,
               self).test_update_port_remove_security_group_empty_list()
 
-        add_member_mock.assert_called_with(NSG_IDS[1], mock.ANY, mock.ANY)
-        remove_member_mock.assert_called_with(NSG_IDS[1], mock.ANY)
+        add_member_mock.assert_called_with(
+            NSG_IDS[1], firewall.LOGICAL_PORT, mock.ANY)
+        remove_member_mock.assert_called_with(
+            NSG_IDS[1], firewall.LOGICAL_PORT, mock.ANY)
 
 
 class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
@@ -153,7 +156,7 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
         add_member_mock.assert_called_once_with(
             NSG_IDS[2], firewall.NSGROUP, nsgroup_id)
         remove_member_mock.assert_called_once_with(
-            NSG_IDS[2], nsgroup_id, verify=True)
+            NSG_IDS[2], firewall.NSGROUP, nsgroup_id, verify=True)
 
     @_mock_create_and_list_nsgroups
     @mock.patch.object(firewall, 'remove_nsgroup_member')
@@ -166,7 +169,7 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
             if nsgroup == NSG_IDS[2]:
                 raise firewall.NSGroupIsFull()
 
-        def _remove_member_mock(nsgroup, target_id, verify=False):
+        def _remove_member_mock(nsgroup, target_type, target_id, verify=False):
             if nsgroup == NSG_IDS[2]:
                 raise firewall.NSGroupMemberNotFound()
 
@@ -191,8 +194,11 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
         # Since the nsgroup was added to the nested group at index 3, it will
         # fail to remove it from the group at index 2, and then will try to
         # remove it from the group at index 3.
-        calls = [mock.call(NSG_IDS[2], nsgroup_id, verify=True),
-                 mock.call(NSG_IDS[3], nsgroup_id, verify=True)]
+        calls = [
+            mock.call(
+                NSG_IDS[2], firewall.NSGROUP, nsgroup_id, verify=True),
+            mock.call(
+                NSG_IDS[3], firewall.NSGROUP, nsgroup_id, verify=True)]
         remove_member_mock.assert_has_calls(calls)
 
     @_mock_create_and_list_nsgroups
