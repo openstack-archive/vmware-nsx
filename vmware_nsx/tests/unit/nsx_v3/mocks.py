@@ -14,7 +14,6 @@
 # limitations under the License.
 import requests
 import urlparse
-import uuid
 
 from oslo_serialization import jsonutils
 from oslo_utils import uuidutils
@@ -98,13 +97,6 @@ class MockRequestSessionApi(object):
     def __init__(self):
         self._store = {}
 
-    def _is_uuid(self, item):
-        try:
-            uuid.UUID(item, version=4)
-        except ValueError:
-            return False
-        return True
-
     def _format_uri(self, uri):
         uri = urlparse.urlparse(uri).path
         while uri.endswith('/'):
@@ -116,7 +108,8 @@ class MockRequestSessionApi(object):
         return uri
 
     def _is_uuid_uri(self, uri):
-        return self._is_uuid(urlparse.urlparse(uri).path.split('/')[-1])
+        return uuidutils.is_uuid_like(
+            urlparse.urlparse(uri).path.split('/')[-1])
 
     def _query(self, search_key, copy=True):
         items = []
@@ -159,7 +152,7 @@ class MockRequestSessionApi(object):
             url, content=self._query(url), status=requests.codes.ok, **kwargs)
 
     def _create(self, url, content, **kwargs):
-        resource_id = content.get('id', None)
+        resource_id = content.get('id')
         if resource_id and self._store.get("%s%s" % (url, resource_id)):
             return self._build_response(
                 url, content=None, status=requests.codes.bad, **kwargs)
@@ -175,7 +168,7 @@ class MockRequestSessionApi(object):
         url = self._format_uri(url)
 
         if self._is_uuid_uri(url):
-            if self._store.get(url, None) is None:
+            if self._store.get(url) is None:
                 return self._build_response(
                     url, content=None, status=requests.codes.bad, **kwargs)
 
@@ -186,10 +179,11 @@ class MockRequestSessionApi(object):
 
         response_content = None
 
-        if parsed_url.query and parsed_url.query == 'action=create_multiple':
+        url_queries = urlparse.parse_qs(parsed_url.query)
+        if 'create_multiple' in url_queries.get('action', []):
             response_content = {}
             for resource_name, resource_body in body.items():
-                for new_resource in body[resource_name]:
+                for new_resource in resource_body:
                     created_resource = self._create(
                         url, new_resource, **kwargs)
                     if response_content.get(resource_name, None) is None:
@@ -202,7 +196,8 @@ class MockRequestSessionApi(object):
             return response_content
 
         return self._build_response(
-            url, content=response_content, status=requests.codes.ok, **kwargs)
+            url, content=response_content,
+            status=requests.codes.created, **kwargs)
 
     def put(self, url, **kwargs):
         url = self._format_uri(url)
