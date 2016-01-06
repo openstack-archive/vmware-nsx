@@ -252,9 +252,11 @@ class LogicalPort(AbstractRESTResource):
         max_attempts=cfg.CONF.nsx_v3.retries)
     def update(self, lport_id, name=None, admin_state=None,
                address_bindings=None, switch_profile_ids=None,
-               tags=None):
+               resources=None):
         lport = self.get(lport_id)
-
+        tags = lport.get('tags', [])
+        if resources:
+            tags = utils.update_v3_tags(tags, resources)
         lport.update(self._build_body_attrs(
             display_name=name,
             admin_state=admin_state, tags=tags,

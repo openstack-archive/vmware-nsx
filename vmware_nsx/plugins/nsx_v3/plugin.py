@@ -581,8 +581,10 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         tags = utils.build_v3_tags_payload(
             port_data, resource_type=resource_type,
             project_name=context.tenant_name)
-        if device_id:
-            tags = utils.add_v3_tag(tags, 'os-instance-uuid', device_id)
+        resource_type = self._get_resource_type_for_device_id(
+            device_owner, device_id)
+        if resource_type:
+            tags = utils.add_v3_tag(tags, resource_type, device_id)
 
         parent_name, tag = self._get_data_from_binding_profile(
             context, port_data)
@@ -616,7 +618,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         if device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF and device_id:
             router = self._get_router(context, device_id)
             name = utils.get_name_and_uuid(
-                router['name'] or 'router', port_data['id'], tag='_port_')
+                router['name'] or 'router', port_data['id'], tag='port')
         elif device_owner == const.DEVICE_OWNER_DHCP:
             network = self.get_network(context, port_data['network_id'])
             name = utils.get_name_and_uuid('%s-%s' % (
@@ -811,15 +813,43 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
 
         return updated_port
 
+    def _get_resource_type_for_device_id(self, device_owner, device_id):
+        if device_owner in const.ROUTER_INTERFACE_OWNERS:
+            return 'os-router-uuid'
+        elif device_owner.startswith("compute:"):
+            return 'os-instance-uuid'
+
     def _update_port_on_backend(self, context, lport_id,
                                 original_port, updated_port,
                                 address_bindings,
                                 switch_profile_ids):
+        original_device_owner = original_port.get('device_owner')
+        original_device_id = original_port.get('device_id')
+        updated_device_owner = updated_port.get('device_owner')
+        updated_device_id = updated_port.get('device_id')
+        resources = []
+        if original_device_id != updated_device_id:
+            # Determine if we need to update or drop the tag. If the
+            # updated_device_id exists then the tag will be updated. This
+            # is done using the updated port. If the updated_device_id does
+            # not exist then we need to get the original resource type
+            # from original_device_owner. This enables us to drop the tag.
+            if updated_device_id:
+                resource_type = self._get_resource_type_for_device_id(
+                    updated_device_owner, updated_device_id)
+            else:
+                resource_type = self._get_resource_type_for_device_id(
+                    original_device_owner, updated_device_id)
+            if resource_type:
+                resources = [{'resource_type': resource_type,
+                              'tag': updated_device_id}]
+
         self._port_client.update(
             lport_id, name=updated_port.get('name'),
             admin_state=updated_port.get('admin_state_up'),
             address_bindings=address_bindings,
-            switch_profile_ids=switch_profile_ids)
+            switch_profile_ids=switch_profile_ids,
+            resources=resources)
 
         security.update_lport_with_security_groups(
             context, lport_id,

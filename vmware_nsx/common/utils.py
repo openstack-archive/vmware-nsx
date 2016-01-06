@@ -150,6 +150,24 @@ def add_v3_tag(tags, resource_type, tag):
     return tags
 
 
+def update_v3_tags(tags, resources):
+    port_tags = dict((t['scope'], t['tag']) for t in tags)
+    resources = resources or []
+    # Update tags
+    for resource in resources:
+        tag = resource['tag'][:MAX_TAG_LEN]
+        resource_type = resource['resource_type']
+        if resource_type in port_tags:
+            if tag:
+                port_tags[resource_type] = tag
+            else:
+                port_tags.pop(resource_type, None)
+        else:
+            port_tags[resource_type] = tag
+    # Create the new set of tags
+    return [{'scope': k, 'tag': v} for k, v in port_tags.items()]
+
+
 def retry_upon_exception_nsxv3(exc, delay=500, max_delay=2000,
                                max_attempts=cfg.CONF.nsx_v3.retries):
     return retrying.retry(retry_on_exception=lambda e: isinstance(e, exc),

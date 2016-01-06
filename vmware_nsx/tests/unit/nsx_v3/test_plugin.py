@@ -473,3 +473,52 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
                           [],
                           'fake-scope-name-is-far-too-long',
                           'fake-tag')
+
+    def test_update_v3_tags_addition(self):
+        tags = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+                {'scope': 'os-project-id', 'tag': 'Y' * 40},
+                {'scope': 'os-project-name', 'tag': 'Z' * 40},
+                {'scope': 'os-api-version',
+                 'tag': version.version_info.release_string()}]
+        resources = [{'resource_type': 'os-instance-uuid',
+                      'tag': 'A' * 40}]
+        tags = utils.update_v3_tags(tags, resources)
+        expected = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+                    {'scope': 'os-project-id', 'tag': 'Y' * 40},
+                    {'scope': 'os-project-name', 'tag': 'Z' * 40},
+                    {'scope': 'os-api-version',
+                     'tag': version.version_info.release_string()},
+                    {'scope': 'os-instance-uuid',
+                     'tag': 'A' * 40}]
+        self.assertEqual(sorted(expected), sorted(tags))
+
+    def test_update_v3_tags_removal(self):
+        tags = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+                {'scope': 'os-project-id', 'tag': 'Y' * 40},
+                {'scope': 'os-project-name', 'tag': 'Z' * 40},
+                {'scope': 'os-api-version',
+                 'tag': version.version_info.release_string()}]
+        resources = [{'resource_type': 'os-neutron-net-id',
+                      'tag': ''}]
+        tags = utils.update_v3_tags(tags, resources)
+        expected = [{'scope': 'os-project-id', 'tag': 'Y' * 40},
+                    {'scope': 'os-project-name', 'tag': 'Z' * 40},
+                    {'scope': 'os-api-version',
+                     'tag': version.version_info.release_string()}]
+        self.assertEqual(sorted(expected), sorted(tags))
+
+    def test_update_v3_tags_update(self):
+        tags = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+                {'scope': 'os-project-id', 'tag': 'Y' * 40},
+                {'scope': 'os-project-name', 'tag': 'Z' * 40},
+                {'scope': 'os-api-version',
+                 'tag': version.version_info.release_string()}]
+        resources = [{'resource_type': 'os-project-id',
+                      'tag': 'A' * 40}]
+        tags = utils.update_v3_tags(tags, resources)
+        expected = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+                    {'scope': 'os-project-id', 'tag': 'A' * 40},
+                    {'scope': 'os-project-name', 'tag': 'Z' * 40},
+                    {'scope': 'os-api-version',
+                     'tag': version.version_info.release_string()}]
+        self.assertEqual(sorted(expected), sorted(tags))
