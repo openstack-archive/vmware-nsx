@@ -16,6 +16,7 @@
 """
 NSX-V3 Plugin router module
 """
+import copy
 
 from neutron.common import exceptions as n_exc
 from oslo_log import log
@@ -23,6 +24,7 @@ from oslo_log import log
 from vmware_nsx._i18n import _, _LW
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsx_constants
+from vmware_nsx.common import utils
 from vmware_nsx.nsxlib import v3 as nsxlib
 
 LOG = log.getLogger(__name__)
@@ -76,17 +78,22 @@ class RouterLib(object):
                 'edge_cluster_uuid': edge_cluster_uuid,
                 'member_index_list': member_index_list}
 
-    def add_router_link_port(self, tier1_uuid, tier0_uuid, edge_members):
+    def add_router_link_port(self, tier1_uuid, tier0_uuid, edge_members,
+                             tags):
         # Create Tier0 logical router link port
+        t0_tags = copy.copy(tags)
+        t0_tags = utils.add_v3_tag(t0_tags, 'os-tier0-uuid', tier0_uuid)
         tier0_link_port = self._router_port_client.create(
-            tier0_uuid, display_name=TIER0_ROUTER_LINK_PORT_NAME, tags=None,
+            tier0_uuid, display_name=TIER0_ROUTER_LINK_PORT_NAME, tags=t0_tags,
             resource_type=nsx_constants.LROUTERPORT_LINKONTIER0,
             logical_port_id=None,
             address_groups=None)
         linked_logical_port_id = tier0_link_port['id']
         # Create Tier1 logical router link port
+        t1_tags = copy.copy(tags)
+        t1_tags = utils.add_v3_tag(t1_tags, 'os-tier1-uuid', tier1_uuid)
         self._router_port_client.create(
-            tier1_uuid, display_name=TIER1_ROUTER_LINK_PORT_NAME, tags=None,
+            tier1_uuid, display_name=TIER1_ROUTER_LINK_PORT_NAME, tags=t1_tags,
             resource_type=nsx_constants.LROUTERPORT_LINKONTIER1,
             logical_port_id=linked_logical_port_id,
             address_groups=None)
