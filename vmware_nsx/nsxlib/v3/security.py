@@ -201,7 +201,7 @@ def update_lport_with_security_groups(context, lport_id, original, updated):
     for sg_id in removed:
         nsgroup_id, s = get_sg_mappings(context.session, sg_id)
         firewall.remove_nsgroup_member(
-            nsgroup_id, lport_id)
+            nsgroup_id, firewall.LOGICAL_PORT, lport_id)
 
 
 def init_nsgroup_manager_and_default_section_rules():
@@ -357,7 +357,7 @@ class NSGroupManager(object):
         for group in self._suggest_nested_group(nsgroup_id):
             try:
                 firewall.remove_nsgroup_member(
-                    group, nsgroup_id, verify=True)
+                    group, firewall.NSGROUP, nsgroup_id, verify=True)
                 break
             except firewall.NSGroupMemberNotFound:
                 LOG.warning(_LW("NSGroup %(nsgroup)s was expected to be found "
