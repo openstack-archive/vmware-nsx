@@ -657,6 +657,12 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             neutron_db['network_id'], result['id'])
         return result
 
+    def _validate_address_pairs(self, address_pairs):
+        for pair in address_pairs:
+            ip = pair.get('ip_address')
+            if not utils.is_ipv4_ip_address(ip):
+                raise nsx_exc.InvalidIPAddress(ip_address=ip)
+
     def _create_port_preprocess_security(
             self, context, port, port_data, neutron_db):
         (port_security, has_ip) = self._determine_port_security_and_has_ip(
@@ -665,13 +671,15 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         self._process_port_port_security_create(
                 context, port_data, neutron_db)
         # allowed address pair checks
-        if attributes.is_attr_set(port_data.get(addr_pair.ADDRESS_PAIRS)):
+        address_pairs = port_data.get(addr_pair.ADDRESS_PAIRS)
+        if attributes.is_attr_set(address_pairs):
             if not port_security:
                 raise addr_pair.AddressPairAndPortSecurityRequired()
             else:
+                self._validate_address_pairs(address_pairs)
                 self._process_create_allowed_address_pairs(
                     context, neutron_db,
-                    port_data[addr_pair.ADDRESS_PAIRS])
+                    address_pairs)
         else:
             # remove ATTR_NOT_SPECIFIED
             port_data[addr_pair.ADDRESS_PAIRS] = []
@@ -787,6 +795,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                     raise addr_pair.AddressPairAndPortSecurityRequired()
 
         if delete_addr_pairs or has_addr_pairs:
+            self._validate_address_pairs(
+                updated_port[addr_pair.ADDRESS_PAIRS])
             # delete address pairs and read them in
             self._delete_allowed_address_pairs(context, id)
             self._process_create_allowed_address_pairs(
@@ -929,6 +939,18 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 with context.session.begin(subtransactions=True):
                     super(NsxV3Plugin, self).update_port(
                         context, id, {'port': original_port})
+
+                    # revert allowed address pairs
+                    if port_security:
+                        orig_pair = original_port.get(addr_pair.ADDRESS_PAIRS)
+                        updated_pair = updated_port.get(
+                            addr_pair.ADDRESS_PAIRS)
+                        if orig_pair != updated_pair:
+                            self._delete_allowed_address_pairs(context, id)
+                        if orig_pair:
+                            self._process_create_allowed_address_pairs(
+                                context, original_port, orig_pair)
+
                     if sec_grp_updated:
                         self.update_security_group_on_port(
                             context, id, {'port': original_port}, updated_port,

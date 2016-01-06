@@ -49,6 +49,25 @@ class TestAllowedAddressPairsNSXv3(test_v3_plugin.NsxV3PluginTestCaseMixin,
         super(TestAllowedAddressPairsNSXv3, self).setUp(
             plugin=plugin, ext_mgr=ext_mgr, service_plugins=service_plugins)
 
+    def test_create_bad_address_pairs_with_cidr(self):
+        address_pairs = [{'mac_address': '00:00:00:00:00:01',
+                          'ip_address': '10.0.0.1/24'}]
+        self._create_port_with_address_pairs(address_pairs, 400)
+
+    def test_update_add_bad_address_pairs_with_cidr(self):
+        with self.network() as net:
+            res = self._create_port(self.fmt, net['network']['id'])
+            port = self.deserialize(self.fmt, res)
+            address_pairs = [{'mac_address': '00:00:00:00:00:01',
+                              'ip_address': '10.0.0.1/24'}]
+            update_port = {'port': {addr_pair.ADDRESS_PAIRS:
+                                    address_pairs}}
+            req = self.new_update_request('ports', update_port,
+                                          port['port']['id'])
+            res = req.get_response(self.api)
+            self.assertEqual(res.status_int, 400)
+            self._delete('ports', port['port']['id'])
+
     def test_create_port_security_false_allowed_address_pairs(self):
         self.skipTest('TBD')
 
