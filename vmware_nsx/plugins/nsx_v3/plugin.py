@@ -464,7 +464,9 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             'name' in net_data or 'admin_state_up' in net_data):
             try:
                 nsxlib.update_logical_switch(
-                    id, name=net_data.get('name'),
+                    id,
+                    name=utils.get_name_and_uuid(net_data.get('name'),
+                                                 id),
                     admin_state=net_data.get('admin_state_up'))
                 # Backend does not update the admin state of the ports on
                 # the switch when the switch's admin state changes. Do not
