@@ -188,10 +188,7 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
                       self).delete_l2_gateway_connection(context,
                                                          l2gw_connection['id'])
         # Create a logical port and connect it to the bridge endpoint.
-        tenant_id = self._core_plugin._get_tenant_id_for_create(context,
-                                                                gw_connection)
-        # _get_tenant_id_for_create might return None in some cases.
-        # This is not acceptable for the NSX plugin
+        tenant_id = gw_connection['tenant_id']
         if context.is_admin and not tenant_id:
             tenant_id = context.tenant_id
         #TODO(abhiraut): Consider specifying the name of the port

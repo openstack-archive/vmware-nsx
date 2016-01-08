@@ -1912,6 +1912,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                side_effect=[n_exc.NeutronException]):
             router = {'router': {'admin_state_up': True,
                       'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
+                      'tenant_id': context.get_admin_context().tenant_id,
                       'router_type': 'exclusive'}}
             self.assertRaises(n_exc.NeutronException,
                               p.create_router,
@@ -2385,6 +2386,7 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                                side_effect=[n_exc.NeutronException]):
             router = {'router': {'admin_state_up': True,
                       'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
+                      'tenant_id': context.get_admin_context().tenant_id,
                       'distributed': True}}
             self.assertRaises(n_exc.NeutronException,
                               p.create_router,

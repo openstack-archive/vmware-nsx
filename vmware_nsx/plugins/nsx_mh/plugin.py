@@ -210,7 +210,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 # Create in DB only - don't go to backend
                 def_gw_data = {'id': def_l2_gw_uuid,
                                'name': 'default L2 gateway service',
-                               'devices': []}
+                               'devices': [],
+                               'tenant_id': ctx.tenant_id}
                 gw_res_name = networkgw.GATEWAY_RESOURCE_NAME.replace('-', '_')
                 def_network_gw = super(
                     NsxPluginV2, self).create_network_gateway(
@@ -909,7 +910,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def create_network(self, context, network):
         net_data = network['network']
-        tenant_id = self._get_tenant_id_for_create(context, net_data)
+        tenant_id = net_data['tenant_id']
         self._ensure_default_security_group(context, tenant_id)
         # Process the provider network extension
         provider_type = self._convert_to_transport_zones_dict(net_data)
@@ -1188,7 +1189,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # they've already been processed
             port['port'].pop('fixed_ips', None)
             ret_port.update(port['port'])
-            tenant_id = self._get_tenant_id_for_create(context, ret_port)
+            tenant_id = ret_port['tenant_id']
             self._update_extra_dhcp_opts_on_port(context, id, port, ret_port)
 
             # populate port_security setting
@@ -1361,7 +1362,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             return super(NsxPluginV2, self).get_router(context, id, fields)
 
     def _create_lrouter(self, context, router, nexthop):
-        tenant_id = self._get_tenant_id_for_create(context, router)
+        tenant_id = router['tenant_id']
         distributed = router.get('distributed')
         try:
             lrouter = routerlib.create_lrouter(
@@ -1409,7 +1410,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # 3rd parties to specify IDs as we do with l2 plugin
         r = router['router']
         has_gw_info = False
-        tenant_id = self._get_tenant_id_for_create(context, r)
+        tenant_id = r['tenant_id']
         # default value to set - nsx wants it (even if we don't have it)
         nexthop = NSX_DEFAULT_NEXTHOP
         # if external gateway info are set, then configure nexthop to
@@ -1993,7 +1994,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         structures in Neutron datase.
         """
         gw_data = network_gateway[networkgw.GATEWAY_RESOURCE_NAME]
-        tenant_id = self._get_tenant_id_for_create(context, gw_data)
+        tenant_id = gw_data['tenant_id']
         # Ensure the default gateway in the config file is in sync with the db
         self._ensure_default_network_gateway()
         # Validate provided gateway device list
@@ -2300,7 +2301,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         """
         s = security_group.get('security_group')
 
-        tenant_id = self._get_tenant_id_for_create(context, s)
+        tenant_id = s['tenant_id']
         if not default_sg:
             self._ensure_default_security_group(context, tenant_id)
         # NOTE(salv-orlando): Pre-generating Neutron ID for security group.

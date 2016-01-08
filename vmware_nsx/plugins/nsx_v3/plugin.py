@@ -412,8 +412,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         else:
             is_provider_net, net_type, physical_net, vlan_id = (
                 self._create_network_at_the_backend(context, net_data))
-        tenant_id = self._get_tenant_id_for_create(
-            context, net_data)
+        tenant_id = net_data['tenant_id']
 
         self._ensure_default_security_group(context, tenant_id)
         with context.session.begin(subtransactions=True):
@@ -1452,7 +1451,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         firewall_section = None
 
         if not default_sg:
-            tenant_id = self._get_tenant_id_for_create(context, secgroup)
+            tenant_id = secgroup['tenant_id']
             self._ensure_default_security_group(context, tenant_id)
 
         try:

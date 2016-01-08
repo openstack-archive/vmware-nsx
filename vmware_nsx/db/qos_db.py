@@ -228,7 +228,7 @@ class QoSDbMixin(qos.QueuePluginBase):
             queue_to_create = queue_to_create[0]
 
         # create the queue
-        tenant_id = self._get_tenant_id_for_create(context, port)
+        tenant_id = port['tenant_id']
         if port.get(qos.RXTX_FACTOR) and queue_to_create.get('max'):
             queue_to_create['max'] = int(queue_to_create['max'] *
                                          port[qos.RXTX_FACTOR])

@@ -215,7 +215,7 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
     def create_network_gateway(self, context, network_gateway,
             validate_device_list=True):
         gw_data = network_gateway[self.gateway_resource]
-        tenant_id = self._get_tenant_id_for_create(context, gw_data)
+        tenant_id = gw_data['tenant_id']
         with context.session.begin(subtransactions=True):
             gw_db = nsx_models.NetworkGateway(
                 id=gw_data.get('id', uuidutils.generate_uuid()),
@@ -279,9 +279,7 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
                    'network_gateway_id': network_gateway_id})
         with context.session.begin(subtransactions=True):
             gw_db = self._get_network_gateway(context, network_gateway_id)
-            tenant_id = self._get_tenant_id_for_create(context, gw_db)
-            # _get_tenant_id_for_create might return None in some cases.
-            # This is not acceptable for the NSX plugin
+            tenant_id = gw_db['tenant_id']
             if context.is_admin and not tenant_id:
                 tenant_id = context.tenant_id
             # TODO(salvatore-orlando): Leverage unique constraint instead
@@ -439,7 +437,7 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
     def create_gateway_device(self, context, gateway_device,
                               initial_status=STATUS_UNKNOWN):
         device_data = gateway_device[self.device_resource]
-        tenant_id = self._get_tenant_id_for_create(context, device_data)
+        tenant_id = device_data['tenant_id']
         with context.session.begin(subtransactions=True):
             device_db = nsx_models.NetworkGatewayDevice(
                 id=device_data.get('id', uuidutils.generate_uuid()),

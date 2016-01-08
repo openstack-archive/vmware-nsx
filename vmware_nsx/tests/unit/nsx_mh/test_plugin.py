@@ -367,6 +367,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxPluginV2TestCase):
                 ctx, {'network': {'name': 'xxx',
                                   'admin_state_up': True,
                                   'shared': False,
+                                  'tenant_id': ctx.tenant_id,
                                   'port_security_enabled': True}})
             plugin.update_network(ctx, net['id'],
                                   {'network': {'name': 'yyy'}})
