@@ -41,6 +41,10 @@ REJECT = 'REJECT'
 EQUALS = 'EQUALS'
 NSGROUP_SIMPLE_EXPRESSION = 'NSGroupSimpleExpression'
 
+# nsgroup members update actions
+ADD_MEMBERS = 'ADD_MEMBERS'
+REMOVE_MEMBERS = 'REMOVE_MEMBERS'
+
 NSGROUP = 'NSGroup'
 LOGICAL_SWITCH = 'LogicalSwitch'
 LOGICAL_PORT = 'LogicalPort'
@@ -109,12 +113,17 @@ def get_nsgroup_member_expression(target_type, target_id):
             'value': target_id}
 
 
+@utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision)
+def _update_nsgroup_with_members(nsgroup_id, members, action):
+    members_update = 'ns-groups/%s?action=%s' % (nsgroup_id, action)
+    return nsxclient.create_resource(members_update, members)
+
+
 def add_nsgroup_member(nsgroup_id, target_type, target_id):
     member_expr = get_nsgroup_member_expression(target_type, target_id)
-    data = {'members': [member_expr]}
-    add_members = 'ns-groups/%s?action=ADD_MEMBERS' % nsgroup_id
+    members = {'members': [member_expr]}
     try:
-        return nsxclient.create_resource(add_members, data)
+        return _update_nsgroup_with_members(nsgroup_id, members, ADD_MEMBERS)
     except nsx_exc.ManagerError:
         # REVISIT(roeyc): A ManagerError might have been raised for a
         # different reason, e.g - NSGroup does not exists.
@@ -128,10 +137,10 @@ def add_nsgroup_member(nsgroup_id, target_type, target_id):
 
 def remove_nsgroup_member(nsgroup_id, target_type, target_id, verify=False):
     member_expr = get_nsgroup_member_expression(target_type, target_id)
-    data = {'members': [member_expr]}
-    remove_members = 'ns-groups/%s?action=REMOVE_MEMBERS' % nsgroup_id
+    members = {'members': [member_expr]}
     try:
-        return nsxclient.create_resource(remove_members, data)
+        return _update_nsgroup_with_members(
+            nsgroup_id, members, REMOVE_MEMBERS)
     except nsx_exc.ManagerError:
         if verify:
             err_msg = _("Failed to remove member %(tid)s "
