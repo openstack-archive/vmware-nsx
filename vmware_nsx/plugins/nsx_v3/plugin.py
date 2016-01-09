@@ -367,7 +367,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         try:
             nsxlib.update_logical_switch(
                 network_id,
-                name=utils.get_name_and_uuid(net_data.get('name'),
+                name=utils.get_name_and_uuid(net_data['name'] or 'network',
                                              network_id),
                 tags=network_tags)
         except nsx_exc.ManagerError:
@@ -465,7 +465,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             try:
                 nsxlib.update_logical_switch(
                     id,
-                    name=utils.get_name_and_uuid(net_data.get('name'),
+                    name=utils.get_name_and_uuid(net_data['name'] or 'network',
                                                  id),
                     admin_state=net_data.get('admin_state_up'))
                 # Backend does not update the admin state of the ports on
@@ -616,10 +616,12 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         if device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF and device_id:
             router = self._get_router(context, device_id)
             name = utils.get_name_and_uuid(
-                router['name'], port_data['id'], tag='_port_')
+                router['name'] or 'router', port_data['id'], tag='_port_')
         elif device_owner == const.DEVICE_OWNER_DHCP:
             network = self.get_network(context, port_data['network_id'])
-            name = utils.get_name_and_uuid('%s-%s' % ('dhcp', network['name']),
+            name = utils.get_name_and_uuid('%s-%s' % (
+                                           'dhcp',
+                                           network['name'] or 'network'),
                                            network['id'])
         elif device_owner.startswith("compute:"):
             name = 'instance-port_%s' % port_data['id']
@@ -1033,7 +1035,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             project_name=context.tenant_name)
         result = self._router_client.create(
             display_name=utils.get_name_and_uuid(
-                router['router']['name'], router['router']['id']),
+                router['router']['name'] or 'router', router['router']['id']),
             tags=tags)
 
         with context.session.begin():
@@ -1225,7 +1227,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             _ports, address_groups = self._get_ports_and_address_groups(
                 context, router_id, network_id)
             display_name = utils.get_name_and_uuid(
-                subnet['name'], subnet['id'])
+                subnet['name'] or 'subnet', subnet['id'])
             tags = utils.build_v3_tags_payload(
                 port, resource_type='os-neutron-rport-id',
                 project_name=context.tenant_name)
