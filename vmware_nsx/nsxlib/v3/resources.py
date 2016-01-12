@@ -169,10 +169,13 @@ class LogicalPort(AbstractRESTResource):
 
     def _build_body_attrs(
             self, display_name=None,
-            admin_state=True, tags=[],
-            address_bindings=[],
-            switch_profile_ids=[]):
-
+            admin_state=True, tags=None,
+            address_bindings=None,
+            switch_profile_ids=None,
+            attachment=None):
+        tags = tags or []
+        address_bindings = address_bindings or []
+        switch_profile_ids = switch_profile_ids or []
         body = {}
         if tags:
             body['tags'] = tags
@@ -206,14 +209,13 @@ class LogicalPort(AbstractRESTResource):
                 })
             body['switching_profile_ids'] = profiles
 
+        if attachment:
+            body['attachment'] = attachment
+
         return body
 
-    def create(self, lswitch_id, vif_uuid, tags=[],
-               attachment_type=nsx_constants.ATTACHMENT_VIF,
-               admin_state=True, name=None, address_bindings=None,
-               parent_name=None, parent_tag=None,
-               switch_profile_ids=None):
-
+    def _prepare_attachment(self, vif_uuid, parent_name, parent_tag,
+                            address_bindings, attachment_type):
         # NOTE(arosen): if a parent_name is specified we need to use the
         # CIF's attachment.
         key_values = None
@@ -227,21 +229,33 @@ class LogicalPort(AbstractRESTResource):
             # NOTE(arosen): The above api body structure might change
             # in the future
 
-        body = {'logical_switch_id': lswitch_id}
         if attachment_type and vif_uuid:
-            body['attachment'] = {'attachment_type': attachment_type,
-                                  'id': vif_uuid}
+            attachment = {'attachment_type': attachment_type,
+                          'id': vif_uuid}
 
             if key_values:
-                body['attachment']['context'] = {'key_values': key_values}
-                body['attachment']['context']['resource_type'] = \
+                attachment['context'] = {'key_values': key_values}
+                attachment['context']['resource_type'] = \
                     nsx_constants.CIF_RESOURCE_TYPE
+            return attachment
 
+    def create(self, lswitch_id, vif_uuid, tags=None,
+               attachment_type=nsx_constants.ATTACHMENT_VIF,
+               admin_state=True, name=None, address_bindings=None,
+               parent_name=None, parent_tag=None,
+               switch_profile_ids=None):
+        tags = tags or []
+
+        body = {'logical_switch_id': lswitch_id}
+        attachment = self._prepare_attachment(vif_uuid, parent_name,
+                                              parent_tag, address_bindings,
+                                              attachment_type)
         body.update(self._build_body_attrs(
             display_name=name,
             admin_state=admin_state, tags=tags,
             address_bindings=address_bindings,
-            switch_profile_ids=switch_profile_ids))
+            switch_profile_ids=switch_profile_ids,
+            attachment=attachment))
         return self._client.create(body=body)
 
     def delete(self, lport_id):
@@ -250,18 +264,25 @@ class LogicalPort(AbstractRESTResource):
     @utils.retry_upon_exception_nsxv3(
         nsx_exc.StaleRevision,
         max_attempts=cfg.CONF.nsx_v3.retries)
-    def update(self, lport_id, name=None, admin_state=None,
+    def update(self, lport_id, vif_uuid,
+               name=None, admin_state=None,
                address_bindings=None, switch_profile_ids=None,
-               resources=None):
+               resources=None,
+               attachment_type=nsx_constants.ATTACHMENT_VIF,
+               parent_name=None, parent_tag=None):
         lport = self.get(lport_id)
         tags = lport.get('tags', [])
         if resources:
             tags = utils.update_v3_tags(tags, resources)
+        attachment = self._prepare_attachment(vif_uuid, parent_name,
+                                              parent_tag, address_bindings,
+                                              attachment_type)
         lport.update(self._build_body_attrs(
             display_name=name,
             admin_state=admin_state, tags=tags,
             address_bindings=address_bindings,
-            switch_profile_ids=switch_profile_ids))
+            switch_profile_ids=switch_profile_ids,
+            attachment=attachment))
 
         # If revision_id of the payload that we send is older than what NSX has
         # then we will get a 412: Precondition Failed. In that case we need to
