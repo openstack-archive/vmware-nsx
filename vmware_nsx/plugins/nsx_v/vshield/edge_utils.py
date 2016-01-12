@@ -645,7 +645,10 @@ class EdgeManager(object):
         self, context, lrouter, lswitch=None, dist=False,
         appliance_size=vcns_const.SERVICE_SIZE_MAPPING['router']):
         """Create an edge for logical router support."""
-        router_name = lrouter['name'] + '-' + lrouter['id']
+        router_name = (
+            lrouter['name'][:nsxv_constants.ROUTER_NAME_LENGTH -
+                            len(lrouter['id'])] +
+            '-' + lrouter['id'])
         self._allocate_edge_appliance(
             context, lrouter['id'], router_name,
             appliance_size=appliance_size,
