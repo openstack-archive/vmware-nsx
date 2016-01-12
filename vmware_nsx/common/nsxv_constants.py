@@ -36,6 +36,9 @@ INTERNAL_TENANT_ID = 'a1b2c3d4-e5f6-eeff-ffee-6f5e4d3c2b1a'
 # L2 gateway edge name prefix
 L2_GATEWAY_EDGE = 'L2 bridging'
 
+# An artificial limit for router name length - subtract 1 for the - separator
+ROUTER_NAME_LENGTH = (78 - 1)
+
 # LoadBalancer Certificate constants
 #NOTE(abhiraut): Number of days specify the total number of days for which the
 #                the certificate will be active. This certificate will expire
