@@ -210,7 +210,8 @@ def init_nsgroup_manager_and_default_section_rules():
 
     nsgroup_manager = NSGroupManager(cfg.CONF.nsx_v3.number_of_nested_groups)
     section_id = _init_default_section(
-        DEFAULT_SECTION, section_description, nsgroup_manager.nested_groups)
+        DEFAULT_SECTION, section_description,
+        nsgroup_manager.nested_groups.values())
     return nsgroup_manager, section_id
 
 
