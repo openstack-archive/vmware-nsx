@@ -852,12 +852,30 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 resources = [{'resource_type': resource_type,
                               'tag': updated_device_id}]
 
+        vif_uuid = updated_port['id']
+        parent_name, tag = self._get_data_from_binding_profile(
+            context, updated_port)
+        attachment_type = nsx_constants.ATTACHMENT_VIF
+        if (not updated_device_owner or
+            updated_device_owner in (l3_db.DEVICE_OWNER_ROUTER_INTF,
+                                     nsx_constants.BRIDGE_ENDPOINT)):
+            attachment_type = None
+            vif_uuid = None
+
+        if updated_device_owner.startswith(const.DEVICE_OWNER_COMPUTE_PREFIX):
+            name = 'instance-port_%s' % updated_port['id']
+        else:
+            name = updated_port.get('name')
+
         self._port_client.update(
-            lport_id, name=updated_port.get('name'),
+            lport_id, vif_uuid, name=name,
+            attachment_type=attachment_type,
             admin_state=updated_port.get('admin_state_up'),
             address_bindings=address_bindings,
             switch_profile_ids=switch_profile_ids,
-            resources=resources)
+            resources=resources,
+            parent_name=parent_name,
+            parent_tag=tag)
 
         security.update_lport_with_security_groups(
             context, lport_id,
