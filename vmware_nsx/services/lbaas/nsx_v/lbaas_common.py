@@ -249,3 +249,13 @@ def get_lbaas_fw_section_id(vcns):
             fw_section_id = et.fromstring(sect).attrib['id']
 
         return fw_section_id
+
+
+def enable_edge_acceleration(vcns, edge_id):
+    with locking.LockManager.get_lock(edge_id, external=True):
+        config = {
+            'accelerationEnabled': True,
+            'enabled': True,
+            'featureType': 'loadbalancer_4.0'}
+
+        vcns.enable_service_loadbalancer(edge_id, config)

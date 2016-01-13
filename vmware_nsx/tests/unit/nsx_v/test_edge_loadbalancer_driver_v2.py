@@ -138,10 +138,16 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
                               ) as mock_vip_sec_ip, \
             mock.patch.object(lb_common, 'add_vip_fw_rule'
                               ) as mock_add_vip_fwr, \
+            mock.patch.object(lb_common, 'enable_edge_acceleration'
+                              ) as mock_enable_edge_acceleration, \
+            mock.patch.object(nsxv_db,
+                              'get_nsxv_lbaas_loadbalancer_binding_by_edge'
+                              ) as mock_get_lb_binding_by_edge, \
             mock.patch.object(nsxv_db, 'add_nsxv_lbaas_loadbalancer_binding'
                               ) as mock_db_binding:
             mock_get_edge.return_value = LB_EDGE_ID
             mock_add_vip_fwr.return_value = LB_VIP_FWR_ID
+            mock_get_lb_binding_by_edge.return_value = []
 
             self.edge_driver.loadbalancer.create(self.context, self.lb)
 
@@ -161,6 +167,8 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
                 self.lbv2_driver.load_balancer.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
                                                           self.lb)
+            mock_enable_edge_acceleration.assert_called_with(
+                self.edge_driver.vcns, LB_EDGE_ID)
 
     def test_update(self):
         new_lb = lb_models.LoadBalancer(LB_ID, 'yyy-yyy', 'lb-name', 'heh-huh',
