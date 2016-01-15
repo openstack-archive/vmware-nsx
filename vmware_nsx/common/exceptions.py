@@ -145,3 +145,7 @@ class NsxL2GWConnectionMappingNotFound(n_exc.NotFound):
 
 class NsxL2GWDeviceNotFound(n_exc.NotFound):
     message = _('Unable to find logical L2 gateway device.')
+
+
+class InvalidIPAddress(n_exc.InvalidInput):
+    message = _("'%(ip_address)s' must be a /32 CIDR based IPv4 address")

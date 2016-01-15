@@ -225,3 +225,24 @@ def get_name_and_uuid(name, uuid, tag=None, maxlen=80):
         return name[:maxlen] + '_' + tag + short_uuid
     else:
         return name[:maxlen] + short_uuid
+
+
+def is_ipv4_ip_address(addr):
+
+    def _valid_part(part):
+        try:
+            int_part = int(part)
+            if int_part < 0 or int_part > 255:
+                return False
+            return True
+        except ValueError:
+            return False
+
+    parts = str(addr).split('.')
+    if len(parts) != 4:
+        return False
+
+    for ip_part in parts:
+        if not _valid_part(ip_part):
+            return False
+    return True
