@@ -30,6 +30,7 @@ LOG = logging.getLogger(__name__)
 
 class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
 
+    @log_helpers.log_method_call
     def _convert_lbaas_monitor(self, hm):
         """
         Transform OpenStack health monitor dict to NSXv health monitor dict.
