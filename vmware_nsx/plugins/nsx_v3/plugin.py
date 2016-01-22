@@ -1087,7 +1087,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                         (new_tier0_uuid != org_tier0_uuid or
                          not org_enable_snat))
 
-        advertise_route_nat_flag = True if new_enable_snat else False
+        # Always set nat route flag True to support FIP
+        advertise_route_nat_flag = True
         advertise_route_connected_flag = True if not new_enable_snat else False
 
         if revocate_bgp_announce:
