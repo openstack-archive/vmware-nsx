@@ -880,6 +880,12 @@ class TestL3NatTestCase(L3NatTest,
     def test_create_router_gateway_fails(self):
         self.skipTest('not supported')
 
+    def test_first_floatingip_associate_notification(self):
+        self.skipTest('not supported')
+
+    def test_floatingip_disassociate_notification(self):
+        self.skipTest('not supported')
+
 
 class ExtGwModeTestCase(NsxPluginV2TestCase,
                         test_ext_gw_mode.ExtGwModeIntTestCase):
