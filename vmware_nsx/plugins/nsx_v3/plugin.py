@@ -32,6 +32,7 @@ from neutron.db import agents_db
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import db_base_plugin_v2
+from neutron.db import dns_db
 from neutron.db import external_net_db
 from neutron.db import extradhcpopt_db
 from neutron.db import extraroute_db
@@ -89,7 +90,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                   portbindings_db.PortBindingMixin,
                   portsecurity_db.PortSecurityDbMixin,
                   agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
-                  extradhcpopt_db.ExtraDhcpOptMixin):
+                  extradhcpopt_db.ExtraDhcpOptMixin,
+                  dns_db.DNSDbMixin):
 
     __native_bulk_support = True
     __native_pagination_support = True

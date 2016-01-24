@@ -34,6 +34,7 @@ from neutron import context as q_context
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import db_base_plugin_v2
+from neutron.db import dns_db
 from neutron.db import external_net_db
 from neutron.db import extradhcpopt_db
 from neutron.db import extraroute_db
@@ -104,7 +105,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                   portbindings_db.PortBindingMixin,
                   portsecurity_db.PortSecurityDbMixin,
                   qos_db.QoSDbMixin,
-                  securitygroups_db.SecurityGroupDbMixin):
+                  securitygroups_db.SecurityGroupDbMixin,
+                  dns_db.DNSDbMixin):
 
     supported_extension_aliases = ["allowed-address-pairs",
                                    "binding",

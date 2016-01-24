@@ -31,6 +31,7 @@ from neutron.common import exceptions as n_exc
 from neutron.db import agents_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import db_base_plugin_v2
+from neutron.db import dns_db
 from neutron.db import external_net_db
 from neutron.db import extraroute_db
 from neutron.db import l3_db
@@ -95,7 +96,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                    portbindings_db.PortBindingMixin,
                    portsecurity_db.PortSecurityDbMixin,
                    securitygroups_db.SecurityGroupDbMixin,
-                   vnic_index_db.VnicIndexDbMixin):
+                   vnic_index_db.VnicIndexDbMixin,
+                   dns_db.DNSDbMixin):
 
     supported_extension_aliases = ["agent",
                                    "allowed-address-pairs",
