@@ -64,6 +64,9 @@ NSXvGroup = [
     cfg.StrOpt('vdn_scope_id',
                default='vdnscope-1',
                help="NSX-v vdn scope id"),
+    cfg.IntOpt('max_mtz',
+               default=3,
+               help="Max Multiple Transport Zones used for testing."),
     cfg.DictOpt('flat_alloc_pool_dict',
                 default={},
                 help=" Define flat network ip range."
