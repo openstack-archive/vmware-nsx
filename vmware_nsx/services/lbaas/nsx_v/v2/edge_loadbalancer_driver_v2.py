@@ -15,15 +15,12 @@
 
 
 from oslo_log import helpers as log_helpers
-from oslo_log import log as logging
 
 from vmware_nsx.services.lbaas.nsx_v.v2 import healthmon_mgr as hm_mgr
 from vmware_nsx.services.lbaas.nsx_v.v2 import listener_mgr
 from vmware_nsx.services.lbaas.nsx_v.v2 import loadbalancer_mgr as lb_mgr
 from vmware_nsx.services.lbaas.nsx_v.v2 import member_mgr
 from vmware_nsx.services.lbaas.nsx_v.v2 import pool_mgr
-
-LOG = logging.getLogger(__name__)
 
 
 class EdgeLoadbalancerDriverV2(object):
