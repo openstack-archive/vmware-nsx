@@ -1478,6 +1478,9 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
                                         {'network_id': network_id,
                                          'enable_snat': enable_snat}}})
 
+    def test_floatingip_association_on_unowned_router(self):
+        self.skipTest("Currently no support in plugin for this")
+
 
 class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
 
