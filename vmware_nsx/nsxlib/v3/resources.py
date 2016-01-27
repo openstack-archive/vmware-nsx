@@ -258,6 +258,9 @@ class LogicalPort(AbstractRESTResource):
             attachment=attachment))
         return self._client.create(body=body)
 
+    @utils.retry_upon_exception_nsxv3(
+        nsx_exc.StaleRevision,
+        max_attempts=cfg.CONF.nsx_v3.retries)
     def delete(self, lport_id):
         return self._client.url_delete('%s?detach=true' % lport_id)
 
