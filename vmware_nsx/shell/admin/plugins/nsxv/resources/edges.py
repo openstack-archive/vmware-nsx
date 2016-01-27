@@ -28,6 +28,8 @@ from neutron.common import exceptions
 
 from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.db import nsxv_db
+import vmware_nsx.plugins.nsx_v.vshield.common.constants as nsxv_constants
+import vmware_nsx.plugins.nsx_v.vshield.common.exceptions as nsxv_exceptions
 
 LOG = logging.getLogger(__name__)
 nsxv = utils.get_nsxv_client()
@@ -116,6 +118,34 @@ def nsx_delete_orphaned_edges(resource, event, trigger, **kwargs):
         pprint.pformat(get_orphaned_edges()))
 
 
+def change_edge_ha(properties):
+    ha = bool(properties.get('highavailability').lower() == "true")
+    request = {
+        'featureType': 'highavailability_4.0',
+        'enabled': ha}
+    try:
+        nsxv.enable_ha(properties.get('edge-id'), request, async=False)
+    except nsxv_exceptions.ResourceNotFound as e:
+        LOG.error(_LE("Edge %s not found"), properties.get('edge-id'))
+    except exceptions.NeutronException as e:
+        LOG.error(_LE("%s"), str(e))
+
+
+def change_edge_appliance_size(properties):
+    size = properties.get('size')
+    if size not in nsxv_constants.ALLOWED_EDGE_SIZES:
+        LOG.error(_LE("Edge appliance size not in %(size)s"),
+                  {'size': nsxv_constants.ALLOWED_EDGE_SIZES})
+        return
+    try:
+        nsxv.change_edge_appliance_size(
+            properties.get('edge-id'), size)
+    except nsxv_exceptions.ResourceNotFound as e:
+        LOG.error(_LE("Edge %s not found"), properties.get('edge-id'))
+    except exceptions.NeutronException as e:
+        LOG.error(_LE("%s"), str(e))
+
+
 @admin_utils.output_header
 def nsx_update_edge(resource, event, trigger, **kwargs):
     """Update edge properties"""
@@ -132,14 +162,9 @@ def nsx_update_edge(resource, event, trigger, **kwargs):
     LOG.info(_LI("Updating NSXv edge: %(edge)s with properties\n%(prop)s"),
              {'edge': properties.get('edge-id'), 'prop': properties})
     if properties.get('highavailability'):
-        ha = bool(properties.get('highavailability').lower() == "true")
-        ha_request = {
-            'featureType': 'highavailability_4.0',
-            'enabled': ha}
-    try:
-        nsxv.enable_ha(properties.get('edge-id'), ha_request, async=False)
-    except exceptions.NeutronException as e:
-        LOG.error(_LE("%s"), str(e))
+        change_edge_ha(properties)
+    elif properties.get('size'):
+        change_edge_appliance_size(properties)
 
 
 registry.subscribe(nsx_list_edges,
