@@ -18,17 +18,18 @@
 # This file is sourced by the NSX-T CI to run selective set of tests
 # based on the features that are ready to be tested.
 
-# Run the tests matching the regexes below
-r="(tempest\.api\.network\.test_extra_dhcp_options.*)"
+# Begin list of exclusions.
+r="^(?!.*"
+r="$r(?:tempest\.api\.network\.test_extensions\.ExtensionsTestJSON.*)"
+r="$r|(?:tempest\.api\.network\.test_routers\.DvrRoutersTest.*)"
+r="$r|(?:tempest\.api\.network\.test_routers_negative\.DvrRoutersNegativeTest.*)"
 
-# Exclude external networks tests until the CI setup has an edge appliance
-r="$r|(tempest\.api\.network\.test_networks"
-r="$r((?<!test_external_network_visibility).)*$)"
+r="$r|(?:tempest\.api\.network\.test_allowed_address_pair\.AllowedAddressPairTestJSON\.test_update_port_with_cidr_address_pair*)"
 
-r="$r|(tempest\.api\.network\.test_networks_negative.*)"
-r="$r|(tempest\.api\.network\.test_ports.*)"
-r="$r|(tempest\.api\.network\.test_security_groups.*)"
-r="$r|(tempest\.api\.network\.test_security_groups_negative.*)"
+# End list of exclusions.
+r="$r)"
 
+# only run tempest.api.network tests
+r="$r(tempest\.api\.network).*$"
 
 export DEVSTACK_GATE_TEMPEST_REGEX="$r"
