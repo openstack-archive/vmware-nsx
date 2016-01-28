@@ -90,6 +90,8 @@ def create_logical_switch(display_name, transport_zone_id, tags,
     return client.create_resource(resource, body)
 
 
+@utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision,
+                                  max_attempts=cfg.CONF.nsx_v3.retries)
 def delete_logical_switch(lswitch_id):
     resource = 'logical-switches/%s?detach=true&cascade=true' % lswitch_id
     client.delete_resource(resource)
