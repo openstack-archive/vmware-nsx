@@ -100,3 +100,18 @@ L2gwGroup = [
                help="l2gw multiple devices, interface has multiple VLANs"
                     " m-ifs::dvportgroup-144|138#246;dvportgroup-155|339"),
 ]
+
+nsxv3_group = cfg.OptGroup(name='nsxv3',
+                           title="NSXv3 Configuration Options")
+
+NSXv3Group = [
+    cfg.StrOpt('nsx_manager',
+               default='',
+               help="NSX manager IP address"),
+    cfg.StrOpt('nsx_user',
+               default='admin',
+               help="NSX manager username"),
+    cfg.StrOpt('nsx_password',
+               default='default',
+               help="NSX manager password"),
+]
