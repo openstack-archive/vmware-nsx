@@ -276,11 +276,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     def _delete_dhcp_static_binding(self, context, neutron_port_db):
 
         network_id = neutron_port_db['network_id']
-        device_owner = neutron_port_db['device_owner']
-        if device_owner.startswith("compute"):
-            self.edge_manager.delete_dhcp_binding(
-                context, neutron_port_db['id'], network_id,
-                neutron_port_db['mac_address'])
+        self.edge_manager.delete_dhcp_binding(
+            context, neutron_port_db['id'], network_id,
+            neutron_port_db['mac_address'])
 
     def _validate_provider_create(self, context, network):
         if not attr.is_attr_set(network.get(mpnet.SEGMENTS)):
