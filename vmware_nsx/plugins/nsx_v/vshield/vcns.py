@@ -824,6 +824,12 @@ class Vcns(object):
             uri += "?async=true"
         return self.do_request(HTTP_PUT, uri, request_config)
 
+    def change_edge_appliance_size(self, edge_id, size):
+        """Change the size of edge appliances."""
+        uri = ("/api/4.0/edges/%s/appliances/?size=%s" %
+               (edge_id, size))
+        return self.do_request(HTTP_POST, uri)
+
     def upload_edge_certificate(self, edge_id, request):
         """Creates a certificate on the specified Edge appliance."""
         uri = '%s/%s/%s' % (TRUSTSTORE_PREFIX, CERTIFICATE, edge_id)
