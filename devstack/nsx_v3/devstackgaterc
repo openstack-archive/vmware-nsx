@@ -15,7 +15,7 @@
 # under the License.
 
 
-# This file is sourced by the NSX-T CI to run selective set of tests
+# This file is sourced by the NSX-v3 CI to run selective set of tests
 # based on the features that are ready to be tested.
 
 # Begin list of exclusions.
