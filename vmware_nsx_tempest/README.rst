@@ -6,11 +6,13 @@ If you are not familiar with tempest, please refer to:
 
    http://docs.openstack.org/developer/tempest
 
-It is implemented with tempest external plugin. The official design
-sepcification is at https://review.openstack.org/#/c/184992/
+It is implemented with tempest external plugin.
+The official design sepcification is at:
 
-vmware_nsx_tempest development and execution guide
-==================================================
+    https://review.openstack.org/#/c/184992/
+
+Overview
+========
 
 vmware_nsx_tempest hosts vmware_nsx's functional api and scenario tests.
 
@@ -24,18 +26,25 @@ editable vmware-nsx repo under tempest VENV environemnt.
 Installation:
 -------------
 
-Installed at your own development env, for example /opt/devtest/:
+On your own development folder, for example /opt/devtest/:
 
-   cd /opt/devtest
-   git clone https://github.com/openstack/vmware-nsx
+    # install your own tempest development env at /opt/devtest/os-tempest/
+    cd /opt/devtest
+    git clone https://github.com/openstack/tempest os-tempest
+    cd os-tempest
+    python tools/install_venv.py
 
-Assume the tempest directory is at /opt/devtest/os-tempest.
+    # install vmware-nsx master branch at /opt/devtest/vmware-nsx
+    cd /opt/devtest 
+    git clone https://github.com/openstack/vmware-nsx
+
+Install vmware_nsx_tempest to your tempest development environment:
 
     cd /opt/devtest/os-tempest
     source .venv/bin/activate
     pip install -e /opt/devtest/vmware-nsx/
 
-    run command
+    run command:
         pip show vmware-nsx
     and you should observe the following statements:
         Location: /opt/devtest/vmware-nsx
@@ -48,7 +57,7 @@ Validate installed vmware_nsx_tempest succesfully do:
     cd /opt/devtest/os-tempest
     tools/with_venv.sh testr list-tests vmware_nsx_tempest.*l2_gateway
 
-    if no test lists created, your installation failed.
+    Your installation failed, if no tests are shown.
 
 Execution:
 ----------
@@ -71,17 +80,19 @@ Modules within vmware_nsx_tempest can not see resources defined
 by vmware_nsx. Commands like following are not acceptable, unless
 vmware_nsx is installed in your tempest environment.
 
-    from vmware_nsx._i18n import _LI, _LE
+    from vmware_nsx._i18n import _LE
     import vmware_nsx.shell.admin.plugins.common.utils as admin_utils
 
 TechNote on logging:
 --------------------
 tempest repo itself does not enforce LOG complying to _i18n.
-So for tempest tests for vmware-nsx, that is vmware_nsx_tempest, should
+So for tempest tests for vmware-nsx, that is vmware_nsx_tempest,
 use LOG.debug() command.
 
-If you need to log other than debug level, please do this:
+However, if you need to log other than debug level, please do:
 
-    from vmware_nsx_tempest._i18n import _LI, _LE, _LW, _LC
+    from vmware_nsx_tempest._i18n import _LI
+    from vmware_nsx_tempest._i18n import _LE
+    from vmware_nsx_tempest._i18n import _LW
 
 Customize it depending on the log level your scripts will use.
