@@ -14,7 +14,7 @@
 
 import oslo_i18n
 
-DOMAIN = "vmware-nsx"
+DOMAIN = "vmware_nsx"
 
 _translators = oslo_i18n.TranslatorFactory(domain=DOMAIN)
 
