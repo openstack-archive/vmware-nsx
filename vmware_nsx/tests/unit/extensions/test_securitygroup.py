@@ -14,7 +14,8 @@
 #    under the License.
 import mock
 
-from neutron.tests.unit.extensions import test_securitygroup as ext_sg
+from neutron.extensions import securitygroup as ext_sg
+from neutron.tests.unit.extensions import test_securitygroup as test_ext_sg
 
 from vmware_nsx.nsxlib.v3 import dfw_api as firewall
 from vmware_nsx.nsxlib.v3 import security
@@ -54,7 +55,7 @@ def _mock_create_and_list_nsgroups(test_method):
 
 
 class TestSecurityGroups(test_nsxv3.NsxV3PluginTestCaseMixin,
-                         ext_sg.TestSecurityGroups):
+                         test_ext_sg.TestSecurityGroups):
 
     @_mock_create_and_list_nsgroups
     @mock.patch.object(firewall, 'remove_nsgroup_member')
@@ -67,8 +68,8 @@ class TestSecurityGroups(test_nsxv3.NsxV3PluginTestCaseMixin,
 
         # The first nsgroup is associated with the default secgroup, which is
         # not added to this port.
-        calls = [mock.call(NSG_IDS[1], mock.ANY, mock.ANY),
-                 mock.call(NSG_IDS[2], mock.ANY, mock.ANY)]
+        calls = [mock.call(NSG_IDS[1], firewall.LOGICAL_PORT, mock.ANY),
+                 mock.call(NSG_IDS[2], firewall.LOGICAL_PORT, mock.ANY)]
         add_member_mock.assert_has_calls(calls, any_order=True)
 
     @_mock_create_and_list_nsgroups
@@ -80,9 +81,9 @@ class TestSecurityGroups(test_nsxv3.NsxV3PluginTestCaseMixin,
         super(TestSecurityGroups,
               self).test_update_port_with_multiple_security_groups()
 
-        calls = [mock.call(NSG_IDS[0], mock.ANY, mock.ANY),
-                 mock.call(NSG_IDS[1], mock.ANY, mock.ANY),
-                 mock.call(NSG_IDS[2], mock.ANY, mock.ANY)]
+        calls = [mock.call(NSG_IDS[0], firewall.LOGICAL_PORT, mock.ANY),
+                 mock.call(NSG_IDS[1], firewall.LOGICAL_PORT, mock.ANY),
+                 mock.call(NSG_IDS[2], firewall.LOGICAL_PORT, mock.ANY)]
         add_member_mock.assert_has_calls(calls, any_order=True)
 
         remove_member_mock.assert_called_with(
@@ -101,6 +102,57 @@ class TestSecurityGroups(test_nsxv3.NsxV3PluginTestCaseMixin,
             NSG_IDS[1], firewall.LOGICAL_PORT, mock.ANY)
         remove_member_mock.assert_called_with(
             NSG_IDS[1], firewall.LOGICAL_PORT, mock.ANY)
+
+    @_mock_create_and_list_nsgroups
+    @mock.patch.object(firewall, 'add_nsgroup_member')
+    def test_create_port_with_full_security_group(self, add_member_mock):
+
+        def _add_member_mock(nsgroup, target_type, target_id):
+            if nsgroup in NSG_IDS:
+                raise firewall.NSGroupIsFull(nsgroup_id=nsgroup)
+        add_member_mock.side_effect = _add_member_mock
+
+        with self.network() as net:
+            with self.subnet(net):
+                res = self._create_port(self.fmt, net['network']['id'])
+                res_body = self.deserialize(self.fmt, res)
+
+        self.assertEqual(500, res.status_int)
+        self.assertEqual('SecurityGroupMaximumCapacityReached',
+                         res_body['NeutronError']['type'])
+
+    @_mock_create_and_list_nsgroups
+    @mock.patch.object(firewall, 'remove_nsgroup_member')
+    @mock.patch.object(firewall, 'add_nsgroup_member')
+    def test_update_port_with_full_security_group(self,
+                                                  add_member_mock,
+                                                  remove_member_mock):
+        def _add_member_mock(nsgroup, target_type, target_id):
+            if nsgroup == NSG_IDS[2]:
+                raise firewall.NSGroupIsFull(nsgroup_id=nsgroup)
+        add_member_mock.side_effect = _add_member_mock
+
+        with self.port() as port:
+            with self.security_group() as sg1:
+                with self.security_group() as sg2:
+                    data = {'port': {ext_sg.SECURITYGROUPS:
+                                     [sg1['security_group']['id'],
+                                      sg2['security_group']['id']]}}
+                    req = self.new_update_request(
+                        'ports', data, port['port']['id'])
+                    res = req.get_response(self.api)
+                    res_body = self.deserialize(self.fmt, res)
+
+        self.assertEqual(500, res.status_int)
+        self.assertEqual('SecurityGroupMaximumCapacityReached',
+                         res_body['NeutronError']['type'])
+
+        # Because the update has failed we excpect that the plugin will try to
+        # revert any changes in the NSGroups - It is required to remove the
+        # lport from any NSGroups which it was added to during that call.
+        calls = [mock.call(NSG_IDS[1], firewall.LOGICAL_PORT, mock.ANY),
+                 mock.call(NSG_IDS[2], firewall.LOGICAL_PORT, mock.ANY)]
+        remove_member_mock.assert_has_calls(calls, any_order=True)
 
 
 class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
@@ -167,7 +219,7 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
 
         def _add_member_mock(nsgroup, target_type, target_id):
             if nsgroup == NSG_IDS[2]:
-                raise firewall.NSGroupIsFull()
+                raise firewall.NSGroupIsFull(nsgroup_id=nsgroup)
 
         def _remove_member_mock(nsgroup, target_type, target_id, verify=False):
             if nsgroup == NSG_IDS[2]:
