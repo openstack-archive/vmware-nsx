@@ -71,11 +71,13 @@ IPV4_IPV6 = 'IPV4_IPV6'
 
 
 class NSGroupMemberNotFound(nsx_exc.NsxPluginException):
-    pass
+    message = _("Could not find NSGroup %(nsgroup_id)s member %(member_id)s "
+                "for removal.")
 
 
 class NSGroupIsFull(nsx_exc.NsxPluginException):
-    pass
+    message = _("NSGroup %(nsgroup_id)s contains has reached its maximum "
+                "capacity, unable to add additional members.")
 
 
 def get_nsservice(resource_type, **properties):
@@ -132,7 +134,7 @@ def add_nsgroup_member(nsgroup_id, target_type, target_id):
                     {'target_type': target_type,
                      'target_id': target_id,
                      'nsgroup_id': nsgroup_id})
-        raise NSGroupIsFull()
+        raise NSGroupIsFull(nsgroup_id=nsgroup_id)
 
 
 def remove_nsgroup_member(nsgroup_id, target_type, target_id, verify=False):
@@ -143,10 +145,8 @@ def remove_nsgroup_member(nsgroup_id, target_type, target_id, verify=False):
             nsgroup_id, members, REMOVE_MEMBERS)
     except nsx_exc.ManagerError:
         if verify:
-            err_msg = _("Failed to remove member %(tid)s "
-                        "from NSGroup %(nid)s.") % {'tid': target_id,
-                                                    'nid': nsgroup_id}
-            raise NSGroupMemberNotFound(err_msg=err_msg)
+            raise NSGroupMemberNotFound(member_id=target_id,
+                                        nsgroup_id=nsgroup_id)
 
 
 def read_nsgroup(nsgroup_id):

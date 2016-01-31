@@ -196,8 +196,17 @@ def update_lport_with_security_groups(context, lport_id, original, updated):
     removed = set(original) - set(updated)
     for sg_id in added:
         nsgroup_id, s = get_sg_mappings(context.session, sg_id)
-        firewall.add_nsgroup_member(
-            nsgroup_id, firewall.LOGICAL_PORT, lport_id)
+        try:
+            firewall.add_nsgroup_member(
+                nsgroup_id, firewall.LOGICAL_PORT, lport_id)
+        except firewall.NSGroupIsFull:
+            for sg_id in added:
+                nsgroup_id, s = get_sg_mappings(context.session, sg_id)
+                # NOTE(roeyc): If the port was not added to the nsgroup yet,
+                # then this request will silently fail.
+                firewall.remove_nsgroup_member(
+                    nsgroup_id, firewall.LOGICAL_PORT, lport_id)
+            raise nsx_exc.SecurityGroupMaximumCapacityReached(sg_id=sg_id)
     for sg_id in removed:
         nsgroup_id, s = get_sg_mappings(context.session, sg_id)
         firewall.remove_nsgroup_member(
