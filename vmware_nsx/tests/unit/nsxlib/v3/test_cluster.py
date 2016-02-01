@@ -127,6 +127,18 @@ class NsxV3ClusteredAPITestCase(nsxlib_testcase.NsxClientTestCase):
         for ep_id, ep in api.endpoints.items():
             self.assertEqual(ep.pool.max_size, 11)
 
+    def test_timeouts(self):
+        cfg.CONF.set_override(
+            'http_read_timeout', 37, 'nsx_v3')
+        cfg.CONF.set_override(
+            'http_timeout', 7, 'nsx_v3')
+
+        api = self.mock_nsx_clustered_api()
+        api.get('logical-ports')
+        mock_call = api.recorded_calls.method_calls[0]
+        name, args, kwargs = mock_call
+        self.assertEqual(kwargs['timeout'], (7, 37))
+
 
 class ClusteredAPITestCase(nsxlib_testcase.NsxClientTestCase):
 
