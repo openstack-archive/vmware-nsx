@@ -218,8 +218,12 @@ nsx_v3_opts = [
                        'system root CAs will be used.')),
     cfg.IntOpt('http_timeout',
                default=75,
-               help=_('Time before aborting a HTTP request to a '
+               help=_('Time before aborting a HTTP connection to a '
                       'NSX manager.')),
+    cfg.IntOpt('http_read_timeout',
+               default=180,
+               help=_('The time in seconds before aborting a HTTP read '
+                      'response from a NSX manager.')),
     cfg.IntOpt('concurrent_connections', default=10,
                help=_("Maximum concurrent connections to each NSX "
                       "manager.")),

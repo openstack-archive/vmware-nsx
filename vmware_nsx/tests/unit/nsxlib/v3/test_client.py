@@ -41,7 +41,9 @@ def _headers(**kwargs):
 
 def assert_call(verb, client_or_resource,
                 url, verify=nsxlib_testcase.NSX_CERT,
-                data=None, headers=DFT_ACCEPT_HEADERS):
+                data=None, headers=DFT_ACCEPT_HEADERS,
+                timeout=(nsxlib_testcase.NSX_HTTP_TIMEOUT,
+                         nsxlib_testcase.NSX_HTTP_READ_TIMEOUT)):
     nsx_client = client_or_resource
     if getattr(nsx_client, '_client', None) is not None:
         nsx_client = nsx_client._client
@@ -49,7 +51,7 @@ def assert_call(verb, client_or_resource,
     cluster.assert_called_once(
         verb,
         **{'url': url, 'verify': verify, 'body': data,
-           'headers': headers, 'cert': None})
+           'headers': headers, 'cert': None, 'timeout': timeout})
 
 
 def assert_json_call(verb, client_or_resource, url,
