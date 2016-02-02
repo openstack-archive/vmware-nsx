@@ -111,6 +111,15 @@ class NsxV3ClusteredAPITestCase(nsxlib_testcase.NsxClientTestCase):
         self._assert_providers(
             api, [(urlparse.urlparse(p).netloc, p) for p in conf_managers])
 
+    def test_http_retries(self):
+        cfg.CONF.set_override(
+            'http_retries', 9, 'nsx_v3')
+
+        api = self.mock_nsx_clustered_api()
+        with api.endpoints['1.2.3.4'].pool.item() as session:
+            self.assertEqual(
+                    session.adapters['https://'].max_retries.total, 9)
+
     def test_conns_per_pool(self):
         cfg.CONF.set_override(
             'concurrent_connections', 11, 'nsx_v3')
