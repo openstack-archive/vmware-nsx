@@ -18,6 +18,7 @@ import urlparse
 
 from oslo_config import cfg
 from oslo_serialization import jsonutils
+from requests import exceptions as requests_exceptions
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.nsxlib.v3 import client
 from vmware_nsx.nsxlib.v3 import cluster
@@ -30,7 +31,7 @@ def _validate_conn_up(*args, **kwargs):
 
 
 def _validate_conn_down(*args, **kwargs):
-    raise Exception()
+    raise requests_exceptions.ConnectionError()
 
 
 class RequestsHTTPProviderTestCase(nsxlib_testcase.NsxClientTestCase):
@@ -156,7 +157,7 @@ class ClusteredAPITestCase(nsxlib_testcase.NsxClientTestCase):
     def test_red_health(self):
         self._test_health(_validate_conn_down, cluster.ClusterHealth.RED)
 
-    def test_cluster_unavailable(self):
+    def test_cluster_validate_with_exception(self):
         conf_managers = ['8.9.10.11', '9.10.11.12', '10.11.12.13']
         cfg.CONF.set_override(
             'nsx_api_managers', conf_managers, 'nsx_v3')
@@ -168,5 +169,24 @@ class ClusteredAPITestCase(nsxlib_testcase.NsxClientTestCase):
         api = cluster.NSXClusteredAPI(http_provider=mock_provider)
 
         self.assertEqual(len(api.endpoints), 3)
+        self.assertRaises(nsx_exc.ServiceClusterUnavailable,
+                          api.get, 'api/v1/transport-zones')
+
+    def test_cluster_proxy_stale_revision(self):
+
+        def stale_revision():
+            raise nsx_exc.StaleRevision()
+
+        api = self.mock_nsx_clustered_api(session_response=stale_revision)
+        self.assertRaises(nsx_exc.StaleRevision,
+                          api.get, 'api/v1/transport-zones')
+
+    def test_cluster_proxy_connection_error(self):
+
+        def connect_timeout():
+            raise requests_exceptions.ConnectTimeout()
+
+        api = self.mock_nsx_clustered_api(session_response=connect_timeout)
+        api._validate = mock.Mock()
         self.assertRaises(nsx_exc.ServiceClusterUnavailable,
                           api.get, 'api/v1/transport-zones')
