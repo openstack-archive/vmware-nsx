@@ -65,8 +65,6 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
         self.cluster = nsx_cluster.NSXClusteredAPI(
             http_provider=nsxlib_testcase.MemoryMockAPIProvider(self.mock_api))
 
-        self.cluster.revalidate_endpoints()
-
         def _patch_object(*args, **kwargs):
             patcher = mock.patch.object(*args, **kwargs)
             patcher.start()

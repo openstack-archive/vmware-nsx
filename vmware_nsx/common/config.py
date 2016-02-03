@@ -230,7 +230,7 @@ nsx_v3_opts = [
                help=_("Maximum concurrent connections to each NSX "
                       "manager.")),
     cfg.IntOpt('conn_idle_timeout',
-               default=60,
+               default=10,
                help=_('Ensure connectivity to the NSX manager if a connection '
                       'is not used within timeout seconds.')),
     cfg.IntOpt('redirects',
