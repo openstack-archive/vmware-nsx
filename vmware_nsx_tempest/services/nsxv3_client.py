@@ -274,6 +274,14 @@ class NSXV3Client(object):
         response = self.get(endpoint=endpoint)
         return response.json()['results']
 
+    def get_firewall_section_rule(self, fw_section, os_uuid):
+        """
+        Get the firewall section rule based on the name
+        """
+        fw_rules = self.get_firewall_section_rules(fw_section)
+        nsx_name = os_uuid
+        return self.get_nsx_resource_by_name(fw_rules, nsx_name)
+
     def get_ns_groups(self):
         """
         Retrieve all NSGroups on NSX backend
