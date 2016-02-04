@@ -18,8 +18,8 @@ import contextlib
 import copy
 import datetime
 import eventlet
+import itertools
 import logging
-import random
 import requests
 import six
 import urlparse
@@ -263,6 +263,9 @@ class ClusteredAPI(object):
             endpoint = Endpoint(provider, pool)
             self._endpoints[provider.id] = endpoint
 
+        # service requests using round robin
+        self._endpoint_schedule = itertools.cycle(self._endpoints.values())
+
         # duck type to proxy http invocations
         for method in ClusteredAPI._HTTP_VERBS:
             setattr(self, method, self._proxy_stub(method))
@@ -339,18 +342,13 @@ class ClusteredAPI(object):
                         {'ep': endpoint, 'err': e})
 
     def _select_endpoint(self):
-        connected = {}
-        for provider_id, endpoint in self._endpoints.items():
+        # check for UP state until exhausting all endpoints
+        seen, total = 0, len(self._endpoints.values())
+        while seen < total:
+            endpoint = next(self._endpoint_schedule)
             if endpoint.state == EndpointState.UP:
-                connected[provider_id] = endpoint
-                if endpoint.pool.free():
-                    # connection can be used now
-                    return endpoint
-
-        # no free connections; randomly select a connected endpoint
-        # which will likely wait on pool.item() until a connection frees up
-        return (connected[random.choice(connected.keys())]
-                if connected else None)
+                return endpoint
+            seen += 1
 
     def endpoint_for_connection(self, conn):
         # check all endpoint pools

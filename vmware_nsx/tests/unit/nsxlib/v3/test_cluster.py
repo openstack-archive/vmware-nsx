@@ -211,3 +211,30 @@ class ClusteredAPITestCase(nsxlib_testcase.NsxClientTestCase):
         api._validate = mock.Mock()
         self.assertRaises(nsx_exc.ServiceClusterUnavailable,
                           api.get, 'api/v1/transport-zones')
+
+    def test_cluster_round_robin_servicing(self):
+        conf_managers = ['8.9.10.11', '9.10.11.12', '10.11.12.13']
+        cfg.CONF.set_override(
+            'nsx_api_managers', conf_managers, 'nsx_v3')
+
+        api = self.mock_nsx_clustered_api()
+        api._validate = mock.Mock()
+
+        eps = api._endpoints.values()
+
+        def _get_schedule(num_eps):
+            return [api._select_endpoint() for i in range(num_eps)]
+
+        self.assertEqual(_get_schedule(3), eps)
+
+        self.assertEqual(_get_schedule(6), [eps[0], eps[1], eps[2],
+                                            eps[0], eps[1], eps[2]])
+
+        eps[0]._state = cluster.EndpointState.DOWN
+        self.assertEqual(_get_schedule(4), [eps[1], eps[2], eps[1], eps[2]])
+
+        eps[1]._state = cluster.EndpointState.DOWN
+        self.assertEqual(_get_schedule(2), [eps[2], eps[2]])
+
+        eps[0]._state = cluster.EndpointState.UP
+        self.assertEqual(_get_schedule(4), [eps[0], eps[2], eps[0], eps[2]])
