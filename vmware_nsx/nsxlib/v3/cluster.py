@@ -437,7 +437,7 @@ class NSXClusteredAPI(ClusteredAPI):
                  http_provider=None):
         self.username = username or cfg.CONF.nsx_v3.nsx_api_user
         self.password = password or cfg.CONF.nsx_v3.nsx_api_password
-        self.retries = retries or cfg.CONF.nsx_v3.retries
+        self.retries = retries or cfg.CONF.nsx_v3.http_retries
         self.insecure = insecure or cfg.CONF.nsx_v3.insecure
         self.ca_file = ca_file or cfg.CONF.nsx_v3.ca_file
         self.conns_per_pool = (concurrent_connections or
