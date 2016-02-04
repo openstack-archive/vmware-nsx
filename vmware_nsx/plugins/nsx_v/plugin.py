@@ -55,6 +55,7 @@ from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils
 from neutron.quota import resource_registry
+from vmware_nsx.dvs import dvs
 
 import vmware_nsx
 from vmware_nsx._i18n import _, _LE, _LI, _LW
@@ -170,6 +171,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self.sg_container_id = self._create_security_group_container()
         self.default_section = self._create_cluster_default_fw_section()
         self._router_managers = managers.RouterTypeManager(self)
+
+        if cfg.CONF.nsxv.use_dvs_features:
+            self._dvs = dvs.DvsManager()
+        else:
+            self._dvs = None
 
         has_metadata_cfg = (
             cfg.CONF.nsxv.nova_metadata_ips
