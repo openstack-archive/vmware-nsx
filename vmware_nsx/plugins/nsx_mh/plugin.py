@@ -2394,7 +2394,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         for rule in rules['security_group_rules']:
             r = rule.get('security_group_rule')
             port_based_proto = (self._get_ip_proto_number(r['protocol'])
-                                in securitygroups_db.IP_PROTOCOL_MAP.values())
+                                in constants.IP_PROTOCOL_MAP.values())
             if (not port_based_proto and
                 (r['port_range_min'] is not None or
                  r['port_range_max'] is not None)):

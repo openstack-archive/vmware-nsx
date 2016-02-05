@@ -20,7 +20,7 @@ from vmware_nsx.common import nsx_utils
 
 LOG = log.getLogger(__name__)
 # Protocol number look up for supported protocols
-protocol_num_look_up = {'tcp': 6, 'icmp': 1, 'udp': 17, 'icmpv6': 58}
+protocol_num_look_up = {'tcp': 6, 'icmp': 1, 'udp': 17, 'ipv6-icmp': 58}
 
 
 def _convert_to_nsx_rule(session, cluster, rule, with_id=False):
