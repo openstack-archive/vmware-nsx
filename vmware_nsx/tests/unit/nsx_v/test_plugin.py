@@ -70,10 +70,13 @@ _uuid = uuidutils.generate_uuid
 class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
 
     def _create_network(self, fmt, name, admin_state_up,
-                        arg_list=None, providernet_args=None, **kwargs):
+                        arg_list=None, providernet_args=None,
+                        set_context=False, tenant_id=None,
+                        **kwargs):
+        tenant_id = tenant_id or self._tenant_id
         data = {'network': {'name': name,
                             'admin_state_up': admin_state_up,
-                            'tenant_id': self._tenant_id}}
+                            'tenant_id': tenant_id}}
         # Fix to allow the router:external attribute and any other
         # attributes containing a colon to be passed with
         # a double underscore instead
@@ -90,10 +93,10 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
             if arg in kwargs:
                 data['network'][arg] = kwargs[arg]
         network_req = self.new_create_request('networks', data, fmt)
-        if (kwargs.get('set_context') and 'tenant_id' in kwargs):
+        if set_context and tenant_id:
             # create a specific auth context for this request
             network_req.environ['neutron.context'] = context.Context(
-                '', kwargs['tenant_id'])
+                '', tenant_id)
         return network_req.get_response(self.api)
 
     @mock.patch.object(edge_utils.EdgeManager, '_deploy_edge')
@@ -1408,6 +1411,7 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
     def _create_router(self, fmt, tenant_id, name=None,
                        admin_state_up=None, set_context=False,
                        arg_list=None, **kwargs):
+        tenant_id = tenant_id or _uuid()
         data = {'router': {'tenant_id': tenant_id}}
         if name:
             data['router']['name'] = name
@@ -1439,7 +1443,7 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
 
     @contextlib.contextmanager
     def router(self, name=None, admin_state_up=True,
-               fmt=None, tenant_id=_uuid(),
+               fmt=None, tenant_id=None,
                external_gateway_info=None, set_context=False,
                **kwargs):
         # avoid name duplication of edge
@@ -1897,6 +1901,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
     def _create_router(self, fmt, tenant_id, name=None,
                        admin_state_up=None, set_context=False,
                        arg_list=None, **kwargs):
+        tenant_id = tenant_id or _uuid()
         data = {'router': {'tenant_id': tenant_id}}
         if name:
             data['router']['name'] = name
@@ -2424,6 +2429,7 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
     def _create_router(self, fmt, tenant_id, name=None,
                        admin_state_up=None, set_context=False,
                        arg_list=None, **kwargs):
+        tenant_id = tenant_id or _uuid()
         data = {'router': {'tenant_id': tenant_id}}
         if name:
             data['router']['name'] = name
@@ -2637,6 +2643,7 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
     def _create_router(self, fmt, tenant_id, name=None,
                        admin_state_up=None, set_context=False,
                        arg_list=None, **kwargs):
+        tenant_id = tenant_id or _uuid()
         data = {'router': {'tenant_id': tenant_id}}
         if name:
             data['router']['name'] = name

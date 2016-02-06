@@ -128,10 +128,13 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
         super(NsxV3PluginTestCaseMixin, self).tearDown()
 
     def _create_network(self, fmt, name, admin_state_up,
-                        arg_list=None, providernet_args=None, **kwargs):
+                        arg_list=None, providernet_args=None,
+                        set_context=False, tenant_id=None,
+                        **kwargs):
+        tenant_id = tenant_id or self._tenant_id
         data = {'network': {'name': name,
                             'admin_state_up': admin_state_up,
-                            'tenant_id': self._tenant_id}}
+                            'tenant_id': tenant_id}}
         # Fix to allow the router:external attribute and any other
         # attributes containing a colon to be passed with
         # a double underscore instead
@@ -148,10 +151,10 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
             if arg in kwargs:
                 data['network'][arg] = kwargs[arg]
         network_req = self.new_create_request('networks', data, fmt)
-        if (kwargs.get('set_context') and 'tenant_id' in kwargs):
+        if set_context and tenant_id:
             # create a specific auth context for this request
             network_req.environ['neutron.context'] = context.Context(
-                '', kwargs['tenant_id'])
+                '', tenant_id)
         return network_req.get_response(self.api)
 
     def _save_networks(self, networks):
