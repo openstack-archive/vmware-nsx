@@ -22,7 +22,6 @@ from neutron.common import exceptions as n_exc
 from neutron import context
 from neutron.plugins.common import constants as plugin_const
 from neutron.tests.unit import testlib_api
-from neutron import version
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield.common import (
@@ -132,8 +131,7 @@ class EdgeUtilsTestCase(EdgeUtilsTestCaseMixin):
                      'lrouter': lrouter,
                      'lswitch': None,
                      'context': self.ctx},
-            appliance_size=vcns_const.SERVICE_SIZE_MAPPING['router'],
-            description=version.version_info.release_string())
+            appliance_size=vcns_const.SERVICE_SIZE_MAPPING['router'])
 
 
 class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
