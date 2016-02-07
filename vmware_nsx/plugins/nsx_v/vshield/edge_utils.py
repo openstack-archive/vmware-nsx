@@ -707,6 +707,9 @@ class EdgeManager(object):
             # set primary and secondary dns
             name_servers = [dns['address']
                             for dns in subnet['dns_nameservers']]
+            # if no nameservers have been configured then use the ones
+            # defined in the configuration
+            name_servers = name_servers or cfg.CONF.nsxv.nameservers
             if len(name_servers) == 1:
                 static_config['primaryNameServer'] = name_servers[0]
             elif len(name_servers) >= 2:
