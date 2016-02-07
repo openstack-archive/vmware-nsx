@@ -739,9 +739,16 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             self._process_port_create_security_group(
                 context, port_data, sgids)
             if sgids:
-                security.update_lport_with_security_groups(
-                    context, lport['id'], [], sgids)
-
+                try:
+                    security.update_lport_with_security_groups(
+                        context, lport['id'], [], sgids)
+                except nsx_exc.SecurityGroupMaximumCapacityReached:
+                    with excutils.save_and_reraise_exception():
+                        LOG.debug("Couldn't associate port %s with "
+                                  "one or more security-groups, reverting "
+                                  "reverting logical-port creation (%s).",
+                                  port_data['id'], lport['id'])
+                        self._port_client.delete(lport['id'])
         nsx_rpc.handle_port_metadata_access(self, context, neutron_db)
         return port_data
 
@@ -893,6 +900,11 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         else:
             name = updated_port.get('name')
 
+        security.update_lport_with_security_groups(
+            context, lport_id,
+            original_port.get(ext_sg.SECURITYGROUPS, []),
+            updated_port.get(ext_sg.SECURITYGROUPS, []))
+
         self._port_client.update(
             lport_id, vif_uuid, name=name,
             attachment_type=attachment_type,
@@ -902,11 +914,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             resources=resources,
             parent_name=parent_name,
             parent_tag=tag)
-
-        security.update_lport_with_security_groups(
-            context, lport_id,
-            original_port.get(ext_sg.SECURITYGROUPS, []),
-            updated_port.get(ext_sg.SECURITYGROUPS, []))
 
     def update_port(self, context, id, port):
         original_port = super(NsxV3Plugin, self).get_port(context, id)
@@ -946,7 +953,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                                          original_port, updated_port,
                                          address_bindings,
                                          switch_profile_ids)
-        except nsx_exc.ManagerError:
+        except (nsx_exc.ManagerError,
+                nsx_exc.SecurityGroupMaximumCapacityReached):
             # In case if there is a failure on NSX-v3 backend, rollback the
             # previous update operation on neutron side.
             LOG.exception(_LE("Unable to update NSX backend, rolling back "

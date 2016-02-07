@@ -161,3 +161,8 @@ class NsxL2GWInUse(n_exc.InUse):
 
 class InvalidIPAddress(n_exc.InvalidInput):
     message = _("'%(ip_address)s' must be a /32 CIDR based IPv4 address")
+
+
+class SecurityGroupMaximumCapacityReached(NsxPluginException):
+    message = _("Security Group %(sg_id)s has reached its maximum capacity, "
+                "no more ports can be associated with this security-group.")
