@@ -1105,6 +1105,31 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     self._update_dhcp_edge_service(context, network_id,
                                                    address_groups)
 
+    def _is_overlapping_reserved_subnets(self, subnet):
+        """Return True if the subnet overlaps with reserved subnets.
+
+        For the V plugin we have a limitation that we should not use
+        some reserved ranges like: 169.254.128.0/17 and 169.254.1.0/24
+        """
+        reserved_subnets = nsxv_constants.RESERVED_IPS
+
+        # translate the given subnet to a range object
+        data = subnet['subnet']
+
+        if data['cidr'] not in (attr.ATTR_NOT_SPECIFIED, None):
+            range = netaddr.IPNetwork(data['cidr'])
+
+            # Check each reserved subnet for intersection
+            for reserved_subnet in reserved_subnets:
+                # translate the reserved subnet to a range object
+                reserved_range = netaddr.IPNetwork(reserved_subnet)
+                # check if new subnet overlaps this reserved subnet
+                if (range.first <= reserved_range.last
+                    and reserved_range.first <= range.last):
+                    return True
+
+        return False
+
     def create_subnet(self, context, subnet):
         """Create subnet on nsx_v provider network.
 
@@ -1127,6 +1152,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 (data['cidr'] not in (attr.ATTR_NOT_SPECIFIED, None)
                  and netaddr.IPNetwork(data['cidr']).version == 6)):
                 err_msg = _("No support for DHCP for IPv6")
+                raise n_exc.InvalidInput(error_message=err_msg)
+            if self._is_overlapping_reserved_subnets(subnet):
+                err_msg = _("The requested subnet contains reserved IP's")
                 raise n_exc.InvalidInput(error_message=err_msg)
 
         with locking.LockManager.get_lock(

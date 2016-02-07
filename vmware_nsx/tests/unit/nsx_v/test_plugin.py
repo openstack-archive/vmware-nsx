@@ -1212,6 +1212,22 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
     def test_create_subnet_only_ip_version_v6_old(self):
         self.skipTest('Currently not supported')
 
+    def test_create_subnet_reserved_network(self):
+        self.mock_create_dhcp_service.stop()
+        name = 'overlap-reserved-net'
+        providernet_args = {pnet.NETWORK_TYPE: 'flat',
+                            pnet.PHYSICAL_NETWORK: 'dvs-uuid'}
+        with testlib_api.ExpectedException(
+                webob.exc.HTTPClientError) as ctx_manager:
+            with self.network(name=name, do_delete=False,
+                          providernet_args=providernet_args,
+                          arg_list=(pnet.NETWORK_TYPE,
+                                    pnet.SEGMENTATION_ID,
+                                    pnet.PHYSICAL_NETWORK)) as net:
+                self._test_create_subnet(network=net,
+                                         cidr='169.254.128.128/25')
+                self.assertEqual(ctx_manager.exception.code, 400)
+
 
 class TestSubnetPoolsV2(NsxVPluginV2TestCase, test_plugin.TestSubnetsV2):
     def setUp(self,
