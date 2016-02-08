@@ -26,6 +26,9 @@ from sqlalchemy.orm import exc as sa_exc
 
 from neutron.api import extensions as neutron_extensions
 from neutron.api.v2 import attributes as attr
+from neutron.callbacks import events
+from neutron.callbacks import registry
+from neutron.callbacks import resources
 from neutron.common import constants
 from neutron.common import exceptions as n_exc
 from neutron.db import agents_db
@@ -2199,3 +2202,20 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if moref and not self.nsx_v.vcns.validate_inventory(moref):
                 error = _("Configured %s not found") % field
                 raise nsx_exc.NsxPluginException(err_msg=error)
+
+
+# Register the callback
+def _validate_network_has_subnet(resource, event, trigger, **kwargs):
+    network_id = kwargs.get('network_id')
+    subnets = kwargs.get('subnets')
+    if not subnets:
+        msg = _('No subnet defined on network %s') % network_id
+        raise n_exc.InvalidInput(error_message=msg)
+
+
+def subscribe():
+    registry.subscribe(_validate_network_has_subnet,
+                       resources.ROUTER_GATEWAY, events.BEFORE_CREATE)
+
+
+subscribe()
