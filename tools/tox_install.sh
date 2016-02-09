@@ -14,6 +14,7 @@
 # pip install {opts} {packages}
 
 ZUUL_CLONER=/usr/zuul-env/bin/zuul-cloner
+BRANCH_NAME=master
 neutron_installed=$(echo "import neutron" | python 2>/dev/null ; echo $?)
 networking_l2gw_installed=$(echo "import networking_l2gw" | python 2>/dev/null ; echo $?)
 neutron_lbaas_installed=$(echo "import neutron_lbaas" | python 2>/dev/null ; echo $?)
@@ -24,11 +25,11 @@ cwd=$(/bin/pwd)
 > /tmp/tox_install.txt
 
 zuul_cloner () {
-    export ZUUL_BRANCH=${ZUUL_BRANCH-$BRANCH}
     echo "ZUUL CLONER" >> /tmp/tox_install.txt
     cd /tmp
     $ZUUL_CLONER --cache-dir \
         /opt/git \
+        --branch $BRANCH_NAME \
         git://git.openstack.org $1
     cd $1
     pip install -e .
@@ -37,7 +38,7 @@ zuul_cloner () {
 
 pip_hardcode () {
     echo "PIP HARDCODE: $1" >> /tmp/tox_install.txt
-    pip install -U -egit+https://git.openstack.org/$1
+    pip install -U -egit+https://git.openstack.org/openstack/$1@$BRANCH_NAME#egg=$1
 }
 
 if [ $neutron_installed -eq 0 ]; then
@@ -46,7 +47,7 @@ if [ $neutron_installed -eq 0 ]; then
 elif [ -x "$ZUUL_CLONER" ]; then
     zuul_cloner openstack/neutron
 else
-    pip_hardcode openstack/neutron#egg=neutron
+    pip_hardcode neutron
 fi
 
 if [ $networking_l2gw_installed -eq 0 ]; then
@@ -55,7 +56,7 @@ if [ $networking_l2gw_installed -eq 0 ]; then
 elif [ -x "$ZUUL_CLONER" ]; then
     zuul_cloner openstack/networking-l2gw
 else
-    pip_hardcode openstack/networking-l2gw#egg=networking-l2gw
+    pip_hardcode networking-l2gw
 fi
 
 if [ $neutron_lbaas_installed -eq 0 ]; then
@@ -64,7 +65,7 @@ if [ $neutron_lbaas_installed -eq 0 ]; then
 elif [ -x "$ZUUL_CLONER" ]; then
     zuul_cloner openstack/neutron-lbaas
 else
-    pip_hardcode openstack/neutron-lbaas#egg=neutron-lbaas
+    pip_hardcode neutron-lbaas
 fi
 
 pip install -U $*
