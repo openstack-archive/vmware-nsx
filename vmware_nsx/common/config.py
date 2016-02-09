@@ -216,7 +216,7 @@ nsx_v3_opts = [
                        '"ca_file" will be used or if unset the default '
                        'system root CAs will be used.')),
     cfg.IntOpt('http_timeout',
-               default=75,
+               default=10,
                help=_('Time before aborting a HTTP connection to a '
                       'NSX manager.')),
     cfg.IntOpt('http_read_timeout',
