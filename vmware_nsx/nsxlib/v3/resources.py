@@ -88,6 +88,9 @@ class SwitchingProfile(AbstractRESTResource):
     def uri_segment(self):
         return 'switching-profiles'
 
+    def list(self):
+        return self._client.url_get('?include_system_owned=True')
+
     def create(self, profile_type, display_name=None,
                description=None, **api_args):
         body = {
@@ -202,6 +205,9 @@ class LogicalPort(AbstractRESTResource):
                     address_classifier['vlan'] = int(binding.vlan)
                 bindings.append(address_classifier)
             body['address_bindings'] = bindings
+        elif address_bindings == []:
+            # explicitly clear out address bindings
+            body['address_bindings'] = []
 
         if switch_profile_ids:
             profiles = []

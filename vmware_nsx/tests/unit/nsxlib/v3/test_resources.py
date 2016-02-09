@@ -13,6 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 #
+import copy
+
 import mock
 
 from oslo_serialization import jsonutils
@@ -184,6 +186,15 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
         self.assertEqual(resp_resources['results'],
                          mocked_resource.find_by_display_name('resource-1'))
 
+    def test_list_all_profiles(self):
+        mocked_resource = self._mocked_switching_profile()
+        mocked_resource.list()
+        test_client.assert_json_call(
+            'get', mocked_resource,
+            'https://1.2.3.4/api/v1/switching-profiles/'
+            '?include_system_owned=True',
+            data=None)
+
 
 class LogicalPortTestCase(nsxlib_testcase.NsxClientTestCase):
 
@@ -271,6 +282,24 @@ class LogicalPortTestCase(nsxlib_testcase.NsxClientTestCase):
         test_client.assert_json_call(
             'delete', mocked_resource,
             'https://1.2.3.4/api/v1/logical-ports/%s?detach=true' % uuid)
+
+    def test_clear_port_bindings(self):
+        fake_port = copy.copy(test_constants_v3.FAKE_PORT)
+        fake_port['address_bindings'] = ['a', 'b']
+        mocked_resource = self._mocked_lport()
+
+        def get_fake_port(*args):
+            return fake_port
+
+        mocked_resource.get = get_fake_port
+        mocked_resource.update(
+                fake_port['id'], fake_port['id'], address_bindings=[])
+
+        fake_port['address_bindings'] = []
+        test_client.assert_json_call(
+            'put', mocked_resource,
+            'https://1.2.3.4/api/v1/logical-ports/%s' % fake_port['id'],
+            data=jsonutils.dumps(fake_port, sort_keys=True))
 
 
 class LogicalRouterTestCase(nsxlib_testcase.NsxClientTestCase):

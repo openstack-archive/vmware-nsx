@@ -94,11 +94,6 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
         _patch_object(nsx_plugin, 'nsx_client', new=mock_client_module)
         _patch_object(nsx_plugin, 'nsx_cluster', new=mock_cluster_module)
 
-        super(NsxV3PluginTestCaseMixin, self).setUp(plugin=plugin,
-                                                    ext_mgr=ext_mgr)
-
-        self.maxDiff = None
-
         # populate pre-existing mock resources
         cluster_id = uuidutils.generate_uuid()
         self.mock_api.post(
@@ -119,6 +114,18 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
                     {'member_index': 1}
                 ]}),
             headers=nsx_client.JSONRESTClient._DEFAULT_HEADERS)
+
+        self.mock_api.post(
+                'api/v1/switching-profiles',
+                data=jsonutils.dumps({
+                    'id': uuidutils.generate_uuid(),
+                    'display_name': nsx_plugin.NSX_V3_NO_PSEC_PROFILE_NAME
+                }), headers=nsx_client.JSONRESTClient._DEFAULT_HEADERS)
+
+        super(NsxV3PluginTestCaseMixin, self).setUp(plugin=plugin,
+                                                    ext_mgr=ext_mgr)
+
+        self.maxDiff = None
 
     def tearDown(self):
         for patcher in self._patchers:
