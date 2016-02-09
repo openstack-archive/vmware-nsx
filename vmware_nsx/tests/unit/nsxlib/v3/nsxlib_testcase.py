@@ -27,6 +27,8 @@ NSX_PASSWORD = 'default'
 NSX_MANAGER = '1.2.3.4'
 NSX_INSECURE = False
 NSX_CERT = '/opt/stack/certs/nsx.pem'
+NSX_HTTP_TIMEOUT = 10
+NSX_HTTP_READ_TIMEOUT = 180
 
 V3_CLIENT_PKG = 'vmware_nsx.nsxlib.v3.client'
 BRIDGE_FNS = ['create_resource', 'delete_resource',
@@ -44,6 +46,9 @@ class NsxLibTestCase(unittest.TestCase):
         cfg.CONF.set_override('nsx_api_managers', [NSX_MANAGER], 'nsx_v3')
         cfg.CONF.set_override('insecure', NSX_INSECURE, 'nsx_v3')
         cfg.CONF.set_override('ca_file', NSX_CERT, 'nsx_v3')
+        cfg.CONF.set_override('http_timeout', NSX_HTTP_TIMEOUT, 'nsx_v3')
+        cfg.CONF.set_override('http_read_timeout',
+                              NSX_HTTP_READ_TIMEOUT, 'nsx_v3')
 
     def setUp(self, *args, **kwargs):
         super(NsxLibTestCase, self).setUp()
@@ -110,7 +115,6 @@ class NsxClientTestCase(NsxLibTestCase):
             checked_kwargs = copy.copy(kwargs)
             del checked_kwargs['proxies']
             del checked_kwargs['stream']
-            del checked_kwargs['timeout']
             if 'allow_redirects' in checked_kwargs:
                 del checked_kwargs['allow_redirects']
 

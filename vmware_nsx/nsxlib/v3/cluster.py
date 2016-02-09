@@ -78,15 +78,16 @@ class TimeoutSession(requests.Session):
     at the session level.
     """
 
-    def __init__(self, timeout=cfg.CONF.nsx_v3.http_timeout):
-        self.timeout = timeout
+    def __init__(self, timeout=None, read_timeout=None):
+        self.timeout = timeout or cfg.CONF.nsx_v3.http_timeout
+        self.read_timeout = read_timeout or cfg.CONF.nsx_v3.http_read_timeout
         super(TimeoutSession, self).__init__()
 
     # wrapper timeouts at the session level
     # see: https://goo.gl/xNk7aM
     def request(self, *args, **kwargs):
         if 'timeout' not in kwargs:
-            kwargs['timeout'] = self.timeout
+            kwargs['timeout'] = (self.timeout, self.read_timeout)
         return super(TimeoutSession, self).request(*args, **kwargs)
 
 
@@ -110,7 +111,8 @@ class NSXRequestsHTTPProvider(AbstractHTTPProvider):
                 manager=endpoint.provider.url, operation=msg)
 
     def new_connection(self, cluster_api, provider):
-        session = TimeoutSession(cluster_api.http_timeout)
+        session = TimeoutSession(cluster_api.http_timeout,
+                                 cluster_api.http_read_timeout)
         session.auth = (cluster_api.username, cluster_api.password)
         # NSX v3 doesn't use redirects
         session.max_redirects = 0
@@ -431,6 +433,7 @@ class NSXClusteredAPI(ClusteredAPI):
                  ca_file=None,
                  concurrent_connections=None,
                  http_timeout=None,
+                 http_read_timeout=None,
                  conn_idle_timeout=None,
                  http_provider=None):
         self.username = username or cfg.CONF.nsx_v3.nsx_api_user
@@ -441,6 +444,8 @@ class NSXClusteredAPI(ClusteredAPI):
         self.conns_per_pool = (concurrent_connections or
                                cfg.CONF.nsx_v3.concurrent_connections)
         self.http_timeout = http_timeout or cfg.CONF.nsx_v3.http_timeout
+        self.http_read_timeout = (http_read_timeout or
+                                  cfg.CONF.nsx_v3.http_read_timeout)
         self.conn_idle_timeout = (conn_idle_timeout or
                                   cfg.CONF.nsx_v3.conn_idle_timeout)
 
