@@ -201,7 +201,8 @@ nsx_v3_opts = [
                       "gateway service plugin.")),
     cfg.IntOpt('retries',
                default=10,
-               help=_('Maximum number of times to retry API request')),
+               help=_('Maximum number of times to retry API requests upon '
+                      'stale revision errors.')),
     cfg.StrOpt('ca_file',
                help=_('Specify a CA bundle file to use in verifying the NSX '
                       'Manager server certificate. This option is ignored if '
@@ -222,6 +223,9 @@ nsx_v3_opts = [
                default=180,
                help=_('The time in seconds before aborting a HTTP read '
                       'response from a NSX manager.')),
+    cfg.IntOpt('http_retries',
+               default=3,
+               help=_('Maximum number of times to retry a HTTP connection.')),
     cfg.IntOpt('concurrent_connections', default=10,
                help=_("Maximum concurrent connections to each NSX "
                       "manager.")),
