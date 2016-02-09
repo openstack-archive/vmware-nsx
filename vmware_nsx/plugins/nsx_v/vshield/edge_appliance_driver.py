@@ -45,8 +45,7 @@ class EdgeApplianceDriver(object):
     def _assemble_edge(self, name, appliance_size="compact",
                        deployment_container_id=None, datacenter_moid=None,
                        enable_aesni=True, dist=False,
-                       enable_fips=False, remote_access=False,
-                       description=None):
+                       enable_fips=False, remote_access=False):
         edge = {
             'name': name,
             'fqdn': None,
@@ -63,9 +62,6 @@ class EdgeApplianceDriver(object):
                 'applianceSize': appliance_size
             },
         }
-        if description:
-            edge['description'] = description
-
         if not dist:
             edge['type'] = "gatewayServices"
             edge['vnics'] = {'vnics': []}
@@ -474,15 +470,13 @@ class EdgeApplianceDriver(object):
 
     def deploy_edge(self, resource_id, name, internal_network, jobdata=None,
                     dist=False, wait_for_exec=False, loadbalancer_enable=True,
-                    appliance_size=nsxv_constants.LARGE, async=True,
-                    description=None):
+                    appliance_size=nsxv_constants.LARGE, async=True):
         task_name = 'deploying-%s' % name
         edge_name = name
         edge = self._assemble_edge(
             edge_name, datacenter_moid=self.datacenter_moid,
             deployment_container_id=self.deployment_container_id,
-            appliance_size=appliance_size, remote_access=True, dist=dist,
-            description=description)
+            appliance_size=appliance_size, remote_access=True, dist=dist)
         appliance = self._assemble_edge_appliance(self.resource_pool_id,
                                                   self.datastore_id)
         if appliance:
