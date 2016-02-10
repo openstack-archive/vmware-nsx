@@ -725,11 +725,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             self._process_port_create_extra_dhcp_opts(
                 context, port_data, dhcp_opts)
 
-            if not self._network_is_external(context, port_data['network_id']):
-                lport = self._create_port_at_the_backend(
-                    context, neutron_db, port_data,
-                    l2gw_port_check, is_psec_on)
-
             # For some reason the port bindings DB mixin does not handle
             # the VNIC_TYPE attribute, which is required by nova for
             # setting up VIFs.
@@ -738,17 +733,25 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             sgids = self._get_security_groups_on_port(context, port)
             self._process_port_create_security_group(
                 context, port_data, sgids)
-            if sgids:
-                try:
-                    security.update_lport_with_security_groups(
-                        context, lport['id'], [], sgids)
-                except nsx_exc.SecurityGroupMaximumCapacityReached:
-                    with excutils.save_and_reraise_exception():
-                        LOG.debug("Couldn't associate port %s with "
-                                  "one or more security-groups, reverting "
-                                  "reverting logical-port creation (%s).",
-                                  port_data['id'], lport['id'])
-                        self._port_client.delete(lport['id'])
+
+            # NOTE(arosen): ports on external networks are nat rules and do
+            # and do not result in ports on the backend.
+            if not self._network_is_external(context, port_data['network_id']):
+                lport = self._create_port_at_the_backend(
+                    context, neutron_db, port_data,
+                    l2gw_port_check, is_psec_on)
+
+                if sgids:
+                    try:
+                        security.update_lport_with_security_groups(
+                            context, lport['id'], [], sgids)
+                    except nsx_exc.SecurityGroupMaximumCapacityReached:
+                        with excutils.save_and_reraise_exception():
+                            LOG.debug("Couldn't associate port %s with "
+                                      "one or more security-groups, reverting "
+                                      "reverting logical-port creation (%s).",
+                                      port_data['id'], lport['id'])
+                            self._port_client.delete(lport['id'])
         nsx_rpc.handle_port_metadata_access(self, context, neutron_db)
         return port_data
 
