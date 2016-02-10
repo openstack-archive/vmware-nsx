@@ -19,6 +19,7 @@ import unittest
 
 from oslo_config import cfg
 from oslo_utils import uuidutils
+from requests import exceptions as requests_exceptions
 from vmware_nsx.nsxlib.v3 import client as nsx_client
 from vmware_nsx.nsxlib.v3 import cluster as nsx_cluster
 
@@ -76,6 +77,9 @@ class MemoryMockAPIProvider(nsx_cluster.AbstractHTTPProvider):
     def new_connection(self, cluster_api, provider):
         # all callers use the same backing
         return self._store
+
+    def is_connection_exception(self, exception):
+        return isinstance(exception, requests_exceptions.ConnectionError)
 
 
 class NsxClientTestCase(NsxLibTestCase):
@@ -173,7 +177,9 @@ class NsxClientTestCase(NsxLibTestCase):
                 if self._session_response:
                     # consumer has setup a response for the session
                     cluster_api.record_call(request, **kwargs)
-                    return self._session_response
+                    return (self._session_response()
+                            if hasattr(self._session_response, '__call__')
+                            else self._session_response)
 
                 # bypass requests redirect handling for mock
                 kwargs['allow_redirects'] = False

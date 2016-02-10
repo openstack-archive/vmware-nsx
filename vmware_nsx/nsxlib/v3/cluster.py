@@ -31,7 +31,7 @@ from oslo_config import cfg
 from oslo_log import log
 from oslo_service import loopingcall
 from requests import adapters
-from vmware_nsx.common import exceptions as nsx_err
+from requests import exceptions as requests_exceptions
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.nsxlib.v3 import client as nsx_client
 
@@ -71,6 +71,13 @@ class AbstractHTTPProvider(object):
         requests.Session http methods (get(), put(), etc.).
         """
         pass
+
+    @abc.abstractmethod
+    def is_connection_exception(self, exception):
+        """Determine if the given exception is related to connection
+        failure. Return True if it's a connection exception and
+        False otherwise.
+        """
 
 
 class TimeoutSession(requests.Session):
@@ -131,6 +138,9 @@ class NSXRequestsHTTPProvider(AbstractHTTPProvider):
         session.mount('https://', adapter)
 
         return session
+
+    def is_connection_exception(self, exception):
+        return isinstance(exception, requests_exceptions.ConnectionError)
 
 
 class ClusterHealth(object):
@@ -374,7 +384,7 @@ class ClusteredAPI(object):
     def endpoint_connection(self):
         endpoint = self._select_endpoint(revalidate=True)
         if not endpoint:
-            raise nsx_err.ServiceClusterUnavailable(
+            raise nsx_exc.ServiceClusterUnavailable(
                 cluster_id=self.cluster_id)
 
         if endpoint.pool.free() == 0:
@@ -415,6 +425,9 @@ class ClusteredAPI(object):
                 return response
             except Exception as e:
                 LOG.warning(_LW("Request failed due to: %s"), e)
+                if not self._http_provider.is_connection_exception(e):
+                    # only trap and retry connection errors
+                    raise e
                 endpoint.set_state(EndpointState.DOWN)
                 # retry until exhausting endpoints
                 return self._proxy(proxy_for, uri, *args, **kwargs)
