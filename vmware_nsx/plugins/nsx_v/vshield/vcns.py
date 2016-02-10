@@ -459,7 +459,7 @@ class Vcns(object):
 
     def reconfigure_dhcp_service(self, edge_id, request_config):
         """Reconfigure dhcp static bindings in the created Edge."""
-        uri = "/api/4.0/edges/%s/dhcp/config?async=true" % edge_id
+        uri = "/api/4.0/edges/%s/dhcp/config" % edge_id
 
         return self.do_request(HTTP_PUT, uri, request_config)
 
