@@ -99,6 +99,8 @@ def nsx_clean_backup_edge(resource, event, trigger, **kwargs):
                 edgeapi = utils.NeutronDbClient()
                 nsxv_db.delete_nsxv_router_binding(
                     edgeapi.context.session, edge[1]['name'])
+                nsxv_db.clean_edge_vnic_binding(edgeapi.context.session,
+                                                edge_id)
         except Exception as e:
             LOG.error(_LE("%s"), str(e))
 
