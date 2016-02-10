@@ -1215,6 +1215,12 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                     self._routerlib.delete_static_routes(nsx_router_id, route)
                 for route in routes_added:
                     self._routerlib.add_static_routes(nsx_router_id, route)
+            if 'name' in router_data:
+                name = utils.get_name_and_uuid(router_data['name'] or 'router',
+                                               router_id)
+                nsx_router_id = nsx_router_id or nsx_db.get_nsx_router_id(
+                    context.session, router_id)
+                self._router_client.update(nsx_router_id, display_name=name)
             return super(NsxV3Plugin, self).update_router(
                 context, router_id, router)
         except nsx_exc.ResourceNotFound:
