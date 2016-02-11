@@ -60,14 +60,20 @@ class DnsSearchDomainExtensionTestCase(test_plugin.NsxVPluginV2TestCase):
                                'dns_search_domain': dns_search_domain}}
             subnet_req = self.new_create_request('subnets', data)
             res = subnet_req.get_response(self.api)
-            return self.deserialize(self.fmt, res)
+            return res
 
     def test_subnet_create_with_dns_search_domain(self):
-        sub = self._create_subnet_with_dns_search_domain('vmware.com')
+        res = self._create_subnet_with_dns_search_domain('vmware.com')
+        sub = self.deserialize(self.fmt, res)
         self.assertEqual('vmware.com', sub['subnet']['dns_search_domain'])
 
+    def test_subnet_create_with_invalid_dns_search_domain_fail(self):
+        res = self._create_subnet_with_dns_search_domain('vmw@re.com')
+        self.assertEqual(400, res.status_int)
+
     def test_subnet_update_with_dns_search_domain(self):
-        sub = self._create_subnet_with_dns_search_domain('vmware.com')
+        res = self._create_subnet_with_dns_search_domain('vmware.com')
+        sub = self.deserialize(self.fmt, res)
         data = {'subnet': {'dns_search_domain': 'eng.vmware.com'}}
         req = self.new_update_request('subnets', data, sub['subnet']['id'])
         updated_sub = self.deserialize(self.fmt, req.get_response(self.api))
