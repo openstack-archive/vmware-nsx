@@ -1435,7 +1435,10 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
 
     def create_floatingip(self, context, floatingip):
         new_fip = super(NsxV3Plugin, self).create_floatingip(
-            context, floatingip)
+            context, floatingip, initial_status=(
+                const.FLOATINGIP_STATUS_ACTIVE
+                if floatingip['floatingip']['port_id']
+                else const.FLOATINGIP_STATUS_DOWN))
         router_id = new_fip['router_id']
         if not router_id:
             return new_fip
@@ -1472,6 +1475,9 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
     def update_floatingip(self, context, fip_id, floatingip):
         old_fip = self.get_floatingip(context, fip_id)
         old_port_id = old_fip['port_id']
+        new_status = (const.FLOATINGIP_STATUS_ACTIVE
+                      if floatingip['floatingip']['port_id']
+                      else const.FLOATINGIP_STATUS_DOWN)
         new_fip = super(NsxV3Plugin, self).update_floatingip(
             context, fip_id, floatingip)
         router_id = new_fip['router_id']
@@ -1508,8 +1514,11 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             with excutils.save_and_reraise_exception():
                 super(NsxV3Plugin, self).update_floatingip(
                     context, fip_id, {'floatingip': {'port_id': old_port_id}})
-                self._set_floatingip_status(
-                    context, const.FLOATINGIP_STATUS_ERROR)
+                self.update_floatingip_status(context, fip_id,
+                                              const.FLOATINGIP_STATUS_ERROR)
+        if new_fip['status'] != new_status:
+            new_fip['status'] = new_status
+            self.update_floatingip_status(context, fip_id, new_status)
         return new_fip
 
     def disassociate_floatingips(self, context, port_id):
@@ -1532,6 +1541,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                             {'fip_id': fip_db.id,
                              'ext_ip': fip_db.floating_ip_address,
                              'int_ip': fip_db.fixed_ip_address})
+            self.update_floatingip_status(context, fip_db.id,
+                                          const.FLOATINGIP_STATUS_DOWN)
 
         super(NsxV3Plugin, self).disassociate_floatingips(
             context, port_id, do_notify=False)
