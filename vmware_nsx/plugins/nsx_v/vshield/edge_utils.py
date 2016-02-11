@@ -507,8 +507,7 @@ class EdgeManager(object):
             task.wait(task_const.TaskState.RESULT)
             return
 
-        with locking.LockManager.get_lock(
-                'nsx-edge-request', lock_file_prefix='get-'):
+        with locking.LockManager.get_lock('nsx-edge-request'):
             self._clean_all_error_edge_bindings(context)
             available_router_binding = self._get_available_router_binding(
                 context, appliance_size=appliance_size, edge_type=edge_type)
@@ -594,8 +593,7 @@ class EdgeManager(object):
                 router_id, binding['edge_id'], jobdata=jobdata, dist=dist)
             return
 
-        with locking.LockManager.get_lock(
-                'nsx-edge-request', lock_file_prefix='get-'):
+        with locking.LockManager.get_lock('nsx-edge-request'):
             self._clean_all_error_edge_bindings(context)
             backup_router_bindings = self._get_backup_edge_bindings(
                 context, appliance_size=binding['appliance_size'],
@@ -674,9 +672,7 @@ class EdgeManager(object):
                                                        resource_id)
         if not edge_binding:
             return
-        with locking.LockManager.get_lock(
-                str(edge_binding['edge_id']),
-                lock_file_prefix='nsxv-dhcp-config-'):
+        with locking.LockManager.get_lock(str(edge_binding['edge_id'])):
             self.update_dhcp_service_config(context, edge_binding['edge_id'])
 
     def create_static_binding(self, context, port):
@@ -856,8 +852,7 @@ class EdgeManager(object):
 
     def allocate_new_dhcp_edge(self, context, network_id, resource_id):
         self._allocate_dhcp_edge_appliance(context, resource_id)
-        with locking.LockManager.get_lock(
-                'nsx-edge-pool', lock_file_prefix='edge-bind-'):
+        with locking.LockManager.get_lock('nsx-edge-pool'):
             new_edge = nsxv_db.get_nsxv_router_binding(context.session,
                                                        resource_id)
             nsxv_db.allocate_edge_vnic_with_tunnel_index(
@@ -879,16 +874,14 @@ class EdgeManager(object):
         allocate_new_edge = False
         # case 1: update a subnet to an existing dhcp edge
         if dhcp_edge_binding:
-            with locking.LockManager.get_lock(
-                    'nsx-edge-pool', lock_file_prefix='edge-bind-'):
+            with locking.LockManager.get_lock('nsx-edge-pool'):
                 edge_id = dhcp_edge_binding['edge_id']
                 (conflict_edge_ids,
                  available_edge_ids) = self._get_used_edges(context, subnet)
                 LOG.debug("The available edges %s, the conflict edges %s "
                           "at present is using edge %s",
                           available_edge_ids, conflict_edge_ids, edge_id)
-                with locking.LockManager.get_lock(
-                        str(edge_id), lock_file_prefix='nsxv-dhcp-config-'):
+                with locking.LockManager.get_lock(str(edge_id)):
                     # Delete the existing vnic interface if there is
                     # and overlapping subnet
                     if edge_id in conflict_edge_ids:
@@ -911,8 +904,7 @@ class EdgeManager(object):
                             allocate_new_edge = True
         # case 2: attach the subnet to a new edge and update vnic
         else:
-            with locking.LockManager.get_lock(
-                    'nsx-edge-pool', lock_file_prefix='edge-bind-'):
+            with locking.LockManager.get_lock('nsx-edge-pool'):
                 (conflict_edge_ids,
                  available_edge_ids) = self._get_used_edges(context, subnet)
                 LOG.debug('The available edges %s, the conflict edges %s',
@@ -952,8 +944,7 @@ class EdgeManager(object):
             LOG.debug('Update the dhcp service for %s on vnic %d tunnel %d',
                       edge_id, vnic_index, tunnel_index)
             try:
-                with locking.LockManager.get_lock(
-                        str(edge_id), lock_file_prefix='nsxv-dhcp-config-'):
+                with locking.LockManager.get_lock(str(edge_id)):
                     self._update_dhcp_internal_interface(
                         context, edge_id, vnic_index, tunnel_index, network_id,
                         address_groups)
@@ -965,8 +956,7 @@ class EdgeManager(object):
                                   {'edge_id': edge_id,
                                    'vnic_index': vnic_index,
                                    'tunnel_index': tunnel_index})
-            with locking.LockManager.get_lock(
-                    str(edge_id), lock_file_prefix='nsxv-dhcp-config-'):
+            with locking.LockManager.get_lock(str(edge_id)):
                 ports = self.nsxv_plugin.get_ports(
                     context, filters={'network_id': [network_id]})
                 inst_ports = [port
@@ -995,9 +985,7 @@ class EdgeManager(object):
                                                   edge_id,
                                                   network_id)
                 try:
-                    with locking.LockManager.get_lock(
-                            str(edge_id),
-                            lock_file_prefix='nsxv-dhcp-config-'):
+                    with locking.LockManager.get_lock(str(edge_id)):
                         self._delete_dhcp_internal_interface(context, edge_id,
                                                              vnic_index,
                                                              tunnel_index,
@@ -1021,11 +1009,9 @@ class EdgeManager(object):
                                                             resource_id)
 
         if dhcp_edge_binding:
-            with locking.LockManager.get_lock(
-                    'nsx-edge-pool', lock_file_prefix='edge-bind-'):
+            with locking.LockManager.get_lock('nsx-edge-pool'):
                 edge_id = dhcp_edge_binding['edge_id']
-                with locking.LockManager.get_lock(
-                        str(edge_id), lock_file_prefix='nsxv-dhcp-config-'):
+                with locking.LockManager.get_lock(str(edge_id)):
                     self.remove_network_from_dhcp_edge(context, network_id,
                                                        edge_id)
 
@@ -1047,8 +1033,7 @@ class EdgeManager(object):
                 context, self.plugin, resource_id)
 
             if not self.per_interface_rp_filter:
-                with locking.LockManager.get_lock(
-                        'nsx-edge-pool', lock_file_prefix='edge-bind-'):
+                with locking.LockManager.get_lock('nsx-edge-pool'):
                     self.nsxv_manager.vcns.set_system_control(
                         dhcp_edge_id,
                         [RP_FILTER_PROPERTY_OFF_TEMPLATE % ('all', '0')])
@@ -1086,8 +1071,7 @@ class EdgeManager(object):
         vnic_index = self._get_sub_interface_id(context, edge_id, network_id)
         if vnic_index:
             vnic_id = 'vNic_%d' % vnic_index
-            with locking.LockManager.get_lock(
-                    str(edge_id), lock_file_prefix='nsxv-dhcp-config-'):
+            with locking.LockManager.get_lock(str(edge_id)):
                 sysctl_props = []
                 h, sysctl = self.nsxv_manager.vcns.get_system_control(edge_id)
                 if sysctl:
@@ -1105,8 +1089,7 @@ class EdgeManager(object):
         vnic_index = self._get_sub_interface_id(context, edge_id, network_id)
         if vnic_index:
             vnic_id = 'vNic_%d' % vnic_index
-            with locking.LockManager.get_lock(
-                    str(edge_id), lock_file_prefix='nsxv-dhcp-config-'):
+            with locking.LockManager.get_lock(str(edge_id)):
                 h, sysctl = self.nsxv_manager.vcns.get_system_control(edge_id)
                 if sysctl:
                     sysctl_props = sysctl['property']
@@ -1232,8 +1215,7 @@ class EdgeManager(object):
         """Bind logical router on an available edge.
         Return True if the logical router is bound to a new edge.
         """
-        with locking.LockManager.get_lock(
-                "edge-router", lock_file_prefix="bind-"):
+        with locking.LockManager.get_lock('nsx-edge-router'):
             optional_edge_ids = []
             conflict_edge_ids = []
             for router_id in optional_router_ids:
@@ -1291,8 +1273,7 @@ class EdgeManager(object):
         """Unbind a logical router from edge.
         Return True if no logical router bound to the edge.
         """
-        with locking.LockManager.get_lock(
-                "edge-router", lock_file_prefix="bind-"):
+        with locking.LockManager.get_lock('nsx-edge-router'):
             # free edge if no other routers bound to the edge
             router_ids = self.get_routers_on_same_edge(context, router_id)
             if router_ids == [router_id]:
@@ -1305,8 +1286,7 @@ class EdgeManager(object):
                                    conflict_router_ids,
                                    conflict_network_ids,
                                    intf_num=0):
-        with locking.LockManager.get_lock(
-                "edge-router", lock_file_prefix="bind-"):
+        with locking.LockManager.get_lock('nsx-edge-router'):
             router_ids = self.get_routers_on_same_edge(context, router_id)
             if set(router_ids) & set(conflict_router_ids):
                 return True
@@ -1327,10 +1307,7 @@ class EdgeManager(object):
     def delete_dhcp_binding(self, context, port_id, network_id, mac_address):
         edge_id = get_dhcp_edge_id(context, network_id)
         if edge_id:
-            with locking.LockManager.get_lock(
-                str(edge_id),
-                lock_file_prefix='nsxv-dhcp-config-',
-                external=True):
+            with locking.LockManager.get_lock(str(edge_id)):
                 dhcp_binding = nsxv_db.get_edge_dhcp_static_binding(
                     context.session, edge_id, mac_address)
                 if dhcp_binding:
@@ -1352,10 +1329,7 @@ class EdgeManager(object):
     def create_dhcp_bindings(self, context, port_id, network_id, bindings):
         edge_id = get_dhcp_edge_id(context, network_id)
         if edge_id:
-            with locking.LockManager.get_lock(
-                    str(edge_id),
-                    lock_file_prefix='nsxv-dhcp-config-',
-                    external=True):
+            with locking.LockManager.get_lock(str(edge_id)):
                 # Check port is still there
                 try:
                     # Reload port db info
@@ -1614,8 +1588,7 @@ def clear_gateway(nsxv_manager, context, router_id):
 def update_external_interface(
     nsxv_manager, context, router_id, ext_net_id,
     ipaddr, netmask, secondary=None):
-    with locking.LockManager.get_lock(
-        str(router_id), lock_file_prefix='nsx-edge-interface-', external=True):
+    with locking.LockManager.get_lock(str(router_id)):
         _update_external_interface(nsxv_manager, context, router_id,
                                    ext_net_id, ipaddr, netmask,
                                    secondary=secondary)
@@ -1642,8 +1615,7 @@ def _update_external_interface(
 
 def update_internal_interface(nsxv_manager, context, router_id, int_net_id,
                               address_groups, is_connected=True):
-    with locking.LockManager.get_lock(
-        str(router_id), lock_file_prefix='nsx-edge-interface-', external=True):
+    with locking.LockManager.get_lock(str(router_id)):
         _update_internal_interface(nsxv_manager, context, router_id,
                                    int_net_id, address_groups,
                                    is_connected=is_connected)
@@ -1679,8 +1651,7 @@ def _update_internal_interface(nsxv_manager, context, router_id, int_net_id,
 
 def add_vdr_internal_interface(nsxv_manager, context, router_id,
                                int_net_id, address_groups, is_connected=True):
-    with locking.LockManager.get_lock(
-        str(router_id), lock_file_prefix='nsx-edge-interface-', external=True):
+    with locking.LockManager.get_lock(str(router_id)):
         _add_vdr_internal_interface(nsxv_manager, context, router_id,
                                    int_net_id, address_groups,
                                    is_connected=is_connected)
@@ -1714,8 +1685,7 @@ def _add_vdr_internal_interface(nsxv_manager, context, router_id,
 
 def update_vdr_internal_interface(nsxv_manager, context, router_id, int_net_id,
                                   address_groups, is_connected=True):
-    with locking.LockManager.get_lock(
-        str(router_id), lock_file_prefix='nsx-edge-interface-', external=True):
+    with locking.LockManager.get_lock(str(router_id)):
         _update_vdr_internal_interface(nsxv_manager, context, router_id,
                                        int_net_id, address_groups,
                                        is_connected=is_connected)
@@ -1744,8 +1714,7 @@ def _update_vdr_internal_interface(nsxv_manager, context, router_id,
 
 def delete_interface(nsxv_manager, context, router_id, network_id,
                      dist=False, is_wait=True):
-    with locking.LockManager.get_lock(
-        str(router_id), lock_file_prefix='nsx-edge-interface-', external=True):
+    with locking.LockManager.get_lock(str(router_id)):
         _delete_interface(nsxv_manager, context, router_id, network_id,
                           dist=dist, is_wait=is_wait)
 

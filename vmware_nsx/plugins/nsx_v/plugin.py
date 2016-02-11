@@ -486,8 +486,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         return self._ensure_default_security_group(context, tenant_id)
 
     def _add_member_to_security_group(self, sg_id, vnic_id):
-        with locking.LockManager.get_lock(
-                str(sg_id), lock_file_prefix='neutron-security-ops'):
+        with locking.LockManager.get_lock('neutron-security-ops' + str(sg_id)):
             try:
                 self.nsx_v.vcns.add_member_to_security_group(
                     sg_id, vnic_id)
@@ -512,8 +511,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._add_member_to_security_group(nsx_sg_id, vnic_id)
 
     def _remove_member_from_security_group(self, sg_id, vnic_id):
-        with locking.LockManager.get_lock(
-                str(sg_id), lock_file_prefix='neutron-security-ops'):
+        with locking.LockManager.get_lock('neutron-security-ops' + str(sg_id)):
             try:
                 h, c = self.nsx_v.vcns.remove_member_from_security_group(
                     sg_id, vnic_id)
@@ -1082,8 +1080,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # and send update dhcp interface rest call before deleting subnet's
         # corresponding dhcp interface rest call and lead to overlap response
         # from backend.
-        with locking.LockManager.get_lock(
-                'nsx-edge-pool', lock_file_prefix='edge-bind-', external=True):
+        with locking.LockManager.get_lock('nsx-edge-pool'):
             with context.session.begin(subtransactions=True):
                 super(NsxVPluginV2, self).delete_subnet(context, id)
                 if subnet['enable_dhcp']:
@@ -1163,8 +1160,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 err_msg = _("The requested subnet contains reserved IP's")
                 raise n_exc.InvalidInput(error_message=err_msg)
 
-        with locking.LockManager.get_lock(
-                'nsx-edge-pool', lock_file_prefix='edge-bind-'):
+        with locking.LockManager.get_lock('nsx-edge-pool'):
             s = super(NsxVPluginV2, self).create_subnet(context, subnet)
         if s['enable_dhcp']:
             try:
@@ -1280,8 +1276,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._update_dhcp_edge_service(context, network_id, address_groups)
 
     def _get_conflict_network_ids_by_overlapping(self, context, subnets):
-        with locking.LockManager.get_lock(
-                'vmware', lock_file_prefix='neutron-dhcp-'):
+        with locking.LockManager.get_lock('nsx-networking'):
             conflict_network_ids = []
             subnet_ids = [subnet['id'] for subnet in subnets]
             conflict_set = netaddr.IPSet(
@@ -1357,9 +1352,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if resource_id:
                 edge_id = self._get_edge_id_by_rtr_id(context, resource_id)
                 if edge_id:
-                    with locking.LockManager.get_lock(
-                            str(edge_id),
-                            lock_file_prefix='nsxv-dhcp-config-'):
+                    with locking.LockManager.get_lock(str(edge_id)):
                         if self.metadata_proxy_handler:
                             LOG.debug('Update metadata for resource %s',
                                       resource_id)

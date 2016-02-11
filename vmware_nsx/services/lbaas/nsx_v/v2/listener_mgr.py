@@ -140,7 +140,7 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
         app_profile_id = None
 
         try:
-            with locking.LockManager.get_lock(edge_id, external=True):
+            with locking.LockManager.get_lock(edge_id):
                 h = (self.vcns.create_app_profile(edge_id, app_profile))[0]
                 app_profile_id = lb_common.extract_resource_id(h['location'])
         except vcns_exc.VcnsApiException:
@@ -154,7 +154,7 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
                                    app_profile_id)
 
         try:
-            with locking.LockManager.get_lock(edge_id, external=True):
+            with locking.LockManager.get_lock(edge_id):
                 h = self.vcns.create_vip(edge_id, vse)[0]
                 edge_vse_id = lb_common.extract_resource_id(h['location'])
 
@@ -211,7 +211,7 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
         app_profile = listener_to_edge_app_profile(new_listener, edge_cert_id)
 
         try:
-            with locking.LockManager.get_lock(edge_id, external=True):
+            with locking.LockManager.get_lock(edge_id):
                 self.vcns.update_app_profile(
                     edge_id, app_profile_id, app_profile)
 
@@ -220,7 +220,7 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
                                        default_pool,
                                        app_profile_id)
 
-            with locking.LockManager.get_lock(edge_id, external=True):
+            with locking.LockManager.get_lock(edge_id):
                 self.vcns.update_vip(edge_id, listener_binding['vse_id'], vse)
 
             self.lbv2_driver.listener.successful_completion(context,
@@ -246,7 +246,7 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
             app_profile_id = listener_binding['app_profile_id']
 
             try:
-                with locking.LockManager.get_lock(edge_id, external=True):
+                with locking.LockManager.get_lock(edge_id):
                     self.vcns.delete_vip(edge_id, edge_vse_id)
 
             except vcns_exc.ResourceNotFound:
@@ -259,7 +259,7 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
                         _LE('Failed to delete vip on edge: %s'), edge_id)
 
             try:
-                with locking.LockManager.get_lock(edge_id, external=True):
+                with locking.LockManager.get_lock(edge_id):
                     self.vcns.delete_app_profile(edge_id, app_profile_id)
             except vcns_exc.ResourceNotFound:
                 LOG.error(_LE('app profile not found on edge: %s'), edge_id)
