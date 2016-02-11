@@ -13,16 +13,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import sys
-import json
 import base64
+import jsonutils
+import optparse
 import requests
 
 requests.packages.urllib3.disable_warnings()
 
 
 class NSXClient(object):
-    """ Base NSX REST client """
+    """Base NSX REST client"""
     API_VERSION = "v1"
 
     def __init__(self, host, username, password, *args, **kwargs):
@@ -103,7 +103,7 @@ class NSXClient(object):
         """
         self.__set_url(endpoint=endpoint)
         response = requests.put(self.url, headers=self.headers,
-                                verify=self.verify, data=json.dumps(body))
+                                verify=self.verify, data=jsonutils.dumps(body))
         return response
 
     def delete(self, endpoint=None, params=None):
@@ -121,7 +121,8 @@ class NSXClient(object):
         """
         self.__set_url(endpoint=endpoint)
         response = requests.post(self.url, headers=self.headers,
-                                 verify=self.verify, data=json.dumps(body))
+                                 verify=self.verify,
+                                 data=jsonutils.dumps(body))
         return response
 
     def get_transport_zones(self):
@@ -412,9 +413,8 @@ class NSXClient(object):
 
 
 if __name__ == "__main__":
-    from optparse import OptionParser
 
-    parser = OptionParser()
+    parser = optparse.OptionParser()
     parser.add_option("--mgr-ip", dest="mgr_ip", help="NSX Manager IP address")
     parser.add_option("-u", "--username", default="admin", dest="username",
                       help="NSX Manager username")
