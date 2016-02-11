@@ -47,6 +47,13 @@ NetworkGroup = [
                 default={},
                 help="dict version of l2gw_switch:"
                      "device_name:,interfaces:,segmentation_id:,"),
+    cfg.StrOpt('dns_search_domain',
+               default='vmware.com',
+               help="a valid domain that contains host defined at"
+                    " attribute host_in_search_domain"),
+    cfg.StrOpt('host_in_search_domain',
+               default='mail',
+               help="host exists in dns_search_domain"),
 ]
 
 nsxv_group = cfg.OptGroup(name='nsxv',
