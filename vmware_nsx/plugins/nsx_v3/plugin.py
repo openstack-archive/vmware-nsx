@@ -776,9 +776,18 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
 
         # Operations to backend should be done outside of DB transaction.
         if not is_external_net:
-            lport = self._create_port_at_the_backend(
-                context, neutron_db, port_data,
-                l2gw_port_check, is_psec_on)
+            try:
+                lport = self._create_port_at_the_backend(
+                    context, neutron_db, port_data,
+                    l2gw_port_check, is_psec_on)
+            except Exception:
+                with excutils.save_and_reraise_exception():
+                    LOG.exception(
+                        _LE('Failed to create port %s on NSX backend'),
+                        neutron_db['id'])
+                    with context.session.begin(subtransactions=True):
+                        super(NsxV3Plugin, self).delete_port(context,
+                                                             neutron_db['id'])
 
             if sgids:
                 try:
