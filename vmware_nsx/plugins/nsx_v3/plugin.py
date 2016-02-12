@@ -400,9 +400,9 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             context, net_data)
 
         self._ensure_default_security_group(context, tenant_id)
-        with context.session.begin(subtransactions=True):
-            # Create network in Neutron
-            try:
+        try:
+            with context.session.begin(subtransactions=True):
+                # Create network in Neutron
                 created_net = super(NsxV3Plugin, self).create_network(context,
                                                                       network)
 
@@ -411,21 +411,21 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 self._process_network_port_security_create(
                     context, net_data, created_net)
                 self._process_l3_create(context, created_net, net_data)
-            except Exception:
-                with excutils.save_and_reraise_exception():
-                    # Undo creation on the backend
-                    LOG.exception(_LE('Failed to create network %s'),
-                                  created_net['id'])
-                    if net_type != utils.NetworkTypes.L3_EXT:
-                        nsxlib.delete_logical_switch(created_net['id'])
 
-            if is_provider_net:
-                # Save provider network fields, needed by get_network()
-                net_bindings = [nsx_db.add_network_binding(
-                    context.session, created_net['id'],
-                    net_type, physical_net, vlan_id)]
-                self._extend_network_dict_provider(context, created_net,
-                                                   bindings=net_bindings)
+                if is_provider_net:
+                    # Save provider network fields, needed by get_network()
+                    net_bindings = [nsx_db.add_network_binding(
+                        context.session, created_net['id'],
+                        net_type, physical_net, vlan_id)]
+                    self._extend_network_dict_provider(context, created_net,
+                                                       bindings=net_bindings)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                # Undo creation on the backend
+                LOG.exception(_LE('Failed to create network %s'),
+                              created_net['id'])
+                if net_type != utils.NetworkTypes.L3_EXT:
+                    nsxlib.delete_logical_switch(created_net['id'])
 
         return created_net
 
@@ -712,22 +712,27 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
 
             # NOTE(arosen): ports on external networks are nat rules and do
             # and do not result in ports on the backend.
-            if not self._network_is_external(context, port_data['network_id']):
-                lport = self._create_port_at_the_backend(
-                    context, neutron_db, port_data,
-                    l2gw_port_check, is_psec_on)
+            is_external_net = self._network_is_external(
+                context, port_data['network_id'])
 
-                if sgids:
-                    try:
-                        security.update_lport_with_security_groups(
-                            context, lport['id'], [], sgids)
-                    except nsx_exc.SecurityGroupMaximumCapacityReached:
-                        with excutils.save_and_reraise_exception():
-                            LOG.debug("Couldn't associate port %s with "
-                                      "one or more security-groups, reverting "
-                                      "reverting logical-port creation (%s).",
-                                      port_data['id'], lport['id'])
-                            self._port_client.delete(lport['id'])
+        # Operations to backend should be done outside of DB transaction.
+        if not is_external_net:
+            lport = self._create_port_at_the_backend(
+                context, neutron_db, port_data,
+                l2gw_port_check, is_psec_on)
+
+            if sgids:
+                try:
+                    security.update_lport_with_security_groups(
+                        context, lport['id'], [], sgids)
+                except nsx_exc.SecurityGroupMaximumCapacityReached:
+                    with excutils.save_and_reraise_exception():
+                        LOG.debug("Couldn't associate port %s with "
+                                  "one or more security-groups, reverting "
+                                  "reverting logical-port creation (%s).",
+                                  port_data['id'], lport['id'])
+                        self._port_client.delete(lport['id'])
+
         nsx_rpc.handle_port_metadata_access(self, context, neutron_db)
         return port_data
 
