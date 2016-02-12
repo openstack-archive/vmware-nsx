@@ -27,6 +27,9 @@ import urlparse
 from eventlet import greenpool
 from eventlet import pools
 from neutron.i18n import _LI, _LW
+from neutron.callbacks import events
+from neutron.callbacks import registry
+from neutron.callbacks import resources
 from oslo_config import cfg
 from oslo_log import log
 from oslo_service import loopingcall
@@ -246,6 +249,21 @@ class ClusteredAPI(object):
         self._http_provider = http_provider
         self._keepalive_interval = keepalive_interval
 
+        def _init_cluster(*args, **kwargs):
+            self._init_endpoints(providers,
+                                 min_conns_per_pool, max_conns_per_pool)
+
+        _init_cluster()
+
+        # reinitialize upon fork for api workers to ensure each
+        # process has its own keepalive loops + state
+        registry.subscribe(
+                _init_cluster, resources.PROCESS, events.AFTER_CREATE)
+
+    def _init_endpoints(self, providers,
+                        min_conns_per_pool, max_conns_per_pool):
+        LOG.debug("Initializing API endpoints")
+
         def _create_conn(p):
             def _conn():
                 # called when a pool needs to create a new connection
@@ -267,7 +285,6 @@ class ClusteredAPI(object):
         for method in ClusteredAPI._HTTP_VERBS:
             setattr(self, method, self._proxy_stub(method))
 
-        LOG.debug("Initializing API endpoints")
         conns = greenpool.GreenPool()
         for endpoint in self._endpoints.values():
             conns.spawn(self._validate, endpoint)
