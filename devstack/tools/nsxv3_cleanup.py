@@ -14,9 +14,11 @@
 #    under the License.
 
 import base64
-import jsonutils
 import optparse
 import requests
+
+from jsonutils import json
+
 
 requests.packages.urllib3.disable_warnings()
 
@@ -103,7 +105,7 @@ class NSXClient(object):
         """
         self.__set_url(endpoint=endpoint)
         response = requests.put(self.url, headers=self.headers,
-                                verify=self.verify, data=jsonutils.dumps(body))
+                                verify=self.verify, data=json.write(body))
         return response
 
     def delete(self, endpoint=None, params=None):
@@ -122,7 +124,7 @@ class NSXClient(object):
         self.__set_url(endpoint=endpoint)
         response = requests.post(self.url, headers=self.headers,
                                  verify=self.verify,
-                                 data=jsonutils.dumps(body))
+                                 data=json.write(body))
         return response
 
     def get_transport_zones(self):
