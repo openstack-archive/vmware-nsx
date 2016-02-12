@@ -2154,28 +2154,33 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     def _validate_config(self):
         if (cfg.CONF.nsxv.dvs_id and
             not self.nsx_v.vcns.validate_dvs(cfg.CONF.nsxv.dvs_id)):
-            error = _("Configured dvs_id not found")
-            raise nsx_exc.NsxPluginException(err_msg=error)
+            raise nsx_exc.NsxResourceNotFound(
+                                res_name='dvs_id',
+                                res_id=cfg.CONF.nsxv.dvs_id)
 
         if not self.nsx_v.vcns.validate_datacenter_moid(
                 cfg.CONF.nsxv.datacenter_moid):
-            error = _("Configured datacenter_moid not found")
-            raise nsx_exc.NsxPluginException(err_msg=error)
+            raise nsx_exc.NsxResourceNotFound(
+                                res_name='datacenter_moid',
+                                res_id=cfg.CONF.nsxv.datacenter_moid)
 
         if not self.nsx_v.vcns.validate_network(
                 cfg.CONF.nsxv.external_network):
-            error = _("Configured external_network not found")
-            raise nsx_exc.NsxPluginException(err_msg=error)
+            raise nsx_exc.NsxResourceNotFound(
+                                res_name='external_network',
+                                res_id=cfg.CONF.nsxv.external_network)
 
         if not self.nsx_v.vcns.validate_vdn_scope(cfg.CONF.nsxv.vdn_scope_id):
-            error = _("Configured vdn_scope_id not found")
-            raise nsx_exc.NsxPluginException(err_msg=error)
+            raise nsx_exc.NsxResourceNotFound(
+                                res_name='vdn_scope_id',
+                                res_id=cfg.CONF.nsxv.vdn_scope_id)
 
         if (cfg.CONF.nsxv.mgt_net_moid
             and not self.nsx_v.vcns.validate_network(
                 cfg.CONF.nsxv.mgt_net_moid)):
-            error = _("Configured mgt_net_moid not found")
-            raise nsx_exc.NsxPluginException(err_msg=error)
+            raise nsx_exc.NsxResourceNotFound(
+                                res_name='mgt_net_moid',
+                                res_id=cfg.CONF.nsxv.mgt_net_moid)
 
         ver = self.nsx_v.vcns.get_version()
         if version.LooseVersion(ver) < version.LooseVersion('6.2.0'):
