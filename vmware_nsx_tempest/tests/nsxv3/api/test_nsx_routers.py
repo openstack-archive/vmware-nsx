@@ -40,7 +40,7 @@ class NSXv3RoutersTest(base.BaseRouterTest):
 
     @test.attr(type='nsxv3')
     @test.idempotent_id('0e9938bc-d2a3-4a9a-a4f9-7a93ee8bb344')
-    def test_create_update_delete_nsx_router(self):
+    def test_create_update_nsx_router(self):
         # Create a router
         name = data_utils.rand_name('router-')
         router = self.create_router(name, admin_state_up=True)
@@ -60,15 +60,26 @@ class NSXv3RoutersTest(base.BaseRouterTest):
                                                  updated_router['id'])
         self.assertEqual(updated_router['name'], updated_name)
         self.assertIsNotNone(nsx_router)
+
+    @test.attr(type='nsxv3')
+    @test.idempotent_id('6f49b69c-0800-4c83-b1f8-595ae5bfeea7')
+    def test_delete_nsx_router(self):
+        # Create a router
+        name = data_utils.rand_name('router-')
+        router = self.create_router(name, admin_state_up=True)
+        nsx_router = self.nsx.get_logical_router(router['name'],
+                                                 router['id'])
+        self.assertEqual(router['name'], name)
+        self.assertIsNotNone(nsx_router)
         # Delete the router and verify it is deleted on nsx backend
-        self.client.delete_router(updated_router['id'])
-        nsx_router = self.nsx.get_logical_router(updated_router['name'],
-                                                 updated_router['id'])
+        self.client.delete_router(router['id'])
+        nsx_router = self.nsx.get_logical_router(router['name'],
+                                                 router['id'])
         self.assertIsNone(nsx_router)
 
     def _delete_router(self, router_id):
         # Delete the router in case the test exits with any exception
         list_body = self.client.list_routers()
-        for router in list_body['router']:
+        for router in list_body.get('router', []):
             if router['id'] == router_id:
                 self.client.delete_router(router_id)
