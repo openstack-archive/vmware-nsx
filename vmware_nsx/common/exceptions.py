@@ -166,3 +166,7 @@ class InvalidIPAddress(n_exc.InvalidInput):
 class SecurityGroupMaximumCapacityReached(NsxPluginException):
     message = _("Security Group %(sg_id)s has reached its maximum capacity, "
                 "no more ports can be associated with this security-group.")
+
+
+class NsxResourceNotFound(n_exc.NotFound):
+    message = _("%(res_name)s %(res_id)s not found on the backend")
