@@ -652,8 +652,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         parent_name, tag = self._get_data_from_binding_profile(
             context, port_data)
         address_bindings = self._build_address_bindings(port_data)
-        # FIXME(arosen): we might need to pull this out of the
-        # transaction here later.
         vif_uuid = port_data['id']
         attachment_type = nsx_constants.ATTACHMENT_VIF
         if not device_owner or device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF:
