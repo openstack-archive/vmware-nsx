@@ -780,26 +780,27 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 lport = self._create_port_at_the_backend(
                     context, neutron_db, port_data,
                     l2gw_port_check, is_psec_on)
+
+                if sgids:
+                    security.update_lport_with_security_groups(
+                        context, lport['id'], [], sgids)
+
+            except nsx_exc.SecurityGroupMaximumCapacityReached:
+                with excutils.save_and_reraise_exception():
+                    LOG.debug("Couldn't associate port %s with "
+                              "one or more security-groups, reverting "
+                              "reverting logical-port creation (%s).",
+                              port_data['id'], lport['id'])
+                    super(NsxV3Plugin, self).delete_port(context,
+                                                         neutron_db['id'])
+                    self._port_client.delete(lport['id'])
             except Exception:
                 with excutils.save_and_reraise_exception():
                     LOG.exception(
                         _LE('Failed to create port %s on NSX backend'),
                         neutron_db['id'])
-                    with context.session.begin(subtransactions=True):
-                        super(NsxV3Plugin, self).delete_port(context,
-                                                             neutron_db['id'])
-
-            if sgids:
-                try:
-                    security.update_lport_with_security_groups(
-                        context, lport['id'], [], sgids)
-                except nsx_exc.SecurityGroupMaximumCapacityReached:
-                    with excutils.save_and_reraise_exception():
-                        LOG.debug("Couldn't associate port %s with "
-                                  "one or more security-groups, reverting "
-                                  "reverting logical-port creation (%s).",
-                                  port_data['id'], lport['id'])
-                        self._port_client.delete(lport['id'])
+                    super(NsxV3Plugin, self).delete_port(context,
+                                                         neutron_db['id'])
 
         nsx_rpc.handle_port_metadata_access(self, context, neutron_db)
         return port_data
