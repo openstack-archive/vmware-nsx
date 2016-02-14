@@ -318,6 +318,10 @@ class TestL3NatTestCase(L3NatTest,
     def test_create_l3_ext_network_with_default_tier0(self):
         self._test_create_l3_ext_network()
 
+    def test_floatingip_update(self):
+        super(TestL3NatTestCase, self).test_floatingip_update(
+            expected_status=constants.FLOATINGIP_STATUS_DOWN)
+
     def test_floatingip_with_invalid_create_port(self):
         self._test_floatingip_with_invalid_create_port(self._plugin_name)
 
