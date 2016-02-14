@@ -2293,6 +2293,28 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
     def test_create_router_gateway_fails(self):
         self.skipTest('not supported')
 
+    def test_migrate_exclusive_router_to_shared(self):
+        with self._create_l3_ext_network() as net:
+            with self.subnet(network=net, enable_dhcp=False) as s:
+                data = {'router': {'tenant_id': 'whatever'}}
+                data['router']['name'] = 'router1'
+                data['router']['external_gateway_info'] = {
+                    'network_id': s['subnet']['network_id']}
+                data['router']['router_type'] = 'exclusive'
+
+                router_req = self.new_create_request('routers', data,
+                                                     self.fmt)
+                res = router_req.get_response(self.ext_api)
+                router = self.deserialize(self.fmt, res)
+                # update the router type:
+                router_id = router['router']['id']
+                self._update('routers', router_id,
+                             {'router': {'router_type': 'shared'}})
+
+                # get the updated router and check it's type
+                body = self._show('routers', router_id)
+                self.assertEqual('shared', body['router']['router_type'])
+
 
 class ExtGwModeTestCase(NsxVPluginV2TestCase,
                         test_ext_gw_mode.ExtGwModeIntTestCase):
@@ -3316,3 +3338,20 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
                     context.get_admin_context(), r1['router']['id']))
             self.assertIn(r2['router']['id'], conflict_router_ids)
             self.assertEqual(0, len(available_router_ids))
+
+    def test_migrate_shared_router_to_exclusive(self):
+        with self.router(name='r7') as r1, \
+                self.subnet(cidr='11.0.0.0/24') as s1:
+            self._router_interface_action('add',
+                                          r1['router']['id'],
+                                          s1['subnet']['id'],
+                                          None)
+
+            # update the router type:
+            router_id = r1['router']['id']
+            self._update('routers', router_id,
+                         {'router': {'router_type': 'exclusive'}})
+
+            # get the updated router and check it's type
+            body = self._show('routers', router_id)
+            self.assertEqual('exclusive', body['router']['router_type'])

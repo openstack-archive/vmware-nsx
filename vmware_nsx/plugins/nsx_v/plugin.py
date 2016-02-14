@@ -1493,6 +1493,43 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if r['distributed'] != router['router']['distributed']:
                 err_msg = _('Unable to update distributed mode')
                 raise n_exc.InvalidInput(error_message=err_msg)
+
+        # Toggling router type is supported only for non-distributed router
+        elif 'router_type' in router['router']:
+            r = self.get_router(context, router_id)
+            if r['router_type'] != router['router']['router_type']:
+                if r["distributed"]:
+                    err_msg = _('Unable to update distributed mode')
+                    raise n_exc.InvalidInput(error_message=err_msg)
+                else:
+                    # should migrate the router because its type changed
+                    new_router_type = router['router']['router_type']
+                    self._validate_router_size(router)
+
+                    # remove the router from the old pool, and free resources
+                    old_router_driver = \
+                        self._router_managers.get_tenant_router_driver(
+                            context, r['router_type'])
+                    old_router_driver.detach_router(context, router_id, router)
+
+                    # update the router-type
+                    with context.session.begin(subtransactions=True):
+                        router_db = self._get_router(context, router_id)
+                        self._process_nsx_router_create(
+                            context, router_db, router['router'])
+
+                    # add the router to the new pool
+                    appliance_size = router['router'].get(ROUTER_SIZE)
+                    new_router_driver = \
+                        self._router_managers.get_tenant_router_driver(
+                            context, new_router_type)
+                    new_router_driver.attach_router(
+                        context,
+                        router_id,
+                        router,
+                        appliance_size=appliance_size)
+                    # continue to update the router with the new driver
+
         router_driver = self._find_router_driver(context, router_id)
         return router_driver.update_router(context, router_id, router)
 

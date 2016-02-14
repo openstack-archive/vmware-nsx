@@ -16,6 +16,9 @@ import abc
 
 import six
 
+from neutron.db import l3_db
+from neutron.db import models_v2
+
 
 @six.add_metaclass(abc.ABCMeta)
 class RouterAbstractDriver(object):
@@ -65,3 +68,15 @@ class RouterBaseDriver(RouterAbstractDriver):
         self.plugin = plugin
         self.nsx_v = plugin.nsx_v
         self.edge_manager = plugin.edge_manager
+
+    def _get_external_network_id_by_router(self, context, router_id):
+        """Get router's external network id if it has."""
+        router = self.plugin.get_router(context, router_id)
+        ports_qry = context.session.query(models_v2.Port)
+        gw_ports = ports_qry.filter_by(
+            device_id=router_id,
+            device_owner=l3_db.DEVICE_OWNER_ROUTER_GW,
+            id=router['gw_port_id']).all()
+
+        if gw_ports:
+            return gw_ports[0]['network_id']

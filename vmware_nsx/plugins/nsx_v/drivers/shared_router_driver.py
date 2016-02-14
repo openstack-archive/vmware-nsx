@@ -77,6 +77,28 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                                                            r['admin_state_up'])
             return self.plugin.get_router(context, router_id)
 
+    def detach_router(self, context, router_id, router):
+        LOG.debug("Detach shared router id %s", router_id)
+        # if it is the last shared router on this adge - add it to the pool
+        edge_id = edge_utils.get_router_edge_id(context, router_id)
+        if not edge_id:
+            return
+
+        self._remove_router_services_on_edge(context, router_id)
+        self._unbind_router_on_edge(context, router_id)
+
+    def attach_router(self, context, router_id, router, appliance_size=None):
+        # find the right place to add, and create a new one if necessary
+        router_db = self.plugin._get_router(context, router_id)
+        self._bind_router_on_available_edge(
+            context, router_id, router_db.admin_state_up)
+        edge_id = edge_utils.get_router_edge_id(context, router_id)
+        LOG.debug("Shared router %s attached to edge %s", router_id, edge_id)
+        with locking.LockManager.get_lock(
+                        str(edge_id),
+                        lock_file_prefix=NSXV_ROUTER_RECONFIG):
+            self._add_router_services_on_available_edge(context, router_id)
+
     def delete_router(self, context, router_id):
         pass
 
@@ -368,18 +390,6 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         conflict_network_ids = list(set(conflict_network_ids))
         intf_num = len(router_net_ids)
         return (conflict_network_ids, conflict_router_ids, intf_num)
-
-    def _get_external_network_id_by_router(self, context, router_id):
-        """Get router's external network id if it has."""
-        router = self.plugin.get_router(context, router_id)
-        ports_qry = context.session.query(models_v2.Port)
-        gw_ports = ports_qry.filter_by(
-            device_id=router_id,
-            device_owner=l3_db.DEVICE_OWNER_ROUTER_GW,
-            id=router['gw_port_id']).all()
-
-        if gw_ports:
-            return gw_ports[0]['network_id']
 
     def _get_conflict_network_ids_by_ext_net(self, context, router_id):
         """Collect conflicting networks based on external network.
