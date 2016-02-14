@@ -725,6 +725,12 @@ class Vcns(object):
         else:
             return uri_path
 
+    def get_scoping_objects(self):
+        uri = '%s/usermgmt/scopingobjects' % SERVICES_PREFIX
+        h, scoping_objects = self.do_request(HTTP_GET, uri, decode=False,
+                                             format='xml')
+        return scoping_objects
+
     def _scopingobjects_lookup(self, type_name, object_id, name=None):
         uri = '%s/usermgmt/scopingobjects' % SERVICES_PREFIX
         h, so_list = self.do_request(HTTP_GET, uri, decode=False,
