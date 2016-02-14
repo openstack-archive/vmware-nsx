@@ -180,7 +180,8 @@ class EdgeLbDriver(object):
     def create_pool(self, context, pool):
         LOG.debug('Creating pool %s', pool)
         edge_id = lb_common.get_lbaas_edge_id_for_subnet(
-            context, self.callbacks.plugin, pool['subnet_id'])
+            context, self.callbacks.plugin, pool['subnet_id'],
+            pool['tenant_id'])
 
         if edge_id is None:
             self.lbv1_driver.pool_failed(context, pool)
