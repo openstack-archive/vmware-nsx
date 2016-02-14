@@ -373,6 +373,8 @@ class ClusteredAPI(object):
     def endpoint_connection(self):
         endpoint = self._select_endpoint()
         if not endpoint:
+            LOG.debug("All endpoints down for: %s" %
+                      [str(ep) for ep in self._endpoints.values()])
             # all endpoints are DOWN and will have their next
             # state updated as per _endpoint_keepalive()
             raise nsx_exc.ServiceClusterUnavailable(
@@ -420,6 +422,8 @@ class ClusteredAPI(object):
                     # only trap and retry connection errors
                     raise e
                 endpoint.set_state(EndpointState.DOWN)
+                LOG.debug("Connection to %s failed, checking additional "
+                          "endpoints" % url)
                 # retry until exhausting endpoints
                 return self._proxy(proxy_for, uri, *args, **kwargs)
 
