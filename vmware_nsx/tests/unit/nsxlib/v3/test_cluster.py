@@ -196,7 +196,8 @@ class ClusteredAPITestCase(nsxlib_testcase.NsxClientTestCase):
     def test_cluster_proxy_stale_revision(self):
 
         def stale_revision():
-            raise nsx_exc.StaleRevision()
+            raise nsx_exc.StaleRevision(manager='1.1.1.1',
+                                        operation='whatever')
 
         api = self.mock_nsx_clustered_api(session_response=stale_revision)
         self.assertRaises(nsx_exc.StaleRevision,

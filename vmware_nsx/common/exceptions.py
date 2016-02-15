@@ -134,6 +134,7 @@ class ManagerError(NsxPluginException):
                              if 'details' in kwargs
                              else '')
         super(ManagerError, self).__init__(**kwargs)
+        self.msg = self.message % kwargs
 
 
 class ResourceNotFound(ManagerError):
