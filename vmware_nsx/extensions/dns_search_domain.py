@@ -17,6 +17,7 @@ import re
 from neutron.api import extensions
 from neutron.api.v2 import attributes
 
+from vmware_nsx._i18n import _
 
 DNS_LABEL_MAX_LEN = 63
 DNS_LABEL_REGEX = "[a-zA-Z0-9-]{1,%d}$" % DNS_LABEL_MAX_LEN
