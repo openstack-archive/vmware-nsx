@@ -31,14 +31,15 @@ def get_member_id(member_id):
     return MEMBER_ID_PFX + member_id
 
 
-def get_lbaas_edge_id_for_subnet(context, plugin, subnet_id):
+def get_lbaas_edge_id_for_subnet(context, plugin, subnet_id, tenant_id):
     """
     Grab the id of an Edge appliance that is connected to subnet_id.
     """
     subnet = plugin.get_subnet(context, subnet_id)
     net_id = subnet.get('network_id')
     filters = {'network_id': [net_id],
-               'device_owner': ['network:router_interface']}
+               'device_owner': ['network:router_interface'],
+               'tenant_id': [tenant_id]}
     attached_routers = plugin.get_ports(context.elevated(),
                                         filters=filters,
                                         fields=['device_id'])
