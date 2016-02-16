@@ -234,10 +234,12 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                     self.edge_manager.configure_dhcp_for_vdr_network(
                         context, network_id, router_id)
 
-            if router_db.gw_port and router_db.enable_snat:
+            if router_db.gw_port:
                 plr_id = self.edge_manager.get_plr_by_tlr_id(context,
                                                              router_id)
-                self.plugin._update_nat_rules(context, router_db, plr_id)
+                if router_db.enable_snat:
+                    self.plugin._update_nat_rules(context, router_db, plr_id)
+
                 # Open firewall flows on plr
                 self.plugin._update_subnets_and_dnat_firewall(
                     context, router_db, router_id=plr_id)
