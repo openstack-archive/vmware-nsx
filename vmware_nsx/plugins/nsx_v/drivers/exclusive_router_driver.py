@@ -64,6 +64,61 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
                 context, router_id, self.get_type(), r['admin_state_up'])
         return self.plugin.get_router(context, router_id)
 
+    def detach_router(self, context, router_id, router):
+        LOG.debug("Detach exclusive router id %s", router_id)
+        self.edge_manager.unbind_router_on_edge(context, router_id)
+        metadata_proxy_handler = self.plugin.metadata_proxy_handler
+        if metadata_proxy_handler:
+            metadata_proxy_handler.cleanup_router_edge(router_id)
+
+    def _build_router_data_from_db(self, router_db, router):
+        if 'status' not in router['router']:
+            router['router']['status'] = router_db.status
+        if 'name' not in router['router']:
+            router['router']['name'] = router_db.name
+        if 'admin_state_up' not in router['router']:
+            router['router']['admin_state_up'] = router_db.admin_state_up
+        if 'tenant_id' not in router['router']:
+            router['router']['tenant_id'] = router_db.tenant_id
+        if 'id' not in router['router']:
+            router['router']['id'] = router_db.id
+
+    def attach_router(self, context, router_id, router, appliance_size=None):
+        router_db = self.plugin._get_router(context, router_id)
+
+        # Add DB attributes to the router data structure
+        # before creating it as an exclusive router
+        self._build_router_data_from_db(router_db, router)
+
+        self.create_router(context,
+                           router['router'],
+                           allow_metadata=False,
+                           appliance_size=appliance_size)
+
+        edge_id = edge_utils.get_router_edge_id(context, router_id)
+        LOG.debug("Exclusive router %s attached to edge %s",
+                  router_id, edge_id)
+
+        # add all internal interfaces of the router on edge
+        intf_net_ids = (
+            self.plugin._get_internal_network_ids_by_router(context,
+                                                            router_id))
+        for network_id in intf_net_ids:
+            address_groups = self.plugin._get_address_groups(
+                context, router_id, network_id)
+            edge_utils.update_internal_interface(
+                self.nsx_v, context, router_id, network_id,
+                address_groups, router_db.admin_state_up)
+
+        # Update external interface (which also update nat rules, routes, etc)
+        external_net_id = self._get_external_network_id_by_router(context,
+                                                                  router_id)
+        gw_info = None
+        if (external_net_id):
+            gw_info = {'network_id': external_net_id}
+        self._update_router_gw_info(
+            context, router_id, gw_info, force_update=True)
+
     def delete_router(self, context, router_id):
         self.edge_manager.delete_lrouter(context, router_id, dist=False)
         if self.plugin.metadata_proxy_handler:
@@ -76,7 +131,7 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
             self.plugin._update_routes(context, router_id, nexthop)
 
     def _update_router_gw_info(self, context, router_id, info,
-                               is_routes_update=False):
+                               is_routes_update=False, force_update=False):
         router = self.plugin._get_router(context, router_id)
         org_ext_net_id = router.gw_port_id and router.gw_port.network_id
         org_enable_snat = router.enable_snat
@@ -95,14 +150,15 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
 
         edge_id = self._get_router_edge_id(context, router_id)
         with locking.LockManager.get_lock(edge_id):
-            if new_ext_net_id != org_ext_net_id and orgnexthop:
+            if ((new_ext_net_id != org_ext_net_id or force_update)
+                and orgnexthop):
                 # network changed, so need to remove default gateway before
                 # vnic can be configured
                 LOG.debug("Delete default gateway %s", orgnexthop)
                 edge_utils.clear_gateway(self.nsx_v, context, router_id)
 
             # Update external vnic if addr or mask is changed
-            if orgaddr != newaddr or orgmask != newmask:
+            if orgaddr != newaddr or orgmask != newmask or force_update:
                 edge_utils.update_external_interface(
                     self.nsx_v, context, router_id,
                     new_ext_net_id, newaddr, newmask)
@@ -111,12 +167,13 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
             # or ext net not changed but snat is changed.
             if (new_ext_net_id != org_ext_net_id or
                 (new_ext_net_id == org_ext_net_id and
-                 new_enable_snat != org_enable_snat)):
+                 new_enable_snat != org_enable_snat) or
+                force_update):
                 self.plugin._update_nat_rules(context, router)
 
             if (new_ext_net_id != org_ext_net_id or
                 new_enable_snat != org_enable_snat or
-                is_routes_update):
+                is_routes_update or force_update):
                 self.plugin._update_subnets_and_dnat_firewall(context, router)
 
             # Update static routes in all.
