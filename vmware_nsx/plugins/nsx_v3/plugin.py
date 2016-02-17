@@ -1651,12 +1651,16 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                     firewall.delete_nsgroup(ns_group['id'])
         except Exception:
             with excutils.save_and_reraise_exception():
+                section_id = firewall_section.get('id')
+                nsgroup_id = ns_group.get('id')
                 LOG.debug("Neutron failed to create security-group, "
                           "deleting backend resources: "
                           "section %s, ns-group %s.",
-                          firewall_section['id'], ns_group['id'])
-                firewall.delete_nsgroup(ns_group['id'])
-                firewall.delete_section(firewall_section['id'])
+                          section_id, nsgroup_id)
+                if nsgroup_id:
+                    firewall.delete_nsgroup(nsgroup_id)
+                if section_id:
+                    firewall.delete_section(section_id)
         try:
             sg_rules = secgroup_db['security_group_rules']
             # translate and creates firewall rules.
