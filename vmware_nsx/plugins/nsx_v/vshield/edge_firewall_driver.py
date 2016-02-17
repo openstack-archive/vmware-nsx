@@ -163,6 +163,7 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
                  'ruleTag': ruleTag})
         return {
             'featureType': "firewall_4.0",
+            'globalConfig': {'tcpTimeoutEstablished': 7200},
             'firewallRules': {
                 'firewallRules': vcns_rules}}
 

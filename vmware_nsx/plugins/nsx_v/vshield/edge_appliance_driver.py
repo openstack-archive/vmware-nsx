@@ -51,6 +51,16 @@ class EdgeApplianceDriver(object):
             'fqdn': None,
             'enableAesni': enable_aesni,
             'enableFips': enable_fips,
+            'featureConfigs': {
+                'features': [
+                    {
+                        'featureType': 'firewall_4.0',
+                        'globalConfig': {
+                            'tcpTimeoutEstablished': 7200
+                        }
+                    }
+                ]
+            },
             'cliSettings': {
                 'remoteAccess': remote_access
             },
