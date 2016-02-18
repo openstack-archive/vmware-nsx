@@ -291,7 +291,7 @@ class NSXClient(object):
         ns_groups = self.get_ns_groups()
         print("Number of OS NSGroups to be deleted: %s" % len(ns_groups))
         for nsg in ns_groups:
-            endpoint = "/ns-groups/%s" % nsg['id']
+            endpoint = "/ns-groups/%s?force=true" % nsg['id']
             response = self.delete(endpoint=endpoint)
             if response.status_code == requests.codes.ok:
                 print("Successfully deleted NSGroup: %s" % nsg['display_name'])
