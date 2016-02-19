@@ -78,6 +78,7 @@ from vmware_nsx.nsxlib.v3 import security
 
 LOG = log.getLogger(__name__)
 NSX_V3_PSEC_PROFILE_NAME = 'neutron_port_spoof_guard_profile'
+NSX_V3_NO_PSEC_PROFILE_NAME = 'nsx-default-spoof-guard-vif-profile'
 NSX_V3_DHCP_PROFILE_NAME = 'neutron_port_dhcp_profile'
 
 
@@ -149,6 +150,11 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             msg = _("Unable to initialize NSX v3 port spoofguard "
                     "switching profile: %s") % NSX_V3_PSEC_PROFILE_NAME
             raise nsx_exc.NsxPluginException(msg)
+        profiles = nsx_resources.SwitchingProfile
+        self._no_psec_profile_id = profiles.build_switch_profile_ids(
+                self._switching_profiles,
+                self._switching_profiles.find_by_display_name(
+                        NSX_V3_NO_PSEC_PROFILE_NAME)[0])[0]
         LOG.debug("Initializing NSX v3 DHCP switching profile")
         self._dhcp_profile = None
         self._dhcp_profile = self._init_dhcp_switching_profile()
@@ -671,7 +677,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
 
         parent_name, tag = self._get_data_from_binding_profile(
             context, port_data)
-        address_bindings = self._build_address_bindings(port_data)
+        address_bindings = (self._build_address_bindings(port_data)
+                            if psec_is_on else [])
         vif_uuid = port_data['id']
         attachment_type = nsx_constants.ATTACHMENT_VIF
         if not device_owner or device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF:
@@ -1020,6 +1027,9 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         address_bindings = self._build_address_bindings(updated_port)
         if port_security and address_bindings:
             switch_profile_ids = [self._get_port_security_profile_id()]
+        else:
+            switch_profile_ids = [self._no_psec_profile_id]
+            address_bindings = []
 
         try:
             self._update_port_on_backend(context, nsx_lport_id,
