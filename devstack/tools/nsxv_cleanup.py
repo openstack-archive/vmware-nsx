@@ -50,10 +50,11 @@ Tong Liu <tongl@vmware.com>
 """
 
 import base64
-import jsonutils
 import optparse
 import requests
 import sys
+
+from oslo_serialization import jsonutils
 
 requests.packages.urllib3.disable_warnings()
 
