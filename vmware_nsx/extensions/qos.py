@@ -19,8 +19,9 @@ import abc
 from neutron.api import extensions
 from neutron.api.v2 import attributes as attr
 from neutron.api.v2 import base
-from neutron.common import exceptions as nexception
 from neutron import manager
+
+from neutron_lib import exceptions as nexception
 
 from vmware_nsx._i18n import _
 

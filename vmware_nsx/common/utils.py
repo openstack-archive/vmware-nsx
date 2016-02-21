@@ -16,8 +16,8 @@
 import hashlib
 
 from neutron.api.v2 import attributes
-from neutron.common import exceptions
 from neutron import version
+from neutron_lib import exceptions
 from oslo_config import cfg
 from oslo_log import log
 import retrying

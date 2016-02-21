@@ -17,7 +17,6 @@ import six
 from webob import exc
 
 from neutron.api.v2 import attributes
-from neutron.common import exceptions as n_exc
 from neutron import context
 from neutron.db import models_v2
 from neutron.extensions import availability_zone as az_ext
@@ -41,6 +40,7 @@ from neutron.tests.unit.scheduler \
 from neutron import version
 
 from neutron_lib import constants
+from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
 from oslo_serialization import jsonutils
 from oslo_utils import uuidutils

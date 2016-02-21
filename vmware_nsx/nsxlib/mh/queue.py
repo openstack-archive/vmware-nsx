@@ -14,7 +14,7 @@
 #    under the License.
 
 from neutron.api.v2 import attributes as attr
-from neutron.common import exceptions as exception
+from neutron_lib import exceptions as exception
 from oslo_log import log
 from oslo_serialization import jsonutils
 from oslo_utils import excutils

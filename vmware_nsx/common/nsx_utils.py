@@ -14,9 +14,9 @@
 #    under the License.
 
 from neutron.api.v2 import attributes as attr
-from neutron.common import exceptions as n_exc
 from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import providernet as pnet
+from neutron_lib import exceptions as n_exc
 from oslo_log import log
 import six
 

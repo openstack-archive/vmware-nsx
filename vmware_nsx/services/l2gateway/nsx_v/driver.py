@@ -17,8 +17,8 @@
 from networking_l2gw.db.l2gateway import l2gateway_db
 from networking_l2gw.services.l2gateway.common import constants as l2gw_const
 from networking_l2gw.services.l2gateway import exceptions as l2gw_exc
-from neutron.common import exceptions as n_exc
 from neutron import manager
+from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils

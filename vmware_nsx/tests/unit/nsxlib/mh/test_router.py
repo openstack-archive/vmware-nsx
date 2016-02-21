@@ -15,8 +15,8 @@
 #
 
 import mock
-from neutron.common import exceptions
 from neutron.tests.unit.api.v2 import test_base
+from neutron_lib import exceptions
 from oslo_config import cfg
 from oslo_utils import uuidutils
 

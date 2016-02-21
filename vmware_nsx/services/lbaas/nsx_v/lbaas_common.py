@@ -16,7 +16,7 @@
 import netaddr
 import xml.etree.ElementTree as et
 
-from neutron.common import exceptions as n_exc
+from neutron_lib import exceptions as n_exc
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import locking

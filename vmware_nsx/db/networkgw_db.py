@@ -15,8 +15,8 @@
 from sqlalchemy.orm import exc as sa_orm_exc
 
 from neutron.api.v2 import attributes
-from neutron.common import exceptions
 from neutron.plugins.common import utils
+from neutron_lib import exceptions
 from oslo_log import log as logging
 from oslo_utils import uuidutils
 import six

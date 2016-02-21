@@ -16,10 +16,10 @@
 import mock
 import netaddr
 from neutron_lib import constants
+from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
 import webob.exc
 
-from neutron.common import exceptions as n_exc
 from neutron import manager
 
 from vmware_nsx.api_client import exception as api_exc

@@ -14,11 +14,11 @@
 #    under the License.
 import mock
 
-from neutron.common import exceptions as n_exc
 from neutron import context
 from neutron.tests import base
 
 from networking_l2gw.db.l2gateway import l2gateway_db
+from neutron_lib import exceptions as n_exc
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.services.l2gateway.nsx_v import driver as nsx_v_driver

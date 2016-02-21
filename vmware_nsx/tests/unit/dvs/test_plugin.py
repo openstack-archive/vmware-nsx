@@ -17,12 +17,12 @@ import mock
 from oslo_config import cfg
 from oslo_utils import uuidutils
 
-from neutron.common import exceptions as exp
 from neutron import context
 from neutron.extensions import portbindings
 from neutron import manager
 from neutron.tests import base
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
+from neutron_lib import exceptions as exp
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.dvs import dvs

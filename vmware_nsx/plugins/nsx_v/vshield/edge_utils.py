@@ -26,10 +26,11 @@ from oslo_utils import uuidutils
 from six import moves
 from sqlalchemy.orm import exc as sa_exc
 
-from neutron.common import exceptions as n_exc
 from neutron import context as q_context
 from neutron.extensions import l3
 from neutron.plugins.common import constants as plugin_const
+
+from neutron_lib import exceptions as n_exc
 
 from vmware_nsx._i18n import _, _LE, _LW
 from vmware_nsx.common import exceptions as nsx_exc

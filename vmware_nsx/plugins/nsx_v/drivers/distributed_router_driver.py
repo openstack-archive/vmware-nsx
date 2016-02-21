@@ -16,8 +16,9 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 
 from neutron.api.v2 import attributes as attr
-from neutron.common import exceptions as n_exc
 from neutron.db import l3_db
+
+from neutron_lib import exceptions as n_exc
 
 from vmware_nsx._i18n import _LE
 from vmware_nsx.common import locking

@@ -12,7 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.common import exceptions
+from neutron_lib import exceptions
 from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_vmware import vim_util

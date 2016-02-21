@@ -17,7 +17,6 @@ import uuid
 
 import mock
 from neutron.api.v2 import attributes
-from neutron.common import exceptions as ntn_exc
 from neutron import context
 from neutron.extensions import dvr
 from neutron.extensions import external_net
@@ -35,6 +34,7 @@ import neutron.tests.unit.extensions.test_l3_ext_gw_mode as test_ext_gw_mode
 import neutron.tests.unit.extensions.test_securitygroup as ext_sg
 from neutron.tests.unit import testlib_api
 from neutron_lib import constants
+from neutron_lib import exceptions as ntn_exc
 from oslo_config import cfg
 from oslo_db import exception as db_exc
 from oslo_log import log

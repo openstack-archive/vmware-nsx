@@ -24,7 +24,7 @@ import vmware_nsx.shell.admin.plugins.nsxv.resources.utils as utils
 import vmware_nsx.shell.nsxadmin as shell
 
 from neutron.callbacks import registry
-from neutron.common import exceptions
+from neutron_lib import exceptions
 
 from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.db import nsxv_db

@@ -21,10 +21,10 @@ from oslo_config import cfg
 from oslo_utils import importutils
 from oslo_utils import uuidutils
 
-from neutron.common import exceptions as n_exc
 from neutron import context
 from neutron.tests import base
 
+from neutron_lib import exceptions as n_exc
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.services.l2gateway.common import plugin as l2gw_plugin
 from vmware_nsx.services.l2gateway.nsx_v3 import driver as nsx_v3_driver

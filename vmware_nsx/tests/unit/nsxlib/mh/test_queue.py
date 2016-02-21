@@ -15,7 +15,7 @@
 #
 
 import mock
-from neutron.common import exceptions
+from neutron_lib import exceptions
 
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.nsxlib import mh as nsxlib

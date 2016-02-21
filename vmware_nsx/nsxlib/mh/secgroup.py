@@ -14,11 +14,10 @@
 #    under the License.
 
 from neutron_lib import constants
+from neutron_lib import exceptions
 from oslo_log import log
 from oslo_serialization import jsonutils
 from oslo_utils import excutils
-
-from neutron.common import exceptions
 
 from vmware_nsx._i18n import _LW
 from vmware_nsx.common import utils

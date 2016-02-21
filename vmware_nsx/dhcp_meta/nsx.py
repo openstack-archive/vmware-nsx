@@ -16,12 +16,12 @@
 #
 
 from neutron_lib import constants as const
+from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 
 from neutron.api.v2 import attributes as attr
-from neutron.common import exceptions as n_exc
 from neutron.db import db_base_plugin_v2
 from neutron.db import l3_db
 from neutron.extensions import external_net

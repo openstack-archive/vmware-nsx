@@ -16,8 +16,8 @@
 import logging
 
 from neutron.callbacks import registry
-from neutron.common import exceptions
 from neutron.db import l3_db
+from neutron_lib import exceptions
 from oslo_utils import uuidutils
 
 from vmware_nsx._i18n import _LE, _LI

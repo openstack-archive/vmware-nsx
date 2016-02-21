@@ -18,10 +18,10 @@ from oslo_config import cfg
 from oslo_utils import uuidutils
 from six import moves
 
-from neutron.common import exceptions as n_exc
 from neutron import context
 from neutron.plugins.common import constants as plugin_const
 from neutron.tests.unit import testlib_api
+from neutron_lib import exceptions as n_exc
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield.common import (

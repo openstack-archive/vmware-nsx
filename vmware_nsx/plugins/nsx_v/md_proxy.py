@@ -20,7 +20,7 @@ import hmac
 import netaddr
 from neutron.api.v2 import attributes as attr
 from neutron import context as neutron_context
-from neutron_lib import constants as constants
+from neutron_lib import constants
 from oslo_config import cfg
 from oslo_log import log as logging
 

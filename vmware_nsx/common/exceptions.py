@@ -14,7 +14,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.common import exceptions as n_exc
+from neutron_lib import exceptions as n_exc
 
 from vmware_nsx._i18n import _
 
