@@ -123,10 +123,51 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         edge_utils.update_routes(self.nsx_v, context, target_router_id,
                                  all_routes, nexthop)
 
+    # return a dic of each router -> list of vnics from the other routers
+    def _get_all_routers_vnic_indices(self, context, router_ids):
+
+        all_vnic_indices = {}
+        if len(router_ids) < 1:
+            # there are no routers
+            return all_vnic_indices
+
+        intf_ports = self.plugin.get_ports(
+            context.elevated(),
+            filters={'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF]})
+
+        edge_id = edge_utils.get_router_edge_id(context, router_ids[0])
+        edge_vnic_bindings = nsxv_db.get_edge_vnic_bindings_by_edge(
+            context.session, edge_id)
+
+        for this_router_id in router_ids:
+            # get networks IDs for this router
+            router_net_ids = list(
+                set([port['network_id']
+                     for port in intf_ports
+                     if port['device_id'] == this_router_id]))
+
+            # get vnic index for each network
+            vnic_indices = []
+            for net_id in router_net_ids:
+                vnic_indices.extend([edge_vnic_binding.vnic_index
+                                     for edge_vnic_binding
+                                     in edge_vnic_bindings
+                                     if edge_vnic_binding.network_id == net_id
+                                     ])
+
+            # make sure the list is unique:
+            vnic_indices = list(set(vnic_indices))
+            # add to the result dict
+            all_vnic_indices[this_router_id] = list(vnic_indices)
+
+        return all_vnic_indices
+
     def _update_nat_rules_on_routers(self, context,
                                      target_router_id, router_ids):
         snats = []
         dnats = []
+        vnics_by_router = self._get_all_routers_vnic_indices(
+            context, router_ids)
         for router_id in router_ids:
             router_qry = context.session.query(l3_db.Router)
             router = router_qry.filter_by(id=router_id).one()
@@ -134,6 +175,21 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                 snat, dnat = self.plugin._get_nat_rules(context, router)
                 snats.extend(snat)
                 dnats.extend(dnat)
+                if len(dnat) > 0:
+                    # Copy each DNAT rule to all vnics of the other routers,
+                    # to allow NAT-ed traffic between routers
+                    other_vnics = []
+                    for other_router_id in router_ids:
+                        if other_router_id != router_id:
+                            other_vnics.extend(
+                                vnics_by_router[other_router_id])
+                    for rule in dnat:
+                        for vnic_index in other_vnics:
+                            new_rule = rule.copy()
+                            # use explicit vnic_index
+                            new_rule['vnic_index'] = vnic_index
+                            dnats.extend([new_rule])
+
         edge_utils.update_nat_rules(
             self.nsx_v, context, target_router_id, snats, dnats)
 
