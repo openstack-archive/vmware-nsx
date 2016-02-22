@@ -29,6 +29,8 @@ def _xmldump(obj):
     This converts the dict to xml with following assumptions:
     Keys starting with _(underscore) are to be used as attributes and not
     element keys starting with @ so that dict can be made.
+    Keys starting with __(double underscore) are to be skipped and its
+    value is processed.
     The keys are not part of any xml schema.
     """
 
@@ -36,11 +38,15 @@ def _xmldump(obj):
     attr = ""
     if isinstance(obj, dict):
         for key, value in six.iteritems(obj):
-            if (key.startswith('_')):
+            if key.startswith('__'):
+                # Skip the key and evaluate it's value.
+                a, x = _xmldump(value)
+                config += x
+            elif key.startswith('_'):
                 attr += ' %s="%s"' % (key[1:], value)
             else:
                 a, x = _xmldump(value)
-                if (key.startswith('@')):
+                if key.startswith('@'):
                     cfg = "%s" % (x)
                 else:
                     cfg = "<%s%s>%s</%s>" % (key, a, x, key)

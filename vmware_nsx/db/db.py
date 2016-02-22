@@ -55,10 +55,12 @@ def add_network_binding(session, network_id, binding_type, phy_uuid, vlan_id):
     return binding
 
 
-def add_neutron_nsx_network_mapping(session, neutron_id, nsx_switch_id):
+def add_neutron_nsx_network_mapping(session, neutron_id, nsx_switch_id,
+                                    dvs_id=None):
     with session.begin(subtransactions=True):
         mapping = nsx_models.NeutronNsxNetworkMapping(
-            neutron_id=neutron_id, nsx_id=nsx_switch_id)
+            neutron_id=neutron_id, nsx_id=nsx_switch_id,
+            dvs_id=dvs_id)
         session.add(mapping)
         return mapping
 
@@ -118,6 +120,18 @@ def get_nsx_switch_ids(session, neutron_id):
     return [mapping['nsx_id'] for mapping in
             session.query(nsx_models.NeutronNsxNetworkMapping).filter_by(
                 neutron_id=neutron_id)]
+
+
+def get_nsx_switch_id_for_dvs(session, neutron_id, dvs_id):
+    """Retrieve the NSX switch ID for a given DVS ID and neutron network."""
+    try:
+        mapping = (session.query(nsx_models.NeutronNsxNetworkMapping).
+                   filter_by(neutron_id=neutron_id,
+                             dvs_id=dvs_id).one())
+        return mapping['nsx_id']
+    except exc.NoResultFound:
+        LOG.debug("NSX switch for dvs-id: %s not yet stored in Neutron DB",
+                  dvs_id)
 
 
 def get_net_ids(session, nsx_id):

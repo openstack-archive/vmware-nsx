@@ -380,6 +380,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                 raise n_exc.VlanIdInUse(
                                     vlan_id=segmentation_id,
                                     physical_network=phy_uuid)
+                # Verify whether the DVSes exist in the backend.
+                if physical_network_set:
+                    dvs_ids = self._get_dvs_ids(physical_network)
+                    for dvs_id in dvs_ids:
+                        if not self.nsx_v.vcns.validate_dvs(dvs_id):
+                            raise nsx_exc.NsxResourceNotFound(
+                                res_name='dvs_id',
+                                res_id=dvs_id)
 
             elif network_type == c_utils.NsxVNetworkTypes.VXLAN:
                 # Currently unable to set the segmentation id
@@ -527,13 +535,52 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         else:
             self.nsx_v.delete_virtual_wire(moref)
 
-    def _get_vlan_network_name(self, net_data):
+    def _get_vlan_network_name(self, net_data, dvs_id):
+        if net_data.get('name') is None:
+            net_data['name'] = ''
         if net_data['name'] == '':
-            return net_data['id']
+            # Include only the first 8 characters from the dvs-id.
+            return '%s-%s' % (dvs_id[:8], net_data['id'])
         else:
             # Maximum name length is 80 characters. 'id' length is 36
-            # maximum prefix for name is 43
-            return '%s-%s' % (net_data['name'][:43], net_data['id'])
+            # maximum prefix for name plus dvs-id is 43
+            return '%s-%s-%s' % (dvs_id[:8], net_data['name'][:35],
+                                 net_data['id'])
+
+    def _create_vlan_network_at_backend(self, net_data, dvs_id):
+        network_name = self._get_vlan_network_name(net_data, dvs_id)
+        segment = net_data[mpnet.SEGMENTS][0]
+        vlan_tag = 0
+        if (segment.get(pnet.NETWORK_TYPE) ==
+            c_utils.NsxVNetworkTypes.VLAN):
+            vlan_tag = segment.get(pnet.SEGMENTATION_ID, 0)
+        portgroup = {'vlanId': vlan_tag,
+                     'networkBindingType': 'Static',
+                     'networkName': network_name,
+                     'networkType': 'Isolation'}
+        config_spec = {'networkSpec': portgroup}
+        try:
+            h, c = self.nsx_v.vcns.create_port_group(dvs_id,
+                                                     config_spec)
+            return c
+        except Exception as e:
+            error = (_("Failed to create port group on DVS: %(dvs_id)s. "
+                       "Reason: %(reason)s") % {'dvs_id': dvs_id,
+                                                'reason': e.response})
+            raise nsx_exc.NsxPluginException(err_msg=error)
+
+    def _get_dvs_ids(self, physical_network):
+        """Extract DVS-IDs provided in the physical network field.
+
+        If physical network attribute is not set, return the pre configured
+        dvs-id from nsx.ini file, otherwise convert physical network string
+        to a list of unique DVS-IDs.
+        """
+        if not attr.is_attr_set(physical_network):
+            return [self.dvs_id]
+        # Return unique DVS-IDs only and ignore duplicates
+        return list(set(
+            dvs.strip() for dvs in physical_network.split(',') if dvs))
 
     def _get_default_security_group(self, context, tenant_id):
         return self._ensure_default_security_group(context, tenant_id)
@@ -652,42 +699,41 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                 res_id=vdn_scope_id)
                 h, c = self.nsx_v.vcns.create_virtual_wire(vdn_scope_id,
                                                            config_spec)
-                net_moref = c
+                net_morefs = [c]
             elif network_type == c_utils.NsxVNetworkTypes.PORTGROUP:
                 segment = net_data[mpnet.SEGMENTS][0]
-                net_moref = segment.get(pnet.PHYSICAL_NETWORK)
+                net_morefs = [segment.get(pnet.PHYSICAL_NETWORK)]
             else:
-                network_name = self._get_vlan_network_name(net_data)
-                vlan_tag = 0
                 segment = net_data[mpnet.SEGMENTS][0]
-                if (segment.get(pnet.NETWORK_TYPE) ==
-                    c_utils.NsxVNetworkTypes.VLAN):
-                    vlan_tag = segment.get(pnet.SEGMENTATION_ID, 0)
                 physical_network = segment.get(pnet.PHYSICAL_NETWORK)
-                dvs_id = (physical_network if attr.is_attr_set(
-                    physical_network) else self.dvs_id)
-                portgroup = {'vlanId': vlan_tag,
-                             'networkBindingType': 'Static',
-                             'networkName': network_name,
-                             'networkType': 'Isolation'}
-                config_spec = {'networkSpec': portgroup}
-                try:
-                    h, c = self.nsx_v.vcns.create_port_group(dvs_id,
-                                                             config_spec)
-                    net_moref = c
-                except Exception as e:
-                    LOG.debug("Failed to create port group: %s",
-                              e.response)
-                    err_msg = (_("Physical network %s is not an existing DVS")
-                               % dvs_id)
-                    raise n_exc.InvalidInput(error_message=err_msg)
+                # Retrieve the list of dvs-ids from physical network.
+                # If physical_network attr is not set, retrieve a list
+                # consisting of a single dvs-id pre-configured in nsx.ini
+                dvs_ids = self._get_dvs_ids(physical_network)
+                # Save the list of netmorefs from the backend
+                net_morefs = []
+                dvs_pg_mappings = {}
+                for dvs_id in dvs_ids:
+                    try:
+                        net_moref = self._create_vlan_network_at_backend(
+                            dvs_id=dvs_id,
+                            net_data=net_data)
+                    except nsx_exc.NsxPluginException:
+                        with excutils.save_and_reraise_exception():
+                            # Delete VLAN networks on other DVSes if it
+                            # fails to be created on one DVS and reraise
+                            # the original exception.
+                            for net_moref in net_morefs:
+                                self._delete_backend_network(net_moref)
+                    dvs_pg_mappings[dvs_id] = net_moref
+                    net_morefs.append(net_moref)
         try:
             # Create SpoofGuard policy for network anti-spoofing
             if cfg.CONF.nsxv.spoofguard_enabled and backend_network:
                 sg_policy_id = None
-                s, sg_policy_id = self.nsx_v.vcns.create_spoofguard_policy(
-                    net_moref, net_data['id'], net_data[psec.PORTSECURITY])
-
+                sg_policy_id = self.nsx_v.vcns.create_spoofguard_policy(
+                    net_morefs, net_data['id'],
+                    net_data[psec.PORTSECURITY])[1]
             with context.session.begin(subtransactions=True):
                 new_net = super(NsxVPluginV2, self).create_network(context,
                                                                    network)
@@ -723,9 +769,20 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                                        net_bindings)
                 if backend_network:
                     # Save moref in the DB for future access
-                    nsx_db.add_neutron_nsx_network_mapping(
-                        context.session, new_net['id'],
-                        net_moref)
+                    if network_type == c_utils.NsxVNetworkTypes.VLAN:
+                        # Save netmoref to dvs id mappings for VLAN network
+                        # type for future access.
+                        for dvs_id, netmoref in six.iteritems(dvs_pg_mappings):
+                            nsx_db.add_neutron_nsx_network_mapping(
+                                session=context.session,
+                                neutron_id=new_net['id'],
+                                nsx_switch_id=netmoref,
+                                dvs_id=dvs_id)
+                    else:
+                        for net_moref in net_morefs:
+                            nsx_db.add_neutron_nsx_network_mapping(
+                                context.session, new_net['id'],
+                                net_moref)
                     if cfg.CONF.nsxv.spoofguard_enabled:
                         nsxv_db.map_spoofguard_policy_for_network(
                             context.session, new_net['id'], sg_policy_id)
@@ -736,7 +793,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 if backend_network:
                     if cfg.CONF.nsxv.spoofguard_enabled and sg_policy_id:
                         self.nsx_v.vcns.delete_spoofguard_policy(sg_policy_id)
-                    self._delete_backend_network(net_moref)
+                    for net_moref in net_morefs:
+                        self._delete_backend_network(net_moref)
                 LOG.exception(_LE('Failed to create network'))
 
         # this extra lookup is necessary to get the
@@ -816,7 +874,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if cfg.CONF.nsxv.spoofguard_enabled and sg_policy_id:
                 self.nsx_v.vcns.delete_spoofguard_policy(sg_policy_id)
             edge_utils.check_network_in_use_at_backend(context, id)
-            self._delete_backend_network(mappings[0])
+            for mapping in mappings:
+                self._delete_backend_network(mapping)
 
     def get_network(self, context, id, fields=None):
         with context.session.begin(subtransactions=True):
@@ -875,10 +934,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # old state
         if cfg.CONF.nsxv.spoofguard_enabled and psec_update:
             policy_id = nsxv_db.get_spoofguard_policy_id(context.session, id)
-            net_moref = nsx_db.get_nsx_switch_ids(context.session, id)
+            net_morefs = nsx_db.get_nsx_switch_ids(context.session, id)
             try:
                 self.nsx_v.vcns.update_spoofguard_policy(
-                    policy_id, net_moref[0], id,
+                    policy_id, net_morefs, id,
                     net_attrs[psec.PORTSECURITY])
             except Exception:
                 with excutils.save_and_reraise_exception():

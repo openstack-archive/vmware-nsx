@@ -316,35 +316,34 @@ class EdgeManager(object):
         bindings = nsxv_db.get_network_bindings(context.session, network_id)
         # Set the return value as global DVS-ID of the mgmt/edge cluster
         phys_net = self.dvs_id
+        network_type = None
         if bindings:
             binding = bindings[0]
+            network_type = binding['binding_type']
+            if (network_type == c_utils.NsxVNetworkTypes.VLAN
+                and binding['phy_uuid'] != ''):
+                if ',' not in binding['phy_uuid']:
+                    phys_net = binding['phy_uuid']
             # Return user input physical network value for all network types
             # except VXLAN networks. The DVS-ID of the mgmt/edge cluster must
             # be returned for VXLAN network types.
-            if (not binding['binding_type'] == c_utils.NsxVNetworkTypes.VXLAN
-                and binding['phy_uuid'] != ''):
+            elif (not network_type == c_utils.NsxVNetworkTypes.VXLAN
+                  and binding['phy_uuid'] != ''):
                 phys_net = binding['phy_uuid']
-        return phys_net
+        return phys_net, network_type
 
     def _create_sub_interface(self, context, network_id, network_name,
                               tunnel_index, address_groups,
                               port_group_id=None):
-        # Get the physical port group /wire id of the network id
-        mappings = nsx_db.get_nsx_switch_ids(context.session, network_id)
-        if mappings:
-            vcns_network_id = mappings[0]
-        else:
-            LOG.error(_LE("Create sub interface failed since network %s not "
-                          "found at the backend."), network_id)
-            raise nsx_exc.NsxPluginException(
-                err_msg=_("network %s not found at the backend") % network_id)
+        vcns_network_id = _retrieve_nsx_switch_id(context, network_id)
         if port_group_id is None:
             portgroup = {'vlanId': 0,
                          'networkName': network_name,
                          'networkBindingType': 'Static',
                          'networkType': 'Isolation'}
             config_spec = {'networkSpec': portgroup}
-            dvs_id = self._get_physical_provider_network(context, network_id)
+            dvs_id, network_type = self._get_physical_provider_network(
+                context, network_id)
             pg, port_group_id = self.nsxv_manager.vcns.create_port_group(
                 dvs_id, config_spec)
 
@@ -388,8 +387,8 @@ class EdgeManager(object):
             if port_group_id:
                 objuri = header['location']
                 job_id = objuri[objuri.rfind("/") + 1:]
-                dvs_id = self._get_physical_provider_network(context,
-                                                             network_id)
+                dvs_id, net_type = self._get_physical_provider_network(
+                    context, network_id)
                 self.nsxv_manager.delete_portgroup(dvs_id,
                                                    port_group_id,
                                                    job_id)
@@ -1412,13 +1411,37 @@ def delete_lrouter(nsxv_manager, context, router_id, dist=False):
         LOG.warning(_LW("router binding for router: %s not found"), router_id)
 
 
+def _retrieve_nsx_switch_id(context, network_id):
+    """Helper method to retrieve backend switch ID."""
+    bindings = nsxv_db.get_network_bindings(context.session, network_id)
+    if bindings:
+        binding = bindings[0]
+        network_type = binding['binding_type']
+        if (network_type == c_utils.NsxVNetworkTypes.VLAN
+            and binding['phy_uuid'] != ''):
+            if ',' not in binding['phy_uuid']:
+                dvs_id = binding['phy_uuid']
+            else:
+                # If network is of type VLAN and multiple dvs associated with
+                # one neutron network, retrieve the logical network id for the
+                # edge/mgmt cluster's DVS.
+                dvs_id = cfg.CONF.nsxv.dvs_id
+            return nsx_db.get_nsx_switch_id_for_dvs(
+                context.session, network_id, dvs_id)
+    # Get the physical port group /wire id of the network id
+    mappings = nsx_db.get_nsx_switch_ids(context.session, network_id)
+    if mappings:
+        return mappings[0]
+    raise nsx_exc.NsxPluginException(
+        err_msg=_("Network %s not found at the backend") % network_id)
+
+
 def create_dhcp_service(context, nsxv_manager, network):
     """Create an Edge for dhcp service."""
     edge_name = "%s-%s" % (network['name'], network['id'])
     jobdata = {'network_id': network['id'], 'context': context}
     # port group id for vlan or virtual wire id for vxlan
-    nsx_network_id = nsx_db.get_nsx_switch_ids(context.session,
-                                               network['id'])[0]
+    nsx_network_id = _retrieve_nsx_switch_id(context, network['id'])
     # Deploy an Edge for dhcp service
     return nsxv_manager.deploy_edge(
         network['id'], edge_name, nsx_network_id, jobdata=jobdata,
@@ -1476,10 +1499,7 @@ def query_dhcp_service_config(nsxv_manager, edge_id):
 def update_dhcp_internal_interface(context, nsxv_manager,
                                    network_id, address_groups, add=True):
     # Get the physical port group /wire id of the network id
-    mappings = nsx_db.get_nsx_switch_ids(context.session, network_id)
-    if mappings:
-        vcns_network_id = mappings[0]
-
+    vcns_network_id = _retrieve_nsx_switch_id(context, network_id)
     # Get the DHCP Edge to update the internal interface
     binding = nsxv_db.get_dhcp_edge_network_binding(context.session,
                                                     network_id)
@@ -1635,9 +1655,7 @@ def update_internal_interface(nsxv_manager, context, router_id, int_net_id,
 def _update_internal_interface(nsxv_manager, context, router_id, int_net_id,
                                address_groups, is_connected=True):
     # Get the pg/wire id of the network id
-    mappings = nsx_db.get_nsx_switch_ids(context.session, int_net_id)
-    if mappings:
-        vcns_network_id = mappings[0]
+    vcns_network_id = _retrieve_nsx_switch_id(context, int_net_id)
     LOG.debug("Network id %(network_id)s corresponding ref is : "
               "%(net_moref)s", {'network_id': int_net_id,
                                 'net_moref': vcns_network_id})
@@ -1671,9 +1689,7 @@ def add_vdr_internal_interface(nsxv_manager, context, router_id,
 def _add_vdr_internal_interface(nsxv_manager, context, router_id,
                                 int_net_id, address_groups, is_connected=True):
     # Get the pg/wire id of the network id
-    mappings = nsx_db.get_nsx_switch_ids(context.session, int_net_id)
-    if mappings:
-        vcns_network_id = mappings[0]
+    vcns_network_id = _retrieve_nsx_switch_id(context, int_net_id)
     LOG.debug("Network id %(network_id)s corresponding ref is : "
               "%(net_moref)s", {'network_id': int_net_id,
                                 'net_moref': vcns_network_id})
@@ -1706,9 +1722,7 @@ def _update_vdr_internal_interface(nsxv_manager, context, router_id,
                                    int_net_id, address_groups,
                                    is_connected=True):
     # Get the pg/wire id of the network id
-    mappings = nsx_db.get_nsx_switch_ids(context.session, int_net_id)
-    if mappings:
-        vcns_network_id = mappings[0]
+    vcns_network_id = _retrieve_nsx_switch_id(context, int_net_id)
     LOG.debug("Network id %(network_id)s corresponding ref is : "
               "%(net_moref)s", {'network_id': int_net_id,
                                 'net_moref': vcns_network_id})
@@ -1733,9 +1747,7 @@ def delete_interface(nsxv_manager, context, router_id, network_id,
 def _delete_interface(nsxv_manager, context, router_id, network_id,
                       dist=False, is_wait=True):
     # Get the pg/wire id of the network id
-    mappings = nsx_db.get_nsx_switch_ids(context.session, network_id)
-    if mappings:
-        vcns_network_id = mappings[0]
+    vcns_network_id = _retrieve_nsx_switch_id(context, network_id)
     LOG.debug("Network id %(network_id)s corresponding ref is : "
               "%(net_moref)s", {'network_id': network_id,
                                 'net_moref': vcns_network_id})

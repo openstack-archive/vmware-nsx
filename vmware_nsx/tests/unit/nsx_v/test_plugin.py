@@ -125,23 +125,39 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
 
     def test_get_vlan_network_name(self):
         p = manager.NeutronManager.get_plugin()
-        id = uuidutils.generate_uuid()
+        net_id = uuidutils.generate_uuid()
+        dvs_id = 'dvs-10'
         net = {'name': '',
-               'id': id}
-        expected = id
+               'id': net_id}
+        # Empty net['name'] should yield dvs_id-net_id as a name for the
+        # port group.
+        expected = '%s-%s' % (dvs_id, net_id)
         self.assertEqual(expected,
-                         p._get_vlan_network_name(net))
+                         p._get_vlan_network_name(net, dvs_id))
+        # If network name is provided then it should yield
+        # dvs_id-net_name-net_id as a name for the port group.
         net = {'name': 'pele',
-               'id': id}
-        expected = '%s-%s' % ('pele', id)
+               'id': net_id}
+        expected = '%s-%s-%s' % (dvs_id, 'pele', net_id)
         self.assertEqual(expected,
-                         p._get_vlan_network_name(net))
+                         p._get_vlan_network_name(net, dvs_id))
         name = 'X' * 500
         net = {'name': name,
-               'id': id}
-        expected = '%s-%s' % (name[:43], id)
+               'id': net_id}
+        expected = '%s-%s-%s' % (dvs_id, name[:35], net_id)
         self.assertEqual(expected,
-                         p._get_vlan_network_name(net))
+                         p._get_vlan_network_name(net, dvs_id))
+
+    def test_get_vlan_network_name_with_net_name_missing(self):
+        p = manager.NeutronManager.get_plugin()
+        net_id = uuidutils.generate_uuid()
+        dvs_id = 'dvs-10'
+        net = {'id': net_id}
+        # Missing net['name'] should yield dvs_id-net_id as a name for the
+        # port group.
+        expected = '%s-%s' % (dvs_id, net_id)
+        self.assertEqual(expected,
+                         p._get_vlan_network_name(net, dvs_id))
 
     def test_create_port_anticipating_allocation(self):
         with self.network(shared=True) as network:
@@ -300,6 +316,114 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                                         pnet.PHYSICAL_NETWORK)) as net1:
                 for k, v in expected_same_vlan:
                     self.assertEqual(net1['network'][k], v)
+
+    def test_create_vlan_network_with_multiple_dvs(self):
+        name = 'multi-dvs-vlan-net'
+        providernet_args = {pnet.NETWORK_TYPE: 'vlan',
+                            pnet.SEGMENTATION_ID: 100,
+                            pnet.PHYSICAL_NETWORK: 'dvs-1, dvs-2, dvs-3'}
+        p = manager.NeutronManager.get_plugin()
+        with mock.patch.object(
+            p, '_create_vlan_network_at_backend',
+            # Return three netmorefs as side effect
+            side_effect=[_uuid(), _uuid(), _uuid()]) as vlan_net_call:
+            with self.network(name=name,
+                              providernet_args=providernet_args,
+                              arg_list=(pnet.NETWORK_TYPE,
+                                        pnet.SEGMENTATION_ID,
+                                        pnet.PHYSICAL_NETWORK)):
+                # _create_vlan_network_at_backend is expected to be called
+                # three times since we have three DVS IDs in the physical
+                # network attribute.
+                self.assertEqual(3, vlan_net_call.call_count)
+
+    def test_create_vlan_network_with_multiple_dvs_backend_failure(self):
+        net_data = {'name': 'vlan-net',
+                    'tenant_id': self._tenant_id,
+                    pnet.NETWORK_TYPE: 'vlan',
+                    pnet.SEGMENTATION_ID: 100,
+                    pnet.PHYSICAL_NETWORK: 'dvs-1, dvs-2, dvs-3'}
+        network = {'network': net_data}
+        p = manager.NeutronManager.get_plugin()
+        with mock.patch.object(
+            p, '_create_vlan_network_at_backend',
+            # Return two successful netmorefs and fail on the backend
+            # for the third netmoref creation as side effect.
+            side_effect=[_uuid(), _uuid(),
+                         nsxv_exc.NsxPluginException(err_msg='')]):
+            with mock.patch.object(
+                p, '_delete_backend_network') as delete_net_call:
+                self.assertRaises(nsxv_exc.NsxPluginException,
+                                  p.create_network,
+                                  context.get_admin_context(),
+                                  network)
+                # Two successfully created port groups should be rolled back
+                # on the failure of third port group creation.
+                self.assertEqual(2, delete_net_call.call_count)
+
+    def test_create_vlan_network_with_multiple_dvs_not_found_failure(self):
+        net_data = {'name': 'vlan-net',
+                    'tenant_id': self._tenant_id,
+                    pnet.NETWORK_TYPE: 'vlan',
+                    pnet.SEGMENTATION_ID: 100,
+                    pnet.PHYSICAL_NETWORK: 'dvs-1, dvs-2, dvs-3'}
+        network = {'network': net_data}
+        p = manager.NeutronManager.get_plugin()
+        with mock.patch.object(
+            p, '_validate_provider_create',
+            side_effect=[nsxv_exc.NsxResourceNotFound(res_id='dvs-2',
+                                                      res_name='dvs_id')]):
+            with mock.patch.object(
+                p, '_create_vlan_network_at_backend') as create_net_call:
+                self.assertRaises(nsxv_exc.NsxResourceNotFound,
+                                  p.create_network,
+                                  context.get_admin_context(),
+                                  network)
+                # Verify no port group is created on the backend.
+                self.assertEqual(0, create_net_call.call_count)
+
+    def test_create_vlan_network_with_multiple_dvs_ignore_duplicate_dvs(self):
+        name = 'multi-dvs-vlan-net'
+        providernet_args = {pnet.NETWORK_TYPE: 'vlan',
+                            pnet.SEGMENTATION_ID: 100,
+                            pnet.PHYSICAL_NETWORK: 'dvs-1, dvs-2, dvs-1'}
+        p = manager.NeutronManager.get_plugin()
+        with mock.patch.object(
+            p, '_create_vlan_network_at_backend',
+            # Return two netmorefs as side effect
+            side_effect=[_uuid(), _uuid()]) as vlan_net_call:
+            with self.network(name=name,
+                              providernet_args=providernet_args,
+                              arg_list=(pnet.NETWORK_TYPE,
+                                        pnet.SEGMENTATION_ID,
+                                        pnet.PHYSICAL_NETWORK)):
+                # _create_vlan_network_at_backend is expected to be called
+                # two times since we have only two unique DVS IDs in the
+                # physical network attribute.
+                self.assertEqual(2, vlan_net_call.call_count)
+
+    def test_get_dvs_ids_for_multiple_dvs_vlan_network(self):
+        p = manager.NeutronManager.get_plugin()
+        # If no DVS-ID is provided as part of physical network, return
+        # global DVS-ID configured in nsx.ini
+        physical_network = attributes.ATTR_NOT_SPECIFIED
+        self.assertEqual(['fake_dvs_id'], p._get_dvs_ids(physical_network))
+        # If DVS-IDs are provided as part of physical network as a comma
+        # separated string, return them as a list of DVS-IDs.
+        physical_network = 'dvs-1,dvs-2, dvs-3'
+        expected_dvs_ids = ['dvs-1', 'dvs-2', 'dvs-3']
+        self.assertEqual(expected_dvs_ids,
+                         sorted(p._get_dvs_ids(physical_network)))
+        # Ignore extra commas ',' in the physical_network attribute.
+        physical_network = ',,,dvs-1,dvs-2,, dvs-3,'
+        expected_dvs_ids = ['dvs-1', 'dvs-2', 'dvs-3']
+        self.assertEqual(expected_dvs_ids,
+                         sorted(p._get_dvs_ids(physical_network)))
+        # Ignore duplicate DVS-IDs in the physical_network attribute.
+        physical_network = ',,,dvs-1,dvs-2,, dvs-2,'
+        expected_dvs_ids = ['dvs-1', 'dvs-2']
+        self.assertEqual(expected_dvs_ids,
+                         sorted(p._get_dvs_ids(physical_network)))
 
     def test_create_vxlan_with_tz_provider_network(self):
         name = 'provider_net_vxlan'

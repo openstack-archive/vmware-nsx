@@ -67,12 +67,18 @@ class NeutronNsxNetworkMapping(model_base.BASEV2):
 
     Because of chained logical switches more than one mapping might exist
     for a single Neutron network.
+    For a VLAN network, one neutron network may map to multiple logical
+    switches(port groups) created on multiple DVSes in the backend for
+    NSX-V plugin. DVS-ID will store the moref of the DVS where the nsx
+    id is being created. For other types and plugins, this value will
+    remain null.
     """
     __tablename__ = 'neutron_nsx_network_mappings'
     neutron_id = sa.Column(sa.String(36),
                            sa.ForeignKey('networks.id', ondelete='CASCADE'),
                            primary_key=True)
     nsx_id = sa.Column(sa.String(36), primary_key=True)
+    dvs_id = sa.Column(sa.String(36), nullable=True)
 
 
 class NeutronNsxSecurityGroupMapping(model_base.BASEV2):

@@ -640,23 +640,33 @@ class Vcns(object):
 
         return self.do_request(HTTP_GET, uri)
 
+    def _get_enforcement_point_body(self, enforcement_points):
+        e_point_list = []
+        for enforcement_point in enforcement_points:
+            e_point_list.append({
+                'enforcementPoint': {
+                    'id': enforcement_point,
+                    'type': enforcement_point.split('-')[0]
+                }
+            })
+        return {'__enforcementPoints': e_point_list}
+
     @retry_upon_exception(exceptions.RequestBad)
-    def create_spoofguard_policy(self, enforcement_point, name, enable):
+    def create_spoofguard_policy(self, enforcement_points, name, enable):
         uri = '%s/policies/' % SPOOFGUARD_PREFIX
 
         body = {'spoofguardPolicy':
                 {'name': name,
                  'operationMode': 'MANUAL' if enable else 'DISABLE',
-                 'enforcementPoint':
-                 {'id': enforcement_point,
-                  'type': enforcement_point.split('-')[0]},
                  'allowLocalIPs': 'true'}}
+        body['spoofguardPolicy'].update(
+            self._get_enforcement_point_body(enforcement_points))
         return self.do_request(HTTP_POST, uri, body,
                                format='xml', encode=True, decode=False)
 
     @retry_upon_exception(exceptions.RequestBad)
     def update_spoofguard_policy(self, policy_id,
-                                 enforcement_point, name, enable):
+                                 enforcement_points, name, enable):
         update_uri = '%s/policies/%s' % (SPOOFGUARD_PREFIX, policy_id)
         publish_uri = '%s/%s?action=publish' % (SPOOFGUARD_PREFIX, policy_id)
 
@@ -664,10 +674,9 @@ class Vcns(object):
                 {'policyId': policy_id,
                  'name': name,
                  'operationMode': 'MANUAL' if enable else 'DISABLE',
-                 'enforcementPoint':
-                 {'id': enforcement_point,
-                  'type': enforcement_point.split('-')[0]},
                  'allowLocalIPs': 'true'}}
+        body['spoofguardPolicy'].update(
+            self._get_enforcement_point_body(enforcement_points))
 
         self.do_request(HTTP_PUT, update_uri, body,
                         format='xml', encode=True, decode=False)
