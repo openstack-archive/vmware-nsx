@@ -984,6 +984,12 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
             res = subnet_req.get_response(self.api)
             self.assertEqual(res.status_int, webob.exc.HTTPClientError.code)
 
+    def test_create_subnet_ipv6_gw_is_nw_end_addr_returns_201(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_create_subnet_ipv6_out_of_cidr_global(self):
+        self.skipTest('No DHCP v6 Support yet')
+
     def test_create_subnet_ipv6_pd_gw_values(self):
         self.skipTest('No DHCP v6 Support yet')
 
@@ -1191,6 +1197,12 @@ class TestSubnetPoolsV2(NsxVPluginV2TestCase, test_plugin.TestSubnetsV2):
               service_plugins=None):
         super(TestSubnetPoolsV2, self).setUp()
         self.context = context.get_admin_context()
+
+    def test_create_subnet_ipv6_gw_is_nw_end_addr_returns_201(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_create_subnet_ipv6_out_of_cidr_global(self):
+        self.skipTest('No DHCP v6 Support yet')
 
     def test_create_subnet_dhcpv6_stateless_with_port_on_network(self):
         self.skipTest('Not supported')
