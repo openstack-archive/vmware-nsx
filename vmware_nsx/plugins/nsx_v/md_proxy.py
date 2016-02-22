@@ -96,8 +96,7 @@ class NsxVMetadataProxyHandler:
         self.context = neutron_context.get_admin_context()
 
         # Init cannot run concurrently on multiple nodes
-        with locking.LockManager.get_lock('metadata-init',
-                                          lock_file_prefix='nsxv-metadata'):
+        with locking.LockManager.get_lock('nsx-metadata-init'):
             self.internal_net, self.internal_subnet = (
                 self._get_internal_network_and_subnet())
 

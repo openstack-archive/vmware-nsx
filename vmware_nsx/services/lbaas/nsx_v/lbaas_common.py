@@ -97,7 +97,7 @@ def del_address_from_address_groups(ip_addr, address_groups):
 
 
 def vip_as_secondary_ip(vcns, edge_id, vip, handler):
-    with locking.LockManager.get_lock(edge_id, external=True):
+    with locking.LockManager.get_lock(edge_id):
         r = vcns.get_interfaces(edge_id)[1]
         vnics = r.get('vnics', [])
         for vnic in vnics:
@@ -162,7 +162,7 @@ def add_vip_fw_rule(vcns, edge_id, vip_id, ip_address):
              'enabled': True,
              'name': vip_id}]}
 
-    with locking.LockManager.get_lock(edge_id, external=True):
+    with locking.LockManager.get_lock(edge_id):
         h = vcns.add_firewall_rule(edge_id, fw_rule)[0]
     fw_rule_id = extract_resource_id(h['location'])
 
@@ -170,7 +170,7 @@ def add_vip_fw_rule(vcns, edge_id, vip_id, ip_address):
 
 
 def del_vip_fw_rule(vcns, edge_id, vip_fw_rule_id):
-    with locking.LockManager.get_lock(edge_id, external=True):
+    with locking.LockManager.get_lock(edge_id):
         vcns.delete_firewall_rule(edge_id, vip_fw_rule_id)
 
 
@@ -196,7 +196,7 @@ def get_edge_ip_addresses(vcns, edge_id):
 def update_pool_fw_rule(vcns, pool_id, edge_id, section_id, member_ips):
     edge_ips = get_edge_ip_addresses(vcns, edge_id)
 
-    with locking.LockManager.get_lock('lbaas-fw-section', external=True):
+    with locking.LockManager.get_lock('lbaas-fw-section'):
         section_uri = '%s/%s/%s' % (nsxv_api.FIREWALL_PREFIX,
                                     'layer3sections',
                                     section_id)
@@ -240,8 +240,7 @@ def update_pool_fw_rule(vcns, pool_id, edge_id, section_id, member_ips):
 def get_lbaas_fw_section_id(vcns):
     # Avoid concurrent creation of section by multiple neutron
     # instances
-    with locking.LockManager.get_lock('lbaas-fw-section',
-                                      external=True):
+    with locking.LockManager.get_lock('lbaas-fw-section'):
         fw_section_id = vcns.get_section_id(LBAAS_FW_SECTION_NAME)
         if not fw_section_id:
             section = et.Element('section')
@@ -253,7 +252,7 @@ def get_lbaas_fw_section_id(vcns):
 
 
 def enable_edge_acceleration(vcns, edge_id):
-    with locking.LockManager.get_lock(edge_id, external=True):
+    with locking.LockManager.get_lock(edge_id):
         config = {
             'accelerationEnabled': True,
             'enabled': True,

@@ -57,7 +57,7 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
 
         edge_id = lb_binding['edge_id']
         edge_pool_id = pool_binding['edge_pool_id']
-        with locking.LockManager.get_lock(edge_id, external=True):
+        with locking.LockManager.get_lock(edge_id):
             edge_pool = self.vcns.get_pool(edge_id, edge_pool_id)[1]
             edge_member = {
                 'ipAddress': member.address,
@@ -113,7 +113,7 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
             'condition':
                 'enabled' if new_member.admin_state_up else 'disabled'}
 
-        with locking.LockManager.get_lock(edge_id, external=True):
+        with locking.LockManager.get_lock(edge_id):
             edge_pool = self.vcns.get_pool(edge_id, edge_pool_id)[1]
 
             if edge_pool.get('member'):
@@ -152,7 +152,7 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
         edge_id = lb_binding['edge_id']
         edge_pool_id = pool_binding['edge_pool_id']
 
-        with locking.LockManager.get_lock(edge_id, external=True):
+        with locking.LockManager.get_lock(edge_id):
             edge_pool = self.vcns.get_pool(edge_id, edge_pool_id)[1]
 
             for i, m in enumerate(edge_pool['member']):

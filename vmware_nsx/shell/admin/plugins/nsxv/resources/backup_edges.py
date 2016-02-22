@@ -92,7 +92,7 @@ def nsx_clean_backup_edge(resource, event, trigger, **kwargs):
             LOG.info(_LI("Backup edge deletion aborted by user"))
             return
         try:
-            with locking.LockManager.get_lock(edge_id, external=True):
+            with locking.LockManager.get_lock(edge_id):
                 # Delete from NSXv backend
                 nsxv.delete_edge(edge_id)
                 # Remove bindings from Neutron DB
@@ -157,7 +157,7 @@ def nsx_fix_name_mismatch(resource, event, trigger, **kwargs):
                 return
 
             try:
-                with locking.LockManager.get_lock(edge_id, external=True):
+                with locking.LockManager.get_lock(edge_id):
                     # Update edge at NSXv backend
                     if rtr_binding['router_id'].startswith('dhcp-'):
                         # Edge is a DHCP edge - just use router_id as name

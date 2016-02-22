@@ -74,7 +74,7 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
         else:
             edge_monitor = self._convert_lbaas_monitor(hm)
             try:
-                with locking.LockManager.get_lock(edge_id, external=True):
+                with locking.LockManager.get_lock(edge_id):
                     h = self.vcns.create_health_monitor(edge_id,
                                                         edge_monitor)[0]
                     edge_mon_id = lb_common.extract_resource_id(h['location'])
@@ -92,7 +92,7 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
 
         try:
             # Associate monitor with Edge pool
-            with locking.LockManager.get_lock(edge_id, external=True):
+            with locking.LockManager.get_lock(edge_id):
                 edge_pool = self.vcns.get_pool(edge_id, edge_pool_id)[1]
                 if edge_pool.get('monitorId'):
                     edge_pool['monitorId'].append(edge_mon_id)
@@ -126,7 +126,7 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
         edge_monitor = self._convert_lbaas_monitor(new_hm)
 
         try:
-            with locking.LockManager.get_lock(edge_id, external=True):
+            with locking.LockManager.get_lock(edge_id):
                 self.vcns.update_health_monitor(edge_id,
                                                 hm_binding['edge_mon_id'],
                                                 edge_monitor)
@@ -159,7 +159,7 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
         edge_pool['monitorId'].remove(hm_binding['edge_mon_id'])
 
         try:
-            with locking.LockManager.get_lock(edge_id, external=True):
+            with locking.LockManager.get_lock(edge_id):
                 self.vcns.update_pool(edge_id, edge_pool_id, edge_pool)
         except nsxv_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
@@ -171,7 +171,7 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
         # If this monitor is not used on this edge anymore, delete it
         if not edge_pool['monitorId']:
             try:
-                with locking.LockManager.get_lock(edge_id, external=True):
+                with locking.LockManager.get_lock(edge_id):
                     self.vcns.delete_health_monitor(hm_binding['edge_id'],
                                                     hm_binding['edge_mon_id'])
             except nsxv_exc.VcnsApiException:

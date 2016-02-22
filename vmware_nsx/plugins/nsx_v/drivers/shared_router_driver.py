@@ -35,8 +35,6 @@ from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 
 LOG = logging.getLogger(__name__)
 
-NSXV_ROUTER_RECONFIG = "nsxv_router_reconfig"
-
 
 class RouterSharedDriver(router_driver.RouterBaseDriver):
 
@@ -55,8 +53,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             return super(nsx_v.NsxVPluginV2, self.plugin).update_router(
                 context, router_id, router)
         else:
-            with locking.LockManager.get_lock(
-                    str(edge_id), lock_file_prefix=NSXV_ROUTER_RECONFIG):
+            with locking.LockManager.get_lock(str(edge_id)):
                 gw_info = self.plugin._extract_external_gw(
                     context, router, is_extract=True)
                 super(nsx_v.NsxVPluginV2, self.plugin).update_router(
@@ -94,9 +91,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             context, router_id, router_db.admin_state_up)
         edge_id = edge_utils.get_router_edge_id(context, router_id)
         LOG.debug("Shared router %s attached to edge %s", router_id, edge_id)
-        with locking.LockManager.get_lock(
-                        str(edge_id),
-                        lock_file_prefix=NSXV_ROUTER_RECONFIG):
+        with locking.LockManager.get_lock(str(edge_id)):
             self._add_router_services_on_available_edge(context, router_id)
 
     def delete_router(self, context, router_id):
@@ -292,9 +287,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                     context, router_id, router_db.admin_state_up)
                 new_edge_id = edge_utils.get_router_edge_id(context,
                                                             router_id)
-                with locking.LockManager.get_lock(
-                        str(new_edge_id),
-                        lock_file_prefix=NSXV_ROUTER_RECONFIG):
+                with locking.LockManager.get_lock(str(new_edge_id)):
                     self._add_router_services_on_available_edge(context,
                                                                 router_id)
             else:
@@ -523,7 +516,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         return optional_router_ids, conflict_router_ids
 
     def _bind_router_on_available_edge(self, context, router_id, admin_state):
-        with locking.LockManager.get_lock("router", lock_file_prefix="bind-"):
+        with locking.LockManager.get_lock('nsx-shared-router-pool'):
             conflict_network_ids, conflict_router_ids, intf_num = (
                 self._get_conflict_network_and_router_ids_by_intf(context,
                                                                   router_id))
@@ -543,9 +536,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             if metadata_proxy_handler and new:
                 metadata_proxy_handler.configure_router_edge(router_id)
             edge_id = edge_utils.get_router_edge_id(context, router_id)
-            with locking.LockManager.get_lock(
-                    str(edge_id),
-                    lock_file_prefix=NSXV_ROUTER_RECONFIG):
+            with locking.LockManager.get_lock(str(edge_id)):
                 # add all internal interfaces of the router on edge
                 intf_net_ids = (
                     self.plugin._get_internal_network_ids_by_router(context,
@@ -604,9 +595,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         # UPDATE gw info only if the router has been attached to an edge
         else:
             is_migrated = False
-            with locking.LockManager.get_lock(
-                    str(edge_id),
-                    lock_file_prefix=NSXV_ROUTER_RECONFIG):
+            with locking.LockManager.get_lock(str(edge_id)):
                 router_ids = self.edge_manager.get_routers_on_same_edge(
                     context, router_id)
                 org_ext_net_id = (router.gw_port_id and
@@ -683,15 +672,12 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                 self._bind_router_on_available_edge(
                     context, router_id, router.admin_state_up)
                 edge_id = edge_utils.get_router_edge_id(context, router_id)
-                with locking.LockManager.get_lock(
-                        str(edge_id),
-                        lock_file_prefix=NSXV_ROUTER_RECONFIG):
+                with locking.LockManager.get_lock(str(edge_id)):
                     self._add_router_services_on_available_edge(context,
                                                                 router_id)
 
     def _base_add_router_interface(self, context, router_id, interface_info):
-        with locking.LockManager.get_lock("router", lock_file_prefix="bind-",
-                                          external=True):
+        with locking.LockManager.get_lock('nsx-shared-router-pool'):
             return super(nsx_v.NsxVPluginV2, self.plugin).add_router_interface(
                 context, router_id, interface_info)
 
@@ -701,13 +687,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         router_db = self.plugin._get_router(context, router_id)
         if edge_id:
             is_migrated = False
-            with locking.LockManager.get_lock("router",
-                                              lock_file_prefix="bind-",
-                                              external=True):
-                with locking.LockManager.get_lock(
-                        str(edge_id),
-                        lock_file_prefix=NSXV_ROUTER_RECONFIG,
-                        external=True):
+            with locking.LockManager.get_lock('nsx-shared-router-pool'):
+                with locking.LockManager.get_lock(str(edge_id)):
                     router_ids = self.edge_manager.get_routers_on_same_edge(
                         context, router_id)
                     info = super(nsx_v.NsxVPluginV2,
@@ -769,9 +750,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                 self._bind_router_on_available_edge(
                     context, router_id, router_db.admin_state_up)
                 edge_id = edge_utils.get_router_edge_id(context, router_id)
-                with locking.LockManager.get_lock(
-                        str(edge_id),
-                        lock_file_prefix=NSXV_ROUTER_RECONFIG):
+                with locking.LockManager.get_lock(str(edge_id)):
                     self._add_router_services_on_available_edge(context,
                                                                 router_id)
         else:
@@ -781,18 +760,14 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             self._bind_router_on_available_edge(
                 context, router_id, router_db.admin_state_up)
             edge_id = edge_utils.get_router_edge_id(context, router_id)
-            with locking.LockManager.get_lock(
-                    str(edge_id),
-                    lock_file_prefix=NSXV_ROUTER_RECONFIG):
+            with locking.LockManager.get_lock(str(edge_id)):
                 self._add_router_services_on_available_edge(context,
                                                             router_id)
         return info
 
     def remove_router_interface(self, context, router_id, interface_info):
         edge_id = edge_utils.get_router_edge_id(context, router_id)
-        with locking.LockManager.get_lock(
-                str(edge_id),
-                lock_file_prefix=NSXV_ROUTER_RECONFIG):
+        with locking.LockManager.get_lock(str(edge_id)):
             info = super(
                 nsx_v.NsxVPluginV2, self.plugin).remove_router_interface(
                     context, router_id, interface_info)
@@ -822,9 +797,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
 
     def _update_edge_router(self, context, router_id):
         edge_id = edge_utils.get_router_edge_id(context, router_id)
-        with locking.LockManager.get_lock(
-                str(edge_id),
-                lock_file_prefix=NSXV_ROUTER_RECONFIG):
+        with locking.LockManager.get_lock(str(edge_id)):
             router_ids = self.edge_manager.get_routers_on_same_edge(
                 context, router_id)
             if router_ids:
