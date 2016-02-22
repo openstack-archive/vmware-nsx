@@ -174,6 +174,7 @@ class Vcns(object):
         return self.do_request(HTTP_PUT, uri, interface,
                                format='xml', decode=True)
 
+    @retry_upon_exception(exceptions.RequestBad)
     def delete_vdr_internal_interface(self, edge_id, interface_index):
         uri = "%s/%s/interfaces/%d" % (URI_PREFIX, edge_id, interface_index)
         return self.do_request(HTTP_DELETE, uri, decode=True)
