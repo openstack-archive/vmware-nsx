@@ -112,7 +112,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                                    "extraroute",
                                    "router",
                                    "availability_zone",
-                                   "network_availability_zone"]
+                                   "network_availability_zone",
+                                   "subnet_allocation"]
 
     def __init__(self):
         super(NsxV3Plugin, self).__init__()

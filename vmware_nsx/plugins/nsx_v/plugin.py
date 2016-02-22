@@ -120,7 +120,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                    "nsxv-router-type",
                                    "nsxv-router-size",
                                    "vnic-index",
-                                   "advanced-service-providers"]
+                                   "advanced-service-providers",
+                                   "subnet_allocation"]
 
     __native_bulk_support = True
     __native_pagination_support = True
