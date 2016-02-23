@@ -1459,6 +1459,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             else:
                 raise l3.RouterInterfaceNotFoundForSubnet(router_id=router_id,
                                                           subnet_id=subnet_id)
+        info = super(NsxV3Plugin, self).remove_router_interface(
+            context, router_id, interface_info)
         try:
             # TODO(berlin): Revocate announce the subnet on tier0 if
             # enable_snat is False
@@ -1490,8 +1492,12 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                           "%(net_id)s not found at the backend"),
                       {'router_id': router_id,
                        'net_id': subnet['network_id']})
-        info = super(NsxV3Plugin, self).remove_router_interface(
-            context, router_id, interface_info)
+        except nsx_exc.ManagerError:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE("Failed to update router %(id)s at the "
+                                  "backend. The error would lead to mapping "
+                                  "inconsistency on this router!"),
+                              {'id': router_id})
         # Ensure the connection to the 'metadata access network' is removed
         # (with the network) if this the last subnet on the router.
         nsx_rpc.handle_router_metadata_access(self, context, router_id)
