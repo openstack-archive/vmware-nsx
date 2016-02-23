@@ -273,6 +273,12 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         return self.conn.consume_in_threads()
 
     def _validate_provider_create(self, context, network_data):
+        is_provider_net = any(
+            attributes.is_attr_set(network_data.get(f))
+            for f in (pnet.NETWORK_TYPE,
+                      pnet.PHYSICAL_NETWORK,
+                      pnet.SEGMENTATION_ID))
+
         physical_net = network_data.get(pnet.PHYSICAL_NETWORK)
         if not attributes.is_attr_set(physical_net):
             physical_net = None
@@ -329,6 +335,12 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                              'supported') %
                            {'net_type_param': pnet.NETWORK_TYPE,
                             'net_type_value': net_type})
+        elif is_provider_net:
+            # FIXME: Ideally provider-network attributes should be checked
+            # at the NSX backend. For now, the network_type is required,
+            # so the plugin can do a quick check locally.
+            err_msg = (_('%s is required for creating a provider network') %
+                       pnet.NETWORK_TYPE)
         else:
             net_type = None
 
@@ -339,7 +351,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             # Default to transport type overlay
             physical_net = cfg.CONF.nsx_v3.default_overlay_tz_uuid
 
-        return net_type, physical_net, vlan_id
+        return is_provider_net, net_type, physical_net, vlan_id
 
     def _get_edge_cluster_and_members(self, tier0_uuid):
         self._routerlib.validate_tier0(self.tier0_groups_dict, tier0_uuid)
@@ -358,13 +370,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         return (is_provider_net, utils.NetworkTypes.L3_EXT, tier0_uuid, 0)
 
     def _create_network_at_the_backend(self, context, net_data):
-        is_provider_net = any(
-            attributes.is_attr_set(net_data.get(f))
-            for f in (pnet.NETWORK_TYPE,
-                      pnet.PHYSICAL_NETWORK,
-                      pnet.SEGMENTATION_ID))
-        net_type, physical_net, vlan_id = self._validate_provider_create(
-            context, net_data)
+        is_provider_net, net_type, physical_net, vlan_id = (
+            self._validate_provider_create(context, net_data))
         net_name = net_data['name']
         tags = utils.build_v3_tags_payload(
             net_data, resource_type='os-neutron-net-id',

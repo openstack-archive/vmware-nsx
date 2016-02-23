@@ -147,9 +147,8 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
         if external_net.EXTERNAL in kwargs:
             arg_list = (external_net.EXTERNAL, ) + (arg_list or ())
 
-        attrs = kwargs
         if providernet_args:
-            attrs.update(providernet_args)
+            kwargs.update(providernet_args)
         for arg in (('admin_state_up', 'tenant_id', 'shared',
                      'availability_zone_hints') + (arg_list or ())):
             # Arg must be present
@@ -172,7 +171,7 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
 class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
 
     @mock.patch.object(nsx_plugin.NsxV3Plugin, 'validate_availability_zones')
-    def test_create_network_with_zone(self, mock_validate_az):
+    def test_create_network_with_availability_zone(self, mock_validate_az):
         name = 'net-with-zone'
         zone = ['zone1']
 
