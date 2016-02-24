@@ -14,6 +14,7 @@
 # limitations under the License.
 import mock
 import six
+from webob import exc
 
 from neutron.api.v2 import attributes
 from neutron.common import constants
@@ -377,6 +378,39 @@ class TestL3NatTestCase(L3NatTest,
                                   {'subnet_id': s2['subnet']['id']})
                 self._router_interface_action('remove', r1['router']['id'],
                                               s1['subnet']['id'], None)
+
+    def test_router_remove_interface_inuse_return_409(self):
+        with self.router() as r1,\
+                self.subnet() as ext_subnet,\
+                self.subnet(cidr='11.0.0.0/24') as s1:
+            self._set_net_external(ext_subnet['subnet']['network_id'])
+            self._router_interface_action(
+                'add', r1['router']['id'],
+                s1['subnet']['id'], None)
+            self._add_external_gateway_to_router(
+                r1['router']['id'],
+                ext_subnet['subnet']['network_id'])
+            with self.port(subnet=s1,) as p:
+                fip_res = self._create_floatingip(
+                    self.fmt,
+                    ext_subnet['subnet']['network_id'],
+                    subnet_id=ext_subnet['subnet']['id'],
+                    port_id=p['port']['id'])
+                fip = self.deserialize(self.fmt, fip_res)
+                self._router_interface_action(
+                    'remove',
+                    r1['router']['id'],
+                    s1['subnet']['id'],
+                    None,
+                    expected_code=exc.HTTPConflict.code)
+                self._delete('floatingips', fip['floatingip']['id'])
+            self._remove_external_gateway_from_router(
+                r1['router']['id'],
+                ext_subnet['subnet']['network_id'])
+            self._router_interface_action('remove',
+                                          r1['router']['id'],
+                                          s1['subnet']['id'],
+                                          None)
 
     def test_router_update_on_external_port(self):
         with self.router() as r:
