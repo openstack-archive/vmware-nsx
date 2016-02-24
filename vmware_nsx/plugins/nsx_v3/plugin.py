@@ -1436,12 +1436,16 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             port = self._get_port(context, port_id)
             if port.get('fixed_ips'):
                 subnet_id = port['fixed_ips'][0]['subnet_id']
+                self._confirm_router_interface_not_in_use(
+                    context, router_id, subnet_id)
             if not (port['device_owner'] in const.ROUTER_INTERFACE_OWNERS
                     and port['device_id'] == router_id):
                 raise l3.RouterInterfaceNotFound(router_id=router_id,
                                                  port_id=port_id)
         elif 'subnet_id' in interface_info:
             subnet_id = interface_info['subnet_id']
+            self._confirm_router_interface_not_in_use(
+                context, router_id, subnet_id)
             subnet = self._get_subnet(context, subnet_id)
             rport_qry = context.session.query(models_v2.Port)
             ports = rport_qry.filter_by(
