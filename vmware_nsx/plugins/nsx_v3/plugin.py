@@ -1008,37 +1008,41 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             switch_profile_ids = [self._no_psec_profile_id]
             address_bindings = []
 
-        try:
-            self._update_port_on_backend(context, nsx_lport_id,
-                                         original_port, updated_port,
-                                         address_bindings,
-                                         switch_profile_ids)
-        except (nsx_exc.ManagerError,
-                nsx_exc.SecurityGroupMaximumCapacityReached):
-            # In case if there is a failure on NSX-v3 backend, rollback the
-            # previous update operation on neutron side.
-            LOG.exception(_LE("Unable to update NSX backend, rolling back "
-                              "changes on neutron"))
-            with excutils.save_and_reraise_exception():
-                with context.session.begin(subtransactions=True):
-                    super(NsxV3Plugin, self).update_port(
-                        context, id, {'port': original_port})
+        # update the port in the backend, only if it exists in the DB
+        # (i.e not external net)
+        if nsx_lport_id is not None:
+            try:
+                self._update_port_on_backend(context, nsx_lport_id,
+                                             original_port, updated_port,
+                                             address_bindings,
+                                             switch_profile_ids)
+            except (nsx_exc.ManagerError,
+                    nsx_exc.SecurityGroupMaximumCapacityReached):
+                # In case if there is a failure on NSX-v3 backend, rollback the
+                # previous update operation on neutron side.
+                LOG.exception(_LE("Unable to update NSX backend, rolling back "
+                                  "changes on neutron"))
+                with excutils.save_and_reraise_exception():
+                    with context.session.begin(subtransactions=True):
+                        super(NsxV3Plugin, self).update_port(
+                            context, id, {'port': original_port})
 
-                    # revert allowed address pairs
-                    if port_security:
-                        orig_pair = original_port.get(addr_pair.ADDRESS_PAIRS)
-                        updated_pair = updated_port.get(
-                            addr_pair.ADDRESS_PAIRS)
-                        if orig_pair != updated_pair:
-                            self._delete_allowed_address_pairs(context, id)
-                        if orig_pair:
-                            self._process_create_allowed_address_pairs(
-                                context, original_port, orig_pair)
+                        # revert allowed address pairs
+                        if port_security:
+                            orig_pair = original_port.get(
+                                addr_pair.ADDRESS_PAIRS)
+                            updated_pair = updated_port.get(
+                                addr_pair.ADDRESS_PAIRS)
+                            if orig_pair != updated_pair:
+                                self._delete_allowed_address_pairs(context, id)
+                            if orig_pair:
+                                self._process_create_allowed_address_pairs(
+                                    context, original_port, orig_pair)
 
-                    if sec_grp_updated:
-                        self.update_security_group_on_port(
-                            context, id, {'port': original_port}, updated_port,
-                            original_port)
+                        if sec_grp_updated:
+                            self.update_security_group_on_port(
+                                context, id, {'port': original_port},
+                                updated_port, original_port)
 
         return updated_port
 
