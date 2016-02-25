@@ -123,6 +123,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         self._nsx_client = nsx_client.NSX3Client(self._api_cluster)
         nsx_client._set_default_api_cluster(self._api_cluster)
 
+        self.cfg_group = 'nsx_v3'  # group name for nsx_v3 section in nsx.ini
         self.base_binding_dict = {
             pbin.VIF_TYPE: pbin.VIF_TYPE_OVS,
             pbin.VIF_DETAILS: {
@@ -562,6 +563,22 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
     def delete_subnet(self, context, subnet_id):
         # TODO(berlin): cancel public external subnet announcement
         return super(NsxV3Plugin, self).delete_subnet(context, subnet_id)
+
+    def update_subnet(self, context, subnet_id, subnet):
+        updated_subnet = super(NsxV3Plugin, self).update_subnet(
+            context, subnet_id, subnet)
+        if cfg.CONF.nsx_v3.metadata_on_demand:
+            # If enable_dhcp is changed on a subnet attached to a router,
+            # update internal metadata network accordingly.
+            if 'enable_dhcp' in subnet['subnet']:
+                port_filters = {'device_owner': const.ROUTER_INTERFACE_OWNERS,
+                                'fixed_ips': {'subnet_id': [subnet_id]}}
+                ports = self.get_ports(context, filters=port_filters)
+                for port in ports:
+                    nsx_rpc.handle_router_metadata_access(
+                        self, context, port['device_id'],
+                        interface=not updated_subnet['enable_dhcp'])
+        return updated_subnet
 
     def _build_address_bindings(self, port):
         address_bindings = []
@@ -1493,7 +1510,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         info = super(NsxV3Plugin, self).remove_router_interface(
             context, router_id, interface_info)
         # Ensure the connection to the 'metadata access network' is removed
-        # (with the network) if this the last subnet on the router.
+        # (with the network) if this is the last DHCP-disabled subnet on the
+        # router.
         nsx_rpc.handle_router_metadata_access(self, context, router_id)
         return info
 

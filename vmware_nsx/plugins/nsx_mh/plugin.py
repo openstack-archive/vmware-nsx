@@ -168,6 +168,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         neutron_extensions.append_api_extensions_path(
             [vmware_nsx.NSX_EXT_PATH])
+        self.cfg_group = 'NSX'  # group name for nsx section in nsx.ini
         self.nsx_opts = cfg.CONF.NSX
         self.nsx_sync_opts = cfg.CONF.NSX_SYNC
         self.cluster = nsx_utils.create_nsx_cluster(
@@ -1750,7 +1751,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # is removed  (with the network) if this the last subnet
             # on the router
             self.handle_router_metadata_access(
-                context, router_id, interface=info)
+                context, router_id, interface=None)
             if not subnet:
                 subnet = self._get_subnet(context, subnet_id)
             router = self._get_router(context, router_id)
