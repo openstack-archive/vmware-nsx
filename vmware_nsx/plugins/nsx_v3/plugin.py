@@ -977,12 +977,13 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             parent_tag=tag)
 
     def update_port(self, context, id, port):
-        original_port = super(NsxV3Plugin, self).get_port(context, id)
-        _, nsx_lport_id = nsx_db.get_nsx_switch_and_port_id(
-            context.session, id)
         switch_profile_ids = None
 
         with context.session.begin(subtransactions=True):
+            original_port = super(NsxV3Plugin, self).get_port(context, id)
+            _, nsx_lport_id = nsx_db.get_nsx_switch_and_port_id(
+                context.session, id)
+
             updated_port = super(NsxV3Plugin, self).update_port(context,
                                                                 id, port)
 
