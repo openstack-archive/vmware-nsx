@@ -13,15 +13,15 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-
+import shlex
 import six
+import subprocess
 import tempfile
 import time
 import urllib2
 
 from tempest_lib.common.utils import data_utils
 
-from tempest.common import commands
 from tempest import config
 from tempest import exceptions
 from tempest.scenario import manager
@@ -247,7 +247,7 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
             # server_name = server['name']
             username = CONF.validation.image_ssh_user
             ssh_client = self.get_remote_client(
-                server_or_ip=ip,
+                ip,
                 private_key=private_key)
 
             # Write a backend's response into a file
@@ -261,10 +261,10 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
                 with tempfile.NamedTemporaryFile() as key:
                     key.write(private_key)
                     key.flush()
-                    commands.copy_file_to_host(script.name,
-                                               "/tmp/script1",
-                                               ip,
-                                               username, key.name)
+                    copy_file_to_host(script.name,
+                                      "/tmp/script1",
+                                      ip,
+                                      username, key.name)
 
             # Start netcat
             start_server = ('while true; do '
@@ -283,9 +283,9 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
                     with tempfile.NamedTemporaryFile() as key:
                         key.write(private_key)
                         key.flush()
-                        commands.copy_file_to_host(script.name,
-                                                   "/tmp/script2", ip,
-                                                   username, key.name)
+                        copy_file_to_host(script.name,
+                                          "/tmp/script2", ip,
+                                          username, key.name)
                 cmd = start_server % {'port': self.port2,
                                       'script': 'script2'}
                 # https://review.openstack.org/#/c/262571/
@@ -423,3 +423,23 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
         self._start_servers()
         self._create_load_balancer()
         self._check_load_balancing()
+
+
+def copy_file_to_host(file_from, dest, host, username, pkey):
+    dest = "%s@%s:%s" % (username, host, dest)
+    cmd = "scp -v -o UserKnownHostsFile=/dev/null " \
+          "-o StrictHostKeyChecking=no " \
+          "-i %(pkey)s %(file1)s %(dest)s" % {'pkey': pkey,
+                                              'file1': file_from,
+                                              'dest': dest}
+    args = shlex.split(cmd.encode('utf-8'))
+    subprocess_args = {'stdout': subprocess.PIPE,
+                       'stderr': subprocess.STDOUT}
+    proc = subprocess.Popen(args, **subprocess_args)
+    stdout, stderr = proc.communicate()
+    if proc.returncode != 0:
+        raise exceptions.CommandFailed(cmd,
+                                       proc.returncode,
+                                       stdout,
+                                       stderr)
+    return stdout
