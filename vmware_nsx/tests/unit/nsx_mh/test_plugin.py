@@ -889,6 +889,12 @@ class TestL3NatTestCase(L3NatTest,
     def test_floatingip_disassociate_notification(self):
         self.skipTest('not supported')
 
+    def test_metadata_network_with_update_subnet_dhcp_enable(self):
+        self.skipTest('not supported')
+
+    def test_metadata_network_with_update_subnet_dhcp_disable(self):
+        self.skipTest('not supported')
+
 
 class ExtGwModeTestCase(NsxPluginV2TestCase,
                         test_ext_gw_mode.ExtGwModeIntTestCase):

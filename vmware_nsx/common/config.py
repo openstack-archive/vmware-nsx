@@ -243,6 +243,20 @@ nsx_v3_opts = [
     cfg.IntOpt('number_of_nested_groups',
                default=8,
                help=_("The number of nested NSGroups to use.")),
+    cfg.StrOpt('metadata_mode',
+               default=MetadataModes.DIRECT,
+               help=_("If set to access_network this enables a dedicated "
+                      "connection to the metadata proxy for metadata server "
+                      "access via Neutron router. If set to dhcp_host_route "
+                      "this enables host route injection via the dhcp agent. "
+                      "This option is only useful if running on a host that "
+                      "does not support namespaces otherwise access_network "
+                      "should be used.")),
+    cfg.BoolOpt('metadata_on_demand',
+                default=True,
+                help=_("If true, an internal metadata network will be created "
+                       "for a router only when the router is attached to a "
+                       "DHCP-disabled subnet.")),
 ]
 
 DEFAULT_STATUS_CHECK_INTERVAL = 2000
