@@ -449,6 +449,9 @@ class TestSecurityGroup(ext_sg.TestSecurityGroups, SecurityGroupsTestCase):
                              'tenant_id': 'bar',
                              'port_security_enabled': True}})
 
+    def test_create_security_group_rule_icmpv6_legacy_protocol_name(self):
+        self.skipTest('not supported')
+
 
 class TestL3ExtensionManager(object):
 

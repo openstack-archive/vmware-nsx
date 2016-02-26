@@ -154,6 +154,9 @@ class TestSecurityGroups(test_nsxv3.NsxV3PluginTestCaseMixin,
                  mock.call(NSG_IDS[2], firewall.LOGICAL_PORT, mock.ANY)]
         remove_member_mock.assert_has_calls(calls, any_order=True)
 
+    def test_create_security_group_rule_icmpv6_legacy_protocol_name(self):
+        self.skipTest('not supported')
+
 
 class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
     """
