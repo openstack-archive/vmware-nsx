@@ -115,7 +115,7 @@ class TestAllowedAddressPairsNSXv(test_nsx_v_plugin.NsxVPluginV2TestCase,
                              address_pairs)
             self._delete('ports', port['port']['id'])
 
-    def test_create_port_remove_allowed_address_pairs(self):
+    def _test_create_port_remove_allowed_address_pairs(self, update_value):
         with self.network() as net:
             address_pairs = [{'ip_address': '10.0.0.1'}]
             res = self._create_port(self.fmt, net['network']['id'],
