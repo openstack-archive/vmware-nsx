@@ -18,12 +18,12 @@ import contextlib
 import time
 
 import mock
+from neutron_lib import constants
 from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
 
 from neutron.api.v2 import attributes as attr
-from neutron.common import constants
 from neutron.common import exceptions as n_exc
 from neutron import context
 from neutron.extensions import l3

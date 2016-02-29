@@ -14,9 +14,9 @@
 # limitations under the License.
 #
 
-from neutron.common import constants
 from neutron.common import exceptions
 from neutron.tests.unit.api.v2 import test_base
+from neutron_lib import constants
 
 from vmware_nsx.nsxlib import mh as nsxlib
 from vmware_nsx.nsxlib.mh import secgroup as secgrouplib

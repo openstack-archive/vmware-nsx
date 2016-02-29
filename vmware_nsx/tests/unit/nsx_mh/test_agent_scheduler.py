@@ -14,9 +14,9 @@
 #    under the License.
 
 import mock
+from neutron_lib import constants
 from oslo_config import cfg
 
-from neutron.common import constants
 from neutron.tests.unit.db import test_agentschedulers_db  # noqa
 
 from vmware_nsx.common import sync

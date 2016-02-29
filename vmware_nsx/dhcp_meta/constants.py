@@ -14,8 +14,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 #
-from neutron.common import constants as const
 from neutron.db import l3_db
+from neutron_lib import constants as const
 
 # A unique MAC to quickly identify the LSN port used for metadata services
 # when dhcp on the subnet is off. Inspired by leet-speak for 'metadata'.

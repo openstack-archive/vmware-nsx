@@ -18,7 +18,6 @@ from eventlet import greenthread
 import mock
 import netaddr
 from neutron.api.v2 import attributes
-from neutron.common import constants
 from neutron.common import exceptions as n_exc
 from neutron import context
 from neutron.extensions import dvr as dist_router
@@ -30,7 +29,6 @@ from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as secgrp
 from neutron import manager
-
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.db.test_allowedaddresspairs_db as test_addr_pair
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
@@ -39,6 +37,7 @@ import neutron.tests.unit.extensions.test_l3_ext_gw_mode as test_ext_gw_mode
 import neutron.tests.unit.extensions.test_portsecurity as test_psec
 import neutron.tests.unit.extensions.test_securitygroup as ext_sg
 from neutron.tests.unit import testlib_api
+from neutron_lib import constants
 from oslo_config import cfg
 from oslo_db import exception as db_exc
 from oslo_utils import uuidutils

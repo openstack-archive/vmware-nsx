@@ -13,11 +13,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron_lib import constants
 from oslo_log import log
 from oslo_serialization import jsonutils
 from oslo_utils import excutils
 
-from neutron.common import constants
 from neutron.common import exceptions
 
 from vmware_nsx._i18n import _LW

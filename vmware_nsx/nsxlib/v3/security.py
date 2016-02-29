@@ -20,7 +20,7 @@ NSX-V3 Plugin security integration module
 
 import uuid
 
-from neutron.common import constants
+from neutron_lib import constants
 from oslo_config import cfg
 from oslo_log import log
 
