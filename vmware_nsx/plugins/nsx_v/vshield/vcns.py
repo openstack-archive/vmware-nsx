@@ -23,6 +23,7 @@ import retrying
 import six
 import xml.etree.ElementTree as et
 
+from vmware_nsx._i18n import _LE
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
 from vmware_nsx.plugins.nsx_v.vshield.common import VcnsApiClient
@@ -793,15 +794,21 @@ class Vcns(object):
             return False
         return True
 
-    def get_version(self):
-        uri = '/api/1.0/appliance-management/summary/system'
+    def _get_version(self):
+        uri = '/api/2.0/services/vsmconfig'
         h, c = self.do_request(HTTP_GET, uri, decode=True)
-        version = '%s.%s.%s' % (c['versionInfo']['majorVersion'],
-                                c['versionInfo']['minorVersion'],
-                                c['versionInfo']['patchVersion'])
-        LOG.debug("NSX Version: %s, Build: %s",
-                  version, c['versionInfo']['buildNumber'])
+        version = c['version']
+        LOG.debug("NSX Version: %s", version)
         return version
+
+    def get_version(self):
+        try:
+            return self._get_version()
+        except Exception as e:
+            # Versions prior to 6.2.0 do not support the above API
+            LOG.error(_LE("Unable to get NSX version. Exception: %s"), e)
+            # Minimum supported version is 6.1
+            return '6.1'
 
     def get_tuning_configration(self):
         uri = '/api/4.0/edgePublish/tuningConfiguration'

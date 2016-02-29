@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from distutils import version
 import eventlet
 import netaddr
 import random
@@ -115,9 +116,8 @@ class EdgeManager(object):
         self._check_backup_edge_pools()
 
     def _get_per_edge_rp_filter_state(self):
-        version = self.nsxv_manager.vcns.get_version()
-        # TODO(kobis): should have better mapping of versions here for this
-        if version[:3] == '6.1':
+        ver = self.nsxv_manager.vcns.get_version()
+        if version.LooseVersion(ver) < version.LooseVersion('6.2.0'):
             return False
         return True
 
