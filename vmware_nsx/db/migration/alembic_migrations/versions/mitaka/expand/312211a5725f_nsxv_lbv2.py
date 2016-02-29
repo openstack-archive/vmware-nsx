@@ -62,7 +62,7 @@ def upgrade():
                                 'hm_id', 'edge_id'))
     op.create_table(
         'nsxv_lbaas_certificate_bindings',
-        sa.Column('cert_id', sa.String(length=36), nullable=False),
+        sa.Column('cert_id', sa.String(length=128), nullable=False),
         sa.Column('edge_id', sa.String(length=36), nullable=False),
         sa.Column('edge_cert_id', sa.String(length=36), nullable=False),
         sa.PrimaryKeyConstraint('cert_id', 'edge_id'))

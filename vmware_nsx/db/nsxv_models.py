@@ -307,7 +307,7 @@ class NsxvLbaasCertificateBinding(model_base.BASEV2):
 
     __tablename__ = 'nsxv_lbaas_certificate_bindings'
 
-    cert_id = sa.Column(sa.String(36), primary_key=True)
+    cert_id = sa.Column(sa.String(128), primary_key=True)
     edge_id = sa.Column(sa.String(36), primary_key=True)
     edge_cert_id = sa.Column(sa.String(36), nullable=False)
 
