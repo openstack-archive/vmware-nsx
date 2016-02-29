@@ -40,7 +40,7 @@ EDGE_APP_PROF_DEF = {'sslPassthrough': False, 'insertXForwardedFor': False,
                      'serverSslEnabled': False, 'name': LISTENER_ID,
                      'template': 'HTTP'}
 EDGE_VIP_ID = 'vip-aaa'
-EDGE_VIP_DEF = {'protocol': 'HTTP', 'name': 'vip_' + LISTENER_ID,
+EDGE_VIP_DEF = {'protocol': 'http', 'name': 'vip_' + LISTENER_ID,
                 'connectionLimit': 0, 'defaultPoolId': None,
                 'ipAddress': LB_VIP, 'port': 80,
                 'applicationProfileId': EDGE_APP_PROFILE_ID, 'description': ''}

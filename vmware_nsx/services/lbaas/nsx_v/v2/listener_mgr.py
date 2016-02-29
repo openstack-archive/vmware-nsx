@@ -38,7 +38,8 @@ def listener_to_edge_app_profile(listener, edge_cert_id):
         'template': listener.protocol,
     }
 
-    if listener.protocol == 'HTTPS':
+    if (listener.protocol == lb_const.LB_PROTOCOL_HTTPS
+        or listener.protocol == lb_const.LB_PROTOCOL_TERMINATED_HTTPS):
         if edge_cert_id:
             edge_app_profile['clientSsl'] = {
                 'caCertificate': [],
@@ -75,7 +76,7 @@ def listener_to_edge_vse(listener, vip_address, default_pool, app_profile_id):
         'name': 'vip_' + listener.id,
         'description': listener.description,
         'ipAddress': vip_address,
-        'protocol': listener.protocol,
+        'protocol': lb_const.PROTOCOL_MAP[listener.protocol],
         'port': listener.protocol_port,
         'connectionLimit': max(0, listener.connection_limit),
         'defaultPoolId': default_pool,
