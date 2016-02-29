@@ -78,8 +78,6 @@ from vmware_nsx.plugins.nsx_v import managers
 from vmware_nsx.plugins.nsx_v import md_proxy as nsx_v_md_proxy
 from vmware_nsx.plugins.nsx_v.vshield.common import (
     constants as vcns_const)
-from vmware_nsx.plugins.nsx_v.vshield.common import (
-    exceptions as vsh_exc)
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 from vmware_nsx.plugins.nsx_v.vshield import securitygroup_utils
 from vmware_nsx.plugins.nsx_v.vshield import vcns_driver
@@ -169,20 +167,16 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _create_security_group_container(self):
         name = "OpenStack Security Group container"
-        container_id = self.nsx_v.vcns.get_security_group_id(name)
-        if not container_id:
-            description = ("OpenStack Security Group Container, "
-                           "managed by Neutron nsx-v plugin.")
-            container = {"securitygroup": {"name": name,
-                                           "description": description}}
-            try:
+        with locking.LockManager.get_lock('security-group-container-init'):
+            container_id = self.nsx_v.vcns.get_security_group_id(name)
+            if not container_id:
+                description = ("OpenStack Security Group Container, "
+                               "managed by Neutron nsx-v plugin.")
+                container = {"securitygroup": {"name": name,
+                                               "description": description}}
                 h, container_id = (
                     self.nsx_v.vcns.create_security_group(container))
-            except vsh_exc.RequestBad as e:
-                container_id = self.nsx_v.vcns.get_security_group_id(name)
-                LOG.debug("Security group container already exists (%s): %s",
-                          container_id, e.response)
-        return container_id
+            return container_id
 
     def _find_router_driver(self, context, router_id):
         router_qry = context.session.query(l3_db.Router)
@@ -222,7 +216,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _create_cluster_default_fw_section(self):
         section_name = 'OS Cluster Security Group section'
-        section_id = self.nsx_v.vcns.get_section_id(section_name)
 
         # Default cluster rules
         rules = [{'name': 'Default DHCP rule for OS Security Groups',
@@ -253,11 +246,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             [self.sg_container_id], 'Block All', 'deny')
         rule_list.append(block_rule)
 
-        section = (
-            self.nsx_sg_utils.get_section_with_rules(
-                section_name, rule_list, section_id))
-        section_req_body = self.nsx_sg_utils.to_xml_string(section)
-        try:
+        with locking.LockManager.get_lock('default-section-init'):
+            section_id = self.nsx_v.vcns.get_section_id(section_name)
+            section = (
+                self.nsx_sg_utils.get_section_with_rules(
+                    section_name, rule_list, section_id))
+            section_req_body = self.nsx_sg_utils.to_xml_string(section)
             if section_id:
                 self.nsx_v.vcns.update_section_by_id(
                     section_id, 'ip', section_req_body)
@@ -265,11 +259,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 h, c = self.nsx_v.vcns.create_section(
                     'ip', section_req_body)
                 section_id = self.nsx_sg_utils.parse_and_get_section_id(c)
-        except vsh_exc.RequestBad as e:
-            # Section already created, probably by other Neutron service.
-            LOG.debug("Could not create NSX fw section for clusters "
-                      "%s: %s", cfg.CONF.nsxv.cluster_moid, e.response)
-
         return section_id
 
     def _create_dhcp_static_binding(self, context, neutron_port_db):
