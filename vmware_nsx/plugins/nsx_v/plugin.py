@@ -1196,6 +1196,24 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         return False
 
+    def _get_dhcp_ip_addr_from_subnet(self, context, subnet_id):
+        dhcp_port_filters = {'fixed_ips': {'subnet_id': [subnet_id]},
+                             'device_owner': [constants.DEVICE_OWNER_DHCP]}
+        dhcp_ports = self.get_ports(context, filters=dhcp_port_filters)
+        if dhcp_ports and dhcp_ports[0].get('fixed_ips'):
+            return dhcp_ports[0]['fixed_ips'][0]['ip_address']
+
+    def is_dhcp_metadata(self, context, subnet_id):
+        try:
+            subnet = self.get_subnet(context, subnet_id)
+        except n_exc.SubnetNotFound:
+            LOG.debug("subnet %s not found to determine its dhcp meta",
+                      subnet_id)
+            return False
+        return bool(subnet['enable_dhcp'] and
+                    self.metadata_proxy_handler and
+                    cfg.CONF.nsxv.dhcp_force_metadata)
+
     def create_subnet(self, context, subnet):
         """Create subnet on nsx_v provider network.
 
@@ -1284,7 +1302,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         update_dns_search_domain = self._process_subnet_ext_attr_update(
             context.session, subnet, s)
         if (gateway_ip != subnet['gateway_ip'] or update_dns_search_domain or
-            set(orig['dns_nameservers']) != set(subnet['dns_nameservers'])):
+            set(orig['dns_nameservers']) != set(subnet['dns_nameservers']) or
+            enable_dhcp and not subnet['enable_dhcp']):
             # Need to ensure that all of the subnet attributes will be reloaded
             # when creating the edge bindings. Without adding this the original
             # subnet details are provided.

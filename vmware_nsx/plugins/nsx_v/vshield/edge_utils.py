@@ -17,6 +17,7 @@ from distutils import version
 import eventlet
 import netaddr
 import random
+import six
 from sqlalchemy import exc as db_base_exc
 import time
 
@@ -115,6 +116,19 @@ class EdgeManager(object):
         self.per_interface_rp_filter = self._get_per_edge_rp_filter_state()
         self.worker_pool = eventlet.GreenPool(WORKER_POOL_SIZE)
         self._check_backup_edge_pools()
+        self._validate_new_features()
+
+    def _validate_new_features(self):
+        self.is_dhcp_opt_enabled = False
+
+        ver = self.nsxv_manager.vcns.get_version()
+        if version.LooseVersion(ver) >= version.LooseVersion('6.2.3'):
+            self.is_dhcp_opt_enabled = True
+        elif cfg.CONF.nsxv.dhcp_force_metadata:
+            LOG.warning(_LW("Skipping dhcp_force_metadata param since dhcp "
+                            "option feature can only be supported at version "
+                            "6.2.3 or higher"))
+            self.is_dhcp_opt_enabled = False
 
     def _get_per_edge_rp_filter_state(self):
         ver = self.nsxv_manager.vcns.get_version()
@@ -726,9 +740,49 @@ class EdgeManager(object):
                 subnet_id)
             if sub_binding:
                 static_config['domainName'] = sub_binding.dns_search_domain
+            self.handle_meta_static_route(
+                context, subnet_id, [static_config])
 
             static_bindings.append(static_config)
         return static_bindings
+
+    def add_host_route_on_static_bindings(self, static_bindings,
+                                          dest_cidr, nexthop):
+        """Add one host route on a bulk of static bindings config.
+
+        We can add host route on VM via dhcp option121. this func can only
+        works at NSXv version 6.2.3 or higher.
+        """
+        for binding in static_bindings:
+            if 'dhcpOptions' not in six.iterkeys(binding):
+                binding['dhcpOptions'] = {}
+            if 'option121' not in six.iterkeys(binding['dhcpOptions']):
+                binding['dhcpOptions']['option121'] = {'staticRoutes': []}
+            binding_opt121 = binding['dhcpOptions']['option121']
+            if 'staticRoutes' not in six.iterkeys(binding_opt121):
+                binding_opt121['staticRoutes'] = []
+            binding_opt121['staticRoutes'].append({
+                'destinationSubnet': dest_cidr,
+                'router': nexthop})
+        return static_bindings
+
+    def handle_meta_static_route(self, context, subnet_id, static_bindings):
+        is_dhcp_option121 = (
+            self.is_dhcp_opt_enabled and
+            self.nsxv_plugin.is_dhcp_metadata(
+                context, subnet_id))
+        if is_dhcp_option121:
+            dhcp_ip = self.nsxv_plugin._get_dhcp_ip_addr_from_subnet(
+                context, subnet_id)
+            if dhcp_ip:
+                self.add_host_route_on_static_bindings(
+                    static_bindings,
+                    '169.254.169.254/32',
+                    dhcp_ip)
+            else:
+                LOG.error(_LE("Failed to find the dhcp port on subnet "
+                              "%s to do metadata host route insertion"),
+                          subnet_id)
 
     def update_dhcp_service_config(self, context, edge_id):
         """Reconfigure the DHCP to the edge."""
@@ -737,16 +791,23 @@ class EdgeManager(object):
             context.session, edge_id)
         dhcp_networks = [edge_vnic_binding.network_id
                          for edge_vnic_binding in edge_vnic_bindings]
-        ports = self.nsxv_plugin.get_ports(
-            context.elevated(), filters={'network_id': dhcp_networks})
-        inst_ports = [port
-                      for port in ports
-                      if port['device_owner'].startswith("compute")]
+
+        subnets = self.nsxv_plugin.get_subnets(
+            context.elevated(), filters={'network_id': dhcp_networks,
+                                         'enable_dhcp': [True]})
+
         static_bindings = []
-        for port in inst_ports:
-            static_bindings.extend(
-                self.create_static_binding(
-                    context.elevated(), port))
+        for subnet in subnets:
+            ports = self.nsxv_plugin.get_ports(
+                context.elevated(),
+                filters={'network_id': [subnet['network_id']],
+                         'fixed_ips': {'subnet_id': [subnet['id']]}})
+            inst_ports = [port for port in ports
+                          if port['device_owner'].startswith('compute')]
+            for port in inst_ports:
+                static_bindings.extend(
+                    self.create_static_binding(
+                        context.elevated(), port))
         dhcp_request = {
             'featureType': "dhcp_4.0",
             'enabled': True,

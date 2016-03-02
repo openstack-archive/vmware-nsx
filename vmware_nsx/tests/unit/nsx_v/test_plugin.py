@@ -1912,6 +1912,29 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
                                               None,
                                               expected_code=error_code)
 
+    def test_subnet_dhcp_metadata_with_update(self):
+        cfg.CONF.set_override('dhcp_force_metadata', True, group='nsxv')
+        self.plugin_instance.metadata_proxy_handler = mock.Mock()
+        with self.subnet(cidr="10.0.0.0/24", enable_dhcp=True) as s1:
+            subnet_id = s1['subnet']['id']
+            is_dhcp_meta = self.plugin_instance.is_dhcp_metadata(
+                context.get_admin_context(), subnet_id)
+            self.assertTrue(is_dhcp_meta)
+            port_data = {'port': {'tenant_id': s1['subnet']['tenant_id'],
+                                  'network_id': s1['subnet']['network_id'],
+                                  'device_owner': 'compute:None'}}
+            req = self.new_create_request(
+                'ports', port_data).get_response(self.api)
+            port_req = self.deserialize(self.fmt, req)
+            subnet_data = {'subnet': {'enable_dhcp': False}}
+            self.new_update_request(
+                'subnets', subnet_data,
+                s1['subnet']['id']).get_response(self.api)
+            is_dhcp_meta = self.plugin_instance.is_dhcp_metadata(
+                context.get_admin_context(), subnet_id)
+            self.assertFalse(is_dhcp_meta)
+            self.new_delete_request('ports', port_req['port']['id'])
+
     def test_router_delete_ipv6_slaac_subnet_inuse_returns_409(self):
         self.skipTest('No DHCP v6 Support yet')
 
