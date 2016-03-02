@@ -15,13 +15,13 @@
 
 import random
 
+from neutron_lib import constants
 from oslo_log import log
 from oslo_serialization import jsonutils
 from oslo_service import loopingcall
 from oslo_utils import timeutils
 import six
 
-from neutron.common import constants
 from neutron.common import exceptions
 from neutron import context
 from neutron.db import external_net_db

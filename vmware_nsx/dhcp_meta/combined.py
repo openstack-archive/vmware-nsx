@@ -16,8 +16,9 @@
 #
 
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
-from neutron.common import constants as const
 from neutron.common import topics
+from neutron_lib import constants as const
+
 from vmware_nsx.dhcp_meta import nsx as nsx_svc
 from vmware_nsx.dhcp_meta import rpc as nsx_rpc
 
