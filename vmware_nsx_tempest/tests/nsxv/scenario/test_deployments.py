@@ -19,7 +19,7 @@ from tempest import config
 from tempest import test
 
 import manager_topo_deployment as dmgr
-from tempest_lib.common.utils import data_utils
+from tempest.lib.common.utils import data_utils
 
 CONF = config.CONF
 LOG = dmgr.manager.log.getLogger(__name__)

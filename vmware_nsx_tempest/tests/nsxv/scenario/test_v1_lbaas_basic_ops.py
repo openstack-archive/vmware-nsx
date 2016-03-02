@@ -20,7 +20,7 @@ import tempfile
 import time
 import urllib2
 
-from tempest_lib.common.utils import data_utils
+from tempest.lib.common.utils import data_utils
 
 from tempest import config
 from tempest import exceptions

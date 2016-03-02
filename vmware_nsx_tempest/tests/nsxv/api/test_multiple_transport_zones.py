@@ -16,8 +16,8 @@
 import re
 import six
 
-from tempest_lib.common.utils import data_utils
-from tempest_lib import decorators
+from tempest.lib.common.utils import data_utils
+from tempest.lib import decorators
 
 import base_provider as base
 from tempest import config

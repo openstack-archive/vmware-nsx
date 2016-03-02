@@ -29,8 +29,8 @@ from tempest.scenario import manager
 from tempest import test
 
 import netaddr
-from tempest_lib.common.utils import data_utils
-from tempest_lib import exceptions
+from tempest.lib.common.utils import data_utils
+from tempest.lib import exceptions
 
 CONF = config.CONF
 LOG = manager.log.getLogger(__name__)

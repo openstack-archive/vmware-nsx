@@ -16,7 +16,7 @@
 import re
 import time
 
-from tempest_lib.common.utils import data_utils
+from tempest.lib.common.utils import data_utils
 
 from tempest.api.network import base_routers as base
 from tempest import config

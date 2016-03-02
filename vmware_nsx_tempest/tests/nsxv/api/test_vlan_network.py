@@ -19,7 +19,7 @@ from tempest import config
 from tempest import test
 
 from oslo_log import log as logging
-from tempest_lib.common.utils import data_utils
+from tempest.lib.common.utils import data_utils
 import test_subnets as SNET
 
 CONF = config.CONF

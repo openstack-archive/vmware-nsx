@@ -21,9 +21,9 @@ from tempest import test
 import netaddr
 from oslo_log import log as logging
 import six
-from tempest_lib.common.utils import data_utils
-from tempest_lib import decorators
-from tempest_lib import exceptions
+from tempest.lib.common.utils import data_utils
+from tempest.lib import decorators
+from tempest.lib import exceptions
 
 CONF = config.CONF
 
