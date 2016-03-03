@@ -14,7 +14,7 @@
 # limitations under the License.
 import mock
 import six
-from webob import exc
+import webob.exc
 
 from neutron.api.v2 import attributes
 from neutron import context
@@ -53,6 +53,7 @@ from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.extensions import test_metadata
 from vmware_nsx.tests.unit.nsx_v3 import mocks as nsx_v3_mocks
 from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
+from webob import exc
 
 
 PLUGIN_NAME = 'vmware_nsx.plugin.NsxV3Plugin'
@@ -162,6 +163,18 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
                 '', tenant_id)
         return network_req.get_response(self.api)
 
+    def _create_l3_ext_network(
+        self, physical_network=nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID):
+        name = 'l3_ext_net'
+        net_type = utils.NetworkTypes.L3_EXT
+        providernet_args = {pnet.NETWORK_TYPE: net_type,
+                            pnet.PHYSICAL_NETWORK: physical_network}
+        return self.network(name=name,
+                            router__external=True,
+                            providernet_args=providernet_args,
+                            arg_list=(pnet.NETWORK_TYPE,
+                                      pnet.PHYSICAL_NETWORK))
+
     def _save_networks(self, networks):
         ctx = context.get_admin_context()
         for network_id in networks:
@@ -208,6 +221,30 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                                  data['port']['admin_state_up'])
                 self.assertEqual(res['port']['fixed_ips'],
                                  data['port']['fixed_ips'])
+
+    def test_fail_create_port_with_ext_net(self):
+        expected_error = 'InvalidInput'
+        with self._create_l3_ext_network() as network:
+            with self.subnet(network=network, cidr='10.0.0.0/24'):
+                device_owner = constants.DEVICE_OWNER_COMPUTE_PREFIX + 'X'
+                res = self._create_port(self.fmt,
+                                        network['network']['id'],
+                                        webob.exc.HTTPBadRequest.code,
+                                        device_owner=device_owner)
+                data = self.deserialize(self.fmt, res)
+                self.assertEqual(expected_error, data['NeutronError']['type'])
+
+    def test_fail_update_port_with_ext_net(self):
+        with self._create_l3_ext_network() as network:
+            with self.subnet(network=network, cidr='10.0.0.0/24') as subnet:
+                with self.port(subnet=subnet) as port:
+                    device_owner = constants.DEVICE_OWNER_COMPUTE_PREFIX + 'X'
+                    data = {'port': {'device_owner': device_owner}}
+                    req = self.new_update_request('ports',
+                                                  data, port['port']['id'])
+                    res = req.get_response(self.api)
+                    self.assertEqual(webob.exc.HTTPBadRequest.code,
+                                     res.status_int)
 
 
 class DHCPOptsTestCase(test_dhcpopts.TestExtraDhcpOpt,
@@ -284,18 +321,6 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxV3PluginTestCaseMixin):
             self.plugin_instance.__module__,
             self.plugin_instance.__class__.__name__)
         self._plugin_class = self.plugin_instance.__class__
-
-    def _create_l3_ext_network(
-        self, physical_network=nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID):
-        name = 'l3_ext_net'
-        net_type = utils.NetworkTypes.L3_EXT
-        providernet_args = {pnet.NETWORK_TYPE: net_type,
-                            pnet.PHYSICAL_NETWORK: physical_network}
-        return self.network(name=name,
-                            router__external=True,
-                            providernet_args=providernet_args,
-                            arg_list=(pnet.NETWORK_TYPE,
-                                      pnet.PHYSICAL_NETWORK))
 
 
 class TestL3NatTestCase(L3NatTest,
