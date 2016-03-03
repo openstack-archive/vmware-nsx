@@ -893,7 +893,7 @@ class FakeVcns(object):
             if k not in ('ids', 'names') and v['name'] == sg_name:
                 return k
 
-    def create_section(self, type, request):
+    def create_section(self, type, request, insert_before=None):
         section = ET.fromstring(request)
         section_name = section.attrib.get('name')
         if section_name in self._sections['names']:
@@ -902,7 +902,7 @@ class FakeVcns(object):
             headers = {'status': 400}
         else:
             section_id = str(self._sections['section_ids'])
-            section.attrib['id'] = section_id
+            section.attrib['id'] = 'section-%s' % section_id
             _section = self._sections[section_id] = {'name': section_name,
                                                      'etag': 'Etag-0',
                                                      'rules': {}}

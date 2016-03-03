@@ -153,9 +153,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._ensure_lock_operations()
         # Configure aggregate publishing
         self._aggregate_publishing()
-        self.sg_container_id = self._create_security_group_container()
         self._validate_config()
-        self._create_cluster_default_fw_rules()
+        self.sg_container_id = self._create_security_group_container()
+        self.default_section = self._create_cluster_default_fw_section()
         self._router_managers = managers.RouterTypeManager(self)
 
         has_metadata_cfg = (
@@ -220,7 +220,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             r["distributed"] = False
             r["router_type"] = router_type
 
-    def _create_cluster_default_fw_rules(self):
+    def _create_cluster_default_fw_section(self):
         section_name = 'OS Cluster Security Group section'
         section_id = self.nsx_v.vcns.get_section_id(section_name)
 
@@ -262,12 +262,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self.nsx_v.vcns.update_section_by_id(
                     section_id, 'ip', section_req_body)
             else:
-                self.nsx_v.vcns.create_section(
+                h, c = self.nsx_v.vcns.create_section(
                     'ip', section_req_body)
+                section_id = self.nsx_sg_utils.parse_and_get_section_id(c)
         except vsh_exc.RequestBad as e:
             # Section already created, probably by other Neutron service.
-            LOG.debug("Could not create NSX fw section for clusters"
-                      " %s: %s", cfg.CONF.nsxv.cluster_moid, e.response)
+            LOG.debug("Could not create NSX fw section for clusters "
+                      "%s: %s", cfg.CONF.nsxv.cluster_moid, e.response)
+
+        return section_id
 
     def _create_dhcp_static_binding(self, context, neutron_port_db):
 
@@ -1931,7 +1934,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
             # Execute REST API for creating the section
             h, c = self.nsx_v.vcns.create_section(
-                'ip', self.nsx_sg_utils.to_xml_string(section))
+                'ip', self.nsx_sg_utils.to_xml_string(section),
+                insert_before=self.default_section)
             section_uri = h['location']
             rule_pairs = self.nsx_sg_utils.get_rule_id_pair_from_section(c)
 
