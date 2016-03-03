@@ -22,7 +22,7 @@ import webob.exc
 from neutron import context
 from neutron.tests.unit.api import test_extensions
 from vmware_nsx.db import qos_db
-from vmware_nsx.extensions import qos as ext_qos
+from vmware_nsx.extensions import qos_queue as ext_qos
 from vmware_nsx.nsxlib import mh as nsxlib
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.nsx_mh import test_plugin as test_nsx_plugin
@@ -31,7 +31,7 @@ from vmware_nsx.tests.unit.nsx_mh import test_plugin as test_nsx_plugin
 class QoSTestExtensionManager(object):
 
     def get_resources(self):
-        return ext_qos.Qos.get_resources()
+        return ext_qos.Qos_queue.get_resources()
 
     def get_actions(self):
         return []

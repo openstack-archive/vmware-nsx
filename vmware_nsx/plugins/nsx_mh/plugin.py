@@ -76,7 +76,7 @@ from vmware_nsx.db import qos_db
 from vmware_nsx.dhcp_meta import modes as dhcpmeta_modes
 from vmware_nsx.extensions import maclearning as mac_ext
 from vmware_nsx.extensions import networkgw
-from vmware_nsx.extensions import qos
+from vmware_nsx.extensions import qos_queue as qos
 from vmware_nsx.nsxlib.mh import l2gateway as l2gwlib
 from vmware_nsx.nsxlib.mh import queue as queuelib
 from vmware_nsx.nsxlib.mh import router as routerlib
@@ -116,7 +116,6 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                    "mac-learning",
                                    "multi-provider",
                                    "network-gateway",
-                                   "nvp-qos",
                                    "port-security",
                                    "provider",
                                    "qos-queue",
