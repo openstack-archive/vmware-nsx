@@ -486,7 +486,7 @@ class EdgeApplianceDriver(object):
         edge = self._assemble_edge(
             edge_name, datacenter_moid=self.datacenter_moid,
             deployment_container_id=self.deployment_container_id,
-            appliance_size=appliance_size, remote_access=True, dist=dist)
+            appliance_size=appliance_size, remote_access=False, dist=dist)
         appliance = self._assemble_edge_appliance(self.resource_pool_id,
                                                   self.datastore_id)
         if appliance:
@@ -509,12 +509,13 @@ class EdgeApplianceDriver(object):
                 constants.INTEGRATION_SUBNET_NETMASK,
                 type="internal")
             edge['vnics']['vnics'].append(vnic_inside)
+
         # If default login credentials for Edge are set, configure accordingly
         if (cfg.CONF.nsxv.edge_appliance_user and
             cfg.CONF.nsxv.edge_appliance_password):
-            edge['cliSettings'] = {
+            edge['cliSettings'].update({
                 'userName': cfg.CONF.nsxv.edge_appliance_user,
-                'password': cfg.CONF.nsxv.edge_appliance_password}
+                'password': cfg.CONF.nsxv.edge_appliance_password})
 
         if not dist and loadbalancer_enable:
             self._enable_loadbalancer(edge)
@@ -573,7 +574,7 @@ class EdgeApplianceDriver(object):
         edge = self._assemble_edge(
             edge_name, datacenter_moid=self.datacenter_moid,
             deployment_container_id=self.deployment_container_id,
-            appliance_size=appliance_size, remote_access=True, dist=dist)
+            appliance_size=appliance_size, remote_access=False, dist=dist)
         edge['id'] = edge_id
         appliance = self._assemble_edge_appliance(self.resource_pool_id,
                                                   self.datastore_id)
