@@ -24,7 +24,7 @@ from oslo_utils import uuidutils
 
 from vmware_nsx._i18n import _LI
 from vmware_nsx.db import nsx_models
-from vmware_nsx.extensions import qos
+from vmware_nsx.extensions import qos_queue as qos
 
 LOG = log.getLogger(__name__)
 

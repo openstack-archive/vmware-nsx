@@ -163,7 +163,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
 }
 
 
-class Qos(extensions.ExtensionDescriptor):
+class Qos_queue(extensions.ExtensionDescriptor):
     """Port Queue extension."""
 
     @classmethod
