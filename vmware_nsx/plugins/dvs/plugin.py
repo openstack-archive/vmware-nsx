@@ -81,6 +81,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         LOG.debug('Driver support: DVS: %s' % dvs_utils.dvs_is_enabled())
         neutron_extensions.append_api_extensions_path(
             [vmware_nsx.NSX_EXT_PATH])
+        self.cfg_group = 'dvs'  # group name for dvs section in nsx.ini
         self._dvs = dvs.DvsManager()
 
         # Common driver code
