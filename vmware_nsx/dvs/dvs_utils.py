@@ -44,6 +44,10 @@ dvs_opts = [
                     'socket error, etc.'),
     cfg.StrOpt('dvs_name',
                help='The name of the preconfigured DVS.'),
+    cfg.StrOpt('metadata_mode',
+               help=_("This value should not be set. It is just required for "
+                      "ensuring that the DVS plugin works with the generic "
+                      "NSX metadata code")),
 ]
 
 CONF = cfg.CONF
