@@ -12,8 +12,8 @@
 
 import time
 
-from tempest_lib.common.utils import misc as misc_utils
-from tempest_lib import exceptions as lib_exc
+from tempest.lib.common.utils import misc as misc_utils
+from tempest.lib import exceptions as lib_exc
 
 from tempest import exceptions
 from vmware_nsx_tempest.services import network_client_base as base
@@ -212,7 +212,7 @@ class LoadBalancerV1Client(base.BaseNetworkClient):
         return self._update_lb(VIP_RID, vip_id, **body)
 
     # Following 3 methods are specifically to load-balancer V1 client.
-    # They are being implemented by the pareant tempest_lib.common.rest_client
+    # They are being implemented by the pareant tempest.lib.common.rest_client
     # with different calling signatures, only id, no resoure_type. Because,
     # starting in Liberty release, each resource should have its own client.
     # Since V1 is deprecated, we are not going to change it, and

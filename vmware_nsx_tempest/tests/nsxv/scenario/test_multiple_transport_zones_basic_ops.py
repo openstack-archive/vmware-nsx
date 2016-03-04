@@ -16,7 +16,7 @@
 import re
 import six
 
-from tempest_lib.common.utils import data_utils
+from tempest.lib.common.utils import data_utils
 
 from tempest.common import waiters
 from tempest import config
