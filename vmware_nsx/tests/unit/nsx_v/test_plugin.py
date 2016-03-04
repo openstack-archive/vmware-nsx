@@ -48,14 +48,10 @@ from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.db import nsxv_db
-from vmware_nsx.extensions import (
-    routersize as router_size)
-from vmware_nsx.extensions import (
-    routertype as router_type)
-from vmware_nsx.extensions import (
-    vnicindex as ext_vnic_idx)
-from vmware_nsx.plugins.nsx_v.vshield.common import (
-    constants as vcns_const)
+from vmware_nsx.extensions import routersize as router_size
+from vmware_nsx.extensions import routertype as router_type
+from vmware_nsx.extensions import vnicindex as ext_vnic_idx
+from vmware_nsx.plugins.nsx_v.vshield.common import constants as vcns_const
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.extensions import test_vnic_index
