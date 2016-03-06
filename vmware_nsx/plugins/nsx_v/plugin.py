@@ -684,6 +684,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     self._delete_backend_network(net_moref)
                 LOG.exception(_LE('Failed to create network'))
 
+        # this extra lookup is necessary to get the
+        # latest db model for the extension functions
+        net_model = self._get_network(context, new_net['id'])
+        self._apply_dict_extend_functions('networks', new_net, net_model)
         return new_net
 
     def _cleanup_dhcp_edge_before_deletion(self, context, net_id):
@@ -890,6 +894,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 LOG.exception(_LE('Failed to create port'))
                 # Revert what we have created and raise the exception
                 self.delete_port(context, port_data['id'])
+
+        # this extra lookup is necessary to get the
+        # latest db model for the extension functions
+        port_model = self._get_port(context, port_data['id'])
+        self._apply_dict_extend_functions('ports', port_data, port_model)
         return port_data
 
     def update_port(self, context, id, port):

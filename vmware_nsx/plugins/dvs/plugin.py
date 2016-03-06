@@ -160,6 +160,12 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         new_net[pnet.NETWORK_TYPE] = net_data.get(pnet.NETWORK_TYPE)
         new_net[pnet.PHYSICAL_NETWORK] = 'dvs'
         new_net[pnet.SEGMENTATION_ID] = vlan_tag
+
+        # this extra lookup is necessary to get the
+        # latest db model for the extension functions
+        net_model = self._get_network(context, net_data['id'])
+        self._apply_dict_extend_functions('networks', new_net, net_model)
+
         self.handle_network_dhcp_access(context, new_net,
                                         action='create_network')
         return new_net
@@ -299,6 +305,11 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                                                          port_data)
         # DB Operation is complete, perform DVS operation
         port_data = port['port']
+
+        # this extra lookup is necessary to get the
+        # latest db model for the extension functions
+        port_model = self._get_port(context, port_data['id'])
+        self._apply_dict_extend_functions('ports', port_data, port_model)
 
         self.handle_port_dhcp_access(context, port_data, action='create_port')
         return port_data

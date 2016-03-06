@@ -981,6 +981,11 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._extend_network_dict_provider(context, new_net,
                                                    provider_type,
                                                    net_bindings)
+
+        # this extra lookup is necessary to get the
+        # latest db model for the extension functions
+        net_model = self._get_network(context, new_net['id'])
+        self._apply_dict_extend_functions('networks', new_net, net_model)
         self.handle_network_dhcp_access(context, new_net,
                                         action='create_network')
         return new_net
@@ -1168,7 +1173,10 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                               "attachment in NSX."))
                 with context.session.begin(subtransactions=True):
                     self.ipam.delete_port(context, neutron_port_id)
-
+        # this extra lookup is necessary to get the
+        # latest db model for the extension functions
+        port_model = self._get_port(context, neutron_port_id)
+        self._apply_dict_extend_functions('ports', port_data, port_model)
         self.handle_port_dhcp_access(context, port_data, action='create_port')
         return port_data
 

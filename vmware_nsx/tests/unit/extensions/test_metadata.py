@@ -131,20 +131,23 @@ class MetaDataTestCase(object):
                                                   r['router']['id'],
                                                   s['subnet']['id'],
                                                   None)
-            # Verify that the metadata network gets scheduled, so that
-            # an active dhcp agent can pick it up.
-            expected_meta_net = {
-                'status': 'ACTIVE',
-                'subnets': [],
-                'name': 'meta-%s' % r['router']['id'],
-                'admin_state_up': True,
-                'tenant_id': '',
-                'port_security_enabled': False,
-                'shared': False,
-                'id': mock.ANY,
-                'mtu': mock.ANY
-            }
-            f.assert_any_call(mock.ANY, expected_meta_net)
+            # Verify that there has been a schedule_network all for the
+            # metadata network
+            expected_net_name = 'meta-%s' % r['router']['id']
+            found = False
+            for call in f.call_args_list:
+                # The network data are the last of the positional arguments
+                net_dict = call[0][-1]
+                if net_dict['name'] == expected_net_name:
+                    self.assertFalse(net_dict['port_security_enabled'])
+                    self.assertFalse(net_dict['shared'])
+                    self.assertFalse(net_dict['tenant_id'])
+                    found = True
+                    break
+            else:
+                self.fail("Expected schedule_network call for metadata "
+                          "network %s not found" % expected_net_name)
+            self.assertTrue(found)
         self._metadata_teardown()
 
     def test_metadata_network_create_rollback_on_create_subnet_failure(self):

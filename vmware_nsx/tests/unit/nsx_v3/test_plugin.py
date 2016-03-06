@@ -19,7 +19,6 @@ import webob.exc
 from neutron.api.v2 import attributes
 from neutron import context
 from neutron.db import models_v2
-from neutron.extensions import availability_zone as az_ext
 from neutron.extensions import external_net
 from neutron.extensions import extraroute
 from neutron.extensions import l3
@@ -192,8 +191,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
         mock_validate_az.return_value = None
         with self.network(name=name, availability_zone_hints=zone) as net:
             az_hints = net['network']['availability_zone_hints']
-            az_hints_list = az_ext.convert_az_string_to_list(az_hints)
-            self.assertListEqual(az_hints_list, zone)
+            self.assertListEqual(az_hints, zone)
 
 
 class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,

@@ -472,6 +472,10 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 if net_type != utils.NetworkTypes.L3_EXT:
                     nsxlib.delete_logical_switch(created_net['id'])
 
+        # this extra lookup is necessary to get the
+        # latest db model for the extension functions
+        net_model = self._get_network(context, created_net['id'])
+        self._apply_dict_extend_functions('networks', created_net, net_model)
         return created_net
 
     def _retry_delete_network(self, context, network_id):
@@ -847,6 +851,10 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                     super(NsxV3Plugin, self).delete_port(context,
                                                          neutron_db['id'])
 
+        # this extra lookup is necessary to get the
+        # latest db model for the extension functions
+        port_model = self._get_port(context, port_data['id'])
+        self._apply_dict_extend_functions('ports', port_data, port_model)
         nsx_rpc.handle_port_metadata_access(self, context, neutron_db)
         return port_data
 
