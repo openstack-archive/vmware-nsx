@@ -15,7 +15,8 @@
 from sqlalchemy.orm import exc
 
 from neutron.api.v2 import attributes as attr
-from neutron.db import securitygroups_db as secgroup_db
+from neutron.db import db_base_plugin_v2
+from neutron.extensions import securitygroup as ext_sg
 from neutron_lib import exceptions as nexception
 from vmware_nsx._i18n import _
 from vmware_nsx.db import nsxv_models
@@ -56,12 +57,12 @@ class ExtendedSecurityGroupRuleMixin(object):
             sgr[ext_loip.LOCAL_IP_PREFIX] = properties.local_ip_prefix
         return sgr
 
-    def _make_security_group_rule_dict(self, rule_db, fields=None):
-        res = secgroup_db.SecurityGroupDbMixin._make_security_group_rule_dict(
-            self, rule_db, fields=None)
-        if rule_db.ext_properties:
-            res[ext_loip.LOCAL_IP_PREFIX] = (
-                rule_db.ext_properties.local_ip_prefix)
+    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
+        ext_sg.SECURITYGROUPRULES, ['_extend_security_group_rule_with_params'])
+
+    def _extend_security_group_rule_with_params(self, sg_rule_res, sg_rule_db):
+        if sg_rule_db.ext_properties:
+            sg_rule_res[ext_loip.LOCAL_IP_PREFIX] = (
+                sg_rule_db.ext_properties.local_ip_prefix)
         else:
-            res[ext_loip.LOCAL_IP_PREFIX] = None
-        return self._fields(res, fields)
+            sg_rule_res[ext_loip.LOCAL_IP_PREFIX] = None
