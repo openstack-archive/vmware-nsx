@@ -14,7 +14,7 @@
 #    under the License.
 #
 import mock
-import urlparse
+import six.moves.urllib.parse as urlparse
 
 from oslo_config import cfg
 from oslo_serialization import jsonutils

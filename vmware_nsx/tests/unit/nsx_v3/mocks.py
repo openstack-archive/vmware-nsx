@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import requests
-import urlparse
+import six.moves.urllib.parse as urlparse
 
 from oslo_serialization import jsonutils
 from oslo_utils import uuidutils

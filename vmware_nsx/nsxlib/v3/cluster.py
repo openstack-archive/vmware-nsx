@@ -22,7 +22,7 @@ import itertools
 import logging
 import requests
 import six
-import urlparse
+import six.moves.urllib.parse as urlparse
 
 from eventlet import greenpool
 from eventlet import pools
