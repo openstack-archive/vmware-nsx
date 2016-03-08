@@ -665,6 +665,25 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         # self.get_port(context, parent_name)
         return parent_name, tag
 
+    def _get_port_name(self, context, port_data):
+        device_owner = port_data.get('device_owner')
+        device_id = port_data.get('device_id')
+        if device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF and device_id:
+            router = self._get_router(context, device_id)
+            name = utils.get_name_and_uuid(
+                router['name'] or 'router', port_data['id'], tag='port')
+        elif device_owner == const.DEVICE_OWNER_DHCP:
+            network = self.get_network(context, port_data['network_id'])
+            name = utils.get_name_and_uuid('%s-%s' % (
+                                           'dhcp',
+                                           network['name'] or 'network'),
+                                           network['id'])
+        elif device_owner.startswith(const.DEVICE_OWNER_COMPUTE_PREFIX):
+            name = 'instance-port_%s' % port_data['id']
+        else:
+            name = port_data['name']
+        return name
+
     def _create_port_at_the_backend(self, context, neutron_db,
                                     port_data, l2gw_port_check,
                                     psec_is_on):
@@ -712,20 +731,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                                 "default profile on the backend"),
                             port_data['id'])
 
-        if device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF and device_id:
-            router = self._get_router(context, device_id)
-            name = utils.get_name_and_uuid(
-                router['name'] or 'router', port_data['id'], tag='port')
-        elif device_owner == const.DEVICE_OWNER_DHCP:
-            network = self.get_network(context, port_data['network_id'])
-            name = utils.get_name_and_uuid('%s-%s' % (
-                                           'dhcp',
-                                           network['name'] or 'network'),
-                                           network['id'])
-        elif device_owner.startswith(const.DEVICE_OWNER_COMPUTE_PREFIX):
-            name = 'instance-port_%s' % port_data['id']
-        else:
-            name = port_data['name']
+        name = self._get_port_name(context, port_data)
 
         result = self._port_client.create(
             port_data['network_id'], vif_uuid,
@@ -1001,15 +1007,17 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             attachment_type = None
             vif_uuid = None
 
-        if updated_device_owner.startswith(const.DEVICE_OWNER_COMPUTE_PREFIX):
-            name = 'instance-port_%s' % updated_port['id']
-        else:
-            name = updated_port.get('name')
+        name = self._get_port_name(context, updated_port)
 
         security.update_lport_with_security_groups(
             context, lport_id,
             original_port.get(ext_sg.SECURITYGROUPS, []),
             updated_port.get(ext_sg.SECURITYGROUPS, []))
+
+        # Update the DHCP profile
+        if updated_device_owner == const.DEVICE_OWNER_DHCP:
+            if self._dhcp_profile:
+                switch_profile_ids.append(self._dhcp_profile)
 
         self._port_client.update(
             lport_id, vif_uuid, name=name,
