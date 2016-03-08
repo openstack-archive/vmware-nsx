@@ -2457,6 +2457,21 @@ class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
                                   _context.elevated(), sg, default_sg=True)
                 delete_sg.assert_called_once_with(expected_id)
 
+    def test_create_security_group_rule_duplicate_rules(self):
+        name = 'webservers'
+        description = 'my webservers'
+        with mock.patch.object(self.plugin.nsx_v.vcns,
+                               'remove_rule_from_section') as rm_rule_mock:
+            with self.security_group(name, description) as sg:
+                rule = self._build_security_group_rule(
+                    sg['security_group']['id'], 'ingress',
+                    constants.PROTO_NAME_TCP, '22', '22')
+                self._create_security_group_rule(self.fmt, rule)
+                res = self._create_security_group_rule(self.fmt, rule)
+                self.deserialize(self.fmt, res)
+                self.assertEqual(webob.exc.HTTPConflict.code, res.status_int)
+        rm_rule_mock.assert_called_once_with(mock.ANY, mock.ANY)
+
     def test_create_security_group_rule_with_specific_id(self):
         # This test is aimed to test the security-group db mixin
         pass

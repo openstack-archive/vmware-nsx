@@ -2129,7 +2129,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                                              new_rule_list[i])
         except Exception:
             with excutils.save_and_reraise_exception():
-                for nsx_rule_id in [p['nsx_id'] for p in rule_pairs]:
+                for nsx_rule_id in [p['nsx_id'] for p in rule_pairs
+                                    if p['neutron_id'] in ruleids]:
                     self.nsx_v.vcns.remove_rule_from_section(
                         section_uri, nsx_rule_id)
                 LOG.exception(_LE("Failed to create security group rule"))

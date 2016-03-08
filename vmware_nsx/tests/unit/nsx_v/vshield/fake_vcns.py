@@ -939,14 +939,13 @@ class FakeVcns(object):
             self._sections['names'].remove(_section['name'])
             _section['name'] = section_name
             self._sections['names'].add(section_name)
-            _section['rules'] = {}
             for rule in section.findall('rule'):
                 if not rule.attrib.get('id'):
                     rule.attrib['id'] = str(self._sections['rule_ids'])
                     self._sections['rule_ids'] += 1
                 rule_id = rule.attrib.get('id')
                 _section['rules'][rule_id] = ET.tostring(rule)
-            response = ET.tostring(section)
+            _, response = self._get_section(section_id)
             headers = {
                 'status': 200,
                 'location': self._get_section_location(type, section_id),
@@ -971,12 +970,14 @@ class FakeVcns(object):
         if section_id not in self._sections:
             headers, response = self._section_not_found(section_id)
         else:
-            section_rules = (''.join(self._sections[section_id]['rules'].
-                             values()))
-            response = ('<section id="%s"><rules>%s</rules></section>'
-                        % (section_id, section_rules))
-            headers = {'status': 200,
-                       'etag': self._sections[section_id]['etag']}
+            return self._get_section(section_id)
+
+    def _get_section(self, section_id):
+        section_rules = (''.join(self._sections[section_id]['rules'].values()))
+        response = ('<section id="%s">%s</section>'
+                    % (section_id, section_rules))
+        headers = {'status': 200,
+                   'etag': self._sections[section_id]['etag']}
         return (headers, response)
 
     def get_section_id(self, section_name):
