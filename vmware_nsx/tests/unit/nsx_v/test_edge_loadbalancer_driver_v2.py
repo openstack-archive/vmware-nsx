@@ -38,7 +38,7 @@ LISTENER_ID = 'xxx-111'
 EDGE_APP_PROFILE_ID = 'appp-x'
 EDGE_APP_PROF_DEF = {'sslPassthrough': False, 'insertXForwardedFor': False,
                      'serverSslEnabled': False, 'name': LISTENER_ID,
-                     'template': 'HTTP'}
+                     'template': 'http'}
 EDGE_VIP_ID = 'vip-aaa'
 EDGE_VIP_DEF = {'protocol': 'http', 'name': 'vip_' + LISTENER_ID,
                 'connectionLimit': 0, 'defaultPoolId': None,

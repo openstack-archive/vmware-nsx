@@ -35,7 +35,7 @@ def listener_to_edge_app_profile(listener, edge_cert_id):
         'name': listener.id,
         'serverSslEnabled': False,
         'sslPassthrough': False,
-        'template': listener.protocol,
+        'template': lb_const.PROTOCOL_MAP[listener.protocol],
     }
 
     if (listener.protocol == lb_const.LB_PROTOCOL_HTTPS
