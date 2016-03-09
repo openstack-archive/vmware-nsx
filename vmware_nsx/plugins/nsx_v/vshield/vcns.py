@@ -75,7 +75,7 @@ CSR = "csr"
 CERTIFICATE = "certificate"
 
 
-def retry_upon_exception(exc, delay=500, max_delay=2000,
+def retry_upon_exception(exc, delay=500, max_delay=4000,
                          max_attempts=cfg.CONF.nsxv.retries):
     return retrying.retry(retry_on_exception=lambda e: isinstance(e, exc),
                           wait_exponential_multiplier=delay,

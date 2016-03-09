@@ -332,7 +332,7 @@ nsxv_opts = [
                        'edge_size: compact, large, xlarge, quadlarge '
                        'and default is large.')),
     cfg.IntOpt('retries',
-               default=10,
+               default=20,
                help=_('Maximum number of API retries on endpoint.')),
     cfg.StrOpt('mgt_net_moid',
                help=_('Network ID for management network connectivity')),
