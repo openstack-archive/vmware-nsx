@@ -684,9 +684,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             name = port_data['name']
         return name
 
-    def _create_port_at_the_backend(self, context, neutron_db,
-                                    port_data, l2gw_port_check,
-                                    psec_is_on):
+    def _create_port_at_the_backend(self, context, port_data,
+                                    l2gw_port_check, psec_is_on):
         device_owner = port_data.get('device_owner')
         device_id = port_data.get('device_id')
         if device_owner == const.DEVICE_OWNER_DHCP:
@@ -746,8 +745,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         # TODO(salv-orlando): The logical switch identifier in the
         # mapping object is not necessary anymore.
         nsx_db.add_neutron_nsx_port_mapping(
-            context.session, neutron_db['id'],
-            neutron_db['network_id'], result['id'])
+            context.session, port_data['id'],
+            port_data['network_id'], result['id'])
         return result
 
     def _validate_address_pairs(self, address_pairs):
@@ -833,8 +832,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         if not is_external_net:
             try:
                 lport = self._create_port_at_the_backend(
-                    context, neutron_db, port_data,
-                    l2gw_port_check, is_psec_on)
+                    context, port_data, l2gw_port_check, is_psec_on)
 
                 if sgids:
                     security.update_lport_with_security_groups(
