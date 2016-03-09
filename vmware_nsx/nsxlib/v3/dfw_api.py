@@ -186,7 +186,8 @@ def update_section(section_id, display_name, description, applied_tos=None):
     section.update({'display_name': display_name,
                     'description': description})
     if applied_tos is not None:
-        section['applied_tos'] = applied_tos
+        section['applied_tos'] = [get_nsgroup_reference(nsg_id)
+                                  for nsg_id in applied_tos]
     return nsxclient.update_resource(resource, section)
 
 

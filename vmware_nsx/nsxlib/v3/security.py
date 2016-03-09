@@ -227,7 +227,10 @@ def init_nsgroup_manager_and_default_section_rules():
 def _init_default_section(name, description, nested_groups):
     fw_sections = firewall.list_sections()
     for section in fw_sections:
-        if section.get('display_name') == name:
+        if section['display_name'] == name:
+            firewall.update_section(section['id'],
+                                    name, section['description'],
+                                    applied_tos=nested_groups)
             break
     else:
         tags = utils.build_v3_api_version_tag()
