@@ -507,11 +507,14 @@ class Vcns(object):
         return self.do_request(HTTP_PUT, uri, et.tostring(sg),
                                format='xml', decode=False, encode=False)
 
+    def list_security_groups(self):
+        uri = '%s/scope/globalroot-0' % SECURITYGROUP_PREFIX
+        return self.do_request(HTTP_GET, uri, format='xml', decode=False)
+
     def get_security_group_id(self, sg_name):
         """Returns NSXv security group id which match the given name."""
-        uri = '%s/scope/globalroot-0' % SECURITYGROUP_PREFIX
-        h, c = self.do_request(HTTP_GET, uri, format='xml', decode=False)
-        root = et.fromstring(c)
+        h, secgroups = self.list_security_groups()
+        root = et.fromstring(secgroups)
         for sg in root.iter('securitygroup'):
             if sg.find('name').text == sg_name:
                 return sg.find('objectId').text
@@ -565,14 +568,14 @@ class Vcns(object):
         return self.do_request(HTTP_GET, section_uri, format='xml',
                                decode=False)
 
+    def get_dfw_config(self):
+        uri = FIREWALL_PREFIX
+        return self.do_request(HTTP_GET, uri, decode=False, format='xml')
+
     def get_section_id(self, section_name):
         """Retrieve the id of a section from nsx."""
-        uri = FIREWALL_PREFIX
-        h, section_list = self.do_request(HTTP_GET, uri, decode=False,
-                                          format='xml')
-
-        root = et.fromstring(section_list)
-
+        h, firewall_config = self.get_dfw_config()
+        root = et.fromstring(firewall_config)
         for sec in root.iter('section'):
             if sec.attrib['name'] == section_name:
                 return sec.attrib['id']

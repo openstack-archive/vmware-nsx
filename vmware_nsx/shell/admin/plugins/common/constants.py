@@ -21,8 +21,8 @@ NSXV3_PLUGIN = 'vmware_nsx.plugin.NsxV3Plugin'
 NSXV_PLUGIN = 'vmware_nsx.plugin.NsxVPlugin'
 
 # NSXV3 Resource Constants
-FIREWALL_SECTIONS = 'Firewall Sections'
-FIREWALL_NSX_GROUPS = 'Firewall NS Groups'
+FIREWALL_SECTIONS = 'firewall-sections'
+FIREWALL_NSX_GROUPS = 'nsx-security-groups'
 SECURITY_GROUPS = 'security-groups'
 
 # NSXV Resource Constants

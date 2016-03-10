@@ -100,6 +100,14 @@ nsxv_resources = {
                                       Operations.NSX_UPDATE.value]),
     constants.NETWORKS: Resource(constants.NETWORKS,
                                  [Operations.LIST.value]),
+    constants.SECURITY_GROUPS: Resource(constants.SECURITY_GROUPS,
+                                        [Operations.LIST.value]),
+    constants.FIREWALL_SECTIONS: Resource(constants.FIREWALL_SECTIONS,
+                                          [Operations.LIST.value,
+                                           Operations.LIST_MISMATCHES.value]),
+    constants.FIREWALL_NSX_GROUPS: Resource(
+        constants.FIREWALL_NSX_GROUPS, [Operations.LIST.value,
+                                        Operations.LIST_MISMATCHES.value]),
 }
 
 nsxv3_resources_names = map(lambda res: res.name, nsxv3_resources.itervalues())
