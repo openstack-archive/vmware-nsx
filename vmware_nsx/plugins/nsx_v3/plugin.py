@@ -1618,8 +1618,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             secgroup, resource_type='os-neutron-secgr-id',
             project_name=context.tenant_name)
         name = security.get_nsgroup_name(secgroup)
-        ns_group = None
-        firewall_section = None
+        ns_group = {}
+        firewall_section = {}
 
         if not default_sg:
             tenant_id = self._get_tenant_id_for_create(context, secgroup)
