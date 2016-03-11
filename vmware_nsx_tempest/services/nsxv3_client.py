@@ -206,7 +206,7 @@ class NSXV3Client(object):
         nsx_resource = [n for n in nsx_resources if
                         n['display_name'] == nsx_name]
         if len(nsx_resource) == 0:
-            LOG.warn(_LW("Backend nsx resource %s NOT found!"), nsx_name)
+            LOG.warning(_LW("Backend nsx resource %s NOT found!"), nsx_name)
             return None
         if len(nsx_resource) > 1:
             LOG.error(_LE("More than 1 nsx resources found: %s!"),
