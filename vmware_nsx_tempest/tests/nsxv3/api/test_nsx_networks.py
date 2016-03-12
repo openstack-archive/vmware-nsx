@@ -11,8 +11,8 @@
 #    under the License.
 
 from tempest.api.network import base
-from tempest.common.utils import data_utils
 from tempest import config
+from tempest.lib.common.utils import data_utils
 from tempest import test
 
 from vmware_nsx_tempest.services import nsxv3_client
