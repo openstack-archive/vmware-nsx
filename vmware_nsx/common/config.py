@@ -253,7 +253,7 @@ nsx_v3_opts = [
                       "does not support namespaces otherwise access_network "
                       "should be used.")),
     cfg.BoolOpt('metadata_on_demand',
-                default=True,
+                default=False,
                 help=_("If true, an internal metadata network will be created "
                        "for a router only when the router is attached to a "
                        "DHCP-disabled subnet.")),

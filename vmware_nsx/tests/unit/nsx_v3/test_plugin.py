@@ -330,7 +330,8 @@ class TestL3NatTestCase(L3NatTest,
               ext_mgr=None,
               service_plugins=None):
         super(TestL3NatTestCase, self).setUp(plugin=plugin, ext_mgr=ext_mgr)
-        cfg.CONF.set_override('metadata_mode', None, 'NSX')
+        cfg.CONF.set_override('metadata_mode', None, 'nsx_v3')
+        cfg.CONF.set_override('metadata_on_demand', False, 'nsx_v3')
 
     def _test_create_l3_ext_network(
             self, physical_network=nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID):
