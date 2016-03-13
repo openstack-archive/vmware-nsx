@@ -1069,6 +1069,9 @@ class FakeVcns(object):
     def publish_assigned_addresses(self, policy_id, vnic_id):
         pass
 
+    def configure_reservations(self):
+        pass
+
     def inactivate_vnic_assigned_addresses(self, policy_id, vnic_id):
         pass
 
