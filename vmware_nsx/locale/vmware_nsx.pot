@@ -1,0 +1,1768 @@
+# Translations template for vmware-nsx.
+# Copyright (C) 2016 ORGANIZATION
+# This file is distributed under the same license as the vmware-nsx project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2016.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: vmware-nsx 0.0.2.dev1258\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2016-03-13 04:57-0700\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.2.0\n"
+
+#: vmware_nsx/check_nsx_config.py:47 vmware_nsx/check_nsx_config.py:82
+#, python-format
+msgid "Error '%(err)s' when connecting to controller(s): %(ctl)s."
+msgstr ""
+
+#: vmware_nsx/nsx_cluster.py:51
+#, python-format
+msgid ""
+"Attribute '%s' has been deprecated or moved to a new section. See new "
+"configuration file for details."
+msgstr ""
+
+#: vmware_nsx/api_client/__init__.py:30
+#, python-format
+msgid "Invalid connection type: %s"
+msgstr ""
+
+#: vmware_nsx/api_client/eventlet_request.py:102
+msgid "Joining an invalid green thread"
+msgstr ""
+
+#: vmware_nsx/api_client/eventlet_request.py:123
+msgid "Request timeout"
+msgstr ""
+
+#: vmware_nsx/api_client/exception.py:29
+msgid "An unknown exception occurred."
+msgstr ""
+
+#: vmware_nsx/api_client/exception.py:43
+msgid "Server denied session's authentication credentials."
+msgstr ""
+
+#: vmware_nsx/api_client/exception.py:47
+msgid "An entity referenced in the request was not found."
+msgstr ""
+
+#: vmware_nsx/api_client/exception.py:51
+msgid "Request conflicts with configuration on a different entity."
+msgstr ""
+
+#: vmware_nsx/api_client/exception.py:56
+msgid ""
+"Request could not completed because the associated resource could not be "
+"reached."
+msgstr ""
+
+#: vmware_nsx/api_client/exception.py:61
+msgid "The request is forbidden from accessing the referenced resource."
+msgstr ""
+
+#: vmware_nsx/api_client/exception.py:66
+msgid "Create/Update actions are forbidden when in read-only mode."
+msgstr ""
+
+#: vmware_nsx/api_client/exception.py:70
+msgid "The request has timed out."
+msgstr ""
+
+#: vmware_nsx/api_client/exception.py:74
+msgid "The server is unable to fulfill the request due to a bad syntax"
+msgstr ""
+
+#: vmware_nsx/api_client/exception.py:79
+msgid "The backend received an invalid security certificate."
+msgstr ""
+
+#: vmware_nsx/api_client/request.py:86
+msgid "No API connections available"
+msgstr ""
+
+#: vmware_nsx/api_client/request.py:188
+#, python-format
+msgid "Server error return: %s"
+msgstr ""
+
+#: vmware_nsx/api_client/request.py:194
+msgid "Invalid server response"
+msgstr ""
+
+#: vmware_nsx/common/config.py:45
+msgid ""
+"Maximum number of ports of a logical switch on a bridged transport zone "
+"(default 5000)"
+msgstr ""
+
+#: vmware_nsx/common/config.py:49
+msgid ""
+"Maximum number of ports of a logical switch on an overlay transport zone "
+"(default 256)"
+msgstr ""
+
+#: vmware_nsx/common/config.py:53
+msgid "Maximum concurrent connections to each NSX controller."
+msgstr ""
+
+#: vmware_nsx/common/config.py:58
+msgid ""
+"Number of seconds a generation id should be valid for (default -1 meaning"
+" do not time out)"
+msgstr ""
+
+#: vmware_nsx/common/config.py:62 vmware_nsx/common/config.py:248
+msgid ""
+"If set to access_network this enables a dedicated connection to the "
+"metadata proxy for metadata server access via Neutron router. If set to "
+"dhcp_host_route this enables host route injection via the dhcp agent. "
+"This option is only useful if running on a host that does not support "
+"namespaces otherwise access_network should be used."
+msgstr ""
+
+#: vmware_nsx/common/config.py:71
+msgid ""
+"The default network tranport type to use (stt, gre, bridge, ipsec_gre, or"
+" ipsec_stt)"
+msgstr ""
+
+#: vmware_nsx/common/config.py:75
+msgid "The mode used to implement DHCP/metadata services."
+msgstr ""
+
+#: vmware_nsx/common/config.py:78
+msgid ""
+"The default option leverages service nodes to perform packet replication "
+"though one could set to this to 'source' to perform replication locally. "
+"This is useful if one does not want to deploy a service node(s). It must "
+"be set to 'service' for leveraging distributed routers."
+msgstr ""
+
+#: vmware_nsx/common/config.py:89
+msgid ""
+"Interval in seconds between runs of the state synchronization task. Set "
+"it to 0 to disable it"
+msgstr ""
+
+#: vmware_nsx/common/config.py:93
+msgid ""
+"Maximum value for the additional random delay in seconds between runs of "
+"the state synchronization task"
+msgstr ""
+
+#: vmware_nsx/common/config.py:98
+msgid ""
+"Minimum delay, in seconds, between two state synchronization queries to "
+"NSX. It must not exceed state_sync_interval"
+msgstr ""
+
+#: vmware_nsx/common/config.py:103
+msgid ""
+"Minimum number of resources to be retrieved from NSX during state "
+"synchronization"
+msgstr ""
+
+#: vmware_nsx/common/config.py:107
+msgid ""
+"Always read operational status from backend on show operations. Enabling "
+"this option might slow down the system."
+msgstr ""
+
+#: vmware_nsx/common/config.py:116
+msgid "User name for NSX controllers in this cluster"
+msgstr ""
+
+#: vmware_nsx/common/config.py:121
+msgid "Password for NSX controllers in this cluster"
+msgstr ""
+
+#: vmware_nsx/common/config.py:124
+msgid "Time before aborting a request"
+msgstr ""
+
+#: vmware_nsx/common/config.py:127
+msgid "Number of time a request should be retried"
+msgstr ""
+
+#: vmware_nsx/common/config.py:130
+msgid "Number of times a redirect should be followed"
+msgstr ""
+
+#: vmware_nsx/common/config.py:133
+msgid "Lists the NSX controllers in this cluster"
+msgstr ""
+
+#: vmware_nsx/common/config.py:136
+msgid "Reconnect connection to nsx if not used within this amount of time."
+msgstr ""
+
+#: vmware_nsx/common/config.py:142
+msgid ""
+"This is uuid of the default NSX Transport zone that will be used for "
+"creating tunneled isolated \"Neutron\" networks. It needs to be created "
+"in NSX before starting Neutron with the nsx plugin."
+msgstr ""
+
+#: vmware_nsx/common/config.py:147
+msgid ""
+"Unique identifier of the NSX L3 Gateway service which will be used for "
+"implementing routers and floating IPs"
+msgstr ""
+
+#: vmware_nsx/common/config.py:151
+msgid ""
+"Unique identifier of the NSX L2 Gateway service which will be used by "
+"default for network gateways"
+msgstr ""
+
+#: vmware_nsx/common/config.py:154
+msgid ""
+"Unique identifier of the Service Cluster which will be used by logical "
+"services like dhcp and metadata"
+msgstr ""
+
+#: vmware_nsx/common/config.py:158
+msgid ""
+"Name of the interface on a L2 Gateway transport node which should be used"
+" by default when setting up a network connection"
+msgstr ""
+
+#: vmware_nsx/common/config.py:165
+msgid "Class path for the L2 gateway backend driver"
+msgstr ""
+
+#: vmware_nsx/common/config.py:168
+msgid "A URL to a locking mechanism coordinator"
+msgstr ""
+
+#: vmware_nsx/common/config.py:175
+msgid "User name for the NSX manager"
+msgstr ""
+
+#: vmware_nsx/common/config.py:180
+msgid "Password for the NSX manager"
+msgstr ""
+
+#: vmware_nsx/common/config.py:183
+msgid ""
+"IP address of one or more NSX managers separated by commas. The IP "
+"address can optionally specify a scheme (e.g. http or https) and port "
+"using the format <scheme>://<ip_address>:<port>"
+msgstr ""
+
+#: vmware_nsx/common/config.py:189
+msgid ""
+"This is the UUID of the default NSX overlay transport zone that will be "
+"used for creating tunneled isolated Neutron networks. It needs to be "
+"created in NSX before starting Neutron with the NSX plugin."
+msgstr ""
+
+#: vmware_nsx/common/config.py:194
+msgid ""
+"This is the UUID of the default NSX VLAN transport zone that will be used"
+" for bridging between Neutron networks. It needs to be created in NSX "
+"before starting Neutron with the NSX plugin."
+msgstr ""
+
+#: vmware_nsx/common/config.py:199
+msgid "Default edge cluster identifier"
+msgstr ""
+
+#: vmware_nsx/common/config.py:201
+msgid ""
+"Default bridge cluster identifier for L2 gateway. This needs to be "
+"created in NSX before using the L2 gateway service plugin."
+msgstr ""
+
+#: vmware_nsx/common/config.py:206
+msgid "Maximum number of times to retry API requests upon stale revision errors."
+msgstr ""
+
+#: vmware_nsx/common/config.py:209
+msgid ""
+"Specify a CA bundle file to use in verifying the NSX Manager server "
+"certificate. This option is ignored if \"insecure\" is set to True. If "
+"\"insecure\" is set to False and ca_file is unset, the system root CAs "
+"will be used to verify the server certificate."
+msgstr ""
+
+#: vmware_nsx/common/config.py:216
+msgid ""
+"If true, the NSX Manager server certificate is not verified. If false the"
+" CA bundle specified via \"ca_file\" will be used or if unsest the "
+"default system root CAs will be used."
+msgstr ""
+
+#: vmware_nsx/common/config.py:222
+msgid "Time before aborting a HTTP connection to a NSX manager."
+msgstr ""
+
+#: vmware_nsx/common/config.py:226
+msgid ""
+"The time in seconds before aborting a HTTP read response from a NSX "
+"manager."
+msgstr ""
+
+#: vmware_nsx/common/config.py:230
+msgid "Maximum number of times to retry a HTTP connection."
+msgstr ""
+
+#: vmware_nsx/common/config.py:232
+msgid "Maximum concurrent connections to each NSX manager."
+msgstr ""
+
+#: vmware_nsx/common/config.py:236
+msgid ""
+"Ensure connectivity to the NSX manager if a connection is not used within"
+" timeout seconds."
+msgstr ""
+
+#: vmware_nsx/common/config.py:240
+msgid "Number of times a HTTP redirect should be followed."
+msgstr ""
+
+#: vmware_nsx/common/config.py:242
+msgid "Default tier0 router identifier"
+msgstr ""
+
+#: vmware_nsx/common/config.py:245
+msgid "The number of nested NSGroups to use."
+msgstr ""
+
+#: vmware_nsx/common/config.py:257
+msgid ""
+"If true, an internal metadata network will be created for a router only "
+"when the router is attached to a DHCP-disabled subnet."
+msgstr ""
+
+#: vmware_nsx/common/config.py:271
+msgid "User name for vsm"
+msgstr ""
+
+#: vmware_nsx/common/config.py:276
+msgid "Password for vsm"
+msgstr ""
+
+#: vmware_nsx/common/config.py:279
+msgid "uri for vsm"
+msgstr ""
+
+#: vmware_nsx/common/config.py:281
+msgid "Specify a CA bundle file to use in verifying the NSXv server certificate."
+msgstr ""
+
+#: vmware_nsx/common/config.py:285
+msgid ""
+"If true, the NSXv server certificate is not verified. If false, then the "
+"default CA truststore is used for verification. This option is ignored if"
+" \"ca_file\" is set."
+msgstr ""
+
+#: vmware_nsx/common/config.py:291
+msgid "Parameter listing the IDs of the clusters which are used by OpenStack."
+msgstr ""
+
+#: vmware_nsx/common/config.py:295
+msgid "Optional parameter identifying the ID of datacenter to deploy NSX Edges"
+msgstr ""
+
+#: vmware_nsx/common/config.py:299 vmware_nsx/common/config.py:307
+msgid "Optional parameter identifying the ID of datastore to deploy NSX Edges"
+msgstr ""
+
+#: vmware_nsx/common/config.py:303
+msgid "Optional parameter identifying the ID of resource to deploy NSX Edges"
+msgstr ""
+
+#: vmware_nsx/common/config.py:311
+msgid "Network ID for physical network connectivity"
+msgstr ""
+
+#: vmware_nsx/common/config.py:315
+msgid "Task status check interval"
+msgstr ""
+
+#: vmware_nsx/common/config.py:317
+msgid "Network scope ID for VXLAN virtual wires"
+msgstr ""
+
+#: vmware_nsx/common/config.py:319
+msgid "DVS ID for VLANs"
+msgstr ""
+
+#: vmware_nsx/common/config.py:323
+msgid "Maximum number of sub interfaces supported per vnic in edge."
+msgstr ""
+
+#: vmware_nsx/common/config.py:329
+msgid ""
+"Defines edge pool using the format: "
+"<edge_type>:[edge_size]:<min_edges>:<max_edges>.edge_type: service,vdr. "
+"edge_size: compact, large, xlarge, quadlarge and default is large."
+msgstr ""
+
+#: vmware_nsx/common/config.py:336
+msgid "Maximum number of API retries on endpoint."
+msgstr ""
+
+#: vmware_nsx/common/config.py:338
+msgid "Network ID for management network connectivity"
+msgstr ""
+
+#: vmware_nsx/common/config.py:340
+msgid "Management network IP address for metadata proxy"
+msgstr ""
+
+#: vmware_nsx/common/config.py:342
+msgid "Management network netmask for metadata proxy"
+msgstr ""
+
+#: vmware_nsx/common/config.py:344
+msgid "Management network default gateway for metadata proxy"
+msgstr ""
+
+#: vmware_nsx/common/config.py:347
+msgid "IP addresses used by Nova metadata service"
+msgstr ""
+
+#: vmware_nsx/common/config.py:350
+msgid "TCP Port used by Nova metadata server"
+msgstr ""
+
+#: vmware_nsx/common/config.py:353
+msgid "Shared secret to sign metadata requests"
+msgstr ""
+
+#: vmware_nsx/common/config.py:356
+msgid ""
+"If True, the end to end connection for metadata service is not verified. "
+"If False, the default CA truststore is used for verification"
+msgstr ""
+
+#: vmware_nsx/common/config.py:360
+msgid "Client certificate for nova metadata api server"
+msgstr ""
+
+#: vmware_nsx/common/config.py:362
+msgid "Private key of client certificate"
+msgstr ""
+
+#: vmware_nsx/common/config.py:365
+msgid ""
+"If True then plugin will use NSXV spoofguard component for port-security "
+"feature."
+msgstr ""
+
+#: vmware_nsx/common/config.py:369
+msgid "Ordered list of router_types to allocate as tenant routers."
+msgstr ""
+
+#: vmware_nsx/common/config.py:373
+msgid "Username to configure for Edge appliance login"
+msgstr ""
+
+#: vmware_nsx/common/config.py:376
+msgid "Password to configure for Edge appliance login"
+msgstr ""
+
+#: vmware_nsx/common/config.py:379
+msgid "DHCP default lease time."
+msgstr ""
+
+#: vmware_nsx/common/config.py:382
+msgid ""
+"If True, the server instance will attempt to initialize the metadata "
+"infrastructure"
+msgstr ""
+
+#: vmware_nsx/common/config.py:386
+msgid "Enable HA for NSX Edges"
+msgstr ""
+
+#: vmware_nsx/common/config.py:390
+msgid ""
+"Edge appliance size to be used for creating exclusive router. This "
+"edge_appliance_size will be picked up if --router-size parameter is not "
+"specified while doing neutron router-create"
+msgstr ""
+
+#: vmware_nsx/common/config.py:396
+msgid ""
+"List of nameservers to configure for the DHCP binding entries. These will"
+" be used if there are no nameservers defined on the subnet."
+msgstr ""
+
+#: vmware_nsx/common/config.py:415
+msgid "manager_uri, user, and password must be configured!"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:23
+#, python-format
+msgid "An unexpected error occurred in the NSX Plugin: %(err_msg)s"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:27
+#, python-format
+msgid "Unable to fulfill request with version %(version)s."
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:31
+#, python-format
+msgid "Invalid NSX connection parameters: %(conn_params)s"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:35
+#, python-format
+msgid ""
+"Invalid cluster values: %(invalid_attrs)s. Please ensure that these "
+"values are specified in the [DEFAULT] section of the NSX plugin ini file."
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:41
+#, python-format
+msgid "Unable to find cluster config entry for nova zone: %(nova_zone)s"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:46
+#, python-format
+msgid ""
+"Unable to create port on network %(network)s. Maximum number of ports "
+"reached"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:51
+#, python-format
+msgid ""
+"While retrieving NAT rules, %(actual_rules)s were found whereas rules in "
+"the (%(min_rules)s,%(max_rules)s) interval were expected"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:57
+#, python-format
+msgid "Invalid NSX attachment type '%(attachment_type)s'"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:61
+msgid ""
+"The networking backend is currently in maintenance mode and therefore "
+"unable to accept requests which modify its state. Please try later."
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:67
+#, python-format
+msgid "Gateway Service %(gateway)s is already in use"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:71
+#, python-format
+msgid "The transport type %(transport_type)s is not recognized by the backend"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:76
+msgid ""
+"An invalid security certificate was specified for the gateway device. "
+"Certificates must be enclosed between '-----BEGIN CERTIFICATE-----' and '"
+"-----END CERTIFICATE-----'"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:83
+#, python-format
+msgid "Quota exceeded for NSX resource %(overs)s: %(err_msg)s"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:87
+#, python-format
+msgid ""
+"Service cluster: '%(cluster_id)s' is unavailable. Please, check NSX setup"
+" and/or configuration"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:92
+#, python-format
+msgid ""
+"An error occurred while connecting LSN %(lsn_id)s and network %(net_id)s "
+"via port %(port_id)s"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:101
+#, python-format
+msgid "Unable to find logical router for %(entity_id)s"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:105
+#, python-format
+msgid "Unable to find LSN for %(entity)s %(entity_id)s"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:109
+#, python-format
+msgid "Unable to find port for LSN %(lsn_id)s and %(entity)s %(entity_id)s"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:114
+#, python-format
+msgid "Unable to migrate network '%(net_id)s' to LSN: %(reason)s"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:118
+#, python-format
+msgid "Configuration conflict on Logical Service Node %(lsn_id)s"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:122
+#, python-format
+msgid "Unable to find DVS %(dvs)s"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:126
+msgid "Unable to create the router. No tenant router is available for allocation."
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:131
+#, python-format
+msgid ""
+"Unexpected error from backend manager (%(manager)s) for %(operation)s "
+"%(details)s"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:143
+#, python-format
+msgid "Resource could not be found on backend (%(manager)s) for %(operation)s"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:152
+#, python-format
+msgid "Unable to find mapping for L2 gateway connection: %(conn)s"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:156
+msgid "Unable to find logical L2 gateway device."
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:160
+#, python-format
+msgid "L2 Gateway '%(gateway_id)s' has been used"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:164
+#, python-format
+msgid "'%(ip_address)s' must be a /32 CIDR based IPv4 address"
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:168
+#, python-format
+msgid ""
+"Security Group %(sg_id)s has reached its maximum capacity, no more ports "
+"can be associated with this security-group."
+msgstr ""
+
+#: vmware_nsx/common/exceptions.py:173
+#, python-format
+msgid "%(res_name)s %(res_id)s not found on the backend."
+msgstr ""
+
+#: vmware_nsx/common/sync.py:238
+#, python-format
+msgid ""
+"Minimum request delay:%(req_delay)s must not exceed synchronization "
+"interval:%(sync_interval)s"
+msgstr ""
+
+#: vmware_nsx/common/utils.py:123
+#, python-format
+msgid "Resource type cannot exceed %(max_len)s characters: %(resource_type)s"
+msgstr ""
+
+#: vmware_nsx/db/extended_security_group_rule.py:27
+msgid "Specifying local_ip_prefix is supported with ingress rules only."
+msgstr ""
+
+#: vmware_nsx/db/lsn_db.py:56
+#, python-format
+msgid "Unable to find Logical Service Node for network %s"
+msgstr ""
+
+#: vmware_nsx/db/networkgw_db.py:44
+#, python-format
+msgid ""
+"Network Gateway '%(gateway_id)s' still has active mappings with one or "
+"more neutron networks."
+msgstr ""
+
+#: vmware_nsx/db/networkgw_db.py:49
+#, python-format
+msgid "Network Gateway %(gateway_id)s could not be found"
+msgstr ""
+
+#: vmware_nsx/db/networkgw_db.py:53
+#, python-format
+msgid ""
+"Network Gateway Device '%(device_id)s' is still used by one or more "
+"network gateways."
+msgstr ""
+
+#: vmware_nsx/db/networkgw_db.py:58
+#, python-format
+msgid "Network Gateway Device %(device_id)s could not be found."
+msgstr ""
+
+#: vmware_nsx/db/networkgw_db.py:62
+#, python-format
+msgid "One or more Network Gateway Devices could not be found: %(device_ids)s."
+msgstr ""
+
+#: vmware_nsx/db/networkgw_db.py:67
+#, python-format
+msgid ""
+"Port '%(port_id)s' is owned by '%(device_owner)s' and therefore cannot be"
+" deleted directly via the port API."
+msgstr ""
+
+#: vmware_nsx/db/networkgw_db.py:72
+#, python-format
+msgid ""
+"The specified mapping '%(mapping)s' is already in use on network gateway "
+"'%(gateway_id)s'."
+msgstr ""
+
+#: vmware_nsx/db/networkgw_db.py:77
+#, python-format
+msgid ""
+"Multiple network connections found on '%(gateway_id)s' with provided "
+"criteria."
+msgstr ""
+
+#: vmware_nsx/db/networkgw_db.py:82
+#, python-format
+msgid ""
+"The connection %(network_mapping_info)s was not found on the network "
+"gateway '%(network_gateway_id)s'"
+msgstr ""
+
+#: vmware_nsx/db/networkgw_db.py:87
+#, python-format
+msgid "The network gateway %(gateway_id)s cannot be updated or deleted"
+msgstr ""
+
+#: vmware_nsx/db/networkgw_db.py:135
+msgid ""
+"A network identifier must be specified when connecting a network to a "
+"network gateway. Unable to complete operation"
+msgstr ""
+
+#: vmware_nsx/db/networkgw_db.py:141
+#, python-format
+msgid ""
+"Invalid keys found among the ones provided in request body: "
+"%(connection_attrs)s."
+msgstr ""
+
+#: vmware_nsx/db/networkgw_db.py:151
+msgid ""
+"An invalid segmentation ID was specified. The segmentation ID must be a "
+"positive integer number"
+msgstr ""
+
+#: vmware_nsx/db/networkgw_db.py:157
+msgid "Cannot specify a segmentation id when the segmentation type is flat"
+msgstr ""
+
+#: vmware_nsx/db/networkgw_db.py:161
+#, python-format
+msgid "Invalid segmentation id (%s) for vlan segmentation type"
+msgstr ""
+
+#: vmware_nsx/db/networkgw_db.py:319
+#, python-format
+msgid ""
+"Requested network '%(network_id)s' not found.Unable to create network "
+"connection on gateway '%(network_gateway_id)s"
+msgstr ""
+
+#: vmware_nsx/db/nsxv_db.py:176 vmware_nsx/db/nsxv_db.py:207
+#, python-format
+msgid ""
+"Failed to allocate one available vnic on edge_id: :%(edge_id)s to "
+"network_id: %(network_id)s"
+msgstr ""
+
+#: vmware_nsx/db/nsxv_db.py:478
+#, python-format
+msgid "Rule Resource binding with id:%s not found!"
+msgstr ""
+
+#: vmware_nsx/db/nsxv_db.py:495
+msgid "Rule Resource binding not found!"
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/lsnmanager.py:41
+msgid ""
+"Pull LSN information from NSX in case it is missing from the local data "
+"store. This is useful to rebuild the local store in case of server "
+"recovery."
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/lsnmanager.py:87
+#, python-format
+msgid "Unable to create LSN for network %s"
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/lsnmanager.py:165
+#, python-format
+msgid "Unable to create port for LSN  %s"
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/lsnmanager.py:279
+#, python-format
+msgid ""
+"Unable to configure dhcp for Logical Service Node %(lsn_id)s and port "
+"%(lsn_port_id)s"
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/lsnmanager.py:300
+#, python-format
+msgid "Unable to configure metadata for subnet %s"
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/lsnmanager.py:394
+#, python-format
+msgid "Unable to save LSN for network %s"
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/lsnmanager.py:460
+#, python-format
+msgid "Unable to save LSN port for subnet %s"
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/migration.py:114
+msgid "LSN already exist"
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/migration.py:118
+msgid "Cannot migrate an external network"
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/migration.py:127
+msgid "Cannot migrate a 'metadata' network"
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/migration.py:130
+msgid "Unable to support multiple subnets per network"
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/modes.py:69
+#, python-format
+msgid "Invalid agent_mode: %s"
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/modes.py:145
+#, python-format
+msgid "Unable to run Neutron with config option '%s', as NSX does not support it"
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/modes.py:148
+#, python-format
+msgid "Unmet dependency for config option '%s'"
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/nsx.py:41
+msgid "Comma separated list of additional domain name servers"
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/nsx.py:46
+msgid "Domain to use for building the hostnames"
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/nsx.py:49
+msgid "Default DHCP lease time"
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/nsx.py:57
+msgid "IP address used by Metadata server."
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/nsx.py:61
+msgid "TCP Port used by Metadata server."
+msgstr ""
+
+#: vmware_nsx/dhcp_meta/nsx.py:65
+msgid "Shared secret to sign instance-id request"
+msgstr ""
+
+#: vmware_nsx/dvs/dvs_utils.py:48
+msgid ""
+"This value should not be set. It is just required for ensuring that the "
+"DVS plugin works with the generic NSX metadata code"
+msgstr ""
+
+#: vmware_nsx/extensions/dns_search_domain.py:35
+msgid "Encountered an empty component"
+msgstr ""
+
+#: vmware_nsx/extensions/dns_search_domain.py:38
+#, python-format
+msgid "Name '%s' must not start or end with a hyphen"
+msgstr ""
+
+#: vmware_nsx/extensions/dns_search_domain.py:41
+#, python-format
+msgid ""
+"Name '%s' must be 1-63 characters long, each of which can only be "
+"alphanumeric or a hyphen"
+msgstr ""
+
+#: vmware_nsx/extensions/dns_search_domain.py:46
+#, python-format
+msgid "TLD '%s' must not be all numeric"
+msgstr ""
+
+#: vmware_nsx/extensions/dns_search_domain.py:48
+#, python-format
+msgid "'%(data)s' not a valid DNS search domain. Reason: %(reason)s"
+msgstr ""
+
+#: vmware_nsx/extensions/networkgw.py:102
+msgid "Cannot create a gateway with an empty device list"
+msgstr ""
+
+#: vmware_nsx/extensions/networkgw.py:118
+#, python-format
+msgid "Unexpected keys found in device description:%s"
+msgstr ""
+
+#: vmware_nsx/extensions/networkgw.py:122
+#, python-format
+msgid "%s: provided data are not iterable"
+msgstr ""
+
+#: vmware_nsx/extensions/networkgw.py:129
+msgid "A connector type is required to create a gateway device"
+msgstr ""
+
+#: vmware_nsx/extensions/networkgw.py:138
+#, python-format
+msgid "Unknown connector type: %s"
+msgstr ""
+
+#: vmware_nsx/extensions/networkgw.py:145
+msgid "Number of network gateways allowed per tenant, -1 for unlimited"
+msgstr ""
+
+#: vmware_nsx/extensions/qos_queue.py:36
+msgid "Need to be admin in order to create queue called default"
+msgstr ""
+
+#: vmware_nsx/extensions/qos_queue.py:40
+msgid "Default queue already exists."
+msgstr ""
+
+#: vmware_nsx/extensions/qos_queue.py:44
+#, python-format
+msgid "Invalid value for dscp %(data)s must be integer value between 0 and 63."
+msgstr ""
+
+#: vmware_nsx/extensions/qos_queue.py:49
+msgid "The qos marking cannot be set to 'trusted' when the DSCP field is set"
+msgstr ""
+
+#: vmware_nsx/extensions/qos_queue.py:54
+msgid "Invalid bandwidth rate, min greater than max."
+msgstr ""
+
+#: vmware_nsx/extensions/qos_queue.py:58
+#, python-format
+msgid "Invalid bandwidth rate, %(data)s must be a non negative integer."
+msgstr ""
+
+#: vmware_nsx/extensions/qos_queue.py:63
+#, python-format
+msgid "Queue %(id)s does not exist"
+msgstr ""
+
+#: vmware_nsx/extensions/qos_queue.py:67
+msgid "Unable to delete queue attached to port."
+msgstr ""
+
+#: vmware_nsx/extensions/qos_queue.py:71
+msgid "Port is not associated with lqueue"
+msgstr ""
+
+#: vmware_nsx/extensions/qos_queue.py:82
+#, python-format
+msgid "'%s' must be a non negative integer."
+msgstr ""
+
+#: vmware_nsx/nsxlib/mh/__init__.py:85
+#, python-format
+msgid "Error. %(type)s exception: %(exc)s."
+msgstr ""
+
+#: vmware_nsx/nsxlib/mh/__init__.py:89
+#, python-format
+msgid "locals=[%s]"
+msgstr ""
+
+#: vmware_nsx/nsxlib/mh/lsn.py:174
+#, python-format
+msgid ""
+"Attempt to plug Logical Services Node %(lsn)s into network with port "
+"%(port)s failed. PatchAttachment already exists with another port"
+msgstr ""
+
+#: vmware_nsx/nsxlib/mh/router.py:455
+#, python-format
+msgid "Invalid keys for NAT match: %s"
+msgstr ""
+
+#: vmware_nsx/nsxlib/mh/router.py:628
+#, python-format
+msgid "Router Port %(lport_id)s not found on router %(lrouter_id)s"
+msgstr ""
+
+#: vmware_nsx/nsxlib/mh/router.py:633
+#, python-format
+msgid ""
+"An exception occurred while updating IP addresses on a router logical "
+"port:%s"
+msgstr ""
+
+#: vmware_nsx/nsxlib/mh/switch.py:257
+msgid "Unable to get ports"
+msgstr ""
+
+#: vmware_nsx/nsxlib/mh/versioning.py:57
+msgid "Operation may not be supported"
+msgstr ""
+
+#: vmware_nsx/nsxlib/mh/versioning.py:65
+msgid ""
+"NSX version is not set. Unable to complete request correctly. Check log "
+"for NSX communication errors."
+msgstr ""
+
+#: vmware_nsx/nsxlib/v3/__init__.py:56
+#, python-format
+msgid "No resource in %(res)s matched for values: %(values)s"
+msgstr ""
+
+#: vmware_nsx/nsxlib/v3/client.py:138
+#, python-format
+msgid "%(verb)s %(url)s"
+msgstr ""
+
+#: vmware_nsx/nsxlib/v3/cluster.py:117
+#, python-format
+msgid "No transport zones found for '%s'"
+msgstr ""
+
+#: vmware_nsx/nsxlib/v3/dfw_api.py:74
+#, python-format
+msgid "Could not find NSGroup %(nsgroup_id)s member %(member_id)s for removal."
+msgstr ""
+
+#: vmware_nsx/nsxlib/v3/dfw_api.py:79
+#, python-format
+msgid ""
+"NSGroup %(nsgroup_id)s contains has reached its maximum capacity, unable "
+"to add additional members."
+msgstr ""
+
+#: vmware_nsx/nsxlib/v3/resources.py:396
+#, python-format
+msgid ""
+"Can't support more than one logical router ports on same logical switch "
+"%s "
+msgstr ""
+
+#: vmware_nsx/nsxlib/v3/resources.py:401
+#, python-format
+msgid "Logical router link port not found on logical switch %s"
+msgstr ""
+
+#: vmware_nsx/nsxlib/v3/router.py:53
+#, python-format
+msgid ""
+"Tier0 router %s not found at the backend. Either a valid UUID must be "
+"specified or a default tier0 router UUID must be configured in nsx.ini"
+msgstr ""
+
+#: vmware_nsx/nsxlib/v3/router.py:60
+#, python-format
+msgid "Failed to get edge cluster uuid from tier0 router %s at the backend"
+msgstr ""
+
+#: vmware_nsx/nsxlib/v3/router.py:67
+#, python-format
+msgid ""
+"%(act_num)s edge members found in edge_cluster %(cluster_id)s, however we"
+" require at least %(exp_num)s edge nodes in edge cluster for use."
+msgstr ""
+
+#: vmware_nsx/nsxlib/v3/security.py:363
+msgid "Reached the maximum supported amount of security groups."
+msgstr ""
+
+#: vmware_nsx/plugins/dvs/plugin.py:179
+msgid "Only and admin can create a DVS provider network"
+msgstr ""
+
+#: vmware_nsx/plugins/dvs/plugin.py:185 vmware_nsx/plugins/nsx_mh/plugin.py:782
+#: vmware_nsx/plugins/nsx_v/plugin.py:303
+msgid "Segmentation ID cannot be specified with flat network type"
+msgstr ""
+
+#: vmware_nsx/plugins/dvs/plugin.py:189 vmware_nsx/plugins/nsx_mh/plugin.py:786
+#: vmware_nsx/plugins/nsx_v/plugin.py:307
+msgid "Segmentation ID must be specified with vlan network type"
+msgstr ""
+
+#: vmware_nsx/plugins/dvs/plugin.py:193 vmware_nsx/plugins/nsx_mh/plugin.py:790
+#: vmware_nsx/plugins/nsx_mh/plugin.py:809
+#: vmware_nsx/plugins/nsx_v/plugin.py:311
+#, python-format
+msgid "%(segmentation_id)s out of range (%(min_id)s through %(max_id)s)"
+msgstr ""
+
+#: vmware_nsx/plugins/dvs/plugin.py:199 vmware_nsx/plugins/nsx_mh/plugin.py:819
+#: vmware_nsx/plugins/nsx_v/plugin.py:350
+#: vmware_nsx/plugins/nsx_v3/plugin.py:334
+#, python-format
+msgid "%(net_type_param)s %(net_type_value)s not supported"
+msgstr ""
+
+#: vmware_nsx/plugins/dvs/plugin.py:254
+msgid "Unable to update DVS network"
+msgstr ""
+
+#: vmware_nsx/plugins/dvs/plugin.py:389
+#, python-format
+msgid "Unable to create router %s with DVS"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:269
+#, python-format
+msgid ""
+"Unable to create logical router port for neutron port id %(port_id)s on "
+"router %(nsx_router_id)s"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:360
+#, python-format
+msgid ""
+"Unable to plug attachment in router port %(r_port_id)s for neutron port "
+"id %(q_port_id)s on router %(router_id)s"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:548
+#, python-format
+msgid ""
+"It is not allowed to create router interface ports on external networks "
+"as '%s'"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:588
+#, python-format
+msgid ""
+"device_id field must be populated in order to create an external gateway "
+"port for network %s"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:598
+#, python-format
+msgid "The gateway port for the NSX router %s was not found on the backend"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:688
+#: vmware_nsx/plugins/nsx_mh/plugin.py:1783
+msgid "Unable to update logical routeron NSX Platform"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:777
+#: vmware_nsx/plugins/nsx_v/plugin.py:300
+#, python-format
+msgid "%s required"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:816
+msgid "The l3_ext provide network type can be used with external networks only"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:1048
+#: vmware_nsx/plugins/nsx_v/plugin.py:796
+msgid "admin_state_up=False networks are not supported."
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:1383
+msgid ""
+"Cannot create a distributed router with the NSX platform currently in "
+"execution. Please, try without specifying the 'distributed' attribute."
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:1389
+msgid "Unable to create logical router on NSX Platform"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:1411
+#, python-format
+msgid "Unable to create router %s on NSX backend"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:1440
+#: vmware_nsx/plugins/nsx_mh/plugin.py:1524
+#: vmware_nsx/plugins/nsx_v/plugin.py:1438
+#: vmware_nsx/plugins/nsx_v/plugin.py:1591
+#: vmware_nsx/plugins/nsx_v3/plugin.py:1123
+#: vmware_nsx/plugins/nsx_v3/plugin.py:1143
+#, python-format
+msgid "Network '%s' is not a valid external network"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:1533
+msgid ""
+"'routes' cannot contain route '0.0.0.0/0', this must be updated through "
+"the default gateway attribute"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:1549
+#, python-format
+msgid "Logical router %s not found on NSX Platform"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:1553
+msgid "Unable to update logical router on NSX Platform"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:1555
+msgid ""
+"Request cannot contain 'routes' with the NSX platform currently in "
+"execution. Please, try without specifying the static routes."
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:1602
+#, python-format
+msgid "Unable to delete logical router '%s' on NSX Platform"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:1939
+msgid "Failed to update NAT rules for floatingip update"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:2034
+#, python-format
+msgid "Unable to create l2_gw_service for: %s"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:2396
+#, python-format
+msgid "Unable to remove security group %s from backend"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_mh/plugin.py:2409
+#, python-format
+msgid "Port values not valid for protocol: %s"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/managers.py:66
+#, python-format
+msgid "No type driver for tenant router_type: %s. Service terminated!"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/md_proxy.py:179
+#: vmware_nsx/plugins/nsx_v/md_proxy.py:242
+#: vmware_nsx/plugins/nsx_v/md_proxy.py:257
+#: vmware_nsx/plugins/nsx_v/md_proxy.py:280
+#: vmware_nsx/plugins/nsx_v/md_proxy.py:303
+msgid "Metadata initialization is incomplete on initializer node"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/md_proxy.py:213
+msgid ""
+"Number of configured metadata proxy IPs is smaller than number of Edges "
+"which are already provisioned"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/md_proxy.py:330
+msgid "Number of metadata members should not change"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/md_proxy.py:508
+msgid "Metadata certificate path not configured"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/md_proxy.py:510
+msgid "Metadata client private key not configured"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/plugin.py:207
+msgid "Can not support router_type extension for distributed router"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/plugin.py:332
+msgid "Segmentation ID cannot be set with VXLAN"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/plugin.py:335
+msgid "Segmentation ID cannot be set with portgroup"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/plugin.py:340
+msgid "Physical network doesn't exist"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/plugin.py:348
+msgid "Portgroup name must match network name"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/plugin.py:626
+#, python-format
+msgid "Physical network %s is not an existing DVS"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/plugin.py:842
+msgid "Address pairs should have same MAC as the port"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/plugin.py:1052
+#, python-format
+msgid "Can not delete DHCP port %s"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/plugin.py:1151
+#: vmware_nsx/plugins/nsx_v/plugin.py:1222
+msgid "Host routes not supported by plugin"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/plugin.py:1158
+msgid "Can not enable DHCP on external network"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/plugin.py:1164
+msgid "No support for DHCP for IPv6"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/plugin.py:1167
+msgid "The requested subnet contains reserved IP's"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/plugin.py:1450
+msgid "Cannot specify router-size for shared router"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/plugin.py:1453
+msgid "Cannot specify router-size for distributed router"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/plugin.py:1497
+#: vmware_nsx/plugins/nsx_v/plugin.py:1505
+msgid "Unable to update distributed mode"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/plugin.py:1732
+#, python-format
+msgid ""
+"Interfaces number on router: %(router_id)s has reached the maximum "
+"%(number)d which NSXv can support. Please use vdr if you want to add "
+"unlimited interfaces"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/plugin.py:2252
+#, python-format
+msgid "Configured %s not found"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/plugin.py:2261
+#, python-format
+msgid "No subnet defined on network %s"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/drivers/exclusive_router_driver.py:218
+msgid ""
+"Cannot delete router interface while loadbalancers are provisioned on "
+"attached subnet"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/drivers/shared_router_driver.py:195
+msgid "Can't configure external interface on multiple external networks"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/edge_firewall_driver.py:46
+#, python-format
+msgid "Invalid action value %s in a firewall rule"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/edge_firewall_driver.py:55
+#, python-format
+msgid "Invalid action value %s in a vshield firewall rule"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/edge_firewall_driver.py:242
+#, python-format
+msgid "No rule id:%s found in the edge_firewall_binding"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/edge_firewall_driver.py:386
+msgid "Can't execute insert rule operation without reference rule_id"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/edge_ipsecvpn_driver.py:52
+#, python-format
+msgid ""
+"Unsupported ike_version: %s! Only 'v1' ike version is supported on "
+"vshield Edge!"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/edge_ipsecvpn_driver.py:74
+#, python-format
+msgid ""
+"Unsupported encryption_algorithm: %s! '3des', 'aes-128' and 'aes-256' are"
+" supported on VSE right now."
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/edge_ipsecvpn_driver.py:83
+#, python-format
+msgid "Unsupported pfs: %s! 'group2' and 'group5' are supported on VSE right now."
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/edge_ipsecvpn_driver.py:91
+#, python-format
+msgid ""
+"Unsupported transform protocol: %s! 'esp' is supported by default on VSE "
+"right now."
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/edge_ipsecvpn_driver.py:100
+#, python-format
+msgid ""
+"Unsupported encapsulation mode: %s! 'tunnel' is supported by default on "
+"VSE right now."
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/edge_utils.py:67
+msgid "Invalid edge pool format"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/edge_utils.py:69
+#, python-format
+msgid "edge type '%(edge_type)s' is not allowed, allowed types: %(allowed)s"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/edge_utils.py:77
+#, python-format
+msgid "edge size '%(edge_size)s' is not allowed, allowed types: %(allowed)s"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/edge_utils.py:94
+msgid "Duplicate edge pool configuration"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/edge_utils.py:340
+#, python-format
+msgid "network %s not found at the backend"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/edge_utils.py:457
+#, python-format
+msgid "update dhcp interface for net %s failed"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/edge_utils.py:1682
+msgid ""
+"Distributed Router doesn't support multiple subnets with same network "
+"attached to it."
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/common/exceptions.py:35
+#, python-format
+msgid "%(resource)s not found: %(msg)s"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/common/exceptions.py:39
+#, python-format
+msgid "An unknown exception %(status)s occurred: %(response)s."
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/common/exceptions.py:50
+#, python-format
+msgid "Resource %(uri)s has been redirected"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/common/exceptions.py:54
+#, python-format
+msgid "Request %(uri)s is Bad, response %(response)s"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/common/exceptions.py:58
+#, python-format
+msgid "Forbidden: %(uri)s"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/common/exceptions.py:62
+#, python-format
+msgid "Resource %(uri)s not found"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/common/exceptions.py:66
+#, python-format
+msgid "Media Type %(uri)s is not supported"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/common/exceptions.py:70
+#, python-format
+msgid "Service Unavailable: %(uri)s"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/common/exceptions.py:74
+#, python-format
+msgid "Concurrent object access error: %(uri)s"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/tasks/tasks.py:48
+#, python-format
+msgid "Invalid state %(state)d"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v/vshield/tasks/tasks.py:52
+#, python-format
+msgid "State %(state)d skipped. Current state %(current)d"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v3/plugin.py:152
+#, python-format
+msgid "Unable to initialize NSX v3 port spoofguard switching profile: %s"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v3/plugin.py:164
+#, python-format
+msgid "Unable to initialize NSX v3 DHCP switching profile: %s"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v3/plugin.py:182
+#, python-format
+msgid ""
+"Invalid configuration on the backend for DHCP switching profile %s. "
+"Switching Profile must be of type 'Switch Security'"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v3/plugin.py:189
+#, python-format
+msgid ""
+"Invalid configuration on the backend for DHCP switching profile %s. DHCP "
+"Server Block and Client Block must be disabled"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v3/plugin.py:295
+#: vmware_nsx/plugins/nsx_v3/plugin.py:330
+#, python-format
+msgid "Segmentation ID cannot be specified with %s network type"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v3/plugin.py:310
+#, python-format
+msgid "Segmentation ID must be specified with %s network type"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v3/plugin.py:314
+#, python-format
+msgid ""
+"Segmentation ID %(segmentation_id)s out of range (%(min_id)s through "
+"%(max_id)s)"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v3/plugin.py:342
+#, python-format
+msgid "%s is required for creating a provider network"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v3/plugin.py:649
+msgid "Invalid binding:profile. parent_name and tag are both required."
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v3/plugin.py:653
+#, python-format
+msgid "Invalid binding:profile. parent_name \"%s\" must be a string."
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v3/plugin.py:657
+#, python-format
+msgid ""
+"Invalid binding:profile. tag \"%s\" must be an int between 1 and 4096, "
+"inclusive."
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v3/plugin.py:794
+msgid "Unable to update/create a port with an external network"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v3/plugin.py:1337
+#, python-format
+msgid ""
+"route with destination %(dest)s have an external nexthop %(nexthop)s "
+"which can't be supported"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v3/plugin.py:1379
+#, python-format
+msgid "logical router %s not found at the backend"
+msgstr ""
+
+#: vmware_nsx/plugins/nsx_v3/plugin.py:1436
+#, python-format
+msgid ""
+"Only one subnet of network %(net_id)s can be attached to router, one "
+"subnet is already attached to router %(router_id)s"
+msgstr ""
+
+#: vmware_nsx/services/l2gateway/nsx_v/driver.py:57
+#: vmware_nsx/services/l2gateway/nsx_v3/driver.py:124
+msgid "Only a single device is supported for one L2 gateway"
+msgstr ""
+
+#: vmware_nsx/services/l2gateway/nsx_v/driver.py:64
+msgid "Only a single interface is supported for one L2 gateway"
+msgstr ""
+
+#: vmware_nsx/services/l2gateway/nsx_v/driver.py:67
+msgid "Configured interface not found"
+msgstr ""
+
+#: vmware_nsx/services/l2gateway/nsx_v3/driver.py:127
+msgid "Device name must be configured with a UUID"
+msgstr ""
+
+#: vmware_nsx/services/l2gateway/nsx_v3/driver.py:143
+#, python-format
+msgid ""
+"Unsupported network type %s for L2 gateway connection. Only VXLAN network"
+" type supported"
+msgstr ""
+
+#: vmware_nsx/services/l2gateway/nsx_v3/driver.py:267
+#, python-format
+msgid "has device owner %s"
+msgstr ""
+
+#: vmware_nsx/services/lbaas/nsx_v/lbaas_common.py:130
+#, python-format
+msgid "Failed to add VIP %(vip)s as secondary IP on Edge %(edge_id)s"
+msgstr ""
+
+#: vmware_nsx/services/lbaas/nsx_v/lbaas_common.py:142
+#, python-format
+msgid "Failed to delete VIP %(vip)s as secondary IP on Edge %(edge_id)s"
+msgstr ""
+
+#: vmware_nsx/services/lbaas/nsx_v/v1/edge_loadbalancer_driver.py:71
+#, python-format
+msgid "Invalid %(protocol)s persistence method: %(type)s"
+msgstr ""
+
+#: vmware_nsx/services/lbaas/nsx_v/v1/edge_loadbalancer_driver.py:188
+#, python-format
+msgid "No suitable Edge found for subnet %s"
+msgstr ""
+
+#: vmware_nsx/services/lbaas/nsx_v/v1/edge_loadbalancer_driver.py:254
+#, python-format
+msgid "Pool %s in not mapped to any Edge appliance"
+msgstr ""
+
+#: vmware_nsx/services/lbaas/nsx_v/v2/listener_mgr.py:108
+#, python-format
+msgid "Failed to upload a certificate to edge %s"
+msgstr ""
+
+#: vmware_nsx/shell/commands.py:26
+#, python-format
+msgid ""
+"\n"
+"Service type = %s\n"
+msgstr ""
+
+#: vmware_nsx/shell/commands.py:29
+#, python-format
+msgid "Service uuids = %s\n"
+msgstr ""
+
+#: vmware_nsx/shell/commands.py:30
+#, python-format
+msgid ""
+"Port uuids = %s\n"
+"\n"
+msgstr ""
+
+#: vmware_nsx/shell/commands.py:39
+msgid "ID or name of network to run report on"
+msgstr ""
+
+#: vmware_nsx/shell/commands.py:48
+msgid "Migration report is:\n"
+msgstr ""
+
+#: vmware_nsx/shell/commands.py:58
+msgid "ID or name of network to migrate"
+msgstr ""
+
+#: vmware_nsx/shell/commands.py:68
+msgid "Migration has been successful:\n"
+msgstr ""
+
+#: vmware_nsx/tests/unit/nsx_mh/apiclient/fake.py:407
+#, python-format
+msgid "lswitch:%s not found"
+msgstr ""
+
+#: vmware_nsx/tests/unit/nsx_v/test_plugin.py:1440
+msgid "Tasks not completed"
+msgstr ""
+
+#: vmware_nsx/tests/unit/nsx_v/vshield/fake_vcns.py:83
+#: vmware_nsx/tests/unit/nsx_v/vshield/fake_vcns.py:144
+#: vmware_nsx/tests/unit/nsx_v/vshield/fake_vcns.py:167
+#: vmware_nsx/tests/unit/nsx_v/vshield/fake_vcns.py:178
+#: vmware_nsx/tests/unit/nsx_v/vshield/fake_vcns.py:310
+#: vmware_nsx/tests/unit/nsx_v/vshield/fake_vcns.py:319
+#: vmware_nsx/tests/unit/nsx_v/vshield/fake_vcns.py:328
+#: vmware_nsx/tests/unit/nsx_v/vshield/fake_vcns.py:346
+#: vmware_nsx/tests/unit/nsx_v/vshield/fake_vcns.py:368
+#: vmware_nsx/tests/unit/nsx_v/vshield/fake_vcns.py:390
+#: vmware_nsx/tests/unit/nsx_v/vshield/fake_vcns.py:487
+#: vmware_nsx/tests/unit/nsx_v/vshield/fake_vcns.py:501
+#: vmware_nsx/tests/unit/nsx_v/vshield/fake_vcns.py:515
+#: vmware_nsx/tests/unit/nsx_v/vshield/fake_vcns.py:557
+#, python-format
+msgid "Edge %s does not exist"
+msgstr ""
+
+#: vmware_nsx/tests/unit/nsx_v/vshield/fake_vcns.py:155
+#, python-format
+msgid "Job %s does not nexist"
+msgstr ""
+
+#: vmware_nsx/tests/unit/nsx_v/vshield/fake_vcns.py:300
+#, python-format
+msgid "binding %s does not exist"
+msgstr ""
+
+#: vmware_nsx/tests/unit/nsx_v/vshield/fake_vcns.py:378
+#, python-format
+msgid "Rule id %d doest not exist"
+msgstr ""
+
+#: vmware_nsx/tests/unit/nsx_v/vshield/fake_vcns.py:402
+#, python-format
+msgid "Edge %s does not exist!"
+msgstr ""
+
+#: vmware_nsx/tests/unit/nsx_v/vshield/fake_vcns.py:454
+#, python-format
+msgid "Lswitch %s does not exist"
+msgstr ""
+
