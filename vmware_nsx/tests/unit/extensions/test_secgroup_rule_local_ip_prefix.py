@@ -27,8 +27,10 @@ from neutron_lib import constants as const
 
 from vmware_nsx.db import extended_security_group_rule as ext_rule_db
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix as ext_loip
+from vmware_nsx.nsxlib.v3 import dfw_api as v3_fw
 from vmware_nsx.plugins.nsx_v.vshield import securitygroup_utils
 from vmware_nsx.tests.unit.nsx_v import test_plugin as test_nsxv_plugin
+from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_nsxv3_plugin
 
 
 PLUGIN_NAME = ('vmware_nsx.tests.unit.extensions.'
@@ -46,14 +48,12 @@ class ExtendedRuleTestPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     def create_security_group_rule(self, context, security_group_rule):
         rule = security_group_rule['security_group_rule']
-        rule['id'] = _uuid()
         self._check_local_ip_prefix(context, rule)
         with context.session.begin(subtransactions=True):
             res = super(ExtendedRuleTestPlugin,
                         self).create_security_group_rule(
                             context, security_group_rule)
-            self._save_extended_rule_properties(context, rule)
-            self._get_security_group_rule_properties(context, res)
+            self._process_security_group_rule_properties(context, res, rule)
         return res
 
 
@@ -111,10 +111,6 @@ class TestNsxVExtendedSGRule(test_nsxv_plugin.NsxVSecurityGroupsTestCase,
         plugin = manager.NeutronManager.get_plugin()
         dest = {'type': 'Ipv4Address', 'value': local_ip_prefix}
 
-        def _assert_destination_as_expected(*args, **kwargs):
-            self.assertEqual(dest, kwargs['destination'])
-            return sg_utils.get_rule_config(*args, **kwargs)
-
         plugin.nsx_sg_utils.get_rule_config = mock.Mock(
             side_effect=sg_utils.get_rule_config)
         super(TestNsxVExtendedSGRule,
@@ -123,3 +119,20 @@ class TestNsxVExtendedSGRule(test_nsxv_plugin.NsxVSecurityGroupsTestCase,
             source=mock.ANY, destination=dest, services=mock.ANY,
             name=mock.ANY, applied_to_ids=mock.ANY, flags=mock.ANY,
             logged=mock.ANY)
+
+
+class TestNSXv3ExtendedSGRule(test_nsxv3_plugin.NsxV3PluginTestCaseMixin,
+                              LocalIPPrefixExtTestCase):
+    def test_create_rule_with_local_ip_prefix(self):
+        local_ip_prefix = '239.255.0.0/16'
+        dest = v3_fw.get_ip_cidr_reference(local_ip_prefix, v3_fw.IPV4)
+
+        with mock.patch.object(v3_fw, 'get_firewall_rule_dict',
+            side_effect=v3_fw.get_firewall_rule_dict) as mock_rule:
+
+            super(TestNSXv3ExtendedSGRule,
+                  self).test_create_rule_with_local_ip_prefix()
+
+            mock_rule.assert_called_with(mock.ANY, mock.ANY, dest, mock.ANY,
+                                         v3_fw.IPV4, mock.ANY, v3_fw.ALLOW,
+                                         mock.ANY)

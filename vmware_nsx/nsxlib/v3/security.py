@@ -28,6 +28,7 @@ from vmware_nsx._i18n import _, _LW
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils
 from vmware_nsx.db import nsx_models
+from vmware_nsx.extensions import secgroup_rule_local_ip_prefix
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
 from vmware_nsx.nsxlib.v3 import dfw_api as firewall
 
@@ -97,16 +98,23 @@ def _get_fw_rule_from_sg_rule(sg_rule, nsgroup_id, rmt_nsgroup_id, logged):
     ip_protocol = sg_rule['ethertype'].upper()
     direction = _get_direction(sg_rule)
 
+    if sg_rule.get(secgroup_rule_local_ip_prefix.LOCAL_IP_PREFIX):
+        local_ip_prefix = firewall.get_ip_cidr_reference(
+            sg_rule[secgroup_rule_local_ip_prefix.LOCAL_IP_PREFIX],
+            ip_protocol)
+    else:
+        local_ip_prefix = None
+
     source = None
     local_group = firewall.get_nsgroup_reference(nsgroup_id)
     if sg_rule['remote_ip_prefix'] is not None:
         source = firewall.get_ip_cidr_reference(sg_rule['remote_ip_prefix'],
                                                 ip_protocol)
-        destination = local_group
+        destination = local_ip_prefix or local_group
     else:
         if rmt_nsgroup_id:
             source = firewall.get_nsgroup_reference(rmt_nsgroup_id)
-        destination = local_group
+        destination = local_ip_prefix or local_group
     if direction == firewall.OUT:
         source, destination = destination, source
 

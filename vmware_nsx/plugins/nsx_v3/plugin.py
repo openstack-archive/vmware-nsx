@@ -69,6 +69,7 @@ from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import extended_security_group
+from vmware_nsx.db import extended_security_group_rule as extend_sg_rule
 from vmware_nsx.dhcp_meta import rpc as nsx_rpc
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
 from vmware_nsx.nsxlib import v3 as nsxlib
@@ -88,6 +89,7 @@ NSX_V3_DHCP_PROFILE_NAME = 'neutron_port_dhcp_profile'
 
 class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                   db_base_plugin_v2.NeutronDbPluginV2,
+                  extend_sg_rule.ExtendedSecurityGroupRuleMixin,
                   securitygroups_db.SecurityGroupDbMixin,
                   extended_security_group.ExtendedSecurityGroupPropertiesMixin,
                   external_net_db.External_net_db_mixin,
@@ -111,6 +113,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                                    "dhcp_agent_scheduler",
                                    "ext-gw-mode",
                                    "security-group",
+                                   "secgroup-rule-local-ip-prefix",
                                    "port-security",
                                    "provider",
                                    "external-net",
@@ -1827,25 +1830,32 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         return self.create_security_group_rule_bulk(context, bulk_rule)[0]
 
     def create_security_group_rule_bulk(self, context, security_group_rules):
-        security_group_rules_db = (
-            super(NsxV3Plugin, self).create_security_group_rule_bulk_native(
-                context, security_group_rules))
-        sg_id = security_group_rules_db[0]['security_group_id']
+        sg_rules = security_group_rules['security_group_rules']
+        for r in sg_rules:
+            self._check_local_ip_prefix(context, r['security_group_rule'])
+
+        with context.session.begin(subtransactions=True):
+            rules_db = (super(NsxV3Plugin,
+                              self).create_security_group_rule_bulk_native(
+                                  context, security_group_rules))
+            for i, r in enumerate(sg_rules):
+                self._process_security_group_rule_properties(
+                    context, rules_db[i], r['security_group_rule'])
+        sg_id = rules_db[0]['security_group_id']
         nsgroup_id, section_id = security.get_sg_mappings(context.session,
                                                           sg_id)
         logging_enabled = (cfg.CONF.nsx_v3.log_security_groups_allowed_traffic
                            or self._is_security_group_logged(context, sg_id))
         try:
-            rules = security.create_firewall_rules(context, section_id,
-                                                   nsgroup_id, logging_enabled,
-                                                   security_group_rules_db)
+            rules = security.create_firewall_rules(
+                context, section_id, nsgroup_id, logging_enabled, rules_db)
         except nsx_exc.ManagerError:
             with excutils.save_and_reraise_exception():
-                for rule in security_group_rules_db:
+                for rule in rules_db:
                     super(NsxV3Plugin, self).delete_security_group_rule(
                         context, rule['id'])
         security.save_sg_rule_mappings(context.session, rules['rules'])
-        return security_group_rules_db
+        return rules_db
 
     def delete_security_group_rule(self, context, id):
         rule_db = self._get_security_group_rule(context, id)
