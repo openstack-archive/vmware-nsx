@@ -147,15 +147,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Create the client to interface with the NSX-v
         _nsx_v_callbacks = edge_utils.NsxVCallbacks(self)
         self.nsx_v = vcns_driver.VcnsDriver(_nsx_v_callbacks)
+        # Ensure that edges do concurrency
+        self._ensure_lock_operations()
+        # Configure aggregate publishing
+        self._aggregate_publishing()
         self.edge_manager = edge_utils.EdgeManager(self.nsx_v, self)
         self.vdn_scope_id = cfg.CONF.nsxv.vdn_scope_id
         self.dvs_id = cfg.CONF.nsxv.dvs_id
         self.nsx_sg_utils = securitygroup_utils.NsxSecurityGroupUtils(
             self.nsx_v)
-        # Ensure that edges do concurrency
-        self._ensure_lock_operations()
-        # Configure aggregate publishing
-        self._aggregate_publishing()
         self._validate_config()
         self.sg_container_id = self._create_security_group_container()
         self.default_section = self._create_cluster_default_fw_section()
