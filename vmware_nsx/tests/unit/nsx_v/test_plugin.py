@@ -995,6 +995,29 @@ class TestPortsV2(NsxVPluginV2TestCase,
                 test_create_port_with_multiple_ipv4_and_ipv6_subnets()
             self.assertEqual(ctx_manager.exception.code, 400)
 
+    def test_list_ports_for_network_owner(self):
+        with self.network(tenant_id='tenant_1') as network:
+            with self.subnet(network, enable_dhcp=False) as subnet:
+                with self.port(subnet, tenant_id='tenant_1') as port1,\
+                        self.port(subnet, tenant_id='tenant_2') as port2:
+                    # network owner request, should return all ports
+                    port_res = self._list_ports(
+                        'json', set_context=True, tenant_id='tenant_1')
+                    port_list = self.deserialize('json', port_res)['ports']
+                    port_ids = [p['id'] for p in port_list]
+                    self.assertEqual(2, len(port_list))
+                    self.assertIn(port1['port']['id'], port_ids)
+                    self.assertIn(port2['port']['id'], port_ids)
+
+                    # another tenant request, only return ports belong to it
+                    port_res = self._list_ports(
+                        'json', set_context=True, tenant_id='tenant_2')
+                    port_list = self.deserialize('json', port_res)['ports']
+                    port_ids = [p['id'] for p in port_list]
+                    self.assertEqual(1, len(port_list))
+                    self.assertNotIn(port1['port']['id'], port_ids)
+                    self.assertIn(port2['port']['id'], port_ids)
+
 
 class TestSubnetsV2(NsxVPluginV2TestCase,
                     test_plugin.TestSubnetsV2):
