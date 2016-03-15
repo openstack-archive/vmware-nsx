@@ -455,6 +455,14 @@ class Vcns(object):
                                                         portgroup_id)
         return self.do_request(HTTP_DELETE, uri, format='xml', decode=False)
 
+    def get_vdn_switch(self, dvs_id):
+        uri = '/api/2.0/vdn/switches/%s' % dvs_id
+        return self.do_request(HTTP_GET, uri, decode=True)
+
+    def update_vdn_switch(self, switch):
+        uri = '/api/2.0/vdn/switches'
+        return self.do_request(HTTP_PUT, uri, switch)
+
     def query_interface(self, edge_id, vnic_index):
         uri = "%s/%s/vnics/%d" % (URI_PREFIX, edge_id, vnic_index)
         return self.do_request(HTTP_GET, uri, decode=True)

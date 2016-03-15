@@ -16,6 +16,7 @@
 import logging
 import xml.etree.ElementTree as et
 
+from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 
@@ -51,6 +52,40 @@ def neutron_list_networks(resource, event, trigger,
                                          ['type', 'moref', 'name']))
 
 
+@admin_utils.output_header
+def nsx_update_switch(resource, event, trigger, **kwargs):
+    nsxv = utils.get_nsxv_client()
+    if not kwargs.get('property'):
+        LOG.error(_LE("Need to specify dvs-id parameter and "
+                      "attribute to update. Add --property dvs-id=<dvs-id> "
+                      "--property teamingpolicy=<policy>"))
+        return
+    properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
+    dvs_id = properties.get('dvs-id')
+    if not dvs_id:
+        LOG.error(_LE("Need to specify dvs-id. "
+                      "Add --property dvs-id=<dvs-id>"))
+        return
+    h, switch = nsxv.get_vdn_switch(dvs_id)
+    policy = properties.get('teamingpolicy')
+    if policy:
+        if switch['teamingPolicy'] == policy:
+            LOG.info(_LI("Policy already set!"))
+            return
+        LOG.info(_LI("Updating NSXv switch %(dvs)s teaming policy to "
+                     "%(policy)s"), {'dvs': dvs_id, 'policy': policy})
+        switch['teamingPolicy'] = policy
+        switch = nsxv.update_vdn_switch(switch)
+        LOG.info(_LI("Switch value after update: %s"), switch)
+    else:
+        LOG.error(_LE("No teaming policy set. "
+                      "Add --property teamingpolicy=<policy>"))
+        LOG.info(_LI("Current switch value is: %s"), switch)
+
+
 registry.subscribe(neutron_list_networks,
                    constants.NETWORKS,
                    shell.Operations.LIST.value)
+registry.subscribe(nsx_update_switch,
+                   constants.NETWORKS,
+                   shell.Operations.NSX_UPDATE.value)
