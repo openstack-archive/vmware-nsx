@@ -17,6 +17,7 @@ import contextlib
 from eventlet import greenthread
 import mock
 import netaddr
+from neutron.api.rpc.callbacks import events as callbacks_events
 from neutron.api.v2 import attributes
 from neutron import context
 from neutron.extensions import dvr as dist_router
@@ -28,6 +29,7 @@ from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as secgrp
 from neutron import manager
+from neutron.objects.qos import policy as qos_pol
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.db.test_allowedaddresspairs_db as test_addr_pair
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
@@ -48,6 +50,8 @@ from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.db import nsxv_db
+from vmware_nsx.dvs import dvs
+from vmware_nsx.dvs import dvs_utils
 from vmware_nsx.extensions import routersize as router_size
 from vmware_nsx.extensions import routertype as router_type
 from vmware_nsx.extensions import securitygrouplogging
@@ -56,6 +60,7 @@ from vmware_nsx.plugins.nsx_v.drivers import (
     shared_router_driver as router_driver)
 from vmware_nsx.plugins.nsx_v.vshield.common import constants as vcns_const
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
+from vmware_nsx.services.qos.nsx_v import utils as qos_utils
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.extensions import test_vnic_index
 from vmware_nsx.tests.unit.nsx_v.vshield import fake_vcns
@@ -458,6 +463,132 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                               p.create_network,
                               context.get_admin_context(),
                               data)
+
+    def test_create_network_with_qos_no_dvs_fail(self):
+        # network creation should fail if the qos policy parameter exists,
+        # and no use_dvs_features configured
+        data = {'network': {
+                   'name': 'test-qos',
+                   'tenant_id': self._tenant_id,
+                   'qos_policy_id': _uuid()}}
+        plugin = manager.NeutronManager.get_plugin()
+        self.assertRaises(n_exc.InvalidInput,
+                          plugin.create_network,
+                          context.get_admin_context(),
+                          data)
+
+    def test_update_network_with_qos_no_dvs_fail(self):
+        # network update should fail if the qos policy parameter exists,
+        # and no use_dvs_features configured
+        data = {'network': {'qos_policy_id': _uuid()}}
+        with self.network() as net:
+            plugin = manager.NeutronManager.get_plugin()
+            self.assertRaises(n_exc.InvalidInput,
+                              plugin.update_network,
+                              context.get_admin_context(),
+                              net['network']['id'], data)
+
+    def _get_core_plugin_with_dvs(self):
+        # enable dvs features to allow policy with QOS
+        cfg.CONF.set_default('use_dvs_features', True, 'nsxv')
+        plugin = manager.NeutronManager.get_plugin()
+        with mock.patch.object(dvs_utils, 'dvs_create_session'):
+            with mock.patch.object(dvs.DvsManager, '_get_dvs_moref'):
+                plugin._dvs = dvs.DvsManager()
+        return plugin
+
+    @mock.patch.object(dvs.DvsManager, 'update_port_groups_config')
+    @mock.patch.object(qos_utils.NsxVQosRule, '_init_from_policy_id')
+    def test_create_network_with_qos_policy(self,
+                                            fake_init_from_policy,
+                                            fake_dvs_update):
+        # enable dvs features to allow policy with QOS
+        plugin = self._get_core_plugin_with_dvs()
+        ctx = context.get_admin_context()
+
+        # fake policy id
+        policy_id = _uuid()
+        data = {'network': {
+                'name': 'test-qos',
+                'tenant_id': self._tenant_id,
+                'qos_policy_id': policy_id,
+                'port_security_enabled': False,
+                'admin_state_up': False,
+                'shared': False
+                }}
+        # create the network - should succeed and translate the policy id
+        plugin.create_network(ctx, data)
+        fake_init_from_policy.assert_called_once_with(ctx, policy_id)
+        self.assertTrue(fake_dvs_update.called)
+
+    @mock.patch.object(dvs.DvsManager, 'update_port_groups_config')
+    @mock.patch.object(qos_utils.NsxVQosRule, '_init_from_policy_id')
+    def test_update_network_with_qos_policy(self,
+                                            fake_init_from_policy,
+                                            fake_dvs_update):
+        # enable dvs features to allow policy with QOS
+        plugin = self._get_core_plugin_with_dvs()
+        ctx = context.get_admin_context()
+
+        # create the network without qos policy
+        data = {'network': {
+                'name': 'test-qos',
+                'tenant_id': self._tenant_id,
+                'port_security_enabled': False,
+                'admin_state_up': True,
+                'shared': False
+                }}
+        net = plugin.create_network(ctx, data)
+
+        # fake policy id
+        policy_id = _uuid()
+        data['network']['qos_policy_id'] = policy_id
+        # update the network - should succeed and translate the policy id
+        plugin.update_network(ctx, net['id'], data)
+        fake_init_from_policy.assert_called_once_with(ctx, policy_id)
+        self.assertTrue(fake_dvs_update.called)
+
+    @mock.patch.object(dvs.DvsManager, 'update_port_groups_config')
+    @mock.patch.object(qos_utils.NsxVQosRule, '_init_from_policy_id')
+    def test_network_with_updated_qos_policy(self,
+                                             fake_init_from_policy,
+                                             fake_dvs_update):
+        # enable dvs features to allow policy with QOS
+        plugin = self._get_core_plugin_with_dvs()
+
+        ctx = context.get_admin_context()
+
+        # create the network with qos policy
+        policy_id = _uuid()
+        data = {'network': {
+                'name': 'test-qos',
+                'tenant_id': self._tenant_id,
+                'qos_policy_id': policy_id,
+                'port_security_enabled': False,
+                'admin_state_up': True,
+                'shared': False
+                }}
+        net = plugin.create_network(ctx, data)
+
+        # reset fake methods called flag
+        fake_init_from_policy.called = False
+        fake_dvs_update.called = False
+
+        # fake QoS policy obj:
+        fake_policy = qos_pol.QosPolicy()
+        fake_policy.id = policy_id
+        fake_policy.rules = []
+
+        # call the plugin notification callback as if the network was updated
+        with mock.patch.object(qos_pol.QosPolicy, "get_object",
+                               return_value=fake_policy):
+            with mock.patch.object(qos_pol.QosPolicy, "get_bound_networks",
+                                   return_value=[net["id"]]):
+                plugin._handle_qos_notification(fake_policy,
+                                                callbacks_events.UPDATED)
+                # make sure the policy data was read, and the dvs was updated
+                self.assertTrue(fake_init_from_policy.called)
+                self.assertTrue(fake_dvs_update.called)
 
 
 class TestVnicIndex(NsxVPluginV2TestCase,
@@ -2058,7 +2189,6 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
 
     def test_router_add_interface_ipv6_port_existing_network_returns_400(self):
         """Ensure unique IPv6 router ports per network id.
-
         Adding a router port containing one or more IPv6 subnets with the same
         network id as an existing router port should fail. This is so
         there is no ambiguity regarding on which port to add an IPv6 subnet

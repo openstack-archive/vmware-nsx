@@ -28,14 +28,14 @@ from vmware_nsx.nsxlib import v3 as nsxlib
 LOG = logging.getLogger(__name__)
 
 
-class NsxQosPlugin(qos_plugin.QoSPlugin):
+class NsxV3QosPlugin(qos_plugin.QoSPlugin):
 
-    """Service plugin for VMware NSX to implement Neutron's Qos API."""
+    """Service plugin for VMware NSX-v3 to implement Neutron's Qos API."""
 
     supported_extension_aliases = ["qos"]
 
     def __init__(self):
-        super(NsxQosPlugin, self).__init__()
+        super(NsxV3QosPlugin, self).__init__()
         LOG.info(_LI("Loading VMware Qos Service Plugin"))
 
     @db_base_plugin_common.convert_result_to_dict
