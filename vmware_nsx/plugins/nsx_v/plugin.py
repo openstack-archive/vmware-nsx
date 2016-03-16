@@ -2124,6 +2124,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         nsxv_db.add_neutron_nsx_rule_mapping(
                             context.session, neutron_rule_id, nsx_rule_id)
                 for i, r in enumerate(sg_rules):
+                    rule = r['security_group_rule']
                     self._save_extended_rule_properties(context, rule)
                     self._get_security_group_rule_properties(context,
                                                              new_rule_list[i])
