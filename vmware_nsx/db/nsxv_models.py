@@ -114,7 +114,6 @@ class NsxvSecurityGroupSectionMapping(model_base.BASEV2):
                                          ondelete="CASCADE"),
                            primary_key=True)
     ip_section_id = sa.Column(sa.String(100))
-    logging = sa.Column(sa.Boolean, default=False, nullable=False)
 
 
 class NsxvRuleMapping(model_base.BASEV2):

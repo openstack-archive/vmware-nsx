@@ -15,9 +15,11 @@
 from neutron.api import extensions
 from neutron.api.v2 import attributes
 
+LOGGING = 'logging'
+
 RESOURCE_ATTRIBUTE_MAP = {
     'security_groups': {
-        'logging': {
+        LOGGING: {
             'allow_post': True,
             'allow_put': True,
             'convert_to': attributes.convert_to_boolean,

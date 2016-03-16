@@ -100,10 +100,12 @@ def list_nsgroups():
 
 
 @utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision)
-def update_nsgroup(nsgroup_id, display_name, description):
+def update_nsgroup(nsgroup_id, display_name=None, description=None):
     nsgroup = read_nsgroup(nsgroup_id)
-    nsgroup.update({'display_name': display_name,
-                    'description': description})
+    if display_name is not None:
+        nsgroup['display_name'] = display_name
+    if description is not None:
+        nsgroup['description'] = description
     return nsxclient.update_resource('ns-groups/%s' % nsgroup_id, nsgroup)
 
 
@@ -180,15 +182,25 @@ def create_empty_section(display_name, description, applied_tos, tags,
 
 
 @utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision)
-def update_section(section_id, display_name, description, applied_tos=None):
+def update_section(section_id, display_name=None, description=None,
+                   applied_tos=None, rules=None):
     resource = 'firewall/sections/%s' % section_id
     section = read_section(section_id)
-    section.update({'display_name': display_name,
-                    'description': description})
+
+    if rules is not None:
+        resource += '?action=update_with_rules'
+        section.update({'rules': rules})
+    if display_name is not None:
+        section['display_name'] = display_name
+    if description is not None:
+        section['description'] = description
     if applied_tos is not None:
         section['applied_tos'] = [get_nsgroup_reference(nsg_id)
                                   for nsg_id in applied_tos]
-    return nsxclient.update_resource(resource, section)
+    if rules is not None:
+        return nsxclient.create_resource(resource, section)
+    elif any(p is not None for p in (display_name, description, applied_tos)):
+        return nsxclient.update_resource(resource, section)
 
 
 def read_section(section_id):
@@ -219,14 +231,15 @@ def get_ip_cidr_reference(ip_cidr_block, ip_protocol):
 
 def get_firewall_rule_dict(display_name, source=None, destination=None,
                            direction=IN_OUT, ip_protocol=IPV4_IPV6,
-                           service=None, action=ALLOW):
+                           service=None, action=ALLOW, logged=False):
     return {'display_name': display_name,
             'sources': [source] if source else [],
             'destinations': [destination] if destination else [],
             'direction': direction,
             'ip_protocol': ip_protocol,
             'services': [service] if service else [],
-            'action': action}
+            'action': action,
+            'logged': logged}
 
 
 def add_rule_in_section(rule, section_id):
@@ -244,3 +257,8 @@ def add_rules_in_section(rules, section_id):
 def delete_rule(section_id, rule_id):
     resource = 'firewall/sections/%s/rules/%s' % (section_id, rule_id)
     return nsxclient.delete_resource(resource)
+
+
+def get_section_rules(section_id):
+    resource = 'firewall/sections/%s/rules' % section_id
+    return nsxclient.get_resource(resource)

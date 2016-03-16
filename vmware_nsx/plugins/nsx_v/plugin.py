@@ -71,6 +71,7 @@ from vmware_nsx.db import (
 from vmware_nsx.db import (
     routertype as rt_rtr)
 from vmware_nsx.db import db as nsx_db
+from vmware_nsx.db import extended_security_group as extended_secgroup
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.db import vnic_index_db
 from vmware_nsx.extensions import (
@@ -80,6 +81,7 @@ from vmware_nsx.extensions import (
 from vmware_nsx.extensions import dns_search_domain as ext_dns_search_domain
 from vmware_nsx.extensions import routersize
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix as ext_loip
+from vmware_nsx.extensions import securitygrouplogging as sg_logging
 from vmware_nsx.plugins.nsx_v import managers
 from vmware_nsx.plugins.nsx_v import md_proxy as nsx_v_md_proxy
 from vmware_nsx.plugins.nsx_v.vshield.common import (
@@ -105,6 +107,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                    portsecurity_db.PortSecurityDbMixin,
                    extend_sg_rule.ExtendedSecurityGroupRuleMixin,
                    securitygroups_db.SecurityGroupDbMixin,
+                   extended_secgroup.ExtendedSecurityGroupPropertiesMixin,
                    vnic_index_db.VnicIndexDbMixin,
                    dns_db.DNSDbMixin):
 
@@ -294,17 +297,17 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             context = n_context.get_admin_context()
             log_all_rules = cfg.CONF.nsxv.log_security_groups_allowed_traffic
 
-            for sg in self.get_security_groups(context, fields=['id']):
-                fw_section = self._get_section(context.session, sg['id'])
-                # If the section/sg is already logged, then no action is
-                # required.
-                if fw_section is None or fw_section['logging']:
+            # If the section/sg is already logged, then no action is
+            # required.
+            for sg in [sg for sg in self.get_security_groups(context)
+                       if sg[sg_logging.LOGGING] is False]:
+                section_uri = self._get_section_uri(context.session, sg['id'])
+                if section_uri is None:
                     continue
 
                 # Section/sg is not logged, update rules logging according to
                 # the 'log_security_groups_allowed_traffic' config option.
                 try:
-                    section_uri = fw_section['ip_section_id']
                     h, c = self.nsx_v.vcns.get_section(section_uri)
                     section = self.nsx_sg_utils.parse_section(c)
                     section_needs_update = (
@@ -1962,22 +1965,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if mapping is not None:
             return mapping['ip_section_id']
 
-    def _get_section(self, session, security_group_id):
-        return nsxv_db.get_nsx_section(session, security_group_id)
-
-    def _update_section_logging(self, session, section, section_db):
-        logging = not section_db['logging']
-        # Update the DB for the new logging settings.
-        with session.begin(subtransactions=True):
-            section_db['logging'] = logging
-        # Update section rules logging only if we are not already logging them.
-        log_all_rules = cfg.CONF.nsxv.log_security_groups_allowed_traffic
-        section_needs_update = False
-        if not log_all_rules:
-            section_needs_update = (
-                self.nsx_sg_utils.set_rules_logged_option(section, logging))
-        return section_needs_update
-
     def create_security_group(self, context, security_group,
                               default_sg=False):
         """Create a security group."""
@@ -2001,7 +1988,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             h, nsx_sg_id = self.nsx_v.vcns.create_security_group(sg_dict)
 
             section_name = self.nsx_sg_utils.get_nsx_section_name(nsx_sg_name)
-            logging = sg_data.get('logging', False)
+            logging = sg_data.get(sg_logging.LOGGING, False)
             nsx_rules = []
             for rule in new_security_group['security_group_rules']:
                 nsx_rule = self._create_nsx_rule(
@@ -2022,7 +2009,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 context.session, sg_id, nsx_sg_id)
             # Add database associations for fw section and rules
             nsxv_db.add_neutron_nsx_section_mapping(
-                context.session, sg_id, section_uri, logging)
+                context.session, sg_id, section_uri)
+            self._process_security_group_properties_create(
+                context, new_security_group, sg_data)
             for pair in rule_pairs:
                 # Save nsx rule id in the DB for future access
                 nsxv_db.add_neutron_nsx_rule_mapping(context.session,
@@ -2042,15 +2031,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._delete_section(section_uri)
                 self._delete_nsx_security_group(nsx_sg_id)
                 LOG.exception(_LE('Failed to create security group'))
-        if context.is_admin:
-            new_security_group['logging'] = logging
         return new_security_group
 
     def update_security_group(self, context, id, security_group):
         s = security_group['security_group']
         nsx_sg_id = nsx_db.get_nsx_security_group_id(context.session, id)
-        section_db = self._get_section(context.session, id)
-        section_uri = section_db['ip_section_id']
+        section_uri = self._get_section_uri(context.session, id)
         section_needs_update = False
 
         sg_data = super(NsxVPluginV2, self).update_security_group(
@@ -2068,15 +2054,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             section.attrib['name'] = section_name
             section_needs_update = True
         # Update the dfw section if security-group logging option has changed.
-        # TBD: enforce admin only?
-        if 'logging' in s and s['logging'] != section_db['logging']:
-            section_needs_update = self._update_section_logging(
-                context.session, section, section_db)
+        log_all_rules = cfg.CONF.nsxv.log_security_groups_allowed_traffic
+        self._process_security_group_properties_update(context, sg_data, s)
+        if not log_all_rules and context.is_admin:
+            section_needs_update |= self.nsx_sg_utils.set_rules_logged_option(
+                section, sg_data[sg_logging.LOGGING])
         if section_needs_update:
             self.nsx_v.vcns.update_section(
                 section_uri, self.nsx_sg_utils.to_xml_string(section), h)
-        if context.is_admin:
-            sg_data['logging'] = section_db['logging']
         return sg_data
 
     def delete_security_group(self, context, id):
@@ -2183,10 +2168,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         self._validate_security_group_rules(context, security_group_rules)
 
-        # Fetching the the dfw section associated with the security-group
-        section_db = self._get_section(context.session, sg_id)
-        section_uri = section_db['ip_section_id']
-        logging = section_db['logging']
+        # Querying DB for associated dfw section id
+        section_uri = self._get_section_uri(context.session, sg_id)
+        logging = self._is_security_group_logged(context, sg_id)
         log_all_rules = cfg.CONF.nsxv.log_security_groups_allowed_traffic
 
         # Translating Neutron rules to Nsx DFW rules

@@ -28,6 +28,7 @@ from vmware_nsx._i18n import _, _LW
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils
 from vmware_nsx.db import nsx_models
+from vmware_nsx.extensions import securitygrouplogging as sg_logging
 from vmware_nsx.nsxlib.v3 import dfw_api as firewall
 
 
@@ -91,7 +92,7 @@ def _decide_service(sg_rule):
                                       protocol_number=l4_protocol)
 
 
-def _get_fw_rule_from_sg_rule(sg_rule, nsgroup_id, rmt_nsgroup_id):
+def _get_fw_rule_from_sg_rule(sg_rule, nsgroup_id, rmt_nsgroup_id, logged):
     # IPV4 or IPV6
     ip_protocol = sg_rule['ethertype'].upper()
     direction = _get_direction(sg_rule)
@@ -115,10 +116,10 @@ def _get_fw_rule_from_sg_rule(sg_rule, nsgroup_id, rmt_nsgroup_id):
     return firewall.get_firewall_rule_dict(name, source,
                                            destination, direction,
                                            ip_protocol, service,
-                                           firewall.ALLOW)
+                                           firewall.ALLOW, logged)
 
 
-def create_firewall_rules(context, section_id, nsgroup_id,
+def create_firewall_rules(context, section_id, nsgroup_id, logging_enabled,
                           security_group_rules):
 
     # 1. translate rules
@@ -131,11 +132,41 @@ def create_firewall_rules(context, section_id, nsgroup_id,
             context, sg_rule, nsgroup_id)
 
         fw_rule = _get_fw_rule_from_sg_rule(
-            sg_rule, nsgroup_id, remote_nsgroup_id)
+            sg_rule, nsgroup_id, remote_nsgroup_id, logging_enabled)
 
         firewall_rules.append(fw_rule)
 
     return firewall.add_rules_in_section(firewall_rules, section_id)
+
+
+def _process_firewall_section_rules_logging_for_update(section_id,
+                                                       logging_enabled):
+    rules = firewall.get_section_rules(section_id).get('results', [])
+    update_rules = False
+    for rule in rules:
+        if rule['logged'] != logging_enabled:
+            rule['logged'] = logging_enabled
+            update_rules = True
+    return rules if update_rules else None
+
+
+def set_firewall_rule_logging_for_section(section_id, logging):
+    rules = _process_firewall_section_rules_logging_for_update(section_id,
+                                                               logging)
+    firewall.update_section(section_id, rules=rules)
+
+
+def update_security_group_on_backend(context, security_group):
+    nsgroup_id, section_id = get_sg_mappings(context.session,
+                                             security_group['id'])
+    name = get_nsgroup_name(security_group)
+    description = security_group['description']
+    logging = (cfg.CONF.nsx_v3.log_security_groups_allowed_traffic or
+               security_group[sg_logging.LOGGING])
+    rules = _process_firewall_section_rules_logging_for_update(section_id,
+                                                               logging)
+    firewall.update_nsgroup(nsgroup_id, name, description)
+    firewall.update_section(section_id, name, description, rules=rules)
 
 
 def get_nsgroup_name(security_group):
@@ -228,36 +259,37 @@ def _init_default_section(name, description, nested_groups):
     fw_sections = firewall.list_sections()
     for section in fw_sections:
         if section['display_name'] == name:
-            firewall.update_section(section['id'],
-                                    name, section['description'],
-                                    applied_tos=nested_groups)
             break
     else:
         tags = utils.build_v3_api_version_tag()
         section = firewall.create_empty_section(
             name, description, nested_groups, tags)
-        block_rule = firewall.get_firewall_rule_dict(
-            'Block All', action=firewall.DROP)
-        # TODO(roeyc): Add additional rules to allow IPV6 NDP.
-        dhcp_client = firewall.get_nsservice(firewall.L4_PORT_SET_NSSERVICE,
-                                             l4_protocol=firewall.UDP,
-                                             source_ports=[67],
-                                             destination_ports=[68])
-        dhcp_client_rule_in = firewall.get_firewall_rule_dict(
-            'DHCP Reply', direction=firewall.IN, service=dhcp_client)
 
-        dhcp_server = (
-            firewall.get_nsservice(firewall.L4_PORT_SET_NSSERVICE,
-                                   l4_protocol=firewall.UDP,
-                                   source_ports=[68],
-                                   destination_ports=[67]))
-        dhcp_client_rule_out = firewall.get_firewall_rule_dict(
-            'DHCP Request', direction=firewall.OUT, service=dhcp_server)
+    block_rule = firewall.get_firewall_rule_dict(
+        'Block All', action=firewall.DROP,
+        logged=cfg.CONF.nsx_v3.log_security_groups_blocked_traffic)
+    # TODO(roeyc): Add additional rules to allow IPV6 NDP.
+    dhcp_client = firewall.get_nsservice(firewall.L4_PORT_SET_NSSERVICE,
+                                         l4_protocol=firewall.UDP,
+                                         source_ports=[67],
+                                         destination_ports=[68])
+    dhcp_client_rule_in = firewall.get_firewall_rule_dict(
+        'DHCP Reply', direction=firewall.IN, service=dhcp_client)
 
-        firewall.add_rules_in_section([dhcp_client_rule_out,
-                                       dhcp_client_rule_in,
-                                       block_rule],
-                                      section['id'])
+    dhcp_server = (
+        firewall.get_nsservice(firewall.L4_PORT_SET_NSSERVICE,
+                               l4_protocol=firewall.UDP,
+                               source_ports=[68],
+                               destination_ports=[67]))
+    dhcp_client_rule_out = firewall.get_firewall_rule_dict(
+        'DHCP Request', direction=firewall.OUT, service=dhcp_server)
+
+    firewall.update_section(section['id'],
+                            name, section['description'],
+                            applied_tos=nested_groups,
+                            rules=[dhcp_client_rule_out,
+                                   dhcp_client_rule_in,
+                                   block_rule])
     return section['id']
 
 

@@ -256,6 +256,14 @@ nsx_v3_opts = [
                 help=_("If true, an internal metadata network will be created "
                        "for a router only when the router is attached to a "
                        "DHCP-disabled subnet.")),
+    cfg.BoolOpt('log_security_groups_blocked_traffic',
+                default=False,
+                help=_("Indicates whether distributed-firewall rule for "
+                       "security-groups blocked traffic is logged")),
+    cfg.BoolOpt('log_security_groups_allowed_traffic',
+                default=False,
+                help=_("Indicates whether distributed-firewall "
+                       "security-groups rules are logged")),
 ]
 
 DEFAULT_STATUS_CHECK_INTERVAL = 2000

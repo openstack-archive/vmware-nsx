@@ -2558,11 +2558,6 @@ class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
         sg = self._plugin_update_security_group(_context, sg['id'], True)
         self.assertTrue(sg['logging'])
 
-    def test_security_group_logging_not_visible_for_user(self):
-        _context = context.Context('user', 'tenant_id')
-        sg = self._plugin_create_security_group(_context)
-        self.assertFalse('logging' in sg)
-
 
 class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                       test_l3_plugin.L3NatDBIntTestCase,

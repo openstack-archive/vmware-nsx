@@ -26,6 +26,7 @@ from neutron.callbacks import resources
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
 from neutron.common import utils as neutron_utils
+from neutron import context as q_context
 from neutron.db import agents_db
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
@@ -67,7 +68,9 @@ from vmware_nsx.common import locking
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
+from vmware_nsx.db import extended_security_group
 from vmware_nsx.dhcp_meta import rpc as nsx_rpc
+from vmware_nsx.extensions import securitygrouplogging as sg_logging
 from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.nsxlib.v3 import client as nsx_client
 from vmware_nsx.nsxlib.v3 import cluster as nsx_cluster
@@ -86,6 +89,7 @@ NSX_V3_DHCP_PROFILE_NAME = 'neutron_port_dhcp_profile'
 class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                   db_base_plugin_v2.NeutronDbPluginV2,
                   securitygroups_db.SecurityGroupDbMixin,
+                  extended_security_group.ExtendedSecurityGroupPropertiesMixin,
                   external_net_db.External_net_db_mixin,
                   extraroute_db.ExtraRoute_db_mixin,
                   l3_gwmode_db.L3_NAT_db_mixin,
@@ -114,7 +118,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                                    "router",
                                    "availability_zone",
                                    "network_availability_zone",
-                                   "subnet_allocation"]
+                                   "subnet_allocation",
+                                   "security-group-logging"]
 
     @resource_registry.tracked_resources(
         network=models_v2.Network,
@@ -141,6 +146,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         self._port_client = nsx_resources.LogicalPort(self._nsx_client)
         self.nsgroup_manager, self.default_section = (
             self._init_nsgroup_manager_and_default_section_rules())
+        self._process_security_group_logging()
         self._router_client = nsx_resources.LogicalRouter(self._nsx_client)
         self._router_port_client = nsx_resources.LogicalRouterPort(
             self._nsx_client)
@@ -261,6 +267,21 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 whitelist_ports=True, whitelist_switches=False,
                 tags=utils.build_v3_api_version_tag())
         return self._get_port_security_profile()
+
+    def _process_security_group_logging(self):
+        context = q_context.get_admin_context()
+        log_all_rules = cfg.CONF.nsx_v3.log_security_groups_allowed_traffic
+        secgroups = self.get_security_groups(context,
+                                             fields=['id', sg_logging.LOGGING])
+        for sg in [sg for sg in secgroups if sg[sg_logging.LOGGING] is False]:
+            _, section_id = security.get_sg_mappings(context.session, sg['id'])
+            try:
+                security.set_firewall_rule_logging_for_section(
+                    section_id, logging=log_all_rules)
+            except nsx_exc.ManagerError:
+                with excutils.save_and_reraise_exception():
+                    LOG.error(_LE("Failed to update firewall rule logging for "
+                                  "rule in section %s"), section_id)
 
     def _init_nsgroup_manager_and_default_section_rules(self):
         with locking.LockManager.get_lock('nsxv3_nsgroup_manager_init'):
@@ -1701,7 +1722,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         if not default_sg:
             tenant_id = secgroup['tenant_id']
             self._ensure_default_security_group(context, tenant_id)
-
         try:
             # NOTE(roeyc): We first create the nsgroup so that once the sg is
             # saved into db its already backed up by an nsx resource.
@@ -1726,6 +1746,10 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                                           secgroup_db['id'],
                                           ns_group['id'],
                                           firewall_section['id'])
+
+                self._process_security_group_properties_create(context,
+                                                               secgroup_db,
+                                                               secgroup)
         except nsx_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("Unable to create security-group on the "
@@ -1747,10 +1771,13 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         try:
             sg_rules = secgroup_db['security_group_rules']
             # translate and creates firewall rules.
-            rules = security.create_firewall_rules(
-                context, firewall_section['id'], ns_group['id'], sg_rules)
-            security.save_sg_rule_mappings(context.session, rules['rules'])
 
+            logging = (cfg.CONF.nsx_v3.log_security_groups_allowed_traffic or
+                       secgroup.get(sg_logging.LOGGING, False))
+            rules = security.create_firewall_rules(
+                context, firewall_section['id'], ns_group['id'],
+                logging, sg_rules)
+            security.save_sg_rule_mappings(context.session, rules['rules'])
             self.nsgroup_manager.add_nsgroup(ns_group['id'])
         except nsx_exc.ManagerError:
             with excutils.save_and_reraise_exception():
@@ -1768,26 +1795,25 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         return secgroup_db
 
     def update_security_group(self, context, id, security_group):
-        nsgroup_id, section_id = security.get_sg_mappings(context.session, id)
-        original_security_group = self.get_security_group(
+        orig_secgroup = self.get_security_group(
             context, id, fields=['id', 'name', 'description'])
-        updated_security_group = (
-            super(NsxV3Plugin, self).update_security_group(context, id,
-                                                           security_group))
-        name = security.get_nsgroup_name(updated_security_group)
-        description = updated_security_group['description']
+        with context.session.begin(subtransactions=True):
+            secgroup_res = (
+                super(NsxV3Plugin, self).update_security_group(context, id,
+                                                               security_group))
+            self._process_security_group_properties_update(
+                context, secgroup_res, security_group['security_group'])
         try:
-            firewall.update_nsgroup(nsgroup_id, name, description)
-            firewall.update_section(section_id, name, description)
+            security.update_security_group_on_backend(context, secgroup_res)
         except nsx_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("Failed to update security-group %(name)s "
                                   "(%(id)s), rolling back changes in "
-                                  "Neutron."), original_security_group)
+                                  "Neutron."), orig_secgroup)
                 super(NsxV3Plugin, self).update_security_group(
-                    context, id, {'security_group': original_security_group})
+                    context, id, {'security_group': orig_secgroup})
 
-        return updated_security_group
+        return secgroup_res
 
     def delete_security_group(self, context, id):
         nsgroup_id, section_id = security.get_sg_mappings(context.session, id)
@@ -1807,9 +1833,12 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         sg_id = security_group_rules_db[0]['security_group_id']
         nsgroup_id, section_id = security.get_sg_mappings(context.session,
                                                           sg_id)
+        logging_enabled = (cfg.CONF.nsx_v3.log_security_groups_allowed_traffic
+                           or self._is_security_group_logged(context, sg_id))
         try:
-            rules = security.create_firewall_rules(
-                context, section_id, nsgroup_id, security_group_rules_db)
+            rules = security.create_firewall_rules(context, section_id,
+                                                   nsgroup_id, logging_enabled,
+                                                   security_group_rules_db)
         except nsx_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 for rule in security_group_rules_db:

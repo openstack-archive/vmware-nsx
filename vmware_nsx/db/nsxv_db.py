@@ -366,10 +366,10 @@ def delete_nsxv_internal_edge(session, ext_ip_address):
                 filter_by(ext_ip_address=ext_ip_address).delete())
 
 
-def add_neutron_nsx_section_mapping(session, neutron_id, section_id, logging):
+def add_neutron_nsx_section_mapping(session, neutron_id, section_id):
     with session.begin(subtransactions=True):
         mapping = nsxv_models.NsxvSecurityGroupSectionMapping(
-            neutron_id=neutron_id, ip_section_id=section_id, logging=logging)
+            neutron_id=neutron_id, ip_section_id=section_id)
         session.add(mapping)
     return mapping
 
