@@ -742,6 +742,11 @@ class EdgeManager(object):
                 static_config['domainName'] = sub_binding.dns_search_domain
             self.handle_meta_static_route(
                 context, subnet_id, [static_config])
+            for host_route in subnet['routes']:
+                self.add_host_route_on_static_bindings(
+                    [static_config],
+                    host_route['destination'],
+                    host_route['nexthop'])
 
             static_bindings.append(static_config)
         return static_bindings
