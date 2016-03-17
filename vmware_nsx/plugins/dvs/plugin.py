@@ -25,6 +25,7 @@ from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
 from neutron.db import l3_db
+from neutron.db import models_v2
 from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
 from neutron.db import securitygroups_db
@@ -36,6 +37,7 @@ from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import constants
 from neutron.plugins.common import utils
+from neutron.quota import resource_registry
 from neutron_lib import exceptions as n_exc
 
 import vmware_nsx
@@ -76,6 +78,13 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
     __native_pagination_support = True
     __native_sorting_support = True
 
+    @resource_registry.tracked_resources(
+        network=models_v2.Network,
+        port=models_v2.Port,
+        subnet=models_v2.Subnet,
+        subnetpool=models_v2.SubnetPool,
+        security_group=securitygroups_db.SecurityGroup,
+        security_group_rule=securitygroups_db.SecurityGroupRule)
     def __init__(self):
         super(NsxDvsV2, self).__init__()
         LOG.debug('Driver support: DVS: %s' % dvs_utils.dvs_is_enabled())

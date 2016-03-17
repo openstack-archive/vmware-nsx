@@ -51,6 +51,7 @@ from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils as n_utils
+from neutron.quota import resource_registry
 from neutron_lib import constants as const
 from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
@@ -115,6 +116,15 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                                    "network_availability_zone",
                                    "subnet_allocation"]
 
+    @resource_registry.tracked_resources(
+        network=models_v2.Network,
+        port=models_v2.Port,
+        subnet=models_v2.Subnet,
+        subnetpool=models_v2.SubnetPool,
+        security_group=securitygroups_db.SecurityGroup,
+        security_group_rule=securitygroups_db.SecurityGroupRule,
+        router=l3_db.Router,
+        floatingip=l3_db.FloatingIP)
     def __init__(self):
         super(NsxV3Plugin, self).__init__()
         LOG.info(_LI("Starting NsxV3Plugin"))
