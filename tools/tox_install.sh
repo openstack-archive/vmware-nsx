@@ -14,7 +14,7 @@
 # pip install {opts} {packages}
 
 ZUUL_CLONER=/usr/zuul-env/bin/zuul-cloner
-BRANCH_NAME=master
+BRANCH_NAME=stable/mitaka
 neutron_installed=$(echo "import neutron" | python 2>/dev/null ; echo $?)
 networking_l2gw_installed=$(echo "import networking_l2gw" | python 2>/dev/null ; echo $?)
 neutron_lbaas_installed=$(echo "import neutron_lbaas" | python 2>/dev/null ; echo $?)
