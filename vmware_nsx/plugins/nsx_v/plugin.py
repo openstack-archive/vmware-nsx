@@ -54,6 +54,7 @@ from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils
+from neutron.quota import resource_registry
 
 import vmware_nsx
 from vmware_nsx._i18n import _, _LE, _LI, _LW
@@ -130,6 +131,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     __native_pagination_support = True
     __native_sorting_support = True
 
+    @resource_registry.tracked_resources(
+        network=models_v2.Network,
+        port=models_v2.Port,
+        subnet=models_v2.Subnet,
+        subnetpool=models_v2.SubnetPool,
+        security_group=securitygroups_db.SecurityGroup,
+        security_group_rule=securitygroups_db.SecurityGroupRule,
+        router=l3_db.Router,
+        floatingip=l3_db.FloatingIP)
     def __init__(self):
         super(NsxVPluginV2, self).__init__()
         self.metadata_proxy_handler = None
