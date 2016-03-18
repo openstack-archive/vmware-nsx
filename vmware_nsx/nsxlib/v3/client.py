@@ -133,6 +133,9 @@ class RESTClient(object):
             data=body,
             headers=request_headers)
 
+        LOG.debug("REST call: %s %s\nResponse: %s",
+                  method, request_url, result.json() if result.content else '')
+
         self._validate_result(
             result, RESTClient._VERB_RESP_CODES[method.lower()],
             _("%(verb)s %(url)s") % {'verb': method, 'url': request_url})
