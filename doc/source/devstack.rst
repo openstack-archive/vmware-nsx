@@ -121,6 +121,15 @@ Add neutron-dynamic-routing repo as an external repository and configure followi
     [DEFAULT]
     api_extensions_path = $DEST/neutron-dynamic-routing/neutron_dynamic_routing/extensions
 
+Neutron VPNaaS
+~~~~~~~~~~~~~~
+
+Add neutron-vpnaas repo as an external repository and configure following flags in ``local.conf``::
+
+    [[local|localrc]]
+    enable_plugin neutron-vpnaas https://git.openstack.org/openstack/neutron-vpnaas
+    NEUTRON_VPNAAS_SERVICE_PROVIDER=VPN:vmware:vmware_nsx.services.vpnaas.nsxv.ipsec_driver.NSXvIPsecVpnDriver:default
+
 
 NSXv3
 -----
