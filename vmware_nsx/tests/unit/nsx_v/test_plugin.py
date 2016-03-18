@@ -355,6 +355,17 @@ class TestPortsV2(NsxVPluginV2TestCase,
     VIF_TYPE = nsx_constants.VIF_TYPE_DVS
     HAS_PORT_FILTER = True
 
+    def test_get_ports_count(self):
+        with self.port(), self.port(), self.port(), self.port() as p:
+            tenid = p['port']['tenant_id']
+            ctx = context.Context(user_id=None, tenant_id=tenid,
+                                  is_admin=False)
+            pl = manager.NeutronManager.get_plugin()
+            count = pl.get_ports_count(ctx, filters={'tenant_id': [tenid]})
+            # Each port above has subnet => we have an additional port
+            # for DHCP
+            self.assertEqual(8, count)
+
     def test_update_port_mac_v6_slaac(self):
         self.skipTest('No DHCP v6 Support yet')
 
