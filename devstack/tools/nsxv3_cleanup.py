@@ -360,11 +360,18 @@ class NSXClient(object):
         response = self.get(endpoint=endpoint)
         return response.json()['results']
 
+    def get_os_logical_router_ports(self, lrouter):
+        """
+        Retrieve all logical router ports created from Neutron NSXv3 plugin
+        """
+        lports = self.get_logical_router_ports(lrouter)
+        return self.get_os_resources(lports)
+
     def cleanup_logical_router_ports(self, lrouter):
         """
         Cleanup all logical ports on a logical router
         """
-        lports = self.get_logical_router_ports(lrouter)
+        lports = self.get_os_logical_router_ports(lrouter)
         for lp in lports:
             endpoint = "/logical-router-ports/%s" % lp['id']
             response = self.delete(endpoint=endpoint)
@@ -395,6 +402,14 @@ class NSXClient(object):
                 print("Failed to delete lrouter %s-%s, and response is %s" %
                       (lr['display_name'], lr['id']))
 
+    def cleanup_os_tier0_logical_ports(self):
+        """
+        Delete all TIER0 logical router ports created from OpenStack
+        """
+        tier0_routers = self.get_logical_routers(tier='TIER0')
+        for lr in tier0_routers:
+            self.cleanup_logical_router_ports(lr)
+
     def cleanup_all(self):
         """
         Cleanup steps:
@@ -409,6 +424,7 @@ class NSXClient(object):
         self.cleanup_os_firewall_sections()
         self.cleanup_os_ns_groups()
         self.cleanup_os_logical_routers()
+        self.cleanup_os_tier0_logical_ports()
         self.cleanup_os_logical_ports()
         self.cleanup_os_logical_switches()
         self.cleanup_os_switching_profiles()
