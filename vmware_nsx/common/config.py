@@ -195,8 +195,6 @@ nsx_v3_opts = [
                       "zone that will be used for bridging between Neutron "
                       "networks. It needs to be created in NSX before "
                       "starting Neutron with the NSX plugin.")),
-    cfg.StrOpt('default_edge_cluster_uuid',
-               help=_("Default edge cluster identifier")),
     cfg.StrOpt('default_bridge_cluster_uuid',
                help=_("Default bridge cluster identifier for L2 gateway. "
                       "This needs to be created in NSX before using the L2 "

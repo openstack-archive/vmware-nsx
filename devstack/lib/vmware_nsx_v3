@@ -99,8 +99,8 @@ function _nsxv3_ini_set {
 function neutron_plugin_configure_service {
     _nsxv3_ini_set default_overlay_tz_uuid $DEFAULT_OVERLAY_TZ_UUID "The VMware NSX plugin won't work without a default transport zone."
     _nsxv3_ini_set default_vlan_tz_uuid $DEFAULT_VLAN_TZ_UUID
-    if [[ "$DEFAULT_EDGE_CLUSTER_UUID" != "" ]]; then
-        iniset /$Q_PLUGIN_CONF_FILE nsx_v3 default_edge_cluster_uuid $DEFAULT_EDGE_CLUSTER_UUID
+    if [[ "$DEFAULT_TIER0_ROUTER_UUID" != "" ]]; then
+        _nsxv3_ini_set default_tier0_router_uuid $DEFAULT_TIER0_ROUTER_UUID
         Q_L3_ENABLED=True
         Q_L3_ROUTER_PER_TENANT=True
     fi
@@ -115,7 +115,6 @@ function neutron_plugin_configure_service {
     if [[ "$NSX_L2GW_DRIVER" != "" ]]; then
         iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_l2gw_driver $NSX_L2GW_DRIVER
     fi
-    _nsxv3_ini_set default_tier0_router_uuid $DEFAULT_TIER0_ROUTER_UUID
     _nsxv3_ini_set nsx_api_user $NSX_USER
     _nsxv3_ini_set nsx_api_password $NSX_PASSWORD
     _nsxv3_ini_set retries $NSX_RETRIES
