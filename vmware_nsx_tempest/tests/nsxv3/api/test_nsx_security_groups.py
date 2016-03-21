@@ -19,8 +19,8 @@ import six
 import time
 
 from tempest.api.network import base_security_groups as base
-from tempest.common.utils import data_utils
 from tempest import config
+from tempest.lib.common.utils import data_utils
 from tempest import test
 
 from vmware_nsx_tempest._i18n import _LI
