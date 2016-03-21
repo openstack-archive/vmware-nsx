@@ -18,6 +18,7 @@ from oslo_config import cfg
 
 from vmware_nsx._i18n import _, _LW
 from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.dvs import dvs_utils
 from vmware_nsx.extensions import routersize
 
 LOG = logging.getLogger(__name__)
@@ -396,6 +397,12 @@ nsxv_opts = [
                 help=_('List of nameservers to configure for the DHCP binding '
                        'entries. These will be used if there are no '
                        'nameservers defined on the subnet.')),
+    cfg.BoolOpt('use_dvs_features',
+                default=False,
+                help=_('If True, dvs features will be supported which '
+                       'involves configuring the dvs backing nsx_v directly. '
+                       'If False, only features exposed via nsx_v will be '
+                       'supported')),
 ]
 
 # Register the configuration options
@@ -418,3 +425,7 @@ def validate_nsxv_config_options():
         LOG.warning(_LW("dvs_id must be configured to support VLANs!"))
     if cfg.CONF.nsxv.vdn_scope_id is None:
         LOG.warning(_LW("vdn_scope_id must be configured to support VXLANs!"))
+    if cfg.CONF.nsxv.use_dvs_features and not dvs_utils.dvs_is_enabled():
+        error = _("dvs host/vcenter credentials must be defined to use "
+                  "dvs features")
+        raise nsx_exc.NsxPluginException(err_msg=error)
