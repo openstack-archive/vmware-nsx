@@ -134,12 +134,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         nsx_client._set_default_api_cluster(self._api_cluster)
 
         self.cfg_group = 'nsx_v3'  # group name for nsx_v3 section in nsx.ini
-        self.base_binding_dict = {
-            pbin.VIF_TYPE: pbin.VIF_TYPE_OVS,
-            pbin.VIF_DETAILS: {
-                # TODO(rkukura): Replace with new VIF security details
-                pbin.CAP_PORT_FILTER:
-                'security-group' in self.supported_extension_aliases}}
         self.tier0_groups_dict = {}
         self._setup_dhcp()
         self._start_rpc_notifiers()
@@ -175,6 +169,23 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                     "switching profile: %s") % NSX_V3_DHCP_PROFILE_NAME
             raise nsx_exc.NsxPluginException(msg)
         self._unsubscribe_callback_events()
+
+    def _extend_port_dict_binding(self, port_res, port_db):
+        port_res[pbin.VIF_TYPE] = pbin.VIF_TYPE_OVS
+        port_res[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
+        port_res[pbin.VIF_DETAILS] = {
+            # TODO(rkukura): Replace with new VIF security details
+            pbin.CAP_PORT_FILTER:
+            'security-group' in self.supported_extension_aliases,
+            # TODO(garyk): at the moment the neutron network UUID
+            # is the same as the NSX logical switch ID. When nova
+            # supports the code below we can switch to pass the NSX
+            # logical switch ID
+            'nsx-logical-switch-id': port_res['network_id']}
+
+    # Register the hook to extend the port data
+    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
+        attributes.PORTS, ['_extend_port_dict_binding'])
 
     def _unsubscribe_callback_events(self):
         # l3_db explicitly subscribes to the port delete callback. This
@@ -826,11 +837,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 context, port['port'], port_data)
             self._process_port_create_extra_dhcp_opts(
                 context, port_data, dhcp_opts)
-
-            # For some reason the port bindings DB mixin does not handle
-            # the VNIC_TYPE attribute, which is required by nova for
-            # setting up VIFs.
-            port_data[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
 
             sgids = self._get_security_groups_on_port(context, port)
             self._process_port_create_security_group(
@@ -1685,10 +1691,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
 
         super(NsxV3Plugin, self).disassociate_floatingips(
             context, port_id, do_notify=False)
-
-    def extend_port_dict_binding(self, port_res, port_db):
-        super(NsxV3Plugin, self).extend_port_dict_binding(port_res, port_db)
-        port_res[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
 
     def create_security_group(self, context, security_group, default_sg=False):
         secgroup = security_group['security_group']
