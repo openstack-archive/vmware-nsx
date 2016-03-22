@@ -763,7 +763,8 @@ class NsxVPluginV2(agents_db.AgentDbMixin,
                     limit, marker, page_reverse))
             for net in networks:
                 self._extend_network_dict_provider(context, net)
-        return [self._fields(network, fields) for network in networks]
+        return (networks if not fields else
+                [self._fields(network, fields) for network in networks])
 
     def update_network(self, context, id, network):
         net_attrs = network['network']

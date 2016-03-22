@@ -572,7 +572,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             # Add provider network fields
             for net in networks:
                 self._extend_network_dict_provider(context, net)
-        return [self._fields(network, fields) for network in networks]
+        return (networks if not fields else
+                [self._fields(network, fields) for network in networks])
 
     def _get_data_from_binding_profile(self, context, port):
         if (pbin.PROFILE not in port or
