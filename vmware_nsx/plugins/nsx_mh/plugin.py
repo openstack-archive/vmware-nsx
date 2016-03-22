@@ -1050,7 +1050,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     limit, marker, page_reverse))
             for net in networks:
                 self._extend_network_dict_provider(context, net)
-        return [self._fields(network, fields) for network in networks]
+        return (networks if not fields else
+                [self._fields(network, fields) for network in networks])
 
     def update_network(self, context, id, network):
         pnet._raise_if_updates_provider_attributes(network['network'])
