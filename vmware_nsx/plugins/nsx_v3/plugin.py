@@ -163,8 +163,9 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                         NSX_V3_NO_PSEC_PROFILE_NAME)[0])[0]
         LOG.debug("Initializing NSX v3 DHCP switching profile")
         self._dhcp_profile = None
-        self._dhcp_profile = self._init_dhcp_switching_profile()
-        if not self._dhcp_profile:
+        try:
+            self._dhcp_profile = self._init_dhcp_switching_profile()
+        except Exception:
             msg = _("Unable to initialize NSX v3 DHCP "
                     "switching profile: %s") % NSX_V3_DHCP_PROFILE_NAME
             raise nsx_exc.NsxPluginException(msg)
@@ -744,13 +745,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         if psec_is_on and address_bindings:
             profiles = [self._get_port_security_profile_id()]
         if device_owner == const.DEVICE_OWNER_DHCP:
-            if self._dhcp_profile:
-                profiles.append(self._dhcp_profile)
-            else:
-                LOG.warning(_LW("No DHCP switching profile configured in the "
-                                "config file. DHCP port: %s configured with "
-                                "default profile on the backend"),
-                            port_data['id'])
+            profiles.append(self._dhcp_profile)
 
         name = self._get_port_name(context, port_data)
 
@@ -1031,8 +1026,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
 
         # Update the DHCP profile
         if updated_device_owner == const.DEVICE_OWNER_DHCP:
-            if self._dhcp_profile:
-                switch_profile_ids.append(self._dhcp_profile)
+            switch_profile_ids.append(self._dhcp_profile)
 
         self._port_client.update(
             lport_id, vif_uuid, name=name,
