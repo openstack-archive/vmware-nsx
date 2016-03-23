@@ -178,12 +178,18 @@ def update_logical_router_advertisement(logical_router_id, **kwargs):
     return update_resource_with_retry(resource, kwargs)
 
 
-def create_qos_switching_profile(tags, qos_marking=None, dscp=None, name=None,
-                                 description=None):
-    resource = 'switching-profiles'
+def _build_qos_switching_profile_args(tags, qos_marking=None, dscp=None,
+                                      name=None, description=None):
     body = {"resource_type": "QosSwitchingProfile",
             "tags": tags}
-    # TODO(abhide): Add TrafficShaper configuration.
+
+    return _update_qos_switching_profile_args(
+        body, qos_marking=qos_marking, dscp=dscp,
+        name=name, description=description)
+
+
+def _update_qos_switching_profile_args(body, qos_marking=None, dscp=None,
+                                       name=None, description=None):
     if qos_marking:
         body["dscp"] = {}
         body["dscp"]["mode"] = qos_marking.upper()
@@ -193,7 +199,73 @@ def create_qos_switching_profile(tags, qos_marking=None, dscp=None, name=None,
         body["display_name"] = name
     if description:
         body["description"] = description
+    return body
+
+
+def _enable_shaping_in_args(body, burst_size=None, peak_bandwidth=None,
+                            average_bandwidth=None):
+    for shaper in body["shaper_configuration"]:
+        # Neutron currently supports only shaping of Egress traffic
+        if shaper["resource_type"] == "EgressRateShaper":
+            shaper["enabled"] = True
+            if burst_size:
+                shaper["burst_size_bytes"] = burst_size
+            if peak_bandwidth:
+                shaper["peak_bandwidth_mbps"] = peak_bandwidth
+            if average_bandwidth:
+                shaper["average_bandwidth_mbps"] = average_bandwidth
+            break
+
+    return body
+
+
+def _disable_shaping_in_args(body):
+    for shaper in body["shaper_configuration"]:
+        # Neutron currently supports only shaping of Egress traffic
+        if shaper["resource_type"] == "EgressRateShaper":
+            shaper["enabled"] = False
+            shaper["burst_size_bytes"] = 0
+            shaper["peak_bandwidth_mbps"] = 0
+            shaper["average_bandwidth_mbps"] = 0
+            break
+
+    return body
+
+
+def create_qos_switching_profile(tags, qos_marking=None, dscp=None, name=None,
+                                 description=None):
+    resource = 'switching-profiles'
+    body = _build_qos_switching_profile_args(tags, qos_marking, dscp,
+                                             name, description)
     return client.create_resource(resource, body)
+
+
+def update_qos_switching_profile(profile_id, tags, qos_marking=None,
+                                 dscp=None, name=None, description=None):
+    resource = 'switching-profiles/%s' % profile_id
+    # get the current configuration
+    body = get_qos_switching_profile(profile_id)
+    # update the relevant fields
+    body = _update_qos_switching_profile_args(body, qos_marking, dscp,
+                                              name, description)
+    return update_resource_with_retry(resource, body)
+
+
+def update_qos_switching_profile_shaping(profile_id, shaping_enabled=False,
+                                         burst_size=None, peak_bandwidth=None,
+                                         average_bandwidth=None):
+    resource = 'switching-profiles/%s' % profile_id
+    # get the current configuration
+    body = get_qos_switching_profile(profile_id)
+    # update the relevant fields
+    if shaping_enabled:
+        body = _enable_shaping_in_args(body,
+                                       burst_size=burst_size,
+                                       peak_bandwidth=peak_bandwidth,
+                                       average_bandwidth=average_bandwidth)
+    else:
+        body = _disable_shaping_in_args(body)
+    return update_resource_with_retry(resource, body)
 
 
 def get_qos_switching_profile(profile_id):

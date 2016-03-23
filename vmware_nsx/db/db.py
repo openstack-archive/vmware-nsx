@@ -238,3 +238,22 @@ def get_l2gw_connection_mapping(session, connection_id):
                 filter_by(connection_id=connection_id).one())
     except exc.NoResultFound:
         raise nsx_exc.NsxL2GWConnectionMappingNotFound(conn=connection_id)
+
+
+# NSXv3 QoS policy id <-> switch Id mapping
+def add_qos_policy_profile_mapping(session, qos_policy_id, switch_profile_id):
+    with session.begin(subtransactions=True):
+        mapping = nsx_models.QosPolicySwitchProfile(
+            qos_policy_id=qos_policy_id,
+            switch_profile_id=switch_profile_id)
+        session.add(mapping)
+        return mapping
+
+
+def get_switch_profile_by_qos_policy(session, qos_policy_id):
+    try:
+        entry = (session.query(nsx_models.QosPolicySwitchProfile).
+                filter_by(qos_policy_id=qos_policy_id).one())
+        return entry.switch_profile_id
+    except exc.NoResultFound:
+        raise nsx_exc.NsxQosPolicyMappingNotFound(policy=qos_policy_id)

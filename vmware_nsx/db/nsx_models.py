@@ -319,3 +319,13 @@ class NsxL2GWConnectionMapping(model_base.BASEV2):
                         sa.ForeignKey("ports.id", ondelete="CASCADE"),
                         nullable=False)
     bridge_endpoint_id = sa.Column(sa.String(36), nullable=False)
+
+
+class QosPolicySwitchProfile(model_base.BASEV2):
+    # Maps neutron qos policy identifiers to NSX-V3 switch profile identifiers
+    __tablename__ = 'neutron_nsx_qos_policy_mappings'
+    qos_policy_id = sa.Column(sa.String(36),
+                              sa.ForeignKey('qos_policies.id',
+                              ondelete='CASCADE'),
+                              primary_key=True)
+    switch_profile_id = sa.Column(sa.String(36), nullable=False)

@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import mock
+
 from oslo_log import log
 from oslo_serialization import jsonutils
 
@@ -26,7 +28,8 @@ LOG = log.getLogger(__name__)
 
 class NsxLibQosTestCase(nsxlib_testcase.NsxClientTestCase):
 
-    def _body(self, qos_marking=None, dscp=None):
+    def _body(self, qos_marking=None, dscp=None,
+              description=test_constants_v3.FAKE_NAME):
         body = {
             "resource_type": "QosSwitchingProfile",
             "tags": []
@@ -37,7 +40,30 @@ class NsxLibQosTestCase(nsxlib_testcase.NsxClientTestCase):
             if dscp:
                 body["dscp"]["priority"] = dscp
         body["display_name"] = test_constants_v3.FAKE_NAME
-        body["description"] = test_constants_v3.FAKE_NAME
+        body["description"] = description
+
+        return body
+
+    def _body_with_shaping(self, shaping_enabled=False,
+                           burst_size=None,
+                           peak_bandwidth=None,
+                           average_bandwidth=None,
+                           description=test_constants_v3.FAKE_NAME):
+        body = test_constants_v3.FAKE_QOS_PROFILE
+        body["display_name"] = test_constants_v3.FAKE_NAME
+        body["description"] = description
+
+        for shaper in body["shaper_configuration"]:
+            # Neutron currently support only shaping of Egress traffic
+            if shaper["resource_type"] == "EgressRateShaper":
+                shaper["enabled"] = shaping_enabled
+                if burst_size:
+                    shaper["burst_size_bytes"] = burst_size
+                if peak_bandwidth:
+                    shaper["peak_bandwidth_mbps"] = peak_bandwidth
+                if average_bandwidth:
+                    shaper["average_bandwidth_mbps"] = average_bandwidth
+                break
 
         return body
 
@@ -74,6 +100,90 @@ class NsxLibQosTestCase(nsxlib_testcase.NsxClientTestCase):
             'https://1.2.3.4/api/v1/switching-profiles',
             data=jsonutils.dumps(self._body(qos_marking='trusted', dscp=0),
                                  sort_keys=True))
+
+    def test_update_qos_switching_profile(self):
+        """
+        Test updating a qos-switching profile returns the correct response
+        """
+        api = self.mocked_rest_fns(nsxlib, 'client')
+
+        original_profile = self._body()
+        new_description = "Test"
+        with mock.patch.object(nsxlib.client, 'get_resource',
+                        return_value=original_profile):
+            # update the description of the profile
+            nsxlib.update_qos_switching_profile(
+                test_constants_v3.FAKE_QOS_PROFILE['id'],
+                tags=[],
+                description=new_description)
+
+            test_client.assert_json_call(
+                'put', api,
+                'https://1.2.3.4/api/v1/switching-profiles/%s'
+                % test_constants_v3.FAKE_QOS_PROFILE['id'],
+                data=jsonutils.dumps(self._body(description=new_description),
+                                     sort_keys=True))
+
+    def test_enable_qos_switching_profile_shaping(self):
+        """
+        Test updating a qos-switching profile returns the correct response
+        """
+        api = self.mocked_rest_fns(nsxlib, 'client')
+
+        original_profile = self._body_with_shaping()
+        burst_size = 100
+        peak_bandwidth = 200
+        average_bandwidth = 300
+        with mock.patch.object(nsxlib.client, 'get_resource',
+                        return_value=original_profile):
+            # update the bw shaping of the profile
+            nsxlib.update_qos_switching_profile_shaping(
+                test_constants_v3.FAKE_QOS_PROFILE['id'],
+                shaping_enabled=True,
+                burst_size=burst_size,
+                peak_bandwidth=peak_bandwidth,
+                average_bandwidth=average_bandwidth)
+
+            test_client.assert_json_call(
+                'put', api,
+                'https://1.2.3.4/api/v1/switching-profiles/%s'
+                % test_constants_v3.FAKE_QOS_PROFILE['id'],
+                data=jsonutils.dumps(
+                    self._body_with_shaping(
+                        shaping_enabled=True,
+                        burst_size=burst_size,
+                        peak_bandwidth=peak_bandwidth,
+                        average_bandwidth=average_bandwidth),
+                    sort_keys=True))
+
+    def test_disable_qos_switching_profile_shaping(self):
+        """
+        Test updating a qos-switching profile returns the correct response
+        """
+        api = self.mocked_rest_fns(nsxlib, 'client')
+
+        burst_size = 100
+        peak_bandwidth = 200
+        average_bandwidth = 300
+        original_profile = self._body_with_shaping(
+            shaping_enabled=True,
+            burst_size=burst_size,
+            peak_bandwidth=peak_bandwidth,
+            average_bandwidth=average_bandwidth)
+        with mock.patch.object(nsxlib.client, 'get_resource',
+                        return_value=original_profile):
+            # update the bw shaping of the profile
+            nsxlib.update_qos_switching_profile_shaping(
+                test_constants_v3.FAKE_QOS_PROFILE['id'],
+                shaping_enabled=False)
+
+            test_client.assert_json_call(
+                'put', api,
+                'https://1.2.3.4/api/v1/switching-profiles/%s'
+                % test_constants_v3.FAKE_QOS_PROFILE['id'],
+                data=jsonutils.dumps(
+                    self._body_with_shaping(),
+                    sort_keys=True))
 
     def test_delete_qos_switching_profile(self):
         """

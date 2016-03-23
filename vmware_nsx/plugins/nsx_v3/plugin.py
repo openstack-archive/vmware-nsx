@@ -16,8 +16,11 @@ import netaddr
 import six
 
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
+from neutron.api.rpc.callbacks.consumer import registry as callbacks_registry
+from neutron.api.rpc.callbacks import resources as callbacks_resources
 from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
+from neutron.api.rpc.handlers import resources_rpc
 from neutron.api.v2 import attributes
 from neutron.callbacks import events
 from neutron.callbacks import exceptions as callback_exc
@@ -53,6 +56,7 @@ from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils as n_utils
 from neutron.quota import resource_registry
+from neutron.services.qos import qos_consts
 from neutron_lib import constants as const
 from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
@@ -79,6 +83,7 @@ from vmware_nsx.nsxlib.v3 import dfw_api as firewall
 from vmware_nsx.nsxlib.v3 import resources as nsx_resources
 from vmware_nsx.nsxlib.v3 import router
 from vmware_nsx.nsxlib.v3 import security
+from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
 
 
 LOG = log.getLogger(__name__)
@@ -87,7 +92,10 @@ NSX_V3_NO_PSEC_PROFILE_NAME = 'nsx-default-spoof-guard-vif-profile'
 NSX_V3_DHCP_PROFILE_NAME = 'neutron_port_dhcp_profile'
 
 
-class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
+# NOTE(asarfaty): the order of inheritance here is important. in order for the
+# QoS notification to work, the AgentScheduler init must be called first
+class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
+                  addr_pair_db.AllowedAddressPairsMixin,
                   db_base_plugin_v2.NeutronDbPluginV2,
                   extend_sg_rule.ExtendedSecurityGroupRuleMixin,
                   securitygroups_db.SecurityGroupDbMixin,
@@ -97,7 +105,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                   l3_gwmode_db.L3_NAT_db_mixin,
                   portbindings_db.PortBindingMixin,
                   portsecurity_db.PortSecurityDbMixin,
-                  agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   extradhcpopt_db.ExtraDhcpOptMixin,
                   dns_db.DNSDbMixin):
 
@@ -170,6 +177,12 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 self._switching_profiles,
                 self._switching_profiles.find_by_display_name(
                         NSX_V3_NO_PSEC_PROFILE_NAME)[0])[0]
+
+        # Bind QoS notifications
+        callbacks_registry.subscribe(qos_utils.handle_qos_notification,
+                                     callbacks_resources.QOS_POLICY)
+        self.start_rpc_listeners_called = False
+
         LOG.debug("Initializing NSX v3 DHCP switching profile")
         self._dhcp_profile = None
         try:
@@ -333,6 +346,10 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         )
 
     def start_rpc_listeners(self):
+        if self.start_rpc_listeners_called:
+            # If called more than once - we should not create it again
+            return self.conn.consume_in_threads()
+
         self._setup_rpc()
         self.topic = topics.PLUGIN
         self.conn = n_rpc.create_connection()
@@ -340,6 +357,13 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         self.conn.create_consumer(topics.REPORTS,
                                   [agents_db.AgentExtRpcCallback()],
                                   fanout=False)
+        qos_topic = resources_rpc.resource_type_versioned_topic(
+            callbacks_resources.QOS_POLICY)
+        self.conn.create_consumer(qos_topic,
+                                  [resources_rpc.ResourcesPushRpcCallback()],
+                                  fanout=False)
+        self.start_rpc_listeners_called = True
+
         return self.conn.consume_in_threads()
 
     def _validate_provider_create(self, context, network_data):
@@ -483,8 +507,18 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             network[pnet.PHYSICAL_NETWORK] = bindings[0].phy_uuid
             network[pnet.SEGMENTATION_ID] = bindings[0].vlan_id
 
+    # NSX-V3 networks cannot be associated with QoS policies
+    def _validate_no_qos(self, net_data):
+        err_msg = None
+        if attributes.is_attr_set(net_data.get(qos_consts.QOS_POLICY_ID)):
+            err_msg = _("Cannot configure QOS on networks")
+
+        if err_msg:
+            raise n_exc.InvalidInput(error_message=err_msg)
+
     def create_network(self, context, network):
         net_data = network['network']
+        self._validate_no_qos(net_data)
         external = net_data.get(ext_net_extn.EXTERNAL)
         is_backend_network = False
         if attributes.is_attr_set(external) and external:
@@ -621,6 +655,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
     def update_network(self, context, id, network):
         original_net = super(NsxV3Plugin, self).get_network(context, id)
         net_data = network['network']
+        self._validate_no_qos(net_data)
         # Neutron does not support changing provider network values
         pnet._raise_if_updates_provider_attributes(net_data)
         updated_net = super(NsxV3Plugin, self).update_network(context, id,
@@ -772,6 +807,21 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             name = port_data['name']
         return name
 
+    def _get_qos_profile_id(self, context, policy_id):
+        switch_profile_id = nsx_db.get_switch_profile_by_qos_policy(
+            context.session, policy_id)
+        qos_profile = nsxlib.get_qos_switching_profile(switch_profile_id)
+        if qos_profile:
+            profile_ids = self._switching_profiles.build_switch_profile_ids(
+                self._switching_profiles, qos_profile)
+            if profile_ids and len(profile_ids) > 0:
+                # We have only 1 QoS profile, so this array is of size 1
+                return profile_ids[0]
+        # Didn't find it
+        err_msg = _("Could not find QoS switching profile for policy "
+                    "%s") % policy_id
+        raise n_exc.InvalidInput(error_message=err_msg)
+
     def _create_port_at_the_backend(self, context, port_data,
                                     l2gw_port_check, psec_is_on):
         device_owner = port_data.get('device_owner')
@@ -812,19 +862,39 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         if device_owner == const.DEVICE_OWNER_DHCP:
             profiles.append(self._dhcp_profile)
 
+        # Add QoS switching profile, if exists
+        qos_policy_id = None
+        if attributes.is_attr_set(port_data.get(qos_consts.QOS_POLICY_ID)):
+            qos_policy_id = port_data[qos_consts.QOS_POLICY_ID]
+            qos_profile_id = self._get_qos_profile_id(context, qos_policy_id)
+            profiles.append(qos_profile_id)
+
         name = self._get_port_name(context, port_data)
 
         nsx_net_id = port_data[pbin.VIF_DETAILS]['nsx-logical-switch-id']
-        result = self._port_client.create(
-            nsx_net_id, vif_uuid,
-            tags=tags,
-            name=name,
-            admin_state=port_data['admin_state_up'],
-            address_bindings=address_bindings,
-            attachment_type=attachment_type,
-            parent_name=parent_name, parent_tag=tag,
-            switch_profile_ids=profiles)
+        try:
+            result = self._port_client.create(
+                nsx_net_id, vif_uuid,
+                tags=tags,
+                name=name,
+                admin_state=port_data['admin_state_up'],
+                address_bindings=address_bindings,
+                attachment_type=attachment_type,
+                parent_name=parent_name, parent_tag=tag,
+                switch_profile_ids=profiles)
+        except nsx_exc.ManagerError as inst:
+            # we may fail if the QoS is not supported for this port
+            # (for example - transport zone with KVM)
+            LOG.exception(_LE("Unable to create port on the backend: %s"),
+                          inst)
+            msg = _("Unable to create port on the backend")
+            raise nsx_exc.NsxPluginException(err_msg=msg)
 
+        # Attach the policy to the port in the neutron DB
+        if qos_policy_id:
+            qos_utils.update_port_policy_binding(context,
+                                                 port_data['id'],
+                                                 qos_policy_id)
         return result
 
     def _validate_address_pairs(self, address_pairs):
@@ -879,6 +949,15 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         if lport_id:
             self._port_client.delete(lport_id)
 
+    def _assert_on_external_net_with_qos(self, port_data):
+        # Prevent creating/update port with QoS policy
+        # on external networks.
+        if attributes.is_attr_set(port_data.get(qos_consts.QOS_POLICY_ID)):
+            err_msg = _("Unable to update/create a port with an external "
+                        "network and a QoS policy")
+            LOG.warning(err_msg)
+            raise n_exc.InvalidInput(error_message=err_msg)
+
     def create_port(self, context, port, l2gw_port_check=False):
         port_data = port['port']
         dhcp_opts = port_data.get(ext_edo.EXTRADHCPOPTS, [])
@@ -889,6 +968,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 context, port_data['network_id'])
             if is_external_net:
                 self._assert_on_external_net_with_compute(port_data)
+                self._assert_on_external_net_with_qos(port_data)
 
             neutron_db = super(NsxV3Plugin, self).create_port(context, port)
             port["port"].update(neutron_db)
@@ -1103,15 +1183,49 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         if updated_device_owner == const.DEVICE_OWNER_DHCP:
             switch_profile_ids.append(self._dhcp_profile)
 
-        self._port_client.update(
-            lport_id, vif_uuid, name=name,
-            attachment_type=attachment_type,
-            admin_state=updated_port.get('admin_state_up'),
-            address_bindings=address_bindings,
-            switch_profile_ids=switch_profile_ids,
-            resources=resources,
-            parent_name=parent_name,
-            parent_tag=tag)
+        # Update QoS switch profile
+        qos_policy_id, qos_profile_id = self._get_port_qos_ids(context,
+                                                               updated_port)
+        if qos_profile_id is not None:
+            switch_profile_ids.append(qos_profile_id)
+
+        try:
+            self._port_client.update(
+                lport_id, vif_uuid, name=name,
+                attachment_type=attachment_type,
+                admin_state=updated_port.get('admin_state_up'),
+                address_bindings=address_bindings,
+                switch_profile_ids=switch_profile_ids,
+                resources=resources,
+                parent_name=parent_name,
+                parent_tag=tag)
+        except nsx_exc.ManagerError as inst:
+            # we may fail if the QoS is not supported for this port
+            # (for example - transport zone with KVM)
+            LOG.exception(_LE("Unable to update port on the backend: %s"),
+                          inst)
+            msg = _("Unable to update port on the backend")
+            raise nsx_exc.NsxPluginException(err_msg=msg)
+
+        # Attach/Detach the QoS policies to the port in the neutron DB
+        qos_utils.update_port_policy_binding(context,
+                                             updated_port['id'],
+                                             qos_policy_id)
+
+    def _get_port_qos_ids(self, context, updated_port):
+        # when a port is updated, get the current QoS policy/profile ids
+        policy_id = None
+        profile_id = None
+        if (qos_consts.QOS_POLICY_ID in updated_port):
+            policy_id = updated_port[qos_consts.QOS_POLICY_ID]
+        else:
+            # Look for the previous QoS policy
+            policy_id = qos_utils.get_port_policy_id(
+                context, updated_port['id'])
+        if policy_id is not None:
+            profile_id = self._get_qos_profile_id(context, policy_id)
+
+        return policy_id, profile_id
 
     def update_port(self, context, id, port):
         switch_profile_ids = None
@@ -1124,6 +1238,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 context, original_port['network_id'])
             if is_external_net:
                 self._assert_on_external_net_with_compute(port['port'])
+                self._assert_on_external_net_with_qos(port['port'])
 
             updated_port = super(NsxV3Plugin, self).update_port(context,
                                                                 id, port)
