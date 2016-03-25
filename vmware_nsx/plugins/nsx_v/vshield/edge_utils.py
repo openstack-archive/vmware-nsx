@@ -1558,12 +1558,22 @@ def update_routes(edge_manager, context, router_id, routes,
                 'cidr': route['destination'],
                 'nexthop': route['nexthop']})
         else:
-            edge_routes.append({
-                'vnic_index': nsxv_db.get_edge_vnic_binding(
-                    context.session, edge_id,
-                    route['network_id'])['vnic_index'],
-                'cidr': route['destination'],
-                'nexthop': route['nexthop']})
+            vnic_binding = nsxv_db.get_edge_vnic_binding(
+                context.session, edge_id, route['network_id'])
+            if vnic_binding and vnic_binding.get('vnic_index'):
+                edge_routes.append({
+                    'vnic_index': vnic_binding['vnic_index'],
+                    'cidr': route['destination'],
+                    'nexthop': route['nexthop']})
+            else:
+                LOG.error(_LE("vnic binding on edge %(edge_id)s for network "
+                              "%(net_id)s not found, so route: destination: "
+                              "%(dest)s, nexthop: %(nexthop)s can't be "
+                              "applied!"),
+                          {'edge_id': edge_id,
+                           'net_id': route['network_id'],
+                           'dest': route['destination'],
+                           'nexthop': route['nexthop']})
     task = edge_manager.update_routes(router_id, edge_id, nexthop, edge_routes,
                                       gateway_vnic_index=gateway_vnic_index)
     task.wait(task_const.TaskState.RESULT)
