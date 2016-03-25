@@ -199,7 +199,34 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         md_gw_data = self._get_metadata_gw_data(context, router_id)
         self._update_routes(context, router_id, newnexthop, md_gw_data)
 
+    def _validate_multiple_subnets_routers(self, context, router_id,
+                                           interface_info):
+        _nsxv_plugin = self.plugin
+        is_port, is_sub = _nsxv_plugin._validate_interface_info(interface_info)
+        if is_port:
+            net_id = _nsxv_plugin.get_port(
+                context, interface_info['port_id'])['network_id']
+        elif is_sub:
+            net_id = _nsxv_plugin.get_subnet(
+                context, interface_info['subnet_id'])['network_id']
+
+        port_filters = {'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF],
+                        'network_id': [net_id]}
+        intf_ports = _nsxv_plugin.get_ports(context.elevated(),
+                                            filters=port_filters)
+        router_ids = [port['device_id'] for port in intf_ports]
+        dist_router_filters = {'id': router_ids,
+                               'distributed': [True]}
+        dist_routers = _nsxv_plugin.get_routers(context, dist_router_filters)
+        if len(dist_routers) > 0:
+            err_msg = _("network can only be attached to just one distributed "
+                        "router, the network is already attached to router "
+                        "%(router_id)s") % {'router_id': dist_routers[0]['id']}
+            raise n_exc.InvalidInput(error_message=err_msg)
+
     def add_router_interface(self, context, router_id, interface_info):
+        self._validate_multiple_subnets_routers(
+            context, router_id, interface_info)
         info = super(nsx_v.NsxVPluginV2, self.plugin).add_router_interface(
             context, router_id, interface_info)
 
@@ -216,7 +243,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                                                       router_id, network_id,
                                                       address_groups,
                                                       router_db.admin_state_up)
-            except n_exc.BadRequest:
+            except Exception:
                 with excutils.save_and_reraise_exception():
                     super(nsx_v.NsxVPluginV2, self.plugin
                           ).remove_router_interface(context,
