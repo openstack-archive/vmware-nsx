@@ -117,6 +117,10 @@ L2gwGroup = [
     cfg.StrOpt('vlan_2',
                default="17",
                help="VLAN id"),
+    cfg.StrOpt("subnet_1_cidr",
+               default="192.168.1.0/24",
+               help="Subnet 1 network cidr."
+                    "Example: 1.1.1.0/24"),
 ]
 
 nsxv3_group = cfg.OptGroup(name='nsxv3',
