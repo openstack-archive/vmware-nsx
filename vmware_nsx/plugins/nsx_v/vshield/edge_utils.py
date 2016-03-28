@@ -1049,6 +1049,116 @@ class EdgeManager(object):
         self.set_sysctl_rp_filter_for_vdr_dhcp(
             context, dhcp_edge_id, network_id)
 
+    def _update_address_in_dict(self, address_groups, old_ip, new_ip,
+                                subnet_mask):
+        """Update the address_groups data structure to replace the old ip
+        with a new one.
+        If the old ip is None - if the ip matches an existing subnet:
+                                add it as a secondary ip.
+                                else - add a new address group for the new ip
+        If the new ip is none - delete the primary/secondary entry with the
+                                old ip.
+        If the old ip was not found - return False
+        Otherwise - return True
+        """
+        if old_ip is None:
+            # Adding a new IP
+            # look for an address group with a primary ip in the same subnet
+            # as the new ip
+            for address_group in address_groups['addressGroups']:
+                if (netaddr.IPAddress(new_ip) in
+                    netaddr.IPNetwork(address_group['primaryAddress'] + '/' +
+                                      address_group['subnetPrefixLength'])):
+                    # we should add the new ip as a secondary address in this
+                    # address group
+                    if (address_group.get('secondaryAddresses') is not None):
+                        secondary = address_group['secondaryAddresses']
+                        secondary['ipAddress'].append(new_ip)
+                    else:
+                        address_group['secondaryAddresses'] = {
+                            'type': 'secondary_addresses',
+                            'ipAddress': [new_ip]}
+                    return True
+            # Could not find the same subnet - add a new address group
+            address_group = {
+                'primaryAddress': new_ip,
+                'subnetMask': subnet_mask
+            }
+            address_groups['addressGroups'].append(address_group)
+            return True
+        else:
+            for ind, address_group in enumerate(
+                address_groups['addressGroups']):
+                if address_group['primaryAddress'] == old_ip:
+                    # this is the one we should update
+                    if new_ip:
+                        address_group['primaryAddress'] = new_ip
+                    else:
+                        # delete this entry
+                        address_groups['addressGroups'].pop(ind)
+                    return True
+                # try to find a match in the secondary ips
+                if (address_group.get('secondaryAddresses') is not None):
+                    secondary = address_group['secondaryAddresses']
+                    secondary_ips = secondary['ipAddress']
+                    if old_ip in secondary_ips:
+                        # We should update the secondary addresses
+                        if new_ip:
+                            # replace the old with the new
+                            secondary_ips.remove(old_ip)
+                            secondary_ips.append(new_ip)
+                        else:
+                            # delete this entry
+                            if len(secondary_ips) == 1:
+                                # delete the whole structure
+                                del address_group['secondaryAddresses']
+                            else:
+                                secondary_ips.remove(old_ip)
+                        return True
+
+        # The old ip was not found
+        return False
+
+    def update_interface_addr(self, context, edge_id, old_ip, new_ip,
+                              subnet_mask, is_uplink=False):
+        with locking.LockManager.get_lock(edge_id):
+            # get the current interfaces configuration
+            r = self.nsxv_manager.vcns.get_interfaces(edge_id)[1]
+            vnics = r.get('vnics', [])
+            # Go over the vnics to find the one we should update
+            for vnic in vnics:
+                if ((is_uplink and vnic['type'] == 'uplink') or
+                    not is_uplink and vnic['type'] != 'uplink'):
+                    if self._update_address_in_dict(
+                        vnic['addressGroups'], old_ip, new_ip, subnet_mask):
+                        self.nsxv_manager.vcns.update_interface(edge_id, vnic)
+                        return
+
+        # If we got here - we didn't find the old ip:
+        error = (_("Failed to update interface ip "
+                   "on edge %(eid)s: Cannot find the previous ip %(ip)s") %
+                 {'eid': edge_id, 'ip': old_ip})
+        raise nsx_exc.NsxPluginException(err_msg=error)
+
+    def update_vdr_interface_addr(self, context, edge_id, vnic_index,
+                                  old_ip, new_ip, subnet_mask):
+        with locking.LockManager.get_lock(edge_id):
+            # get the current interfaces configuration
+            vnic = self.nsxv_manager.vcns.get_vdr_internal_interface(
+                edge_id, vnic_index)[1]
+            if self._update_address_in_dict(
+                vnic['addressGroups'], old_ip, new_ip, subnet_mask):
+                interface_req = {'interface': vnic}
+                self.nsxv_manager.vcns.update_vdr_internal_interface(
+                    edge_id, vnic_index, interface_req)
+                return
+
+        # If we got here - we didn't find the old ip:
+        error = (_("Failed to update VDR interface ip "
+                   "on edge %(eid)s: Cannot find the previous ip %(ip)s") %
+                 {'eid': edge_id, 'ip': old_ip})
+        raise nsx_exc.NsxPluginException(err_msg=error)
+
     def _get_sub_interface_id(self, context, edge_id, network_id):
         vnic_binding = nsxv_db.get_edge_vnic_binding(
             context.session, edge_id, network_id)

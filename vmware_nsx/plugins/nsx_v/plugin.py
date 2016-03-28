@@ -1016,6 +1016,17 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._apply_dict_extend_functions('ports', port_data, port_model)
         return port_data
 
+    def _get_port_subnet_mask(self, context, port):
+        if len(port['fixed_ips']) > 0 and 'subnet_id' in port['fixed_ips'][0]:
+            subnet_id = port['fixed_ips'][0]['subnet_id']
+            subnet = self._get_subnet(context, subnet_id)
+            return str(netaddr.IPNetwork(subnet.cidr).netmask)
+
+    def _get_port_fixed_ip_addr(self, port):
+        if (len(port['fixed_ips']) > 0 and
+            'ip_address' in port['fixed_ips'][0]):
+            return port['fixed_ips'][0]['ip_address']
+
     def update_port(self, context, id, port):
         attrs = port[attr.PORT]
         port_data = port['port']
@@ -1026,6 +1037,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         device_id = original_port['device_id']
         has_port_security = (cfg.CONF.nsxv.spoofguard_enabled and
                              original_port[psec.PORTSECURITY])
+
+        port_ip_change = port_data.get('fixed_ips') is not None
+        device_owner_change = port_data.get('device_owner') is not None
+        # We do not support updating the port ip and device owner together
+        if port_ip_change and device_owner_change:
+            msg = (_('Cannot set fixed ips and device owner together for port '
+                     '%s') % original_port['id'])
+            raise n_exc.BadRequest(resource='port', msg=msg)
 
         # TODO(roeyc): create a method '_process_vnic_index_update' from the
         # following code block
@@ -1104,6 +1123,44 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if comp_owner_update:
             # Create dhcp bindings, the port is now owned by an instance
             self._create_dhcp_static_binding(context, ret_port)
+        elif port_ip_change:
+            owner = original_port['device_owner']
+            # If port IP has changed we should update according to device
+            # owner
+            if is_compute_port:
+                # This is an instance port, so re-create DHCP entry
+                self._delete_dhcp_static_binding(context, original_port)
+                self._create_dhcp_static_binding(context, ret_port)
+            elif owner == constants.DEVICE_OWNER_DHCP:
+                # Update the ip of the dhcp port
+                address_groups = self._create_network_dhcp_address_group(
+                    context, ret_port['network_id'])
+                self._update_dhcp_edge_service(
+                    context, ret_port['network_id'], address_groups)
+            elif (owner == constants.DEVICE_OWNER_ROUTER_GW or
+                  owner == constants.DEVICE_OWNER_ROUTER_INTF):
+                # This is a router port - update the edge appliance
+                old_ip = self._get_port_fixed_ip_addr(original_port)
+                new_ip = self._get_port_fixed_ip_addr(ret_port)
+                if ((old_ip is not None or new_ip is not None) and
+                    (old_ip != new_ip)):
+                    if attr.is_attr_set(original_port.get('device_id')):
+                        router_id = original_port['device_id']
+                        router_driver = self._find_router_driver(context,
+                                                                 router_id)
+                        # subnet mask is needed for adding new ip to the vnic
+                        sub_mask = self._get_port_subnet_mask(context,
+                                                              ret_port)
+                        router_driver.update_router_interface_ip(
+                            context,
+                            router_id,
+                            original_port['id'],
+                            ret_port['network_id'],
+                            old_ip, new_ip, sub_mask)
+            else:
+                LOG.info(_LI('Not updating fixed IP on backend for '
+                             'device owner [%(dev_own)s] and port %(pid)s'),
+                         {'dev_own': owner, 'pid': original_port['id']})
 
         # Processing compute port update
         vnic_idx = original_port.get(ext_vnic_idx.VNIC_INDEX)
