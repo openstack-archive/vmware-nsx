@@ -157,6 +157,11 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
 
         return all_vnic_indices
 
+    def update_nat_rules(self, context, router, router_id):
+        router_ids = self.edge_manager.get_routers_on_same_edge(
+            context, router_id)
+        self._update_nat_rules_on_routers(context, router_id, router_ids)
+
     def _update_nat_rules_on_routers(self, context,
                                      target_router_id, router_ids):
         snats = []

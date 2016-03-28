@@ -18,6 +18,9 @@ import six
 
 from neutron.db import l3_db
 from neutron.db import models_v2
+from vmware_nsx._i18n import _
+from vmware_nsx.common import exceptions as nsxv_exc
+from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -68,6 +71,7 @@ class RouterBaseDriver(RouterAbstractDriver):
         self.plugin = plugin
         self.nsx_v = plugin.nsx_v
         self.edge_manager = plugin.edge_manager
+        self.vcns = self.nsx_v.vcns
 
     def _get_external_network_id_by_router(self, context, router_id):
         """Get router's external network id if it has."""
@@ -80,3 +84,35 @@ class RouterBaseDriver(RouterAbstractDriver):
 
         if gw_ports:
             return gw_ports[0]['network_id']
+
+    def _get_edge_id_or_raise(self, context, router_id):
+        edge_id = edge_utils.get_router_edge_id(context, router_id)
+        if not edge_id:
+            error = (_("Failed to get router %(rid)s edge Id") %
+                     {'rid': router_id})
+            raise nsxv_exc.NsxPluginException(err_msg=error)
+        return edge_id
+
+    def update_nat_rules(self, context, router, router_id):
+        self.plugin._update_nat_rules(context, router, router_id)
+
+    def update_router_interface_ip(self, context, router_id, port_id,
+                                   int_net_id, old_ip, new_ip, subnet_mask):
+        """Update the fixed ip of a router interface.
+        This implementation will not work for distributed routers,
+        and there is a different implementation in that driver class
+        """
+        # get the edge-id of this router
+        edge_id = self._get_edge_id_or_raise(context, router_id)
+        # find out if the port is uplink or internal
+        router = self.plugin._get_router(context, router_id)
+        is_uplink = (port_id == router.gw_port_id)
+
+        # update the edge interface configuration
+        self.edge_manager.update_interface_addr(
+            context, edge_id, old_ip, new_ip,
+            subnet_mask, is_uplink=is_uplink)
+
+        # Also update the nat rules
+        if is_uplink:
+            self.update_nat_rules(context, router, router_id)

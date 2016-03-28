@@ -462,3 +462,28 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         self.plugin._update_nat_rules(context, router, router_id=plr_id)
         self.plugin._update_subnets_and_dnat_firewall(context, router,
                                                       router_id=plr_id)
+
+    def update_router_interface_ip(self, context, router_id,
+                                   port_id, int_net_id,
+                                   old_ip, new_ip, subnet_mask):
+        """Update the fixed ip of a distributed router interface. """
+        router = self.plugin._get_router(context, router_id)
+        if port_id == router.gw_port_id:
+            # external port / Uplink
+            plr_id = self.edge_manager.get_plr_by_tlr_id(context, router_id)
+            edge_id = self._get_edge_id_or_raise(context, plr_id)
+            self.edge_manager.update_interface_addr(
+                context, edge_id, old_ip, new_ip, subnet_mask, is_uplink=True)
+            # Also update the nat rules
+            self.plugin._update_nat_rules(context, router, plr_id)
+        else:
+            # Internal port:
+            # get the edge-id of this router
+            edge_id = self._get_edge_id_or_raise(context, router_id)
+            # Get the vnic index
+            edge_vnic_binding = nsxv_db.get_edge_vnic_binding(
+                context.session, edge_id, int_net_id)
+            vnic_index = edge_vnic_binding.vnic_index
+            self.edge_manager.update_vdr_interface_addr(
+                context, edge_id, vnic_index, old_ip, new_ip,
+                subnet_mask)
