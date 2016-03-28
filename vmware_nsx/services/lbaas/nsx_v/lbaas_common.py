@@ -253,9 +253,9 @@ def get_lbaas_fw_section_id(vcns):
 
 def enable_edge_acceleration(vcns, edge_id):
     with locking.LockManager.get_lock(edge_id):
-        config = {
-            'accelerationEnabled': True,
-            'enabled': True,
-            'featureType': 'loadbalancer_4.0'}
-
+        # Query the existing load balancer config in case metadata lb is set
+        _, config = vcns.get_loadbalancer_config(edge_id)
+        config['accelerationEnabled'] = True
+        config['enabled'] = True
+        config['featureType'] = 'loadbalancer_4.0'
         vcns.enable_service_loadbalancer(edge_id, config)
