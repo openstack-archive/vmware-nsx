@@ -120,5 +120,6 @@ class TestNsxVExtendedSGRule(test_nsxv_plugin.NsxVSecurityGroupsTestCase,
         super(TestNsxVExtendedSGRule,
               self).test_create_rule_with_local_ip_prefix()
         plugin.nsx_sg_utils.get_rule_config.assert_called_with(
-            destination=dest, applied_to_ids=mock.ANY, name=mock.ANY,
-            services=mock.ANY, source=mock.ANY, flags=mock.ANY)
+            source=mock.ANY, destination=dest, services=mock.ANY,
+            name=mock.ANY, applied_to_ids=mock.ANY, flags=mock.ANY,
+            logged=mock.ANY)
