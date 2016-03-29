@@ -117,6 +117,25 @@ class EdgeDHCPManagerTestCase(EdgeUtilsTestCaseMixin):
             appliance_size=vcns_const.SERVICE_SIZE_MAPPING['dhcp'],
             dist=False)
 
+    def test_get_random_available_edge(self):
+        available_edge_ids = ['edge-1', 'edge-2']
+        selected_edge_id = self.edge_manager._get_random_available_edge(
+            available_edge_ids)
+        self.assertIn(selected_edge_id, available_edge_ids)
+
+    def test_get_random_available_edge_missing_edges_returns_none(self):
+        available_edge_ids = ['edge-1', 'edge-2']
+        # Always return inactive(False) while checking whether the edge
+        # exists on the backend.
+        with mock.patch.object(self.edge_manager,
+                               'check_edge_active_at_backend',
+                               return_value=False):
+            selected_edge_id = self.edge_manager._get_random_available_edge(
+                available_edge_ids)
+            # If no active edges are found on the backend, return None so that
+            # a new DHCP edge is created.
+            self.assertIsNone(selected_edge_id)
+
 
 class EdgeUtilsTestCase(EdgeUtilsTestCaseMixin):
 
