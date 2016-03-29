@@ -15,6 +15,7 @@
 from oslo_log import log as logging
 
 from neutron.api.v2 import attributes as attr
+from neutron.plugins.common import constants
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsxv_exc
@@ -214,7 +215,7 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
                     'fixed_ips', [])]
             subnet = port_subnets[0]
 
-        if subnet and self.nsx_v.is_subnet_in_use(context, subnet):
+        if subnet and self._check_lb_on_subnet(context, subnet):
             error = _('Cannot delete router interface while loadbalancers are '
                       'provisioned on attached subnet')
             raise nsxv_exc.NsxPluginException(err_msg=error)
@@ -245,6 +246,16 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
                                                      router_id, network_id,
                                                      address_groups)
         return info
+
+    def _check_lb_on_subnet(self, context, subnet_id):
+        # Check lbaas
+        dev_owner_v1 = 'neutron:' + constants.LOADBALANCER
+        dev_owner_v2 = 'neutron:' + constants.LOADBALANCERV2
+        filters = {'device_owner': [dev_owner_v1, dev_owner_v2],
+                   'fixed_ips': {'subnet_id': [subnet_id]}}
+        ports = super(nsx_v.NsxVPluginV2, self.plugin).get_ports(
+            context, filters=filters)
+        return (len(ports) >= 1)
 
     def _update_edge_router(self, context, router_id):
         router = self.plugin._get_router(context.elevated(), router_id)
