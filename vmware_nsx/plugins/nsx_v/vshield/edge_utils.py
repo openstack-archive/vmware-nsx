@@ -766,6 +766,19 @@ class EdgeManager(object):
         edges = [binding['dhcp_edge_id'] for binding in bindings]
         return edges
 
+    def _get_random_available_edge(self, available_edge_ids):
+        while available_edge_ids:
+            # Randomly select an edge ID from the pool.
+            new_id = random.choice(available_edge_ids)
+            # Validate whether the edge exists on the backend.
+            if not self.check_edge_active_at_backend(new_id):
+                # Remove edge_id from available edges pool.
+                available_edge_ids.remove(new_id)
+                LOG.warning(_LW("Skipping edge: %s due to inactive status on "
+                                "the backend."), new_id)
+            else:
+                return new_id
+
     def _get_available_edges(self, context, network_id, conflicting_nets):
         if conflicting_nets is None:
             conflicting_nets = []
@@ -896,11 +909,15 @@ class EdgeManager(object):
                         #   one
                         #4. Update the address groups to the vnic
                         if available_edge_ids:
-                            new_id = random.choice(available_edge_ids)
-                            LOG.debug("Select edge %s to support dhcp for "
-                                      "network %s", new_id, network_id)
-                            self.reuse_existing_dhcp_edge(
-                                context, new_id, resource_id, network_id)
+                            new_id = self._get_random_available_edge(
+                                available_edge_ids)
+                            if new_id:
+                                LOG.debug("Select edge %s to support dhcp for "
+                                          "network %s", new_id, network_id)
+                                self.reuse_existing_dhcp_edge(
+                                    context, new_id, resource_id, network_id)
+                            else:
+                                allocate_new_edge = True
                         else:
                             allocate_new_edge = True
         # case 2: attach the subnet to a new edge and update vnic
@@ -912,11 +929,15 @@ class EdgeManager(object):
                           available_edge_ids, conflict_edge_ids)
                 # There is available one
                 if available_edge_ids:
-                    new_id = random.choice(available_edge_ids)
-                    LOG.debug("Select edge %s to support dhcp for network %s",
-                              new_id, network_id)
-                    self.reuse_existing_dhcp_edge(
-                        context, new_id, resource_id, network_id)
+                    new_id = self._get_random_available_edge(
+                        available_edge_ids)
+                    if new_id:
+                        LOG.debug("Select edge %s to support dhcp for network "
+                                  "%s", new_id, network_id)
+                        self.reuse_existing_dhcp_edge(
+                            context, new_id, resource_id, network_id)
+                    else:
+                        allocate_new_edge = True
                 else:
                     allocate_new_edge = True
 
