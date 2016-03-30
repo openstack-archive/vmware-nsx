@@ -56,8 +56,13 @@ class ExtendedSecurityGroupRuleMixin(object):
     def _check_local_ip_prefix(self, context, rule):
         rule_specify_local_ip_prefix = attr.is_attr_set(
             rule.get(ext_local_ip.LOCAL_IP_PREFIX))
+
         if rule_specify_local_ip_prefix and rule['direction'] != 'ingress':
             raise NotIngressRule()
+
+        if not rule_specify_local_ip_prefix:
+            # remove ATTR_NOT_SPECIFIED
+            rule[ext_local_ip.LOCAL_IP_PREFIX] = None
         return rule_specify_local_ip_prefix
 
     def _process_security_group_rule_properties(self, context,
