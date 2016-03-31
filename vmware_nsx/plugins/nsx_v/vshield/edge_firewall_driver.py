@@ -152,9 +152,11 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
         ruleTag = 1
         vcns_rules = []
         for rule in firewall['firewall_rule_list']:
-            vcns_rule = self._convert_firewall_rule(context, rule, ruleTag)
+            tag = rule.get('ruleTag', ruleTag)
+            vcns_rule = self._convert_firewall_rule(context, rule, tag)
             vcns_rules.append(vcns_rule)
-            ruleTag += 1
+            if not rule.get('ruleTag'):
+                ruleTag += 1
         if allow_external:
             vcns_rules.append(
                 {'action': "accept",

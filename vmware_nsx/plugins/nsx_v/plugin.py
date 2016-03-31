@@ -86,6 +86,7 @@ from vmware_nsx.plugins.nsx_v import managers
 from vmware_nsx.plugins.nsx_v import md_proxy as nsx_v_md_proxy
 from vmware_nsx.plugins.nsx_v.vshield.common import (
     constants as vcns_const)
+from vmware_nsx.plugins.nsx_v.vshield import edge_firewall_driver
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 from vmware_nsx.plugins.nsx_v.vshield import securitygroup_utils
 from vmware_nsx.plugins.nsx_v.vshield import vcns_driver
@@ -2104,6 +2105,23 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         nosnat_fw_rules = self._get_nosnat_subnets_fw_rules(
             context, router)
         fake_fw_rules.extend(nosnat_fw_rules)
+
+        # Get the load balancer rules in case they are refreshed
+        edge_id = self._get_edge_id_by_rtr_id(context, router_id)
+        lb_rules = nsxv_db.get_nsxv_lbaas_loadbalancer_binding_by_edge(
+                context.session, edge_id)
+        for rule in lb_rules:
+            vsm_rule = self.nsx_v.vcns.get_firewall_rule(
+                    edge_id, rule['edge_fw_rule_id'])[1]
+            lb_fw_rule = {
+                'action': edge_firewall_driver.FWAAS_ALLOW,
+                'enabled': vsm_rule['enabled'],
+                'destination_ip_address': vsm_rule['destination']['ipAddress'],
+                'name': vsm_rule['name'],
+                'ruleTag': vsm_rule['ruleTag']
+            }
+            fake_fw_rules.append(lb_fw_rule)
+
         # TODO(berlin): Add fw rules if fw service is supported
         fake_fw = {'firewall_rule_list': fake_fw_rules}
         edge_utils.update_firewall(self.nsx_v, context, router_id, fake_fw,
