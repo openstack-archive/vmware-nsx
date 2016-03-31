@@ -122,6 +122,7 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
         plugin_instance = manager.NeutronManager.get_plugin()
         plugin_instance._get_edge_id_by_rtr_id = mock.Mock()
         plugin_instance._get_edge_id_by_rtr_id.return_value = False
+        plugin_instance.edge_manager.is_dhcp_opt_enabled = True
 
     def test_get_vlan_network_name(self):
         p = manager.NeutronManager.get_plugin()
@@ -1264,27 +1265,6 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
         kwargs.update({'override': overrides})
         return self._create_bulk(fmt, number, 'subnet', base_data, **kwargs)
 
-    def test_create_subnet_with_two_host_routes(self):
-        self.skipTest("Skip test for not implemented host_routes feature")
-
-    def test_delete_subnet_with_route(self):
-        self.skipTest("Skip test for not implemented host_routes feature")
-
-    def test_update_subnet_adding_additional_host_routes_and_dns(self):
-        self.skipTest("Skip test for not implemented host_routes feature")
-
-    def test_delete_subnet_with_dns_and_route(self):
-        self.skipTest("Skip test for not implemented host_routes feature")
-
-    def test_update_subnet_route(self):
-        self.skipTest("Skip test for not implemented host_routes feature")
-
-    def test_update_subnet_route_to_None(self):
-        self.skipTest("Skip test for not implemented host_routes feature")
-
-    def test_create_subnet_with_one_host_route(self):
-        self.skipTest("Skip test for not implemented host_routes feature")
-
     def test_create_subnet_nonzero_cidr(self):
             awkward_cidrs = [{'nonezero': '10.129.122.5/8',
                               'corrected': '10.0.0.0/8'},
@@ -1459,12 +1439,6 @@ class TestSubnetPoolsV2(NsxVPluginV2TestCase, test_plugin.TestSubnetsV2):
     def test_create_subnet_only_ip_version_v6(self):
         self.skipTest('Not supported')
 
-    def test_create_subnet_with_one_host_route(self):
-        self.skipTest("Skip test for not implemented host_routes feature")
-
-    def test_create_subnet_with_two_host_routes(self):
-        self.skipTest("Skip test for not implemented host_routes feature")
-
     def test_create_subnet_with_v6_allocation_pool(self):
         self.skipTest('Not supported')
 
@@ -1476,15 +1450,6 @@ class TestSubnetPoolsV2(NsxVPluginV2TestCase, test_plugin.TestSubnetsV2):
 
     def test_delete_subnet_ipv6_slaac_router_port_exists(self):
         self.skipTest('Not supported')
-
-    def test_delete_subnet_with_dns_and_route(self):
-        self.skipTest("Skip test for not implemented host_routes feature")
-
-    def test_delete_subnet_with_route(self):
-        self.skipTest("Skip test for not implemented host_routes feature")
-
-    def test_update_subnet_adding_additional_host_routes_and_dns(self):
-        self.skipTest("Skip test for not implemented host_routes feature")
 
     def test_update_subnet_inconsistent_ipv6_gatewayv4(self):
         self.skipTest('Not supported')
@@ -1506,12 +1471,6 @@ class TestSubnetPoolsV2(NsxVPluginV2TestCase, test_plugin.TestSubnetsV2):
 
     def test_update_subnet_ipv6_ra_mode_fails(self):
         self.skipTest('Not supported')
-
-    def test_update_subnet_route(self):
-        self.skipTest("Skip test for not implemented host_routes feature")
-
-    def test_update_subnet_route_to_None(self):
-        self.skipTest("Skip test for not implemented host_routes feature")
 
     def test_create_subnet_only_ip_version_v6_old(self):
         self.skipTest('Currently not supported')
