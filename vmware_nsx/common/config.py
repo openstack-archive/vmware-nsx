@@ -417,6 +417,14 @@ nsxv_opts = [
                 default=False,
                 help=_("Indicates whether distributed-firewall "
                        "security-groups allowed traffic is logged")),
+    cfg.BoolOpt('dhcp_force_metadata', default=True,
+                help=_("In some cases the Neutron router is not present to "
+                       "provide the metadata IP but the DHCP server can be "
+                       "used to provide this info. Setting this value will "
+                       "force the DHCP server to append specific host routes "
+                       "to the DHCP request. If this option is set, then the "
+                       "metadata service will be activated for all the "
+                       "dhcp enabled networks.")),
 ]
 
 # Register the configuration options
