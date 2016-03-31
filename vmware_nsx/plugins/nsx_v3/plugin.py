@@ -1291,7 +1291,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
     def create_router(self, context, router):
         # TODO(berlin): admin_state_up support
         gw_info = self._extract_external_gw(context, router, is_extract=True)
-        router['router']['id'] = uuidutils.generate_uuid()
+        router['router']['id'] = (router['router'].get('id') or
+                                  uuidutils.generate_uuid())
         tags = utils.build_v3_tags_payload(
             router['router'], resource_type='os-neutron-router-id',
             project_name=context.tenant_name)
@@ -1713,7 +1714,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
 
     def create_security_group(self, context, security_group, default_sg=False):
         secgroup = security_group['security_group']
-        secgroup['id'] = uuidutils.generate_uuid()
+        secgroup['id'] = secgroup.get('id') or uuidutils.generate_uuid()
 
         tags = utils.build_v3_tags_payload(
             secgroup, resource_type='os-neutron-secgr-id',
