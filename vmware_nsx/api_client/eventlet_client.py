@@ -66,7 +66,7 @@ class EventletApiClient(base.ApiClientBase):
         # Connection pool is a list of queues.
         self._conn_pool = eventlet.queue.PriorityQueue()
         self._next_conn_priority = 1
-        for _ in range(concurrent_connections):
+        for __ in range(concurrent_connections):
             for host, port, is_ssl in api_providers:
                 conn = self._create_connection(host, port, is_ssl)
                 self._conn_pool.put((self._next_conn_priority, conn))

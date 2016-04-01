@@ -20,7 +20,7 @@ from neutron.db import l3_db
 
 from neutron_lib import exceptions as n_exc
 
-from vmware_nsx._i18n import _LE
+from vmware_nsx._i18n import _, _LE
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.drivers import (

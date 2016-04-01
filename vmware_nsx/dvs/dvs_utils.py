@@ -15,6 +15,9 @@
 from oslo_config import cfg
 from oslo_vmware import api
 
+
+from vmware_nsx._i18n import _
+
 dvs_opts = [
     cfg.StrOpt('host_ip',
                help='Hostname or IP address for connection to VMware vCenter '

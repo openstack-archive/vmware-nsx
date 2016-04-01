@@ -71,7 +71,7 @@ def list_missing_dhcp_bindings(resource, event, trigger, **kwargs):
     but are not present on corresponding NSXv Edge.
     """
 
-    for (edge_id, _) in nsxv_db.get_nsxv_dhcp_bindings_count_per_edge(
+    for (edge_id, __) in nsxv_db.get_nsxv_dhcp_bindings_count_per_edge(
             neutron_db.context.session):
         LOG.info(_LI("%s"), "=" * 60)
         LOG.info(_LI("For edge: %s"), edge_id)
