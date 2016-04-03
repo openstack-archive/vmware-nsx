@@ -60,13 +60,26 @@ DEFAULT_EDGE_FIREWALL_RULE = {
 
 
 def get_router_fw_rules():
+    # build the allowed destination ports list
+    int_ports = [METADATA_TCP_PORT,
+                 METADATA_HTTPS_PORT,
+                 METADATA_HTTPS_VIP_PORT]
+    str_ports = [str(p) for p in int_ports]
+    # the list of ports can be extended by configuration
+    if cfg.CONF.nsxv.metadata_service_allowed_ports:
+        str_ports = str_ports + cfg.CONF.nsxv.metadata_service_allowed_ports
+    separator = ','
+    dest_ports = separator.join(str_ports)
+
     fw_rules = [
         DEFAULT_EDGE_FIREWALL_RULE,
         {
             'name': 'MDServiceIP',
             'enabled': True,
             'action': 'allow',
-            'destination_ip_address': [METADATA_IP_ADDR]
+            'destination_ip_address': [METADATA_IP_ADDR],
+            'protocol': 'tcp',
+            'destination_port': dest_ports
         },
         {
             'name': 'MDInterEdgeNet',
