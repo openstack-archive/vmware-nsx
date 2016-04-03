@@ -291,35 +291,39 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _process_security_groups_rules_logging(self):
 
-        with locking.LockManager.get_lock('nsx-dfw-section',
-                                          lock_file_prefix='dfw-section',
-                                          external=True):
-            context = n_context.get_admin_context()
-            log_all_rules = cfg.CONF.nsxv.log_security_groups_allowed_traffic
+        def process_security_groups_rules_logging(*args, **kwargs):
+            with locking.LockManager.get_lock('nsx-dfw-section',
+                                              lock_file_prefix='dfw-section'):
+                context = n_context.get_admin_context()
+                log_allowed = cfg.CONF.nsxv.log_security_groups_allowed_traffic
 
-            # If the section/sg is already logged, then no action is
-            # required.
-            for sg in [sg for sg in self.get_security_groups(context)
-                       if sg[sg_logging.LOGGING] is False]:
-                section_uri = self._get_section_uri(context.session, sg['id'])
-                if section_uri is None:
-                    continue
+                # If the section/sg is already logged, then no action is
+                # required.
+                for sg in [sg for sg in self.get_security_groups(context)
+                           if sg[sg_logging.LOGGING] is False]:
+                    section_uri = self._get_section_uri(context.session,
+                                                        sg['id'])
+                    if section_uri is None:
+                        continue
 
-                # Section/sg is not logged, update rules logging according to
-                # the 'log_security_groups_allowed_traffic' config option.
-                try:
-                    h, c = self.nsx_v.vcns.get_section(section_uri)
-                    section = self.nsx_sg_utils.parse_section(c)
-                    section_needs_update = (
-                        self.nsx_sg_utils.set_rules_logged_option(
-                            section, log_all_rules))
-                    if section_needs_update:
-                        self.nsx_v.vcns.update_section(
-                            section_uri,
-                            self.nsx_sg_utils.to_xml_string(section), h)
-                except Exception as exc:
-                    LOG.error(_LE('Unable to update section for logging. %s'),
-                              exc)
+                    # Section/sg is not logged, update rules logging according
+                    # to the 'log_security_groups_allowed_traffic' config
+                    # option.
+                    try:
+                        h, c = self.nsx_v.vcns.get_section(section_uri)
+                        section = self.nsx_sg_utils.parse_section(c)
+                        section_needs_update = (
+                            self.nsx_sg_utils.set_rules_logged_option(
+                                section, log_allowed))
+                        if section_needs_update:
+                            self.nsx_v.vcns.update_section(
+                                section_uri,
+                                self.nsx_sg_utils.to_xml_string(section), h)
+                    except Exception as exc:
+                        LOG.error(_LE('Unable to update section for logging. '
+                                      '%s'), exc)
+
+        c_utils.spawn_n(process_security_groups_rules_logging)
 
     def _create_dhcp_static_binding(self, context, neutron_port_db):
 

@@ -13,12 +13,15 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import functools
 import hashlib
 
+import eventlet
 from neutron.api.v2 import attributes
 from neutron import version
 from neutron_lib import exceptions
 from oslo_config import cfg
+from oslo_context import context as common_context
 from oslo_log import log
 import retrying
 import six
@@ -257,3 +260,26 @@ def is_ipv4_ip_address(addr):
         if not _valid_part(ip_part):
             return False
     return True
+
+
+def spawn_n(func, *args, **kwargs):
+    """Passthrough method for eventlet.spawn_n.
+
+    This utility exists so that it can be stubbed for testing without
+    interfering with the service spawns.
+
+    It will also grab the context from the threadlocal store and add it to
+    the store on the new thread.  This allows for continuity in logging the
+    context when using this method to spawn a new thread.
+    """
+    _context = common_context.get_current()
+
+    @functools.wraps(func)
+    def context_wrapper(*args, **kwargs):
+        # NOTE: If update_store is not called after spawn_n it won't be
+        # available for the logger to pull from threadlocal storage.
+        if _context is not None:
+            _context.update_store()
+        func(*args, **kwargs)
+
+    eventlet.spawn_n(context_wrapper, *args, **kwargs)

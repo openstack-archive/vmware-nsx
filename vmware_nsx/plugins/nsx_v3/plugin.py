@@ -272,19 +272,25 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         return self._get_port_security_profile()
 
     def _process_security_group_logging(self):
-        context = q_context.get_admin_context()
-        log_all_rules = cfg.CONF.nsx_v3.log_security_groups_allowed_traffic
-        secgroups = self.get_security_groups(context,
-                                             fields=['id', sg_logging.LOGGING])
-        for sg in [sg for sg in secgroups if sg[sg_logging.LOGGING] is False]:
-            _, section_id = security.get_sg_mappings(context.session, sg['id'])
-            try:
-                security.set_firewall_rule_logging_for_section(
-                    section_id, logging=log_all_rules)
-            except nsx_exc.ManagerError:
-                with excutils.save_and_reraise_exception():
-                    LOG.error(_LE("Failed to update firewall rule logging for "
-                                  "rule in section %s"), section_id)
+        def process_security_group_logging(*args, **kwargs):
+            context = q_context.get_admin_context()
+            log_all_rules = cfg.CONF.nsx_v3.log_security_groups_allowed_traffic
+            secgroups = self.get_security_groups(context,
+                                                 fields=['id',
+                                                 sg_logging.LOGGING])
+            for sg in [sg for sg in secgroups
+                       if sg[sg_logging.LOGGING] is False]:
+                _, section_id = security.get_sg_mappings(context.session,
+                                                         sg['id'])
+                try:
+                    security.set_firewall_rule_logging_for_section(
+                        section_id, logging=log_all_rules)
+                except nsx_exc.ManagerError:
+                    with excutils.save_and_reraise_exception():
+                        LOG.error(_LE("Failed to update firewall rule logging "
+                                      "for rule in section %s"), section_id)
+
+        utils.spawn_n(process_security_group_logging)
 
     def _init_nsgroup_manager_and_default_section_rules(self):
         with locking.LockManager.get_lock('nsxv3_nsgroup_manager_init'):
