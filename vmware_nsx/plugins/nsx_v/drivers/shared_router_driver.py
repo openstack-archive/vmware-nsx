@@ -18,6 +18,7 @@ from oslo_config import cfg
 from neutron.api.v2 import attributes as attr
 from neutron.db import l3_db
 from neutron.db import models_v2
+from neutron_lib import exceptions as n_exc
 from oslo_log import log as logging
 
 from vmware_nsx._i18n import _
@@ -45,9 +46,15 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                       appliance_size=None, allow_metadata=True):
         pass
 
+    def _validate_no_routes(self, router):
+        if (attr.is_attr_set(router.get('routes')) and
+            len(router['routes']) > 0):
+            msg = _("Cannot configure static routes on a shared router")
+            raise n_exc.InvalidInput(error_message=msg)
+
     def update_router(self, context, router_id, router):
         r = router['router']
-        is_routes_update = True if 'routes' in r else False
+        self._validate_no_routes(r)
         edge_id = edge_utils.get_router_edge_id(context, router_id)
         if not edge_id:
             return super(nsx_v.NsxVPluginV2, self.plugin).update_router(
@@ -61,8 +68,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                 self.update_routes(context, router_id, None)
             # here is used to handle routes which tenant updates.
             if gw_info != attr.ATTR_NOT_SPECIFIED:
-                self._update_router_gw_info(context, router_id, gw_info,
-                                            is_routes_update)
+                self._update_router_gw_info(context, router_id, gw_info)
             if 'admin_state_up' in r:
                 # If router was deployed on a different edge then
                 # admin-state-up is already updated on the new edge.
@@ -590,8 +596,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             edge_utils.delete_interface(self.nsx_v, context, router_id, net_id,
                                         is_wait=False)
 
-    def _update_router_gw_info(self, context, router_id, info,
-                               is_routes_update=False):
+    def _update_router_gw_info(self, context, router_id, info):
         router = self.plugin._get_router(context, router_id)
         edge_id = edge_utils.get_router_edge_id(context, router_id)
         if not edge_id:
@@ -664,8 +669,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                                                               router_ids)
 
                         if (new_ext_net_id != org_ext_net_id or
-                            new_enable_snat != org_enable_snat or
-                            is_routes_update):
+                            new_enable_snat != org_enable_snat):
                             self._update_subnets_and_dnat_firewall_on_routers(
                                 context, router_id, router_ids,
                                 allow_external=True)
