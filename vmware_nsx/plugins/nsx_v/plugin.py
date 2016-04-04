@@ -1557,6 +1557,20 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self.delete_router(context, lrouter['id'])
         return self.get_router(context, lrouter['id'])
 
+    def _validate_router_migration(self, context, router_id,
+                                   new_router_type, router):
+        if new_router_type == 'shared':
+            # shared router cannot have static routes
+            # verify that the original router did not have static routes
+            err_msg = _('Unable to create a shared router with static routes')
+            routes = self._get_extra_routes_by_router_id(context, router_id)
+            if len(routes) > 0:
+                raise n_exc.InvalidInput(error_message=err_msg)
+            # verify that the updated router does not have static routes
+            if (attr.is_attr_set(router.get("routes")) and
+                len(router['routes']) > 0):
+                raise n_exc.InvalidInput(error_message=err_msg)
+
     def update_router(self, context, router_id, router):
         # Toggling the distributed flag is not supported
         if 'distributed' in router['router']:
@@ -1576,6 +1590,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     # should migrate the router because its type changed
                     new_router_type = router['router']['router_type']
                     self._validate_router_size(router)
+                    self._validate_router_migration(
+                        context, router_id, new_router_type, r)
 
                     # remove the router from the old pool, and free resources
                     old_router_driver = \

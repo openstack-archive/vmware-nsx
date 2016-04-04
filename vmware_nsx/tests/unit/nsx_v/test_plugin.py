@@ -2985,6 +2985,18 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
                         context.get_admin_context(),
                         router['router']['id']))
 
+    def test_router_update_with_routes_fail(self):
+        """Shared router currently does not support static routes
+        """
+        with self.router() as r:
+            router_id = r['router']['id']
+            body = self._show('routers', router_id)
+            body['router']['routes'] = [{'destination': '5.5.5.5/32',
+                                         'nexthop': '6.6.6.6'}]
+            self._update('routers', router_id, body,
+                         expected_code=400,
+                         neutron_context=context.get_admin_context())
+
     def test_router_update_gateway_with_no_edge(self):
         with self.router() as r:
             with self.subnet() as s1:
