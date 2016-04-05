@@ -213,6 +213,16 @@ class FakeVcns(object):
         response = ''
         return (header, response)
 
+    def get_vdr_internal_interface(self, edge_id, interface_index):
+        response = {}
+        header = {
+            'status': 200
+        }
+        for interface in self._edges[edge_id].get('interfaces', []):
+            if int(interface['index']) == int(interface_index):
+                response = interface
+        return (header, response)
+
     def delete_vdr_internal_interface(self, edge_id, interface_index):
         for interface in self._edges[edge_id].get('interfaces', []):
             if int(interface['index']) == int(interface_index):

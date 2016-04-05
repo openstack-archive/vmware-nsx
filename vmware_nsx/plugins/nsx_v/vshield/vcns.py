@@ -169,6 +169,10 @@ class Vcns(object):
         uri = "%s/%s/interfaces?action=patch" % (URI_PREFIX, edge_id)
         return self.do_request(HTTP_POST, uri, interface, decode=True)
 
+    def get_vdr_internal_interface(self, edge_id, interface_index):
+        uri = "%s/%s/interfaces/%s" % (URI_PREFIX, edge_id, interface_index)
+        return self.do_request(HTTP_GET, uri, decode=True)
+
     def update_vdr_internal_interface(self, edge_id,
                                       interface_index, interface):
         uri = "%s/%s/interfaces/%s" % (URI_PREFIX, edge_id, interface_index)
