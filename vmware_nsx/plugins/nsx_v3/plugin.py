@@ -1873,6 +1873,12 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         sg_rules = security_group_rules['security_group_rules']
         for r in sg_rules:
             self._check_local_ip_prefix(context, r['security_group_rule'])
+            # Generate id for security group rule or use one sepecified,
+            # if specified we are running in api-replay as server doesn't
+            # allow id to be specified by default
+            r['security_group_rule']['id'] = (
+                r['security_group_rule'].get('id') or
+                uuidutils.generate_uuid())
 
         with context.session.begin(subtransactions=True):
             rules_db = (super(NsxV3Plugin,
