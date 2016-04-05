@@ -226,7 +226,7 @@ class Vcns(object):
         return self.do_request(HTTP_GET, uri)
 
     def update_routes(self, edge_id, routes):
-        uri = "%s/%s/routing/config/static?async=true" % (URI_PREFIX, edge_id)
+        uri = "%s/%s/routing/config/static" % (URI_PREFIX, edge_id)
         return self.do_request(HTTP_PUT, uri, routes)
 
     def create_lswitch(self, lsconfig):
