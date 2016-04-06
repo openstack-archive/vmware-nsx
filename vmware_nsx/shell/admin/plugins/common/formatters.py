@@ -67,5 +67,5 @@ def tabulate_results(data):
     columns = data.pop(0)
     table = prettytable.PrettyTable(["%s" % col for col in columns])
     for contents in data:
-        table.add_row(["%s" % contents])
+        table.add_row(["%s" % col for col in contents])
     return table
