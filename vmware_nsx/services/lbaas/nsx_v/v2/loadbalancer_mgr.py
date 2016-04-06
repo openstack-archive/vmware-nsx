@@ -65,11 +65,14 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
         try:
             binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
                 context.session, lb.id)
-            lb_common.del_vip_fw_rule(self.vcns, binding['edge_id'],
-                                      binding['edge_fw_rule_id'])
-            lb_common.del_vip_as_secondary_ip(self.vcns, binding['edge_id'],
-                                              lb.vip_address)
-            nsxv_db.del_nsxv_lbaas_loadbalancer_binding(context.session, lb.id)
+            if binding:
+                lb_common.del_vip_fw_rule(self.vcns, binding['edge_id'],
+                                          binding['edge_fw_rule_id'])
+                lb_common.del_vip_as_secondary_ip(self.vcns,
+                                                  binding['edge_id'],
+                                                  lb.vip_address)
+                nsxv_db.del_nsxv_lbaas_loadbalancer_binding(context.session,
+                                                            lb.id)
             self.lbv2_driver.load_balancer.successful_completion(
                 context, lb, delete=True)
         except nsxv_exc.VcnsApiException:
