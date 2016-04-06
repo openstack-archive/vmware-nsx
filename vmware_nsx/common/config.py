@@ -44,11 +44,14 @@ base_opts = [
     cfg.IntOpt('max_lp_per_bridged_ls', default=5000,
                deprecated_group='NVP',
                help=_("Maximum number of ports of a logical switch on a "
-                      "bridged transport zone (default 5000)")),
+                      "bridged transport zone. The recommended value for "
+                      "this parameter varies with NSX version.\nPlease use:\n"
+                      "NSX 2.x -> 64\nNSX 3.0, 3.1 -> 5000\n"
+                      "NSX 3.2 -> 10000")),
     cfg.IntOpt('max_lp_per_overlay_ls', default=256,
                deprecated_group='NVP',
                help=_("Maximum number of ports of a logical switch on an "
-                      "overlay transport zone (default 256)")),
+                      "overlay transport zone")),
     cfg.IntOpt('concurrent_connections', default=10,
                deprecated_group='NVP',
                help=_("Maximum concurrent connections to each NSX "
@@ -73,41 +76,89 @@ base_opts = [
                       "bridge, ipsec_gre, or ipsec_stt)")),
     cfg.StrOpt('agent_mode', default=AgentModes.AGENT,
                deprecated_group='NVP',
-               help=_("The mode used to implement DHCP/metadata services.")),
+               help=_("Specifies in which mode the plugin needs to operate "
+                      "in order to provide DHCP and metadata proxy services "
+                      "to tenant instances. If 'agent' is chosen (default) "
+                      "the NSX plugin relies on external RPC agents (i.e. "
+                      "dhcp and metadata agents) to provide such services. "
+                      "In this mode, the plugin supports API extensions "
+                      "'agent' and 'dhcp_agent_scheduler'. If 'agentless' "
+                      "is chosen (experimental in Icehouse), the plugin will "
+                      "use NSX logical services for DHCP and metadata proxy. "
+                      "This simplifies the deployment model for Neutron, in "
+                      "that the plugin no longer requires the RPC agents to "
+                      "operate. When 'agentless' is chosen, the config option "
+                      "metadata_mode becomes ineffective. The 'agentless' "
+                      "mode works only on NSX 4.1. Furthermore, a 'combined' "
+                      "mode is also provided and is used to support existing "
+                      "deployments that want to adopt the agentless mode. "
+                      "With this mode, existing networks keep being served by "
+                      "the existing infrastructure (thus preserving backward "
+                      "compatibility, whereas new networks will be served by "
+                      "the new infrastructure. Migration tools are provided "
+                      "to 'move' one network from one model to another; with "
+                      "agent_mode set to 'combined', option "
+                      "'network_auto_schedule' in neutron.conf is ignored, as "
+                      "new networks will no longer be scheduled to existing "
+                      "dhcp agents.")),
     cfg.StrOpt('replication_mode', default=ReplicationModes.SERVICE,
                choices=(ReplicationModes.SERVICE, ReplicationModes.SOURCE),
-               help=_("The default option leverages service nodes to perform"
-                      " packet replication though one could set to this to "
-                      "'source' to perform replication locally. This is useful"
-                      " if one does not want to deploy a service node(s). "
-                      "It must be set to 'service' for leveraging distributed "
-                      "routers.")),
+               help=_("Specifies which mode packet replication should be done "
+                      "in. If set to service a service node is required in "
+                      "order to perform packet replication. This can also be "
+                      "set to source if one wants replication to be performed "
+                      "locally (NOTE: usually only useful for testing if one "
+                      "does not want to deploy a service node). In order to "
+                      "leverage distributed routers, replication_mode should "
+                      "be set to 'service'.")),
 ]
 
 sync_opts = [
     cfg.IntOpt('state_sync_interval', default=10,
                deprecated_group='NVP_SYNC',
-               help=_("Interval in seconds between runs of the state "
-                      "synchronization task. Set it to 0 to disable it")),
+               help=_("Interval in seconds between runs of the status "
+                      "synchronization task. The plugin will aim at "
+                      "resynchronizing operational status for all resources "
+                      "in this interval, and it should be therefore large "
+                      "enough to ensure the task is feasible. Otherwise the "
+                      "plugin will be constantly synchronizing resource "
+                      "status, ie: a new task is started as soon as the "
+                      "previous is completed. If this value is set to 0, the "
+                      "state synchronization thread for this Neutron instance "
+                      "will be disabled.")),
     cfg.IntOpt('max_random_sync_delay', default=0,
                deprecated_group='NVP_SYNC',
-               help=_("Maximum value for the additional random "
-                      "delay in seconds between runs of the state "
-                      "synchronization task")),
+               help=_("Random additional delay between two runs of the state "
+                      "synchronization task. An additional wait time between "
+                      "0 and max_random_sync_delay seconds will be added on "
+                      "top of state_sync_interval.")),
     cfg.IntOpt('min_sync_req_delay', default=1,
                deprecated_group='NVP_SYNC',
-               help=_('Minimum delay, in seconds, between two state '
-                      'synchronization queries to NSX. It must not '
-                      'exceed state_sync_interval')),
+               help=_("Minimum delay, in seconds, between two status "
+                      "synchronization requests for NSX. Depending on chunk "
+                      "size, controller load, and other factors, state "
+                      "synchronization requests might be pretty heavy. This "
+                      "means the controller might take time to respond, and "
+                      "its load might be quite increased by them. This "
+                      "parameter allows to specify a minimum interval between "
+                      "two subsequent requests. The value for this parameter "
+                      "must never exceed state_sync_interval. If this does, "
+                      "an error will be raised at startup.")),
     cfg.IntOpt('min_chunk_size', default=500,
                deprecated_group='NVP_SYNC',
-               help=_('Minimum number of resources to be retrieved from NSX '
-                      'during state synchronization')),
+               help=_("Minimum number of resources to be retrieved from NSX "
+                      "in a single status synchronization request. The actual "
+                      "size of the chunk will increase if the number of "
+                      "resources is such that using the minimum chunk size "
+                      "will cause the interval between two requests to be "
+                      "less than min_sync_req_delay")),
     cfg.BoolOpt('always_read_status', default=False,
                 deprecated_group='NVP_SYNC',
-                help=_('Always read operational status from backend on show '
-                       'operations. Enabling this option might slow down '
-                       'the system.'))
+                help=_("Enable this option to allow punctual state "
+                       "synchronization on show operations. In this way, show "
+                       "operations will always fetch the operational status "
+                       "of the resource from the NSX backend, and this might "
+                       "have a considerable impact on overall performance."))
 ]
 
 connection_opts = [
@@ -122,16 +173,22 @@ connection_opts = [
                help=_('Password for NSX controllers in this cluster')),
     cfg.IntOpt('http_timeout',
                default=75,
-               help=_('Time before aborting a request')),
+               help=_('Time before aborting a request on an '
+                      'unresponsive controller (Seconds)')),
     cfg.IntOpt('retries',
                default=2,
-               help=_('Number of time a request should be retried')),
+               help=_('Maximum number of times a particular request '
+                      'should be retried')),
     cfg.IntOpt('redirects',
                default=2,
-               help=_('Number of times a redirect should be followed')),
+               help=_('Maximum number of times a redirect response '
+                      'should be followed')),
     cfg.ListOpt('nsx_controllers',
                 deprecated_name='nvp_controllers',
-                help=_("Lists the NSX controllers in this cluster")),
+                help=_('Comma-separated list of NSX controller '
+                       'endpoints (<ip>:<port>). When port is omitted, '
+                       '443 is assumed. This option MUST be specified. '
+                       'e.g.: aa.bb.cc.dd, ee.ff.gg.hh.ee:80')),
     cfg.IntOpt('conn_idle_timeout',
                default=900,
                help=_('Reconnect connection to nsx if not used within this '
@@ -145,14 +202,14 @@ cluster_opts = [
                       "\"Neutron\" networks. It needs to be created in NSX "
                       "before starting Neutron with the nsx plugin.")),
     cfg.StrOpt('default_l3_gw_service_uuid',
-               help=_("Unique identifier of the NSX L3 Gateway service "
-                      "which will be used for implementing routers and "
-                      "floating IPs")),
+               help=_("(Optional) UUID of the NSX L3 Gateway "
+                      "service which will be used for implementing routers "
+                      "and floating IPs")),
     cfg.StrOpt('default_l2_gw_service_uuid',
-               help=_("Unique identifier of the NSX L2 Gateway service "
+               help=_("(Optional) UUID of the NSX L2 Gateway service "
                       "which will be used by default for network gateways")),
     cfg.StrOpt('default_service_cluster_uuid',
-               help=_("Unique identifier of the Service Cluster which will "
+               help=_("(Optional) UUID of the Service Cluster which will "
                       "be used by logical services like dhcp and metadata")),
     cfg.StrOpt('nsx_default_interface_name', default='breth0',
                deprecated_name='default_interface_name',
@@ -163,10 +220,16 @@ cluster_opts = [
 
 nsx_common_opts = [
     cfg.StrOpt('nsx_l2gw_driver',
-               help=_("Class path for the L2 gateway backend driver")),
+               help=_("Specify the class path for the Layer 2 gateway "
+                      "backend driver(i.e. NSXv3/NSX-V). This field will be "
+                      "used when a L2 Gateway service plugin is configured.")),
     cfg.StrOpt('locking_coordinator_url',
                deprecated_group='nsxv',
-               help=_('A URL to a locking mechanism coordinator')),
+               help=_("(Optional) URL for distributed locking coordination "
+                      "resource for lock manager. This value is passed as a "
+                      "parameter to tooz coordinator. By default, value is "
+                      "None and oslo_concurrency is used for single-node "
+                      "lock management.")),
 ]
 
 nsx_v3_opts = [
@@ -181,10 +244,11 @@ nsx_v3_opts = [
                help=_('Password for the NSX manager')),
     cfg.ListOpt('nsx_api_managers',
                 deprecated_name='nsx_manager',
-                help=_('IP address of one or more NSX managers separated '
-                       'by commas. The IP address can optionally specify a '
-                       'scheme (e.g. http or https) and port using the format '
-                       '<scheme>://<ip_address>:<port>')),
+                help=_("IP address of one or more NSX managers separated "
+                       "by commas. The IP address should be of the form:\n"
+                       "[<scheme>://]<ip_adress>[:<port>]\nIf scheme is not "
+                       "provided https is used. If port is not provided port "
+                       "80 is used for http and port 443 for https.")),
     cfg.StrOpt('default_overlay_tz_uuid',
                deprecated_name='default_tz_uuid',
                help=_("This is the UUID of the default NSX overlay transport "
@@ -192,14 +256,18 @@ nsx_v3_opts = [
                       "Neutron networks. It needs to be created in NSX "
                       "before starting Neutron with the NSX plugin.")),
     cfg.StrOpt('default_vlan_tz_uuid',
-               help=_("This is the UUID of the default NSX VLAN transport "
+               help=_("(Optional) Only required when creating VLAN or flat "
+                      "provider networks. UUID of default NSX VLAN transport "
                       "zone that will be used for bridging between Neutron "
-                      "networks. It needs to be created in NSX before "
-                      "starting Neutron with the NSX plugin.")),
+                      "networks, if no physical network has been specified")),
     cfg.StrOpt('default_bridge_cluster_uuid',
-               help=_("Default bridge cluster identifier for L2 gateway. "
-                      "This needs to be created in NSX before using the L2 "
-                      "gateway service plugin.")),
+               help=_("(Optional) UUID of the default NSX bridge cluster that "
+                      "will be used to perform L2 gateway bridging between "
+                      "VXLAN and VLAN networks. If default bridge cluster "
+                      "UUID is not specified, admin will have to manually "
+                      "create a L2 gateway corresponding to a NSX Bridge "
+                      "Cluster using L2 gateway APIs. This field must be "
+                      "specified on one of the active neutron servers only.")),
     cfg.IntOpt('retries',
                default=10,
                help=_('Maximum number of times to retry API requests upon '
@@ -218,8 +286,8 @@ nsx_v3_opts = [
                        'system root CAs will be used.')),
     cfg.IntOpt('http_timeout',
                default=10,
-               help=_('Time before aborting a HTTP connection to a '
-                      'NSX manager.')),
+               help=_('The time in seconds before aborting a HTTP connection '
+                      'to a NSX manager.')),
     cfg.IntOpt('http_read_timeout',
                default=180,
                help=_('The time in seconds before aborting a HTTP read '
@@ -232,16 +300,27 @@ nsx_v3_opts = [
                       "manager.")),
     cfg.IntOpt('conn_idle_timeout',
                default=10,
-               help=_('Ensure connectivity to the NSX manager if a connection '
-                      'is not used within timeout seconds.')),
+               help=_("The amount of time in seconds to wait before ensuring "
+                      "connectivity to the NSX manager if no manager "
+                      "connection has been used.")),
     cfg.IntOpt('redirects',
                default=2,
                help=_('Number of times a HTTP redirect should be followed.')),
     cfg.StrOpt('default_tier0_router_uuid',
-               help=_("Default tier0 router identifier")),
+               help=_("UUID of the default tier0 router that will be used for "
+                      "connecting to tier1 logical routers and configuring "
+                      "external networks")),
     cfg.IntOpt('number_of_nested_groups',
                default=8,
-               help=_("The number of nested NSGroups to use.")),
+               help=_("(Optional) The number of nested groups which are used "
+                      "by the plugin, each Neutron security-groups is added "
+                      "to one nested group, and each nested group can contain "
+                      "as maximum as 500 security-groups, therefore, the "
+                      "maximum number of security groups that can be created "
+                      "is 500 * number_of_nested_groups. The default is 8 "
+                      "nested groups, which allows a maximum of 4k "
+                      "security-groups, to allow creation of more "
+                      "security-groups, modify this figure.")),
     cfg.StrOpt('metadata_mode',
                default=MetadataModes.DIRECT,
                help=_("If set to access_network this enables a dedicated "
@@ -258,12 +337,12 @@ nsx_v3_opts = [
                        "DHCP-disabled subnet.")),
     cfg.BoolOpt('log_security_groups_blocked_traffic',
                 default=False,
-                help=_("Indicates whether distributed-firewall rule for "
-                       "security-groups blocked traffic is logged")),
+                help=_("(Optional) Indicates whether distributed-firewall "
+                       "rule for security-groups blocked traffic is logged.")),
     cfg.BoolOpt('log_security_groups_allowed_traffic',
                 default=False,
-                help=_("Indicates whether distributed-firewall "
-                       "security-groups rules are logged")),
+                help=_("(Optional) Indicates whether distributed-firewall "
+                       "security-groups rules are logged.")),
 ]
 
 DEFAULT_STATUS_CHECK_INTERVAL = 2000
@@ -275,15 +354,15 @@ nsxv_opts = [
     cfg.StrOpt('user',
                default='admin',
                deprecated_group="vcns",
-               help=_('User name for vsm')),
+               help=_('User name for NSXv manager')),
     cfg.StrOpt('password',
                default='default',
                deprecated_group="vcns",
                secret=True,
-               help=_('Password for vsm')),
+               help=_('Password for NSXv manager')),
     cfg.StrOpt('manager_uri',
                deprecated_group="vcns",
-               help=_('uri for vsm')),
+               help=_('URL for NSXv manager')),
     cfg.StrOpt('ca_file',
                help=_('Specify a CA bundle file to use in verifying the NSXv '
                       'server certificate.')),
@@ -295,11 +374,11 @@ nsxv_opts = [
                        'set.')),
     cfg.ListOpt('cluster_moid',
                 default=[],
-                help=_('Parameter listing the IDs of the clusters '
+                help=_('(Required) Parameter listing the IDs of the clusters '
                        'which are used by OpenStack.')),
     cfg.StrOpt('datacenter_moid',
                deprecated_group="vcns",
-               help=_('Optional parameter identifying the ID of datacenter '
+               help=_('Required parameter identifying the ID of datacenter '
                       'to deploy NSX Edges')),
     cfg.StrOpt('deployment_container_id',
                deprecated_group="vcns",
@@ -315,75 +394,102 @@ nsxv_opts = [
                       'deploy NSX Edges')),
     cfg.StrOpt('external_network',
                deprecated_group="vcns",
-               help=_('Network ID for physical network connectivity')),
+               help=_('(Required) Network ID for physical network '
+                      'connectivity')),
     cfg.IntOpt('task_status_check_interval',
                default=DEFAULT_STATUS_CHECK_INTERVAL,
                deprecated_group="vcns",
-               help=_("Task status check interval")),
+               help=_("(Optional) Asynchronous task status check interval. "
+                      "Default is 2000 (millisecond)")),
     cfg.StrOpt('vdn_scope_id',
-               help=_('Network scope ID for VXLAN virtual wires')),
+               help=_('(Optional) Network scope ID for VXLAN virtual wires')),
     cfg.StrOpt('dvs_id',
-               help=_('DVS ID for VLANs')),
+               help=_('(Optional) DVS MoRef ID for DVS connected to '
+                      'Management / Edge cluster')),
     cfg.IntOpt('maximum_tunnels_per_vnic',
                default=DEFAULT_MAXIMUM_TUNNELS_PER_VNIC,
                min=1, max=110,
-               help=_('Maximum number of sub interfaces supported '
+               help=_('(Optional) Maximum number of sub interfaces supported '
                       'per vnic in edge.')),
     cfg.ListOpt('backup_edge_pool',
                 default=['service:large:4:10',
                          'service:compact:4:10',
                          'vdr:large:4:10'],
-                help=_('Defines edge pool using the format: '
-                       '<edge_type>:[edge_size]:<min_edges>:<max_edges>.'
-                       'edge_type: service,vdr. '
-                       'edge_size: compact, large, xlarge, quadlarge '
-                       'and default is large.')),
+                help=_("Defines edge pool's management range with the format: "
+                       "<edge_type>:[edge_size]:<min_edges>:<max_edges>."
+                       "edge_type: service,vdr. "
+                       "edge_size: compact, large, xlarge, quadlarge "
+                       "and default is large. By default, edge pool manager "
+                       "would manage service edge with compact&&large size "
+                       "and distributed edge with large size as following: "
+                       "service:large:4:10,service:compact:4:10,vdr:large:"
+                       "4:10")),
     cfg.IntOpt('retries',
                default=20,
                help=_('Maximum number of API retries on endpoint.')),
     cfg.StrOpt('mgt_net_moid',
-               help=_('Network ID for management network connectivity')),
+               help=_('(Optional) Portgroup MoRef ID for metadata proxy '
+                      'management network')),
     cfg.ListOpt('mgt_net_proxy_ips',
-                help=_('Management network IP address for metadata proxy')),
+                help=_('(Optional) Comma separated list of management network '
+                       'IP addresses for metadata proxy.')),
     cfg.StrOpt('mgt_net_proxy_netmask',
-               help=_('Management network netmask for metadata proxy')),
+               help=_("(Optional) Management network netmask for metadata "
+                      "proxy.")),
     cfg.StrOpt('mgt_net_default_gateway',
-               help=_('Management network default gateway for '
-                      'metadata proxy')),
+               help=_("(Optional) Management network default gateway for "
+                      "metadata proxy.")),
     cfg.ListOpt('nova_metadata_ips',
-                help=_('IP addresses used by Nova metadata service')),
+                help=_("(Optional) IP addresses used by Nova metadata "
+                       "service.")),
     cfg.PortOpt('nova_metadata_port',
                 default=8775,
-                help=_("TCP Port used by Nova metadata server")),
+                help=_("(Optional) TCP Port used by Nova metadata server.")),
     cfg.StrOpt('metadata_shared_secret',
                secret=True,
-               help=_('Shared secret to sign metadata requests')),
+               help=_("(Optional) Shared secret to sign metadata requests.")),
     cfg.BoolOpt('metadata_insecure',
                 default=True,
-                help=_('If True, the end to end connection for metadata '
-                       'service is not verified. If False, the default CA '
-                       'truststore is used for verification')),
+                help=_("(Optional) If True, the end to end connection for "
+                       "metadata service is not verified. If False, the "
+                       "default CA truststore is used for verification.")),
     cfg.StrOpt('metadata_nova_client_cert',
-               help=_('Client certificate for nova metadata api server')),
+               help=_('(Optional) Client certificate to use when metadata '
+                      'connection is to be verified. If not provided, '
+                      'a self signed certificate will be used.')),
     cfg.StrOpt('metadata_nova_client_priv_key',
-               help=_('Private key of client certificate')),
+               help=_("(Optional) Private key of client certificate.")),
     cfg.BoolOpt('spoofguard_enabled',
                 default=True,
-                help=_("If True then plugin will use NSXV spoofguard "
-                       "component for port-security feature.")),
+                help=_("(Optional) If True then plugin will use NSXV "
+                       "spoofguard component for port-security feature.")),
     cfg.ListOpt('tenant_router_types',
                 default=['shared', 'distributed', 'exclusive'],
                 help=_("Ordered list of router_types to allocate as tenant "
-                       "routers.")),
+                       "routers. It limits the router types that the Nsxv "
+                       "can support for tenants:\ndistributed: router is "
+                       "supported by distributed edge at the backend.\n"
+                       "shared: multiple routers share the same service "
+                       "edge at the backend.\nexclusive: router exclusively "
+                       "occupies one service edge at the backend.\nNsxv would "
+                       "select the first available router type from "
+                       "tenant_router_types list if router-type is not "
+                       "specified. If the tenant defines the router type with "
+                       "'--distributed','--router_type exclusive' or "
+                       "'--router_type shared', Nsxv would verify that the "
+                       "router type is in tenant_router_types. Admin supports "
+                       "all these three router types.")),
     cfg.StrOpt('edge_appliance_user',
                secret=True,
-               help=_('Username to configure for Edge appliance login')),
+               help=_("(Optional) Username to configure for Edge appliance "
+                      "login.")),
     cfg.StrOpt('edge_appliance_password',
                secret=True,
-               help=_('Password to configure for Edge appliance login')),
+               help=_("(Optional) Password to configure for Edge appliance "
+                      "login.")),
     cfg.IntOpt('dhcp_lease_time',
                default=86400,
-               help=_('DHCP default lease time.')),
+               help=_("(Optional) DHCP default lease time.")),
     cfg.BoolOpt('metadata_initializer',
                 default=True,
                 help=_("If True, the server instance will attempt to "
@@ -394,12 +500,14 @@ nsxv_opts = [
                        '80,443,8775 tcp ports')),
     cfg.BoolOpt('edge_ha',
                 default=False,
-                help=_("Enable HA for NSX Edges")),
+                help=_("(Optional) Enable HA for NSX Edges.")),
     cfg.StrOpt('exclusive_router_appliance_size',
                default="compact",
                choices=routersize.VALID_EDGE_SIZES,
-               help=_("Edge appliance size to be used for creating exclusive "
-                      "router. This edge_appliance_size will be picked up if "
+               help=_("(Optional) Edge appliance size to be used for creating "
+                      "exclusive router. Valid values: "
+                      "['compact', 'large', 'xlarge', 'quadlarge']. This "
+                      "exclusive_router_appliance_size will be picked up if "
                       "--router-size parameter is not specified while doing "
                       "neutron router-create")),
     cfg.ListOpt('nameservers',
@@ -415,20 +523,22 @@ nsxv_opts = [
                        'supported')),
     cfg.BoolOpt('log_security_groups_blocked_traffic',
                 default=False,
-                help=_("Indicates whether distributed-firewall rule for "
-                       "security-groups blocked traffic is logged")),
+                help=_("(Optional) Indicates whether distributed-firewall "
+                       "rule for security-groups blocked traffic is logged.")),
     cfg.BoolOpt('log_security_groups_allowed_traffic',
                 default=False,
-                help=_("Indicates whether distributed-firewall "
-                       "security-groups allowed traffic is logged")),
+                help=_("(Optional) Indicates whether distributed-firewall "
+                       "security-groups allowed traffic is logged.")),
     cfg.BoolOpt('dhcp_force_metadata', default=True,
-                help=_("In some cases the Neutron router is not present to "
-                       "provide the metadata IP but the DHCP server can be "
-                       "used to provide this info. Setting this value will "
-                       "force the DHCP server to append specific host routes "
-                       "to the DHCP request. If this option is set, then the "
-                       "metadata service will be activated for all the "
-                       "dhcp enabled networks.")),
+                help=_("(Optional) In some cases the Neutron router is not "
+                       "present to provide the metadata IP but the DHCP "
+                       "server can be used to provide this info. Setting this "
+                       "value will force the DHCP server to append specific "
+                       "host routes to the DHCP request. If this option is "
+                       "set, then the metadata service will be activated for "
+                       "all the dhcp enabled networks.\nNote: this option can "
+                       "only be supported at NSX manager version 6.2.3 or "
+                       "higher.")),
 ]
 
 # Register the configuration options

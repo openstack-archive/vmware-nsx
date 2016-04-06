@@ -50,8 +50,11 @@ function neutron_plugin_configure_common {
     Q_PLUGIN_CONF_PATH=etc/neutron/plugins/vmware
     Q_PLUGIN_CONF_FILENAME=nsx.ini
     Q_PLUGIN_SRC_CONF_PATH=vmware-nsx/etc
+    VMWARE_NSX_DIR=vmware-nsx
+    # Uses oslo config generator to generate sample configuration file
+    (cd $DEST/$VMWARE_NSX_DIR && exec ./tools/generate_config_file_samples.sh)
     mkdir -p /$Q_PLUGIN_CONF_PATH
-    cp $DEST/$Q_PLUGIN_SRC_CONF_PATH/$Q_PLUGIN_CONF_FILENAME /$Q_PLUGIN_CONF_PATH/$Q_PLUGIN_CONF_FILENAME
+    cp $DEST/$Q_PLUGIN_SRC_CONF_PATH/nsx.ini.sample /$Q_PLUGIN_CONF_PATH/$Q_PLUGIN_CONF_FILENAME
     Q_DB_NAME="neutron_nsx"
     Q_PLUGIN_CLASS="vmware_nsx.plugin.NsxVPlugin"
 }

@@ -62,7 +62,11 @@ metadata_opts = [
     cfg.StrOpt('metadata_shared_secret',
                deprecated_group='NVP_METADATA',
                default='',
-               help=_('Shared secret to sign instance-id request'),
+               help=_('When proxying metadata requests, Neutron signs the '
+                      'Instance-ID header with a shared secret to prevent '
+                      'spoofing. You may select any string for a secret, '
+                      'but it MUST match with the configuration used by the '
+                      'Metadata server.'),
                secret=True)
 ]
 
