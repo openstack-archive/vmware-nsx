@@ -180,22 +180,15 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             raise nsx_exc.NsxPluginException(msg)
         self._unsubscribe_callback_events()
 
-    def _extend_port_dict_binding(self, port_res, port_db):
-        port_res[pbin.VIF_TYPE] = pbin.VIF_TYPE_OVS
-        port_res[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
-        port_res[pbin.VIF_DETAILS] = {
+    def _extend_port_dict_binding(self, context, port_data):
+        port_data[pbin.VIF_TYPE] = pbin.VIF_TYPE_OVS
+        port_data[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
+        port_data[pbin.VIF_DETAILS] = {
             # TODO(rkukura): Replace with new VIF security details
             pbin.CAP_PORT_FILTER:
             'security-group' in self.supported_extension_aliases,
-            # TODO(garyk): at the moment the neutron network UUID
-            # is the same as the NSX logical switch ID. When nova
-            # supports the code below we can switch to pass the NSX
-            # logical switch ID
-            'nsx-logical-switch-id': port_res['network_id']}
-
-    # Register the hook to extend the port data
-    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        attributes.PORTS, ['_extend_port_dict_binding'])
+            'nsx-logical-switch-id':
+            self._get_network_nsx_id(context, port_data['network_id'])}
 
     def _unsubscribe_callback_events(self):
         # l3_db explicitly subscribes to the port delete callback. This
@@ -424,10 +417,16 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
     def _create_network_at_the_backend(self, context, net_data):
         is_provider_net, net_type, physical_net, vlan_id = (
             self._validate_provider_create(context, net_data))
-        net_name = net_data['name']
+        neutron_net_id = net_data.get('id') or uuidutils.generate_uuid()
+        # To ensure that the correct tag will be set
+        net_data['id'] = neutron_net_id
+        # update the network name to indicate the neutron id too.
+        net_name = utils.get_name_and_uuid(net_data['name'] or 'network',
+                                           neutron_net_id)
         tags = utils.build_v3_tags_payload(
             net_data, resource_type='os-neutron-net-id',
             project_name=context.tenant_name)
+
         admin_state = net_data.get('admin_state_up', True)
 
         # Create network on the backend
@@ -438,31 +437,15 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                    'tags': tags,
                    'admin_state': admin_state,
                    'vlan_id': vlan_id})
-        result = nsxlib.create_logical_switch(net_name, physical_net, tags,
-                                              admin_state=admin_state,
-                                              vlan_id=vlan_id)
+        nsx_result = nsxlib.create_logical_switch(net_name, physical_net, tags,
+                                                  admin_state=admin_state,
+                                                  vlan_id=vlan_id)
 
-        # The logical switch's UUID is used as the id for the neutron network
-        # (via net_data, which is used below, in create_network). Now that we
-        # have a UUID for the logical switch, set that as the neutron network
-        # id in the switch's tags. Note errors but no rollback is needed here.
-        network_id = result['id']
-        net_data['id'] = network_id
-        network_tags = result['tags']
-        for tag in network_tags:
-            if tag['scope'] == 'os-neutron-net-id':
-                tag['tag'] = network_id
-        try:
-            nsxlib.update_logical_switch(
-                network_id,
-                name=utils.get_name_and_uuid(net_data['name'] or 'network',
-                                             network_id),
-                tags=network_tags)
-        except nsx_exc.ManagerError:
-            LOG.exception(_LE("Unable to update network name and tags on NSX "
-                              "backend for network %s"), network_id)
-
-        return (is_provider_net, net_type, physical_net, vlan_id)
+        return (is_provider_net,
+                net_type,
+                physical_net,
+                vlan_id,
+                nsx_result['id'])
 
     def _extend_network_dict_provider(self, context, network, bindings=None):
         if not bindings:
@@ -478,12 +461,14 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
     def create_network(self, context, network):
         net_data = network['network']
         external = net_data.get(ext_net_extn.EXTERNAL)
+        is_backend_network = False
         if attributes.is_attr_set(external) and external:
             is_provider_net, net_type, physical_net, vlan_id = (
                 self._validate_external_net_create(net_data))
         else:
-            is_provider_net, net_type, physical_net, vlan_id = (
+            is_provider_net, net_type, physical_net, vlan_id, nsx_net_id = (
                 self._create_network_at_the_backend(context, net_data))
+            is_backend_network = True
         tenant_id = net_data['tenant_id']
 
         self._ensure_default_security_group(context, tenant_id)
@@ -516,6 +501,15 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                         net_type, physical_net, vlan_id)]
                     self._extend_network_dict_provider(context, created_net,
                                                        bindings=net_bindings)
+                if is_backend_network:
+                    # Add neutron-id <-> nsx-id mapping to the DB
+                    # after the network creation is done
+                    neutron_net_id = created_net['id']
+                    nsx_db.add_neutron_nsx_network_mapping(
+                                context.session,
+                                neutron_net_id,
+                                nsx_net_id)
+
         except Exception:
             with excutils.save_and_reraise_exception():
                 # Undo creation on the backend
@@ -573,6 +567,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                     raise
 
     def delete_network(self, context, network_id):
+        nsx_net_id = self._get_network_nsx_id(context, network_id)
         # First call DB operation for delete network as it will perform
         # checks on active ports
         self._retry_delete_network(context, network_id)
@@ -580,10 +575,23 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             # TODO(salv-orlando): Handle backend failure, possibly without
             # requiring us to un-delete the DB object. For instance, ignore
             # failures occurring if logical switch is not found
-            nsxlib.delete_logical_switch(network_id)
+            nsxlib.delete_logical_switch(nsx_net_id)
         else:
             # TODO(berlin): delete subnets public announce on the network
             pass
+
+    def _get_network_nsx_id(self, context, neutron_id):
+        # get the nsx switch id from the DB mapping
+        mappings = nsx_db.get_nsx_switch_ids(context.session, neutron_id)
+        if not mappings or len(mappings) == 0:
+            LOG.debug("Unable to find NSX mappings for neutron "
+                      "network %s.", neutron_id)
+            # fallback in case we didn't find the id in the db mapping
+            # This should not happen, but added here in case the network was
+            # created before this code was added.
+            return neutron_id
+        else:
+            return mappings[0]
 
     def update_network(self, context, id, network):
         original_net = super(NsxV3Plugin, self).get_network(context, id)
@@ -602,8 +610,10 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         if (not self._network_is_external(context, id) and
             'name' in net_data or 'admin_state_up' in net_data):
             try:
+                # get the nsx switch id from the DB mapping
+                nsx_id = self._get_network_nsx_id(context, id)
                 nsxlib.update_logical_switch(
-                    id,
+                    nsx_id,
                     name=utils.get_name_and_uuid(net_data['name'] or 'network',
                                                  id),
                     admin_state=net_data.get('admin_state_up'))
@@ -779,8 +789,9 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
 
         name = self._get_port_name(context, port_data)
 
+        nsx_net_id = self._get_network_nsx_id(context, port_data['network_id'])
         result = self._port_client.create(
-            port_data['network_id'], vif_uuid,
+            nsx_net_id, vif_uuid,
             tags=tags,
             name=name,
             admin_state=port_data['admin_state_up'],
@@ -793,7 +804,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         # mapping object is not necessary anymore.
         nsx_db.add_neutron_nsx_port_mapping(
             context.session, port_data['id'],
-            port_data['network_id'], result['id'])
+            nsx_net_id, result['id'])
         return result
 
     def _validate_address_pairs(self, address_pairs):
@@ -867,6 +878,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             sgids = self._get_security_groups_on_port(context, port)
             self._process_port_create_security_group(
                 context, port_data, sgids)
+            self._extend_port_dict_binding(context, port_data)
 
         # Operations to backend should be done outside of DB transaction.
         # NOTE(arosen): ports on external networks are nat rules and do
@@ -1101,6 +1113,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 context, updated_port)
             self._process_portbindings_create_and_update(
                 context, port['port'], updated_port)
+            self._extend_port_dict_binding(context, updated_port)
 
         address_bindings = self._build_address_bindings(updated_port)
         if port_security and address_bindings:
@@ -1146,6 +1159,26 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                                 updated_port, original_port)
 
         return updated_port
+
+    def get_port(self, context, id, fields=None):
+        port = super(NsxV3Plugin, self).get_port(context, id, fields=None)
+        self._extend_port_dict_binding(context, port)
+        return self._fields(port, fields)
+
+    def get_ports(self, context, filters=None, fields=None,
+                  sorts=None, limit=None, marker=None,
+                  page_reverse=False):
+        filters = filters or {}
+        with context.session.begin(subtransactions=True):
+            ports = (
+                super(NsxV3Plugin, self).get_ports(
+                    context, filters, fields, sorts,
+                    limit, marker, page_reverse))
+            # Add port extensions
+            for port in ports:
+                self._extend_port_dict_binding(context, port)
+        return (ports if not fields else
+                [self._fields(port, fields) for port in ports])
 
     def _extract_external_gw(self, context, router, is_extract=True):
         r = router['router']
