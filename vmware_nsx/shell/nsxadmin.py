@@ -92,6 +92,8 @@ nsxv_resources = {
     constants.ORPHANED_EDGES: Resource(constants.ORPHANED_EDGES,
                                        [Operations.LIST.value,
                                         Operations.CLEAN.value]),
+    constants.MISSING_EDGES: Resource(constants.MISSING_EDGES,
+                                      [Operations.LIST.value]),
     constants.SPOOFGUARD_POLICY: Resource(constants.SPOOFGUARD_POLICY,
                                           [Operations.LIST.value,
                                            Operations.CLEAN.value]),
