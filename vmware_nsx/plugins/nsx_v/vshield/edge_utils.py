@@ -502,10 +502,9 @@ class EdgeManager(object):
                 plugin_const.PENDING_CREATE,
                 appliance_size=appliance_size,
                 edge_type=edge_type)
-            task = self._deploy_edge(context, lrouter,
-                                     appliance_size=appliance_size,
-                                     edge_type=edge_type)
-            task.wait(task_const.TaskState.RESULT)
+            self._deploy_edge(context, lrouter,
+                              appliance_size=appliance_size,
+                              edge_type=edge_type, async=False)
             return
 
         with locking.LockManager.get_lock('nsx-edge-request'):
@@ -520,10 +519,9 @@ class EdgeManager(object):
                 plugin_const.PENDING_CREATE,
                 appliance_size=appliance_size,
                 edge_type=edge_type)
-            task = self._deploy_edge(context, lrouter,
-                                     appliance_size=appliance_size,
-                                     edge_type=edge_type)
-            task.wait(task_const.TaskState.RESULT)
+            self._deploy_edge(context, lrouter,
+                              appliance_size=appliance_size,
+                              edge_type=edge_type, async=False)
         else:
             LOG.debug("Select edge: %(edge_id)s from pool for %(name)s",
                       {'edge_id': available_router_binding['edge_id'],
@@ -2023,7 +2021,7 @@ class NsxVCallbacks(object):
                 context.session, router_id,
                 status=plugin_const.ACTIVE)
         else:
-            LOG.debug("Failed to deploy Edge for router %s", name)
+            LOG.error(_LE("Failed to deploy Edge for router %s"), name)
             if router_db:
                 router_db['status'] = plugin_const.ERROR
             nsxv_db.update_nsxv_router_binding(
