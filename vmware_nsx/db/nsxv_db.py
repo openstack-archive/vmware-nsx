@@ -465,7 +465,7 @@ def add_nsxv_edge_firewallrule_binding(session, map_info):
     with session.begin(subtransactions=True):
         binding = nsxv_models.NsxvEdgeFirewallRuleBinding(
             rule_id=map_info['rule_id'],
-            rule_vseid=map_info['rule_vseid'],
+            rule_vse_id=map_info['rule_vseid'],
             edge_id=map_info['edge_id'])
         session.add(binding)
     return binding
@@ -490,7 +490,7 @@ def get_nsxv_edge_firewallrule_binding_by_vseid(
     with session.begin(subtransactions=True):
         try:
             return (session.query(nsxv_models.NsxvEdgeFirewallRuleBinding).
-                    filter_by(edge_id=edge_id, rule_vseid=rule_vseid).one())
+                    filter_by(edge_id=edge_id, rule_vse_id=rule_vseid).one())
         except exc.NoResultFound:
             msg = _("Rule Resource binding not found!")
             raise nsx_exc.NsxPluginException(err_msg=msg)
