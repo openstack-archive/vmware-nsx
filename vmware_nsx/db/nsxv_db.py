@@ -15,6 +15,9 @@
 #    under the License.
 
 import neutron.db.api as db
+from neutron.plugins.common import constants as neutron_const
+
+import decorator
 from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -23,7 +26,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import exc
 from sqlalchemy.sql import expression as expr
 
-from vmware_nsx._i18n import _, _LE
+from vmware_nsx._i18n import _, _LE, _LW
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_models
@@ -63,21 +66,50 @@ def add_nsxv_router_binding(session, router_id, vse_id, lswitch_id, status,
     return binding
 
 
+@decorator.decorator
+def warn_on_binding_status_error(f, *args, **kwargs):
+    result = f(*args, **kwargs)
+    if result is None:
+        return
+    # we support functions that return a single entry or a list
+    if type(result) == list:
+        bindings = result
+    else:
+        bindings = [result]
+
+    for binding in bindings:
+        if binding and binding['status'] == neutron_const.ERROR:
+            LOG.warning(_LW("Found NSXV router binding entry with status "
+                            "%(status)s: router %(router)s, "
+                            "edge %(edge)s, lswitch %(lswitch)s, "
+                            "status description: %(desc)s "),
+                        {'status': binding['status'],
+                         'router': binding['router_id'],
+                         'edge': binding['edge_id'],
+                         'lswitch': binding['lswitch_id'],
+                         'desc': binding['status_description']})
+    return result
+
+
+@warn_on_binding_status_error
 def get_nsxv_router_binding(session, router_id):
     return session.query(nsxv_models.NsxvRouterBinding).filter_by(
         router_id=router_id).first()
 
 
+@warn_on_binding_status_error
 def get_nsxv_router_binding_by_edge(session, edge_id):
     return session.query(nsxv_models.NsxvRouterBinding).filter_by(
         edge_id=edge_id).first()
 
 
+@warn_on_binding_status_error
 def get_nsxv_router_bindings_by_edge(session, edge_id):
     return session.query(nsxv_models.NsxvRouterBinding).filter_by(
         edge_id=edge_id).all()
 
 
+@warn_on_binding_status_error
 def get_nsxv_router_bindings(session, filters=None,
                              like_filters=None):
     session = db.get_session()
