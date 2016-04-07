@@ -22,6 +22,7 @@ from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.dvs import dvs_utils
 
 LOG = logging.getLogger(__name__)
+PORTGROUP_PREFIX = 'dvportgroup'
 
 
 class DvsManager(object):
@@ -117,6 +118,128 @@ class DvsManager(object):
                                 # NOTE(garyk): update cache
                                 return val
         raise exceptions.NetworkNotFound(net_id=net_id)
+
+    def _is_vlan_network_by_moref(self, moref):
+        """
+        This can either be a VXLAN or a VLAN network. The type is determined
+        by the prefix of the moref.
+        """
+        return moref.startswith(PORTGROUP_PREFIX)
+
+    def _copy_port_group_spec(self, orig_spec):
+        client_factory = self._session.vim.client.factory
+        pg_spec = client_factory.create('ns0:DVPortgroupConfigSpec')
+        pg_spec.autoExpand = orig_spec['autoExpand']
+        pg_spec.configVersion = orig_spec['configVersion']
+        pg_spec.defaultPortConfig = orig_spec['defaultPortConfig']
+        pg_spec.name = orig_spec['name']
+        pg_spec.numPorts = orig_spec['numPorts']
+        pg_spec.policy = orig_spec['policy']
+        pg_spec.type = orig_spec['type']
+        return pg_spec
+
+    def update_port_group_spec_qos(self, pg_spec, qos_data):
+        outPol = pg_spec.defaultPortConfig.outShapingPolicy
+        if qos_data.enabled:
+            outPol.inherited = False
+            outPol.enabled.inherited = False
+            outPol.enabled.value = True
+            outPol.averageBandwidth.inherited = False
+            outPol.averageBandwidth.value = qos_data.averageBandwidth
+            outPol.peakBandwidth.inherited = False
+            outPol.peakBandwidth.value = qos_data.peakBandwidth
+            outPol.burstSize.inherited = False
+            outPol.burstSize.value = qos_data.burstSize
+        else:
+            outPol.inherited = True
+
+    def _reconfigure_port_group(self, pg_moref, spec_update_calback,
+                                spec_update_data):
+        # Get the current configuration of the port group
+        pg_spec = self._session.invoke_api(vim_util,
+                                           'get_object_properties',
+                                           self._session.vim,
+                                           pg_moref, ['config'])
+        if len(pg_spec) == 0 or len(pg_spec[0].propSet[0]) == 0:
+            LOG.error(_LE('Failed to get object properties of %s'), pg_moref)
+            raise nsx_exc.DvsNotFound(dvs=pg_moref)
+
+        # Convert the extracted config to DVPortgroupConfigSpec
+        new_spec = self._copy_port_group_spec(pg_spec[0].propSet[0].val)
+
+        # Update the configuration using the callback & data
+        spec_update_calback(new_spec, spec_update_data)
+
+        # Update the port group configuration
+        task = self._session.invoke_api(self._session.vim,
+                                        'ReconfigureDVPortgroup_Task',
+                                        pg_moref, spec=new_spec)
+        try:
+            self._session.wait_for_task(task)
+        except Exception:
+            LOG.error(_LE('Failed to reconfigure DVPortGroup %s'), pg_moref)
+            raise nsx_exc.DvsNotFound(dvs=pg_moref)
+
+    # Update the dvs port groups config for a vxlan/vlan network
+    # update the spec using a callback and user data
+    def update_port_groups_config(self, net_id, net_moref,
+                                  spec_update_calback, spec_update_data):
+        is_vlan = self._is_vlan_network_by_moref(net_moref)
+        if is_vlan:
+            return self._update_net_port_groups_config(net_moref,
+                                                       spec_update_calback,
+                                                       spec_update_data)
+        else:
+            return self._update_vxlan_port_groups_config(net_id,
+                                                         net_moref,
+                                                         spec_update_calback,
+                                                         spec_update_data)
+
+    # Update the dvs port groups config for a vxlan network
+    # Searching the port groups for a partial match to the network id & moref
+    # update the spec using a callback and user data
+    def _update_vxlan_port_groups_config(self,
+                                         net_id,
+                                         net_moref,
+                                         spec_update_calback,
+                                         spec_update_data):
+        port_groups = self._session.invoke_api(vim_util,
+                                               'get_object_properties',
+                                               self._session.vim,
+                                               self._dvs_moref,
+                                               ['portgroup'])
+        found = False
+        if len(port_groups) and hasattr(port_groups[0], 'propSet'):
+            for prop in port_groups[0].propSet:
+                for pg_moref in prop.val[0]:
+                    props = self._session.invoke_api(vim_util,
+                                                     'get_object_properties',
+                                                     self._session.vim,
+                                                     pg_moref, ['name'])
+                    if len(props) and hasattr(props[0], 'propSet'):
+                        for prop in props[0].propSet:
+                            if net_id in prop.val and net_moref in prop.val:
+                                found = True
+                                self._reconfigure_port_group(
+                                    pg_moref,
+                                    spec_update_calback,
+                                    spec_update_data)
+
+        if not found:
+            raise exceptions.NetworkNotFound(net_id=net_id)
+
+    # Update the dvs port groups config for a vlan network
+    # Finding the port group using the exact moref of the network
+    # update the spec using a callback and user data
+    def _update_net_port_groups_config(self,
+                                       net_moref,
+                                       spec_update_calback,
+                                       spec_update_data):
+        pg_moref = vim_util.get_moref(net_moref,
+                                      "DistributedVirtualPortgroup")
+        self._reconfigure_port_group(pg_moref,
+                                     spec_update_calback,
+                                     spec_update_data)
 
     def delete_port_group(self, net_id):
         """Delete a specific port group."""

@@ -101,6 +101,40 @@ class DvsTestCase(base.BaseTestCase):
                               'fake-uuid')
             fake_get_moref.assert_called_once_with('fake-uuid')
 
+    @mock.patch.object(dvs.DvsManager, '_update_vxlan_port_groups_config')
+    @mock.patch.object(dvs.DvsManager, '_get_port_group_spec',
+                       return_value='fake-spec')
+    @mock.patch.object(dvs.DvsManager, '_net_id_to_moref',
+                       return_value='fake-moref')
+    def test_update_vxlan_net_group_conf(self, fake_get_moref,
+                                         fake_get_spec, fake_update_vxlan):
+        net_id = 'vxlan-uuid'
+        vlan = 7
+        self._dvs.add_port_group(net_id, vlan)
+        moref = self._dvs._net_id_to_moref(net_id)
+        fake_get_moref.assert_called_once_with(net_id)
+        fake_get_spec.assert_called_once_with(net_id, vlan)
+
+        self._dvs.update_port_groups_config(net_id, moref, None, None)
+        fake_update_vxlan.assert_called_once_with(net_id, moref, None, None)
+
+    @mock.patch.object(dvs.DvsManager, '_update_net_port_groups_config')
+    @mock.patch.object(dvs.DvsManager, '_get_port_group_spec',
+                       return_value='fake-spec')
+    @mock.patch.object(dvs.DvsManager, '_net_id_to_moref',
+                       return_value='dvportgroup-fake-moref')
+    def test_update_flat_net_conf(self, fake_get_moref,
+                                  fake_get_spec, fake_update_net):
+        net_id = 'flat-uuid'
+        vlan = 7
+        self._dvs.add_port_group(net_id, vlan)
+        moref = self._dvs._net_id_to_moref(net_id)
+        fake_get_moref.assert_called_once_with(net_id)
+        fake_get_spec.assert_called_once_with(net_id, vlan)
+
+        self._dvs.update_port_groups_config(net_id, moref, None, None)
+        fake_update_net.assert_called_once_with(moref, None, None)
+
 
 class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
 
