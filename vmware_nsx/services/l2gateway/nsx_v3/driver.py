@@ -126,6 +126,11 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         if not uuidutils.is_uuid_like(devices[0]['device_name']):
             msg = _("Device name must be configured with a UUID")
             raise n_exc.InvalidInput(error_message=msg)
+        # One L2 gateway must have only one interface defined.
+        interfaces = devices[0].get(l2gw_const.IFACE_NAME_ATTR)
+        if len(interfaces) > 1:
+            msg = _("Maximum of one interface is supported for one L2 gateway")
+            raise n_exc.InvalidInput(error_message=msg)
 
     def create_l2_gateway(self, context, l2_gateway):
         """Create a logical L2 gateway."""
@@ -169,8 +174,11 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         # connection create. l2gateway_db_mixin makes sure that it is
         # configured one way or the other.
         seg_id = gw_connection.get(l2gw_const.SEG_ID)
-        if seg_id is None:
-            seg_id = devices[0]['interfaces'][0].get('segmentation_id')
+        if not seg_id:
+            # Seg-id was not passed as part of connection-create. Retrieve
+            # seg-id from L2 gateway's interface.
+            interface = self._get_l2_gw_interfaces(context, devices[0]['id'])
+            seg_id = interface[0].get(l2gw_const.SEG_ID)
         self._validate_segment_id(seg_id)
         try:
             tags = nsx_utils.build_v3_tags_payload(
