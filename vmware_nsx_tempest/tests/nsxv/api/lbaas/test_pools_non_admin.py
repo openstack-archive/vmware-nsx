@@ -267,7 +267,6 @@ class TestPools(base.BaseTestCase):
 
     @test.attr(type='negative')
     @test.idempotent_id('94949cd4-ebc1-4af5-a220-9ebb32772fbc')
-    @decorators.skip_because(bug="1639223")
     def test_create_pool_invalid_tenant_id_field(self):
         """Test create pool with invalid tenant_id field"""
         self.increment_protocol_port()

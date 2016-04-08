@@ -69,9 +69,9 @@ class TestMultipleTransportZonesBasicOps(dmgr.TopoDeployScenarioManager):
                                             "provider_network_type",
                                             'vxlan')
         cls.MAX_MTZ = getattr(CONF.nsxv, 'max_mtz', 0) or 3
-        cls.admin_client = cls.admin_manager.network_client
         cls.admin_networks_client = cls.admin_manager.networks_client
         cls.admin_subnets_client = cls.admin_manager.subnets_client
+        cls.admin_routers_client = cls.admin_manager.routers_client
 
     @classmethod
     def resource_cleanup(cls):
@@ -142,12 +142,12 @@ class TestMultipleTransportZonesBasicOps(dmgr.TopoDeployScenarioManager):
         return router
 
     def clear_router_gateway_and_interfaces(self, router, nets):
-        router_client = self.admin_client
-        router_client.update_router(router['id'],
+        routers_client = self.admin_routers_client
+        routers_client.update_router(router['id'],
                                     external_gateway_info=dict())
         for net_id, (s_id, network, subnet, sg) in six.iteritems(nets):
             try:
-                router_client.remove_router_interface_with_subnet_id(
+                routers_client.remove_router_interface_with_subnet_id(
                     router['id'], subnet['id'])
             except Exception:
                 pass
@@ -160,14 +160,15 @@ class TestMultipleTransportZonesBasicOps(dmgr.TopoDeployScenarioManager):
             'mtz-tenant')
         # create security_group with loginable rules
         security_group = self._create_security_group(
-            security_groups_client=self.manager.security_groups_client,
-            client=self.manager.network_client,
+            security_groups_client=self.security_groups_client,
+            security_group_rules_client=self.security_group_rules_client,
             namestart='mtz-tenant')
         nets[net_id] = [None, network, subnet, security_group]
         admin_security_group = self._create_security_group(
             security_groups_client=self.admin_manager.security_groups_client,
-            client=self.admin_manager.network_client,
-            namestart='mtz-')
+            security_group_rules_client=(
+                self.admin_manager.security_group_rules_client),
+            namestart='mtz-admin')
         for cidr_step in range(0, self.MAX_MTZ):
             s_id = scope_id_list[cidr_step % len(scope_id_list)]
             net_id, network, subnet = self.create_mtz_network_subnet(
@@ -230,7 +231,7 @@ class TestMultipleTransportZonesBasicOps(dmgr.TopoDeployScenarioManager):
             s_id, network, subnet, security_group = nets[net_id]
             servers_client = (self.manager.servers_client if s_id is None
                               else self.admin_manager.servers_client)
-            security_groups = [{'name': security_group['name']}]
+            security_groups = [{'name': security_group['id']}]
             svr = self.create_server_on_network(
                 network, security_groups,
                 name=network['name'],

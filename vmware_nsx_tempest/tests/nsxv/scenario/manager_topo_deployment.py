@@ -128,10 +128,9 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
     def _create_router(self, client_mgr=None, tenant_id=None,
                        namestart='topo-deploy', **kwargs):
         client_mgr = client_mgr or self.manager
-        router_client = client_mgr.network_client
-
+        routers_client = getattr(client_mgr, "routers_client")
         if not tenant_id:
-            tenant_id = router_client.tenant_id
+            tenant_id = routers_client.tenant_id
         distributed = kwargs.pop('distributed', None)
         router_type = kwargs.pop('router_type', None)
         if distributed in (True, False):
@@ -139,11 +138,12 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
         elif router_type in ('shared', 'exclusive'):
             kwargs['router_type'] = router_type
         name = data_utils.rand_name(namestart)
-        result = router_client.create_router(name=name,
+        result = routers_client.create_router(name=name,
                                              admin_state_up=True,
                                              tenant_id=tenant_id,
                                              **kwargs)
-        router = net_resources.DeletableRouter(client=router_client,
+        router = net_resources.DeletableRouter(client=routers_client,
+                                               routers_client=routers_client,
                                                **result['router'])
         self.assertEqual(router.name, name)
         self.addCleanup(self.delete_wrapper, router.delete)
@@ -687,9 +687,18 @@ def get_remote_client_by_password(client_ip, username, password):
     return ssh_client
 
 
-def delete_all_servers(tenant_servers_client):
+def delete_all_servers(tenant_servers_client, trys=3):
+    # try at least trys+1 time to delete servers, otherwise
+    # network resources can not be deleted
     for s in tenant_servers_client.list_servers()['servers']:
         tenant_servers_client.delete_server(s['id'])
+    for x in range(0, trys):
+        try:
+            waitfor_servers_terminated(tenant_servers_client)
+            return
+        except Exception:
+            pass
+    # last try
     waitfor_servers_terminated(tenant_servers_client)
 
 

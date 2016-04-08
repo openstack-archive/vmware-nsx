@@ -123,21 +123,25 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
 
     # overwrite super class who does not accept router attributes
     def create_networks(self, dns_nameservers=None, **kwargs):
-        client = self.network_client
+        namestart = 'dvr-ops'
+        routers_client = self.routers_client
         networks_client = self.networks_client
         subnets_client = self.subnets_client
         network = self._create_network(
-            client=client, networks_client=networks_client,
+            networks_client=networks_client,
+            routers_client=routers_client,
+            namestart=namestart,
             tenant_id=self.tenant_id)
 
-        router_kwargs = {}
+        router_kwargs = dict(client=routers_client, namestart=namestart)
         for k in kwargs.keys():
             if k in ('distributed', 'router_type', 'router_size'):
                 router_kwargs[k] = kwargs.pop(k)
         router = self._create_router(**router_kwargs)
         router.set_gateway(CONF.network.public_network_id)
 
-        subnet_kwargs = dict(network=network, client=client,
+        subnet_kwargs = dict(network=network,
+                             namestart=namestart,
                              subnets_client=subnets_client)
         # use explicit check because empty list is a valid option
         if dns_nameservers is not None:
@@ -148,9 +152,9 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
 
     # overwrite super class
     def _create_router(self, client=None, tenant_id=None,
-                       namestart='router-smoke', **kwargs):
+                       namestart='dvr-ops', **kwargs):
         if not client:
-            client = self.network_client
+            client = self.routers_client
         if not tenant_id:
             tenant_id = client.tenant_id
         name = data_utils.rand_name(namestart)
@@ -158,8 +162,8 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
                                       admin_state_up=True,
                                       tenant_id=tenant_id,
                                       **kwargs)
-        router = net_resources.DeletableRouter(client=client,
-                                               **result['router'])
+        router = net_resources.DeletableRouter(
+            routers_client=client, **result['router'])
         self.assertEqual(router.name, name)
         self.addCleanup(self.delete_wrapper, router.delete)
         return router
@@ -218,7 +222,7 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
         for server in self.servers:
             # call the common method in the parent class
             super(TestDvrBasicOps, self).\
-                _check_project_network_connectivity(
+                _check_tenant_network_connectivity(
                     server, ssh_login, self._get_server_key(server),
                     servers_for_debug=self.servers)
 
@@ -291,8 +295,7 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
         interface = self.interface_client.create_interface(
             server=server['id'],
             network_id=self.new_net.id)
-        self.addCleanup(self.network_client.wait_for_resource_deletion,
-                        'port',
+        self.addCleanup(self.ports_client.wait_for_resource_deletion,
                         interface['port_id'])
         self.addCleanup(self.delete_wrapper,
                         self.interface_client.delete_interface,
@@ -311,7 +314,7 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
                 "Old port: %s. Number of new ports: %d" % (
                     CONF.network.build_timeout, old_port,
                     len(self.new_port_list)))
-        new_port = net_resources.DeletablePort(client=self.network_client,
+        new_port = net_resources.DeletablePort(client=self.ports_client,
                                                **self.new_port_list[0])
 
         def check_new_nic():
@@ -381,7 +384,9 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
                                    should_connect=True):
         ip_address = floating_ip.floating_ip_address
         private_key = self._get_server_key(self.floating_ip_tuple.server)
-        ssh_source = self._ssh_to_server(ip_address, private_key)
+        # ssh_source = self._ssh_to_server(ip_address, private_key)
+        ssh_source = self.get_remote_client(ip_address,
+                                            private_key=private_key)
 
         for remote_ip in address_list:
             if should_connect:

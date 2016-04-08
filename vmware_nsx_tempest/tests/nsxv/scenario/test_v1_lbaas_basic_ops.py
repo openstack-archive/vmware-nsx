@@ -110,11 +110,12 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
 
     # overwrite super class who does not accept router attributes
     def create_networks(self, dns_nameservers=None, **kwargs):
-        client = self.network_client
+        namestart = 'lbv1-ops'
+        routers_client = self.routers_client
         networks_client = self.networks_client
         subnets_client = self.subnets_client
 
-        router_kwargs = {}
+        router_kwargs = dict(client=routers_client, namestart=namestart)
         for k in kwargs.keys():
             if k in ('distributed', 'router_type', 'router_size'):
                 router_kwargs[k] = kwargs.pop(k)
@@ -122,10 +123,13 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
         router.set_gateway(CONF.network.public_network_id)
 
         network = self._create_network(
-            client=client, networks_client=networks_client,
+            routers_client=routers_client,
+            networks_client=networks_client,
+            namestart=namestart,
             tenant_id=self.tenant_id)
 
-        subnet_kwargs = dict(network=network, client=client,
+        subnet_kwargs = dict(network=network,
+                             namestart=namestart,
                              subnets_client=subnets_client)
         # use explicit check because empty list is a valid option
         if dns_nameservers is not None:
@@ -136,9 +140,9 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
 
     # overwrite super class
     def _create_router(self, client=None, tenant_id=None,
-                       namestart='router-smoke', **kwargs):
+                       namestart='router-lbv1', **kwargs):
         if not client:
-            client = self.network_client
+            client = self.routers_client
         if not tenant_id:
             tenant_id = client.tenant_id
         name = data_utils.rand_name(namestart)
@@ -146,8 +150,8 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
                                       admin_state_up=True,
                                       tenant_id=tenant_id,
                                       **kwargs)
-        router = net_resources.DeletableRouter(client=client,
-                                               **result['router'])
+        router = net_resources.DeletableRouter(
+            routers_client=client, **result['router'])
         self.assertEqual(router.name, name)
         self.addCleanup(self.delete_wrapper, router.delete)
         return router
@@ -376,7 +380,7 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
                                     protocol_port=80,
                                     subnet_id=self.subnet.id,
                                     pool_id=self.pool.id)
-        self.vip.wait_for_status('ACTIVE')
+        self.vip_wait_for_status(self.vip, 'ACTIVE')
         if (CONF.network.public_network_id and not
                 CONF.network.project_networks_reachable):
             self._assign_floating_ip_to_vip(self.vip)
@@ -391,6 +395,20 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
         # security group with a rule that allows tcp port 80 to the vip port.
         self.ports_client.update_port(
             self.vip.port_id, security_groups=[self.security_group.id])
+
+    def vip_wait_for_status(self, vip, status='ACTIVE'):
+        # vip is DelatableVip
+        interval = vip.client.build_interval
+        timeout = vip.client.build_timeout
+        start_time = time.time()
+
+        while time.time() - start_time <= timeout:
+            resource = vip.client.show_vip(vip.id)['vip']
+            if resource['status'] == status:
+                return
+            time.sleep(interval)
+        message = "Wait for VIP become ACTIVE"
+        raise exceptions.TimeoutException(message)
 
     def _check_load_balancing(self):
         """http to load balancer to check message handled by both servers.
