@@ -130,9 +130,15 @@ def get_missing_edges():
     return neutron_edge_bindings - nsxv_edge_ids
 
 
+def get_router_edge_vnic_bindings(edge_id):
+    edgeapi = utils.NeutronDbClient()
+    return nsxv_db.get_edge_vnic_bindings_by_edge(
+        edgeapi.context.session, edge_id)
+
+
 @admin_utils.output_header
 def nsx_list_missing_edges(resource, event, trigger, **kwargs):
-    """List missing Edges on NSXv.
+    """List missing edges and networks serviced by those edges.
 
     Missing edges are NSXv edges that have a binding in Neutron DB
     but are currently missing from the NSXv backend.
@@ -144,10 +150,16 @@ def nsx_list_missing_edges(resource, event, trigger, **kwargs):
         LOG.info(_LI("\nNo edges are missing."
                      "\nNeutron DB and NSXv backend are in sync\n"))
     else:
-        LOG.info(constants.MISSING_EDGES)
-        data = [('edge_id',)]
+        data = [('edge_id', 'network_id')]
         for edge in missing_edges:
-            data.append((edge,))
+            # Retrieve all networks which are serviced by this edge.
+            edge_serviced_networks = get_router_edge_vnic_bindings(edge)
+            if not edge_serviced_networks:
+                # If the edge is missing on the backend but no network
+                # is serviced by this edge, output N/A.
+                data.append((edge, 'N/A'))
+            for bindings in edge_serviced_networks:
+                data.append((edge, bindings.network_id))
         LOG.info(formatters.tabulate_results(data))
 
 
