@@ -40,9 +40,10 @@ class NsxL2GatewayPlugin(l2gateway_db.L2GatewayMixin):
                             "update_l2_gateway_connection",
                             "delete_l2_gateway_connection"]
 
-    def __init__(self):
+    def __init__(self, plugin):
         """Initialize service plugin and load backend driver."""
         super(NsxL2GatewayPlugin, self).__init__()
+        self._plugin = plugin
         LOG.debug("Starting service plugin for NSX L2Gateway")
         self._nsx_l2gw_driver = cfg.CONF.nsx_l2gw_driver
         if not getattr(self, "_nsx_l2gw_driver"):

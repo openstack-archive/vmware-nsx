@@ -50,7 +50,7 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
         self.core_plugin = importutils.import_object(NSX_V3_PLUGIN_CLASS)
 
         self.driver = nsx_v3_driver.NsxV3Driver()
-        self.l2gw_plugin = l2gw_plugin.NsxL2GatewayPlugin()
+        self.l2gw_plugin = l2gw_plugin.NsxL2GatewayPlugin(mock.MagicMock())
         self.context = context.get_admin_context()
 
     def _get_nw_data(self):
@@ -65,7 +65,7 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
                                    'subscribe_callback_notifications') as sub:
                 with mock.patch.object(nsx_v3_driver.LOG,
                                        'debug') as debug:
-                    l2gw_plugin.NsxL2GatewayPlugin()
+                    l2gw_plugin.NsxL2GatewayPlugin(mock.MagicMock())
                     self.assertTrue(def_gw.called)
                     self.assertTrue(sub.called)
                     self.assertTrue(debug.called)
@@ -77,7 +77,7 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
             cfg.CONF.set_override("default_bridge_cluster",
                                   def_bridge_cluster_name,
                                   "nsx_v3")
-            l2gw_plugin.NsxL2GatewayPlugin()
+            l2gw_plugin.NsxL2GatewayPlugin(mock.MagicMock())
             l2gws = self.driver._get_l2_gateways(self.context)
             def_bridge_cluster_id = nsxlib.get_bridge_cluster_id_by_name_or_id(
                 def_bridge_cluster_name)
@@ -99,8 +99,8 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
             cfg.CONF.set_override("default_bridge_cluster",
                                   def_bridge_cluster_name,
                                   "nsx_v3")
-            l2gw_plugin.NsxL2GatewayPlugin()
-            l2gw_plugin.NsxL2GatewayPlugin()
+            l2gw_plugin.NsxL2GatewayPlugin(mock.MagicMock())
+            l2gw_plugin.NsxL2GatewayPlugin(mock.MagicMock())
             l2gws = self.driver._get_l2_gateways(self.context)
             # Verify whether only one default L2 gateway is created
             self.assertEqual(1, len(l2gws))
@@ -108,7 +108,7 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
     def test_create_default_l2_gateway_no_bc_uuid_noop(self):
         with mock.patch.object(nsx_v3_driver.NsxV3Driver,
                                'subscribe_callback_notifications'):
-            l2gw_plugin.NsxL2GatewayPlugin()
+            l2gw_plugin.NsxL2GatewayPlugin(mock.MagicMock())
             l2gws = self.driver._get_l2_gateways(self.context)
             # Verify no default L2 gateway is created if bridge cluster id is
             # not configured in nsx.ini
