@@ -34,7 +34,7 @@ NSX_FIREWALL_REALIZED_DELAY = 2
 
 
 class NSXv3SecGroupTest(base.BaseSecGroupTest):
-    _tenant_network_cidr = CONF.network.tenant_network_cidr
+    _tenant_network_cidr = CONF.network.project_network_cidr
 
     @classmethod
     def skip_checks(cls):

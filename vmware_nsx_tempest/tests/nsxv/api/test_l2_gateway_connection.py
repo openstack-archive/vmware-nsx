@@ -127,9 +127,9 @@ class L2GatewayConnectionTest(base.BaseAdminNetworkTest):
     def get_ipaddress_from_tempest_conf(cls, ip_version=4):
         """Return first subnet gateway for configured CIDR."""
         if ip_version == 4:
-            cidr = netaddr.IPNetwork(CONF.network.tenant_network_cidr)
+            cidr = netaddr.IPNetwork(CONF.network.project_network_cidr)
         elif ip_version == 6:
-            cidr = netaddr.IPNetwork(CONF.network.tenant_network_v6_cidr)
+            cidr = netaddr.IPNetwork(CONF.network.project_network_v6_cidr)
         return netaddr.IPAddress(cidr)
 
     def get_segmentation_id(self, _l2gw, d_idx=0, i_idx=0):

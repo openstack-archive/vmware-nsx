@@ -111,11 +111,11 @@ class SubnetTestJSON(base.BaseAdminNetworkTest):
            create the subnet with that derived CIDR
         """
         if ip_version == 4:
-            cidr = netaddr.IPNetwork(CONF.network.tenant_network_cidr)
-            mask_bits = CONF.network.tenant_network_mask_bits
+            cidr = netaddr.IPNetwork(CONF.network.project_network_cidr)
+            mask_bits = CONF.network.project_network_mask_bits
         elif ip_version == 6:
-            cidr = netaddr.IPNetwork(CONF.network.tenant_network_v6_cidr)
-            mask_bits = CONF.network.tenant_network_v6_mask_bits
+            cidr = netaddr.IPNetwork(CONF.network.project_network_v6_cidr)
+            mask_bits = CONF.network.project_network_v6_mask_bits
 
         subnet_cidr = list(cidr.subnet(mask_bits))[-1]
         gateway_ip = str(netaddr.IPAddress(subnet_cidr) + 1)
@@ -127,11 +127,11 @@ class SubnetTestJSON(base.BaseAdminNetworkTest):
     def _get_gateway_from_tempest_conf(cls, ip_version):
         """Return first subnet gateway for configured CIDR."""
         if ip_version == 4:
-            cidr = netaddr.IPNetwork(CONF.network.tenant_network_cidr)
-            mask_bits = CONF.network.tenant_network_mask_bits
+            cidr = netaddr.IPNetwork(CONF.network.project_network_cidr)
+            mask_bits = CONF.network.project_network_mask_bits
         elif ip_version == 6:
-            cidr = netaddr.IPNetwork(CONF.network.tenant_network_v6_cidr)
-            mask_bits = CONF.network.tenant_network_v6_mask_bits
+            cidr = netaddr.IPNetwork(CONF.network.project_network_v6_cidr)
+            mask_bits = CONF.network.project_network_v6_mask_bits
 
         if mask_bits >= cidr.prefixlen:
             return netaddr.IPAddress(cidr) + 1
