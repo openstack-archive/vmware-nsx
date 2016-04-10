@@ -62,6 +62,7 @@ from neutron.plugins.common import utils
 from neutron.quota import resource_registry
 from neutron.services.qos import qos_consts
 from vmware_nsx.dvs import dvs
+from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v import utils as qos_utils
 
 import vmware_nsx
@@ -868,7 +869,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     self._dvs.update_port_group_spec_qos, qos_data)
 
             # attach the policy to the network in the neutron DB
-            qos_utils.update_network_policy_binding(
+            qos_com_utils.update_network_policy_binding(
                 context,
                 net_data['id'],
                 net_data[qos_consts.QOS_POLICY_ID])
@@ -1035,7 +1036,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     id, moref, self._dvs.update_port_group_spec_qos, qos_data)
 
                 # attach the policy to the network in neutron DB
-                qos_utils.update_network_policy_binding(
+                qos_com_utils.update_network_policy_binding(
                     context, id, net_attrs[qos_consts.QOS_POLICY_ID])
 
         return net_res

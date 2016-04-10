@@ -83,6 +83,7 @@ from vmware_nsx.nsxlib.v3 import dfw_api as firewall
 from vmware_nsx.nsxlib.v3 import resources as nsx_resources
 from vmware_nsx.nsxlib.v3 import router
 from vmware_nsx.nsxlib.v3 import security
+from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
 
 
@@ -507,21 +508,18 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             network[pnet.PHYSICAL_NETWORK] = bindings[0].phy_uuid
             network[pnet.SEGMENTATION_ID] = bindings[0].vlan_id
 
-    # NSX-V3 networks cannot be associated with QoS policies
-    def _validate_no_qos(self, net_data):
-        err_msg = None
+    def _assert_on_external_net_with_qos(self, net_data):
+        # Prevent creating/update external network with QoS policy
         if attributes.is_attr_set(net_data.get(qos_consts.QOS_POLICY_ID)):
             err_msg = _("Cannot configure QOS on networks")
-
-        if err_msg:
             raise n_exc.InvalidInput(error_message=err_msg)
 
     def create_network(self, context, network):
         net_data = network['network']
-        self._validate_no_qos(net_data)
         external = net_data.get(ext_net_extn.EXTERNAL)
         is_backend_network = False
         if attributes.is_attr_set(external) and external:
+            self._assert_on_external_net_with_qos(net_data)
             is_provider_net, net_type, physical_net, vlan_id = (
                 self._validate_external_net_create(net_data))
         else:
@@ -581,6 +579,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # latest db model for the extension functions
         net_model = self._get_network(context, created_net['id'])
         self._apply_dict_extend_functions('networks', created_net, net_model)
+
+        if qos_consts.QOS_POLICY_ID in net_data:
+            # attach the policy to the network in neutron DB
+            #(will affect only future compute ports)
+            qos_com_utils.update_network_policy_binding(
+                context,
+                created_net['id'],
+                net_data[qos_consts.QOS_POLICY_ID])
+
         return created_net
 
     def _retry_delete_network(self, context, network_id):
@@ -655,9 +662,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def update_network(self, context, id, network):
         original_net = super(NsxV3Plugin, self).get_network(context, id)
         net_data = network['network']
-        self._validate_no_qos(net_data)
         # Neutron does not support changing provider network values
         pnet._raise_if_updates_provider_attributes(net_data)
+        extern_net = self._network_is_external(context, id)
+        if extern_net:
+            self._assert_on_external_net_with_qos(net_data)
         updated_net = super(NsxV3Plugin, self).update_network(context, id,
                                                               network)
 
@@ -667,7 +676,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._process_l3_update(context, updated_net, network['network'])
         self._extend_network_dict_provider(context, updated_net)
 
-        if (not self._network_is_external(context, id) and
+        if (not extern_net and
             'name' in net_data or 'admin_state_up' in net_data):
             try:
                 # get the nsx switch id from the DB mapping
@@ -686,6 +695,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 with excutils.save_and_reraise_exception():
                     super(NsxV3Plugin, self).update_network(
                         context, id, {'network': original_net})
+
+        if qos_consts.QOS_POLICY_ID in net_data:
+            # attach the policy to the network in neutron DB
+            #(will affect only future compute ports)
+            qos_com_utils.update_network_policy_binding(
+                context, id, net_data[qos_consts.QOS_POLICY_ID])
 
         return updated_net
 
@@ -866,6 +881,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         qos_policy_id = None
         if attributes.is_attr_set(port_data.get(qos_consts.QOS_POLICY_ID)):
             qos_policy_id = port_data[qos_consts.QOS_POLICY_ID]
+        elif device_owner.startswith(const.DEVICE_OWNER_COMPUTE_PREFIX):
+            # check if the network of this port has a policy
+            qos_policy_id = qos_utils.get_network_policy_id(
+                context, port_data['network_id'])
+        if qos_policy_id:
             qos_profile_id = self._get_qos_profile_id(context, qos_policy_id)
             profiles.append(qos_profile_id)
 
@@ -892,9 +912,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         # Attach the policy to the port in the neutron DB
         if qos_policy_id:
-            qos_utils.update_port_policy_binding(context,
-                                                 port_data['id'],
-                                                 qos_policy_id)
+            qos_com_utils.update_port_policy_binding(context,
+                                                     port_data['id'],
+                                                     qos_policy_id)
         return result
 
     def _validate_address_pairs(self, address_pairs):
@@ -949,7 +969,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if lport_id:
             self._port_client.delete(lport_id)
 
-    def _assert_on_external_net_with_qos(self, port_data):
+    def _assert_on_external_net_port_with_qos(self, port_data):
         # Prevent creating/update port with QoS policy
         # on external networks.
         if attributes.is_attr_set(port_data.get(qos_consts.QOS_POLICY_ID)):
@@ -968,7 +988,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 context, port_data['network_id'])
             if is_external_net:
                 self._assert_on_external_net_with_compute(port_data)
-                self._assert_on_external_net_with_qos(port_data)
+                self._assert_on_external_net_port_with_qos(port_data)
 
             neutron_db = super(NsxV3Plugin, self).create_port(context, port)
             port["port"].update(neutron_db)
@@ -1184,8 +1204,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             switch_profile_ids.append(self._dhcp_profile)
 
         # Update QoS switch profile
+        orig_compute = original_device_owner.startswith(
+            const.DEVICE_OWNER_COMPUTE_PREFIX)
+        updated_compute = updated_device_owner.startswith(
+            const.DEVICE_OWNER_COMPUTE_PREFIX)
+        is_new_compute = updated_compute and not orig_compute
         qos_policy_id, qos_profile_id = self._get_port_qos_ids(context,
-                                                               updated_port)
+                                                               updated_port,
+                                                               is_new_compute)
         if qos_profile_id is not None:
             switch_profile_ids.append(qos_profile_id)
 
@@ -1208,11 +1234,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
         # Attach/Detach the QoS policies to the port in the neutron DB
-        qos_utils.update_port_policy_binding(context,
-                                             updated_port['id'],
-                                             qos_policy_id)
+        qos_com_utils.update_port_policy_binding(context,
+                                                 updated_port['id'],
+                                                 qos_policy_id)
 
-    def _get_port_qos_ids(self, context, updated_port):
+    def _get_port_qos_ids(self, context, updated_port, is_new_compute):
         # when a port is updated, get the current QoS policy/profile ids
         policy_id = None
         profile_id = None
@@ -1222,6 +1248,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # Look for the previous QoS policy
             policy_id = qos_utils.get_port_policy_id(
                 context, updated_port['id'])
+        # If the port is now a 'compute' port (attached to a vm) and
+        # Qos policy was not configured on the port directly,
+        # try to take it from the ports network
+        if policy_id is None and is_new_compute:
+            # check if the network of this port has a policy
+            policy_id = qos_utils.get_network_policy_id(
+                context, updated_port.get('network_id'))
+
         if policy_id is not None:
             profile_id = self._get_qos_profile_id(context, policy_id)
 
@@ -1238,7 +1272,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 context, original_port['network_id'])
             if is_external_net:
                 self._assert_on_external_net_with_compute(port['port'])
-                self._assert_on_external_net_with_qos(port['port'])
+                self._assert_on_external_net_port_with_qos(port['port'])
 
             updated_port = super(NsxV3Plugin, self).update_port(context,
                                                                 id, port)

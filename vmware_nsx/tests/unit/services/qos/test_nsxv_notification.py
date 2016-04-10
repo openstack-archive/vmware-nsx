@@ -26,6 +26,7 @@ from neutron.tests.unit.services.qos import base
 
 from vmware_nsx.dvs import dvs
 from vmware_nsx.dvs import dvs_utils
+from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v import utils as qos_utils
 from vmware_nsx.tests.unit.nsx_v import test_plugin
 
@@ -107,7 +108,7 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
     def _create_net(self):
         return self._core_plugin.create_network(self.ctxt, self._net_data)
 
-    @mock.patch.object(qos_utils, 'update_network_policy_binding')
+    @mock.patch.object(qos_com_utils, 'update_network_policy_binding')
     @mock.patch.object(dvs.DvsManager, 'update_port_groups_config')
     def test_create_network_with_policy_rule(self,
                                              dvs_update_mock,
@@ -133,7 +134,7 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
             self.assertTrue(dvs_update_mock.called)
 
     def _test_rule_action_notification(self, action):
-        with mock.patch.object(qos_utils, 'update_network_policy_binding'):
+        with mock.patch.object(qos_com_utils, 'update_network_policy_binding'):
             with mock.patch.object(dvs.DvsManager,
                                    'update_port_groups_config') as dvs_mock:
 

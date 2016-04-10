@@ -30,29 +30,18 @@ LOG = logging.getLogger(__name__)
 MAX_KBPS_MIN_VALUE = 1024
 
 
-def update_port_policy_binding(context, port_id, new_policy_id):
-    # detach the old policy (if exists) from the port
-    old_policy = qos_policy.QosPolicy.get_port_policy(
-        context, port_id)
-    if old_policy:
-        if old_policy.id == new_policy_id:
-            return
-        old_policy.detach_port(port_id)
-
-    # attach the new policy (if exists) to the port
-    if new_policy_id is not None:
-        new_policy = qos_policy.QosPolicy.get_object(
-            context, id=new_policy_id)
-        if new_policy:
-            new_policy.attach_port(port_id)
-
-
 def get_port_policy_id(context, port_id):
     policy = qos_policy.QosPolicy.get_port_policy(
         context, port_id)
     if policy:
         return policy.id
-    return
+
+
+def get_network_policy_id(context, net_id):
+    policy = qos_policy.QosPolicy.get_network_policy(
+        context, net_id)
+    if policy:
+        return policy.id
 
 
 def handle_qos_notification(policy_obj, event_type):

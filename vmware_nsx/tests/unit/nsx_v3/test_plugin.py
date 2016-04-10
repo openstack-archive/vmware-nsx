@@ -310,6 +310,50 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                 self.assertRaises(n_exc.InvalidInput,
                           self.plugin.create_port, self.ctx, data)
 
+    def test_create_port_with_qos_on_net(self):
+        with self.network() as network:
+            policy_id = uuidutils.generate_uuid()
+            device_owner = constants.DEVICE_OWNER_COMPUTE_PREFIX + 'X'
+            data = {'port': {
+                        'network_id': network['network']['id'],
+                        'tenant_id': self._tenant_id,
+                        'name': 'qos_port',
+                        'admin_state_up': True,
+                        'device_id': 'fake_device',
+                        'device_owner': device_owner,
+                        'fixed_ips': [],
+                        'mac_address': '00:00:00:00:00:01'}
+                    }
+            with mock.patch.object(self.plugin,
+                '_get_qos_profile_id') as get_profile:
+                with mock.patch('vmware_nsx.services.qos.nsx_v3.utils.'
+                    'get_network_policy_id', return_value=policy_id):
+                    self.plugin.create_port(self.ctx, data)
+                    get_profile.assert_called_once_with(self.ctx, policy_id)
+
+    def test_update_port_with_qos_on_net(self):
+        with self.network() as network:
+            data = {'port': {
+                        'network_id': network['network']['id'],
+                        'tenant_id': self._tenant_id,
+                        'name': 'qos_port',
+                        'admin_state_up': True,
+                        'device_id': 'fake_device',
+                        'device_owner': 'fake_owner',
+                        'fixed_ips': [],
+                        'mac_address': '00:00:00:00:00:01'}
+                    }
+            port = self.plugin.create_port(self.ctx, data)
+            policy_id = uuidutils.generate_uuid()
+            device_owner = constants.DEVICE_OWNER_COMPUTE_PREFIX + 'X'
+            data['port']['device_owner'] = device_owner
+            with mock.patch.object(self.plugin,
+                '_get_qos_profile_id') as get_profile:
+                with mock.patch('vmware_nsx.services.qos.nsx_v3.utils.'
+                    'get_network_policy_id', return_value=policy_id):
+                    self.plugin.update_port(self.ctx, port['id'], data)
+                    get_profile.assert_called_once_with(self.ctx, policy_id)
+
 
 class DHCPOptsTestCase(test_dhcpopts.TestExtraDhcpOpt,
                        NsxV3PluginTestCaseMixin):

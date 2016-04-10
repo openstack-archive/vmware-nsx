@@ -71,21 +71,6 @@ class NsxVQosRule(object):
         return self
 
 
-def update_network_policy_binding(context, net_id, new_policy_id):
-    # detach the old policy (if exists) from the network
-    old_policy = qos_policy.QosPolicy.get_network_policy(
-        context, net_id)
-    if old_policy:
-        old_policy.detach_network(net_id)
-
-    # attach the new policy (if exists) to the network
-    if new_policy_id is not None:
-        new_policy = qos_policy.QosPolicy.get_object(
-            context, id=new_policy_id)
-        if new_policy:
-            new_policy.attach_network(net_id)
-
-
 def handle_qos_notification(policy_obj, event_type, dvs):
     # Check if QoS policy rule was created/deleted/updated
     # Only if the policy rule was updated, we need to update the dvs
