@@ -58,7 +58,9 @@ from vmware_nsx.extensions import securitygrouplogging
 from vmware_nsx.extensions import vnicindex as ext_vnic_idx
 from vmware_nsx.plugins.nsx_v.drivers import (
     shared_router_driver as router_driver)
+from vmware_nsx.plugins.nsx_v import md_proxy
 from vmware_nsx.plugins.nsx_v.vshield.common import constants as vcns_const
+from vmware_nsx.plugins.nsx_v.vshield import edge_firewall_driver
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 from vmware_nsx.services.qos.nsx_v import utils as qos_utils
 from vmware_nsx.tests import unit as vmware
@@ -2642,6 +2644,125 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                           r['router']['id'],
                                           s2['subnet']['id'],
                                           None)
+
+    @mock.patch.object(edge_utils, "update_firewall")
+    def test_router_interfaces_with_update_firewall_metadata(self, mock):
+        cfg.CONF.set_override('dhcp_force_metadata', True, group='nsxv')
+        self.plugin_instance.metadata_proxy_handler = mock.Mock()
+        s1_cidr = '10.0.0.0/24'
+        s2_cidr = '11.0.0.0/24'
+        with self.router() as r,\
+                self.subnet(cidr=s1_cidr) as s1,\
+                self.subnet(cidr=s2_cidr) as s2:
+            self._router_interface_action('add',
+                                          r['router']['id'],
+                                          s1['subnet']['id'],
+                                          None)
+            self._router_interface_action('add',
+                                          r['router']['id'],
+                                          s2['subnet']['id'],
+                                          None)
+            # build the list of expected fw rules
+            expected_cidrs = [s1_cidr, s2_cidr]
+            fw_rule = {'action': 'allow',
+                       'enabled': True,
+                       'source_ip_address': expected_cidrs,
+                       'destination_ip_address': expected_cidrs}
+            vse_rule = {'action': 'allow',
+                        'enabled': True,
+                        'name': 'VSERule',
+                        'source_vnic_groups': ['vse']}
+            dest_intern = [md_proxy.INTERNAL_SUBNET]
+            md_inter = {'action': 'deny',
+                        'destination_ip_address': dest_intern,
+                        'enabled': True,
+                        'name': 'MDInterEdgeNet'}
+            dest_srvip = [md_proxy.METADATA_IP_ADDR]
+            md_srvip = {'action': 'allow',
+                        'destination_ip_address': dest_srvip,
+                        'destination_port': '80,443,8775',
+                        'enabled': True,
+                        'name': 'MDServiceIP',
+                        'protocol': 'tcp'}
+            expected_fw = [fw_rule,
+                           vse_rule,
+                           md_inter,
+                           md_srvip]
+            fw_rules = mock.call_args[0][3]['firewall_rule_list']
+            self.assertEqual(self._recursive_sort_list(expected_fw),
+                             self._recursive_sort_list(fw_rules))
+
+            # Also test the md_srvip conversion:
+            drv = edge_firewall_driver.EdgeFirewallDriver()
+            rule = drv._convert_firewall_rule(
+                context.get_admin_context(), md_srvip)
+            exp_service = {'service': [{'port': [80, 443, 8775],
+                                        'protocol': 'tcp'}]}
+            exp_rule = {'action': 'accept',
+                        'application': exp_service,
+                        'destination': {'ipAddress': dest_srvip},
+                        'enabled': True,
+                        'name': 'MDServiceIP'}
+            self.assertEqual(exp_rule, rule)
+
+            self._router_interface_action('remove',
+                                          r['router']['id'],
+                                          s1['subnet']['id'],
+                                          None)
+            self._router_interface_action('remove',
+                                          r['router']['id'],
+                                          s2['subnet']['id'],
+                                          None)
+
+    @mock.patch.object(edge_utils, "update_firewall")
+    def test_router_interfaces_with_update_firewall_metadata_conf(self, mock):
+        """Test the metadata proxy firewall rule with additional configured ports
+        """
+        cfg.CONF.set_override('dhcp_force_metadata', True, group='nsxv')
+        cfg.CONF.set_override('metadata_service_allowed_ports',
+            ['55', ' 66 ', '55', 'xx'], group='nsxv')
+        self.plugin_instance.metadata_proxy_handler = mock.Mock()
+        s1_cidr = '10.0.0.0/24'
+        with self.router() as r,\
+                self.subnet(cidr=s1_cidr) as s1:
+            self._router_interface_action('add',
+                                          r['router']['id'],
+                                          s1['subnet']['id'],
+                                          None)
+            # build the expected fw rule
+            # at this stage the string of ports is not sorted/unique/validated
+            dest_srvip = [md_proxy.METADATA_IP_ADDR]
+            rule_name = 'MDServiceIP'
+            md_srvip = {'action': 'allow',
+                        'destination_ip_address': dest_srvip,
+                        'destination_port': '80,443,8775,55, 66 ,55,xx',
+                        'enabled': True,
+                        'name': rule_name,
+                        'protocol': 'tcp'}
+            # compare it to the rule with the same name
+            fw_rules = mock.call_args[0][3]['firewall_rule_list']
+            rule_found = False
+            for fw_rule in fw_rules:
+                if (attributes.is_attr_set(fw_rule.get("name")) and
+                    fw_rule['name'] == rule_name):
+                    self.assertEqual(md_srvip, fw_rule)
+                    rule_found = True
+                    break
+            self.assertTrue(rule_found)
+
+            # Also test the rule conversion
+            # Ports should be sorted & unique, and ignore non numeric values
+            drv = edge_firewall_driver.EdgeFirewallDriver()
+            rule = drv._convert_firewall_rule(
+                context.get_admin_context(), md_srvip)
+            exp_service = {'service': [{'port': [55, 66, 80, 443, 8775],
+                                        'protocol': 'tcp'}]}
+            exp_rule = {'action': 'accept',
+                        'application': exp_service,
+                        'destination': {'ipAddress': dest_srvip},
+                        'enabled': True,
+                        'name': 'MDServiceIP'}
+            self.assertEqual(exp_rule, rule)
 
     @mock.patch.object(edge_utils, "update_firewall")
     def test_router_interfaces_different_tenants_update_firewall(self, mock):

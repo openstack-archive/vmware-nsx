@@ -388,6 +388,10 @@ nsxv_opts = [
                 default=True,
                 help=_("If True, the server instance will attempt to "
                        "initialize the metadata infrastructure")),
+    cfg.ListOpt('metadata_service_allowed_ports',
+                help=_('List of tcp ports, to be allowed access to the '
+                       'metadata proxy, in addition to the default '
+                       '80,443,8775 tcp ports')),
     cfg.BoolOpt('edge_ha',
                 default=False,
                 help=_("Enable HA for NSX Edges")),
