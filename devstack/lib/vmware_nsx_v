@@ -107,6 +107,7 @@ function neutron_plugin_configure_service {
     _nsxv_ini_set metadata_insecure "$NSXV_METADATA_INSECURE"
     _nsxv_ini_set metadata_nova_client_cert "$NSXV_METADATA_NOVA_CERT"
     _nsxv_ini_set metadata_nova_client_priv_key "$NSXV_METADATA_NOVA_PRIV_KEY"
+    _nsxv_ini_set metadata_service_allowed_ports "$NSXV_METADATA_SERVICE_ALLOWED_PORTS"
     _nsxv_ini_set edge_ha "$NSXV_EDGE_HA"
     _nsxv_ini_set exclusive_router_appliance_size "$NSXV_EXCLUSIVE_ROUTER_APPLIANCE_SIZE"
 }
