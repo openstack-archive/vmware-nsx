@@ -137,6 +137,8 @@ class Vcns(object):
         uri = URI_PREFIX + "?lockUpdatesOnEdge=true"
         return self.do_request(HTTP_POST, uri, decode=False)
 
+    @retry_upon_exception(exceptions.ResourceNotFound)
+    @retry_upon_exception(exceptions.RequestBad)
     def deploy_edge(self, request, async=True):
         uri = URI_PREFIX
         if async:
