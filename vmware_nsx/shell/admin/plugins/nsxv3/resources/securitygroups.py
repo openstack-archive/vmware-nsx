@@ -37,7 +37,7 @@ class NeutronSecurityGroupApi(sg_db.SecurityGroupDbMixin,
         self.neutron_admin_context = neutron_context.get_admin_context()
 
     def get_security_groups(self):
-        self.sg_api.get_security_groups(self.neutron_admin_context)
+        return self.sg_api.get_security_groups(self.neutron_admin_context)
 
     def delete_security_group(self, sg_id):
         self.sg_api.delete_security_group(self.neutron_admin_context,
