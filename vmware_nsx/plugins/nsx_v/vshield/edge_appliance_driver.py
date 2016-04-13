@@ -602,6 +602,7 @@ class EdgeApplianceDriver(object):
         if not dist and loadbalancer_enable:
             self._enable_loadbalancer(edge)
         userdata = {
+            'router_id': router_id,
             'edge_id': edge_id,
             'request': edge,
             'jobdata': jobdata
