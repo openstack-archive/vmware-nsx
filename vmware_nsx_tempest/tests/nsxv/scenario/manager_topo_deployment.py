@@ -88,9 +88,9 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
     @classmethod
     def check_preconditions(cls):
         super(TopoDeployScenarioManager, cls).check_preconditions()
-        if not (CONF.network.tenant_networks_reachable
+        if not (CONF.network.project_networks_reachable
                 or CONF.network.public_network_id):
-            msg = ('Either tenant_networks_reachable must be "true", or '
+            msg = ('Either project_networks_reachable must be "true", or '
                    'public_network_id must be defined.')
             cls.enabled = False
             raise cls.skipException(msg)
@@ -247,7 +247,7 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
         self.addCleanup(self.delete_wrapper, net_subnet.delete)
         return net_subnet
 
-    def setup_tenant_network(self, external_network_id,
+    def setup_project_network(self, external_network_id,
                              client_mgr=None,
                              namestart=None, client=None,
                              tenant_id=None, cidr_offset=0):
