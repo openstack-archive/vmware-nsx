@@ -118,6 +118,39 @@ def nsx_delete_orphaned_edges(resource, event, trigger, **kwargs):
         pprint.pformat(get_orphaned_edges()))
 
 
+def get_missing_edges():
+    nsxv_edge_ids = set()
+    for edge in get_nsxv_edges():
+        nsxv_edge_ids.add(edge.get('id'))
+
+    neutron_edge_bindings = set()
+    for binding in get_router_edge_bindings():
+        neutron_edge_bindings.add(binding.edge_id)
+
+    return neutron_edge_bindings - nsxv_edge_ids
+
+
+@admin_utils.output_header
+def nsx_list_missing_edges(resource, event, trigger, **kwargs):
+    """List missing Edges on NSXv.
+
+    Missing edges are NSXv edges that have a binding in Neutron DB
+    but are currently missing from the NSXv backend.
+    """
+    LOG.info(_LI("NSXv edges present in Neutron DB but not present "
+                 "on the NSXv backend\n"))
+    missing_edges = get_missing_edges()
+    if not missing_edges:
+        LOG.info(_LI("\nNo edges are missing."
+                     "\nNeutron DB and NSXv backend are in sync\n"))
+    else:
+        LOG.info(constants.MISSING_EDGES)
+        data = [('edge_id',)]
+        for edge in missing_edges:
+            data.append((edge,))
+        LOG.info(formatters.tabulate_results(data))
+
+
 def change_edge_ha(properties):
     ha = bool(properties.get('highavailability').lower() == "true")
     request = {
@@ -179,6 +212,9 @@ registry.subscribe(nsx_list_orphaned_edges,
 registry.subscribe(nsx_delete_orphaned_edges,
                    constants.ORPHANED_EDGES,
                    shell.Operations.CLEAN.value)
+registry.subscribe(nsx_list_missing_edges,
+                   constants.MISSING_EDGES,
+                   shell.Operations.LIST.value)
 registry.subscribe(nsx_update_edge,
                    constants.EDGES,
                    shell.Operations.NSX_UPDATE.value)
