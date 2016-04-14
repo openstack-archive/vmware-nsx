@@ -41,7 +41,6 @@ from neutron.tests.unit import testlib_api
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
-from oslo_db import exception as db_exc
 from oslo_utils import uuidutils
 import six
 import webob.exc
@@ -2956,36 +2955,6 @@ class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
         #TODO(kobis): Port is not removed automatically
         # (self.fc2.remove_member_from_security_group
         #  .assert_called_once_with(nsx_sg_id, vnic_id))
-
-    def test_skip_duplicate_default_sg_error(self):
-        num_called = [0]
-        original_func = self.plugin.create_security_group
-
-        def side_effect(context, security_group, default_sg):
-            # can't always raise, or create_security_group will hang
-            self.assertTrue(default_sg)
-            self.assertTrue(num_called[0] < 2)
-            num_called[0] += 1
-            ret = original_func(context, security_group, default_sg)
-            if num_called[0] == 1:
-                return ret
-            # make another call to cause an exception.
-            # NOTE(yamamoto): raising the exception by ourselves
-            # doesn't update the session state appropriately.
-            self.assertRaises(db_exc.DBDuplicateEntry(),
-                              original_func, context, security_group,
-                              default_sg)
-
-        with mock.patch.object(self.plugin,
-                               'create_security_group',
-                               side_effect=side_effect):
-            self.plugin.create_network(
-                context.get_admin_context(),
-                {'network': {'name': 'foo',
-                             'admin_state_up': True,
-                             'shared': False,
-                             'tenant_id': 'bar',
-                             'port_security_enabled': True}})
 
     def test_create_secgroup_deleted_upon_fw_section_create_fail(self):
         _context = context.Context('', 'tenant_id')
