@@ -669,10 +669,11 @@ class EdgeManager(object):
                 appliance_size=binding['appliance_size'], dist=dist)
             task.wait(task_const.TaskState.RESULT)
 
-            # Refresh edge_vnic_bindings
+            # Clean all edge vnic bindings
+            nsxv_db.clean_edge_vnic_binding(
+                context.session, binding['edge_id'])
+            # Refresh edge_vnic_bindings for centralized router
             if not dist and binding['edge_id']:
-                nsxv_db.clean_edge_vnic_binding(
-                    context.session, binding['edge_id'])
                 nsxv_db.init_edge_vnic_binding(
                     context.session, binding['edge_id'])
         else:
