@@ -594,7 +594,8 @@ class EdgeManager(object):
         dist = (binding['edge_type'] == nsxv_constants.VDR_EDGE)
         edge_pool_range = self.edge_pool_dicts[binding['edge_type']].get(
             binding['appliance_size'])
-        if (not self.check_edge_active_at_backend(binding['edge_id']) or
+        if (binding['status'] == plugin_const.ERROR or
+            not self.check_edge_active_at_backend(binding['edge_id']) or
             not edge_pool_range):
             nsxv_db.update_nsxv_router_binding(
                 context.session, router_id,
@@ -631,7 +632,7 @@ class EdgeManager(object):
                 edge_type=binding['edge_type'])
             # change edge's name at backend
             task = self.nsxv_manager.update_edge(
-                router_id, binding['edge_id'], backup_router_id, None,
+                backup_router_id, binding['edge_id'], backup_router_id, None,
                 appliance_size=binding['appliance_size'], dist=dist)
             task.wait(task_const.TaskState.RESULT)
 
@@ -2110,7 +2111,23 @@ class NsxVCallbacks(object):
                     context.session, edge_id)
 
     def edge_update_result(self, task):
-        LOG.debug("edge_update_result %d", task.status)
+        router_id = task.userdata.get('router_id')
+        edge_id = task.userdata.get('edge_id')
+        if task.status == task_const.TaskStatus.COMPLETED:
+            LOG.debug("Successfully updated %(edge_id)s for router "
+                      "%(router_id)s",
+                      {'edge_id': edge_id,
+                       'router_id': router_id})
+        else:
+            LOG.error(_LE("Failed to update %(edge_id)s for router "
+                          "%(router_id)s"),
+                      {'edge_id': edge_id,
+                       'router_id': router_id})
+            admin_ctx = q_context.get_admin_context()
+            if nsxv_db.get_nsxv_router_binding(admin_ctx.session, router_id):
+                nsxv_db.update_nsxv_router_binding(
+                    admin_ctx.session, router_id,
+                    status=plugin_const.ERROR)
 
     def edge_delete_result(self, task):
         jobdata = task.userdata['jobdata']
