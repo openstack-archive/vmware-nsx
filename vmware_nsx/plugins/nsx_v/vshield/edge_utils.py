@@ -43,6 +43,7 @@ from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield.common import (
     constants as vcns_const)
+from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as nsxapi_exc
 from vmware_nsx.plugins.nsx_v.vshield.tasks import (
     constants as task_const)
 from vmware_nsx.plugins.nsx_v.vshield.tasks import tasks
@@ -135,6 +136,22 @@ class EdgeManager(object):
         if version.LooseVersion(ver) < version.LooseVersion('6.2.0'):
             return False
         return True
+
+    def _mark_router_bindings_status_error(self, context, edge_id,
+                                           error_reason="backend error"):
+        for binding in nsxv_db.get_nsxv_router_bindings_by_edge(
+            context.session, edge_id):
+            if binding['status'] == plugin_const.ERROR:
+                continue
+            LOG.error(_LE('Mark router binding ERROR for resource '
+                          '%(res_id)s on edge %(edge_id)s due to '
+                          '%(reason)s'),
+                      {'res_id': binding['router_id'],
+                       'edge_id': edge_id,
+                       'reason': error_reason})
+            nsxv_db.update_nsxv_router_binding(
+                context.session, binding['router_id'],
+                status=plugin_const.ERROR)
 
     def _deploy_edge(self, context, lrouter,
                      lswitch=None, appliance_size=nsxv_constants.LARGE,
@@ -380,36 +397,52 @@ class EdgeManager(object):
         """Delete the dhcp internal interface."""
 
         LOG.debug("Query the vnic %s for DHCP Edge %s", vnic_index, edge_id)
+        try:
+            vnic_config = self._getvnic_config(edge_id, vnic_index)
+            sub_interfaces = (vnic_config['subInterfaces']['subInterfaces'] if
+                              'subInterfaces' in vnic_config else [])
+            port_group_id = (vnic_config['portgroupId'] if 'portgroupId' in
+                             vnic_config else None)
+            for sub_interface in sub_interfaces:
+                if tunnel_index == sub_interface['tunnelId']:
+                    LOG.debug("Delete the tunnel %d on vnic %d",
+                              tunnel_index, vnic_index)
+                    (vnic_config['subInterfaces']['subInterfaces'].
+                     remove(sub_interface))
+                    break
+
+            # Clean the vnic if there is no sub-interface attached
+            if len(sub_interfaces) == 0:
+                header, _ = self.nsxv_manager.vcns.delete_interface(edge_id,
+                                                                    vnic_index)
+                if port_group_id:
+                    objuri = header['location']
+                    job_id = objuri[objuri.rfind("/") + 1:]
+                    dvs_id, net_type = self._get_physical_provider_network(
+                        context, network_id)
+                    self.nsxv_manager.delete_portgroup(dvs_id,
+                                                       port_group_id,
+                                                       job_id)
+            else:
+                self.nsxv_manager.vcns.update_interface(edge_id, vnic_config)
+        except nsxapi_exc.VcnsApiException:
+            LOG.exception(_LE('Failed to delete vnic %(vnic_index)d '
+                              'tunnel %(tunnel_index)d on edge %(edge_id)s '
+                              'for network %(net_id)s'),
+                          {'vnic_index': vnic_index,
+                           'tunnel_index': tunnel_index,
+                           'net_id': network_id,
+                           'edge_id': edge_id})
+            self._mark_router_bindings_status_error(
+                context, edge_id,
+                error_reason="delete dhcp internal interface failure")
+
+        self._delete_dhcp_router_binding(context, network_id, edge_id)
+
+    def _delete_dhcp_router_binding(self, context, network_id, edge_id):
+        """Delete the router binding or clean the edge appliance."""
+
         resource_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
-        vnic_config = self._getvnic_config(edge_id, vnic_index)
-        sub_interfaces = (vnic_config['subInterfaces']['subInterfaces'] if
-                          'subInterfaces' in vnic_config else [])
-        port_group_id = (vnic_config['portgroupId'] if 'portgroupId' in
-                         vnic_config else None)
-        for sub_interface in sub_interfaces:
-            if tunnel_index == sub_interface['tunnelId']:
-                LOG.debug("Delete the tunnel %d on vnic %d",
-                          tunnel_index, vnic_index)
-                (vnic_config['subInterfaces']['subInterfaces'].
-                 remove(sub_interface))
-                break
-
-        # Clean the vnic if there is no sub-interface attached
-        if len(sub_interfaces) == 0:
-            header, _ = self.nsxv_manager.vcns.delete_interface(edge_id,
-                                                                vnic_index)
-            if port_group_id:
-                objuri = header['location']
-                job_id = objuri[objuri.rfind("/") + 1:]
-                dvs_id, net_type = self._get_physical_provider_network(
-                    context, network_id)
-                self.nsxv_manager.delete_portgroup(dvs_id,
-                                                   port_group_id,
-                                                   job_id)
-        else:
-            self.nsxv_manager.vcns.update_interface(edge_id, vnic_config)
-
-        # Delete the router binding or clean the edge appliance
         bindings = nsxv_db.get_nsxv_router_bindings(context.session)
         all_dhcp_edges = {binding['router_id']: binding['edge_id'] for
                           binding in bindings if binding['router_id'].
@@ -467,8 +500,8 @@ class EdgeManager(object):
                                        'edge_id': edge_id,
                                        'net_id': network_id})
                             raise nsx_exc.NsxPluginException(
-                                err_msg=_("update dhcp interface for net %s "
-                                          "failed") % network_id)
+                                err_msg=(_("update dhcp interface for net %s "
+                                          "failed") % network_id))
                         else:
                             # Occurs when there are DB inconsistency
                             sb["is_overlapped"] = True
@@ -897,6 +930,7 @@ class EdgeManager(object):
                           "found on edge %(edge_id)s"),
                       {'id': network_id,
                        'edge_id': edge_id})
+            self._delete_dhcp_router_binding(context, network_id, edge_id)
             return
         old_vnic_index = old_binding['vnic_index']
         old_tunnel_index = old_binding['tunnel_index']
@@ -904,22 +938,27 @@ class EdgeManager(object):
         nsxv_db.free_edge_vnic_by_network(context.session,
                                           edge_id,
                                           network_id)
-        # update dhcp service config on edge_id
-        self.update_dhcp_service_config(context, edge_id)
-
         try:
-            self._delete_dhcp_internal_interface(
-                context, edge_id, old_vnic_index,
-                old_tunnel_index, network_id)
+            # update dhcp service config on edge_id
+            self.update_dhcp_service_config(context, edge_id)
+
+        except nsxapi_exc.VcnsApiException:
+            LOG.exception(_LE('Failed to delete vnic %(vnic_index)d '
+                              'tunnel %(tunnel_index)d on edge %(edge_id)s'),
+                          {'vnic_index': old_vnic_index,
+                           'tunnel_index': old_tunnel_index,
+                           'edge_id': edge_id})
+            self._mark_router_bindings_status_error(
+                context, edge_id,
+                error_reason="remove network from dhcp edge failure")
         except Exception:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(
-                    _LE('Failed to delete vnic %(vnic_index)d '
-                        'tunnel %(tunnel_index)d on edge '
-                        '%(edge_id)s'),
-                    {'vnic_index': old_vnic_index,
-                     'tunnel_index': old_tunnel_index,
-                     'edge_id': edge_id})
+            LOG.exception(_LE('Failed to delete vnic %(vnic_index)d '
+                              'tunnel %(tunnel_index)d on edge %(edge_id)s'),
+                          {'vnic_index': old_vnic_index,
+                           'tunnel_index': old_tunnel_index,
+                           'edge_id': edge_id})
+        self._delete_dhcp_internal_interface(context, edge_id, old_vnic_index,
+                                             old_tunnel_index, network_id)
 
     def reuse_existing_dhcp_edge(self, context, edge_id, resource_id,
                                  network_id):
@@ -964,8 +1003,9 @@ class EdgeManager(object):
                           available_edge_ids, conflict_edge_ids, edge_id)
                 with locking.LockManager.get_lock(str(edge_id)):
                     # Delete the existing vnic interface if there is
-                    # and overlapping subnet
-                    if edge_id in conflict_edge_ids:
+                    # an overlapping subnet or the binding is in ERROR status
+                    if (edge_id in conflict_edge_ids or
+                        dhcp_edge_binding['status'] == plugin_const.ERROR):
                         self.remove_network_from_dhcp_edge(context,
                                                            network_id, edge_id)
                         #Move the network to anther Edge and update vnic:
@@ -1032,28 +1072,41 @@ class EdgeManager(object):
             tunnel_index = dhcp_binding['tunnel_index']
             LOG.debug('Update the dhcp service for %s on vnic %d tunnel %d',
                       edge_id, vnic_index, tunnel_index)
-            try:
-                with locking.LockManager.get_lock(str(edge_id)):
+            with locking.LockManager.get_lock(str(edge_id)):
+                try:
                     self._update_dhcp_internal_interface(
                         context, edge_id, vnic_index, tunnel_index, network_id,
                         address_groups)
-            except Exception:
-                with excutils.save_and_reraise_exception():
-                    LOG.exception(_LE('Failed to update the dhcp service for '
-                                      '%(edge_id)s  on vnic %(vnic_index)d '
-                                      'tunnel %(tunnel_index)d'),
-                                  {'edge_id': edge_id,
-                                   'vnic_index': vnic_index,
-                                   'tunnel_index': tunnel_index})
-            with locking.LockManager.get_lock(str(edge_id)):
-                ports = self.nsxv_plugin.get_ports(
-                    context, filters={'network_id': [network_id]})
-                inst_ports = [port
-                              for port in ports
-                              if port['device_owner'].startswith("compute")]
-                if inst_ports:
-                    # update dhcp service config for the new added network
-                    self.update_dhcp_service_config(context, edge_id)
+                    ports = self.nsxv_plugin.get_ports(
+                        context, filters={'network_id': [network_id]})
+                    inst_ports = [port
+                                  for port in ports
+                                  if port['device_owner'].startswith(
+                                      "compute")]
+                    if inst_ports:
+                        # update dhcp service config for the new added network
+                        self.update_dhcp_service_config(context, edge_id)
+                except nsxapi_exc.VcnsApiException:
+                    with excutils.save_and_reraise_exception():
+                        LOG.exception(
+                            _LE('Failed to update the dhcp service for '
+                                '%(edge_id)s  on vnic  %(vnic_index)d '
+                                'tunnel %(tunnel_index)d'),
+                            {'edge_id': edge_id,
+                             'vnic_index': vnic_index,
+                             'tunnel_index': tunnel_index})
+                        self._mark_router_bindings_status_error(
+                            context, edge_id,
+                            error_reason="update dhcp edge service")
+                except Exception:
+                    with excutils.save_and_reraise_exception():
+                        LOG.exception(
+                            _LE('Failed to update the dhcp service for '
+                                '%(edge_id)s  on vnic  %(vnic_index)d '
+                                'tunnel %(tunnel_index)d'),
+                            {'edge_id': edge_id,
+                             'vnic_index': vnic_index,
+                             'tunnel_index': tunnel_index})
 
     def delete_dhcp_edge_service(self, context, network_id):
         """Delete an edge for dhcp service."""
@@ -1542,9 +1595,15 @@ class EdgeManager(object):
                          'edge_id': edge_id})
                     return
 
-                for binding in bindings:
-                    self.nsxv_manager.vcns.create_dhcp_binding(
-                        edge_id, binding)
+                try:
+                    for binding in bindings:
+                        self.nsxv_manager.vcns.create_dhcp_binding(
+                            edge_id, binding)
+                except nsxapi_exc.VcnsApiException:
+                    with excutils.save_and_reraise_exception():
+                        self._mark_router_bindings_status_error(
+                            context, edge_id,
+                            error_reason="create static bindings failure")
                 bindings_get = get_dhcp_binding_mappings(
                     self.nsxv_manager, edge_id)
                 mac_address_list = [
