@@ -412,17 +412,16 @@ nsxv_opts = [
                help=_('(Optional) Maximum number of sub interfaces supported '
                       'per vnic in edge.')),
     cfg.ListOpt('backup_edge_pool',
-                default=['service:large:4:10',
-                         'service:compact:4:10',
-                         'vdr:large:4:10'],
+                default=['service:compact:4:10',
+                         'vdr:compact:4:10'],
                 help=_("Defines edge pool's management range with the format: "
                        "<edge_type>:[edge_size]:<min_edges>:<max_edges>."
                        "edge_type: service,vdr. "
                        "edge_size: compact, large, xlarge, quadlarge "
-                       "and default is large. By default, edge pool manager "
-                       "would manage service edge with compact&&large size "
-                       "and distributed edge with large size as following: "
-                       "service:large:4:10,service:compact:4:10,vdr:large:"
+                       "and default is compact. By default, edge pool manager "
+                       "would manage service edge with compact size "
+                       "and distributed edge with compact size as following: "
+                       "service:compact:4:10,vdr:compact:"
                        "4:10")),
     cfg.IntOpt('retries',
                default=20,

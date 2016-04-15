@@ -74,7 +74,7 @@ def parse_backup_edge_pool_opt():
                     'allowed': vcns_const.ALLOWED_EDGE_TYPES})
             LOG.error(msg)
             raise n_exc.Invalid(msg)
-        edge_size = edge_size or nsxv_constants.LARGE
+        edge_size = edge_size or nsxv_constants.COMPACT
         if edge_size not in vcns_const.ALLOWED_EDGE_SIZES:
             msg = (_("edge size '%(edge_size)s' is not allowed, "
                      "allowed types: %(allowed)s") %
@@ -154,7 +154,7 @@ class EdgeManager(object):
                 status=plugin_const.ERROR)
 
     def _deploy_edge(self, context, lrouter,
-                     lswitch=None, appliance_size=nsxv_constants.LARGE,
+                     lswitch=None, appliance_size=nsxv_constants.COMPACT,
                      edge_type=nsxv_constants.SERVICE_EDGE, async=True):
         """Create an edge for logical router support."""
         router_id = lrouter['id']
@@ -174,7 +174,7 @@ class EdgeManager(object):
         return task
 
     def _deploy_backup_edges_on_db(self, context, num,
-                                   appliance_size=nsxv_constants.LARGE,
+                                   appliance_size=nsxv_constants.COMPACT,
                                    edge_type=nsxv_constants.SERVICE_EDGE):
         router_ids = [(vcns_const.BACKUP_ROUTER_PREFIX +
                        _uuid())[:vcns_const.EDGE_NAME_LEN]
@@ -188,7 +188,7 @@ class EdgeManager(object):
         return router_ids
 
     def _deploy_backup_edges_at_backend(self, context, router_ids,
-                                        appliance_size=nsxv_constants.LARGE,
+                                        appliance_size=nsxv_constants.COMPACT,
                                         edge_type=nsxv_constants.SERVICE_EDGE):
 
         eventlet.spawn_n(self._pool_creator, context, router_ids,
@@ -248,7 +248,7 @@ class EdgeManager(object):
                                              error_router_bindings)
 
     def _get_backup_edge_bindings(self, context,
-                                  appliance_size=nsxv_constants.LARGE,
+                                  appliance_size=nsxv_constants.COMPACT,
                                   edge_type=nsxv_constants.SERVICE_EDGE,
                                   db_update_lock=False):
         filters = {'appliance_size': [appliance_size],
@@ -278,7 +278,7 @@ class EdgeManager(object):
     def _check_backup_edge_pool(self,
                                 minimum_pooled_edges,
                                 maximum_pooled_edges,
-                                appliance_size=nsxv_constants.LARGE,
+                                appliance_size=nsxv_constants.COMPACT,
                                 edge_type=nsxv_constants.SERVICE_EDGE):
         """Check edge pool's status and return one available edge for use."""
         admin_ctx = q_context.get_admin_context()
@@ -321,7 +321,7 @@ class EdgeManager(object):
             return False
 
     def _get_available_router_binding(self, context,
-                                      appliance_size=nsxv_constants.LARGE,
+                                      appliance_size=nsxv_constants.COMPACT,
                                       edge_type=nsxv_constants.SERVICE_EDGE):
         backup_router_bindings = self._get_backup_edge_bindings(
             context, appliance_size=appliance_size, edge_type=edge_type)
@@ -533,7 +533,7 @@ class EdgeManager(object):
 
     @vcns.retry_upon_exception(db_base_exc.OperationalError, max_delay=10)
     def _allocate_edge_appliance(self, context, resource_id, name,
-                                 appliance_size=nsxv_constants.LARGE,
+                                 appliance_size=nsxv_constants.COMPACT,
                                  dist=False):
         """Try to allocate one available edge from pool."""
 

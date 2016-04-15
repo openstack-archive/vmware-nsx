@@ -350,14 +350,14 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         self.assertEqual(expect_edge_pool_dicts, edge_pool_dicts)
 
     def test_backup_edge_pool_with_vdr_conf(self):
-        cfg.CONF.set_override('backup_edge_pool', ['vdr::1:3'], 'nsxv')
+        cfg.CONF.set_override('backup_edge_pool', ['vdr:large:1:3'], 'nsxv')
         edge_pool_dicts = edge_utils.parse_backup_edge_pool_opt()
         expect_edge_pool_dicts = self.vdr_edge_pool_dicts
         self.assertEqual(expect_edge_pool_dicts, edge_pool_dicts)
 
     def test_backup_edge_pool_with_duplicate_conf(self):
         cfg.CONF.set_override('backup_edge_pool',
-                              ['service:large:1:3', 'service::3:4'],
+                              ['service:compact:1:3', 'service::3:4'],
                               'nsxv')
         self.assertRaises(n_exc.Invalid, edge_utils.parse_backup_edge_pool_opt)
 
@@ -486,7 +486,8 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
             1, 2, 0, 4, 0,
             error_at_backend_status=plugin_const.ACTIVE,
             size=nsxv_constants.LARGE)
-        backup_bindings = self.edge_manager._get_backup_edge_bindings(self.ctx)
+        backup_bindings = self.edge_manager._get_backup_edge_bindings(self.ctx,
+              appliance_size=nsxv_constants.LARGE)
         self._verify_router_bindings(expect_backup_bindings, backup_bindings)
 
     def test_get_available_router_bindings(self):
@@ -653,7 +654,8 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
                           1, 2, 3, 4, 5, edge_type=nsxv_constants.VDR_EDGE))
         self._populate_vcns_router_binding(pool_edges)
         self.edge_manager._allocate_edge_appliance(
-            self.ctx, 'fake_id', 'fake_name')
+            self.ctx, 'fake_id', 'fake_name',
+            appliance_size=nsxv_constants.LARGE)
         edge_id = (EDGE_AVAIL + nsxv_constants.LARGE + '-' +
                    nsxv_constants.SERVICE_EDGE + '-edge-' + str(0))
         self.nsxv_manager.update_edge.assert_has_calls(
@@ -686,7 +688,8 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
                           1, 2, 3, 4, 5, edge_type=nsxv_constants.VDR_EDGE))
         self._populate_vcns_router_binding(pool_edges)
         self.edge_manager._allocate_edge_appliance(
-            self.ctx, 'fake_id', 'fake_name', dist=True)
+            self.ctx, 'fake_id', 'fake_name', dist=True,
+            appliance_size=nsxv_constants.LARGE)
         edge_id = (EDGE_AVAIL + nsxv_constants.LARGE + '-' +
                    nsxv_constants.VDR_EDGE + '-edge-' + str(0))
         self.nsxv_manager.update_edge.assert_has_calls(
@@ -710,7 +713,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         assert not self.nsxv_manager.delete_edge.called
         self.nsxv_manager.update_edge.assert_has_calls(
             [mock.call(mock.ANY, mock.ANY, mock.ANY, None,
-                       appliance_size=nsxv_constants.LARGE, dist=False)])
+                       appliance_size=nsxv_constants.COMPACT, dist=False)])
 
     def test_free_edge_appliance_with_default_with_full(self):
         self.edge_pool_dicts = {
