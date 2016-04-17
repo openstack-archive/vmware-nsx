@@ -789,7 +789,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
 
         name = self._get_port_name(context, port_data)
 
-        nsx_net_id = self._get_network_nsx_id(context, port_data['network_id'])
+        nsx_net_id = port_data[pbin.VIF_DETAILS]['nsx-logical-switch-id']
         result = self._port_client.create(
             nsx_net_id, vif_uuid,
             tags=tags,
@@ -800,11 +800,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             parent_name=parent_name, parent_tag=tag,
             switch_profile_ids=profiles)
 
-        # TODO(salv-orlando): The logical switch identifier in the
-        # mapping object is not necessary anymore.
-        nsx_db.add_neutron_nsx_port_mapping(
-            context.session, port_data['id'],
-            nsx_net_id, result['id'])
         return result
 
     def _validate_address_pairs(self, address_pairs):
@@ -854,6 +849,11 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             LOG.warning(err_msg)
             raise n_exc.InvalidInput(error_message=err_msg)
 
+    def _cleanup_port(self, context, port_id, lport_id):
+        super(NsxV3Plugin, self).delete_port(context, port_id)
+        if lport_id:
+            self._port_client.delete(lport_id)
+
     def create_port(self, context, port, l2gw_port_check=False):
         port_data = port['port']
         dhcp_opts = port_data.get(ext_edo.EXTRADHCPOPTS, [])
@@ -887,27 +887,35 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             try:
                 lport = self._create_port_at_the_backend(
                     context, port_data, l2gw_port_check, is_psec_on)
-
+            except Exception as e:
+                with excutils.save_and_reraise_exception():
+                    LOG.error(_LE('Failed to create port %(id)s on NSX '
+                                  'backend. Exception: %(e)s'),
+                              {'id': neutron_db['id'], 'e': e})
+                    self._cleanup_port(context, neutron_db['id'], None)
+            try:
                 if sgids:
                     security.update_lport_with_security_groups(
                         context, lport['id'], [], sgids)
-
             except nsx_exc.SecurityGroupMaximumCapacityReached:
                 with excutils.save_and_reraise_exception():
                     LOG.debug("Couldn't associate port %s with "
                               "one or more security-groups, reverting "
-                              "reverting logical-port creation (%s).",
+                              "logical-port creation (%s).",
                               port_data['id'], lport['id'])
-                    super(NsxV3Plugin, self).delete_port(context,
-                                                         neutron_db['id'])
-                    self._port_client.delete(lport['id'])
-            except Exception:
+                    self._cleanup_port(context, neutron_db['id'], lport['id'])
+
+            try:
+                net_id = port_data[pbin.VIF_DETAILS]['nsx-logical-switch-id']
+                nsx_db.add_neutron_nsx_port_mapping(
+                    context.session, neutron_db['id'],
+                    net_id, lport['id'])
+            except Exception as e:
                 with excutils.save_and_reraise_exception():
-                    LOG.exception(
-                        _LE('Failed to create port %s on NSX backend'),
-                        neutron_db['id'])
-                    super(NsxV3Plugin, self).delete_port(context,
-                                                         neutron_db['id'])
+                    LOG.debug('Failed to update mapping %s on NSX '
+                              'backend. Reverting port creation. '
+                              'Exception: %s', neutron_db['id'], e)
+                    self._cleanup_port(context, neutron_db['id'], lport['id'])
 
         # this extra lookup is necessary to get the
         # latest db model for the extension functions
