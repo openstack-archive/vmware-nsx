@@ -74,6 +74,7 @@ function neutron_plugin_configure_dhcp_agent {
     setup_integration_bridge
     iniset $Q_DHCP_CONF_FILE DEFAULT enable_isolated_metadata True
     iniset $Q_DHCP_CONF_FILE DEFAULT enable_metadata_network True
+    iniset $Q_DHCP_CONF_FILE DEFAULT ovs_use_veth True
     iniset $Q_DHCP_CONF_FILE DEFAULT ovs_integration_bridge $OVS_BRIDGE
 }
 
