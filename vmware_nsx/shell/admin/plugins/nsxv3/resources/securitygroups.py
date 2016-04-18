@@ -14,6 +14,7 @@
 
 import logging
 
+from vmware_nsx.common import utils
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
@@ -70,10 +71,10 @@ def nsx_delete_security_groups(resource, event, trigger, **kwargs):
                 return
 
     sections = firewall.list_sections()
-    # NOTE(gangila): We use -1 indexing because we trying to delete default
-    # security group on NSX Manager raises an exception.
+    # NOTE(roeyc): We use -2 indexing because don't want to delete the
+    # default firewall sections.
     if sections:
-        NON_DEFAULT_SECURITY_GROUPS = -1
+        NON_DEFAULT_SECURITY_GROUPS = -2
         for section in sections[:NON_DEFAULT_SECURITY_GROUPS]:
             LOG.info(_LI("Deleting firewall section %(display_name)s, "
                          "section id %(id)s"),
@@ -83,7 +84,8 @@ def nsx_delete_security_groups(resource, event, trigger, **kwargs):
 
     nsgroups = firewall.list_nsgroups()
     if nsgroups:
-        for nsgroup in nsgroups:
+        for nsgroup in [nsg for nsg in nsgroups
+                        if not utils.is_internal_resource(nsg)]:
             LOG.info(_LI("Deleting ns-group %(display_name)s, "
                          "ns-group id %(id)s"),
                      {'display_name': nsgroup['display_name'],
