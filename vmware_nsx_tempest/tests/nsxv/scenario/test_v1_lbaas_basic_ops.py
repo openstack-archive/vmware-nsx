@@ -53,8 +53,8 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
         if not test.is_extension_enabled('lbaas', 'network'):
             msg = 'LBaaS Extension is not enabled'
             raise cls.skipException(msg)
-        if not (cfg.tenant_networks_reachable or cfg.public_network_id):
-            msg = ('Either tenant_networks_reachable must be "true", or '
+        if not (cfg.project_networks_reachable or cfg.public_network_id):
+            msg = ('Either project_networks_reachable must be "true", or '
                    'public_network_id must be defined.')
             raise cls.skipException(msg)
 
@@ -214,7 +214,7 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
         serv_id = server['id']
         self.servers_keypairs[serv_id] = keypair
         if (CONF.network.public_network_id and not
-                CONF.network.tenant_networks_reachable):
+                CONF.network.project_networks_reachable):
             public_network_id = CONF.network.public_network_id
             floating_ip = self.create_floating_ip(
                 server, public_network_id)
@@ -378,7 +378,7 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
                                     pool_id=self.pool.id)
         self.vip.wait_for_status('ACTIVE')
         if (CONF.network.public_network_id and not
-                CONF.network.tenant_networks_reachable):
+                CONF.network.project_networks_reachable):
             self._assign_floating_ip_to_vip(self.vip)
             self.vip_ip = self.floating_ips[
                 self.vip.id][0]['floating_ip_address']

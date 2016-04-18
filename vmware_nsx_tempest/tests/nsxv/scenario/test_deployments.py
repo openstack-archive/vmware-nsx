@@ -144,7 +144,7 @@ class TestTenantConnectivity(dmgr.TopoDeployScenarioManager):
         self.security_group = self._create_security_group(
             security_groups_client=client_mgr.security_groups_client,
             client=client_mgr.network_client, namestart='deploy-connect')
-        self.network, self.subnet, self.router = self.setup_tenant_network(
+        self.network, self.subnet, self.router = self.setup_project_network(
             self.public_network_id, namestart='deploy-connect')
         self.check_networks(self.network, self.subnet, self.router)
         security_groups = [{'name': self.security_group['name']}]
@@ -209,13 +209,13 @@ class TestMultiTenantsNetwork(dmgr.TopoDeployScenarioManager):
     def tearDown(self):
         # do mini teardown if test failed already
         try:
-            self.remove_tenant_network(False)
+            self.remove_project_network(False)
         except Exception:
             pass
 
         super(TestMultiTenantsNetwork, self).tearDown()
 
-    def remove_tenant_network(self, from_test=True):
+    def remove_project_network(self, from_test=True):
         for tn in ['green', 'red']:
             tenant = getattr(self, tn, None)
             if tenant and 'fip1' in tenant:
@@ -234,7 +234,7 @@ class TestMultiTenantsNetwork(dmgr.TopoDeployScenarioManager):
                     time.sleep(dmgr.WAITTIME_AFTER_ASSOC_FLOATINGIP)
                 tenant['network'].delete()
 
-    def create_tenant_network_env(self, client_mgr, t_id,
+    def create_project_network_env(self, client_mgr, t_id,
                                   check_outside_world=True,
                                   cidr_offset=0):
         username, password = self.get_image_userpass()
@@ -242,7 +242,7 @@ class TestMultiTenantsNetwork(dmgr.TopoDeployScenarioManager):
             client=client_mgr.network_client,
             security_groups_client=client_mgr.security_groups_client,
             namestart="deploy-multi-tenant")
-        t_network, t_subnet, t_router = self.setup_tenant_network(
+        t_network, t_subnet, t_router = self.setup_project_network(
             self.public_network_id, client_mgr,
             namestart=("deploy-%s-tenant" % t_id),
             cidr_offset=cidr_offset)
@@ -293,13 +293,13 @@ class TestMultiTenantsNetwork(dmgr.TopoDeployScenarioManager):
     @test.services('compute', 'network')
     def test_multi_tenants_network(self):
         LOG.debug(Z_DEPLOY_TOPO, "multi tenant network")
-        self.green = self.create_tenant_network_env(
+        self.green = self.create_project_network_env(
             self.manager, 'green', True)
         # in multiple tenant environment, ip overlay could happen
         # for the 2nd tenent give it a different ip-range to
         # make sure private-ip at tenat-1 is not the same being
         # assigned to tenant-2
-        self.red = self.create_tenant_network_env(
+        self.red = self.create_project_network_env(
             self.alt_manager, 'red', False, cidr_offset=3)
         # t1 can reach t2's public interface
         is_rechable = dmgr.check_host_is_reachable(
@@ -318,7 +318,7 @@ class TestMultiTenantsNetwork(dmgr.TopoDeployScenarioManager):
             not_reachable,
             ("t1:VM-A=%s SHOULD-NOT-REACH t2:VM-B=[fixed-ip %s]" %
              (str(self.green['node1']), str(self.red['node2']))))
-        self.remove_tenant_network()
+        self.remove_project_network()
         LOG.debug(Z_DEPLOY_COMPLETED, "multi tenant network")
 
 
@@ -345,12 +345,12 @@ class TestProviderRouterTenantNetwork(dmgr.TopoDeployScenarioManager):
     def tearDown(self):
         # do mini teardown if test failed already
         try:
-            self.remove_tenant_network(False)
+            self.remove_project_network(False)
         except Exception:
             pass
         super(TestProviderRouterTenantNetwork, self).tearDown()
 
-    def remove_tenant_network(self, from_test=True):
+    def remove_project_network(self, from_test=True):
         for tn in ['yellow', 'blue']:
             tenant = getattr(self, tn, None)
             if tenant and 'fip' in tenant:
@@ -367,7 +367,7 @@ class TestProviderRouterTenantNetwork(dmgr.TopoDeployScenarioManager):
         self.p_router.unset_gateway()
         self.p_router.delete()
 
-    def create_tenant_network_env(self, to_router, t_id, client_mgr=None,
+    def create_project_network_env(self, to_router, t_id, client_mgr=None,
                                   cidr_offset=0, **kwargs):
         namestart = "deploy-%s-tenant" % t_id
         name = data_utils.rand_name(namestart)
@@ -398,16 +398,16 @@ class TestProviderRouterTenantNetwork(dmgr.TopoDeployScenarioManager):
 
     @test.idempotent_id('a31712de-33ad-4dc2-9755-1a0631a4f66a')
     @test.services('compute', 'network')
-    def test_provider_router_tenant_network(self):
+    def test_provider_router_project_network(self):
         # provider router owned by admin_client
         self.p_router = self._create_router(
             client_mgr=self.admin_manager, namestart="deploy-provider-router",
             distributed=self.tenant_router_attrs.get('distributed'),
             router_type=self.tenant_router_attrs.get('router_type'))
         self.p_router.set_gateway(self.public_network_id)
-        self.yellow = self.create_tenant_network_env(
+        self.yellow = self.create_project_network_env(
             self.p_router, 'yellow', self.manager, 0)
-        self.blue = self.create_tenant_network_env(
+        self.blue = self.create_project_network_env(
             self.p_router, 'blue', self.alt_manager, 2)
         username, password = self.get_image_userpass()
         yellow = dmgr.make_node_info(self.yellow['fip'], username, password)
@@ -422,7 +422,7 @@ class TestProviderRouterTenantNetwork(dmgr.TopoDeployScenarioManager):
         self.assertTrue(
             is_reachable,
             "VM-blue=%s CANNOT-REACH VM-yellow=%s" % (str(blue), str(yellow)))
-        self.remove_tenant_network()
+        self.remove_project_network()
 
 
 # exclusive router

@@ -44,9 +44,9 @@ class TestMultipleTransportZonesBasicOps(dmgr.TopoDeployScenarioManager):
     @classmethod
     def skip_checks(cls):
         super(TestMultipleTransportZonesBasicOps, cls).skip_checks()
-        if not (CONF.network.tenant_networks_reachable
+        if not (CONF.network.project_networks_reachable
                 or CONF.network.public_network_id):
-            msg = ('Either tenant_networks_reachable must be "true", or '
+            msg = ('Either project_networks_reachable must be "true", or '
                    'public_network_id must be defined.')
             raise cls.skipException(msg)
         for ext in ['router', 'provider']:
@@ -90,7 +90,7 @@ class TestMultipleTransportZonesBasicOps(dmgr.TopoDeployScenarioManager):
             pass
         return scope_id_list
 
-    def create_tenant_network_subnet(self,
+    def create_project_network_subnet(self,
                                      name_prefix='mtz-project'):
         network_name = data_utils.rand_name(name_prefix)
         network, subnet = self.create_network_subnet(
@@ -156,7 +156,7 @@ class TestMultipleTransportZonesBasicOps(dmgr.TopoDeployScenarioManager):
         """router attached with multiple TZs and one tenant network."""
         scope_id_list = self.get_all_scope_id_list(with_default_scope=True)
         nets = {}
-        net_id, network, subnet = self.create_tenant_network_subnet(
+        net_id, network, subnet = self.create_project_network_subnet(
             'mtz-tenant')
         # create security_group with loginable rules
         security_group = self._create_security_group(

@@ -59,7 +59,7 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
      Determine which types of networks to test as follows:
 
      * Configure tenant network checks (via the
-       'tenant_networks_reachable' key) if the Tempest host should
+       'project_networks_reachable' key) if the Tempest host should
        have direct connectivity to tenant networks.  This is likely to
        be the case if Tempest is running on the same host as a
        single-node devstack installation with IP namespaces disabled.
@@ -81,9 +81,9 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
     @classmethod
     def skip_checks(cls):
         super(TestDvrBasicOps, cls).skip_checks()
-        if not (CONF.network.tenant_networks_reachable
+        if not (CONF.network.project_networks_reachable
                 or CONF.network.public_network_id):
-            msg = ('Either tenant_networks_reachable must be "true", or '
+            msg = ('Either project_networks_reachable must be "true", or '
                    'public_network_id must be defined.')
             raise cls.skipException(msg)
         for ext in ['router', 'security-group', 'dvr']:
@@ -116,7 +116,7 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
 
         name = data_utils.rand_name('server-smoke')
         server = self._create_server(name, self.network, self.port_id)
-        self._check_tenant_network_connectivity()
+        self._check_project_network_connectivity()
 
         floating_ip = self.create_floating_ip(server)
         self.floating_ip_tuple = Floating_IP_tuple(floating_ip, server)
@@ -213,12 +213,12 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
     def _get_server_key(self, server):
         return self.keypairs[server['key_name']]['private_key']
 
-    def _check_tenant_network_connectivity(self):
+    def _check_project_network_connectivity(self):
         ssh_login = CONF.validation.image_ssh_user
         for server in self.servers:
             # call the common method in the parent class
             super(TestDvrBasicOps, self).\
-                _check_tenant_network_connectivity(
+                _check_project_network_connectivity(
                     server, ssh_login, self._get_server_key(server),
                     servers_for_debug=self.servers)
 

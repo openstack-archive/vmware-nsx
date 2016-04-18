@@ -55,15 +55,15 @@ class SubnetTestJSON(base.BaseAdminNetworkTest):
     v2.0 of the Neutron API is assumed. It is also assumed that the following
     options are defined in the [network] section of etc/tempest.conf:
 
-        tenant_network_cidr with a block of cidr's from which smaller blocks
+        project_network_cidr with a block of cidr's from which smaller blocks
         can be allocated for tenant ipv4 subnets
 
-        tenant_network_v6_cidr is the equivalent for ipv6 subnets
+        project_network_v6_cidr is the equivalent for ipv6 subnets
 
-        tenant_network_mask_bits with the mask bits to be used to partition the
-        block defined by tenant_network_cidr
+        project_network_mask_bits with the mask bits to be used to partition
+        the block defined by project_network_cidr
 
-        tenant_network_v6_mask_bits is the equivalent for ipv6 subnets
+        project_network_v6_mask_bits is the equivalent for ipv6 subnets
     """
 
     @classmethod

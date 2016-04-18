@@ -62,7 +62,7 @@ class MultipleTransportZonesTest(base.BaseAdminNetworkTest):
         cls.MAX_MTZ = CONF.nsxv.max_mtz
 
     @classmethod
-    def create_tenant_network_subnet(cls, name_prefix='mtz-project'):
+    def create_project_network_subnet(cls, name_prefix='mtz-project'):
         network_name = data_utils.rand_name(name_prefix)
         resp = cls.create_network(client=cls.networks_client,
                                   name=network_name)
@@ -200,7 +200,7 @@ class MultipleTransportZonesTest(base.BaseAdminNetworkTest):
         """test router attached with multiple TZs and one tenant network."""
         scope_id_list = self.get_all_scope_id_list(with_default_scope=True)
         nets = {}
-        net_id, net_info = self.create_tenant_network_subnet('mtz-tenant')
+        net_id, net_info = self.create_project_network_subnet('mtz-tenant')
         nets[net_id] = net_info
         for cidr_step in range(0, self.MAX_MTZ):
             s_id = scope_id_list[cidr_step % len(scope_id_list)]

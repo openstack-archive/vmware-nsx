@@ -32,9 +32,9 @@ class DnsSearchDomainTest(base.BaseAdminNetworkTest):
         network_name = data_utils.rand_name('dns-search')
         resp = cls.create_network(client=cls.networks_client,
                                   name=network_name)
-        cls.tenant_network = resp.get('network', resp)
+        cls.project_network = resp.get('network', resp)
         # addCleanup() only available at instance, not at class
-        resp = cls.create_subnet(cls.tenant_network,
+        resp = cls.create_subnet(cls.project_network,
                                  name=network_name,
                                  client=cls.subnets_client,
                                  dns_search_domain=cls.dns_search_domain)
@@ -44,7 +44,7 @@ class DnsSearchDomainTest(base.BaseAdminNetworkTest):
     def resource_cleanup(cls):
         # we need to cleanup resouces created at class methods
         cls._try_delete_resource(cls.networks_client.delete_network,
-                                 cls.tenant_network['id'])
+                                 cls.project_network['id'])
         super(DnsSearchDomainTest, cls).resource_cleanup()
 
     def create_networks(self, network_name):
@@ -103,7 +103,7 @@ class DnsSearchDomainTest(base.BaseAdminNetworkTest):
         """attach 2nd subnet to network and update its dns_search_domain."""
         subnet_name = data_utils.rand_name('upd-search-domain')
         # 2nd subnet attached to a network, make sure to use different cidr
-        resp = self.create_subnet(self.tenant_network,
+        resp = self.create_subnet(self.project_network,
                                   name=subnet_name,
                                   cidr_offset=1,
                                   client=self.subnets_client)
