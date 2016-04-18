@@ -249,25 +249,30 @@ nsx_v3_opts = [
                        "[<scheme>://]<ip_adress>[:<port>]\nIf scheme is not "
                        "provided https is used. If port is not provided port "
                        "80 is used for http and port 443 for https.")),
-    cfg.StrOpt('default_overlay_tz_uuid',
-               deprecated_name='default_tz_uuid',
-               help=_("This is the UUID of the default NSX overlay transport "
-                      "zone that will be used for creating tunneled isolated "
-                      "Neutron networks. It needs to be created in NSX "
-                      "before starting Neutron with the NSX plugin.")),
-    cfg.StrOpt('default_vlan_tz_uuid',
+    cfg.StrOpt('default_overlay_tz',
+               deprecated_name='default_overlay_tz_uuid',
+               help=_("This is the name or UUID of the default NSX overlay "
+                      "transport zone that will be used for creating "
+                      "tunneled isolated Neutron networks. It needs to be "
+                      "created in NSX before starting Neutron with the NSX "
+                      "plugin.")),
+    cfg.StrOpt('default_vlan_tz',
+               deprecated_name='default_vlan_tz_uuid',
                help=_("(Optional) Only required when creating VLAN or flat "
-                      "provider networks. UUID of default NSX VLAN transport "
-                      "zone that will be used for bridging between Neutron "
-                      "networks, if no physical network has been specified")),
-    cfg.StrOpt('default_bridge_cluster_uuid',
-               help=_("(Optional) UUID of the default NSX bridge cluster that "
-                      "will be used to perform L2 gateway bridging between "
-                      "VXLAN and VLAN networks. If default bridge cluster "
-                      "UUID is not specified, admin will have to manually "
-                      "create a L2 gateway corresponding to a NSX Bridge "
-                      "Cluster using L2 gateway APIs. This field must be "
-                      "specified on one of the active neutron servers only.")),
+                      "provider networks. Name or UUID of default NSX VLAN "
+                      "transport zone that will be used for bridging between "
+                      "Neutron networks, if no physical network has been "
+                      "specified")),
+    cfg.StrOpt('default_bridge_cluster',
+               deprecated_name='default_bridge_cluster_uuid',
+               help=_("(Optional) Name or UUID of the default NSX bridge "
+                      "cluster that will be used to perform L2 gateway "
+                      "bridging between VXLAN and VLAN networks. If default "
+                      "bridge cluster UUID is not specified, admin will have "
+                      "to manually create a L2 gateway corresponding to a "
+                      "NSX Bridge Cluster using L2 gateway APIs. This field "
+                      "must be specified on one of the active neutron "
+                      "servers only.")),
     cfg.IntOpt('retries',
                default=10,
                help=_('Maximum number of times to retry API requests upon '
@@ -306,10 +311,11 @@ nsx_v3_opts = [
     cfg.IntOpt('redirects',
                default=2,
                help=_('Number of times a HTTP redirect should be followed.')),
-    cfg.StrOpt('default_tier0_router_uuid',
-               help=_("UUID of the default tier0 router that will be used for "
-                      "connecting to tier1 logical routers and configuring "
-                      "external networks")),
+    cfg.StrOpt('default_tier0_router',
+               deprecated_name='default_tier0_router_uuid',
+               help=_("Name or UUID of the default tier0 router that will be "
+                      "used for connecting to tier1 logical routers and "
+                      "configuring external networks")),
     cfg.IntOpt('number_of_nested_groups',
                default=8,
                help=_("(Optional) The number of nested groups which are used "

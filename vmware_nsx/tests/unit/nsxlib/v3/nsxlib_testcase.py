@@ -18,8 +18,8 @@ import mock
 import unittest
 
 from oslo_config import cfg
-from oslo_utils import uuidutils
 from requests import exceptions as requests_exceptions
+
 from vmware_nsx.nsxlib.v3 import client as nsx_client
 from vmware_nsx.nsxlib.v3 import cluster as nsx_cluster
 
@@ -30,6 +30,7 @@ NSX_INSECURE = False
 NSX_CERT = '/opt/stack/certs/nsx.pem'
 NSX_HTTP_TIMEOUT = 10
 NSX_HTTP_READ_TIMEOUT = 180
+NSX_TZ_NAME = 'default transport zone'
 
 V3_CLIENT_PKG = 'vmware_nsx.nsxlib.v3.client'
 BRIDGE_FNS = ['create_resource', 'delete_resource',
@@ -40,8 +41,7 @@ class NsxLibTestCase(unittest.TestCase):
 
     @classmethod
     def setup_conf_overrides(cls):
-        cfg.CONF.set_override('default_overlay_tz_uuid',
-                              uuidutils.generate_uuid(), 'nsx_v3')
+        cfg.CONF.set_override('default_overlay_tz', NSX_TZ_NAME, 'nsx_v3')
         cfg.CONF.set_override('nsx_api_user', NSX_USER, 'nsx_v3')
         cfg.CONF.set_override('nsx_api_password', NSX_PASSWORD, 'nsx_v3')
         cfg.CONF.set_override('nsx_api_managers', [NSX_MANAGER], 'nsx_v3')
