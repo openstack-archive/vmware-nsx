@@ -773,6 +773,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     dvs_net_ids.append(self._get_vlan_network_name(
                         net_data, dvs_id))
         try:
+            net_data[psec.PORTSECURITY] = net_data.get(psec.PORTSECURITY, True)
             # Create SpoofGuard policy for network anti-spoofing
             if cfg.CONF.nsxv.spoofguard_enabled and backend_network:
                 sg_policy_id = None
@@ -2517,13 +2518,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         except Exception:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("Failed to delete security group rule"))
-
-    def _check_for_duplicate_rules(self, context, rules):
-        # Remove rule id's before comparing between rules
-        rules = [{'security_group_rule':
-                  {k: v for k, v in six.iteritems(r['security_group_rule'])
-                   if k != 'id'}} for r in rules]
-        super(NsxVPluginV2, self)._check_for_duplicate_rules(context, rules)
 
     def _remove_vnic_from_spoofguard_policy(self, session, net_id, vnic_id):
         policy_id = nsxv_db.get_spoofguard_policy_id(session, net_id)
