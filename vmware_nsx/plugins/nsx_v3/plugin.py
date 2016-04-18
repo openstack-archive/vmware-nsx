@@ -180,6 +180,31 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             raise nsx_exc.NsxPluginException(msg)
         self._unsubscribe_callback_events()
 
+        # translate configured transport zones/rotuers names to uuid
+        self._translate_configured_names_2_uuids()
+
+    def _translate_configured_names_2_uuids(self):
+        # default VLAN transport zone name / uuid
+        self._default_vlan_tz_uuid = None
+        if cfg.CONF.nsx_v3.default_vlan_tz:
+            tz_id = nsxlib.get_transport_zone_id_by_name_or_id(
+                cfg.CONF.nsx_v3.default_vlan_tz)
+            self._default_vlan_tz_uuid = tz_id
+
+        # default overlay transport zone name / uuid
+        self._default_overlay_tz_uuid = None
+        if cfg.CONF.nsx_v3.default_overlay_tz:
+            tz_id = nsxlib.get_transport_zone_id_by_name_or_id(
+                cfg.CONF.nsx_v3.default_overlay_tz)
+            self._default_overlay_tz_uuid = tz_id
+
+        # default tier0 router
+        self._default_tier0_router = None
+        if cfg.CONF.nsx_v3.default_tier0_router:
+            rtr_id = nsxlib.get_logical_router_id_by_name_or_id(
+                cfg.CONF.nsx_v3.default_tier0_router)
+            self._default_tier0_router = rtr_id
+
     def _extend_port_dict_binding(self, context, port_data):
         port_data[pbin.VIF_TYPE] = pbin.VIF_TYPE_OVS
         port_data[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
@@ -344,11 +369,11 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                     # Set VLAN id to 0 for flat networks
                     vlan_id = '0'
                     if physical_net is None:
-                        physical_net = cfg.CONF.nsx_v3.default_vlan_tz_uuid
+                        physical_net = self._default_vlan_tz_uuid
             elif net_type == utils.NsxV3NetworkTypes.VLAN:
                 # Use default VLAN transport zone if physical network not given
                 if physical_net is None:
-                    physical_net = cfg.CONF.nsx_v3.default_vlan_tz_uuid
+                    physical_net = self._default_vlan_tz_uuid
 
                 # Validate VLAN id
                 if not vlan_id:
@@ -394,7 +419,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
 
         if physical_net is None:
             # Default to transport type overlay
-            physical_net = cfg.CONF.nsx_v3.default_overlay_tz_uuid
+            physical_net = self._default_overlay_tz_uuid
 
         return is_provider_net, net_type, physical_net, vlan_id
 
@@ -407,7 +432,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
     def _validate_external_net_create(self, net_data):
         is_provider_net = False
         if not attributes.is_attr_set(net_data.get(pnet.PHYSICAL_NETWORK)):
-            tier0_uuid = cfg.CONF.nsx_v3.default_tier0_router_uuid
+            tier0_uuid = self._default_tier0_router
         else:
             tier0_uuid = net_data[pnet.PHYSICAL_NETWORK]
             is_provider_net = True
@@ -1237,7 +1262,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             return
         network = self.get_network(context, network_id)
         if not network.get(pnet.PHYSICAL_NETWORK):
-            return cfg.CONF.nsx_v3.default_tier0_router_uuid
+            return self._default_tier0_router
         else:
             return network.get(pnet.PHYSICAL_NETWORK)
 

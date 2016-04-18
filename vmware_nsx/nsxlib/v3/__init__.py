@@ -231,3 +231,57 @@ def delete_bridge_endpoint(bridge_endpoint_id):
     """
     resource = 'bridge-endpoints/%s' % bridge_endpoint_id
     client.delete_resource(resource)
+
+
+def _get_resource_by_name_or_id(name_or_id, resource):
+    all_results = client.get_resource(resource)['results']
+    matched_results = []
+    for rs in all_results:
+        if rs.get('id') == name_or_id:
+            # Matched by id - must be unique
+            return name_or_id
+
+        if rs.get('display_name') == name_or_id:
+            # Matched by name - add to the list to verify it is unique
+            matched_results.append(rs)
+
+    if len(matched_results) == 0:
+        err_msg = (_("Could not find %(resource)s %(name)s") %
+                   {'name': name_or_id, 'resource': resource})
+        raise nsx_exc.NsxPluginException(err_msg=err_msg)
+    elif len(matched_results) > 1:
+        err_msg = (_("Found multiple %(resource)s named %(name)s") %
+                   {'name': name_or_id, 'resource': resource})
+        raise nsx_exc.NsxPluginException(err_msg=err_msg)
+
+    return matched_results[0].get('id')
+
+
+def get_transport_zone_id_by_name_or_id(name_or_id):
+    """Get a transport zone by it's display name or uuid
+
+    Return the transport zone data, or raise an exception if not found or
+    not unique
+    """
+
+    return _get_resource_by_name_or_id(name_or_id, 'transport-zones')
+
+
+def get_logical_router_id_by_name_or_id(name_or_id):
+    """Get a logical router by it's display name or uuid
+
+    Return the logical router data, or raise an exception if not found or
+    not unique
+    """
+
+    return _get_resource_by_name_or_id(name_or_id, 'logical-routers')
+
+
+def get_bridge_cluster_id_by_name_or_id(name_or_id):
+    """Get a bridge cluster by it's display name or uuid
+
+    Return the bridge cluster data, or raise an exception if not found or
+    not unique
+    """
+
+    return _get_resource_by_name_or_id(name_or_id, 'bridge-clusters')

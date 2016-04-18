@@ -123,6 +123,20 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
                     'display_name': nsx_plugin.NSX_V3_NO_PSEC_PROFILE_NAME
                 }), headers=nsx_client.JSONRESTClient._DEFAULT_HEADERS)
 
+        self.mock_api.post(
+                'api/v1/transport-zones',
+                data=jsonutils.dumps({
+                    'id': uuidutils.generate_uuid(),
+                    'display_name': nsxlib_testcase.NSX_TZ_NAME
+                }), headers=nsx_client.JSONRESTClient._DEFAULT_HEADERS)
+
+        self.mock_api.post(
+                'api/v1/bridge-clusters',
+                data=jsonutils.dumps({
+                    'id': uuidutils.generate_uuid(),
+                    'display_name': nsx_v3_mocks.NSX_BRIDGE_CLUSTER_NAME
+                }), headers=nsx_client.JSONRESTClient._DEFAULT_HEADERS)
+
         super(NsxV3PluginTestCaseMixin, self).setUp(plugin=plugin,
                                                     ext_mgr=ext_mgr)
 

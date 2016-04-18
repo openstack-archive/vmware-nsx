@@ -1,0 +1,13 @@
+---
+prelude: >
+    The 'default_tier0_router_uuid', 'default_overlay_tz_uuid',
+    'default_vlan_tz_uuid', and 'default_bridge_cluster_uuid'
+    options have been deprecated and replaced by 'default_tier0_router',
+    'default_overlay_tz', 'default_vlan_tz', and 'default_bridge_cluster'
+    respectively, which can accept both name or uuid
+deprecations:
+  - The 'default_tier0_router_uuid', 'default_overlay_tz_uuid',
+    'default_vlan_tz_uuid', and 'default_bridge_cluster_uuid'
+    options have been deprecated and replaced by 'default_tier0_router',
+    'default_overlay_tz', 'default_vlan_tz', and 'default_bridge_cluster'
+    respectively, which can accept both name or uuid

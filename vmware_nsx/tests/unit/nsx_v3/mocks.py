@@ -22,6 +22,7 @@ from vmware_nsx.common import nsx_constants
 
 FAKE_NAME = "fake_name"
 DEFAULT_TIER0_ROUTER_UUID = "efad0078-9204-4b46-a2d8-d4dd31ed448f"
+NSX_BRIDGE_CLUSTER_NAME = 'default bridge cluster'
 FAKE_MANAGER = "fake_manager_ip"
 
 

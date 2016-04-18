@@ -49,7 +49,7 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
     gateway_resource = l2gw_const.GATEWAY_RESOURCE_NAME
 
     def __init__(self):
-        # Create a  default L2 gateway if default_bridge_cluster_uuid is
+        # Create a default L2 gateway if default_bridge_cluster is
         # provided in nsx.ini
         self._ensure_default_l2_gateway()
         self.subscribe_callback_notifications()
@@ -69,16 +69,20 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         Create a default logical L2 gateway.
 
         Create a logical L2 gateway in the neutron database if the
-        default_bridge_cluster_uuid config parameter is set and if it is
+        default_bridge_cluster config parameter is set and if it is
         not previously created. If not set, return.
         """
-        def_l2gw_uuid = cfg.CONF.nsx_v3.default_bridge_cluster_uuid
-        # Return if no default_bridge_cluster_uuid set in config
-        if not def_l2gw_uuid:
-            LOG.info(_LI("NSX: Default bridge cluster UUID not configured "
+        def_l2gw_name = cfg.CONF.nsx_v3.default_bridge_cluster
+        # Return if no default_bridge_cluster set in config
+        if not def_l2gw_name:
+            LOG.info(_LI("NSX: Default bridge cluster not configured "
                          "in nsx.ini. No default L2 gateway created."))
             return
         admin_ctx = context.get_admin_context()
+
+        def_l2gw_uuid = nsxlib.get_bridge_cluster_id_by_name_or_id(
+            def_l2gw_name)
+
         # Optimistically create the default L2 gateway in neutron DB
         device = {'device_name': def_l2gw_uuid,
                   'interfaces': [{'name': 'default-bridge-cluster'}]}
