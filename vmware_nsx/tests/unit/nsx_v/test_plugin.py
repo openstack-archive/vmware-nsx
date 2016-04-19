@@ -48,6 +48,7 @@ import webob.exc
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import nsx_constants
+from vmware_nsx.common import utils as c_utils
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.dvs import dvs
 from vmware_nsx.dvs import dvs_utils
@@ -2894,6 +2895,7 @@ class NsxVSecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
         mock_delete_dhcp_service = mock.patch("%s.%s" % (
             vmware.EDGE_MANAGE_NAME, 'delete_dhcp_edge_service'))
         mock_delete_dhcp_service.start()
+        c_utils.spawn_n = mock.Mock(side_effect=lambda f: f())
         super(NsxVSecurityGroupsTestCase, self).setUp(plugin=plugin,
                                                       ext_mgr=ext_mgr)
         self.plugin = manager.NeutronManager.get_plugin()
