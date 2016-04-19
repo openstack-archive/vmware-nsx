@@ -14,12 +14,13 @@
 
 
 import logging
+from oslo_serialization import jsonutils
 import xml.etree.ElementTree as et
 
 from vmware_nsx._i18n import _LE, _LI
+from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
-
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv.resources import utils as utils
 from vmware_nsx.shell import nsxadmin as shell
@@ -66,7 +67,11 @@ def nsx_update_switch(resource, event, trigger, **kwargs):
         LOG.error(_LE("Need to specify dvs-id. "
                       "Add --property dvs-id=<dvs-id>"))
         return
-    h, switch = nsxv.get_vdn_switch(dvs_id)
+    try:
+        h, switch = nsxv.get_vdn_switch(dvs_id)
+    except exceptions.ResourceNotFound:
+        LOG.error(_LE("DVS %s not found"), dvs_id)
+        return
     policy = properties.get('teamingpolicy')
     if policy:
         if switch['teamingPolicy'] == policy:
@@ -75,7 +80,17 @@ def nsx_update_switch(resource, event, trigger, **kwargs):
         LOG.info(_LI("Updating NSXv switch %(dvs)s teaming policy to "
                      "%(policy)s"), {'dvs': dvs_id, 'policy': policy})
         switch['teamingPolicy'] = policy
-        switch = nsxv.update_vdn_switch(switch)
+        try:
+            switch = nsxv.update_vdn_switch(switch)
+        except exceptions.VcnsApiException as e:
+            desc = jsonutils.loads(e.response)
+            details = desc.get('details')
+            if details.startswith("No enum constant"):
+                LOG.error(_LE("Unknown teaming policy %s"), policy)
+            else:
+                LOG.error(_LE("Unexpected error occurred: %s"), details)
+            return
+
         LOG.info(_LI("Switch value after update: %s"), switch)
     else:
         LOG.error(_LE("No teaming policy set. "
