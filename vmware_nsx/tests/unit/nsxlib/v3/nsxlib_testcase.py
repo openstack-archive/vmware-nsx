@@ -103,7 +103,7 @@ class NsxClientTestCase(NsxLibTestCase):
                 resource, client=self._client)
 
         def update_resource(self, resource, data):
-            return nsx_client.create_resource(
+            return nsx_client.update_resource(
                 resource, data, client=self._client)
 
     class MockNSXClusteredAPI(nsx_cluster.NSXClusteredAPI):
