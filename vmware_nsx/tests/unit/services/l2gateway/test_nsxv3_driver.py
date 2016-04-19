@@ -129,6 +129,19 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
                           self.driver.create_l2_gateway,
                           self.context, invalid_l2gw_dict)
 
+    def test_create_l2_gateway_multiple_interfaces_fail(self):
+        invalid_l2gw_dict = {
+            "l2_gateway": {
+                "tenant_id": "fake_tenant_id",
+                "name": "invalid_l2gw",
+                "devices": [{"interfaces":
+                            [{"name": "interface1"},
+                             {"name": "interface2"}],
+                            "device_name": "device1"}]}}
+        self.assertRaises(n_exc.InvalidInput,
+                          self.driver.create_l2_gateway,
+                          self.context, invalid_l2gw_dict)
+
     def test_create_l2_gateway_invalid_device_name_fail(self):
         invalid_l2gw_dict = {
             "l2_gateway": {
