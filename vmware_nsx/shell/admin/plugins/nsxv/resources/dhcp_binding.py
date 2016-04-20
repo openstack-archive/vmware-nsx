@@ -27,6 +27,7 @@ from neutron.db import db_base_plugin_v2
 
 from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.db import nsxv_db
+from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 from vmware_nsx.plugins.nsx_v.vshield import vcns_driver
 
@@ -100,15 +101,19 @@ def nsx_update_dhcp_edge_binding(resource, event, trigger, **kwargs):
         return
     else:
         properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
-        LOG.info(_LI("Updating NSXv Edge: %s"), properties.get('edge-id'))
+        edge_id = properties.get('edge-id')
+        LOG.info(_LI("Updating NSXv Edge: %s"), edge_id)
         # Need to create a NeutronDbPlugin object; so that we are able to
         # do neutron list-ports.
         plugin = db_base_plugin_v2.NeutronDbPluginV2()
         nsxv_manager = vcns_driver.VcnsDriver(
                            edge_utils.NsxVCallbacks(plugin))
         edge_manager = edge_utils.EdgeManager(nsxv_manager, plugin)
-        edge_manager.update_dhcp_service_config(
-            neutron_db.context, properties.get('edge-id'))
+        try:
+            edge_manager.update_dhcp_service_config(
+                neutron_db.context, edge_id)
+        except exceptions.ResourceNotFound:
+            LOG.error(_LE("Edge %s not found"), edge_id)
 
 
 registry.subscribe(list_missing_dhcp_bindings,
