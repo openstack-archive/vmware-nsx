@@ -76,7 +76,13 @@ class Resource(object):
 
 # Add supported NSX-V3 resources in this dictionary
 nsxv3_resources = {
-    constants.SECURITY_GROUPS: Resource(constants.SECURITY_GROUPS, ops)
+    constants.SECURITY_GROUPS: Resource(constants.SECURITY_GROUPS,
+                                        [Operations.CLEAN.value,
+                                         Operations.LIST.value,
+                                         Operations.NSX_LIST.value,
+                                         Operations.NSX_CLEAN.value,
+                                         Operations.NEUTRON_LIST.value,
+                                         Operations.NEUTRON_CLEAN.value])
 }
 
 # Add supported NSX-V resources in this dictionary
