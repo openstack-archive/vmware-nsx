@@ -14,7 +14,7 @@
 # limitations under the License.
 import mock
 import six
-import webob.exc
+from webob import exc
 
 from neutron.api.v2 import attributes
 from neutron import context
@@ -52,7 +52,6 @@ from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.extensions import test_metadata
 from vmware_nsx.tests.unit.nsx_v3 import mocks as nsx_v3_mocks
 from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
-from webob import exc
 
 
 PLUGIN_NAME = 'vmware_nsx.plugin.NsxV3Plugin'
@@ -246,7 +245,7 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                 device_owner = constants.DEVICE_OWNER_COMPUTE_PREFIX + 'X'
                 res = self._create_port(self.fmt,
                                         network['network']['id'],
-                                        webob.exc.HTTPBadRequest.code,
+                                        exc.HTTPBadRequest.code,
                                         device_owner=device_owner)
                 data = self.deserialize(self.fmt, res)
                 self.assertEqual(expected_error, data['NeutronError']['type'])
@@ -260,7 +259,7 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                     req = self.new_update_request('ports',
                                                   data, port['port']['id'])
                     res = req.get_response(self.api)
-                    self.assertEqual(webob.exc.HTTPBadRequest.code,
+                    self.assertEqual(exc.HTTPBadRequest.code,
                                      res.status_int)
 
     def test_create_port_with_qos(self):
