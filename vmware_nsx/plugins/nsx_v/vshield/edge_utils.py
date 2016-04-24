@@ -705,14 +705,16 @@ class EdgeManager(object):
         router_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
         self._free_edge_appliance(context, router_id)
 
+    def _build_lrouter_name(self, router_id, router_name):
+        return (
+            router_name[:nsxv_constants.ROUTER_NAME_LENGTH - len(router_id)] +
+            '-' + router_id)
+
     def create_lrouter(
         self, context, lrouter, lswitch=None, dist=False,
         appliance_size=vcns_const.SERVICE_SIZE_MAPPING['router']):
         """Create an edge for logical router support."""
-        router_name = (
-            lrouter['name'][:nsxv_constants.ROUTER_NAME_LENGTH -
-                            len(lrouter['id'])] +
-            '-' + lrouter['id'])
+        router_name = self._build_lrouter_name(lrouter['id'], lrouter['name'])
         self._allocate_edge_appliance(
             context, lrouter['id'], router_name,
             appliance_size=appliance_size,
@@ -720,6 +722,19 @@ class EdgeManager(object):
 
     def delete_lrouter(self, context, router_id, dist=False):
         self._free_edge_appliance(context, router_id)
+
+    def rename_lrouter(self, context, router_id, new_name):
+        binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
+        if not binding or not binding['edge_id']:
+            LOG.warning(_LW("router binding for router: %s "
+                            "not found"), router_id)
+            return
+        edge_id = binding['edge_id']
+        with locking.LockManager.get_lock(str(edge_id)):
+            router_name = self._build_lrouter_name(router_id, new_name)
+            task = self.nsxv_manager.rename_edge(
+                router_id, edge_id, router_name)
+            task.wait(task_const.TaskState.RESULT)
 
     def update_dhcp_edge_bindings(self, context, network_id):
         """Reconfigure the DHCP to the edge."""
@@ -1672,6 +1687,16 @@ def delete_lrouter(nsxv_manager, context, router_id, dist=False):
         LOG.warning(_LW("router binding for router: %s not found"), router_id)
 
 
+def remove_irrelevant_keys_from_edge_request(edge_request):
+    """Remove some unnecessary keys from the edge request.
+    Having these keys fail the update edge NSX transaction
+    """
+    for key in ['status', 'datacenterMoid', 'fqdn', 'version',
+                'type', 'tenant', 'datacenterName',
+                'hypervisorAssist', 'universal', 'enableFips']:
+        edge_request.pop(key, None)
+
+
 def _retrieve_nsx_switch_id(context, network_id):
     """Helper method to retrieve backend switch ID."""
     bindings = nsxv_db.get_network_bindings(context.session, network_id)
@@ -2214,6 +2239,9 @@ class NsxVCallbacks(object):
                 nsxv_db.clean_edge_vnic_binding(context.session, edge_id)
         except sa_exc.NoResultFound:
             LOG.warning(_LW("Router Binding for %s not found"), router_id)
+
+    def edge_rename_result(self, task):
+        LOG.debug("edge_rename_result %d", task.status)
 
     def interface_update_result(self, task):
         LOG.debug("interface_update_result %d", task.status)

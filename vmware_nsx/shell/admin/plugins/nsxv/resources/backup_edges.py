@@ -26,6 +26,7 @@ from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.db import nsxv_models
 from vmware_nsx.plugins.nsx_v.vshield.common import constants as vcns_const
+from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 import vmware_nsx.shell.admin.plugins.common.utils as admin_utils
@@ -202,11 +203,8 @@ def nsx_fix_name_mismatch(resource, event, trigger, **kwargs):
                         LOG.info(_LI("Edge rename aborted by user"))
                         return
                     LOG.info(_LI("Edge rename started"))
-                    # having these keys fail the NSX transaction
-                    for key in ['status', 'datacenterMoid', 'fqdn', 'version',
-                                'type', 'tenant', 'datacenterName',
-                                'hypervisorAssist', 'universal', 'enableFips']:
-                        edge.pop(key, None)
+                    # remove some keys that will fail the NSX transaction
+                    edge_utils.remove_irrelevant_keys_from_edge_request(edge)
                     try:
                         LOG.error(_LE("Update edge..."))
                         nsxv.update_edge(edge_id, edge)
