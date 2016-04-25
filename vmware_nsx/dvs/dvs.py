@@ -23,6 +23,8 @@ from vmware_nsx.dvs import dvs_utils
 
 LOG = logging.getLogger(__name__)
 PORTGROUP_PREFIX = 'dvportgroup'
+QOS_OUT_DIRECTION = 'outgoingPackets'
+QOS_AGENT_NAME = 'dvfilter-generic-vmware'
 
 
 class DvsManager(object):
@@ -139,8 +141,10 @@ class DvsManager(object):
         return pg_spec
 
     def update_port_group_spec_qos(self, pg_spec, qos_data):
-        outPol = pg_spec.defaultPortConfig.outShapingPolicy
-        if qos_data.enabled:
+        port_conf = pg_spec.defaultPortConfig
+        # Update the out bandwidth shaping policy
+        outPol = port_conf.outShapingPolicy
+        if qos_data.bandwidthEnabled:
             outPol.inherited = False
             outPol.enabled.inherited = False
             outPol.enabled.value = True
@@ -152,6 +156,46 @@ class DvsManager(object):
             outPol.burstSize.value = qos_data.burstSize
         else:
             outPol.inherited = True
+
+        # Update the DSCP marking
+        if (port_conf.filterPolicy.inherited or
+            len(port_conf.filterPolicy.filterConfig) == 0 or
+            len(port_conf.filterPolicy.filterConfig[
+                0].trafficRuleset.rules) == 0):
+
+            if qos_data.dscpMarkEnabled:
+                # create the entire structure
+                client_factory = self._session.vim.client.factory
+                filter_rule = client_factory.create('ns0:DvsTrafficRule')
+                filter_rule.action = client_factory.create(
+                    'ns0:DvsUpdateTagNetworkRuleAction')
+                filter_rule.action.dscpTag = qos_data.dscpMarkValue
+                # mark only outgoing packets
+                filter_rule.direction = QOS_OUT_DIRECTION
+
+                traffic_filter_config = client_factory.create(
+                    'ns0:DvsTrafficFilterConfig')
+                traffic_filter_config.trafficRuleset.rules = [filter_rule]
+                traffic_filter_config.trafficRuleset.enabled = True
+                traffic_filter_config.agentName = QOS_AGENT_NAME
+                traffic_filter_config.inherited = False
+
+                port_conf.filterPolicy = client_factory.create(
+                    'ns0:DvsFilterPolicy')
+                port_conf.filterPolicy.filterConfig = [
+                    traffic_filter_config]
+                port_conf.filterPolicy.inherited = False
+        else:
+            # The structure was already initialized
+            filter_policy = port_conf.filterPolicy
+            if qos_data.dscpMarkEnabled:
+                # just update the DSCP value
+                traffic_filter_config = filter_policy.filterConfig[0]
+                filter_rule = traffic_filter_config.trafficRuleset.rules[0]
+                filter_rule.action.dscpTag = qos_data.dscpMarkValue
+            else:
+                # delete the filter policy data
+                filter_policy.filterConfig = []
 
     def _reconfigure_port_group(self, pg_moref, spec_update_calback,
                                 spec_update_data):
