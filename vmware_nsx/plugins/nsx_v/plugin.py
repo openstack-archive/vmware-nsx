@@ -920,6 +920,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         ports = self.get_ports(context, filters=filters)
         auto_del = all(p['device_owner'] in [constants.DEVICE_OWNER_DHCP]
                        for p in ports)
+        is_dhcp_backend_deleted = False
         if auto_del:
             filters = {'network_id': [id], 'enable_dhcp': [True]}
             sids = self.get_subnets(context, filters=filters, fields=['id'])
@@ -927,12 +928,21 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 try:
                     self._cleanup_dhcp_edge_before_deletion(context, id)
                     self._delete_dhcp_edge_service(context, id)
+                    is_dhcp_backend_deleted = True
                 except Exception:
                     with excutils.save_and_reraise_exception():
                         LOG.exception(_LE('Failed to delete network'))
 
         with context.session.begin(subtransactions=True):
             self._process_l3_delete(context, id)
+            # We would first delete subnet db if the backend dhcp service is
+            # deleted in case of entering delete_subnet logic and retrying
+            # to delete backend dhcp service again.
+            if is_dhcp_backend_deleted:
+                subnets = self._get_subnets_by_network(context, id)
+                for subnet in subnets:
+                    super(NsxVPluginV2, self).delete_subnet(
+                        context, subnet['id'])
             super(NsxVPluginV2, self).delete_network(context, id)
 
         # Do not delete a predefined port group that was attached to
