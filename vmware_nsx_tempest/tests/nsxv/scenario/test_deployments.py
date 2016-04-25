@@ -49,7 +49,6 @@ class TestSimpleFlatNetwork(dmgr.TopoDeployScenarioManager):
 
     def setUp(self):
         super(TestSimpleFlatNetwork, self).setUp()
-        self.admin_client = self.admin_manager.network_client
         self.info_flat1 = FLAT_ALLOC_DICT
 
     def tearDown(self):
@@ -92,7 +91,9 @@ class TestSimpleFlatNetwork(dmgr.TopoDeployScenarioManager):
         self.net_subnet = self.create_subnet(self.net_network, self.info_flat1)
         # tenant actions
         self.security_group = self._create_security_group(
-            client=self.network_client, namestart='FLAT-tenant')
+            security_groups_client=self.security_groups_client,
+            security_group_rules_client=self.security_group_rules_client,
+            namestart='FLAT-tenant')
         security_groups = [{'name': self.security_group['name']}]
         self.serv1 = self.create_server_on_network(
             self.net_network, security_groups,
@@ -143,7 +144,8 @@ class TestTenantConnectivity(dmgr.TopoDeployScenarioManager):
         # create security_group with loginable rules
         self.security_group = self._create_security_group(
             security_groups_client=client_mgr.security_groups_client,
-            client=client_mgr.network_client, namestart='deploy-connect')
+            security_group_rules_client=client_mgr.security_group_rules_client,
+            namestart='deploy-connect')
         self.network, self.subnet, self.router = self.setup_project_network(
             self.public_network_id, namestart='deploy-connect')
         self.check_networks(self.network, self.subnet, self.router)
@@ -239,8 +241,8 @@ class TestMultiTenantsNetwork(dmgr.TopoDeployScenarioManager):
                                   cidr_offset=0):
         username, password = self.get_image_userpass()
         t_security_group = self._create_security_group(
-            client=client_mgr.network_client,
             security_groups_client=client_mgr.security_groups_client,
+            security_group_rules_client=client_mgr.security_group_rules_client,
             namestart="deploy-multi-tenant")
         t_network, t_subnet, t_router = self.setup_project_network(
             self.public_network_id, client_mgr,
@@ -340,7 +342,6 @@ class TestProviderRouterTenantNetwork(dmgr.TopoDeployScenarioManager):
 
     def setUp(self):
         super(TestProviderRouterTenantNetwork, self).setUp()
-        self.admin_client = self.admin_manager.network_client
 
     def tearDown(self):
         # do mini teardown if test failed already
@@ -379,7 +380,8 @@ class TestProviderRouterTenantNetwork(dmgr.TopoDeployScenarioManager):
         to_router.add_subnet(t_subnet)
         t_security_group = self._create_security_group(
             security_groups_client=client_mgr.security_groups_client,
-            client=client_mgr.network_client, namestart=namestart)
+            security_group_rules_client=client_mgr.security_group_rules_client,
+            namestart=namestart)
         security_groups = [{'name': t_security_group['name']}]
         t_serv = self.create_server_on_network(
             t_network, security_groups,
@@ -399,7 +401,7 @@ class TestProviderRouterTenantNetwork(dmgr.TopoDeployScenarioManager):
     @test.idempotent_id('a31712de-33ad-4dc2-9755-1a0631a4f66a')
     @test.services('compute', 'network')
     def test_provider_router_project_network(self):
-        # provider router owned by admin_client
+        # provider router owned by admin_manager
         self.p_router = self._create_router(
             client_mgr=self.admin_manager, namestart="deploy-provider-router",
             distributed=self.tenant_router_attrs.get('distributed'),
@@ -553,7 +555,7 @@ def _g_service_client(req_mgr, client_name):
     s_client = getattr(req_mgr, client_name, None)
     if s_client:
         return s_client
-    return req_mgr.network_client
+    return req_mgr.networks_client
 
 
 # self vs req: there are possible 3 client managers (admin, pri, 2nd)

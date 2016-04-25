@@ -139,7 +139,7 @@ class MultipleTransportZonesTest(base.BaseAdminNetworkTest):
         self.delete_network(net_id)
 
     def create_router_by_type(self, router_type, name=None, **kwargs):
-        router_client = self.admin_client
+        routers_client = self.admin_manager.routers_client
         router_name = name or data_utils.rand_name('mtz-')
         create_kwargs = dict(name=router_name, external_gateway_info={
             "network_id": CONF.network.public_network_id})
@@ -148,15 +148,15 @@ class MultipleTransportZonesTest(base.BaseAdminNetworkTest):
         elif router_type in ('distributed'):
             create_kwargs['distributed'] = True
         kwargs.update(create_kwargs)
-        router = router_client.create_router(**kwargs)
+        router = routers_client.create_router(**kwargs)
         router = router['router'] if 'router' in router else router
         self.addCleanup(self._try_delete_resource,
-                        router_client.delete_router, router['id'])
+                        routers_client.delete_router, router['id'])
         self.assertEqual(router['name'], router_name)
-        return (router_client, router)
+        return (routers_client, router)
 
     def create_router_and_add_interfaces(self, router_type, nets):
-        (router_client, router) = self.create_router_by_type(router_type)
+        (routers_client, router) = self.create_router_by_type(router_type)
         if router_type == 'exclusive':
             router_nsxv_name = '%s-%s' % (router['name'], router['id'])
             exc_edge = self.vsm.get_edge(router_nsxv_name)
@@ -167,20 +167,20 @@ class MultipleTransportZonesTest(base.BaseAdminNetworkTest):
             # and router can be deleted if test is aborted.
             self.addCleanup(
                 self._try_delete_resource,
-                router_client.remove_router_interface_with_subnet_id,
-                router['id'], subnet['id'])
-            router_client.add_router_interface_with_subnet_id(
+                routers_client.remove_router_interface,
+                router['id'], subnet_id=subnet['id'])
+            routers_client.add_router_interface(
                 router['id'], subnet_id=subnet['id'])
         return router
 
     def clear_router_gateway_and_interfaces(self, router, nets):
-        router_client = self.admin_client
-        router_client.update_router(router['id'],
+        routers_client = self.admin_manager.routers_client
+        routers_client.update_router(router['id'],
                                     external_gateway_info=dict())
         for net_id, (s_id, network, subnet) in six.iteritems(nets):
             try:
-                router_client.remove_router_interface_with_subnet_id(
-                    router['id'], subnet['id'])
+                routers_client.remove_router_interface(
+                    router['id'], subnet_id=subnet['id'])
             except Exception:
                 pass
 

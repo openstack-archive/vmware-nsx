@@ -64,8 +64,8 @@ class ExcRouterTest(base.BaseRouterTest):
         backend create service for the exclusive router.
         """
         name = data_utils.rand_name('router-')
-        router = self.client.create_router(
-            name, external_gateway_info={
+        router = self.routers_client.create_router(
+            name=name, external_gateway_info={
                 "network_id": CONF.network.public_network_id},
             admin_state_up=False, router_type='exclusive')
         self.addCleanup(self._delete_router, router['router']['id'])
@@ -83,15 +83,15 @@ class ExcRouterTest(base.BaseRouterTest):
         Test update an exclusive router
         """
         name = data_utils.rand_name('router-')
-        router = self.client.create_router(
-            name, external_gateway_info={
+        router = self.routers_client.create_router(
+            name=name, external_gateway_info={
                 "network_id": CONF.network.public_network_id},
             admin_state_up=False, router_type='exclusive')
         self.addCleanup(self._delete_router, router['router']['id'])
         self.assertEqual(router['router']['name'], name)
         updated_name = 'updated' + name
-        update_body = self.client.update_router(router['router']['id'],
-                                                name=updated_name)
+        update_body = self.routers_client.update_router(
+            router['router']['id'], name=updated_name)
         self.assertEqual(update_body['router']['name'], updated_name)
 
     @test.attr(type='nsxv')
@@ -101,18 +101,18 @@ class ExcRouterTest(base.BaseRouterTest):
         Test list and show exclusive router.
         """
         name = data_utils.rand_name('router-')
-        router = self.client.create_router(
-            name, external_gateway_info={
+        router = self.routers_client.create_router(
+            name=name, external_gateway_info={
                 "network_id": CONF.network.public_network_id},
             admin_state_up=False, router_type='exclusive')
         self.addCleanup(self._delete_router, router['router']['id'])
         self.assertEqual(router['router']['name'], name)
         # Show details of exclusive router
-        show_body = self.client.show_router(router['router']['id'])
+        show_body = self.routers_client.show_router(router['router']['id'])
         self.assertEqual(show_body['router']['name'], name)
         self.assertEqual(show_body['router']['admin_state_up'], False)
         # List routers and verify if created router in list
-        list_body = self.client.list_routers()
+        list_body = self.routers_client.list_routers()
         routers_list = [r['id'] for r in list_body['routers']]
         self.assertIn(router['router']['id'], routers_list)
 
@@ -123,20 +123,20 @@ class ExcRouterTest(base.BaseRouterTest):
         Test create, update, and delete an exclusive router
         """
         name = data_utils.rand_name('router-')
-        router = self.client.create_router(
-            name, external_gateway_info={
+        router = self.routers_client.create_router(
+            name=name, external_gateway_info={
                 "network_id": CONF.network.public_network_id},
             admin_state_up=False, router_type='exclusive')
         self.assertEqual(router['router']['name'], name)
         # Update the name of the exclusive router
         updated_name = 'updated' + name
-        update_body = self.client.update_router(router['router']['id'],
-                                                name=updated_name)
+        update_body = self.routers_client.update_router(
+            router['router']['id'], name=updated_name)
         self.assertEqual(update_body['router']['name'], updated_name)
         # Delete the exclusive router and verify it has been deleted
         # from nsxv backend
-        self.client.delete_router(router['router']['id'])
-        list_body = self.client.list_routers()
+        self.routers_client.delete_router(router['router']['id'])
+        list_body = self.routers_client.list_routers()
         routers_list = [r['id'] for r in list_body['routers']]
         self.assertNotIn(router['router']['id'], routers_list)
         nsxv_edge_name = "%s-%s" % (name, router['router']['id'])
@@ -167,21 +167,21 @@ class ExcRouterTest(base.BaseRouterTest):
                                                  del_waitfor=10.0,
                                                  del_interval=1.5):
         name = data_utils.rand_name('rtr-%s' % router_size)
-        router = self.client.create_router(
-            name, external_gateway_info={
+        router = self.routers_client.create_router(
+            name=name, external_gateway_info={
                 "network_id": CONF.network.public_network_id},
             admin_state_up=False, router_type='exclusive',
             router_size=router_size)
         self.assertEqual(router['router']['name'], name)
         # Update the name of the exclusive router
         updated_name = 'updated' + name
-        update_body = self.client.update_router(router['router']['id'],
-                                                name=updated_name)
+        update_body = self.routers_client.update_router(
+            router['router']['id'], name=updated_name)
         self.assertEqual(update_body['router']['name'], updated_name)
         # Delete the exclusive router and verify it has been deleted
         # from nsxv backend
-        self.client.delete_router(router['router']['id'])
-        list_body = self.client.list_routers()
+        self.routers_client.delete_router(router['router']['id'])
+        list_body = self.routers_client.list_routers()
         routers_list = [r['id'] for r in list_body['routers']]
         self.assertNotIn(router['router']['id'], routers_list)
         nsxv_edge_name = "%s-%s" % (name, router['router']['id'])
