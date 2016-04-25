@@ -2352,6 +2352,8 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
             plugin=plugin, ext_mgr=ext_mgr, service_plugins=service_plugins)
         self.plugin_instance.nsx_v.is_subnet_in_use = mock.Mock()
         self.plugin_instance.nsx_v.is_subnet_in_use.return_value = False
+        self._default_tenant_id = self._tenant_id
+        self._router_tenant_id = 'test-router-tenant'
 
     def _create_router(self, fmt, tenant_id, name=None,
                        admin_state_up=None, set_context=False,
@@ -2412,15 +2414,17 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
         self._test_create_l3_ext_network()
 
     def _test_router_create_with_gwinfo_and_l3_ext_net(self, vlan_id=None,
-                                                       validate_ext_gw=False):
+                                                       validate_ext_gw=False,
+                                                       router_ctx=None):
+        tenant_id = self._router_tenant_id if router_ctx else self._tenant_id
         with self._create_l3_ext_network(vlan_id) as net:
             with self.subnet(network=net, enable_dhcp=False) as s:
-                data = {'router': {'tenant_id': 'whatever'}}
+                data = {'router': {'tenant_id': tenant_id}}
                 data['router']['name'] = 'router1'
                 data['router']['external_gateway_info'] = {
                     'network_id': s['subnet']['network_id']}
-                router_req = self.new_create_request('routers', data,
-                                                     self.fmt)
+                router_req = self.new_create_request(
+                    'routers', data, self.fmt, context=router_ctx)
                 res = router_req.get_response(self.ext_api)
                 router = self.deserialize(self.fmt, res)
                 self.assertEqual(
@@ -2435,6 +2439,13 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
 
     def test_router_create_with_gwinfo_and_l3_ext_net_with_vlan(self):
         self._test_router_create_with_gwinfo_and_l3_ext_net(444)
+
+    def test_router_create_with_gwinfo_and_l3_ext_net_with_non_admin(self):
+        ctx = context.Context(user_id=None,
+                              tenant_id=self._router_tenant_id,
+                              is_admin=False,
+                              read_deleted="no")
+        self._test_router_create_with_gwinfo_and_l3_ext_net(router_ctx=ctx)
 
     def test_router_create_with_different_sizes(self):
         data = {'router': {
@@ -2472,9 +2483,15 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
 
     def _test_router_update_gateway_on_l3_ext_net(self, vlan_id=None,
                                                   validate_ext_gw=False,
-                                                  distributed=False):
+                                                  distributed=False,
+                                                  router_ctx=None):
+        if router_ctx:
+            self._tenant_id = self._router_tenant_id
         with self.router(
-            arg_list=('distributed',), distributed=distributed) as r:
+            arg_list=('distributed',), distributed=distributed,
+            set_context=True,
+            tenant_id=self._tenant_id) as r:
+            self._tenant_id = self._default_tenant_id
             with self.subnet() as s1:
                 with self._create_l3_ext_network(vlan_id) as net:
                     with self.subnet(network=net, enable_dhcp=False) as s2:
@@ -2482,7 +2499,8 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                         try:
                             self._add_external_gateway_to_router(
                                 r['router']['id'],
-                                s1['subnet']['network_id'])
+                                s1['subnet']['network_id'],
+                                neutron_context=router_ctx)
                             body = self._show('routers', r['router']['id'])
                             net_id = (body['router']
                                       ['external_gateway_info']['network_id'])
@@ -2492,7 +2510,8 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                             self._set_net_external(s2['subnet']['network_id'])
                             self._add_external_gateway_to_router(
                                 r['router']['id'],
-                                s2['subnet']['network_id'])
+                                s2['subnet']['network_id'],
+                                neutron_context=router_ctx)
                             body = self._show('routers', r['router']['id'])
                             net_id = (body['router']
                                       ['external_gateway_info']['network_id'])
@@ -2508,6 +2527,13 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
 
     def test_router_update_gateway_on_l3_ext_net(self):
         self._test_router_update_gateway_on_l3_ext_net()
+
+    def test_router_update_gateway_on_l3_ext_net_with_non_admin(self):
+        ctx = context.Context(user_id=None,
+                              tenant_id=self._router_tenant_id,
+                              is_admin=False,
+                              read_deleted="no")
+        self._test_router_update_gateway_on_l3_ext_net(router_ctx=ctx)
 
     def test_router_update_gateway_on_l3_ext_net_with_vlan(self):
         self._test_router_update_gateway_on_l3_ext_net(444)

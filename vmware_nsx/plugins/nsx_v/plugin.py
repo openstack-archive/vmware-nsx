@@ -34,6 +34,7 @@ from neutron.api.v2 import attributes as attr
 from neutron.callbacks import events
 from neutron.callbacks import registry
 from neutron.callbacks import resources
+from neutron.common import ipv6_utils
 from neutron.common import rpc as n_rpc
 from neutron import context as n_context
 from neutron.db import agents_db
@@ -1799,7 +1800,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     allow_metadata=(allow_metadata and
                                     self.metadata_proxy_handler))
             if gw_info != attr.ATTR_NOT_SPECIFIED and gw_info is not None:
-                router_driver._update_router_gw_info(
+                self._update_router_gw_info(
                     context, lrouter['id'], gw_info)
         except Exception:
             with excutils.save_and_reraise_exception():
@@ -1913,9 +1914,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         nexthop = None
 
         if gw_port:
-            # gw_port may have multiple IPs, only configure the first one
+            # TODO(berlin): we can only support gw port with one fixed ip at
+            # present.
             if gw_port.get('fixed_ips'):
                 ipaddress = gw_port['fixed_ips'][0]['ip_address']
+                subnet_id = gw_port['fixed_ips'][0]['subnet_id']
+                subnet = self.get_subnet(context.elevated(), subnet_id)
+                nexthop = subnet['gateway_ip']
 
             network_id = gw_port.get('network_id')
             if network_id:
@@ -1925,9 +1930,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                              "network") % network_id)
                     raise n_exc.BadRequest(resource='router', msg=msg)
                 if ext_net.subnets:
-                    ext_subnet = ext_net.subnets[0]
-                    netmask = str(netaddr.IPNetwork(ext_subnet.cidr).netmask)
-                    nexthop = ext_subnet.gateway_ip
+                    netmask = set([str(ext_subnet.cidr)
+                                   for ext_subnet in ext_net.subnets])
 
         return (ipaddress, netmask, nexthop)
 
@@ -1973,6 +1977,42 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         router_driver = self._find_router_driver(context, router_id)
         if info:
             try:
+                ext_ips = info.get('external_fixed_ips')
+                network_id = info.get('network_id')
+                router_db = self._get_router(context, router_id)
+
+                # for multiple external subnets support, we need to set gw
+                # port first on subnet which has gateway. If can't get one
+                # subnet with gateway or allocate one available ip from
+                # subnet, we would just enter normal logic and admin should
+                # exactly know what he did.
+                if (not ext_ips and network_id and
+                    (not router_db.gw_port or
+                     not router_db.gw_port.get('fixed_ips'))):
+                    net_id_filter = {'network_id': [network_id]}
+                    subnets = self.get_subnets(context, filters=net_id_filter)
+                    fixed_subnet = True
+                    if len(subnets) <= 1:
+                        fixed_subnet = False
+                    else:
+                        for subnet in subnets:
+                            if ipv6_utils.is_auto_address_subnet(subnet):
+                                fixed_subnet = False
+                    if fixed_subnet:
+                        for subnet in subnets:
+                            if not subnet['gateway_ip']:
+                                continue
+                            try:
+                                info['external_fixed_ips'] = [{
+                                    'subnet_id': subnet['id']}]
+                                return router_driver._update_router_gw_info(
+                                    context, router_id, info,
+                                    is_routes_update=is_routes_update)
+                            except n_exc.IpAddressGenerationFailure:
+                                del info['external_fixed_ips']
+                                pass
+                        LOG.warning(_LW("Cannot get one subnet with gateway "
+                                        "to allocate one available gw ip"))
                 router_driver._update_router_gw_info(
                     context, router_id, info,
                     is_routes_update=is_routes_update,
