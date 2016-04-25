@@ -130,6 +130,8 @@ class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
                     service['icmpType'] = rule['icmp_type']
                 else:
                     service['icmpType'] = 'any'
+        if rule.get('ruleId'):
+            vcns_rule['ruleId'] = rule.get('ruleId')
         if service:
             vcns_rule['application'] = {
                 'service': [service]

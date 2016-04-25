@@ -2225,7 +2225,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 'enabled': vsm_rule['enabled'],
                 'destination_ip_address': vsm_rule['destination']['ipAddress'],
                 'name': vsm_rule['name'],
-                'ruleTag': vsm_rule['ruleTag']
+                'ruleId': vsm_rule['ruleId']
             }
             fake_fw_rules.append(lb_fw_rule)
 
