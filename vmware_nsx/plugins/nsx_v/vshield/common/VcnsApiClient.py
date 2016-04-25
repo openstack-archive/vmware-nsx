@@ -14,13 +14,11 @@
 
 import base64
 
-import eventlet
 from oslo_serialization import jsonutils
+import requests
 import six
 
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
-
-httplib2 = eventlet.import_patched('httplib2')
 
 
 def _xmldump(obj):
@@ -90,36 +88,45 @@ class VcnsApiHelper(object):
             self.encode = jsonutils.dumps
         else:
             self.encode = xmldumps
-        self.ca_file = ca_file
-        self.insecure = insecure
+
+        if insecure:
+            self.verify_cert = False
+        else:
+            if ca_file:
+                self.verify_cert = ca_file
+            else:
+                self.verify_cert = True
 
     def request(self, method, uri, params=None, headers=None,
                 encodeparams=True):
         uri = self.address + uri
-        http = httplib2.Http()
-        if self.ca_file is not None:
-            http.ca_certs = self.ca_file
-            http.disable_ssl_certificate_validation = False
-        else:
-            http.disable_ssl_certificate_validation = self.insecure
         if headers is None:
             headers = {}
 
+        headers['Accept'] = 'application/' + self.format
+        headers['Authorization'] = 'Basic ' + self.authToken.strip()
         headers['Content-Type'] = 'application/' + self.format
-        headers['Accept'] = 'application/' + self.format,
-        headers['Authorization'] = 'Basic ' + self.authToken
 
-        if encodeparams is True:
-            body = self.encode(params) if params else None
+        if params:
+            if encodeparams is True:
+                data = self.encode(params)
+            else:
+                data = params
         else:
-            body = params if params else None
-        header, response = http.request(uri, method,
-                                        body=body, headers=headers)
-        status = int(header['status'])
+            data = None
+
+        response = requests.request(method,
+                                    uri,
+                                    verify=self.verify_cert,
+                                    data=data,
+                                    headers=headers)
+
+        status = response.status_code
         if 200 <= status < 300:
-            return header, response
+            return response.headers, response.text
         if status in self.errors:
             cls = self.errors[status]
         else:
             cls = exceptions.VcnsApiException
-        raise cls(uri=uri, status=status, header=header, response=response)
+        raise cls(uri=uri, status=status,
+                  header=response.headers, response=response.text)
