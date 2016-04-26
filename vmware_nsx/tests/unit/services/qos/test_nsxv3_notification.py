@@ -27,6 +27,7 @@ from neutron.tests.unit.services.qos import base
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.nsxlib import v3 as nsxlib
+from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
 from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
 
 
@@ -145,6 +146,42 @@ class TestQosNsxV3Notification(nsxlib_testcase.NsxClientTestCase,
                 # validate the data on the profile
                 rule_dict = self.rule_data['bandwidth_limit_rule']
                 expected_bw = rule_dict['max_kbps'] / 1024
+                expected_burst = rule_dict['max_burst_kbps'] * 128
+                update_profile.assert_called_once_with(
+                    self.fake_profile_id,
+                    average_bandwidth=expected_bw,
+                    burst_size=expected_burst,
+                    peak_bandwidth=expected_bw,
+                    shaping_enabled=True
+                )
+
+    @mock.patch.object(policy_object.QosPolicy, 'reload_rules')
+    def test_bw_rule_create_profile_minimal_val(self, *mocks):
+        # test the switch profile update when a QoS rule is created
+        # with an invalid limit value
+        bad_limit = qos_utils.MAX_KBPS_MIN_VALUE - 1
+        rule_data = {
+            'bandwidth_limit_rule': {'id': uuidutils.generate_uuid(),
+                                     'max_kbps': bad_limit,
+                                     'max_burst_kbps': 150}}
+
+        rule = rule_object.QosBandwidthLimitRule(
+            self.ctxt, **rule_data['bandwidth_limit_rule'])
+
+        _policy = policy_object.QosPolicy(
+            self.ctxt, **self.policy_data['policy'])
+        # add a rule to the policy
+        setattr(_policy, "rules", [rule])
+        with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
+            return_value=_policy):
+            with mock.patch.object(nsxlib,
+                'update_qos_switching_profile_shaping') as update_profile:
+                self.qos_plugin.update_policy_bandwidth_limit_rule(
+                    self.ctxt, rule.id, _policy.id, rule_data)
+
+                # validate the data on the profile
+                rule_dict = rule_data['bandwidth_limit_rule']
+                expected_bw = qos_utils.MAX_KBPS_MIN_VALUE / 1024
                 expected_burst = rule_dict['max_burst_kbps'] * 128
                 update_profile.assert_called_once_with(
                     self.fake_profile_id,

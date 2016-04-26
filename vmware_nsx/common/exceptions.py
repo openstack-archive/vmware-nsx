@@ -175,8 +175,3 @@ class NsxResourceNotFound(n_exc.NotFound):
 
 class NsxQosPolicyMappingNotFound(n_exc.NotFound):
     message = _('Unable to find mapping for QoS policy: %(policy)s')
-
-
-class NsxQosSmallBw(n_exc.InvalidInput):
-    message = _("Invalid input for max_kbps. Reason: The minimal legal value "
-                "for max_kbps is 1024")

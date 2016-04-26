@@ -20,7 +20,7 @@ from neutron import context as n_context
 from neutron.objects.qos import policy as qos_policy
 from oslo_log import log as logging
 
-from vmware_nsx._i18n import _
+from vmware_nsx._i18n import _, _LW
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
@@ -130,7 +130,11 @@ class QosNotificationsHandler(object):
         # validate the max_kbps - it must be at least 1Mbps for the
         # switch profile configuration to succeed.
         if (bw_rule.max_kbps < MAX_KBPS_MIN_VALUE):
-            raise nsx_exc.NsxQosSmallBw()
+            # Since failing the action from the notification callback is not
+            # possible, just log the warning and use the minimal value
+            LOG.warning(_LW("Invalid input for max_kbps. "
+                            "The minimal legal value is 1024"))
+            bw_rule.max_kbps = MAX_KBPS_MIN_VALUE
 
         # 'None' value means we will keep the old value
         burst_size = peak_bandwidth = average_bandwidth = None
