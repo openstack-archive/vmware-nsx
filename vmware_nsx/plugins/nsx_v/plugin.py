@@ -93,6 +93,8 @@ from vmware_nsx.plugins.nsx_v import managers
 from vmware_nsx.plugins.nsx_v import md_proxy as nsx_v_md_proxy
 from vmware_nsx.plugins.nsx_v.vshield.common import (
     constants as vcns_const)
+from vmware_nsx.plugins.nsx_v.vshield.common import (
+    exceptions as vsh_exc)
 from vmware_nsx.plugins.nsx_v.vshield import edge_firewall_driver
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 from vmware_nsx.plugins.nsx_v.vshield import securitygroup_utils
@@ -1951,9 +1953,31 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         edge_utils.update_routes(self.nsx_v, context, router_id,
                                  routes, nexthop)
 
-    def _update_router_gw_info(self, context, router_id, info):
+    def _update_router_gw_info(self, context, router_id, info,
+                               is_routes_update=False,
+                               force_update=False):
         router_driver = self._find_router_driver(context, router_id)
-        router_driver._update_router_gw_info(context, router_id, info)
+        if info:
+            try:
+                router_driver._update_router_gw_info(
+                    context, router_id, info,
+                    is_routes_update=is_routes_update,
+                    force_update=force_update)
+            except vsh_exc.VcnsApiException:
+                with excutils.save_and_reraise_exception():
+                    LOG.error(_LE("Failed to update gw_info %(info)s on "
+                                  "router %(router_id)s"),
+                              {'info': str(info),
+                               'router_id': router_id})
+                    router_driver._update_router_gw_info(
+                        context, router_id, {},
+                        is_routes_update=is_routes_update,
+                        force_update=force_update)
+        else:
+            router_driver._update_router_gw_info(
+                context, router_id, info,
+                is_routes_update=is_routes_update,
+                force_update=force_update)
 
     def _get_internal_network_ids_by_router(self, context, router_id):
         ports_qry = context.session.query(models_v2.Port)
@@ -2082,8 +2106,17 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def add_router_interface(self, context, router_id, interface_info):
         router_driver = self._find_router_driver(context, router_id)
-        return router_driver.add_router_interface(
-            context, router_id, interface_info)
+        try:
+            return router_driver.add_router_interface(
+                context, router_id, interface_info)
+        except vsh_exc.VcnsApiException:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("Failed to add interface_info %(info)s on "
+                              "router %(router_id)s"),
+                          {'info': str(interface_info),
+                           'router_id': router_id})
+                router_driver.remove_router_interface(
+                    context, router_id, interface_info)
 
     def remove_router_interface(self, context, router_id, interface_info):
         router_driver = self._find_router_driver(context, router_id)
