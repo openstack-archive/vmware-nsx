@@ -104,8 +104,8 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         super(nsx_v.NsxVPluginV2, self.plugin).update_router(
             context, router_id, router)
         if gw_info != attr.ATTR_NOT_SPECIFIED:
-            self._update_router_gw_info(context, router_id, gw_info,
-                                        is_routes_update)
+            self.plugin._update_router_gw_info(context, router_id, gw_info,
+                                               is_routes_update)
         elif is_routes_update:
             # here is used to handle routes which tenant updates.
             router_db = self.plugin._get_router(context, router_id)
@@ -142,7 +142,8 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                                        metadata_gateway=metadata_gateway)
 
     def _update_router_gw_info(self, context, router_id, info,
-                               is_routes_update=False):
+                               is_routes_update=False,
+                               force_update=False):
         router = self.plugin._get_router(context, router_id)
         org_ext_net_id = router.gw_port_id and router.gw_port.network_id
         org_enable_snat = router.enable_snat
