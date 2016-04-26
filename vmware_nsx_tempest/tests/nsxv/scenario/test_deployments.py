@@ -76,7 +76,7 @@ class TestSimpleFlatNetwork(dmgr.TopoDeployScenarioManager):
         return net_subnet
 
     def check_server_connected(self, serv):
-        serv_net = serv['addresses'].keys()[0]
+        serv_net = list(serv['addresses'].keys())[0]
         serv_addr = serv['addresses'][serv_net][0]
         host_ip = serv_addr['addr']
         # host_mac = serv_addr['OS-EXT-IPS-MAC:mac_addr']
