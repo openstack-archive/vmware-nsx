@@ -17,6 +17,7 @@
 from neutron.api.rpc.callbacks import events as callbacks_events
 from neutron import context as n_context
 from neutron.objects.qos import policy as qos_policy
+from neutron.services.qos import qos_consts
 from neutron_lib.api import validators
 from oslo_log import log as logging
 
@@ -58,16 +59,18 @@ def handle_qos_notification(policy_obj, event_type):
 
     elif (event_type == callbacks_events.UPDATED):
         if (hasattr(policy_obj, "rules")):
-            # With rules - the policy rule was created / deleted / updated
-            rules = policy_obj["rules"]
-            if not len(rules):
-                # the rule was deleted
-                handler.delete_policy_bandwidth_limit_rule(
-                    context, policy_obj.id)
-            else:
-                # New or updated rule
-                handler.create_or_update_policy_bandwidth_limit_rule(
-                    context, policy_obj.id, rules[0])
+            # Rebuild the QoS data of this policy
+            # we may have up to 1 rule of each type
+            bw_rule = None
+            dscp_rule = None
+            for rule in policy_obj["rules"]:
+                if rule.rule_type == qos_consts.RULE_TYPE_BANDWIDTH_LIMIT:
+                    bw_rule = rule
+                else:
+                    dscp_rule = rule
+
+            handler.update_policy_rules(
+                context, policy_obj.id, bw_rule, dscp_rule)
         else:
             # Without rules - need to update only name / description
             handler.update_policy(context, policy_obj.id, policy)
@@ -127,48 +130,67 @@ class QosNotificationsHandler(object):
         values expected by the NSX-v3 QoS switch profile,
         and validate that those are legal
         """
-        # validate the max_kbps - it must be at least 1Mbps for the
-        # switch profile configuration to succeed.
-        if (bw_rule.max_kbps < MAX_KBPS_MIN_VALUE):
-            # Since failing the action from the notification callback is not
-            # possible, just log the warning and use the minimal value
-            LOG.warning(_LW("Invalid input for max_kbps. "
-                            "The minimal legal value is 1024"))
-            bw_rule.max_kbps = MAX_KBPS_MIN_VALUE
+        if bw_rule:
+            shaping_enabled = True
 
-        # 'None' value means we will keep the old value
-        burst_size = peak_bandwidth = average_bandwidth = None
+            # validate the max_kbps - it must be at least 1Mbps for the
+            # switch profile configuration to succeed.
+            if (bw_rule.max_kbps < MAX_KBPS_MIN_VALUE):
+                # Since failing the action from the notification callback
+                # is not possible, just log the warning and use the
+                # minimal value.
+                LOG.warning(_LW("Invalid input for max_kbps. "
+                                "The minimal legal value is 1024"))
+                bw_rule.max_kbps = MAX_KBPS_MIN_VALUE
 
-        # translate kbps -> bytes
-        burst_size = int(bw_rule.max_burst_kbps) * 128
+            # 'None' value means we will keep the old value
+            burst_size = peak_bandwidth = average_bandwidth = None
 
-        # translate kbps -> Mbps
-        peak_bandwidth = int(float(bw_rule.max_kbps) / 1024)
-        # neutron QoS does not support this parameter
-        average_bandwidth = peak_bandwidth
+            # translate kbps -> bytes
+            burst_size = int(bw_rule.max_burst_kbps) * 128
 
-        return burst_size, peak_bandwidth, average_bandwidth
+            # translate kbps -> Mbps
+            peak_bandwidth = int(float(bw_rule.max_kbps) / 1024)
+            # neutron QoS does not support this parameter
+            average_bandwidth = peak_bandwidth
+        else:
+            shaping_enabled = False
+            burst_size = None
+            peak_bandwidth = None
+            average_bandwidth = None
 
-    def create_or_update_policy_bandwidth_limit_rule(self, context, policy_id,
-                                                     bw_rule):
-        """Update the QoS switch profile with the BW limitations of a
-        new or updated bandwidth limit rule
+        return shaping_enabled, burst_size, peak_bandwidth, average_bandwidth
+
+    def _get_dscp_values_from_rule(self, dscp_rule):
+        """Translate the neutron DSCP marking rule values, into the
+        values expected by the NSX-v3 QoS switch profile
+        """
+        if dscp_rule:
+            qos_marking = 'untrusted'
+            dscp = dscp_rule.dscp_mark
+        else:
+            qos_marking = 'trusted'
+            dscp = 0
+
+        return qos_marking, dscp
+
+    def update_policy_rules(self, context, policy_id, bw_rule, dscp_rule):
+        """Update the QoS switch profile with the BW limitations and
+        DSCP marking configuration
         """
         profile_id = nsx_db.get_switch_profile_by_qos_policy(
             context.session, policy_id)
 
-        burst_size, peak_bw, average_bw = self._get_bw_values_from_rule(
-            bw_rule)
+        (shaping_enabled, burst_size, peak_bw,
+            average_bw) = self._get_bw_values_from_rule(bw_rule)
+
+        qos_marking, dscp = self._get_dscp_values_from_rule(dscp_rule)
 
         nsxlib.update_qos_switching_profile_shaping(
             profile_id,
-            shaping_enabled=True,
+            shaping_enabled=shaping_enabled,
             burst_size=burst_size,
             peak_bandwidth=peak_bw,
-            average_bandwidth=average_bw)
-
-    def delete_policy_bandwidth_limit_rule(self, context, policy_id):
-        profile_id = nsx_db.get_switch_profile_by_qos_policy(
-            context.session, policy_id)
-        nsxlib.update_qos_switching_profile_shaping(
-            profile_id, shaping_enabled=False)
+            average_bandwidth=average_bw,
+            qos_marking=qos_marking,
+            dscp=dscp)

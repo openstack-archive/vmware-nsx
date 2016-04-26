@@ -132,6 +132,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                    "subnet_allocation",
                                    "security-group-logging"]
 
+    supported_qos_rule_types = [qos_consts.RULE_TYPE_BANDWIDTH_LIMIT,
+                                qos_consts.RULE_TYPE_DSCP_MARK]
+
     @resource_registry.tracked_resources(
         network=models_v2.Network,
         port=models_v2.Port,

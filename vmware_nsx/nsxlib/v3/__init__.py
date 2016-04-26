@@ -178,23 +178,14 @@ def update_logical_router_advertisement(logical_router_id, **kwargs):
     return update_resource_with_retry(resource, kwargs)
 
 
-def _build_qos_switching_profile_args(tags, qos_marking=None, dscp=None,
-                                      name=None, description=None):
+def _build_qos_switching_profile_args(tags, name=None, description=None):
     body = {"resource_type": "QosSwitchingProfile",
             "tags": tags}
-
     return _update_qos_switching_profile_args(
-        body, qos_marking=qos_marking, dscp=dscp,
-        name=name, description=description)
+        body, name=name, description=description)
 
 
-def _update_qos_switching_profile_args(body, qos_marking=None, dscp=None,
-                                       name=None, description=None):
-    if qos_marking:
-        body["dscp"] = {}
-        body["dscp"]["mode"] = qos_marking.upper()
-        if dscp:
-            body["dscp"]["priority"] = dscp
+def _update_qos_switching_profile_args(body, name=None, description=None):
     if name:
         body["display_name"] = name
     if description:
@@ -232,28 +223,36 @@ def _disable_shaping_in_args(body):
     return body
 
 
-def create_qos_switching_profile(tags, qos_marking=None, dscp=None, name=None,
+def _update_dscp_in_args(body, qos_marking, dscp):
+    body["dscp"] = {}
+    body["dscp"]["mode"] = qos_marking.upper()
+    if dscp:
+        body["dscp"]["priority"] = dscp
+
+    return body
+
+
+def create_qos_switching_profile(tags, name=None,
                                  description=None):
     resource = 'switching-profiles'
-    body = _build_qos_switching_profile_args(tags, qos_marking, dscp,
-                                             name, description)
+    body = _build_qos_switching_profile_args(tags, name, description)
     return client.create_resource(resource, body)
 
 
-def update_qos_switching_profile(profile_id, tags, qos_marking=None,
-                                 dscp=None, name=None, description=None):
+def update_qos_switching_profile(profile_id, tags, name=None,
+                                 description=None):
     resource = 'switching-profiles/%s' % profile_id
     # get the current configuration
     body = get_qos_switching_profile(profile_id)
     # update the relevant fields
-    body = _update_qos_switching_profile_args(body, qos_marking, dscp,
-                                              name, description)
+    body = _update_qos_switching_profile_args(body, name, description)
     return update_resource_with_retry(resource, body)
 
 
 def update_qos_switching_profile_shaping(profile_id, shaping_enabled=False,
                                          burst_size=None, peak_bandwidth=None,
-                                         average_bandwidth=None):
+                                         average_bandwidth=None,
+                                         qos_marking=None, dscp=None):
     resource = 'switching-profiles/%s' % profile_id
     # get the current configuration
     body = get_qos_switching_profile(profile_id)
@@ -265,6 +264,7 @@ def update_qos_switching_profile_shaping(profile_id, shaping_enabled=False,
                                        average_bandwidth=average_bandwidth)
     else:
         body = _disable_shaping_in_args(body)
+    body = _update_dscp_in_args(body, qos_marking, dscp)
     return update_resource_with_retry(resource, body)
 
 
