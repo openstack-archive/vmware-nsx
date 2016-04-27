@@ -924,6 +924,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             return port['fixed_ips'][0]['ip_address']
 
     def update_port(self, context, id, port):
+        with locking.LockManager.get_lock('port-update-%s' % id):
+            return self._update_port(context, id, port)
+
+    def _update_port(self, context, id, port):
         attrs = port[attr.PORT]
         port_data = port['port']
         original_port = super(NsxVPluginV2, self).get_port(context, id)
