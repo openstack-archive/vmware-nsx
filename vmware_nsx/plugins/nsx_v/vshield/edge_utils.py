@@ -1564,10 +1564,10 @@ class EdgeManager(object):
                 dhcp_binding = nsxv_db.get_edge_dhcp_static_binding(
                     context.session, edge_id, mac_address)
                 if dhcp_binding:
-                        self.nsxv_manager.vcns.delete_dhcp_binding(
-                            edge_id, dhcp_binding.binding_id)
-                        nsxv_db.delete_edge_dhcp_static_binding(
-                            context.session, edge_id, mac_address)
+                    self.nsxv_manager.vcns.delete_dhcp_binding(
+                        edge_id, dhcp_binding.binding_id)
+                    nsxv_db.delete_edge_dhcp_static_binding(
+                        context.session, edge_id, mac_address)
                 else:
                     LOG.warning(_LW("Failed to find dhcp binding on edge "
                                     "%(edge_id)s to DELETE for port "
@@ -1596,28 +1596,24 @@ class EdgeManager(object):
                          'edge_id': edge_id})
                     return
 
+                configured_bindings = []
                 try:
                     for binding in bindings:
-                        self.nsxv_manager.vcns.create_dhcp_binding(
+                        h, c = self.nsxv_manager.vcns.create_dhcp_binding(
                             edge_id, binding)
-                except nsxapi_exc.VcnsApiException:
-                    with excutils.save_and_reraise_exception():
-                        self._mark_router_bindings_status_error(
-                            context, edge_id,
-                            error_reason="create static bindings failure")
-                bindings_get = get_dhcp_binding_mappings(
-                    self.nsxv_manager, edge_id)
-                mac_address_list = [
-                    binding['macAddress'] for binding in bindings]
-                for mac_address in mac_address_list:
-                    binding_id = bindings_get.get(mac_address)
-                    if binding_id:
+                        binding_id = h['location'].split('/')[-1]
                         nsxv_db.create_edge_dhcp_static_binding(
                             context.session, edge_id,
-                            mac_address, binding_id)
-                    else:
-                        LOG.warning(_LW("Unable to configure binding for: %s"),
-                                    mac_address)
+                            binding['macAddress'], binding_id)
+                        configured_bindings.append((binding_id,
+                                                    binding['macAddress']))
+                except nsxapi_exc.VcnsApiException:
+                    with excutils.save_and_reraise_exception():
+                        for binding_id, mac_address in configured_bindings:
+                            self.nsxv_manager.vcns.delete_dhcp_binding(
+                                edge_id, binding_id)
+                            nsxv_db.delete_edge_dhcp_static_binding(
+                                context.session, edge_id, mac_address)
         else:
             LOG.warning(_LW("Failed to create dhcp bindings since dhcp edge "
                             "for net %s not found at the backend"),
