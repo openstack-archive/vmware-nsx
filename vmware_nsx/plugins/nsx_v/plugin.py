@@ -436,20 +436,20 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 if segmentation_id_set:
                     err_msg = _("Segmentation ID cannot be set with VXLAN")
             elif network_type == c_utils.NsxVNetworkTypes.PORTGROUP:
+                external = network.get(ext_net_extn.EXTERNAL)
                 if segmentation_id_set:
                     err_msg = _("Segmentation ID cannot be set with portgroup")
                 physical_net_set = attr.is_attr_set(physical_network)
-                if (physical_net_set
-                    and not self.nsx_v.vcns.validate_network(
-                        physical_network)):
+                if not physical_net_set:
+                    err_msg = _("Physical network must be set!")
+                elif not self.nsx_v.vcns.validate_network(physical_network):
                     err_msg = _("Physical network doesn't exist")
                 # A provider network portgroup will need the network name to
                 # match the portgroup name
-                external = network.get(ext_net_extn.EXTERNAL)
-                if (not attr.is_attr_set(external) or
-                    attr.is_attr_set(external) and not external and
-                    not self.nsx_v.vcns.validate_network_name(
-                        physical_network, network['name'])):
+                elif ((not attr.is_attr_set(external) or
+                       attr.is_attr_set(external) and not external) and
+                      not self.nsx_v.vcns.validate_network_name(
+                          physical_network, network['name'])):
                     err_msg = _("Portgroup name must match network name")
             else:
                 err_msg = (_("%(net_type_param)s %(net_type_value)s not "
