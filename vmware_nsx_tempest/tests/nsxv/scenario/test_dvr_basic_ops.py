@@ -24,7 +24,7 @@ import testtools
 from tempest import config
 from tempest import exceptions
 from tempest.scenario import manager
-from tempest.services.network import resources as net_resources
+from tempest.scenario import network_resources as net_resources
 from tempest import test
 
 CONF = config.CONF
