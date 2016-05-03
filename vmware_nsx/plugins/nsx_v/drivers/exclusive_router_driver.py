@@ -51,8 +51,8 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
         super(nsx_v.NsxVPluginV2, self.plugin).update_router(
             context, router_id, router)
         if gw_info != attr.ATTR_NOT_SPECIFIED:
-            self._update_router_gw_info(context, router_id, gw_info,
-                                        is_routes_update)
+            self.plugin._update_router_gw_info(context, router_id, gw_info,
+                                               is_routes_update)
         elif is_routes_update:
             # here is used to handle routes which tenant updates.
             router_db = self.plugin._get_router(context, router_id)
@@ -117,7 +117,7 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
         gw_info = None
         if (external_net_id):
             gw_info = {'network_id': external_net_id}
-        self._update_router_gw_info(
+        self.plugin._update_router_gw_info(
             context, router_id, gw_info, force_update=True)
 
     def delete_router(self, context, router_id):
