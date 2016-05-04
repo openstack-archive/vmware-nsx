@@ -2108,7 +2108,31 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             else:
                 edge_utils.update_internal_interface(*update_args)
 
+    def _get_interface_info_net_id(self, context, interface_info):
+        is_port, is_sub = self._validate_interface_info(interface_info)
+        if is_port:
+            net_id = self.get_port(
+                context, interface_info['port_id'])['network_id']
+        elif is_sub:
+            net_id = self.get_subnet(
+                context, interface_info['subnet_id'])['network_id']
+        return net_id
+
+    def _is_external_interface_info(self, context, interface_info):
+        net_id = self._get_interface_info_net_id(context, interface_info)
+        network = self.get_network(context, net_id)
+        if (network.get(ext_net_extn.EXTERNAL)):
+            return True
+        return False
+
     def add_router_interface(self, context, router_id, interface_info):
+        # Do not support external subnet/port as a router interface
+        if self._is_external_interface_info(context.elevated(),
+                                            interface_info):
+            msg = (_('cannot add an external subnet/port as a router '
+                     'interface'))
+            raise n_exc.InvalidInput(error_message=msg)
+
         router_driver = self._find_router_driver(context, router_id)
         try:
             return router_driver.add_router_interface(

@@ -3165,6 +3165,20 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                                           s1['subnet']['id'],
                                           None)
 
+    def test_router_add_interface_with_external_net_fail(self):
+        with self.router() as r,\
+                self.network() as n,\
+                self.subnet(network=n) as s:
+            # Set the network as an external net
+            net_id = n['network']['id']
+            self._set_net_external(net_id)
+            err_code = webob.exc.HTTPBadRequest.code
+            self._router_interface_action('add',
+                                          r['router']['id'],
+                                          s['subnet']['id'],
+                                          None,
+                                          err_code)
+
     def test_delete_ext_net_with_disassociated_floating_ips(self):
         with self.network() as net:
             net_id = net['network']['id']
