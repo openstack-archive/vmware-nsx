@@ -202,13 +202,8 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
     def _validate_multiple_subnets_routers(self, context, router_id,
                                            interface_info):
         _nsxv_plugin = self.plugin
-        is_port, is_sub = _nsxv_plugin._validate_interface_info(interface_info)
-        if is_port:
-            net_id = _nsxv_plugin.get_port(
-                context, interface_info['port_id'])['network_id']
-        elif is_sub:
-            net_id = _nsxv_plugin.get_subnet(
-                context, interface_info['subnet_id'])['network_id']
+        net_id = _nsxv_plugin._get_interface_info_net_id(context,
+                                                         interface_info)
 
         port_filters = {'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF],
                         'network_id': [net_id]}
