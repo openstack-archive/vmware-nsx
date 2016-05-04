@@ -567,7 +567,8 @@ class EdgeApplianceDriver(object):
 
     def update_edge(self, router_id, edge_id, name, internal_network,
                     jobdata=None, dist=False, loadbalancer_enable=True,
-                    appliance_size=nsxv_constants.LARGE):
+                    appliance_size=nsxv_constants.LARGE,
+                    set_errors=False):
         """Update edge name."""
         task_name = 'update-%s' % name
         edge_name = name
@@ -605,7 +606,8 @@ class EdgeApplianceDriver(object):
             'router_id': router_id,
             'edge_id': edge_id,
             'request': edge,
-            'jobdata': jobdata
+            'jobdata': jobdata,
+            'set_errors': set_errors
         }
         task = tasks.Task(task_name, router_id,
                           self._update_edge,
