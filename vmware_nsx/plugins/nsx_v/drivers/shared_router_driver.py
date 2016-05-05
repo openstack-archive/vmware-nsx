@@ -65,8 +65,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                     context, router, is_extract=True)
                 super(nsx_v.NsxVPluginV2, self.plugin).update_router(
                     context, router_id, router)
-                self.update_routes(context, router_id, None)
-            # here is used to handle routes which tenant updates.
+
             if gw_info != attr.ATTR_NOT_SPECIFIED:
                 self.plugin._update_router_gw_info(context, router_id, gw_info)
             if 'admin_state_up' in r:
@@ -103,21 +102,41 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
     def delete_router(self, context, router_id):
         pass
 
-    def _update_routes_on_routers(self, context, target_router_id, router_ids):
+    def _get_router_routes(self, context, router_id):
+        return self.plugin._get_extra_routes_by_router_id(
+            context, router_id)
+
+    def _get_router_next_hop(self, context, router_id):
+        router_qry = context.session.query(l3_db.Router)
+        router_db = router_qry.filter_by(id=router_id).one()
+        return self.plugin._get_external_attachment_info(
+            context, router_db)[2]
+
+    def _update_routes_on_routers(self, context, target_router_id, router_ids,
+                                  only_if_target_routes=False):
+        if only_if_target_routes:
+            # First check if the target router has any routes or next hop
+            # If not - it means that nothing changes so we can skip this
+            # backend call
+            target_routes = self._get_router_routes(context, target_router_id)
+            target_next_hop = self._get_router_next_hop(
+                context, target_router_id)
+            if not target_routes and not target_next_hop:
+                LOG.debug("_update_routes_on_routers skipped since router %s "
+                          "has no routes", target_router_id)
+                return
+
         nexthop = None
         all_routes = []
         for router_id in router_ids:
-            routes = self.plugin._get_extra_routes_by_router_id(
-                context, router_id)
+            routes = self._get_router_routes(context, router_id)
             filters = {'device_id': [router_id]}
             ports = self.plugin.get_ports(context.elevated(), filters)
             self.plugin._add_network_info_for_routes(context, routes, ports)
             all_routes.extend(routes)
             if not nexthop:
-                router_qry = context.session.query(l3_db.Router)
-                router_db = router_qry.filter_by(id=router_id).one()
-                router_nexthop = self.plugin._get_external_attachment_info(
-                    context, router_db)[2]
+                router_nexthop = self._get_router_next_hop(context,
+                                                           router_id)
                 if router_nexthop:
                     nexthop = router_nexthop
         # TODO(berlin) do rollback op.
@@ -570,7 +589,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             context, router_id)
         self._update_external_interface_on_routers(
             context, router_id, router_ids)
-        self._update_routes_on_routers(context, router_id, router_ids)
+        self._update_routes_on_routers(context, router_id, router_ids,
+                                       only_if_target_routes=True)
         self._update_nat_rules_on_routers(context, router_id, router_ids)
         self._update_subnets_and_dnat_firewall_on_routers(
             context, router_id, router_ids, allow_external=True)
@@ -581,7 +601,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             context, router_id)
         router_ids.remove(router_id)
         # Refresh firewall, nats, ext_vnic as well as static routes
-        self._update_routes_on_routers(context, router_id, router_ids)
+        self._update_routes_on_routers(context, router_id, router_ids,
+                                       only_if_target_routes=True)
         self._update_subnets_and_dnat_firewall_on_routers(
             context, router_id, router_ids, allow_external=True)
         self._update_nat_rules_on_routers(context, router_id, router_ids)
@@ -648,14 +669,6 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                         self._unbind_router_on_edge(context, router_id)
                         is_migrated = True
                     else:
-                        # Clear gateway info if all routers has no gw conf
-                        if (orgnexthop and
-                            (org_ext_net_id != new_ext_net_id or
-                             len(ext_net_ids) == 0)):
-                            LOG.debug("Delete default gateway %s", orgnexthop)
-                            edge_utils.clear_gateway(self.nsx_v, context,
-                                                     router_id)
-
                         # Update external vnic if addr or mask is changed
                         if orgaddr != newaddr or orgmask != newmask:
                             self._update_external_interface_on_routers(

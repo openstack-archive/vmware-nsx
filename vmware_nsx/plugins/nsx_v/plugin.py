@@ -1798,7 +1798,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     context, lrouter,
                     allow_metadata=(allow_metadata and
                                     self.metadata_proxy_handler))
-            if gw_info != attr.ATTR_NOT_SPECIFIED:
+            if gw_info != attr.ATTR_NOT_SPECIFIED and gw_info is not None:
                 router_driver._update_router_gw_info(
                     context, lrouter['id'], gw_info)
         except Exception:
