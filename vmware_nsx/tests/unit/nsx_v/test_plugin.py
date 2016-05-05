@@ -2978,6 +2978,9 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
 
         # make sure there is an available edge so we will use backend update
         available_edge = {'edge_id': 'edge-11', 'router_id': 'fake_id'}
+        nsxv_db.add_nsxv_router_binding(
+            context.get_admin_context().session, available_edge['router_id'],
+            available_edge['edge_id'], None, plugin_const.ACTIVE)
         with mock.patch.object(p.edge_manager,
                                '_get_available_router_binding',
                                return_value=available_edge):

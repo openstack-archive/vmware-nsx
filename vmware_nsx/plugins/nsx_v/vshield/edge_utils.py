@@ -323,6 +323,9 @@ class EdgeManager(object):
     def _get_available_router_binding(self, context,
                                       appliance_size=nsxv_constants.COMPACT,
                                       edge_type=nsxv_constants.SERVICE_EDGE):
+        # Reload backup router bindings in case of getting
+        # deleted router bindings
+        context.session.expire_all()
         backup_router_bindings = self._get_backup_edge_bindings(
             context, appliance_size=appliance_size, edge_type=edge_type)
         while backup_router_bindings:
@@ -557,7 +560,13 @@ class EdgeManager(object):
             self._clean_all_error_edge_bindings(context)
             available_router_binding = self._get_available_router_binding(
                 context, appliance_size=appliance_size, edge_type=edge_type)
-        # Synchronously deploy an edge if no available edge in pool.
+            if available_router_binding:
+                # Update the status from ACTIVE to PENDING_UPDATE
+                # in case of other threads select the same router binding
+                nsxv_db.update_nsxv_router_binding(
+                    context.session, available_router_binding['router_id'],
+                    status=plugin_const.PENDING_UPDATE)
+        # Synchronously deploy an edge if no avaliable edge in pool.
         if not available_router_binding:
             # store router-edge mapping binding
             nsxv_db.add_nsxv_router_binding(
