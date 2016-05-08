@@ -136,10 +136,15 @@ def build_v3_tags_payload(resource, resource_type, project_name):
     # There may be cases when the plugin creates the port, for example DHCP
     if not project_name:
         project_name = 'NSX Neutron plugin'
+    tenant_id = resource.get('tenant_id', '')
+    # If tenant_id is present in resource and set to None, explicitly set
+    # the tenant_id in tags as ''.
+    if tenant_id is None:
+        tenant_id = ''
     return [{'scope': resource_type,
              'tag': resource.get('id', '')[:MAX_TAG_LEN]},
             {'scope': 'os-project-id',
-             'tag': resource.get('tenant_id', '')[:MAX_TAG_LEN]},
+             'tag': tenant_id[:MAX_TAG_LEN]},
             {'scope': 'os-project-name',
              'tag': project_name[:MAX_TAG_LEN]},
             {'scope': 'os-api-version',

@@ -34,10 +34,18 @@ class NsxL2GatewayPlugin(l2gateway_db.L2GatewayMixin):
     _methods_to_delegate = ["create_l2_gateway", "get_l2_gateway",
                             "delete_l2_gateway", "get_l2_gateways",
                             "update_l2_gateway",
+                            "create_l2_gateway_precommit",
+                            "create_l2_gateway_postcommit",
+                            "delete_l2_gateway_precommit",
+                            "delete_l2_gateway_postcommit",
                             "create_l2_gateway_connection",
+                            "create_l2_gateway_connection_precommit",
+                            "create_l2_gateway_connection_postcommit",
                             "get_l2_gateway_connection",
                             "get_l2_gateway_connections",
                             "update_l2_gateway_connection",
+                            "delete_l2_gateway_connection_precommit",
+                            "delete_l2_gateway_connection_postcommit",
                             "delete_l2_gateway_connection"]
 
     def __init__(self, plugin):
