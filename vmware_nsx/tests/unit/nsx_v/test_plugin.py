@@ -627,6 +627,15 @@ class TestPortsV2(NsxVPluginV2TestCase,
             # for DHCP
             self.assertEqual(8, count)
 
+    def test_create_port_invalid_fixed_ip_address_v6_pd_slaac(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_update_port_invalid_fixed_ip_address_v6_pd_slaac(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_update_port_invalid_subnet_v6_pd_slaac(self):
+        self.skipTest('No DHCP v6 Support yet')
+
     def test_update_port_mac_v6_slaac(self):
         self.skipTest('No DHCP v6 Support yet')
 
@@ -1422,6 +1431,9 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
         super(TestSubnetsV2, self).setUp()
         self.context = context.get_admin_context()
 
+    def _test_subnet_update_ipv4_and_ipv6_pd_subnets(self, ra_addr_mode):
+        self.skipTest('No DHCP v6 Support yet')
+
     def test__subnet_ipv6_not_supported(self):
         with self.network() as network:
             data = {'subnet': {'network_id': network['network']['id'],
@@ -1653,6 +1665,12 @@ class TestSubnetPoolsV2(NsxVPluginV2TestCase, test_plugin.TestSubnetsV2):
               service_plugins=None):
         super(TestSubnetPoolsV2, self).setUp()
         self.context = context.get_admin_context()
+
+    def test_subnet_update_ipv4_and_ipv6_pd_slaac_subnets(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_subnet_update_ipv4_and_ipv6_pd_v6stateless_subnets(self):
+        self.skipTest('No DHCP v6 Support yet')
 
     def test_create_subnet_ipv6_gw_is_nw_end_addr_returns_201(self):
         self.skipTest('No DHCP v6 Support yet')
