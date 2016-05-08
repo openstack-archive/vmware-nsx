@@ -322,3 +322,26 @@ def get_switch_profile_by_qos_policy(session, qos_policy_id):
         return entry.switch_profile_id
     except exc.NoResultFound:
         raise nsx_exc.NsxQosPolicyMappingNotFound(policy=qos_policy_id)
+
+
+# NSXv3 Port Mirror Sessions DB methods.
+def add_port_mirror_session_mapping(session, tf_id, pm_session_id):
+    with session.begin(subtransactions=True):
+        mapping = nsx_models.NsxPortMirrorSessionMapping(
+            tap_flow_id=tf_id,
+            port_mirror_session_id=pm_session_id)
+        session.add(mapping)
+        return mapping
+
+
+def get_port_mirror_session_mapping(session, tf_id):
+    try:
+        return (session.query(nsx_models.NsxPortMirrorSessionMapping).
+                filter_by(tap_flow_id=tf_id).one())
+    except exc.NoResultFound:
+        raise nsx_exc.NsxPortMirrorSessionMappingNotFound(tf=tf_id)
+
+
+def delete_port_mirror_session_mapping(session, tf_id):
+    return (session.query(nsx_models.NsxPortMirrorSessionMapping).
+            filter_by(tap_flow_id=tf_id).delete())

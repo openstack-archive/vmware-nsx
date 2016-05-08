@@ -180,3 +180,11 @@ class NsxQosPolicyMappingNotFound(n_exc.NotFound):
 class NumberOfNsgroupCriteriaTagsReached(NsxPluginException):
     message = _("Port can be associated with at most %(max_num)s "
                 "security-groups.")
+
+
+class NsxTaaSDriverException(NsxPluginException):
+    message = _("Tap-as-a-Service NSX driver exception: %(msg)s.")
+
+
+class NsxPortMirrorSessionMappingNotFound(n_exc.NotFound):
+    message = _("Unable to find mapping for Tap Flow: %(tf)s")

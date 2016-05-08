@@ -359,3 +359,12 @@ class QosPolicySwitchProfile(model_base.BASEV2, models.TimestampMixin):
                               ondelete='CASCADE'),
                               primary_key=True)
     switch_profile_id = sa.Column(sa.String(36), nullable=False)
+
+
+class NsxPortMirrorSessionMapping(model_base.BASEV2):
+    """Define a mapping between Tap Flow and PortMirrorSession object."""
+    __tablename__ = 'nsx_port_mirror_session_mappings'
+    tap_flow_id = sa.Column(sa.String(36),
+                            nullable=False,
+                            primary_key=True)
+    port_mirror_session_id = sa.Column(sa.String(36), nullable=False)
