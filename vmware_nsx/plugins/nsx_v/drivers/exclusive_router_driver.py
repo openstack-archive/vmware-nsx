@@ -121,10 +121,10 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
             context, router_id, gw_info, force_update=True)
 
     def delete_router(self, context, router_id):
-        self.edge_manager.delete_lrouter(context, router_id, dist=False)
         if self.plugin.metadata_proxy_handler:
             self.plugin.metadata_proxy_handler.cleanup_router_edge(
                 router_id)
+        self.edge_manager.delete_lrouter(context, router_id, dist=False)
 
     def update_routes(self, context, router_id, nexthop):
         with locking.LockManager.get_lock(
