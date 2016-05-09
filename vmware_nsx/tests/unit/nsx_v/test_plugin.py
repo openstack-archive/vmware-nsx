@@ -1321,6 +1321,39 @@ class TestPortsV2(NsxVPluginV2TestCase,
                             old_ip,
                             new_ip, "255.255.255.0")
 
+    def test_update_port_update_ip_unatached_router(self):
+        #Test that updating a port IP succeed if the device owner is a router
+        #and the shared router is not attached to any edge yet
+        owner = constants.DEVICE_OWNER_ROUTER_GW
+        router_id = _uuid()
+        old_ip = '10.0.0.3'
+        new_ip = '10.0.0.10'
+        with self.subnet(enable_dhcp=False) as subnet:
+            with self.port(subnet=subnet, device_id=router_id,
+                           device_owner=owner,
+                           fixed_ips=[{'ip_address': old_ip}]) as port:
+                data = {'port': {'fixed_ips': [{'subnet_id':
+                                                subnet['subnet']['id'],
+                                                'ip_address': new_ip}]}}
+                plugin = manager.NeutronManager.get_plugin()
+                ctx = context.get_admin_context()
+                router_obj = router_driver.RouterSharedDriver(plugin)
+                with mock.patch.object(plugin, '_find_router_driver',
+                                       return_value=router_obj):
+                    # make sure the router will not be attached to an edge
+                    with mock.patch.object(
+                        edge_utils, 'get_router_edge_id',
+                        return_value=None):
+                        port_id = port['port']['id']
+                        # The actual test here is that this call does not
+                        # raise an exception
+                        new_port = plugin.update_port(ctx, port_id, data)
+                        ips = new_port['fixed_ips']
+                        self.assertEqual(len(ips), 1)
+                        self.assertEqual(ips[0]['ip_address'], new_ip)
+                        self.assertEqual(ips[0]['subnet_id'],
+                                         subnet['subnet']['id'])
+
     def test_update_port_delete_ip_router(self):
         #Test that deleting a port IP succeed if the device owner is a router
         owner = constants.DEVICE_OWNER_ROUTER_GW
