@@ -1715,6 +1715,16 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         edge_utils.update_routes(self.nsx_v, context, router_id,
                                  routes, nexthop)
 
+    def _update_current_gw_port(self, context, router_id, router, ext_ips):
+        """Override this function in order not to call plugins' update_port
+        since the actual backend work was already done by the router driver,
+        and it may cause a deadlock.
+        """
+        super(NsxVPluginV2, self).update_port(context,
+                                              router.gw_port['id'],
+                                              {'port': {'fixed_ips': ext_ips}})
+        context.session.expire(router.gw_port)
+
     def _update_router_gw_info(self, context, router_id, info,
                                is_routes_update=False,
                                force_update=False):
