@@ -115,7 +115,8 @@ def nsx_list_name_mismatches(resource, event, trigger, **kwargs):
         rtr_binding = nsxv_db.get_nsxv_router_binding_by_edge(
                 edgeapi.context.session, edge['id'])
 
-        if (edge['name'].startswith('backup-')
+        if (rtr_binding and
+            edge['name'].startswith('backup-')
             and rtr_binding['router_id'] != edge['name']):
             plugin_nsx_mismatch.append(
                     {'edge_id': edge['id'],
