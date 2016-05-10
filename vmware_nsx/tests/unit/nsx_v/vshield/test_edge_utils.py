@@ -55,6 +55,7 @@ class EdgeUtilsTestCaseMixin(testlib_api.SqlTestCase):
         get_ver.return_value = '6.1.4'
         self.ctx = context.get_admin_context()
         self.addCleanup(nsxv_manager_p.stop)
+        self.fake_jobdata = {'router_id': 'fake_id', 'context': self.ctx}
 
     def _create_router(self, name='router1'):
         return {'name': name,
@@ -113,10 +114,11 @@ class EdgeDHCPManagerTestCase(EdgeUtilsTestCaseMixin):
                                                        fake_network['id'],
                                                        fake_subnet)
         resource_id = (vcns_const.DHCP_EDGE_PREFIX + fake_network['id'])[:36]
+        jobdata = {'router_id': resource_id, 'context': self.ctx}
         self.nsxv_manager.update_edge.assert_called_once_with(
-            resource_id, 'edge-1', mock.ANY, None,
+            resource_id, 'edge-1', mock.ANY, None, jobdata=jobdata,
             appliance_size=vcns_const.SERVICE_SIZE_MAPPING['dhcp'],
-            dist=False)
+            dist=False, set_errors=True)
 
     def test_get_random_available_edge(self):
         available_edge_ids = ['edge-1', 'edge-2']
@@ -660,6 +662,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
                    nsxv_constants.SERVICE_EDGE + '-edge-' + str(0))
         self.nsxv_manager.update_edge.assert_has_calls(
             [mock.call('fake_id', edge_id, 'fake_name', None,
+                       jobdata=self.fake_jobdata, set_errors=True,
                        appliance_size=nsxv_constants.LARGE, dist=False)])
 
     def test_allocate_compact_edge_appliance_with_default(self):
@@ -677,6 +680,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
                    nsxv_constants.SERVICE_EDGE + '-edge-' + str(0))
         self.nsxv_manager.update_edge.assert_has_calls(
             [mock.call('fake_id', edge_id, 'fake_name', None,
+                       jobdata=self.fake_jobdata, set_errors=True,
                        appliance_size=nsxv_constants.COMPACT, dist=False)])
 
     def test_allocate_large_edge_appliance_with_vdr(self):
@@ -694,6 +698,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
                    nsxv_constants.VDR_EDGE + '-edge-' + str(0))
         self.nsxv_manager.update_edge.assert_has_calls(
             [mock.call('fake_id', edge_id, 'fake_name', None,
+                       jobdata=self.fake_jobdata, set_errors=True,
                        appliance_size=nsxv_constants.LARGE, dist=True)])
 
     def test_free_edge_appliance_with_empty(self):

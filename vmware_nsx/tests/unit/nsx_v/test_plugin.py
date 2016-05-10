@@ -30,6 +30,7 @@ from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as secgrp
 from neutron import manager
 from neutron.objects.qos import policy as qos_pol
+from neutron.plugins.common import constants as plugin_const
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.db.test_allowedaddresspairs_db as test_addr_pair
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
@@ -62,6 +63,8 @@ from vmware_nsx.plugins.nsx_v import md_proxy
 from vmware_nsx.plugins.nsx_v.vshield.common import constants as vcns_const
 from vmware_nsx.plugins.nsx_v.vshield import edge_firewall_driver
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
+from vmware_nsx.plugins.nsx_v.vshield.tasks import (
+    constants as task_constants)
 from vmware_nsx.services.qos.nsx_v import utils as qos_utils
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.extensions import test_vnic_index
@@ -2884,6 +2887,33 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
         super(
             TestExclusiveRouterTestCase,
             self).test_router_add_interface_multiple_ipv6_subnets_same_net()
+
+    def test_create_router_with_update_error(self):
+        p = manager.NeutronManager.get_plugin()
+
+        # make sure there is an available edge so we will use backend update
+        available_edge = {'edge_id': 'edge-11', 'router_id': 'fake_id'}
+        with mock.patch.object(p.edge_manager,
+                               '_get_available_router_binding',
+                               return_value=available_edge):
+            # Mock for update_edge task failure
+            with mock.patch.object(
+                p.nsx_v, '_update_edge',
+                return_value=task_constants.TaskStatus.ERROR):
+                router = {'router': {'admin_state_up': True,
+                          'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
+                          'tenant_id': context.get_admin_context().tenant_id,
+                          'router_type': 'exclusive'}}
+                # router creation should succeed
+                returned_router = p.create_router(context.get_admin_context(),
+                                                  router)
+                # router status should be 'error'
+                self.assertEqual(plugin_const.ERROR, returned_router['status'])
+
+                # check the same after get_router
+                new_router = p.get_router(context.get_admin_context(),
+                                          returned_router['id'])
+                self.assertEqual(plugin_const.ERROR, new_router['status'])
 
 
 class ExtGwModeTestCase(NsxVPluginV2TestCase,
