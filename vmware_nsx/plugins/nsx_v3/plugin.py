@@ -21,7 +21,6 @@ from neutron.api.rpc.callbacks import resources as callbacks_resources
 from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
 from neutron.api.rpc.handlers import resources_rpc
-from neutron.api.v2 import attributes
 from neutron.callbacks import events
 from neutron.callbacks import exceptions as callback_exc
 from neutron.callbacks import registry
@@ -57,6 +56,7 @@ from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils as n_utils
 from neutron.quota import resource_registry
 from neutron.services.qos import qos_consts
+from neutron_lib.api import validators
 from neutron_lib import constants as const
 from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
@@ -369,22 +369,22 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def _validate_provider_create(self, context, network_data):
         is_provider_net = any(
-            attributes.is_attr_set(network_data.get(f))
+            validators.is_attr_set(network_data.get(f))
             for f in (pnet.NETWORK_TYPE,
                       pnet.PHYSICAL_NETWORK,
                       pnet.SEGMENTATION_ID))
 
         physical_net = network_data.get(pnet.PHYSICAL_NETWORK)
-        if not attributes.is_attr_set(physical_net):
+        if not validators.is_attr_set(physical_net):
             physical_net = None
 
         vlan_id = network_data.get(pnet.SEGMENTATION_ID)
-        if not attributes.is_attr_set(vlan_id):
+        if not validators.is_attr_set(vlan_id):
             vlan_id = None
 
         err_msg = None
         net_type = network_data.get(pnet.NETWORK_TYPE)
-        if attributes.is_attr_set(net_type):
+        if validators.is_attr_set(net_type):
             if net_type == utils.NsxV3NetworkTypes.FLAT:
                 if vlan_id is not None:
                     err_msg = (_("Segmentation ID cannot be specified with "
@@ -456,7 +456,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def _validate_external_net_create(self, net_data):
         is_provider_net = False
-        if not attributes.is_attr_set(net_data.get(pnet.PHYSICAL_NETWORK)):
+        if not validators.is_attr_set(net_data.get(pnet.PHYSICAL_NETWORK)):
             tier0_uuid = self._default_tier0_router
         else:
             tier0_uuid = net_data[pnet.PHYSICAL_NETWORK]
@@ -510,7 +510,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def _assert_on_external_net_with_qos(self, net_data):
         # Prevent creating/update external network with QoS policy
-        if attributes.is_attr_set(net_data.get(qos_consts.QOS_POLICY_ID)):
+        if validators.is_attr_set(net_data.get(qos_consts.QOS_POLICY_ID)):
             err_msg = _("Cannot configure QOS on networks")
             raise n_exc.InvalidInput(error_message=err_msg)
 
@@ -521,7 +521,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         tenant_id = net_data['tenant_id']
 
         self._ensure_default_security_group(context, tenant_id)
-        if attributes.is_attr_set(external) and external:
+        if validators.is_attr_set(external) and external:
             self._assert_on_external_net_with_qos(net_data)
             is_provider_net, net_type, physical_net, vlan_id = (
                 self._validate_external_net_create(net_data))
@@ -773,7 +773,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def _get_data_from_binding_profile(self, context, port):
         if (pbin.PROFILE not in port or
-                not attributes.is_attr_set(port[pbin.PROFILE])):
+                not validators.is_attr_set(port[pbin.PROFILE])):
             return None, None
 
         parent_name = (
@@ -879,7 +879,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         # Add QoS switching profile, if exists
         qos_policy_id = None
-        if attributes.is_attr_set(port_data.get(qos_consts.QOS_POLICY_ID)):
+        if validators.is_attr_set(port_data.get(qos_consts.QOS_POLICY_ID)):
             qos_policy_id = port_data[qos_consts.QOS_POLICY_ID]
         elif device_owner.startswith(const.DEVICE_OWNER_COMPUTE_PREFIX):
             # check if the network of this port has a policy
@@ -932,7 +932,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 context, port_data, neutron_db)
         # allowed address pair checks
         address_pairs = port_data.get(addr_pair.ADDRESS_PAIRS)
-        if attributes.is_attr_set(address_pairs):
+        if validators.is_attr_set(address_pairs):
             if not port_security:
                 raise addr_pair.AddressPairAndPortSecurityRequired()
             else:
@@ -972,7 +972,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _assert_on_external_net_port_with_qos(self, port_data):
         # Prevent creating/update port with QoS policy
         # on external networks.
-        if attributes.is_attr_set(port_data.get(qos_consts.QOS_POLICY_ID)):
+        if validators.is_attr_set(port_data.get(qos_consts.QOS_POLICY_ID)):
             err_msg = _("Unable to update/create a port with an external "
                         "network and a QoS policy")
             LOG.warning(err_msg)
@@ -1364,7 +1364,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def _extract_external_gw(self, context, router, is_extract=True):
         r = router['router']
-        gw_info = attributes.ATTR_NOT_SPECIFIED
+        gw_info = const.ATTR_NOT_SPECIFIED
         # First extract the gateway info in case of updating
         # gateway before edge is deployed.
         if 'external_gateway_info' in r:
@@ -1528,7 +1528,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             nsx_db.add_neutron_nsx_router_mapping(
                 context.session, router['id'], result['id'])
 
-        if gw_info != attributes.ATTR_NOT_SPECIFIED:
+        if gw_info != const.ATTR_NOT_SPECIFIED:
             try:
                 self._update_router_gw_info(context, router['id'], gw_info)
             except nsx_exc.ManagerError:
@@ -1578,7 +1578,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def _validate_ext_routes(self, context, router_id, gw_info, new_routes):
         ext_net_id = (gw_info['network_id']
-                      if attributes.is_attr_set(gw_info) and gw_info else None)
+                      if validators.is_attr_set(gw_info) and gw_info else None)
         if not ext_net_id:
             port_filters = {'device_id': [router_id],
                             'device_owner': [l3_db.DEVICE_OWNER_ROUTER_GW]}

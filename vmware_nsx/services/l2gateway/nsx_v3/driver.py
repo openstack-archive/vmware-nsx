@@ -23,7 +23,6 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import uuidutils
 
-from neutron.api.v2 import attributes
 from neutron.callbacks import events
 from neutron.callbacks import registry
 from neutron.callbacks import resources
@@ -31,6 +30,7 @@ from neutron import context
 from neutron.extensions import providernet
 from neutron import manager
 from neutron.plugins.common import utils as n_utils
+from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 
 from vmware_nsx._i18n import _, _LE, _LI
@@ -207,7 +207,7 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         port_dict = {'port': {
                         'tenant_id': tenant_id,
                         'network_id': network_id,
-                        'mac_address': attributes.ATTR_NOT_SPECIFIED,
+                        'mac_address': constants.ATTR_NOT_SPECIFIED,
                         'admin_state_up': True,
                         'fixed_ips': [],
                         'device_id': bridge_endpoint['id'],

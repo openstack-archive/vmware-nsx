@@ -15,6 +15,7 @@
 
 import uuid
 
+from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 from oslo_concurrency import lockutils
@@ -766,17 +767,17 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _validate_provider_create(self, context, network):
         segments = network.get(mpnet.SEGMENTS)
-        if not attr.is_attr_set(segments):
+        if not validators.is_attr_set(segments):
             return
 
         mpnet.check_duplicate_segments(segments)
         for segment in segments:
             network_type = segment.get(pnet.NETWORK_TYPE)
             physical_network = segment.get(pnet.PHYSICAL_NETWORK)
-            physical_network_set = attr.is_attr_set(physical_network)
+            physical_network_set = validators.is_attr_set(physical_network)
             segmentation_id = segment.get(pnet.SEGMENTATION_ID)
-            network_type_set = attr.is_attr_set(network_type)
-            segmentation_id_set = attr.is_attr_set(segmentation_id)
+            network_type_set = validators.is_attr_set(network_type)
+            segmentation_id_set = validators.is_attr_set(segmentation_id)
 
             # If the physical_network_uuid isn't passed in use the default one.
             if not physical_network_set:
@@ -903,10 +904,10 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         Returns: True if request is multiprovider False if provider
         and None if neither.
         """
-        if any(attr.is_attr_set(network.get(f))
+        if any(validators.is_attr_set(network.get(f))
                for f in (pnet.NETWORK_TYPE, pnet.PHYSICAL_NETWORK,
                          pnet.SEGMENTATION_ID)):
-            if attr.is_attr_set(network.get(mpnet.SEGMENTS)):
+            if validators.is_attr_set(network.get(mpnet.SEGMENTS)):
                 raise mpnet.SegmentsSetInConjunctionWithProviders()
             # convert to transport zone list
             network[mpnet.SEGMENTS] = [
@@ -917,7 +918,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             del network[pnet.PHYSICAL_NETWORK]
             del network[pnet.SEGMENTATION_ID]
             return False
-        if attr.is_attr_set(mpnet.SEGMENTS):
+        if validators.is_attr_set(mpnet.SEGMENTS):
             return True
 
     def create_network(self, context, network):
@@ -929,7 +930,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._validate_provider_create(context, net_data)
         # Replace ATTR_NOT_SPECIFIED with None before sending to NSX
         for key, value in six.iteritems(network['network']):
-            if value is attr.ATTR_NOT_SPECIFIED:
+            if value is constants.ATTR_NOT_SPECIFIED:
                 net_data[key] = None
         # FIXME(arosen) implement admin_state_up = False in NSX
         if net_data['admin_state_up'] is False:
@@ -943,8 +944,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # network. This will be removed once the network create operation
         # becomes an asynchronous task
         net_data['id'] = str(uuid.uuid4())
-        if (not attr.is_attr_set(external) or
-            attr.is_attr_set(external) and not external):
+        if (not validators.is_attr_set(external) or
+            validators.is_attr_set(external) and not external):
             lswitch = switchlib.create_lswitch(
                 self.cluster, net_data['id'],
                 tenant_id, net_data.get('name'),
@@ -967,8 +968,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._process_network_queue_mapping(
                     context, new_net, net_queue_id)
             # Add mapping between neutron network and NSX switch
-            if (not attr.is_attr_set(external) or
-                attr.is_attr_set(external) and not external):
+            if (not validators.is_attr_set(external) or
+                validators.is_attr_set(external) and not external):
                 nsx_db.add_neutron_nsx_network_mapping(
                     context.session, new_net['id'],
                     lswitch['uuid'])
@@ -977,7 +978,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 net_bindings = []
                 for tz in net_data[mpnet.SEGMENTS]:
                     segmentation_id = tz.get(pnet.SEGMENTATION_ID, 0)
-                    segmentation_id_set = attr.is_attr_set(segmentation_id)
+                    segmentation_id_set = validators.is_attr_set(
+                        segmentation_id)
                     if not segmentation_id_set:
                         segmentation_id = 0
                     net_bindings.append(nsx_db.add_network_binding(
@@ -1116,7 +1118,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             self._process_port_port_security_create(
                 context, port_data, neutron_db)
             # allowed address pair checks
-            if attr.is_attr_set(port_data.get(addr_pair.ADDRESS_PAIRS)):
+            if validators.is_attr_set(port_data.get(addr_pair.ADDRESS_PAIRS)):
                 if not port_security:
                     raise addr_pair.AddressPairAndPortSecurityRequired()
                 else:
@@ -1389,7 +1391,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             lrouter = routerlib.create_lrouter(
                 self.cluster, router['id'],
                 tenant_id, router['name'], nexthop,
-                distributed=attr.is_attr_set(distributed) and distributed)
+                distributed=(validators.is_attr_set(distributed)
+                             and distributed))
         except nsx_exc.InvalidVersion:
             msg = _("Cannot create a distributed router with the NSX "
                     "platform currently in execution. Please, try "

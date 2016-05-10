@@ -13,15 +13,17 @@
 #    under the License.
 
 from neutron.api import extensions
-from neutron.api.v2 import attributes
+
+from neutron_lib.api import converters
+from neutron_lib import constants
 
 
 MAC_LEARNING = 'mac_learning_enabled'
 EXTENDED_ATTRIBUTES_2_0 = {
     'ports': {
         MAC_LEARNING: {'allow_post': True, 'allow_put': True,
-                       'convert_to': attributes.convert_to_boolean,
-                       'default': attributes.ATTR_NOT_SPECIFIED,
+                       'convert_to': converters.convert_to_boolean,
+                       'default': constants.ATTR_NOT_SPECIFIED,
                        'is_visible': True},
     }
 }

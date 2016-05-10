@@ -21,6 +21,9 @@ from neutron.api import extensions
 from neutron.api.v2 import attributes
 from neutron.api.v2 import resource_helper
 
+from neutron_lib.api import validators
+from neutron_lib import constants
+
 from vmware_nsx._i18n import _
 
 GATEWAY_RESOURCE_NAME = "network_gateway"
@@ -104,12 +107,12 @@ def _validate_device_list(data, valid_values=None):
     try:
         for device in data:
             key_specs = {DEVICE_ID_ATTR:
-                         {'type:regex': attributes.UUID_PATTERN,
+                         {'type:regex': constants.UUID_PATTERN,
                           'required': True},
                          IFACE_NAME_ATTR:
                          {'type:string': None,
                           'required': False}}
-            err_msg = attributes._validate_dict(
+            err_msg = validators.validate_dict(
                 device, key_specs=key_specs)
             if err_msg:
                 return err_msg
@@ -148,8 +151,8 @@ nw_gw_quota_opts = [
 
 cfg.CONF.register_opts(nw_gw_quota_opts, 'QUOTAS')
 
-attributes.validators['type:device_list'] = _validate_device_list
-attributes.validators['type:connector_type'] = _validate_connector_type
+validators.validators['type:device_list'] = _validate_device_list
+validators.validators['type:connector_type'] = _validate_connector_type
 
 
 class Networkgw(extensions.ExtensionDescriptor):

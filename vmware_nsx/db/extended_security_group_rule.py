@@ -16,11 +16,11 @@
 import sqlalchemy as sa
 from sqlalchemy import orm
 
-from neutron.api.v2 import attributes as attr
 from neutron.db import db_base_plugin_v2
 from neutron.db import model_base
 from neutron.db import securitygroups_db
 from neutron.extensions import securitygroup as ext_sg
+from neutron_lib.api import validators
 from neutron_lib import exceptions as nexception
 from vmware_nsx._i18n import _
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix as ext_local_ip
@@ -54,7 +54,7 @@ class NsxExtendedSecurityGroupRuleProperties(model_base.BASEV2):
 class ExtendedSecurityGroupRuleMixin(object):
 
     def _check_local_ip_prefix(self, context, rule):
-        rule_specify_local_ip_prefix = attr.is_attr_set(
+        rule_specify_local_ip_prefix = validators.is_attr_set(
             rule.get(ext_local_ip.LOCAL_IP_PREFIX))
 
         if rule_specify_local_ip_prefix and rule['direction'] != 'ingress':
@@ -68,7 +68,8 @@ class ExtendedSecurityGroupRuleMixin(object):
     def _process_security_group_rule_properties(self, context,
                                                 rule_res, rule_req):
         rule_res[ext_local_ip.LOCAL_IP_PREFIX] = None
-        if not attr.is_attr_set(rule_req.get(ext_local_ip.LOCAL_IP_PREFIX)):
+        if not validators.is_attr_set(
+            rule_req.get(ext_local_ip.LOCAL_IP_PREFIX)):
             return
 
         with context.session.begin(subtransactions=True):

@@ -18,7 +18,6 @@ import hashlib
 import hmac
 
 import netaddr
-from neutron.api.v2 import attributes as attr
 from neutron import context as neutron_context
 from neutron_lib import constants
 from oslo_config import cfg
@@ -129,11 +128,11 @@ class NsxVMetadataProxyHandler:
         subnet_data = {'subnet':
                        {'cidr': cidr,
                         'name': 'inter-edge-subnet',
-                        'gateway_ip': attr.ATTR_NOT_SPECIFIED,
-                        'allocation_pools': attr.ATTR_NOT_SPECIFIED,
+                        'gateway_ip': constants.ATTR_NOT_SPECIFIED,
+                        'allocation_pools': constants.ATTR_NOT_SPECIFIED,
                         'ip_version': 4,
-                        'dns_nameservers': attr.ATTR_NOT_SPECIFIED,
-                        'host_routes': attr.ATTR_NOT_SPECIFIED,
+                        'dns_nameservers': constants.ATTR_NOT_SPECIFIED,
+                        'host_routes': constants.ATTR_NOT_SPECIFIED,
                         'enable_dhcp': False,
                         'network_id': net['id'],
                         'tenant_id': tenant_id}}
@@ -403,8 +402,8 @@ class NsxVMetadataProxyHandler:
                     'admin_state_up': True,
                     'device_id': rtr_id,
                     'device_owner': constants.DEVICE_OWNER_ROUTER_INTF,
-                    'fixed_ips': attr.ATTR_NOT_SPECIFIED,
-                    'mac_address': attr.ATTR_NOT_SPECIFIED,
+                    'fixed_ips': constants.ATTR_NOT_SPECIFIED,
+                    'mac_address': constants.ATTR_NOT_SPECIFIED,
                     'port_security_enabled': False,
                     'tenant_id': None}}
 
@@ -632,8 +631,8 @@ class NsxVMetadataProxyHandler:
                 'admin_state_up': True,
                 'device_id': rtr_id,
                 'device_owner': constants.DEVICE_OWNER_ROUTER_GW,
-                'fixed_ips': attr.ATTR_NOT_SPECIFIED,
-                'mac_address': attr.ATTR_NOT_SPECIFIED,
+                'fixed_ips': constants.ATTR_NOT_SPECIFIED,
+                'mac_address': constants.ATTR_NOT_SPECIFIED,
                 'port_security_enabled': False,
                 'tenant_id': None}}
 

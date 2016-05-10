@@ -13,9 +13,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.api.v2 import attributes as attr
 from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import providernet as pnet
+from neutron_lib.api import validators
+from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 from oslo_log import log
 import six
@@ -281,7 +282,7 @@ def _convert_segments_to_nsx_transport_zones(segments, default_tz_uuid):
     for transport_zone in segments:
         for value in [pnet.NETWORK_TYPE, pnet.PHYSICAL_NETWORK,
                       pnet.SEGMENTATION_ID]:
-            if transport_zone.get(value) == attr.ATTR_NOT_SPECIFIED:
+            if transport_zone.get(value) == constants.ATTR_NOT_SPECIFIED:
                 transport_zone[value] = None
 
         transport_entry = {}
@@ -308,7 +309,7 @@ def convert_to_nsx_transport_zones(
     default_transport_type=None):
 
     # Convert fields from provider request to nsx format
-    if (network and not attr.is_attr_set(
+    if (network and not validators.is_attr_set(
         network.get(mpnet.SEGMENTS))):
         return [{"zone_uuid": default_tz_uuid,
                  "transport_type": default_transport_type}]

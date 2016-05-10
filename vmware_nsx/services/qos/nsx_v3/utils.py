@@ -15,9 +15,9 @@
 #    under the License.
 
 from neutron.api.rpc.callbacks import events as callbacks_events
-from neutron.api.v2 import attributes
 from neutron import context as n_context
 from neutron.objects.qos import policy as qos_policy
+from neutron_lib.api import validators
 from oslo_log import log as logging
 
 from vmware_nsx._i18n import _, _LW
@@ -97,7 +97,7 @@ class QosNotificationsHandler(object):
         result = nsxlib.create_qos_switching_profile(
             tags=tags, name=policy.name,
             description=policy.description)
-        if not result or not attributes.is_attr_set(result.get('id')):
+        if not result or not validators.is_attr_set(result.get('id')):
             msg = _("Unable to create QoS switching profile on the backend")
             raise nsx_exc.NsxPluginException(err_msg=msg)
         profile_id = result['id']

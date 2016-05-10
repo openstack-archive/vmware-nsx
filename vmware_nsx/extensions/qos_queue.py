@@ -21,6 +21,7 @@ from neutron.api.v2 import attributes as attr
 from neutron.api.v2 import base
 from neutron import manager
 
+from neutron_lib.api import converters
 from neutron_lib import exceptions as nexception
 
 from vmware_nsx._i18n import _
@@ -111,7 +112,7 @@ RESOURCE_ATTRIBUTE_MAP = {
         'id': {'allow_post': False, 'allow_put': False,
                'is_visible': True},
         'default': {'allow_post': True, 'allow_put': False,
-                    'convert_to': attr.convert_to_boolean,
+                    'convert_to': converters.convert_to_boolean,
                     'is_visible': True, 'default': False},
         'name': {'allow_post': True, 'allow_put': False,
                  'validate': {'type:string': attr.NAME_MAX_LEN},
@@ -147,7 +148,8 @@ EXTENDED_ATTRIBUTES_2_0 = {
                       'is_visible': False,
                       'default': 1,
                       'enforce_policy': True,
-                      'convert_to': attr.convert_to_positive_float_or_none},
+                      'convert_to':
+                          converters.convert_to_positive_float_or_none},
 
         QUEUE: {'allow_post': False,
                 'allow_put': False,

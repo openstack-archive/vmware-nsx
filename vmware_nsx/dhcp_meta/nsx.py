@@ -21,7 +21,6 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from neutron.api.v2 import attributes as attr
 from neutron.db import db_base_plugin_v2
 from neutron.db import l3_db
 from neutron.extensions import external_net
@@ -131,7 +130,7 @@ class DhcpAgentNotifyAPI(object):
                 "device_owner": const.DEVICE_OWNER_DHCP,
                 "network_id": network_id,
                 "tenant_id": subnet["tenant_id"],
-                "mac_address": attr.ATTR_NOT_SPECIFIED,
+                "mac_address": const.ATTR_NOT_SPECIFIED,
                 "fixed_ips": [{"subnet_id": subnet['id']}]
             }
             try:

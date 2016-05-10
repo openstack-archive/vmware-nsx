@@ -13,7 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.api.v2 import attributes as attr
+from neutron_lib.api import validators
 from neutron_lib import exceptions as exception
 from oslo_log import log
 from oslo_serialization import jsonutils
@@ -43,7 +43,7 @@ def create_lqueue(cluster, queue_data):
     queue_obj = dict(
         (nsx_name, queue_data.get(api_name))
         for api_name, nsx_name in six.iteritems(params)
-        if attr.is_attr_set(queue_data.get(api_name))
+        if validators.is_attr_set(queue_data.get(api_name))
     )
     if 'display_name' in queue_obj:
         queue_obj['display_name'] = utils.check_and_truncate(

@@ -17,8 +17,8 @@ import functools
 import hashlib
 
 import eventlet
-from neutron.api.v2 import attributes
 from neutron import version
+from neutron_lib.api import validators
 from neutron_lib import exceptions
 from oslo_config import cfg
 from oslo_context import context as common_context
@@ -89,7 +89,7 @@ def device_id_to_vm_id(device_id, obfuscate=False):
 
 
 def check_and_truncate(display_name):
-    if (attributes.is_attr_set(display_name) and
+    if (validators.is_attr_set(display_name) and
             len(display_name) > MAX_DISPLAY_NAME_LEN):
         LOG.debug("Specified name:'%s' exceeds maximum length. "
                   "It will be truncated on NSX", display_name)

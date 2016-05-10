@@ -17,6 +17,9 @@ import re
 from neutron.api import extensions
 from neutron.api.v2 import attributes
 
+from neutron_lib.api import validators
+from neutron_lib import constants
+
 from vmware_nsx._i18n import _
 
 DNS_LABEL_MAX_LEN = 63
@@ -51,7 +54,7 @@ def _validate_dns_format(data):
 
 
 def _validate_dns_search_domain(data, max_len=attributes.NAME_MAX_LEN):
-    msg = attributes._validate_string(data, max_len)
+    msg = validators.validate_string(data, max_len)
     if msg:
         return msg
     if not data:
@@ -61,7 +64,7 @@ def _validate_dns_search_domain(data, max_len=attributes.NAME_MAX_LEN):
         return msg
 
 
-attributes.validators['type:dns_search_domain'] = (_validate_dns_search_domain)
+validators.validators['type:dns_search_domain'] = (_validate_dns_search_domain)
 
 
 DNS_SEARCH_DOMAIN = 'dns_search_domain'
@@ -69,7 +72,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
     'subnets': {
         DNS_SEARCH_DOMAIN: {
             'allow_post': True, 'allow_put': True,
-            'default': attributes.ATTR_NOT_SPECIFIED,
+            'default': constants.ATTR_NOT_SPECIFIED,
             'validate': {'type:dns_search_domain': attributes.NAME_MAX_LEN},
             'is_visible': True},
     }

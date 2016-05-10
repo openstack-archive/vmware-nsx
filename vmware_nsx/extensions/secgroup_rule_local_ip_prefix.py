@@ -13,8 +13,9 @@
 #    under the License.
 
 from neutron.api import extensions
-from neutron.api.v2 import attributes as attr
 from neutron.extensions import securitygroup
+
+from neutron_lib import constants
 
 LOCAL_IP_PREFIX = 'local_ip_prefix'
 
@@ -24,7 +25,7 @@ RESOURCE_ATTRIBUTE_MAP = {
             'allow_post': True,
             'allow_put': False,
             'convert_to': securitygroup.convert_ip_prefix_to_cidr,
-            'default': attr.ATTR_NOT_SPECIFIED,
+            'default': constants.ATTR_NOT_SPECIFIED,
             'enforce_policy': True,
             'is_visible': True}
     }

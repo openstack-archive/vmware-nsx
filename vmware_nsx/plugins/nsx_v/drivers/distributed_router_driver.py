@@ -15,9 +15,9 @@
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from neutron.api.v2 import attributes as attr
 from neutron.db import l3_db
 
+from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 
 from vmware_nsx._i18n import _, _LE
@@ -103,7 +103,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                                                    is_extract=True)
         super(nsx_v.NsxVPluginV2, self.plugin).update_router(
             context, router_id, router)
-        if gw_info != attr.ATTR_NOT_SPECIFIED:
+        if gw_info != constants.ATTR_NOT_SPECIFIED:
             self.plugin._update_router_gw_info(context, router_id, gw_info,
                                                is_routes_update)
         elif is_routes_update:

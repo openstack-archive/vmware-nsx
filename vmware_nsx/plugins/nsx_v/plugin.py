@@ -18,6 +18,7 @@ import six
 import uuid
 
 import netaddr
+from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
@@ -252,13 +253,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _decide_router_type(self, context, r):
         router_type = None
-        if attr.is_attr_set(r.get("distributed")) and r.get("distributed"):
+        if (validators.is_attr_set(r.get("distributed")) and
+            r.get("distributed")):
             router_type = "distributed"
-            if attr.is_attr_set(r.get("router_type")):
+            if validators.is_attr_set(r.get("router_type")):
                 err_msg = _('Can not support router_type extension for '
                             'distributed router')
                 raise n_exc.InvalidInput(error_message=err_msg)
-        elif attr.is_attr_set(r.get("router_type")):
+        elif validators.is_attr_set(r.get("router_type")):
             router_type = r.get("router_type")
 
         router_type = self._router_managers.decide_tenant_router_type(
@@ -373,7 +375,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _validate_network_qos(self, network, backend_network):
         err_msg = None
-        if attr.is_attr_set(network.get(qos_consts.QOS_POLICY_ID)):
+        if validators.is_attr_set(network.get(qos_consts.QOS_POLICY_ID)):
             if not backend_network:
                 err_msg = (_("Cannot configure QOS on external networks"))
             if not cfg.CONF.nsxv.use_dvs_features:
@@ -384,16 +386,16 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             raise n_exc.InvalidInput(error_message=err_msg)
 
     def _validate_provider_create(self, context, network):
-        if not attr.is_attr_set(network.get(mpnet.SEGMENTS)):
+        if not validators.is_attr_set(network.get(mpnet.SEGMENTS)):
             return
 
         for segment in network[mpnet.SEGMENTS]:
             network_type = segment.get(pnet.NETWORK_TYPE)
             physical_network = segment.get(pnet.PHYSICAL_NETWORK)
             segmentation_id = segment.get(pnet.SEGMENTATION_ID)
-            network_type_set = attr.is_attr_set(network_type)
-            segmentation_id_set = attr.is_attr_set(segmentation_id)
-            physical_network_set = attr.is_attr_set(physical_network)
+            network_type_set = validators.is_attr_set(network_type)
+            segmentation_id_set = validators.is_attr_set(segmentation_id)
+            physical_network_set = validators.is_attr_set(physical_network)
 
             err_msg = None
             if not network_type_set:
@@ -442,15 +444,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 external = network.get(ext_net_extn.EXTERNAL)
                 if segmentation_id_set:
                     err_msg = _("Segmentation ID cannot be set with portgroup")
-                physical_net_set = attr.is_attr_set(physical_network)
+                physical_net_set = validators.is_attr_set(physical_network)
                 if not physical_net_set:
                     err_msg = _("Physical network must be set!")
                 elif not self.nsx_v.vcns.validate_network(physical_network):
                     err_msg = _("Physical network doesn't exist")
                 # A provider network portgroup will need the network name to
                 # match the portgroup name
-                elif ((not attr.is_attr_set(external) or
-                       attr.is_attr_set(external) and not external) and
+                elif ((not validators.is_attr_set(external) or
+                       validators.is_attr_set(external) and not external) and
                       not self.nsx_v.vcns.validate_network_name(
                           physical_network, network['name'])):
                     err_msg = _("Portgroup name must match network name")
@@ -552,10 +554,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         Returns: True if request is multiprovider False if provider
         and None if neither.
         """
-        if any(attr.is_attr_set(network.get(f))
+        if any(validators.is_attr_set(network.get(f))
                for f in (pnet.NETWORK_TYPE, pnet.PHYSICAL_NETWORK,
                          pnet.SEGMENTATION_ID)):
-            if attr.is_attr_set(network.get(mpnet.SEGMENTS)):
+            if validators.is_attr_set(network.get(mpnet.SEGMENTS)):
                 raise mpnet.SegmentsSetInConjunctionWithProviders()
             # convert to transport zone list
             network[mpnet.SEGMENTS] = [
@@ -566,7 +568,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             del network[pnet.PHYSICAL_NETWORK]
             del network[pnet.SEGMENTATION_ID]
             return False
-        if attr.is_attr_set(network.get(mpnet.SEGMENTS)):
+        if validators.is_attr_set(network.get(mpnet.SEGMENTS)):
             return True
 
     def _delete_backend_network(self, moref):
@@ -621,7 +623,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         dvs-id from nsx.ini file, otherwise convert physical network string
         to a list of unique DVS-IDs.
         """
-        if not attr.is_attr_set(physical_network):
+        if not validators.is_attr_set(physical_network):
             return [self.dvs_id]
         # Return unique DVS-IDs only and ignore duplicates
         return list(set(
@@ -717,8 +719,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         net_data['id'] = str(uuid.uuid4())
 
         external = net_data.get(ext_net_extn.EXTERNAL)
-        backend_network = (not attr.is_attr_set(external) or
-                           attr.is_attr_set(external) and not external)
+        backend_network = (not validators.is_attr_set(external) or
+                           validators.is_attr_set(external) and not external)
         self._validate_network_qos(net_data, backend_network)
 
         if backend_network:
@@ -737,7 +739,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 vdn_scope_id = self.vdn_scope_id
                 if provider_type is not None:
                     segment = net_data[mpnet.SEGMENTS][0]
-                    if attr.is_attr_set(segment.get(pnet.PHYSICAL_NETWORK)):
+                    if validators.is_attr_set(
+                        segment.get(pnet.PHYSICAL_NETWORK)):
                         vdn_scope_id = segment.get(pnet.PHYSICAL_NETWORK)
                         if not (self.nsx_v.vcns.
                                 validate_vdn_scope(vdn_scope_id)):
@@ -802,11 +805,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     for tz in net_data[mpnet.SEGMENTS]:
                         network_type = tz.get(pnet.NETWORK_TYPE)
                         segmentation_id = tz.get(pnet.SEGMENTATION_ID, 0)
-                        segmentation_id_set = attr.is_attr_set(segmentation_id)
+                        segmentation_id_set = validators.is_attr_set(
+                            segmentation_id)
                         if not segmentation_id_set:
                             segmentation_id = 0
                         physical_network = tz.get(pnet.PHYSICAL_NETWORK, '')
-                        physical_net_set = attr.is_attr_set(physical_network)
+                        physical_net_set = validators.is_attr_set(
+                            physical_network)
                         if not physical_net_set:
                             physical_network = self.dvs_id
                         net_bindings.append(nsxv_db.add_network_binding(
@@ -861,7 +866,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         return new_net
 
     def _update_network_qos(self, context, net_data, dvs_net_ids, net_moref):
-        if attr.is_attr_set(net_data.get(qos_consts.QOS_POLICY_ID)):
+        if validators.is_attr_set(net_data.get(qos_consts.QOS_POLICY_ID)):
             # Translate the QoS rule data into Nsx values
             qos_data = qos_utils.NsxVQosRule(
                 context=context,
@@ -1094,7 +1099,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # security group extension checks
             if has_ip:
                 self._ensure_default_security_group_on_port(context, port)
-            elif attr.is_attr_set(port_data.get(ext_sg.SECURITYGROUPS)):
+            elif validators.is_attr_set(port_data.get(ext_sg.SECURITYGROUPS)):
                 raise psec.PortSecurityAndIPRequiredForSecurityGroups()
             port_data[ext_sg.SECURITYGROUPS] = (
                 self._get_security_groups_on_port(context, port))
@@ -1163,7 +1168,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Process update for vnic-index
         vnic_idx = port_data.get(ext_vnic_idx.VNIC_INDEX)
         # Only set the vnic index for a compute VM
-        if attr.is_attr_set(vnic_idx) and is_compute_port:
+        if validators.is_attr_set(vnic_idx) and is_compute_port:
             # Update database only if vnic index was changed
             if original_port.get(ext_vnic_idx.VNIC_INDEX) != vnic_idx:
                 self._set_port_vnic_index_mapping(
@@ -1256,7 +1261,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 new_ip = self._get_port_fixed_ip_addr(ret_port)
                 if ((old_ip is not None or new_ip is not None) and
                     (old_ip != new_ip)):
-                    if attr.is_attr_set(original_port.get('device_id')):
+                    if validators.is_attr_set(original_port.get('device_id')):
                         router_id = original_port['device_id']
                         router_driver = self._find_router_driver(context,
                                                                  router_id)
@@ -1276,7 +1281,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         # Processing compute port update
         vnic_idx = original_port.get(ext_vnic_idx.VNIC_INDEX)
-        if attr.is_attr_set(vnic_idx) and is_compute_port:
+        if validators.is_attr_set(vnic_idx) and is_compute_port:
             vnic_id = self._get_port_vnic_id(vnic_idx, device_id)
             curr_sgids = original_port.get(ext_sg.SECURITYGROUPS)
             if ret_port['device_id'] != device_id:
@@ -1338,7 +1343,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # If this port is attached to a device, remove the corresponding vnic
         # from all NSXv Security-Groups and the spoofguard policy
         port_index = neutron_db_port.get(ext_vnic_idx.VNIC_INDEX)
-        if attr.is_attr_set(port_index):
+        if validators.is_attr_set(port_index):
             vnic_id = self._get_port_vnic_id(port_index,
                                              neutron_db_port['device_id'])
             sgids = neutron_db_port.get(ext_sg.SECURITYGROUPS)
@@ -1410,7 +1415,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # translate the given subnet to a range object
         data = subnet['subnet']
 
-        if data['cidr'] not in (attr.ATTR_NOT_SPECIFIED, None):
+        if data['cidr'] not in (constants.ATTR_NOT_SPECIFIED, None):
             range = netaddr.IPNetwork(data['cidr'])
 
             # Check each reserved subnet for intersection
@@ -1446,9 +1451,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                     orig_enable_dhcp=None,
                                     orig_host_routes=None):
         s = subnet_input['subnet']
-        request_host_routes = (attr.is_attr_set(s.get('host_routes')) and
+        request_host_routes = (validators.is_attr_set(s.get('host_routes')) and
                                s['host_routes'])
-        clear_host_routes = (attr.is_attr_set(s.get('host_routes')) and
+        clear_host_routes = (validators.is_attr_set(s.get('host_routes')) and
                              not s['host_routes'])
         request_enable_dhcp = s.get('enable_dhcp')
         if request_enable_dhcp is False:
@@ -1484,7 +1489,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 raise n_exc.InvalidInput(error_message=err_msg)
             data = subnet['subnet']
             if (data.get('ip_version') == 6 or
-                (data['cidr'] not in (attr.ATTR_NOT_SPECIFIED, None)
+                (data['cidr'] not in (constants.ATTR_NOT_SPECIFIED, None)
                  and netaddr.IPNetwork(data['cidr']).version == 6)):
                 err_msg = _("No support for DHCP for IPv6")
                 raise n_exc.InvalidInput(error_message=err_msg)
@@ -1511,7 +1516,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Verify if dns search domain for subnet is configured
         dns_search_domain = subnet_req.get(
             ext_dns_search_domain.DNS_SEARCH_DOMAIN)
-        if not attr.is_attr_set(dns_search_domain):
+        if not validators.is_attr_set(dns_search_domain):
             return
         sub_binding = nsxv_db.get_nsxv_subnet_ext_attributes(
             session=session,
@@ -1592,7 +1597,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                              'fixed_ips': [{'subnet_id': subnet['id']}],
                              'device_owner': constants.DEVICE_OWNER_DHCP,
                              'device_id': '',
-                             'mac_address': attr.ATTR_NOT_SPECIFIED
+                             'mac_address': constants.ATTR_NOT_SPECIFIED
                              }
                 self.create_port(context, {'port': port_dict})
             # First time binding network with dhcp edge
@@ -1671,7 +1676,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                      'fixed_ips': [{'subnet_id': subnet['id']}],
                      'device_owner': constants.DEVICE_OWNER_DHCP,
                      'device_id': '',
-                     'mac_address': attr.ATTR_NOT_SPECIFIED
+                     'mac_address': constants.ATTR_NOT_SPECIFIED
                      }
         self.create_port(context, {'port': port_dict})
 
@@ -1751,7 +1756,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _extract_external_gw(self, context, router, is_extract=True):
         r = router['router']
-        gw_info = attr.ATTR_NOT_SPECIFIED
+        gw_info = constants.ATTR_NOT_SPECIFIED
         # First extract the gateway info in case of updating
         # gateway before edge is deployed.
         if 'external_gateway_info' in r:
@@ -1773,7 +1778,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # for an exclusive non-distributed router; else raise a BadRequest
         # exception.
         r = router['router']
-        if attr.is_attr_set(r.get(ROUTER_SIZE)):
+        if validators.is_attr_set(r.get(ROUTER_SIZE)):
             if r.get('router_type') == nsxv_constants.SHARED:
                 msg = _("Cannot specify router-size for shared router")
                 raise n_exc.BadRequest(resource="router", msg=msg)
@@ -1809,7 +1814,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     context, lrouter,
                     allow_metadata=(allow_metadata and
                                     self.metadata_proxy_handler))
-            if gw_info != attr.ATTR_NOT_SPECIFIED and gw_info is not None:
+            if gw_info != constants.ATTR_NOT_SPECIFIED and gw_info is not None:
                 self._update_router_gw_info(
                     context, lrouter['id'], gw_info)
         except Exception:
@@ -1827,7 +1832,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if len(routes) > 0:
                 raise n_exc.InvalidInput(error_message=err_msg)
             # verify that the updated router does not have static routes
-            if (attr.is_attr_set(router.get("routes")) and
+            if (validators.is_attr_set(router.get("routes")) and
                 len(router['routes']) > 0):
                 raise n_exc.InvalidInput(error_message=err_msg)
 

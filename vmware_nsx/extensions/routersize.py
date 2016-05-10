@@ -13,7 +13,7 @@
 #    under the License.
 
 from neutron.api import extensions
-from neutron.api.v2 import attributes
+from neutron_lib import constants
 
 
 ROUTER_SIZE = 'router_size'
@@ -22,7 +22,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
     'routers': {
         ROUTER_SIZE: {'allow_post': True, 'allow_put': False,
                       'validate': {'type:values': VALID_EDGE_SIZES},
-                      'default': attributes.ATTR_NOT_SPECIFIED,
+                      'default': constants.ATTR_NOT_SPECIFIED,
                       'is_visible': True},
     }
 }

@@ -21,7 +21,6 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
-from neutron.api.v2 import attributes
 from neutron.db import db_base_plugin_v2
 from neutron.db import models_v2
 
@@ -194,7 +193,7 @@ def _create_metadata_access_network(plugin, context, router_id):
                        'cidr': METADATA_SUBNET_CIDR,
                        'enable_dhcp': True,
                        # Ensure default allocation pool is generated
-                       'allocation_pools': attributes.ATTR_NOT_SPECIFIED,
+                       'allocation_pools': const.ATTR_NOT_SPECIFIED,
                        'gateway_ip': METADATA_GATEWAY_IP,
                        'dns_nameservers': [],
                        'host_routes': []}

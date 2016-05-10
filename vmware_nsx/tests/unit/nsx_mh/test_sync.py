@@ -24,7 +24,6 @@ from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
 
-from neutron.api.v2 import attributes as attr
 from neutron import context
 from neutron.extensions import l3
 from neutron.tests import base
@@ -320,11 +319,11 @@ class SyncTestCase(testlib_api.SqlTestCase):
             return {'subnet':
                     {'cidr': '10.10.%s.0/24' % idx,
                      'name': 'sub-%s' % idx,
-                     'gateway_ip': attr.ATTR_NOT_SPECIFIED,
-                     'allocation_pools': attr.ATTR_NOT_SPECIFIED,
+                     'gateway_ip': constants.ATTR_NOT_SPECIFIED,
+                     'allocation_pools': constants.ATTR_NOT_SPECIFIED,
                      'ip_version': 4,
-                     'dns_nameservers': attr.ATTR_NOT_SPECIFIED,
-                     'host_routes': attr.ATTR_NOT_SPECIFIED,
+                     'dns_nameservers': constants.ATTR_NOT_SPECIFIED,
+                     'host_routes': constants.ATTR_NOT_SPECIFIED,
                      'enable_dhcp': True,
                      'network_id': net_id,
                      'tenant_id': 'foo'}}
@@ -335,8 +334,8 @@ class SyncTestCase(testlib_api.SqlTestCase):
                              'admin_state_up': True,
                              'device_id': 'miao',
                              'device_owner': 'bau',
-                             'fixed_ips': attr.ATTR_NOT_SPECIFIED,
-                             'mac_address': attr.ATTR_NOT_SPECIFIED,
+                             'fixed_ips': constants.ATTR_NOT_SPECIFIED,
+                             'mac_address': constants.ATTR_NOT_SPECIFIED,
                              'tenant_id': 'foo'}}
 
         def router(idx):

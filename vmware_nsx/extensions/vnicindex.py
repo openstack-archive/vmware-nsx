@@ -13,7 +13,7 @@
 #    under the License.
 
 from neutron.api import extensions
-from neutron.api.v2 import attributes
+from neutron_lib.api import converters
 
 # Attribute Map
 VNIC_INDEX = 'vnic_index'
@@ -26,7 +26,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
          'allow_put': True,
          'is_visible': True,
          'default': None,
-         'convert_to': attributes.convert_to_int_if_not_none}}}
+         'convert_to': converters.convert_to_int_if_not_none}}}
 
 
 class Vnicindex(extensions.ExtensionDescriptor):

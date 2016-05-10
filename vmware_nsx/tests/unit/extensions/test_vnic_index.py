@@ -17,11 +17,11 @@ from oslo_config import cfg
 from oslo_db import exception as d_exc
 from oslo_utils import uuidutils
 
-from neutron.api.v2 import attributes as attr
 from neutron import context as neutron_context
 from neutron.db import db_base_plugin_v2
 from neutron import manager
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_db_plugin
+from neutron_lib.api import validators
 from vmware_nsx.db import vnic_index_db
 from vmware_nsx.extensions import vnicindex as vnicidx
 from vmware_nsx.tests import unit as vmware
@@ -43,7 +43,7 @@ class VnicIndexTestPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         current_port = super(VnicIndexTestPlugin, self).get_port(context, id)
         vnic_idx = p.get(vnicidx.VNIC_INDEX)
         device_id = current_port['device_id']
-        if attr.is_attr_set(vnic_idx) and device_id != '':
+        if validators.is_attr_set(vnic_idx) and device_id != '':
             self._set_port_vnic_index_mapping(
                 context, id, device_id, vnic_idx)
 
@@ -52,7 +52,7 @@ class VnicIndexTestPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             ret_port = super(VnicIndexTestPlugin, self).update_port(
                 context, id, port)
             vnic_idx = current_port.get(vnicidx.VNIC_INDEX)
-            if (attr.is_attr_set(vnic_idx) and
+            if (validators.is_attr_set(vnic_idx) and
                 device_id != ret_port['device_id']):
                 self._delete_port_vnic_index_mapping(
                     context, id)
@@ -61,7 +61,7 @@ class VnicIndexTestPlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def delete_port(self, context, id):
         port_db = self.get_port(context, id)
         vnic_idx = port_db.get(vnicidx.VNIC_INDEX)
-        if attr.is_attr_set(vnic_idx):
+        if validators.is_attr_set(vnic_idx):
             self._delete_port_vnic_index_mapping(context, id)
         with context.session.begin(subtransactions=True):
             super(VnicIndexTestPlugin, self).delete_port(context, id)

@@ -14,8 +14,8 @@
 
 from sqlalchemy.orm import exc as sa_orm_exc
 
-from neutron.api.v2 import attributes
 from neutron.plugins.common import utils
+from neutron_lib import constants
 from neutron_lib import exceptions
 from oslo_log import log as logging
 from oslo_utils import uuidutils
@@ -305,7 +305,7 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
                     'port':
                     {'tenant_id': tenant_id,
                      'network_id': network_id,
-                     'mac_address': attributes.ATTR_NOT_SPECIFIED,
+                     'mac_address': constants.ATTR_NOT_SPECIFIED,
                      'admin_state_up': True,
                      'fixed_ips': [],
                      'device_id': network_gateway_id,

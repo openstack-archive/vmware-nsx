@@ -39,6 +39,7 @@ import neutron.tests.unit.extensions.test_l3_ext_gw_mode as test_ext_gw_mode
 import neutron.tests.unit.extensions.test_portsecurity as test_psec
 import neutron.tests.unit.extensions.test_securitygroup as ext_sg
 from neutron.tests.unit import testlib_api
+from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
@@ -419,7 +420,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
         p = manager.NeutronManager.get_plugin()
         # If no DVS-ID is provided as part of physical network, return
         # global DVS-ID configured in nsx.ini
-        physical_network = attributes.ATTR_NOT_SPECIFIED
+        physical_network = constants.ATTR_NOT_SPECIFIED
         self.assertEqual(['fake_dvs_id'], p._get_dvs_ids(physical_network))
         # If DVS-IDs are provided as part of physical network as a comma
         # separated string, return them as a list of DVS-IDs.
@@ -458,7 +459,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
         data = {'network': {
                    'name': name,
                    'tenant_id': self._tenant_id,
-                   pnet.SEGMENTATION_ID: attributes.ATTR_NOT_SPECIFIED,
+                   pnet.SEGMENTATION_ID: constants.ATTR_NOT_SPECIFIED,
                    pnet.NETWORK_TYPE: 'vxlan',
                    pnet.PHYSICAL_NETWORK: 'vdnscope-2'}}
         p = manager.NeutronManager.get_plugin()
@@ -1174,7 +1175,7 @@ class TestPortsV2(NsxVPluginV2TestCase,
                     net_id=net_id,
                     cidr='2607:f0d0:1002:51::/124',
                     ip_version=6,
-                    gateway_ip=attributes.ATTR_NOT_SPECIFIED,
+                    gateway_ip=constants.ATTR_NOT_SPECIFIED,
                     enable_dhcp=False)
                 subnet2 = self.deserialize(self.fmt, res)
                 kwargs = {"fixed_ips":
@@ -2823,7 +2824,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
             fw_rules = mock.call_args[0][3]['firewall_rule_list']
             rule_found = False
             for fw_rule in fw_rules:
-                if (attributes.is_attr_set(fw_rule.get("name")) and
+                if (validators.is_attr_set(fw_rule.get("name")) and
                     fw_rule['name'] == rule_name):
                     self.assertEqual(md_srvip, fw_rule)
                     rule_found = True

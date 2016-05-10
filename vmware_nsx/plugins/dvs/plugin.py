@@ -19,7 +19,6 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 
 from neutron.api import extensions as neutron_extensions
-from neutron.api.v2 import attributes as attr
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import db_base_plugin_v2
@@ -38,6 +37,7 @@ from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import constants
 from neutron.plugins.common import utils
 from neutron.quota import resource_registry
+from neutron_lib.api import validators
 from neutron_lib import exceptions as n_exc
 
 import vmware_nsx
@@ -183,7 +183,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
     def _validate_network(self, context, net_data):
         network_type = net_data.get(pnet.NETWORK_TYPE)
         segmentation_id = net_data.get(pnet.SEGMENTATION_ID)
-        segmentation_id_set = attr.is_attr_set(segmentation_id)
+        segmentation_id_set = validators.is_attr_set(segmentation_id)
         if not context.is_admin:
             err_msg = _("Only and admin can create a DVS provider "
                         "network")
@@ -286,7 +286,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             # security group extension checks
             if has_ip:
                 self._ensure_default_security_group_on_port(context, port)
-            elif attr.is_attr_set(port_data.get(ext_sg.SECURITYGROUPS)):
+            elif validators.is_attr_set(port_data.get(ext_sg.SECURITYGROUPS)):
                 raise psec.PortSecurityAndIPRequiredForSecurityGroups()
             port_data[ext_sg.SECURITYGROUPS] = (
                 self._get_security_groups_on_port(context, port))
@@ -297,7 +297,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                                                          port_data)
 
             # allowed address pair checks
-            if attr.is_attr_set(port_data.get(addr_pair.ADDRESS_PAIRS)):
+            if validators.is_attr_set(port_data.get(addr_pair.ADDRESS_PAIRS)):
                 if not port_security:
                     raise addr_pair.AddressPairAndPortSecurityRequired()
                 else:

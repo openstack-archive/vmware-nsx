@@ -15,9 +15,10 @@
 import netaddr
 from oslo_config import cfg
 
-from neutron.api.v2 import attributes as attr
 from neutron.db import l3_db
 from neutron.db import models_v2
+from neutron_lib.api import validators
+from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 from oslo_log import log as logging
 
@@ -47,7 +48,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         pass
 
     def _validate_no_routes(self, router):
-        if (attr.is_attr_set(router.get('routes')) and
+        if (validators.is_attr_set(router.get('routes')) and
             len(router['routes']) > 0):
             msg = _("Cannot configure static routes on a shared router")
             raise n_exc.InvalidInput(error_message=msg)
@@ -66,7 +67,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                 super(nsx_v.NsxVPluginV2, self.plugin).update_router(
                     context, router_id, router)
 
-            if gw_info != attr.ATTR_NOT_SPECIFIED:
+            if gw_info != constants.ATTR_NOT_SPECIFIED:
                 self.plugin._update_router_gw_info(context, router_id, gw_info)
             if 'admin_state_up' in r:
                 # If router was deployed on a different edge then
