@@ -447,15 +447,15 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
     def create_network(self, context, network):
         net_data = network['network']
         external = net_data.get(ext_net_extn.EXTERNAL)
+        tenant_id = net_data['tenant_id']
+
+        self._ensure_default_security_group(context, tenant_id)
         if attributes.is_attr_set(external) and external:
             is_provider_net, net_type, physical_net, vlan_id = (
                 self._validate_external_net_create(net_data))
         else:
             is_provider_net, net_type, physical_net, vlan_id = (
                 self._create_network_at_the_backend(context, net_data))
-        tenant_id = net_data['tenant_id']
-
-        self._ensure_default_security_group(context, tenant_id)
         try:
             with context.session.begin(subtransactions=True):
                 # Create network in Neutron
