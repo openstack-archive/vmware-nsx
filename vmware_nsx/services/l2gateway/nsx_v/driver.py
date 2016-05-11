@@ -21,7 +21,6 @@ from neutron import manager
 from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
 from oslo_log import log as logging
-from oslo_utils import excutils
 from oslo_utils import uuidutils
 
 from vmware_nsx._i18n import _, _LE
@@ -37,6 +36,11 @@ LOG = logging.getLogger(__name__)
 class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
 
     """Class to handle API calls for L2 gateway and NSXv backend."""
+
+    def __init__(self, plugin):
+        super(NsxvL2GatewayDriver, self).__init__()
+        self._plugin = plugin
+
     @property
     def _core_plugin(self):
         return manager.NeutronManager.get_plugin()
@@ -67,6 +71,12 @@ class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
             msg = _("Configured interface not found")
             raise n_exc.InvalidInput(error_message=msg)
 
+    def create_l2_gateway_precommit(self, context, l2_gateway):
+        pass
+
+    def create_l2_gateway_postcommit(self, context, l2_gateway):
+        pass
+
     def create_l2_gateway(self, context, l2_gateway):
         """Create a logical L2 gateway."""
         self._admin_check(context, 'CREATE')
@@ -85,8 +95,13 @@ class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
 
         devices[0]['device_name'] = edge_id
         l2_gateway[self.gateway_resource]['devices'] = devices
-        return super(NsxvL2GatewayDriver, self).create_l2_gateway(context,
-                                                                  l2_gateway)
+        return
+
+    def update_l2_gateway_precommit(self, context, l2_gateway):
+        pass
+
+    def update_l2_gateway_postcommit(self, context, l2_gateway):
+        pass
 
     def _create_l2_gateway_edge(self, context):
         # Create a dedicated DLR
@@ -108,22 +123,16 @@ class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
         devices = self._get_l2_gateway_devices(context, l2gw_id)
         return devices[0]
 
-    def create_l2_gateway_connection(self, context, l2_gateway_connection):
-        """Create a L2 gateway connection."""
-        gw_connection = l2_gateway_connection.get(l2gw_const.
-                                                  CONNECTION_RESOURCE_NAME)
-        l2gw_id = gw_connection.get(l2gw_const.L2GATEWAY_ID)
-        gw_db = self._get_l2_gateway(context, l2gw_id)
-        if gw_db.network_connections:
-            raise nsx_exc.NsxL2GWInUse(gateway_id=l2gw_id)
-        l2gw_connection = super(
-                NsxvL2GatewayDriver, self).create_l2_gateway_connection(
-                    context, l2_gateway_connection)
+    def create_l2_gateway_connection_precommit(self, contex, gw_connection):
+        pass
+
+    def create_l2_gateway_connection_postcommit(self, context, gw_connection):
         network_id = gw_connection.get('network_id')
         virtual_wire = nsx_db.get_nsx_switch_ids(context.session, network_id)
 
         # In NSX-v, there will be only one device configured per L2 gateway.
         # The name of the device shall carry the backend DLR.
+        l2gw_id = gw_connection.get(l2gw_const.L2GATEWAY_ID)
         device = self._get_device(context, l2gw_id)
         device_name = device.get('device_name')
         device_id = device.get('id')
@@ -138,12 +147,29 @@ class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
         try:
             self._nsxv.create_bridge(device_name, bridge_dict)
         except exceptions.VcnsApiException:
-            with excutils.save_and_reraise_exception():
-                super(NsxvL2GatewayDriver, self).delete_l2_gateway_connection(
-                    context, l2gw_connection['id'])
-                LOG.exception(_LE("Failed to update NSX, "
-                                  "rolling back changes on neutron"))
-        return l2gw_connection
+            LOG.exception(_LE("Failed to update NSX, "
+                              "rolling back changes on neutron."))
+            raise l2gw_exc.L2GatewayServiceDriverError(
+                method='create_l2_gateway_connection_postcommit')
+        return
+
+    def create_l2_gateway_connection(self, context, l2_gateway_connection):
+        """Create a L2 gateway connection."""
+        gw_connection = l2_gateway_connection.get(l2gw_const.
+                                                  CONNECTION_RESOURCE_NAME)
+        l2gw_id = gw_connection.get(l2gw_const.L2GATEWAY_ID)
+        gw_db = self._get_l2_gateway(context, l2gw_id)
+        if gw_db.network_connections:
+            raise nsx_exc.NsxL2GWInUse(gateway_id=l2gw_id)
+        return
+
+    def delete_l2_gateway_connection_precommit(self, context,
+                                               l2_gateway_connection):
+        pass
+
+    def delete_l2_gateway_connection_postcommit(self, context,
+                                                l2_gateway_connection):
+        pass
 
     def delete_l2_gateway_connection(self, context, l2_gateway_connection):
         """Delete a L2 gateway connection."""
@@ -157,18 +183,20 @@ class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
         device = self._get_device(context, l2gw_id)
         device_name = device.get('device_name')
         self._nsxv.delete_bridge(device_name)
-        return super(NsxvL2GatewayDriver,
-                     self).delete_l2_gateway_connection(context,
-                                                        l2_gateway_connection)
 
     def delete_l2_gateway(self, context, l2_gateway):
         """Delete a L2 gateway."""
         self._admin_check(context, 'DELETE')
         device = self._get_device(context, l2_gateway)
-        super(NsxvL2GatewayDriver, self).delete_l2_gateway(context, l2_gateway)
         edge_id = device.get('device_name')
         rtr_binding = nsxv_db.get_nsxv_router_binding_by_edge(
                         context.session, edge_id)
         if rtr_binding:
             self._edge_manager.delete_lrouter(context,
                                               rtr_binding['router_id'])
+
+    def delete_l2_gateway_precommit(self, context, l2_gateway):
+        pass
+
+    def delete_l2_gateway_postcommit(self, context, l2_gateway):
+        pass
