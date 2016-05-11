@@ -59,16 +59,6 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         LOG.debug("Initialization complete for NSXv3 driver for "
                   "L2 gateway service plugin.")
 
-    @staticmethod
-    def get_plugin_type():
-        """Get type of the plugin."""
-        return l2gw_const.L2GW
-
-    @staticmethod
-    def get_plugin_description():
-        """Get description of the plugin."""
-        return l2gw_const.L2_GATEWAY_SERVICE_PLUGIN
-
     @property
     def _core_plugin(self):
         return manager.NeutronManager.get_plugin()
@@ -161,6 +151,12 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         pass
 
     def create_l2_gateway_postcommit(self, context, l2_gateway):
+        pass
+
+    def update_l2_gateway_precommit(self, context, l2_gateway):
+        pass
+
+    def update_l2_gateway_postcommit(self, context, l2_gateway):
         pass
 
     def delete_l2_gateway(self, context, l2_gateway_id):

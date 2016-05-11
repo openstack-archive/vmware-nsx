@@ -29,7 +29,7 @@ class TestL2gatewayDriver(base.BaseTestCase):
     def setUp(self):
         super(TestL2gatewayDriver, self).setUp()
         self.context = context.get_admin_context()
-        self.plugin = nsx_v_driver.NsxvL2GatewayDriver()
+        self.plugin = nsx_v_driver.NsxvL2GatewayDriver(mock.MagicMock())
 
     def test_validate_device_with_multi_devices(self):
         fake_l2gw_dict = {"l2_gateway":
@@ -109,12 +109,9 @@ class TestL2gatewayDriver(base.BaseTestCase):
                 'nsx_v.driver.NsxvL2GatewayDriver._validate_interface_list')
     @mock.patch('vmware_nsx.services.l2gateway.'
                 'nsx_v.driver.NsxvL2GatewayDriver._create_l2_gateway_edge')
-    @mock.patch('networking_l2gw.db.l2gateway.l2gateway_db.'
-                'L2GatewayMixin.create_l2_gateway')
     @mock.patch('vmware_nsx.services.l2gateway.'
                 'nsx_v.driver.NsxvL2GatewayDriver._edge_manager')
-    def test_create_l2_gateway(self, edge_manager, create_l2gw,
-                               _create_l2gw_edge,
+    def test_create_l2_gateway(self, edge_manager, _create_l2gw_edge,
                                val_inter, val_dev, _admin_check):
         fake_l2gw_dict = {"l2_gateway":
                           {"tenant_id": "fake_teannt_id",
@@ -130,19 +127,16 @@ class TestL2gatewayDriver(base.BaseTestCase):
         _admin_check.assert_called_with(self.context, 'CREATE')
         val_dev.assert_called_with(fake_devices)
         val_inter.assert_called_with(fake_interfaces)
-        create_l2gw.assert_called_with(self.context, fake_l2gw_dict)
 
     @mock.patch('networking_l2gw.db.l2gateway.l2gateway_db.'
                 'L2GatewayMixin._admin_check')
     @mock.patch('networking_l2gw.db.l2gateway.l2gateway_db.'
                 'L2GatewayMixin.get_l2_gateway_connection')
-    @mock.patch('networking_l2gw.db.l2gateway.l2gateway_db.'
-                'L2GatewayMixin.delete_l2_gateway_connection')
     @mock.patch('vmware_nsx.services.l2gateway.'
                 'nsx_v.driver.NsxvL2GatewayDriver._get_device')
     @mock.patch('vmware_nsx.services.l2gateway.'
                 'nsx_v.driver.NsxvL2GatewayDriver._nsxv')
-    def test_delete_l2_gateway_connection(self, nsxv, get_devices, del_conn,
+    def test_delete_l2_gateway_connection(self, nsxv, get_devices,
                                           get_conn, admin_check):
         fake_conn_dict = {'l2_gateway_id': 'fake_l2gw_id'}
         fake_device_dict = {'id': 'fake_dev_id',
@@ -154,7 +148,6 @@ class TestL2gatewayDriver(base.BaseTestCase):
         get_conn.assert_called_with(self.context, fake_conn_dict)
         get_devices.assert_called_with(self.context, 'fake_l2gw_id')
         self.plugin._nsxv().del_bridge.asert_called_with('fake_dev_name')
-        del_conn.assert_called_with(self.context, fake_conn_dict)
 
     @mock.patch('networking_l2gw.db.l2gateway.l2gateway_db.'
                 'L2GatewayMixin._admin_check')
@@ -162,11 +155,9 @@ class TestL2gatewayDriver(base.BaseTestCase):
                 'nsx_v.driver.NsxvL2GatewayDriver._get_device')
     @mock.patch('vmware_nsx.db.'
                 'nsxv_db.get_nsxv_router_binding_by_edge')
-    @mock.patch('networking_l2gw.db.l2gateway.l2gateway_db.'
-                'L2GatewayMixin.delete_l2_gateway')
     @mock.patch('vmware_nsx.services.l2gateway.'
                 'nsx_v.driver.NsxvL2GatewayDriver._edge_manager')
-    def test_delete_l2_gateway(self, edge_manager, del_l2gw, get_nsxv_router,
+    def test_delete_l2_gateway(self, edge_manager, get_nsxv_router,
                                get_devices, admin_check):
         fake_device_dict = {"id": "fake_dev_id",
                             "device_name": "fake_edge_name",
@@ -177,6 +168,5 @@ class TestL2gatewayDriver(base.BaseTestCase):
         self.plugin.delete_l2_gateway(self.context, 'fake_l2gw_id')
         admin_check.assert_called_with(self.context, 'DELETE')
         get_devices.assert_called_with(self.context, 'fake_l2gw_id')
-        del_l2gw.assert_called_with(self.context, 'fake_l2gw_id')
         get_nsxv_router.assert_called_with(self.context.session,
                                            "fake_edge_name")
