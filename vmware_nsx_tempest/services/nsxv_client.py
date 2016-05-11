@@ -211,7 +211,7 @@ class VSMClient(object):
             if response.status_code == 200:
                 LOG.debug('Successfully deleted logical switch %s' % name)
             else:
-                LOG.debug('ERROR @delete ls=%s failed with reponse code %s' %
+                LOG.debug('ERROR @delete ls=%s failed with response code %s' %
                           (name, response.status_code))
 
     def get_all_edges(self):
