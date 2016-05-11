@@ -603,7 +603,6 @@ class EdgeManager(object):
         backup_num = len(backup_router_bindings)
         # collect the edge to pool if pool not full
         if backup_num < edge_pool_range['maximum_pooled_edges']:
-            LOG.debug("Collect edge: %s to pool", binding['edge_id'])
             nsxv_db.delete_nsxv_router_binding(
                 context.session, router_id)
             backup_router_id = (vcns_const.BACKUP_ROUTER_PREFIX +
@@ -613,7 +612,7 @@ class EdgeManager(object):
                 backup_router_id,
                 binding['edge_id'],
                 None,
-                plugin_const.ACTIVE,
+                plugin_const.PENDING_UPDATE,
                 appliance_size=binding['appliance_size'],
                 edge_type=binding['edge_type'])
             # change edge's name at backend
@@ -628,6 +627,12 @@ class EdgeManager(object):
                     context.session, binding['edge_id'])
                 nsxv_db.init_edge_vnic_binding(
                     context.session, binding['edge_id'])
+
+            if task.status == task_const.TaskStatus.COMPLETED:
+                nsxv_db.update_nsxv_router_binding(
+                    context.session, backup_router_id,
+                    status=plugin_const.ACTIVE)
+                LOG.debug("Collect edge: %s to pool", binding['edge_id'])
         else:
             nsxv_db.update_nsxv_router_binding(
                 context.session, router_id,
