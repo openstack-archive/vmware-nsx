@@ -518,6 +518,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         net_data = network['network']
         external = net_data.get(ext_net_extn.EXTERNAL)
         is_backend_network = False
+        tenant_id = net_data['tenant_id']
+
+        self._ensure_default_security_group(context, tenant_id)
         if attributes.is_attr_set(external) and external:
             self._assert_on_external_net_with_qos(net_data)
             is_provider_net, net_type, physical_net, vlan_id = (
@@ -526,9 +529,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             is_provider_net, net_type, physical_net, vlan_id, nsx_net_id = (
                 self._create_network_at_the_backend(context, net_data))
             is_backend_network = True
-        tenant_id = net_data['tenant_id']
-
-        self._ensure_default_security_group(context, tenant_id)
         try:
             with context.session.begin(subtransactions=True):
                 # Create network in Neutron
