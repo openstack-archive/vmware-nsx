@@ -151,7 +151,8 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
 
     def create_server_on_network(self, networks, security_groups=None,
                                  name=None, image=None, wait_on_boot=True,
-                                 flavor=None, servers_client=None):
+                                 flavor=None, servers_client=None,
+                                 key_name=None):
         name = name or data_utils.rand_name('topo-deploy-vm')
         if security_groups is None:
             security_groups = [{'name': 'default'}]
@@ -163,6 +164,8 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
             'networks': network_ifs,
             'security_groups': security_groups,
         }
+        if key_name:
+            create_kwargs['key_name'] = key_name
         LOG.debug("TopoDeploy Create server name=%(name)s"
                   ", create_kwargs=%(create_kwargs)s",
                   {'name': name, 'create_kwargs': str(create_kwargs)})
