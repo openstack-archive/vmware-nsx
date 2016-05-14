@@ -542,10 +542,10 @@ class EdgeManager(object):
                        'name': name})
             edge_id = available_router_binding['edge_id']
             with locking.LockManager.get_lock(str(edge_id)):
-                fake_jobdata = {
+                jobdata = {
                     'context': context,
                     'router_id': lrouter['id']}
-                fake_userdata = {'jobdata': fake_jobdata,
+                fake_userdata = {'jobdata': jobdata,
                                  'router_name': lrouter['name'],
                                  'edge_id': edge_id,
                                  'dist': dist}
@@ -558,7 +558,8 @@ class EdgeManager(object):
                 # change edge's name at backend
                 task = self.nsxv_manager.update_edge(
                     resource_id, available_router_binding['edge_id'],
-                    name, None, appliance_size=appliance_size, dist=dist)
+                    name, None, appliance_size=appliance_size, dist=dist,
+                    jobdata=jobdata, set_errors=True)
                 task.wait(task_const.TaskState.RESULT)
 
         backup_num = len(self._get_backup_edge_bindings(
@@ -2037,7 +2038,34 @@ class NsxVCallbacks(object):
                     context.session, edge_id)
 
     def edge_update_result(self, task):
-        LOG.debug("edge_update_result %d", task.status)
+        router_id = task.userdata.get('router_id')
+        edge_id = task.userdata.get('edge_id')
+        if task.status == task_const.TaskStatus.COMPLETED:
+            LOG.debug("Successfully updated %(edge_id)s for router "
+                      "%(router_id)s",
+                      {'edge_id': edge_id,
+                       'router_id': router_id})
+        else:
+            LOG.error(_LE("Failed to update %(edge_id)s for router "
+                          "%(router_id)s"),
+                      {'edge_id': edge_id,
+                       'router_id': router_id})
+            admin_ctx = q_context.get_admin_context()
+            if nsxv_db.get_nsxv_router_binding(admin_ctx.session, router_id):
+                nsxv_db.update_nsxv_router_binding(
+                    admin_ctx.session, router_id,
+                    status=plugin_const.ERROR)
+            if (task.userdata.get('set_errors') and
+                'jobdata' in task.userdata and
+                'context' in task.userdata['jobdata']):
+                # Set the router status to ERROR
+                try:
+                    context = task.userdata['jobdata']['context']
+                    router_db = self.plugin._get_router(context, router_id)
+                    router_db['status'] = plugin_const.ERROR
+                except l3.RouterNotFound:
+                    # Router might have been deleted before deploy finished
+                    LOG.warning(_LW("Router %s not found"), router_id)
 
     def edge_delete_result(self, task):
         jobdata = task.userdata['jobdata']
