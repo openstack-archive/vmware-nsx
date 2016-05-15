@@ -87,8 +87,9 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         if not edge_id:
             return
 
-        self._remove_router_services_on_edge(context, router_id)
-        self._unbind_router_on_edge(context, router_id)
+        with locking.LockManager.get_lock(str(edge_id)):
+            self._remove_router_services_on_edge(context, router_id)
+            self._unbind_router_on_edge(context, router_id)
 
     def attach_router(self, context, router_id, router, appliance_size=None):
         # find the right place to add, and create a new one if necessary
@@ -312,8 +313,9 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             is_conflict = self.edge_manager.is_router_conflict_on_edge(
                 context, router_id, conflict_router_ids, [], 0)
             if is_conflict:
-                self._remove_router_services_on_edge(context, router_id)
-                self._unbind_router_on_edge(context, router_id)
+                with locking.LockManager.get_lock(str(edge_id)):
+                    self._remove_router_services_on_edge(context, router_id)
+                    self._unbind_router_on_edge(context, router_id)
                 self._bind_router_on_available_edge(
                     context, router_id, router_db.admin_state_up)
                 new_edge_id = edge_utils.get_router_edge_id(context,
