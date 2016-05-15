@@ -78,7 +78,9 @@ from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import extended_security_group
 from vmware_nsx.db import extended_security_group_rule as extend_sg_rule
+from vmware_nsx.db import maclearning as mac_db
 from vmware_nsx.dhcp_meta import rpc as nsx_rpc
+from vmware_nsx.extensions import maclearning as mac_ext
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
 from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.nsxlib.v3 import client as nsx_client
@@ -96,6 +98,7 @@ LOG = log.getLogger(__name__)
 NSX_V3_PSEC_PROFILE_NAME = 'neutron_port_spoof_guard_profile'
 NSX_V3_NO_PSEC_PROFILE_NAME = 'nsx-default-spoof-guard-vif-profile'
 NSX_V3_DHCP_PROFILE_NAME = 'neutron_port_dhcp_profile'
+NSX_V3_MAC_LEARNING_PROFILE_NAME = 'neutron_port_mac_learning_profile'
 
 
 # NOTE(asarfaty): the order of inheritance here is important. in order for the
@@ -112,7 +115,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   portbindings_db.PortBindingMixin,
                   portsecurity_db.PortSecurityDbMixin,
                   extradhcpopt_db.ExtraDhcpOptMixin,
-                  dns_db.DNSDbMixin):
+                  dns_db.DNSDbMixin,
+                  mac_db.MacLearningDbMixin):
 
     __native_bulk_support = True
     __native_pagination_support = True
@@ -199,6 +203,18 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             msg = _("Unable to initialize NSX v3 DHCP "
                     "switching profile: %s") % NSX_V3_DHCP_PROFILE_NAME
             raise nsx_exc.NsxPluginException(msg)
+
+        LOG.debug("Initializing NSX v3 Mac Learning switching profile")
+        self._mac_learning_profile = None
+        try:
+            self._mac_learning_profile = self._init_mac_learning_profile()
+            # Only expose the extension if it is supported
+            self.supported_extension_aliases.append('mac-learning')
+        except Exception as e:
+            LOG.warning(_LW("Unable to initialize NSX v3 MAC Learning "
+                            "profile: %(name)s. Reason: %s(reason)"),
+                        {'name': NSX_V3_MAC_LEARNING_PROFILE_NAME,
+                         'reason': e})
         self._unsubscribe_callback_events()
         if cfg.CONF.api_replay_mode:
             self.supported_extension_aliases.append('api-replay')
@@ -281,6 +297,26 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return nsx_resources.SwitchingProfileTypeId(
             profile_type=(nsx_resources.SwitchingProfileTypes.
                           SWITCH_SECURITY),
+            profile_id=profile[0]['id']) if profile else None
+
+    def _init_mac_learning_profile(self):
+        with locking.LockManager.get_lock('nsxv3_mac_learning_profile_init'):
+            profile = self._get_mac_learning_profile()
+            if not profile:
+                self._switching_profiles.create_mac_learning_profile(
+                    NSX_V3_MAC_LEARNING_PROFILE_NAME,
+                    'Neutron MAC Learning Profile',
+                    tags=utils.build_v3_api_version_tag())
+            return self._get_mac_learning_profile()
+
+    def _get_mac_learning_profile(self):
+        if self._mac_learning_profile:
+            return self._mac_learning_profile
+        profile = self._switching_profiles.find_by_display_name(
+            NSX_V3_MAC_LEARNING_PROFILE_NAME)
+        return nsx_resources.SwitchingProfileTypeId(
+            profile_type=(nsx_resources.SwitchingProfileTypes.
+                          MAC_LEARNING),
             profile_id=profile[0]['id']) if profile else None
 
     def _get_port_security_profile_id(self):
@@ -1137,6 +1173,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             qos_profile_id = self._get_qos_profile_id(context, qos_policy_id)
             profiles.append(qos_profile_id)
 
+        # Add mac_learning profile if it exists and is configured
+        if (self._mac_learning_profile and
+            validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)) and
+            port_data.get(mac_ext.MAC_LEARNING) is True):
+            profiles.append(self._mac_learning_profile)
+
         name = self._get_port_name(context, port_data)
 
         nsx_net_id = port_data[pbin.VIF_DETAILS]['nsx-logical-switch-id']
@@ -1451,6 +1493,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._process_port_create_security_group(
                 context, port_data, sgids)
             self._extend_port_dict_binding(context, port_data)
+            if validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)):
+                self._create_mac_learning_state(context, port_data)
+            elif mac_ext.MAC_LEARNING in port_data:
+                # This is due to the fact that the default is
+                # ATTR_NOT_SPECIFIED
+                port_data.pop(mac_ext.MAC_LEARNING)
 
         # Operations to backend should be done outside of DB transaction.
         # NOTE(arosen): ports on external networks are nat rules and do
@@ -1669,6 +1717,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if qos_profile_id is not None:
             switch_profile_ids.append(qos_profile_id)
 
+        # Add mac_learning profile if it exists and is configured
+        if (self._mac_learning_profile and
+            updated_port.get(mac_ext.MAC_LEARNING) is True):
+            switch_profile_ids.append(self._mac_learning_profile)
+
         try:
             self._port_client.update(
                 lport_id, vif_uuid, name=name,
@@ -1728,6 +1781,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self._assert_on_external_net_with_compute(port['port'])
                 self._assert_on_external_net_port_with_qos(port['port'])
 
+            old_mac_learning_state = original_port.get(mac_ext.MAC_LEARNING)
             updated_port = super(NsxV3Plugin, self).update_port(context,
                                                                 id, port)
 
@@ -1750,6 +1804,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._process_portbindings_create_and_update(
                 context, port['port'], updated_port)
             self._extend_port_dict_binding(context, updated_port)
+            new_mac_learning_state = updated_port.get(mac_ext.MAC_LEARNING)
+            if (new_mac_learning_state is not None and
+                old_mac_learning_state != new_mac_learning_state):
+                self._update_mac_learning_state(context, id,
+                                                new_mac_learning_state)
 
         address_bindings = self._build_address_bindings(updated_port)
         if port_security and address_bindings:

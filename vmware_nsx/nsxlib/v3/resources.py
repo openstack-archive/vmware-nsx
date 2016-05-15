@@ -71,6 +71,7 @@ class AbstractRESTResource(object):
 
 class SwitchingProfileTypes(object):
     IP_DISCOVERY = 'IpDiscoverySwitchingProfile'
+    MAC_LEARNING = 'MacManagementSwitchingProfile'
     PORT_MIRRORING = 'PortMirroringSwitchingProfile'
     QOS = 'QosSwitchingProfile'
     SPOOF_GUARD = 'SpoofGuardSwitchingProfile'
@@ -152,6 +153,18 @@ class SwitchingProfile(AbstractRESTResource):
                            rate_limits=rate_limits,
                            bpdu_filter=bpdu_filter,
                            block_non_ip_traffic=True)
+
+    def create_mac_learning_profile(self, display_name,
+                                    description, tags=None):
+        mac_learning = {
+            'enabled': True,
+        }
+        return self.create(SwitchingProfileTypes.MAC_LEARNING,
+                           display_name=display_name,
+                           description=description,
+                           tags=tags or [],
+                           mac_learning=mac_learning,
+                           source_mac_change_allowed=True)
 
     @classmethod
     def build_switch_profile_ids(cls, client, *profiles):
