@@ -132,10 +132,14 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
         mock_delete_dhcp_service = mock.patch("%s.%s" % (
             vmware.EDGE_MANAGE_NAME, 'delete_dhcp_edge_service'))
         mock_delete_dhcp_service.start()
+        self.default_res_pool = 'respool-28'
+        cfg.CONF.set_override("resource_pool_id", self.default_res_pool,
+                              group="nsxv")
         super(NsxVPluginV2TestCase, self).setUp(plugin=plugin,
                                                 ext_mgr=ext_mgr)
         self.addCleanup(self.fc2.reset_all)
         plugin_instance = manager.NeutronManager.get_plugin()
+        plugin_instance.real_get_edge = plugin_instance._get_edge_id_by_rtr_id
         plugin_instance._get_edge_id_by_rtr_id = mock.Mock()
         plugin_instance._get_edge_id_by_rtr_id.return_value = False
         plugin_instance.edge_manager.is_dhcp_opt_enabled = True
@@ -1890,7 +1894,8 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
             data['router']['name'] = name
         if admin_state_up:
             data['router']['admin_state_up'] = admin_state_up
-        for arg in (('admin_state_up', 'tenant_id') + (arg_list or ())):
+        for arg in (('admin_state_up', 'tenant_id')
+                   + (arg_list or ())):
             # Arg must be present and not empty
             if kwargs.get(arg):
                 data['router'][arg] = kwargs[arg]
@@ -3003,6 +3008,40 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                           returned_router['id'])
                 self.assertEqual(plugin_const.ERROR, new_router['status'])
 
+    def test_create_router_with_bad_az_hint(self):
+        p = manager.NeutronManager.get_plugin()
+        router = {'router': {'admin_state_up': True,
+                  'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
+                  'tenant_id': context.get_admin_context().tenant_id,
+                  'router_type': 'exclusive',
+                  'availability_zone_hints': ['bad_hint']}}
+        self.assertRaises(n_exc.NeutronException,
+                          p.create_router,
+                          context.get_admin_context(),
+                          router)
+
+    def test_create_router_with_az_hint(self):
+        p = manager.NeutronManager.get_plugin()
+        alter_pool_id = 'respool-7'
+        alter_pool_name = 'rs-7'
+        p._availability_zones_data = {'default': self.default_res_pool,
+                                      alter_pool_name: alter_pool_id}
+        p._get_edge_id_by_rtr_id = p.real_get_edge
+
+        router = {'router': {'admin_state_up': True,
+                  'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
+                  'tenant_id': context.get_admin_context().tenant_id,
+                  'router_type': 'exclusive',
+                  'availability_zone_hints': [alter_pool_name]}}
+
+        # router creation should succeed
+        returned_router = p.create_router(context.get_admin_context(),
+                                          router)
+        self.assertEqual([alter_pool_name],
+                         returned_router['availability_zone_hints'])
+        self.assertEqual([alter_pool_name],
+                         returned_router['availability_zones'])
+
 
 class ExtGwModeTestCase(NsxVPluginV2TestCase,
                         test_ext_gw_mode.ExtGwModeIntTestCase):
@@ -3262,6 +3301,44 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
 
     def test_router_create_distributed_unspecified(self):
         self._test_router_create_with_distributed(None, False)
+
+    def _test_create_rotuer_with_az_hint(self, with_hint):
+        # init the availability zones in the plugin
+        p = manager.NeutronManager.get_plugin()
+        pool_id = 'respool-7'
+        pool_name = 'rs-7'
+        p._availability_zones_data = {'default': self.default_res_pool,
+                                      pool_name: pool_id}
+
+        # create a router with/without hints
+        router = {'router': {'admin_state_up': True,
+                  'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
+                  'tenant_id': context.get_admin_context().tenant_id,
+                  'distributed': True}}
+        if with_hint:
+            router['router']['availability_zone_hints'] = [pool_name]
+        returned_router = p.create_router(context.get_admin_context(),
+                                          router)
+        # availability zones is still empty because the router is not attached
+        if with_hint:
+            self.assertEqual([pool_name],
+                             returned_router['availability_zone_hints'])
+        else:
+            self.assertEqual([],
+                             returned_router['availability_zone_hints'])
+
+        edge_id = edge_utils.get_router_edge_id(
+            context.get_admin_context(), returned_router['id'])
+        res_pool = nsxv_db.get_edge_resource_pool(
+            context.get_admin_context().session, edge_id)
+        expected_pool = pool_id if with_hint else self.default_res_pool
+        self.assertEqual(expected_pool, res_pool)
+
+    def test_create_rotuer_with_az_hint(self):
+        self._test_create_rotuer_with_az_hint(True)
+
+    def test_create_rotuer_without_az_hint(self):
+        self._test_create_rotuer_with_az_hint(False)
 
     def test_floatingip_with_assoc_fails(self):
         self._test_floatingip_with_assoc_fails(
@@ -4109,3 +4186,50 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
             # get the updated router and check it's type
             body = self._show('routers', router_id)
             self.assertEqual('exclusive', body['router']['router_type'])
+
+    def _test_create_rotuer_with_az_hint(self, with_hint):
+        # init the availability zones in the plugin
+        p = manager.NeutronManager.get_plugin()
+        pool_id = 'respool-7'
+        pool_name = 'rs-7'
+        p._availability_zones_data = {'default': self.default_res_pool,
+                                      pool_name: pool_id}
+
+        # create a router with/without hints
+        router = {'router': {'admin_state_up': True,
+                  'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
+                  'tenant_id': context.get_admin_context().tenant_id,
+                  'router_type': 'shared'}}
+        if with_hint:
+            router['router']['availability_zone_hints'] = [pool_name]
+        returned_router = p.create_router(context.get_admin_context(),
+                                          router)
+        # availability zones is still empty because the router is not attached
+        if with_hint:
+            self.assertEqual([pool_name],
+                             returned_router['availability_zone_hints'])
+        else:
+            self.assertEqual([],
+                             returned_router['availability_zone_hints'])
+        self.assertEqual([],
+                         returned_router['availability_zones'])
+
+        # Add interface so the router will be attached to an edge
+        with self.subnet() as s1:
+            router_id = returned_router['id']
+            self._router_interface_action('add',
+                                          router_id,
+                                          s1['subnet']['id'],
+                                          None)
+            edge_id = edge_utils.get_router_edge_id(
+                context.get_admin_context(), router_id)
+            res_pool = nsxv_db.get_edge_resource_pool(
+                context.get_admin_context().session, edge_id)
+            expected_pool = pool_id if with_hint else self.default_res_pool
+            self.assertEqual(expected_pool, res_pool)
+
+    def test_create_rotuer_with_az_hint(self):
+        self._test_create_rotuer_with_az_hint(True)
+
+    def test_create_rotuer_without_az_hint(self):
+        self._test_create_rotuer_with_az_hint(False)

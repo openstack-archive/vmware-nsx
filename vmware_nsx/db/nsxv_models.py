@@ -48,6 +48,8 @@ class NsxvRouterBinding(model_base.BASEV2, models_v2.HasStatusDescription):
     edge_type = sa.Column(sa.Enum(nsxv_constants.SERVICE_EDGE,
                                   nsxv_constants.VDR_EDGE,
                                   name='nsxv_router_bindings_edge_type'))
+    resource_pool = sa.Column(sa.String(36),
+                              nullable=True)
 
 
 class NsxvEdgeVnicBinding(model_base.BASEV2):

@@ -98,6 +98,7 @@ function neutron_plugin_configure_service {
     _nsxv_ini_set datacenter_moid "$NSXV_DATACENTER_MOID"
     _nsxv_ini_set datastore_id "$NSXV_DATASTORE_ID"
     _nsxv_ini_set resource_pool_id "$NSXV_RESOURCE_POOL_ID"
+    _nsxv_ini_set availability_zones "$NSXV_AVAILABILITY_ZONES"
     _nsxv_ini_set external_network "$NSXV_EXTERNAL_NETWORK"
     _nsxv_ini_set cluster_moid "$NSXV_CLUSTER_MOID"
     _nsxv_ini_set backup_edge_pool "$NSXV_BACKUP_POOL"

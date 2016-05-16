@@ -40,6 +40,7 @@ from neutron.common import rpc as n_rpc
 from neutron import context as n_context
 from neutron.db import agents_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
+from neutron.db.availability_zone import router as router_az_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import dns_db
 from neutron.db import external_net_db
@@ -52,6 +53,7 @@ from neutron.db import portsecurity_db
 from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db
 from neutron.extensions import allowedaddresspairs as addr_pair
+from neutron.extensions import availability_zone as az_ext
 from neutron.extensions import external_net as ext_net_extn
 from neutron.extensions import l3
 from neutron.extensions import multiprovidernet as mpnet
@@ -114,6 +116,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                    rt_rtr.RouterType_mixin,
                    external_net_db.External_net_db_mixin,
                    extraroute_db.ExtraRoute_db_mixin,
+                   router_az_db.RouterAvailabilityZoneMixin,
                    l3_gwmode_db.L3_NAT_db_mixin,
                    portbindings_db.PortBindingMixin,
                    portsecurity_db.PortSecurityDbMixin,
@@ -143,7 +146,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                    "nsxv-router-size",
                                    "vnic-index",
                                    "advanced-service-providers",
-                                   "subnet_allocation"]
+                                   "subnet_allocation",
+                                   "availability_zone",
+                                   "router_availability_zone"]
 
     supported_qos_rule_types = [qos_consts.RULE_TYPE_BANDWIDTH_LIMIT,
                                 qos_consts.RULE_TYPE_DSCP_MARK]
@@ -188,6 +193,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self.nsx_sg_utils = securitygroup_utils.NsxSecurityGroupUtils(
             self.nsx_v)
         self._validate_config()
+        self._build_availability_zones_data()
         self.sg_container_id = self._create_security_group_container()
         self.default_section = self._create_cluster_default_fw_section()
         self._process_security_groups_rules_logging()
@@ -708,6 +714,42 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     def _get_port_vnic_id(self, port_index, device_id):
         # The vnic-id format which is expected by NSXv
         return '%s.%03d' % (device_id, port_index)
+
+    def _list_availability_zones(self, context, filters=None):
+        #TODO(asarfaty): We may need to use the filters arg, but now it
+        # is here only for overriding the original api
+        result = {}
+        for az in self._availability_zones_data.keys():
+            # Add this availability zone as a router resource
+            resource = 'router'
+            key = (az, resource)
+            result[key] = True
+        return result
+
+    def _validate_availability_zones_in_obj(self, context, resource_type,
+                                           obj_data):
+        if az_ext.AZ_HINTS in obj_data:
+            self.validate_availability_zones(context, resource_type,
+                                             obj_data[az_ext.AZ_HINTS])
+
+    def validate_availability_zones(self, context, resource_type,
+                                    availability_zones):
+        """Verify that the availability zones exist, and only 1 hint
+        was set.
+        """
+        # For now we support only 1 hint per network/router
+        # TODO(asarfaty): support multiple hints
+        if len(availability_zones) > 1:
+            err_msg = _("Can't use multiple availability zone hints")
+            raise n_exc.InvalidInput(error_message=err_msg)
+
+        # check that all hints appear in the predefined list of availability
+        # zones
+        diff = (set(availability_zones) -
+                set(self._availability_zones_data.keys()))
+        if diff:
+            raise az_ext.AvailabilityZoneNotFound(
+                availability_zone=diff.pop())
 
     def create_network(self, context, network):
         net_data = network['network']
@@ -1793,14 +1835,20 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         r = router['router']
         self._decide_router_type(context, r)
         self._validate_router_size(router)
+        self._validate_availability_zones_in_obj(context, 'router', r)
+
         # First extract the gateway info in case of updating
         # gateway before edge is deployed.
         # TODO(berlin): admin_state_up and routes update
         gw_info = self._extract_external_gw(context, router)
         lrouter = super(NsxVPluginV2, self).create_router(context, router)
+
         with context.session.begin(subtransactions=True):
             router_db = self._get_router(context, lrouter['id'])
+            self._process_extra_attr_router_create(context, router_db, r)
             self._process_nsx_router_create(context, router_db, r)
+            lrouter = super(NsxVPluginV2, self).get_router(context,
+                                                           lrouter['id'])
         try:
             router_driver = self._get_router_driver(context, router_db)
             if router_driver.get_type() == nsxv_constants.EXCLUSIVE:
@@ -1911,6 +1959,18 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 router_driver._update_router_gw_info(context, id, {})
         super(NsxVPluginV2, self).delete_router(context, id)
         router_driver.delete_router(context, id)
+
+    def get_router_availability_zones(self, router):
+        """Return availability zones which a router belongs to."""
+        context = n_context.get_admin_context()
+        edge_id = self._get_edge_id_by_rtr_id(context, router["id"])
+        if edge_id:
+            resource_pool = nsxv_db.get_edge_resource_pool(
+                context.session, edge_id)
+            if resource_pool:
+                av_zone = self.get_res_pool_name_by_id(resource_pool)
+                return [av_zone]
+        return []
 
     def get_router(self, context, id, fields=None):
         router = super(NsxVPluginV2, self).get_router(context, id, fields)
@@ -2722,6 +2782,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         ver = self.nsx_v.vcns.get_version()
         if version.LooseVersion(ver) < version.LooseVersion('6.2.0'):
+            # Do not support availability zones hints below 6.2
+            if (cfg.CONF.nsxv.availability_zones and
+                len(cfg.CONF.nsxv.availability_zones) > 0):
+                error = (_("Availability zones are not supported for version "
+                           "%s") % ver)
+                raise nsx_exc.NsxPluginException(err_msg=error)
+
             LOG.warning(_LW("Skipping validations. Not supported by version."))
             return
         # Validations below only supported by 6.2.0 and above
@@ -2733,6 +2800,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         for cluster in cfg.CONF.nsxv.cluster_moid:
             inventory.append((cluster, 'cluster_moid'))
 
+        # Add the availability zones resource pools
+        if cfg.CONF.nsxv.availability_zones:
+            for az in cfg.CONF.nsxv.availability_zones:
+                inventory.append((az, 'availability_zones'))
+
         for moref, field in inventory:
             if moref and not self.nsx_v.vcns.validate_inventory(moref):
                 error = _("Configured %s not found") % field
@@ -2740,6 +2812,31 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _handle_qos_notification(self, qos_policy, event_type):
         qos_utils.handle_qos_notification(qos_policy, event_type, self._dvs)
+
+    def _build_availability_zones_data(self):
+        self._availability_zones_data = {}
+        if not len(cfg.CONF.nsxv.availability_zones):
+            return
+
+        # Add the availability zones resource pools
+        if cfg.CONF.nsxv.availability_zones:
+            for az in cfg.CONF.nsxv.availability_zones:
+                name = self.nsx_v.vcns.get_inventory_name(az)
+                self._availability_zones_data[name] = az
+        # Add the default resource_pool_id too
+        az = cfg.CONF.nsxv.resource_pool_id
+        name = self.nsx_v.vcns.get_inventory_name(az)
+        self._availability_zones_data[name] = az
+
+    def get_res_pool_id_by_name(self, name):
+        if name in self._availability_zones_data.keys():
+            return self._availability_zones_data[name]
+        raise az_ext.AvailabilityZoneNotFound(availability_zone=name)
+
+    def get_res_pool_name_by_id(self, res_pool_id):
+        for name in self._availability_zones_data.keys():
+            if res_pool_id == self._availability_zones_data[name]:
+                return name
 
 
 # Register the callback
