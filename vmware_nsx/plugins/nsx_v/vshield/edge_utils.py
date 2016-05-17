@@ -1722,41 +1722,6 @@ def _retrieve_nsx_switch_id(context, network_id):
         err_msg=_("Network %s not found at the backend") % network_id)
 
 
-def create_dhcp_service(context, nsxv_manager, network):
-    """Create an Edge for dhcp service."""
-    edge_name = "%s-%s" % (network['name'], network['id'])
-    jobdata = {'network_id': network['id'], 'context': context}
-    # port group id for vlan or virtual wire id for vxlan
-    nsx_network_id = _retrieve_nsx_switch_id(context, network['id'])
-    # Deploy an Edge for dhcp service
-    return nsxv_manager.deploy_edge(
-        network['id'], edge_name, nsx_network_id, jobdata=jobdata,
-        appliance_size=vcns_const.SERVICE_SIZE_MAPPING['dhcp'])
-
-
-def delete_dhcp_service(context, nsxv_manager, network_id):
-    """Delete the Edge of dhcp service."""
-    task = None
-    binding = nsxv_db.get_dhcp_edge_network_binding(context.session,
-                                                    network_id)
-    if binding:
-        dhcp_edge_id = binding['edge_id']
-        vnic_index = binding['vnic_index']
-        jobdata = {'context': context, 'network_id': network_id}
-
-        edge_id = dhcp_edge_id
-
-        LOG.debug("Delete the vnic %d from DHCP Edge %s",
-                  vnic_index, edge_id)
-        nsxv_manager.vcns.delete_interface(edge_id, vnic_index)
-        nsxv_db.free_edge_vnic_by_network(
-            context.session, edge_id, network_id)
-        LOG.debug("Delete the DHCP Edge service %s", edge_id)
-        task = nsxv_manager.delete_edge(network_id, edge_id, jobdata)
-
-    return task
-
-
 def get_dhcp_edge_id(context, network_id):
     # Query edge id
     resource_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
@@ -1780,34 +1745,6 @@ def query_dhcp_service_config(nsxv_manager, edge_id):
     """Retrieve the current DHCP configuration from the edge."""
     _, dhcp_config = nsxv_manager.vcns.query_dhcp_configuration(edge_id)
     return dhcp_config
-
-
-def update_dhcp_internal_interface(context, nsxv_manager,
-                                   network_id, address_groups, add=True):
-    # Get the physical port group /wire id of the network id
-    vcns_network_id = _retrieve_nsx_switch_id(context, network_id)
-    # Get the DHCP Edge to update the internal interface
-    binding = nsxv_db.get_dhcp_edge_network_binding(context.session,
-                                                    network_id)
-    if binding:
-        dhcp_edge_id = binding['edge_id']
-        vnic_index = binding['vnic_index']
-        edge_id = dhcp_edge_id
-        LOG.debug("Query the vnic %s for DHCP Edge %s",
-                  vnic_index, edge_id)
-        _, vnic_config = nsxv_manager.get_interface(edge_id, vnic_index)
-        for addr_group in address_groups:
-            vnic_addr_grp = vnic_config['addressGroups']['addressGroups']
-            if add:
-                vnic_addr_grp.append(addr_group)
-            else:
-                if addr_group in vnic_addr_grp:
-                    vnic_addr_grp.remove(addr_group)
-
-        LOG.debug("Update the vnic %d for DHCP Edge %s", vnic_index, edge_id)
-        nsxv_manager.update_interface(
-            'fake_router_id', edge_id, vnic_index, vcns_network_id,
-            address_groups=vnic_config['addressGroups']['addressGroups'])
 
 
 def get_router_edge_id(context, router_id):
