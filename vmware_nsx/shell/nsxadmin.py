@@ -87,9 +87,10 @@ nsxv3_resources = {
 
 # Add supported NSX-V resources in this dictionary
 nsxv_resources = {
-    constants.EDGES: Resource(constants.EDGES, [Operations.NSX_LIST.value,
-                                                Operations.NEUTRON_LIST.value,
-                                                Operations.NSX_UPDATE.value]),
+    constants.EDGES: Resource(constants.EDGES,
+                              [Operations.NSX_LIST.value,
+                               Operations.NEUTRON_LIST.value,
+                               Operations.NSX_UPDATE.value]),
     constants.BACKUP_EDGES: Resource(constants.BACKUP_EDGES,
                                      [Operations.LIST.value,
                                       Operations.CLEAN.value,
@@ -117,6 +118,8 @@ nsxv_resources = {
     constants.FIREWALL_NSX_GROUPS: Resource(
         constants.FIREWALL_NSX_GROUPS, [Operations.LIST.value,
                                         Operations.LIST_MISMATCHES.value]),
+    constants.METADATA: Resource(
+        constants.METADATA, [Operations.NSX_UPDATE.value]),
 }
 
 nsxv3_resources_names = map(lambda res: res.name, nsxv3_resources.itervalues())
