@@ -84,6 +84,11 @@ class EdgeUtilsTestCaseMixin(testlib_api.SqlTestCase):
                 resource_pool=binding['resource_pool'])
 
 
+class DummyPlugin(object):
+    def get_network_resource_pool(self, context, network_id):
+        return cfg.CONF.nsxv.resource_pool_id
+
+
 class EdgeDHCPManagerTestCase(EdgeUtilsTestCaseMixin):
 
     def setUp(self):
@@ -115,6 +120,7 @@ class EdgeDHCPManagerTestCase(EdgeUtilsTestCaseMixin):
         self._populate_vcns_router_binding(fake_edge_pool)
         fake_network = self._create_network()
         fake_subnet = self._create_subnet(fake_network['id'])
+        self.edge_manager.plugin = DummyPlugin()
         with mock.patch.object(self.edge_manager,
                                '_get_used_edges', return_value=([], [])):
             self.edge_manager.create_dhcp_edge_service(self.ctx,
@@ -125,7 +131,8 @@ class EdgeDHCPManagerTestCase(EdgeUtilsTestCaseMixin):
         self.nsxv_manager.update_edge.assert_called_once_with(
             resource_id, 'edge-1', mock.ANY, None, jobdata=jobdata,
             appliance_size=vcns_const.SERVICE_SIZE_MAPPING['dhcp'],
-            dist=False, set_errors=True, res_pool=None)
+            dist=False, set_errors=True,
+            res_pool=cfg.CONF.nsxv.resource_pool_id)
 
     def test_get_random_available_edge(self):
         available_edge_ids = ['edge-1', 'edge-2']

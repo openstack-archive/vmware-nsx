@@ -740,12 +740,13 @@ class EdgeManager(object):
             self.nsxv_manager.delete_edge(
                 router_id, edge_id, jobdata=jobdata, dist=dist)
 
-    def _allocate_dhcp_edge_appliance(self, context, resource_id):
+    def _allocate_dhcp_edge_appliance(self, context, resource_id, res_pool):
         resource_name = (vcns_const.DHCP_EDGE_PREFIX +
                          _uuid())[:vcns_const.EDGE_NAME_LEN]
         self._allocate_edge_appliance(
             context, resource_id, resource_name,
-            appliance_size=vcns_const.SERVICE_SIZE_MAPPING['dhcp'])
+            appliance_size=vcns_const.SERVICE_SIZE_MAPPING['dhcp'],
+            res_pool=res_pool)
 
     def _free_dhcp_edge_appliance(self, context, network_id):
         router_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
@@ -989,12 +990,12 @@ class EdgeManager(object):
                     available_edge_ids.append(x)
         return (conflict_edge_ids, available_edge_ids)
 
-    def _get_used_edges(self, context, subnet):
+    def _get_used_edges(self, context, subnet, resource_pool):
         """Returns conflicting and available edges for the subnet."""
         conflicting = self.plugin._get_conflicting_networks_for_subnet(
             context, subnet)
         return self._get_available_edges(context, subnet['network_id'],
-                                         conflicting)
+                                         conflicting, resource_pool)
 
     def remove_network_from_dhcp_edge(self, context, network_id, edge_id):
         old_binding = nsxv_db.get_edge_vnic_binding(
@@ -1045,8 +1046,11 @@ class EdgeManager(object):
         nsxv_db.allocate_edge_vnic_with_tunnel_index(
             context.session, edge_id, network_id)
 
-    def allocate_new_dhcp_edge(self, context, network_id, resource_id):
-        self._allocate_dhcp_edge_appliance(context, resource_id)
+    def allocate_new_dhcp_edge(self, context, network_id, resource_id,
+                               res_pool):
+        if not res_pool:
+            res_pool = cfg.CONF.nsxv.resource_pool_id
+        self._allocate_dhcp_edge_appliance(context, resource_id, res_pool)
         with locking.LockManager.get_lock('nsx-edge-pool'):
             new_edge = nsxv_db.get_nsxv_router_binding(context.session,
                                                        resource_id)
@@ -1062,6 +1066,7 @@ class EdgeManager(object):
 
         If new edge was allocated, return resource_id, else return None
         """
+        res_pool = self.plugin.get_network_resource_pool(context, network_id)
         # Check if the network has one related dhcp edge
         resource_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
         dhcp_edge_binding = nsxv_db.get_nsxv_router_binding(context.session,
@@ -1072,7 +1077,8 @@ class EdgeManager(object):
             with locking.LockManager.get_lock('nsx-edge-pool'):
                 edge_id = dhcp_edge_binding['edge_id']
                 (conflict_edge_ids,
-                 available_edge_ids) = self._get_used_edges(context, subnet)
+                 available_edge_ids) = self._get_used_edges(context, subnet,
+                                                            res_pool)
                 LOG.debug("The available edges %s, the conflict edges %s "
                           "at present is using edge %s",
                           available_edge_ids, conflict_edge_ids, edge_id)
@@ -1106,7 +1112,8 @@ class EdgeManager(object):
         else:
             with locking.LockManager.get_lock('nsx-edge-pool'):
                 (conflict_edge_ids,
-                 available_edge_ids) = self._get_used_edges(context, subnet)
+                 available_edge_ids) = self._get_used_edges(context, subnet,
+                                                            res_pool)
                 LOG.debug('The available edges %s, the conflict edges %s',
                           available_edge_ids, conflict_edge_ids)
                 # There is available one
@@ -1124,7 +1131,8 @@ class EdgeManager(object):
                     allocate_new_edge = True
 
         if allocate_new_edge:
-            self.allocate_new_dhcp_edge(context, network_id, resource_id)
+            self.allocate_new_dhcp_edge(context, network_id, resource_id,
+                                        res_pool)
 
             # If a new Edge was allocated, return resource_id
             return resource_id
@@ -1219,7 +1227,6 @@ class EdgeManager(object):
 
     def configure_dhcp_for_vdr_network(
             self, context, network_id, vdr_router_id):
-
         # If network is already attached to a DHCP Edge, detach from it
         resource_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
         dhcp_edge_binding = nsxv_db.get_nsxv_router_binding(context.session,
@@ -1241,8 +1248,10 @@ class EdgeManager(object):
                 context, dhcp_edge_id, resource_id, network_id)
         else:
             # Attach to DHCP Edge
+            resource_pool = self.plugin.get_network_resource_pool(context,
+                                                                  network_id)
             dhcp_edge_id = self.allocate_new_dhcp_edge(
-                context, network_id, resource_id)
+                context, network_id, resource_id, resource_pool)
 
             self.plugin.metadata_proxy_handler.configure_router_edge(
                 resource_id, context)
