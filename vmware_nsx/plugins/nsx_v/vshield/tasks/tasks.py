@@ -145,7 +145,9 @@ class Task():
 
     def __repr__(self):
         return "Task-%s-%s-%s" % (
-            self.name, self.resource_id, self.id)
+            self.name.encode('ascii', 'ignore'),
+            self.resource_id.encode('ascii', 'ignore'),
+            self.id)
 
 
 class TaskManager():
