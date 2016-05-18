@@ -3431,12 +3431,12 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
                              get_routers_on_same_edge(
                                  context.get_admin_context(),
                                  r1['router']['id']))
-                self.assertEqual(routers_expected, routers_1)
+                self.assertEqual(set(routers_expected), set(routers_1))
                 routers_2 = (self.plugin_instance.edge_manager.
                              get_routers_on_same_edge(
                                  context.get_admin_context(),
                                  r2['router']['id']))
-                self.assertEqual(routers_expected, routers_2)
+                self.assertEqual(set(routers_expected), set(routers_2))
                 self._router_interface_action('remove',
                                               r1['router']['id'],
                                               s11['subnet']['id'],
@@ -3497,7 +3497,7 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
                          get_routers_on_same_edge(
                              context.get_admin_context(),
                              r1['router']['id']))
-            self.assertEqual(r1_expected, routers_1)
+            self.assertEqual(set(r1_expected), set(routers_1))
             self._router_interface_action('add',
                                           r2['router']['id'],
                                           s13['subnet']['id'],
