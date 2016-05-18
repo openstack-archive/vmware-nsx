@@ -147,7 +147,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def __init__(self):
         super(NsxV3Plugin, self).__init__()
         LOG.info(_LI("Starting NsxV3Plugin"))
-
+        LOG.info(_LI("NSX Version: %s"), nsxlib.get_version())
         self._api_cluster = nsx_cluster.NSXClusteredAPI()
         self._nsx_client = nsx_client.NSX3Client(self._api_cluster)
         nsx_client._set_default_api_cluster(self._api_cluster)

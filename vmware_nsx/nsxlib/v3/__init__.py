@@ -25,6 +25,12 @@ from vmware_nsx.nsxlib.v3 import client
 LOG = log.getLogger(__name__)
 
 
+def get_version():
+    node = client.get_resource("node")
+    version = node.get('node_version')
+    return version
+
+
 def get_edge_cluster(edge_cluster_uuid):
     resource = "edge-clusters/%s" % edge_cluster_uuid
     return client.get_resource(resource)
