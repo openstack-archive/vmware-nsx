@@ -1692,7 +1692,7 @@ def remove_irrelevant_keys_from_edge_request(edge_request):
     Having these keys fail the update edge NSX transaction
     """
     for key in ['status', 'datacenterMoid', 'fqdn', 'version',
-                'type', 'tenant', 'datacenterName',
+                'tenant', 'datacenterName',
                 'hypervisorAssist', 'universal', 'enableFips']:
         edge_request.pop(key, None)
 
