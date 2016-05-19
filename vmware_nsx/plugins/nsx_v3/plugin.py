@@ -1025,7 +1025,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 if sgids:
                     security.update_lport_with_security_groups(
                         context, lport['id'], [], sgids)
-            except nsx_exc.SecurityGroupMaximumCapacityReached:
+            except Exception:
                 with excutils.save_and_reraise_exception():
                     LOG.debug("Couldn't associate port %s with "
                               "one or more security-groups, reverting "
