@@ -2379,71 +2379,84 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if mapping is not None:
             return mapping['ip_section_id']
 
-    def create_security_group(self, context, security_group,
-                              default_sg=False):
-        """Create a security group."""
-        sg_data = security_group['security_group']
-        sg_data["id"] = str(uuid.uuid4())
+    def _create_fw_section_for_security_group(self,
+                                              context,
+                                              securitygroup,
+                                              nsx_sg_id):
+        logging = (cfg.CONF.nsxv.log_security_groups_allowed_traffic or
+                   securitygroup[sg_logging.LOGGING])
+        section_name = self.nsx_sg_utils.get_nsx_section_name(securitygroup)
+        nsx_rules = []
+        # Translate Neutron rules to NSXv fw rules and construct the fw section
+        for rule in securitygroup['security_group_rules']:
+            nsx_rule = self._create_nsx_rule(
+                context, rule, nsx_sg_id, logged=logging)
+            nsx_rules.append(nsx_rule)
+        section = self.nsx_sg_utils.get_section_with_rules(
+            section_name, nsx_rules)
+        # Execute REST API for creating the section
+        h, c = self.nsx_v.vcns.create_section(
+            'ip', self.nsx_sg_utils.to_xml_string(section),
+            insert_before=self.default_section)
+        rule_pairs = self.nsx_sg_utils.get_rule_id_pair_from_section(c)
+        # Add database associations for fw section and rules
+        nsxv_db.add_neutron_nsx_section_mapping(
+            context.session, securitygroup['id'], h['location'])
+        for pair in rule_pairs:
+            # Save nsx rule id in the DB for future access
+            nsxv_db.add_neutron_nsx_rule_mapping(
+                context.session, pair['neutron_id'], pair['nsx_id'])
 
-        new_security_group = super(NsxVPluginV2, self).create_security_group(
-            context, security_group, default_sg)
-        sg_id = new_security_group['id']
-
-        nsx_sg_name = self.nsx_sg_utils.get_nsx_sg_name(sg_data)
+    def _create_nsx_security_group(self, context, securitygroup):
+        nsx_sg_name = self.nsx_sg_utils.get_nsx_sg_name(securitygroup)
         # NSX security-group config
         sg_dict = {"securitygroup":
                    {"name": nsx_sg_name,
-                    "description": sg_data['description']}}
-        # Translate Neutron rules to NSXv fw rules and construct the fw section
-        nsx_sg_id = section_uri = None
+                    "description": securitygroup['description']}}
+        # Create the nsx security group
+        h, nsx_sg_id = self.nsx_v.vcns.create_security_group(sg_dict)
+
+        # Save moref in the DB for future access
+        nsx_db.add_neutron_nsx_security_group_mapping(
+            context.session, securitygroup['id'], nsx_sg_id)
+        return nsx_sg_id
+
+    def _process_security_group_create_backend_resources(self,
+                                                         context,
+                                                         securitygroup):
+        nsx_sg_id = self._create_nsx_security_group(context, securitygroup)
         try:
-            log_all_rules = cfg.CONF.nsxv.log_security_groups_allowed_traffic
-            # Create the nsx security group
-            h, nsx_sg_id = self.nsx_v.vcns.create_security_group(sg_dict)
-
-            section_name = self.nsx_sg_utils.get_nsx_section_name(nsx_sg_name)
-            logging = sg_data.get(sg_logging.LOGGING, False)
-            nsx_rules = []
-            for rule in new_security_group['security_group_rules']:
-                nsx_rule = self._create_nsx_rule(
-                    context, rule, nsx_sg_id, logged=log_all_rules or logging)
-                nsx_rules.append(nsx_rule)
-            section = self.nsx_sg_utils.get_section_with_rules(
-                section_name, nsx_rules)
-
-            # Execute REST API for creating the section
-            h, c = self.nsx_v.vcns.create_section(
-                'ip', self.nsx_sg_utils.to_xml_string(section),
-                insert_before=self.default_section)
-            section_uri = h['location']
-            rule_pairs = self.nsx_sg_utils.get_rule_id_pair_from_section(c)
-
-            # Save moref in the DB for future access
-            nsx_db.add_neutron_nsx_security_group_mapping(
-                context.session, sg_id, nsx_sg_id)
-            # Add database associations for fw section and rules
-            nsxv_db.add_neutron_nsx_section_mapping(
-                context.session, sg_id, section_uri)
-            self._process_security_group_properties_create(
-                context, new_security_group, sg_data)
-            for pair in rule_pairs:
-                # Save nsx rule id in the DB for future access
-                nsxv_db.add_neutron_nsx_rule_mapping(context.session,
-                                                     pair['neutron_id'],
-                                                     pair['nsx_id'])
-
-            # Add this Security Group to the Security Groups container
-            self._add_member_to_security_group(self.sg_container_id, nsx_sg_id)
+            self._create_fw_section_for_security_group(
+                context, securitygroup, nsx_sg_id)
         except Exception:
+            with excutils.save_and_reraise_exception():
+                self._delete_nsx_security_group(nsx_sg_id)
+
+        # Add this Security Group to the Security Groups container
+        self._add_member_to_security_group(self.sg_container_id, nsx_sg_id)
+
+    def create_security_group(self, context, security_group, default_sg=False):
+        """Create a security group."""
+        sg_data = security_group['security_group']
+        sg_id = sg_data["id"] = str(uuid.uuid4())
+
+        new_security_group = super(NsxVPluginV2, self).create_security_group(
+            context, security_group, default_sg)
+        self._process_security_group_properties_create(
+            context, new_security_group, sg_data)
+
+        try:
+            self._process_security_group_create_backend_resources(
+                context, new_security_group)
+        except Exception:
+            # Couldn't create backend resources, rolling back neutron db
+            # changes.
             with excutils.save_and_reraise_exception():
                 # Delete security-group and its associations from database,
                 # Only admin can delete the default security-group
                 if default_sg:
                     context = context.elevated()
                 super(NsxVPluginV2, self).delete_security_group(context, sg_id)
-                # Delete the created nsx security-group and the fw section
-                self._delete_section(section_uri)
-                self._delete_nsx_security_group(nsx_sg_id)
                 LOG.exception(_LE('Failed to create security group'))
         return new_security_group
 
@@ -2462,7 +2475,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         section = self.nsx_sg_utils.parse_section(c)
         if set(['name', 'description']) & set(s.keys()):
             nsx_sg_name = self.nsx_sg_utils.get_nsx_sg_name(sg_data)
-            section_name = self.nsx_sg_utils.get_nsx_section_name(nsx_sg_name)
+            section_name = self.nsx_sg_utils.get_nsx_section_name(sg_data)
             self.nsx_v.vcns.update_security_group(
                 nsx_sg_id, nsx_sg_name, sg_data['description'])
             section.attrib['name'] = section_name
