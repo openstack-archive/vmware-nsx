@@ -12,7 +12,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import time
+
+from tempest.lib import exceptions
 from tempest.lib.services.network import base
+
+from vmware_nsx_tempest._i18n import _
+
+LB_NOTFOUND = "loadbalancer {lb_id} not found"
 
 
 class LoadBalancersClient(base.BaseNetworkClient):
@@ -53,6 +60,60 @@ class LoadBalancersClient(base.BaseNetworkClient):
     def list_load_balancers(self, **filters):
         uri = self.resource_base_path
         return self.list_resources(uri, **filters)
+
+    def wait_for_load_balancers_status(self, load_balancer_id,
+                                       provisioning_status='ACTIVE',
+                                       operating_status='ONLINE',
+                                       is_delete_op=False):
+        """Must have utility method for load-balancer CRUD operation.
+
+        This is the method you must call to make sure load_balancer_id is
+        in provisioning_status=ACTIVE and opration_status=ONLINE status
+        before manipulating any lbaas resource under load_balancer_id.
+        """
+
+        interval_time = self.build_interval
+        timeout = self.build_timeout
+        end_time = time.time() + timeout
+        lb = None
+        while time.time() < end_time:
+            try:
+                lb = self.show_load_balancer(load_balancer_id)
+                if not lb:
+                    if is_delete_op:
+                        break
+                    else:
+                        raise Exception(
+                            LB_NOTFOUND.format(lb_id=load_balancer_id))
+                lb = lb.get(self.resource, lb)
+                if (lb.get('provisioning_status') == provisioning_status and
+                    lb.get('operating_status') == operating_status):
+                    break
+                time.sleep(interval_time)
+            except exceptions.NotFound as e:
+                if is_delete_op:
+                    break
+                else:
+                    raise e
+        else:
+            if is_delete_op:
+                raise exceptions.TimeoutException(
+                    _("Waited for load balancer {lb_id} to be deleted for "
+                      "{timeout} seconds but can still observe that it "
+                      "exists.").format(
+                          lb_id=load_balancer_id,
+                          timeout=timeout))
+            else:
+                raise exceptions.TimeoutException(
+                    _("Wait for load balancer ran for {timeout} seconds and "
+                      "did not observe {lb_id} reach {provisioning_status} "
+                      "provisioning status and {operating_status} "
+                      "operating status.").format(
+                          timeout=timeout,
+                          lb_id=load_balancer_id,
+                          provisioning_status=provisioning_status,
+                          operating_status=operating_status))
+        return lb
 
 
 def get_client(client_mgr):
