@@ -1474,13 +1474,25 @@ class EdgeManager(object):
     def get_routers_on_same_edge(self, context, router_id):
         edge_binding = nsxv_db.get_nsxv_router_binding(
             context.session, router_id)
+        router_ids = []
+        valid_router_ids = []
         if edge_binding:
-            return [
+            router_ids = [
                 binding['router_id']
                 for binding in nsxv_db.get_nsxv_router_bindings_by_edge(
                     context.session, edge_binding['edge_id'])]
-        else:
-            return []
+        if router_ids:
+            valid_router_ids = self.plugin.get_routers(
+                context.elevated(),
+                filters={'id': router_ids},
+                fields=['id'])
+            valid_router_ids = [ele['id'] for ele in valid_router_ids]
+
+            if set(valid_router_ids) != set(router_ids):
+                LOG.error(_LE("Get invalid router bindings with "
+                              "router ids: %s"),
+                          str(set(router_ids) - set(valid_router_ids)))
+        return valid_router_ids
 
     def bind_router_on_available_edge(
         self, context, target_router_id,
