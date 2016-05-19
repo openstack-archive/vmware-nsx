@@ -1688,6 +1688,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             net_id = self.get_subnet(context,
                                      interface_info['subnet_id'])['network_id']
 
+        nsx_id = self._get_network_nsx_id(context, net_id)
+        nsx_network = nsxlib.get_logical_switch(nsx_id)
+        if nsx_network.get('vlan'):
+            err_msg = _("Only overlay networks can be attached to a logical "
+                        "router. Network %s is a VLAN based network") % net_id
+            raise n_exc.InvalidInput(error_message=err_msg)
+
         port_filters = {'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF],
                         'network_id': [net_id]}
         intf_ports = self.get_ports(context.elevated(), filters=port_filters)
