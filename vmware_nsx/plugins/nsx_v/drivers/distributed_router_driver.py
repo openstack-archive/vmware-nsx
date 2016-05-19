@@ -119,6 +119,11 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                 context, router_id, self.get_type(), r['admin_state_up'])
         if 'name' in r:
             self.edge_manager.rename_lrouter(context, router_id, r['name'])
+            # if we have a plr router - rename it too
+            plr_id = self.edge_manager.get_plr_by_tlr_id(context, router_id)
+            if plr_id:
+                self.edge_manager.rename_lrouter(context, plr_id, r['name'])
+
         return self.plugin.get_router(context, router_id)
 
     def delete_router(self, context, router_id):
