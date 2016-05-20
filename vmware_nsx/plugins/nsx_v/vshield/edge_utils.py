@@ -250,6 +250,7 @@ class EdgeManager(object):
                    'edge_type': [edge_type],
                    'availability_zone': [availability_zone.name],
                    'status': [plugin_const.PENDING_CREATE,
+                              plugin_const.PENDING_UPDATE,
                               plugin_const.ACTIVE]}
         like_filters = {'router_id': vcns_const.BACKUP_ROUTER_PREFIX + "%"}
         return nsxv_db.get_nsxv_router_bindings(
