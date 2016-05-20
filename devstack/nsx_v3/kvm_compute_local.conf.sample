@@ -1,0 +1,32 @@
+[[post-config|$NOVA_CONF]]
+[neutron]
+ovs_bridge=nsxvswitch
+
+[[local|localrc]]
+
+<git-base>=https://git.openstack.org/
+enable_plugin vmware-nsx <vmware-nsx-repo> <os-branch>
+Q_PLUGIN=vmware_nsx_v3
+ENABLED_SERVICES=n-cpu,neutron
+SERVICE_HOST=<service-host-ip>      # OpenStack controller node IP
+MYSQL_HOST=$SERVICE_HOST
+RABBIT_HOST=$SERVICE_HOST
+Q_HOST=$SERVICE_HOST
+DATABASE_PASSWORD=openstack
+RABBIT_PASSWORD=openstack
+SERVICE_TOKEN=openstack
+SERVICE_PASSWORD=openstack
+ADMIN_PASSWORD=openstack
+RECLONE=no
+OVS_BRIDGE=nsxvswitch
+IPV6_ENABLED=False
+IP_VERSION=4
+HOST_IP=<this-host-ip>             # OpenStack compute node IP
+MULTI_HOST=1
+NOVA_VNC_ENABLED=True
+NOVNCPROXY_URL=""
+VNCSERVER_LISTEN=$HOST_IP
+VNCSERVER_PROXYCLIENT_ADDRESS=$VNCSERVER_LISTEN
+disable_service zookeeper
+#DEBUG=False
+#DEFAULT_VLAN_TZ_UUID=changeme     # Optional, for VLAN provider networks

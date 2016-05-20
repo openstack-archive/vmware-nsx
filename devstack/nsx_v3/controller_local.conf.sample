@@ -1,0 +1,105 @@
+[[post-extra|$TEMPEST_CONFIG]]
+[nsxv3]
+nsx_manager=<nsx-manager1-ip>
+nsx_user=<nsx-username>
+nsx_password=<nsx-password>
+
+[[post-config|$NOVA_CONF]]
+[DEFAULT]
+image_handlers=vmware_copy, vmware_download
+force_config_drive = False
+[vmware]
+task_poll_interval=0.5
+use_linked_clone=false
+insecure = true
+datastore_regex = vdnet*
+
+[[local|localrc]]
+
+DATABASE_PASSWORD=openstack
+ADMIN_PASSWORD=openstack
+SERVICE_PASSWORD=openstack
+SERVICE_TOKEN=openstack
+RABBIT_PASSWORD=openstack
+
+# Enable Logging
+LOGFILE=/opt/stack/logs/stack.sh.log
+VERBOSE=True
+LOG_COLOR=True
+SCREEN_LOGDIR=/opt/stack/logs
+
+RECLONE=True
+
+VIRT_DRIVER=vsphere
+CINDER_DRIVER=vsphere
+CINDER_ENABLED_BACKENDS=vsphere
+VMWAREAPI_IP=<vcenter-ip>
+VMWAREAPI_USER=<vcenter-user>
+VMWAREAPI_PASSWORD=<vcenter-password>
+VMWAREAPI_CLUSTER=<vcenter-cluster>
+
+# Use IPv4 only
+IP_VERSION=4
+
+# Pre-requisite
+ENABLED_SERVICES=rabbit,mysql,key
+
+# Horizon (Dashboard UI)
+ENABLED_SERVICES+=,horizon
+#HORIZON_REPO=https://github.com/openstack/horizon
+
+# Nova - Compute Service
+ENABLED_SERVICES+=,n-api,n-crt,n-obj,n-cpu,n-cond,n-sch
+
+# Nova Network - If you don't want to use Neutron and need a simple network setup (old good stuff!)
+#ENABLED_SERVICES+=,n-net
+
+## Nova Cells
+#ENABLED_SERVICES+=,n-cell
+
+# VNC server
+ENABLED_SERVICES+=,n-novnc,n-xvnc,n-cauth
+
+# Glance - Image Service
+ENABLED_SERVICES+=,g-api,g-reg
+
+# Tempest
+ENABLED_SERVICES+=,tempest
+
+# Swift - Object Storage
+#ENABLED_SERVICES+=,s-proxy,s-object,s-container,s-account
+
+# Neutron - Networking Service
+# If Neutron is not declared the old good nova-network will be used
+ENABLED_SERVICES+=,q-svc,q-dhcp,q-meta,neutron
+
+## Neutron - Load Balancing
+#ENABLED_SERVICES+=,q-lbaas
+
+## Neutron - VPN as a Service
+#ENABLED_SERVICES+=,q-vpn
+
+## Neutron - Firewall as a Service
+#ENABLED_SERVICES+=,q-fwaas
+
+# Cinder - Block Device Service
+#ENABLED_SERVICES+=,cinder,c-api,c-vol,c-sch,c-bak
+
+# Apache fronted for WSGI
+APACHE_ENABLED_SERVICES+=keystone,swift
+
+# Enable NSX-T plugin stable/liberty branch
+enable_plugin vmware-nsx <vmware-nsx-repo> <os-branch>
+Q_PLUGIN=vmware_nsx_v3
+# Defatult vlan transport zone for provider network
+DEFAULT_VLAN_TZ_UUID=<vlan-tz-uuid>
+# Defatult overlay transport zone fro tenant network
+DEFAULT_OVERLAY_TZ_UUID=<overlay-tz-uuid>
+NSX_MANAGER=<nsx-managers-ip>
+OVS_BRIDGE=nsxvswitch
+NSX_USER=<nsx-username>
+NSX_PASSWORD=<nsx-password>
+# Default tier0 uuid which is created by admin
+DEFAULT_TIER0_ROUTER_UUID=<tier0-router-uuid>
+# Default Edge cluster uuid
+DEFAULT_EDGE_CLUSTER_UUID=<edge-cluster-uuid>
