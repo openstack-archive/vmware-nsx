@@ -323,6 +323,17 @@ class TestPortsV2(NsxVPluginV2TestCase,
     VIF_TYPE = nsx_constants.VIF_TYPE_DVS
     HAS_PORT_FILTER = True
 
+    def test_get_ports_count(self):
+        with self.port(), self.port(), self.port(), self.port() as p:
+            tenid = p['port']['tenant_id']
+            ctx = context.Context(user_id=None, tenant_id=tenid,
+                                  is_admin=False)
+            pl = manager.NeutronManager.get_plugin()
+            count = pl.get_ports_count(ctx, filters={'tenant_id': [tenid]})
+            # Each port above has subnet => we have an additional port
+            # for DHCP
+            self.assertEqual(8, count)
+
     def test_update_port_mac_v6_slaac(self):
         self.skipTest('No DHCP v6 Support yet')
 
@@ -963,6 +974,29 @@ class TestPortsV2(NsxVPluginV2TestCase,
                 test_create_port_with_multiple_ipv4_and_ipv6_subnets()
             self.assertEqual(ctx_manager.exception.code, 400)
 
+    def test_list_ports_for_network_owner(self):
+        with self.network(tenant_id='tenant_1') as network:
+            with self.subnet(network, enable_dhcp=False) as subnet:
+                with self.port(subnet, tenant_id='tenant_1') as port1,\
+                        self.port(subnet, tenant_id='tenant_2') as port2:
+                    # network owner request, should return all ports
+                    port_res = self._list_ports(
+                        'json', set_context=True, tenant_id='tenant_1')
+                    port_list = self.deserialize('json', port_res)['ports']
+                    port_ids = [p['id'] for p in port_list]
+                    self.assertEqual(2, len(port_list))
+                    self.assertIn(port1['port']['id'], port_ids)
+                    self.assertIn(port2['port']['id'], port_ids)
+
+                    # another tenant request, only return ports belong to it
+                    port_res = self._list_ports(
+                        'json', set_context=True, tenant_id='tenant_2')
+                    port_list = self.deserialize('json', port_res)['ports']
+                    port_ids = [p['id'] for p in port_list]
+                    self.assertEqual(1, len(port_list))
+                    self.assertNotIn(port1['port']['id'], port_ids)
+                    self.assertIn(port2['port']['id'], port_ids)
+
 
 class TestSubnetsV2(NsxVPluginV2TestCase,
                     test_plugin.TestSubnetsV2):
@@ -1045,6 +1079,12 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
         self.skipTest('No DHCP v6 Support yet')
 
     def test_update_subnet_ipv6_cannot_disable_dhcp(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_create_subnet_V6_pd_slaac(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_create_subnet_V6_pd_stateless(self):
         self.skipTest('No DHCP v6 Support yet')
 
     def _create_subnet_bulk(self, fmt, number, net_id, name,
@@ -1197,6 +1237,12 @@ class TestSubnetPoolsV2(NsxVPluginV2TestCase, test_plugin.TestSubnetsV2):
               service_plugins=None):
         super(TestSubnetPoolsV2, self).setUp()
         self.context = context.get_admin_context()
+
+    def test_create_subnet_V6_pd_slaac(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_create_subnet_V6_pd_stateless(self):
+        self.skipTest('No DHCP v6 Support yet')
 
     def test_create_subnet_ipv6_gw_is_nw_end_addr_returns_201(self):
         self.skipTest('No DHCP v6 Support yet')
