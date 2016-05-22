@@ -103,7 +103,11 @@ class RouterBaseDriver(RouterAbstractDriver):
         and there is a different implementation in that driver class
         """
         # get the edge-id of this router
-        edge_id = self._get_edge_id_or_raise(context, router_id)
+        edge_id = edge_utils.get_router_edge_id(context, router_id)
+        if not edge_id:
+            # This may be a shared router that was not attached to an edge yet
+            return
+
         # find out if the port is uplink or internal
         router = self.plugin._get_router(context, router_id)
         is_uplink = (port_id == router.gw_port_id)
