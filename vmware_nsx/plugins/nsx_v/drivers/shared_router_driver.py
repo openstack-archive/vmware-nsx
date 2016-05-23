@@ -56,6 +56,13 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
     def update_router(self, context, router_id, router):
         r = router['router']
         self._validate_no_routes(r)
+
+        # If only the name and or description are updated. We do not need to
+        # update the backend.
+        if set(['name', 'description']) >= set(r.keys()):
+            return super(nsx_v.NsxVPluginV2, self.plugin).update_router(
+                context, router_id, router)
+
         edge_id = edge_utils.get_router_edge_id(context, router_id)
         if not edge_id:
             return super(nsx_v.NsxVPluginV2, self.plugin).update_router(
