@@ -175,3 +175,8 @@ class NsxResourceNotFound(n_exc.NotFound):
 
 class NsxQosPolicyMappingNotFound(n_exc.NotFound):
     message = _('Unable to find mapping for QoS policy: %(policy)s')
+
+
+class NumberOfNsgroupCriteriaTagsReached(NsxPluginException):
+    message = _("Port can be associated with at most %(max_num)s "
+                "security-groups.")

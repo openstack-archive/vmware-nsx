@@ -40,6 +40,7 @@ REJECT = 'REJECT'
 # filtering operators and expressions
 EQUALS = 'EQUALS'
 NSGROUP_SIMPLE_EXPRESSION = 'NSGroupSimpleExpression'
+NSGROUP_TAG_EXPRESSION = 'NSGroupTagExpression'
 
 # nsgroup members update actions
 ADD_MEMBERS = 'ADD_MEMBERS'
@@ -86,11 +87,20 @@ def get_nsservice(resource_type, **properties):
     return {'service': service}
 
 
-def create_nsgroup(display_name, description, tags):
+def get_nsgroup_port_tag_expression(scope, tag):
+    return {'resource_type': NSGROUP_TAG_EXPRESSION,
+            'target_type': LOGICAL_PORT,
+            'scope': scope,
+            'tag': tag}
+
+
+def create_nsgroup(display_name, description, tags, membership_criteria=None):
     body = {'display_name': display_name,
             'description': description,
             'tags': tags,
             'members': []}
+    if membership_criteria:
+        body.update({'membership_criteria': [membership_criteria]})
     return nsxclient.create_resource('ns-groups', body)
 
 
@@ -100,12 +110,17 @@ def list_nsgroups():
 
 
 @utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision)
-def update_nsgroup(nsgroup_id, display_name=None, description=None):
+def update_nsgroup(nsgroup_id, display_name=None, description=None,
+                   membership_criteria=None, members=None):
     nsgroup = read_nsgroup(nsgroup_id)
     if display_name is not None:
         nsgroup['display_name'] = display_name
     if description is not None:
         nsgroup['description'] = description
+    if members is not None:
+        nsgroup['members'] = members
+    if membership_criteria is not None:
+        nsgroup['membership_criteria'] = [membership_criteria]
     return nsxclient.update_resource('ns-groups/%s' % nsgroup_id, nsgroup)
 
 

@@ -37,6 +37,9 @@ LOG = log.getLogger(__name__)
 
 DEFAULT_SECTION = 'OS Default Section for Neutron Security-Groups'
 DEFAULT_SECTION_TAG_NAME = 'neutron_default_dfw_section'
+PORT_SG_SCOPE = 'os-security-group'
+
+MAX_NSGROUPS_CRITERIA_TAGS = 10
 
 
 def _get_l4_protocol_name(protocol_number):
@@ -228,6 +231,19 @@ def _get_remote_nsg_mapping(context, sg_rule, nsgroup_id):
         remote_nsgroup_id, s = get_sg_mappings(context.session,
                                                remote_group_id)
     return remote_nsgroup_id
+
+
+def get_lport_tags_for_security_groups(secgroups):
+    if len(secgroups) > MAX_NSGROUPS_CRITERIA_TAGS:
+        raise nsx_exc.NumberOfNsgroupCriteriaTagsReached(
+            max_num=MAX_NSGROUPS_CRITERIA_TAGS)
+    tags = []
+    for sg in secgroups:
+        tags = utils.add_v3_tag(tags, PORT_SG_SCOPE, sg)
+    if not tags:
+        # This port shouldn't be associated with any security-group
+        tags = [{'scope': PORT_SG_SCOPE, 'tag': None}]
+    return tags
 
 
 def update_lport_with_security_groups(context, lport_id, original, updated):

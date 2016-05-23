@@ -1187,6 +1187,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if resource_type:
             tags = utils.add_v3_tag(tags, resource_type, device_id)
 
+        if utils.is_nsx_version_1_1_0(self._nsx_version):
+            # If port has no security-groups then we don't need to add any
+            # security criteria tag.
+            if port_data[ext_sg.SECURITYGROUPS]:
+                tags += security.get_lport_tags_for_security_groups(
+                    port_data[ext_sg.SECURITYGROUPS])
+
         parent_name, tag = self._get_data_from_binding_profile(
             context, port_data)
         address_bindings = (self._build_address_bindings(port_data)
@@ -1567,17 +1574,19 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                   'backend. Exception: %(e)s'),
                               {'id': neutron_db['id'], 'e': e})
                     self._cleanup_port(context, neutron_db['id'], None)
-            try:
-                if sgids:
+
+            if not utils.is_nsx_version_1_1_0(self._nsx_version):
+                try:
                     security.update_lport_with_security_groups(
-                        context, lport['id'], [], sgids)
-            except Exception:
-                with excutils.save_and_reraise_exception():
-                    LOG.debug("Couldn't associate port %s with "
-                              "one or more security-groups, reverting "
-                              "logical-port creation (%s).",
-                              port_data['id'], lport['id'])
-                    self._cleanup_port(context, neutron_db['id'], lport['id'])
+                        context, lport['id'], [], sgids or [])
+                except Exception:
+                    with excutils.save_and_reraise_exception():
+                        LOG.debug("Couldn't associate port %s with "
+                                  "one or more security-groups, reverting "
+                                  "logical-port creation (%s).",
+                                  port_data['id'], lport['id'])
+                        self._cleanup_port(
+                            context, neutron_db['id'], lport['id'])
 
             try:
                 net_id = port_data[pbin.VIF_DETAILS]['nsx-logical-switch-id']
@@ -1634,8 +1643,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
                 context.session, port_id)
             self._port_client.delete(nsx_port_id)
-            security.update_lport_with_security_groups(
-                context, nsx_port_id, port.get(ext_sg.SECURITYGROUPS, []), [])
+            if not utils.is_nsx_version_1_1_0(self._nsx_version):
+                security.update_lport_with_security_groups(
+                    context, nsx_port_id,
+                    port.get(ext_sg.SECURITYGROUPS, []), [])
         self.disassociate_floatingips(context, port_id)
 
         # Remove Mac/IP binding from native DHCP server and neutron DB.
@@ -1723,7 +1734,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         original_device_id = original_port.get('device_id')
         updated_device_owner = updated_port.get('device_owner')
         updated_device_id = updated_port.get('device_id')
-        resources = []
+        tags_update = []
         if original_device_id != updated_device_id:
             # Determine if we need to update or drop the tag. If the
             # updated_device_id exists then the tag will be updated. This
@@ -1737,8 +1748,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 resource_type = self._get_resource_type_for_device_id(
                     original_device_owner, updated_device_id)
             if resource_type:
-                resources = [{'resource_type': resource_type,
-                              'tag': updated_device_id}]
+                tags_update = utils.add_v3_tag(tags_update, resource_type,
+                                               updated_device_id)
 
         vif_uuid = updated_port['id']
         parent_name, tag = self._get_data_from_binding_profile(
@@ -1752,10 +1763,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         name = self._get_port_name(context, updated_port)
 
-        security.update_lport_with_security_groups(
-            context, lport_id,
-            original_port.get(ext_sg.SECURITYGROUPS, []),
-            updated_port.get(ext_sg.SECURITYGROUPS, []))
+        if utils.is_nsx_version_1_1_0(self._nsx_version):
+            tags_update += security.get_lport_tags_for_security_groups(
+                updated_port.get(ext_sg.SECURITYGROUPS, []))
+        else:
+            security.update_lport_with_security_groups(
+                context, lport_id,
+                original_port.get(ext_sg.SECURITYGROUPS, []),
+                updated_port.get(ext_sg.SECURITYGROUPS, []))
 
         # Update the DHCP profile
         if updated_device_owner == const.DEVICE_OWNER_DHCP:
@@ -1785,7 +1800,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 admin_state=updated_port.get('admin_state_up'),
                 address_bindings=address_bindings,
                 switch_profile_ids=switch_profile_ids,
-                resources=resources,
+                tags_update=tags_update,
                 parent_name=parent_name,
                 parent_tag=tag)
         except nsx_exc.ManagerError as inst:
@@ -2591,10 +2606,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             tenant_id = secgroup['tenant_id']
             self._ensure_default_security_group(context, tenant_id)
         try:
+            if utils.is_nsx_version_1_1_0(self._nsx_version):
+                tag_expression = (
+                    firewall.get_nsgroup_port_tag_expression(
+                        security.PORT_SG_SCOPE, secgroup['id']))
+            else:
+                tag_expression = None
             # NOTE(roeyc): We first create the nsgroup so that once the sg is
             # saved into db its already backed up by an nsx resource.
             ns_group = firewall.create_nsgroup(
-                name, secgroup['description'], tags)
+                name, secgroup['description'], tags, tag_expression)
             # security-group rules are located in a dedicated firewall section.
             firewall_section = (
                 firewall.create_empty_section(

@@ -44,6 +44,7 @@ class Operations(enum.Enum):
     NSX_CLEAN = 'nsx-clean'
     NSX_UPDATE = 'nsx-update'
     NSX_UPDATE_SECRET = 'nsx-update-secret'
+    MIGRATE_TO_DYNAMIC_CRITERIA = 'migrate-to-dynamic-criteria'
 
 
 ops = [op.value for op in Operations]
@@ -64,6 +65,9 @@ nsxv3_resources = {
                                          Operations.NSX_CLEAN.value,
                                          Operations.NEUTRON_LIST.value,
                                          Operations.NEUTRON_CLEAN.value]),
+    constants.FIREWALL_NSX_GROUPS: Resource(
+        constants.FIREWALL_NSX_GROUPS, [
+            Operations.MIGRATE_TO_DYNAMIC_CRITERIA.value]),
     constants.NETWORKS: Resource(constants.NETWORKS,
                                  [Operations.LIST_MISMATCHES.value]),
     constants.PORTS: Resource(constants.PORTS,

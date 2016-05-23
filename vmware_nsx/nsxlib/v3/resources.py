@@ -292,13 +292,13 @@ class LogicalPort(AbstractRESTResource):
     def update(self, lport_id, vif_uuid,
                name=None, admin_state=None,
                address_bindings=None, switch_profile_ids=None,
-               resources=None,
+               tags_update=None,
                attachment_type=nsx_constants.ATTACHMENT_VIF,
                parent_name=None, parent_tag=None):
         lport = self.get(lport_id)
         tags = lport.get('tags', [])
-        if resources:
-            tags = utils.update_v3_tags(tags, resources)
+        if tags_update:
+            tags = utils.update_v3_tags(tags, tags_update)
         attachment = self._prepare_attachment(vif_uuid, parent_name,
                                               parent_tag, address_bindings,
                                               attachment_type)
