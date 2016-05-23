@@ -482,6 +482,11 @@ nsxv_opts = [
                 default=True,
                 help=_("(Optional) If True then plugin will use NSXV "
                        "spoofguard component for port-security feature.")),
+    cfg.BoolOpt('use_exclude_list',
+                default=True,
+                help=_("(Optional) If True then plugin will use NSXV exclude "
+                       "list component when port security is disabled and "
+                       "spoofguard is enabled.")),
     cfg.ListOpt('tenant_router_types',
                 default=['shared', 'distributed', 'exclusive'],
                 help=_("Ordered list of router_types to allocate as tenant "

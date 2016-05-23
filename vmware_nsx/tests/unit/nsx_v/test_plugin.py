@@ -145,6 +145,15 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
         plugin_instance._get_edge_id_by_rtr_id.return_value = False
         plugin_instance.edge_manager.is_dhcp_opt_enabled = True
 
+    def _get_core_plugin_with_dvs(self):
+        # enable dvs features to allow policy with QOS
+        cfg.CONF.set_default('use_dvs_features', True, 'nsxv')
+        plugin = manager.NeutronManager.get_plugin()
+        with mock.patch.object(dvs_utils, 'dvs_create_session'):
+            with mock.patch.object(dvs.DvsManager, '_get_dvs_moref'):
+                plugin._dvs = dvs.DvsManager()
+        return plugin
+
     def test_get_vlan_network_name(self):
         p = manager.NeutronManager.get_plugin()
         net_id = uuidutils.generate_uuid()
@@ -491,15 +500,6 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                               plugin.update_network,
                               context.get_admin_context(),
                               net['network']['id'], data)
-
-    def _get_core_plugin_with_dvs(self):
-        # enable dvs features to allow policy with QOS
-        cfg.CONF.set_default('use_dvs_features', True, 'nsxv')
-        plugin = manager.NeutronManager.get_plugin()
-        with mock.patch.object(dvs_utils, 'dvs_create_session'):
-            with mock.patch.object(dvs.DvsManager, '_get_dvs_moref'):
-                plugin._dvs = dvs.DvsManager()
-        return plugin
 
     @mock.patch.object(dvs.DvsManager, 'update_port_groups_config')
     @mock.patch.object(qos_utils.NsxVQosRule, '_init_from_policy_id')
@@ -3487,26 +3487,8 @@ class TestNSXPortSecurity(test_psec.TestPortSecurity,
         # Security Groups can be used even when port-security is disabled
         pass
 
-    def test_create_port_security_overrides_network_value(self):
-        pass
-
     def test_create_port_with_security_group_and_net_sec_false(self):
         pass
-
-    def test_create_port_security_doese_not_overrides_network_value(self):
-        """NSXv plugin port port-security-enabled is decided by the networks
-        port-security state
-        """
-        res = self._create_network('json', 'net1', True,
-                                   arg_list=('port_security_enabled',),
-                                   port_security_enabled=False)
-        net = self.deserialize('json', res)
-        res = self._create_port('json', net['network']['id'],
-                                arg_list=('port_security_enabled',),
-                                port_security_enabled=True)
-        port = self.deserialize('json', res)
-        self.assertEqual(port['port'][psec.PORTSECURITY], False)
-        self._delete('ports', port['port']['id'])
 
     def test_update_port_remove_port_security_security_group(self):
         pass
@@ -3524,6 +3506,157 @@ class TestNSXPortSecurity(test_psec.TestPortSecurity,
                                       plugin.update_port,
                                       context.get_admin_context(),
                                       port['port']['id'], update_port)
+
+    def _create_compute_port(self, network_name, device_id, port_security):
+        # create a network without port security
+        res = self._create_network('json', network_name, True)
+        net = self.deserialize('json', res)
+
+        # create a compute port with this network and a device
+        res = self._create_port('json', net['network']['id'],
+                                arg_list=('port_security_enabled',
+                                          'device_id',
+                                          'device_owner',),
+                                port_security_enabled=port_security,
+                                device_id=device_id,
+                                device_owner='compute:None')
+        return self.deserialize('json', res)
+
+    def _add_vnic_to_port(self, port_id, add_exclude, vnic_index):
+        """Add vnic to a port and check if the device was added to the
+        exclude list
+        """
+        plugin = self._get_core_plugin_with_dvs()
+        vm_moref = 'dummy_moref'
+        with mock.patch.object(plugin._dvs, 'get_vm_moref',
+                               return_value=vm_moref):
+            with mock.patch.object(
+                plugin.nsx_v.vcns,
+                'add_vm_to_exclude_list') as exclude_list_add:
+                data = {'port': {'vnic_index': vnic_index}}
+                self.new_update_request(
+                    'ports', data, port_id).get_response(self.api)
+                if add_exclude:
+                    # make sure the vm was added to the exclude list
+                    exclude_list_add.assert_called_once_with(vm_moref)
+                else:
+                    self.assertFalse(exclude_list_add.called)
+
+    def _del_vnic_from_port(self, port_id, del_exclude):
+        """Delete the vnic & device id from the port and check if
+        the device was removed from the exclude list
+        """
+        plugin = self._get_core_plugin_with_dvs()
+        vm_moref = 'dummy_moref'
+        with mock.patch.object(plugin._dvs, 'get_vm_moref',
+                               return_value=vm_moref):
+            with mock.patch.object(
+                plugin.nsx_v.vcns,
+                'delete_vm_from_exclude_list') as exclude_list_del:
+                data = {'port': {'vnic_index': None, 'device_id': ''}}
+                self.new_update_request(
+                    'ports', data, port_id).get_response(self.api)
+                if del_exclude:
+                    # make sure the vm was added to the exclude list
+                    exclude_list_del.assert_called_once_with(vm_moref)
+                else:
+                    self.assertFalse(exclude_list_del.called)
+
+    def _del_port_with_vnic(self, port_id, del_exclude):
+        """Delete port with vnic, and check if the device was removed
+        from the exclude list
+        """
+        plugin = self._get_core_plugin_with_dvs()
+        vm_moref = 'dummy_moref'
+        with mock.patch.object(plugin._dvs, 'get_vm_moref',
+                               return_value=vm_moref):
+            with mock.patch.object(
+                plugin.nsx_v.vcns,
+                'delete_vm_from_exclude_list') as exclude_list_del:
+                self.new_delete_request(
+                    'ports', port_id).get_response(self.api)
+                if del_exclude:
+                    # make sure the vm was added to the exclude list
+                    exclude_list_del.assert_called_once_with(vm_moref)
+                else:
+                    self.assertFalse(exclude_list_del.called)
+
+    def test_update_port_no_security_with_vnic(self):
+        device_id = _uuid()
+        # create a compute port without port security
+        port = self._create_compute_port('net1', device_id, False)
+
+        # add vnic to the port
+        self._add_vnic_to_port(port['port']['id'], True, 3)
+
+        # delete vnic from the port
+        self._del_vnic_from_port(port['port']['id'], True)
+
+    def test_update_multiple_port_no_security_with_vnic(self):
+        device_id = _uuid()
+        # create a compute port without port security
+        port1 = self._create_compute_port('net1', device_id, False)
+        # add vnic to the port
+        self._add_vnic_to_port(port1['port']['id'], True, 3)
+
+        # create another compute port without port security on the same device
+        port2 = self._create_compute_port('net2', device_id, False)
+        # add vnic to the port (no need to add to exclude list again)
+        self._add_vnic_to_port(port2['port']['id'], False, 4)
+
+        # delete vnics from the port
+        self._del_vnic_from_port(port1['port']['id'], False)
+        self._del_vnic_from_port(port2['port']['id'], True)
+
+    def test_update_mixed_port_no_security_with_vnic(self):
+        device_id = _uuid()
+        # create a compute port without port security
+        port1 = self._create_compute_port('net1', device_id, True)
+        # add vnic to the port
+        self._add_vnic_to_port(port1['port']['id'], False, 3)
+
+        irrelevant_device_id = _uuid()
+        # create a compute port without port security for a different device
+        port2 = self._create_compute_port('net1', irrelevant_device_id, True)
+        # add vnic to the port
+        self._add_vnic_to_port(port2['port']['id'], False, 3)
+
+        # create another compute port without port security on the same device
+        port3 = self._create_compute_port('net2', device_id, False)
+        # add vnic to the port (no need to add to exclude list again)
+        self._add_vnic_to_port(port3['port']['id'], True, 4)
+
+        # delete vnics from the port
+        self._del_vnic_from_port(port1['port']['id'], False)
+        self._del_vnic_from_port(port3['port']['id'], True)
+        self._del_vnic_from_port(port2['port']['id'], False)
+
+    def test_delete_port_no_security_with_vnic(self):
+        device_id = _uuid()
+        # create a compute port without port security
+        port = self._create_compute_port('net1', device_id, False)
+
+        # add vnic to the port
+        self._add_vnic_to_port(port['port']['id'], True, 3)
+
+        # delete port with the vnic
+        self._del_port_with_vnic(port['port']['id'], True)
+
+    def test_delete_multiple_port_no_security_with_vnic(self):
+        device_id = _uuid()
+        # create a compute port without port security
+        port1 = self._create_compute_port('net1', device_id, False)
+        # add vnic to the port
+        self._add_vnic_to_port(port1['port']['id'], True, 3)
+
+        # create another compute port without port security on the same device
+        port2 = self._create_compute_port('net2', device_id, False)
+        # add vnic to the port (no need to add to exclude list again)
+        self._add_vnic_to_port(port2['port']['id'], False, 4)
+
+        # delete ports with the vnics
+        self._del_port_with_vnic(port2['port']['id'], False)
+        self._del_port_with_vnic(port1['port']['id'], True)
 
 
 class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,

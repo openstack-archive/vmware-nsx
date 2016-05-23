@@ -47,6 +47,7 @@ VDN_PREFIX = '/api/2.0/vdn'
 SERVICES_PREFIX = '/api/2.0/services'
 SPOOFGUARD_PREFIX = '/api/4.0/services/spoofguard'
 TRUSTSTORE_PREFIX = '%s/%s' % (SERVICES_PREFIX, 'truststore')
+EXCLUDELIST_PREFIX = '/api/2.1/app/excludelist'
 
 #LbaaS Constants
 LOADBALANCER_SERVICE = "loadbalancer/config"
@@ -759,6 +760,14 @@ class Vcns(object):
             return (uri_path + "?async=true")
         else:
             return uri_path
+
+    def add_vm_to_exclude_list(self, vm_id):
+        uri = '%s/%s' % (EXCLUDELIST_PREFIX, vm_id)
+        return self.do_request(HTTP_PUT, uri)
+
+    def delete_vm_from_exclude_list(self, vm_id):
+        uri = '%s/%s' % (EXCLUDELIST_PREFIX, vm_id)
+        return self.do_request(HTTP_DELETE, uri)
 
     def get_scoping_objects(self):
         uri = '%s/usermgmt/scopingobjects' % SERVICES_PREFIX

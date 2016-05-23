@@ -1073,6 +1073,12 @@ class FakeVcns(object):
     def inactivate_vnic_assigned_addresses(self, policy_id, vnic_id):
         pass
 
+    def add_vm_to_exclude_list(self, vm_id):
+        pass
+
+    def delete_vm_from_exclude_list(self, vm_id):
+        pass
+
     def reset_all(self):
         self._jobs.clear()
         self._edges.clear()
