@@ -95,6 +95,12 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
         _patch_object(nsx_plugin, 'nsx_client', new=mock_client_module)
         _patch_object(nsx_plugin, 'nsx_cluster', new=mock_cluster_module)
 
+        # Mock the nsx v3 version
+        mock_nsxlib_get_version = mock.patch(
+            "vmware_nsx.nsxlib.v3.get_version",
+            return_value='1.1.0')
+        mock_nsxlib_get_version.start()
+
         # populate pre-existing mock resources
         cluster_id = uuidutils.generate_uuid()
         self.mock_api.post(
@@ -603,7 +609,7 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
                 {'scope': 'os-project-name', 'tag': 'Z' * 40},
                 {'scope': 'os-api-version',
                  'tag': version.version_info.release_string()}]
-        resources = [{'resource_type': 'os-instance-uuid',
+        resources = [{'scope': 'os-instance-uuid',
                       'tag': 'A' * 40}]
         tags = utils.update_v3_tags(tags, resources)
         expected = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
@@ -621,7 +627,7 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
                 {'scope': 'os-project-name', 'tag': 'Z' * 40},
                 {'scope': 'os-api-version',
                  'tag': version.version_info.release_string()}]
-        resources = [{'resource_type': 'os-neutron-net-id',
+        resources = [{'scope': 'os-neutron-net-id',
                       'tag': ''}]
         tags = utils.update_v3_tags(tags, resources)
         expected = [{'scope': 'os-project-id', 'tag': 'Y' * 40},
@@ -636,7 +642,7 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
                 {'scope': 'os-project-name', 'tag': 'Z' * 40},
                 {'scope': 'os-api-version',
                  'tag': version.version_info.release_string()}]
-        resources = [{'resource_type': 'os-project-id',
+        resources = [{'scope': 'os-project-id',
                       'tag': 'A' * 40}]
         tags = utils.update_v3_tags(tags, resources)
         expected = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
@@ -644,4 +650,33 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
                     {'scope': 'os-project-name', 'tag': 'Z' * 40},
                     {'scope': 'os-api-version',
                      'tag': version.version_info.release_string()}]
+        self.assertEqual(sorted(expected), sorted(tags))
+
+    def test_update_v3_tags_repetitive_scopes(self):
+        tags = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+                {'scope': 'os-project-id', 'tag': 'Y' * 40},
+                {'scope': 'os-project-name', 'tag': 'Z' * 40},
+                {'scope': 'os-security-group', 'tag': 'SG1'},
+                {'scope': 'os-security-group', 'tag': 'SG2'}]
+        tags_update = [{'scope': 'os-security-group', 'tag': 'SG3'},
+                       {'scope': 'os-security-group', 'tag': 'SG4'}]
+        tags = utils.update_v3_tags(tags, tags_update)
+        expected = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+                    {'scope': 'os-project-id', 'tag': 'Y' * 40},
+                    {'scope': 'os-project-name', 'tag': 'Z' * 40},
+                    {'scope': 'os-security-group', 'tag': 'SG3'},
+                    {'scope': 'os-security-group', 'tag': 'SG4'}]
+        self.assertEqual(sorted(expected), sorted(tags))
+
+    def test_update_v3_tags_repetitive_scopes_remove(self):
+        tags = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+                {'scope': 'os-project-id', 'tag': 'Y' * 40},
+                {'scope': 'os-project-name', 'tag': 'Z' * 40},
+                {'scope': 'os-security-group', 'tag': 'SG1'},
+                {'scope': 'os-security-group', 'tag': 'SG2'}]
+        tags_update = [{'scope': 'os-security-group', 'tag': None}]
+        tags = utils.update_v3_tags(tags, tags_update)
+        expected = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+                    {'scope': 'os-project-id', 'tag': 'Y' * 40},
+                    {'scope': 'os-project-name', 'tag': 'Z' * 40}]
         self.assertEqual(sorted(expected), sorted(tags))

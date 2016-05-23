@@ -35,7 +35,7 @@ NSG_IDS = ['11111111-1111-1111-1111-111111111111',
 def _mock_create_and_list_nsgroups(test_method):
     nsgroups = []
 
-    def _create_nsgroup_mock(name, desc, tags):
+    def _create_nsgroup_mock(name, desc, tags, membership_criteria=None):
         nsgroup = {'id': NSG_IDS[len(nsgroups)],
                    'display_name': name,
                    'desc': desc,
@@ -56,6 +56,19 @@ def _mock_create_and_list_nsgroups(test_method):
 
 class TestSecurityGroups(test_nsxv3.NsxV3PluginTestCaseMixin,
                          test_ext_sg.TestSecurityGroups):
+    pass
+
+
+class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
+                                          test_ext_sg.TestSecurityGroups):
+
+    def setUp(self):
+        super(TestSecurityGroupsNoDynamicCriteria, self).setUp()
+        mock_nsx_version = mock.patch.object(nsx_plugin.utils,
+                                             'is_nsx_version_1_1_0',
+                                             new=lambda v: False)
+        mock_nsx_version.start()
+        self._patchers.append(mock_nsx_version)
 
     @_mock_create_and_list_nsgroups
     @mock.patch.object(firewall, 'remove_nsgroup_member')
@@ -63,7 +76,7 @@ class TestSecurityGroups(test_nsxv3.NsxV3PluginTestCaseMixin,
     def test_create_port_with_multiple_security_groups(self,
                                                        add_member_mock,
                                                        remove_member_mock):
-        super(TestSecurityGroups,
+        super(TestSecurityGroupsNoDynamicCriteria,
               self).test_create_port_with_multiple_security_groups()
 
         # The first nsgroup is associated with the default secgroup, which is
@@ -78,7 +91,7 @@ class TestSecurityGroups(test_nsxv3.NsxV3PluginTestCaseMixin,
     def test_update_port_with_multiple_security_groups(self,
                                                        add_member_mock,
                                                        remove_member_mock):
-        super(TestSecurityGroups,
+        super(TestSecurityGroupsNoDynamicCriteria,
               self).test_update_port_with_multiple_security_groups()
 
         calls = [mock.call(NSG_IDS[0], firewall.LOGICAL_PORT, mock.ANY),
@@ -95,7 +108,7 @@ class TestSecurityGroups(test_nsxv3.NsxV3PluginTestCaseMixin,
     def test_update_port_remove_security_group_empty_list(self,
                                                           add_member_mock,
                                                           remove_member_mock):
-        super(TestSecurityGroups,
+        super(TestSecurityGroupsNoDynamicCriteria,
               self).test_update_port_remove_security_group_empty_list()
 
         add_member_mock.assert_called_with(

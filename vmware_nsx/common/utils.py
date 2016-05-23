@@ -13,10 +13,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from distutils import version
 import hashlib
 
 from neutron.api.v2 import attributes
-from neutron import version
+from neutron import version as n_version
 from neutron_lib import exceptions
 from oslo_config import cfg
 from oslo_log import log
@@ -30,9 +31,10 @@ LOG = log.getLogger(__name__)
 MAX_DISPLAY_NAME_LEN = 40
 MAX_RESOURCE_TYPE_LEN = 20
 MAX_TAG_LEN = 40
-NEUTRON_VERSION = version.version_info.release_string()
+NEUTRON_VERSION = n_version.version_info.release_string()
 NSX_NEUTRON_PLUGIN = 'NSX Neutron plugin'
 OS_NEUTRON_ID_SCOPE = 'os-neutron-id'
+NSXV3_VERSION_1_1_0 = '1.1.0'
 
 
 # Allowed network types for the NSX Plugin
@@ -61,6 +63,11 @@ class NsxV3NetworkTypes:
     FLAT = 'flat'
     VLAN = 'vlan'
     VXLAN = 'vxlan'
+
+
+def is_nsx_version_1_1_0(nsx_version):
+    return (version.LooseVersion(nsx_version) >=
+            version.LooseVersion(NSXV3_VERSION_1_1_0))
 
 
 def get_tags(**kwargs):
@@ -113,7 +120,7 @@ def build_v3_api_version_tag():
     return [{'scope': OS_NEUTRON_ID_SCOPE,
              'tag': NSX_NEUTRON_PLUGIN},
             {'scope': "os-api-version",
-             'tag': version.version_info.release_string()}]
+             'tag': n_version.version_info.release_string()}]
 
 
 def _validate_resource_type_length(resource_type):
@@ -148,7 +155,7 @@ def build_v3_tags_payload(resource, resource_type, project_name):
             {'scope': 'os-project-name',
              'tag': project_name[:MAX_TAG_LEN]},
             {'scope': 'os-api-version',
-             'tag': version.version_info.release_string()[:MAX_TAG_LEN]}]
+             'tag': n_version.version_info.release_string()[:MAX_TAG_LEN]}]
 
 
 def add_v3_tag(tags, resource_type, tag):
@@ -157,22 +164,23 @@ def add_v3_tag(tags, resource_type, tag):
     return tags
 
 
-def update_v3_tags(tags, resources):
-    port_tags = dict((t['scope'], t['tag']) for t in tags)
-    resources = resources or []
-    # Update tags
-    for resource in resources:
-        tag = resource['tag'][:MAX_TAG_LEN]
-        resource_type = resource['resource_type']
-        if resource_type in port_tags:
-            if tag:
-                port_tags[resource_type] = tag
-            else:
-                port_tags.pop(resource_type, None)
-        else:
-            port_tags[resource_type] = tag
-    # Create the new set of tags
-    return [{'scope': k, 'tag': v} for k, v in port_tags.items()]
+def update_v3_tags(current_tags, tags_update):
+    current_scopes = set([tag['scope'] for tag in current_tags])
+    updated_scopes = set([tag['scope'] for tag in tags_update])
+
+    tags = [{'scope': tag['scope'], 'tag': tag['tag']}
+            for tag in (current_tags + tags_update)
+            if tag['scope'] in (current_scopes ^ updated_scopes)]
+
+    modified_scopes = current_scopes & updated_scopes
+    for tag in tags_update:
+        if tag['scope'] in modified_scopes:
+            # If the tag value is empty or None, then remove the tag completely
+            if tag['tag']:
+                tag['tag'] = tag['tag'][:MAX_TAG_LEN]
+                tags.append(tag)
+
+    return tags
 
 
 def retry_upon_exception_nsxv3(exc, delay=500, max_delay=2000,

@@ -171,3 +171,8 @@ class SecurityGroupMaximumCapacityReached(NsxPluginException):
 
 class NsxResourceNotFound(n_exc.NotFound):
     message = _("%(res_name)s %(res_id)s not found on the backend.")
+
+
+class NumberOfNsgroupCriteriaTagsReached(NsxPluginException):
+    message = _("Port can be associated with at most %(max_num)s "
+                "security-groups.")
