@@ -323,9 +323,6 @@ class EdgeManager(object):
     def _get_available_router_binding(self, context,
                                       appliance_size=nsxv_constants.COMPACT,
                                       edge_type=nsxv_constants.SERVICE_EDGE):
-        # Reload backup router bindings in case of getting
-        # deleted router bindings
-        context.session.expire_all()
         backup_router_bindings = self._get_backup_edge_bindings(
             context, appliance_size=appliance_size, edge_type=edge_type)
         while backup_router_bindings:
