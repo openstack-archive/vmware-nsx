@@ -12,6 +12,8 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
+import mock
 import netaddr
 import six
 
@@ -66,6 +68,7 @@ from oslo_utils import importutils
 from oslo_utils import uuidutils
 
 from vmware_nsx._i18n import _, _LE, _LI, _LW
+from vmware_nsx.api_replay import utils as api_replay_utils
 from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import locking
@@ -196,6 +199,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     "switching profile: %s") % NSX_V3_DHCP_PROFILE_NAME
             raise nsx_exc.NsxPluginException(msg)
         self._unsubscribe_callback_events()
+        if cfg.CONF.api_replay_mode:
+            self.supported_extension_aliases.append('api-replay')
 
         # translate configured transport zones/rotuers names to uuid
         self._translate_configured_names_2_uuids()
@@ -1658,8 +1663,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         name = utils.get_name_and_uuid(
                             router_name, port['id'], tag='port')
                         self._port_client.update(nsx_port_id, None, name=name)
-            return super(NsxV3Plugin, self).update_router(
-                context, router_id, router)
+
+            # NOTE(arosen): the mock.patch here is needed for api_replay_mode
+            with mock.patch("neutron.plugins.common.utils._fixup_res_dict",
+                            side_effect=api_replay_utils._fixup_res_dict):
+                return super(NsxV3Plugin, self).update_router(
+                    context, router_id, router)
         except nsx_exc.ResourceNotFound:
             with context.session.begin(subtransactions=True):
                 router_db = self._get_router(context, router_id)
@@ -1742,9 +1751,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # to routers
         self._validate_multiple_subnets_routers(context,
                                                 router_id, interface_info)
-
-        info = super(NsxV3Plugin, self).add_router_interface(
-            context, router_id, interface_info)
+        # NOTE(arosen): the mock.patch here is needed for api_replay_mode
+        with mock.patch("neutron.plugins.common.utils._fixup_res_dict",
+                        side_effect=api_replay_utils._fixup_res_dict):
+            info = super(NsxV3Plugin, self).add_router_interface(
+                context, router_id, interface_info)
         try:
             subnet = self.get_subnet(context, info['subnet_ids'][0])
             port = self.get_port(context, info['port_id'])
@@ -1860,11 +1871,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return info
 
     def create_floatingip(self, context, floatingip):
-        new_fip = super(NsxV3Plugin, self).create_floatingip(
-            context, floatingip, initial_status=(
-                const.FLOATINGIP_STATUS_ACTIVE
-                if floatingip['floatingip']['port_id']
-                else const.FLOATINGIP_STATUS_DOWN))
+        # NOTE(arosen): the mock.patch here is needed for api_replay_mode
+        with mock.patch("neutron.plugins.common.utils._fixup_res_dict",
+                        side_effect=api_replay_utils._fixup_res_dict):
+
+            new_fip = super(NsxV3Plugin, self).create_floatingip(
+                context, floatingip, initial_status=(
+                    const.FLOATINGIP_STATUS_ACTIVE
+                    if floatingip['floatingip']['port_id']
+                    else const.FLOATINGIP_STATUS_DOWN))
         router_id = new_fip['router_id']
         if not router_id:
             return new_fip
@@ -1972,6 +1987,33 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         super(NsxV3Plugin, self).disassociate_floatingips(
             context, port_id, do_notify=False)
+
+    def _ensure_default_security_group(self, context, tenant_id):
+        # NOTE(arosen): if in replay mode we'll create all the default
+        # security groups for the user with their data so we don't
+        # want this to be called.
+        if (cfg.CONF.api_replay_mode is False):
+            return super(NsxV3Plugin, self)._ensure_default_security_group(
+                context, tenant_id)
+
+    def _stub__validate_name_not_default(self):
+        # NOTE(arosen): if in replay mode we need stub out this validator to
+        # all default security groups to be created via the api
+        if cfg.CONF.api_replay_mode:
+            def _pass(data, foo=None):
+                pass
+            ext_sg.validators.validators['type:name_not_default'] = _pass
+
+    def get_security_groups(self, context, filters=None, fields=None,
+                            sorts=None, limit=None,
+                            marker=None, page_reverse=False, default_sg=False):
+
+        self._stub__validate_name_not_default()
+        return super(NsxV3Plugin, self).get_security_groups(
+                context, filters=filters, fields=fields,
+                sorts=sorts, limit=limit,
+                marker=marker, page_reverse=page_reverse,
+                default_sg=default_sg)
 
     def create_security_group(self, context, security_group, default_sg=False):
         secgroup = security_group['security_group']

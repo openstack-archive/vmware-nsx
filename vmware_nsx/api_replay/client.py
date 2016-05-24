@@ -47,6 +47,7 @@ class ApiReplayClient(object):
         self.migrate_security_groups()
         self.migrate_routers()
         self.migrate_networks_subnets_ports()
+        self.migrate_floatingips()
 
     def find_subnet_by_id(self, subnet_id, subnets):
         for subnet in subnets:
@@ -104,7 +105,7 @@ class ApiReplayClient(object):
             dest_sec_group = self.have_id(sg['id'], dest_sec_groups)
             # If the security group already exists on the the dest_neutron
             if dest_sec_group:
-                # make sure all the security group rules are theree and
+                # make sure all the security group rules are there and
                 # create them if not
                 for sg_rule in sg['security_group_rules']:
                     if(self.have_id(sg_rule['id'],
@@ -126,18 +127,19 @@ class ApiReplayClient(object):
             else:
                 sg_rules = sg.pop('security_group_rules')
                 try:
-                    print(self.dest_neutron.create_security_group(
-                        {'security_group': sg}))
+                    new_sg = self.dest_neutron.create_security_group(
+                        {'security_group': sg})
+                    print ("Created security-group %s" % new_sg)
                 except Exception as e:
                     # TODO(arosen): improve exception handing here.
                     print (e)
-                    pass
 
                 for sg_rule in sg_rules:
                     try:
-                        print (self.dest_neutron.create_security_group_rule(
-                            {'security_group_rule': sg_rule}))
-                    except n_exc.Conflict:
+                        rule = self.dest_neutron.create_security_group_rule(
+                            {'security_group_rule': sg_rule})
+                        print ("created security group rule %s " % rule['id'])
+                    except Exception:
                         # NOTE(arosen): when you create a default
                         # security group it is automatically populated
                         # with some rules. When we go to create the rules
@@ -155,13 +157,15 @@ class ApiReplayClient(object):
             if dest_router is False:
                 drop_router_fields = ['status',
                                       'routes',
+                                      'ha',
                                       'external_gateway_info']
                 body = self.drop_fields(router, drop_router_fields)
-                print (self.dest_neutron.create_router(
-                       {'router': body}))
+                new_router = (self.dest_neutron.create_router(
+                    {'router': body}))
+                print ("created router %s" % new_router)
 
     def migrate_networks_subnets_ports(self):
-        """Migrates routers from source to dest neutron."""
+        """Migrates networks/ports/router-uplinks from src to dest neutron."""
         source_ports = self.source_neutron.list_ports()['ports']
         source_subnets = self.source_neutron.list_subnets()['subnets']
         source_networks = self.source_neutron.list_networks()['networks']
@@ -185,10 +189,12 @@ class ApiReplayClient(object):
                             'port_security_enabled',
                             'binding:vif_details',
                             'binding:vif_type',
-                            'binding:host_id']
+                            'binding:host_id', 'qos_policy_id']
 
         drop_network_fields = ['status', 'subnets', 'availability_zones',
-                               'created_at', 'updated_at', 'tags']
+                               'created_at', 'updated_at', 'tags',
+                               'qos_policy_id', 'ipv4_address_scope',
+                               'ipv6_address_scope', 'mtu']
 
         for network in source_networks:
             body = self.drop_fields(network, drop_network_fields)
@@ -202,7 +208,7 @@ class ApiReplayClient(object):
             if self.have_id(network['id'], dest_networks) is False:
                 created_net = self.dest_neutron.create_network(
                     {'network': body})['network']
-                print ("Created network: " + created_net['id'])
+                print ("Created network:  %s " % created_net)
 
             for subnet_id in network['subnets']:
                 subnet = self.find_subnet_by_id(subnet_id, source_subnets)
@@ -240,24 +246,49 @@ class ApiReplayClient(object):
 
                 # only create port if the dest server doesn't have it
                 if self.have_id(port['id'], dest_ports) is False:
+                    if port['device_owner'] == 'network:router_gateway':
+                        body = {
+                            "external_gateway_info":
+                                {"network_id": port['network_id']}}
+                        router_uplink = self.dest_neutron.update_router(
+                            port['device_id'],  # router_id
+                            {'router': body})
+                        print ("Uplinked router %s" % router_uplink)
+                        continue
 
-                    if port['device_owner'] in ['network:router_interface',
-                                                'network:router_gateway']:
-                        if port['allowed_address_pairs'] == []:
-                            del body['allowed_address_pairs']
-                    created_port = self.dest_neutron.create_port(
-                        {'port': body})['port']
-                    print ("Created port: " + created_port['id'])
+                    # Let the neutron dhcp-agent recreate this on it's own
+                    if port['device_owner'] == 'network:dhcp':
+                        continue
+
+                    # ignore these as we create them ourselves later
+                    if port['device_owner'] == 'network:floatingip':
+                        continue
 
                     if port['device_owner'] == 'network:router_interface':
                         try:
-                            print (self.dest_neutron.add_interface_router(
+                            # uplink router_interface ports
+                            self.dest_neutron.add_interface_router(
                                 port['device_id'],
-                                {'port_id': port['id']}))
-
+                                {'subnet_id': created_subnet['id']})
+                            print ("Uplinked router %s to subnet %s" %
+                                   (port['device_id'], created_subnet['id']))
+                            continue
                         except n_exc.BadRequest as e:
                             # NOTE(arosen): this occurs here if you run the
                             # script multiple times as we don't track this.
                             print (e)
+                            raise
 
-                    # TODO(arosen): handle 'network:router_gateway' uplinking
+                    created_port = self.dest_neutron.create_port(
+                        {'port': body})['port']
+                    print ("Created port: " + created_port['id'])
+
+    def migrate_floatingips(self):
+        """Migrates floatingips from source to dest neutron."""
+        source_fips = self.source_neutron.list_floatingips()['floatingips']
+        drop_fip_fields = ['status', 'router_id', 'id']
+
+        for source_fip in source_fips:
+            body = self.drop_fields(source_fip, drop_fip_fields)
+            fip = self.dest_neutron.create_floatingip({'floatingip': body})
+            print ("Created floatingip %s" % fip)
