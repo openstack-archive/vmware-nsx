@@ -40,4 +40,5 @@ def upgrade():
         'tz_network_bindings',
         'binding_type',
         type_=new_tz_binding_type_enum,
-        existing_type=old_tz_binding_type_enum)
+        existing_type=old_tz_binding_type_enum,
+        existing_nullable=False)
