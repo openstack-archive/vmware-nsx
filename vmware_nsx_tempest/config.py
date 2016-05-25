@@ -54,8 +54,9 @@ NetworkGroup = [
     cfg.StrOpt('host_in_search_domain',
                default='mail',
                help="host exists in dns_search_domain"),
-    cfg.StrOpt('external_network_cidr',
-               help="external network cidr"),
+    cfg.StrOpt('public_network_cidr',
+               help="Public network cidr which provides external network"
+                    " connectivity"),
 ]
 
 nsxv_group = cfg.OptGroup(name='nsxv',
