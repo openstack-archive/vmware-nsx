@@ -68,23 +68,27 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def delete(self, context, lb):
-        try:
-            binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
-                context.session, lb.id)
-            if binding:
+        binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
+            context.session, lb.id)
+        if binding:
+            try:
                 lb_common.del_vip_fw_rule(self.vcns, binding['edge_id'],
                                           binding['edge_fw_rule_id'])
+            except nsxv_exc.VcnsApiException as e:
+                LOG.error(_LE('Failed to delete loadbalancer %(lb)s FW rule. '
+                              'exception is %(exc)s'), {'lb': lb.id, 'exc': e})
+            try:
                 lb_common.del_vip_as_secondary_ip(self.vcns,
                                                   binding['edge_id'],
                                                   lb.vip_address)
-                nsxv_db.del_nsxv_lbaas_loadbalancer_binding(context.session,
-                                                            lb.id)
-            self.lbv2_driver.load_balancer.successful_completion(
-                context, lb, delete=True)
-        except nsxv_exc.VcnsApiException:
-            with excutils.save_and_reraise_exception():
-                self.lbv2_driver.load_balancer.failed_completion(context, lb)
-                LOG.error(_LE('Failed to delete pool %s'), lb.id)
+            except Exception as e:
+                LOG.error(_LE('Failed to delete loadbalancer %(lb)s interface'
+                              ' IP. exception is %(exc)s'),
+                          {'lb': lb.id, 'exc': e})
+
+            nsxv_db.del_nsxv_lbaas_loadbalancer_binding(context.session, lb.id)
+        self.lbv2_driver.load_balancer.successful_completion(context, lb,
+                                                             delete=True)
 
     @log_helpers.log_method_call
     def refresh(self, context, lb):
