@@ -18,6 +18,7 @@ from neutron.api.rpc.callbacks import events as callbacks_events
 from neutron import context as n_context
 from neutron import manager
 from neutron.objects.qos import policy as qos_policy
+from neutron.objects.qos import rule as rule_object
 from neutron.plugins.common import constants
 
 from oslo_log import log as logging
@@ -62,27 +63,23 @@ class NsxVQosRule(object):
         # read the neutron policy restrictions
         if qos_policy_id is not None:
             plugin = self._get_qos_plugin()
-            # read the QoS BW rule from DB
-            rules_obj = plugin.get_policy_bandwidth_limit_rules(
+            rules_obj = plugin.get_policies(
                 context, qos_policy_id)
             if rules_obj is not None and len(rules_obj) > 0:
-                rule_obj = rules_obj[0]  # neutron supports only 1 rule for now
-                self.bandwidthEnabled = True
-                # averageBandwidth: kbps (neutron) -> bps (nsxv)
-                self.averageBandwidth = rule_obj['max_kbps'] * 1024
-                # peakBandwidth: the same as the average value because the
-                # neutron qos configuration supports only 1 value
-                self.peakBandwidth = self.averageBandwidth
-                # burstSize: kbps (neutron) -> Bytes (nsxv)
-                self.burstSize = rule_obj['max_burst_kbps'] * 128
-
-            # read the QoS DSCP marking rule from DB
-            rules_obj = plugin.get_policy_dscp_marking_rules(
-                context, qos_policy_id)
-            if rules_obj is not None and len(rules_obj) > 0:
-                rule_obj = rules_obj[0]  # neutron supports only 1 rule for now
-                self.dscpMarkEnabled = True
-                self.dscpMarkValue = rule_obj['dscp_mark']
+                for rule_obj in rules_obj:
+                    if isinstance(rule_obj, rule_object.QosBandwidthLimitRule):
+                        self.bandwidthEnabled = True
+                        # averageBandwidth: kbps (neutron) -> bps (nsxv)
+                        self.averageBandwidth = rule_obj['max_kbps'] * 1024
+                        # peakBandwidth: the same as the average value
+                        # because the neutron qos configuration supports
+                        # only 1 value
+                        self.peakBandwidth = self.averageBandwidth
+                        # burstSize: kbps (neutron) -> Bytes (nsxv)
+                        self.burstSize = rule_obj['max_burst_kbps'] * 128
+                    elif isinstance(rule_obj, rule_object.QosDscpMarkingRule):
+                        self.dscpMarkEnabled = True
+                        self.dscpMarkValue = rule_obj['dscp_mark']
 
         return self
 
