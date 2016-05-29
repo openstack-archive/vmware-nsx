@@ -82,7 +82,9 @@ nsxv3_resources = {
                                          Operations.NSX_LIST.value,
                                          Operations.NSX_CLEAN.value,
                                          Operations.NEUTRON_LIST.value,
-                                         Operations.NEUTRON_CLEAN.value])
+                                         Operations.NEUTRON_CLEAN.value]),
+    constants.NETWORKS: Resource(constants.NETWORKS,
+                                 [Operations.LIST_MISMATCHES.value])
 }
 
 # Add supported NSX-V resources in this dictionary
