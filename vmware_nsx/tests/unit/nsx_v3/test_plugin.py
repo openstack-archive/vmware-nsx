@@ -279,6 +279,12 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
             with mock.patch.object(self.plugin, '_get_qos_profile_id'):
                 port = self.plugin.create_port(self.ctx, data)
                 self.assertEqual(policy_id, port['qos_policy_id'])
+                # Get port should also return the qos policy id
+                with mock.patch('vmware_nsx.services.qos.nsx_v3.utils.'
+                                'get_port_policy_id',
+                                return_value=policy_id):
+                    port = self.plugin.get_port(self.ctx, port['id'])
+                    self.assertEqual(policy_id, port['qos_policy_id'])
 
     def test_update_port_with_qos(self):
         with self.network() as network:
@@ -298,6 +304,12 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
             with mock.patch.object(self.plugin, '_get_qos_profile_id'):
                 res = self.plugin.update_port(self.ctx, port['id'], data)
                 self.assertEqual(policy_id, res['qos_policy_id'])
+                # Get port should also return the qos policy id
+                with mock.patch('vmware_nsx.services.qos.nsx_v3.utils.'
+                                'get_port_policy_id',
+                                return_value=policy_id):
+                    res = self.plugin.get_port(self.ctx, port['id'])
+                    self.assertEqual(policy_id, res['qos_policy_id'])
 
     def test_create_ext_port_with_qos_fail(self):
         with self._create_l3_ext_network() as network:
