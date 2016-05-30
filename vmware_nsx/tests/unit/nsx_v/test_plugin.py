@@ -603,6 +603,46 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                 self.assertTrue(fake_init_from_policy.called)
                 self.assertTrue(fake_dvs_update.called)
 
+    def test_create_network_with_bad_az_hint(self):
+        p = manager.NeutronManager.get_plugin()
+        ctx = context.get_admin_context()
+        data = {'network': {
+                'name': 'test-qos',
+                'tenant_id': self._tenant_id,
+                'port_security_enabled': False,
+                'admin_state_up': True,
+                'shared': False,
+                'availability_zone_hints': ['bad_hint']
+                }}
+        self.assertRaises(n_exc.NeutronException,
+                          p.create_network,
+                          ctx, data)
+
+    def test_create_network_with_az_hint(self):
+        p = manager.NeutronManager.get_plugin()
+        ctx = context.get_admin_context()
+        alter_pool_id = 'respool-7'
+        alter_pool_name = 'rs-7'
+        p._availability_zones_data = {'default': self.default_res_pool,
+                                      alter_pool_name: alter_pool_id}
+
+        data = {'network': {
+                'name': 'test-qos',
+                'tenant_id': self._tenant_id,
+                'port_security_enabled': False,
+                'admin_state_up': True,
+                'shared': False,
+                'availability_zone_hints': [alter_pool_name]
+                }}
+
+        # network creation should succeed
+        net = p.create_network(ctx, data)
+        self.assertEqual([alter_pool_name],
+                         net['availability_zone_hints'])
+        # the availability zone is still empty until subnet creation
+        self.assertEqual([],
+                         net['availability_zones'])
+
 
 class TestVnicIndex(NsxVPluginV2TestCase,
                     test_vnic_index.VnicIndexDbTestCase):

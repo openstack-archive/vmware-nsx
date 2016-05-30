@@ -148,6 +148,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                    "advanced-service-providers",
                                    "subnet_allocation",
                                    "availability_zone",
+                                   "network_availability_zone",
                                    "router_availability_zone"]
 
     supported_qos_rule_types = [qos_consts.RULE_TYPE_BANDWIDTH_LIMIT,
@@ -497,6 +498,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                      pnet.SEGMENTATION_ID: binding.vlan_id}
                     for binding in bindings]
 
+        # update availability zones
+        network[az_ext.AVAILABILITY_ZONES] = (
+            self.get_network_availability_zones(context, network))
+
     def _get_subnet_as_providers(self, context, subnet):
         net_id = subnet.get('network_id')
         if net_id is None:
@@ -720,10 +725,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # is here only for overriding the original api
         result = {}
         for az in self._availability_zones_data.keys():
-            # Add this availability zone as a router resource
-            resource = 'router'
-            key = (az, resource)
-            result[key] = True
+            # Add this availability zone as a router & network resource
+            for resource in ('router', 'network'):
+                result[(az, resource)] = True
         return result
 
     def _validate_availability_zones_in_obj(self, context, resource_type,
@@ -751,6 +755,16 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             raise az_ext.AvailabilityZoneNotFound(
                 availability_zone=diff.pop())
 
+    def get_network_resource_pool(self, context, network_id):
+        network = self.get_network(context, network_id)
+        if az_ext.AZ_HINTS in network:
+            for hint in network[az_ext.AZ_HINTS]:
+                # For now we use only the first hint
+                return self.get_res_pool_id_by_name(hint)
+
+        # return the default
+        return cfg.CONF.nsxv.resource_pool_id
+
     def create_network(self, context, network):
         net_data = network['network']
         tenant_id = net_data['tenant_id']
@@ -758,6 +772,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Process the provider network extension
         provider_type = self._convert_to_transport_zones_dict(net_data)
         self._validate_provider_create(context, net_data)
+        self._validate_availability_zones_in_obj(context, 'network', net_data)
         net_data['id'] = str(uuid.uuid4())
 
         external = net_data.get(ext_net_extn.EXTERNAL)
@@ -838,6 +853,19 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 # Process port security extension
                 self._process_network_port_security_create(
                     context, net_data, new_net)
+
+                # update the network with the availability zone hints
+                if az_ext.AZ_HINTS in net_data:
+                    self.validate_availability_zones(context, 'network',
+                                                     net_data[az_ext.AZ_HINTS])
+                    az_hints = az_ext.convert_az_list_to_string(
+                                                    net_data[az_ext.AZ_HINTS])
+                    super(NsxVPluginV2, self).update_network(context,
+                        new_net['id'],
+                        {'network': {az_ext.AZ_HINTS: az_hints}})
+                    new_net[az_ext.AZ_HINTS] = az_hints
+                    # still no availability zones until subnets creation
+                    new_net[az_ext.AVAILABILITY_ZONES] = []
 
                 # DB Operations for setting the network as external
                 self._process_l3_create(context, new_net, net_data)
@@ -1960,16 +1988,37 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         super(NsxVPluginV2, self).delete_router(context, id)
         router_driver.delete_router(context, id)
 
+    def _get_availability_zone_by_edge(self, context, edge_id):
+        resource_pool = nsxv_db.get_edge_resource_pool(
+            context.session, edge_id)
+        if resource_pool:
+            av_zone = self.get_res_pool_name_by_id(resource_pool)
+            return av_zone
+
+    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
+        attr.NETWORKS, ['_extend_availability_zone_hints'])
+
+    def _extend_availability_zone_hints(self, net_res, net_db):
+        net_res[az_ext.AZ_HINTS] = az_ext.convert_az_string_to_list(
+            net_db[az_ext.AZ_HINTS])
+
+    def get_network_availability_zones(self, context, net_db):
+        """Return availability zones which a network belongs to."""
+
+        resource_id = (vcns_const.DHCP_EDGE_PREFIX + net_db["id"])[:36]
+        dhcp_edge_binding = nsxv_db.get_nsxv_router_binding(
+            context.session, resource_id)
+        if dhcp_edge_binding:
+            edge_id = dhcp_edge_binding['edge_id']
+            return [self._get_availability_zone_by_edge(context, edge_id)]
+        return []
+
     def get_router_availability_zones(self, router):
         """Return availability zones which a router belongs to."""
         context = n_context.get_admin_context()
         edge_id = self._get_edge_id_by_rtr_id(context, router["id"])
         if edge_id:
-            resource_pool = nsxv_db.get_edge_resource_pool(
-                context.session, edge_id)
-            if resource_pool:
-                av_zone = self.get_res_pool_name_by_id(resource_pool)
-                return [av_zone]
+            return [self._get_availability_zone_by_edge(context, edge_id)]
         return []
 
     def get_router(self, context, id, fields=None):
