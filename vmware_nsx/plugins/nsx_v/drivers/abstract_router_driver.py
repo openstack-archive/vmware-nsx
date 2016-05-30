@@ -18,6 +18,7 @@ import six
 
 from neutron.db import l3_db
 from neutron.db import models_v2
+from neutron.extensions import availability_zone as az_ext
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
@@ -120,3 +121,18 @@ class RouterBaseDriver(RouterAbstractDriver):
         # Also update the nat rules
         if is_uplink:
             self.update_nat_rules(context, router, router_id)
+
+    def _get_resource_pool_from_hints_by_id(self, context, router_id):
+        lrouter = self.plugin.get_router(context, router_id)
+        return self._get_resource_pool_from_hints(lrouter)
+
+    def _get_resource_pools_from_hints(self, lrouter):
+        pools = []
+        if az_ext.AZ_HINTS in lrouter:
+            for hint in lrouter[az_ext.AZ_HINTS]:
+                pools.append(self.plugin.get_res_pool_id_by_name(hint))
+        return pools
+
+    def _get_resource_pool_from_hints(self, lrouter):
+        pools = self._get_resource_pools_from_hints(lrouter)
+        return pools[0] if len(pools) > 0 else None

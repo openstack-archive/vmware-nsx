@@ -827,6 +827,11 @@ class Vcns(object):
             return False
         return True
 
+    def get_inventory_name(self, object_id):
+        uri = '%s/inventory/%s/basicinfo' % (SERVICES_PREFIX, object_id)
+        h, c = self.do_request(HTTP_GET, uri, decode=True)
+        return c['name']
+
     def _get_version(self):
         uri = '/api/2.0/services/vsmconfig'
         h, c = self.do_request(HTTP_GET, uri, decode=True)

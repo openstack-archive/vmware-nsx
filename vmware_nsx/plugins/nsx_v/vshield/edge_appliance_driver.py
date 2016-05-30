@@ -502,14 +502,16 @@ class EdgeApplianceDriver(object):
 
     def deploy_edge(self, resource_id, name, internal_network, jobdata=None,
                     dist=False, wait_for_exec=False, loadbalancer_enable=True,
-                    appliance_size=nsxv_constants.LARGE, async=True):
+                    appliance_size=nsxv_constants.LARGE, async=True,
+                    res_pool=None):
         task_name = 'deploying-%s' % name
         edge_name = name
         edge = self._assemble_edge(
             edge_name, datacenter_moid=self.datacenter_moid,
             deployment_container_id=self.deployment_container_id,
             appliance_size=appliance_size, remote_access=False, dist=dist)
-        appliance = self._assemble_edge_appliance(self.resource_pool_id,
+        res_pool = res_pool or self.resource_pool_id
+        appliance = self._assemble_edge_appliance(res_pool,
                                                   self.datastore_id)
         if appliance:
             edge['appliances']['appliances'] = [appliance]
@@ -590,7 +592,7 @@ class EdgeApplianceDriver(object):
     def update_edge(self, router_id, edge_id, name, internal_network,
                     jobdata=None, dist=False, loadbalancer_enable=True,
                     appliance_size=nsxv_constants.LARGE,
-                    set_errors=False):
+                    set_errors=False, res_pool=None):
         """Update edge name."""
         task_name = 'update-%s' % name
         edge_name = name
@@ -599,7 +601,8 @@ class EdgeApplianceDriver(object):
             deployment_container_id=self.deployment_container_id,
             appliance_size=appliance_size, remote_access=False, dist=dist)
         edge['id'] = edge_id
-        appliance = self._assemble_edge_appliance(self.resource_pool_id,
+        res_pool = res_pool or self.resource_pool_id
+        appliance = self._assemble_edge_appliance(res_pool,
                                                   self.datastore_id)
         if appliance:
             edge['appliances']['appliances'] = [appliance]

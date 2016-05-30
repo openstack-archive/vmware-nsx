@@ -27,6 +27,7 @@ NSXV_PASSWORD           # NSXv password.
 NSXV_CLUSTER_MOID       # clusters ids containing OpenStack hosts.
 NSXV_DATACENTER_MOID    # datacenter id for edge deployment.
 NSXV_RESOURCE_POOL_ID   # resource-pool id for edge deployment.
+NSXV_AVAILABILITY_ZONES # alternative resource-pools ids for edge deployment
 NSXV_DATASTORE_ID       # datastore id for edge deployment.
 NSXV_EXTERNAL_NETWORK   # id of logic switch for physical network connectivity.
 NSXV_VDN_SCOPE_ID       # network scope id for VXLAN virtual-wires.

@@ -101,6 +101,15 @@ def parse_backup_edge_pool_opt():
     return edge_pool_dicts
 
 
+def get_configured_res_pools():
+    pools = []
+    if cfg.CONF.nsxv.resource_pool_id:
+        pools.append(cfg.CONF.nsxv.resource_pool_id)
+    if cfg.CONF.nsxv.availability_zones:
+        pools.extend(cfg.CONF.nsxv.availability_zones)
+    return pools
+
+
 class EdgeManager(object):
     """Edge Appliance Management.
     EdgeManager provides a pool of edge appliances which we can use
@@ -114,6 +123,7 @@ class EdgeManager(object):
         self.edge_pool_dicts = parse_backup_edge_pool_opt()
         self.nsxv_plugin = nsxv_manager.callbacks.plugin
         self.plugin = plugin
+        self._resource_pools = get_configured_res_pools()
         self.per_interface_rp_filter = self._get_per_edge_rp_filter_state()
         self.worker_pool = eventlet.GreenPool(WORKER_POOL_SIZE)
         self._check_backup_edge_pools()
@@ -155,7 +165,8 @@ class EdgeManager(object):
 
     def _deploy_edge(self, context, lrouter,
                      lswitch=None, appliance_size=nsxv_constants.COMPACT,
-                     edge_type=nsxv_constants.SERVICE_EDGE, async=True):
+                     edge_type=nsxv_constants.SERVICE_EDGE, async=True,
+                     res_pool=None):
         """Create an edge for logical router support."""
         router_id = lrouter['id']
         # deploy edge
@@ -170,12 +181,14 @@ class EdgeManager(object):
             lrouter['id'], lrouter['name'], internal_network=None,
             jobdata=jobdata, wait_for_exec=True,
             appliance_size=appliance_size,
-            dist=(edge_type == nsxv_constants.VDR_EDGE), async=async)
+            dist=(edge_type == nsxv_constants.VDR_EDGE), async=async,
+            res_pool=res_pool)
         return task
 
     def _deploy_backup_edges_on_db(self, context, num,
                                    appliance_size=nsxv_constants.COMPACT,
-                                   edge_type=nsxv_constants.SERVICE_EDGE):
+                                   edge_type=nsxv_constants.SERVICE_EDGE,
+                                   res_pool=cfg.CONF.nsxv.resource_pool_id):
         router_ids = [(vcns_const.BACKUP_ROUTER_PREFIX +
                        _uuid())[:vcns_const.EDGE_NAME_LEN]
                       for i in moves.range(num)]
@@ -184,17 +197,20 @@ class EdgeManager(object):
             nsxv_db.add_nsxv_router_binding(
                 context.session, router_id, None, None,
                 plugin_const.PENDING_CREATE,
-                appliance_size=appliance_size, edge_type=edge_type)
+                appliance_size=appliance_size, edge_type=edge_type,
+                resource_pool=res_pool)
         return router_ids
 
-    def _deploy_backup_edges_at_backend(self, context, router_ids,
-                                        appliance_size=nsxv_constants.COMPACT,
-                                        edge_type=nsxv_constants.SERVICE_EDGE):
-
+    def _deploy_backup_edges_at_backend(
+        self, context, router_ids,
+        appliance_size=nsxv_constants.COMPACT,
+        edge_type=nsxv_constants.SERVICE_EDGE,
+        res_pool=cfg.CONF.nsxv.resource_pool_id):
         eventlet.spawn_n(self._pool_creator, context, router_ids,
-                         appliance_size, edge_type)
+                         appliance_size, edge_type, res_pool)
 
-    def _pool_creator(self, context, router_ids, appliance_size, edge_type):
+    def _pool_creator(self, context, router_ids, appliance_size,
+                      edge_type, res_pool):
         pool = self.worker_pool
         for router_id in router_ids:
             fake_router = {
@@ -202,7 +218,8 @@ class EdgeManager(object):
                 'name': router_id}
             pool.spawn_n(self._deploy_edge, context, fake_router,
                          appliance_size=appliance_size,
-                         edge_type=edge_type, async=False)
+                         edge_type=edge_type, async=False,
+                         res_pool=res_pool)
 
     def _delete_edge(self, context, router_binding):
         if router_binding['status'] == plugin_const.ERROR:
@@ -237,8 +254,10 @@ class EdgeManager(object):
                 binding['router_id'], binding['edge_id'], jobdata=jobdata,
                 dist=(binding['edge_type'] == nsxv_constants.VDR_EDGE))
 
-    def _clean_all_error_edge_bindings(self, context):
-        filters = {'status': [plugin_const.ERROR]}
+    def _clean_all_error_edge_bindings(
+        self, context,
+        res_pool=cfg.CONF.nsxv.resource_pool_id):
+        filters = {'status': [plugin_const.ERROR], 'resource_pool': [res_pool]}
         like_filters = {'router_id': vcns_const.BACKUP_ROUTER_PREFIX + "%"}
         error_router_bindings = nsxv_db.get_nsxv_router_bindings(
             context.session, filters=filters, like_filters=like_filters)
@@ -250,9 +269,11 @@ class EdgeManager(object):
     def _get_backup_edge_bindings(self, context,
                                   appliance_size=nsxv_constants.COMPACT,
                                   edge_type=nsxv_constants.SERVICE_EDGE,
-                                  db_update_lock=False):
+                                  db_update_lock=False,
+                                  res_pool=cfg.CONF.nsxv.resource_pool_id):
         filters = {'appliance_size': [appliance_size],
                    'edge_type': [edge_type],
+                   'resource_pool': [res_pool],
                    'status': [plugin_const.PENDING_CREATE,
                               plugin_const.ACTIVE]}
         like_filters = {'router_id': vcns_const.BACKUP_ROUTER_PREFIX + "%"}
@@ -261,30 +282,34 @@ class EdgeManager(object):
 
     def _check_backup_edge_pools(self):
         admin_ctx = q_context.get_admin_context()
-        self._clean_all_error_edge_bindings(admin_ctx)
-        for edge_type, v in self.edge_pool_dicts.items():
-            for edge_size in vcns_const.ALLOWED_EDGE_SIZES:
-                if edge_size in v.keys():
-                    edge_pool_range = v[edge_size]
-                    self._check_backup_edge_pool(
-                        edge_pool_range['minimum_pooled_edges'],
-                        edge_pool_range['maximum_pooled_edges'],
-                        appliance_size=edge_size, edge_type=edge_type)
-                else:
-                    self._check_backup_edge_pool(
-                        0, 0,
-                        appliance_size=edge_size, edge_type=edge_type)
+        for res_pool in self._resource_pools:
+            self._clean_all_error_edge_bindings(admin_ctx, res_pool=res_pool)
+            for edge_type, v in self.edge_pool_dicts.items():
+                for edge_size in vcns_const.ALLOWED_EDGE_SIZES:
+                    if edge_size in v.keys():
+                        edge_pool_range = v[edge_size]
+                        self._check_backup_edge_pool(
+                            edge_pool_range['minimum_pooled_edges'],
+                            edge_pool_range['maximum_pooled_edges'],
+                            appliance_size=edge_size, edge_type=edge_type,
+                            res_pool=res_pool)
+                    else:
+                        self._check_backup_edge_pool(
+                            0, 0,
+                            appliance_size=edge_size, edge_type=edge_type,
+                            res_pool=res_pool)
 
     def _check_backup_edge_pool(self,
                                 minimum_pooled_edges,
                                 maximum_pooled_edges,
                                 appliance_size=nsxv_constants.COMPACT,
-                                edge_type=nsxv_constants.SERVICE_EDGE):
+                                edge_type=nsxv_constants.SERVICE_EDGE,
+                                res_pool=cfg.CONF.nsxv.resource_pool_id):
         """Check edge pool's status and return one available edge for use."""
         admin_ctx = q_context.get_admin_context()
         backup_router_bindings = self._get_backup_edge_bindings(
             admin_ctx, appliance_size=appliance_size, edge_type=edge_type,
-            db_update_lock=True)
+            db_update_lock=True, res_pool=res_pool)
         backup_num = len(backup_router_bindings)
         if backup_num > maximum_pooled_edges:
             self._delete_backup_edges_on_db(
@@ -297,12 +322,12 @@ class EdgeManager(object):
                 router_ids.extend(
                     self._deploy_backup_edges_on_db(
                         admin_ctx, 1, appliance_size=appliance_size,
-                        edge_type=edge_type))
+                        edge_type=edge_type, res_pool=res_pool))
                 new_backup_num = len(
                     self._get_backup_edge_bindings(
                         admin_ctx, appliance_size=appliance_size,
-                        edge_type=edge_type, db_update_lock=True))
-
+                        edge_type=edge_type, db_update_lock=True,
+                        res_pool=res_pool))
         if backup_num > maximum_pooled_edges:
             self._delete_backup_edges_at_backend(
                 admin_ctx,
@@ -311,7 +336,8 @@ class EdgeManager(object):
             self._deploy_backup_edges_at_backend(admin_ctx,
                                                  router_ids,
                                                  appliance_size=appliance_size,
-                                                 edge_type=edge_type)
+                                                 edge_type=edge_type,
+                                                 res_pool=res_pool)
 
     def check_edge_active_at_backend(self, edge_id):
         try:
@@ -322,9 +348,13 @@ class EdgeManager(object):
 
     def _get_available_router_binding(self, context,
                                       appliance_size=nsxv_constants.COMPACT,
-                                      edge_type=nsxv_constants.SERVICE_EDGE):
+                                      edge_type=nsxv_constants.SERVICE_EDGE,
+                                      res_pool=None):
+        if not res_pool:
+            res_pool = cfg.CONF.nsxv.resource_pool_id
         backup_router_bindings = self._get_backup_edge_bindings(
-            context, appliance_size=appliance_size, edge_type=edge_type)
+            context, appliance_size=appliance_size, edge_type=edge_type,
+            res_pool=res_pool)
         while backup_router_bindings:
             router_binding = random.choice(backup_router_bindings)
             if (router_binding['status'] == plugin_const.ACTIVE):
@@ -534,9 +564,9 @@ class EdgeManager(object):
     @vcns.retry_upon_exception(db_base_exc.OperationalError, max_delay=10)
     def _allocate_edge_appliance(self, context, resource_id, name,
                                  appliance_size=nsxv_constants.COMPACT,
-                                 dist=False):
+                                 dist=False,
+                                 res_pool=cfg.CONF.nsxv.resource_pool_id):
         """Try to allocate one available edge from pool."""
-
         edge_type = (nsxv_constants.VDR_EDGE if dist else
                      nsxv_constants.SERVICE_EDGE)
         lrouter = {'id': resource_id,
@@ -547,33 +577,38 @@ class EdgeManager(object):
                 context.session, resource_id, None, None,
                 plugin_const.PENDING_CREATE,
                 appliance_size=appliance_size,
-                edge_type=edge_type)
+                edge_type=edge_type,
+                resource_pool=res_pool)
             self._deploy_edge(context, lrouter,
                               appliance_size=appliance_size,
-                              edge_type=edge_type, async=False)
+                              edge_type=edge_type, async=False,
+                              res_pool=res_pool)
             return
 
         with locking.LockManager.get_lock('nsx-edge-request'):
-            self._clean_all_error_edge_bindings(context)
+            self._clean_all_error_edge_bindings(context, res_pool=res_pool)
             available_router_binding = self._get_available_router_binding(
-                context, appliance_size=appliance_size, edge_type=edge_type)
+                context, appliance_size=appliance_size, edge_type=edge_type,
+                res_pool=res_pool)
             if available_router_binding:
                 # Update the status from ACTIVE to PENDING_UPDATE
                 # in case of other threads select the same router binding
                 nsxv_db.update_nsxv_router_binding(
                     context.session, available_router_binding['router_id'],
                     status=plugin_const.PENDING_UPDATE)
-        # Synchronously deploy an edge if no avaliable edge in pool.
+        # Synchronously deploy an edge if no available edge in pool.
         if not available_router_binding:
             # store router-edge mapping binding
             nsxv_db.add_nsxv_router_binding(
                 context.session, resource_id, None, None,
                 plugin_const.PENDING_CREATE,
                 appliance_size=appliance_size,
-                edge_type=edge_type)
+                edge_type=edge_type,
+                resource_pool=res_pool)
             self._deploy_edge(context, lrouter,
                               appliance_size=appliance_size,
-                              edge_type=edge_type, async=False)
+                              edge_type=edge_type, async=False,
+                              res_pool=res_pool)
         else:
             LOG.debug("Select edge: %(edge_id)s from pool for %(name)s",
                       {'edge_id': available_router_binding['edge_id'],
@@ -588,7 +623,8 @@ class EdgeManager(object):
                 None,
                 plugin_const.PENDING_CREATE,
                 appliance_size=appliance_size,
-                edge_type=edge_type)
+                edge_type=edge_type,
+                resource_pool=res_pool)
             LOG.debug("Select edge: %(edge_id)s from pool for %(name)s",
                       {'edge_id': available_router_binding['edge_id'],
                        'name': name})
@@ -611,18 +647,20 @@ class EdgeManager(object):
                 task = self.nsxv_manager.update_edge(
                     resource_id, available_router_binding['edge_id'],
                     name, None, appliance_size=appliance_size, dist=dist,
-                    jobdata=jobdata, set_errors=True)
+                    jobdata=jobdata, set_errors=True, res_pool=res_pool)
                 task.wait(task_const.TaskState.RESULT)
 
         backup_num = len(self._get_backup_edge_bindings(
             context, appliance_size=appliance_size, edge_type=edge_type,
-            db_update_lock=True))
+            db_update_lock=True, res_pool=res_pool))
         router_ids = self._deploy_backup_edges_on_db(
             context, edge_pool_range['minimum_pooled_edges'] - backup_num,
-            appliance_size=appliance_size, edge_type=edge_type)
+            appliance_size=appliance_size, edge_type=edge_type,
+            res_pool=res_pool)
         self._deploy_backup_edges_at_backend(
             context, router_ids,
-            appliance_size=appliance_size, edge_type=edge_type)
+            appliance_size=appliance_size, edge_type=edge_type,
+            res_pool=res_pool)
 
     def _free_edge_appliance(self, context, router_id):
         """Try to collect one edge to pool."""
@@ -632,10 +670,12 @@ class EdgeManager(object):
                             "not found"), router_id)
             return
         dist = (binding['edge_type'] == nsxv_constants.VDR_EDGE)
+        edge_id = binding['edge_id']
+        res_pool = nsxv_db.get_edge_resource_pool(context.session, edge_id)
         edge_pool_range = self.edge_pool_dicts[binding['edge_type']].get(
             binding['appliance_size'])
         if (binding['status'] == plugin_const.ERROR or
-            not self.check_edge_active_at_backend(binding['edge_id']) or
+            not self.check_edge_active_at_backend(edge_id) or
             not edge_pool_range):
             nsxv_db.update_nsxv_router_binding(
                 context.session, router_id,
@@ -646,14 +686,14 @@ class EdgeManager(object):
                 'router_id': router_id
             }
             self.nsxv_manager.delete_edge(
-                router_id, binding['edge_id'], jobdata=jobdata, dist=dist)
+                router_id, edge_id, jobdata=jobdata, dist=dist)
             return
 
         with locking.LockManager.get_lock('nsx-edge-request'):
-            self._clean_all_error_edge_bindings(context)
+            self._clean_all_error_edge_bindings(context, res_pool=res_pool)
             backup_router_bindings = self._get_backup_edge_bindings(
                 context, appliance_size=binding['appliance_size'],
-                edge_type=binding['edge_type'])
+                edge_type=binding['edge_type'], res_pool=res_pool)
         backup_num = len(backup_router_bindings)
         # collect the edge to pool if pool not full
         if backup_num < edge_pool_range['maximum_pooled_edges']:
@@ -664,30 +704,30 @@ class EdgeManager(object):
             nsxv_db.add_nsxv_router_binding(
                 context.session,
                 backup_router_id,
-                binding['edge_id'],
+                edge_id,
                 None,
                 plugin_const.PENDING_UPDATE,
                 appliance_size=binding['appliance_size'],
-                edge_type=binding['edge_type'])
+                edge_type=binding['edge_type'],
+                resource_pool=res_pool)
             # change edge's name at backend
             task = self.nsxv_manager.update_edge(
-                backup_router_id, binding['edge_id'], backup_router_id, None,
-                appliance_size=binding['appliance_size'], dist=dist)
+                backup_router_id, edge_id, backup_router_id, None,
+                appliance_size=binding['appliance_size'], dist=dist,
+                res_pool=res_pool)
             task.wait(task_const.TaskState.RESULT)
 
             # Clean all edge vnic bindings
-            nsxv_db.clean_edge_vnic_binding(
-                context.session, binding['edge_id'])
+            nsxv_db.clean_edge_vnic_binding(context.session, edge_id)
             # Refresh edge_vnic_bindings for centralized router
-            if not dist and binding['edge_id']:
-                nsxv_db.init_edge_vnic_binding(
-                    context.session, binding['edge_id'])
+            if not dist and edge_id:
+                nsxv_db.init_edge_vnic_binding(context.session, edge_id)
 
             if task.status == task_const.TaskStatus.COMPLETED:
                 nsxv_db.update_nsxv_router_binding(
                     context.session, backup_router_id,
                     status=plugin_const.ACTIVE)
-                LOG.debug("Collect edge: %s to pool", binding['edge_id'])
+                LOG.debug("Collect edge: %s to pool", edge_id)
         else:
             nsxv_db.update_nsxv_router_binding(
                 context.session, router_id,
@@ -698,7 +738,7 @@ class EdgeManager(object):
                 'router_id': router_id
             }
             self.nsxv_manager.delete_edge(
-                router_id, binding['edge_id'], jobdata=jobdata, dist=dist)
+                router_id, edge_id, jobdata=jobdata, dist=dist)
 
     def _allocate_dhcp_edge_appliance(self, context, resource_id):
         resource_name = (vcns_const.DHCP_EDGE_PREFIX +
@@ -718,13 +758,16 @@ class EdgeManager(object):
 
     def create_lrouter(
         self, context, lrouter, lswitch=None, dist=False,
-        appliance_size=vcns_const.SERVICE_SIZE_MAPPING['router']):
+        appliance_size=vcns_const.SERVICE_SIZE_MAPPING['router'],
+        res_pool=None):
         """Create an edge for logical router support."""
+        if not res_pool:
+            res_pool = cfg.CONF.nsxv.resource_pool_id
         router_name = self._build_lrouter_name(lrouter['id'], lrouter['name'])
         self._allocate_edge_appliance(
             context, lrouter['id'], router_name,
             appliance_size=appliance_size,
-            dist=dist)
+            dist=dist, res_pool=res_pool)
 
     def delete_lrouter(self, context, router_id, dist=False):
         self._free_edge_appliance(context, router_id)
@@ -907,12 +950,15 @@ class EdgeManager(object):
             else:
                 return new_id
 
-    def _get_available_edges(self, context, network_id, conflicting_nets):
+    def _get_available_edges(self, context, network_id, conflicting_nets,
+                             res_pool=cfg.CONF.nsxv.resource_pool_id):
         if conflicting_nets is None:
             conflicting_nets = []
         conflict_edge_ids = []
         available_edge_ids = []
-        router_bindings = nsxv_db.get_nsxv_router_bindings(context.session)
+        filters = {'resource_pool': [res_pool]}
+        router_bindings = nsxv_db.get_nsxv_router_bindings(context.session,
+                                                           filters=filters)
         all_dhcp_edges = {binding['router_id']: binding['edge_id'] for
                           binding in router_bindings if (binding['router_id'].
                           startswith(vcns_const.DHCP_EDGE_PREFIX) and
@@ -994,7 +1040,8 @@ class EdgeManager(object):
         nsxv_db.add_nsxv_router_binding(
             context.session, resource_id,
             edge_id, None, plugin_const.ACTIVE,
-            appliance_size=app_size)
+            appliance_size=app_size,
+            resource_pool=cfg.CONF.nsxv.resource_pool_id)
         nsxv_db.allocate_edge_vnic_with_tunnel_index(
             context.session, edge_id, network_id)
 
@@ -1394,7 +1441,8 @@ class EdgeManager(object):
                     if plr_router_id != router_id:
                         return plr_router_id
 
-    def create_plr_with_tlr_id(self, context, router_id, router_name):
+    def create_plr_with_tlr_id(self, context, router_id, router_name,
+                               res_pool=None):
         # Add an internal network preparing for connecting the VDR
         # to a PLR
         tlr_edge_id = nsxv_db.get_nsxv_router_binding(
@@ -1424,7 +1472,7 @@ class EdgeManager(object):
         # Handle plr relative op
         plr_router = {'name': router_name,
                       'id': (vcns_const.PLR_EDGE_PREFIX + _uuid())[:36]}
-        self.create_lrouter(context, plr_router)
+        self.create_lrouter(context, plr_router, res_pool=res_pool)
         binding = nsxv_db.get_nsxv_router_binding(
             context.session, plr_router['id'])
         plr_edge_id = binding['edge_id']
@@ -1503,10 +1551,12 @@ class EdgeManager(object):
     def bind_router_on_available_edge(
         self, context, target_router_id,
         optional_router_ids, conflict_router_ids,
-        conflict_network_ids, network_number):
+        conflict_network_ids, network_number, resource_pool):
         """Bind logical router on an available edge.
         Return True if the logical router is bound to a new edge.
         """
+        if not resource_pool:
+            resource_pool = cfg.CONF.nsxv.resource_pool_id
         with locking.LockManager.get_lock('nsx-edge-router'):
             optional_edge_ids = []
             conflict_edge_ids = []
@@ -1514,6 +1564,7 @@ class EdgeManager(object):
                 binding = nsxv_db.get_nsxv_router_binding(
                     context.session, router_id)
                 if (binding and binding.status == plugin_const.ACTIVE and
+                    binding.resource_pool == resource_pool and
                     binding.edge_id not in optional_edge_ids):
                     optional_edge_ids.append(binding.edge_id)
 
@@ -1552,13 +1603,15 @@ class EdgeManager(object):
                     edge_binding.edge_id, None,
                     edge_binding.status,
                     edge_binding.appliance_size,
-                    edge_binding.edge_type)
+                    edge_binding.edge_type,
+                    resource_pool=resource_pool)
             else:
                 router_name = ('shared' + '-' + _uuid())[
                               :vcns_const.EDGE_NAME_LEN]
                 self._allocate_edge_appliance(
                     context, target_router_id, router_name,
-                    appliance_size=vcns_const.SERVICE_SIZE_MAPPING['router'])
+                    appliance_size=vcns_const.SERVICE_SIZE_MAPPING['router'],
+                    res_pool=resource_pool)
                 return True
 
     def unbind_router_on_edge(self, context, router_id):
@@ -1659,7 +1712,8 @@ class EdgeManager(object):
                         network_id)
 
 
-def create_lrouter(nsxv_manager, context, lrouter, lswitch=None, dist=False):
+def create_lrouter(nsxv_manager, context, lrouter, lswitch=None, dist=False,
+                   res_pool=None):
     """Create an edge for logical router support."""
     router_id = lrouter['id']
     router_name = lrouter['name'] + '-' + router_id
@@ -1668,7 +1722,8 @@ def create_lrouter(nsxv_manager, context, lrouter, lswitch=None, dist=False):
     nsxv_db.add_nsxv_router_binding(
         context.session, router_id, None, None,
         plugin_const.PENDING_CREATE,
-        appliance_size=appliance_size)
+        appliance_size=appliance_size,
+        resource_pool=res_pool)
 
     # deploy edge
     jobdata = {
@@ -1683,7 +1738,8 @@ def create_lrouter(nsxv_manager, context, lrouter, lswitch=None, dist=False):
     # as we're not in a database transaction now
     task = nsxv_manager.deploy_edge(
         router_id, router_name, internal_network=None,
-        dist=dist, jobdata=jobdata, appliance_size=appliance_size)
+        dist=dist, jobdata=jobdata, appliance_size=appliance_size,
+        res_pool=res_pool)
     task.wait(task_const.TaskState.RESULT)
 
 
