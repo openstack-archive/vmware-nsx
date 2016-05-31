@@ -20,6 +20,9 @@ NSX_INI = '/etc/neutron/plugins/vmware/nsx.ini'
 NSXV3_PLUGIN = 'vmware_nsx.plugin.NsxV3Plugin'
 NSXV_PLUGIN = 'vmware_nsx.plugin.NsxVPlugin'
 
+# Common Resource Constants
+NETWORKS = 'networks'
+
 # NSXV3 Resource Constants
 FIREWALL_SECTIONS = 'firewall-sections'
 FIREWALL_NSX_GROUPS = 'nsx-security-groups'
@@ -32,5 +35,4 @@ DHCP_BINDING = 'dhcp-binding'
 BACKUP_EDGES = 'backup-edges'
 ORPHANED_EDGES = 'orphaned-edges'
 MISSING_EDGES = 'missing-edges'
-NETWORKS = 'networks'
 METADATA = 'metadata'
