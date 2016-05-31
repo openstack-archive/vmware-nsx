@@ -591,6 +591,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 created_net['id'],
                 net_data[qos_consts.QOS_POLICY_ID])
 
+        created_net[qos_consts.QOS_POLICY_ID] = (
+            qos_utils.get_network_policy_id(context, created_net['id']))
+
         return created_net
 
     def _retry_delete_network(self, context, network_id):
@@ -748,6 +751,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return address_bindings
 
+    def _extend_get_network_dict_provider(self, context, network):
+        self._extend_network_dict_provider(context, network)
+        network[qos_consts.QOS_POLICY_ID] = qos_utils.get_network_policy_id(
+            context, network['id'])
+
     def get_network(self, context, id, fields=None):
         with context.session.begin(subtransactions=True):
             # Get network from Neutron database
@@ -755,7 +763,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # Don't do field selection here otherwise we won't be able to add
             # provider networks fields
             net = self._make_network_dict(network, context=context)
-            self._extend_network_dict_provider(context, net)
+            self._extend_get_network_dict_provider(context, net)
         return self._fields(net, fields)
 
     def get_networks(self, context, filters=None, fields=None,
@@ -770,7 +778,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     limit, marker, page_reverse))
             # Add provider network fields
             for net in networks:
-                self._extend_network_dict_provider(context, net)
+                self._extend_get_network_dict_provider(context, net)
         return (networks if not fields else
                 [self._fields(network, fields) for network in networks])
 
@@ -1345,9 +1353,17 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return updated_port
 
+    def _extend_get_port_dict_binding(self, context, port):
+        self._extend_port_dict_binding(context, port)
+
+        # add the qos policy id from the DB
+        port[qos_consts.QOS_POLICY_ID] = qos_utils.get_port_policy_id(
+            context, port['id'])
+
     def get_port(self, context, id, fields=None):
         port = super(NsxV3Plugin, self).get_port(context, id, fields=None)
-        self._extend_port_dict_binding(context, port)
+        self._extend_get_port_dict_binding(context, port)
+
         return self._fields(port, fields)
 
     def get_ports(self, context, filters=None, fields=None,
@@ -1361,7 +1377,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     limit, marker, page_reverse))
             # Add port extensions
             for port in ports:
-                self._extend_port_dict_binding(context, port)
+                self._extend_get_port_dict_binding(context, port)
         return (ports if not fields else
                 [self._fields(port, fields) for port in ports])
 
