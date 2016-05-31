@@ -1624,11 +1624,24 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 for route in routes_added:
                     self._routerlib.add_static_routes(nsx_router_id, route)
             if 'name' in router_data:
-                name = utils.get_name_and_uuid(router_data['name'] or 'router',
-                                               router_id)
+                # Update the name of logical router.
+                router_name = router_data['name'] or 'router'
+                display_name = utils.get_name_and_uuid(router_name, router_id)
                 nsx_router_id = nsx_router_id or nsx_db.get_nsx_router_id(
                     context.session, router_id)
-                self._router_client.update(nsx_router_id, display_name=name)
+                self._router_client.update(nsx_router_id,
+                                           display_name=display_name)
+                # Update the name of associated logical ports.
+                filters = {'device_id': [router_id],
+                           'device_owner': const.ROUTER_INTERFACE_OWNERS}
+                ports = self.get_ports(context, filters=filters)
+                for port in ports:
+                    _, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
+                        context.session, port['id'])
+                    if nsx_port_id:
+                        name = utils.get_name_and_uuid(
+                            router_name, port['id'], tag='port')
+                        self._port_client.update(nsx_port_id, None, name=name)
             return super(NsxV3Plugin, self).update_router(
                 context, router_id, router)
         except nsx_exc.ResourceNotFound:
