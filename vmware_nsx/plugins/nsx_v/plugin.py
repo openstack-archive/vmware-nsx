@@ -928,6 +928,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if backend_network:
             # Update the QOS restrictions of the backend network
             self._update_network_qos(context, net_data, dvs_net_ids, net_moref)
+            new_net[qos_consts.QOS_POLICY_ID] = (
+                qos_com_utils.get_network_policy_id(context, new_net['id']))
 
         # this extra lookup is necessary to get the
         # latest db model for the extension functions
@@ -1039,6 +1041,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             for mapping in mappings:
                 self._delete_backend_network(mapping)
 
+    def _extend_get_network_dict_provider(self, context, net):
+        self._extend_network_dict_provider(context, net)
+        net[qos_consts.QOS_POLICY_ID] = qos_com_utils.get_network_policy_id(
+            context, net['id'])
+
     def get_network(self, context, id, fields=None):
         with context.session.begin(subtransactions=True):
             # goto to the plugin DB and fetch the network
@@ -1047,7 +1054,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # to add provider networks fields
             net_result = self._make_network_dict(network,
                                                  context=context)
-            self._extend_network_dict_provider(context, net_result)
+            self._extend_get_network_dict_provider(context, net_result)
         return self._fields(net_result, fields)
 
     def get_networks(self, context, filters=None, fields=None,
@@ -1060,7 +1067,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     context, filters, fields, sorts,
                     limit, marker, page_reverse))
             for net in networks:
-                self._extend_network_dict_provider(context, net)
+                self._extend_get_network_dict_provider(context, net)
         return (networks if not fields else
                 [self._fields(network, fields) for network in networks])
 
@@ -1129,6 +1136,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 # attach the policy to the network in neutron DB
                 qos_com_utils.update_network_policy_binding(
                     context, id, net_attrs[qos_consts.QOS_POLICY_ID])
+
+            net_res[qos_consts.QOS_POLICY_ID] = (
+                qos_com_utils.get_network_policy_id(context, id))
 
         return net_res
 

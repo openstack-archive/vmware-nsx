@@ -280,7 +280,7 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                 port = self.plugin.create_port(self.ctx, data)
                 self.assertEqual(policy_id, port['qos_policy_id'])
                 # Get port should also return the qos policy id
-                with mock.patch('vmware_nsx.services.qos.nsx_v3.utils.'
+                with mock.patch('vmware_nsx.services.qos.common.utils.'
                                 'get_port_policy_id',
                                 return_value=policy_id):
                     port = self.plugin.get_port(self.ctx, port['id'])
@@ -305,7 +305,7 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                 res = self.plugin.update_port(self.ctx, port['id'], data)
                 self.assertEqual(policy_id, res['qos_policy_id'])
                 # Get port should also return the qos policy id
-                with mock.patch('vmware_nsx.services.qos.nsx_v3.utils.'
+                with mock.patch('vmware_nsx.services.qos.common.utils.'
                                 'get_port_policy_id',
                                 return_value=policy_id):
                     res = self.plugin.get_port(self.ctx, port['id'])
@@ -338,7 +338,7 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                     }
             with mock.patch.object(self.plugin,
                 '_get_qos_profile_id') as get_profile:
-                with mock.patch('vmware_nsx.services.qos.nsx_v3.utils.'
+                with mock.patch('vmware_nsx.services.qos.common.utils.'
                     'get_network_policy_id', return_value=policy_id):
                     self.plugin.create_port(self.ctx, data)
                     get_profile.assert_called_once_with(self.ctx, policy_id)
@@ -361,7 +361,7 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
             data['port']['device_owner'] = device_owner
             with mock.patch.object(self.plugin,
                 '_get_qos_profile_id') as get_profile:
-                with mock.patch('vmware_nsx.services.qos.nsx_v3.utils.'
+                with mock.patch('vmware_nsx.services.qos.common.utils.'
                     'get_network_policy_id', return_value=policy_id):
                     self.plugin.update_port(self.ctx, port['id'], data)
                     get_profile.assert_called_once_with(self.ctx, policy_id)

@@ -49,3 +49,17 @@ def update_port_policy_binding(context, port_id, new_policy_id):
             context, id=new_policy_id)
         if new_policy:
             new_policy.attach_port(port_id)
+
+
+def get_port_policy_id(context, port_id):
+    policy = qos_policy.QosPolicy.get_port_policy(
+        context, port_id)
+    if policy:
+        return policy.id
+
+
+def get_network_policy_id(context, net_id):
+    policy = qos_policy.QosPolicy.get_network_policy(
+        context, net_id)
+    if policy:
+        return policy.id
