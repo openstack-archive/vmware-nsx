@@ -18,8 +18,8 @@ from neutron.api.rpc.callbacks import events as callbacks_events
 from neutron import context as n_context
 from neutron import manager
 from neutron.objects.qos import policy as qos_policy
-from neutron.objects.qos import rule as rule_object
 from neutron.plugins.common import constants
+from neutron.services.qos import qos_consts
 
 from oslo_log import log as logging
 
@@ -63,11 +63,14 @@ class NsxVQosRule(object):
         # read the neutron policy restrictions
         if qos_policy_id is not None:
             plugin = self._get_qos_plugin()
-            rules_obj = plugin.get_policies(
-                context, qos_policy_id)
-            if rules_obj is not None and len(rules_obj) > 0:
-                for rule_obj in rules_obj:
-                    if isinstance(rule_obj, rule_object.QosBandwidthLimitRule):
+            policy_obj = plugin.get_policy(context, qos_policy_id)
+            if 'rules' in policy_obj and len(policy_obj['rules']) > 0:
+                for rule_obj in policy_obj['rules']:
+                    # TODO(asarfaty): for now we support one rule of each type
+                    # This code should be fixed in order to support rules of
+                    # different directions
+                    if (rule_obj['type'] ==
+                        qos_consts.RULE_TYPE_BANDWIDTH_LIMIT):
                         self.bandwidthEnabled = True
                         # averageBandwidth: kbps (neutron) -> bps (nsxv)
                         self.averageBandwidth = rule_obj['max_kbps'] * 1024
@@ -77,7 +80,7 @@ class NsxVQosRule(object):
                         self.peakBandwidth = self.averageBandwidth
                         # burstSize: kbps (neutron) -> Bytes (nsxv)
                         self.burstSize = rule_obj['max_burst_kbps'] * 128
-                    elif isinstance(rule_obj, rule_object.QosDscpMarkingRule):
+                    if rule_obj['type'] == qos_consts.RULE_TYPE_DSCP_MARK:
                         self.dscpMarkEnabled = True
                         self.dscpMarkValue = rule_obj['dscp_mark']
 
