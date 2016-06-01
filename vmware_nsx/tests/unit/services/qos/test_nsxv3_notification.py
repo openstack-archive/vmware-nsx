@@ -30,13 +30,15 @@ from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
 from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
 
+PLUGIN_NAME = 'vmware_nsx.plugins.nsx_v3.plugin.NsxV3Plugin'
+
 
 class TestQosNsxV3Notification(nsxlib_testcase.NsxClientTestCase,
                                base.BaseQosTestCase):
 
     def setUp(self):
         super(TestQosNsxV3Notification, self).setUp()
-        self.setup_coreplugin()
+        self.setup_coreplugin(PLUGIN_NAME)
 
         # Add a dummy notification driver that calls our handler directly
         # (to skip the message queue)
@@ -230,7 +232,9 @@ class TestQosNsxV3Notification(nsxlib_testcase.NsxClientTestCase,
                         dscp=dscp_mark
                     )
 
-    def test_rule_delete_profile(self):
+    @mock.patch('neutron.objects.db.api.get_objects',
+                return_value=[])
+    def test_rule_delete_profile(self, mock_objects):
         # test the switch profile update when a QoS rule is deleted
         _policy = policy_object.QosPolicy(
             self.ctxt, **self.policy_data['policy'])
