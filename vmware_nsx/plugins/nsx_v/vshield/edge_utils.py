@@ -1703,6 +1703,13 @@ class EdgeManager(object):
                     binding_id = bindings.get(binding['ipAddress'])
                     LOG.debug("Overlapping IP %s with binding %s",
                               binding['ipAddress'], binding_id)
+                elif desc.get('errorCode') == (
+                    vcns_const.NSX_ERROR_DHCP_DUPLICATE_HOSTNAME):
+                    bindings = get_dhcp_binding_mappings_for_hostname(
+                        self.nsxv_manager, edge_id)
+                    binding_id = bindings.get(binding['hostname'])
+                    LOG.debug("Overlapping hostname %s with binding %s",
+                              binding['hostname'], binding_id)
                 if binding_id:
                     self.nsxv_manager.vcns.delete_dhcp_binding(
                         edge_id, binding_id)
@@ -1855,6 +1862,15 @@ def get_dhcp_binding_mappings_for_ips(nsxv_manager, edge_id):
     if dhcp_config:
         for binding in dhcp_config['staticBindings']['staticBindings']:
             bindings_get[binding['ipAddress']] = binding['bindingId']
+    return bindings_get
+
+
+def get_dhcp_binding_mappings_for_hostname(nsxv_manager, edge_id):
+    dhcp_config = query_dhcp_service_config(nsxv_manager, edge_id)
+    bindings_get = {}
+    if dhcp_config:
+        for binding in dhcp_config['staticBindings']['staticBindings']:
+            bindings_get[binding['hostname']] = binding['bindingId']
     return bindings_get
 
 
