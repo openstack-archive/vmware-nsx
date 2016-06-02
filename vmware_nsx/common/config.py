@@ -230,6 +230,12 @@ nsx_common_opts = [
                       "parameter to tooz coordinator. By default, value is "
                       "None and oslo_concurrency is used for single-node "
                       "lock management.")),
+    cfg.BoolOpt('api_replay_mode',
+                default=False,
+                help=_("If true, the server then allows the caller to "
+                       "specify the id of resources. This should only "
+                       "be enabled in order to allow one to migrate an "
+                       "existing install of neutron to the nsx-v3 plugin.")),
 ]
 
 nsx_v3_opts = [

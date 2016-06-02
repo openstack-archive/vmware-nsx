@@ -12,7 +12,7 @@
 
 import argparse
 
-from vmware_nsx.plugins.nsx_v3.api_replay import client
+from vmware_nsx.api_replay import client
 
 
 class ApiReplayCli(object):
