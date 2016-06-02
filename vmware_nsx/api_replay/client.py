@@ -1,0 +1,263 @@
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
+
+from neutronclient.common import exceptions as n_exc
+from neutronclient.v2_0 import client
+
+
+class ApiReplayClient(object):
+
+    def __init__(self, source_os_username, source_os_tenant_name,
+                 source_os_password, source_os_auth_url,
+                 dest_os_username, dest_os_tenant_name,
+                 dest_os_password, dest_os_auth_url):
+
+        self._source_os_username = source_os_username
+        self._source_os_tenant_name = source_os_tenant_name
+        self._source_os_password = source_os_password
+        self._source_os_auth_url = source_os_auth_url
+
+        self._dest_os_username = dest_os_username
+        self._dest_os_tenant_name = dest_os_tenant_name
+        self._dest_os_password = dest_os_password
+        self._dest_os_auth_url = dest_os_auth_url
+
+        self.source_neutron = client.Client(
+            username=self._source_os_username,
+            tenant_name=self._source_os_tenant_name,
+            password=self._source_os_password,
+            auth_url=self._source_os_auth_url)
+
+        self.dest_neutron = client.Client(
+            username=self._dest_os_username,
+            tenant_name=self._dest_os_tenant_name,
+            password=self._dest_os_password,
+            auth_url=self._dest_os_auth_url)
+
+        self.migrate_security_groups()
+        self.migrate_routers()
+        self.migrate_networks_subnets_ports()
+
+    def find_subnet_by_id(self, subnet_id, subnets):
+        for subnet in subnets:
+            if subnet['id'] == subnet_id:
+                return subnet
+
+    def subnet_drop_ipv6_fields_if_v4(self, body):
+        """
+        Drops v6 fields on subnets that are v4 as server doesn't allow them.
+        """
+        v6_fields_to_remove = ['ipv6_address_mode', 'ipv6_ra_mode']
+        if body['ip_version'] != 4:
+            return
+
+        for field in v6_fields_to_remove:
+            if field in body:
+                body.pop(field)
+
+    def get_ports_on_network(self, network_id, ports):
+        """Returns all the ports on a given network_id."""
+        ports_on_network = []
+        for port in ports:
+            if port['network_id'] == network_id:
+                ports_on_network.append(port)
+        return ports_on_network
+
+    def have_id(self, id, groups):
+        """If the sg_id is in groups return true else false."""
+        for group in groups:
+            if id == group['id']:
+                return group
+
+        return False
+
+    def drop_fields(self, item, drop_fields):
+        body = {}
+        for k, v in item.items():
+            if k in drop_fields:
+                continue
+            body[k] = v
+        return body
+
+    def migrate_security_groups(self):
+        """Migrates security groups from source to dest neutron."""
+
+        # first fetch the security groups from both the
+        # source and dest neutron server
+        source_sec_groups = self.source_neutron.list_security_groups()
+        dest_sec_groups = self.dest_neutron.list_security_groups()
+
+        source_sec_groups = source_sec_groups['security_groups']
+        dest_sec_groups = dest_sec_groups['security_groups']
+
+        for sg in source_sec_groups:
+            dest_sec_group = self.have_id(sg['id'], dest_sec_groups)
+            # If the security group already exists on the the dest_neutron
+            if dest_sec_group:
+                # make sure all the security group rules are theree and
+                # create them if not
+                for sg_rule in sg['security_group_rules']:
+                    if(self.have_id(sg_rule['id'],
+                                    dest_sec_group['security_group_rules'])
+                       is False):
+                        try:
+                            print (
+                                self.dest_neutron.create_security_group_rule(
+                                    {'security_group_rule': sg_rule}))
+                        except n_exc.Conflict:
+                            # NOTE(arosen): when you create a default
+                            # security group it is automatically populated
+                            # with some rules. When we go to create the rules
+                            # that already exist because of a match an error
+                            # is raised here but thats okay.
+                            pass
+
+            # dest server doesn't have the group so we create it here.
+            else:
+                sg_rules = sg.pop('security_group_rules')
+                try:
+                    print(self.dest_neutron.create_security_group(
+                        {'security_group': sg}))
+                except Exception as e:
+                    # TODO(arosen): improve exception handing here.
+                    print (e)
+                    pass
+
+                for sg_rule in sg_rules:
+                    try:
+                        print (self.dest_neutron.create_security_group_rule(
+                            {'security_group_rule': sg_rule}))
+                    except n_exc.Conflict:
+                        # NOTE(arosen): when you create a default
+                        # security group it is automatically populated
+                        # with some rules. When we go to create the rules
+                        # that already exist because of a match an error
+                        # is raised here but thats okay.
+                        pass
+
+    def migrate_routers(self):
+        """Migrates routers from source to dest neutron."""
+        source_routers = self.source_neutron.list_routers()['routers']
+        dest_routers = self.dest_neutron.list_routers()['routers']
+
+        for router in source_routers:
+            dest_router = self.have_id(router['id'], dest_routers)
+            if dest_router is False:
+                drop_router_fields = ['status',
+                                      'routes',
+                                      'external_gateway_info']
+                body = self.drop_fields(router, drop_router_fields)
+                print (self.dest_neutron.create_router(
+                       {'router': body}))
+
+    def migrate_networks_subnets_ports(self):
+        """Migrates routers from source to dest neutron."""
+        source_ports = self.source_neutron.list_ports()['ports']
+        source_subnets = self.source_neutron.list_subnets()['subnets']
+        source_networks = self.source_neutron.list_networks()['networks']
+        dest_networks = self.dest_neutron.list_networks()['networks']
+        dest_ports = self.dest_neutron.list_ports()['ports']
+
+        # NOTE: These are fields we drop of when creating a subnet as the
+        # network api doesn't allow us to specify them.
+        # TODO(arosen): revisit this to make these fields passable.
+        drop_subnet_fields = ['updated_at',
+                              'created_at',
+                              'network_id',
+                              'id']
+
+        # NOTE: These are fields we drop of when creating a subnet as the
+        # network api doesn't allow us to specify them.
+        # TODO(arosen): revisit this to make these fields passable.
+        drop_port_fields = ['updated_at',
+                            'created_at',
+                            'status',
+                            'port_security_enabled',
+                            'binding:vif_details',
+                            'binding:vif_type',
+                            'binding:host_id']
+
+        drop_network_fields = ['status', 'subnets', 'availability_zones',
+                               'created_at', 'updated_at', 'tags']
+
+        for network in source_networks:
+            body = self.drop_fields(network, drop_network_fields)
+
+            # neutron doesn't like description being None even though its
+            # what it returns to us.
+            if 'description' in body and body['description'] is None:
+                body['description'] = ''
+
+            # only create network if the dest server doesn't have it
+            if self.have_id(network['id'], dest_networks) is False:
+                created_net = self.dest_neutron.create_network(
+                    {'network': body})['network']
+                print ("Created network: " + created_net['id'])
+
+            for subnet_id in network['subnets']:
+                subnet = self.find_subnet_by_id(subnet_id, source_subnets)
+                body = self.drop_fields(subnet, drop_subnet_fields)
+
+                # specify the network_id that we just created above
+                body['network_id'] = network['id']
+                self.subnet_drop_ipv6_fields_if_v4(body)
+                if 'description' in body and body['description'] is None:
+                    body['description'] = ''
+                try:
+                    created_subnet = self.dest_neutron.create_subnet(
+                        {'subnet': body})['subnet']
+                    print ("Created subnet: " + created_subnet['id'])
+                except n_exc.BadRequest as e:
+                    print (e)
+                    # NOTE(arosen): this occurs here if you run the script
+                    # multiple times as we don't currently
+                    # perserve the subnet_id. Also, 409 would be a better
+                    # response code for this in neutron :(
+                    pass
+
+            # create the ports on the network
+            ports = self.get_ports_on_network(network['id'], source_ports)
+            for port in ports:
+
+                body = self.drop_fields(port, drop_port_fields)
+
+                # specify the network_id that we just created above
+                port['network_id'] = network['id']
+
+                # remove the subnet id field from fixed_ips dict
+                for fixed_ips in body['fixed_ips']:
+                    del fixed_ips['subnet_id']
+
+                # only create port if the dest server doesn't have it
+                if self.have_id(port['id'], dest_ports) is False:
+
+                    if port['device_owner'] in ['network:router_interface',
+                                                'network:router_gateway']:
+                        if port['allowed_address_pairs'] == []:
+                            del body['allowed_address_pairs']
+                    created_port = self.dest_neutron.create_port(
+                        {'port': body})['port']
+                    print ("Created port: " + created_port['id'])
+
+                    if port['device_owner'] == 'network:router_interface':
+                        try:
+                            print (self.dest_neutron.add_interface_router(
+                                port['device_id'],
+                                {'port_id': port['id']}))
+
+                        except n_exc.BadRequest as e:
+                            # NOTE(arosen): this occurs here if you run the
+                            # script multiple times as we don't track this.
+                            print (e)
+
+                    # TODO(arosen): handle 'network:router_gateway' uplinking
