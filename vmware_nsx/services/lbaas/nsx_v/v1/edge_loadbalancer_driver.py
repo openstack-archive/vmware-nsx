@@ -235,9 +235,7 @@ class EdgeLbDriver(object):
                     self.vcns.delete_pool(pool_mapping['edge_id'],
                                           pool_mapping['edge_pool_id'])
             except nsxv_exc.VcnsApiException:
-                with excutils.save_and_reraise_exception():
-                    self.lbv1_driver.pool_failed(context, pool)
-                    LOG.error(_LE('Failed to delete pool %s'), pool['id'])
+                LOG.error(_LE('Failed to delete pool %s'), pool['id'])
         else:
             LOG.error(_LE('No mapping found for pool %s'), pool['id'])
 
@@ -329,30 +327,31 @@ class EdgeLbDriver(object):
             try:
                 with locking.LockManager.get_lock(edge_id):
                     self.vcns.delete_vip(edge_id, edge_vse_id)
+            except Exception as e:
+                LOG.error(_LE('Failed to delete VIP from edge %(edge)s. '
+                              'Exception is %(exc)s'),
+                          {'edge': edge_id, 'exc': e})
+            try:
                 lb_common.del_vip_as_secondary_ip(self.vcns, edge_id,
                                                   vip['address'])
+            except Exception as e:
+                LOG.error(_LE('Failed to delete secondary IP from edge '
+                              '%(edge)s. Exception is %(exc)s'),
+                          {'edge': edge_id, 'exc': e})
+            try:
                 lb_common.del_vip_fw_rule(self.vcns, edge_id,
                                           vip_mapping['edge_fw_rule_id'])
-
-            except nsxv_exc.ResourceNotFound:
-                LOG.error(_LE('vip not found on edge: %s'), edge_id)
-            except nsxv_exc.VcnsApiException:
-                with excutils.save_and_reraise_exception():
-                    self.lbv1_driver.vip_failed(context, vip)
-                    LOG.error(
-                        _LE('Failed to delete vip on edge: %s'), edge_id)
-
+            except Exception as e:
+                LOG.error(_LE('Failed to delete VIP FW rule from edge '
+                              '%(edge)s. Exception is %(exc)s'),
+                          {'edge': edge_id, 'exc': e})
             try:
                 with locking.LockManager.get_lock(edge_id):
                     self.vcns.delete_app_profile(edge_id, app_profile_id)
-            except nsxv_exc.ResourceNotFound:
-                LOG.error(_LE('app profile not found on edge: %s'), edge_id)
-            except nsxv_exc.VcnsApiException:
-                with excutils.save_and_reraise_exception():
-                    self.lbv1_driver.vip_failed(context, vip)
-                    LOG.error(
-                        _LE('Failed to delete app profile on Edge: %s'),
-                        edge_id)
+            except Exception as e:
+                LOG.error(_LE('Failed to delete app profile from edge '
+                              '%(edge)s. Exception is %(exc)s'),
+                          {'edge': edge_id, 'exc': e})
 
         self.lbv1_driver.delete_vip_successful(context, vip)
 
