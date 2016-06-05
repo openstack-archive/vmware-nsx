@@ -597,7 +597,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 net_data[qos_consts.QOS_POLICY_ID])
 
         created_net[qos_consts.QOS_POLICY_ID] = (
-            qos_utils.get_network_policy_id(context, created_net['id']))
+            qos_com_utils.get_network_policy_id(context, created_net['id']))
 
         return created_net
 
@@ -758,8 +758,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def _extend_get_network_dict_provider(self, context, network):
         self._extend_network_dict_provider(context, network)
-        network[qos_consts.QOS_POLICY_ID] = qos_utils.get_network_policy_id(
-            context, network['id'])
+        network[qos_consts.QOS_POLICY_ID] = (qos_com_utils.
+            get_network_policy_id(context, network['id']))
 
     def get_network(self, context, id, fields=None):
         with context.session.begin(subtransactions=True):
@@ -899,7 +899,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             qos_policy_id = port_data[qos_consts.QOS_POLICY_ID]
         elif device_owner.startswith(const.DEVICE_OWNER_COMPUTE_PREFIX):
             # check if the network of this port has a policy
-            qos_policy_id = qos_utils.get_network_policy_id(
+            qos_policy_id = qos_com_utils.get_network_policy_id(
                 context, port_data['network_id'])
         if qos_policy_id:
             qos_profile_id = self._get_qos_profile_id(context, qos_policy_id)
@@ -1262,14 +1262,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             policy_id = updated_port[qos_consts.QOS_POLICY_ID]
         else:
             # Look for the previous QoS policy
-            policy_id = qos_utils.get_port_policy_id(
+            policy_id = qos_com_utils.get_port_policy_id(
                 context, updated_port['id'])
         # If the port is now a 'compute' port (attached to a vm) and
         # Qos policy was not configured on the port directly,
         # try to take it from the ports network
         if policy_id is None and is_new_compute:
             # check if the network of this port has a policy
-            policy_id = qos_utils.get_network_policy_id(
+            policy_id = qos_com_utils.get_network_policy_id(
                 context, updated_port.get('network_id'))
 
         if policy_id is not None:
@@ -1362,7 +1362,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._extend_port_dict_binding(context, port)
 
         # add the qos policy id from the DB
-        port[qos_consts.QOS_POLICY_ID] = qos_utils.get_port_policy_id(
+        port[qos_consts.QOS_POLICY_ID] = qos_com_utils.get_port_policy_id(
             context, port['id'])
 
     def get_port(self, context, id, fields=None):

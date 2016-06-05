@@ -31,20 +31,6 @@ LOG = logging.getLogger(__name__)
 MAX_KBPS_MIN_VALUE = 1024
 
 
-def get_port_policy_id(context, port_id):
-    policy = qos_policy.QosPolicy.get_port_policy(
-        context, port_id)
-    if policy:
-        return policy.id
-
-
-def get_network_policy_id(context, net_id):
-    policy = qos_policy.QosPolicy.get_network_policy(
-        context, net_id)
-    if policy:
-        return policy.id
-
-
 def handle_qos_notification(policy_obj, event_type):
     handler = QosNotificationsHandler()
     context = n_context.get_admin_context()

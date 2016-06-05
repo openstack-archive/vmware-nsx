@@ -31,6 +31,7 @@ from neutron.extensions import securitygroup as secgrp
 from neutron import manager
 from neutron.objects.qos import policy as qos_pol
 from neutron.plugins.common import constants as plugin_const
+from neutron.services.qos import qos_consts
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.db.test_allowedaddresspairs_db as test_addr_pair
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
@@ -529,10 +530,18 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                 'admin_state_up': False,
                 'shared': False
                 }}
-        # create the network - should succeed and translate the policy id
-        plugin.create_network(ctx, data)
-        fake_init_from_policy.assert_called_once_with(ctx, policy_id)
-        self.assertTrue(fake_dvs_update.called)
+        with mock.patch('vmware_nsx.services.qos.common.utils.'
+                        'get_network_policy_id',
+                        return_value=policy_id):
+            # create the network - should succeed and translate the policy id
+            net = plugin.create_network(ctx, data)
+            self.assertEqual(policy_id, net[qos_consts.QOS_POLICY_ID])
+            fake_init_from_policy.assert_called_once_with(ctx, policy_id)
+            self.assertTrue(fake_dvs_update.called)
+
+            # Get network should also return the qos policy id
+            net2 = plugin.get_network(ctx, net['id'])
+            self.assertEqual(policy_id, net2[qos_consts.QOS_POLICY_ID])
 
     @mock.patch.object(dvs.DvsManager, 'update_port_groups_config')
     @mock.patch.object(qos_utils.NsxVQosRule, '_init_from_policy_id')
@@ -557,9 +566,17 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
         policy_id = _uuid()
         data['network']['qos_policy_id'] = policy_id
         # update the network - should succeed and translate the policy id
-        plugin.update_network(ctx, net['id'], data)
-        fake_init_from_policy.assert_called_once_with(ctx, policy_id)
-        self.assertTrue(fake_dvs_update.called)
+        with mock.patch('vmware_nsx.services.qos.common.utils.'
+                        'get_network_policy_id',
+                        return_value=policy_id):
+            res = plugin.update_network(ctx, net['id'], data)
+            self.assertEqual(policy_id, res[qos_consts.QOS_POLICY_ID])
+            fake_init_from_policy.assert_called_once_with(ctx, policy_id)
+            self.assertTrue(fake_dvs_update.called)
+
+            # Get network should also return the qos policy id
+            net2 = plugin.get_network(ctx, net['id'])
+            self.assertEqual(policy_id, net2[qos_consts.QOS_POLICY_ID])
 
     @mock.patch.object(dvs.DvsManager, 'update_port_groups_config')
     @mock.patch.object(qos_utils.NsxVQosRule, '_init_from_policy_id')

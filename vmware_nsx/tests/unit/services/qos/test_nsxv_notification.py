@@ -111,8 +111,17 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
         cfg.CONF.set_override('dvs_name', 'fake_dvs', group='dvs')
         cfg.CONF.set_default('use_dvs_features', True, 'nsxv')
 
+    def test_create_port_anticipating_allocation(self):
+        with mock.patch('vmware_nsx.services.qos.common.utils.'
+                        'get_network_policy_id'):
+            super(TestQosNsxVNotification,
+                  self).test_create_port_anticipating_allocation()
+
     def _create_net(self):
-        return self._core_plugin.create_network(self.ctxt, self._net_data)
+        with mock.patch('vmware_nsx.services.qos.common.utils.'
+                        'get_network_policy_id',
+                        return_value=self.policy.id):
+            return self._core_plugin.create_network(self.ctxt, self._net_data)
 
     @mock.patch.object(qos_com_utils, 'update_network_policy_binding')
     @mock.patch.object(dvs.DvsManager, 'update_port_groups_config')
