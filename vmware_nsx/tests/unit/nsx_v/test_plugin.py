@@ -2094,6 +2094,12 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
     def test_router_update_gateway_upon_subnet_create_max_ips_ipv6(self):
         self.skipTest('No DHCP v6 Support yet')
 
+    def test_floatingip_via_router_interface_returns_201(self):
+        self.skipTest('not supported')
+
+    def test_floatingip_via_router_interface_returns_404(self):
+        self.skipTest('not supported')
+
 
 class IPv6ExpectedFailuresTestMixin(object):
 
