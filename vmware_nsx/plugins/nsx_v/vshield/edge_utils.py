@@ -1260,7 +1260,7 @@ class EdgeManager(object):
                 context, self.plugin, resource_id)
 
             if not self.per_interface_rp_filter:
-                with locking.LockManager.get_lock('nsx-edge-pool'):
+                with locking.LockManager.get_lock(str(dhcp_edge_id)):
                     self.nsxv_manager.vcns.set_system_control(
                         dhcp_edge_id,
                         [RP_FILTER_PROPERTY_OFF_TEMPLATE % ('all', '0')])
