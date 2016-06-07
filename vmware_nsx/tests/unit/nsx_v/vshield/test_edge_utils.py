@@ -714,7 +714,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
             self.ctx, 'fake_id')
         assert not self.nsxv_manager.delete_edge.called
         self.nsxv_manager.update_edge.assert_has_calls(
-            [mock.call('fake_id', mock.ANY, mock.ANY, None,
+            [mock.call(mock.ANY, mock.ANY, mock.ANY, None,
                        appliance_size=nsxv_constants.LARGE, dist=False)])
 
     def test_free_edge_appliance_with_default_with_full(self):
