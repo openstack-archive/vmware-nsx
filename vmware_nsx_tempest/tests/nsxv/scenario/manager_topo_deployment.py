@@ -14,6 +14,7 @@
 #    under the License.
 
 import collections
+from fixtures._fixtures import timeout as fixture_timeout
 import os
 import re
 import subprocess
@@ -21,6 +22,7 @@ import time
 import traceback
 
 import net_resources
+import netaddr
 
 from tempest.common.utils.linux import remote_client
 from tempest.common import waiters
@@ -28,7 +30,6 @@ from tempest import config
 from tempest.scenario import manager
 from tempest import test
 
-import netaddr
 from tempest.lib.common.utils import data_utils
 from tempest.lib import exceptions
 
@@ -133,8 +134,8 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
             tenant_id = routers_client.tenant_id
         distributed = kwargs.pop('distributed', None)
         router_type = kwargs.pop('router_type', None)
-        if distributed in (True, False):
-            kwargs['distributed'] = distributed
+        if distributed:
+            kwargs['distributed'] = True
         elif router_type in ('shared', 'exclusive'):
             kwargs['router_type'] = router_type
         name = data_utils.rand_name(namestart)
@@ -253,23 +254,25 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
     def setup_project_network(self, external_network_id,
                              client_mgr=None,
                              namestart=None, client=None,
-                             tenant_id=None, cidr_offset=0):
+                             tenant_id=None, cidr_offset=0,
+                             **kwargs):
         """NOTE:
 
             Refer to create_networks@scenario/manager.py which might refer
             to public_router_id which we dont' want to use.
 
             The test class can define class variable tenant_router_attrs
-            to create different type of routers.
+            to create different type of routers, or overwrite with kwargs.
         """
-        # namestart = namestart if namestart else 'topo-deploy-tenant'
         name = namestart or data_utils.rand_name('topo-deploy-tenant')
         client_mgr = client_mgr or self.manager
-        # _create_router() editing distributed and router_type
-        distributed = self.tenant_router_attrs.get('distributed')
-        router_type = self.tenant_router_attrs.get('router_type')
-        # child class use class var tenant_router_attrs to define
-        # tenant's router type.
+        # _create_router() edits distributed and router_type
+        # Child classes use class var tenant_router_attrs to define
+        # tenant's router type, however, caller can overwrite it with kwargs.
+        distributed = kwargs.get('distributed',
+                                 self.tenant_router_attrs.get('distributed'))
+        router_type = kwargs.get('router_type',
+                                 self.tenant_router_attrs.get('router_type'))
         net_router = self._create_router(
             client_mgr=client_mgr, tenant_id=tenant_id,
             namestart=name,
@@ -459,6 +462,27 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
 
     def get_server_flavor(self):
         return CONF.compute.flavor_ref
+
+    # replaced by call_and_ignore_notfound_exc method
+    # at tempest/lib/common/utils/test_utils.py
+    def delete_wrapper(self, delete_thing, *args, **kwargs):
+        """Ignores NotFound exceptions for delete operations.
+
+        @param delete_thing: delete method of a resource. method will be
+            executed as delete_thing(*args, **kwargs)
+
+        """
+        try:
+            delete_thing(*args, **kwargs)
+        except exceptions.NotFound:
+            # If the resource is already missing, mission accomplished.
+            pass
+        except fixture_timeout.TimeoutException:
+            # one more time
+            try:
+                delete_thing(*args, **kwargs)
+            except exceptions.NotFound:
+                pass
 
 
 # common utilities
@@ -690,7 +714,7 @@ def get_remote_client_by_password(client_ip, username, password):
     return ssh_client
 
 
-def delete_all_servers(tenant_servers_client, trys=3):
+def delete_all_servers(tenant_servers_client, trys=5):
     # try at least trys+1 time to delete servers, otherwise
     # network resources can not be deleted
     for s in tenant_servers_client.list_servers()['servers']:

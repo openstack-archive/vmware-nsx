@@ -32,10 +32,17 @@ ScenarioGroup = [
                      " & DNS are local to provider's settings."),
     cfg.DictOpt('flat_alloc_pool_dict',
                 default={},
-                help=" Define flat network ip range."
+                help="Define flat network ip range."
                      " required attributes are gateway, start, end"
                      " and cidr. Example value: gateway:10.1.1.253,"
                      " start:10.1.1.30,end:10.1.1.49,cidr=10.1.1.0/24"),
+    cfg.DictOpt('xnet_multiple_subnets_dict',
+                default={},
+                help="External network with multiple subnets."
+                     " The primary subnet ip-range will be shrinked,"
+                     " This is for the 2nd subnet, required attrs:"
+                     " start:10.1.1.31,end:10.1.1.33,cidr=10.1.2.0/24"
+                     " AND limit to only 3 ip addresses defined."),
 ]
 
 network_group = config.network_group
