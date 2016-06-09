@@ -3826,6 +3826,39 @@ class TestNSXPortSecurity(test_psec.TestPortSecurity,
         self._toggle_port_security(port1['port']['id'], False, True)
         self._toggle_port_security(port2['port']['id'], False, False)
 
+    def test_service_insertion(self):
+        # init the plugin mocks
+        p = manager.NeutronManager.get_plugin()
+        self.fc2.add_member_to_security_group = (
+            mock.Mock().add_member_to_security_group)
+        self.fc2.remove_member_from_security_group = (
+            mock.Mock().remove_member_from_security_group)
+
+        # mock the service insertion handler
+        p._si_handler = mock.Mock()
+        p._si_handler.enabled = True
+        p._si_handler.sg_id = '11'
+
+        # create a compute port with port security
+        device_id = _uuid()
+        port = self._create_compute_port('net1', device_id, True)
+
+        # add vnic to the port, and verify that the port was added to the
+        # service insertion security group
+        vnic_id = 3
+        vnic_index = '%s.%03d' % (device_id, vnic_id)
+        self.fc2.add_member_to_security_group.reset_mock()
+        self._add_vnic_to_port(port['port']['id'], False, vnic_id)
+        self.fc2.add_member_to_security_group.assert_any_call(
+            p._si_handler.sg_id, vnic_index)
+
+        # disable the port security and make sure it is removed from the
+        # security group
+        self.fc2.remove_member_from_security_group.reset_mock()
+        self._toggle_port_security(port['port']['id'], False, True)
+        self.fc2.remove_member_from_security_group.assert_any_call(
+            p._si_handler.sg_id, vnic_index)
+
 
 class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                test_l3_plugin.L3NatTestCaseMixin,

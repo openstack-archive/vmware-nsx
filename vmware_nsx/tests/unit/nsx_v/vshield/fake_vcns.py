@@ -919,6 +919,9 @@ class FakeVcns(object):
                 response += self.get_security_group(k)
         return header, response
 
+    def create_redirect_section(self, request):
+        return self.create_section('layer3redirect', request)
+
     def create_section(self, type, request, insert_before=None):
         section = ET.fromstring(request)
         section_name = section.attrib.get('name')
@@ -1197,3 +1200,25 @@ class FakeVcns(object):
         }
         response = {'staticRoutes': {'staticRoutes': []}}
         return (header, response)
+
+    def get_service_insertion_profile(self, profile_id):
+        headers = {'status': 200}
+        response = """
+            <serviceProfile><objectId>%s</objectId>
+            <objectTypeName>ServiceProfile</objectTypeName>
+            <type><typeName>ServiceProfile</typeName></type>
+            <name>Service_Vendor</name>
+            <serviceProfileBinding><distributedVirtualPortGroups/>
+            <virtualWires/><excludedVnics/><virtualServers/>
+            <securityGroups><string>securitygroup-30</string>
+            </securityGroups></serviceProfileBinding>
+            </serviceProfile>
+            """
+        response_format = response % profile_id
+
+        return (headers, response_format)
+
+    def update_service_insertion_profile_binding(self, profile_id, request):
+        response = ''
+        headers = {'status': 200}
+        return (headers, response)

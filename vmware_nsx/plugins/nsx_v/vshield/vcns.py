@@ -42,12 +42,14 @@ FIREWALL_RULE_RESOURCE = "rules"
 
 #NSXv Constants
 FIREWALL_PREFIX = '/api/4.0/firewall/globalroot-0/config'
+FIREWALL_REDIRECT_SEC_TYPE = 'layer3redirectsections'
 SECURITYGROUP_PREFIX = '/api/2.0/services/securitygroup'
 VDN_PREFIX = '/api/2.0/vdn'
 SERVICES_PREFIX = '/api/2.0/services'
 SPOOFGUARD_PREFIX = '/api/4.0/services/spoofguard'
 TRUSTSTORE_PREFIX = '%s/%s' % (SERVICES_PREFIX, 'truststore')
 EXCLUDELIST_PREFIX = '/api/2.1/app/excludelist'
+SERVICE_INSERTION_PROFILE_PREFIX = '/api/2.0/si/serviceprofile'
 
 #LbaaS Constants
 LOADBALANCER_SERVICE = "loadbalancer/config"
@@ -547,6 +549,17 @@ class Vcns(object):
         uri = self._build_uri_path(edge_id, BRIDGE)
         return self.do_request(HTTP_DELETE, uri, format='xml', decode=False)
 
+    def create_redirect_section(self, request):
+        """Creates a layer 3 redirect section in nsx rule table.
+
+        The method will return the uri to newly created section.
+        """
+        sec_type = FIREWALL_REDIRECT_SEC_TYPE
+        uri = '%s/%s?autoSaveDraft=false' % (FIREWALL_PREFIX, sec_type)
+        uri += '&operation=insert_before&anchorId=1002'
+        return self.do_request(HTTP_POST, uri, request, format='xml',
+                               decode=False, encode=False)
+
     def create_section(self, type, request, insert_before=None):
         """Creates a layer 3 or layer 2 section in nsx rule table.
 
@@ -911,3 +924,14 @@ class Vcns(object):
         uri = '%s/%s/%s?noOfDays=%s' % (TRUSTSTORE_PREFIX, CSR, csr_id,
                                         nsxv_constants.CERT_NUMBER_OF_DAYS)
         return self.do_request(HTTP_PUT, uri)
+
+    def get_service_insertion_profile(self, profile_id):
+        profiles_uri = '%s/%s' % (SERVICE_INSERTION_PROFILE_PREFIX, profile_id)
+        return self.do_request(HTTP_GET, profiles_uri, format='xml',
+                               decode=False)
+
+    def update_service_insertion_profile_binding(self, profile_id, request):
+        profiles_uri = '%s/%s/%s' % (SERVICE_INSERTION_PROFILE_PREFIX,
+                                     profile_id, 'binding')
+        return self.do_request(HTTP_POST, profiles_uri, request, format='xml',
+                               decode=False)
