@@ -181,16 +181,6 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
         self.assertEqual(expected,
                          p._get_vlan_network_name(net, dvs_id))
 
-    def test_create_port_anticipating_allocation(self):
-        with self.network(shared=True) as network:
-            with self.subnet(network=network, cidr='10.0.0.0/24') as subnet:
-                fixed_ips = [{'subnet_id': subnet['subnet']['id']},
-                             {'subnet_id': subnet['subnet']['id'],
-                              'ip_address': '10.0.0.3'}]
-                self._create_port(self.fmt, network['network']['id'],
-                                  webob.exc.HTTPCreated.code,
-                                  fixed_ips=fixed_ips)
-
 
 class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
 
@@ -695,6 +685,9 @@ class TestPortsV2(NsxVPluginV2TestCase,
             # for DHCP
             self.assertEqual(8, count)
 
+    def test_create_port_with_too_many_fixed_ips(self):
+        self.skipTest('DHCP only supports one binding')
+
     def test_create_port_invalid_fixed_ip_address_v6_pd_slaac(self):
         self.skipTest('No DHCP v6 Support yet')
 
@@ -738,16 +731,23 @@ class TestPortsV2(NsxVPluginV2TestCase,
                                                         ipv6_pd=False):
         self.skipTest('No DHCP v6 Support yet')
 
-    def test_create_port_json(self):
-        keys = [('admin_state_up', True), ('status', self.port_create_status)]
-        with self.port(name='myname') as port:
-            for k, v in keys:
-                self.assertEqual(port['port'][k], v)
-            self.assertIn('mac_address', port['port'])
-            ips = port['port']['fixed_ips']
-            self.assertEqual(len(ips), 1)
-            self.assertEqual(ips[0]['ip_address'], '10.0.0.3')
-            self.assertEqual('myname', port['port']['name'])
+    def test_create_port_anticipating_allocation(self):
+        with self.network(shared=True) as network:
+            with self.subnet(network=network, cidr='10.0.0.0/24',
+                             enable_dhcp=False) as subnet:
+                fixed_ips = [{'subnet_id': subnet['subnet']['id']},
+                             {'subnet_id': subnet['subnet']['id'],
+                              'ip_address': '10.0.0.2'}]
+                self._create_port(self.fmt, network['network']['id'],
+                                  webob.exc.HTTPCreated.code,
+                                  fixed_ips=fixed_ips)
+
+    def test_update_port_mac_ip(self):
+        with self.subnet(enable_dhcp=False) as subnet:
+            updated_fixed_ips = [{'subnet_id': subnet['subnet']['id'],
+                              'ip_address': '10.0.0.3'}]
+            self.check_update_port_mac(subnet=subnet,
+                                       updated_fixed_ips=updated_fixed_ips)
 
     def test_list_ports(self):
         # for this test we need to enable overlapping ips
@@ -903,25 +903,6 @@ class TestPortsV2(NsxVPluginV2TestCase,
                 update = {'port': {'device_owner'}}
                 self.new_update_request('ports',
                                         update, port['port']['id'])
-
-    def test_create_port_public_network_with_ip(self):
-        with self.network(shared=True) as network:
-            with self.subnet(enable_dhcp=False,
-                             network=network, cidr='10.0.0.0/24') as subnet:
-                keys = [('admin_state_up', True),
-                        ('status', self.port_create_status),
-                        ('fixed_ips', [{'subnet_id': subnet['subnet']['id'],
-                                        'ip_address': '10.0.0.2'}])]
-                port_res = self._create_port(self.fmt,
-                                             network['network']['id'],
-                                             webob.exc.HTTPCreated.code,
-                                             tenant_id='another_tenant',
-                                             set_context=True)
-                port = self.deserialize(self.fmt, port_res)
-                for k, v in keys:
-                    self.assertEqual(port['port'][k], v)
-                self.assertIn('mac_address', port['port'])
-                self._delete('ports', port['port']['id'])
 
     def test_no_more_port_exception(self):
         with self.subnet(enable_dhcp=False, cidr='10.0.0.0/31',
@@ -1086,148 +1067,6 @@ class TestPortsV2(NsxVPluginV2TestCase,
                 self.assertEqual(len(alloc), 0)
                 self._delete('ports', port['port']['id'])
 
-    def test_requested_duplicate_ip(self):
-        with self.subnet(enable_dhcp=False) as subnet:
-            with self.port(subnet=subnet) as port:
-                ips = port['port']['fixed_ips']
-                self.assertEqual(len(ips), 1)
-                self.assertEqual(ips[0]['ip_address'], '10.0.0.2')
-                self.assertEqual(ips[0]['subnet_id'], subnet['subnet']['id'])
-                # Check configuring of duplicate IP
-                kwargs = {"fixed_ips": [{'subnet_id': subnet['subnet']['id'],
-                                         'ip_address': ips[0]['ip_address']}]}
-                net_id = port['port']['network_id']
-                res = self._create_port(self.fmt, net_id=net_id, **kwargs)
-                self.assertEqual(res.status_int, webob.exc.HTTPConflict.code)
-
-    def test_requested_invalid_fixed_ips(self):
-        with self.subnet(enable_dhcp=False) as subnet:
-            with self.port(subnet=subnet) as port:
-                ips = port['port']['fixed_ips']
-                self.assertEqual(len(ips), 1)
-                self.assertEqual(ips[0]['ip_address'], '10.0.0.2')
-                self.assertEqual(ips[0]['subnet_id'], subnet['subnet']['id'])
-                # Test invalid subnet_id
-                kwargs = {"fixed_ips":
-                          [{'subnet_id': subnet['subnet']['id']},
-                           {'subnet_id':
-                            '00000000-ffff-ffff-ffff-000000000000'}]}
-                net_id = port['port']['network_id']
-                res = self._create_port(self.fmt, net_id=net_id, **kwargs)
-                port2 = self.deserialize(self.fmt, res)
-                self.assertEqual(res.status_int, webob.exc.HTTPNotFound.code)
-
-                # Test invalid IP address on specified subnet_id
-                kwargs = {"fixed_ips":
-                          [{'subnet_id': subnet['subnet']['id'],
-                            'ip_address': '1.1.1.1'}]}
-                net_id = port['port']['network_id']
-                res = self._create_port(self.fmt, net_id=net_id, **kwargs)
-                port2 = self.deserialize(self.fmt, res)
-                self.assertEqual(res.status_int,
-                                 webob.exc.HTTPClientError.code)
-
-                # Test invalid addresses - IP's not on subnet or network
-                # address or broadcast address
-                bad_ips = ['1.1.1.1', '10.0.0.0', '10.0.0.255']
-                net_id = port['port']['network_id']
-                for ip in bad_ips:
-                    kwargs = {"fixed_ips": [{'ip_address': ip}]}
-                    res = self._create_port(self.fmt, net_id=net_id, **kwargs)
-                    port2 = self.deserialize(self.fmt, res)
-                    self.assertEqual(res.status_int,
-                                     webob.exc.HTTPClientError.code)
-
-                # Enable allocation of gateway address
-                kwargs = {"fixed_ips":
-                          [{'subnet_id': subnet['subnet']['id'],
-                            'ip_address': '10.0.0.1'}]}
-                net_id = port['port']['network_id']
-                res = self._create_port(self.fmt, net_id=net_id, **kwargs)
-                port2 = self.deserialize(self.fmt, res)
-                ips = port2['port']['fixed_ips']
-                self.assertEqual(len(ips), 1)
-                self.assertEqual(ips[0]['ip_address'], '10.0.0.1')
-                self.assertEqual(ips[0]['subnet_id'], subnet['subnet']['id'])
-                self._delete('ports', port2['port']['id'])
-
-    def test_requested_split(self):
-        with self.subnet(enable_dhcp=False) as subnet:
-            with self.port(subnet=subnet) as port:
-                ports_to_delete = []
-                ips = port['port']['fixed_ips']
-                self.assertEqual(len(ips), 1)
-                self.assertEqual(ips[0]['ip_address'], '10.0.0.2')
-                self.assertEqual(ips[0]['subnet_id'], subnet['subnet']['id'])
-                # Allocate specific IP
-                kwargs = {"fixed_ips": [{'subnet_id': subnet['subnet']['id'],
-                                         'ip_address': '10.0.0.5'}]}
-                net_id = port['port']['network_id']
-                res = self._create_port(self.fmt, net_id=net_id, **kwargs)
-                port2 = self.deserialize(self.fmt, res)
-                ports_to_delete.append(port2)
-                ips = port2['port']['fixed_ips']
-                self.assertEqual(len(ips), 1)
-                self.assertEqual(ips[0]['ip_address'], '10.0.0.5')
-                self.assertEqual(ips[0]['subnet_id'], subnet['subnet']['id'])
-                # Allocate specific IP's
-                allocated = ['10.0.0.3', '10.0.0.4', '10.0.0.6']
-
-                for a in allocated:
-                    res = self._create_port(self.fmt, net_id=net_id)
-                    port2 = self.deserialize(self.fmt, res)
-                    ports_to_delete.append(port2)
-                    ips = port2['port']['fixed_ips']
-                    self.assertEqual(len(ips), 1)
-                    self.assertEqual(ips[0]['ip_address'], a)
-                    self.assertEqual(ips[0]['subnet_id'],
-                                     subnet['subnet']['id'])
-
-                for p in ports_to_delete:
-                    self._delete('ports', p['port']['id'])
-
-    def test_requested_ips_only(self):
-        with self.subnet(enable_dhcp=False) as subnet:
-            with self.port(subnet=subnet) as port:
-                ips = port['port']['fixed_ips']
-                self.assertEqual(len(ips), 1)
-                self.assertEqual(ips[0]['ip_address'], '10.0.0.2')
-                self.assertEqual(ips[0]['subnet_id'], subnet['subnet']['id'])
-                ips_only = ['10.0.0.18', '10.0.0.20', '10.0.0.22', '10.0.0.21',
-                            '10.0.0.3', '10.0.0.17', '10.0.0.19']
-                ports_to_delete = []
-                for i in ips_only:
-                    kwargs = {"fixed_ips": [{'ip_address': i}]}
-                    net_id = port['port']['network_id']
-                    res = self._create_port(self.fmt, net_id=net_id, **kwargs)
-                    port = self.deserialize(self.fmt, res)
-                    ports_to_delete.append(port)
-                    ips = port['port']['fixed_ips']
-                    self.assertEqual(len(ips), 1)
-                    self.assertEqual(ips[0]['ip_address'], i)
-                    self.assertEqual(ips[0]['subnet_id'],
-                                     subnet['subnet']['id'])
-                for p in ports_to_delete:
-                    self._delete('ports', p['port']['id'])
-
-    def test_requested_subnet_id(self):
-        with self.subnet(enable_dhcp=False) as subnet:
-            with self.port(subnet=subnet) as port:
-                ips = port['port']['fixed_ips']
-                self.assertEqual(len(ips), 1)
-                self.assertEqual(ips[0]['ip_address'], '10.0.0.2')
-                self.assertEqual(ips[0]['subnet_id'], subnet['subnet']['id'])
-                # Request an IP from specific subnet
-                kwargs = {"fixed_ips": [{'subnet_id': subnet['subnet']['id']}]}
-                net_id = port['port']['network_id']
-                res = self._create_port(self.fmt, net_id=net_id, **kwargs)
-                port2 = self.deserialize(self.fmt, res)
-                ips = port2['port']['fixed_ips']
-                self.assertEqual(len(ips), 1)
-                self.assertEqual(ips[0]['ip_address'], '10.0.0.3')
-                self.assertEqual(ips[0]['subnet_id'], subnet['subnet']['id'])
-                self._delete('ports', port2['port']['id'])
-
     def test_requested_subnet_id_v4_and_v6(self):
         with self.subnet(enable_dhcp=False) as subnet:
                 # Get an IPv4 and IPv6 address
@@ -1248,43 +1087,28 @@ class TestPortsV2(NsxVPluginV2TestCase,
                 res = self._create_port(self.fmt, net_id=net_id, **kwargs)
                 port3 = self.deserialize(self.fmt, res)
                 ips = port3['port']['fixed_ips']
-                self.assertEqual(len(ips), 2)
-                self.assertEqual(ips[0]['ip_address'], '10.0.0.2')
-                self.assertEqual(ips[0]['subnet_id'], subnet['subnet']['id'])
-                self.assertEqual(ips[1]['ip_address'], '2607:f0d0:1002:51::2')
-                self.assertEqual(ips[1]['subnet_id'], subnet2['subnet']['id'])
+                cidr_v4 = subnet['subnet']['cidr']
+                cidr_v6 = subnet2['subnet']['cidr']
+                self.assertEqual(2, len(ips))
+                self._test_requested_port_subnet_ids(ips,
+                                                     [subnet['subnet']['id'],
+                                                      subnet2['subnet']['id']])
+                self._test_dual_stack_port_ip_addresses_in_subnets(ips,
+                                                                   cidr_v4,
+                                                                   cidr_v6)
                 res = self._create_port(self.fmt, net_id=net_id)
                 port4 = self.deserialize(self.fmt, res)
                 # Check that a v4 and a v6 address are allocated
                 ips = port4['port']['fixed_ips']
                 self.assertEqual(len(ips), 2)
-                self.assertEqual(ips[0]['ip_address'], '10.0.0.3')
-                self.assertEqual(ips[0]['subnet_id'], subnet['subnet']['id'])
-                self.assertEqual(ips[1]['ip_address'], '2607:f0d0:1002:51::3')
-                self.assertEqual(ips[1]['subnet_id'], subnet2['subnet']['id'])
+                self._test_requested_port_subnet_ids(ips,
+                                                     [subnet['subnet']['id'],
+                                                      subnet2['subnet']['id']])
+                self._test_dual_stack_port_ip_addresses_in_subnets(ips,
+                                                                   cidr_v4,
+                                                                   cidr_v6)
                 self._delete('ports', port3['port']['id'])
                 self._delete('ports', port4['port']['id'])
-
-    def test_update_port_add_additional_ip(self):
-        """Test update of port with additional IP."""
-        with self.subnet(enable_dhcp=False) as subnet:
-            with self.port(subnet=subnet) as port:
-                data = {'port': {'admin_state_up': False,
-                                 'fixed_ips': [{'subnet_id':
-                                                subnet['subnet']['id']},
-                                               {'subnet_id':
-                                                subnet['subnet']['id']}]}}
-                req = self.new_update_request('ports', data,
-                                              port['port']['id'])
-                res = self.deserialize(self.fmt, req.get_response(self.api))
-                self.assertEqual(res['port']['admin_state_up'],
-                                 data['port']['admin_state_up'])
-                ips = res['port']['fixed_ips']
-                self.assertEqual(len(ips), 2)
-                self.assertEqual(ips[0]['ip_address'], '10.0.0.3')
-                self.assertEqual(ips[0]['subnet_id'], subnet['subnet']['id'])
-                self.assertEqual(ips[1]['ip_address'], '10.0.0.4')
-                self.assertEqual(ips[1]['subnet_id'], subnet['subnet']['id'])
 
     def test_update_port_update_ip(self):
         """Test update of port IP.
@@ -1292,10 +1116,12 @@ class TestPortsV2(NsxVPluginV2TestCase,
         Check that a configured IP 10.0.0.2 is replaced by 10.0.0.10.
         """
         with self.subnet(enable_dhcp=False) as subnet:
-            with self.port(subnet=subnet) as port:
+            fixed_ip_data = [{'ip_address': '10.0.0.2',
+                             'subnet_id': subnet['subnet']['id']}]
+            with self.port(subnet=subnet, fixed_ips=fixed_ip_data) as port:
                 ips = port['port']['fixed_ips']
-                self.assertEqual(len(ips), 1)
-                self.assertEqual(ips[0]['ip_address'], '10.0.0.2')
+                self.assertEqual(1, len(ips))
+                self.assertEqual('10.0.0.2', ips[0]['ip_address'])
                 self.assertEqual(ips[0]['subnet_id'], subnet['subnet']['id'])
                 data = {'port': {'fixed_ips': [{'subnet_id':
                                                 subnet['subnet']['id'],
@@ -1304,8 +1130,30 @@ class TestPortsV2(NsxVPluginV2TestCase,
                                               port['port']['id'])
                 res = self.deserialize(self.fmt, req.get_response(self.api))
                 ips = res['port']['fixed_ips']
-                self.assertEqual(len(ips), 1)
-                self.assertEqual(ips[0]['ip_address'], '10.0.0.10')
+                self.assertEqual(1, len(ips))
+                self.assertEqual('10.0.0.10', ips[0]['ip_address'])
+                self.assertEqual(ips[0]['subnet_id'], subnet['subnet']['id'])
+
+    def test_update_port_update_ips(self):
+        """Update IP and associate new IP on port.
+
+        Check a port update with the specified subnet_id's. A IP address
+        will be allocated for each subnet_id.
+        """
+        with self.subnet(enable_dhcp=False) as subnet:
+            with self.port(subnet=subnet) as port:
+                data = {'port': {'admin_state_up': False,
+                                 'fixed_ips': [{'subnet_id':
+                                                subnet['subnet']['id'],
+                                                'ip_address': '10.0.0.3'}]}}
+                req = self.new_update_request('ports', data,
+                                              port['port']['id'])
+                res = self.deserialize(self.fmt, req.get_response(self.api))
+                self.assertEqual(data['port']['admin_state_up'],
+                                 res['port']['admin_state_up'])
+                ips = res['port']['fixed_ips']
+                self.assertEqual(1, len(ips))
+                self.assertEqual('10.0.0.3', ips[0]['ip_address'], '10.0.0.3')
                 self.assertEqual(ips[0]['subnet_id'], subnet['subnet']['id'])
 
     def test_update_port_update_ip_dhcp(self):
@@ -1462,24 +1310,27 @@ class TestPortsV2(NsxVPluginV2TestCase,
 
     def test_update_port_update_ip_address_only(self):
         with self.subnet(enable_dhcp=False) as subnet:
-            with self.port(subnet=subnet) as port:
+            ip_address = '10.0.0.2'
+            fixed_ip_data = [{'ip_address': ip_address,
+                              'subnet_id': subnet['subnet']['id']}]
+            with self.port(subnet=subnet, fixed_ips=fixed_ip_data) as port:
                 ips = port['port']['fixed_ips']
-                self.assertEqual(len(ips), 1)
-                self.assertEqual(ips[0]['ip_address'], '10.0.0.2')
+                self.assertEqual(1, len(ips))
+                self.assertEqual(ip_address, ips[0]['ip_address'])
                 self.assertEqual(ips[0]['subnet_id'], subnet['subnet']['id'])
                 data = {'port': {'fixed_ips': [{'subnet_id':
                                                 subnet['subnet']['id'],
                                                 'ip_address': "10.0.0.10"},
-                                               {'ip_address': "10.0.0.2"}]}}
+                                               {'ip_address': ip_address}]}}
                 req = self.new_update_request('ports', data,
                                               port['port']['id'])
                 res = self.deserialize(self.fmt, req.get_response(self.api))
                 ips = res['port']['fixed_ips']
-                self.assertEqual(len(ips), 2)
-                self.assertEqual(ips[0]['ip_address'], '10.0.0.2')
-                self.assertEqual(ips[0]['subnet_id'], subnet['subnet']['id'])
-                self.assertEqual(ips[1]['ip_address'], '10.0.0.10')
-                self.assertEqual(ips[1]['subnet_id'], subnet['subnet']['id'])
+                self.assertEqual(2, len(ips))
+                self.assertIn({'ip_address': ip_address,
+                               'subnet_id': subnet['subnet']['id']}, ips)
+                self.assertIn({'ip_address': '10.0.0.10',
+                               'subnet_id': subnet['subnet']['id']}, ips)
 
     def test_update_dhcp_port_with_exceeding_fixed_ips(self):
         self.skipTest('Updating dhcp port IP is not supported')
@@ -2023,47 +1874,122 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
 
 class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
 
-    def test_floatingip_multi_external_one_internal(self):
-        with self.subnet(cidr="10.0.0.0/24",
-                         enable_dhcp=False) as ext1,\
-                self.subnet(cidr="11.0.0.0/24",
-                            enable_dhcp=False) as ext2,\
-                self.subnet(cidr="12.0.0.0/24",
-                            enable_dhcp=False) as inter1:
+    def test_create_floatingip_with_specific_ip(self):
+        with self.subnet(cidr='10.0.0.0/24',
+                         enable_dhcp=False) as s:
+            network_id = s['subnet']['network_id']
+            self._set_net_external(network_id)
+            fp = self._make_floatingip(self.fmt, network_id,
+                                       floating_ip='10.0.0.10')
+            self.assertEqual('10.0.0.10',
+                             fp['floatingip']['floating_ip_address'])
 
-            network_ex_id1 = ext1['subnet']['network_id']
-            network_ex_id2 = ext2['subnet']['network_id']
+    def test_floatingip_same_external_and_internal(self):
+        # Select router with subnet's gateway_ip for floatingip when
+        # routers connected to same subnet and external network.
+        with self.subnet(cidr="10.0.0.0/24", enable_dhcp=False) as exs,\
+                self.subnet(cidr="12.0.0.0/24",
+                            gateway_ip="12.0.0.50",
+                            enable_dhcp=False) as ins:
+            network_ex_id = exs['subnet']['network_id']
+            self._set_net_external(network_ex_id)
+
+            r2i_fixed_ips = [{'ip_address': '12.0.0.2'}]
+            with self.router() as r1,\
+                    self.router() as r2,\
+                    self.port(subnet=ins,
+                              fixed_ips=r2i_fixed_ips) as r2i_port:
+                self._add_external_gateway_to_router(
+                    r1['router']['id'],
+                    network_ex_id)
+                self._router_interface_action('add', r2['router']['id'],
+                                              None,
+                                              r2i_port['port']['id'])
+                self._router_interface_action('add', r1['router']['id'],
+                                              ins['subnet']['id'],
+                                              None)
+                self._add_external_gateway_to_router(
+                    r2['router']['id'],
+                    network_ex_id)
+
+                with self.port(subnet=ins,
+                               fixed_ips=[{'ip_address': '12.0.0.8'}]
+                               ) as private_port:
+
+                    fp = self._make_floatingip(self.fmt, network_ex_id,
+                                            private_port['port']['id'])
+                    self.assertEqual(r1['router']['id'],
+                                     fp['floatingip']['router_id'])
+
+    def test_create_floatingip_with_specific_ip_out_of_allocation(self):
+        with self.subnet(cidr='10.0.0.0/24',
+                         allocation_pools=[
+                             {'start': '10.0.0.10', 'end': '10.0.0.20'}],
+                         enable_dhcp=False) as s:
+            network_id = s['subnet']['network_id']
+            self._set_net_external(network_id)
+            fp = self._make_floatingip(self.fmt, network_id,
+                                       floating_ip='10.0.0.30')
+            self.assertEqual('10.0.0.30',
+                             fp['floatingip']['floating_ip_address'])
+
+    def test_create_floatingip_with_specific_ip_non_admin(self):
+        ctx = context.Context('user_id', 'tenant_id')
+
+        with self.subnet(cidr='10.0.0.0/24',
+                         enable_dhcp=False) as s:
+            network_id = s['subnet']['network_id']
+            self._set_net_external(network_id)
+            self._make_floatingip(self.fmt, network_id,
+                                  set_context=ctx,
+                                  floating_ip='10.0.0.10',
+                                  http_status=webob.exc.HTTPForbidden.code)
+
+    def test_create_floatingip_with_specific_ip_out_of_subnet(self):
+
+        with self.subnet(cidr='10.0.0.0/24',
+                         enable_dhcp=False) as s:
+            network_id = s['subnet']['network_id']
+            self._set_net_external(network_id)
+            self._make_floatingip(self.fmt, network_id,
+                                  floating_ip='10.0.1.10',
+                                  http_status=webob.exc.HTTPBadRequest.code)
+
+    def test_floatingip_multi_external_one_internal(self):
+        with self.subnet(cidr="10.0.0.0/24", enable_dhcp=False) as exs1,\
+                self.subnet(cidr="11.0.0.0/24", enable_dhcp=False) as exs2,\
+                self.subnet(cidr="12.0.0.0/24", enable_dhcp=False) as ins1:
+            network_ex_id1 = exs1['subnet']['network_id']
+            network_ex_id2 = exs2['subnet']['network_id']
             self._set_net_external(network_ex_id1)
             self._set_net_external(network_ex_id2)
+
             r2i_fixed_ips = [{'ip_address': '12.0.0.2'}]
-
-            with self.router(no_delete=True) as r1,\
-                    self.router(no_delete=True) as r2,\
-                    self.port(subnet=inter1, fixed_ips=r2i_fixed_ips) as r2i:
-
+            with self.router() as r1,\
+                    self.router() as r2,\
+                    self.port(subnet=ins1,
+                              fixed_ips=r2i_fixed_ips) as r2i_port:
                 self._add_external_gateway_to_router(
                     r1['router']['id'],
                     network_ex_id1)
                 self._router_interface_action('add', r1['router']['id'],
-                                              inter1['subnet']['id'],
+                                              ins1['subnet']['id'],
                                               None)
                 self._add_external_gateway_to_router(
                     r2['router']['id'],
                     network_ex_id2)
                 self._router_interface_action('add', r2['router']['id'],
                                               None,
-                                              r2i['port']['id'])
+                                              r2i_port['port']['id'])
 
-                with self.port(subnet=inter1,
+                with self.port(subnet=ins1,
                                fixed_ips=[{'ip_address': '12.0.0.3'}]
                                ) as private_port:
 
                     fp1 = self._make_floatingip(self.fmt, network_ex_id1,
-                                            private_port['port']['id'],
-                                            floating_ip='10.0.0.3')
+                                            private_port['port']['id'])
                     fp2 = self._make_floatingip(self.fmt, network_ex_id2,
-                                            private_port['port']['id'],
-                                            floating_ip='11.0.0.3')
+                                            private_port['port']['id'])
                     self.assertEqual(fp1['floatingip']['router_id'],
                                      r1['router']['id'])
                     self.assertEqual(fp2['floatingip']['router_id'],
@@ -2216,8 +2142,9 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
                             enable_dhcp=False):
             self._set_net_external(n['network']['id'])
             fip = self._make_floatingip(self.fmt, n['network']['id'])
-            self.assertEqual(fip['floatingip']['floating_ip_address'],
-                             '192.168.1.2')
+            fip_set = netaddr.IPSet(netaddr.IPNetwork("192.168.1.0/24"))
+            fip_ip = fip['floatingip']['floating_ip_address']
+            self.assertTrue(netaddr.IPAddress(fip_ip) in fip_set)
 
     def test_create_floatingip_with_assoc_to_ipv6_subnet(self):
         with self.subnet() as public_sub:

@@ -315,8 +315,10 @@ class MetaDataTestCase(object):
                            device_owner=constants.DEVICE_OWNER_DHCP) as port:
                 subnets = self._list('subnets')['subnets']
                 self.assertEqual(len(subnets), 1)
-                self.assertEqual(subnets[0]['host_routes'][0]['nexthop'],
-                                 '10.0.0.2')
+                subnet_ip_net = netaddr.IPNetwork(s['subnet']['cidr'])
+                self.assertIn(netaddr.IPAddress(
+                                  subnets[0]['host_routes'][0]['nexthop']),
+                              subnet_ip_net)
                 self.assertEqual(subnets[0]['host_routes'][0]['destination'],
                                  '169.254.169.254/32')
             self._delete('ports', port['port']['id'])

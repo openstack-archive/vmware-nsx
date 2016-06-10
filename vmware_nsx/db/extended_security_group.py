@@ -57,7 +57,8 @@ class ExtendedSecurityGroupPropertiesMixin(object):
     def _process_security_group_properties_update(self, context,
                                                   sg_res, sg_req):
         if (sg_logging.LOGGING in sg_req
-                and sg_req[sg_logging.LOGGING] != sg_res[sg_logging.LOGGING]):
+                and (sg_req[sg_logging.LOGGING] !=
+                     sg_res.get(sg_logging.LOGGING, False))):
             prop = self._get_security_group_properties(context, sg_res['id'])
             with context.session.begin(subtransactions=True):
                 prop.update({sg_logging.LOGGING: sg_req[sg_logging.LOGGING]})
