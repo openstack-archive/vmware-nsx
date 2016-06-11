@@ -685,6 +685,32 @@ class TestPortsV2(NsxVPluginV2TestCase,
             # for DHCP
             self.assertEqual(8, count)
 
+    def test_requested_ips_only(self):
+        with self.subnet(enable_dhcp=False) as subnet:
+            fixed_ip_data = [{'ip_address': '10.0.0.2',
+                             'subnet_id': subnet['subnet']['id']}]
+            with self.port(subnet=subnet, fixed_ips=fixed_ip_data) as port:
+                ips = port['port']['fixed_ips']
+                self.assertEqual(1, len(ips))
+                self.assertEqual('10.0.0.2', ips[0]['ip_address'])
+                self.assertEqual(ips[0]['subnet_id'], subnet['subnet']['id'])
+                ips_only = ['10.0.0.18', '10.0.0.20', '10.0.0.22', '10.0.0.21',
+                            '10.0.0.3', '10.0.0.17', '10.0.0.19']
+                ports_to_delete = []
+                for i in ips_only:
+                    kwargs = {"fixed_ips": [{'ip_address': i}]}
+                    net_id = port['port']['network_id']
+                    res = self._create_port(self.fmt, net_id=net_id, **kwargs)
+                    port = self.deserialize(self.fmt, res)
+                    ports_to_delete.append(port)
+                    ips = port['port']['fixed_ips']
+                    self.assertEqual(1, len(ips))
+                    self.assertEqual(i, ips[0]['ip_address'])
+                    self.assertEqual(subnet['subnet']['id'],
+                                     ips[0]['subnet_id'])
+                for p in ports_to_delete:
+                    self._delete('ports', p['port']['id'])
+
     def test_create_port_with_too_many_fixed_ips(self):
         self.skipTest('DHCP only supports one binding')
 
