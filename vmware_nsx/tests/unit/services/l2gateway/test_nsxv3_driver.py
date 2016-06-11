@@ -14,8 +14,11 @@
 # limitations under the License.
 import mock
 
+from networking_l2gw.db.l2gateway import l2gateway_db
+from networking_l2gw.services.l2gateway.common import config
 from networking_l2gw.services.l2gateway.common import constants
 from networking_l2gw.services.l2gateway import exceptions as l2gw_exc
+from networking_l2gw.services.l2gateway import plugin as core_l2gw_plugin
 from networking_l2gw.tests.unit.db import test_l2gw_db
 from oslo_config import cfg
 from oslo_utils import importutils
@@ -27,7 +30,6 @@ from neutron.tests import base
 from neutron_lib import exceptions as n_exc
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.nsxlib import v3 as nsxlib
-from vmware_nsx.services.l2gateway.common import plugin as l2gw_plugin
 from vmware_nsx.services.l2gateway.nsx_v3 import driver as nsx_v3_driver
 from vmware_nsx.tests.unit.nsx_v3 import mocks as nsx_v3_mocks
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_nsx_v3_plugin
@@ -44,13 +46,17 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
 
     def setUp(self):
         super(TestNsxV3L2GatewayDriver, self).setUp()
-        cfg.CONF.set_override("nsx_l2gw_driver",
-                              NSX_V3_L2GW_DRIVER_CLASS_PATH)
-
         self.core_plugin = importutils.import_object(NSX_V3_PLUGIN_CLASS)
-
-        self.driver = nsx_v3_driver.NsxV3Driver()
-        self.l2gw_plugin = l2gw_plugin.NsxL2GatewayPlugin(mock.MagicMock())
+        self.driver = nsx_v3_driver.NsxV3Driver(mock.MagicMock())
+        mock.patch.object(config, 'register_l2gw_opts_helper')
+        mock.patch('neutron.services.service_base.load_drivers',
+                   return_value=({'dummyprovider': self.driver},
+                                 'dummyprovider')).start()
+        mock.patch.object(l2gateway_db.L2GatewayMixin, '__init__'),
+        mock.patch.object(l2gateway_db, 'subscribe')
+        mock.patch('neutron.db.servicetype_db.ServiceTypeManager.get_instance',
+                   return_value=mock.MagicMock()).start()
+        self.l2gw_plugin = core_l2gw_plugin.L2GatewayPlugin()
         self.context = context.get_admin_context()
 
     def _get_nw_data(self):
@@ -65,7 +71,7 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
                                    'subscribe_callback_notifications') as sub:
                 with mock.patch.object(nsx_v3_driver.LOG,
                                        'debug') as debug:
-                    l2gw_plugin.NsxL2GatewayPlugin(mock.MagicMock())
+                    nsx_v3_driver.NsxV3Driver(mock.MagicMock())
                     self.assertTrue(def_gw.called)
                     self.assertTrue(sub.called)
                     self.assertTrue(debug.called)
@@ -77,7 +83,7 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
             cfg.CONF.set_override("default_bridge_cluster",
                                   def_bridge_cluster_name,
                                   "nsx_v3")
-            l2gw_plugin.NsxL2GatewayPlugin(mock.MagicMock())
+            nsx_v3_driver.NsxV3Driver(mock.MagicMock())
             l2gws = self.driver._get_l2_gateways(self.context)
             def_bridge_cluster_id = nsxlib.get_bridge_cluster_id_by_name_or_id(
                 def_bridge_cluster_name)
@@ -99,8 +105,8 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
             cfg.CONF.set_override("default_bridge_cluster",
                                   def_bridge_cluster_name,
                                   "nsx_v3")
-            l2gw_plugin.NsxL2GatewayPlugin(mock.MagicMock())
-            l2gw_plugin.NsxL2GatewayPlugin(mock.MagicMock())
+            nsx_v3_driver.NsxV3Driver(mock.MagicMock())
+            nsx_v3_driver.NsxV3Driver(mock.MagicMock())
             l2gws = self.driver._get_l2_gateways(self.context)
             # Verify whether only one default L2 gateway is created
             self.assertEqual(1, len(l2gws))
@@ -108,7 +114,7 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
     def test_create_default_l2_gateway_no_bc_uuid_noop(self):
         with mock.patch.object(nsx_v3_driver.NsxV3Driver,
                                'subscribe_callback_notifications'):
-            l2gw_plugin.NsxL2GatewayPlugin(mock.MagicMock())
+            nsx_v3_driver.NsxV3Driver(mock.MagicMock())
             l2gws = self.driver._get_l2_gateways(self.context)
             # Verify no default L2 gateway is created if bridge cluster id is
             # not configured in nsx.ini
@@ -126,7 +132,7 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
                             [{"name": "interface_2"}],
                             "device_name": "device2"}]}}
         self.assertRaises(n_exc.InvalidInput,
-                          self.driver.create_l2_gateway,
+                          self.l2gw_plugin.create_l2_gateway,
                           self.context, invalid_l2gw_dict)
 
     def test_create_l2_gateway_multiple_interfaces_fail(self):
@@ -139,7 +145,7 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
                              {"name": "interface2"}],
                             "device_name": "device1"}]}}
         self.assertRaises(n_exc.InvalidInput,
-                          self.driver.create_l2_gateway,
+                          self.l2gw_plugin.create_l2_gateway,
                           self.context, invalid_l2gw_dict)
 
     def test_create_l2_gateway_invalid_device_name_fail(self):
@@ -151,14 +157,14 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
                             [{"name": "interface_1"}],
                             "device_name": "device-1"}]}}
         self.assertRaises(n_exc.InvalidInput,
-                          self.driver.create_l2_gateway,
+                          self.l2gw_plugin.create_l2_gateway,
                           self.context, invalid_l2gw_dict)
 
     def test_create_l2_gateway_valid(self):
         bc_uuid = uuidutils.generate_uuid()
         l2gw_data = self._get_l2_gateway_data(name='gw1',
                                               device_name=bc_uuid)
-        l2gw = self.driver.create_l2_gateway(self.context, l2gw_data)
+        l2gw = self.l2gw_plugin.create_l2_gateway(self.context, l2gw_data)
         self.assertIsNotNone(l2gw)
         self.assertEqual("gw1", l2gw["name"])
         self.assertEqual("port1",
@@ -177,8 +183,8 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
             'l2_gateway_id': l2gw['id'],
             'tenant_id': 'fake_tenant_id',
             'network_id': net['id']}}
-        l2gw_conn = self.driver.create_l2_gateway_connection(self.context,
-                                                             l2gw_conn_data)
+        l2gw_conn = self.l2gw_plugin.create_l2_gateway_connection(
+            self.context, l2gw_conn_data)
         self.assertIsNotNone(l2gw_conn)
         self.assertEqual(net['id'], l2gw_conn['network_id'])
         self.assertEqual(l2gw['id'], l2gw_conn['l2_gateway_id'])
@@ -195,13 +201,14 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
             'l2_gateway_id': l2gw['id'],
             'tenant_id': 'fake_tenant_id',
             'network_id': net['id']}}
-        l2gw_conn = self.driver.create_l2_gateway_connection(self.context,
-                                                             l2gw_conn_data)
-        self.driver.delete_l2_gateway_connection(self.context,
-                                                 l2gw_conn['id'])
+        l2gw_conn = self.l2gw_plugin.create_l2_gateway_connection(
+            self.context,
+            l2gw_conn_data)
+        self.l2gw_plugin.delete_l2_gateway_connection(self.context,
+                                                      l2gw_conn['id'])
         # Verify that the L2 gateway connection was deleted
         self.assertRaises(l2gw_exc.L2GatewayConnectionNotFound,
-                          self.driver.get_l2_gateway_connection,
+                          self.l2gw_plugin.get_l2_gateway_connection,
                           self.context, l2gw_conn['id'])
         ports = self.core_plugin.get_ports(self.context)
         # Verify that the L2 gateway connection port was cleaned up
@@ -215,11 +222,13 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
         l2gw = self._create_l2gateway(l2gw_data)
         net_data = self._get_nw_data()
         net = self.core_plugin.create_network(self.context, net_data)
-        l2gw_conn_data = {constants.CONNECTION_RESOURCE_NAME: {
+        l2gw_conn_data = {
+            'id': uuidutils.generate_uuid(),
             'l2_gateway_id': l2gw['id'],
             'tenant_id': 'fake_tenant_id',
-            'network_id': net['id']}}
-        self.driver.create_l2_gateway_connection(self.context, l2gw_conn_data)
+            'network_id': net['id']}
+        self.driver.create_l2_gateway_connection_postcommit(self.context,
+                                                            l2gw_conn_data)
         ports = self.core_plugin.get_ports(self.context)
         # Verify that the L2 gateway connection port was created with device
         # owner BRIDGEENDPOINT
@@ -238,11 +247,13 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
         l2gw = self._create_l2gateway(l2gw_data)
         net_data = self._get_nw_data()
         net = self.core_plugin.create_network(self.context, net_data)
-        l2gw_conn_data = {constants.CONNECTION_RESOURCE_NAME: {
+        l2gw_conn_data = {
+            'id': uuidutils.generate_uuid(),
             'l2_gateway_id': l2gw['id'],
             'tenant_id': 'fake_tenant_id',
-            'network_id': net['id']}}
-        self.driver.create_l2_gateway_connection(self.context, l2gw_conn_data)
+            'network_id': net['id']}
+        self.driver.create_l2_gateway_connection_postcommit(self.context,
+                                                            l2gw_conn_data)
         port = self.core_plugin.get_ports(self.context)[0]
         self.assertRaises(n_exc.ServicePortInUse,
                           self.core_plugin.delete_port,
