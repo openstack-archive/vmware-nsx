@@ -69,26 +69,14 @@ class DeletableRouter(n_resources.DeletableRouter):
         return self.add_interface(subnet)
 
     def add_interface(self, subnet):
-        # should not let subnet add interface to router as
-        # the router might be crated by admin.
-        try:
-            self.client.add_router_interface(
-                self.id, subnet_id=subnet.id)
-        except Exception:
-            x_method(self.client, 'add_router_interface_with_subnet_id',
-                     self.id, subnet_id=subnet.id)
+        self.client.add_router_interface(self.id, subnet_id=subnet.id)
         self._subnets.add(subnet)
 
     def delete_subnet(self, subnet):
         return self.delete_interface(subnet)
 
     def delete_interface(self, subnet):
-        try:
-            self.client.remove_router_interface(
-                self.id, subnet_id=subnet.id)
-        except Exception:
-            x_method(self.client, 'remove_router_interface_with_subnet_id',
-                     self.id, subnet_id=subnet.id)
+        self.client.remove_router_interface(self.id, subnet_id=subnet.id)
         self._subnets.remove(subnet)
 
     def update_extra_routes(self, nexthop, destination):
@@ -110,13 +98,3 @@ class DeletableRouter(n_resources.DeletableRouter):
         for subnet in self._subnets.copy():
             self.delete_interface(subnet)
         super(DeletableRouter, self).delete()
-
-
-# Workaround solution
-def x_method(target_obj, method_name, *args, **kwargs):
-    _method = getattr(target_obj, method_name, None)
-    if _method is None:
-        raise Exception("Method[%s] is not defined at instance[%s]" %
-                        (method_name, str(target_obj)))
-    results = _method(*args, **kwargs)
-    return results
