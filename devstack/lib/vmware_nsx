@@ -20,6 +20,12 @@
 # Neutron VMware NSX plugin
 # -------------------------
 
+# Settings previously defined in devstack:lib/neutron-legacy
+NEUTRON_CONF_DIR=/etc/neutron
+export NEUTRON_TEST_CONFIG_FILE=${NEUTRON_TEST_CONFIG_FILE:-"$NEUTRON_CONF_DIR/debug.ini"}
+Q_DHCP_CONF_FILE=$NEUTRON_CONF_DIR/dhcp_agent.ini
+Q_META_DATA_IP=${Q_META_DATA_IP:-$SERVICE_HOST}
+
 # Save trace setting
 NSX_XTRACE=$(set +o | grep xtrace)
 set +o xtrace

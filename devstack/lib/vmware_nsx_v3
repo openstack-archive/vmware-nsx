@@ -20,7 +20,10 @@
 # Neutron VMware NSX plugin
 # -------------------------
 
-# Settings
+# Settings previously defined in devstack:lib/neutron-legacy
+NEUTRON_CONF_DIR=/etc/neutron
+export NEUTRON_TEST_CONFIG_FILE=${NEUTRON_TEST_CONFIG_FILE:-"$NEUTRON_CONF_DIR/debug.ini"}
+Q_DHCP_CONF_FILE=$NEUTRON_CONF_DIR/dhcp_agent.ini
 
 # The interface which has connectivity to the NSX Gateway uplink
 NSX_GATEWAY_NETWORK_INTERFACE=${NSX_GATEWAY_NETWORK_INTERFACE:-}

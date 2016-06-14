@@ -19,6 +19,11 @@
 # Neutron VMware DVS plugin
 # -------------------------
 
+# Settings previously defined in devstack:lib/neutron-legacy
+NEUTRON_CONF_DIR=/etc/neutron
+export NEUTRON_TEST_CONFIG_FILE=${NEUTRON_TEST_CONFIG_FILE:-"$NEUTRON_CONF_DIR/debug.ini"}
+Q_DHCP_CONF_FILE=$NEUTRON_CONF_DIR/dhcp_agent.ini
+
 # Save trace setting
 DVS_XTRACE=$(set +o | grep xtrace)
 set +o xtrace
