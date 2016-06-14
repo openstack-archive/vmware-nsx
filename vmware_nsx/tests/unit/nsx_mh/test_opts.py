@@ -126,7 +126,7 @@ class ConfigurationTest(base.BaseTestCase):
         self.assertEqual(75, cfg.CONF.http_timeout)
         self.assertEqual(2, cfg.CONF.retries)
         self.assertEqual(2, cfg.CONF.redirects)
-        self.assertIsNone(cfg.CONF.nsx_controllers)
+        self.assertEqual([], cfg.CONF.nsx_controllers)
         self.assertIsNone(cfg.CONF.default_l3_gw_service_uuid)
         self.assertIsNone(cfg.CONF.default_l2_gw_service_uuid)
         self.assertEqual('breth0', cfg.CONF.nsx_default_interface_name)
