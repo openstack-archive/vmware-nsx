@@ -1309,8 +1309,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         port_data = port['port']
         if addr_pair.ADDRESS_PAIRS in attrs:
             self._validate_address_pairs(attrs, original_port)
-        has_port_security = (cfg.CONF.nsxv.spoofguard_enabled and
-                             original_port[psec.PORTSECURITY])
+        orig_has_port_security = (cfg.CONF.nsxv.spoofguard_enabled and
+                                  original_port[psec.PORTSECURITY])
 
         port_ip_change = port_data.get('fixed_ips') is not None
         device_owner_change = port_data.get('device_owner') is not None
@@ -1319,11 +1319,24 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             msg = (_('Cannot set fixed ips and device owner together for port '
                      '%s') % original_port['id'])
             raise n_exc.BadRequest(resource='port', msg=msg)
-        # We do not support updating the port-security field (yet)
-        if psec.PORTSECURITY in port['port']:
-            msg = (_('Cannot modify the port security of port %s after port '
-                     'creation') % original_port['id'])
-            raise NotImplementedError(msg)
+
+        # Check if port security has changed
+        port_sec_change = False
+        has_port_security = orig_has_port_security
+        if (psec.PORTSECURITY in port_data and
+            port_data[psec.PORTSECURITY] != original_port[psec.PORTSECURITY]):
+            port_sec_change = True
+            has_port_security = (cfg.CONF.nsxv.spoofguard_enabled and
+                                 port_data[psec.PORTSECURITY])
+            # We do not support modification of port security with other
+            # parameters (only with security groups) to reduce some of
+            # the complications
+            if (len(port_data.keys()) > 2 or
+                (ext_sg.SECURITYGROUPS not in port_data and
+                 len(port_data.keys()) > 1)):
+                msg = (_('Cannot set port security together with other '
+                         'attributes for port %s') % original_port['id'])
+                raise n_exc.BadRequest(resource='port', msg=msg)
 
         # TODO(roeyc): create a method '_process_vnic_index_update' from the
         # following code block
@@ -1456,6 +1469,28 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._delete_port_vnic_index_mapping(context, id)
                 self._delete_dhcp_static_binding(context, original_port)
             else:
+                # port security enabled / disabled
+                if port_sec_change:
+                    self._process_port_port_security_update(
+                        context, port_data, ret_port)
+                    if has_port_security:
+                        LOG.debug("Assigning vnic port fixed-ips: port %s, "
+                                  "vnic %s, with fixed-ips %s", id, vnic_id,
+                                  original_port['fixed_ips'])
+                        self._update_vnic_assigned_addresses(
+                            context.session, original_port, vnic_id)
+                        # Remove vm from the exclusion list, since it now has
+                        # port security
+                        self._remove_vm_from_exclude_list(context, device_id,
+                                                          id)
+                    elif cfg.CONF.nsxv.spoofguard_enabled:
+                        self._remove_vnic_from_spoofguard_policy(
+                            context.session, original_port['network_id'],
+                            vnic_id)
+                        # Add vm to the exclusion list, since it has no port
+                        # security now
+                        self._add_vm_to_exclude_list(context, device_id, id)
+
                 # Update vnic with the newest approved IP addresses
                 if (has_port_security and
                     (updates_fixed_ips or update_assigned_addresses)):

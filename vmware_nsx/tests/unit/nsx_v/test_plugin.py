@@ -25,7 +25,6 @@ from neutron.extensions import external_net
 from neutron.extensions import l3
 from neutron.extensions import l3_ext_gw_mode
 from neutron.extensions import portbindings
-from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as secgrp
 from neutron import manager
@@ -3570,23 +3569,6 @@ class TestNSXPortSecurity(test_psec.TestPortSecurity,
     def test_create_port_with_security_group_and_net_sec_false(self):
         pass
 
-    def test_update_port_remove_port_security_security_group(self):
-        pass
-
-    def test_update_port_remove_port_security_security_group_read(self):
-        pass
-
-    def test_update_port_port_security_raise_not_implemented(self):
-        with self.network() as net:
-            with self.subnet(network=net) as sub:
-                with self.port(subnet=sub) as port:
-                    update_port = {'port': {psec.PORTSECURITY: False}}
-                    plugin = manager.NeutronManager.get_plugin()
-                    self.assertRaises(NotImplementedError,
-                                      plugin.update_port,
-                                      context.get_admin_context(),
-                                      port['port']['id'], update_port)
-
     def _create_compute_port(self, network_name, device_id, port_security):
         # create a network without port security
         res = self._create_network('json', network_name, True)
@@ -3737,6 +3719,78 @@ class TestNSXPortSecurity(test_psec.TestPortSecurity,
         # delete ports with the vnics
         self._del_port_with_vnic(port2['port']['id'], False)
         self._del_port_with_vnic(port1['port']['id'], True)
+
+    def _toggle_port_security(self, port_id, enable_port_security,
+                              update_exclude):
+        """Enable/disable port security on a port, and verify that the exclude
+        list was updated as expected
+        """
+        plugin = self._get_core_plugin_with_dvs()
+        vm_moref = 'dummy_moref'
+        data = {'port': {'port_security_enabled': enable_port_security}}
+        with mock.patch.object(plugin._dvs, 'get_vm_moref',
+                               return_value=vm_moref):
+            if enable_port_security:
+                with mock.patch.object(
+                    plugin.nsx_v.vcns,
+                    'delete_vm_from_exclude_list') as exclude_list_del:
+                    self.new_update_request(
+                        'ports', data, port_id).get_response(self.api)
+                    if update_exclude:
+                        # make sure the vm was added to the exclude list
+                        exclude_list_del.assert_called_once_with(vm_moref)
+                    else:
+                        self.assertFalse(exclude_list_del.called)
+            else:
+                with mock.patch.object(
+                    plugin.nsx_v.vcns,
+                    'add_vm_to_exclude_list') as exclude_list_add:
+                    self.new_update_request(
+                        'ports', data, port_id).get_response(self.api)
+                    if update_exclude:
+                        # make sure the vm was added to the exclude list
+                        exclude_list_add.assert_called_once_with(vm_moref)
+                    else:
+                        self.assertFalse(exclude_list_add.called)
+
+    def test_update_port_security_with_vnic(self):
+        device_id = _uuid()
+        # create a compute port without port security
+        port = self._create_compute_port('net1', device_id, False)
+
+        # add vnic to the port
+        self._add_vnic_to_port(port['port']['id'], True, 3)
+
+        # enable port security
+        self._toggle_port_security(port['port']['id'], True, True)
+
+        # disable port security
+        self._toggle_port_security(port['port']['id'], False, True)
+
+        # delete vnic from the port
+        self._del_vnic_from_port(port['port']['id'], True)
+
+    def test_update_multiple_port_security_with_vnic(self):
+        device_id = _uuid()
+        # create a compute port without port security
+        port1 = self._create_compute_port('net1', device_id, False)
+
+        # add vnic to the port
+        self._add_vnic_to_port(port1['port']['id'], True, 3)
+
+        # create another compute port without port security
+        port2 = self._create_compute_port('net2', device_id, False)
+
+        # add vnic to the port
+        self._add_vnic_to_port(port2['port']['id'], False, 4)
+
+        # enable port security on both ports
+        self._toggle_port_security(port1['port']['id'], True, False)
+        self._toggle_port_security(port2['port']['id'], True, True)
+
+        # disable port security on both ports
+        self._toggle_port_security(port1['port']['id'], False, True)
+        self._toggle_port_security(port2['port']['id'], False, False)
 
 
 class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
