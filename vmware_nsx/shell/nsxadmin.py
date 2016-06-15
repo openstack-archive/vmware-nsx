@@ -87,6 +87,8 @@ nsxv3_resources = {
                                  [Operations.LIST_MISMATCHES.value]),
     constants.PORTS: Resource(constants.PORTS,
                               [Operations.LIST_MISMATCHES.value]),
+    constants.ROUTERS: Resource(constants.ROUTERS,
+                                [Operations.LIST_MISMATCHES.value]),
 }
 
 # Add supported NSX-V resources in this dictionary

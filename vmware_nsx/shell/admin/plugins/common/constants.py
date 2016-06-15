@@ -22,6 +22,7 @@ NSXV_PLUGIN = 'vmware_nsx.plugin.NsxVPlugin'
 
 # Common Resource Constants
 NETWORKS = 'networks'
+ROUTERS = 'routers'
 
 # NSXV3 Resource Constants
 FIREWALL_SECTIONS = 'firewall-sections'
