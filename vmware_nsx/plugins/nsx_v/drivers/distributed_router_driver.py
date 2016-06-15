@@ -211,9 +211,10 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         intf_ports = _nsxv_plugin.get_ports(context.elevated(),
                                             filters=port_filters)
         router_ids = [port['device_id'] for port in intf_ports]
-        dist_router_filters = {'id': router_ids,
-                               'distributed': [True]}
-        dist_routers = _nsxv_plugin.get_routers(context, dist_router_filters)
+        all_routers = _nsxv_plugin.get_routers(context,
+                                               filters={'id': router_ids})
+        dist_routers = [router for router in all_routers
+                        if router.get('distributed') is True]
         if len(dist_routers) > 0:
             err_msg = _("network can only be attached to just one distributed "
                         "router, the network is already attached to router "
