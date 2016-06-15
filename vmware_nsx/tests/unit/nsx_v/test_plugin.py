@@ -3223,6 +3223,14 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                       IPv6ExpectedFailuresTestMixin,
                       NsxVPluginV2TestCase):
 
+    def setUp(self, plugin=PLUGIN_NAME, ext_mgr=None, service_plugins=None):
+        super(TestVdrTestCase, self).setUp(
+            plugin=plugin, ext_mgr=ext_mgr, service_plugins=service_plugins)
+        self.plugin_instance.nsx_v.is_subnet_in_use = mock.Mock()
+        self.plugin_instance.nsx_v.is_subnet_in_use.return_value = False
+        self._default_tenant_id = self._tenant_id
+        self._router_tenant_id = 'test-router-tenant'
+
     @mock.patch.object(edge_utils.EdgeManager,
                        'update_interface_addr')
     def test_router_update_gateway_with_different_external_subnet(self, mock):
@@ -3273,9 +3281,12 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                 data['router'][arg] = kwargs[arg]
 
         if 'distributed' in kwargs:
-                data['router']['distributed'] = kwargs[arg]
+                data['router']['distributed'] = kwargs['distributed']
         else:
                 data['router']['distributed'] = True
+
+        if kwargs.get('router_type'):
+            data['router']['router_type'] = kwargs.get('router_type')
 
         router_req = self.new_create_request('routers', data, fmt)
         if set_context and tenant_id:
@@ -3407,6 +3418,39 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                                           s['subnet']['id'],
                                           None,
                                           err_code)
+
+    def test_different_type_routers_add_interfaces_on_same_network_pass(self):
+        with self.router() as dist, \
+            self.router(distributed=False, router_type='shared') as shared, \
+            self.router(distributed=False, router_type='exclusive') as excl:
+            with self.network() as n:
+                with self.subnet(network=n) as s1, \
+                    self.subnet(network=n, cidr='11.0.0.0/24') as s2, \
+                    self.subnet(network=n, cidr='12.0.0.0/24') as s3:
+                    self._router_interface_action('add',
+                                                  shared['router']['id'],
+                                                  s1['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('add',
+                                                  excl['router']['id'],
+                                                  s2['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('add',
+                                                  dist['router']['id'],
+                                                  s3['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('remove',
+                                                  dist['router']['id'],
+                                                  s3['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('remove',
+                                                  excl['router']['id'],
+                                                  s2['subnet']['id'],
+                                                  None)
+                    self._router_interface_action('remove',
+                                                  shared['router']['id'],
+                                                  s1['subnet']['id'],
+                                                  None)
 
     def test_delete_ext_net_with_disassociated_floating_ips(self):
         with self.network() as net:
