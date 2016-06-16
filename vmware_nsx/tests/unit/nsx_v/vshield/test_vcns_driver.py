@@ -17,6 +17,7 @@ from eventlet import greenthread
 import mock
 
 from neutron.tests import base
+from oslo_config import cfg
 import six
 
 from vmware_nsx.plugins.nsx_v.vshield.common import (
@@ -602,3 +603,28 @@ class VcnsDriverTestCase(base.BaseTestCase):
         }
         lswitch = self.vcns_driver.create_lswitch('lswitch', tz_config)
         self.vcns_driver.delete_lswitch(lswitch['uuid'])
+
+
+class VcnsDriverHATestCase(VcnsDriverTestCase):
+
+    def setUp(self):
+        # add edge_ha and ha_datastore to the pre-defined configuration
+        self._data_store = 'fake-datastore'
+        self._ha_data_store = 'fake-datastore-2'
+        cfg.CONF.set_override('ha_datastore_id', self._ha_data_store,
+                              group="nsxv")
+        cfg.CONF.set_override('edge_ha', True, group="nsxv")
+
+        super(VcnsDriverHATestCase, self).setUp()
+
+        self.vcns_driver.vcns.orig_deploy = self.vcns_driver.vcns.deploy_edge
+        self.vcns_driver.vcns.deploy_edge = self._fake_deploy_edge
+
+    def _fake_deploy_edge(self, request, async=True):
+        # validate the appliance structure in the request,
+        # and return the regular (fake) response
+        found_app = request['appliances']['appliances']
+        self.assertEqual(len(found_app), 2)
+        self.assertEqual(found_app[0]['datastoreId'], self._data_store)
+        self.assertEqual(found_app[1]['datastoreId'], self._ha_data_store)
+        return self.vcns_driver.vcns.orig_deploy(request, async)

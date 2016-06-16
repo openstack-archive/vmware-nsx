@@ -2875,7 +2875,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         inventory = [(cfg.CONF.nsxv.resource_pool_id,
                       'resource_pool_id'),
                      (cfg.CONF.nsxv.datastore_id,
-                      'datastore_id')]
+                      'datastore_id'),
+                     (cfg.CONF.nsxv.ha_datastore_id,
+                      'ha_datastore_id'),
+                     ]
         # Treat the cluster list
         for cluster in cfg.CONF.nsxv.cluster_moid:
             inventory.append((cluster, 'cluster_moid'))
