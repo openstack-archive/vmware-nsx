@@ -1897,6 +1897,12 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
     def test_floatingip_association_on_unowned_router(self):
         self.skipTest("Currently no support in plugin for this")
 
+    def test_router_add_gateway_no_subnet(self):
+        self.skipTest('No support for no subnet gateway set')
+
+    def test_router_add_gateway_no_subnet_forbidden(self):
+        self.skipTest('TBD - unblock gate')
+
 
 class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
 

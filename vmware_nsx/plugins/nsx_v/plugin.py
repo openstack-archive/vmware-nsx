@@ -1851,6 +1851,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     msg = (_("Network '%s' is not a valid external network") %
                            network_id)
                     raise n_exc.BadRequest(resource='router', msg=msg)
+
+                subnets = self._get_subnets_by_network(context, network_id)
+                if not subnets:
+                    msg = _("Cannot update gateway on Network '%s' "
+                            "with no subnet") % network_id
+                    raise n_exc.BadRequest(resource='router', msg=msg)
         return gw_info
 
     def _validate_router_size(self, router):
