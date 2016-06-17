@@ -146,8 +146,13 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         vlan_tag = 0
         if net_data.get(pnet.NETWORK_TYPE) == c_utils.NetworkTypes.VLAN:
             vlan_tag = net_data.get(pnet.SEGMENTATION_ID, 0)
-        dvs_id = self._dvs_get_id(net_data)
-        self._dvs.add_port_group(dvs_id, vlan_tag)
+
+        if net_data.get(pnet.NETWORK_TYPE) == c_utils.NetworkTypes.PORTGROUP:
+            net_id = net_data.get(pnet.PHYSICAL_NETWORK)
+            dvs_id = self._dvs._net_id_to_moref(net_id).value
+        else:
+            dvs_id = self._dvs_get_id(net_data)
+            self._dvs.add_port_group(dvs_id, vlan_tag)
 
         try:
             with context.session.begin(subtransactions=True):
@@ -165,7 +170,9 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         except Exception:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Failed to create network'))
-                self._dvs.delete_port_group(dvs_id)
+                if (net_data.get(pnet.NETWORK_TYPE) !=
+                        c_utils.NetworkTypes.PORTGROUP):
+                    self._dvs.delete_port_group(dvs_id)
 
         new_net[pnet.NETWORK_TYPE] = net_data.get(pnet.NETWORK_TYPE)
         new_net[pnet.PHYSICAL_NETWORK] = 'dvs'
@@ -189,16 +196,17 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                         "network")
             raise n_exc.InvalidInput(error_message=err_msg)
         err_msg = None
-        if network_type == c_utils.NetworkTypes.FLAT:
+        if (network_type == c_utils.NetworkTypes.FLAT or
+            network_type == c_utils.NetworkTypes.PORTGROUP):
             if segmentation_id_set:
-                err_msg = _("Segmentation ID cannot be specified with "
-                            "flat network type")
+                err_msg = (_("Segmentation ID cannot be specified with "
+                            "%s network type"), network_type)
         elif network_type == c_utils.NetworkTypes.VLAN:
             if not segmentation_id_set:
                 err_msg = _("Segmentation ID must be specified with "
                             "vlan network type")
-            elif (segmentation_id_set and
-                  not utils.is_valid_vlan_tag(segmentation_id)):
+            if (segmentation_id_set and
+                not utils.is_valid_vlan_tag(segmentation_id)):
                 err_msg = (_("%(segmentation_id)s out of range "
                              "(%(min_id)s through %(max_id)s)") %
                            {'segmentation_id': segmentation_id,
@@ -219,11 +227,14 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
     def _dvs_delete_network(self, context, id):
         network = self._get_network(context, id)
         dvs_id = self._dvs_get_id(network)
+        bindings = nsx_db.get_network_bindings(context.session, id)
         with context.session.begin(subtransactions=True):
             nsx_db.delete_network_bindings(context.session, id)
             super(NsxDvsV2, self).delete_network(context, id)
         try:
-            self._dvs.delete_port_group(dvs_id)
+            if (not bindings or
+                bindings[0].binding_type != c_utils.NetworkTypes.PORTGROUP):
+                self._dvs.delete_port_group(dvs_id)
         except Exception:
             LOG.exception(_LE('Unable to delete DVS port group %s'), id)
         self.handle_network_dhcp_access(context, id, action='delete_network')

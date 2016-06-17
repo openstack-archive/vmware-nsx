@@ -47,6 +47,7 @@ class NetworkTypes:
     FLAT = 'flat'
     VLAN = 'vlan'
     BRIDGE = 'bridge'
+    PORTGROUP = 'portgroup'
 
 
 # Allowed network types for the NSX-v Plugin

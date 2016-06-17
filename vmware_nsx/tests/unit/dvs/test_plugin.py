@@ -161,7 +161,8 @@ class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
         params['arg_list'] = tuple(params.keys())
         with mock.patch.object(self._plugin._dvs,
                                'add_port_group') as mock_add,\
-                mock.patch.object(self._plugin._dvs, 'delete_port_group'):
+                mock.patch.object(self._plugin._dvs,
+                    'delete_port_group') as mock_delete:
             with self.network(**params) as network:
                 ctx = context.get_admin_context()
                 id = network['network']['id']
@@ -175,15 +176,34 @@ class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
                 elif network_type == 'vlan':
                     self.assertEqual('vlan', binding[0].binding_type)
                     self.assertEqual(vlan_tag, binding[0].vlan_id)
+                elif network_type == 'portgroup':
+                    self.assertEqual('portgroup', binding[0].binding_type)
+                    self.assertEqual(0, binding[0].vlan_id)
                 else:
                     self.fail()
-            mock_add.assert_called_once_with(dvs_id, vlan_tag)
+            if network_type != 'portgroup':
+                mock_add.assert_called_once_with(dvs_id, vlan_tag)
+            else:
+                mock_add.call_count = 0
+                mock_delete.call_count = 0
 
     def test_create_and_delete_dvs_network_tag(self):
         self._create_and_delete_dvs_network(network_type='vlan', vlan_tag=7)
 
     def test_create_and_delete_dvs_network_flat(self):
         self._create_and_delete_dvs_network()
+
+    @mock.patch.object(dvs.DvsManager, '_net_id_to_moref')
+    def test_create_and_delete_dvs_network_portgroup(self, fake_get_moref):
+        self._create_and_delete_dvs_network(network_type='portgroup')
+        self.assertTrue(fake_get_moref.call_count)
+
+    @mock.patch.object(dvs.DvsManager, '_net_id_to_moref')
+    def test_create_and_delete_dvs_network_portgroup_vlan(self,
+                                                          fake_get_moref):
+        self._create_and_delete_dvs_network(network_type='portgroup',
+                                            vlan_tag=7)
+        self.assertTrue(fake_get_moref.call_count)
 
     def test_create_and_delete_dvs_port(self):
         params = {'provider:network_type': 'vlan',

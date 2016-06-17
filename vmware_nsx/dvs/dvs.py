@@ -117,7 +117,8 @@ class DvsManager(object):
                                                      val, ['name'])
                     if len(props) and hasattr(props[0], 'propSet'):
                         for prop in props[0].propSet:
-                            if net_id == prop.val:
+                            # match name or mor id
+                            if net_id == prop.val or net_id == val.value:
                                 # NOTE(garyk): update cache
                                 return val
         raise exceptions.NetworkNotFound(net_id=net_id)
