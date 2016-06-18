@@ -184,6 +184,7 @@ connection_opts = [
                help=_('Maximum number of times a redirect response '
                       'should be followed')),
     cfg.ListOpt('nsx_controllers',
+                default=[],
                 deprecated_name='nvp_controllers',
                 help=_('Comma-separated list of NSX controller '
                        'endpoints (<ip>:<port>). When port is omitted, '
@@ -249,6 +250,7 @@ nsx_v3_opts = [
                secret=True,
                help=_('Password for the NSX manager')),
     cfg.ListOpt('nsx_api_managers',
+                default=[],
                 deprecated_name='nsx_manager',
                 help=_("IP address of one or more NSX managers separated "
                        "by commas. The IP address should be of the form:\n"
@@ -446,6 +448,7 @@ nsxv_opts = [
                help=_('(Optional) Portgroup MoRef ID for metadata proxy '
                       'management network')),
     cfg.ListOpt('mgt_net_proxy_ips',
+                default=[],
                 help=_('(Optional) Comma separated list of management network '
                        'IP addresses for metadata proxy.')),
     cfg.StrOpt('mgt_net_proxy_netmask',
@@ -455,6 +458,7 @@ nsxv_opts = [
                help=_("(Optional) Management network default gateway for "
                       "metadata proxy.")),
     cfg.ListOpt('nova_metadata_ips',
+                default=[],
                 help=_("(Optional) IP addresses used by Nova metadata "
                        "service.")),
     cfg.PortOpt('nova_metadata_port',
@@ -510,6 +514,7 @@ nsxv_opts = [
                 help=_("If True, the server instance will attempt to "
                        "initialize the metadata infrastructure")),
     cfg.ListOpt('metadata_service_allowed_ports',
+                default=[],
                 help=_('List of tcp ports, to be allowed access to the '
                        'metadata proxy, in addition to the default '
                        '80,443,8775 tcp ports')),
