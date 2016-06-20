@@ -2046,7 +2046,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if router.get("router_type") == nsxv_constants.EXCLUSIVE:
             binding = nsxv_db.get_nsxv_router_binding(context.session,
                                                       router.get("id"))
-            router[ROUTER_SIZE] = binding.get("appliance_size")
+            if binding:
+                router[ROUTER_SIZE] = binding.get("appliance_size")
+            else:
+                LOG.error(_LE("No binding for router %s"), id)
         return router
 
     def _get_external_attachment_info(self, context, router):
