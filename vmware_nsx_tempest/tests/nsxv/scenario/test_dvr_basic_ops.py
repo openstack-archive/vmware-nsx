@@ -18,14 +18,15 @@ import re
 import time
 
 from oslo_log import log as logging
-from tempest.lib.common.utils import data_utils
 import testtools
 
 from tempest import config
 from tempest import exceptions
+from tempest.lib.common.utils import data_utils
 from tempest.scenario import manager
-from tempest.scenario import network_resources as net_resources
 from tempest import test
+
+from vmware_nsx_tempest.tests.nsxv.scenario import net_resources
 
 CONF = config.CONF
 FIP_OPS_TIMEOUT = 10
@@ -81,8 +82,8 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
     @classmethod
     def skip_checks(cls):
         super(TestDvrBasicOps, cls).skip_checks()
-        if not (CONF.network.project_networks_reachable
-                or CONF.network.public_network_id):
+        if not (CONF.network.project_networks_reachable or
+                CONF.network.public_network_id):
             msg = ('Either project_networks_reachable must be "true", or '
                    'public_network_id must be defined.')
             raise cls.skipException(msg)

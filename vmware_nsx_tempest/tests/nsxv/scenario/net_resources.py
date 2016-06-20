@@ -15,7 +15,8 @@
 # This module inherents from resources module and enhances router functions
 # and block subnet's add_to/delete_from_router so it is more similar to CLI.
 
-from tempest.scenario import network_resources as n_resources
+# from tempest.scenario import network_resources as n_resources
+import network_resources as n_resources
 
 
 DELETABLE_CLASS_DEF = """class %(cls_name)s(n_resources.%(cls_name)s):
