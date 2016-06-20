@@ -31,6 +31,7 @@ NSX_CERT = '/opt/stack/certs/nsx.pem'
 NSX_HTTP_TIMEOUT = 10
 NSX_HTTP_READ_TIMEOUT = 180
 NSX_TZ_NAME = 'default transport zone'
+NSX_DHCP_PROFILE_ID = 'default dhcp profile'
 
 V3_CLIENT_PKG = 'vmware_nsx.nsxlib.v3.client'
 BRIDGE_FNS = ['create_resource', 'delete_resource',
@@ -42,6 +43,9 @@ class NsxLibTestCase(unittest.TestCase):
     @classmethod
     def setup_conf_overrides(cls):
         cfg.CONF.set_override('default_overlay_tz', NSX_TZ_NAME, 'nsx_v3')
+        cfg.CONF.set_override('native_dhcp_metadata', False, 'nsx_v3')
+        cfg.CONF.set_override('dhcp_profile_uuid',
+                              NSX_DHCP_PROFILE_ID, 'nsx_v3')
         cfg.CONF.set_override('nsx_api_user', NSX_USER, 'nsx_v3')
         cfg.CONF.set_override('nsx_api_password', NSX_PASSWORD, 'nsx_v3')
         cfg.CONF.set_override('nsx_api_managers', [NSX_MANAGER], 'nsx_v3')

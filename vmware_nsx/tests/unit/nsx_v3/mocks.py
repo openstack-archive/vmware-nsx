@@ -67,6 +67,12 @@ def make_fake_switch(switch_uuid=None, tz_uuid=None, name=FAKE_NAME):
     return fake_switch
 
 
+def make_fake_dhcp_profile():
+    return {"id": uuidutils.generate_uuid(),
+            "edge_cluster_id": uuidutils.generate_uuid(),
+            "edge_cluster_member_indexes": [0, 1]}
+
+
 def get_resource(resource):
     return {'id': resource.split('/')[-1]}
 
