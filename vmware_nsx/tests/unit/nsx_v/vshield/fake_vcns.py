@@ -991,7 +991,6 @@ class FakeVcns(object):
         return (headers, response)
 
     def get_section_id(self, section_name):
-        self._sections = {'section_ids': 0, 'rule_ids': 0, 'names': set()}
         for k, v in self._sections.items():
             if (k not in ('section_ids', 'rule_ids', 'names')
                 and v['name'] == section_name):
