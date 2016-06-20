@@ -1929,6 +1929,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 raise n_exc.InvalidInput(error_message=err_msg)
 
     def update_router(self, context, router_id, router):
+        # Validate that the gateway information is relevant
+        self._extract_external_gw(context, router, is_extract=False)
         # Toggling the distributed flag is not supported
         if 'distributed' in router['router']:
             r = self.get_router(context, router_id)

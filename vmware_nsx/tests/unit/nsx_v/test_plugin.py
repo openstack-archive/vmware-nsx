@@ -1900,8 +1900,30 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
     def test_router_add_gateway_no_subnet(self):
         self.skipTest('No support for no subnet gateway set')
 
+    def _set_net_external(self, net_id):
+        self._update('networks', net_id,
+                     {'network': {external_net.EXTERNAL: True}})
+
+    def _add_external_gateway_to_router(self, router_id, network_id,
+                                        expected_code=webob.exc.HTTPOk.code,
+                                        neutron_context=None, ext_ips=None):
+        ext_ips = ext_ips or []
+        body = {'router':
+                {'external_gateway_info': {'network_id': network_id}}}
+        if ext_ips:
+            body['router']['external_gateway_info'][
+                'external_fixed_ips'] = ext_ips
+        return self._update('routers', router_id, body,
+                            expected_code=expected_code,
+                            neutron_context=neutron_context)
+
     def test_router_add_gateway_no_subnet_forbidden(self):
-        self.skipTest('TBD - unblock gate')
+        with self.router() as r:
+            with self.network() as n:
+                self._set_net_external(n['network']['id'])
+                self._add_external_gateway_to_router(
+                    r['router']['id'], n['network']['id'],
+                    expected_code=webob.exc.HTTPBadRequest.code)
 
 
 class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
