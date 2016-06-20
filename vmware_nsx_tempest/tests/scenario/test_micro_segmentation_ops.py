@@ -18,6 +18,7 @@ from oslo_log import log as logging
 
 from tempest import config
 from tempest.lib.common.utils import data_utils
+from tempest.lib.common.utils import test_utils
 from tempest.scenario import manager
 from tempest import test
 
@@ -109,7 +110,7 @@ class TestMicroSegmentationOps(manager.NetworkScenarioTest):
             dict(
                 direction='ingress',
                 protocol='icmp',
-                remote_group_id=web_sg.id
+                remote_group_id=web_sg['id']
             ),
             dict(
                 direction='ingress',
@@ -132,14 +133,14 @@ class TestMicroSegmentationOps(manager.NetworkScenarioTest):
             dict(
                 direction='ingress',
                 protocol='icmp',
-                remote_group_id=app_sg.id
+                remote_group_id=app_sg['id']
             ),
             dict(
                 direction='ingress',
                 protocol='tcp',
                 port_range_min=22,
                 port_range_max=22,
-                remote_group_id=web_sg.id
+                remote_group_id=web_sg['id']
             )
         ]
         app_rulesets = common_ruleset + app_ruleset
@@ -154,7 +155,12 @@ class TestMicroSegmentationOps(manager.NetworkScenarioTest):
             **kwargs)
         self.app_net = self._create_network(tenant_id=self.tenant_id)
         self.app_subnet = self._create_subnet(network=self.app_net)
-        self.app_subnet.add_to_router(self.router.id)
+        router_id = self.router['id']
+        self.routers_client.add_router_interface(
+            router_id, subnet_id=self.app_subnet['id'])
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.routers_client.remove_router_interface,
+                        router_id, subnet_id=self.app_subnet['id'])
 
     def _create_servers(self):
         web_server1_name = data_utils.rand_name('web-vm1')
@@ -181,7 +187,7 @@ class TestMicroSegmentationOps(manager.NetworkScenarioTest):
         keypair = self.create_keypair()
         self.keypairs[keypair['name']] = keypair
         security_groups = [{'name': secgroup['name']}]
-        network = {'uuid': network.id}
+        network = {'uuid': network['id']}
         server = self.create_server(name=name, networks=[network],
                                     key_name=keypair['name'],
                                     security_groups=security_groups,
@@ -200,7 +206,7 @@ class TestMicroSegmentationOps(manager.NetworkScenarioTest):
         # test internal connectivity to the network ports on the network
         network_ips = (p['fixed_ips'][0]['ip_address'] for p in
                        self._list_ports(tenant_id=server['tenant_id'],
-                                        network_id=network.id)
+                                        network_id=network['id'])
                        if p['device_owner'].startswith('network'))
         self._check_server_connectivity(floating_ip,
                                         server,
@@ -213,7 +219,7 @@ class TestMicroSegmentationOps(manager.NetworkScenarioTest):
         # test internal connectivity to the other VM on the same network
         compute_ips = (p['fixed_ips'][0]['ip_address'] for p in
                        self._list_ports(tenant_id=server['tenant_id'],
-                                        network_id=network.id)
+                                        network_id=network['id'])
                        if p['device_owner'].startswith('compute'))
         self._check_server_connectivity(floating_ip,
                                         server,
@@ -222,7 +228,7 @@ class TestMicroSegmentationOps(manager.NetworkScenarioTest):
 
     def _check_server_connectivity(self, floating_ip, server, address_list,
                                    should_connect=True):
-        ip_address = floating_ip.floating_ip_address
+        ip_address = floating_ip['floating_ip_address']
         private_key = self._get_server_key(server)
         ssh_source = self.get_remote_client(ip_address,
                                             private_key=private_key)
@@ -243,11 +249,11 @@ class TestMicroSegmentationOps(manager.NetworkScenarioTest):
                 raise
 
     def _check_cross_network_connectivity(self, network, should_connect=False):
-        if network.id == self.web_net.id:
-            net_id = self.app_net.id
+        if network['id'] == self.web_net['id']:
+            net_id = self.app_net['id']
             floating_ip, server = self.web_server1_fip_tuple
         else:
-            net_id = self.web_net.id
+            net_id = self.web_net['id']
             floating_ip, server = self.app_server1_fip_tuple
         # test internal connectivity to the other VM on the same network
         remote_ips = (p['fixed_ips'][0]['ip_address'] for p in
