@@ -366,6 +366,24 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                     self.plugin.update_port(self.ctx, port['id'], data)
                     get_profile.assert_called_once_with(self.ctx, policy_id)
 
+    def _get_ports_with_fields(self, tenid, fields, expected_count):
+        pl = manager.NeutronManager.get_plugin()
+        ctx = context.Context(user_id=None, tenant_id=tenid,
+                              is_admin=False)
+        ports = pl.get_ports(ctx, filters={'tenant_id': [tenid]},
+                             fields=fields)
+        self.assertEqual(expected_count, len(ports))
+
+    def test_get_ports_with_fields(self):
+        with self.port(), self.port(), self.port(), self.port() as p:
+            tenid = p['port']['tenant_id']
+            # get all fields:
+            self._get_ports_with_fields(tenid, None, 4)
+
+            # get specific fields:
+            self._get_ports_with_fields(tenid, 'mac_address', 4)
+            self._get_ports_with_fields(tenid, 'network_id', 4)
+
 
 class DHCPOptsTestCase(test_dhcpopts.TestExtraDhcpOpt,
                        NsxV3PluginTestCaseMixin):

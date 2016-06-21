@@ -230,12 +230,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _extend_port_dict_binding(self, context, port_data):
         port_data[pbin.VIF_TYPE] = pbin.VIF_TYPE_OVS
         port_data[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
-        port_data[pbin.VIF_DETAILS] = {
-            # TODO(rkukura): Replace with new VIF security details
-            pbin.CAP_PORT_FILTER:
-            'security-group' in self.supported_extension_aliases,
-            'nsx-logical-switch-id':
-            self._get_network_nsx_id(context, port_data['network_id'])}
+        if 'network_id' in port_data:
+            port_data[pbin.VIF_DETAILS] = {
+                # TODO(rkukura): Replace with new VIF security details
+                pbin.CAP_PORT_FILTER:
+                'security-group' in self.supported_extension_aliases,
+                'nsx-logical-switch-id':
+                self._get_network_nsx_id(context, port_data['network_id'])}
 
     def _unsubscribe_callback_events(self):
         # l3_db explicitly subscribes to the port delete callback. This
@@ -1362,8 +1363,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._extend_port_dict_binding(context, port)
 
         # add the qos policy id from the DB
-        port[qos_consts.QOS_POLICY_ID] = qos_com_utils.get_port_policy_id(
-            context, port['id'])
+        if 'id' in port:
+            port[qos_consts.QOS_POLICY_ID] = qos_com_utils.get_port_policy_id(
+                context, port['id'])
 
     def get_port(self, context, id, fields=None):
         port = super(NsxV3Plugin, self).get_port(context, id, fields=None)
