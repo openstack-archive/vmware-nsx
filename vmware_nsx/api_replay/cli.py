@@ -81,7 +81,3 @@ class ApiReplayCli(object):
 
 def main():
     ApiReplayCli()
-
-
-if __name__ == '__main__':
-    main()
