@@ -425,3 +425,88 @@ class LogicalRouterPort(AbstractRESTResource):
         raise nsx_exc.ResourceNotFound(
             manager=client._get_nsx_managers_from_conf(),
             operation="get router link port")
+
+
+class DhcpProfile(AbstractRESTResource):
+
+    @property
+    def uri_segment(self):
+        return 'dhcp/server-profiles'
+
+    def create(self, *args, **kwargs):
+        pass
+
+    def update(self, uuid, *args, **kwargs):
+        pass
+
+
+class LogicalDhcpServer(AbstractRESTResource):
+
+    @property
+    def uri_segment(self):
+        return 'dhcp/services'
+
+    def _construct_server(self, body, dhcp_profile_id=None, server_ip=None,
+                          dns_servers=None, domain_name=None, gateway_ip=None,
+                          options=None, tags=None):
+        if dhcp_profile_id:
+            body['dhcp_profile_id'] = dhcp_profile_id
+        if server_ip:
+            body['ipv4_dhcp_server']['dhcp_server_ip'] = server_ip
+        if dns_servers:
+            body['ipv4_dhcp_server']['dns_nameservers'] = dns_servers
+        if domain_name:
+            body['ipv4_dhcp_server']['domain_name'] = domain_name
+        if gateway_ip:
+            body['ipv4_dhcp_server']['gateway_ip'] = gateway_ip
+        if options:
+            body['ipv4_dhcp_server']['options'] = options
+        if tags:
+            body['tags'] = tags
+
+    def create(self, dhcp_profile_id, server_ip, dns_servers=None,
+               domain_name=None, gateway_ip=None, options=None, tags=None):
+        body = {'ipv4_dhcp_server': {}}
+        self._construct_server(body, dhcp_profile_id, server_ip, dns_servers,
+                               domain_name, gateway_ip, options, tags)
+        return self._client.create(body=body)
+
+    @utils.retry_upon_exception_nsxv3(
+        nsx_exc.StaleRevision,
+        max_attempts=cfg.CONF.nsx_v3.retries)
+    def update(self, uuid, dhcp_profile_id=None, server_ip=None,
+               dns_servers=None, domain_name=None, gateway_ip=None,
+               options=None, tags=None):
+        body = self._client.get(uuid)
+        self._construct_server(body, dhcp_profile_id, server_ip, dns_servers,
+                               domain_name, gateway_ip, options, tags)
+        return self._client.update(uuid, body=body)
+
+    def create_binding(self, server_uuid, mac, ip, hostname=None,
+                       lease_time=None, options=None):
+        body = {'mac_address': mac, 'ip_address': ip}
+        if hostname:
+            body['host_name'] = hostname
+        if lease_time:
+            body['lease_time'] = lease_time
+        if options:
+            body['options'] = options
+        url = "%s/bindings" % server_uuid
+        return self._client.url_post(url, body)
+
+    def get_binding(self, server_uuid, binding_uuid):
+        url = "%s/bindings/%s" % (server_uuid, binding_uuid)
+        return self._client.url_get(url)
+
+    @utils.retry_upon_exception_nsxv3(
+        nsx_exc.StaleRevision,
+        max_attempts=cfg.CONF.nsx_v3.retries)
+    def update_binding(self, server_uuid, binding_uuid, **kwargs):
+        body = self.get_binding(server_uuid, binding_uuid)
+        body.update(kwargs)
+        url = "%s/bindings/%s" % (server_uuid, binding_uuid)
+        return self._client.url_put(url, body)
+
+    def delete_binding(self, server_uuid, binding_uuid):
+        url = "%s/bindings/%s" % (server_uuid, binding_uuid)
+        return self._client.url_delete(url)

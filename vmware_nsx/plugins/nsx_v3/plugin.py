@@ -62,6 +62,7 @@ from neutron_lib.api import validators
 from neutron_lib import constants as const
 from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
+from oslo_db import exception as db_exc
 from oslo_log import log
 from oslo_utils import excutils
 from oslo_utils import importutils
@@ -83,6 +84,7 @@ from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.nsxlib.v3 import client as nsx_client
 from vmware_nsx.nsxlib.v3 import cluster as nsx_cluster
 from vmware_nsx.nsxlib.v3 import dfw_api as firewall
+from vmware_nsx.nsxlib.v3 import native_dhcp
 from vmware_nsx.nsxlib.v3 import resources as nsx_resources
 from vmware_nsx.nsxlib.v3 import router
 from vmware_nsx.nsxlib.v3 import security
@@ -157,8 +159,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         self.cfg_group = 'nsx_v3'  # group name for nsx_v3 section in nsx.ini
         self.tier0_groups_dict = {}
-        self._setup_dhcp()
-        self._start_rpc_notifiers()
+        self._init_dhcp()
 
         self._port_client = nsx_resources.LogicalPort(self._nsx_client)
         self.nsgroup_manager, self.default_section = (
@@ -335,6 +336,31 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _init_nsgroup_manager_and_default_section_rules(self):
         with locking.LockManager.get_lock('nsxv3_nsgroup_manager_init'):
             return security.init_nsgroup_manager_and_default_section_rules()
+
+    def _init_dhcp(self):
+        if cfg.CONF.nsx_v3.native_dhcp_metadata:
+            self._init_native_dhcp()
+        else:
+            self._setup_dhcp()
+            self._start_rpc_notifiers()
+
+    def _init_native_dhcp(self):
+        if cfg.CONF.dhcp_agent_notification:
+            msg = _("Need to disable dhcp_agent_notification when "
+                    "native_dhcp_metadata is enabled")
+            raise nsx_exc.NsxPluginException(err_msg=msg)
+        if not cfg.CONF.nsx_v3.dhcp_profile_uuid:
+            raise cfg.RequiredOptError("dhcp_profile_uuid")
+        try:
+            nsx_resources.DhcpProfile(self._nsx_client).get(
+                cfg.CONF.nsx_v3.dhcp_profile_uuid)
+            self._dhcp_server = nsx_resources.LogicalDhcpServer(
+                self._nsx_client)
+        except nsx_exc.ManagerError:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("Unable to retrieve DHCP Profile %s, "
+                              "native DHCP service is not supported"),
+                          cfg.CONF.nsx_v3.dhcp_profile_uuid)
 
     def _setup_rpc(self):
         self.endpoints = [dhcp_rpc.DhcpRpcCallback(),
@@ -571,10 +597,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     # after the network creation is done
                     neutron_net_id = created_net['id']
                     nsx_db.add_neutron_nsx_network_mapping(
-                                context.session,
-                                neutron_net_id,
-                                nsx_net_id)
-
+                        context.session,
+                        neutron_net_id,
+                        nsx_net_id)
         except Exception:
             with excutils.save_and_reraise_exception():
                 # Undo creation on the backend
@@ -715,17 +740,224 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return updated_net
 
+    def _has_no_dhcp_enabled_subnet(self, context, network):
+        # Check if there is no DHCP-enabled subnet in the network.
+        for subnet in network.subnets:
+            if subnet.enable_dhcp:
+                return False
+        return True
+
+    def _has_single_dhcp_enabled_subnet(self, context, network):
+        # Check if there is only one DHCP-enabled subnet in the network.
+        count = 0
+        for subnet in network.subnets:
+            if subnet.enable_dhcp:
+                count += 1
+                if count > 1:
+                    return False
+        return True if count == 1 else False
+
+    def _enable_native_dhcp(self, context, network, subnet):
+        # Enable native DHCP service on the backend for this network.
+        # First create a Neutron DHCP port and use its assigned IP
+        # address as the DHCP server address in an API call to create a
+        # LogicalDhcpServer on the backend. Then create the corresponding
+        # logical port for the Neutron port with DHCP attachment as the
+        # LogicalDhcpServer UUID.
+        port_data = {
+            "name": "",
+            "admin_state_up": True,
+            "device_id": cfg.CONF.nsx_v3.dhcp_profile_uuid,
+            "device_owner": const.DEVICE_OWNER_DHCP,
+            "network_id": network['id'],
+            "tenant_id": network["tenant_id"],
+            "mac_address": const.ATTR_NOT_SPECIFIED,
+            "fixed_ips": [{"subnet_id": subnet['id']}]
+        }
+        neutron_port = super(NsxV3Plugin, self).create_port(
+            context, {'port': port_data})
+        server_data = native_dhcp.build_dhcp_server_config(
+            network, subnet, neutron_port, context.tenant_name)
+        nsx_net_id = self._get_network_nsx_id(context, network['id'])
+        tags = utils.build_v3_tags_payload(
+            neutron_port, resource_type='os-neutron-dport-id',
+            project_name=context.tenant_name)
+        dhcp_server = None
+        try:
+            dhcp_server = self._dhcp_server.create(**server_data)
+            LOG.info(_LI("Created logical DHCP server %(server)s for network "
+                         "%(network)s"),
+                     {'server': dhcp_server['id'], 'network': network['id']})
+            nsx_port = self._port_client.create(
+                nsx_net_id, dhcp_server['id'], tags=tags,
+                attachment_type=nsx_constants.ATTACHMENT_DHCP)
+            LOG.info(_LI("Created DHCP logical port %(port)s for "
+                         "network %(network)s"),
+                     {'port': nsx_port['id'], 'network': network['id']})
+        except nsx_exc.ManagerError:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("Unable to create logical DHCP server for "
+                              "network %s"), network['id'])
+                if dhcp_server:
+                    self._dhcp_server.delete(dhcp_server['id'])
+                super(NsxV3Plugin, self).delete_port(
+                    context, neutron_port['id'])
+
+        try:
+            # Add neutron_port_id -> nsx_port_id mapping to the DB.
+            nsx_db.add_neutron_nsx_port_mapping(
+                context.session, neutron_port['id'], nsx_net_id,
+                nsx_port['id'])
+            # Add neutron_net_id -> dhcp_service_id mapping to the DB.
+            nsx_db.add_neutron_nsx_service_binding(
+                context.session, network['id'], neutron_port['id'],
+                nsx_constants.SERVICE_DHCP, dhcp_server['id'])
+        except db_exc.DBError:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("Failed to create mapping for DHCP port %s,"
+                              "deleting port and logical DHCP server"),
+                          neutron_port['id'])
+                self._dhcp_server.delete(dhcp_server['id'])
+                self._cleanup_port(context, neutron_port['id'], nsx_port['id'])
+
+    def _disable_native_dhcp(self, context, network):
+        # Disable native DHCP service on the backend for this network.
+        # First delete the DHCP port in this network. Then delete the
+        # corresponding LogicalDhcpServer for this network.
+        dhcp_service = nsx_db.get_nsx_service_binding(
+            context.session, network['id'], nsx_constants.SERVICE_DHCP)
+        if not dhcp_service:
+            LOG.error(_LE("DHCP service not enabled on backend for network "
+                          "%s"), network['id'])
+            return
+
+        if dhcp_service['port_id']:
+            self.delete_port(context, dhcp_service['port_id'])
+        else:
+            LOG.error(_LE("Unable to find DHCP port for network %s"),
+                      network['id'])
+
+        try:
+            self._dhcp_server.delete(dhcp_service['nsx_service_id'])
+            LOG.info(_LI("Deleted logical DHCP server %(server)s for network "
+                         "%(network)s"),
+                     {'server': dhcp_service['nsx_service_id'],
+                      'network': network['id']})
+        except nsx_exc.ManagerError:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("Unable to delete logical DHCP server %(server)s"
+                              "for network %(network)s"),
+                          {'server': dhcp_service['nsx_service_id'],
+                           'network': network['id']})
+        try:
+            # Delete neutron_id -> dhcp_service_id mapping from the DB.
+            nsx_db.delete_neutron_nsx_service_binding(
+                context.session, network['id'], nsx_constants.SERVICE_DHCP)
+        except db_exc.DBError:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("Unable to delete DHCP server mapping for "
+                              "network %s"), network['id'])
+
     def create_subnet(self, context, subnet):
         # TODO(berlin): public external subnet announcement
-        return super(NsxV3Plugin, self).create_subnet(context, subnet)
+        if (cfg.CONF.nsx_v3.native_dhcp_metadata and
+            subnet['subnet'].get('enable_dhcp', False)):
+            lock = 'nsxv3_network_' + subnet['subnet']['network_id']
+            with locking.LockManager.get_lock(lock):
+                # Check if it is the first DHCP-enabled subnet to create.
+                network = self._get_network(context,
+                                            subnet['subnet']['network_id'])
+                if self._has_no_dhcp_enabled_subnet(context, network):
+                    created_subnet = super(NsxV3Plugin, self).create_subnet(
+                        context, subnet)
+                    self._enable_native_dhcp(context, network, created_subnet)
+                else:
+                    msg = _("Can not create more than one DHCP-enabled subnet "
+                            "in network %s") % subnet['subnet']['network_id']
+                    raise n_exc.InvalidInput(error_message=msg)
+        else:
+            created_subnet = super(NsxV3Plugin, self).create_subnet(
+                context, subnet)
+        return created_subnet
 
     def delete_subnet(self, context, subnet_id):
         # TODO(berlin): cancel public external subnet announcement
-        return super(NsxV3Plugin, self).delete_subnet(context, subnet_id)
+        if cfg.CONF.nsx_v3.native_dhcp_metadata:
+            subnet = self.get_subnet(context, subnet_id)
+            if subnet['enable_dhcp']:
+                lock = 'nsxv3_network_' + subnet['network_id']
+                with locking.LockManager.get_lock(lock):
+                    # Check if it is the last DHCP-enabled subnet to delete.
+                    network = self._get_network(context, subnet['network_id'])
+                    if self._has_single_dhcp_enabled_subnet(context, network):
+                        super(NsxV3Plugin, self).delete_subnet(
+                            context, subnet_id)
+                        self._disable_native_dhcp(context, network)
+                        return
+        super(NsxV3Plugin, self).delete_subnet(context, subnet_id)
 
     def update_subnet(self, context, subnet_id, subnet):
-        updated_subnet = super(NsxV3Plugin, self).update_subnet(
-            context, subnet_id, subnet)
+        enable_native_dhcp = 0  # assume no need to change DHCP
+        if (cfg.CONF.nsx_v3.native_dhcp_metadata and
+            'enable_dhcp' in subnet['subnet']):
+            orig_subnet = self.get_subnet(context, subnet_id)
+            enable_dhcp = subnet['subnet']['enable_dhcp']
+            if orig_subnet['enable_dhcp'] != enable_dhcp:
+                lock = 'nsxv3_network_' + orig_subnet['network_id']
+                with locking.LockManager.get_lock(lock):
+                    network = self._get_network(
+                        context, orig_subnet['network_id'])
+                    if enable_dhcp:
+                        if self._has_no_dhcp_enabled_subnet(context, network):
+                            updated_subnet = super(
+                                NsxV3Plugin, self).update_subnet(
+                                context, subnet_id, subnet)
+                            enable_native_dhcp = 1  # need to enable DHCP
+                        else:
+                            msg = (_("Multiple DHCP-enabled subnets is not "
+                                     "allowed in network %s") %
+                                   orig_subnet['network_id'])
+                            raise n_exc.InvalidInput(error_message=msg)
+                    elif self._has_single_dhcp_enabled_subnet(context,
+                                                              network):
+                        updated_subnet = super(
+                            NsxV3Plugin, self).update_subnet(
+                            context, subnet_id, subnet)
+                        enable_native_dhcp = -1  # need to disable DHCP
+
+        # Process native DHCP if needed.
+        if enable_native_dhcp > 0:
+            self._enable_native_dhcp(context, network, updated_subnet)
+        elif enable_native_dhcp < 0:
+            self._disable_native_dhcp(context, network)
+        else:
+            updated_subnet = super(NsxV3Plugin, self).update_subnet(
+                context, subnet_id, subnet)
+
+        if cfg.CONF.nsx_v3.native_dhcp_metadata and enable_native_dhcp >= 0:
+            # Check if needs to update logical DHCP server for native DHCP.
+            dns_servers = subnet['subnet'].get('dns_nameservers')
+            gateway_ip = subnet['subnet'].get('gateway_ip')
+            kwargs = {}
+            if (dns_servers and
+                dns_servers != updated_subnet['dns_nameservers']):
+                kwargs['dns_servers'] = dns_servers
+            if gateway_ip and gateway_ip != updated_subnet['gateway_ip']:
+                kwargs['gateway_ip'] = gateway_ip
+            if kwargs:
+                dhcp_service = nsx_db.get_nsx_service_binding(
+                    context.session, orig_subnet['network_id'],
+                    nsx_constants.SERVICE_DHCP)
+                try:
+                    self._dhcp_server.update(dhcp_service['nsx_service_id'],
+                                             **kwargs)
+                except nsx_exc.ManagerError:
+                    with excutils.save_and_reraise_exception():
+                        LOG.error(_LE("Unable to update logical DHCP server "
+                                      "%(server)s for network %(network)s"),
+                                  {'server': dhcp_service['nsx_service_id'],
+                                   'network': orig_subnet['network_id']})
+
         if cfg.CONF.nsx_v3.metadata_on_demand:
             # If enable_dhcp is changed on a subnet attached to a router,
             # update internal metadata network accordingly.
@@ -994,6 +1226,205 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             LOG.warning(err_msg)
             raise n_exc.InvalidInput(error_message=err_msg)
 
+    def _filter_ipv4_dhcp_fixed_ips(self, context, fixed_ips):
+        ips = []
+        for fixed_ip in fixed_ips:
+            if netaddr.IPNetwork(fixed_ip['ip_address']).version != 4:
+                continue
+            subnet = self.get_subnet(context, fixed_ip['subnet_id'])
+            if subnet['enable_dhcp']:
+                ips.append(fixed_ip)
+        return ips
+
+    def _add_dhcp_binding(self, context, port):
+        if not port["device_owner"].startswith(
+            const.DEVICE_OWNER_COMPUTE_PREFIX):
+            return
+        dhcp_service = nsx_db.get_nsx_service_binding(
+            context.session, port['network_id'], nsx_constants.SERVICE_DHCP)
+        if not dhcp_service:
+            return
+        for fixed_ip in self._filter_ipv4_dhcp_fixed_ips(
+            context, port['fixed_ips']):
+            binding = self._add_dhcp_binding_on_server(
+                context, dhcp_service['nsx_service_id'], fixed_ip['subnet_id'],
+                fixed_ip['ip_address'], port)
+            try:
+                nsx_db.add_neutron_nsx_dhcp_binding(
+                    context.session, port['id'], fixed_ip['subnet_id'],
+                    fixed_ip['ip_address'], dhcp_service['nsx_service_id'],
+                    binding['id'])
+            except db_exc.DBError:
+                LOG.error(_LE("Failed to add mapping of DHCP binding "
+                              "%(binding)s for port %(port)s, deleting"
+                              "DHCP binding on server"),
+                          {'binding': binding['id'], 'port': port['id']})
+                self._delete_dhcp_binding_on_server(context, binding)
+
+    def _add_dhcp_binding_on_server(self, context, dhcp_service_id, subnet_id,
+                                    ip, port):
+        try:
+            hostname = 'host-%s' % ip.replace('.', '-')
+            options = {'option121': {'static_routes': [
+                {'network': '%s' % nsx_rpc.METADATA_DHCP_ROUTE,
+                 'next_hop': ip}]}}
+            binding = self._dhcp_server.create_binding(
+                dhcp_service_id, port['mac_address'], ip, hostname,
+                cfg.CONF.nsx_v3.dhcp_lease_time, options)
+            LOG.info(_LI("Created static binding (mac: %(mac)s, ip: %(ip)s) "
+                         "for port %(port)s on logical DHCP server "
+                         "%(server)s"),
+                     {'mac': port['mac_address'], 'ip': ip, 'port': port['id'],
+                      'server': dhcp_service_id})
+            return binding
+        except nsx_exc.ManagerError:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("Unable to create static binding (mac: %(mac)s, "
+                              "ip: %(ip)s) for port %(port)s on logical DHCP "
+                              "server %(server)s"),
+                          {'mac': port['mac_address'], 'ip': ip,
+                           'port': port['id'], 'server': dhcp_service_id})
+
+    def _delete_dhcp_binding(self, context, port):
+        # Do not check device_owner here because Nova may have already
+        # deleted that before Neutron's port deletion.
+        bindings = nsx_db.get_nsx_dhcp_bindings(context.session, port['id'])
+        for binding in bindings:
+            self._delete_dhcp_binding_on_server(context, binding)
+            try:
+                nsx_db.delete_neutron_nsx_dhcp_binding(
+                    context.session, binding['port_id'],
+                    binding['nsx_binding_id'])
+            except db_exc.DBError:
+                LOG.error(_LE("Unable to delete mapping of DHCP binding "
+                              "%(binding)s for port %(port)s"),
+                          {'binding': binding['nsx_binding_id'],
+                           'port': binding['port_id']})
+
+    def _delete_dhcp_binding_on_server(self, context, binding):
+        try:
+            self._dhcp_server.delete_binding(
+                binding['nsx_service_id'], binding['nsx_binding_id'])
+            LOG.info(_LI("Deleted static binding for port %(port)s) on "
+                         "logical DHCP server %(server)s"),
+                     {'port': binding['port_id'],
+                      'server': binding['nsx_service_id']})
+        except nsx_exc.ManagerError:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("Unable to delete static binding for port "
+                              "%(port)s) on logical DHCP server %(server)s"),
+                          {'port': binding['port_id'],
+                           'server': binding['nsx_service_id']})
+
+    def _find_dhcp_binding(self, subnet_id, ip_address, bindings):
+        for binding in bindings:
+            if (subnet_id == binding['subnet_id'] and
+                ip_address == binding['ip_address']):
+                return binding
+
+    def _update_dhcp_binding(self, context, old_port, new_port):
+        # First check if any IPv4 address in fixed_ips is changed.
+        # Then update DHCP server setting or DHCP static binding
+        # depending on the port type.
+        # Note that Neutron allows a port with multiple IPs in the
+        # same subnet. But backend DHCP server may not support that.
+
+        # Collect IPv4 DHCP addresses from original and updated fixed_ips
+        # in the form of [(subnet_id, ip_address)].
+        old_fixed_ips = set([(fixed_ip['subnet_id'], fixed_ip['ip_address'])
+                             for fixed_ip in self._filter_ipv4_dhcp_fixed_ips(
+                                 context, old_port['fixed_ips'])])
+        new_fixed_ips = set([(fixed_ip['subnet_id'], fixed_ip['ip_address'])
+                             for fixed_ip in self._filter_ipv4_dhcp_fixed_ips(
+                                 context, new_port['fixed_ips'])])
+        # Find out the subnet/IP differences before and after the update.
+        ips_to_add = list(new_fixed_ips - old_fixed_ips)
+        ips_to_delete = list(old_fixed_ips - new_fixed_ips)
+        ip_change = (ips_to_add or ips_to_delete)
+
+        if old_port["device_owner"] == const.DEVICE_OWNER_DHCP and ip_change:
+            # Update backend DHCP server address if the IP address of a DHCP
+            # port is changed.
+            if len(new_fixed_ips) != 1:
+                msg = _("Can only configure one IP address on a DHCP server")
+                raise n_exc.InvalidInput(error_message=msg)
+            # Locate the backend DHCP server for this DHCP port.
+            dhcp_service = nsx_db.get_nsx_service_binding(
+                context.session, old_port['network_id'],
+                nsx_constants.SERVICE_DHCP)
+            new_ip = ips_to_add[0][1]
+            try:
+                self._dhcp_server.update(dhcp_service['nsx_service_id'],
+                                         server_ip=new_ip)
+                LOG.info(_LI("Updated IP %(ip)s for logical DHCP server "
+                             "%(server)s"),
+                         {'ip': new_ip,
+                          'server': dhcp_service['nsx_service_id']})
+            except nsx_exc.ManagerError:
+                with excutils.save_and_reraise_exception():
+                    LOG.error(_LE("Unable to update IP %(ip)s for logical "
+                                  "DHCP server %(server)s"),
+                              {'ip': new_ip,
+                               'server': dhcp_service['nsx_service_id']})
+        elif old_port["device_owner"].startswith(
+            const.DEVICE_OWNER_COMPUTE_PREFIX):
+            # Update static DHCP bindings for a compute port.
+            bindings = nsx_db.get_nsx_dhcp_bindings(context.session,
+                                                    old_port['id'])
+            if ip_change:
+                # If IP address is changed, update associated DHCP bindings.
+                # Mac address (if changed) will be updated at the same time.
+                if ([subnet_id for (subnet_id, ip) in ips_to_add] ==
+                    [subnet_id for (subnet_id, ip) in ips_to_delete]):
+                    # No change on subnet_id, just update corresponding IPs.
+                    for i, (subnet_id, ip) in enumerate(ips_to_delete):
+                        binding = self._find_dhcp_binding(subnet_id, ip,
+                                                          bindings)
+                        if binding:
+                            self._update_dhcp_binding_on_server(
+                                context, binding, new_port['mac_address'],
+                                ips_to_add[i][1])
+                else:
+                    for (subnet_id, ip) in ips_to_delete:
+                        binding = self._find_dhcp_binding(subnet_id, ip,
+                                                          bindings)
+                        if binding:
+                            self._delete_dhcp_binding_on_server(context,
+                                                                binding)
+                    if ips_to_add:
+                        dhcp_service = nsx_db.get_nsx_service_binding(
+                            context.session, new_port['network_id'],
+                            nsx_constants.SERVICE_DHCP)
+                        for (subnet_id, ip) in ips_to_add:
+                            self._add_dhcp_binding_on_server(
+                                context, dhcp_service['nsx_service_id'],
+                                subnet_id, ip, new_port)
+            elif old_port['mac_address'] != new_port['mac_address']:
+                # If only Mac address is changed, update the Mac address in
+                # all associated DHCP bindings.
+                for binding in bindings:
+                    self._update_dhcp_binding_on_server(
+                        context, binding, new_port['mac_address'],
+                        binding['ip_address'])
+
+    def _update_dhcp_binding_on_server(self, context, binding, mac, ip):
+        try:
+            self._dhcp_server.update_binding(
+                binding['nsx_service_id'], binding['nsx_binding_id'],
+                mac_address=mac, ip_address=ip)
+            LOG.info(_LI("Updated static binding (mac: %(mac)s, ip: %(ip)s) "
+                         "for port %(port)s on logical DHCP server "
+                         "%(server)s"),
+                     {'mac': mac, 'ip': ip, 'port': binding['port_id'],
+                      'server': binding['nsx_service_id']})
+        except nsx_exc.ManagerError:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("Unable to update static binding (mac: %(mac)s, "
+                              "ip: %(ip)s) for port %(port)s on logical DHCP "
+                              "server %(server)s"),
+                          {'mac': mac, 'ip': ip, 'port': binding['port_id'],
+                           'server': binding['nsx_service_id']})
+
     def create_port(self, context, port, l2gw_port_check=False):
         port_data = port['port']
         dhcp_opts = port_data.get(ext_edo.EXTRADHCPOPTS, [])
@@ -1062,6 +1493,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # latest db model for the extension functions
         port_model = self._get_port(context, port_data['id'])
         self._apply_dict_extend_functions('ports', port_data, port_model)
+
+        # Add Mac/IP binding to native DHCP server and neutron DB.
+        if cfg.CONF.nsx_v3.native_dhcp_metadata:
+            self._add_dhcp_binding(context, port_data)
+
         nsx_rpc.handle_port_metadata_access(self, context, neutron_db)
         return port_data
 
@@ -1098,11 +1534,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             security.update_lport_with_security_groups(
                 context, nsx_port_id, port.get(ext_sg.SECURITYGROUPS, []), [])
         self.disassociate_floatingips(context, port_id)
+
+        # Remove Mac/IP binding from native DHCP server and neutron DB.
+        if cfg.CONF.nsx_v3.native_dhcp_metadata:
+            self._delete_dhcp_binding(context, port)
         nsx_rpc.handle_port_metadata_access(self, context, port,
                                             is_delete=True)
-        ret_val = super(NsxV3Plugin, self).delete_port(context, port_id)
-
-        return ret_val
+        super(NsxV3Plugin, self).delete_port(context, port_id)
 
     def _update_port_preprocess_security(
             self, context, port, id, updated_port):
@@ -1355,6 +1793,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                             self.update_security_group_on_port(
                                 context, id, {'port': original_port},
                                 updated_port, original_port)
+
+        # Update DHCP bindings.
+        if cfg.CONF.nsx_v3.native_dhcp_metadata:
+            self._update_dhcp_binding(context, original_port, updated_port)
 
         return updated_port
 

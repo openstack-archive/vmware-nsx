@@ -26,6 +26,8 @@ from sqlalchemy import sql
 from neutron.db import model_base
 from neutron.db import models_v2
 
+from vmware_nsx.common import nsx_constants
+
 
 class TzNetworkBinding(model_base.BASEV2):
     """Represents a binding of a virtual network with a transport zone.
@@ -147,6 +149,32 @@ class NeutronNsxRouterMapping(model_base.BASEV2):
                            sa.ForeignKey('routers.id', ondelete='CASCADE'),
                            primary_key=True)
     nsx_id = sa.Column(sa.String(36))
+
+
+class NeutronNsxServiceBinding(model_base.BASEV2):
+    """Represents a binding of a Neutron network with enabled NSX services."""
+    __tablename__ = 'neutron_nsx_service_bindings'
+    network_id = sa.Column(sa.String(36),
+                           sa.ForeignKey('networks.id', ondelete='CASCADE'),
+                           nullable=False, primary_key=True)
+    port_id = sa.Column(sa.String(36), nullable=True)
+    nsx_service_type = sa.Column(
+        sa.Enum(nsx_constants.SERVICE_DHCP,
+                name='neutron_nsx_service_bindings_service_type'),
+        nullable=False, primary_key=True)
+    nsx_service_id = sa.Column(sa.String(36), nullable=False)
+
+
+class NeutronNsxDhcpBinding(model_base.BASEV2):
+    """Represents a binding of a Neutron port with DHCP address binding."""
+    __tablename__ = 'neutron_nsx_dhcp_bindings'
+    port_id = sa.Column(sa.String(36),
+                        sa.ForeignKey('ports.id', ondelete="CASCADE"),
+                        nullable=False, primary_key=True)
+    subnet_id = sa.Column(sa.String(36), nullable=False)
+    ip_address = sa.Column(sa.String(64), nullable=False)
+    nsx_service_id = sa.Column(sa.String(36), nullable=False)
+    nsx_binding_id = sa.Column(sa.String(36), nullable=False, primary_key=True)
 
 
 class MultiProviderNetworks(model_base.BASEV2):
