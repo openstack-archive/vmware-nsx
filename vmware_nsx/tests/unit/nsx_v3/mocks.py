@@ -73,6 +73,14 @@ def make_fake_dhcp_profile():
             "edge_cluster_member_indexes": [0, 1]}
 
 
+def make_fake_metadata_proxy():
+    return {"id": uuidutils.generate_uuid(),
+            "metadata_server_url": "http://1.2.3.4",
+            "secret": "my secret",
+            "edge_cluster_id": uuidutils.generate_uuid(),
+            "edge_cluster_member_indexes": [0, 1]}
+
+
 def get_resource(resource):
     return {'id': resource.split('/')[-1]}
 

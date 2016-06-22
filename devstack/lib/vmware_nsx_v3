@@ -128,6 +128,7 @@ function neutron_plugin_configure_service {
     _nsxv3_ini_set ca_file $NSX_CA_FILE
     _nsxv3_ini_set default_bridge_cluster $DEFAULT_BRIDGE_CLUSTER_UUID
     _nsxv3_ini_set dhcp_profile_uuid $DHCP_PROFILE_UUID
+    _nsxv3_ini_set metadata_proxy_uuid $METADATA_PROXY_UUID
 }
 
 function neutron_plugin_setup_interface_driver {

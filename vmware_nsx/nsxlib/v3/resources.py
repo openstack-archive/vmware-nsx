@@ -453,6 +453,19 @@ class DhcpProfile(AbstractRESTResource):
         pass
 
 
+class MetaDataProxy(AbstractRESTResource):
+
+    @property
+    def uri_segment(self):
+        return 'md-proxies'
+
+    def create(self, *args, **kwargs):
+        pass
+
+    def update(self, uuid, *args, **kwargs):
+        pass
+
+
 class LogicalDhcpServer(AbstractRESTResource):
 
     @property

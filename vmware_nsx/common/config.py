@@ -369,6 +369,11 @@ nsx_v3_opts = [
                 help=_("List of nameservers to configure for the DHCP "
                        "binding entries. These will be used if there are no "
                        "nameservers defined on the subnet.")),
+    cfg.StrOpt('metadata_proxy_uuid',
+               help=_("This is the UUID of the NSX Metadata Proxy that will "
+                      "be used to enable native metadata service. It needs "
+                      "to be created in NSX before starting Neutron with "
+                      "the NSX plugin.")),
     cfg.BoolOpt('log_security_groups_blocked_traffic',
                 default=False,
                 help=_("(Optional) Indicates whether distributed-firewall "

@@ -50,6 +50,7 @@ from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.dhcp_meta import rpc as nsx_rpc
+from vmware_nsx.extensions import advancedserviceproviders as as_providers
 from vmware_nsx.nsxlib.v3 import client as nsx_client
 from vmware_nsx.nsxlib.v3 import cluster as nsx_cluster
 from vmware_nsx.nsxlib.v3 import resources as nsx_resources
@@ -797,9 +798,9 @@ class NsxNativeDhcpTestCase(NsxV3PluginTestCaseMixin):
         cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
         self._patcher = mock.patch.object(nsx_resources.DhcpProfile, 'get')
         self._patcher.start()
-        # Need to run _init_native_dhcp() manually because plugin was started
+        # Need to run _init_dhcp_metadata() manually because plugin was started
         # before setUp() overrides CONF.nsx_v3.native_dhcp_metadata.
-        self.plugin._init_native_dhcp()
+        self.plugin._init_dhcp_metadata()
 
     def tearDown(self):
         self._patcher.stop()
@@ -849,12 +850,14 @@ class NsxNativeDhcpTestCase(NsxV3PluginTestCaseMixin):
         # configured correctly.
         orig_dhcp_agent_notification = cfg.CONF.dhcp_agent_notification
         cfg.CONF.set_override('dhcp_agent_notification', True)
-        self.assertRaises(nsx_exc.NsxPluginException, self.plugin._init_dhcp)
+        self.assertRaises(nsx_exc.NsxPluginException,
+                          self.plugin._init_dhcp_metadata)
         cfg.CONF.set_override('dhcp_agent_notification',
                               orig_dhcp_agent_notification)
         orig_dhcp_profile_uuid = cfg.CONF.nsx_v3.dhcp_profile_uuid
         cfg.CONF.set_override('dhcp_profile_uuid', '', 'nsx_v3')
-        self.assertRaises(cfg.RequiredOptError, self.plugin._init_dhcp)
+        self.assertRaises(cfg.RequiredOptError,
+                          self.plugin._init_dhcp_metadata)
         cfg.CONF.set_override('dhcp_profile_uuid', orig_dhcp_profile_uuid,
                               'nsx_v3')
 
@@ -1134,3 +1137,78 @@ class NsxNativeDhcpTestCase(NsxV3PluginTestCaseMixin):
                                 context.get_admin_context(),
                                 port['port']['id'])
                             self.assertEqual(delete_dhcp_binding.call_count, 2)
+
+
+class NsxNativeMetadataTestCase(NsxV3PluginTestCaseMixin):
+
+    def setUp(self):
+        super(NsxNativeMetadataTestCase, self).setUp()
+        self._orig_dhcp_agent_notification = cfg.CONF.dhcp_agent_notification
+        self._orig_native_dhcp_metadata = cfg.CONF.nsx_v3.native_dhcp_metadata
+        cfg.CONF.set_override('dhcp_agent_notification', False)
+        cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        self._patcher = mock.patch.object(nsx_resources.MetaDataProxy, 'get')
+        self._patcher.start()
+        # Need to run _init_dhcp_metadata() manually because plugin was
+        # started before setUp() overrides CONF.nsx_v3.native_dhcp_metadata.
+        self.plugin._init_dhcp_metadata()
+
+    def tearDown(self):
+        self._patcher.stop()
+        cfg.CONF.set_override('dhcp_agent_notification',
+                              self._orig_dhcp_agent_notification)
+        cfg.CONF.set_override('native_dhcp_metadata',
+                              self._orig_native_dhcp_metadata, 'nsx_v3')
+        super(NsxNativeMetadataTestCase, self).tearDown()
+
+    def test_metadata_proxy_configuration(self):
+        # Test if dhcp_agent_notification and metadata_proxy_uuid are
+        # configured correctly.
+        orig_dhcp_agent_notification = cfg.CONF.dhcp_agent_notification
+        cfg.CONF.set_override('dhcp_agent_notification', True)
+        self.assertRaises(nsx_exc.NsxPluginException,
+                          self.plugin._init_dhcp_metadata)
+        cfg.CONF.set_override('dhcp_agent_notification',
+                              orig_dhcp_agent_notification)
+        orig_metadata_proxy_uuid = cfg.CONF.nsx_v3.metadata_proxy_uuid
+        cfg.CONF.set_override('metadata_proxy_uuid', '', 'nsx_v3')
+        self.assertRaises(cfg.RequiredOptError,
+                          self.plugin._init_dhcp_metadata)
+        cfg.CONF.set_override('metadata_proxy_uuid', orig_metadata_proxy_uuid,
+                              'nsx_v3')
+
+    def test_metadata_proxy_with_create_network(self):
+        # Test if native metadata proxy is enabled on a network when it is
+        # created.
+        with mock.patch.object(nsx_resources.LogicalPort,
+                               'create') as create_logical_port:
+            with self.network() as network:
+                nsx_net_id = self.plugin._get_network_nsx_id(
+                    context.get_admin_context(), network['network']['id'])
+                tags = utils.build_v3_tags_payload(
+                    network['network'], resource_type='os-neutron-net-id',
+                    project_name=None)
+                create_logical_port.assert_called_once_with(
+                    nsx_net_id, cfg.CONF.nsx_v3.metadata_proxy_uuid, tags=tags,
+                    attachment_type=nsx_constants.ATTACHMENT_MDPROXY)
+
+    def test_metadata_proxy_with_get_subnets(self):
+        # Test if get_subnets() handles advanced-service-provider extension,
+        # which is used when processing metadata requests.
+        with self.network() as n1, self.network() as n2:
+            with self.subnet(network=n1) as s1, self.subnet(network=n2) as s2:
+                # Get all the subnets.
+                subnets = self._list('subnets')['subnets']
+                self.assertEqual(len(subnets), 2)
+                self.assertEqual(set([s['id'] for s in subnets]),
+                                 set([s1['subnet']['id'], s2['subnet']['id']]))
+                lswitch_id = nsx_db.get_nsx_switch_ids(
+                    context.get_admin_context().session,
+                    n1['network']['id'])[0]
+                # Get only the subnets associated with a particular advanced
+                # service provider (i.e. logical switch).
+                subnets = self._list('subnets', query_params='%s=%s' %
+                                     (as_providers.ADV_SERVICE_PROVIDERS,
+                                      lswitch_id))['subnets']
+                self.assertEqual(len(subnets), 1)
+                self.assertEqual(subnets[0]['id'], s1['subnet']['id'])
