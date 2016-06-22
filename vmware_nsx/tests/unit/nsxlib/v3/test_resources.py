@@ -152,6 +152,39 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
                 'block_non_ip_traffic': True
             }, sort_keys=True))
 
+    def test_create_mac_learning_profile(self):
+
+        tags = [
+            {
+                'scope': 'os-project-id',
+                'tag': 'tenant-1'
+            },
+            {
+                'scope': 'os-api-version',
+                'tag': '2.1.1.0'
+            }
+        ]
+
+        mocked_resource = self._mocked_switching_profile()
+
+        mocked_resource.create_mac_learning_profile(
+            'neutron-mac-learning', 'mac-learning-for-neutron',
+            tags=tags)
+
+        test_client.assert_json_call(
+            'post', mocked_resource,
+            'https://1.2.3.4/api/v1/switching-profiles',
+            data=jsonutils.dumps({
+                'mac_learning': {
+                    'enabled': True,
+                },
+                'resource_type': profile_types.MAC_LEARNING,
+                'display_name': 'neutron-mac-learning',
+                'description': 'mac-learning-for-neutron',
+                'tags': tags,
+                'source_mac_change_allowed': True,
+            }, sort_keys=True))
+
     def test_find_by_display_name(self):
         resp_resources = {
             'results': [
