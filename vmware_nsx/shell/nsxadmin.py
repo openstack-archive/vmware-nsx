@@ -199,6 +199,10 @@ def _init_cfg():
     cfg.CONF.unregister_opts(_options.logging_cli_opts)
     cfg.CONF.unregister_opts(neutron_config.core_cli_opts)
 
+    # Init the neutron config
+    neutron_config.init(args=['--config-file', constants.NEUTRON_CONF,
+                              '--config-file', constants.NSX_INI])
+
     cfg.CONF(args=sys.argv[1:], project='NSX',
              prog='Admin Utility',
              version=version.__version__,
