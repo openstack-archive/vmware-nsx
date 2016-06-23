@@ -25,6 +25,7 @@ LOG = logging.getLogger(__name__)
 PORTGROUP_PREFIX = 'dvportgroup'
 QOS_OUT_DIRECTION = 'outgoingPackets'
 QOS_AGENT_NAME = 'dvfilter-generic-vmware'
+API_FIND_ALL_BY_UUID = 'FindAllByUuid'
 
 
 class DvsManager(object):
@@ -301,3 +302,20 @@ class DvsManager(object):
         LOG.info(_LI("%(net_id)s delete from %(dvs)s."),
                  {'net_id': net_id,
                   'dvs': dvs_utils.dvs_name_get()})
+
+    def get_vm_moref(self, instance_uuid):
+        """Get reference to the VM.
+        The method will make use of FindAllByUuid to get the VM reference.
+        This method finds all VM's on the backend that match the
+        instance_uuid, more specifically all VM's on the backend that have
+        'config_spec.instanceUuid' set to 'instance_uuid'.
+        """
+        vm_refs = self._session.invoke_api(
+            self._session.vim,
+            API_FIND_ALL_BY_UUID,
+            self._session.vim.service_content.searchIndex,
+            uuid=instance_uuid,
+            vmSearch=True,
+            instanceUuid=True)
+        if vm_refs:
+            return vm_refs[0].value
