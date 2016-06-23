@@ -674,6 +674,20 @@ class TestPortsV2(NsxVPluginV2TestCase,
     VIF_TYPE = nsx_constants.VIF_TYPE_DVS
     HAS_PORT_FILTER = True
 
+    def test_duplicate_mac_generation(self):
+        # simulate duplicate mac generation to make sure DBDuplicate is retried
+        responses = ['12:34:56:78:00:00', '12:34:56:78:00:00',
+                     '12:34:56:78:00:01']
+        with mock.patch('neutron.common.utils.get_random_mac',
+                        side_effect=responses) as grand_mac:
+            with self.subnet(enable_dhcp=False) as s:
+                with self.port(subnet=s) as p1, self.port(subnet=s) as p2:
+                    self.assertEqual('12:34:56:78:00:00',
+                                     p1['port']['mac_address'])
+                    self.assertEqual('12:34:56:78:00:01',
+                                     p2['port']['mac_address'])
+                    self.assertEqual(3, grand_mac.call_count)
+
     def test_get_ports_count(self):
         with self.port(), self.port(), self.port(), self.port() as p:
             tenid = p['port']['tenant_id']
