@@ -26,7 +26,7 @@ from vmware_nsx.nsxlib.v3 import resources
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils
-import vmware_nsx.shell.nsxadmin as shell
+import vmware_nsx.shell.resources as shell
 
 LOG = logging.getLogger(__name__)
 neutron_client = utils.NeutronDbClient()

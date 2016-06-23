@@ -94,6 +94,10 @@ class MemoryMockAPIProvider(nsx_cluster.AbstractHTTPProvider):
 class NsxClientTestCase(NsxLibTestCase):
 
     class MockBridge(object):
+        """The MockBridge class is used to mock the nsxlib/v3/client.py file,
+        and includes the relevant functions & classes APIs
+        """
+
         def __init__(self, api_client):
             self._client = api_client
 
@@ -112,6 +116,12 @@ class NsxClientTestCase(NsxLibTestCase):
         def update_resource(self, resource, data):
             return nsx_client.update_resource(
                 resource, data, client=self._client)
+
+        def NSX3Client(self, cluster_api):
+            return self._client
+
+        def _set_default_api_cluster(self, cluster_api):
+            pass
 
     class MockNSXClusteredAPI(nsx_cluster.NSXClusteredAPI):
 

@@ -29,7 +29,7 @@ from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv.resources import utils
-from vmware_nsx.shell import nsxadmin
+from vmware_nsx.shell import resources as nsxadmin
 
 
 LOG = logging.getLogger(__name__)
@@ -37,6 +37,9 @@ LOG = logging.getLogger(__name__)
 
 class NsxVPluginWrapper(plugin.NsxVPlugin):
     def _start_rpc_listeners(self):
+        pass
+
+    def _validate_config(self):
         pass
 
 
