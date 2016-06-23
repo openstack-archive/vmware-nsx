@@ -502,7 +502,7 @@ class EdgeManager(object):
            2. Update the address groups to an existing tunnel
         """
         LOG.debug("Query the vnic %s for DHCP Edge %s", vnic_index, edge_id)
-        _, vnic_config = self.nsxv_manager.get_interface(edge_id, vnic_index)
+        h, vnic_config = self.nsxv_manager.get_interface(edge_id, vnic_index)
         sub_iface_dict = vnic_config.get('subInterfaces')
         port_group_id = vnic_config.get('portgroupId')
         new_tunnel_creation = True
