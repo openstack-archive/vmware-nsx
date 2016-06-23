@@ -108,7 +108,8 @@ def nsx_redo_metadata_cfg(resource, event, trigger, **kwargs):
                 lb.submit_to_backend(nsxv, edge_id, False)
 
 
-def update_shared_secret():
+@admin_utils.output_header
+def update_shared_secret(resource, event, trigger, **kwargs):
     edgeapi = utils.NeutronDbClient()
     edge_list = nsxv_db.get_nsxv_internal_edges_by_purpose(
         edgeapi.context.session,

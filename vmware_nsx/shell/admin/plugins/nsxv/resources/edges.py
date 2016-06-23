@@ -100,7 +100,7 @@ def nsx_delete_orphaned_edges(resource, event, trigger, **kwargs):
     orphaned_edges = get_orphaned_edges()
     LOG.info(_LI("Before delete; Orphaned Edges: %s"), orphaned_edges)
 
-    if not kwargs['force']:
+    if not kwargs.get('force'):
         if len(orphaned_edges):
             user_confirm = admin_utils.query_yes_no("Do you want to delete "
                                                     "orphaned edges",

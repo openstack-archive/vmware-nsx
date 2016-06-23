@@ -60,7 +60,7 @@ def nsx_list_security_groups(resource, event, trigger, **kwargs):
 
 @admin_utils.output_header
 def nsx_delete_security_groups(resource, event, trigger, **kwargs):
-    if kwargs['force'] is False:
+    if 'force' in kwargs and kwargs['force'] is False:
         if nsx_list_security_groups(resource, event, trigger, **kwargs):
             msg = ('Do you want to delete the following NSX firewall '
                    'sections/nsgroups?')
@@ -103,7 +103,7 @@ def neutron_list_security_groups(resource, event, trigger, **kwargs):
 
 @admin_utils.output_header
 def neutron_delete_security_groups(resource, event, trigger, **kwargs):
-    if kwargs['force'] is False:
+    if 'force' in kwargs and kwargs['force'] is False:
         if neutron_list_security_groups(resource, event, trigger, **kwargs):
             msg = ('Do you want to delete the following neutron '
                    'security groups?')

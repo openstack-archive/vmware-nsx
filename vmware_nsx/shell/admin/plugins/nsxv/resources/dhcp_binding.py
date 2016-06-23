@@ -95,13 +95,15 @@ def list_missing_dhcp_bindings(resource, event, trigger, **kwargs):
 @admin_utils.output_header
 def nsx_update_dhcp_edge_binding(resource, event, trigger, **kwargs):
     """Resync DHCP bindings on NSXv Edge"""
-
-    if not kwargs['property']:
+    if not kwargs.get('property'):
         LOG.error(_LE("Need to specify edge-id parameter"))
         return
     else:
         properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
         edge_id = properties.get('edge-id')
+        if not edge_id:
+            LOG.error(_LE("Need to specify edge-id parameter"))
+            return
         LOG.info(_LI("Updating NSXv Edge: %s"), edge_id)
         # Need to create a NeutronDbPlugin object; so that we are able to
         # do neutron list-ports.
