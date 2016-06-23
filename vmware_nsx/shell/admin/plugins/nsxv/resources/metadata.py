@@ -13,6 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import hashlib
+import hmac
 import logging
 
 from neutron.callbacks import registry
@@ -106,6 +108,46 @@ def nsx_redo_metadata_cfg(resource, event, trigger, **kwargs):
                 lb.submit_to_backend(nsxv, edge_id, False)
 
 
+def update_shared_secret():
+    edgeapi = utils.NeutronDbClient()
+    edge_list = nsxv_db.get_nsxv_internal_edges_by_purpose(
+        edgeapi.context.session,
+        vcns_constants.InternalEdgePurposes.INTER_EDGE_PURPOSE)
+    md_rtr_ids = [edge['router_id'] for edge in edge_list]
+    router_bindings = nsxv_db.get_nsxv_router_bindings(
+        edgeapi.context.session,
+        filters={'edge_type': [nsxv_constants.SERVICE_EDGE]})
+    edge_ids = list(set([binding['edge_id'] for binding in router_bindings
+                         if (binding['router_id'] not in set(md_rtr_ids)
+                             and not binding['router_id'].startswith(
+                                 vcns_constants.BACKUP_ROUTER_PREFIX)
+                             and not binding['router_id'].startswith(
+                                 vcns_constants.PLR_EDGE_PREFIX))]))
+
+    for edge_id in edge_ids:
+        with locking.LockManager.get_lock(edge_id):
+            lb = nsxv_lb.NsxvLoadbalancer.get_loadbalancer(nsxv, edge_id)
+            virt = lb.virtual_servers.get(md_proxy.METADATA_VSE_NAME)
+            if not virt:
+                return
+
+            virt.del_app_rule('insert-auth')
+            if cfg.CONF.nsxv.metadata_shared_secret:
+                signature = hmac.new(cfg.CONF.nsxv.metadata_shared_secret,
+                                     edge_id,
+                                     hashlib.sha256).hexdigest()
+                sign = 'reqadd X-Metadata-Provider-Signature:' + signature
+                sign_app_rule = nsxv_lb.NsxvLBAppRule('insert-auth', sign)
+                virt.add_app_rule('insert-auth', sign_app_rule)
+
+            lb.submit_to_backend(nsxv, edge_id, False)
+
+
 registry.subscribe(nsx_redo_metadata_cfg,
                    constants.METADATA,
                    shell.Operations.NSX_UPDATE.value)
+
+
+registry.subscribe(update_shared_secret,
+                   constants.METADATA,
+                   shell.Operations.NSX_UPDATE_SECRET.value)

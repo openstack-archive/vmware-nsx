@@ -63,6 +63,7 @@ class Operations(enum.Enum):
     NSX_LIST = 'nsx-list'
     NSX_CLEAN = 'nsx-clean'
     NSX_UPDATE = 'nsx-update'
+    NSX_UPDATE_SECRET = 'nsx-update-secret'
 
 
 ops = [op.value for op in Operations]
@@ -129,7 +130,8 @@ nsxv_resources = {
         constants.FIREWALL_NSX_GROUPS, [Operations.LIST.value,
                                         Operations.LIST_MISMATCHES.value]),
     constants.METADATA: Resource(
-        constants.METADATA, [Operations.NSX_UPDATE.value]),
+        constants.METADATA, [Operations.NSX_UPDATE.value,
+                             Operations.NSX_UPDATE_SECRET]),
 }
 
 nsxv3_resources_names = map(lambda res: res.name, nsxv3_resources.itervalues())
