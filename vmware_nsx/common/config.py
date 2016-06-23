@@ -430,6 +430,10 @@ nsxv_opts = [
                deprecated_group="vcns",
                help=_('Optional parameter identifying the ID of datastore to '
                       'deploy NSX Edges')),
+    cfg.StrOpt('ha_datastore_id',
+               help=_('Optional parameter identifying the ID of datastore to '
+                      'deploy NSX Edges in addition to data_store_id in case'
+                      'edge_ha is True')),
     cfg.StrOpt('external_network',
                deprecated_group="vcns",
                help=_('(Required) Network ID for physical network '

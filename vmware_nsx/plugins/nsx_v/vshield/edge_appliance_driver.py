@@ -91,6 +91,17 @@ class EdgeApplianceDriver(object):
 
         return edge
 
+    def _assemble_edge_appliances(self, resource_pool_id, datastore_id,
+                                  ha_datastore_id):
+        appliances = []
+        if datastore_id:
+            appliances.append(self._assemble_edge_appliance(
+                resource_pool_id, datastore_id))
+        if ha_datastore_id and cfg.CONF.nsxv.edge_ha:
+            appliances.append(self._assemble_edge_appliance(
+                resource_pool_id, ha_datastore_id))
+        return appliances
+
     def _assemble_edge_appliance(self, resource_pool_id, datastore_id):
         appliance = {}
         if resource_pool_id:
@@ -511,10 +522,11 @@ class EdgeApplianceDriver(object):
             deployment_container_id=self.deployment_container_id,
             appliance_size=appliance_size, remote_access=False, dist=dist)
         res_pool = res_pool or self.resource_pool_id
-        appliance = self._assemble_edge_appliance(res_pool,
-                                                  self.datastore_id)
-        if appliance:
-            edge['appliances']['appliances'] = [appliance]
+        appliances = self._assemble_edge_appliances(res_pool,
+                                                    self.datastore_id,
+                                                    self.ha_datastore_id)
+        if appliances:
+            edge['appliances']['appliances'] = appliances
 
         if not dist:
             vnic_external = self._assemble_edge_vnic(
@@ -602,10 +614,11 @@ class EdgeApplianceDriver(object):
             appliance_size=appliance_size, remote_access=False, dist=dist)
         edge['id'] = edge_id
         res_pool = res_pool or self.resource_pool_id
-        appliance = self._assemble_edge_appliance(res_pool,
-                                                  self.datastore_id)
-        if appliance:
-            edge['appliances']['appliances'] = [appliance]
+        appliances = self._assemble_edge_appliances(res_pool,
+                                                    self.datastore_id,
+                                                    self.ha_datastore_id)
+        if appliances:
+            edge['appliances']['appliances'] = appliances
 
         if not dist:
             vnic_external = self._assemble_edge_vnic(

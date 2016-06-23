@@ -48,6 +48,7 @@ class VcnsDriver(edge_appliance_driver.EdgeApplianceDriver,
         self.deployment_container_id = cfg.CONF.nsxv.deployment_container_id
         self.resource_pool_id = cfg.CONF.nsxv.resource_pool_id
         self.datastore_id = cfg.CONF.nsxv.datastore_id
+        self.ha_datastore_id = cfg.CONF.nsxv.ha_datastore_id
         self.external_network = cfg.CONF.nsxv.external_network
         self._pid = None
         self._task_manager = None
