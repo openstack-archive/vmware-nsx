@@ -98,6 +98,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                                    "quotas",
                                    "binding",
                                    "extra_dhcp_opt",
+                                   "agent",
+                                   "dhcp_agent_scheduler",
                                    "ext-gw-mode",
                                    "security-group",
                                    "port-security",
@@ -121,8 +123,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 pbin.CAP_PORT_FILTER:
                 'security-group' in self.supported_extension_aliases}}
         self.tier0_groups_dict = {}
-        self._setup_rpc()
-
+        self._setup_dhcp()
+        self._start_rpc_notifiers()
         self._port_client = nsx_resources.LogicalPort(self._nsx_client)
         self.nsgroup_manager, self.default_section = (
             self._init_nsgroup_manager_and_default_section_rules())
@@ -234,20 +236,37 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             return security.init_nsgroup_manager_and_default_section_rules()
 
     def _setup_rpc(self):
-        self.topic = topics.PLUGIN
-        self.conn = n_rpc.create_connection(new=True)
         self.endpoints = [dhcp_rpc.DhcpRpcCallback(),
                           agents_db.AgentExtRpcCallback(),
                           metadata_rpc.MetadataRpcCallback()]
-        self.conn.create_consumer(self.topic, self.endpoints, fanout=False)
-        self.agent_notifiers[const.AGENT_TYPE_DHCP] = (
-            dhcp_rpc_agent_api.DhcpAgentNotifyAPI())
-        self.conn.consume_in_threads()
+
+    def _setup_dhcp(self):
+        """Initialize components to support DHCP."""
         self.network_scheduler = importutils.import_object(
             cfg.CONF.network_scheduler_driver
         )
-        self.supported_extension_aliases.extend(
-            ['agent', 'dhcp_agent_scheduler'])
+        self.start_periodic_dhcp_agent_status_check()
+
+    def _start_rpc_notifiers(self):
+        """Initialize RPC notifiers for agents."""
+        self.agent_notifiers[const.AGENT_TYPE_DHCP] = (
+            dhcp_rpc_agent_api.DhcpAgentNotifyAPI()
+        )
+
+    def start_rpc_listeners(self):
+        self._setup_rpc()
+        self.topic = topics.PLUGIN
+        self.conn = n_rpc.create_connection(new=True)
+        self.conn.create_consumer(self.topic, self.endpoints, fanout=False)
+
+        # topics.REPORTS was added for the Mitaka release, therefore, to
+        # work with stable/liberty, check to see if topics.REPORTS exists
+        # if it does, use it.
+        if hasattr(topics, 'REPORTS'):
+            self.conn.create_consumer(topics.REPORTS,
+                                      [agents_db.AgentExtRpcCallback()],
+                                      fanout=False)
+        return self.conn.consume_in_threads()
 
     def _validate_provider_create(self, context, network_data):
         physical_net = network_data.get(pnet.PHYSICAL_NETWORK)
