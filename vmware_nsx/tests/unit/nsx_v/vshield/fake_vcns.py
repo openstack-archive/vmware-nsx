@@ -903,6 +903,21 @@ class FakeVcns(object):
             if k not in ('ids', 'names') and v['name'] == sg_name:
                 return k
 
+    def get_security_group(self, sg_id):
+        sg = self._securitygroups.get(sg_id)
+        if sg:
+            return ('<securitygroup><objectId>"%s"</objectId><name>"%s"'
+                    '</name></securitygroup>'
+                    % (sg_id, sg.get("name")))
+
+    def list_security_groups(self):
+        response = ""
+        header = {'status': 200}
+        for k in self._securitygroups.keys():
+            if k not in ('ids', 'names'):
+                response += self.get_security_group(k)
+        return header, response
+
     def create_section(self, type, request, insert_before=None):
         section = ET.fromstring(request)
         section_name = section.attrib.get('name')
@@ -984,8 +999,10 @@ class FakeVcns(object):
 
     def _get_section(self, section_id):
         section_rules = (''.join(self._sections[section_id]['rules'].values()))
-        response = ('<section id="%s">%s</section>'
-                    % (section_id, section_rules))
+        response = ('<section id="%s" name="%s">%s</section>'
+                    % (section_id,
+                       self._sections[section_id]['name'],
+                       section_rules))
         headers = {'status': 200,
                    'etag': self._sections[section_id]['etag']}
         return (headers, response)
@@ -995,6 +1012,17 @@ class FakeVcns(object):
             if (k not in ('section_ids', 'rule_ids', 'names')
                 and v['name'] == section_name):
                 return k
+
+    def update_section_by_id(self, id, type, request):
+        pass
+
+    def get_dfw_config(self):
+        response = ""
+        for sec_id in range(0, self._sections['section_ids']):
+            h, r = self._get_section(str(sec_id))
+            response += r
+        headers = {'status': 200}
+        return (headers, response)
 
     def remove_rule_from_section(self, section_uri, rule_id):
         section_id = self._get_section_id_from_uri(section_uri)
@@ -1060,7 +1088,7 @@ class FakeVcns(object):
         return None, self._spoofguard_policies[int(policy_id)]
 
     def get_spoofguard_policies(self):
-        return None, self._spoofguard_policies
+        return None, {'policies': self._spoofguard_policies}
 
     def approve_assigned_addresses(self, policy_id,
                                    vnic_id, mac_addr, addresses):
@@ -1077,6 +1105,14 @@ class FakeVcns(object):
 
     def delete_vm_from_exclude_list(self, vm_id):
         pass
+
+    def get_scoping_objects(self):
+        response = ('<object>'
+                    '<objectTypeName>Network</objectTypeName>'
+                    '<objectId>aaa</objectId>'
+                    '<name>bbb</name>'
+                    '</object>')
+        return response
 
     def reset_all(self):
         self._jobs.clear()
