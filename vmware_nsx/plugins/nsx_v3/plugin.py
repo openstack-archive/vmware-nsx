@@ -1459,7 +1459,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             bindings = nsx_db.get_nsx_dhcp_bindings(context.session,
                                                     old_port['id'])
             if ip_change:
-                # If IP address is changed, update associated DHCP bindings.
+                # If IP address is changed, update associated DHCP bindings,
+                # metadata route, and default hostname.
                 # Mac address (if changed) will be updated at the same time.
                 if ([subnet_id for (subnet_id, ip) in ips_to_add] ==
                     [subnet_id for (subnet_id, ip) in ips_to_delete]):
@@ -1496,9 +1497,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def _update_dhcp_binding_on_server(self, context, binding, mac, ip):
         try:
+            data = {'mac_address': mac, 'ip_address': ip}
+            if ip != binding['ip_address']:
+                data['host_name'] = 'host-%s' % ip.replace('.', '-')
+                data['options'] = {'option121': {'static_routes': [
+                    {'network': '%s' % nsx_rpc.METADATA_DHCP_ROUTE,
+                     'next_hop': ip}]}}
             self._dhcp_server.update_binding(
-                binding['nsx_service_id'], binding['nsx_binding_id'],
-                mac_address=mac, ip_address=ip)
+                binding['nsx_service_id'], binding['nsx_binding_id'], **data)
             LOG.info(_LI("Updated static binding (mac: %(mac)s, ip: %(ip)s) "
                          "for port %(port)s on logical DHCP server "
                          "%(server)s"),

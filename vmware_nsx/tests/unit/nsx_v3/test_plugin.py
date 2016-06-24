@@ -1050,7 +1050,11 @@ class NsxNativeDhcpTestCase(NsxV3PluginTestCaseMixin):
             new_ip = '10.0.0.4'
             update_data = {'port': {'fixed_ips': [
                 {'subnet_id': subnet['subnet']['id'], 'ip_address': new_ip}]}}
-            assert_data = {'ip_address': new_ip}
+            assert_data = {'host_name': 'host-%s' % new_ip.replace('.', '-'),
+                           'ip_address': new_ip,
+                           'options': {'option121': {'static_routes': [
+                               {'network': '%s' % nsx_rpc.METADATA_DHCP_ROUTE,
+                                'next_hop': new_ip}]}}}
             self._verify_dhcp_binding(subnet, port_data, update_data,
                                       assert_data)
 
@@ -1076,7 +1080,12 @@ class NsxNativeDhcpTestCase(NsxV3PluginTestCaseMixin):
             new_ip = '10.0.0.4'
             update_data = {'port': {'mac_address': new_mac, 'fixed_ips': [
                 {'subnet_id': subnet['subnet']['id'], 'ip_address': new_ip}]}}
-            assert_data = {'mac_address': new_mac, 'ip_address': new_ip}
+            assert_data = {'host_name': 'host-%s' % new_ip.replace('.', '-'),
+                           'mac_address': new_mac,
+                           'ip_address': new_ip,
+                           'options': {'option121': {'static_routes': [
+                               {'network': '%s' % nsx_rpc.METADATA_DHCP_ROUTE,
+                                'next_hop': new_ip}]}}}
             self._verify_dhcp_binding(subnet, port_data, update_data,
                                       assert_data)
 

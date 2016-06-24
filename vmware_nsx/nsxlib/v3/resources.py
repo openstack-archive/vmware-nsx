@@ -440,19 +440,6 @@ class LogicalRouterPort(AbstractRESTResource):
             operation="get router link port")
 
 
-class DhcpProfile(AbstractRESTResource):
-
-    @property
-    def uri_segment(self):
-        return 'dhcp/server-profiles'
-
-    def create(self, *args, **kwargs):
-        pass
-
-    def update(self, uuid, *args, **kwargs):
-        pass
-
-
 class MetaDataProxy(AbstractRESTResource):
 
     @property
@@ -466,11 +453,24 @@ class MetaDataProxy(AbstractRESTResource):
         pass
 
 
+class DhcpProfile(AbstractRESTResource):
+
+    @property
+    def uri_segment(self):
+        return 'dhcp/server-profiles'
+
+    def create(self, *args, **kwargs):
+        pass
+
+    def update(self, uuid, *args, **kwargs):
+        pass
+
+
 class LogicalDhcpServer(AbstractRESTResource):
 
     @property
     def uri_segment(self):
-        return 'dhcp/services'
+        return 'dhcp/servers'
 
     def _construct_server(self, body, dhcp_profile_id=None, server_ip=None,
                           dns_servers=None, domain_name=None, gateway_ip=None,
@@ -517,11 +517,11 @@ class LogicalDhcpServer(AbstractRESTResource):
             body['lease_time'] = lease_time
         if options:
             body['options'] = options
-        url = "%s/bindings" % server_uuid
+        url = "%s/static-bindings" % server_uuid
         return self._client.url_post(url, body)
 
     def get_binding(self, server_uuid, binding_uuid):
-        url = "%s/bindings/%s" % (server_uuid, binding_uuid)
+        url = "%s/static-bindings/%s" % (server_uuid, binding_uuid)
         return self._client.url_get(url)
 
     @utils.retry_upon_exception_nsxv3(
@@ -530,9 +530,9 @@ class LogicalDhcpServer(AbstractRESTResource):
     def update_binding(self, server_uuid, binding_uuid, **kwargs):
         body = self.get_binding(server_uuid, binding_uuid)
         body.update(kwargs)
-        url = "%s/bindings/%s" % (server_uuid, binding_uuid)
+        url = "%s/static-bindings/%s" % (server_uuid, binding_uuid)
         return self._client.url_put(url, body)
 
     def delete_binding(self, server_uuid, binding_uuid):
-        url = "%s/bindings/%s" % (server_uuid, binding_uuid)
+        url = "%s/static-bindings/%s" % (server_uuid, binding_uuid)
         return self._client.url_delete(url)
