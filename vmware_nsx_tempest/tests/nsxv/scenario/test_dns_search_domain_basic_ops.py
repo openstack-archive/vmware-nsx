@@ -21,6 +21,8 @@ from tempest import test
 
 from vmware_nsx_tempest.tests.nsxv.scenario import (
     manager_topo_deployment as dmgr)
+from vmware_nsx_tempest.tests.nsxv.scenario import (
+    network_addon_methods as HELO)
 
 CONF = config.CONF
 DNS_SEARCH_DOMAIN = 'dns_search_domain'
@@ -71,22 +73,29 @@ class TestDnsSearchDomainBasicOps(dmgr.TopoDeployScenarioManager):
             self.assertEqual(dns_search_domain, subnet[DNS_SEARCH_DOMAIN])
         return (network, subnet, dns_search_domain)
 
-    def create_router_by_type(self, router_type, name=None, **kwargs):
+    def create_router_by_type(self, router_type, client=None,
+                              name=None, **kwargs):
+        routers_client = client or self.admin_manager.routers_client
         create_kwargs = dict(namestart='dns-search', external_gateway_info={
             "network_id": CONF.network.public_network_id})
         if router_type in ('shared', 'exclusive'):
             create_kwargs['router_type'] = router_type
         elif router_type in ('distributed'):
             create_kwargs['distributed'] = True
-        kwargs.update(create_kwargs)
-        router = self._create_router(client_mgr=self.admin_manager,
-                                     **kwargs)
+        create_kwargs.update(**kwargs)
+        router = HELO.router_create(self, client=routers_client,
+                                    **create_kwargs)
         return router
 
-    def create_router_and_add_interfaces(self, router_type, net_list):
-        router = self.create_router_by_type(router_type)
+    def create_router_and_add_interfaces(self, router_type, net_list,
+                                         client_mgr=None):
+        client_mgr = client_mgr or self.admin_manager
+        routers_client = client_mgr.routers_client
+        router = self.create_router_by_type(router_type,
+                                            client=routers_client)
         for (network, subnet, dns_search_domain) in net_list:
-            router.add_subnet(subnet)
+            HELO.router_interface_add(self, router['id'], subnet['id'],
+                                      client=routers_client)
         return router
 
     def setup_tenant_networks(self, router_type):
@@ -135,7 +144,7 @@ class TestDnsSearchDomainBasicOps(dmgr.TopoDeployScenarioManager):
                % (floatingip, server['name']))
         self._check_floatingip_connectivity(
             floatingip, server, should_connect=True, msg=msg)
-        serv_fip = floatingip.floating_ip_address
+        serv_fip = floatingip['floating_ip_address']
         dmgr.rm_sshkey(serv_fip)
         ssh_client = dmgr.get_remote_client_by_password(
             serv_fip, username, password)

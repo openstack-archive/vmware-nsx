@@ -23,11 +23,13 @@ import urllib2
 from tempest import config
 from tempest import exceptions
 from tempest.lib.common.utils import data_utils
+from tempest.lib.common.utils import test_utils
 from tempest.scenario import manager
 from tempest import test
 
 from vmware_nsx_tempest.services import load_balancer_v1_client as LBV1C
-from vmware_nsx_tempest.tests.nsxv.scenario import net_resources
+from vmware_nsx_tempest.tests.nsxv.scenario import (
+    network_addon_methods as HELO)
 
 CONF = config.CONF
 
@@ -119,7 +121,8 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
             if k in ('distributed', 'router_type', 'router_size'):
                 router_kwargs[k] = kwargs.pop(k)
         router = self._create_router(**router_kwargs)
-        router.set_gateway(CONF.network.public_network_id)
+        HELO.router_gateway_set(self, router['id'],
+                                CONF.network.public_network_id)
 
         network = self._create_network(
             routers_client=routers_client,
@@ -134,54 +137,21 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
         if dns_nameservers is not None:
             subnet_kwargs['dns_nameservers'] = dns_nameservers
         subnet = self._create_subnet(**subnet_kwargs)
-        subnet.add_to_router(router.id)
+        HELO.router_interface_add(self, router['id'], subnet['id'],
+                                  routers_client)
         return network, subnet, router
 
     # overwrite super class
     def _create_router(self, client=None, tenant_id=None,
                        namestart='router-lbv1', **kwargs):
-        if not client:
-            client = self.routers_client
-        if not tenant_id:
-            tenant_id = client.tenant_id
-        name = data_utils.rand_name(namestart)
-        result = client.create_router(name=name,
-                                      admin_state_up=True,
-                                      tenant_id=tenant_id,
-                                      **kwargs)
-        router = net_resources.DeletableRouter(
-            routers_client=client, **result['router'])
-        self.assertEqual(router.name, name)
-        self.addCleanup(self.delete_wrapper, router.delete)
-        return router
+        return HELO.router_create(self, client,
+                                  tenant_id=tenant_id,
+                                  namestart=namestart,
+                                  admin_state_up=True,
+                                  **kwargs)
 
     def check_networks(self):
-        """Checks that we see the newly created network/subnet/router.
-
-        checking the result of list_[networks,routers,subnets]
-        """
-
-        seen_nets = self._list_networks()
-        seen_names = [n['name'] for n in seen_nets]
-        seen_ids = [n['id'] for n in seen_nets]
-        self.assertIn(self.network.name, seen_names)
-        self.assertIn(self.network.id, seen_ids)
-
-        if self.subnet:
-            seen_subnets = self._list_subnets()
-            seen_net_ids = [n['network_id'] for n in seen_subnets]
-            seen_subnet_ids = [n['id'] for n in seen_subnets]
-            self.assertIn(self.network.id, seen_net_ids)
-            self.assertIn(self.subnet.id, seen_subnet_ids)
-
-        if self.router:
-            seen_routers = self._list_routers()
-            seen_router_ids = [n['id'] for n in seen_routers]
-            seen_router_names = [n['name'] for n in seen_routers]
-            self.assertIn(self.router.name,
-                          seen_router_names)
-            self.assertIn(self.router.id,
-                          seen_router_ids)
+        HELO.check_networks(self, self.network, self.subnet, self.router)
 
     def _create_security_group_for_test(self):
         self.security_group = self._create_security_group(
@@ -222,7 +192,7 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
             floating_ip = self.create_floating_ip(
                 server, public_network_id)
             self.floating_ips[floating_ip] = server
-            self.server_ips[serv_id] = floating_ip.floating_ip_address
+            self.server_ips[serv_id] = floating_ip['floating_ip_address']
         else:
             self.server_ips[serv_id] = self._server_ip(server, net_name)
         self.server_fixed_ips[serv_id] = self._server_ip(server, net_name)
@@ -320,24 +290,29 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
             pool_name,
             lb_method='ROUND_ROBIN',
             protocol='HTTP',
-            subnet_id=self.subnet.id)['pool']
-        self.pool = net_resources.DeletablePool(client=self.lbv1_client,
-                                                **pool)
+            subnet_id=self.subnet['id'])
+        self.pool = pool.get('pool', pool)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.lbv1_client.delete_pool,
+                        self.pool['id'])
         self.assertTrue(self.pool)
         return self.pool
 
     def _create_vip(self, pool_id, **kwargs):
         result = self.lbv1_client.create_vip(pool_id, **kwargs)
-        vip = net_resources.DeletableVip(client=self.lbv1_client,
-                                         **result['vip'])
+        vip = result.get('vip', result)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.lbv1_client.delete_vip,
+                        vip['id'])
         return vip
 
     def _create_member(self, protocol_port, pool_id, ip_version=4, **kwargs):
         result = self.lbv1_client.create_member(protocol_port, pool_id,
                                                 ip_version, **kwargs)
-        member = net_resources.DeletableMember(client=self.lbv1_client,
-                                               **result['member'])
-        return member
+        member = result.get('member', result)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.lbv1_client.delete_member,
+                        member['id'])
 
     def _create_members(self):
         """Create two members.
@@ -346,63 +321,68 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
         but with different ports to listen on.
         """
 
+        pool_id = self.pool['id']
         for server_id, ip in six.iteritems(self.server_fixed_ips):
             if len(self.server_fixed_ips) == 1:
                 member1 = self._create_member(address=ip,
                                               protocol_port=self.port1,
-                                              pool_id=self.pool.id)
+                                              pool_id=pool_id)
                 member2 = self._create_member(address=ip,
                                               protocol_port=self.port2,
-                                              pool_id=self.pool.id)
+                                              pool_id=pool_id)
                 self.members.extend([member1, member2])
             else:
                 member = self._create_member(address=ip,
                                              protocol_port=self.port1,
-                                             pool_id=self.pool.id)
+                                             pool_id=pool_id)
                 self.members.append(member)
         self.assertTrue(self.members)
 
     def _assign_floating_ip_to_vip(self, vip):
         public_network_id = CONF.network.public_network_id
-        port_id = vip.port_id
+        vip_id = vip['id']
+        port_id = vip['port_id']
         floating_ip = self.create_floating_ip(vip, public_network_id,
                                               port_id=port_id)
-        self.floating_ips.setdefault(vip.id, [])
-        self.floating_ips[vip.id].append(floating_ip)
+        #?# self.floating_ips.setdefault(vip_id, [])
+        self.floating_ips[vip_id].append(floating_ip)
         # Check for floating ip status before you check load-balancer
         self.check_floating_ip_status(floating_ip, "ACTIVE")
 
     def _create_load_balancer(self):
         self._create_pool()
         self._create_members()
+        vip_id = self.vip['id']
         self.vip = self._create_vip(protocol='HTTP',
                                     protocol_port=80,
-                                    subnet_id=self.subnet.id,
-                                    pool_id=self.pool.id)
+                                    subnet_id=self.subnet['id'],
+                                    pool_id=self.pool['id'])
         self.vip_wait_for_status(self.vip, 'ACTIVE')
         if (CONF.network.public_network_id and not
                 CONF.network.project_networks_reachable):
             self._assign_floating_ip_to_vip(self.vip)
             self.vip_ip = self.floating_ips[
-                self.vip.id][0]['floating_ip_address']
+                vip_id][0]['floating_ip_address']
         else:
-            self.vip_ip = self.vip.address
+            self.vip_ip = self.vip['address']
 
         # Currently the ovs-agent is not enforcing security groups on the
         # vip port - see https://bugs.launchpad.net/neutron/+bug/1163569
         # However the linuxbridge-agent does, and it is necessary to add a
         # security group with a rule that allows tcp port 80 to the vip port.
         self.ports_client.update_port(
-            self.vip.port_id, security_groups=[self.security_group.id])
+            self.vip['port_id'],
+            security_groups=[self.security_group['id']])
 
     def vip_wait_for_status(self, vip, status='ACTIVE'):
         # vip is DelatableVip
-        interval = vip.client.build_interval
-        timeout = vip.client.build_timeout
+        interval = self.lbv1_client.build_interval
+        timeout = self.lbv1_client.build_timeout
         start_time = time.time()
 
+        vip_id = vip['id']
         while time.time() - start_time <= timeout:
-            resource = vip.client.show_vip(vip.id)['vip']
+            resource = self.lbv1_client.show_vip(vip_id)['vip']
             if resource['status'] == status:
                 return
             time.sleep(interval)

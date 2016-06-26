@@ -28,7 +28,7 @@ class TestNetworkBasicOps(network_ops.TestNetworkBasicOps):
         # NSX-v: dhcp is not reachable
         internal_ips = (p['fixed_ips'][0]['ip_address'] for p in
                         self._list_ports(tenant_id=server['tenant_id'],
-                                         network_id=network.id)
+                                         network_id=network['id'])
                         if (p['device_owner'].startswith('network') and
                             not p['device_owner'].endswith('dhcp')))
 

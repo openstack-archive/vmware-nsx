@@ -18,6 +18,7 @@ import netaddr
 from tempest.api.network import base
 from tempest import config
 from tempest.lib.common.utils import data_utils
+from tempest.lib.common.utils import test_utils
 from tempest.lib import exceptions
 from tempest import test
 
@@ -49,8 +50,8 @@ class BaseAdminNetworkTest(base.BaseAdminNetworkTest):
             for netwk_info in cls.admin_netwk_info:
                 net_client, network = netwk_info
                 try:
-                    cls._try_delete_resource(net_client.delete_network,
-                                             network['id'])
+                    test_utils.call_and_ignore_notfound_exc(
+                        net_client.delete_network, network['id'])
                 except Exception:
                     pass
         super(BaseAdminNetworkTest, cls).resource_cleanup()

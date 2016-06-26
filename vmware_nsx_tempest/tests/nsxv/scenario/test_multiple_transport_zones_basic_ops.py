@@ -16,15 +16,17 @@
 import re
 import six
 
-from tempest.lib.common.utils import data_utils
-
 from tempest.common import waiters
 from tempest import config
+from tempest.lib.common.utils import data_utils
+from tempest.lib.common.utils import test_utils
 from tempest import test
 
 from vmware_nsx_tempest.services import nsxv_client
-from vmware_nsx_tempest.tests.nsxv.scenario \
-    import manager_topo_deployment as dmgr
+from vmware_nsx_tempest.tests.nsxv.scenario import (
+    manager_topo_deployment as dmgr)
+from vmware_nsx_tempest.tests.nsxv.scenario import (
+    network_addon_methods as HELO)
 
 CONF = config.CONF
 
@@ -69,9 +71,6 @@ class TestMultipleTransportZonesBasicOps(dmgr.TopoDeployScenarioManager):
                                             "provider_network_type",
                                             'vxlan')
         cls.MAX_MTZ = getattr(CONF.nsxv, 'max_mtz', 0) or 3
-        cls.admin_networks_client = cls.admin_manager.networks_client
-        cls.admin_subnets_client = cls.admin_manager.subnets_client
-        cls.admin_routers_client = cls.admin_manager.routers_client
 
     @classmethod
     def resource_cleanup(cls):
@@ -90,91 +89,109 @@ class TestMultipleTransportZonesBasicOps(dmgr.TopoDeployScenarioManager):
             pass
         return scope_id_list
 
-    def create_project_network_subnet(self,
-                                     name_prefix='mtz-project'):
-        network_name = data_utils.rand_name(name_prefix)
-        network, subnet = self.create_network_subnet(
-            name=network_name)
-        return (network.id, network, subnet)
+    def setup(self):
+        super(TestMultipleTransportZonesBasicOps, self).setUp()
+        self.tp_svrs = {}
 
-    def create_mtz_network_subnet(self, scope_id,
+    def tearDown(self):
+        self.delete_all_servers()
+        super(TestMultipleTransportZonesBasicOps, self).tearDown()
+
+    def create_project_network_subnet(self, name_prefix='mtz-project',
+                                      client_mgr=None):
+        client_mgr = client_mgr or self.manager
+        network_name = data_utils.rand_name(name_prefix)
+        network, subnet = HELO.create_network_subnet(
+            self, client_mgr=client_mgr, name=network_name)
+        return (network['id'], network, subnet)
+
+    def create_mtz_network_subnet(self, scope_id, tenant_project_id,
                                   cidr=None, cidr_offset=0):
+        """MTZ networks can only be created by ADMIN
+
+        All tenant network resources will be created by ADMIN.
+        """
+        networks_client = self.admin_manager.networks_client
+        subnets_client = self.admin_manager.subnets_client
         network_name = data_utils.rand_name('mtz-net')
         create_body = {'name': network_name,
                        'provider:network_type': self.provider_network_type,
                        'provider:physical_network': scope_id}
-        network = self.create_network(
-            client=self.admin_manager.networks_client,
-            **create_body)
-        subnet = self.create_subnet(
-            network,
-            client=self.admin_manager.subnets_client,
-            name=network_name,
-            cidr=cidr, cidr_offset=cidr_offset)
+        network = HELO.create_network(self, client=networks_client,
+                                      tenant_id=tenant_project_id,
+                                      **create_body)
+        subnet = HELO.create_subnet(self, network, client=subnets_client,
+                                    name=network_name,
+                                    tenant_id=tenant_project_id,
+                                    cidr=cidr, cidr_offset=cidr_offset)
         lswitch_list = self.vsm.get_all_logical_switches(scope_id)
-        lswitch_list = [x for x in lswitch_list if x['name'] == network.id]
+        lswitch_list = [x for x in lswitch_list if x['name'] == network['id']]
         msg = ("network=%s is not configured by specified vdn_scope_id=%s"
-               % (network.id, scope_id))
+               % (network['id'], scope_id))
         self.assertTrue(len(lswitch_list) == 1, msg=msg)
-        return (network.id, network, subnet)
+        return (network['id'], network, subnet)
 
-    def create_router_by_type(self, router_type, name=None, **kwargs):
+    def create_router_by_type(self, router_type, client=None,
+                              name=None, **kwargs):
+        routers_client = client or self.manager.routers_client
         create_kwargs = dict(namestart='mtz-', external_gateway_info={
             "network_id": CONF.network.public_network_id})
         if router_type in ('shared', 'exclusive'):
             create_kwargs['router_type'] = router_type
         elif router_type in ('distributed'):
             create_kwargs['distributed'] = True
-        kwargs.update(create_kwargs)
-        router = self._create_router(client_mgr=self.admin_manager,
-                                     **kwargs)
+        create_kwargs.update(**kwargs)
+        router = HELO.router_create(self, client=routers_client,
+                                    **create_kwargs)
         return router
 
-    def create_router_and_add_interfaces(self, router_type, nets):
-        router = self.create_router_by_type(router_type)
+    def create_router_and_add_interfaces(self, router_type, nets,
+                                         client_mgr=None):
+        client_mgr = client_mgr or self.admin_manager
+        routers_client = client_mgr.routers_client
+        router = self.create_router_by_type(router_type,
+                                            client=routers_client)
         if router_type == 'exclusive':
-            router_nsxv_name = '%s-%s' % (router.name, router.id)
+            router_nsxv_name = '%s-%s' % (router['name'], router['id'])
             exc_edge = self.vsm.get_edge(router_nsxv_name)
             self.assertIsNotNone(exc_edge)
             self.assertEqual(exc_edge['edgeType'], 'gatewayServices')
         for net_id, (s_id, network, subnet, sg) in six.iteritems(nets):
-            router.add_subnet(subnet)
+            # import pdb; pdb.set_trace()
+            HELO.router_interface_add(self, router['id'], subnet['id'],
+                                      client=routers_client)
         return router
 
-    def clear_router_gateway_and_interfaces(self, router, nets):
-        routers_client = self.admin_routers_client
-        routers_client.update_router(router['id'],
-                                    external_gateway_info=dict())
+    def clear_router_gateway_and_interfaces(self, router, nets, client=None):
+        routers_client = client or self.manager.routers_client
+        HELO.router_gateway_clear(self, router['id'],
+                                  client=routers_client)
         for net_id, (s_id, network, subnet, sg) in six.iteritems(nets):
-            try:
-                routers_client.remove_router_interface_with_subnet_id(
-                    router['id'], subnet['id'])
-            except Exception:
-                pass
+            test_utils.call_and_ignore_notfound_exc(
+                HELO.router_interface_delete,
+                self, router['id'], subnet['id'], client=routers_client)
 
     def _test_router_with_network_and_mtz_networks(self, router_type):
         """router attached with multiple TZs and one tenant network."""
+        client_mgr = self.manager
         scope_id_list = self.get_all_scope_id_list(with_default_scope=True)
         nets = {}
         net_id, network, subnet = self.create_project_network_subnet(
-            'mtz-tenant')
+            'mtz-tenant', client_mgr=client_mgr)
+        tenant_project_id = client_mgr.networks_client.tenant_id
         # create security_group with loginable rules
         security_group = self._create_security_group(
-            security_groups_client=self.security_groups_client,
-            security_group_rules_client=self.security_group_rules_client,
+            security_groups_client=client_mgr.security_groups_client,
+            security_group_rules_client=client_mgr.security_group_rules_client,
             namestart='mtz-tenant')
         nets[net_id] = [None, network, subnet, security_group]
-        admin_security_group = self._create_security_group(
-            security_groups_client=self.admin_manager.security_groups_client,
-            security_group_rules_client=(
-                self.admin_manager.security_group_rules_client),
-            namestart='mtz-admin')
         for cidr_step in range(0, self.MAX_MTZ):
             s_id = scope_id_list[cidr_step % len(scope_id_list)]
             net_id, network, subnet = self.create_mtz_network_subnet(
-                s_id, cidr_offset=(cidr_step + 2))
-            nets[net_id] = [s_id, network, subnet, admin_security_group]
-        router = self.create_router_and_add_interfaces(router_type, nets)
+                s_id, tenant_project_id, cidr_offset=(cidr_step + 2))
+            nets[net_id] = [s_id, network, subnet, security_group]
+        router = self.create_router_and_add_interfaces(router_type, nets,
+                                                       client_mgr=client_mgr)
         return router, nets
 
     def run_servers_connectivity_test(self, servers):
@@ -183,15 +200,15 @@ class TestMultipleTransportZonesBasicOps(dmgr.TopoDeployScenarioManager):
         net_id = net_id_list[0]
         other_net_id_list = net_id_list[1:]
         username, password = self.get_image_userpass()
-        nsv = self.servers[net_id]
+        nsv = self.tp_svrs[net_id]
         serv = nsv['server']
         floatingip = self.create_floatingip_for_server(
-            serv, client_mgr=self.admin_manager)
+            serv, client_mgr=self.manager)
         msg = ("Associate floatingip[%s] to server[%s]"
                % (floatingip, serv['name']))
         self._check_floatingip_connectivity(
             floatingip, serv, should_connect=True, msg=msg)
-        serv_fip = floatingip.floating_ip_address
+        serv_fip = floatingip['floating_ip_address']
         dmgr.rm_sshkey(serv_fip)
         ssh_client = dmgr.get_remote_client_by_password(
             serv_fip, username, password)
@@ -214,34 +231,51 @@ class TestMultipleTransportZonesBasicOps(dmgr.TopoDeployScenarioManager):
                 return addr['addr']
         return None
 
-    def wait_for_servers_become_active(self, servers):
-        servers_client = self.admin_manager.servers_client
+    def wait_for_servers_become_active(self, servers, client=None):
+        servers_client = client or self.admin_manager.servers_client
         net_id_list = servers.keys()
         for net_id in net_id_list:
-            nsv = self.servers[net_id]
+            nsv = self.tp_svrs[net_id]
             serv = nsv['server']
             waiters.wait_for_server_status(
                 servers_client, serv['id'], 'ACTIVE')
+            # update server context. A server might not have ip address
+            # if not in running/active state
+            act_server = servers_client.show_server(serv['id'])
+            self.tp_svrs[net_id]['server'] = act_server.get('server',
+                                                            act_server)
+
+    def delete_all_servers(self, client=None):
+        servers_client = client or self.admin_manager.servers_client
+        for net_id in six.iterkeys(self.tp_svrs):
+            server = self.tp_svrs[net_id]['server']
+            test_utils.call_and_ignore_notfound_exc(
+                servers_client.delete, server['id'])
+            dmgr.waitfor_servers_terminated(servers_client)
 
     def run_mtz_basic_ops(self, router_type):
-        self.servers = {}
+        self.tp_svrs = {}
         router, nets = self._test_router_with_network_and_mtz_networks(
             router_type)
+        servers_client = self.manager.servers_client
         for net_id in six.iterkeys(nets):
             s_id, network, subnet, security_group = nets[net_id]
+            """
             servers_client = (self.manager.servers_client if s_id is None
                               else self.admin_manager.servers_client)
+            """
             security_groups = [{'name': security_group['id']}]
             svr = self.create_server_on_network(
                 network, security_groups,
                 name=network['name'],
-                servers_client=servers_client)
-            self.servers[net_id] = dict(server=svr, s_id=s_id,
+                servers_client=servers_client,
+                wait_on_boot=False)
+            self.tp_svrs[net_id] = dict(server=svr, s_id=s_id,
                                         network=network, subnet=subnet,
                                         security_group=security_group,
                                         servers_client=servers_client)
-        self.wait_for_servers_become_active(self.servers)
-        self.run_servers_connectivity_test(self.servers)
+        self.wait_for_servers_become_active(self.tp_svrs)
+        self.run_servers_connectivity_test(self.tp_svrs)
 
 
 class TestMTZBasicOpsOverSharedRouter(TestMultipleTransportZonesBasicOps):

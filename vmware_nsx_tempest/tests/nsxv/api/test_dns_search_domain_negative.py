@@ -16,6 +16,7 @@
 from tempest.api.network import base
 from tempest import config
 from tempest.lib.common.utils import data_utils
+from tempest.lib.common.utils import test_utils
 from tempest.lib import exceptions
 from tempest import test
 
@@ -35,7 +36,7 @@ class DnsSearchDoaminsNegativeTest(base.BaseAdminNetworkTest):
         network_name = data_utils.rand_name('dns-sear-negative')
         resp = networks_client.create_network(name=network_name)
         network = resp.get('network', resp)
-        self.addCleanup(self._try_delete_resource,
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
                         networks_client.delete_network,
                         network['id'])
         subnet_cfg = {

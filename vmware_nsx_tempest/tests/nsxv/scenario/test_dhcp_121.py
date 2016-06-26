@@ -16,7 +16,6 @@
 
 import re
 import sys
-import time
 
 from tempest import config
 from tempest.lib.common import ssh
@@ -80,16 +79,181 @@ class TestDHCP121BasicOps(dmgr.TopoDeployScenarioManager):
     def resource_cleanup(cls):
         super(TestDHCP121BasicOps, cls).resource_cleanup()
 
-    def setUp(self):
-        super(TestDHCP121BasicOps, self).setUp()
-
     def tearDown(self):
-        try:
-            self.remove_project_network(False)
-        except Exception:
-            pass
+        self.remove_project_network()
         super(TestDHCP121BasicOps, self).tearDown()
 
+    def remove_project_network(self):
+        project_name = 'green'
+        tenant = getattr(self, project_name, None)
+        if tenant:
+            servers_client = tenant['client_mgr'].servers_client
+            dmgr.delete_all_servers(servers_client)
+            self.disassociate_floatingip(tenant['fip1'],
+                                         and_delete=True)
+
+    def check_server_connected(self, serv):
+        # Fetch tenant-network from where vm deployed
+        serv_net = list(serv['addresses'].keys())[0]
+        serv_addr = serv['addresses'][serv_net][0]
+        host_ip = serv_addr['addr']
+        self.waitfor_host_connected(host_ip)
+
+    def create_project_network_subnet(self,
+                                      name_prefix='dhcp-project'):
+        network_name = data_utils.rand_name(name_prefix)
+        network, subnet = self.create_network_subnet(
+            name=network_name)
+        return (network['id'], network, subnet)
+
+    def dhcp_121_metadata_hostroutes_check_on_vm_nsxv(self, vm_env):
+        self.serv_fip = vm_env['fip1']['floating_ip_address']
+        username, password = self.get_image_userpass()
+        # Connect to instance launched using ssh lib
+        client = ssh.Client(self.serv_fip, username=username,
+                            password=password)
+        # Executes route over launched instance
+        cmd = ('route -n')
+        out_data = client.exec_command(cmd)
+        self.assertIn(Metadataserver_ip, out_data)
+        LOG.info(_LI("Metadata routes available on vm"))
+        cmd = ('wget  http://169.254.169.254 -O sample.txt')
+        client.exec_command(cmd)
+        cmd = ('cat sample.txt')
+        out_data = client.exec_command(cmd)
+        # Check metadata server inforamtion available or not
+        self.assertIn('latest', out_data)
+        LOG.info(_LI("metadata server is acessible"))
+        # Fetch dhcp edge infor from nsx-v
+        exc_edge = self.vsm.get_dhcp_edge_info()
+        self.assertIsNotNone(exc_edge)
+        # Fetch host-route and metadata info from nsx-v
+        dhcp_options_info = {}
+        dhcp_options_info = \
+            exc_edge['staticBindings']['staticBindings'][0]['dhcpOptions']
+        # Check Host Route information avaialable at beckend
+        self.assertIn(
+            Metadataserver_ip,
+            dhcp_options_info['option121'][
+                'staticRoutes'][0]['destinationSubnet'])
+        # Storing sec-group, network, subnet, router, server info in dict
+        project_dict = dict(security_group=vm_env['security_group'],
+                            network=vm_env['network'], subnet=vm_env['subnet'],
+                            router=vm_env['router'],
+                            client_mgr=vm_env['client_mgr'],
+                            serv1=vm_env['serv1'], fip1=vm_env['fip1'])
+        return project_dict
+
+    def dhcp_121_hostroutes_clear(self, vm_env):
+        # Fetch next hop information from tempest.conf
+        next_hop = CONF.network.project_network_cidr
+        self.nexthop_host_route = next_hop.rsplit('.', 1)[0]
+        self.nexthop1 = self.nexthop_host_route + ".2"
+        # Floating-ip of VM
+        self.serv_fip = vm_env['fip1']['floating_ip_address']
+        username, password = self.get_image_userpass()
+        # Update subnet with host routes
+        _subnet_data = {'host_routes': [{'destination': '10.20.0.0/32',
+                                         'nexthop': '10.100.1.1'}],
+                        'new_host_routes': [{'destination': '10.20.0.0/32',
+                                             'nexthop': self.nexthop1}]}
+        new_host_routes = _subnet_data['new_host_routes']
+        kwargs = {'host_routes': new_host_routes}
+        new_name = "New_subnet"
+        subnet_id = vm_env['subnet']['id']
+        # Update subnet with host-route info
+        self.subnets_client.update_subnet(
+            subnet_id, name=new_name, **kwargs)
+        # Connect to instance launched using ssh lib
+        client = ssh.Client(self.serv_fip, username=username,
+                            password=password)
+        # Executes route over instance launched
+        cmd = ('route -n')
+        out_data = client.exec_command(cmd)
+        self.assertIn(
+            _subnet_data['new_host_routes'][0]['nexthop'], out_data)
+        self.assertIn(self.nexthop_host_route, out_data)
+        LOG.info(_LI("Host routes available on vm"))
+        # Check Host route info at beckend
+        exc_edge = self.vsm.get_dhcp_edge_info()
+        self.assertIsNotNone(exc_edge)
+        # Fetch host-route and metadata info from nsx-v
+        dhcp_options_info = {}
+        dhcp_options_info = exc_edge['staticBindings']['staticBindings'][0][
+            'dhcpOptions']['option121']['staticRoutes']
+        # Check Host Route information avaialable at beckend
+        for destination_net in dhcp_options_info:
+            dest = _subnet_data['new_host_routes'][0]['destination']
+            dest_subnet = destination_net['destinationSubnet']
+            dest_router = destination_net['router']
+            if (dest in dest_subnet and self.nexthop1 in dest_router):
+                LOG.info(_LI("Host routes available on nsxv"))
+        # Update subnet with no host-routes
+        _subnet_data1 = {'new_host_routes': []}
+        new_host_routes = _subnet_data1['new_host_routes']
+        kwargs = {'host_routes': new_host_routes}
+        new_name = "New_subnet"
+        self.subnets_client.update_subnet(
+            subnet_id, name=new_name, **kwargs)
+        # Executes route over instance launched
+        cmd = ('dhclient eth0')
+        client.exec_command(cmd)
+        cmd = ('route -n')
+        out_data = client.exec_command(cmd)
+        self.assertIsNotNone(out_data)
+        # Check Host routes on VM shouldn't be avialable
+        self.assertNotIn(
+            _subnet_data['new_host_routes'][0]['destination'], out_data)
+        # Check Host-routes at beckend after deletion
+        exc_edge = self.vsm.get_dhcp_edge_info()
+        self.assertIsNotNone(exc_edge)
+        dhcp_options_info = []
+        dhcp_options_info = exc_edge['staticBindings']['staticBindings'][0][
+            'dhcpOptions']['option121']['staticRoutes']
+        # Check Host Route information avaialable at beckend
+        for destination_net in dhcp_options_info:
+            if (_subnet_data['new_host_routes'][0]['destination']
+                    not in destination_net['destinationSubnet']):
+                LOG.info(_LI("Host routes not available on nsxv"))
+        project_dict = dict(security_group=vm_env['security_group'],
+                            network=vm_env['network'], subnet=vm_env['subnet'],
+                            router=vm_env['router'],
+                            client_mgr=vm_env['client_mgr'],
+                            serv1=vm_env['serv1'], fip1=vm_env['fip1'])
+        return project_dict
+
+    def setup_vm_enviornment(self, client_mgr, t_id,
+                             check_outside_world=True,
+                             cidr_offset=0):
+        t_network, t_subnet, t_router = self.setup_project_network(
+            self.public_network_id, namestart=("deploy-%s-dhcp" % t_id),
+            cidr_offset=1)
+        t_security_group = self._create_security_group(
+            security_groups_client=self.security_groups_client,
+            security_group_rules_client=self.security_group_rules_client,
+            namestart='adm')
+        username, password = self.get_image_userpass()
+        security_groups = [{'name': t_security_group['id']}]
+        t_serv1 = self.create_server_on_network(
+            t_network, security_groups,
+            image=self.get_server_image(),
+            flavor=self.get_server_flavor(),
+            name=t_network['name'])
+        self.check_server_connected(t_serv1)
+        t_floatingip = self.create_floatingip_for_server(
+            t_serv1, client_mgr=self.admin_manager)
+        msg = ("Associate t_floatingip[%s] to server[%s]"
+               % (t_floatingip, t_serv1['name']))
+        self._check_floatingip_connectivity(
+            t_floatingip, t_serv1, should_connect=True, msg=msg)
+        vm_enviornment = dict(security_group=t_security_group,
+                              network=t_network, subnet=t_subnet,
+                              router=t_router, client_mgr=client_mgr,
+                              serv1=t_serv1, fip1=t_floatingip)
+        return vm_enviornment
+
+
+class TestDhcpMetadata(TestDHCP121BasicOps):
     @test.attr(type='nsxv')
     @test.idempotent_id('95d06aba-895f-47f8-b47d-ae48c6853a85')
     def test_dhcp_121_metadata_check_on_vm_nsxv(self):
@@ -98,23 +262,21 @@ class TestDHCP121BasicOps(dmgr.TopoDeployScenarioManager):
         self.vm_env = self.setup_vm_enviornment(self.manager, 'green', True)
         self.green = self.dhcp_121_metadata_hostroutes_check_on_vm_nsxv(
             self.vm_env)
-        self.remove_project_network()
-        self.green['router'].unset_gateway()
-        self.green['router'].delete()
         LOG.info(_LI("Testcase DHCP-121 option metadata check on vm and on \
             nsx completed"))
 
+
+class TestDhcpHostroutesClear(TestDHCP121BasicOps):
     @test.attr(type='nsxv')
     @test.idempotent_id('6bec6eb4-8632-493d-a895-a3ee87cb3002')
     def test_dhcp_121_hostroutes_clear(self):
         LOG.info(_LI("Testcase DHCP-121 option host routes clear deploying"))
         self.vm_env = self.setup_vm_enviornment(self.manager, 'green', True)
         self.green = self.dhcp_121_hostroutes_clear(self.vm_env)
-        self.remove_project_network()
-        self.green['router'].unset_gateway()
-        self.green['router'].delete()
         LOG.info(_LI("Testcase DHCP-121 option host routes clear completed"))
 
+
+class TestDhcpNegative(TestDHCP121BasicOps):
     @test.attr(type='nsxv')
     @test.idempotent_id('a58dc6c5-9f28-4184-baf7-37ded52593c4')
     def test_dhcp121_negative_test(self):
@@ -181,6 +343,8 @@ class TestDHCP121BasicOps(dmgr.TopoDeployScenarioManager):
             pass
         LOG.info(_LI("Testcase DHCP-121 option negative test completed"))
 
+
+class TestDhcpMultiHostRoute(TestDHCP121BasicOps):
     @test.attr(type='nsxv')
     @test.idempotent_id('c3ca96d7-b704-4d94-b42d-e7bae94b82cd')
     def test_dhcp121_multi_host_route(self):
@@ -246,176 +410,3 @@ class TestDHCP121BasicOps(dmgr.TopoDeployScenarioManager):
         if (len(subnet['subnet']['host_routes']) == 19):
             LOG.info(_LI("Multiple entries for host routes available"))
         LOG.info(_LI("Testcase DHCP-121 option multi host routes completed"))
-
-    def remove_project_network(self, from_test=True):
-        project_name = 'green'
-        tenant = getattr(self, project_name, None)
-        servers_client = tenant['client_mgr'].servers_client
-        dmgr.delete_all_servers(servers_client)
-        self.disassociate_floatingip(tenant['fip1'])
-        if from_test:
-            time.sleep(dmgr.WAITTIME_AFTER_DISASSOC_FLOATINGIP)
-        fip_client = tenant['client_mgr'].floating_ips_client
-        fip_client.delete_floatingip(tenant['fip1'].id)
-        tenant.pop('fip1')
-        tenant['router'].delete_subnet(tenant['subnet'])
-        tenant['subnet'].delete()
-        tenant['network'].delete()
-
-    def check_server_connected(self, serv):
-        # Fetch tenant-network from where vm deployed
-        serv_net = list(serv['addresses'].keys())[0]
-        serv_addr = serv['addresses'][serv_net][0]
-        host_ip = serv_addr['addr']
-        self.waitfor_host_connected(host_ip)
-
-    def create_project_network_subnet(self,
-                                      name_prefix='dhcp-project'):
-        network_name = data_utils.rand_name(name_prefix)
-        network, subnet = self.create_network_subnet(
-            name=network_name)
-        return (network.id, network, subnet)
-
-    def dhcp_121_metadata_hostroutes_check_on_vm_nsxv(self, vm_env):
-        self.serv_fip = vm_env['fip1'].floating_ip_address
-        username, password = self.get_image_userpass()
-        # Connect to instance launched using ssh lib
-        client = ssh.Client(self.serv_fip, username=username,
-                            password=password)
-        # Executes route over launched instance
-        cmd = ('route -n')
-        out_data = client.exec_command(cmd)
-        self.assertIn(Metadataserver_ip, out_data)
-        LOG.info(_LI("Metadata routes available on vm"))
-        cmd = ('wget  http://169.254.169.254 -O sample.txt')
-        client.exec_command(cmd)
-        cmd = ('cat sample.txt')
-        out_data = client.exec_command(cmd)
-        # Check metadata server inforamtion available or not
-        self.assertIn('latest', out_data)
-        LOG.info(_LI("metadata server is acessible"))
-        # Fetch dhcp edge infor from nsx-v
-        exc_edge = self.vsm.get_dhcp_edge_info()
-        self.assertIsNotNone(exc_edge)
-        # Fetch host-route and metadata info from nsx-v
-        dhcp_options_info = {}
-        dhcp_options_info = \
-            exc_edge['staticBindings']['staticBindings'][0]['dhcpOptions']
-        # Check Host Route information avaialable at beckend
-        self.assertIn(
-            Metadataserver_ip,
-            dhcp_options_info['option121'][
-                'staticRoutes'][0]['destinationSubnet'])
-        # Storing sec-group, network, subnet, router, server info in dict
-        project_dict = dict(security_group=vm_env['security_group'],
-                            network=vm_env['network'], subnet=vm_env['subnet'],
-                            router=vm_env['router'],
-                            client_mgr=vm_env['client_mgr'],
-                            serv1=vm_env['serv1'], fip1=vm_env['fip1'])
-        return project_dict
-
-    def dhcp_121_hostroutes_clear(self, vm_env):
-        # Fetch next hop information from tempest.conf
-        next_hop = CONF.network.project_network_cidr
-        self.nexthop_host_route = next_hop.rsplit('.', 1)[0]
-        self.nexthop1 = self.nexthop_host_route + ".2"
-        # Floating-ip of VM
-        self.serv_fip = vm_env['fip1'].floating_ip_address
-        username, password = self.get_image_userpass()
-        # Update subnet with host routes
-        _subnet_data = {'host_routes': [{'destination': '10.20.0.0/32',
-                                         'nexthop': '10.100.1.1'}],
-                        'new_host_routes': [{'destination': '10.20.0.0/32',
-                                             'nexthop': self.nexthop1}]}
-        new_host_routes = _subnet_data['new_host_routes']
-        kwargs = {'host_routes': new_host_routes}
-        new_name = "New_subnet"
-        subnet_id = vm_env['subnet']['id']
-        # Update subnet with host-route info
-        self.subnets_client.update_subnet(
-            subnet_id, name=new_name, **kwargs)
-        # Connect to instance launched using ssh lib
-        client = ssh.Client(self.serv_fip, username=username,
-                            password=password)
-        # Executes route over instance launched
-        cmd = ('route -n')
-        out_data = client.exec_command(cmd)
-        self.assertIn(
-            _subnet_data['new_host_routes'][0]['nexthop'], out_data)
-        self.assertIn(self.nexthop_host_route, out_data)
-        LOG.info(_LI("Host routes available on vm"))
-        # Check Host route info at beckend
-        exc_edge = self.vsm.get_dhcp_edge_info()
-        self.assertIsNotNone(exc_edge)
-        # Fetch host-route and metadata info from nsx-v
-        dhcp_options_info = {}
-        dhcp_options_info = exc_edge['staticBindings']['staticBindings'][0][
-            'dhcpOptions']['option121']['staticRoutes']
-        # Check Host Route information avaialable at beckend
-        for destination_net in dhcp_options_info:
-            if _subnet_data['new_host_routes'][0]['destination']\
-                in destination_net['destinationSubnet'] and\
-                    self.nexthop1 in destination_net['router']:
-                LOG.info(_LI("Host routes available on nsxv"))
-        # Update subnet with no host-routes
-        _subnet_data1 = {'new_host_routes': []}
-        new_host_routes = _subnet_data1['new_host_routes']
-        kwargs = {'host_routes': new_host_routes}
-        new_name = "New_subnet"
-        self.subnets_client.update_subnet(
-            subnet_id, name=new_name, **kwargs)
-        # Executes route over instance launched
-        cmd = ('dhclient eth0')
-        client.exec_command(cmd)
-        cmd = ('route -n')
-        out_data = client.exec_command(cmd)
-        self.assertIsNotNone(out_data)
-        # Check Host routes on VM shouldn't be avialable
-        self.assertNotIn(
-            _subnet_data['new_host_routes'][0]['destination'], out_data)
-        # Check Host-routes at beckend after deletion
-        exc_edge = self.vsm.get_dhcp_edge_info()
-        self.assertIsNotNone(exc_edge)
-        dhcp_options_info = []
-        dhcp_options_info = exc_edge['staticBindings']['staticBindings'][0][
-            'dhcpOptions']['option121']['staticRoutes']
-        # Check Host Route information avaialable at beckend
-        for destination_net in dhcp_options_info:
-            if (_subnet_data['new_host_routes'][0]['destination']
-                    not in destination_net['destinationSubnet']):
-                LOG.info(_LI("Host routes not available on nsxv"))
-        project_dict = dict(security_group=vm_env['security_group'],
-                            network=vm_env['network'], subnet=vm_env['subnet'],
-                            router=vm_env['router'],
-                            client_mgr=vm_env['client_mgr'],
-                            serv1=vm_env['serv1'], fip1=vm_env['fip1'])
-        return project_dict
-
-    def setup_vm_enviornment(self, client_mgr, t_id,
-                             check_outside_world=True,
-                             cidr_offset=0):
-        t_network, t_subnet, t_router = self.setup_project_network(
-            self.public_network_id, namestart=("deploy-%s-tenant" % t_id))
-        t_security_group = self._create_security_group(
-            security_groups_client=self.security_groups_client,
-            security_group_rules_client=self.security_group_rules_client,
-            namestart='adm')
-        username, password = self.get_image_userpass()
-        security_groups = [{'name': t_security_group['name']}]
-        t_serv1 = self.create_server_on_network(
-            t_network, security_groups,
-            image=self.get_server_image(),
-            flavor=self.get_server_flavor(),
-            name=t_network['name'])
-        self.check_server_connected(t_serv1)
-        t_floatingip = self.create_floatingip_for_server(
-            t_serv1, client_mgr=self.admin_manager)
-        msg = ("Associate t_floatingip[%s] to server[%s]"
-               % (t_floatingip, t_serv1['name']))
-        self._check_floatingip_connectivity(
-            t_floatingip, t_serv1, should_connect=True, msg=msg)
-        vm_enviornment = dict(security_group=t_security_group,
-                              network=t_network, subnet=t_subnet,
-                              router=t_router, client_mgr=client_mgr,
-                              serv1=t_serv1, fip1=t_floatingip)
-        return vm_enviornment

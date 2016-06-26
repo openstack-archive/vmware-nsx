@@ -15,6 +15,7 @@
 #    under the License.
 
 from tempest.lib.common.utils import data_utils
+from tempest.lib.common.utils import test_utils
 from tempest.lib import exceptions as lib_exc
 
 from tempest.api.network import base
@@ -42,7 +43,7 @@ class MultipleTransportZonesNegativeTest(base.BaseAdminNetworkTest):
         resp = networks_client.create_network(name=network_name,
                                               **create_kwargs)
         network = resp['network'] if 'network' in resp else resp
-        self.addCleanup(self._try_delete_resource,
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
                         networks_client.delete_network,
                         network['id'])
         return network

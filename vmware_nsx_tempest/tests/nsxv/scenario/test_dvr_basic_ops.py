@@ -21,12 +21,12 @@ from oslo_log import log as logging
 import testtools
 
 from tempest import config
-from tempest import exceptions
 from tempest.lib.common.utils import data_utils
 from tempest.scenario import manager
 from tempest import test
 
-from vmware_nsx_tempest.tests.nsxv.scenario import net_resources
+from vmware_nsx_tempest.tests.nsxv.scenario import (
+    network_addon_methods as HELO)
 
 CONF = config.CONF
 FIP_OPS_TIMEOUT = 10
@@ -113,7 +113,7 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
         self.port_id = None
         if boot_with_port:
             # create a port on the network and boot with that
-            self.port_id = self._create_port(self.network['id']).id
+            self.port_id = self._create_port(self.network['id'])['id']
 
         name = data_utils.rand_name('server-smoke')
         server = self._create_server(name, self.network, self.port_id)
@@ -139,7 +139,9 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
             if k in ('distributed', 'router_type', 'router_size'):
                 router_kwargs[k] = kwargs.pop(k)
         router = self._create_router(**router_kwargs)
-        router.set_gateway(CONF.network.public_network_id)
+        HELO.router_gateway_set(self, router['id'],
+                                CONF.network.public_network_id,
+                                routers_client)
 
         subnet_kwargs = dict(network=network,
                              namestart=namestart,
@@ -148,54 +150,21 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
         if dns_nameservers is not None:
             subnet_kwargs['dns_nameservers'] = dns_nameservers
         subnet = self._create_subnet(**subnet_kwargs)
-        subnet.add_to_router(router.id)
+        HELO.router_interface_add(self, router['id'], subnet['id'],
+                                  routers_client)
         return network, subnet, router
 
     # overwrite super class
     def _create_router(self, client=None, tenant_id=None,
                        namestart='dvr-ops', **kwargs):
-        if not client:
-            client = self.routers_client
-        if not tenant_id:
-            tenant_id = client.tenant_id
-        name = data_utils.rand_name(namestart)
-        result = client.create_router(name=name,
-                                      admin_state_up=True,
-                                      tenant_id=tenant_id,
-                                      **kwargs)
-        router = net_resources.DeletableRouter(
-            routers_client=client, **result['router'])
-        self.assertEqual(router.name, name)
-        self.addCleanup(self.delete_wrapper, router.delete)
-        return router
+        return HELO.router_create(self, client,
+                                  tenant_id=tenant_id,
+                                  namestart=namestart,
+                                  admin_state_up=True,
+                                  **kwargs)
 
     def check_networks(self):
-        """
-        Checks that we see the newly created network/subnet/router via
-        checking the result of list_[networks,routers,subnets]
-        """
-
-        seen_nets = self._list_networks()
-        seen_names = [n['name'] for n in seen_nets]
-        seen_ids = [n['id'] for n in seen_nets]
-        self.assertIn(self.network.name, seen_names)
-        self.assertIn(self.network.id, seen_ids)
-
-        if self.subnet:
-            seen_subnets = self._list_subnets()
-            seen_net_ids = [n['network_id'] for n in seen_subnets]
-            seen_subnet_ids = [n['id'] for n in seen_subnets]
-            self.assertIn(self.network.id, seen_net_ids)
-            self.assertIn(self.subnet.id, seen_subnet_ids)
-
-        if self.router:
-            seen_routers = self._list_routers()
-            seen_router_ids = [n['id'] for n in seen_routers]
-            seen_router_names = [n['name'] for n in seen_routers]
-            self.assertIn(self.router.name,
-                          seen_router_names)
-            self.assertIn(self.router.id,
-                          seen_router_ids)
+        HELO.check_networks(self, self.network, self.subnet, self.router)
 
     def _create_server(self, name, network, port_id=None):
         keypair = self.create_keypair()
@@ -203,7 +172,7 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
         security_groups = [{'name': self.security_group['name']}]
         create_kwargs = {
             'networks': [
-                {'uuid': network.id},
+                {'uuid': network['id']},
             ],
             'key_name': keypair['name'],
             'security_groups': security_groups,
@@ -243,7 +212,7 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
         """
         ssh_login = CONF.validation.image_ssh_user
         floating_ip, server = self.floating_ip_tuple
-        ip_address = floating_ip.floating_ip_address
+        ip_address = floating_ip['floating_ip_address']
         private_key = None
         floatingip_status = 'DOWN'
         if should_connect:
@@ -282,58 +251,6 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
                 network=self.new_net,
                 gateway_ip=None)
 
-    def _hotplug_server(self):
-        old_floating_ip, server = self.floating_ip_tuple
-        ip_address = old_floating_ip.floating_ip_address
-        private_key = self._get_server_key(server)
-        ssh_client = self.get_remote_client(ip_address,
-                                            private_key=private_key)
-        old_nic_list = self._get_server_nics(ssh_client)
-        # get a port from a list of one item
-        port_list = self._list_ports(device_id=server['id'])
-        self.assertEqual(1, len(port_list))
-        old_port = port_list[0]
-        interface = self.interface_client.create_interface(
-            server=server['id'],
-            network_id=self.new_net.id)
-        self.addCleanup(self.ports_client.wait_for_resource_deletion,
-                        interface['port_id'])
-        self.addCleanup(self.delete_wrapper,
-                        self.interface_client.delete_interface,
-                        server['id'], interface['port_id'])
-
-        def check_ports():
-            self.new_port_list = [port for port in
-                                  self._list_ports(device_id=server['id'])
-                                  if port['id'] != old_port['id']]
-            return len(self.new_port_list) == 1
-
-        if not test.call_until_true(check_ports, CONF.network.build_timeout,
-                                    CONF.network.build_interval):
-            raise exceptions.TimeoutException(
-                "No new port attached to the server in time (%s sec)! "
-                "Old port: %s. Number of new ports: %d" % (
-                    CONF.network.build_timeout, old_port,
-                    len(self.new_port_list)))
-        new_port = net_resources.DeletablePort(client=self.ports_client,
-                                               **self.new_port_list[0])
-
-        def check_new_nic():
-            new_nic_list = self._get_server_nics(ssh_client)
-            self.diff_list = [n for n in new_nic_list if n not in old_nic_list]
-            return len(self.diff_list) == 1
-
-        if not test.call_until_true(check_new_nic, CONF.network.build_timeout,
-                                    CONF.network.build_interval):
-            raise exceptions.TimeoutException("Interface not visible on the "
-                                              "guest after %s sec"
-                                              % CONF.network.build_timeout)
-
-        num, new_nic = self.diff_list[0]
-        ssh_client.assign_static_ip(nic=new_nic,
-                                    addr=new_port.fixed_ips[0]['ip_address'])
-        ssh_client.turn_nic_on(nic=new_nic)
-
     def _get_server_nics(self, ssh_client):
         reg = re.compile(r'(?P<num>\d+): (?P<nic_name>\w+):')
         ipatxt = ssh_client.get_ip_list()
@@ -351,7 +268,7 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
         # get all network ports in the new network
         internal_ips = (p['fixed_ips'][0]['ip_address'] for p in
                         self._list_ports(tenant_id=server['tenant_id'],
-                                         network_id=network.id)
+                                         network_id=network['id'])
                         if (p['device_owner'].startswith('network') and
                             not p['device_owner'].endswith('dhcp')))
 
@@ -383,7 +300,7 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
 
     def _check_server_connectivity(self, floating_ip, address_list,
                                    should_connect=True):
-        ip_address = floating_ip.floating_ip_address
+        ip_address = floating_ip['floating_ip_address']
         private_key = self._get_server_key(self.floating_ip_tuple.server)
         # ssh_source = self._ssh_to_server(ip_address, private_key)
         ssh_source = self.get_remote_client(ip_address,
@@ -506,7 +423,8 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
         self._create_server(name, self.new_net)
         self._check_network_internal_connectivity(network=self.new_net,
                                                   should_connect=False)
-        self.new_subnet.add_to_router(self.router.id)
+        HELO.router_interface_add(self, self.router['id'],
+                                  self.new_subnet['id'])
         self._check_network_internal_connectivity(network=self.new_net,
                                                   should_connect=True)
 

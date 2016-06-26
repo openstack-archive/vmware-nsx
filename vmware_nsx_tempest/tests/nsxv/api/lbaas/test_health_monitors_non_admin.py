@@ -56,7 +56,7 @@ class TestHealthMonitors(base.BaseTestCase):
 
         hm_list = self._list_health_monitors()
         for hm in hm_list:
-            self._try_delete_resource(
+            test_utils.call_and_igonre_not_found_exc(
                 self._delete_health_monitor,
                 hm.get('id'))
         """

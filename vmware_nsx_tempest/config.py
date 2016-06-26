@@ -96,6 +96,11 @@ NSXvGroup = [
     cfg.IntOpt('provider_vlan_id',
                default=888,
                help="The default vlan_id for admin vlan."),
+    cfg.BoolOpt('no_router_type',
+               default=False,
+               help="router_type is NSXv extension."
+                    "Set it to True allow tests to remove this attribute"
+                    " when creating router."),
 ]
 
 
