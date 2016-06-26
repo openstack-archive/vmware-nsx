@@ -509,6 +509,9 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
         plugin = self._get_core_plugin_with_dvs()
         ctx = context.get_admin_context()
 
+        # Mark init as complete, as otherwise QoS won't be called
+        plugin.init_is_complete = True
+
         # fake policy id
         policy_id = _uuid()
         data = {'network': {

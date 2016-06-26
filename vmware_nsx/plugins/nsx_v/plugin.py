@@ -169,6 +169,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         floatingip=l3_db.FloatingIP)
     def __init__(self):
         super(NsxVPluginV2, self).__init__()
+        self.init_is_complete = False
+        registry.subscribe(self.init_complete,
+                           resources.PROCESS,
+                           events.AFTER_CREATE)
         self.metadata_proxy_handler = None
         config.validate_nsxv_config_options()
         neutron_extensions.append_api_extensions_path(
@@ -218,6 +222,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if has_metadata_cfg:
             self.metadata_proxy_handler = (
                 nsx_v_md_proxy.NsxVMetadataProxyHandler(self))
+
+    def init_complete(self, resource, event, trigger, **kwargs):
+        self.init_is_complete = True
 
     def _start_rpc_listeners(self):
         self.conn = n_rpc.create_connection()
@@ -925,7 +932,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         self._delete_backend_network(net_moref)
                 LOG.exception(_LE('Failed to create network'))
 
-        if backend_network:
+        # If init is incomplete calling _update_qos_network() will result a
+        # deadlock.
+        # That situation happens when metadata init is creating a network
+        # on its 1st execution.
+        # Therefore we skip this code during init.
+        if backend_network and self.init_is_complete:
             # Update the QOS restrictions of the backend network
             self._update_network_qos(context, net_data, dvs_net_ids, net_moref)
             new_net[qos_consts.QOS_POLICY_ID] = (

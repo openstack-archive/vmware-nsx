@@ -46,6 +46,7 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
                                                    ext_mgr=None)
         plugin_instance = manager.NeutronManager.get_plugin()
         self._core_plugin = plugin_instance
+        self._core_plugin.init_is_complete = True
 
         # Setup the QoS plugin:
         # Add a dummy notification driver that calls our handler directly
