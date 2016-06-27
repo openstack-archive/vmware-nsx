@@ -213,7 +213,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self.supported_extension_aliases.append('mac-learning')
         except Exception as e:
             LOG.warning(_LW("Unable to initialize NSX v3 MAC Learning "
-                            "profile: %(name)s. Reason: %s(reason)"),
+                            "profile: %(name)s. Reason: %(reason)s"),
                         {'name': NSX_V3_MAC_LEARNING_PROFILE_NAME,
                          'reason': e})
         self._unsubscribe_callback_events()
