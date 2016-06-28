@@ -101,6 +101,12 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
         _patch_object(nsx_plugin, 'nsx_client', new=mock_client_module)
         _patch_object(nsx_plugin, 'nsx_cluster', new=mock_cluster_module)
 
+        # Mock the nsx v3 version
+        mock_nsxlib_get_version = mock.patch(
+            "vmware_nsx.nsxlib.v3.get_version",
+            return_value='1.1.0')
+        mock_nsxlib_get_version.start()
+
         # populate pre-existing mock resources
         cluster_id = uuidutils.generate_uuid()
         self.mock_api.post(

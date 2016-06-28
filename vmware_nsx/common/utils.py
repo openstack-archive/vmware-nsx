@@ -13,11 +13,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from distutils import version
 import functools
 import hashlib
 
 import eventlet
-from neutron import version
+from neutron import version as n_version
 from neutron_lib.api import validators
 from neutron_lib import exceptions
 from oslo_config import cfg
@@ -33,9 +34,10 @@ LOG = log.getLogger(__name__)
 MAX_DISPLAY_NAME_LEN = 40
 MAX_RESOURCE_TYPE_LEN = 20
 MAX_TAG_LEN = 40
-NEUTRON_VERSION = version.version_info.release_string()
+NEUTRON_VERSION = n_version.version_info.release_string()
 NSX_NEUTRON_PLUGIN = 'NSX Neutron plugin'
 OS_NEUTRON_ID_SCOPE = 'os-neutron-id'
+NSXV3_VERSION_1_1_0 = '1.1.0'
 
 
 # Allowed network types for the NSX Plugin
@@ -64,6 +66,11 @@ class NsxV3NetworkTypes:
     FLAT = 'flat'
     VLAN = 'vlan'
     VXLAN = 'vxlan'
+
+
+def is_nsx_version_1_1_0(nsx_version):
+    return (version.LooseVersion(nsx_version) >=
+            version.LooseVersion(NSXV3_VERSION_1_1_0))
 
 
 def get_tags(**kwargs):
@@ -116,7 +123,7 @@ def build_v3_api_version_tag():
     return [{'scope': OS_NEUTRON_ID_SCOPE,
              'tag': NSX_NEUTRON_PLUGIN},
             {'scope': "os-api-version",
-             'tag': version.version_info.release_string()}]
+             'tag': n_version.version_info.release_string()}]
 
 
 def _validate_resource_type_length(resource_type):
@@ -151,7 +158,7 @@ def build_v3_tags_payload(resource, resource_type, project_name):
             {'scope': 'os-project-name',
              'tag': project_name[:MAX_TAG_LEN]},
             {'scope': 'os-api-version',
-             'tag': version.version_info.release_string()[:MAX_TAG_LEN]}]
+             'tag': n_version.version_info.release_string()[:MAX_TAG_LEN]}]
 
 
 def add_v3_tag(tags, resource_type, tag):

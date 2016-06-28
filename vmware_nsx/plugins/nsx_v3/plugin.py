@@ -157,7 +157,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def __init__(self):
         super(NsxV3Plugin, self).__init__()
         LOG.info(_LI("Starting NsxV3Plugin"))
-        LOG.info(_LI("NSX Version: %s"), nsxlib.get_version())
+        self._nsx_version = nsxlib.get_version()
+        LOG.info(_LI("NSX Version: %s"), self._nsx_version)
         self._api_cluster = nsx_cluster.NSXClusteredAPI()
         self._nsx_client = nsx_client.NSX3Client(self._api_cluster)
         nsx_client._set_default_api_cluster(self._api_cluster)
@@ -205,17 +206,19 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     "switching profile: %s") % NSX_V3_DHCP_PROFILE_NAME
             raise nsx_exc.NsxPluginException(msg)
 
-        LOG.debug("Initializing NSX v3 Mac Learning switching profile")
         self._mac_learning_profile = None
-        try:
-            self._mac_learning_profile = self._init_mac_learning_profile()
-            # Only expose the extension if it is supported
-            self.supported_extension_aliases.append('mac-learning')
-        except Exception as e:
-            LOG.warning(_LW("Unable to initialize NSX v3 MAC Learning "
-                            "profile: %(name)s. Reason: %(reason)s"),
-                        {'name': NSX_V3_MAC_LEARNING_PROFILE_NAME,
-                         'reason': e})
+        if utils.is_nsx_version_1_1_0(self._nsx_version):
+            LOG.debug("Initializing NSX v3 Mac Learning switching profile")
+            try:
+                self._mac_learning_profile = self._init_mac_learning_profile()
+                # Only expose the extension if it is supported
+                self.supported_extension_aliases.append('mac-learning')
+            except Exception as e:
+                LOG.warning(_LW("Unable to initialize NSX v3 MAC Learning "
+                                "profile: %(name)s. Reason: %(reason)s"),
+                            {'name': NSX_V3_MAC_LEARNING_PROFILE_NAME,
+                             'reason': e})
+
         self._unsubscribe_callback_events()
         if cfg.CONF.api_replay_mode:
             self.supported_extension_aliases.append('api-replay')
