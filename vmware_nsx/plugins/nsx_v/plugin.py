@@ -292,9 +292,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     def _delete_dhcp_static_binding(self, context, neutron_port_db):
 
         network_id = neutron_port_db['network_id']
-        self.edge_manager.delete_dhcp_binding(
-            context, neutron_port_db['id'], network_id,
-            neutron_port_db['mac_address'])
+        try:
+            self.edge_manager.delete_dhcp_binding(
+                context, neutron_port_db['id'], network_id,
+                neutron_port_db['mac_address'])
+        except Exception as e:
+            LOG.error(_LE('Unable to delete static bindings for %(id)s. '
+                          'Error: %(e)s'),
+                      {'id': neutron_port_db['id'], 'e': e})
 
     def _validate_provider_create(self, context, network):
         if not attr.is_attr_set(network.get(mpnet.SEGMENTS)):
