@@ -172,7 +172,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self.init_is_complete = False
         registry.subscribe(self.init_complete,
                            resources.PROCESS,
-                           events.AFTER_CREATE)
+                           events.AFTER_INIT)
         self.metadata_proxy_handler = None
         config.validate_nsxv_config_options()
         neutron_extensions.append_api_extensions_path(
