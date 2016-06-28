@@ -1042,6 +1042,10 @@ class EdgeManager(object):
     def reuse_existing_dhcp_edge(self, context, edge_id, resource_id,
                                  network_id):
         app_size = vcns_const.SERVICE_SIZE_MAPPING['dhcp']
+        # There may be edge cases when we are waiting for edges to deploy
+        # and the underlying db session may hit a timeout. So this creates
+        # a new session
+        context = q_context.get_admin_context()
         nsxv_db.add_nsxv_router_binding(
             context.session, resource_id,
             edge_id, None, plugin_const.ACTIVE,
@@ -1127,8 +1131,9 @@ class EdgeManager(object):
                     if new_id:
                         LOG.debug("Select edge %s to support dhcp for network "
                                   "%s", new_id, network_id)
-                        self.reuse_existing_dhcp_edge(
-                            context, new_id, resource_id, network_id)
+                        with locking.LockManager.get_lock(str(new_id)):
+                            self.reuse_existing_dhcp_edge(
+                                context, new_id, resource_id, network_id)
                     else:
                         allocate_new_edge = True
                 else:
@@ -1150,6 +1155,10 @@ class EdgeManager(object):
         resource_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
         edge_binding = nsxv_db.get_nsxv_router_binding(context.session,
                                                        resource_id)
+        if not edge_binding:
+            LOG.warning(_LW('Edge binding does not exist for network %s'),
+                        network_id)
+            return
         dhcp_binding = nsxv_db.get_edge_vnic_binding(context.session,
                                                      edge_binding['edge_id'],
                                                      network_id)

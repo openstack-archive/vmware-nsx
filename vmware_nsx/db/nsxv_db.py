@@ -251,7 +251,6 @@ def allocate_edge_vnic_with_tunnel_index(session, edge_id, network_id):
             raise nsx_exc.NsxPluginException(err_msg=msg)
         binding['network_id'] = network_id
         session.add(binding)
-        session.flush()
     return binding
 
 
