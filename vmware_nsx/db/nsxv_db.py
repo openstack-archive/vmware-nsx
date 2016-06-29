@@ -74,7 +74,7 @@ def warn_on_binding_status_error(f, *args, **kwargs):
     if result is None:
         return
     # we support functions that return a single entry or a list
-    if type(result) == list:
+    if isinstance(result, list):
         bindings = result
     else:
         bindings = [result]

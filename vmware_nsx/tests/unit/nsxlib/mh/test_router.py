@@ -619,8 +619,8 @@ class TestLogicalRouters(base.NsxlibTestCase):
             self.fake_cluster, lrouter['uuid'])
         self.assertEqual(len(ports), 1)
         res_port = ports[0]
-        self.assertEqual(['10.10.10.254', '192.168.0.1'],
-                         res_port['ip_addresses'])
+        self.assertEqual(sorted(['10.10.10.254', '192.168.0.1']),
+                         sorted(res_port['ip_addresses']))
 
     def test_update_lrouter_port_ips_remove_only(self):
         lrouter = routerlib.create_lrouter(self.fake_cluster,

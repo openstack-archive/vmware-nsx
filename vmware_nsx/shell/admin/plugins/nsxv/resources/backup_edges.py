@@ -75,8 +75,8 @@ def nsx_clean_backup_edge(resource, event, trigger, **kwargs):
         return
     try:
         edge = nsxv.get_edge(edge_id)
-    except exceptions.NeutronException as e:
-        LOG.error(_LE("%s"), str(e))
+    except exceptions.NeutronException as x:
+        LOG.error(_LE("%s"), str(x))
     else:
         # edge[0] is response status code
         # edge[1] is response body
@@ -102,8 +102,8 @@ def nsx_clean_backup_edge(resource, event, trigger, **kwargs):
                     edgeapi.context.session, edge[1]['name'])
                 nsxv_db.clean_edge_vnic_binding(edgeapi.context.session,
                                                 edge_id)
-        except Exception as e:
-            LOG.error(_LE("%s"), str(e))
+        except Exception as expt:
+            LOG.error(_LE("%s"), str(expt))
 
 
 @admin_utils.output_header

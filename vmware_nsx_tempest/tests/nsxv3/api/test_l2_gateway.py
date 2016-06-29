@@ -133,7 +133,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
         self.resource_cleanup()
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("670cacb5-134e-467d-ba41-0d7cdbcf3903")
+    @test.idempotent_id("670cbcb5-134e-467d-ba41-0d7cdbcf3903")
     def test_l2_gateway_delete(self):
         """
         Delete l2gw will create l2gw and delete recently created l2gw. To

@@ -94,7 +94,7 @@ class RESTClient(object):
 
             manager_error = ERRORS.get(
                 result.status_code, nsx_exc.ManagerError)
-            if type(result_msg) is dict:
+            if isinstance(result_msg, dict):
                 result_msg = result_msg.get('error_message', result_msg)
             raise manager_error(
                 manager=_get_nsx_managers_from_conf(),

@@ -19,10 +19,12 @@ test_vmware_nsx_tempest
 Tests for `vmware_nsx_tempest` module.
 """
 
+from tempest import test
 from vmware_nsx_tempest.tests import base
 
 
 class TestVmware_nsx_tempest(base.TestCase):
 
+    @test.idempotent_id('3c4c36a1-684b-4e89-8e71-a328f19324a0')
     def test_something(self):
         pass

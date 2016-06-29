@@ -170,7 +170,7 @@ class SwitchingProfile(AbstractRESTResource):
     def build_switch_profile_ids(cls, client, *profiles):
         ids = []
         for profile in profiles:
-            if type(profile) is str:
+            if isinstance(profile, str):
                 profile = client.get(profile)
             if not isinstance(profile, SwitchingProfileTypeId):
                 profile = SwitchingProfileTypeId(

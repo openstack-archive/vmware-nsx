@@ -118,6 +118,5 @@ ERROR_MAPPINGS = {
     301: zero,
     307: zero,
     500: zero,
-    501: zero,
-    503: zero
+    501: zero
 }

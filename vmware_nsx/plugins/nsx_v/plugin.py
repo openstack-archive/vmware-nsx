@@ -2332,7 +2332,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                     is_routes_update=is_routes_update)
                             except n_exc.IpAddressGenerationFailure:
                                 del info['external_fixed_ips']
-                                pass
                         LOG.warning(_LW("Cannot get one subnet with gateway "
                                         "to allocate one available gw ip"))
                 router_driver._update_router_gw_info(
