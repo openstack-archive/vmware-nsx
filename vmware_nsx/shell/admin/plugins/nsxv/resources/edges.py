@@ -25,6 +25,7 @@ import vmware_nsx.shell.resources as shell
 
 from neutron.callbacks import registry
 from neutron_lib import exceptions
+from oslo_config import cfg
 
 from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.db import nsxv_db
@@ -191,13 +192,51 @@ def change_edge_appliance_size(properties):
         LOG.error(_LE("%s"), str(e))
 
 
+def _get_edge_resource_pool_and_size(edge_id):
+    edgeapi = utils.NeutronDbClient()
+    binding = nsxv_db.get_nsxv_router_binding_by_edge(
+        edgeapi.context.session, edge_id)
+    if binding:
+        return binding['resource_pool'], binding['appliance_size']
+    # default fallback
+    return cfg.CONF.nsxv.resource_pool_id, nsxv_constants.LARGE
+
+
+def change_edge_appliance(edge_id):
+    """Update the appliances data of an edge
+
+    Update the edge appliances data according to the current
+    nsx.ini config, including the edge_ha, datastore & ha_datastore.
+    The resource pool will not be modified.
+    """
+    datastore_id = cfg.CONF.nsxv.datastore_id
+    ha_datastore_id = cfg.CONF.nsxv.ha_datastore_id
+    edge_ha = cfg.CONF.nsxv.edge_ha
+    # find out what is the current resource pool & size, so we can keep them
+    resource_pool, size = _get_edge_resource_pool_and_size(edge_id)
+    appliances = [{'resourcePoolId': resource_pool,
+                   'datastoreId': datastore_id}]
+    if ha_datastore_id and edge_ha:
+        appliances.append({'resourcePoolId': resource_pool,
+                           'datastoreId': ha_datastore_id})
+    request = {'appliances': appliances, 'applianceSize': size}
+    try:
+        nsxv.change_edge_appliance(edge_id, request)
+    except nsxv_exceptions.ResourceNotFound as e:
+        LOG.error(_LE("Edge %s not found"), edge_id)
+    except exceptions.NeutronException as e:
+        LOG.error(_LE("%s"), str(e))
+
+
 @admin_utils.output_header
 def nsx_update_edge(resource, event, trigger, **kwargs):
     """Update edge properties"""
+    usage_msg = _LE("Need to specify edge-id parameter and "
+                    "attribute to update. Add --property edge-id=<edge-id> "
+                    "and --property highavailability=<True/False> or "
+                    "--property size=<size> or --property appliances=True")
     if not kwargs.get('property'):
-        LOG.error(_LE("Need to specify edge-id parameter and "
-                      "attribute to update. Add --property edge-id=<edge-id> "
-                      "--property highavailability=True"))
+        LOG.error(usage_msg)
         return
     properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
     if not properties.get('edge-id'):
@@ -210,6 +249,12 @@ def nsx_update_edge(resource, event, trigger, **kwargs):
         change_edge_ha(properties)
     elif properties.get('size'):
         change_edge_appliance_size(properties)
+    elif (properties.get('appliances') and
+          properties.get('appliances').lower() == "true"):
+        change_edge_appliance(properties['edge-id'])
+    else:
+        # no attribute was specified
+        LOG.error(usage_msg)
 
 
 registry.subscribe(nsx_list_edges,
