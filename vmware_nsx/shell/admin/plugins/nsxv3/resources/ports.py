@@ -29,7 +29,7 @@ from vmware_nsx.services.qos.common import utils as qos_utils
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
-from vmware_nsx.shell import nsxadmin as shell
+from vmware_nsx.shell import resources as shell
 
 from neutron.callbacks import registry
 from neutron import context as neutron_context

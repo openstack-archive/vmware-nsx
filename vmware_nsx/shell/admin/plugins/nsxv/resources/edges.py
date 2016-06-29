@@ -21,7 +21,7 @@ from vmware_nsx.shell.admin.plugins.common import formatters
 
 import vmware_nsx.shell.admin.plugins.common.utils as admin_utils
 import vmware_nsx.shell.admin.plugins.nsxv.resources.utils as utils
-import vmware_nsx.shell.nsxadmin as shell
+import vmware_nsx.shell.resources as shell
 
 from neutron.callbacks import registry
 from neutron_lib import exceptions

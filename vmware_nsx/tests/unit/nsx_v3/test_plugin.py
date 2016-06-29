@@ -100,6 +100,8 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
         mock_client_module.NSX3Client.return_value = mocked_client
         _patch_object(nsx_plugin, 'nsx_client', new=mock_client_module)
         _patch_object(nsx_plugin, 'nsx_cluster', new=mock_cluster_module)
+        self._mock_client_module = mock_client_module
+        self._mock_cluster_module = mock_cluster_module
 
         # Mock the nsx v3 version
         mock_nsxlib_get_version = mock.patch(
