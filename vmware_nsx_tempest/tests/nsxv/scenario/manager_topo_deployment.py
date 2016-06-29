@@ -14,24 +14,22 @@
 #    under the License.
 
 import collections
-from fixtures._fixtures import timeout as fixture_timeout
 import os
 import re
 import subprocess
 import time
 import traceback
 
-import net_resources
-import netaddr
-
 from tempest.common.utils.linux import remote_client
 from tempest.common import waiters
 from tempest import config
+from tempest.lib.common.utils import data_utils
+from tempest.lib.common.utils import test_utils
 from tempest.scenario import manager
 from tempest import test
 
-from tempest.lib.common.utils import data_utils
-from tempest.lib import exceptions
+from vmware_nsx_tempest.tests.nsxv.scenario import (
+    network_addon_methods as HELO)
 
 CONF = config.CONF
 LOG = manager.log.getLogger(__name__)
@@ -65,6 +63,9 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
         3. net_resources.py overwrite resourses.py so the method to add
            interfaces to routers are inline with CLI, and support router
            owned by admin, but subnets are primary/alt clients.
+           -- mechanism removed with patch 320495
+           -- we are relaying on the test framework to delete resources
+              in the reverse order of creating.
         4. Ping is used for Data-plane testing. OUTSIDE_WORLD_SERVERS ping
            test make sense when tenant's DNS is pirvate to provider.
         5. Teardown is high cost, each test should perform its un-config to
@@ -124,56 +125,80 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
     def tearDown(self):
         super(TopoDeployScenarioManager, self).tearDown()
 
-    # bypass pareant _create_router() to use the net_resources module.
-    # Scenario: routers belong to admin, subnets belon to tenent
+    # overwrite parent class which does not accept NSX-v extension
     def _create_router(self, client_mgr=None, tenant_id=None,
                        namestart='topo-deploy', **kwargs):
         client_mgr = client_mgr or self.manager
         routers_client = getattr(client_mgr, "routers_client")
-        if not tenant_id:
-            tenant_id = routers_client.tenant_id
-        distributed = kwargs.pop('distributed', None)
-        router_type = kwargs.pop('router_type', None)
-        if distributed:
-            kwargs['distributed'] = True
-        elif router_type in ('shared', 'exclusive'):
-            kwargs['router_type'] = router_type
-        name = data_utils.rand_name(namestart)
-        result = routers_client.create_router(name=name,
-                                             admin_state_up=True,
-                                             tenant_id=tenant_id,
-                                             **kwargs)
-        router = net_resources.DeletableRouter(client=routers_client,
-                                               routers_client=routers_client,
-                                               **result['router'])
-        self.assertEqual(router.name, name)
-        self.addCleanup(self.delete_wrapper, router.delete)
+        router = HELO.router_create(self, client=routers_client,
+                                    tenant_id=tenant_id,
+                                    namestart=namestart,
+                                    **kwargs)
         return router
+
+    def _router_set_gateway(self, router_id, network_id, client=None):
+        routers_client = client or self.routers_client
+        return HELO.router_gateway_set(self, router_id, network_id,
+                                       client=routers_client)
+
+    def _router_clear_gateway(self, router_id, client=None):
+        routers_client = client or self.routers_client
+        return HELO.router_gateway_clear(self, router_id,
+                                         client=routers_client)
+
+    def _router_update_extra_routes(self, router_id, routes, client=None):
+        routers_client = client or self.routers_client
+        router = routers_client.update_route(self, router_id,
+                                             routes=routes)
+        return router['router']
+
+    def _router_delete_extra_routes(self, router_id, client=None):
+        routers_client = client or self.routers_client
+        return HELO.router_delete_extra_routes(self, router_id,
+                                               routers_client)
+
+    def _router_add_interface(self, net_router, net_subnet, client_mgr):
+        routers_client = client_mgr.routers_client
+        return HELO.router_interface_add(self, net_router['id'],
+                                         net_subnet['id'], routers_client)
+
+    def router_interface_add(self, router_id, subnet_id, client=None):
+        routers_client = client or self.routers_client
+        return HELO.router_interface_add(self, router_id, subnet_id,
+                                         routers_client)
+
+    def router_interface_delete(self, router_id, subnet_id, client=None):
+        routers_client = client or self.routers_client
+        return HELO.router_interface_delete(self, router_id, subnet_id,
+                                            routers_client)
 
     def create_server_on_network(self, networks, security_groups=None,
                                  name=None, image=None, wait_on_boot=True,
                                  flavor=None, servers_client=None,
-                                 key_name=None):
+                                 key_name=None, tenant_id=None):
         name = name or data_utils.rand_name('topo-deploy-vm')
         if security_groups is None:
             security_groups = [{'name': 'default'}]
         if type(networks) in (list, tuple):
-            network_ifs = [{'uuid': nw.id} for nw in networks]
+            network_ifs = [{'uuid': nw['id']} for nw in networks]
         else:
-            network_ifs = [{'uuid': networks.id}]
+            network_ifs = [{'uuid': networks['id']}]
         create_kwargs = {
             'networks': network_ifs,
             'security_groups': security_groups,
         }
         if key_name:
             create_kwargs['key_name'] = key_name
+        if tenant_id:
+            if not (servers_client and servers_client.tenant_id == tenant_id):
+                create_kwargs['tenant_id'] = tenant_id
         LOG.debug("TopoDeploy Create server name=%(name)s"
                   ", create_kwargs=%(create_kwargs)s",
                   {'name': name, 'create_kwargs': str(create_kwargs)})
         server = self.create_server(
             name=name, image=image, wait_on_boot=wait_on_boot,
             servers_client=servers_client, flavor=flavor,
-            create_kwargs=create_kwargs)
+            tenant_id=tenant_id, create_kwargs=create_kwargs)
         return server
 
     # overwrite parent classes; add servers_client
@@ -197,7 +222,8 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
         servers_client = servers_client or self.servers_client
         create_kwargs = create_kwargs or {}
         if type(tenant_id) in (str, unicode):
-            create_kwargs['tenant_id'] = tenant_id
+            if servers_client.tenant_id != tenant_id:
+                create_kwargs['tenant_id'] = tenant_id
 
         xmsg = ("Creating a server name=%(name)s, image=%(image)s"
                 ", flavor=%(flavor)s, create_kwargs=%(create_kwargs)s" %
@@ -215,7 +241,7 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
             waiter_callable=waiters.wait_for_server_termination,
             thing_id=server['id'], thing_id_param='server_id',
             waiter_client=servers_client,
-            cleanup_callable=self.delete_wrapper,
+            cleanup_callable=test_utils.call_and_ignore_notfound_exc,
             cleanup_args=[servers_client.delete_server, server['id']])
         if wait_on_boot:
             waiters.wait_for_server_status(
@@ -234,21 +260,18 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
         name = create_body.get('name', None) or data_utils.rand_name('P-net')
         create_body['name'] = name
         client_mgr = client_mgr or self.admin_manager
-        networks_client = client_mgr.networks_client
-        body = networks_client.create_network(**create_body)
-        net_network = net_resources.DeletableNetwork(
-            networks_client=networks_client, **body['network'])
-        self.assertEqual(net_network.name, name)
-        self.addCleanup(self.delete_wrapper, net_network.delete)
+        net_network = HELO.create_network(
+            self, client=client_mgr.networks_client, **create_body)
         return net_network
 
     def create_provider_subnet(self, client_mgr=None, create_body=None):
         client_mgr = client_mgr or self.admin_manager
         subnets_client = client_mgr.subnets_client
         body = subnets_client.create_subnet(**create_body)
-        net_subnet = net_resources.DeletableSubnet(
-            subnets_client=subnets_client, **body['subnet'])
-        self.addCleanup(self.delete_wrapper, net_subnet.delete)
+        net_subnet = body['subnet']
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        subnets_client.delete_subnet,
+                        net_subnet['id'])
         return net_subnet
 
     def setup_project_network(self, external_network_id,
@@ -277,13 +300,12 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
             client_mgr=client_mgr, tenant_id=tenant_id,
             namestart=name,
             distributed=distributed, router_type=router_type)
-        net_router.set_gateway(external_network_id)
+        self._router_set_gateway(net_router['id'], external_network_id,
+                                 client=client_mgr.routers_client)
         net_network, net_subnet = self.create_network_subnet(
-            client_mgr=client_mgr,
-            tenant_id=tenant_id, name=net_router.name,
-            cidr_offset=cidr_offset)
-        # different from the resources.py
-        net_router.add_interface(net_subnet)
+            client_mgr=client_mgr, name=net_router['name'],
+            tenant_id=tenant_id, cidr_offset=cidr_offset)
+        self._router_add_interface(net_router, net_subnet, client_mgr)
         return net_network, net_subnet, net_router
 
     def create_network_subnet(self, client_mgr=None,
@@ -303,40 +325,25 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
     # cloned from _create_network@manager.py. Allow name parameter
     def create_network(self, client=None, tenant_id=None, name=None,
                        **kwargs):
-        client = client or self.networks_client
-        tenant_id = tenant_id or _g_tenant_id(client)
+        networks_client = client or self.networks_client
+        tenant_id = tenant_id or _g_tenant_id(networks_client)
         name = name or data_utils.rand_name('topo-deploy-network')
-        result = client.create_network(name=name, tenant_id=tenant_id,
-                                       **kwargs)
-        net_network = net_resources.DeletableNetwork(
-            client=client, networks_client=client,
-            **result['network'])
-        self.assertEqual(net_network.name, name)
-        self.addCleanup(self.delete_wrapper, net_network.delete)
-        return net_network
+        return HELO.create_network(self, client=networks_client,
+                                   tenant_id=tenant_id, name=name,
+                                   **kwargs)
 
     def create_subnet(self, network, client=None,
                       gateway='', cidr=None, mask_bits=None,
                       ip_version=None, cidr_offset=0,
                       allocation_pools=None, dns_nameservers=None,
                       **kwargs):
-        client = client or self.subnets_client
-        ip_version = ip_version or 4
-        post_body = get_subnet_create_options(
-            network['id'], ip_version,
-            gateway=gateway, cidr=cidr, cidr_offset=cidr_offset,
-            mask_bits=mask_bits, **kwargs)
-        if allocation_pools:
-            post_body['allocation_pools'] = allocation_pools
-        if dns_nameservers:
-            post_body['dns_nameservers'] = dns_nameservers
-        LOG.debug("create_subnet args: %s", post_body)
-        body = client.create_subnet(**post_body)
-        net_subnet = net_resources.DeletableSubnet(
-            client=client, subnets_client=client,
-            **body['subnet'])
-        self.addCleanup(self.delete_wrapper, net_subnet.delete)
-        return net_subnet
+        subnets_client = client or self.subnets_client
+        kwargs.update(client=subnets_client, gateway=gateway,
+                      cidr=cidr, cidr_offset=cidr_offset,
+                      mask_bits=mask_bits, ip_version=ip_version,
+                      allocation_pools=allocation_pools,
+                      dns_nameservers=dns_nameservers)
+        return HELO.create_subnet(self, network, **kwargs)
 
     def create_floatingip_for_server(self, server, external_network_id=None,
                                      port_id=None, client_mgr=None):
@@ -391,34 +398,29 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
             LOG.debug(xmsg)
         return server_pingable
 
-    def disassociate_floatingip(self, net_floatingip, and_delete=False):
-        self._disassociate_floating_ip(net_floatingip)
+    def disassociate_floatingip(self, net_floatingip, client=None,
+                                and_delete=False):
+        floating_ips_client = client or self.floating_ips_client
+        kwargs = dict(port_id=None)
+        floating_ip = floating_ips_client.update_floatingip(
+            net_floatingip['id'], **kwargs)
+        floating_ip = floating_ip.get('floatingip', floating_ip)
+        self.assertIsNone(floating_ip['port_id'])
         if and_delete:
-            net_floatingip.delete()
+            floating_ips_client.delete_floatingip(floating_ip['id'])
+        return floating_ip
 
-    def associate_floatingip(self, net_floatingip, to_server):
-        self._associate_floating_ip(net_floatingip, to_server)
+    def associate_floatingip(self, net_floatingip, to_server, client=None):
+        floating_ips_client = client or self.floating_ips_client
+        port_id, _ = self._get_server_port_id_and_ip4(to_server)
+        kwargs = dict(port_id=port_id)
+        floating_ip = floating_ips_client.update_floatingip(
+            net_floatingip['id'], **kwargs)['floatingip']
+        self.assertEqual(port_id, floating_ip['port_id'])
+        return floating_ip
 
     def check_networks(self, net_network, net_subnet=None, net_router=None):
-        seen_nets = self._list_networks()
-        seen_names = [n['name'] for n in seen_nets]
-        seen_ids = [n['id'] for n in seen_nets]
-        self.assertIn(net_network.name, seen_names)
-        self.assertIn(net_network.id, seen_ids)
-
-        if net_subnet:
-            seen_subnets = self._list_subnets()
-            seen_net_ids = [n['network_id'] for n in seen_subnets]
-            seen_subnet_ids = [n['id'] for n in seen_subnets]
-            self.assertIn(net_network.id, seen_net_ids)
-            self.assertIn(net_subnet.id, seen_subnet_ids)
-
-        if net_router:
-            seen_routers = self._list_routers()
-            seen_router_ids = [n['id'] for n in seen_routers]
-            seen_router_names = [n['name'] for n in seen_routers]
-            self.assertIn(net_router.name, seen_router_names)
-            self.assertIn(net_router.id, seen_router_ids)
+        return HELO.check_networks(self, net_network, net_subnet, net_router)
 
     # use this carefully, as it expect existence of floating_ip_tuple
     def check_public_network_connectivity(self, should_connect=True,
@@ -441,7 +443,7 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
     def _check_floatingip_connectivity(self, floating_ip, server,
                                        should_connect=True,
                                        msg=None, ping_timeout=30):
-        ip_address = floating_ip.floating_ip_address
+        ip_address = floating_ip['floating_ip_address']
         floatingip_status = 'ACTIVE' if should_connect else 'DOWN'
         is_pingable = self.ping_ip_address(ip_address,
                                            ping_timeout=ping_timeout)
@@ -463,36 +465,17 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
     def get_server_flavor(self):
         return CONF.compute.flavor_ref
 
-    # replaced by call_and_ignore_notfound_exc method
-    # at tempest/lib/common/utils/test_utils.py
-    def delete_wrapper(self, delete_thing, *args, **kwargs):
-        """Ignores NotFound exceptions for delete operations.
-
-        @param delete_thing: delete method of a resource. method will be
-            executed as delete_thing(*args, **kwargs)
-
-        """
-        try:
-            delete_thing(*args, **kwargs)
-        except exceptions.NotFound:
-            # If the resource is already missing, mission accomplished.
-            pass
-        except fixture_timeout.TimeoutException:
-            # one more time
-            try:
-                delete_thing(*args, **kwargs)
-            except exceptions.NotFound:
-                pass
-
 
 # common utilities
 def make_node_info(net_floatingip, username, password,
                    include_outside_servers=False):
-    node = dict(ipaddr=net_floatingip.floating_ip_address,
+    floating_ip_address = net_floatingip['floating_ip_address']
+    fixed_ip_address = net_floatingip['fixed_ip_address']
+    node = dict(ipaddr=floating_ip_address,
                 username=username, password=password)
-    node['dest'] = [dict(ipaddr=net_floatingip.floating_ip_address,
+    node['dest'] = [dict(ipaddr=floating_ip_address,
                          reachable=None, helper=IPTYPE_FLOATING),
-                    dict(ipaddr=net_floatingip.fixed_ip_address,
+                    dict(ipaddr=fixed_ip_address,
                          reachable=None, helper=IPTYPE_FIXED)]
     if include_outside_servers:
         outside_servers = dict(ipaddr=OUTSIDE_WORLD_SERVERS[0],
@@ -654,59 +637,6 @@ def _g_tenant_id(os_client):
         return os_client.tenant_id
     except Exception:
         return os_client.rest_client.tenant_id
-
-
-def get_subnet_create_options(network_id, ip_version=4,
-                              gateway='', cidr=None, mask_bits=None,
-                              num_subnet=1, gateway_offset=1, cidr_offset=0,
-                              **kwargs):
-    """When cidr_offset>0 it request only one subnet-options:
-
-        subnet = get_subnet_create_options('abcdefg', 4, num_subnet=4)[3]
-        subnet = get_subnet_create_options('abcdefg', 4, cidr_offset=3)
-    """
-
-    gateway_not_set = gateway == ''
-    if ip_version == 4:
-        cidr = cidr or netaddr.IPNetwork(CONF.network.project_network_cidr)
-        mask_bits = mask_bits or CONF.network.project_network_mask_bits
-    elif ip_version == 6:
-        cidr = (
-            cidr or netaddr.IPNetwork(CONF.network.project_network_v6_cidr))
-        mask_bits = mask_bits or CONF.network.project_network_v6_mask_bits
-    # Find a cidr that is not in use yet and create a subnet with it
-    subnet_list = []
-    if cidr_offset > 0:
-        num_subnet = cidr_offset + 1
-    for subnet_cidr in cidr.subnet(mask_bits):
-        if gateway_not_set:
-            gateway_ip = gateway or (
-                str(netaddr.IPAddress(subnet_cidr) + gateway_offset))
-        else:
-            gateway_ip = gateway
-        try:
-            subnet_body = dict(network_id=network_id,
-                               cidr=str(subnet_cidr),
-                               ip_version=ip_version,
-                               gateway_ip=gateway_ip,
-                               **kwargs)
-            if num_subnet <= 1:
-                return subnet_body
-            subnet_list.append(subnet_body)
-            if len(subnet_list) >= num_subnet:
-                if cidr_offset > 0:
-                    # user request the 'cidr_offset'th of cidr
-                    return subnet_list[cidr_offset]
-                # user request list of cidr
-                return subnet_list
-        except exceptions.BadRequest as e:
-            is_overlapping_cidr = 'overlaps with another subnet' in str(e)
-            if not is_overlapping_cidr:
-                raise
-    else:
-        message = 'Available CIDR for subnet creation could not be found'
-        raise exceptions.BuildErrorException(message)
-    return {}
 
 
 def get_remote_client_by_password(client_ip, username, password):

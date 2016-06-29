@@ -17,6 +17,7 @@ import time
 
 from tempest.common import waiters
 from tempest import config
+from tempest.lib.common.utils import test_utils
 from tempest import test
 
 from vmware_nsx_tempest.tests.nsxv.scenario import (
@@ -61,7 +62,7 @@ class TestXnetMultiSubnetsOps(dmgr.TopoDeployScenarioManager):
 
     ATTENTION:
         Because, this test consumes floatingip's so both subnets ip-ranges
-        will be used.  NO OTHER TESTS should run when execute this test.
+        will be used.  NO OTHER TESTS should run when executing this test.
 
         Run this test module sequencially :
 
@@ -181,15 +182,6 @@ class TestXnetMultiSubnetsOps(dmgr.TopoDeployScenarioManager):
             namestart='xnet-subnets')
 
     def tearDown(self):
-        if self.my_network:
-            self.delete_floatingips_and_servers()
-            if self.my_network['router']:
-                self.delete_wrapper(self.my_network['router'].delete)
-            # Delete subnet - distributed router take longer time.
-            if self.my_network['subnet']:
-                self.delete_wrapper(self.my_network['subnet'].delete)
-            if self.my_network['network']:
-                self.delete_wrapper(self.my_network['network'].delete)
         super(TestXnetMultiSubnetsOps, self).tearDown()
 
     def create_user_servers(self, num_servers=5):
@@ -220,7 +212,7 @@ class TestXnetMultiSubnetsOps(dmgr.TopoDeployScenarioManager):
         for sv in self.my_network['servers']:
             floatingip, sshc = self.create_floatingip_for_server(sv)
             self.my_network['floatingips'].append(floatingip)
-            self.fixed_ip_addresses.append(floatingip.fixed_ip_address)
+            self.fixed_ip_addresses.append(floatingip['fixed_ip_address'])
         # check inside this tenant network, all VMs are reachable.
         self.validate_all_servers_private_address_are_reachable(
             sshc, self.fixed_ip_addresses)
@@ -241,7 +233,7 @@ class TestXnetMultiSubnetsOps(dmgr.TopoDeployScenarioManager):
                % (floatingip, server['name']))
         self._check_floatingip_connectivity(
             floatingip, server, should_connect=True, msg=msg)
-        serv_fip = floatingip.floating_ip_address
+        serv_fip = floatingip['floating_ip_address']
         dmgr.rm_sshkey(serv_fip)
         ssh_client = dmgr.get_remote_client_by_password(
             serv_fip, username, password)
@@ -249,7 +241,9 @@ class TestXnetMultiSubnetsOps(dmgr.TopoDeployScenarioManager):
 
     def delete_floatingips_and_servers(self):
         for net_floatingip in self.my_network['floatingips']:
-            self.delete_wrapper(net_floatingip.delete)
+            test_utils.call_and_ignore_notfound_exc(
+                self.floating_ips_client.delete_floatingip,
+                net_floatingip['id'])
         fip_list = self.floating_ips_client.list_floatingips()['floatingips']
         if len(fip_list) > 0:
             time.sleep(dmgr.WAITTIME_AFTER_DISASSOC_FLOATINGIP)
@@ -264,14 +258,14 @@ class TestXnetMultiSubnetsOps(dmgr.TopoDeployScenarioManager):
             reachable = dmgr.is_reachable(ssh_client, ip_addr)
             self.assertTrue(reachable, msg)
 
-    def _test_xnet_multiple_subnets_basic_ops(self,
-                                              router_type='exclusive',
+    def _test_xnet_multiple_subnets_basic_ops(self, router_type='exclusive',
+                                              namestart='xnet-subnets',
                                               distributed=None):
         network, subnet, router = self.setup_project_network(
             self.public_network_id,
             client_mgr=self.admin_manager,
             tenant_id=self.primary_tenant_id,
-            namestart='xnet-subnets',
+            namestart=namestart,
             router_type=router_type, distributed=distributed)
         self.my_network = {'router': router,
                            'subnet': subnet,
@@ -288,7 +282,7 @@ class TestXnetMultiSubnetsOpsOnSharedRouter(TestXnetMultiSubnetsOps):
     @test.idempotent_id('e25d030f-7fdf-4500-bd55-4ed6f62c0a5c')
     def test_xnet_multiple_subnets_basic_ops_on_shared_router(self):
         return self._test_xnet_multiple_subnets_basic_ops(
-            'shared', False)
+            'shared', 'xnet-shared', False)
 
 
 class TestXnetMultiSubnetsOpsOnExclusiveRouter(TestXnetMultiSubnetsOps):
@@ -296,7 +290,7 @@ class TestXnetMultiSubnetsOpsOnExclusiveRouter(TestXnetMultiSubnetsOps):
     @test.idempotent_id('5b09351a-0560-4555-99f0-a1f80d54d435')
     def test_xnet_multiple_subnets_basic_ops_on_exclusive_router(self):
         return self._test_xnet_multiple_subnets_basic_ops(
-            'exclusive', False)
+            'exclusive', 'xnet-exclusive', False)
 
 
 class TestXnetMultiSubnetsOpsOnDistributedRouter(TestXnetMultiSubnetsOps):
@@ -304,4 +298,4 @@ class TestXnetMultiSubnetsOpsOnDistributedRouter(TestXnetMultiSubnetsOps):
     @test.idempotent_id('9652d36b-8816-4212-a6e1-3a8b2580deee')
     def test_xnet_multiple_subnets_basic_ops_on_distributed_router(self):
         return self._test_xnet_multiple_subnets_basic_ops(
-            '', True)
+            '', 'xnet-distributed', True)

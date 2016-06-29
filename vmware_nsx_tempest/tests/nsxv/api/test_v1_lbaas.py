@@ -17,6 +17,7 @@
 import six
 
 from tempest.lib.common.utils import data_utils
+from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
 
 from tempest.api.network import base
@@ -99,26 +100,27 @@ class LoadBalancerTestJSON(base.BaseNetworkTest):
         """
         # Cleanup lb health monitors
         if cls.health_monitor:
-            cls._try_delete_resource(cls.lbv1_client.delete_health_monitor,
-                                     cls.health_monitor['id'])
+            test_utils.call_and_ignore_notfound_exc(
+                cls.lbv1_client.delete_health_monitor,
+                cls.health_monitor['id'])
             cls.health_monitor = None
 
         # Cleanup members
         if cls.member:
-            cls._try_delete_resource(cls.lbv1_client.delete_member,
-                                     cls.member['id'])
+            test_utils.call_and_ignore_notfound_exc(
+                cls.lbv1_client.delete_member, cls.member['id'])
             cls.member = None
 
         # Cleanup vips
         if cls.vip:
-            cls._try_delete_resource(cls.lbv1_client.delete_vip,
-                                     cls.vip['id'])
+            test_utils.call_and_ignore_notfound_exc(
+                cls.lbv1_client.delete_vip, cls.vip['id'])
             cls.vip = None
 
         # Cleanup pool
         if cls.pool:
-            cls._try_delete_resource(cls.lbv1_client.delete_pool,
-                                     cls.pool['id'])
+            test_utils.call_and_ignore_notfound_exc(
+                cls.lbv1_client.delete_pool, cls.pool['id'])
             cls.pool = None
 
         super(LoadBalancerTestJSON, cls).resource_cleanup()

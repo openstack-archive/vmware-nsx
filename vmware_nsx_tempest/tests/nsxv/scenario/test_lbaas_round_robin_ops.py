@@ -13,10 +13,10 @@ import tempfile
 import time
 import urllib2
 
-from tempest.lib.common.utils import data_utils
-
 from tempest.common import waiters
 from tempest import config
+from tempest.lib.common.utils import data_utils
+from tempest.lib.common.utils import test_utils
 from tempest import test
 
 from vmware_nsx_tempest.services.lbaas import health_monitors_client
@@ -120,10 +120,6 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
             waiters.wait_for_server_termination(
                 self.manager.servers_client, server_id)
         # delete lbaas network before handing back to framework
-        LOG.debug("tearDown lbaas network")
-        self.delete_wrapper(self.router.delete)
-        self.delete_wrapper(self.subnet.delete)
-        self.delete_wrapper(self.network.delete)
         super(TestLBaasRoundRobinOps, self).tearDown()
         LOG.debug("tearDown lbaas exiting...")
 
@@ -137,21 +133,24 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
                 pool_id = pool.get('id')
                 hm = pool.get('healthmonitor')
                 if hm:
-                    self.delete_wrapper(
+                    test_utils.call_and_ignore_notfound_exc(
                         self.health_monitors_client.delete_health_monitor,
                         pool.get('healthmonitor').get('id'))
                     self.wait_for_load_balancer_status(lb_id)
-                self.delete_wrapper(self.pools_client.delete_pool,
-                                    pool.get('id'))
+                test_utils.call_and_ignore_notfound_exc(
+                    self.pools_client.delete_pool, pool.get('id'))
                 self.wait_for_load_balancer_status(lb_id)
                 for member in pool.get('members', []):
-                    self.delete_wrapper(self.members_client.delete_member,
-                                        pool_id, member.get('id'))
+                    test_utils.call_and_ignore_notfound_exc(
+                        self.members_client.delete_member,
+                        pool_id, member.get('id'))
                     self.wait_for_load_balancer_status(lb_id)
-            self.delete_wrapper(self.listeners_client.delete_listener,
-                                listener.get('id'))
+            test_utils.call_and_ignore_notfound_exc(
+                self.listeners_client.delete_listener,
+                listener.get('id'))
             self.wait_for_load_balancer_status(lb_id)
-        self.delete_wrapper(lb_client.delete_load_balancer, lb_id)
+        test_utils.call_and_ignore_notfound_exc(
+            lb_client.delete_load_balancer, lb_id)
         self.load_balancers_client.wait_for_load_balancers_status(
             lb_id, is_delete_op=True)
         lbs = lb_client.list_load_balancers()['loadbalancers']
@@ -170,13 +169,14 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
         security_groups = [{'name': self.security_group['id']}]
         self.keypair = self.create_keypair()
         key_name = self.keypair['name']
+        network_name = self.network['name']
         self.server1 = self.create_server_on_network(
-            self.network, name=(self.network.name + "-1"),
+            self.network, name=(network_name + "-1"),
             security_groups=security_groups,
             key_name=key_name, wait_on_boot=False,
             servers_client=self.manager.servers_client)
         self.server2 = self.create_server_on_network(
-            self.network, name=(self.network.name + "-2"),
+            self.network, name=(network_name + "-2"),
             security_groups=security_groups,
             key_name=key_name,
             servers_client=self.manager.servers_client)
@@ -269,7 +269,7 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
             return None
 
     def create_project_lbaas(self):
-        vip_subnet_id = self.subnet.id
+        vip_subnet_id = self.subnet['id']
         lb_name = data_utils.rand_name(self.namestart)
         self.loadbalancer = self.load_balancers_client.create_load_balancer(
             name=lb_name, vip_subnet_id=vip_subnet_id)['loadbalancer']
