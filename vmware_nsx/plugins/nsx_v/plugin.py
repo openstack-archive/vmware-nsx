@@ -2926,23 +2926,25 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def delete_security_group_rule(self, context, id):
         """Delete a security group rule."""
-        try:
-            rule_db = self._get_security_group_rule(context, id)
-            security_group_id = rule_db['security_group_id']
+        rule_db = self._get_security_group_rule(context, id)
+        security_group_id = rule_db['security_group_id']
 
-            # Get the nsx rule from neutron DB and delete it
-            nsx_rule_id = nsxv_db.get_nsx_rule_id(context.session, id)
-            section_uri = self._get_section_uri(
-                context.session, security_group_id)
+        # Get the nsx rule from neutron DB and delete it
+        nsx_rule_id = nsxv_db.get_nsx_rule_id(context.session, id)
+        section_uri = self._get_section_uri(
+            context.session, security_group_id)
+        try:
             if nsx_rule_id and section_uri:
                 self.nsx_v.vcns.remove_rule_from_section(
                     section_uri, nsx_rule_id)
-
-            with context.session.begin(subtransactions=True):
-                context.session.delete(rule_db)
         except Exception:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to delete security group rule"))
+            # FIXME(roeyc): We assume backend failed because rule was not
+            # found. Should be fixed once backend is able to return the proper
+            # HTTP code.
+            LOG.warning(_LW("Failed to delete security group rule"))
+
+        with context.session.begin(subtransactions=True):
+            context.session.delete(rule_db)
 
     def _remove_vnic_from_spoofguard_policy(self, session, net_id, vnic_id):
         policy_id = nsxv_db.get_spoofguard_policy_id(session, net_id)
