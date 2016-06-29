@@ -2354,8 +2354,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             with context.session.begin(subtransactions=True):
                 context.session.delete(rule_db)
         except Exception:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to delete security group rule"))
+            # FIXME(roeyc): reraise unless rule does not exists
+            LOG.warning(_LW("Failed to delete security group rule %s(id)s. "
+                            "nsx_rule_id is: %(nsx_rule_id)s"),
+                        {'id': id, 'nsx_rule_id': nsx_rule_id})
 
     def _check_for_duplicate_rules(self, context, rules):
         # Remove rule id's before comparing between rules
