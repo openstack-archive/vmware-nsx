@@ -42,9 +42,9 @@ class TzNetworkBinding(model_base.BASEV2):
     network_id = sa.Column(sa.String(36),
                            sa.ForeignKey('networks.id', ondelete="CASCADE"),
                            primary_key=True)
-    # 'flat', 'vlan', 'stt', 'gre', 'l3_ext', 'vxlan'
+    # 'flat', 'vlan', 'stt', 'gre', 'l3_ext', 'vxlan', 'portgroup'
     binding_type = sa.Column(sa.Enum('flat', 'vlan', 'stt', 'gre', 'l3_ext',
-                                     'vxlan',
+                                     'vxlan', 'portgroup',
                                      name='tz_network_bindings_binding_type'),
                              nullable=False, primary_key=True)
     phy_uuid = sa.Column(sa.String(36), primary_key=True, default='')
