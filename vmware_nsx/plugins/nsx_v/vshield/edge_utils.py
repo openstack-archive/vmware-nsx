@@ -1534,7 +1534,7 @@ class EdgeManager(object):
             context.session, tlr_edge_id, lswitch_id)
         try:
             # Then delete the internal lswitch
-            self.nsxv_manager.vcns.delete_virtual_wire(lswitch_id)
+            self.nsxv_manager.delete_virtual_wire(lswitch_id)
         except Exception:
             LOG.warning(_LW("Failed to delete virtual wire: %s"), lswitch_id)
 
