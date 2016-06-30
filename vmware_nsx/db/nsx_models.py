@@ -241,8 +241,6 @@ class NetworkGateway(model_base.BASEV2, models_v2.HasId,
                      models_v2.HasTenant):
     """Defines the data model for a network gateway."""
     name = sa.Column(sa.String(255))
-    # Tenant id is nullable for this resource
-    tenant_id = sa.Column(sa.String(36))
     default = sa.Column(sa.Boolean())
     devices = orm.relationship(NetworkGatewayDeviceReference,
                                backref='networkgateways',
