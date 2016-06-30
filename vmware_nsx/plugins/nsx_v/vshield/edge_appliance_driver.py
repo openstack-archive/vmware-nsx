@@ -223,8 +223,9 @@ class EdgeApplianceDriver(object):
             status_level = self._edge_status_to_level(
                 response['edgeStatus'])
         except exceptions.VcnsApiException as e:
-            LOG.exception(_LE("VCNS: Failed to get edge status:\n%s"),
-                          e.response)
+            LOG.error(_LE("VCNS: Failed to get edge %(edge_id)s status: "
+                          "Reason: %(reason)s"),
+                      {'edge_id': edge_id, 'reason': e.response})
             status_level = constants.RouterStatus.ROUTER_STATUS_ERROR
             try:
                 desc = jsonutils.loads(e.response)
@@ -232,7 +233,7 @@ class EdgeApplianceDriver(object):
                     constants.VCNS_ERROR_CODE_EDGE_NOT_RUNNING):
                     status_level = constants.RouterStatus.ROUTER_STATUS_DOWN
             except ValueError:
-                LOG.exception(e.response)
+                LOG.error(_LE('Error code not present. %s'), e.response)
 
         return status_level
 
