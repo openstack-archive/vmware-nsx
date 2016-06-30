@@ -115,11 +115,14 @@ def nsx_clean_spoofguard_policy(resource, event, trigger, **kwargs):
         LOG.error(_LE("%s"), errmsg)
         return
     try:
-        nsxv.get_spoofguard_policy(policy_id)
+        h, c = nsxv.get_spoofguard_policy(policy_id)
     except exceptions.NeutronException as e:
         LOG.error(_LE("Unable to retrieve policy %(p)s: %(e)s"),
                   {'p': policy_id, 'e': str(e)})
     else:
+        if not c['spoofguardList']:
+            LOG.error(_LE("Policy %s does not exist"), policy_id)
+            return
         confirm = admin_utils.query_yes_no(
             "Do you want to delete spoofguard-policy: %s" % policy_id,
             default="no")
