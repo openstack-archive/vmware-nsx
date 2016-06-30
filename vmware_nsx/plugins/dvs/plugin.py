@@ -192,7 +192,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         segmentation_id = net_data.get(pnet.SEGMENTATION_ID)
         segmentation_id_set = validators.is_attr_set(segmentation_id)
         if not context.is_admin:
-            err_msg = _("Only and admin can create a DVS provider "
+            err_msg = _("Only an admin can create a DVS provider "
                         "network")
             raise n_exc.InvalidInput(error_message=err_msg)
         err_msg = None
