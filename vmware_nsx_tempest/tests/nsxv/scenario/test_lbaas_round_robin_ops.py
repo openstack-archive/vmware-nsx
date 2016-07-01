@@ -11,7 +11,7 @@
 #    under the License.
 import tempfile
 import time
-import urllib2
+import urllib3
 
 from tempest.common import waiters
 from tempest import config
@@ -151,14 +151,14 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
             self.wait_for_load_balancer_status(lb_id)
         test_utils.call_and_ignore_notfound_exc(
             lb_client.delete_load_balancer, lb_id)
-        self.load_balancers_client.wait_for_load_balancers_status(
+        self.load_balancers_client.wait_for_load_balancer_status(
             lb_id, is_delete_op=True)
         lbs = lb_client.list_load_balancers()['loadbalancers']
         self.assertEqual(0, len(lbs))
 
     def wait_for_load_balancer_status(self, lb_id):
         # Wait for load balancer become ONLINE and ACTIVE
-        self.load_balancers_client.wait_for_load_balancers_status(lb_id)
+        self.load_balancers_client.wait_for_load_balancer_status(lb_id)
 
     def create_lbaas_networks(self):
         """Create network, subnet and router for lbaasv2 environment."""
@@ -263,9 +263,12 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
 
     def send_request(self, web_ip):
         try:
-            response = urllib2.urlopen("http://{0}/".format(web_ip)).read()
-            return response
-        except urllib2.HTTPError:
+            url_path = "http://{0}/".format(web_ip)
+            # lbaas servers use nc, might be slower to response
+            http = urllib3.PoolManager(retries=10)
+            resp = http.request('GET', url_path)
+            return resp.data.strip()
+        except Exception:
             return None
 
     def create_project_lbaas(self):
@@ -306,11 +309,19 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
             self.wait_for_load_balancer_status(lb_id)
             self.members.append(member)
 
+        # Currently the ovs-agent is not enforcing security groups on the
+        # vip port - see https://bugs.launchpad.net/neutron/+bug/1163569
+        # However the linuxbridge-agent does, and it is necessary to add a
+        # security group with a rule that allows tcp port 80 to the vip port.
+        # NSX-v lbaasv2 OK, but for upstream neutron-lbaas needs this.
+        self.ports_client.update_port(
+            self.loadbalancer['vip_port_id'],
+            security_groups=[self.security_group['id']])
         # create lbaas public interface
         self.vip_fip = self.create_floatingip_for_server(
-                self.loadbalancer, self.public_network_id,
-                port_id=self.loadbalancer['vip_port_id'],
-                client_mgr=self.manager)
+            self.loadbalancer, self.public_network_id,
+            port_id=self.loadbalancer['vip_port_id'],
+            client_mgr=self.manager)
         self.vip_ip_address = self.vip_fip['floating_ip_address']
         time.sleep(1.0)
         self.send_request(self.vip_ip_address)
@@ -321,9 +332,11 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
             self.loadbalancer['id'])
         statuses = statuses.get('statuses', statuses)
         self.http_cnt = {}
+        http = urllib3.PoolManager(retries=10)
+        url_path = "http://{0}/".format(self.vip_ip_address)
         for x in range(self.poke_counters):
-            response = self.send_request(self.vip_ip_address)
-            self.count_response(response)
+            resp = http.request('GET', url_path)
+            self.count_response(resp.data.strip())
         # should response from 2 servers
         self.assertEqual(2, len(self.http_cnt))
         # ROUND_ROUBIN, so equal counts
