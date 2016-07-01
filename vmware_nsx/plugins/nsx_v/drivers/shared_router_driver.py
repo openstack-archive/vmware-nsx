@@ -194,7 +194,9 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
     def update_nat_rules(self, context, router, router_id):
         router_ids = self.edge_manager.get_routers_on_same_edge(
             context, router_id)
-        self._update_nat_rules_on_routers(context, router_id, router_ids)
+        edge_id = edge_utils.get_router_edge_id(context, router_id)
+        with locking.LockManager.get_lock(str(edge_id)):
+            self._update_nat_rules_on_routers(context, router_id, router_ids)
 
     def _update_nat_rules_on_routers(self, context,
                                      target_router_id, router_ids):
