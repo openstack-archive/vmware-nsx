@@ -321,11 +321,12 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                     self._add_router_services_on_available_edge(context,
                                                                 router_id)
             else:
-                router_ids = self.edge_manager.get_routers_on_same_edge(
-                    context, router_id)
-                if router_ids:
-                    self._update_routes_on_routers(
-                        context, router_id, router_ids)
+                with locking.LockManager.get_lock(str(edge_id)):
+                    router_ids = self.edge_manager.get_routers_on_same_edge(
+                        context, router_id)
+                    if router_ids:
+                        self._update_routes_on_routers(
+                            context, router_id, router_ids)
 
     def _get_ext_net_ids(self, context, router_ids):
         ext_net_ids = []
