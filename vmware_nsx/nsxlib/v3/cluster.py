@@ -258,7 +258,7 @@ class ClusteredAPI(object):
         # reinitialize upon fork for api workers to ensure each
         # process has its own keepalive loops + state
         registry.subscribe(
-                _init_cluster, resources.PROCESS, events.AFTER_CREATE)
+                _init_cluster, resources.PROCESS, events.AFTER_INIT)
 
     def _init_endpoints(self, providers,
                         min_conns_per_pool, max_conns_per_pool):
