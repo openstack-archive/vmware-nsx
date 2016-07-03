@@ -2231,7 +2231,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                            'device_owner': const.ROUTER_INTERFACE_OWNERS}
                 ports = self.get_ports(context, filters=filters)
                 for port in ports:
-                    _, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
+                    nsx_s_id_, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
                         context.session, port['id'])
                     if nsx_port_id:
                         name = utils.get_name_and_uuid(
