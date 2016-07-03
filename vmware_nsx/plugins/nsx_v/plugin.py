@@ -224,10 +224,47 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             self.metadata_proxy_handler = (
                 nsx_v_md_proxy.NsxVMetadataProxyHandler(self))
 
+        # Service insertion driver register
         self._si_handler = fc_utils.NsxvServiceInsertionHandler(self)
+        registry.subscribe(self.add_vms_to_service_insertion,
+                           fc_utils.SERVICE_INSERTION_RESOURCE,
+                           events.AFTER_CREATE)
 
     def init_complete(self, resource, event, trigger, **kwargs):
         self.init_is_complete = True
+
+    def add_vms_to_service_insertion(self, sg_id):
+        def _add_vms_to_service_insertion(*args, **kwargs):
+
+            """Adding existing VMs to the service insertion security group
+
+            Adding all current compute ports with port security to the service
+            insertion security group in order to classify their traffic by the
+            security redirect rules
+            """
+            sg_id = args[0]
+            context = n_context.get_admin_context()
+            filters = {'device_owner': ['compute:None']}
+            ports = self.get_ports(context, filters=filters)
+            for port in ports:
+                # Only add compute ports with device-id, vnic & port security
+                if (validators.is_attr_set(port.get(ext_vnic_idx.VNIC_INDEX))
+                    and validators.is_attr_set(port.get('device_id'))
+                    and port[psec.PORTSECURITY]):
+                    try:
+                        vnic_idx = port[ext_vnic_idx.VNIC_INDEX]
+                        device_id = port['device_id']
+                        vnic_id = self._get_port_vnic_id(vnic_idx, device_id)
+                        self._add_member_to_security_group(sg_id, vnic_id)
+                    except Exception as e:
+                        LOG.info(_LI('Could not add port %(port)s to service '
+                                     'insertion security group. Exception '
+                                     '%(err)s'),
+                                 {'port': port['id'], 'err': e})
+
+        # Doing this in a separate thread to not slow down the init process
+        # in case there are many compute ports
+        c_utils.spawn_n(_add_vms_to_service_insertion, sg_id)
 
     def _start_rpc_listeners(self):
         self.conn = n_rpc.create_connection()

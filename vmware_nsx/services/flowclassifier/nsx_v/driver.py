@@ -16,8 +16,14 @@
 
 import xml.etree.ElementTree as et
 
+from networking_sfc.extensions import flowclassifier
 from networking_sfc.services.flowclassifier.common import exceptions as exc
 from networking_sfc.services.flowclassifier.drivers import base as fc_driver
+from neutron.callbacks import events
+from neutron.callbacks import registry
+from neutron.callbacks import resources
+from neutron import context as n_context
+from neutron import manager
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
@@ -26,6 +32,7 @@ from vmware_nsx._i18n import _, _LE
 from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import locking
+from vmware_nsx.common import nsxv_constants
 from vmware_nsx.plugins.nsx_v.vshield import vcns as nsxv_api
 from vmware_nsx.plugins.nsx_v.vshield import vcns_driver
 from vmware_nsx.services.flowclassifier.nsx_v import utils as fc_utils
@@ -47,9 +54,15 @@ class NsxvFlowClassifierDriver(fc_driver.FlowClassifierDriverBase):
         self.init_security_group()
         self.init_security_group_in_profile()
 
-        #TODO(asarfaty) - Add a new config for any->any redirect:
-        # create any->any flow classifier entry (and backed rule)
-        # if not exist yet
+        # register an event to the end of the init to handle the first upgrade
+        # TODO(asarfaty): This registry will call the callback on each
+        # spawned thread, but we need it to be called only once.
+        # So it should be replaces with events.BEFORE_SPAWN after approved
+        # in neutron
+        if self._is_new_security_group:
+            registry.subscribe(self.init_complete,
+                               resources.PROCESS,
+                               events.AFTER_INIT)
 
     def init_profile_id(self):
         """Init the service insertion profile ID
@@ -78,6 +91,7 @@ class NsxvFlowClassifierDriver(fc_driver.FlowClassifierDriverBase):
         # check if this group exist, and create it if not.
         sg_name = fc_utils.SERVICE_INSERTION_SG_NAME
         sg_id = self._nsxv.vcns.get_security_group_id(sg_name)
+        self._is_new_security_group = False
         if not sg_id:
             description = ("OpenStack Service Insertion Security Group, "
                            "managed by Neutron nsx-v plugin.")
@@ -85,10 +99,7 @@ class NsxvFlowClassifierDriver(fc_driver.FlowClassifierDriverBase):
                                     "description": description}}
             h, sg_id = (
                 self._nsxv.vcns.create_security_group(sg))
-
-            # TODO(asarfaty) - if the security group was just created
-            # also add all the current compute ports with port-security
-            # to this security group (for upgrades scenarios)
+            self._is_new_security_group = True
 
         self._security_group_id = sg_id
 
@@ -109,6 +120,55 @@ class NsxvFlowClassifierDriver(fc_driver.FlowClassifierDriverBase):
             self._nsxv.vcns.update_service_insertion_profile_binding(
                 self._profile_id,
                 et.tostring(profile_binding, encoding="us-ascii"))
+
+    def init_complete(self, resource, event, trigger, **kwargs):
+        # This callback is called for each process.
+        # Until fixing it, lock is used to keep things in order
+        with locking.LockManager.get_lock('service_insertion_init_complete'):
+            if self._is_new_security_group:
+                # add existing VMs to the new security group
+                # This code must run after init is done
+                core_plugin = manager.NeutronManager.get_plugin()
+                core_plugin.add_vms_to_service_insertion(
+                    self._security_group_id)
+
+                # Add the first flow classifier entry
+                if cfg.CONF.nsxv.service_insertion_redirect_all:
+                    self.add_any_any_redirect_rule()
+
+    def add_any_any_redirect_rule(self):
+        """Add an any->any flow classifier entry
+
+        Add 1 flow classifier entry that will redirect all the traffic to the
+        security partner
+        The user will be able to delete/change it later
+        """
+        context = n_context.get_admin_context()
+        fc_plugin = manager.NeutronManager.get_service_plugins().get(
+                flowclassifier.FLOW_CLASSIFIER_EXT)
+
+        # first check that there is no other flow classifier entry defined:
+        fcs = fc_plugin.get_flow_classifiers(context)
+        if len(fcs) > 0:
+            return
+
+        # Create any->any rule
+        fc = {'name': 'redirect_all',
+              'description': 'Redirect all traffic',
+              'tenant_id': nsxv_constants.INTERNAL_TENANT_ID,
+              'l7_parameters': {},
+              'ethertype': 'IPv4',
+              'protocol': None,
+              'source_port_range_min': None,
+              'source_port_range_max': None,
+              'destination_port_range_min': None,
+              'destination_port_range_max': None,
+              'source_ip_prefix': None,
+              'destination_ip_prefix': None,
+              'logical_source_port': None,
+              'logical_destination_port': None
+              }
+        fc_plugin.create_flow_classifier(context, {'flow_classifier': fc})
 
     def get_redirect_fw_section_id(self):
         if not self._redirect_section_id:

@@ -24,6 +24,7 @@ from neutron.api import extensions as api_ext
 from neutron.common import config
 from neutron import context
 from neutron.extensions import portbindings
+from neutron import manager
 
 from networking_sfc.db import flowclassifier_db as fdb
 from networking_sfc.extensions import flowclassifier
@@ -84,6 +85,9 @@ class TestNsxvFlowClassifierDriver(
         self._profile_id = 'serviceprofile-1'
         cfg.CONF.set_override('service_insertion_profile_id',
                               self._profile_id, 'nsxv')
+        cfg.CONF.set_override('service_insertion_redirect_all',
+                              True, 'nsxv')
+
         self.driver = nsx_v_driver.NsxvFlowClassifierDriver()
         self.driver.initialize()
 
@@ -110,8 +114,27 @@ class TestNsxvFlowClassifierDriver(
         super(TestNsxvFlowClassifierDriver, self).tearDown()
 
     def test_driver_init(self):
-        self.assertEqual(self.driver._profile_id, self._profile_id)
+        self.assertEqual(self._profile_id, self.driver._profile_id)
         self.assertEqual(self.driver._security_group_id, '0')
+
+        mock_nsxv_plugin = mock.Mock()
+        fc_plugin = manager.NeutronManager.get_service_plugins().get(
+                flowclassifier.FLOW_CLASSIFIER_EXT)
+        with mock.patch.object(manager.NeutronManager, 'get_plugin',
+                               return_value=mock_nsxv_plugin):
+            with mock.patch.object(
+                mock_nsxv_plugin,
+                'add_vms_to_service_insertion') as fake_add:
+                with mock.patch.object(
+                    fc_plugin,
+                    'create_flow_classifier') as fake_create:
+                    self.driver.init_complete(None, None, {})
+                    # check that the plugin was called to add vms to the
+                    # security group
+                    self.assertTrue(fake_add.called)
+                    # check that redirect_all flow classifier entry
+                    # was created
+                    self.assertTrue(fake_create.called)
 
     def test_create_flow_classifier_precommit(self):
         with self.flow_classifier(flow_classifier=self._fc) as fc:

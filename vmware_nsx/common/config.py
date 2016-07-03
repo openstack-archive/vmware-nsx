@@ -597,6 +597,10 @@ nsxv_opts = [
                help=_("(Optional) The profile id of the redirect firewall "
                       "rules that will be used for the Service Insertion "
                       "feature.")),
+    cfg.BoolOpt('service_insertion_redirect_all', default=False,
+                help=_("(Optional) If set to True, the plugin will create "
+                       "a redirect rule to send all the traffic to the "
+                       "security partner")),
 ]
 
 # Register the configuration options

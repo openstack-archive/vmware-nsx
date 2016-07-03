@@ -20,6 +20,7 @@ from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 SERVICE_INSERTION_SG_NAME = 'Service Insertion Security Group'
+SERVICE_INSERTION_RESOURCE = 'Service Insertion'
 
 
 class NsxvServiceInsertionHandler(object):

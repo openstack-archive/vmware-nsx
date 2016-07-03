@@ -3859,6 +3859,33 @@ class TestNSXPortSecurity(test_psec.TestPortSecurity,
         self.fc2.remove_member_from_security_group.assert_any_call(
             p._si_handler.sg_id, vnic_index)
 
+    def test_service_insertion_notify(self):
+        # create a compute ports with/without port security
+        device_id = _uuid()
+        # create 2 compute ports with port security
+        port1 = self._create_compute_port('net1', device_id, True)
+        self._add_vnic_to_port(port1['port']['id'], False, 1)
+        port2 = self._create_compute_port('net2', device_id, True)
+        self._add_vnic_to_port(port2['port']['id'], False, 2)
+        # create 1 compute port without port security
+        port3 = self._create_compute_port('net3', device_id, False)
+        self._add_vnic_to_port(port3['port']['id'], True, 3)
+
+        # init the plugin mocks
+        p = manager.NeutronManager.get_plugin()
+        self.fc2.add_member_to_security_group = (
+            mock.Mock().add_member_to_security_group)
+
+        # call the function (that should be called from the flow classifier
+        # driver) and verify it adds all relevant ports to the group
+        # Since it uses spawn_n, we should mock it.
+        orig_spawn = c_utils.spawn_n
+        c_utils.spawn_n = mock.Mock(side_effect=lambda f, x: f(x, None))
+        p.add_vms_to_service_insertion(sg_id='aaa')
+        # back to normal
+        c_utils.spawn_n = orig_spawn
+        self.assertEqual(2, self.fc2.add_member_to_security_group.call_count)
+
 
 class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                test_l3_plugin.L3NatTestCaseMixin,
