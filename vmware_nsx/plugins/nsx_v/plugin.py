@@ -1471,8 +1471,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._delete_security_groups_port_mapping(
                     context.session, vnic_id, curr_sgids)
                 if cfg.CONF.nsxv.spoofguard_enabled:
-                    self._remove_vnic_from_spoofguard_policy(
-                        context.session, original_port['network_id'], vnic_id)
+                    if original_port[psec.PORTSECURITY]:
+                        self._remove_vnic_from_spoofguard_policy(
+                            context.session,
+                            original_port['network_id'],
+                            vnic_id)
                     # remove vm from the exclusion list when it is detached
                     # from the device if it has no port security
                     if not original_port[psec.PORTSECURITY]:

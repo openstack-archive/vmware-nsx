@@ -3723,6 +3723,36 @@ class TestNSXPortSecurity(test_psec.TestPortSecurity,
         self._del_port_with_vnic(port2['port']['id'], False)
         self._del_port_with_vnic(port1['port']['id'], True)
 
+    def test_detach_port_no_sec(self):
+        device_id = _uuid()
+        # create a compute port without port security
+        port = self._create_compute_port('net1', device_id, False)
+        # add vnic to the port
+        self._add_vnic_to_port(port['port']['id'], True, 3)
+
+        # detach the port
+        with mock.patch.object(
+            self.fc2,
+            'inactivate_vnic_assigned_addresses') as mock_inactivte:
+            self._del_vnic_from_port(port['port']['id'], True)
+            # inactivate spoofguard should not be called
+            self.assertFalse(mock_inactivte.called)
+
+    def test_detach_port_with_sec(self):
+        device_id = _uuid()
+        # create a compute port without port security
+        port = self._create_compute_port('net1', device_id, True)
+        # add vnic to the port
+        self._add_vnic_to_port(port['port']['id'], False, 3)
+
+        # detach the port
+        with mock.patch.object(
+            self.fc2,
+            'inactivate_vnic_assigned_addresses') as mock_inactivte:
+            self._del_vnic_from_port(port['port']['id'], False)
+            # inactivate spoofguard should be called
+            self.assertTrue(mock_inactivte.called)
+
     def _toggle_port_security(self, port_id, enable_port_security,
                               update_exclude):
         """Enable/disable port security on a port, and verify that the exclude
