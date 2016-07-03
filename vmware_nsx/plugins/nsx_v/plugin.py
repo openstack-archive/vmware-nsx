@@ -1263,15 +1263,17 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 vm_moref = self._dvs.get_vm_moref(device_id)
                 if vm_moref is not None:
                     try:
-                        self.nsx_v.vcns.add_vm_to_exclude_list(vm_moref)
                         LOG.info(_LI("Add VM %(dev)s to exclude list on "
                                      "behalf of port %(port)s: added to "
                                      "list"),
                                  {"dev": device_id, "port": port_id})
-                    except n_exc.BadRequest:
+                        self.nsx_v.vcns.add_vm_to_exclude_list(vm_moref)
+                    except vsh_exc.RequestBad as e:
                         LOG.error(_LE("Failed to add vm %(device)s "
-                                      "moref %(moref)s to exclusion list"),
-                                  {'device': device_id, 'moref': vm_moref})
+                                      "moref %(moref)s to exclude list: "
+                                      "%(err)s"),
+                                  {'device': device_id, 'moref': vm_moref,
+                                   'err': e})
             else:
                 LOG.info(_LI("Add VM %(dev)s to exclude list on behalf of "
                              "port %(port)s: already in list"),
@@ -1289,15 +1291,17 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 vm_moref = self._dvs.get_vm_moref(device_id)
                 if vm_moref is not None:
                     try:
-                        self.nsx_v.vcns.delete_vm_from_exclude_list(vm_moref)
                         LOG.info(_LI("Remove VM %(dev)s from exclude list on "
                                      "behalf of port %(port)s: removed from "
                                      "list"),
                                  {"dev": device_id, "port": port_id})
-                    except n_exc.BadRequest:
+                        self.nsx_v.vcns.delete_vm_from_exclude_list(vm_moref)
+                    except vsh_exc.RequestBad as e:
                         LOG.error(_LE("Failed to delete vm %(device)s "
-                                      "moref %(moref)s from exclusion list"),
-                                  {'device': device_id, 'moref': vm_moref})
+                                      "moref %(moref)s from exclude list: "
+                                      "%(err)s"),
+                                  {'device': device_id, 'moref': vm_moref,
+                                   'err': e})
             else:
                 LOG.info(_LI("Remove VM %(dev)s from exclude list on behalf "
                              "of port %(port)s: other ports still in list"),
