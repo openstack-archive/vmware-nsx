@@ -42,8 +42,12 @@ def parse_multi_keyval_opt(opt_list):
 
     result = dict()
     for opt_value in opt_list:
-        key, value = opt_value.split('=')
-        result[key] = value
+        try:
+            key, value = opt_value.split('=')
+            result[key] = value
+        except ValueError:
+            raise ValueError("Illegal argument [%s]: input should have the "
+                             "format of '--property key=value'" % opt_value)
     return result
 
 
