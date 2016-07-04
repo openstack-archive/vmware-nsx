@@ -2230,12 +2230,16 @@ def clear_nat_rules(nsxv_manager, context, router_id):
 def update_firewall(nsxv_manager, context, router_id, firewall,
                     allow_external=True):
     jobdata = {'context': context}
-    edge_id = nsxv_db.get_nsxv_router_binding(
-        context.session, router_id)['edge_id']
-    task = nsxv_manager.asyn_update_firewall(router_id, edge_id,
-                                             firewall, jobdata=jobdata,
-                                             allow_external=allow_external)
-    task.wait(task_const.TaskState.RESULT)
+    binding = nsxv_db.get_nsxv_router_binding(
+        context.session, router_id)
+    if binding:
+        edge_id = binding['edge_id']
+        task = nsxv_manager.asyn_update_firewall(router_id, edge_id,
+                                                 firewall, jobdata=jobdata,
+                                                 allow_external=allow_external)
+        task.wait(task_const.TaskState.RESULT)
+    else:
+        LOG.warning(_LW("Bindings do not exists for %s"), router_id)
 
 
 def check_network_in_use_at_backend(context, network_id):
