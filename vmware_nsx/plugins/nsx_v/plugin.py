@@ -1889,11 +1889,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     conflicting_networks.append(net_id['id'])
                 elif (p_net and phy_uuid != p_net[0]['phy_uuid']):
                     conflicting_networks.append(net_id['id'])
+        # get all of the subnets on the network, there may be more than one
+        filters = {'network_id': [network_id]}
+        subnets = super(NsxVPluginV2, self).get_subnets(context.elevated(),
+                                                        filters=filters)
         # Query all networks with overlap subnet
         if cfg.CONF.allow_overlapping_ips:
             conflicting_networks.extend(
                 self._get_conflict_network_ids_by_overlapping(
-                    context, [subnet]))
+                    context, subnets))
 
         conflicting_networks = list(set(conflicting_networks))
         return conflicting_networks
