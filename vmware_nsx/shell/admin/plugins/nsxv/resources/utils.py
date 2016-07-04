@@ -17,6 +17,8 @@ from oslo_config import cfg
 
 from neutron import context as neutron_context
 from neutron.db import common_db_mixin as common_db
+
+from vmware_nsx import plugin
 from vmware_nsx.plugins.nsx_v.vshield import vcns
 
 
@@ -33,3 +35,11 @@ class NeutronDbClient(common_db.CommonDbMixin):
     def __init__(self):
         super(NeutronDbClient, self)
         self.context = neutron_context.get_admin_context()
+
+
+class NsxVPluginWrapper(plugin.NsxVPlugin):
+    def _start_rpc_listeners(self):
+        pass
+
+    def _validate_config(self):
+        pass
