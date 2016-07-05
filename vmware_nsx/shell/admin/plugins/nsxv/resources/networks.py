@@ -72,8 +72,11 @@ def nsx_update_switch(resource, event, trigger, **kwargs):
     except exceptions.ResourceNotFound:
         LOG.error(_LE("DVS %s not found"), dvs_id)
         return
+    supported_policies = ['ETHER_CHANNEL', 'LOADBALANCE_LOADBASED',
+                          'LOADBALANCE_SRCID', 'LOADBALANCE_SRCMAC',
+                          'FAILOVER_ORDER']
     policy = properties.get('teamingpolicy')
-    if policy:
+    if policy in supported_policies:
         if switch['teamingPolicy'] == policy:
             LOG.info(_LI("Policy already set!"))
             return
@@ -93,9 +96,10 @@ def nsx_update_switch(resource, event, trigger, **kwargs):
 
         LOG.info(_LI("Switch value after update: %s"), switch)
     else:
-        LOG.error(_LE("No teaming policy set. "
-                      "Add --property teamingpolicy=<policy>"))
         LOG.info(_LI("Current switch value is: %s"), switch)
+        LOG.error(_LE("Invalid teaming policy. "
+                      "Add --property teamingpolicy=<policy>"))
+        LOG.error(_LE("Possible values: %s"), ', '.join(supported_policies))
 
 
 registry.subscribe(neutron_list_networks,
