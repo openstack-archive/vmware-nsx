@@ -111,8 +111,11 @@ def nsx_list_name_mismatches(resource, event, trigger, **kwargs):
     edges = nsxv.get_edges()[1]
     edges = edges['edgePage'].get('data', [])
     plugin_nsx_mismatch = []
+    backend_edge_ids = []
     edgeapi = utils.NeutronDbClient()
+    # Look for edges with the wrong names:
     for edge in edges:
+        backend_edge_ids.append(edge['id'])
         rtr_binding = nsxv_db.get_nsxv_router_binding_by_edge(
                 edgeapi.context.session, edge['id'])
 
@@ -125,8 +128,27 @@ def nsx_list_name_mismatches(resource, event, trigger, **kwargs):
                      'router_id': rtr_binding['router_id']})
 
     LOG.info(formatters.output_formatter(
-            constants.BACKUP_EDGES, plugin_nsx_mismatch,
+            constants.BACKUP_EDGES + ' with name mismatch:',
+            plugin_nsx_mismatch,
             ['edge_id', 'edge_name', 'router_id']))
+
+    # Also look for missing edges
+    like_filters = {'router_id': vcns_const.BACKUP_ROUTER_PREFIX + "%"}
+    rtr_bindings = nsxv_db.get_nsxv_router_bindings(edgeapi.context.session,
+        like_filters=like_filters)
+    plugin_nsx_missing = []
+
+    for rtr_binding in rtr_bindings:
+        if rtr_binding['edge_id'] not in backend_edge_ids:
+            plugin_nsx_missing.append(
+                {'edge_id': rtr_binding['edge_id'],
+                 'router_id': rtr_binding['router_id'],
+                 'db_status': rtr_binding['status']})
+
+    LOG.info(formatters.output_formatter(
+            constants.BACKUP_EDGES + ' missing from backend:',
+            plugin_nsx_missing,
+            ['edge_id', 'router_id', 'db_status']))
 
 
 def nsx_fix_name_mismatch(resource, event, trigger, **kwargs):
