@@ -69,15 +69,18 @@ class AbstractTestAdminUtils(base.BaseTestCase):
             resources.get_plugin_dir(plugin_name))
 
     def _test_resource(self, res_name, op, **kwargs):
-        # Must call the internal notify_loop in order to get the errors
-        errors = registry._get_callback_manager()._notify_loop(
-            res_name, op, 'nsxadmin', **kwargs)
+        errors = self._test_resource_with_errors(res_name, op, **kwargs)
         if len(errors) > 0:
             msg = (_("admin util %(res)s/%(op)s failed with message: "
                      "%(err)s") % {'res': res_name,
                                    'op': op,
                                    'err': errors[0]})
             self.fail(msg=msg)
+
+    def _test_resource_with_errors(self, res_name, op, **kwargs):
+        # Must call the internal notify_loop in order to get the errors
+        return registry._get_callback_manager()._notify_loop(
+            res_name, op, 'nsxadmin', **kwargs)
 
     def _test_resources(self, res_dict):
         for res in res_dict.keys():
@@ -107,6 +110,12 @@ class TestNsxvAdminUtils(AbstractTestAdminUtils,
     def test_with_args(self):
         args = {'property': ["xxx=yyy"]}
         self._test_resource('networks', 'list', **args)
+
+    def test_bad_args(self):
+        args = {'property': ["xxx"]}
+        errors = self._test_resource_with_errors(
+            'networks', 'nsx-update', **args)
+        self.assertEqual(1, len(errors))
 
 
 class TestNsxv3AdminUtils(AbstractTestAdminUtils,
