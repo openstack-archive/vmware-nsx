@@ -72,13 +72,18 @@ def listener_to_edge_app_profile(listener, edge_cert_id):
 
 
 def listener_to_edge_vse(listener, vip_address, default_pool, app_profile_id):
+    if listener.connection_limit:
+        connection_limit = max(0, listener.connection_limit)
+    else:
+        connection_limit = 0
+
     return {
         'name': 'vip_' + listener.id,
         'description': listener.description,
         'ipAddress': vip_address,
         'protocol': lb_const.PROTOCOL_MAP[listener.protocol],
         'port': listener.protocol_port,
-        'connectionLimit': max(0, listener.connection_limit),
+        'connectionLimit': connection_limit,
         'defaultPoolId': default_pool,
         'applicationProfileId': app_profile_id}
 

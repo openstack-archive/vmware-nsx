@@ -118,8 +118,8 @@ nsxv_resources = {
                              Operations.NSX_UPDATE_SECRET.value]),
 }
 
-nsxv3_resources_names = map(lambda res: res.name, nsxv3_resources.itervalues())
-nsxv_resources_names = map(lambda res: res.name, nsxv_resources.itervalues())
+nsxv3_resources_names = list(nsxv3_resources.keys())
+nsxv_resources_names = list(nsxv_resources.keys())
 
 
 def get_resources(plugin_dir):
@@ -158,9 +158,8 @@ def init_resource_plugin(plugin_name, plugin_dir):
     for resource in plugin_resources:
         if (resource != '__init__'):
             importlib.import_module(
-                "." + resource,
                 "vmware_nsx.shell.admin.plugins."
-                "{}.resources".format(plugin_name))
+                "{}.resources.".format(plugin_name) + resource)
 
 
 def get_plugin_dir(plugin_name):

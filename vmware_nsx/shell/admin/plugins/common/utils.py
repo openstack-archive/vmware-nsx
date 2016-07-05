@@ -28,12 +28,12 @@ def output_header(func):
     component_operation_it_does to leverage the decorator
     """
     def func_desc(*args, **kwargs):
-        component = '[%s]' % func.func_name.split('_')[0].upper()
-        op_desc = [n.capitalize() for n in func.func_name.split('_')[1:]]
+        component = '[%s]' % func.__name__.split('_')[0].upper()
+        op_desc = [n.capitalize() for n in func.__name__.split('_')[1:]]
         LOG.info(_LI('==== %(component)s %(operation)s ===='),
                  {'component': component, 'operation': ' '.join(op_desc)})
         return func(*args, **kwargs)
-    func_desc.__name__ = func.func_name
+    func_desc.__name__ = func.__name__
     return func_desc
 
 

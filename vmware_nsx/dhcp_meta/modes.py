@@ -148,7 +148,7 @@ class DhcpMetadataAccess(object):
             error = _("Unmet dependency for config option "
                       "'%s'") % cfg.CONF.NSX.agent_mode
         if error:
-            LOG.exception(error)
+            LOG.error(error)
             raise nsx_exc.NsxPluginException(err_msg=error)
 
     def get_lsn(self, context, network_id, fields=None):

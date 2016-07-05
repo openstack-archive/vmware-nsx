@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import copy
 import random
 
 from neutron_lib import constants
@@ -77,7 +78,10 @@ class NsxCache(object):
 
     def _clear_changed_flag_and_remove_from_cache(self, resources):
         # Clear the 'changed' attribute for all items
-        for uuid, item in resources.items():
+        # NOTE(arosen): the copy.copy is to avoid: 'RuntimeError:
+        # dictionary changed size during iteration' for py3
+
+        for uuid, item in copy.copy(resources).items():
             if item.pop('changed', None) and not item.get('data'):
                 # The item is not anymore in NSX, so delete it
                 del resources[uuid]
@@ -539,7 +543,7 @@ class NsxSynchronizer():
             # API. In this case the request should be split in multiple
             # requests. This is not ideal, and therefore a log warning will
             # be emitted.
-            num_requests = page_size / (MAX_PAGE_SIZE + 1) + 1
+            num_requests = page_size // (MAX_PAGE_SIZE + 1) + 1
             if num_requests > 1:
                 LOG.warning(_LW("Requested page size is %(cur_chunk_size)d. "
                                 "It might be necessary to do %(num_requests)d "

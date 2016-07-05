@@ -12,7 +12,7 @@
 # implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import copy
 import uuid
 
 import mock
@@ -1104,7 +1104,8 @@ class NeutronNsxOutOfSync(NsxPluginV2TestCase,
 
         def unsync_action():
             # duplicate every entry in the nat rule dict
-            for (_rule_id, rule) in self.fc._fake_lrouter_nat_dict.items():
+            tmp = copy.deepcopy(self.fc._fake_lrouter_nat_dict)
+            for (_rule_id, rule) in tmp.items():
                 self.fc._fake_lrouter_nat_dict[uuid.uuid4()] = rule
 
         self._test_remove_router_interface_nsx_out_of_sync(unsync_action)

@@ -19,6 +19,7 @@ import mock
 import netaddr
 from neutron.api.rpc.callbacks import events as callbacks_events
 from neutron.api.v2 import attributes
+from neutron.common import utils
 from neutron import context
 from neutron.extensions import dvr as dist_router
 from neutron.extensions import external_net
@@ -1891,7 +1892,7 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
                 sorted_list.append(self._recursive_sort_dict(ele))
             else:
                 sorted_list.append(ele)
-        return sorted(sorted_list)
+        return sorted(sorted_list, key=utils.safe_sort_key)
 
     def _recursive_sort_dict(self, dct):
         sorted_dict = {}
