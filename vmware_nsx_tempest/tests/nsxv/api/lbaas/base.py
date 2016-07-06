@@ -16,8 +16,6 @@
 #    ported from neutron-lbaas to comply to tempest framework
 #    NSX-v require vip-subnet attached to exclusive router
 
-import time
-
 from oslo_log import log as logging
 
 from tempest.api.network import base
@@ -28,7 +26,6 @@ from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
 from tempest.lib import exceptions
 
-from vmware_nsx_tempest._i18n import _
 from vmware_nsx_tempest._i18n import _LI
 from vmware_nsx_tempest.services.lbaas import health_monitors_client
 from vmware_nsx_tempest.services.lbaas import listeners_client
@@ -38,6 +35,7 @@ from vmware_nsx_tempest.services.lbaas import pools_client
 
 CONF = config.CONF
 LOG = logging.getLogger(__name__)
+NO_ROUTER_TYPE = CONF.nsxv.no_router_type
 
 
 class BaseTestCase(base.BaseNetworkTest):
@@ -82,6 +80,9 @@ class BaseTestCase(base.BaseNetworkTest):
         cls.subnet_id = cls.subnet.get('id')
         # NSX-v: load-balancer's subnet need to attach to exclusive-router
         router_cfg = dict(router_name=router_name, router_type='exclusive')
+        if NO_ROUTER_TYPE:
+            # router_type is NSX-v extension.
+            router_cfg.pop('router_type', None)
         cls.router = cls.create_router(**router_cfg)
         cls.create_router_interface(cls.router['id'], cls.subnet['id'])
 
@@ -95,25 +96,30 @@ class BaseTestCase(base.BaseNetworkTest):
                 continue
             for listener in lb.get('listeners', []):
                 for pool in listener.get('pools'):
+                    # delete pool's health-monitor
                     hm = pool.get('healthmonitor')
                     if hm:
                         test_utils.call_and_ignore_notfound_exc(
                             cls.health_monitors_client.delete_health_monitor,
                             pool.get('healthmonitor').get('id'))
                         cls._wait_for_load_balancer_status(lb_id)
+                    # delete pool's members
+                    members = pool.get('members', [])
+                    for member in members:
+                        test_utils.call_and_ignore_notfound_exc(
+                            cls.members_client.delete_member,
+                            pool.get('id'), member.get('id'))
+                        cls._wait_for_load_balancer_status(lb_id)
+                    # delete pool
                     test_utils.call_and_ignore_notfound_exc(
                         cls.pools_client.delete_pool, pool.get('id'))
                     cls._wait_for_load_balancer_status(lb_id)
-                    health_monitor = pool.get('healthmonitor')
-                    if health_monitor:
-                        test_utils.call_and_ignore_notfound_exc(
-                            cls.health_monitors_client.delete_health_monitor,
-                            health_monitor.get('id'))
-                    cls._wait_for_load_balancer_status(lb_id)
+                # delete listener
                 test_utils.call_and_ignore_notfound_exc(
                     cls.listeners_client.delete_listener,
                     listener.get('id'))
                 cls._wait_for_load_balancer_status(lb_id)
+            # delete load-balancer
             test_utils.call_and_ignore_notfound_exc(
                 cls._delete_load_balancer, lb_id)
         # NSX-v: delete exclusive router
@@ -186,54 +192,11 @@ class BaseTestCase(base.BaseNetworkTest):
                                        provisioning_status='ACTIVE',
                                        operating_status='ONLINE',
                                        delete=False):
-        interval_time = 1
-        timeout = 600
-        end_time = time.time() + timeout
-        lb = {}
-        while time.time() < end_time:
-            try:
-                lb = cls.load_balancers_client.show_load_balancer(
-                    load_balancer_id)
-                if not lb:
-                        # loadbalancer not found
-                    if delete:
-                        break
-                    else:
-                        raise Exception(
-                            _("loadbalancer {lb_id} not"
-                              " found").format(
-                                  lb_id=load_balancer_id))
-                lb = lb.get('loadbalancer', lb)
-                if (lb.get('provisioning_status') == provisioning_status and
-                        lb.get('operating_status') == operating_status):
-                    break
-                time.sleep(interval_time)
-            except exceptions.NotFound as e:
-                # if wait is for delete operation do break
-                if delete:
-                    break
-                else:
-                    # raise original exception
-                    raise e
-        else:
-            if delete:
-                raise exceptions.TimeoutException(
-                    _("Waited for load balancer {lb_id} to be deleted for "
-                      "{timeout} seconds but can still observe that it "
-                      "exists.").format(
-                          lb_id=load_balancer_id,
-                          timeout=timeout))
-            else:
-                raise exceptions.TimeoutException(
-                    _("Wait for load balancer ran for {timeout} seconds and "
-                      "did not observe {lb_id} reach {provisioning_status} "
-                      "provisioning status and {operating_status} "
-                      "operating status.").format(
-                          timeout=timeout,
-                          lb_id=load_balancer_id,
-                          provisioning_status=provisioning_status,
-                          operating_status=operating_status))
-        return lb
+        return cls.load_balancers_client.wait_for_load_balancer_status(
+            load_balancer_id,
+            provisioning_status=provisioning_status,
+            operating_status=operating_status,
+            is_delete_op=delete)
 
     @classmethod
     def _show_load_balancer_status_tree(cls, load_balancer_id):

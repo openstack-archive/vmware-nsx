@@ -61,10 +61,10 @@ class LoadBalancersClient(base.BaseNetworkClient):
         uri = self.resource_base_path
         return self.list_resources(uri, **filters)
 
-    def wait_for_load_balancers_status(self, load_balancer_id,
-                                       provisioning_status='ACTIVE',
-                                       operating_status='ONLINE',
-                                       is_delete_op=False):
+    def wait_for_load_balancer_status(self, load_balancer_id,
+                                      provisioning_status='ACTIVE',
+                                      operating_status='ONLINE',
+                                      is_delete_op=False):
         """Must have utility method for load-balancer CRUD operation.
 
         This is the method you must call to make sure load_balancer_id is
