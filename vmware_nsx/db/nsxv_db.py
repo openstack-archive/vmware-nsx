@@ -596,6 +596,16 @@ def get_vdr_dhcp_binding_by_vdr(session, vdr_router_id):
         return None
 
 
+def get_vdr_dhcp_binding_by_edge(session, edge_id):
+    try:
+        binding = session.query(
+            nsxv_models.NsxvVdrDhcpBinding).filter_by(
+            dhcp_edge_id=edge_id).one()
+        return binding
+    except exc.NoResultFound:
+        return None
+
+
 def delete_vdr_dhcp_binding(session, vdr_router_id):
     return (session.query(nsxv_models.NsxvVdrDhcpBinding).
             filter_by(vdr_router_id=vdr_router_id).delete())

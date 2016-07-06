@@ -44,6 +44,7 @@ class Operations(enum.Enum):
     NSX_CLEAN = 'nsx-clean'
     NSX_UPDATE = 'nsx-update'
     NSX_UPDATE_SECRET = 'nsx-update-secret'
+    NSX_RECREATE = 'nsx-recreate'
     MIGRATE_TO_DYNAMIC_CRITERIA = 'migrate-to-dynamic-criteria'
 
 
@@ -100,7 +101,8 @@ nsxv_resources = {
                                            Operations.CLEAN.value]),
     constants.DHCP_BINDING: Resource(constants.DHCP_BINDING,
                                      [Operations.LIST.value,
-                                      Operations.NSX_UPDATE.value]),
+                                      Operations.NSX_UPDATE.value,
+                                      Operations.NSX_RECREATE.value]),
     constants.NETWORKS: Resource(constants.NETWORKS,
                                  [Operations.LIST.value,
                                   Operations.NSX_UPDATE.value]),
