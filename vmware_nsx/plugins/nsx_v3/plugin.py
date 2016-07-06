@@ -13,7 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import mock
 import netaddr
 import six
 
@@ -2196,6 +2195,19 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                       'nexthop': route['nexthop']})
                     raise n_exc.InvalidInput(error_message=error_message)
 
+    def _update_router_wrapper(self, context, router_id, router):
+        if cfg.CONF.api_replay_mode:
+            # Only import mock if the reply mode is used
+            import mock
+            # NOTE(arosen): the mock.patch here is needed for api_replay_mode
+            with mock.patch("neutron.plugins.common.utils._fixup_res_dict",
+                            side_effect=api_replay_utils._fixup_res_dict):
+                return super(NsxV3Plugin, self).update_router(
+                    context, router_id, router)
+        else:
+            return super(NsxV3Plugin, self).update_router(
+                context, router_id, router)
+
     def update_router(self, context, router_id, router):
         # TODO(berlin): admin_state_up support
         gw_info = self._extract_external_gw(context, router, is_extract=False)
@@ -2237,12 +2249,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         name = utils.get_name_and_uuid(
                             router_name, port['id'], tag='port')
                         self._port_client.update(nsx_port_id, None, name=name)
-
-            # NOTE(arosen): the mock.patch here is needed for api_replay_mode
-            with mock.patch("neutron.plugins.common.utils._fixup_res_dict",
-                            side_effect=api_replay_utils._fixup_res_dict):
-                return super(NsxV3Plugin, self).update_router(
-                    context, router_id, router)
+            return self._update_router_wrapper(context, router_id, router)
         except nsx_exc.ResourceNotFound:
             with context.session.begin(subtransactions=True):
                 router_db = self._get_router(context, router_id)
@@ -2320,16 +2327,27 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 'router_id': router_ids[0]}
             raise n_exc.InvalidInput(error_message=err_msg)
 
+    def _add_router_interface_wrapper(self, context, router_id,
+                                      interface_info):
+        if cfg.CONF.api_replay_mode:
+            # Only import mock if the reply mode is used
+            import mock
+            # NOTE(arosen): the mock.patch here is needed for api_replay_mode
+            with mock.patch("neutron.plugins.common.utils._fixup_res_dict",
+                            side_effect=api_replay_utils._fixup_res_dict):
+                return super(NsxV3Plugin, self).add_router_interface(
+                    context, router_id, interface_info)
+        else:
+            return super(NsxV3Plugin, self).add_router_interface(
+                 context, router_id, interface_info)
+
     def add_router_interface(self, context, router_id, interface_info):
         # disallow more than one subnets belong to same network being attached
         # to routers
         self._validate_multiple_subnets_routers(context,
                                                 router_id, interface_info)
-        # NOTE(arosen): the mock.patch here is needed for api_replay_mode
-        with mock.patch("neutron.plugins.common.utils._fixup_res_dict",
-                        side_effect=api_replay_utils._fixup_res_dict):
-            info = super(NsxV3Plugin, self).add_router_interface(
-                context, router_id, interface_info)
+        info = self._add_router_interface_wrapper(context, router_id,
+                                                  interface_info)
         try:
             subnet = self.get_subnet(context, info['subnet_ids'][0])
             port = self.get_port(context, info['port_id'])
@@ -2446,16 +2464,27 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             nsx_rpc.handle_router_metadata_access(self, context, router_id)
         return info
 
-    def create_floatingip(self, context, floatingip):
-        # NOTE(arosen): the mock.patch here is needed for api_replay_mode
-        with mock.patch("neutron.plugins.common.utils._fixup_res_dict",
-                        side_effect=api_replay_utils._fixup_res_dict):
-
-            new_fip = super(NsxV3Plugin, self).create_floatingip(
+    def _create_floating_ip_wrapper(self, context, floatingip):
+        if cfg.CONF.api_replay_mode:
+            # Only import mock if the reply mode is used
+            import mock
+            # NOTE(arosen): the mock.patch here is needed for api_replay_mode
+            with mock.patch("neutron.plugins.common.utils._fixup_res_dict",
+                            side_effect=api_replay_utils._fixup_res_dict):
+                return super(NsxV3Plugin, self).create_floatingip(
+                    context, floatingip, initial_status=(
+                        const.FLOATINGIP_STATUS_ACTIVE
+                        if floatingip['floatingip']['port_id']
+                        else const.FLOATINGIP_STATUS_DOWN))
+        else:
+            return super(NsxV3Plugin, self).create_floatingip(
                 context, floatingip, initial_status=(
                     const.FLOATINGIP_STATUS_ACTIVE
                     if floatingip['floatingip']['port_id']
                     else const.FLOATINGIP_STATUS_DOWN))
+
+    def create_floatingip(self, context, floatingip):
+        new_fip = self._create_floating_ip_wrapper(context, floatingip)
         router_id = new_fip['router_id']
         if not router_id:
             return new_fip
