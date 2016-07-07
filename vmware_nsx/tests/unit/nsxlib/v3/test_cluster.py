@@ -221,7 +221,7 @@ class ClusteredAPITestCase(nsxlib_testcase.NsxClientTestCase):
         api = self.mock_nsx_clustered_api()
         api._validate = mock.Mock()
 
-        eps = api._endpoints.values()
+        eps = list(api._endpoints.values())
 
         def _get_schedule(num_eps):
             return [api._select_endpoint() for i in range(num_eps)]

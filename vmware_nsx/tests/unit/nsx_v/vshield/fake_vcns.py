@@ -998,7 +998,8 @@ class FakeVcns(object):
             return self._get_section(section_id)
 
     def _get_section(self, section_id):
-        section_rules = (''.join(self._sections[section_id]['rules'].values()))
+        section_rules = (
+            b''.join(self._sections[section_id]['rules'].values()))
         response = ('<section id="%s" name="%s">%s</section>'
                     % (section_id,
                        self._sections[section_id]['name'],

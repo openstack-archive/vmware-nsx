@@ -14,6 +14,7 @@
 #    under the License.
 
 import collections
+import copy
 import uuid
 
 from eventlet import event
@@ -273,7 +274,8 @@ class TaskManager():
             self._enqueue(t)
         self._tasks_queue.clear()
 
-        for resource_id in self._tasks.keys():
+        resources = copy.deepcopy(self._tasks)
+        for resource_id in resources.keys():
             tasks = list(self._tasks[resource_id])
             for task in tasks:
                 task._update_status(constants.TaskStatus.ABORT)

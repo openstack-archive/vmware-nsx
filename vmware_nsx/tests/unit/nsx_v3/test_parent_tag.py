@@ -44,7 +44,7 @@ class TestParentTagPortBinding(test_nsx_v3_plugin.NsxV3PluginTestCaseMixin):
                                      binding[pbin.PROFILE])
 
     def test_create_port_with_invalid_tag(self):
-        binding = {pbin.PROFILE: {"parent_name": '', 'tag': 'a'}}
+        binding = {pbin.PROFILE: {"parent_name": '', 'tag': 10000000}}
         with self.network() as n:
             with self.subnet(n) as s:
                 with self.port(s) as p:

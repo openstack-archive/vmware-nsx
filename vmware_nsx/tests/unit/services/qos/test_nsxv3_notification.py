@@ -152,7 +152,7 @@ class TestQosNsxV3Notification(nsxlib_testcase.NsxClientTestCase,
 
                 # validate the data on the profile
                 rule_dict = self.rule_data['bandwidth_limit_rule']
-                expected_bw = rule_dict['max_kbps'] / 1024
+                expected_bw = rule_dict['max_kbps'] // 1024
                 expected_burst = rule_dict['max_burst_kbps'] * 128
                 update_profile.assert_called_once_with(
                     self.fake_profile_id,

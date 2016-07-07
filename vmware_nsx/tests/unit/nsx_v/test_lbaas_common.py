@@ -111,7 +111,7 @@ class TestLbaasCommon(base.BaseTestCase):
                 self.edge_driver.vcns, POOL_ID, EDGE_ID, '1111', member_ips)
             mock_update_section.assert_called_with(
                 '/api/4.0/firewall/globalroot-0/config/layer3sections/1111',
-                edge_fw_updated_section, None)
+                edge_fw_updated_section.encode('utf-8'), None)
             lb_common.get_edge_ip_addresses = tmp_get_ips
 
     def test_update_pool_fw_rule_del(self):
@@ -133,7 +133,7 @@ class TestLbaasCommon(base.BaseTestCase):
                 self.edge_driver.vcns, POOL_ID, EDGE_ID, '1111', member_ips)
             mock_update_section.assert_called_with(
                 '/api/4.0/firewall/globalroot-0/config/layer3sections/1111',
-                edge_fw_updated_section, None)
+                edge_fw_updated_section.encode('utf-8'), None)
             lb_common.get_edge_ip_addresses = tmp_get_ips
 
     def test_add_vip_as_secondary_ip(self):

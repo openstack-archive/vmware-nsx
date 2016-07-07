@@ -762,7 +762,8 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
                      'tag': version.version_info.release_string()},
                     {'scope': 'os-instance-uuid',
                      'tag': 'A' * 40}]
-        self.assertEqual(sorted(expected), sorted(tags))
+        self.assertEqual(sorted(expected, key=lambda x: x.get('tag')),
+                         sorted(tags, key=lambda x: x.get('tag')))
 
     def test_update_v3_tags_removal(self):
         tags = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
@@ -777,7 +778,8 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
                     {'scope': 'os-project-name', 'tag': 'Z' * 40},
                     {'scope': 'os-api-version',
                      'tag': version.version_info.release_string()}]
-        self.assertEqual(sorted(expected), sorted(tags))
+        self.assertEqual(sorted(expected, key=lambda x: x.get('tag')),
+                         sorted(tags, key=lambda x: x.get('tag')))
 
     def test_update_v3_tags_update(self):
         tags = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
@@ -793,7 +795,8 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
                     {'scope': 'os-project-name', 'tag': 'Z' * 40},
                     {'scope': 'os-api-version',
                      'tag': version.version_info.release_string()}]
-        self.assertEqual(sorted(expected), sorted(tags))
+        self.assertEqual(sorted(expected, key=lambda x: x.get('tag')),
+                         sorted(tags, key=lambda x: x.get('tag')))
 
     def test_update_v3_tags_repetitive_scopes(self):
         tags = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
@@ -809,7 +812,8 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
                     {'scope': 'os-project-name', 'tag': 'Z' * 40},
                     {'scope': 'os-security-group', 'tag': 'SG3'},
                     {'scope': 'os-security-group', 'tag': 'SG4'}]
-        self.assertEqual(sorted(expected), sorted(tags))
+        self.assertEqual(sorted(expected, key=lambda x: x.get('tag')),
+                         sorted(tags, key=lambda x: x.get('tag')))
 
     def test_update_v3_tags_repetitive_scopes_remove(self):
         tags = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
@@ -822,7 +826,8 @@ class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
         expected = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
                     {'scope': 'os-project-id', 'tag': 'Y' * 40},
                     {'scope': 'os-project-name', 'tag': 'Z' * 40}]
-        self.assertEqual(sorted(expected), sorted(tags))
+        self.assertEqual(sorted(expected, key=lambda x: x.get('tag')),
+                         sorted(tags, key=lambda x: x.get('tag')))
 
 
 class NsxNativeDhcpTestCase(NsxV3PluginTestCaseMixin):
