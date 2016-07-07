@@ -46,7 +46,7 @@ def get_lbaas_edge_id_for_subnet(context, plugin, subnet_id, tenant_id):
 
     for attached_router in attached_routers:
         router = plugin.get_router(context, attached_router['device_id'])
-        if router['router_type'] == 'exclusive':
+        if router.get('router_type') == 'exclusive':
             rtr_bindings = nsxv_db.get_nsxv_router_binding(context.session,
                                                            router['id'])
             return rtr_bindings['edge_id']
