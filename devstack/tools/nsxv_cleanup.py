@@ -181,10 +181,10 @@ class VSMClient(object):
         paging_info = response.json()['dataPage']['pagingInfo']
         page_size = int(paging_info['pageSize'])
         total_count = int(paging_info['totalCount'])
-        print ("There are total %s logical switches and page size is %s" % (
+        print("There are total %s logical switches and page size is %s" % (
             total_count, page_size))
         pages = ceil(total_count, page_size)
-        print ("Total pages: %s" % pages)
+        print("Total pages: %s" % pages)
         for i in range(0, pages):
             start_index = page_size * i
             params = {'startindex': start_index}
@@ -195,16 +195,16 @@ class VSMClient(object):
         return lswitches
 
     def cleanup_logical_switch(self):
-        print ("Cleaning up logical switches on NSX manager")
+        print("Cleaning up logical switches on NSX manager")
         lswitches = self.query_all_logical_switches()
-        print ("There are total %s logical switches" % len(lswitches))
+        print("There are total %s logical switches" % len(lswitches))
         for ls in lswitches:
-            print ("\nDeleting logical switch %s (%s) ..." % (ls['name'],
+            print("\nDeleting logical switch %s (%s) ..." % (ls['name'],
                                                              ls['objectId']))
             endpoint = '/vdn/virtualwires/%s' % ls['objectId']
             response = self.delete(endpoint=endpoint)
             if response.status_code != 200:
-                print ("ERROR: response status code %s" % response.status_code)
+                print("ERROR: response status code %s" % response.status_code)
 
     def query_all_firewall_sections(self):
         firewall_sections = []
@@ -218,23 +218,23 @@ class VSMClient(object):
             firewall_sections = [s for s in l3_sections if s['name'] !=
                                  "Default Section Layer3"]
         else:
-            print ("ERROR: wrong response status code! Exiting...")
+            print("ERROR: wrong response status code! Exiting...")
             sys.exit()
 
         return firewall_sections
 
     def cleanup_firewall_section(self):
-        print ("\n\nCleaning up firewall sections on NSX manager")
+        print("\n\nCleaning up firewall sections on NSX manager")
         l3_sections = self.query_all_firewall_sections()
-        print ("There are total %s firewall sections" % len(l3_sections))
+        print("There are total %s firewall sections" % len(l3_sections))
         for l3sec in l3_sections:
-            print ("\nDeleting firewall section %s (%s) ..." % (l3sec['name'],
-                                                                l3sec['id']))
+            print("\nDeleting firewall section %s (%s) ..." % (l3sec['name'],
+                                                               l3sec['id']))
             endpoint = '/firewall/globalroot-0/config/layer3sections/%s' % \
                        l3sec['id']
             response = self.delete(endpoint=endpoint)
             if response.status_code != 204:
-                print ("ERROR: response status code %s" % response.status_code)
+                print("ERROR: response status code %s" % response.status_code)
 
     def query_all_security_groups(self):
         security_groups = []
@@ -245,7 +245,7 @@ class VSMClient(object):
         if response.status_code is 200:
             sg_all = response.json()
         else:
-            print ("ERROR: wrong response status code! Exiting...")
+            print("ERROR: wrong response status code! Exiting...")
             sys.exit()
         # Remove Activity Monitoring Data Collection, which is not
         # related to any security group created by OpenStack
@@ -254,17 +254,17 @@ class VSMClient(object):
         return security_groups
 
     def cleanup_security_group(self):
-        print ("\n\nCleaning up security groups on NSX manager")
+        print("\n\nCleaning up security groups on NSX manager")
         security_groups = self.query_all_security_groups()
-        print ("There are total %s security groups" % len(security_groups))
+        print("There are total %s security groups" % len(security_groups))
         for sg in security_groups:
-            print ("\nDeleting security group %s (%s) ..." % (sg['name'],
-                                                              sg['objectId']))
+            print("\nDeleting security group %s (%s) ..." % (sg['name'],
+                                                             sg['objectId']))
             endpoint = '/services/securitygroup/%s' % sg['objectId']
             params = {'force': self.force}
             response = self.delete(endpoint=endpoint, params=params)
             if response.status_code != 200:
-                print ("ERROR: response status code %s" % response.status_code)
+                print("ERROR: response status code %s" % response.status_code)
 
     def query_all_spoofguard_policies(self):
         self.__set_api_version('4.0')
@@ -272,7 +272,7 @@ class VSMClient(object):
         # Query all spoofguard policies
         response = self.get()
         if response.status_code is not 200:
-            print ("ERROR: Faield to get spoofguard policies")
+            print("ERROR: Faield to get spoofguard policies")
             return
         sgp_all = response.json()
         policies = [sgp for sgp in sgp_all['policies'] if
@@ -280,15 +280,15 @@ class VSMClient(object):
         return policies
 
     def cleanup_spoofguard_policies(self):
-        print ("\n\nCleaning up spoofguard policies")
+        print("\n\nCleaning up spoofguard policies")
         policies = self.query_all_spoofguard_policies()
-        print ("There are total %s policies" % len(policies))
+        print("There are total %s policies" % len(policies))
         for spg in policies:
-            print ("\nDeleting spoofguard policy %s (%s) ..." %
-                   (spg['name'], spg['policyId']))
+            print("\nDeleting spoofguard policy %s (%s) ..." %
+                  (spg['name'], spg['policyId']))
             endpoint = '/services/spoofguard/policies/%s' % spg['policyId']
             response = self.delete(endpoint=endpoint)
-            print ("Response code: %s" % response.status_code)
+            print("Response code: %s" % response.status_code)
 
     def query_all_edges(self):
         edges = []
@@ -299,10 +299,10 @@ class VSMClient(object):
         paging_info = response.json()['edgePage']['pagingInfo']
         page_size = int(paging_info['pageSize'])
         total_count = int(paging_info['totalCount'])
-        print ("There are total %s edges and page size is %s" % (
+        print("There are total %s edges and page size is %s" % (
             total_count, page_size))
         pages = ceil(total_count, page_size)
-        print ("Total pages: %s" % pages)
+        print("Total pages: %s" % pages)
         for i in range(0, pages):
             start_index = page_size * i
             params = {'startindex': start_index}
@@ -313,15 +313,15 @@ class VSMClient(object):
         return edges
 
     def cleanup_edge(self):
-        print ("\n\nCleaning up edges on NSX manager")
+        print("\n\nCleaning up edges on NSX manager")
         edges = self.query_all_edges()
         for edge in edges:
-            print ("\nDeleting edge %s (%s) ..." % (edge['name'], edge['id']))
+            print("\nDeleting edge %s (%s) ..." % (edge['name'], edge['id']))
             endpoint = '/edges/%s' % edge['id']
             response = self.delete(endpoint=endpoint)
             if response.status_code != 204:
-                print ("ERROR: response status code %s" %
-                       response.status_code)
+                print("ERROR: response status code %s" %
+                      response.status_code)
 
     def cleanup_all(self):
         self.cleanup_firewall_section()
@@ -350,10 +350,10 @@ if __name__ == "__main__":
     parser.add_option("-f", "--force", dest="force", action="store_true",
                       help="Force cleanup option")
     (options, args) = parser.parse_args()
-    print ("vsm-ip: %s" % options.vsm_ip)
-    print ("username: %s" % options.username)
-    print ("password: %s" % options.password)
-    print ("force: %s" % options.force)
+    print("vsm-ip: %s" % options.vsm_ip)
+    print("username: %s" % options.username)
+    print("password: %s" % options.password)
+    print("force: %s" % options.force)
 
     # Get VSM REST client
     if options.force:
