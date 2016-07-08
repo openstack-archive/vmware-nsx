@@ -24,7 +24,6 @@ from neutron.db import securitygroups_db
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import nsx_models
 from vmware_nsx.db import nsxv_models
-from vmware_nsx import plugin
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
@@ -33,14 +32,6 @@ from vmware_nsx.shell import resources as nsxadmin
 
 
 LOG = logging.getLogger(__name__)
-
-
-class NsxVPluginWrapper(plugin.NsxVPlugin):
-    def _start_rpc_listeners(self):
-        pass
-
-    def _validate_config(self):
-        pass
 
 
 class NeutronSecurityGroupDB(utils.NeutronDbClient,
@@ -135,7 +126,7 @@ class NsxFirewallAPI(object):
 
 neutron_sg = NeutronSecurityGroupDB()
 nsxv_firewall = NsxFirewallAPI()
-plugin = NsxVPluginWrapper()
+plugin = utils.NsxVPluginWrapper()
 
 
 def _log_info(resource, data, attrs=['name', 'id']):
@@ -253,7 +244,7 @@ def fix_security_groups(resource, event, trigger, **kwargs):
     context_ = context.get_admin_context()
     sgs_with_missing_section = _find_missing_sections()
     sgs_with_missing_nsx_group = _find_missing_security_groups()
-    plugin = NsxVPluginWrapper()
+    plugin = utils.NsxVPluginWrapper()
     # If only the fw section is missing then create it.
     for sg_id in (set(sgs_with_missing_section.keys()) -
                   set(sgs_with_missing_nsx_group.keys())):

@@ -19,11 +19,9 @@ import pprint
 from vmware_nsx.shell.admin.plugins.common import constants
 import vmware_nsx.shell.admin.plugins.common.utils as admin_utils
 import vmware_nsx.shell.admin.plugins.nsxv.resources.utils as utils
-
 import vmware_nsx.shell.resources as shell
 
 from neutron.callbacks import registry
-from neutron.db import db_base_plugin_v2
 
 from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.db import nsxv_db
@@ -105,9 +103,9 @@ def nsx_update_dhcp_edge_binding(resource, event, trigger, **kwargs):
             LOG.error(_LE("Need to specify edge-id parameter"))
             return
         LOG.info(_LI("Updating NSXv Edge: %s"), edge_id)
-        # Need to create a NeutronDbPlugin object; so that we are able to
+        # Need to create a plugin object; so that we are able to
         # do neutron list-ports.
-        plugin = db_base_plugin_v2.NeutronDbPluginV2()
+        plugin = utils.NsxVPluginWrapper()
         nsxv_manager = vcns_driver.VcnsDriver(
                            edge_utils.NsxVCallbacks(plugin))
         edge_manager = edge_utils.EdgeManager(nsxv_manager, plugin)
