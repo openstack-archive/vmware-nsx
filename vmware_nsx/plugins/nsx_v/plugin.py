@@ -1481,10 +1481,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     context.session, vnic_id, curr_sgids)
                 if cfg.CONF.nsxv.spoofguard_enabled:
                     if original_port[psec.PORTSECURITY]:
-                        self._remove_vnic_from_spoofguard_policy(
-                            context.session,
-                            original_port['network_id'],
-                            vnic_id)
+                        try:
+                            self._remove_vnic_from_spoofguard_policy(
+                                context.session,
+                                original_port['network_id'],
+                                vnic_id)
+                        except Exception as e:
+                            LOG.error(_LE('Could not delete the spoofguard '
+                                          'policy. Exception %s'), e)
                     # remove vm from the exclusion list when it is detached
                     # from the device if it has no port security
                     if not original_port[psec.PORTSECURITY]:
@@ -1508,9 +1512,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         self._remove_vm_from_exclude_list(context, device_id,
                                                           id)
                     elif cfg.CONF.nsxv.spoofguard_enabled:
-                        self._remove_vnic_from_spoofguard_policy(
-                            context.session, original_port['network_id'],
-                            vnic_id)
+                        try:
+                            self._remove_vnic_from_spoofguard_policy(
+                                context.session, original_port['network_id'],
+                                vnic_id)
+                        except Exception as e:
+                            LOG.error(_LE('Could not delete the spoofguard '
+                                          'policy. Exception %s'), e)
                         # Add vm to the exclusion list, since it has no port
                         # security now
                         self._add_vm_to_exclude_list(context, device_id, id)
