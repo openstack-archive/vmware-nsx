@@ -6,5 +6,5 @@
     "disconnect_network": "rule:admin_or_owner",
     "create_gateway_device": "rule:admin_or_owner",
     "update_gateway_device": "rule:admin_or_owner",
-    "delete_gateway_device": "rule_admin_or_owner"
+    "delete_gateway_device": "rule:admin_or_owner"
 }
