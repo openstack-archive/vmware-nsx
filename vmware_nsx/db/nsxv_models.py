@@ -267,7 +267,11 @@ class NsxvLbaasLoadbalancerBinding(model_base.BASEV2, models.TimestampMixin):
 
     __tablename__ = 'nsxv_lbaas_loadbalancer_bindings'
 
-    loadbalancer_id = sa.Column(sa.String(36), primary_key=True)
+    loadbalancer_id = sa.Column(sa.String(36),
+                                sa.ForeignKey('lbaas_loadbalancers.id',
+                                              name='fk_lbaas_loadbalancers_id',
+                                              ondelete="CASCADE"),
+                                primary_key=True)
     edge_id = sa.Column(sa.String(36), nullable=False)
     edge_fw_rule_id = sa.Column(sa.String(36), nullable=False)
     vip_address = sa.Column(sa.String(36), nullable=False)
@@ -279,7 +283,11 @@ class NsxvLbaasListenerBinding(model_base.BASEV2, models.TimestampMixin):
     __tablename__ = 'nsxv_lbaas_listener_bindings'
 
     loadbalancer_id = sa.Column(sa.String(36), primary_key=True)
-    listener_id = sa.Column(sa.String(36), primary_key=True)
+    listener_id = sa.Column(sa.String(36),
+                            sa.ForeignKey('lbaas_listeners.id',
+                                          name='fk_lbaas_listeners_id',
+                                          ondelete="CASCADE"),
+                            primary_key=True)
     app_profile_id = sa.Column(sa.String(36), nullable=False)
     vse_id = sa.Column(sa.String(36), nullable=False)
 
@@ -291,7 +299,11 @@ class NsxvLbaasPoolBinding(model_base.BASEV2, models.TimestampMixin):
 
     loadbalancer_id = sa.Column(sa.String(36), primary_key=True)
     listener_id = sa.Column(sa.String(36), primary_key=True)
-    pool_id = sa.Column(sa.String(36), primary_key=True)
+    pool_id = sa.Column(sa.String(36),
+                        sa.ForeignKey('lbaas_pools.id',
+                                      name='fk_lbaas_pools_id',
+                                      ondelete="CASCADE"),
+                        primary_key=True)
     edge_pool_id = sa.Column(sa.String(36), nullable=False)
 
 
@@ -303,7 +315,11 @@ class NsxvLbaasMonitorBinding(model_base.BASEV2, models.TimestampMixin):
     loadbalancer_id = sa.Column(sa.String(36), primary_key=True)
     listener_id = sa.Column(sa.String(36), primary_key=True)
     pool_id = sa.Column(sa.String(36), primary_key=True)
-    hm_id = sa.Column(sa.String(36), primary_key=True)
+    hm_id = sa.Column(sa.String(36),
+                      sa.ForeignKey('lbaas_healthmonitors.id',
+                                    name='fk_lbaas_healthmonitors_id',
+                                    ondelete="CASCADE"),
+                      primary_key=True)
     edge_id = sa.Column(sa.String(36), primary_key=True)
     edge_mon_id = sa.Column(sa.String(36), nullable=False)
 
