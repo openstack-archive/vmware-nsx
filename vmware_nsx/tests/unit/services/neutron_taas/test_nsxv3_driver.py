@@ -53,13 +53,6 @@ class TestNsxV3TaaSDriver(test_taas_db.TaaSDbTestCase,
                               self.driver._validate_tap_flow,
                               src_port['port'], src_port['port'])
 
-    def test_validate_tap_flow_different_network_different_port_fail(self):
-        with self.port() as src_port, self.port() as dest_port:
-            self.assertRaises(nsx_exc.NsxTaaSDriverException,
-                              self.driver._validate_tap_flow,
-                              src_port['port'],
-                              dest_port['port'])
-
     def test_validate_tap_flow_same_network_different_port(self):
         with self.network() as network:
             with self.subnet(network=network) as subnet:
@@ -168,23 +161,6 @@ class TestNsxV3TaaSDriver(test_taas_db.TaaSDbTestCase,
                                           self.taas_plugin.create_tap_flow,
                                           self.ctx,
                                           tf_data)
-
-    def test_create_tap_flow_different_network_different_port_fail(self):
-        tf_name = 'test-tap-flow'
-        with self.port(tenant_id=self.tenant_id) as src_port:
-            with self.port(tenant_id=self.tenant_id) as dest_port:
-                ts_data = self._get_tap_service_data(
-                    port_id=dest_port['port']['id'])
-                ts = self.taas_plugin.create_tap_service(
-                    self.ctx, ts_data)
-                tf_data = self._get_tap_flow_data(
-                    tap_service_id=ts['id'],
-                    source_port=src_port['port']['id'],
-                    name=tf_name)
-                self.assertRaises(nsx_exc.NsxTaaSDriverException,
-                                  self.taas_plugin.create_tap_flow,
-                                  self.ctx,
-                                  tf_data)
 
     def test_delete_tap_flow(self):
         tf_name = 'test-tap-flow'
