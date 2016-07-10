@@ -664,10 +664,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                              "group %(vnic_id)s"),
                          {'sg_id': sg_id, 'vnic_id': vnic_id})
             except Exception:
-                LOG.debug("NSX security group %(sg_id)s member add "
-                          "failed %(vnic_id)s.",
-                          {'sg_id': sg_id,
-                           'vnic_id': vnic_id})
+                with excutils.save_and_reraise_exception():
+                    LOG.error(_LE("NSX security group %(sg_id)s member add "
+                                  "failed %(vnic_id)s."),
+                              {'sg_id': sg_id,
+                               'vnic_id': vnic_id})
 
     def _add_security_groups_port_mapping(self, session, vnic_id,
                                           added_sgids):
