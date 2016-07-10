@@ -12,15 +12,15 @@ The following resources are supported: 'security-groups', 'edges', 'networks', '
 Edges
 ~~~~~
 
--- NSX list::
+- NSX list::
 
     nsxadmin -r edges -o nsx-list
 
--- Neutron list::
+- Neutron list::
 
     nsxadmin -r edges -o neutron-list
 
-- Edge Datastore HA: This admin utility can be used on upgrade after the customer added ha_datastore_id to the nsx.ini configuration, in order to update the deployment of existing edges. The new edge appliances configuration will be taken from the nsx.ini, including the datastrore_id, ha_datastore_id, edge_ha. The edge current resource pool & appliance size will not change::
+- Update Datastore HA of an edge: This admin utility can be used on upgrade after the customer added ha_datastore_id to the nsx.ini configuration, in order to update the deployment of existing edges. The new edge appliances configuration will be taken from the nsx.ini, including the datastrore_id, ha_datastore_id, edge_ha. The edge current resource pool & appliance size will not change::
 
     nsxadmin -r edges -o nsx-update --property edge-id=<edge-id> --property appliances=True
 
@@ -28,14 +28,18 @@ Edges
 
    nsxadmin -r edges -o nsx-update --property edge-id=edge-55 --property size=compact
 
+- Update the high availability of an edge: enable/disable high availability of an edge::
+
+   nsxadmin -r edges -o nsx-update --property edge-id=edge-55 --property highavailability=<True/False>
+
 Orphaned Edges
 ~~~~~~~~~~~~~~
 
-- List orphaned edges::
+- List orphaned edges (exist on NSXv backend but don't have a corresponding binding in Neutron DB)::
 
     nsxadmin -r orphaned-edges -o list
 
-- Clean orphaned edges::
+- Clean orphaned edges (delete edges from NSXv backend)::
 
     nsxadmin -r orphaned-edges -o clean
 
@@ -53,22 +57,21 @@ Backup Edges
 
    nsxadmin -r backup-edges -o list
 
-
 - Delete backup edge::
 
    nsxadmin -r backup-edges -o clean --property edge-id=edge-9
 
--- List Edge name mismatches between DB and backend::
+- List Edge name mismatches between DB and backend, and backup edges that are missing from the backend::
 
    nsxadmin -r backup-edges -o list-mismatches
 
--- Fix Edge name mismatch between DB and backend::
+- Fix Edge name mismatch between DB and backend by updating the name on the backend::
 
    nsxadmin -r backup-edges -o fix-mismatch --property edge-id=edge-9
 
 DHCP Bindings
 ~~~~~~~~~~~~~
-- List missing DHCP bindings::
+- List missing DHCP bindings: list dhcp edges that are missing from the NSXv backend::
 
    nsxadmin -r dhcp-binding -o list
 
@@ -84,7 +87,7 @@ Networks
 
    nsxadmin -r networks -o nsx-update --property dvs-id=<id> --property teamingpolicy=<policy>
 
-- Support getting network morefs::
+- List backend networks and their network morefs::
 
    nsxadmin -r networks -o list
 
@@ -119,14 +122,65 @@ NSXv3
 
 The following resources are supported: 'security-groups', 'routers', 'networks', 'nsx-security-groups', 'dhcp-binding' and 'ports'.
 
+Networks
+~~~~~~~~
+
 - List missing networks::
 
     nsxadmin -r networks -o list-mismatches
+
+Routers
+~~~~~~~
 
 - List missing routers::
 
     nsxadmin -r routers -o list-mismatches
 
-- List missing ports::
+Ports
+~~~~~
+
+- List missing ports, and ports that exist on backend but without the expected switch profiles::
 
     nsxadmin -r ports -o list-mismatches
+
+Security Groups
+~~~~~~~~~~~~~~~
+
+- List backed security groups::
+
+    nsx -r security-groups -o nsx-list
+
+- List neutron DB security groups::
+
+    nsx -r security-groups -o neutron-list
+
+- List both backend and neutron security groups::
+
+    nsx -r security-groups -o list
+
+- Cleanup NSX backend sections and nsgroups::
+
+    nsx -r security-groups -o nsx-clean
+
+- Cleanup Neutron DB security groups::
+
+    nsx -r security-groups -o neutron-clean
+
+- Cleanup both Neutron DB security groups and NSX backend sections and nsgroups::
+
+    nsx -r security-groups -o clean
+
+- Update NSX security groups dynamic criteria for NSXv3 CrossHairs::
+
+    nsx -r nsx-security-groups -o migrate-to-dynamic-criteria
+
+DHCP Bindings
+~~~~~~~~~~~~~
+
+- List DHCP bindings in Neutron::
+
+    nsxadmin -r dhcp-binding -o list
+
+- Resync DHCP bindings for NSXv3 CrossHairs::
+
+    nsxadmin -r dhcp-binding -o nsx-update
