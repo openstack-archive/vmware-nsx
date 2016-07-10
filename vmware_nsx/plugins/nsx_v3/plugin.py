@@ -972,14 +972,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     # Check if it is the last DHCP-enabled subnet to delete.
                     network = self._get_network(context, subnet['network_id'])
                     if self._has_single_dhcp_enabled_subnet(context, network):
+                        self._disable_native_dhcp(context, network)
                         super(NsxV3Plugin, self).delete_subnet(
                             context, subnet_id)
-                        self._disable_native_dhcp(context, network)
                         return
         super(NsxV3Plugin, self).delete_subnet(context, subnet_id)
 
     def update_subnet(self, context, subnet_id, subnet):
-        enable_native_dhcp = 0  # assume no need to change DHCP
+        updated_subnet = None
         if (cfg.CONF.nsx_v3.native_dhcp_metadata and
             'enable_dhcp' in subnet['subnet']):
             orig_subnet = self.get_subnet(context, subnet_id)
@@ -994,7 +994,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                             updated_subnet = super(
                                 NsxV3Plugin, self).update_subnet(
                                 context, subnet_id, subnet)
-                            enable_native_dhcp = 1  # need to enable DHCP
+                            self._enable_native_dhcp(context, network,
+                                                     updated_subnet)
                         else:
                             msg = (_("Multiple DHCP-enabled subnets is not "
                                      "allowed in network %s") %
@@ -1002,22 +1003,18 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                             raise n_exc.InvalidInput(error_message=msg)
                     elif self._has_single_dhcp_enabled_subnet(context,
                                                               network):
+                        self._disable_native_dhcp(context, network)
                         updated_subnet = super(
                             NsxV3Plugin, self).update_subnet(
                             context, subnet_id, subnet)
-                        enable_native_dhcp = -1  # need to disable DHCP
 
-        # Process native DHCP if needed.
-        if enable_native_dhcp > 0:
-            self._enable_native_dhcp(context, network, updated_subnet)
-        elif enable_native_dhcp < 0:
-            self._disable_native_dhcp(context, network)
-        else:
+        if not updated_subnet:
             updated_subnet = super(NsxV3Plugin, self).update_subnet(
                 context, subnet_id, subnet)
 
-        if cfg.CONF.nsx_v3.native_dhcp_metadata and enable_native_dhcp >= 0:
-            # Check if needs to update logical DHCP server for native DHCP.
+        # Check if needs to update logical DHCP server for native DHCP.
+        if (cfg.CONF.nsx_v3.native_dhcp_metadata and
+            updated_subnet['enable_dhcp']):
             dns_servers = subnet['subnet'].get('dns_nameservers')
             gateway_ip = subnet['subnet'].get('gateway_ip')
             kwargs = {}
@@ -1503,6 +1500,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     self._update_dhcp_binding_on_server(
                         context, binding, new_port['mac_address'],
                         binding['ip_address'])
+        elif old_port["device_owner"] != new_port["device_owner"]:
+            self._add_dhcp_binding(context, new_port)
 
     def _update_dhcp_binding_on_server(self, context, binding, mac, ip):
         try:
