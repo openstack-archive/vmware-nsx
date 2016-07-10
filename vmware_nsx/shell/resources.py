@@ -104,6 +104,8 @@ nsxv_resources = {
     constants.NETWORKS: Resource(constants.NETWORKS,
                                  [Operations.LIST.value,
                                   Operations.NSX_UPDATE.value]),
+    constants.MISSING_NETWORKS: Resource(constants.MISSING_NETWORKS,
+                                [Operations.LIST.value]),
     constants.SECURITY_GROUPS: Resource(constants.SECURITY_GROUPS,
                                         [Operations.LIST.value,
                                          Operations.FIX_MISMATCH.value]),
