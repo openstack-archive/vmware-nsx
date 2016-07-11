@@ -230,8 +230,10 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
             subnet = port_subnets[0]
 
         if subnet and self._check_lb_on_subnet(context, subnet):
-            error = _('Cannot delete router interface while loadbalancers are '
-                      'provisioned on attached subnet')
+            error = _('Cannot delete router %(rtr)s interface while '
+                      'loadbalancers are provisioned on attached '
+                      'subnet %(subnet)s') % {'rtr': router_id,
+                                              'subnet': subnet}
             raise nsxv_exc.NsxPluginException(err_msg=error)
 
         info = super(nsx_v.NsxVPluginV2, self.plugin).remove_router_interface(
