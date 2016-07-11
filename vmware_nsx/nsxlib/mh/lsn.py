@@ -106,7 +106,7 @@ def lsn_port_create(cluster, lsn_id, port_data):
     return nsxlib.do_request(HTTP_POST,
                              nsxlib._build_uri_path(LSERVICESNODEPORT_RESOURCE,
                                                     parent_resource_id=lsn_id),
-                             jsonutils.dumps(port_obj),
+                             jsonutils.dumps(port_obj, sort_keys=True),
                              cluster=cluster)["uuid"]
 
 

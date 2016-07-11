@@ -157,7 +157,7 @@ class LSNTestCase(base.BaseTestCase):
         }
         self.mock_request.assert_called_once_with(
             "POST", "/ws.v1/lservices-node/%s/lport" % lsn_id,
-            jsonutils.dumps(port_obj), cluster=self.cluster)
+            jsonutils.dumps(port_obj, sort_keys=True), cluster=self.cluster)
 
     def test_lsn_port_delete(self):
         lsn_id = "foo_lsn_id"
