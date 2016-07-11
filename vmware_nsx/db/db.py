@@ -193,8 +193,12 @@ def get_nsx_switch_id_for_dvs(session, neutron_id, dvs_id):
 
 def get_net_ids(session, nsx_id):
     return [mapping['neutron_id'] for mapping in
-            session.query(nsx_models.NeutronNsxNetworkMapping).filter_by(
-                nsx_id=nsx_id)]
+            get_nsx_network_mapping_for_nsx_id(session, nsx_id)]
+
+
+def get_nsx_network_mapping_for_nsx_id(session, nsx_id):
+    return session.query(nsx_models.NeutronNsxNetworkMapping).filter_by(
+        nsx_id=nsx_id).all()
 
 
 def get_nsx_networks_mapping(session):

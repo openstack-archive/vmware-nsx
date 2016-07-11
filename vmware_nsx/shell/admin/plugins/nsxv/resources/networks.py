@@ -15,6 +15,7 @@
 
 import logging
 from oslo_serialization import jsonutils
+import re
 import xml.etree.ElementTree as et
 
 from vmware_nsx._i18n import _LE, _LI
@@ -32,6 +33,7 @@ from neutron import context
 LOG = logging.getLogger(__name__)
 nsxv = utils.get_nsxv_client()
 network_types = ['Network', 'VirtualWire', 'DistributedVirtualPortgroup']
+PORTGROUP_PREFIX = 'dvportgroup'
 
 
 def get_networks_from_backend():
@@ -151,6 +153,100 @@ def list_missing_networks(resource, event, trigger, **kwargs):
                                          ['neutron_id', 'moref', 'dvs_id']))
 
 
+@admin_utils.output_header
+def list_orphaned_networks(resource, event, trigger, **kwargs):
+    """List the NSX networks which are missing the neutron DB
+    """
+    admin_context = context.get_admin_context()
+    missing_networks = []
+
+    # get the list of backend networks:
+    backend_networks = get_networks()
+    for net in backend_networks:
+        moref = net['moref']
+        backend_name = net['name']
+        if backend_name.startswith('edge-') or net['type'] == 'Network':
+            # This is not a neutron network
+            continue
+        # get the list of neutron networks with this moref
+        neutron_networks = nsx_db.get_nsx_network_mapping_for_nsx_id(
+            admin_context.session, moref)
+        if not neutron_networks:
+            # no network found for this moref
+            missing_networks.append(net)
+
+        elif moref.startswith(PORTGROUP_PREFIX):
+            # This is a VLAN network. Also verify that the DVS Id matches
+            for entry in neutron_networks:
+                if (not entry['dvs_id'] or
+                    backend_name.startswith(entry['dvs_id'])):
+                    found = True
+            # this moref & dvs-id does not appear in the DB
+            if not found:
+                missing_networks.append(net)
+
+    LOG.info(formatters.output_formatter(constants.ORPHANED_NETWORKS,
+                                         missing_networks,
+                                         ['type', 'moref', 'name']))
+
+
+def get_dvs_id_from_backend_name(backend_name):
+    reg = re.search(r"^dvs-\d*", backend_name)
+    if reg:
+        return reg.group(0)
+
+
+@admin_utils.output_header
+def delete_backend_network(resource, event, trigger, **kwargs):
+    """Delete a backend network by its moref
+    """
+    errmsg = ("Need to specify moref property. Add --property moref=<moref>")
+    if not kwargs.get('property'):
+        LOG.error(_LE("%s"), errmsg)
+        return
+    properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
+    moref = properties.get('moref')
+    if not moref:
+        LOG.error(_LE("%s"), errmsg)
+        return
+
+    backend_name = get_networks_name_map().get(moref)
+    if not backend_name:
+        LOG.error(_LE("Failed to find the backend network %(moref)s"),
+                  {'moref': moref})
+        return
+
+    # Note: in case the backend network is attached to other backend objects,
+    # like VM, the deleting may fail and through an exception
+
+    nsxv = utils.get_nsxv_client()
+    if moref.startswith(PORTGROUP_PREFIX):
+        # get the dvs id from the backend name:
+        dvs_id = get_dvs_id_from_backend_name(backend_name)
+        if not dvs_id:
+            LOG.error(_LE("Failed to find the DVS id of backend network "
+                          "%(moref)s"), {'moref': moref})
+        else:
+            try:
+                nsxv.delete_port_group(dvs_id, moref)
+            except Exception as e:
+                LOG.error(_LE("Failed to delete backend network %(moref)s : "
+                              "%(e)s"), {'moref': moref, 'e': e})
+            else:
+                LOG.info(_LI("Backend network %(moref)s was deleted"),
+                         {'moref': moref})
+    else:
+        # Virtual wire
+        try:
+            nsxv.delete_virtual_wire(moref)
+        except Exception as e:
+            LOG.error(_LE("Failed to delete backend network %(moref)s : "
+                          "%(e)s"), {'moref': moref, 'e': e})
+        else:
+            LOG.info(_LI("Backend network %(moref)s was deleted"),
+                     {'moref': moref})
+
+
 registry.subscribe(neutron_list_networks,
                    constants.NETWORKS,
                    shell.Operations.LIST.value)
@@ -160,3 +256,9 @@ registry.subscribe(nsx_update_switch,
 registry.subscribe(list_missing_networks,
                    constants.MISSING_NETWORKS,
                    shell.Operations.LIST.value)
+registry.subscribe(list_orphaned_networks,
+                   constants.ORPHANED_NETWORKS,
+                   shell.Operations.LIST.value)
+registry.subscribe(delete_backend_network,
+                   constants.ORPHANED_NETWORKS,
+                   shell.Operations.NSX_CLEAN.value)
