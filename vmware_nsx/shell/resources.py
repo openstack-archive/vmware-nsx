@@ -127,6 +127,33 @@ def get_resources(plugin_dir):
     return map(lambda module: os.path.splitext(os.path.basename(module))[0],
                modules)
 
+
+def get_plugin():
+    plugin = cfg.CONF.core_plugin
+    plugin_name = ''
+    if plugin == constants.NSXV3_PLUGIN:
+        plugin_name = 'nsxv3'
+    elif plugin == constants.NSXV_PLUGIN:
+        plugin_name = 'nsxv'
+    return plugin_name
+
+
+def _get_choices():
+    plugin = get_plugin()
+    if plugin == 'nsxv3':
+        return nsxv3_resources_names
+    elif plugin == 'nsxv':
+        return nsxv_resources_names
+
+
+def _get_resources():
+    plugin = get_plugin()
+    if plugin == 'nsxv3':
+        return 'NSX-V3 resources: %s' % (', '.join(nsxv3_resources_names))
+    elif plugin == 'nsxv':
+        return 'NSX-V resources: %s' % (', '.join(nsxv_resources_names))
+
+
 cli_opts = [cfg.StrOpt('fmt',
                        short='f',
                        default='psql',
@@ -134,10 +161,8 @@ cli_opts = [cfg.StrOpt('fmt',
                        help='Supported output formats: json, psql'),
             cfg.StrOpt('resource',
                        short='r',
-                       choices=nsxv_resources_names + nsxv3_resources_names,
-                       help='Supported list of resources: NSX-V3: %s  '
-                            'NSX-V: %s' % (', '.join(nsxv3_resources_names),
-                                           ', '.join(nsxv_resources_names))),
+                       choices=_get_choices(),
+                       help=_get_resources()),
             cfg.StrOpt('operation',
                        short='o',
                        help='Supported list of operations: {}'

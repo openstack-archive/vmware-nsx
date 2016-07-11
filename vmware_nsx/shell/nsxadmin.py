@@ -47,16 +47,6 @@ requests.packages.urllib3.disable_warnings()
 LOG = logging.getLogger(__name__)
 
 
-def _get_plugin():
-    plugin = cfg.CONF.core_plugin
-    plugin_name = ''
-    if plugin == constants.NSXV3_PLUGIN:
-        plugin_name = 'nsxv3'
-    elif plugin == constants.NSXV_PLUGIN:
-        plugin_name = 'nsxv'
-    return plugin_name
-
-
 def _init_cfg():
     cfg.CONF.register_cli_opts(resources.cli_opts)
 
@@ -110,7 +100,7 @@ def _validate_op_choice(choice, nsx_plugin):
 
 def main(argv=sys.argv[1:]):
     _init_cfg()
-    nsx_plugin_in_use = _get_plugin()
+    nsx_plugin_in_use = resources.get_plugin()
     resources.init_resource_plugin(
         nsx_plugin_in_use,
         resources.get_plugin_dir(nsx_plugin_in_use))
