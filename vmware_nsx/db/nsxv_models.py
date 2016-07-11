@@ -21,11 +21,13 @@ from sqlalchemy import orm
 from neutron.db import l3_db
 from neutron.db import model_base
 from neutron.db import models_v2
+from oslo_db.sqlalchemy import models
 
 from vmware_nsx.common import nsxv_constants
 
 
-class NsxvRouterBinding(model_base.BASEV2, models_v2.HasStatusDescription):
+class NsxvRouterBinding(model_base.BASEV2, models_v2.HasStatusDescription,
+                        models.TimestampMixin):
     """Represents the mapping between neutron router and vShield Edge."""
 
     __tablename__ = 'nsxv_router_bindings'
@@ -52,7 +54,7 @@ class NsxvRouterBinding(model_base.BASEV2, models_v2.HasStatusDescription):
                               nullable=True)
 
 
-class NsxvEdgeVnicBinding(model_base.BASEV2):
+class NsxvEdgeVnicBinding(model_base.BASEV2, models.TimestampMixin):
     """Represents mapping between vShield Edge vnic and neutron netowrk."""
 
     __tablename__ = 'nsxv_edge_vnic_bindings'
@@ -66,7 +68,7 @@ class NsxvEdgeVnicBinding(model_base.BASEV2):
     network_id = sa.Column(sa.String(36), nullable=True)
 
 
-class NsxvEdgeDhcpStaticBinding(model_base.BASEV2):
+class NsxvEdgeDhcpStaticBinding(model_base.BASEV2, models.TimestampMixin):
     """Represents mapping between mac addr and bindingId."""
 
     __tablename__ = 'nsxv_edge_dhcp_static_bindings'
@@ -76,7 +78,7 @@ class NsxvEdgeDhcpStaticBinding(model_base.BASEV2):
     binding_id = sa.Column(sa.String(36), nullable=False)
 
 
-class NsxvInternalNetworks(model_base.BASEV2):
+class NsxvInternalNetworks(model_base.BASEV2, models.TimestampMixin):
     """Represents internal networks between NSXV plugin elements."""
 
     __tablename__ = 'nsxv_internal_networks'
@@ -90,7 +92,7 @@ class NsxvInternalNetworks(model_base.BASEV2):
                            nullable=True)
 
 
-class NsxvInternalEdges(model_base.BASEV2):
+class NsxvInternalEdges(model_base.BASEV2, models.TimestampMixin):
     """Represents internal Edge appliances for NSXV plugin operations."""
 
     __tablename__ = 'nsxv_internal_edges'
@@ -102,7 +104,8 @@ class NsxvInternalEdges(model_base.BASEV2):
                 name='nsxv_internal_edges_purpose'))
 
 
-class NsxvSecurityGroupSectionMapping(model_base.BASEV2):
+class NsxvSecurityGroupSectionMapping(model_base.BASEV2,
+                                      models.TimestampMixin):
     """Backend mappings for Neutron Rule Sections.
 
     This class maps a neutron security group identifier to the corresponding
@@ -117,7 +120,7 @@ class NsxvSecurityGroupSectionMapping(model_base.BASEV2):
     ip_section_id = sa.Column(sa.String(100))
 
 
-class NsxvRuleMapping(model_base.BASEV2):
+class NsxvRuleMapping(model_base.BASEV2, models.TimestampMixin):
     """Backend mappings for Neutron Rule Sections.
 
     This class maps a neutron security group identifier to the corresponding
@@ -133,7 +136,7 @@ class NsxvRuleMapping(model_base.BASEV2):
     nsx_rule_id = sa.Column(sa.String(36), primary_key=True)
 
 
-class NsxvPortVnicMapping(model_base.BASEV2):
+class NsxvPortVnicMapping(model_base.BASEV2, models.TimestampMixin):
     """Maps neutron port to NSXv VM Vnic Id."""
 
     __tablename__ = 'nsxv_port_vnic_mappings'
@@ -144,7 +147,7 @@ class NsxvPortVnicMapping(model_base.BASEV2):
     nsx_id = sa.Column(sa.String(42), primary_key=True)
 
 
-class NsxvRouterExtAttributes(model_base.BASEV2):
+class NsxvRouterExtAttributes(model_base.BASEV2, models.TimestampMixin):
     """Router attributes managed by NSX plugin extensions."""
 
     __tablename__ = 'nsxv_router_ext_attributes'
@@ -166,7 +169,7 @@ class NsxvRouterExtAttributes(model_base.BASEV2):
                             uselist=False, cascade='delete'))
 
 
-class NsxvTzNetworkBinding(model_base.BASEV2):
+class NsxvTzNetworkBinding(model_base.BASEV2, models.TimestampMixin):
     """Represents a binding of a virtual network with a transport zone.
 
     This model class associates a Neutron network with a transport zone;
@@ -199,7 +202,7 @@ class NsxvTzNetworkBinding(model_base.BASEV2):
                                                         self.vlan_id)
 
 
-class NsxvPortIndexMapping(model_base.BASEV2):
+class NsxvPortIndexMapping(model_base.BASEV2, models.TimestampMixin):
     """Associates attached Neutron ports with the instance VNic index."""
 
     __tablename__ = 'nsxv_port_index_mappings'
@@ -220,7 +223,7 @@ class NsxvPortIndexMapping(model_base.BASEV2):
                             uselist=False, cascade='delete'))
 
 
-class NsxvEdgeFirewallRuleBinding(model_base.BASEV2):
+class NsxvEdgeFirewallRuleBinding(model_base.BASEV2, models.TimestampMixin):
     """Mapping between firewall rule and edge firewall rule_id."""
 
     __tablename__ = 'nsxv_firewall_rule_bindings'
@@ -231,7 +234,8 @@ class NsxvEdgeFirewallRuleBinding(model_base.BASEV2):
     rule_vse_id = sa.Column(sa.String(36))
 
 
-class NsxvSpoofGuardPolicyNetworkMapping(model_base.BASEV2):
+class NsxvSpoofGuardPolicyNetworkMapping(model_base.BASEV2,
+                                         models.TimestampMixin):
     """Mapping between SpoofGuard and neutron networks"""
 
     __tablename__ = 'nsxv_spoofguard_policy_network_mappings'
@@ -243,7 +247,7 @@ class NsxvSpoofGuardPolicyNetworkMapping(model_base.BASEV2):
     policy_id = sa.Column(sa.String(36), nullable=False)
 
 
-class NsxvVdrDhcpBinding(model_base.BASEV2):
+class NsxvVdrDhcpBinding(model_base.BASEV2, models.TimestampMixin):
     """1:1 mapping between VDR and a DHCP Edge."""
 
     __tablename__ = 'nsxv_vdr_dhcp_bindings'
@@ -258,7 +262,7 @@ class NsxvVdrDhcpBinding(model_base.BASEV2):
         model_base.BASEV2.__table_args__)
 
 
-class NsxvLbaasLoadbalancerBinding(model_base.BASEV2):
+class NsxvLbaasLoadbalancerBinding(model_base.BASEV2, models.TimestampMixin):
     """Mapping between Edge LB and LBaaSv2"""
 
     __tablename__ = 'nsxv_lbaas_loadbalancer_bindings'
@@ -269,7 +273,7 @@ class NsxvLbaasLoadbalancerBinding(model_base.BASEV2):
     vip_address = sa.Column(sa.String(36), nullable=False)
 
 
-class NsxvLbaasListenerBinding(model_base.BASEV2):
+class NsxvLbaasListenerBinding(model_base.BASEV2, models.TimestampMixin):
     """Mapping between Edge VSE and LBaaSv2"""
 
     __tablename__ = 'nsxv_lbaas_listener_bindings'
@@ -280,7 +284,7 @@ class NsxvLbaasListenerBinding(model_base.BASEV2):
     vse_id = sa.Column(sa.String(36), nullable=False)
 
 
-class NsxvLbaasPoolBinding(model_base.BASEV2):
+class NsxvLbaasPoolBinding(model_base.BASEV2, models.TimestampMixin):
     """Mapping between Edge Pool and LBaaSv2"""
 
     __tablename__ = 'nsxv_lbaas_pool_bindings'
@@ -291,7 +295,7 @@ class NsxvLbaasPoolBinding(model_base.BASEV2):
     edge_pool_id = sa.Column(sa.String(36), nullable=False)
 
 
-class NsxvLbaasMonitorBinding(model_base.BASEV2):
+class NsxvLbaasMonitorBinding(model_base.BASEV2, models.TimestampMixin):
     """Mapping between Edge Monitor and LBaaSv2"""
 
     __tablename__ = 'nsxv_lbaas_monitor_bindings'
@@ -304,7 +308,7 @@ class NsxvLbaasMonitorBinding(model_base.BASEV2):
     edge_mon_id = sa.Column(sa.String(36), nullable=False)
 
 
-class NsxvLbaasCertificateBinding(model_base.BASEV2):
+class NsxvLbaasCertificateBinding(model_base.BASEV2, models.TimestampMixin):
     """Mapping between Edge certificate and LBaaSv2 object"""
 
     __tablename__ = 'nsxv_lbaas_certificate_bindings'
@@ -314,7 +318,7 @@ class NsxvLbaasCertificateBinding(model_base.BASEV2):
     edge_cert_id = sa.Column(sa.String(36), nullable=False)
 
 
-class NsxvSubnetExtAttributes(model_base.BASEV2):
+class NsxvSubnetExtAttributes(model_base.BASEV2, models.TimestampMixin):
     """Subnet attributes managed by NSX plugin extensions."""
 
     __tablename__ = 'nsxv_subnet_ext_attributes'

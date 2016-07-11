@@ -25,11 +25,12 @@ from sqlalchemy import sql
 
 from neutron.db import model_base
 from neutron.db import models_v2
+from oslo_db.sqlalchemy import models
 
 from vmware_nsx.common import nsx_constants
 
 
-class TzNetworkBinding(model_base.BASEV2):
+class TzNetworkBinding(model_base.BASEV2, models.TimestampMixin):
     """Represents a binding of a virtual network with a transport zone.
 
     This model class associates a Neutron network with a transport zone;
@@ -64,7 +65,7 @@ class TzNetworkBinding(model_base.BASEV2):
                                                   self.vlan_id)
 
 
-class NeutronNsxNetworkMapping(model_base.BASEV2):
+class NeutronNsxNetworkMapping(model_base.BASEV2, models.TimestampMixin):
     """Maps neutron network identifiers to NSX identifiers.
 
     Because of chained logical switches more than one mapping might exist
@@ -83,7 +84,7 @@ class NeutronNsxNetworkMapping(model_base.BASEV2):
     dvs_id = sa.Column(sa.String(36), nullable=True)
 
 
-class NeutronNsxSecurityGroupMapping(model_base.BASEV2):
+class NeutronNsxSecurityGroupMapping(model_base.BASEV2, models.TimestampMixin):
     """Backend mappings for Neutron Security Group identifiers.
 
     This class maps a neutron security group identifier to the corresponding
@@ -98,7 +99,8 @@ class NeutronNsxSecurityGroupMapping(model_base.BASEV2):
     nsx_id = sa.Column(sa.String(36), primary_key=True)
 
 
-class NeutronNsxFirewallSectionMapping(model_base.BASEV2):
+class NeutronNsxFirewallSectionMapping(model_base.BASEV2,
+                                       models.TimestampMixin):
     """Backend mappings for Neutron Security-group associated fw sections."""
 
     __tablename__ = 'neutron_nsx_firewall_section_mappings'
@@ -110,7 +112,7 @@ class NeutronNsxFirewallSectionMapping(model_base.BASEV2):
     nsx_id = sa.Column(sa.String(36), nullable=False)
 
 
-class NeutronNsxRuleMapping(model_base.BASEV2):
+class NeutronNsxRuleMapping(model_base.BASEV2, models.TimestampMixin):
     """Backend mappings for firewall rules.
 
     This class maps a neutron security group rule with NSX firewall rule.
@@ -126,7 +128,7 @@ class NeutronNsxRuleMapping(model_base.BASEV2):
     nsx_id = sa.Column(sa.String(36), nullable=False)
 
 
-class NeutronNsxPortMapping(model_base.BASEV2):
+class NeutronNsxPortMapping(model_base.BASEV2, models.TimestampMixin):
     """Represents the mapping between neutron and nsx port uuids."""
 
     __tablename__ = 'neutron_nsx_port_mappings'
@@ -142,7 +144,7 @@ class NeutronNsxPortMapping(model_base.BASEV2):
         self.nsx_port_id = nsx_port_id
 
 
-class NeutronNsxRouterMapping(model_base.BASEV2):
+class NeutronNsxRouterMapping(model_base.BASEV2, models.TimestampMixin):
     """Maps neutron router identifiers to NSX identifiers."""
     __tablename__ = 'neutron_nsx_router_mappings'
     neutron_id = sa.Column(sa.String(36),
@@ -151,7 +153,7 @@ class NeutronNsxRouterMapping(model_base.BASEV2):
     nsx_id = sa.Column(sa.String(36))
 
 
-class NeutronNsxServiceBinding(model_base.BASEV2):
+class NeutronNsxServiceBinding(model_base.BASEV2, models.TimestampMixin):
     """Represents a binding of a Neutron network with enabled NSX services."""
     __tablename__ = 'neutron_nsx_service_bindings'
     network_id = sa.Column(sa.String(36),
@@ -165,7 +167,7 @@ class NeutronNsxServiceBinding(model_base.BASEV2):
     nsx_service_id = sa.Column(sa.String(36), nullable=False)
 
 
-class NeutronNsxDhcpBinding(model_base.BASEV2):
+class NeutronNsxDhcpBinding(model_base.BASEV2, models.TimestampMixin):
     """Represents a binding of a Neutron port with DHCP address binding."""
     __tablename__ = 'neutron_nsx_dhcp_bindings'
     port_id = sa.Column(sa.String(36),
@@ -177,7 +179,7 @@ class NeutronNsxDhcpBinding(model_base.BASEV2):
     nsx_binding_id = sa.Column(sa.String(36), nullable=False, primary_key=True)
 
 
-class MultiProviderNetworks(model_base.BASEV2):
+class MultiProviderNetworks(model_base.BASEV2, models.TimestampMixin):
     """Networks provisioned through multiprovider extension."""
 
     __tablename__ = 'multi_provider_networks'
@@ -189,7 +191,8 @@ class MultiProviderNetworks(model_base.BASEV2):
         self.network_id = network_id
 
 
-class NetworkConnection(model_base.BASEV2, models_v2.HasTenant):
+class NetworkConnection(model_base.BASEV2, models_v2.HasTenant,
+                        models.TimestampMixin):
     """Defines a connection between a network gateway and a network."""
     # We use port_id as the primary key as one can connect a gateway
     # to a network in multiple ways (and we cannot use the same port form
@@ -214,7 +217,7 @@ class NetworkConnection(model_base.BASEV2, models_v2.HasTenant):
                         primary_key=True)
 
 
-class NetworkGatewayDeviceReference(model_base.BASEV2):
+class NetworkGatewayDeviceReference(model_base.BASEV2, models.TimestampMixin):
     id = sa.Column(sa.String(36), primary_key=True)
     network_gateway_id = sa.Column(sa.String(36),
                                    sa.ForeignKey('networkgateways.id',
@@ -224,7 +227,7 @@ class NetworkGatewayDeviceReference(model_base.BASEV2):
 
 
 class NetworkGatewayDevice(model_base.BASEV2, models_v2.HasId,
-                           models_v2.HasTenant):
+                           models_v2.HasTenant, models.TimestampMixin):
     nsx_id = sa.Column(sa.String(36))
     # Optional name for the gateway device
     name = sa.Column(sa.String(255))
@@ -238,7 +241,7 @@ class NetworkGatewayDevice(model_base.BASEV2, models_v2.HasId,
 
 
 class NetworkGateway(model_base.BASEV2, models_v2.HasId,
-                     models_v2.HasTenant):
+                     models_v2.HasTenant, models.TimestampMixin):
     """Defines the data model for a network gateway."""
     name = sa.Column(sa.String(255))
     default = sa.Column(sa.Boolean())
@@ -248,7 +251,7 @@ class NetworkGateway(model_base.BASEV2, models_v2.HasId,
     network_connections = orm.relationship(NetworkConnection, lazy='joined')
 
 
-class MacLearningState(model_base.BASEV2):
+class MacLearningState(model_base.BASEV2, models.TimestampMixin):
 
     port_id = sa.Column(sa.String(36),
                         sa.ForeignKey('ports.id', ondelete="CASCADE"),
@@ -263,7 +266,7 @@ class MacLearningState(model_base.BASEV2):
                             uselist=False, cascade='delete'))
 
 
-class LsnPort(models_v2.model_base.BASEV2):
+class LsnPort(models_v2.model_base.BASEV2, models.TimestampMixin):
 
     __tablename__ = 'lsn_port'
 
@@ -282,7 +285,7 @@ class LsnPort(models_v2.model_base.BASEV2):
         self.mac_addr = mac_address
 
 
-class Lsn(models_v2.model_base.BASEV2):
+class Lsn(models_v2.model_base.BASEV2, models.TimestampMixin):
     __tablename__ = 'lsn'
 
     lsn_id = sa.Column(sa.String(36), primary_key=True)
@@ -293,7 +296,8 @@ class Lsn(models_v2.model_base.BASEV2):
         self.lsn_id = lsn_id
 
 
-class QoSQueue(model_base.BASEV2, models_v2.HasId, models_v2.HasTenant):
+class QoSQueue(model_base.BASEV2, models_v2.HasId, models_v2.HasTenant,
+               models.TimestampMixin):
     name = sa.Column(sa.String(255))
     default = sa.Column(sa.Boolean, default=False, server_default=sql.false())
     min = sa.Column(sa.Integer, nullable=False)
@@ -303,7 +307,7 @@ class QoSQueue(model_base.BASEV2, models_v2.HasId, models_v2.HasTenant):
     dscp = sa.Column(sa.Integer)
 
 
-class PortQueueMapping(model_base.BASEV2):
+class PortQueueMapping(model_base.BASEV2, models.TimestampMixin):
     port_id = sa.Column(sa.String(36),
                         sa.ForeignKey("ports.id", ondelete="CASCADE"),
                         primary_key=True)
@@ -319,7 +323,7 @@ class PortQueueMapping(model_base.BASEV2):
                             cascade='delete', lazy='joined'))
 
 
-class NetworkQueueMapping(model_base.BASEV2):
+class NetworkQueueMapping(model_base.BASEV2, models.TimestampMixin):
     network_id = sa.Column(sa.String(36),
                            sa.ForeignKey("networks.id", ondelete="CASCADE"),
                            primary_key=True)
@@ -335,7 +339,7 @@ class NetworkQueueMapping(model_base.BASEV2):
                             cascade='delete', lazy='joined'))
 
 
-class NsxL2GWConnectionMapping(model_base.BASEV2):
+class NsxL2GWConnectionMapping(model_base.BASEV2, models.TimestampMixin):
     """Define a mapping between L2 gateway connection and bridge endpoint."""
     __tablename__ = 'nsx_l2gw_connection_mappings'
     connection_id = sa.Column(sa.String(36),
@@ -347,7 +351,7 @@ class NsxL2GWConnectionMapping(model_base.BASEV2):
     bridge_endpoint_id = sa.Column(sa.String(36), nullable=False)
 
 
-class QosPolicySwitchProfile(model_base.BASEV2):
+class QosPolicySwitchProfile(model_base.BASEV2, models.TimestampMixin):
     # Maps neutron qos policy identifiers to NSX-V3 switch profile identifiers
     __tablename__ = 'neutron_nsx_qos_policy_mappings'
     qos_policy_id = sa.Column(sa.String(36),
