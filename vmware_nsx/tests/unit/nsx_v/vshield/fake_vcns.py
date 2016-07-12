@@ -427,7 +427,8 @@ class FakeVcns(object):
         for edge_id in self._edges:
             edges.append({
                 'id': edge_id,
-                'edgeStatus': 'GREEN'
+                'edgeStatus': 'GREEN',
+                'name': self._edges[edge_id]['name']
             })
         response = {
             'edgePage': {
