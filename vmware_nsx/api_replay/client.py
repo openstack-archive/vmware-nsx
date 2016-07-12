@@ -112,7 +112,7 @@ class ApiReplayClient(object):
                                     dest_sec_group['security_group_rules'])
                        is False):
                         try:
-                            print (
+                            print(
                                 self.dest_neutron.create_security_group_rule(
                                     {'security_group_rule': sg_rule}))
                         except n_exc.Conflict:
@@ -129,16 +129,16 @@ class ApiReplayClient(object):
                 try:
                     new_sg = self.dest_neutron.create_security_group(
                         {'security_group': sg})
-                    print ("Created security-group %s" % new_sg)
+                    print("Created security-group %s" % new_sg)
                 except Exception as e:
                     # TODO(arosen): improve exception handing here.
-                    print (e)
+                    print(e)
 
                 for sg_rule in sg_rules:
                     try:
                         rule = self.dest_neutron.create_security_group_rule(
                             {'security_group_rule': sg_rule})
-                        print ("created security group rule %s " % rule['id'])
+                        print("created security group rule %s " % rule['id'])
                     except Exception:
                         # NOTE(arosen): when you create a default
                         # security group it is automatically populated
@@ -162,7 +162,7 @@ class ApiReplayClient(object):
                 body = self.drop_fields(router, drop_router_fields)
                 new_router = (self.dest_neutron.create_router(
                     {'router': body}))
-                print ("created router %s" % new_router)
+                print("created router %s" % new_router)
 
     def migrate_networks_subnets_ports(self):
         """Migrates networks/ports/router-uplinks from src to dest neutron."""
@@ -208,7 +208,7 @@ class ApiReplayClient(object):
             if self.have_id(network['id'], dest_networks) is False:
                 created_net = self.dest_neutron.create_network(
                     {'network': body})['network']
-                print ("Created network:  %s " % created_net)
+                print("Created network:  %s " % created_net)
 
             for subnet_id in network['subnets']:
                 subnet = self.find_subnet_by_id(subnet_id, source_subnets)
@@ -222,9 +222,9 @@ class ApiReplayClient(object):
                 try:
                     created_subnet = self.dest_neutron.create_subnet(
                         {'subnet': body})['subnet']
-                    print ("Created subnet: " + created_subnet['id'])
+                    print("Created subnet: " + created_subnet['id'])
                 except n_exc.BadRequest as e:
-                    print (e)
+                    print(e)
                     # NOTE(arosen): this occurs here if you run the script
                     # multiple times as we don't currently
                     # perserve the subnet_id. Also, 409 would be a better
@@ -253,7 +253,7 @@ class ApiReplayClient(object):
                         router_uplink = self.dest_neutron.update_router(
                             port['device_id'],  # router_id
                             {'router': body})
-                        print ("Uplinked router %s" % router_uplink)
+                        print("Uplinked router %s" % router_uplink)
                         continue
 
                     # Let the neutron dhcp-agent recreate this on it's own
@@ -270,18 +270,18 @@ class ApiReplayClient(object):
                             self.dest_neutron.add_interface_router(
                                 port['device_id'],
                                 {'subnet_id': created_subnet['id']})
-                            print ("Uplinked router %s to subnet %s" %
-                                   (port['device_id'], created_subnet['id']))
+                            print("Uplinked router %s to subnet %s" %
+                                  (port['device_id'], created_subnet['id']))
                             continue
                         except n_exc.BadRequest as e:
                             # NOTE(arosen): this occurs here if you run the
                             # script multiple times as we don't track this.
-                            print (e)
+                            print(e)
                             raise
 
                     created_port = self.dest_neutron.create_port(
                         {'port': body})['port']
-                    print ("Created port: " + created_port['id'])
+                    print("Created port: " + created_port['id'])
 
     def migrate_floatingips(self):
         """Migrates floatingips from source to dest neutron."""
@@ -291,4 +291,4 @@ class ApiReplayClient(object):
         for source_fip in source_fips:
             body = self.drop_fields(source_fip, drop_fip_fields)
             fip = self.dest_neutron.create_floatingip({'floatingip': body})
-            print ("Created floatingip %s" % fip)
+            print("Created floatingip %s" % fip)
