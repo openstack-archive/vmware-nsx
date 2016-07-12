@@ -45,7 +45,7 @@ class Operations(enum.Enum):
     NSX_UPDATE = 'nsx-update'
     NSX_UPDATE_SECRET = 'nsx-update-secret'
     MIGRATE_TO_DYNAMIC_CRITERIA = 'migrate-to-dynamic-criteria'
-
+    NSX_MIGRATE_V1_V2 = 'nsx-migrate-v1-v2'
 
 ops = [op.value for op in Operations]
 
@@ -121,6 +121,8 @@ nsxv_resources = {
     constants.METADATA: Resource(
         constants.METADATA, [Operations.NSX_UPDATE.value,
                              Operations.NSX_UPDATE_SECRET.value]),
+    constants.LBAAS: Resource(constants.LBAAS,
+                              [Operations.NSX_MIGRATE_V1_V2.value]),
 }
 
 nsxv3_resources_names = list(nsxv3_resources.keys())

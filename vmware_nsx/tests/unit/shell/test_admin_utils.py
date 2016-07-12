@@ -22,8 +22,12 @@ from oslo_config import cfg
 
 from neutron.callbacks import registry
 from neutron.common import config as neutron_config
+from neutron.db import servicetype_db  # noqa
 from neutron.tests import base
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_n_plugin
+from neutron_lbaas.db.loadbalancer import loadbalancer_db as n_lbv1  # noqa
+from neutron_lbaas.db.loadbalancer import models as n_lbv2  # noqa
+from neutron_lbaas.services.loadbalancer.drivers.vmware import db  # noqa
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import config  # noqa
