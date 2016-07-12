@@ -91,6 +91,13 @@ Networks
 
    nsxadmin -r networks -o list
 
+Missing Networks
+~~~~~~~~~~~~~~~~
+
+- List networks which are missing from the backend::
+
+   nsxadmin -r missing-networks -o list
+
 Security Groups, Firewall and Spoofguard
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
