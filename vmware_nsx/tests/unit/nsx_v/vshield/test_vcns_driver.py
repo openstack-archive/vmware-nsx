@@ -20,6 +20,7 @@ from neutron.tests import base
 from oslo_config import cfg
 import six
 
+from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v.vshield.common import (
     constants as vcns_const)
 from vmware_nsx.plugins.nsx_v.vshield.tasks import (
@@ -326,6 +327,8 @@ class VcnsDriverTestCase(base.BaseTestCase):
 
         self.vcns_driver = vcns_driver.VcnsDriver(self)
 
+        self.az = (nsx_az.ConfiguredAvailabilityZones().
+                   get_default_availability_zone())
         self.edge_id = None
         self.result = None
 
@@ -338,7 +341,8 @@ class VcnsDriverTestCase(base.BaseTestCase):
 
     def _deploy_edge(self):
         task = self.vcns_driver.deploy_edge(
-            'router-id', 'myedge', 'internal-network', {}, wait_for_exec=True)
+            'router-id', 'myedge', 'internal-network', {}, wait_for_exec=True,
+            availability_zone=self.az)
         self.assertEqual(self.edge_id, 'edge-1')
         task.wait(ts_const.TaskState.RESULT)
         return task
@@ -394,7 +398,7 @@ class VcnsDriverTestCase(base.BaseTestCase):
         jobdata = {}
         task = self.vcns_driver.deploy_edge(
             'router-id', 'myedge', 'internal-network', jobdata=jobdata,
-            wait_for_exec=True)
+            wait_for_exec=True, availability_zone=self.az)
         self.assertEqual(self.edge_id, 'edge-1')
         task.wait(ts_const.TaskState.RESULT)
         self.assertEqual(task.status, ts_const.TaskStatus.COMPLETED)
@@ -405,15 +409,17 @@ class VcnsDriverTestCase(base.BaseTestCase):
                    "router_id": "fake_router_id"}
         self.vcns_driver.deploy_edge(
             'router-id', 'myedge', 'internal-network', jobdata=jobdata,
-            wait_for_exec=True, async=False)
+            wait_for_exec=True, async=False, availability_zone=self.az)
         status = self.vcns_driver.get_edge_status('edge-1')
         self.assertEqual(status, vcns_const.RouterStatus.ROUTER_STATUS_ACTIVE)
 
     def test_deploy_edge_fail(self):
         task1 = self.vcns_driver.deploy_edge(
-            'router-1', 'myedge', 'internal-network', {}, wait_for_exec=True)
+            'router-1', 'myedge', 'internal-network', {}, wait_for_exec=True,
+            availability_zone=self.az)
         task2 = self.vcns_driver.deploy_edge(
-            'router-2', 'myedge', 'internal-network', {}, wait_for_exec=True)
+            'router-2', 'myedge', 'internal-network', {}, wait_for_exec=True,
+            availability_zone=self.az)
         task1.wait(ts_const.TaskState.RESULT)
         task2.wait(ts_const.TaskState.RESULT)
         self.assertEqual(task2.status, ts_const.TaskStatus.ERROR)

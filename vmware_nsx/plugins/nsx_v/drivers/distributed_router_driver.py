@@ -94,9 +94,9 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
 
     def create_router(self, context, lrouter, appliance_size=None,
                       allow_metadata=True):
-        res_pool = self._get_resource_pool_from_hints(lrouter)
+        az = self.get_router_az(lrouter)
         self.edge_manager.create_lrouter(context, lrouter, dist=True,
-                                         res_pool=res_pool)
+                                         availability_zone=az)
 
     def update_router(self, context, router_id, router):
         r = router['router']
@@ -178,10 +178,9 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         else:
             # Connecting plr to the tlr if new_ext_net_id is not None.
             if not plr_id:
-                res_pool = self._get_resource_pool_from_hints_by_id(
-                    context, router_id)
+                availability_zone = self.get_router_az(router)
                 plr_id = self.edge_manager.create_plr_with_tlr_id(
-                    context, router_id, router.get('name'), res_pool=res_pool)
+                    context, router_id, router.get('name'), availability_zone)
             if new_ext_net_id != org_ext_net_id and orgnexthop:
                 # network changed, so need to remove default gateway
                 # and all static routes before vnic can be configured

@@ -571,13 +571,11 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             conflict_router_ids.extend(new_conflict_router_ids)
             conflict_router_ids = list(set(conflict_router_ids))
 
-            res_pool = self._get_resource_pool_from_hints_by_id(
-                context, router_id)
-
+            az = self.get_router_az_by_id(context, router_id)
             new = self.edge_manager.bind_router_on_available_edge(
                 context, router_id, optional_router_ids,
-                conflict_router_ids, conflict_network_ids, intf_num,
-                res_pool)
+                conflict_router_ids, conflict_network_ids,
+                intf_num, az)
             # configure metadata service on the router.
             metadata_proxy_handler = self.plugin.metadata_proxy_handler
             if metadata_proxy_handler and new:

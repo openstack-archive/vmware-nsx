@@ -25,6 +25,7 @@ from neutron_lib import exceptions as n_exc
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_db
+from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v.vshield.common import (
     constants as vcns_const)
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
@@ -38,7 +39,7 @@ EDGE_CREATING = 'creating-'
 EDGE_ERROR1 = 'error1-'
 EDGE_ERROR2 = 'error2-'
 EDGE_DELETING = 'deleting-'
-DEFAULT_RES_POOL = 'respool-28'
+DEFAULT_AZ = 'default'
 
 
 class EdgeUtilsTestCaseMixin(testlib_api.SqlTestCase):
@@ -57,8 +58,8 @@ class EdgeUtilsTestCaseMixin(testlib_api.SqlTestCase):
         self.ctx = context.get_admin_context()
         self.addCleanup(nsxv_manager_p.stop)
         self.fake_jobdata = {'router_id': 'fake_id', 'context': self.ctx}
-        cfg.CONF.set_override("resource_pool_id", DEFAULT_RES_POOL,
-                              group="nsxv")
+        self.az = (nsx_az.ConfiguredAvailabilityZones().
+                   get_default_availability_zone())
 
     def _create_router(self, name='router1'):
         return {'name': name,
@@ -81,12 +82,13 @@ class EdgeUtilsTestCaseMixin(testlib_api.SqlTestCase):
                 binding['edge_id'], None, binding['status'],
                 appliance_size=binding['appliance_size'],
                 edge_type=binding['edge_type'],
-                resource_pool=binding['resource_pool'])
+                availability_zone=binding['availability_zone'])
 
 
 class DummyPlugin(object):
-    def get_network_resource_pool(self, context, network_id):
-        return cfg.CONF.nsxv.resource_pool_id
+    def get_network_az(self, context, network_id):
+        return (nsx_az.ConfiguredAvailabilityZones().
+                get_default_availability_zone())
 
 
 class EdgeDHCPManagerTestCase(EdgeUtilsTestCaseMixin):
@@ -104,19 +106,19 @@ class EdgeDHCPManagerTestCase(EdgeUtilsTestCaseMixin):
                            'router_id': 'backup-11111111-1111',
                            'appliance_size': 'compact',
                            'edge_type': 'service',
-                           'resource_pool': DEFAULT_RES_POOL},
+                           'availability_zone': DEFAULT_AZ},
                           {'status': plugin_const.PENDING_DELETE,
                            'edge_id': 'edge-2',
                            'router_id': 'dhcp-22222222-2222',
                            'appliance_size': 'compact',
                            'edge_type': 'service',
-                           'resource_pool': DEFAULT_RES_POOL},
+                           'availability_zone': DEFAULT_AZ},
                           {'status': plugin_const.PENDING_DELETE,
                            'edge_id': 'edge-3',
                            'router_id': 'backup-33333333-3333',
                            'appliance_size': 'compact',
                            'edge_type': 'service',
-                           'resource_pool': DEFAULT_RES_POOL}]
+                           'availability_zone': DEFAULT_AZ}]
         self._populate_vcns_router_binding(fake_edge_pool)
         fake_network = self._create_network()
         fake_subnet = self._create_subnet(fake_network['id'])
@@ -132,7 +134,7 @@ class EdgeDHCPManagerTestCase(EdgeUtilsTestCaseMixin):
             resource_id, 'edge-1', mock.ANY, None, jobdata=jobdata,
             appliance_size=vcns_const.SERVICE_SIZE_MAPPING['dhcp'],
             dist=False, set_errors=True,
-            res_pool=cfg.CONF.nsxv.resource_pool_id)
+            availability_zone=mock.ANY)
 
     def test_get_random_available_edge(self):
         available_edge_ids = ['edge-1', 'edge-2']
@@ -200,10 +202,10 @@ class EdgeUtilsTestCase(EdgeUtilsTestCaseMixin):
         self.nsxv_manager.deploy_edge.reset_mock()
         edge_utils.create_lrouter(self.nsxv_manager, self.ctx, lrouter,
                                   lswitch=None, dist=False,
-                                  res_pool=DEFAULT_RES_POOL)
+                                  availability_zone=self.az)
         self.nsxv_manager.deploy_edge.assert_called_once_with(
             lrouter['id'], (lrouter['name'] + '-' + lrouter['id']),
-            internal_network=None, dist=False, res_pool=DEFAULT_RES_POOL,
+            internal_network=None, dist=False, availability_zone=self.az,
             jobdata={'router_id': lrouter['id'],
                      'lrouter': lrouter,
                      'lswitch': None,
@@ -378,104 +380,95 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
                               'nsxv')
         self.assertRaises(n_exc.Invalid, edge_utils.parse_backup_edge_pool_opt)
 
-    def _create_available_router_bindings(
-        self, num, size=nsxv_constants.LARGE,
-        edge_type=nsxv_constants.SERVICE_EDGE,
-        resource_pool=DEFAULT_RES_POOL):
-        id_prefix = EDGE_AVAIL + size + '-' + edge_type
-        return [{'status': plugin_const.ACTIVE,
+    def _create_router_bindings(self, num, status, id_prefix, size,
+                                edge_type, availability_zone):
+        if not availability_zone:
+            availability_zone = self.az
+        return [{'status': status,
                  'edge_id': id_prefix + '-edge-' + str(i),
                  'router_id': (vcns_const.BACKUP_ROUTER_PREFIX +
                                id_prefix + str(i)),
                  'appliance_size': size,
                  'edge_type': edge_type,
-                 'resource_pool': resource_pool}
+                 'availability_zone': availability_zone.name}
                 for i in moves.range(num)]
+
+    def _create_available_router_bindings(
+        self, num, size=nsxv_constants.LARGE,
+        edge_type=nsxv_constants.SERVICE_EDGE,
+        availability_zone=None):
+        status = plugin_const.ACTIVE
+        id_prefix = EDGE_AVAIL + size + '-' + edge_type
+        return self._create_router_bindings(
+            num, status, id_prefix, size, edge_type,
+            availability_zone)
 
     def _create_creating_router_bindings(
         self, num, size=nsxv_constants.LARGE,
         edge_type=nsxv_constants.SERVICE_EDGE,
-        resource_pool=DEFAULT_RES_POOL):
+        availability_zone=None):
+        status = plugin_const.PENDING_CREATE
         id_prefix = EDGE_CREATING + size + '-' + edge_type
-        return [{'status': plugin_const.PENDING_CREATE,
-                 'edge_id': id_prefix + '-edge-' + str(i),
-                 'router_id': (vcns_const.BACKUP_ROUTER_PREFIX +
-                               id_prefix + str(i)),
-                 'appliance_size': size,
-                 'edge_type': edge_type,
-                 'resource_pool': resource_pool}
-                for i in moves.range(num)]
+        return self._create_router_bindings(
+            num, status, id_prefix, size, edge_type,
+            availability_zone)
 
     def _create_error_router_bindings(
         self, num, status=plugin_const.ERROR,
         size=nsxv_constants.LARGE,
         edge_type=nsxv_constants.SERVICE_EDGE,
-        resource_pool=DEFAULT_RES_POOL):
+        availability_zone=None):
         id_prefix = EDGE_ERROR1 + size + '-' + edge_type
-        return [{'status': status,
-                 'edge_id': id_prefix + '-edge-' + str(i),
-                 'router_id': (vcns_const.BACKUP_ROUTER_PREFIX +
-                               id_prefix + str(i)),
-                 'appliance_size': size,
-                 'edge_type': edge_type,
-                 'resource_pool': resource_pool}
-                for i in moves.range(num)]
+        return self._create_router_bindings(
+            num, status, id_prefix, size, edge_type,
+            availability_zone)
 
     def _create_error_router_bindings_at_backend(
         self, num, status=plugin_const.ACTIVE,
         size=nsxv_constants.LARGE,
         edge_type=nsxv_constants.SERVICE_EDGE,
-        resource_pool=DEFAULT_RES_POOL):
+        availability_zone=None):
         id_prefix = EDGE_ERROR2 + size + '-' + edge_type
-        return [{'status': status,
-                 'edge_id': id_prefix + '-edge-' + str(i),
-                 'router_id': (vcns_const.BACKUP_ROUTER_PREFIX +
-                               id_prefix + str(i)),
-                 'appliance_size': size,
-                 'edge_type': edge_type,
-                 'resource_pool': resource_pool}
-                for i in moves.range(num)]
+        return self._create_router_bindings(
+            num, status, id_prefix, size, edge_type,
+            availability_zone)
 
     def _create_deleting_router_bindings(
         self, num, size=nsxv_constants.LARGE,
         edge_type=nsxv_constants.SERVICE_EDGE,
-        resource_pool=DEFAULT_RES_POOL):
+        availability_zone=None):
+        status = plugin_const.PENDING_DELETE
         id_prefix = EDGE_DELETING + size + '-' + edge_type
-        return [{'status': plugin_const.PENDING_DELETE,
-                 'edge_id': id_prefix + '-edge-' + str(i),
-                 'router_id': (vcns_const.BACKUP_ROUTER_PREFIX +
-                               id_prefix + str(i)),
-                 'appliance_size': size,
-                 'edge_type': edge_type,
-                 'resource_pool': resource_pool}
-                for i in moves.range(num)]
+        return self._create_router_bindings(
+            num, status, id_prefix, size, edge_type,
+            availability_zone)
 
     def _create_edge_pools(self, avail, creating, error,
                            error_at_backend, deleting,
                            size=nsxv_constants.LARGE,
-                           edge_type=nsxv_constants.SERVICE_EDGE,
-                           resource_pool=DEFAULT_RES_POOL):
+                           edge_type=nsxv_constants.SERVICE_EDGE):
         """Create a backup edge pool with different status of edges.
 
         Backup edges would be edges with  avail, creating and error_at_backend,
         while available edges would only be edges with avail status.
         """
+        availability_zone = self.az
         return (
             self._create_error_router_bindings(
                 error, size=size, edge_type=edge_type,
-                resource_pool=resource_pool) +
+                availability_zone=availability_zone) +
             self._create_deleting_router_bindings(
                 deleting, size=size, edge_type=edge_type,
-                resource_pool=resource_pool) +
+                availability_zone=availability_zone) +
             self._create_error_router_bindings_at_backend(
                 error_at_backend, size=size, edge_type=edge_type,
-                resource_pool=resource_pool) +
+                availability_zone=availability_zone) +
             self._create_creating_router_bindings(
                 creating, size=size, edge_type=edge_type,
-                resource_pool=resource_pool) +
+                availability_zone=availability_zone) +
             self._create_available_router_bindings(
                 avail, size=size, edge_type=edge_type,
-                resource_pool=resource_pool))
+                availability_zone=availability_zone))
 
     def _create_backup_router_bindings(
         self, avail, creating, error, error_at_backend, deleting,
@@ -483,24 +476,26 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         error_at_backend_status=plugin_const.PENDING_DELETE,
         size=nsxv_constants.LARGE,
         edge_type=nsxv_constants.SERVICE_EDGE,
-        resource_pool=DEFAULT_RES_POOL):
+        availability_zone=None):
+        if not availability_zone:
+            availability_zone = self.az
         return (
             self._create_error_router_bindings(
                 error, status=error_status, size=size, edge_type=edge_type,
-                resource_pool=resource_pool) +
+                availability_zone=availability_zone) +
             self._create_error_router_bindings_at_backend(
                 error_at_backend, status=error_at_backend_status,
                 size=size, edge_type=edge_type,
-                resource_pool=resource_pool) +
+                availability_zone=availability_zone) +
             self._create_creating_router_bindings(
                 creating, size=size, edge_type=edge_type,
-                resource_pool=resource_pool) +
+                availability_zone=availability_zone) +
             self._create_available_router_bindings(
                 avail, size=size, edge_type=edge_type,
-                resource_pool=resource_pool) +
+                availability_zone=availability_zone) +
             self._create_deleting_router_bindings(
                 deleting, size=size, edge_type=edge_type,
-                resource_pool=resource_pool))
+                availability_zone=availability_zone))
 
     def _verify_router_bindings(self, exp_bindings, act_db_bindings):
         exp_dict = dict(zip([binding['router_id']
@@ -510,7 +505,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
                          'status': binding['status'],
                          'appliance_size': binding['appliance_size'],
                          'edge_type': binding['edge_type'],
-                         'resource_pool': binding['resource_pool']}
+                         'availability_zone': binding['availability_zone']}
                         for binding in act_db_bindings]
         act_dict = dict(zip([binding['router_id']
                              for binding in act_bindings], act_bindings))
@@ -527,7 +522,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
             error_at_backend_status=plugin_const.ACTIVE,
             size=nsxv_constants.LARGE)
         backup_bindings = self.edge_manager._get_backup_edge_bindings(self.ctx,
-              appliance_size=nsxv_constants.LARGE, res_pool=DEFAULT_RES_POOL)
+              appliance_size=nsxv_constants.LARGE, availability_zone=self.az)
         self._verify_router_bindings(expect_backup_bindings, backup_bindings)
 
     def test_get_available_router_bindings(self):
@@ -540,14 +535,15 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         expect_backup_bindings = self._create_backup_router_bindings(
             1, 2, 3, 0, 5, error_status=plugin_const.ERROR)
         binding = self.edge_manager._get_available_router_binding(
-            self.ctx, appliance_size=appliance_size, edge_type=edge_type)
+            self.ctx, appliance_size=appliance_size, edge_type=edge_type,
+            availability_zone=self.az)
         router_bindings = [
             binding_db
             for binding_db in nsxv_db.get_nsxv_router_bindings(
                 self.ctx.session)
             if (binding_db['appliance_size'] == appliance_size and
                 binding_db['edge_type'] == edge_type and
-                binding_db['resource_pool'] == DEFAULT_RES_POOL)]
+                binding_db['availability_zone'] == 'default')]
         self._verify_router_bindings(expect_backup_bindings, router_bindings)
         edge_id = (EDGE_AVAIL + appliance_size + '-' +
                    edge_type + '-edge-' + str(0))
@@ -567,7 +563,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         self.edge_manager._check_backup_edge_pool(
             0, 3,
             appliance_size=appliance_size, edge_type=edge_type,
-            res_pool=DEFAULT_RES_POOL)
+            availability_zone=self.az)
         router_bindings = [
             binding
             for binding in nsxv_db.get_nsxv_router_bindings(self.ctx.session)
@@ -588,7 +584,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
 
         self.edge_manager._check_backup_edge_pool(
             5, 10, appliance_size=appliance_size, edge_type=edge_type,
-            res_pool=DEFAULT_RES_POOL)
+            availability_zone=self.az)
         router_bindings = [
             binding
             for binding in nsxv_db.get_nsxv_router_bindings(self.ctx.session)
@@ -599,7 +595,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         self.assertEqual(2, len(router_bindings))
         edge_utils.eventlet.spawn_n.assert_called_with(
             mock.ANY, mock.ANY, binding_ids, appliance_size,
-            edge_type, DEFAULT_RES_POOL)
+            edge_type, self.az)
 
     def test_check_backup_edge_pools_with_empty_conf(self):
         pool_edges = (self._create_edge_pools(1, 2, 3, 4, 5) +
@@ -686,7 +682,8 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
     def test_allocate_edge_appliance_with_empty(self):
         self.edge_manager._clean_all_error_edge_bindings = mock.Mock()
         self.edge_manager._allocate_edge_appliance(
-            self.ctx, 'fake_id', 'fake_name')
+            self.ctx, 'fake_id', 'fake_name',
+            availability_zone=self.az)
         assert not self.edge_manager._clean_all_error_edge_bindings.called
 
     def test_allocate_large_edge_appliance_with_default(self):
@@ -699,14 +696,15 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         self._populate_vcns_router_binding(pool_edges)
         self.edge_manager._allocate_edge_appliance(
             self.ctx, 'fake_id', 'fake_name',
-            appliance_size=nsxv_constants.LARGE)
+            appliance_size=nsxv_constants.LARGE,
+            availability_zone=self.az)
         edge_id = (EDGE_AVAIL + nsxv_constants.LARGE + '-' +
                    nsxv_constants.SERVICE_EDGE + '-edge-' + str(0))
         self.nsxv_manager.update_edge.assert_has_calls(
             [mock.call('fake_id', edge_id, 'fake_name', None,
                        jobdata=self.fake_jobdata, set_errors=True,
                        appliance_size=nsxv_constants.LARGE, dist=False,
-                       res_pool=None)])
+                       availability_zone=self.az)])
 
     def test_allocate_compact_edge_appliance_with_default(self):
         self.edge_manager.edge_pool_dicts = self.default_edge_pool_dicts
@@ -718,14 +716,15 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         self._populate_vcns_router_binding(pool_edges)
         self.edge_manager._allocate_edge_appliance(
             self.ctx, 'fake_id', 'fake_name',
-            appliance_size=nsxv_constants.COMPACT)
+            appliance_size=nsxv_constants.COMPACT,
+            availability_zone=self.az)
         edge_id = (EDGE_AVAIL + nsxv_constants.COMPACT + '-' +
                    nsxv_constants.SERVICE_EDGE + '-edge-' + str(0))
         self.nsxv_manager.update_edge.assert_has_calls(
             [mock.call('fake_id', edge_id, 'fake_name', None,
                        jobdata=self.fake_jobdata, set_errors=True,
                        appliance_size=nsxv_constants.COMPACT, dist=False,
-                       res_pool=None)])
+                       availability_zone=self.az)])
 
     def test_allocate_large_edge_appliance_with_vdr(self):
         self.edge_manager.edge_pool_dicts = self.vdr_edge_pool_dicts
@@ -737,19 +736,21 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         self._populate_vcns_router_binding(pool_edges)
         self.edge_manager._allocate_edge_appliance(
             self.ctx, 'fake_id', 'fake_name', dist=True,
-            appliance_size=nsxv_constants.LARGE)
+            appliance_size=nsxv_constants.LARGE,
+            availability_zone=self.az)
         edge_id = (EDGE_AVAIL + nsxv_constants.LARGE + '-' +
                    nsxv_constants.VDR_EDGE + '-edge-' + str(0))
         self.nsxv_manager.update_edge.assert_has_calls(
             [mock.call('fake_id', edge_id, 'fake_name', None,
                        jobdata=self.fake_jobdata, set_errors=True,
                        appliance_size=nsxv_constants.LARGE, dist=True,
-                       res_pool=None)])
+                       availability_zone=self.az)])
 
     def test_free_edge_appliance_with_empty(self):
         self.edge_manager._clean_all_error_edge_bindings = mock.Mock()
         self.edge_manager._allocate_edge_appliance(
-            self.ctx, 'fake_id', 'fake_name')
+            self.ctx, 'fake_id', 'fake_name',
+            availability_zone=self.az)
         self.edge_manager._free_edge_appliance(
             self.ctx, 'fake_id')
         assert not self.edge_manager._clean_all_error_edge_bindings.called
@@ -757,14 +758,15 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
     def test_free_edge_appliance_with_default(self):
         self.edge_manager.edge_pool_dicts = self.default_edge_pool_dicts
         self.edge_manager._allocate_edge_appliance(
-            self.ctx, 'fake_id', 'fake_name')
+            self.ctx, 'fake_id', 'fake_name',
+            availability_zone=self.az)
         self.edge_manager._free_edge_appliance(
             self.ctx, 'fake_id')
         assert not self.nsxv_manager.delete_edge.called
         self.nsxv_manager.update_edge.assert_has_calls(
             [mock.call(mock.ANY, mock.ANY, mock.ANY, None,
                        appliance_size=nsxv_constants.COMPACT, dist=False,
-                       res_pool=None)])
+                       availability_zone=mock.ANY)])
 
     def test_free_edge_appliance_with_default_with_full(self):
         self.edge_pool_dicts = {
@@ -775,7 +777,8 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
                                          'maximum_pooled_edges': 3}},
             nsxv_constants.VDR_EDGE: {}}
         self.edge_manager._allocate_edge_appliance(
-            self.ctx, 'fake_id', 'fake_name')
+            self.ctx, 'fake_id', 'fake_name',
+            availability_zone=self.az)
         self.edge_manager._free_edge_appliance(
             self.ctx, 'fake_id')
         assert self.nsxv_manager.delete_edge.called

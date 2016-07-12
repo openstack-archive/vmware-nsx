@@ -59,6 +59,7 @@ from vmware_nsx.extensions import routersize as router_size
 from vmware_nsx.extensions import routertype as router_type
 from vmware_nsx.extensions import securitygrouplogging
 from vmware_nsx.extensions import vnicindex as ext_vnic_idx
+from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v.drivers import (
     exclusive_router_driver as ex_router_driver)
 from vmware_nsx.plugins.nsx_v.drivers import (
@@ -629,12 +630,12 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                           ctx, data)
 
     def test_create_network_with_az_hint(self):
+        az_name = 'az7'
+        az_config = az_name + ':respool-7:datastore-7'
+        cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
         p = manager.NeutronManager.get_plugin()
+        p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
         ctx = context.get_admin_context()
-        alter_pool_id = 'respool-7'
-        alter_pool_name = 'rs-7'
-        p._availability_zones_data = {'default': self.default_res_pool,
-                                      alter_pool_name: alter_pool_id}
 
         data = {'network': {
                 'name': 'test-qos',
@@ -642,12 +643,12 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                 'port_security_enabled': False,
                 'admin_state_up': True,
                 'shared': False,
-                'availability_zone_hints': [alter_pool_name]
+                'availability_zone_hints': [az_name]
                 }}
 
         # network creation should succeed
         net = p.create_network(ctx, data)
-        self.assertEqual([alter_pool_name],
+        self.assertEqual([az_name],
                          net['availability_zone_hints'])
         # the availability zone is still empty until subnet creation
         self.assertEqual([],
@@ -3082,25 +3083,25 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                           router)
 
     def test_create_router_with_az_hint(self):
+        az_name = 'az7'
+        az_config = az_name + ':respool-7:datastore-7'
+        cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
         p = manager.NeutronManager.get_plugin()
-        alter_pool_id = 'respool-7'
-        alter_pool_name = 'rs-7'
-        p._availability_zones_data = {'default': self.default_res_pool,
-                                      alter_pool_name: alter_pool_id}
+        p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
         p._get_edge_id_by_rtr_id = p.real_get_edge
 
         router = {'router': {'admin_state_up': True,
                   'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
                   'tenant_id': context.get_admin_context().tenant_id,
                   'router_type': 'exclusive',
-                  'availability_zone_hints': [alter_pool_name]}}
+                  'availability_zone_hints': [az_name]}}
 
         # router creation should succeed
         returned_router = p.create_router(context.get_admin_context(),
                                           router)
-        self.assertEqual([alter_pool_name],
+        self.assertEqual([az_name],
                          returned_router['availability_zone_hints'])
-        self.assertEqual([alter_pool_name],
+        self.assertEqual([az_name],
                          returned_router['availability_zones'])
 
 
@@ -3376,11 +3377,11 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
 
     def _test_create_rotuer_with_az_hint(self, with_hint):
         # init the availability zones in the plugin
+        az_name = 'az7'
+        az_config = az_name + ':respool-7:datastore-7'
+        cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
         p = manager.NeutronManager.get_plugin()
-        pool_id = 'respool-7'
-        pool_name = 'rs-7'
-        p._availability_zones_data = {'default': self.default_res_pool,
-                                      pool_name: pool_id}
+        p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
 
         # create a router with/without hints
         router = {'router': {'admin_state_up': True,
@@ -3388,12 +3389,12 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                   'tenant_id': context.get_admin_context().tenant_id,
                   'distributed': True}}
         if with_hint:
-            router['router']['availability_zone_hints'] = [pool_name]
+            router['router']['availability_zone_hints'] = [az_name]
         returned_router = p.create_router(context.get_admin_context(),
                                           router)
         # availability zones is still empty because the router is not attached
         if with_hint:
-            self.assertEqual([pool_name],
+            self.assertEqual([az_name],
                              returned_router['availability_zone_hints'])
         else:
             self.assertEqual([],
@@ -3401,10 +3402,10 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
 
         edge_id = edge_utils.get_router_edge_id(
             context.get_admin_context(), returned_router['id'])
-        res_pool = nsxv_db.get_edge_resource_pool(
+        res_az = nsxv_db.get_edge_availability_zone(
             context.get_admin_context().session, edge_id)
-        expected_pool = pool_id if with_hint else self.default_res_pool
-        self.assertEqual(expected_pool, res_pool)
+        expected_az = az_name if with_hint else 'default'
+        self.assertEqual(expected_az, res_az)
 
     def test_create_rotuer_with_az_hint(self):
         self._test_create_rotuer_with_az_hint(True)
@@ -4512,11 +4513,11 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
 
     def _test_create_rotuer_with_az_hint(self, with_hint):
         # init the availability zones in the plugin
+        az_name = 'az7'
+        az_config = az_name + ':respool-7:datastore-7'
+        cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
         p = manager.NeutronManager.get_plugin()
-        pool_id = 'respool-7'
-        pool_name = 'rs-7'
-        p._availability_zones_data = {'default': self.default_res_pool,
-                                      pool_name: pool_id}
+        p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
 
         # create a router with/without hints
         router = {'router': {'admin_state_up': True,
@@ -4524,12 +4525,12 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
                   'tenant_id': context.get_admin_context().tenant_id,
                   'router_type': 'shared'}}
         if with_hint:
-            router['router']['availability_zone_hints'] = [pool_name]
+            router['router']['availability_zone_hints'] = [az_name]
         returned_router = p.create_router(context.get_admin_context(),
                                           router)
         # availability zones is still empty because the router is not attached
         if with_hint:
-            self.assertEqual([pool_name],
+            self.assertEqual([az_name],
                              returned_router['availability_zone_hints'])
         else:
             self.assertEqual([],
@@ -4546,10 +4547,10 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                           None)
             edge_id = edge_utils.get_router_edge_id(
                 context.get_admin_context(), router_id)
-            res_pool = nsxv_db.get_edge_resource_pool(
+            res_az = nsxv_db.get_edge_availability_zone(
                 context.get_admin_context().session, edge_id)
-            expected_pool = pool_id if with_hint else self.default_res_pool
-            self.assertEqual(expected_pool, res_pool)
+            expected_az = az_name if with_hint else 'default'
+            self.assertEqual(expected_az, res_az)
 
     def test_create_rotuer_with_az_hint(self):
         self._test_create_rotuer_with_az_hint(True)
