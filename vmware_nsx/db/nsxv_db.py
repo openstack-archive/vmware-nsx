@@ -143,6 +143,12 @@ def get_edge_availability_zone(session, edge_id):
         return binding['availability_zone']
 
 
+def clean_edge_router_binding(session, edge_id):
+    with session.begin(subtransactions=True):
+        (session.query(nsxv_models.NsxvRouterBinding).
+         filter_by(edge_id=edge_id).delete())
+
+
 def get_edge_vnic_binding(session, edge_id, network_id):
     return session.query(nsxv_models.NsxvEdgeVnicBinding).filter_by(
         edge_id=edge_id, network_id=network_id).first()

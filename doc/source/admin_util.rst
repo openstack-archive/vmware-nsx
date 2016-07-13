@@ -83,6 +83,12 @@ DHCP Bindings
 
    nsxadmin -r dhcp-binding -o nsx-recreate --property edge-id=edge-222
 
+Routers
+~~~~~~~
+- Recreate a router edge by moving the router/s to other edge/s::
+
+   nsxadmin -r routers -o nsx-recreate --property edge-id=edge-308
+
 Networks
 ~~~~~~~~
 

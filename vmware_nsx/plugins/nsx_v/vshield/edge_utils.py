@@ -1547,16 +1547,14 @@ class EdgeManager(object):
         except Exception:
             LOG.warning(_LW("Failed to delete virtual wire: %s"), lswitch_id)
 
-    def get_routers_on_same_edge(self, context, router_id):
-        edge_binding = nsxv_db.get_nsxv_router_binding(
-            context.session, router_id)
+    def get_routers_on_edge(self, context, edge_id):
         router_ids = []
         valid_router_ids = []
-        if edge_binding:
+        if edge_id:
             router_ids = [
                 binding['router_id']
                 for binding in nsxv_db.get_nsxv_router_bindings_by_edge(
-                    context.session, edge_binding['edge_id'])]
+                    context.session, edge_id)]
         if router_ids:
             valid_router_ids = self.plugin.get_routers(
                 context.elevated(),
@@ -1569,6 +1567,13 @@ class EdgeManager(object):
                               "router ids: %s"),
                           str(set(router_ids) - set(valid_router_ids)))
         return valid_router_ids
+
+    def get_routers_on_same_edge(self, context, router_id):
+        edge_binding = nsxv_db.get_nsxv_router_binding(
+            context.session, router_id)
+        if edge_binding:
+            return self.get_routers_on_edge(context, edge_binding['edge_id'])
+        return []
 
     def bind_router_on_available_edge(
         self, context, target_router_id,
