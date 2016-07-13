@@ -23,7 +23,7 @@ from tooz import coordination
 LOG = log.getLogger(__name__)
 
 
-class LockManager:
+class LockManager(object):
     _coordinator = None
     _coordinator_pid = None
     _connect_string = cfg.CONF.locking_coordinator_url

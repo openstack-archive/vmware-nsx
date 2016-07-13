@@ -24,18 +24,18 @@ from vmware_nsx.extensions import routersize
 LOG = logging.getLogger(__name__)
 
 
-class AgentModes:
+class AgentModes(object):
     AGENT = 'agent'
     AGENTLESS = 'agentless'
     COMBINED = 'combined'
 
 
-class MetadataModes:
+class MetadataModes(object):
     DIRECT = 'access_network'
     INDIRECT = 'dhcp_host_route'
 
 
-class ReplicationModes:
+class ReplicationModes(object):
     SERVICE = 'service'
     SOURCE = 'source'
 

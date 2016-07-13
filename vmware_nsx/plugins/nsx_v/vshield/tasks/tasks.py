@@ -53,7 +53,7 @@ class TaskStateSkipped(TaskException):
     message = _("State %(state)d skipped. Current state %(current)d")
 
 
-class Task():
+class Task(object):
     def __init__(self, name, resource_id, execute_callback,
                  status_callback=nop, result_callback=nop, userdata=None):
         self.name = name
@@ -151,7 +151,7 @@ class Task():
             self.id)
 
 
-class TaskManager():
+class TaskManager(object):
 
     _instance = None
     _default_interval = DEFAULT_INTERVAL

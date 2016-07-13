@@ -627,7 +627,7 @@ class QosDscpMarkingRuleTest(BaseQosTest):
     VALID_DSCP_MARK1 = 56
     VALID_DSCP_MARK2 = 48
 
-    @test.idempotent_id('8a59b00b-3e9c-4787-92f8-93a5cdf5e378')
+    @test.idempotent_id('8a59b40b-3e9c-4787-92f8-93a5cdf5e378')
     def test_rule_create(self):
         """qos-dscp-marking-rule-create POLICY_ID."""
         qos_client = self.adm_qos_client
@@ -657,7 +657,7 @@ class QosDscpMarkingRuleTest(BaseQosTest):
                          policy_rules[0]['type'])
 
     @test.attr(type='negative')
-    @test.idempotent_id('8a59b00b-ab01-4787-92f8-93a5cdf5e378')
+    @test.idempotent_id('8b59b10b-ab01-4787-92f8-93a5cdf5e378')
     def test_rule_create_fail_for_the_same_type(self):
         """One dscp marking rule per policy."""
         policy = self.create_qos_policy(name='test-policy',
@@ -671,7 +671,7 @@ class QosDscpMarkingRuleTest(BaseQosTest):
                           policy_id=policy['id'],
                           dscp_mark=self.VALID_DSCP_MARK2)
 
-    @test.idempotent_id('149a6988-2568-47d2-931e-2dbc858943b3')
+    @test.idempotent_id('249a6988-2568-47d2-931e-2dbc858943b3')
     def test_rule_update(self):
         """qos-dscp-marking-rule-create POLICY_ID."""
         qos_client = self.adm_qos_client
@@ -688,7 +688,7 @@ class QosDscpMarkingRuleTest(BaseQosTest):
             rule['id'], policy['id'])
         self.assertEqual(self.VALID_DSCP_MARK2, retrieved_rule['dscp_mark'])
 
-    @test.idempotent_id('67ee6efd-7b33-4a68-927d-275b4f8ba958')
+    @test.idempotent_id('67ed6efd-7b33-4a68-927d-275b4f8ba958')
     def test_rule_delete(self):
         """qos-dscp-marking-rule-delete POLICY_ID."""
         qos_client = self.adm_qos_client
@@ -708,7 +708,7 @@ class QosDscpMarkingRuleTest(BaseQosTest):
                           rule['id'], policy['id'])
 
     @test.attr(type='negative')
-    @test.idempotent_id('f211222c-5808-46cb-a961-983bbab6b852')
+    @test.idempotent_id('f215222c-5808-46cb-a961-983bbab6b852')
     def test_rule_create_rule_nonexistent_policy(self):
         """can not create dscp marking rule with nonexist policy."""
         self.assertRaises(
@@ -717,7 +717,7 @@ class QosDscpMarkingRuleTest(BaseQosTest):
             'policy', self.VALID_DSCP_MARK1)
 
     @test.attr(type='negative')
-    @test.idempotent_id('a4a2e7ad-786f-4927-a85a-e545a93bd274')
+    @test.idempotent_id('a4a2e3ad-786f-4927-a85a-e545a93bd274')
     def test_rule_create_forbidden_for_regular_tenants(self):
         """project/tenant can not create dscp marking rule."""
         self.assertRaises(
@@ -727,7 +727,7 @@ class QosDscpMarkingRuleTest(BaseQosTest):
             qos_client=self.pri_qos_client)
 
     @test.attr(type='negative')
-    @test.idempotent_id('33646b08-4f05-4493-a48a-bde768a18533')
+    @test.idempotent_id('32646b08-4f05-4493-a48a-bde768a18533')
     def test_invalid_rule_create(self):
         """Can not create rule with invalid dscp_mark value."""
         policy = self.create_qos_policy(name='test-policy',
@@ -738,7 +738,7 @@ class QosDscpMarkingRuleTest(BaseQosTest):
             self.create_qos_dscp_marking_rule,
             policy['id'], 58)
 
-    @test.idempotent_id('ce0bd0c2-54d9-4e29-85f1-cfb36ac3ebe2')
+    @test.idempotent_id('cf0bd0c2-54d9-4e29-85f1-cfb36ac3ebe2')
     def test_get_rules_by_policy(self):
         """qos-dscp-marking-rule-list POLICY_ID."""
         policy1 = self.create_qos_policy(name='test-policy1',

@@ -26,8 +26,8 @@ from vmware_nsx_tempest.services.lbaas import members_client
 from vmware_nsx_tempest.services.lbaas import pools_client
 from vmware_nsx_tempest.tests.nsxv.scenario import (
     manager_topo_deployment as dmgr)
-from vmware_nsx_tempest.tests.nsxv.scenario.test_v1_lbaas_basic_ops import (
-    copy_file_to_host as copy_file_to_host)
+from vmware_nsx_tempest.tests.nsxv.scenario import test_v1_lbaas_basic_ops
+
 
 CONF = config.CONF
 LOG = dmgr.manager.log.getLogger(__name__)
@@ -248,9 +248,10 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
             with tempfile.NamedTemporaryFile() as key:
                 key.write(private_key)
                 key.flush()
-                copy_file_to_host(script.name,
-                                  "/tmp/script",
-                                  server_fip, username, key.name)
+                test_v1_lbaas_basic_ops.copy_file_to_host(
+                        script.name,
+                        "/tmp/script",
+                        server_fip, username, key.name)
 
         # Start netcat
         start_server = ('while true; do '

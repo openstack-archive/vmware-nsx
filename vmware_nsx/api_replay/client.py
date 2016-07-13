@@ -229,7 +229,6 @@ class ApiReplayClient(object):
                     # multiple times as we don't currently
                     # perserve the subnet_id. Also, 409 would be a better
                     # response code for this in neutron :(
-                    pass
 
             # create the ports on the network
             ports = self.get_ports_on_network(network['id'], source_ports)

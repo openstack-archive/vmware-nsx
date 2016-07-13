@@ -101,7 +101,7 @@ def get_db_internal_edge_ips(context):
     return ip_list
 
 
-class NsxVMetadataProxyHandler:
+class NsxVMetadataProxyHandler(object):
 
     def __init__(self, nsxv_plugin):
         self.nsxv_plugin = nsxv_plugin
