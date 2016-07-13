@@ -1161,8 +1161,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         return net_res
 
     def _validate_address_pairs(self, attrs, db_port):
-        # Check that the MAC address is the same as the port
         for ap in attrs[addr_pair.ADDRESS_PAIRS]:
+            # Check that the IP address is a subnet
+            if len(ap['ip_address'].split('/')) > 1:
+                msg = _('NSXv does not support CIDR as address pairs')
+                raise n_exc.BadRequest(resource='address_pairs', msg=msg)
+            # Check that the MAC address is the same as the port
             if ('mac_address' in ap and
                 ap['mac_address'] != db_port['mac_address']):
                 msg = _('Address pairs should have same MAC as the port')
