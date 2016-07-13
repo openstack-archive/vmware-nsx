@@ -54,7 +54,7 @@ def _apply_filters_to_query(query, model, filters, like_filters=None):
 def add_nsxv_router_binding(session, router_id, vse_id, lswitch_id, status,
                             appliance_size=nsxv_constants.LARGE,
                             edge_type=nsxv_constants.SERVICE_EDGE,
-                            resource_pool=None):
+                            availability_zone=None):
     with session.begin(subtransactions=True):
         binding = nsxv_models.NsxvRouterBinding(
             router_id=router_id,
@@ -63,7 +63,7 @@ def add_nsxv_router_binding(session, router_id, vse_id, lswitch_id, status,
             status=status,
             appliance_size=appliance_size,
             edge_type=edge_type,
-            resource_pool=resource_pool)
+            availability_zone=availability_zone)
         session.add(binding)
     return binding
 
@@ -137,10 +137,10 @@ def delete_nsxv_router_binding(session, router_id):
             session.delete(binding)
 
 
-def get_edge_resource_pool(session, edge_id):
+def get_edge_availability_zone(session, edge_id):
     binding = get_nsxv_router_binding_by_edge(session, edge_id)
     if binding:
-        return binding['resource_pool']
+        return binding['availability_zone']
 
 
 def get_edge_vnic_binding(session, edge_id, network_id):

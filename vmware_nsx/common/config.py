@@ -429,8 +429,10 @@ nsxv_opts = [
                       'deploy NSX Edges')),
     cfg.ListOpt('availability_zones',
                 default=[],
-                help=_('Optional parameter identifying the IDs of alternative '
-                       'resources to deploy NSX Edges')),
+                help=_('Optional parameter defining the availability zones '
+                       'for deploying NSX Edges with the format: <zone name>:'
+                       '<resource pool id]:<datastore id>:<(optional)HA '
+                       'datastore id>.')),
     cfg.StrOpt('datastore_id',
                deprecated_group="vcns",
                help=_('Optional parameter identifying the ID of datastore to '

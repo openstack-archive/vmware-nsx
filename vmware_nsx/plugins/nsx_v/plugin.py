@@ -93,6 +93,7 @@ from vmware_nsx.extensions import dns_search_domain as ext_dns_search_domain
 from vmware_nsx.extensions import routersize
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
+from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v import managers
 from vmware_nsx.plugins.nsx_v import md_proxy as nsx_v_md_proxy
 from vmware_nsx.plugins.nsx_v.vshield.common import (
@@ -199,8 +200,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self.dvs_id = cfg.CONF.nsxv.dvs_id
         self.nsx_sg_utils = securitygroup_utils.NsxSecurityGroupUtils(
             self.nsx_v)
+        self._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
         self._validate_config()
-        self._build_availability_zones_data()
         self.sg_container_id = self._create_security_group_container()
         self.default_section = self._create_cluster_default_fw_section()
         self._process_security_groups_rules_logging()
@@ -739,7 +740,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         #TODO(asarfaty): We may need to use the filters arg, but now it
         # is here only for overriding the original api
         result = {}
-        for az in self._availability_zones_data.keys():
+        for az in self._availability_zones_data.list_availability_zones():
             # Add this availability zone as a router & network resource
             for resource in ('router', 'network'):
                 result[(az, resource)] = True
@@ -765,20 +766,26 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # check that all hints appear in the predefined list of availability
         # zones
         diff = (set(availability_zones) -
-                set(self._availability_zones_data.keys()))
+                set(self._availability_zones_data.list_availability_zones()))
         if diff:
             raise az_ext.AvailabilityZoneNotFound(
                 availability_zone=diff.pop())
 
-    def get_network_resource_pool(self, context, network_id):
-        network = self.get_network(context, network_id)
-        if az_ext.AZ_HINTS in network:
-            for hint in network[az_ext.AZ_HINTS]:
+    def get_network_or_router_az(self, object):
+        if az_ext.AZ_HINTS in object:
+            for hint in object[az_ext.AZ_HINTS]:
                 # For now we use only the first hint
-                return self.get_res_pool_id_by_name(hint)
+                return self.get_az_by_hint(hint)
 
         # return the default
-        return cfg.CONF.nsxv.resource_pool_id
+        return self.get_default_az()
+
+    def get_network_az(self, context, network_id):
+        network = self.get_network(context, network_id)
+        return self.get_network_or_router_az(network)
+
+    def get_router_az(self, router):
+        return self.get_network_or_router_az(router)
 
     def create_network(self, context, network):
         net_data = network['network']
@@ -2189,19 +2196,20 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         super(NsxVPluginV2, self).delete_router(context, id)
         router_driver.delete_router(context, id)
 
-    def _get_availability_zone_by_edge(self, context, edge_id):
-        resource_pool = nsxv_db.get_edge_resource_pool(
-            context.session, edge_id)
-        if resource_pool:
-            av_zone = self.get_res_pool_name_by_id(resource_pool)
-            return av_zone
-
     db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
         attr.NETWORKS, ['_extend_availability_zone_hints'])
 
     def _extend_availability_zone_hints(self, net_res, net_db):
         net_res[az_ext.AZ_HINTS] = az_ext.convert_az_string_to_list(
             net_db[az_ext.AZ_HINTS])
+
+    def _get_availability_zone_name_by_edge(self, context, edge_id):
+        az_name = nsxv_db.get_edge_availability_zone(
+            context.session, edge_id)
+        if az_name:
+            return az_name
+        # fallback
+        return nsx_az.DEFAULT_NAME
 
     def get_network_availability_zones(self, context, net_db):
         """Return availability zones which a network belongs to."""
@@ -2211,7 +2219,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             context.session, resource_id)
         if dhcp_edge_binding:
             edge_id = dhcp_edge_binding['edge_id']
-            return [self._get_availability_zone_by_edge(context, edge_id)]
+            return [self._get_availability_zone_name_by_edge(
+                context, edge_id)]
         return []
 
     def get_router_availability_zones(self, router):
@@ -2219,7 +2228,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         context = n_context.get_admin_context()
         edge_id = self._get_edge_id_by_rtr_id(context, router["id"])
         if edge_id:
-            return [self._get_availability_zone_by_edge(context, edge_id)]
+            return [self._get_availability_zone_name_by_edge(
+                context, edge_id)]
         return []
 
     def get_router(self, context, id, fields=None):
@@ -3061,8 +3071,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         ver = self.nsx_v.vcns.get_version()
         if version.LooseVersion(ver) < version.LooseVersion('6.2.0'):
             # Do not support availability zones hints below 6.2
-            if (cfg.CONF.nsxv.availability_zones and
-                len(cfg.CONF.nsxv.availability_zones) > 0):
+            if cfg.CONF.nsxv.availability_zones:
                 error = (_("Availability zones are not supported for version "
                            "%s") % ver)
                 raise nsx_exc.NsxPluginException(err_msg=error)
@@ -3081,10 +3090,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         for cluster in cfg.CONF.nsxv.cluster_moid:
             inventory.append((cluster, 'cluster_moid'))
 
-        # Add the availability zones resource pools
-        if cfg.CONF.nsxv.availability_zones:
-            for az in cfg.CONF.nsxv.availability_zones:
-                inventory.append((az, 'availability_zones'))
+        # Add the availability zones resources
+        az_resources = self._availability_zones_data.get_resources()
+        for res in az_resources:
+            inventory.append((res, 'availability_zones'))
 
         for moref, field in inventory:
             if moref and not self.nsx_v.vcns.validate_inventory(moref):
@@ -3094,30 +3103,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     def _handle_qos_notification(self, qos_policy, event_type):
         qos_utils.handle_qos_notification(qos_policy, event_type, self._dvs)
 
-    def _build_availability_zones_data(self):
-        self._availability_zones_data = {}
-        if not len(cfg.CONF.nsxv.availability_zones):
-            return
+    def get_az_by_hint(self, hint):
+        az = self._availability_zones_data.get_availability_zone(hint)
+        if not az:
+            raise az_ext.AvailabilityZoneNotFound(availability_zone=hint)
+        return az
 
-        # Add the availability zones resource pools
-        if cfg.CONF.nsxv.availability_zones:
-            for az in cfg.CONF.nsxv.availability_zones:
-                name = self.nsx_v.vcns.get_inventory_name(az)
-                self._availability_zones_data[name] = az
-        # Add the default resource_pool_id too
-        az = cfg.CONF.nsxv.resource_pool_id
-        name = self.nsx_v.vcns.get_inventory_name(az)
-        self._availability_zones_data[name] = az
-
-    def get_res_pool_id_by_name(self, name):
-        if name in self._availability_zones_data.keys():
-            return self._availability_zones_data[name]
-        raise az_ext.AvailabilityZoneNotFound(availability_zone=name)
-
-    def get_res_pool_name_by_id(self, res_pool_id):
-        for name in self._availability_zones_data.keys():
-            if res_pool_id == self._availability_zones_data[name]:
-                return name
+    def get_default_az(self):
+        return self._availability_zones_data.get_default_availability_zone()
 
 
 # Register the callback

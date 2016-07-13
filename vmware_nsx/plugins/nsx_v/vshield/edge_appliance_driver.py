@@ -91,15 +91,16 @@ class EdgeApplianceDriver(object):
 
         return edge
 
-    def _assemble_edge_appliances(self, resource_pool_id, datastore_id,
-                                  ha_datastore_id):
+    def _assemble_edge_appliances(self, availability_zone):
         appliances = []
-        if datastore_id:
+        if availability_zone.datastore_id:
             appliances.append(self._assemble_edge_appliance(
-                resource_pool_id, datastore_id))
-        if ha_datastore_id and cfg.CONF.nsxv.edge_ha:
+                availability_zone.resource_pool,
+                availability_zone.datastore_id))
+        if availability_zone.ha_datastore_id and cfg.CONF.nsxv.edge_ha:
             appliances.append(self._assemble_edge_appliance(
-                resource_pool_id, ha_datastore_id))
+                availability_zone.resource_pool,
+                availability_zone.ha_datastore_id))
         return appliances
 
     def _assemble_edge_appliance(self, resource_pool_id, datastore_id):
@@ -515,17 +516,14 @@ class EdgeApplianceDriver(object):
     def deploy_edge(self, resource_id, name, internal_network, jobdata=None,
                     dist=False, wait_for_exec=False, loadbalancer_enable=True,
                     appliance_size=nsxv_constants.LARGE, async=True,
-                    res_pool=None):
+                    availability_zone=None):
         task_name = 'deploying-%s' % name
         edge_name = name
         edge = self._assemble_edge(
             edge_name, datacenter_moid=self.datacenter_moid,
             deployment_container_id=self.deployment_container_id,
             appliance_size=appliance_size, remote_access=False, dist=dist)
-        res_pool = res_pool or self.resource_pool_id
-        appliances = self._assemble_edge_appliances(res_pool,
-                                                    self.datastore_id,
-                                                    self.ha_datastore_id)
+        appliances = self._assemble_edge_appliances(availability_zone)
         if appliances:
             edge['appliances']['appliances'] = appliances
 
@@ -605,7 +603,7 @@ class EdgeApplianceDriver(object):
     def update_edge(self, router_id, edge_id, name, internal_network,
                     jobdata=None, dist=False, loadbalancer_enable=True,
                     appliance_size=nsxv_constants.LARGE,
-                    set_errors=False, res_pool=None):
+                    set_errors=False, availability_zone=None):
         """Update edge name."""
         task_name = 'update-%s' % name
         edge_name = name
@@ -614,10 +612,7 @@ class EdgeApplianceDriver(object):
             deployment_container_id=self.deployment_container_id,
             appliance_size=appliance_size, remote_access=False, dist=dist)
         edge['id'] = edge_id
-        res_pool = res_pool or self.resource_pool_id
-        appliances = self._assemble_edge_appliances(res_pool,
-                                                    self.datastore_id,
-                                                    self.ha_datastore_id)
+        appliances = self._assemble_edge_appliances(availability_zone)
         if appliances:
             edge['appliances']['appliances'] = appliances
 

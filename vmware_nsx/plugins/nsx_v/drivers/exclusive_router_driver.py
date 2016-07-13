@@ -36,10 +36,10 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
 
     def create_router(self, context, lrouter, appliance_size=None,
                       allow_metadata=True):
-        res_pool = self._get_resource_pool_from_hints(lrouter)
+        availability_zone = self.get_router_az(lrouter)
         self.edge_manager.create_lrouter(
             context, lrouter, dist=False, appliance_size=appliance_size,
-            res_pool=res_pool)
+            availability_zone=availability_zone)
         if allow_metadata:
             self.plugin.metadata_proxy_handler.configure_router_edge(
                 lrouter['id'])
