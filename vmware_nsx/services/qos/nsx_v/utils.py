@@ -80,7 +80,7 @@ class NsxVQosRule(object):
                         self.peakBandwidth = self.averageBandwidth
                         # burstSize: kbps (neutron) -> Bytes (nsxv)
                         self.burstSize = rule_obj['max_burst_kbps'] * 128
-                    if rule_obj['type'] == qos_consts.RULE_TYPE_DSCP_MARK:
+                    if rule_obj['type'] == qos_consts.RULE_TYPE_DSCP_MARKING:
                         self.dscpMarkEnabled = True
                         self.dscpMarkValue = rule_obj['dscp_mark']
 

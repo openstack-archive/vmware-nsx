@@ -80,7 +80,7 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
             'dscp_marking_rule': {
                 'id': uuidutils.generate_uuid(),
                 'dscp_mark': 22,
-                'type': qos_consts.RULE_TYPE_DSCP_MARK}}
+                'type': qos_consts.RULE_TYPE_DSCP_MARKING}}
 
         self.policy = policy_object.QosPolicy(
             self.ctxt, **self.policy_data['policy'])

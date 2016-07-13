@@ -142,7 +142,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                    "security-group-logging"]
 
     supported_qos_rule_types = [qos_consts.RULE_TYPE_BANDWIDTH_LIMIT,
-                                qos_consts.RULE_TYPE_DSCP_MARK]
+                                qos_consts.RULE_TYPE_DSCP_MARKING]
 
     @resource_registry.tracked_resources(
         network=models_v2.Network,

@@ -152,7 +152,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                    "router_availability_zone"]
 
     supported_qos_rule_types = [qos_consts.RULE_TYPE_BANDWIDTH_LIMIT,
-                                qos_consts.RULE_TYPE_DSCP_MARK]
+                                qos_consts.RULE_TYPE_DSCP_MARKING]
 
     __native_bulk_support = True
     __native_pagination_support = True
