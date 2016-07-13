@@ -2174,6 +2174,11 @@ def _delete_interface(nsxv_manager, context, router_id, network_id,
 
     # Get edge id
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
+    if not binding:
+        LOG.warning(_LW("Failed to find the router binding for router %s"),
+                    router_id)
+        return
+
     edge_id = binding['edge_id']
     edge_vnic_binding = nsxv_db.get_edge_vnic_binding(
         context.session, edge_id, network_id)
