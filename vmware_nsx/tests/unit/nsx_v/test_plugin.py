@@ -21,6 +21,7 @@ from neutron.api.rpc.callbacks import events as callbacks_events
 from neutron.api.v2 import attributes
 from neutron.common import utils
 from neutron import context
+from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import dvr as dist_router
 from neutron.extensions import external_net
 from neutron.extensions import l3
@@ -3555,6 +3556,15 @@ class TestNSXvAllowedAddressPairs(NsxVPluginV2TestCase,
 
     def test_get_vlan_network_name(self):
         pass
+
+    def test_create_port_with_cidr_address_pair(self):
+        with self.network() as net:
+            address_pairs = [{'mac_address': '00:00:00:00:00:01',
+                              'ip_address': '192.168.1.0/24'}]
+            self._create_port(self.fmt, net['network']['id'],
+                            expected_res_status=webob.exc.HTTPBadRequest.code,
+                            arg_list=(addr_pair.ADDRESS_PAIRS,),
+                            allowed_address_pairs=address_pairs)
 
 
 class TestNSXPortSecurity(test_psec.TestPortSecurity,
