@@ -878,6 +878,23 @@ class Vcns(object):
         return self.do_request(HTTP_PUT, uri, et.tostring(tuning),
                                format='xml', decode=True)
 
+    def configure_reservations(self):
+        uri = "/api/4.0/edgePublish/tuningConfiguration"
+        config = self.get_tuning_configration()
+        tuning = et.Element('tuningConfiguration')
+        for opt, val in six.iteritems(config):
+            child = et.Element(opt)
+            if (opt == 'edgeVCpuReservationPercentage' or
+                opt == 'edgeMemoryReservationPercentage'):
+                child.text = '0'
+            elif opt == 'megaHertzPerVCpu':
+                child.text = '1500'
+            else:
+                child.text = str(val)
+            tuning.append(child)
+        return self.do_request(HTTP_PUT, uri, et.tostring(tuning),
+                               format='xml', decode=True)
+
     def enable_ha(self, edge_id, request_config, async=True):
         """Enable HA in the given edge."""
         uri = "/api/4.0/edges/%s/highavailability/config" % edge_id
