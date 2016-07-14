@@ -147,22 +147,24 @@ class TestQosNsxV3Notification(nsxlib_testcase.NsxClientTestCase,
             return_value=_policy):
             with mock.patch.object(nsxlib,
                 'update_qos_switching_profile_shaping') as update_profile:
-                self.qos_plugin.update_policy_bandwidth_limit_rule(
-                    self.ctxt, self.rule.id, _policy.id, self.rule_data)
+                with mock.patch('neutron.objects.db.api.update_object',
+                    return_value=self.rule_data):
+                    self.qos_plugin.update_policy_bandwidth_limit_rule(
+                        self.ctxt, self.rule.id, _policy.id, self.rule_data)
 
-                # validate the data on the profile
-                rule_dict = self.rule_data['bandwidth_limit_rule']
-                expected_bw = rule_dict['max_kbps'] // 1024
-                expected_burst = rule_dict['max_burst_kbps'] * 128
-                update_profile.assert_called_once_with(
-                    self.fake_profile_id,
-                    average_bandwidth=expected_bw,
-                    burst_size=expected_burst,
-                    peak_bandwidth=expected_bw,
-                    shaping_enabled=True,
-                    qos_marking='trusted',
-                    dscp=0
-                )
+                    # validate the data on the profile
+                    rule_dict = self.rule_data['bandwidth_limit_rule']
+                    expected_bw = rule_dict['max_kbps'] // 1024
+                    expected_burst = rule_dict['max_burst_kbps'] * 128
+                    update_profile.assert_called_once_with(
+                        self.fake_profile_id,
+                        average_bandwidth=expected_bw,
+                        burst_size=expected_burst,
+                        peak_bandwidth=expected_bw,
+                        shaping_enabled=True,
+                        qos_marking='trusted',
+                        dscp=0
+                    )
 
     @mock.patch.object(policy_object.QosPolicy, 'reload_rules')
     def test_bw_rule_create_profile_minimal_val(self, *mocks):
@@ -185,22 +187,24 @@ class TestQosNsxV3Notification(nsxlib_testcase.NsxClientTestCase,
             return_value=_policy):
             with mock.patch.object(nsxlib,
                 'update_qos_switching_profile_shaping') as update_profile:
-                self.qos_plugin.update_policy_bandwidth_limit_rule(
-                    self.ctxt, rule.id, _policy.id, rule_data)
+                with mock.patch('neutron.objects.db.api.update_object',
+                    return_value=rule_data):
+                    self.qos_plugin.update_policy_bandwidth_limit_rule(
+                        self.ctxt, rule.id, _policy.id, rule_data)
 
-                # validate the data on the profile
-                rule_dict = rule_data['bandwidth_limit_rule']
-                expected_bw = qos_utils.MAX_KBPS_MIN_VALUE / 1024
-                expected_burst = rule_dict['max_burst_kbps'] * 128
-                update_profile.assert_called_once_with(
-                    self.fake_profile_id,
-                    average_bandwidth=expected_bw,
-                    burst_size=expected_burst,
-                    peak_bandwidth=expected_bw,
-                    shaping_enabled=True,
-                    dscp=0,
-                    qos_marking='trusted'
-                )
+                    # validate the data on the profile
+                    rule_dict = rule_data['bandwidth_limit_rule']
+                    expected_bw = qos_utils.MAX_KBPS_MIN_VALUE / 1024
+                    expected_burst = rule_dict['max_burst_kbps'] * 128
+                    update_profile.assert_called_once_with(
+                        self.fake_profile_id,
+                        average_bandwidth=expected_bw,
+                        burst_size=expected_burst,
+                        peak_bandwidth=expected_bw,
+                        shaping_enabled=True,
+                        dscp=0,
+                        qos_marking='trusted'
+                    )
 
     @mock.patch.object(policy_object.QosPolicy, 'reload_rules')
     def test_dscp_rule_create_profile(self, *mocks):

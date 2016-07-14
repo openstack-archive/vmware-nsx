@@ -101,8 +101,10 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
         self._rules = [self.rule_data['bandwidth_limit_rule']]
         self._dscp_rules = [self.dscp_rule_data['dscp_marking_rule']]
 
-        mock.patch('neutron.objects.db.api.create_object').start()
-        mock.patch('neutron.objects.db.api.update_object').start()
+        mock.patch('neutron.objects.db.api.create_object',
+            return_value=self.rule_data).start()
+        mock.patch('neutron.objects.db.api.update_object',
+            return_value=self.rule_data).start()
         mock.patch('neutron.objects.db.api.delete_object').start()
         mock.patch('neutron.objects.db.api.get_object').start()
         mock.patch(
