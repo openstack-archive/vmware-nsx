@@ -59,7 +59,7 @@ def lsn_for_network_create(cluster, network_id):
     }
     return nsxlib.do_request(HTTP_POST,
                              nsxlib._build_uri_path(LSERVICESNODE_RESOURCE),
-                             jsonutils.dumps(lsn_obj),
+                             jsonutils.dumps(lsn_obj, sort_keys=True),
                              cluster=cluster)["uuid"]
 
 
@@ -91,7 +91,7 @@ def lsn_port_host_entries_update(
                                              parent_resource_id=lsn_id,
                                              resource_id=lsn_port_id,
                                              extra_action=conf),
-                      jsonutils.dumps(hosts_obj),
+                      jsonutils.dumps(hosts_obj, sort_keys=True),
                       cluster=cluster)
 
 
@@ -167,7 +167,7 @@ def lsn_port_plug_network(cluster, lsn_id, lsn_port_id, lswitch_port_id):
                                                  parent_resource_id=lsn_id,
                                                  resource_id=lsn_port_id,
                                                  is_attachment=True),
-                          jsonutils.dumps(patch_obj),
+                          jsonutils.dumps(patch_obj, sort_keys=True),
                           cluster=cluster)
     except api_exc.Conflict:
         # This restriction might be lifted at some point
@@ -187,7 +187,7 @@ def _lsn_configure_action(
                       nsxlib._build_uri_path(LSERVICESNODE_RESOURCE,
                                              resource_id=lsn_id,
                                              extra_action=action),
-                      jsonutils.dumps(lsn_obj),
+                      jsonutils.dumps(lsn_obj, sort_keys=True),
                       cluster=cluster)
 
 
@@ -197,14 +197,15 @@ def _lsn_port_configure_action(
                       nsxlib._build_uri_path(LSERVICESNODE_RESOURCE,
                                              resource_id=lsn_id,
                                              extra_action=action),
-                      jsonutils.dumps({"enabled": is_enabled}),
+                      jsonutils.dumps({"enabled": is_enabled},
+                                      sort_keys=True),
                       cluster=cluster)
     nsxlib.do_request(HTTP_PUT,
                       nsxlib._build_uri_path(LSERVICESNODEPORT_RESOURCE,
                                              parent_resource_id=lsn_id,
                                              resource_id=lsn_port_id,
                                              extra_action=action),
-                      jsonutils.dumps(obj),
+                      jsonutils.dumps(obj, sort_keys=True),
                       cluster=cluster)
 
 
@@ -247,7 +248,7 @@ def _lsn_port_host_action(
                                              resource_id=lsn_port_id,
                                              extra_action=extra_action,
                                              filters={"action": action}),
-                      jsonutils.dumps(host_obj),
+                      jsonutils.dumps(host_obj, sort_keys=True),
                       cluster=cluster)
 
 
