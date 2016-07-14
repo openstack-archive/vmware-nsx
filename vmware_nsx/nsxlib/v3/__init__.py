@@ -363,3 +363,38 @@ def get_bridge_cluster_id_by_name_or_id(name_or_id):
     """
 
     return _get_resource_by_name_or_id(name_or_id, 'bridge-clusters')
+
+
+def create_port_mirror_session(source_ports, dest_ports, direction,
+                               description, name, tags):
+    """Create a PortMirror Session on the backend.
+
+    :param source_ports: List of UUIDs of the ports whose traffic is to be
+                        mirrored.
+    :param dest_ports: List of UUIDs of the ports where the mirrored traffic is
+                      to be sent.
+    :param direction: String representing the direction of traffic to be
+                      mirrored. [INGRESS, EGRESS, BIDIRECTIONAL]
+    :param description: String representing the description of the session.
+    :param name: String representing the name of the session.
+    :param tags: nsx backend specific tags.
+    """
+
+    resource = 'mirror-sessions'
+    body = {'direction': direction,
+            'tags': tags,
+            'display_name': name,
+            'description': description,
+            'mirror_sources': source_ports,
+            'mirror_destination': dest_ports}
+    return client.create_resource(resource, body)
+
+
+def delete_port_mirror_session(mirror_session_id):
+    """Delete a PortMirror session on the backend.
+
+    :param mirror_session_id: string representing the UUID of the port mirror
+                              session to be deleted.
+    """
+    resource = 'mirror-sessions/%s' % mirror_session_id
+    client.delete_resource(resource)
