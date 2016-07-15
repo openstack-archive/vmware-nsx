@@ -14,11 +14,15 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import netaddr
 import re
+import socket
+import struct
 import sys
+import time
 
+from tempest.common.utils.linux import remote_client
 from tempest import config
-from tempest.lib.common import ssh
 from tempest.lib.common.utils import data_utils
 from tempest.lib import exceptions
 from tempest import test
@@ -27,6 +31,8 @@ from vmware_nsx_tempest._i18n import _LI
 from vmware_nsx_tempest.services import nsxv_client
 from vmware_nsx_tempest.tests.nsxv.scenario import (
     manager_topo_deployment as dmgr)
+from vmware_nsx_tempest.tests.nsxv.scenario import (
+    network_addon_methods as HELO)
 
 CONF = config.CONF
 LOG = dmgr.manager.log.getLogger(__name__)
@@ -53,6 +59,7 @@ class TestDHCP121BasicOps(dmgr.TopoDeployScenarioManager):
     6) Create large no of host-routes for subnet and check validation at
        beckend
     """
+
     @classmethod
     def skip_checks(cls):
         super(TestDHCP121BasicOps, cls).skip_checks()
@@ -110,10 +117,10 @@ class TestDHCP121BasicOps(dmgr.TopoDeployScenarioManager):
         self.serv_fip = vm_env['fip1']['floating_ip_address']
         username, password = self.get_image_userpass()
         # Connect to instance launched using ssh lib
-        client = ssh.Client(self.serv_fip, username=username,
-                            password=password)
+        client = remote_client.RemoteClient(self.serv_fip, username=username,
+                                            password=password)
         # Executes route over launched instance
-        cmd = ('route -n')
+        cmd = ('/sbin/route -n')
         out_data = client.exec_command(cmd)
         self.assertIn(Metadataserver_ip, out_data)
         LOG.info(_LI("Metadata routes available on vm"))
@@ -148,10 +155,12 @@ class TestDHCP121BasicOps(dmgr.TopoDeployScenarioManager):
         # Fetch next hop information from tempest.conf
         next_hop = CONF.network.project_network_cidr
         self.nexthop_host_route = next_hop.rsplit('.', 1)[0]
-        self.nexthop1 = self.nexthop_host_route + ".2"
         # Floating-ip of VM
         self.serv_fip = vm_env['fip1']['floating_ip_address']
         username, password = self.get_image_userpass()
+        subnet_id = vm_env['subnet']['id']
+        subnet_info = self.subnets_client.show_subnet(subnet_id)
+        self.nexthop1 = subnet_info['subnet']['gateway_ip']
         # Update subnet with host routes
         _subnet_data = {'host_routes': [{'destination': '10.20.0.0/32',
                                          'nexthop': '10.100.1.1'}],
@@ -160,15 +169,16 @@ class TestDHCP121BasicOps(dmgr.TopoDeployScenarioManager):
         new_host_routes = _subnet_data['new_host_routes']
         kwargs = {'host_routes': new_host_routes}
         new_name = "New_subnet"
-        subnet_id = vm_env['subnet']['id']
         # Update subnet with host-route info
         self.subnets_client.update_subnet(
             subnet_id, name=new_name, **kwargs)
         # Connect to instance launched using ssh lib
-        client = ssh.Client(self.serv_fip, username=username,
-                            password=password)
+        client = remote_client.RemoteClient(self.serv_fip, username=username,
+                                            password=password)
         # Executes route over instance launched
-        cmd = ('route -n')
+        fixed_ip = vm_env['fip1']['fixed_ip_address']
+        client._renew_lease_udhcpc(fixed_ip)
+        cmd = ('/sbin/route -n')
         out_data = client.exec_command(cmd)
         self.assertIn(
             _subnet_data['new_host_routes'][0]['nexthop'], out_data)
@@ -196,9 +206,9 @@ class TestDHCP121BasicOps(dmgr.TopoDeployScenarioManager):
         self.subnets_client.update_subnet(
             subnet_id, name=new_name, **kwargs)
         # Executes route over instance launched
-        cmd = ('dhclient eth0')
-        client.exec_command(cmd)
-        cmd = ('route -n')
+        fixed_ip = vm_env['fip1']['fixed_ip_address']
+        client._renew_lease_udhcpc(fixed_ip)
+        cmd = ('/sbin/route -n')
         out_data = client.exec_command(cmd)
         self.assertIsNotNone(out_data)
         # Check Host routes on VM shouldn't be avialable
@@ -221,6 +231,33 @@ class TestDHCP121BasicOps(dmgr.TopoDeployScenarioManager):
                             client_mgr=vm_env['client_mgr'],
                             serv1=vm_env['serv1'], fip1=vm_env['fip1'])
         return project_dict
+
+    def create_project_network_subnet_with_cidr(self,
+                                                name_prefix='dhcp-project',
+                                                cidr=None):
+        network_name = data_utils.rand_name(name_prefix)
+        network, subnet = self.create_network_subnet_with_cidr(
+            name=network_name, cidr=cidr)
+        return (network, subnet)
+
+    def create_port(self, network_id):
+        port_client = self.manager.ports_client
+        return HELO.create_port(self, network_id=network_id,
+                                client=port_client)
+
+    def create_network_subnet_with_cidr(self, client_mgr=None,
+                                        tenant_id=None, name=None, cidr=None):
+        client_mgr = client_mgr or self.manager
+        tenant_id = tenant_id
+        name = name or data_utils.rand_name('topo-deploy-network')
+        net_network = self.create_network(
+            client=client_mgr.networks_client,
+            tenant_id=tenant_id, name=name)
+        net_subnet = self.create_subnet(
+            client=client_mgr.subnets_client,
+            network=net_network,
+            cidr=cidr, name=net_network['name'])
+        return net_network, net_subnet
 
     def setup_vm_enviornment(self, client_mgr, t_id,
                              check_outside_world=True,
@@ -410,3 +447,67 @@ class TestDhcpMultiHostRoute(TestDHCP121BasicOps):
         if (len(subnet['subnet']['host_routes']) == 19):
             LOG.info(_LI("Multiple entries for host routes available"))
         LOG.info(_LI("Testcase DHCP-121 option multi host routes completed"))
+
+
+class TestDhcpHostRoutesBetweenVms(TestDHCP121BasicOps):
+    @test.attr(type='nsxv')
+    @test.idempotent_id('34e6d23f-db00-446e-8299-57ff2c0911b2')
+    def test_host_routes_between_vms(self):
+        client_mgr = self.manager
+        next_hop = CONF.network.project_network_cidr
+        ip = next_hop.rsplit('/', 1)[0]
+        ip2int = lambda ipstr: struct.unpack('!I', socket.inet_aton(ipstr))[0]
+        ss = (ip2int(ip))
+        int2ip = lambda n: socket.inet_ntoa(struct.pack('!I', n))
+        new_network_cidr = (int2ip(ss + 256))
+        net_mask = str(CONF.network.project_network_mask_bits)
+        new_network_cidr = new_network_cidr + '/' + net_mask
+        cidr = netaddr.IPNetwork(new_network_cidr)
+        self.green = self.setup_vm_enviornment(self.manager, 'green', True)
+        network, subnet =\
+            self.create_project_network_subnet_with_cidr('dhcp121-tenant',
+                                                         cidr=cidr)
+        net_id = network['id']
+        # Create Port
+        port = self.create_port(net_id)
+        HELO.router_add_port_interface(self, net_router=self.green['router'],
+                                       net_port=port, client_mgr=client_mgr)
+        t_security_group = self._create_security_group(
+            security_groups_client=self.security_groups_client,
+            security_group_rules_client=self.security_group_rules_client,
+            namestart='adm')
+        username, password = self.get_image_userpass()
+        security_groups = [{'name': t_security_group['name']}]
+        _subnet_data = {'host_routes': [{'destination': '10.20.0.0/32',
+                                         'nexthop': '10.100.1.1'}],
+                        'new_host_routes': [{
+                            'destination': CONF.network.project_network_cidr,
+                            'nexthop': port['fixed_ips'][0]['ip_address']}]}
+        subnet_client = client_mgr.subnets_client
+        subnet_id = subnet['id']
+        new_name = "New_subnet"
+        new_host_routes = _subnet_data['new_host_routes']
+        kwargs = {'host_routes': new_host_routes}
+        # Update subnet with host-route info
+        subnet_client.update_subnet(
+            subnet_id, name=new_name, **kwargs)
+        # launched dest vm
+        t_serv2 = self.create_server_on_network(
+            network, security_groups,
+            image=self.get_server_image(),
+            flavor=self.get_server_flavor(),
+            name=network['name'])
+        self.check_server_connected(t_serv2)
+        time.sleep(dmgr.WAITTIME_FOR_CONNECTIVITY)
+        # Connect to instance launched using ssh lib
+        self.serv_fip = self.green['fip1']['floating_ip_address']
+        username, password = self.get_image_userpass()
+        client = remote_client.RemoteClient(self.serv_fip, username=username,
+                                            password=password)
+        network_name = network['name']
+        dest_ip = t_serv2['addresses'][network_name][0]['addr']
+        # Ping dest vm from source vm
+        cmd = ('ping %s -c 3' % dest_ip)
+        out_data = client.exec_command(cmd)
+        desired_output = "64 bytes from %s" % dest_ip
+        self.assertIn(desired_output, out_data)
