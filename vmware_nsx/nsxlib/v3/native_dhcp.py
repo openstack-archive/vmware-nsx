@@ -51,9 +51,12 @@ def build_dhcp_server_config(network, subnet, port, project_name):
                             'next_hop': gateway_ip})
 
     options = {'option121': {'static_routes': host_routes}}
+    name = utils.get_name_and_uuid(network['name'] or 'dhcpserver',
+                                   network['id'])
     tags = utils.build_v3_tags_payload(
         network, resource_type='os-neutron-net-id', project_name=project_name)
-    return {'dhcp_profile_id': cfg.CONF.nsx_v3.dhcp_profile_uuid,
+    return {'name': name,
+            'dhcp_profile_id': cfg.CONF.nsx_v3.dhcp_profile_uuid,
             'server_ip': server_ip,
             'dns_servers': dns_servers,
             'domain_name': cfg.CONF.nsx_v3.dns_domain,

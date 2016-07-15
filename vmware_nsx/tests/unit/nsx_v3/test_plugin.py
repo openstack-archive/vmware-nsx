@@ -1239,8 +1239,12 @@ class NsxNativeMetadataTestCase(NsxV3PluginTestCaseMixin):
                 tags = utils.build_v3_tags_payload(
                     network['network'], resource_type='os-neutron-net-id',
                     project_name=None)
+                name = utils.get_name_and_uuid('%s-%s' % (
+                    'mdproxy', network['network']['name'] or 'network'),
+                                               network['network']['id'])
                 create_logical_port.assert_called_once_with(
-                    nsx_net_id, cfg.CONF.nsx_v3.metadata_proxy_uuid, tags=tags,
+                    nsx_net_id, cfg.CONF.nsx_v3.metadata_proxy_uuid,
+                    tags=tags, name=name,
                     attachment_type=nsx_constants.ATTACHMENT_MDPROXY)
 
     def test_metadata_proxy_with_get_subnets(self):

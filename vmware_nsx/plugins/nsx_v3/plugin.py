@@ -674,9 +674,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         tags = utils.build_v3_tags_payload(
                             net_data, resource_type='os-neutron-net-id',
                             project_name=context.tenant_name)
+                        name = utils.get_name_and_uuid('%s-%s' % (
+                            'mdproxy', created_net['name'] or 'network'),
+                                                       created_net['id'])
                         md_port = self._port_client.create(
                             nsx_net_id, cfg.CONF.nsx_v3.metadata_proxy_uuid,
-                            tags=tags,
+                            tags=tags, name=name,
                             attachment_type=nsx_constants.ATTACHMENT_MDPROXY)
                         LOG.info(_LI("Created MD-Proxy logical port %(port)s "
                                      "for network %(network)s"),
@@ -870,8 +873,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             LOG.info(_LI("Created logical DHCP server %(server)s for network "
                          "%(network)s"),
                      {'server': dhcp_server['id'], 'network': network['id']})
+            name = self._get_port_name(context, port_data)
             nsx_port = self._port_client.create(
-                nsx_net_id, dhcp_server['id'], tags=tags,
+                nsx_net_id, dhcp_server['id'], tags=tags, name=name,
                 attachment_type=nsx_constants.ATTACHMENT_DHCP)
             LOG.info(_LI("Created DHCP logical port %(port)s for "
                          "network %(network)s"),
