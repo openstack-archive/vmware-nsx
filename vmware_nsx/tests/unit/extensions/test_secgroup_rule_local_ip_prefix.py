@@ -118,7 +118,7 @@ class TestNsxVExtendedSGRule(test_nsxv_plugin.NsxVSecurityGroupsTestCase,
         plugin.nsx_sg_utils.get_rule_config.assert_called_with(
             source=mock.ANY, destination=dest, services=mock.ANY,
             name=mock.ANY, applied_to_ids=mock.ANY, flags=mock.ANY,
-            logged=mock.ANY)
+            logged=mock.ANY, action=mock.ANY)
 
 
 class TestNSXv3ExtendedSGRule(test_nsxv3_plugin.NsxV3PluginTestCaseMixin,

@@ -903,7 +903,8 @@ class FakeVcns(object):
     def create_redirect_section(self, request):
         return self.create_section('layer3redirect', request)
 
-    def create_section(self, type, request, insert_before=None):
+    def create_section(self, type, request,
+                       insert_top=False, insert_before=None):
         section = ET.fromstring(request)
         section_name = section.attrib.get('name')
         if section_name in self._sections['names']:

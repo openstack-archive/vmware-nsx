@@ -91,6 +91,7 @@ from vmware_nsx.extensions import (
     vnicindex as ext_vnic_idx)
 from vmware_nsx.extensions import dhcp_mtu as ext_dhcp_mtu
 from vmware_nsx.extensions import dns_search_domain as ext_dns_search_domain
+from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.extensions import routersize
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
@@ -238,6 +239,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                            fc_utils.SERVICE_INSERTION_RESOURCE,
                            events.AFTER_CREATE)
 
+        if c_utils.is_nsxv_version_6_2(self.nsx_v.vcns.get_version()):
+            self.supported_extension_aliases.append("provider-security-group")
+
     def init_complete(self, resource, event, trigger, **kwargs):
         self.init_is_complete = True
 
@@ -377,8 +381,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self.nsx_v.vcns.update_section_by_id(
                     section_id, 'ip', section_req_body)
             else:
-                h, c = self.nsx_v.vcns.create_section(
-                    'ip', section_req_body)
+                h, c = self.nsx_v.vcns.create_section('ip', section_req_body)
                 section_id = self.nsx_sg_utils.parse_and_get_section_id(c)
         return section_id
 
@@ -1245,6 +1248,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # Update fields obtained from neutron db (eg: MAC address)
             port["port"].update(neutron_db)
             has_ip = self._ip_on_port(neutron_db)
+            provider_sg_specified = (validators.is_attr_set(
+                port_data.get(provider_sg.PROVIDER_SECURITYGROUPS))
+                and port_data[provider_sg.PROVIDER_SECURITYGROUPS] != [])
+            has_security_groups = (
+                self._check_update_has_security_groups(port))
 
             # allowed address pair checks
             attrs = port[attr.PORT]
@@ -1259,12 +1267,18 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # security group extension checks
             if has_ip:
                 self._ensure_default_security_group_on_port(context, port)
-            elif validators.is_attr_set(port_data.get(ext_sg.SECURITYGROUPS)):
+            elif (has_security_groups or provider_sg_specified):
                 raise psec.PortSecurityAndIPRequiredForSecurityGroups()
-            port_data[ext_sg.SECURITYGROUPS] = (
-                self._get_security_groups_on_port(context, port))
-            self._process_port_create_security_group(
-                context, port_data, port_data[ext_sg.SECURITYGROUPS])
+            else:
+                port_data[provider_sg.PROVIDER_SECURITYGROUPS] = []
+
+            sgids = self._get_security_groups_on_port(context, port)
+            ssgids = self._get_provider_security_groups_on_port(context, port)
+            self._process_port_create_security_group(context, port_data, sgids)
+            self._process_port_create_provider_security_group(context,
+                                                              port_data,
+                                                              ssgids)
+
             self._process_portbindings_create_and_update(context,
                                                          port['port'],
                                                          port_data)
@@ -1430,7 +1444,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     context, id, device_id, vnic_idx)
             vnic_id = self._get_port_vnic_id(vnic_idx, device_id)
             self._add_security_groups_port_mapping(
-                context.session, vnic_id, original_port['security_groups'])
+                context.session, vnic_id,
+                original_port[ext_sg.SECURITYGROUPS] +
+                original_port[provider_sg.PROVIDER_SECURITYGROUPS])
             if has_port_security:
                 LOG.debug("Assigning vnic port fixed-ips: port %s, "
                           "vnic %s, with fixed-ips %s", id, vnic_id,
@@ -1446,6 +1462,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._add_member_to_security_group(self._si_handler.sg_id,
                                                    vnic_id)
 
+        provider_sgs_specified = validators.is_attr_set(
+            port_data.get(provider_sg.PROVIDER_SECURITYGROUPS))
+        delete_provider_sg = provider_sgs_specified and (
+            port_data[provider_sg.PROVIDER_SECURITYGROUPS] != [])
         delete_security_groups = self._check_update_deletes_security_groups(
             port)
         has_security_groups = self._check_update_has_security_groups(port)
@@ -1464,22 +1484,22 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # checks that if update adds/modify security groups,
             # then port has ip
             if not has_ip:
-                if has_security_groups:
-                    raise psec.PortSecurityAndIPRequiredForSecurityGroups()
-                security_groups = (
-                    super(NsxVPluginV2,
-                          self)._get_port_security_group_bindings(
-                              context, {'port_id': [id]})
-                )
-                if security_groups and not delete_security_groups:
-                    raise psec.PortSecurityAndIPRequiredForSecurityGroups()
+                if (has_security_groups or provider_sgs_specified):
+                        raise psec.PortSecurityAndIPRequiredForSecurityGroups()
+                if ((not delete_security_groups
+                     and original_port[ext_sg.SECURITYGROUPS]) or
+                    (not delete_provider_sg and
+                     original_port[provider_sg.PROVIDER_SECURITYGROUPS])):
+                        raise psec.PortSecurityAndIPRequiredForSecurityGroups()
 
             if delete_security_groups or has_security_groups:
-                # delete the port binding and read it with the new rules.
-                self._delete_port_security_group_bindings(context, id)
-                new_sgids = self._get_security_groups_on_port(context, port)
-                self._process_port_create_security_group(context, ret_port,
-                                                         new_sgids)
+                self.update_security_group_on_port(context, id, port,
+                                                   original_port, ret_port)
+            # NOTE(roeyc): Should call this method only after
+            # update_security_group_on_port was called.
+            self._process_port_update_provider_security_group(context, port,
+                                                              original_port,
+                                                              ret_port)
 
             LOG.debug("Updating port: %s", port)
             self._process_portbindings_create_and_update(context,
@@ -1537,7 +1557,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         vnic_idx = original_port.get(ext_vnic_idx.VNIC_INDEX)
         if validators.is_attr_set(vnic_idx) and is_compute_port:
             vnic_id = self._get_port_vnic_id(vnic_idx, device_id)
-            curr_sgids = original_port.get(ext_sg.SECURITYGROUPS)
+            curr_sgids = (
+                original_port[provider_sg.PROVIDER_SECURITYGROUPS] +
+                original_port[ext_sg.SECURITYGROUPS])
             if ret_port['device_id'] != device_id:
                 # Update change device_id - remove port-vnic association and
                 # delete security-groups memberships for the vnic
@@ -1623,6 +1645,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     # Update security-groups,
                     # calculate differences and update vnic membership
                     # accordingly.
+                    new_sgids = (
+                        ret_port[provider_sg.PROVIDER_SECURITYGROUPS] +
+                        ret_port[ext_sg.SECURITYGROUPS])
                     self._update_security_groups_port_mapping(
                         context.session, id, vnic_id, curr_sgids, new_sgids)
 
@@ -2797,19 +2822,22 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                               nsx_sg_id):
         logging = (cfg.CONF.nsxv.log_security_groups_allowed_traffic or
                    securitygroup[sg_logging.LOGGING])
+        action = 'deny' if securitygroup[provider_sg.PROVIDER] else 'allow'
         section_name = self.nsx_sg_utils.get_nsx_section_name(securitygroup)
         nsx_rules = []
         # Translate Neutron rules to NSXv fw rules and construct the fw section
         for rule in securitygroup['security_group_rules']:
             nsx_rule = self._create_nsx_rule(
-                context, rule, nsx_sg_id, logged=logging)
+                context, rule, nsx_sg_id, logged=logging, action=action)
             nsx_rules.append(nsx_rule)
         section = self.nsx_sg_utils.get_section_with_rules(
             section_name, nsx_rules)
         # Execute REST API for creating the section
         h, c = self.nsx_v.vcns.create_section(
             'ip', self.nsx_sg_utils.to_xml_string(section),
+            insert_top=securitygroup[provider_sg.PROVIDER],
             insert_before=self.default_section)
+
         rule_pairs = self.nsx_sg_utils.get_rule_id_pair_from_section(c)
         # Add database associations for fw section and rules
         nsxv_db.add_neutron_nsx_section_mapping(
@@ -2844,22 +2872,29 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             with excutils.save_and_reraise_exception():
                 self._delete_nsx_security_group(nsx_sg_id)
 
-        # Add this Security Group to the Security Groups container
-        self._add_member_to_security_group(self.sg_container_id, nsx_sg_id)
+        if not securitygroup[provider_sg.PROVIDER]:
+            # Add Security Group to the Security Groups container inorder to
+            # apply the default block rule. provider security-groups should not
+            # have a default blocking rule.
+            self._add_member_to_security_group(self.sg_container_id, nsx_sg_id)
 
     def create_security_group(self, context, security_group, default_sg=False):
         """Create a security group."""
         sg_data = security_group['security_group']
         sg_id = sg_data["id"] = str(uuid.uuid4())
 
-        new_security_group = super(NsxVPluginV2, self).create_security_group(
-            context, security_group, default_sg)
-        self._process_security_group_properties_create(
-            context, new_security_group, sg_data)
-
+        with context.session.begin(subtransactions=True):
+            if sg_data.get(provider_sg.PROVIDER):
+                new_sg = self.create_provider_security_group(
+                    context, security_group)
+            else:
+                new_sg = super(NsxVPluginV2, self).create_security_group(
+                    context, security_group, default_sg)
+            self._process_security_group_properties_create(
+                context, new_sg, sg_data, default_sg)
         try:
             self._process_security_group_create_backend_resources(
-                context, new_security_group)
+                context, new_sg)
         except Exception:
             # Couldn't create backend resources, rolling back neutron db
             # changes.
@@ -2870,7 +2905,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     context = context.elevated()
                 super(NsxVPluginV2, self).delete_security_group(context, sg_id)
                 LOG.exception(_LE('Failed to create security group'))
-        return new_security_group
+        return new_sg
 
     def update_security_group(self, context, id, security_group):
         s = security_group['security_group']
@@ -2925,7 +2960,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("Failed to delete security group"))
 
-    def _create_nsx_rule(self, context, rule, nsx_sg_id=None, logged=False):
+    def _create_nsx_rule(self, context, rule,
+                         nsx_sg_id=None, logged=False, action='allow'):
         src = None
         dest = None
         port = None
@@ -2987,6 +3023,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             destination=dest,
             services=services,
             flags=flags,
+            action=action,
             logged=logged)
         return nsx_rule
 
@@ -3010,6 +3047,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Querying DB for associated dfw section id
         section_uri = self._get_section_uri(context.session, sg_id)
         logging = self._is_security_group_logged(context, sg_id)
+        provider = self._is_provider_security_group(context, sg_id)
         log_all_rules = cfg.CONF.nsxv.log_security_groups_allowed_traffic
 
         # Translating Neutron rules to Nsx DFW rules
@@ -3019,8 +3057,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 rule[secgroup_rule_local_ip_prefix.LOCAL_IP_PREFIX] = None
             rule['id'] = uuidutils.generate_uuid()
             ruleids.add(rule['id'])
-            nsx_rules.append(self._create_nsx_rule(
-                context, rule, logged=log_all_rules or logging))
+            nsx_rules.append(
+                self._create_nsx_rule(context, rule,
+                                      logged=log_all_rules or logging,
+                                      action='deny' if provider else 'allow')
+            )
 
         _h, _c = self.nsx_v.vcns.get_section(section_uri)
         section = self.nsx_sg_utils.parse_section(_c)
