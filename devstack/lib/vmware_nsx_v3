@@ -28,8 +28,8 @@ source $TOP_DIR/lib/neutron_plugins/ovs_base
 
 function setup_integration_bridge {
     _neutron_ovs_base_setup_bridge $OVS_BRIDGE
-    sudo ovs-vsctl set-manager tcp:127.0.0.1:6632
     sudo ovs-vsctl set bridge $OVS_BRIDGE external_ids:bridge-id=nsx-managed
+    sudo ovs-vsctl set-manager unix:/var/run/vmware/nsx-agent/nsxagent_ovsdb.sock
 }
 
 function is_neutron_ovs_base_plugin {
@@ -69,6 +69,8 @@ function neutron_plugin_configure_dhcp_agent {
     iniset $Q_DHCP_CONF_FILE DEFAULT enable_metadata_network True
     iniset $Q_DHCP_CONF_FILE DEFAULT ovs_use_veth True
     iniset $Q_DHCP_CONF_FILE DEFAULT ovs_integration_bridge $OVS_BRIDGE
+    iniset $Q_DHCP_CONF_FILE OVS ovsdb_connection unix:/var/run/vmware/nsx-agent/nsxagent_ovsdb.sock
+    iniset $Q_DHCP_CONF_FILE OVS ovsdb_interface vsctl
 }
 
 function neutron_plugin_configure_l3_agent {
