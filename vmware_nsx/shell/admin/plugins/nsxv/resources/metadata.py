@@ -21,7 +21,7 @@ from neutron.callbacks import registry
 from neutron.db import models_v2
 from oslo_config import cfg
 
-from vmware_nsx._i18n import _LE
+from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import locking
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_db
@@ -29,6 +29,7 @@ from vmware_nsx.plugins.nsx_v import md_proxy
 from vmware_nsx.plugins.nsx_v.vshield.common import constants as vcns_constants
 from vmware_nsx.plugins.nsx_v.vshield import nsxv_loadbalancer as nsxv_lb
 from vmware_nsx.shell.admin.plugins.common import constants
+from vmware_nsx.shell.admin.plugins.common import formatters
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv.resources import utils as utils
 from vmware_nsx.shell import resources as shell
@@ -144,11 +145,60 @@ def update_shared_secret(resource, event, trigger, **kwargs):
             lb.submit_to_backend(nsxv, edge_id, False)
 
 
+def _md_member_status(title, edge_ids):
+    for edge_id in edge_ids:
+        lb_stats = nsxv.get_loadbalancer_statistics(
+            edge_id)
+        pools_stats = lb_stats[1].get('pool', [])
+        members = []
+        for pool_stats in pools_stats:
+            if pool_stats['name'] == md_proxy.METADATA_POOL_NAME:
+                for member in pool_stats.get('member', []):
+                    members.append({'member_ip': member['ipAddress'],
+                                    'member_status': member['status']})
+
+        LOG.info(formatters.output_formatter(
+            title % edge_id,
+            members, ['member_ip', 'member_status']))
+
+
+@admin_utils.output_header
+def get_metadata_status(resource, event, trigger, **kwargs):
+    if kwargs.get('property'):
+        properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
+        net_id = properties.get('network_id')
+    else:
+        net_id = None
+
+    edgeapi = utils.NeutronDbClient()
+    edge_list = nsxv_db.get_nsxv_internal_edges_by_purpose(
+        edgeapi.context.session,
+        vcns_constants.InternalEdgePurposes.INTER_EDGE_PURPOSE)
+    md_rtr_ids = [edge['router_id'] for edge in edge_list]
+    router_bindings = nsxv_db.get_nsxv_router_bindings(
+        edgeapi.context.session,
+        filters={'router_id': md_rtr_ids})
+    edge_ids = [b['edge_id'] for b in router_bindings]
+    _md_member_status('Metadata edge appliance: %s members', edge_ids)
+
+    if net_id:
+        as_provider_data = nsxv_db.get_edge_vnic_bindings_by_int_lswitch(
+            edgeapi.context.session, net_id)
+        providers = [asp['edge_id'] for asp in as_provider_data]
+        if providers:
+            LOG.info(_LI('Metadata providers for network %s'), net_id)
+            _md_member_status('Edge  %s', providers)
+        else:
+            LOG.info(_LI('No providers found for network %s'), net_id)
+
+
 registry.subscribe(nsx_redo_metadata_cfg,
                    constants.METADATA,
                    shell.Operations.NSX_UPDATE.value)
 
-
 registry.subscribe(update_shared_secret,
                    constants.METADATA,
                    shell.Operations.NSX_UPDATE_SECRET.value)
+
+registry.subscribe(get_metadata_status, constants.METADATA,
+                   shell.Operations.STATUS.value)

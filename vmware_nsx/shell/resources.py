@@ -47,6 +47,7 @@ class Operations(enum.Enum):
     NSX_RECREATE = 'nsx-recreate'
     MIGRATE_TO_DYNAMIC_CRITERIA = 'migrate-to-dynamic-criteria'
     NSX_MIGRATE_V1_V2 = 'nsx-migrate-v1-v2'
+    STATUS = 'status'
 
 ops = [op.value for op in Operations]
 
@@ -122,7 +123,8 @@ nsxv_resources = {
                                         Operations.LIST_MISMATCHES.value]),
     constants.METADATA: Resource(
         constants.METADATA, [Operations.NSX_UPDATE.value,
-                             Operations.NSX_UPDATE_SECRET.value]),
+                             Operations.NSX_UPDATE_SECRET.value,
+                             Operations.STATUS.value]),
     constants.LBAAS: Resource(constants.LBAAS,
                               [Operations.NSX_MIGRATE_V1_V2.value]),
 }
