@@ -115,8 +115,12 @@ def add_neutron_nsx_security_group_mapping(session, neutron_id, nsx_id):
 
 
 def get_nsx_service_binding(session, network_id, service_type):
-    return session.query(nsx_models.NeutronNsxServiceBinding).filter_by(
-        network_id=network_id, nsx_service_type=service_type).one()
+    try:
+        return session.query(nsx_models.NeutronNsxServiceBinding).filter_by(
+            network_id=network_id, nsx_service_type=service_type).one()
+    except exc.NoResultFound:
+        LOG.debug("NSX %s service not enabled on network %s", service_type,
+                  network_id)
 
 
 def add_neutron_nsx_service_binding(session, network_id, port_id,

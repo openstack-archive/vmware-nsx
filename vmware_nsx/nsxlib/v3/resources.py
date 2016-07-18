@@ -473,8 +473,10 @@ class LogicalDhcpServer(AbstractRESTResource):
         return 'dhcp/servers'
 
     def _construct_server(self, body, dhcp_profile_id=None, server_ip=None,
-                          dns_servers=None, domain_name=None, gateway_ip=None,
-                          options=None, tags=None):
+                          name=None, dns_servers=None, domain_name=None,
+                          gateway_ip=None, options=None, tags=None):
+        if name:
+            body['display_name'] = name
         if dhcp_profile_id:
             body['dhcp_profile_id'] = dhcp_profile_id
         if server_ip:
@@ -490,22 +492,24 @@ class LogicalDhcpServer(AbstractRESTResource):
         if tags:
             body['tags'] = tags
 
-    def create(self, dhcp_profile_id, server_ip, dns_servers=None,
+    def create(self, dhcp_profile_id, server_ip, name=None, dns_servers=None,
                domain_name=None, gateway_ip=None, options=None, tags=None):
         body = {'ipv4_dhcp_server': {}}
-        self._construct_server(body, dhcp_profile_id, server_ip, dns_servers,
-                               domain_name, gateway_ip, options, tags)
+        self._construct_server(body, dhcp_profile_id, server_ip, name,
+                               dns_servers, domain_name, gateway_ip, options,
+                               tags)
         return self._client.create(body=body)
 
     @utils.retry_upon_exception_nsxv3(
         nsx_exc.StaleRevision,
         max_attempts=cfg.CONF.nsx_v3.retries)
-    def update(self, uuid, dhcp_profile_id=None, server_ip=None,
+    def update(self, uuid, dhcp_profile_id=None, server_ip=None, name=None,
                dns_servers=None, domain_name=None, gateway_ip=None,
                options=None, tags=None):
         body = self._client.get(uuid)
-        self._construct_server(body, dhcp_profile_id, server_ip, dns_servers,
-                               domain_name, gateway_ip, options, tags)
+        self._construct_server(body, dhcp_profile_id, server_ip, name,
+                               dns_servers, domain_name, gateway_ip, options,
+                               tags)
         return self._client.update(uuid, body=body)
 
     def create_binding(self, server_uuid, mac, ip, hostname=None,
