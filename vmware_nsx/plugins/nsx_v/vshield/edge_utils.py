@@ -2006,6 +2006,12 @@ def _update_external_interface(
     ipaddr, netmask, secondary=None):
     secondary = secondary or []
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
+
+    # If no binding was found, no interface to update - exit
+    if not binding:
+        LOG.error(_LE('Edge binding not found for router %s'), router_id)
+        return
+
     net_bindings = nsxv_db.get_network_bindings(context.session, ext_net_id)
     if not net_bindings:
         vcns_network_id = nsxv_manager.external_network
