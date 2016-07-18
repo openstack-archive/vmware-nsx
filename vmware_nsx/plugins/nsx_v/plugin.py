@@ -1936,6 +1936,19 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if binding:
             return binding['edge_id']
 
+    def _update_dhcp_service_new_edge(self, context, resource_id):
+        edge_id = self._get_edge_id_by_rtr_id(context, resource_id)
+        if edge_id:
+            with locking.LockManager.get_lock(str(edge_id)):
+                if self.metadata_proxy_handler:
+                    LOG.debug('Update metadata for resource %s',
+                              resource_id)
+                    self.metadata_proxy_handler.configure_router_edge(
+                        resource_id, context)
+
+                self.setup_dhcp_edge_fw_rules(context, self,
+                                              resource_id)
+
     def _update_dhcp_service_with_subnet(self, context, subnet):
         network_id = subnet['network_id']
         # Create DHCP port
@@ -1960,17 +1973,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 context, network_id, address_groups=address_groups)
 
             if resource_id:
-                edge_id = self._get_edge_id_by_rtr_id(context, resource_id)
-                if edge_id:
-                    with locking.LockManager.get_lock(str(edge_id)):
-                        if self.metadata_proxy_handler:
-                            LOG.debug('Update metadata for resource %s',
-                                      resource_id)
-                            self.metadata_proxy_handler.configure_router_edge(
-                                resource_id, context)
-
-                        self.setup_dhcp_edge_fw_rules(context, self,
-                                                      resource_id)
+                self._update_dhcp_service_new_edge(context, resource_id)
 
         except Exception:
             with excutils.save_and_reraise_exception():
