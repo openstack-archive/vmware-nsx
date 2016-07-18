@@ -48,3 +48,23 @@ class NsxVPluginWrapper(plugin.NsxVPlugin):
         self._extend_network_dict_provider(context, net)
         # skip getting the Qos policy ID because get_object calls
         # plugin init again on admin-util environment
+
+
+def get_nsxv_backend_edges():
+    """Get a list of all the backend edges and some of their attributes
+    """
+    nsxv = get_nsxv_client()
+    edges = nsxv.get_edges()[1]
+    edges = edges['edgePage'].get('data', [])
+    backend_edges = []
+    for edge in edges:
+        # get all the relevant backend information for this edge
+        edge_data = {
+            'id': edge.get('id'),
+            'name': edge.get('name'),
+            'size': edge['appliancesSummary'].get(
+                'applianceSize') if edge.get('appliancesSummary') else None,
+            'type': edge.get('edgeType')
+        }
+        backend_edges.append(edge_data)
+    return backend_edges

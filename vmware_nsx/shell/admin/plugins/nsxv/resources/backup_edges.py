@@ -40,8 +40,7 @@ _uuid = uuidutils.generate_uuid
 
 
 def get_nsxv_backup_edges():
-    edges = nsxv.get_edges()[1]
-    edges = edges['edgePage'].get('data', [])
+    edges = utils.get_nsxv_backend_edges()
     backup_edges = []
     edgeapi = utils.NeutronDbClient()
     for edge in edges:
@@ -58,7 +57,7 @@ def nsx_list_backup_edges(resource, event, trigger, **kwargs):
     """List backup edges"""
     backup_edges = get_nsxv_backup_edges()
     LOG.info(formatters.output_formatter(constants.BACKUP_EDGES, backup_edges,
-                                         ['id']))
+                                         ['id', 'name', 'size', 'type']))
 
 
 def nsx_clean_backup_edge(resource, event, trigger, **kwargs):
@@ -108,8 +107,7 @@ def nsx_clean_backup_edge(resource, event, trigger, **kwargs):
 
 @admin_utils.output_header
 def nsx_list_name_mismatches(resource, event, trigger, **kwargs):
-    edges = nsxv.get_edges()[1]
-    edges = edges['edgePage'].get('data', [])
+    edges = utils.get_nsxv_backend_edges()
     plugin_nsx_mismatch = []
     backend_edge_ids = []
     edgeapi = utils.NeutronDbClient()

@@ -12,7 +12,7 @@ The following resources are supported: 'security-groups', 'edges', 'networks', '
 Edges
 ~~~~~
 
-- NSX list::
+- List backend NSX edges with their id, name and some more information::
 
     nsxadmin -r edges -o nsx-list
 
@@ -53,7 +53,7 @@ Missing Edges
 Backup Edges
 ~~~~~~~~~~~~
 
-- List backup edges::
+- List backend backup edges with their id, name and some more information::
 
    nsxadmin -r backup-edges -o list
 

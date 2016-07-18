@@ -36,17 +36,12 @@ LOG = logging.getLogger(__name__)
 nsxv = utils.get_nsxv_client()
 
 
-def get_nsxv_edges():
-    edges = nsxv.get_edges()[1]
-    return edges['edgePage'].get('data', [])
-
-
 @admin_utils.output_header
 def nsx_list_edges(resource, event, trigger, **kwargs):
     """List edges from NSXv backend"""
-    edges = get_nsxv_edges()
+    edges = utils.get_nsxv_backend_edges()
     LOG.info(formatters.output_formatter(constants.EDGES, edges,
-                                         ['id']))
+                                         ['id', 'name', 'type', 'size']))
 
 
 def get_router_edge_bindings():
@@ -64,7 +59,7 @@ def neutron_list_router_edge_bindings(resource, event, trigger, **kwargs):
 
 def get_orphaned_edges():
     nsxv_edge_ids = set()
-    for edge in get_nsxv_edges():
+    for edge in utils.get_nsxv_backend_edges():
         nsxv_edge_ids.add(edge.get('id'))
 
     neutron_edge_bindings = set()
@@ -121,7 +116,7 @@ def nsx_delete_orphaned_edges(resource, event, trigger, **kwargs):
 
 def get_missing_edges():
     nsxv_edge_ids = set()
-    for edge in get_nsxv_edges():
+    for edge in utils.get_nsxv_backend_edges():
         nsxv_edge_ids.add(edge.get('id'))
 
     neutron_edge_bindings = set()
