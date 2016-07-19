@@ -28,6 +28,7 @@ from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import nsxv_db
+from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
 
 LOG = logging.getLogger(__name__)
@@ -107,8 +108,12 @@ class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
         # Create a dedicated DLR
         lrouter = {'name': nsxv_constants.L2_GATEWAY_EDGE,
                    'id': uuidutils.generate_uuid()}
+        # Create the router on the default availability zone
+        availability_zone = (nsx_az.ConfiguredAvailabilityZones().
+            get_default_availability_zone())
         self._edge_manager.create_lrouter(context,
-                                          lrouter, lswitch=None, dist=True)
+                                          lrouter, lswitch=None, dist=True,
+                                          availability_zone=availability_zone)
         edge_binding = nsxv_db.get_nsxv_router_binding(context.session,
                                                        lrouter['id'])
         if not edge_binding:

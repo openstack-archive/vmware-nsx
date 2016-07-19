@@ -21,7 +21,12 @@ from networking_l2gw.db.l2gateway import l2gateway_db
 from neutron_lib import exceptions as n_exc
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import nsxv_db
+from vmware_nsx.dvs import dvs
+from vmware_nsx.dvs import dvs_utils
 from vmware_nsx.services.l2gateway.nsx_v import driver as nsx_v_driver
+from vmware_nsx.tests.unit.nsx_v import test_plugin
+
+CORE_PLUGIN = "vmware_nsx.plugins.nsx_v.plugin.NsxVPluginV2"
 
 
 class TestL2gatewayDriver(base.BaseTestCase):
@@ -170,3 +175,35 @@ class TestL2gatewayDriver(base.BaseTestCase):
         get_devices.assert_called_with(self.context, 'fake_l2gw_id')
         get_nsxv_router.assert_called_with(self.context.session,
                                            "fake_edge_name")
+
+
+class TestL2GatewayDriverRouter(test_plugin.NsxVPluginV2TestCase):
+
+    @mock.patch.object(dvs_utils, 'dvs_create_session')
+    @mock.patch.object(dvs.DvsManager, '_get_dvs_moref')
+    def setUp(self, *mocks):
+        # init the nsxv plugin, edge manager and fake vcns
+        super(TestL2GatewayDriverRouter, self).setUp(plugin=CORE_PLUGIN,
+                                                     ext_mgr=None)
+        self.context = context.get_admin_context()
+        # init the L2 gateway driver
+        self.driver = nsx_v_driver.NsxvL2GatewayDriver(mock.MagicMock())
+
+    @mock.patch('vmware_nsx.services.l2gateway.'
+                'nsx_v.driver.NsxvL2GatewayDriver._validate_device_list')
+    @mock.patch('vmware_nsx.services.l2gateway.'
+                'nsx_v.driver.NsxvL2GatewayDriver._validate_interface_list')
+    def test_create_l2_gateway_router(self, val_inter, val_dev):
+        # Verify that creating the router doesn't fail
+        fake_l2gw_dict = {"l2_gateway":
+                          {"tenant_id": "fake_teannt_id",
+                           "name": "fake_l2gw",
+                           "devices": [{"interfaces":
+                                        [{"name": "fake_inter"}],
+                                        "device_name": "fake_dev"}]}}
+        self.driver.create_l2_gateway(self.context, fake_l2gw_dict)
+
+    def test_create_l2_gateway_router_edge(self):
+        # Verify that the router edge is really created
+        edge_id = self.driver._create_l2_gateway_edge(self.context)
+        self.assertEqual('edge-1', edge_id)
