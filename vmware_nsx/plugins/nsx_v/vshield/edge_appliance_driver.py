@@ -46,7 +46,8 @@ class EdgeApplianceDriver(object):
     def _assemble_edge(self, name, appliance_size="compact",
                        deployment_container_id=None, datacenter_moid=None,
                        enable_aesni=True, dist=False,
-                       enable_fips=False, remote_access=False):
+                       enable_fips=False, remote_access=False,
+                       edge_ha=False):
         edge = {
             'name': name,
             'fqdn': None,
@@ -86,7 +87,7 @@ class EdgeApplianceDriver(object):
         if datacenter_moid:
             edge['datacenterMoid'] = datacenter_moid
 
-        if not dist and cfg.CONF.nsxv.edge_ha:
+        if not dist and edge_ha:
             self._enable_high_availability(edge)
 
         return edge
@@ -97,7 +98,7 @@ class EdgeApplianceDriver(object):
             appliances.append(self._assemble_edge_appliance(
                 availability_zone.resource_pool,
                 availability_zone.datastore_id))
-        if availability_zone.ha_datastore_id and cfg.CONF.nsxv.edge_ha:
+        if availability_zone.ha_datastore_id and availability_zone.edge_ha:
             appliances.append(self._assemble_edge_appliance(
                 availability_zone.resource_pool,
                 availability_zone.ha_datastore_id))
@@ -522,7 +523,8 @@ class EdgeApplianceDriver(object):
         edge = self._assemble_edge(
             edge_name, datacenter_moid=self.datacenter_moid,
             deployment_container_id=self.deployment_container_id,
-            appliance_size=appliance_size, remote_access=False, dist=dist)
+            appliance_size=appliance_size, remote_access=False, dist=dist,
+            edge_ha=availability_zone.edge_ha)
         appliances = self._assemble_edge_appliances(availability_zone)
         if appliances:
             edge['appliances']['appliances'] = appliances
@@ -610,7 +612,8 @@ class EdgeApplianceDriver(object):
         edge = self._assemble_edge(
             edge_name, datacenter_moid=self.datacenter_moid,
             deployment_container_id=self.deployment_container_id,
-            appliance_size=appliance_size, remote_access=False, dist=dist)
+            appliance_size=appliance_size, remote_access=False, dist=dist,
+            edge_ha=availability_zone.edge_ha)
         edge['id'] = edge_id
         appliances = self._assemble_edge_appliances(availability_zone)
         if appliances:
