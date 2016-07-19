@@ -36,6 +36,7 @@ from vmware_nsx.plugins.nsx_v.vshield.common import (
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 from vmware_nsx.services.lbaas.nsx_v import lbaas_common
 
+METADATA_POOL_NAME = 'MDSrvPool'
 METADATA_VSE_NAME = 'MdSrv'
 METADATA_IP_ADDR = '169.254.169.254'
 METADATA_TCP_PORT = 80
@@ -602,7 +603,7 @@ class NsxVMetadataProxyHandler(object):
 
         # Create pool, members and monitor
         pool = nsxv_lb.NsxvLBPool(
-            name='MDSrvPool')
+            name=METADATA_POOL_NAME)
 
         monitor = nsxv_lb.NsxvLBMonitor(name='MDSrvMon',
                                         mon_type=mon_type.lower())

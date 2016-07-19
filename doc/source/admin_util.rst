@@ -102,7 +102,7 @@ Missing Networks
    nsxadmin -r missing-networks -o list
 
 Orphaned Networks
-~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 - List networks which are missing from the neutron DB::
 
@@ -137,6 +137,10 @@ Metadata
 - Update shared secret on router and DHCP edges::
 
    nsxadmin -r metadata -o nsx-update-secret
+
+- Retrieve metadata connectivity - optionally for a specific network::
+
+   nsxadmin -r metadata -o status [--property network_id=<net_id>]
 
 NSXv3
 -----
