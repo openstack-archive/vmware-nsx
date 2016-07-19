@@ -127,6 +127,8 @@ nsxv_resources = {
                              Operations.STATUS.value]),
     constants.LBAAS: Resource(constants.LBAAS,
                               [Operations.NSX_MIGRATE_V1_V2.value]),
+    constants.ROUTERS: Resource(constants.ROUTERS,
+                                [Operations.NSX_RECREATE.value]),
 }
 
 nsxv3_resources_names = list(nsxv3_resources.keys())
