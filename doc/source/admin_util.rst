@@ -20,7 +20,7 @@ Edges
 
     nsxadmin -r edges -o neutron-list
 
-- Update Datastore HA of an edge: This admin utility can be used on upgrade after the customer added ha_datastore_id to the nsx.ini configuration, in order to update the deployment of existing edges. The new edge appliances configuration will be taken from the nsx.ini, including the datastrore_id, ha_datastore_id, edge_ha. The edge current resource pool & appliance size will not change::
+- Update Resource pool / Datastore / edge HA of an edge: This utility can be used on upgrade after the customer added ha_datastore_id to the nsx.ini configuration or after changing the resource pool / data store globally or per availability zone. This Utility can update the deployment of existing edges::
 
     nsxadmin -r edges -o nsx-update --property edge-id=<edge-id> --property appliances=True
 
