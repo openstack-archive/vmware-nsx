@@ -260,6 +260,25 @@ class VSMClient(object):
         response = self.get()
         return response
 
+    def get_excluded_vm_name_list(self):
+        """Get excluded vm's list info from beckend.
+
+        After disabling port security of vm port, vm will get added
+        in exclude list.This method returns the list of vm's present
+        in exclude list.
+        Returns exclude list of vm's name.
+        """
+        self.__set_api_version('2.1')
+        self.__set_endpoint('/app/excludelist')
+        response = self.get()
+        response_list = []
+        exclude_list = []
+        response_list = response.json()[
+            'excludeListConfigurationDto']['excludeMembers']
+        exclude_list = [member['member']['name'] for member in response_list
+                        if member['member']['name']]
+        return exclude_list
+
     def get_dhcp_edge_info(self):
         """Get dhcp edge info.
 
