@@ -1909,10 +1909,18 @@ def update_gateway(nsxv_manager, context, router_id, nexthop, routes=None):
 def get_routes(edge_manager, context, router_id):
 
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
+    if not binding:
+        LOG.error(_LE('Router binding not found for router %s'), router_id)
+        return []
+
     edge_id = binding['edge_id']
 
     vnic_bindings = nsxv_db.get_edge_vnic_bindings_by_edge(context.session,
                                                            edge_id)
+    if not vnic_bindings:
+        LOG.error(_LE('vNic binding not found for edge %s'), edge_id)
+        return []
+
     h, routes = edge_manager.vcns.get_routes(edge_id)
     edge_routes = routes.get('staticRoutes')
     routes = []
@@ -1931,6 +1939,10 @@ def update_routes(edge_manager, context, router_id, routes,
                   nexthop=None,
                   gateway_vnic_index=vcns_const.EXTERNAL_VNIC_INDEX):
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
+    if not binding:
+        LOG.error(_LE('Router binding not found for router %s'), router_id)
+        return
+
     edge_id = binding['edge_id']
     edge_routes = []
     for route in routes:
