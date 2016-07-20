@@ -643,7 +643,8 @@ class TestL3NatTestCase(L3NatTest,
 
 class ExtGwModeTestCase(L3NatTest,
                         test_ext_gw_mode.ExtGwModeIntTestCase):
-    pass
+    def test_router_gateway_set_fail_after_port_create(self):
+        self.skipTest("TBD")
 
 
 class TestNsxV3Utils(NsxV3PluginTestCaseMixin):
