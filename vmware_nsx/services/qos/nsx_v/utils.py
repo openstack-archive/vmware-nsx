@@ -21,6 +21,7 @@ from neutron.objects.qos import policy as qos_policy
 from neutron.plugins.common import constants
 from neutron.services.qos import qos_consts
 
+from oslo_config import cfg
 from oslo_log import log as logging
 
 from vmware_nsx.db import db as nsx_db
@@ -74,10 +75,12 @@ class NsxVQosRule(object):
                         self.bandwidthEnabled = True
                         # averageBandwidth: kbps (neutron) -> bps (nsxv)
                         self.averageBandwidth = rule_obj['max_kbps'] * 1024
-                        # peakBandwidth: the same as the average value
+                        # peakBandwidth: a Multiplying on the average BW
                         # because the neutron qos configuration supports
                         # only 1 value
-                        self.peakBandwidth = self.averageBandwidth
+                        self.peakBandwidth = int(
+                            self.averageBandwidth *
+                            cfg.CONF.NSX.qos_peak_bw_multiplier)
                         # burstSize: kbps (neutron) -> Bytes (nsxv)
                         self.burstSize = rule_obj['max_burst_kbps'] * 128
                     if rule_obj['type'] == qos_consts.RULE_TYPE_DSCP_MARKING:

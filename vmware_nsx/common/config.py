@@ -111,6 +111,12 @@ base_opts = [
                       "does not want to deploy a service node). In order to "
                       "leverage distributed routers, replication_mode should "
                       "be set to 'service'.")),
+    #TODO(asarfaty): add min/max values to FloatOpt. This value should be > 1
+    cfg.FloatOpt('qos_peak_bw_multiplier', default=2.0,
+                 help=_("The QoS rules peak bandwidth value will be the "
+                        "configured maximum bandwidth of the QoS rule, "
+                        "multiplied by this value. Value must be bigger than"
+                        " 1")),
 ]
 
 sync_opts = [
