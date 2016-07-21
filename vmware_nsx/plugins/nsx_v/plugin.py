@@ -3142,12 +3142,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         ver = self.nsx_v.vcns.get_version()
         if version.LooseVersion(ver) < version.LooseVersion('6.2.0'):
-            # Do not support availability zones hints below 6.2
-            if cfg.CONF.nsxv.availability_zones:
-                error = (_("Availability zones are not supported for version "
-                           "%s") % ver)
-                raise nsx_exc.NsxPluginException(err_msg=error)
-
             LOG.warning(_LW("Skipping validations. Not supported by version."))
             return
         # Validations below only supported by 6.2.0 and above
