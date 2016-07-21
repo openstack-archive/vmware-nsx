@@ -14,13 +14,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from networking_sfc.extensions import flowclassifier
 from neutron import manager
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 SERVICE_INSERTION_SG_NAME = 'Service Insertion Security Group'
 SERVICE_INSERTION_RESOURCE = 'Service Insertion'
+
+# Using the constant defined here to avoid the need to clone networking-sfc
+# if the driver is not used.
+FLOW_CLASSIFIER_EXT = "flow_classifier"
 
 
 class NsxvServiceInsertionHandler(object):
@@ -42,7 +45,7 @@ class NsxvServiceInsertionHandler(object):
     def is_service_insertion_enabled(self):
         # Note - this cannot be called during init, since the manager is busy
         if (manager.NeutronManager.get_service_plugins().get(
-                flowclassifier.FLOW_CLASSIFIER_EXT)):
+                FLOW_CLASSIFIER_EXT)):
             return True
         return False
 
