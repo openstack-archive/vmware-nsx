@@ -188,3 +188,8 @@ class NsxTaaSDriverException(NsxPluginException):
 
 class NsxPortMirrorSessionMappingNotFound(n_exc.NotFound):
     message = _("Unable to find mapping for Tap Flow: %(tf)s")
+
+
+class NsxInvalidConfiguration(n_exc.InvalidConfigurationOption):
+    message = _("An invalid value was provided for %(opt_name)s: "
+                "%(opt_value)s: %(reason)s")

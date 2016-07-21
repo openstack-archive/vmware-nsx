@@ -25,7 +25,6 @@ import vmware_nsx.shell.resources as shell
 
 from neutron.callbacks import registry
 from neutron_lib import exceptions
-from oslo_config import cfg
 
 from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import nsxv_constants
@@ -208,14 +207,13 @@ def change_edge_appliance(edge_id):
     configuration is updated, or when the configuration of a specific
     availability zone was updated.
     """
-    edge_ha = cfg.CONF.nsxv.edge_ha
     # find out what is the current resource pool & size, so we can keep them
     az_name, size = _get_edge_az_and_size(edge_id)
     az = nsx_az.ConfiguredAvailabilityZones().get_availability_zone(az_name)
     appliances = [{'resourcePoolId': az.resource_pool,
                    'datastoreId': az.datastore_id}]
 
-    if az.ha_datastore_id and edge_ha:
+    if az.ha_datastore_id and az.edge_ha:
         appliances.append({'resourcePoolId': az.resource_pool,
                            'datastoreId': az.ha_datastore_id})
     request = {'appliances': appliances, 'applianceSize': size}
@@ -227,7 +225,7 @@ def change_edge_appliance(edge_id):
         LOG.error(_LE("%s"), str(e))
     else:
         # also update the edge_ha of the edge
-        change_edge_ha(edge_ha, edge_id)
+        change_edge_ha(az.edge_ha, edge_id)
 
 
 @admin_utils.output_header

@@ -13,10 +13,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
 
 from vmware_nsx._i18n import _
+from vmware_nsx.common import exceptions as nsx_exc
 
 DEFAULT_NAME = 'default'
 
@@ -26,23 +26,49 @@ class ConfiguredAvailabilityZone(object):
     def __init__(self, config_line):
         if config_line:
             values = config_line.split(':')
-            if len(values) < 3 or len(values) > 4:
-                raise n_exc.Invalid(_("Invalid availability zones format"))
+            if len(values) < 4 or len(values) > 5:
+                raise nsx_exc.NsxInvalidConfiguration(
+                    opt_name="availability_zones",
+                    opt_value=config_line,
+                    reason=_("Expected 4 or 5 values per zone"))
 
             self.name = values[0]
-            # field name limit in the DB
+            # field name size in the DB is 36
             if len(self.name) > 36:
-                raise n_exc.Invalid(_("Invalid availability zone name %s: "
-                                      "max name length is 36"), self.name)
+                raise nsx_exc.NsxInvalidConfiguration(
+                    opt_name="availability_zones",
+                    opt_value=config_line,
+                    reason=_("Maximum name length is 36"))
 
             self.resource_pool = values[1]
             self.datastore_id = values[2]
-            self.ha_datastore_id = values[3] if len(values) == 4 else None
+
+            # validate the edge_ha
+            if values[3].lower() == "true":
+                self.edge_ha = True
+            elif values[3].lower() == "false":
+                self.edge_ha = False
+            else:
+                raise nsx_exc.NsxInvalidConfiguration(
+                    opt_name="availability_zones",
+                    opt_value=config_line,
+                    reason=_("Expected the 4th value to be true/false"))
+
+            # HA datastore id is relevant only with edge_ha
+            if not self.edge_ha and len(values) == 5:
+                raise nsx_exc.NsxInvalidConfiguration(
+                    opt_name="availability_zones",
+                    opt_value=config_line,
+                    reason=_("Expected HA datastore ID only when edge_ha is "
+                             "enabled"))
+
+            self.ha_datastore_id = values[4] if len(values) == 5 else None
         else:
             # use the default configuration
             self.name = DEFAULT_NAME
             self.resource_pool = cfg.CONF.nsxv.resource_pool_id
             self.datastore_id = cfg.CONF.nsxv.datastore_id
+            self.edge_ha = cfg.CONF.nsxv.edge_ha
             self.ha_datastore_id = cfg.CONF.nsxv.ha_datastore_id
 
 
@@ -55,7 +81,6 @@ class ConfiguredAvailabilityZones(object):
         for az in cfg.CONF.nsxv.availability_zones:
             obj = ConfiguredAvailabilityZone(az)
             self.availability_zones[obj.name] = obj
-            # DEBUG ADIT - name max len 36 (DB)
 
         # add a default entry
         obj = ConfiguredAvailabilityZone(None)

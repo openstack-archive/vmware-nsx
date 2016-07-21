@@ -632,7 +632,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
 
     def test_create_network_with_az_hint(self):
         az_name = 'az7'
-        az_config = az_name + ':respool-7:datastore-7'
+        az_config = az_name + ':respool-7:datastore-7:False'
         cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
         p = manager.NeutronManager.get_plugin()
         p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
@@ -3085,7 +3085,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
 
     def test_create_router_with_az_hint(self):
         az_name = 'az7'
-        az_config = az_name + ':respool-7:datastore-7'
+        az_config = az_name + ':respool-7:datastore-7:True'
         cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
         p = manager.NeutronManager.get_plugin()
         p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
@@ -3380,7 +3380,7 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
     def _test_create_rotuer_with_az_hint(self, with_hint):
         # init the availability zones in the plugin
         az_name = 'az7'
-        az_config = az_name + ':respool-7:datastore-7'
+        az_config = az_name + ':respool-7:datastore-7:False'
         cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
         p = manager.NeutronManager.get_plugin()
         p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
@@ -4585,7 +4585,7 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
     def _test_create_rotuer_with_az_hint(self, with_hint):
         # init the availability zones in the plugin
         az_name = 'az7'
-        az_config = az_name + ':respool-7:datastore-7'
+        az_config = az_name + ':respool-7:datastore-7:True'
         cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
         p = manager.NeutronManager.get_plugin()
         p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
