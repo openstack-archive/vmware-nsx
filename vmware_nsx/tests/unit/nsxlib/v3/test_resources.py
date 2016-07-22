@@ -235,28 +235,36 @@ class LogicalPortTestCase(nsxlib_testcase.NsxClientTestCase):
         return self.mocked_resource(
             resources.LogicalPort, session_response=session_response)
 
+    def _get_profile_dicts(self, fake_port):
+        fake_profile_dicts = []
+        for profile_id in fake_port['switching_profile_ids']:
+            fake_profile_dicts.append({'resource_type': profile_id['key'],
+                                       'id': profile_id['value']})
+        return fake_profile_dicts
+
+    def _get_pktcls_bindings(self):
+        fake_pkt_classifiers = []
+        fake_binding_repr = []
+        for i in range(0, 3):
+            ip = "9.10.11.%s" % i
+            mac = "00:0c:29:35:4a:%sc" % i
+            fake_pkt_classifiers.append(resources.PacketAddressClassifier(
+                ip, mac, None))
+            fake_binding_repr.append({
+                'ip_address': ip,
+                'mac_address': mac
+            })
+        return fake_pkt_classifiers, fake_binding_repr
+
     def test_create_logical_port(self):
         """
         Test creating a port returns the correct response and 200 status
         """
         fake_port = test_constants_v3.FAKE_PORT.copy()
 
-        profile_dicts = []
-        for profile_id in fake_port['switching_profile_ids']:
-            profile_dicts.append({'resource_type': profile_id['key'],
-                                  'id': profile_id['value']})
+        profile_dicts = self._get_profile_dicts(fake_port)
 
-        pkt_classifiers = []
-        binding_repr = []
-        for i in range(0, 3):
-            ip = "9.10.11.%s" % i
-            mac = "00:0c:29:35:4a:%sc" % i
-            pkt_classifiers.append(resources.PacketAddressClassifier(
-                ip, mac, None))
-            binding_repr.append({
-                'ip_address': ip,
-                'mac_address': mac
-            })
+        pkt_classifiers, binding_repr = self._get_pktcls_bindings()
 
         fake_port['address_bindings'] = binding_repr
 
@@ -276,6 +284,54 @@ class LogicalPortTestCase(nsxlib_testcase.NsxClientTestCase):
             'attachment': {
                 'attachment_type': 'VIF',
                 'id': fake_port['attachment']['id']
+            },
+            'admin_state': 'UP',
+            'address_bindings': fake_port['address_bindings']
+        }
+
+        test_client.assert_json_call(
+            'post', mocked_resource,
+            'https://1.2.3.4/api/v1/logical-ports',
+            data=jsonutils.dumps(resp_body, sort_keys=True))
+
+    def test_create_logical_port_with_attachtype_cif(self):
+        """
+        Test creating a port returns the correct response and 200 status
+        """
+        fake_port = test_constants_v3.FAKE_CONTAINER_PORT.copy()
+
+        profile_dicts = self._get_profile_dicts(fake_port)
+
+        pkt_classifiers, binding_repr = self._get_pktcls_bindings()
+
+        fake_port['address_bindings'] = binding_repr
+
+        mocked_resource = self._mocked_lport()
+        switch_profile = resources.SwitchingProfile
+        fake_port_ctx = fake_port['attachment']['context']
+
+        fake_container_host_vif_id = fake_port_ctx['container_host_vif_id']
+
+        mocked_resource.create(
+            fake_port['logical_switch_id'],
+            fake_port['attachment']['id'],
+            parent_vif_id=fake_container_host_vif_id,
+            parent_tag=fake_port_ctx['vlan_tag'],
+            address_bindings=pkt_classifiers,
+            switch_profile_ids=switch_profile.build_switch_profile_ids(
+                mock.Mock(), *profile_dicts))
+
+        resp_body = {
+            'logical_switch_id': fake_port['logical_switch_id'],
+            'switching_profile_ids': fake_port['switching_profile_ids'],
+            'attachment': {
+                'attachment_type': 'CIF',
+                'id': fake_port['attachment']['id'],
+                'context': {
+                    'vlan_tag': fake_port_ctx['vlan_tag'],
+                    'container_host_vif_id': fake_container_host_vif_id,
+                    'resource_type': 'CifAttachmentContext'
+                }
             },
             'admin_state': 'UP',
             'address_bindings': fake_port['address_bindings']

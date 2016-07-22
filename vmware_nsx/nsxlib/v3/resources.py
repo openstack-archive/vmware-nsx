@@ -236,40 +236,31 @@ class LogicalPort(AbstractRESTResource):
 
         return body
 
-    def _prepare_attachment(self, vif_uuid, parent_name, parent_tag,
+    def _prepare_attachment(self, vif_uuid, parent_vif_id, parent_tag,
                             address_bindings, attachment_type):
-        # NOTE(arosen): if a parent_name is specified we need to use the
-        # CIF's attachment.
-        key_values = None
-        if parent_name:
-            attachment_type = nsx_constants.ATTACHMENT_CIF
-            key_values = [
-                {'key': 'VLAN_ID', 'value': parent_tag},
-                {'key': 'Host_VIF_ID', 'value': parent_name},
-                {'key': 'IP', 'value': address_bindings[0].ip_address},
-                {'key': 'MAC', 'value': address_bindings[0].mac_address}]
-            # NOTE(arosen): The above api body structure might change
-            # in the future
-
         if attachment_type and vif_uuid:
             attachment = {'attachment_type': attachment_type,
                           'id': vif_uuid}
-
-            if key_values:
-                attachment['context'] = {'key_values': key_values}
-                attachment['context']['resource_type'] = \
-                    nsx_constants.CIF_RESOURCE_TYPE
+            if parent_vif_id:
+                context = {'vlan_tag': parent_tag,
+                           'container_host_vif_id': parent_vif_id,
+                           'resource_type': nsx_constants.CIF_RESOURCE_TYPE}
+                attachment['context'] = context
             return attachment
 
     def create(self, lswitch_id, vif_uuid, tags=None,
                attachment_type=nsx_constants.ATTACHMENT_VIF,
                admin_state=True, name=None, address_bindings=None,
-               parent_name=None, parent_tag=None,
+               parent_vif_id=None, parent_tag=None,
                switch_profile_ids=None):
         tags = tags or []
 
         body = {'logical_switch_id': lswitch_id}
-        attachment = self._prepare_attachment(vif_uuid, parent_name,
+        # NOTE(arosen): If parent_vif_id is specified we need to use
+        # CIF attachment type.
+        if parent_vif_id:
+            attachment_type = nsx_constants.ATTACHMENT_CIF
+        attachment = self._prepare_attachment(vif_uuid, parent_vif_id,
                                               parent_tag, address_bindings,
                                               attachment_type)
         body.update(self._build_body_attrs(
@@ -294,12 +285,12 @@ class LogicalPort(AbstractRESTResource):
                address_bindings=None, switch_profile_ids=None,
                tags_update=None,
                attachment_type=nsx_constants.ATTACHMENT_VIF,
-               parent_name=None, parent_tag=None):
+               parent_vif_id=None, parent_tag=None):
         lport = self.get(lport_id)
         tags = lport.get('tags', [])
         if tags_update:
             tags = utils.update_v3_tags(tags, tags_update)
-        attachment = self._prepare_attachment(vif_uuid, parent_name,
+        attachment = self._prepare_attachment(vif_uuid, parent_vif_id,
                                               parent_tag, address_bindings,
                                               attachment_type)
         lport.update(self._build_body_attrs(

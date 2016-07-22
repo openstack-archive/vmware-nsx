@@ -56,6 +56,52 @@ FAKE_PORT = {
     ]
 }
 
+FAKE_CONTAINER_PORT = {
+    "id": FAKE_PORT_UUID,
+    "display_name": FAKE_NAME,
+    "resource_type": "LogicalPort",
+    "address_bindings": [
+        {
+            "ip_address": "192.168.1.110",
+            "mac_address": "aa:bb:cc:dd:ee:ff"
+        }
+    ],
+    "logical_switch_id": FAKE_SWITCH_UUID,
+    "admin_state": "UP",
+    "attachment": {
+        "id": "9ca8d413-f7bf-4276-b4c9-62f42516bdb2",
+        "attachment_type": "CIF",
+        "context": {
+            "vlan_tag": 122,
+            "container_host_vif_id": "c6f817a0-4e36-421e-98a6-8a2faed880bc",
+            "key_values": [],
+            "resource_type": "CifAttachmentContext",
+        }
+    },
+    "switching_profile_ids": [
+        {
+            "value": "64814784-7896-3901-9741-badeff705639",
+            "key": "IpDiscoverySwitchingProfile"
+        },
+        {
+            "value": "fad98876-d7ff-11e4-b9d6-1681e6b88ec1",
+            "key": "SpoofGuardSwitchingProfile"
+        },
+        {
+            "value": "93b4b7e8-f116-415d-a50c-3364611b5d09",
+            "key": "PortMirroringSwitchingProfile"
+        },
+        {
+            "value": "fbc4fb17-83d9-4b53-a286-ccdf04301888",
+            "key": "SwitchSecuritySwitchingProfile"
+        },
+        {
+            "value": "f313290b-eba8-4262-bd93-fab5026e9495",
+            "key": "QosSwitchingProfile"
+        }
+    ]
+}
+
 FAKE_QOS_PROFILE = {
     "resource_type": "QosSwitchingProfile",
     "id": uuidutils.generate_uuid(),

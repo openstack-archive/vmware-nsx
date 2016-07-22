@@ -1245,7 +1245,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 admin_state=port_data['admin_state_up'],
                 address_bindings=address_bindings,
                 attachment_type=attachment_type,
-                parent_name=parent_name, parent_tag=tag,
+                parent_vif_id=parent_name, parent_tag=tag,
                 switch_profile_ids=profiles)
         except nsx_exc.ManagerError as inst:
             # we may fail if the QoS is not supported for this port
@@ -1754,7 +1754,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                                updated_device_id)
 
         vif_uuid = updated_port['id']
-        parent_name, tag = self._get_data_from_binding_profile(
+        parent_vif_id, tag = self._get_data_from_binding_profile(
             context, updated_port)
         attachment_type = nsx_constants.ATTACHMENT_VIF
         if (not updated_device_owner or
@@ -1803,7 +1803,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 address_bindings=address_bindings,
                 switch_profile_ids=switch_profile_ids,
                 tags_update=tags_update,
-                parent_name=parent_name,
+                parent_vif_id=parent_vif_id,
                 parent_tag=tag)
         except nsx_exc.ManagerError as inst:
             # we may fail if the QoS is not supported for this port
