@@ -847,7 +847,12 @@ class EdgeManager(object):
                 context.session,
                 subnet_id)
             if sub_binding:
-                static_config['domainName'] = sub_binding.dns_search_domain
+                if sub_binding.dns_search_domain is not None:
+                    static_config['domainName'] = sub_binding.dns_search_domain
+                if sub_binding.dhcp_mtu:
+                    static_config = self.add_mtu_on_static_binding(
+                        static_config, sub_binding.dhcp_mtu)
+
             self.handle_meta_static_route(
                 context, subnet_id, [static_config])
             for host_route in subnet['routes']:
@@ -878,6 +883,17 @@ class EdgeManager(object):
                 'destinationSubnet': dest_cidr,
                 'router': nexthop})
         return static_bindings
+
+    def add_mtu_on_static_binding(self, static_binding, mtu):
+        """Add the pre-configured MTU to a static binding config.
+
+        We can add the MTU via dhcp option26.
+        This func can only works at NSXv version 6.2.3 or higher.
+        """
+        if 'dhcpOptions' not in six.iterkeys(static_binding):
+            static_binding['dhcpOptions'] = {}
+        static_binding['dhcpOptions']['option26'] = mtu
+        return static_binding
 
     def handle_meta_static_route(self, context, subnet_id, static_bindings):
         is_dhcp_option121 = (

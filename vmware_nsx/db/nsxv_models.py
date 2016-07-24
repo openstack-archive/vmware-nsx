@@ -342,7 +342,8 @@ class NsxvSubnetExtAttributes(model_base.BASEV2, models.TimestampMixin):
     subnet_id = sa.Column(sa.String(36),
                           sa.ForeignKey('subnets.id', ondelete="CASCADE"),
                           primary_key=True)
-    dns_search_domain = sa.Column(sa.String(255), nullable=False)
+    dns_search_domain = sa.Column(sa.String(255), nullable=True)
+    dhcp_mtu = sa.Column(sa.Integer, nullable=True)
     # Add a relationship to the Subnet model in order to instruct
     # SQLAlchemy to eagerly load this association
     subnet = orm.relationship(

@@ -30,6 +30,7 @@ from vmware_nsx._i18n import _, _LE, _LW
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_models
+from vmware_nsx.extensions import dhcp_mtu as ext_dhcp_mtu
 from vmware_nsx.extensions import dns_search_domain as ext_dns_search_domain
 from vmware_nsx.plugins.nsx_v.vshield.common import constants
 
@@ -773,11 +774,14 @@ def del_nsxv_lbaas_certificate_binding(session, cert_id, edge_id):
                       edge_id=edge_id).delete())
 
 
-def add_nsxv_subnet_ext_attributes(session, subnet_id, dns_search_domain):
+def add_nsxv_subnet_ext_attributes(session, subnet_id,
+                                   dns_search_domain=None,
+                                   dhcp_mtu=None):
     with session.begin(subtransactions=True):
         binding = nsxv_models.NsxvSubnetExtAttributes(
             subnet_id=subnet_id,
-            dns_search_domain=dns_search_domain)
+            dns_search_domain=dns_search_domain,
+            dhcp_mtu=dhcp_mtu)
         session.add(binding)
     return binding
 
@@ -791,9 +795,12 @@ def get_nsxv_subnet_ext_attributes(session, subnet_id):
         return
 
 
-def update_nsxv_subnet_ext_attributes(session, subnet_id, dns_search_domain):
+def update_nsxv_subnet_ext_attributes(session, subnet_id,
+                                      dns_search_domain=None,
+                                      dhcp_mtu=None):
     with session.begin(subtransactions=True):
         binding = (session.query(nsxv_models.NsxvSubnetExtAttributes).
                    filter_by(subnet_id=subnet_id).one())
         binding[ext_dns_search_domain.DNS_SEARCH_DOMAIN] = dns_search_domain
+        binding[ext_dhcp_mtu.DHCP_MTU] = dhcp_mtu
     return binding

@@ -89,6 +89,7 @@ from vmware_nsx.extensions import (
     advancedserviceproviders as as_providers)
 from vmware_nsx.extensions import (
     vnicindex as ext_vnic_idx)
+from vmware_nsx.extensions import dhcp_mtu as ext_dhcp_mtu
 from vmware_nsx.extensions import dns_search_domain as ext_dns_search_domain
 from vmware_nsx.extensions import routersize
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix
@@ -212,6 +213,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             self._dvs = dvs.DvsManager()
         else:
             self._dvs = None
+
+        if self.edge_manager.is_dhcp_opt_enabled:
+            # Only expose the extension if it is supported
+            self.supported_extension_aliases.append("dhcp-mtu")
 
         # Bind QoS notifications
         callbacks_registry.subscribe(self._handle_qos_notification,
@@ -1847,38 +1852,50 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _process_subnet_ext_attr_create(self, session, subnet_db,
                                         subnet_req):
-        # Verify if dns search domain for subnet is configured
+        # Verify if dns search domain/dhcp mtu for subnet are configured
         dns_search_domain = subnet_req.get(
             ext_dns_search_domain.DNS_SEARCH_DOMAIN)
-        if not validators.is_attr_set(dns_search_domain):
+        dhcp_mtu = subnet_req.get(
+            ext_dhcp_mtu.DHCP_MTU)
+        if (not validators.is_attr_set(dns_search_domain) and
+            not validators.is_attr_set(dhcp_mtu)):
             return
+        if not validators.is_attr_set(dns_search_domain):
+            dns_search_domain = None
+        if not validators.is_attr_set(dhcp_mtu):
+            dhcp_mtu = None
         sub_binding = nsxv_db.get_nsxv_subnet_ext_attributes(
             session=session,
             subnet_id=subnet_db['id'])
-        # Create a DNS search domain entry for subnet if it does not exist
+        # Create a subnet extensions for subnet if it does not exist
         if not sub_binding:
             nsxv_db.add_nsxv_subnet_ext_attributes(
                 session=session,
                 subnet_id=subnet_db['id'],
-                dns_search_domain=dns_search_domain)
-        # Else update only if a new value for dns search domain is provided
-        elif sub_binding.dns_search_domain != dns_search_domain:
+                dns_search_domain=dns_search_domain,
+                dhcp_mtu=dhcp_mtu)
+        # Else update only if a new values for subnet extensions are provided
+        elif (sub_binding.dns_search_domain != dns_search_domain or
+              sub_binding.dhcp_mtu != dhcp_mtu):
             nsxv_db.update_nsxv_subnet_ext_attributes(
                 session=session,
                 subnet_id=subnet_db['id'],
-                dns_search_domain=dns_search_domain)
+                dns_search_domain=dns_search_domain,
+                dhcp_mtu=dhcp_mtu)
         subnet_db['dns_search_domain'] = dns_search_domain
+        subnet_db['dhcp_mtu'] = dhcp_mtu
 
     def _process_subnet_ext_attr_update(self, session, subnet_db,
                                         subnet_req):
-        update_dns_search_domain = False
-        # Update dns search domain attribute for subnet
-        if ext_dns_search_domain.DNS_SEARCH_DOMAIN in subnet_req:
+        update_dhcp_config = False
+        # Update extended attributes for subnet
+        if (ext_dns_search_domain.DNS_SEARCH_DOMAIN in subnet_req or
+            ext_dhcp_mtu.DHCP_MTU in subnet_req):
             self._process_subnet_ext_attr_create(session,
                                                  subnet_db,
                                                  subnet_req)
-            update_dns_search_domain = True
-        return update_dns_search_domain
+            update_dhcp_config = True
+        return update_dhcp_config
 
     def update_subnet(self, context, id, subnet):
         s = subnet['subnet']
@@ -1890,9 +1907,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                          orig_enable_dhcp=enable_dhcp,
                                          orig_host_routes=orig_host_routes)
         subnet = super(NsxVPluginV2, self).update_subnet(context, id, subnet)
-        update_dns_search_domain = self._process_subnet_ext_attr_update(
+        update_dhcp_config = self._process_subnet_ext_attr_update(
             context.session, subnet, s)
-        if (gateway_ip != subnet['gateway_ip'] or update_dns_search_domain or
+        if (gateway_ip != subnet['gateway_ip'] or update_dhcp_config or
             set(orig['dns_nameservers']) != set(subnet['dns_nameservers']) or
             orig_host_routes != subnet['host_routes'] or
             enable_dhcp and not subnet['enable_dhcp']):
@@ -1908,12 +1925,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         return subnet
 
     db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        attr.SUBNETS, ['_extend_subnet_dict_dns_search_domain'])
+        attr.SUBNETS, ['_extend_subnet_dict_extended_attributes'])
 
-    def _extend_subnet_dict_dns_search_domain(self, subnet_res, subnet_db):
+    def _extend_subnet_dict_extended_attributes(self, subnet_res, subnet_db):
         subnet_attr = subnet_db.get('nsxv_subnet_attributes')
         if subnet_attr:
             subnet_res['dns_search_domain'] = subnet_attr.dns_search_domain
+            subnet_res['dhcp_mtu'] = subnet_attr.dhcp_mtu
 
     def _update_subnet_dhcp_status(self, subnet, context):
         network_id = subnet['network_id']
