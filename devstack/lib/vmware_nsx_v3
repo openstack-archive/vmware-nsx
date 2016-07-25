@@ -37,10 +37,22 @@ set +o xtrace
 
 source $TOP_DIR/lib/neutron_plugins/ovs_base
 
+
+function _version { echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'; }
+
+function _ovsdb_connection {
+    NSX_VER=$(curl -s -k -u "$NSX_USER:$NSX_PASSWORD" -H 'Accept: application/json' https://$NSX_MANAGER/api/v1/node | python -c  'import sys, json; print json.load(sys.stdin)["node_version"][:5]')
+    if [ $(_version $NSX_VER) -ge $(_version 1.1.0) ]; then
+        echo "unix:/var/run/vmware/nsx-agent/nsxagent_ovsdb.sock"
+    else
+        echo "tcp:127.0.0.1:6632"
+    fi
+}
+
 function setup_integration_bridge {
     _neutron_ovs_base_setup_bridge $OVS_BRIDGE
     sudo ovs-vsctl set bridge $OVS_BRIDGE external_ids:bridge-id=nsx-managed
-    sudo ovs-vsctl set-manager unix:/var/run/vmware/nsx-agent/nsxagent_ovsdb.sock
+    sudo ovs-vsctl set-manager $(_ovsdb_connection)
 }
 
 function is_neutron_ovs_base_plugin {
@@ -87,7 +99,7 @@ function neutron_plugin_configure_dhcp_agent {
     iniset $Q_DHCP_CONF_FILE DEFAULT enable_metadata_network True
     iniset $Q_DHCP_CONF_FILE DEFAULT ovs_use_veth True
     iniset $Q_DHCP_CONF_FILE DEFAULT ovs_integration_bridge $OVS_BRIDGE
-    iniset $Q_DHCP_CONF_FILE OVS ovsdb_connection unix:/var/run/vmware/nsx-agent/nsxagent_ovsdb.sock
+    iniset $Q_DHCP_CONF_FILE OVS ovsdb_connection $(_ovsdb_connection)
     iniset $Q_DHCP_CONF_FILE OVS ovsdb_interface vsctl
 }
 
