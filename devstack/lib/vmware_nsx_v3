@@ -28,6 +28,8 @@ Q_DHCP_CONF_FILE=$NEUTRON_CONF_DIR/dhcp_agent.ini
 # The interface which has connectivity to the NSX Gateway uplink
 NSX_GATEWAY_NETWORK_INTERFACE=${NSX_GATEWAY_NETWORK_INTERFACE:-}
 
+# Override default 'True' in devstack:lib/neutron_plugins/services/l3
+Q_USE_PROVIDERNET_FOR_PUBLIC=False
 
 # Save trace setting
 NSX_XTRACE=$(set +o | grep xtrace)
