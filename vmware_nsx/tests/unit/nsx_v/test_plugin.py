@@ -3347,6 +3347,58 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
 
         return router_req.get_response(self.ext_api)
 
+    def _test_router_plr_binding(self, expected_size='compact'):
+        """Test PLR router bindings
+
+        Create a distributed router with an external network and check
+        that the router was created as it should from the binding entry
+        """
+        # create a distributed router
+        tenant_id = _uuid()
+        router_ctx = context.Context('', tenant_id)
+        res = self._create_router(self.fmt, tenant_id, distributed=True)
+        r = self.deserialize(self.fmt, res)
+        self.assertIn('router', r)
+
+        with self._create_l3_ext_network() as net:
+            with self.subnet(network=net, enable_dhcp=False) as s2:
+
+                # Plug network with external mapping
+                self._set_net_external(s2['subnet']['network_id'])
+                self._add_external_gateway_to_router(
+                    r['router']['id'],
+                    s2['subnet']['network_id'],
+                    neutron_context=router_ctx)
+                body = self._show('routers', r['router']['id'])
+                net_id = (body['router']
+                          ['external_gateway_info']['network_id'])
+                self.assertEqual(net_id,
+                                 s2['subnet']['network_id'])
+
+                # make sure the plr router was created, with the expected data
+                plr_id = self.plugin_instance.edge_manager.get_plr_by_tlr_id(
+                    router_ctx, r['router']['id'])
+                binding = nsxv_db.get_nsxv_router_binding(
+                    router_ctx.session, plr_id)
+                self.assertEqual(expected_size, binding['appliance_size'])
+                self.assertEqual('ACTIVE', binding['status'])
+                self.assertIsNotNone(binding['edge_id'])
+                self.assertEqual('service', binding['edge_type'])
+                self.assertTrue(binding['router_id'].startswith('plr'))
+
+                # Cleanup
+                self._remove_external_gateway_from_router(
+                    r['router']['id'],
+                    s2['subnet']['network_id'])
+
+    def test_router_plr_binding_default_size(self):
+        self._test_router_plr_binding()
+
+    def test_router_plr_binding_configured_size(self):
+        cfg.CONF.set_override('exclusive_router_appliance_size',
+                              'large', group="nsxv")
+        self._test_router_plr_binding(expected_size='large')
+
     def _test_router_create_with_distributed(self, dist_input, dist_expected,
                                              return_code=201, **kwargs):
         data = {'tenant_id': 'whatever'}
