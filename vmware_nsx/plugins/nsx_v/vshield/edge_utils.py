@@ -2230,22 +2230,6 @@ def update_nat_rules(nsxv_manager, context, router_id, snat, dnat):
         LOG.warning(_LW("Bindings do not exists for %s"), router_id)
 
 
-def update_dnat_rules(nsxv_manager, context, router_id, dnat_rules):
-    rtr_binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
-    edge_id = rtr_binding['edge_id']
-
-    for dnat_rule in dnat_rules:
-        vnic_binding = nsxv_db.get_edge_vnic_binding(
-            context.session,
-            edge_id,
-            dnat_rule['network_id'])
-
-        vnic_index = vnic_binding['vnic_index']
-        dnat_rule['vnic_index'] = vnic_index
-
-    nsxv_manager.update_dnat_rules(edge_id, dnat_rules)
-
-
 def clear_nat_rules(nsxv_manager, context, router_id):
     update_nat_rules(nsxv_manager, context, router_id, [], [])
 
@@ -2409,18 +2393,6 @@ class NsxVCallbacks(object):
 
     def interface_update_result(self, task):
         LOG.debug("interface_update_result %d", task.status)
-
-    def snat_create_result(self, task):
-        LOG.debug("snat_create_result %d", task.status)
-
-    def snat_delete_result(self, task):
-        LOG.debug("snat_delete_result %d", task.status)
-
-    def dnat_create_result(self, task):
-        LOG.debug("dnat_create_result %d", task.status)
-
-    def dnat_delete_result(self, task):
-        LOG.debug("dnat_delete_result %d", task.status)
 
     def routes_update_result(self, task):
         LOG.debug("routes_update_result %d", task.status)

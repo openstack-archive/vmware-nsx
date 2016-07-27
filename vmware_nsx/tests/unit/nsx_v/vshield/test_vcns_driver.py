@@ -366,22 +366,6 @@ class VcnsDriverTestCase(base.BaseTestCase):
         if task.status == ts_const.TaskStatus.COMPLETED:
             task.userdata['jobdata']['edge_delete_result'] = True
 
-    def snat_create_result(self, task):
-        if task.status == ts_const.TaskStatus.COMPLETED:
-            task.userdata['jobdata']['snat_create_result'] = True
-
-    def snat_delete_result(self, task):
-        if task.status == ts_const.TaskStatus.COMPLETED:
-            task.userdata['jobdata']['snat_delete_result'] = True
-
-    def dnat_create_result(self, task):
-        if task.status == ts_const.TaskStatus.COMPLETED:
-            task.userdata['jobdata']['dnat_create_result'] = True
-
-    def dnat_delete_result(self, task):
-        if task.status == ts_const.TaskStatus.COMPLETED:
-            task.userdata['jobdata']['dnat_delete_result'] = True
-
     def nat_update_result(self, task):
         if task.status == ts_const.TaskStatus.COMPLETED:
             task.userdata['jobdata']['nat_update_result'] = True
@@ -438,76 +422,6 @@ class VcnsDriverTestCase(base.BaseTestCase):
                 found = True
                 break
         self.assertTrue(found)
-
-    def _create_nat_rule(self, edge_id, action, org, translated):
-        jobdata = {}
-        if action == 'snat':
-            task = self.vcns_driver.create_snat_rule(
-                'router-id', edge_id, org, translated, jobdata=jobdata)
-            key = 'snat_create_result'
-        else:
-            task = self.vcns_driver.create_dnat_rule(
-                'router-id', edge_id, org, translated, jobdata=jobdata)
-            key = 'dnat_create_result'
-        task.wait(ts_const.TaskState.RESULT)
-        self.assertTrue(jobdata.get(key))
-
-    def _delete_nat_rule(self, edge_id, action, addr):
-        jobdata = {}
-        if action == 'snat':
-            task = self.vcns_driver.delete_snat_rule(
-                'router-id', edge_id, addr, jobdata=jobdata)
-            key = 'snat_delete_result'
-        else:
-            task = self.vcns_driver.delete_dnat_rule(
-                'router-id', edge_id, addr, jobdata=jobdata)
-            key = 'dnat_delete_result'
-        task.wait(ts_const.TaskState.RESULT)
-        self.assertTrue(jobdata.get(key))
-
-    def _test_create_nat_rule(self, action):
-        self._deploy_edge()
-        addr = '192.168.1.1'
-        translated = '10.0.0.1'
-        self._create_nat_rule(self.edge_id, action, addr, translated)
-
-        natcfg = self.vcns_driver.get_nat_config(self.edge_id)
-        for rule in natcfg['rules']['natRulesDtos']:
-            if (rule['originalAddress'] == addr and
-                rule['translatedAddress'] == translated and
-                rule['action'] == action):
-                break
-        else:
-            self.assertTrue(False)
-
-    def _test_delete_nat_rule(self, action):
-        self._deploy_edge()
-        addr = '192.168.1.1'
-        translated = '10.0.0.1'
-        self._create_nat_rule(self.edge_id, action, addr, translated)
-        if action == 'snat':
-            self._delete_nat_rule(self.edge_id, action, addr)
-        else:
-            self._delete_nat_rule(self.edge_id, action, translated)
-        natcfg = self.vcns_driver.get_nat_config(self.edge_id)
-        for rule in natcfg['rules']['natRulesDtos']:
-            if (rule['originalAddress'] == addr and
-                rule['translatedAddress'] == translated and
-                rule['action'] == action):
-                self.assertTrue(False)
-                break
-
-    def test_create_snat_rule(self):
-        self._test_create_nat_rule('snat')
-
-    def test_delete_snat_rule(self):
-        self._test_delete_nat_rule('snat')
-
-    def test_create_dnat_rule(self):
-        self._test_create_nat_rule('dnat')
-
-    def test_delete_dnat_rule(self):
-        self._test_delete_nat_rule('dnat')
 
     def test_update_nat_rules(self):
         self._deploy_edge()
