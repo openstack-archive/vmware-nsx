@@ -1524,9 +1524,7 @@ class EdgeManager(object):
             plr_id, plr_edge_id, None, [])
         task.wait(task_const.TaskState.RESULT)
         # Delete internal vnic
-        task = self.nsxv_manager.delete_interface(
-            plr_id, plr_edge_id, plr_vnic_index)
-        task.wait(task_const.TaskState.RESULT)
+        self.nsxv_manager.delete_interface(plr_id, plr_edge_id, plr_vnic_index)
         nsxv_db.free_edge_vnic_by_network(
             context.session, plr_edge_id, lswitch_id)
         # Delete the PLR
@@ -2180,15 +2178,14 @@ def _update_vdr_internal_interface(nsxv_manager, context, router_id,
         address_groups=address_groups, is_connected=is_connected)
 
 
-def delete_interface(nsxv_manager, context, router_id, network_id,
-                     dist=False, is_wait=True):
+def delete_interface(nsxv_manager, context, router_id, network_id, dist=False):
     with locking.LockManager.get_lock(str(router_id)):
         _delete_interface(nsxv_manager, context, router_id, network_id,
-                          dist=dist, is_wait=is_wait)
+                          dist=dist)
 
 
 def _delete_interface(nsxv_manager, context, router_id, network_id,
-                      dist=False, is_wait=True):
+                      dist=False):
     # Get the pg/wire id of the network id
     vcns_network_id = _retrieve_nsx_switch_id(context, network_id)
     LOG.debug("Network id %(network_id)s corresponding ref is : "
@@ -2212,10 +2209,8 @@ def _delete_interface(nsxv_manager, context, router_id, network_id,
                      'edge_id': edge_id})
         return
     if not dist:
-        task = nsxv_manager.delete_interface(
+        nsxv_manager.delete_interface(
             router_id, edge_id, edge_vnic_binding.vnic_index)
-        if is_wait:
-            task.wait(task_const.TaskState.RESULT)
         nsxv_db.free_edge_vnic_by_network(
             context.session, edge_id, network_id)
     else:
@@ -2414,9 +2409,6 @@ class NsxVCallbacks(object):
 
     def interface_update_result(self, task):
         LOG.debug("interface_update_result %d", task.status)
-
-    def interface_delete_result(self, task):
-        LOG.debug("interface_delete_result %d", task.status)
 
     def snat_create_result(self, task):
         LOG.debug("snat_create_result %d", task.status)
