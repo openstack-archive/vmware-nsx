@@ -93,15 +93,45 @@ class VnicIndexDbTestCase(test_db_plugin.NeutronDbPluginV2TestCase):
             self.assertRaises(d_exc.DBDuplicateEntry,
                               plugin._set_port_vnic_index_mapping,
                               context, port_id, device_id, 1)
-            # Only one Port can be associated with a specific index on a device
-            self.assertRaises(d_exc.DBDuplicateEntry,
-                              plugin._set_port_vnic_index_mapping,
-                              context, _uuid(), device_id, vnic_index)
         # Check that the call for _delete_port_vnic_index remove the row from
         # the table
 
         # TODO(kobis): deletion was removed from port - fix this assert
         # self.assertIsNone(plugin._get_port_vnic_index(context, port_id))
+
+    def test_vnic_index_db_duplicate(self):
+        plugin = manager.NeutronManager.get_plugin()
+        vnic_index = 2
+        device_id = _uuid()
+        context = neutron_context.get_admin_context()
+        with self.port(device_id=device_id,
+                       device_owner='compute:None') as port:
+            port_id = port['port']['id']
+            res = self._port_index_update(port_id, vnic_index)
+            self.assertEqual(res['port'][vnicidx.VNIC_INDEX], vnic_index)
+            plugin._set_port_vnic_index_mapping(context, port_id, device_id,
+                                                vnic_index)
+
+    def test_vnic_index_db_duplicate_new_port(self):
+        plugin = manager.NeutronManager.get_plugin()
+        vnic_index = 2
+        device_id = _uuid()
+        context = neutron_context.get_admin_context()
+        with self.port(device_id=device_id,
+                       device_owner='compute:None') as port:
+            with self.port(device_id=device_id,
+                           device_owner='compute:None') as port1:
+                port_id = port['port']['id']
+                res = self._port_index_update(port_id, vnic_index)
+                self.assertEqual(res['port'][vnicidx.VNIC_INDEX], vnic_index)
+                port_id1 = port1['port']['id']
+                plugin._set_port_vnic_index_mapping(context, port_id1,
+                                                    device_id, 2)
+                self.assertIsNone(plugin._get_port_vnic_index(context,
+                                                              port_id))
+                self.assertEqual(vnic_index,
+                                 plugin._get_port_vnic_index(context,
+                                                             port_id1))
 
 
 class TestVnicIndex(VnicIndexDbTestCase):
