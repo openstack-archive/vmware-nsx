@@ -28,6 +28,7 @@ from neutron.extensions import l3
 from neutron.extensions import l3_ext_gw_mode
 from neutron.extensions import portbindings
 from neutron.extensions import providernet as pnet
+from neutron.extensions import router_availability_zone
 from neutron.extensions import securitygroup as secgrp
 from neutron import manager
 from neutron.objects.qos import policy as qos_pol
@@ -1770,6 +1771,8 @@ class TestL3ExtensionManager(object):
                 router_type.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
             l3.RESOURCE_ATTRIBUTE_MAP[key].update(
                 router_size.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
+            l3.RESOURCE_ATTRIBUTE_MAP[key].update(
+                router_availability_zone.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
         # Finally add l3 resources to the global attribute map
         attributes.RESOURCE_ATTRIBUTE_MAP.update(
             l3.RESOURCE_ATTRIBUTE_MAP)
@@ -3272,6 +3275,11 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                       NsxVPluginV2TestCase):
 
     def setUp(self, plugin=PLUGIN_NAME, ext_mgr=None, service_plugins=None):
+        # init the availability zones in the configuration of the plugin
+        self.az_name = 'az7'
+        az_config = self.az_name + ':respool-7:datastore-7:False'
+        cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
+
         super(TestVdrTestCase, self).setUp(
             plugin=plugin, ext_mgr=ext_mgr, service_plugins=service_plugins)
         self.plugin_instance.nsx_v.is_subnet_in_use = mock.Mock()
@@ -3332,9 +3340,13 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                 data['router'][arg] = kwargs[arg]
 
         if 'distributed' in kwargs:
-                data['router']['distributed'] = kwargs['distributed']
+            data['router']['distributed'] = kwargs['distributed']
         else:
-                data['router']['distributed'] = True
+            data['router']['distributed'] = True
+        if ('availability_zone_hints' in kwargs and
+            kwargs['availability_zone_hints'] is not None):
+            data['router']['availability_zone_hints'] = kwargs[
+                'availability_zone_hints']
 
         if kwargs.get('router_type'):
             data['router']['router_type'] = kwargs.get('router_type')
@@ -3347,7 +3359,8 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
 
         return router_req.get_response(self.ext_api)
 
-    def _test_router_plr_binding(self, expected_size='compact'):
+    def _test_router_plr_binding(self, expected_size='compact',
+                                 availability_zone=None):
         """Test PLR router bindings
 
         Create a distributed router with an external network and check
@@ -3356,7 +3369,9 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
         # create a distributed router
         tenant_id = _uuid()
         router_ctx = context.Context('', tenant_id)
-        res = self._create_router(self.fmt, tenant_id, distributed=True)
+        az_hints = [availability_zone] if availability_zone else None
+        res = self._create_router(self.fmt, tenant_id, distributed=True,
+                                  availability_zone_hints=az_hints)
         r = self.deserialize(self.fmt, res)
         self.assertIn('router', r)
 
@@ -3385,6 +3400,11 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                 self.assertIsNotNone(binding['edge_id'])
                 self.assertEqual('service', binding['edge_type'])
                 self.assertTrue(binding['router_id'].startswith('plr'))
+                if availability_zone:
+                    self.assertEqual(
+                        availability_zone, binding['availability_zone'])
+                else:
+                    self.assertEqual('default', binding['availability_zone'])
 
                 # Cleanup
                 self._remove_external_gateway_from_router(
@@ -3398,6 +3418,35 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
         cfg.CONF.set_override('exclusive_router_appliance_size',
                               'large', group="nsxv")
         self._test_router_plr_binding(expected_size='large')
+
+    def test_router_plr_binding_default_az(self):
+        self._test_router_plr_binding(availability_zone='default')
+
+    def test_router_plr_binding_with_az(self):
+        self._test_router_plr_binding(availability_zone=self.az_name)
+
+    def test_router_binding_with_az(self):
+        """Check distributed router creation with an availability zone
+        """
+        # create a distributed router
+        tenant_id = _uuid()
+        router_ctx = context.Context('', tenant_id)
+        res = self._create_router(self.fmt, tenant_id, distributed=True,
+                                  availability_zone_hints=[self.az_name])
+        r = self.deserialize(self.fmt, res)
+        self.assertIn('router', r)
+
+        # check that we have an edge for this router, with the correct
+        # availability zone
+        binding = nsxv_db.get_nsxv_router_binding(
+            router_ctx.session, r['router']['id'])
+
+        self.assertEqual('compact', binding['appliance_size'])
+        self.assertEqual('ACTIVE', binding['status'])
+        self.assertIsNotNone(binding['edge_id'])
+        self.assertEqual('vdr', binding['edge_type'])
+        self.assertEqual(binding['router_id'], r['router']['id'])
+        self.assertEqual(self.az_name, binding['availability_zone'])
 
     def _test_router_create_with_distributed(self, dist_input, dist_expected,
                                              return_code=201, **kwargs):

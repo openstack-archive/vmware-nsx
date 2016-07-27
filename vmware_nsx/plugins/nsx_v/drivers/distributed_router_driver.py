@@ -178,7 +178,10 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         else:
             # Connecting plr to the tlr if new_ext_net_id is not None.
             if not plr_id:
-                availability_zone = self.get_router_az(router)
+                # Get the availability zone by ID because the router dict
+                # retrieved by +get_router does not contain this information
+                availability_zone = self.get_router_az_by_id(
+                    context, router['id'])
                 plr_id = self.edge_manager.create_plr_with_tlr_id(
                     context, router_id, router.get('name'), availability_zone)
             if new_ext_net_id != org_ext_net_id and orgnexthop:
