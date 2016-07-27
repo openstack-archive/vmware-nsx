@@ -1493,8 +1493,10 @@ class EdgeManager(object):
         # Handle plr relative op
         plr_router = {'name': router_name,
                       'id': (vcns_const.PLR_EDGE_PREFIX + _uuid())[:36]}
-        self.create_lrouter(context, plr_router,
-                            availability_zone=availability_zone)
+        self.create_lrouter(
+            context, plr_router,
+            availability_zone=availability_zone,
+            appliance_size=cfg.CONF.nsxv.exclusive_router_appliance_size)
         binding = nsxv_db.get_nsxv_router_binding(
             context.session, plr_router['id'])
         plr_edge_id = binding['edge_id']
