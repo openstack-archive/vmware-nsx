@@ -14,6 +14,7 @@
 #    under the License.
 
 import os
+import traceback
 
 from oslo_concurrency import lockutils
 from oslo_config import cfg
@@ -34,11 +35,17 @@ class LockManager(object):
     @staticmethod
     def get_lock(name, **kwargs):
         if cfg.CONF.locking_coordinator_url:
-            return LockManager._get_lock_distributed(name)
+            lck = LockManager._get_lock_distributed(name)
+            LOG.debug('Lock %s taken with traceback %s', name,
+                      traceback.extract_stack())
+            return lck
         else:
             # Ensure that external=True
             kwargs['external'] = True
-            return LockManager._get_lock_local(name, **kwargs)
+            lck = LockManager._get_lock_local(name, **kwargs)
+            LOG.debug('Lock %s taken with traceback %s', name,
+                      traceback.extract_stack())
+            return lck
 
     @staticmethod
     def _get_lock_local(name, **kwargs):
