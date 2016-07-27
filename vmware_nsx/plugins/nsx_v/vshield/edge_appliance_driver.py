@@ -343,39 +343,20 @@ class EdgeApplianceDriver(object):
         # avoid bug 1389358
         self.check_edge_jobs(edge_id)
 
-    def _delete_interface(self, task):
-        edge_id = task.userdata['edge_id']
-        vnic_index = task.userdata['vnic_index']
-        LOG.debug("start deleting vnic %s", vnic_index)
+    def delete_interface(self, router_id, edge_id, index, jobdata=None):
+        LOG.debug("Deleting vnic %(vnic_index)s: on edge %(edge_id)s",
+                  {'vnic_index': index, 'edge_id': edge_id})
         try:
-            self.vcns.delete_interface(edge_id, vnic_index)
+            self.vcns.delete_interface(edge_id, index)
         except exceptions.VcnsApiException:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("Failed to delete vnic %(vnic_index)s: "
                                   "on edge %(edge_id)s"),
-                              {'vnic_index': vnic_index,
+                              {'vnic_index': index,
                                'edge_id': edge_id})
-        except Exception:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to delete vnic %d"), vnic_index)
 
-        return task_constants.TaskStatus.COMPLETED
-
-    def delete_interface(self, router_id, edge_id, index, jobdata=None):
-        task_name = "delete-interface-%s-%d" % (edge_id, index)
-        userdata = {
-            'router_id': router_id,
-            'edge_id': edge_id,
-            'vnic_index': index,
-            'jobdata': jobdata
-        }
-        task = tasks.Task(task_name, router_id, self._delete_interface,
-                          userdata=userdata)
-        task.add_result_monitor(self.callbacks.interface_delete_result)
-        self.task_manager.add(task)
-        # avoid bug 1389358
-        self.check_edge_jobs(edge_id)
-        return task
+        LOG.debug("Deletion complete vnic %(vnic_index)s: on edge %(edge_id)s",
+                  {'vnic_index': index, 'edge_id': edge_id})
 
     def _deploy_edge(self, task):
         userdata = task.userdata
