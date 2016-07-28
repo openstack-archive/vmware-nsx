@@ -18,6 +18,7 @@ from sqlalchemy.orm import exc
 from neutron.api.v2 import attributes as attr
 from neutron.db import db_base_plugin_v2
 
+from oslo_db import exception as db_exc
 from oslo_log import log as logging
 
 from vmware_nsx.db import nsxv_models
@@ -47,13 +48,52 @@ class VnicIndexDbMixin(object):
         except exc.NoResultFound:
             LOG.debug("No record in DB for vnic-index of port %s", port_id)
 
-    def _set_port_vnic_index_mapping(self, context, port_id, device_id, index):
+    def _get_mappings_for_device_id(self, context, device_id):
+        session = context.session
+        mappings = (session.query(nsxv_models.NsxvPortIndexMapping).
+                    filter_by(device_id=device_id))
+        return mappings
+
+    def _create_port_vnic_index_mapping(self, context, port_id,
+                                        device_id, index):
         """Save the port vnic-index to DB."""
         session = context.session
         with session.begin(subtransactions=True):
             index_mapping_model = nsxv_models.NsxvPortIndexMapping(
                 port_id=port_id, device_id=device_id, index=index)
             session.add(index_mapping_model)
+
+    def _update_port_vnic_index_mapping(self, context, port_id,
+                                        device_id, index):
+        session = context.session
+        # delete original entry
+        query = (session.query(nsxv_models.NsxvPortIndexMapping).
+                 filter_by(device_id=device_id, index=index))
+        query.delete()
+        # create a new one
+        self._create_port_vnic_index_mapping(context, port_id, device_id,
+                                             index)
+
+    def _set_port_vnic_index_mapping(self, context, port_id, device_id, index):
+        """Save the port vnic-index to DB."""
+        try:
+            self._create_port_vnic_index_mapping(context, port_id,
+                                                 device_id, index)
+        except db_exc.DBDuplicateEntry:
+            # A retry for the nova scheduling could result in this error.
+            LOG.debug("Entry already exists for %s %s %s", port_id,
+                      device_id, index)
+            mappings = self._get_mappings_for_device_id(context, device_id)
+            for mapping in mappings:
+                if (mapping['port_id'] != port_id and
+                    mapping['index'] == index):
+                    # a new port is using this device - update!
+                    self._update_port_vnic_index_mapping(context, port_id,
+                                                         device_id, index)
+                    return
+                if (mapping['port_id'] == port_id and
+                    mapping['index'] != index):
+                    raise
 
     def _delete_port_vnic_index_mapping(self, context, port_id):
         """Delete the port vnic-index association."""
