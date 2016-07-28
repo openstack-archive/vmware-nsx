@@ -629,8 +629,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         if intf_net_id:
             intf_net_ids.remove(intf_net_id)
         for net_id in intf_net_ids:
-            edge_utils.delete_interface(self.nsx_v, context, router_id, net_id,
-                                        is_wait=False)
+            edge_utils.delete_interface(self.nsx_v, context, router_id, net_id)
 
     def _update_router_gw_info(self, context, router_id, info,
                                is_routes_update=False,
