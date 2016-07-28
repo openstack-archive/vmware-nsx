@@ -2236,15 +2236,12 @@ def clear_nat_rules(nsxv_manager, context, router_id):
 
 def update_firewall(nsxv_manager, context, router_id, firewall,
                     allow_external=True):
-    jobdata = {'context': context}
     binding = nsxv_db.get_nsxv_router_binding(
         context.session, router_id)
     if binding:
         edge_id = binding['edge_id']
-        task = nsxv_manager.asyn_update_firewall(router_id, edge_id,
-                                                 firewall, jobdata=jobdata,
-                                                 allow_external=allow_external)
-        task.wait(task_const.TaskState.RESULT)
+        nsxv_manager.update_firewall(edge_id, firewall, context,
+                                     allow_external=allow_external)
     else:
         LOG.warning(_LW("Bindings do not exists for %s"), router_id)
 
@@ -2399,33 +2396,3 @@ class NsxVCallbacks(object):
 
     def nat_update_result(self, task):
         LOG.debug("nat_update_result %d", task.status)
-
-    def _create_rule_id_mapping(
-        self, context, edge_id, firewall, vcns_fw):
-        for rule in vcns_fw['firewallRules']['firewallRules']:
-            if rule.get('ruleTag'):
-                index = rule['ruleTag'] - 1
-                #TODO(linb):a simple filter of the retrieved rules which may be
-                #created by other operations unintentionally
-                if index < len(firewall['firewall_rule_list']):
-                    rule_vseid = rule['ruleId']
-                    rule_id = firewall['firewall_rule_list'][index].get('id')
-                    if rule_id:
-                        map_info = {
-                            'rule_id': rule_id,
-                            'rule_vseid': rule_vseid,
-                            'edge_id': edge_id
-                        }
-                        nsxv_db.add_nsxv_edge_firewallrule_binding(
-                            context.session, map_info)
-
-    def firewall_update_result(self, task):
-        LOG.debug("firewall_update_result %d", task.status)
-        context = task.userdata['jobdata']['context']
-        edge_id = task.userdata['edge_id']
-        fw_config = task.userdata['fw_config']
-        vcns_fw_config = task.userdata['vcns_fw_config']
-        nsxv_db.cleanup_nsxv_edge_firewallrule_binding(
-            context.session, edge_id)
-        self._create_rule_id_mapping(
-            context, edge_id, fw_config, vcns_fw_config)
