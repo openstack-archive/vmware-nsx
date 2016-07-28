@@ -67,7 +67,7 @@ class NsxvLoadbalancerTestCase(base.BaseTestCase):
         '"169.254.0.3", "name": "MdSrv", "port": "8775", "protocol": '
         '"http", "virtualServerId": "virtualServer-1"}]}')
 
-    LB_URI = '/api/4.0/edges/%s/loadbalancer/config?async=true'
+    LB_URI = '/api/4.0/edges/%s/loadbalancer/config'
     EDGE_1 = 'edge-x'
     EDGE_2 = 'edge-y'
 

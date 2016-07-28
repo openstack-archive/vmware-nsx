@@ -48,13 +48,10 @@ class NsxvEdgeCfgObj(object):
 
         return v
 
-    def submit_to_backend(self, vcns_obj, edge_id, async=True):
+    def submit_to_backend(self, vcns_obj, edge_id):
         uri = "%s/%s/%s/config" % (vcns.URI_PREFIX,
                                    edge_id,
                                    self.get_service_name())
-
-        if async:
-            uri += '?async=true'
 
         payload = jsonutils.dumps(self.serializable_payload(), sort_keys=True)
 

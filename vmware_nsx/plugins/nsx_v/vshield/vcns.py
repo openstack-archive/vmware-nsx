@@ -148,10 +148,8 @@ class Vcns(object):
             uri += "?async=true"
         return self.do_request(HTTP_POST, uri, request, decode=False)
 
-    def update_edge(self, edge_id, request, async=False):
+    def update_edge(self, edge_id, request):
         uri = "%s/%s" % (URI_PREFIX, edge_id)
-        if async:
-            uri += "?async=true"
         return self.do_request(HTTP_PUT, uri, request, decode=False)
 
     def get_edge_id(self, job_id):
@@ -199,7 +197,7 @@ class Vcns(object):
         return self.do_request(HTTP_PUT, uri, vnic, decode=True)
 
     def delete_interface(self, edge_id, vnic_index):
-        uri = "%s/%s/vnics/%d?async=true" % (URI_PREFIX, edge_id, vnic_index)
+        uri = "%s/%s/vnics/%d" % (URI_PREFIX, edge_id, vnic_index)
         return self.do_request(HTTP_DELETE, uri, decode=True)
 
     def get_nat_config(self, edge_id):
@@ -207,7 +205,7 @@ class Vcns(object):
         return self.do_request(HTTP_GET, uri, decode=True)
 
     def update_nat_config(self, edge_id, nat):
-        uri = "%s/%s/nat/config?async=true" % (URI_PREFIX, edge_id)
+        uri = "%s/%s/nat/config" % (URI_PREFIX, edge_id)
         return self.do_request(HTTP_PUT, uri, nat, decode=True)
 
     def delete_nat_rule(self, edge_id, rule_id):
@@ -261,13 +259,11 @@ class Vcns(object):
     def update_firewall(self, edge_id, fw_req):
         uri = self._build_uri_path(
             edge_id, FIREWALL_SERVICE)
-        uri += '?async=true'
         return self.do_request(HTTP_PUT, uri, fw_req)
 
     def delete_firewall(self, edge_id):
         uri = self._build_uri_path(
             edge_id, FIREWALL_SERVICE, None)
-        uri += '?async=true'
         return self.do_request(HTTP_DELETE, uri)
 
     def update_firewall_rule(self, edge_id, vcns_rule_id, fwr_req):
@@ -908,11 +904,9 @@ class Vcns(object):
         return self.do_request(HTTP_PUT, uri, et.tostring(tuning),
                                format='xml', decode=True)
 
-    def enable_ha(self, edge_id, request_config, async=True):
+    def enable_ha(self, edge_id, request_config):
         """Enable HA in the given edge."""
         uri = "/api/4.0/edges/%s/highavailability/config" % edge_id
-        if async:
-            uri += "?async=true"
         return self.do_request(HTTP_PUT, uri, request_config)
 
     def change_edge_appliance_size(self, edge_id, size):

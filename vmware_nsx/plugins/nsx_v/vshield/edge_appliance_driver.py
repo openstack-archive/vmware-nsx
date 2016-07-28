@@ -870,36 +870,20 @@ class EdgeApplianceDriver(object):
 
     def _delete_port_group(self, task):
         try:
-            header, response = self.vcns.get_edge_id(task.userdata['job_id'])
-        except exceptions.VcnsApiException:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE("NSXv: Failed to get job for %s"),
-                          task.userdata)
-        status = response['status']
-        if status != 'COMPLETED':
-            if (status == 'QUEUED' or status == 'RUNNING' or
-                status == 'ROLLBACK'):
-                LOG.debug("NSXv: job is still pending for %s", task.userdata)
-                return task_constants.TaskStatus.PENDING
-        try:
             self.vcns.delete_port_group(
                 task.userdata['dvs_id'],
                 task.userdata['port_group_id'])
         except Exception as e:
-            LOG.error(_LE('Unable to delete %(pg)s (job status %(state)s) '
-                          'exception %(ex)s'),
+            LOG.error(_LE('Unable to delete %(pg)s exception %(ex)s'),
                       {'pg': task.userdata['port_group_id'],
-                       'state': status,
                        'ex': e})
-        if status == 'FAILED':
             return task_constants.TaskStatus.ERROR
         return task_constants.TaskStatus.COMPLETED
 
-    def delete_portgroup(self, dvs_id, port_group_id, job_id):
+    def delete_portgroup(self, dvs_id, port_group_id):
         task_name = "delete-port-group-%s" % port_group_id
         userdata = {'dvs_id': dvs_id,
-                    'port_group_id': port_group_id,
-                    'job_id': job_id}
+                    'port_group_id': port_group_id}
         task = tasks.Task(task_name, port_group_id,
                           self._delete_port_group,
                           status_callback=self._delete_port_group,

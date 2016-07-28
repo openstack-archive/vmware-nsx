@@ -73,7 +73,7 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
                 edge_cfg = self.vcns.get_edge(edge_id)[1]
                 if edge_cfg.get('appliances'):
                     edge_cfg['appliances']['applianceSize'] = r['router_size']
-                    self.vcns.update_edge(edge_id, edge_cfg, async=False)
+                    self.vcns.update_edge(edge_id, edge_cfg)
                     nsxv_db.update_nsxv_router_binding(
                         context.session, router_id,
                         appliance_size=r['router_size'])

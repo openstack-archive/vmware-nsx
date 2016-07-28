@@ -164,7 +164,7 @@ def change_edge_ha(ha, edge_id):
         'featureType': 'highavailability_4.0',
         'enabled': ha}
     try:
-        nsxv.enable_ha(edge_id, request, async=False)
+        nsxv.enable_ha(edge_id, request)
     except nsxv_exceptions.ResourceNotFound as e:
         LOG.error(_LE("Edge %s not found"), edge_id)
     except exceptions.NeutronException as e:
