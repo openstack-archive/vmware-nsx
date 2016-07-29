@@ -916,6 +916,17 @@ class NsxNativeDhcpTestCase(NsxV3PluginTestCaseMixin):
             self._verify_dhcp_service(network['network']['id'],
                                       network['network']['tenant_id'], False)
 
+    def test_dhcp_service_with_delete_dhcp_network(self):
+        # Test if DHCP service is disabled when directly deleting a network
+        # with a DHCP-enabled subnet.
+        with self.network() as network:
+            with self.subnet(network=network, enable_dhcp=True):
+                self.plugin.delete_network(context.get_admin_context(),
+                                           network['network']['id'])
+                self._verify_dhcp_service(network['network']['id'],
+                                          network['network']['tenant_id'],
+                                          False)
+
     def test_dhcp_service_with_create_non_dhcp_subnet(self):
         # Test if DHCP service is disabled on a network when a DHCP-disabled
         # subnet is created.
