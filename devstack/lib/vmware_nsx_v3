@@ -157,6 +157,7 @@ function neutron_plugin_configure_service {
         _nsxv3_ini_set metadata_proxy_uuid $METADATA_PROXY_UUID
         iniset $NEUTRON_CONF DEFAULT dhcp_agent_notification False
         iniset $NEUTRON_META_CONF DEFAULT metadata_proxy_shared_secret $METADATA_PROXY_SHARED_SECRET
+        iniset $NOVA_CONF neutron service_metadata_proxy True
     fi
 }
 
