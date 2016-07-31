@@ -1077,62 +1077,46 @@ class EdgeManager(object):
         dhcp_edge_binding = nsxv_db.get_nsxv_router_binding(context.session,
                                                             resource_id)
         allocate_new_edge = False
-        # case 1: update a subnet to an existing dhcp edge
-        if dhcp_edge_binding:
-            with locking.LockManager.get_lock('nsx-edge-pool'):
+        with locking.LockManager.get_lock('nsx-edge-pool'):
+            (conflict_edge_ids,
+             available_edge_ids) = self._get_used_edges(context, subnet,
+                                                        availability_zone)
+            LOG.debug("The available edges %s, the conflict edges %s ",
+                      available_edge_ids, conflict_edge_ids)
+
+            edge_id = None
+            # Check if the network can stay on the existing DHCP edge
+            if dhcp_edge_binding:
                 edge_id = dhcp_edge_binding['edge_id']
-                (conflict_edge_ids,
-                 available_edge_ids) = self._get_used_edges(context, subnet,
-                                                            availability_zone)
-                LOG.debug("The available edges %s, the conflict edges %s "
-                          "at present is using edge %s",
-                          available_edge_ids, conflict_edge_ids, edge_id)
+                LOG.debug("At present network %s is using edge %s",
+                          network_id, edge_id)
                 with locking.LockManager.get_lock(str(edge_id)):
                     # Delete the existing vnic interface if there is
                     # an overlapping subnet or the binding is in ERROR status
                     if (edge_id in conflict_edge_ids or
                         dhcp_edge_binding['status'] == plugin_const.ERROR):
+                        LOG.debug("Removing network %s from dhcp edge %s",
+                                  network_id, edge_id)
                         self.remove_network_from_dhcp_edge(context,
                                                            network_id, edge_id)
-                        #Move the network to anther Edge and update vnic:
-                        #1. Find an available existing edge or create a new one
-                        #2. For the existing one, cut off the old port group
-                        #   connection
-                        #3. Create the new port group connection to an existing
-                        #   one
-                        #4. Update the address groups to the vnic
-                        if available_edge_ids:
-                            new_id = self._get_random_available_edge(
-                                available_edge_ids)
-                            if new_id:
-                                LOG.debug("Select edge %s to support dhcp for "
-                                          "network %s", new_id, network_id)
-                                self.reuse_existing_dhcp_edge(
-                                    context, new_id, resource_id, network_id,
-                                    availability_zone)
-                            else:
-                                allocate_new_edge = True
-                        else:
-                            allocate_new_edge = True
-        # case 2: attach the subnet to a new edge and update vnic
-        else:
-            with locking.LockManager.get_lock('nsx-edge-pool'):
-                (conflict_edge_ids,
-                 available_edge_ids) = self._get_used_edges(context, subnet,
-                                                            availability_zone)
-                LOG.debug('The available edges %s, the conflict edges %s',
-                          available_edge_ids, conflict_edge_ids)
-                # There is available one
+                        edge_id = None
+
+            if not edge_id:
+                #Attach the network to a new Edge and update vnic:
+                #1. Find an available existing edge or create a new one
+                #2. For the existing one, cut off the old port group
+                #   connection
+                #3. Create the new port group connection to an existing one
+                #4. Update the address groups to the vnic
                 if available_edge_ids:
                     new_id = self._get_random_available_edge(
                         available_edge_ids)
                     if new_id:
-                        LOG.debug("Select edge %s to support dhcp for network "
-                                  "%s", new_id, network_id)
-                        with locking.LockManager.get_lock(str(new_id)):
-                            self.reuse_existing_dhcp_edge(
-                                context, new_id, resource_id, network_id,
-                                availability_zone)
+                        LOG.debug("Select edge %s to support dhcp for "
+                                  "network %s", new_id, network_id)
+                        self.reuse_existing_dhcp_edge(
+                            context, new_id, resource_id, network_id,
+                            availability_zone)
                     else:
                         allocate_new_edge = True
                 else:
