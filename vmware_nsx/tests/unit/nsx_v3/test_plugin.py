@@ -49,7 +49,6 @@ from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
-from vmware_nsx.dhcp_meta import rpc as nsx_rpc
 from vmware_nsx.extensions import advancedserviceproviders as as_providers
 from vmware_nsx.nsxlib.v3 import client as nsx_client
 from vmware_nsx.nsxlib.v3 import cluster as nsx_cluster
@@ -1053,7 +1052,8 @@ class NsxNativeDhcpTestCase(NsxV3PluginTestCaseMixin):
                     ip = port['port']['fixed_ips'][0]['ip_address']
                     hostname = 'host-%s' % ip.replace('.', '-')
                     options = {'option121': {'static_routes': [
-                        {'network': '%s' % nsx_rpc.METADATA_DHCP_ROUTE,
+                        {'network': '%s' %
+                         cfg.CONF.nsx_v3.native_metadata_route,
                          'next_hop': ip}]}}
                     create_dhcp_binding.assert_called_once_with(
                         dhcp_service['nsx_service_id'],
@@ -1113,7 +1113,8 @@ class NsxNativeDhcpTestCase(NsxV3PluginTestCaseMixin):
             assert_data = {'host_name': 'host-%s' % new_ip.replace('.', '-'),
                            'ip_address': new_ip,
                            'options': {'option121': {'static_routes': [
-                               {'network': '%s' % nsx_rpc.METADATA_DHCP_ROUTE,
+                               {'network': '%s' %
+                                cfg.CONF.nsx_v3.native_metadata_route,
                                 'next_hop': new_ip}]}}}
             self._verify_dhcp_binding(subnet, port_data, update_data,
                                       assert_data)
@@ -1144,7 +1145,8 @@ class NsxNativeDhcpTestCase(NsxV3PluginTestCaseMixin):
                            'mac_address': new_mac,
                            'ip_address': new_ip,
                            'options': {'option121': {'static_routes': [
-                               {'network': '%s' % nsx_rpc.METADATA_DHCP_ROUTE,
+                               {'network': '%s' %
+                                cfg.CONF.nsx_v3.native_metadata_route,
                                 'next_hop': new_ip}]}}}
             self._verify_dhcp_binding(subnet, port_data, update_data,
                                       assert_data)

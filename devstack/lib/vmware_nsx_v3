@@ -30,8 +30,10 @@ NSX_GATEWAY_NETWORK_INTERFACE=${NSX_GATEWAY_NETWORK_INTERFACE:-}
 
 # Override default 'True' in devstack:lib/neutron_plugins/services/l3
 Q_USE_PROVIDERNET_FOR_PUBLIC=False
+
 # Native support from platform
 NATIVE_DHCP_METADATA=${NATIVE_DHCP_METADATA:-False}
+NATIVE_METADATA_ROUTE=${NATIVE_METADATA_ROUTE:-169.254.169.254/32}
 METADATA_PROXY_SHARED_SECRET=${METADATA_PROXY_SHARED_SECRET:-}
 
 # Save trace setting
@@ -153,6 +155,7 @@ function neutron_plugin_configure_service {
     _nsxv3_ini_set default_bridge_cluster $DEFAULT_BRIDGE_CLUSTER_UUID
     if [[ "$NATIVE_DHCP_METADATA" == "True" ]]; then
         _nsxv3_ini_set native_dhcp_metadata $NATIVE_DHCP_METADATA
+        _nsxv3_ini_set native_metadata_route $NATIVE_METADATA_ROUTE
         _nsxv3_ini_set dhcp_profile_uuid $DHCP_PROFILE_UUID
         _nsxv3_ini_set metadata_proxy_uuid $METADATA_PROXY_UUID
         iniset $NEUTRON_CONF DEFAULT dhcp_agent_notification False
