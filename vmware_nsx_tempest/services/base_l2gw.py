@@ -20,6 +20,7 @@ from tempest.api.network import base
 from tempest import config
 from tempest import test
 
+from vmware_nsx_tempest._i18n import _
 from vmware_nsx_tempest._i18n import _LI
 from vmware_nsx_tempest._i18n import _LW
 from vmware_nsx_tempest.common import constants
@@ -244,7 +245,7 @@ class BaseL2GatewayTest(base.BaseAdminNetworkTest):
         """
         response = self.nsxv3_client_obj.get_bridge_cluster_info()
         if len(response) == 0:
-            raise RuntimeError("NSX bridge cluster information is null")
+            raise RuntimeError(_("NSX bridge cluster information is null"))
         return [(x.get("id"), x.get("display_name")) for x in response]
 
     def create_l2gw_connection(self, l2gwc_param):

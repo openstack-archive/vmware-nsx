@@ -16,6 +16,7 @@ from tempest.lib.common.utils import misc as misc_utils
 from tempest.lib import exceptions as lib_exc
 
 from tempest import exceptions
+from vmware_nsx_tempest._i18n import _
 from vmware_nsx_tempest.services import network_client_base as base
 
 POOL_RID = 'pools'
@@ -234,7 +235,7 @@ class LoadBalancerV1Client(base.BaseNetworkClient):
         try:
             getattr(client, method)(id)
         except AttributeError:
-            raise Exception("Unknown resource type %s " % resource_type)
+            raise Exception(_("Unknown resource type %s ") % resource_type)
         except lib_exc.NotFound:
             return True
         return False

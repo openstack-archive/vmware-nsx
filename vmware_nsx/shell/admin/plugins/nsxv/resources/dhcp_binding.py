@@ -182,7 +182,7 @@ def recreate_vdr_dhcp_edge(context, plugin, edge_manager,
                  {'vdr_id': vdr_router_id,
                   'edge_id': new_binding['dhcp_edge_id']})
     else:
-        LOG.error(_LI("VDR router %(vdr_id)s was not moved to a new edge"),
+        LOG.error(_LE("VDR router %(vdr_id)s was not moved to a new edge"),
                  {'vdr_id': vdr_router_id})
 
 
@@ -228,7 +228,7 @@ def recreate_network_dhcp(context, plugin, edge_manager, old_edge_id, net_id):
         LOG.info(_LI("Network %(net_id)s was moved to edge %(edge_id)s"),
                  {'net_id': net_id, 'edge_id': new_binding['edge_id']})
     else:
-        LOG.error(_LI("Network %(net_id)s was not moved to a new edge"),
+        LOG.error(_LE("Network %(net_id)s was not moved to a new edge"),
                  {'net_id': net_id})
 
 

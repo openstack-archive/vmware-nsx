@@ -16,7 +16,7 @@ import logging
 import six
 import sys
 
-from vmware_nsx._i18n import _LI
+from vmware_nsx._i18n import _LI, _
 
 LOG = logging.getLogger(__name__)
 
@@ -47,8 +47,8 @@ def parse_multi_keyval_opt(opt_list):
             key, value = opt_value.split('=')
             result[key] = value
         except ValueError:
-            raise ValueError("Illegal argument [%s]: input should have the "
-                             "format of '--property key=value'" % opt_value)
+            raise ValueError(_("Illegal argument [%s]: input should have the "
+                               "format of '--property key=value'") % opt_value)
     return result
 
 
@@ -71,7 +71,7 @@ def query_yes_no(question, default="yes"):
     elif default == "no":
         prompt = " [y/N] "
     else:
-        raise ValueError("invalid default answer: '%s'" % default)
+        raise ValueError(_("invalid default answer: '%s'") % default)
 
     while True:
         sys.stdout.write(question + prompt)
