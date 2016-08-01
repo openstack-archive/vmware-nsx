@@ -2610,7 +2610,6 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                     {'router': {'name': new_name}})
                 self.assertEqual(new_name, body['router']['name'])
                 edge_rename.assert_called_once_with(
-                    router_id,
                     edge_id,
                     new_name + '-' + router_id)
 
