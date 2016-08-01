@@ -142,10 +142,8 @@ class Vcns(object):
 
     @retry_upon_exception(exceptions.ResourceNotFound)
     @retry_upon_exception(exceptions.RequestBad)
-    def deploy_edge(self, request, async=True):
+    def deploy_edge(self, request):
         uri = URI_PREFIX
-        if async:
-            uri += "?async=true"
         return self.do_request(HTTP_POST, uri, request, decode=False)
 
     def update_edge(self, edge_id, request, async=False):

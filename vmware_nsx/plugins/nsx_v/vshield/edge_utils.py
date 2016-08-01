@@ -48,7 +48,6 @@ from vmware_nsx.plugins.nsx_v.vshield.common import (
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as nsxapi_exc
 from vmware_nsx.plugins.nsx_v.vshield.tasks import (
     constants as task_const)
-from vmware_nsx.plugins.nsx_v.vshield.tasks import tasks
 from vmware_nsx.plugins.nsx_v.vshield import vcns
 
 WORKER_POOL_SIZE = 8
@@ -158,25 +157,15 @@ class EdgeManager(object):
 
     def _deploy_edge(self, context, lrouter,
                      lswitch=None, appliance_size=nsxv_constants.COMPACT,
-                     edge_type=nsxv_constants.SERVICE_EDGE, async=True,
+                     edge_type=nsxv_constants.SERVICE_EDGE,
                      availability_zone=None):
         """Create an edge for logical router support."""
-        router_id = lrouter['id']
         # deploy edge
-        jobdata = {
-            'router_id': router_id,
-            'lrouter': lrouter,
-            'lswitch': lswitch,
-            'context': context
-        }
-
-        task = self.nsxv_manager.deploy_edge(
-            lrouter['id'], lrouter['name'], internal_network=None,
-            jobdata=jobdata, wait_for_exec=True,
+        self.nsxv_manager.deploy_edge(context, lrouter['id'],
+            lrouter['name'], internal_network=None,
             appliance_size=appliance_size,
-            dist=(edge_type == nsxv_constants.VDR_EDGE), async=async,
+            dist=(edge_type == nsxv_constants.VDR_EDGE),
             availability_zone=availability_zone)
-        return task
 
     def _deploy_backup_edges_on_db(self, context, num,
                                    appliance_size=nsxv_constants.COMPACT,
@@ -211,7 +200,7 @@ class EdgeManager(object):
                 'name': router_id}
             pool.spawn_n(self._deploy_edge, context, fake_router,
                          appliance_size=appliance_size,
-                         edge_type=edge_type, async=False,
+                         edge_type=edge_type,
                          availability_zone=availability_zone)
 
     def _delete_edge(self, context, router_binding):
@@ -574,7 +563,7 @@ class EdgeManager(object):
                 availability_zone=availability_zone.name)
             self._deploy_edge(context, lrouter,
                               appliance_size=appliance_size,
-                              edge_type=edge_type, async=False,
+                              edge_type=edge_type,
                               availability_zone=availability_zone)
             return
 
@@ -601,7 +590,7 @@ class EdgeManager(object):
                 availability_zone=availability_zone.name)
             self._deploy_edge(context, lrouter,
                               appliance_size=appliance_size,
-                              edge_type=edge_type, async=False,
+                              edge_type=edge_type,
                               availability_zone=availability_zone)
         else:
             LOG.debug("Select edge: %(edge_id)s from pool for %(name)s",
@@ -627,16 +616,10 @@ class EdgeManager(object):
                 jobdata = {
                     'context': context,
                     'router_id': lrouter['id']}
-                fake_userdata = {'jobdata': jobdata,
-                                 'router_name': lrouter['name'],
-                                 'edge_id': edge_id,
-                                 'dist': dist}
-                fake_task = tasks.Task(name='fake-deploy-edge-task',
-                                       resource_id='fake-resource_id',
-                                       execute_callback=None,
-                                       userdata=fake_userdata)
-                fake_task.status = task_const.TaskStatus.COMPLETED
-                self.nsxv_manager.callbacks.edge_deploy_result(fake_task)
+                self.nsxv_manager.callbacks.complete_edge_creation(
+                    context, edge_id, lrouter['name'], lrouter['id'], dist,
+                    True)
+
                 # change edge's name at backend
                 task = self.nsxv_manager.update_edge(
                     resource_id, available_router_binding['edge_id'],
@@ -1782,21 +1765,9 @@ def create_lrouter(nsxv_manager, context, lrouter, lswitch=None, dist=False,
         availability_zone=availability_zone.name)
 
     # deploy edge
-    jobdata = {
-        'router_id': router_id,
-        'lrouter': lrouter,
-        'lswitch': lswitch,
-        'context': context
-    }
-
-    # deploy and wait until the deploy request has been requested
-    # so we will have edge_id ready. The wait here should be fine
-    # as we're not in a database transaction now
-    task = nsxv_manager.deploy_edge(
-        router_id, router_name, internal_network=None,
-        dist=dist, jobdata=jobdata, appliance_size=appliance_size,
-        availability_zone=availability_zone)
-    task.wait(task_const.TaskState.RESULT)
+    nsxv_manager.deploy_edge(
+        context, router_id, router_name, internal_network=None, dist=dist,
+        appliance_size=appliance_size, availability_zone=availability_zone)
 
 
 def delete_lrouter(nsxv_manager, context, router_id, dist=False):
@@ -2268,55 +2239,12 @@ class NsxVCallbacks(object):
     def __init__(self, plugin):
         self.plugin = plugin
 
-    def edge_deploy_started(self, task):
-        """callback when deployment task started."""
-        jobdata = task.userdata['jobdata']
-        context = jobdata['context']
-        router_id = jobdata.get('router_id')
-        edge_id = task.userdata.get('edge_id')
-        name = task.userdata.get('router_name')
-        dist = task.userdata.get('dist')
-        self.edge_deploy_started_sync(context, edge_id, name, router_id, dist)
-
-    def edge_deploy_started_sync(self, context, edge_id, name, router_id,
-                                 dist):
-        if edge_id:
-            LOG.debug("Start deploying %(edge_id)s for router %(name)s",
-                      {'edge_id': edge_id,
-                       'name': name})
-            nsxv_db.update_nsxv_router_binding(
-                context.session, router_id, edge_id=edge_id)
-            if not dist:
-                # Init Edge vnic binding
-                nsxv_db.init_edge_vnic_binding(
-                    context.session, edge_id)
-        else:
-            LOG.debug("Failed to deploy Edge")
-            if router_id:
-                nsxv_db.update_nsxv_router_binding(
-                    context.session, router_id,
-                    status=plugin_const.ERROR)
-
-    def edge_deploy_result(self, task):
-        """callback when deployment task finished."""
-        jobdata = task.userdata['jobdata']
-        context = jobdata['context']
-        name = task.userdata.get('router_name')
-        dist = task.userdata.get('dist')
-        router_id = jobdata['router_id']
-        edge_id = task.userdata.get('edge_id')
-
-        self.edge_deploy_result_sync(
-            context, edge_id, name, router_id, dist,
-            task.status == task_const.TaskStatus.COMPLETED)
-
-    def edge_deploy_result_sync(self, context, edge_id, name, router_id, dist,
-                                deploy_successful):
+    def complete_edge_creation(
+            self, context, edge_id, name, router_id, dist, deploy_successful):
         router_db = None
         if uuidutils.is_uuid_like(router_id):
             try:
-                router_db = self.plugin._get_router(
-                    context, router_id)
+                router_db = self.plugin._get_router(context, router_id)
             except l3.RouterNotFound:
                 # Router might have been deleted before deploy finished
                 LOG.warning(_LW("Router %s not found"), name)

@@ -87,7 +87,7 @@ class FakeVcns(object):
         response = {"edgeJob": []}
         return (header, response)
 
-    def deploy_edge(self, request, async=True):
+    def deploy_edge(self, request):
         if (self._unique_router_name and
             not self._validate_edge_name(request['name'])):
             header = {
@@ -104,39 +104,20 @@ class FakeVcns(object):
             }
             return (header, jsonutils.dumps(response))
 
-        if async:
-            self._job_idx = self._job_idx + 1
-            job_id = "jobdata-%d" % self._job_idx
-            self._edge_idx = self._edge_idx + 1
-            edge_id = "edge-%d" % self._edge_idx
-            self._jobs[job_id] = edge_id
-            self._edges[edge_id] = {
-                'name': request['name'],
-                'request': request,
-                'nat_rules': None,
-                'nat_rule_id': 0,
-                'interface_index': 1
-            }
-            header = {
-                'status': 200,
-                'location': 'https://host/api/4.0/jobs/%s' % job_id
-            }
-            response = ''
-        else:
-            self._edge_idx = self._edge_idx + 1
-            edge_id = "edge-%d" % self._edge_idx
-            self._edges[edge_id] = {
-                'name': request['name'],
-                'request': request,
-                'nat_rules': None,
-                'nat_rule_id': 0,
-                'interface_index': 1
-            }
-            header = {
-                'status': 200,
-                'location': 'https://host/api/4.0/edges/%s' % edge_id
-            }
-            response = ''
+        self._edge_idx = self._edge_idx + 1
+        edge_id = "edge-%d" % self._edge_idx
+        self._edges[edge_id] = {
+            'name': request['name'],
+            'request': request,
+            'nat_rules': None,
+            'nat_rule_id': 0,
+            'interface_index': 1
+        }
+        header = {
+            'status': 200,
+            'location': 'https://host/api/4.0/edges/%s' % edge_id
+        }
+        response = ''
         return (header, response)
 
     def update_edge(self, edge_id, request):
