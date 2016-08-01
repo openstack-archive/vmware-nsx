@@ -26,6 +26,7 @@ from neutron.extensions import dvr as dist_router
 from neutron.extensions import external_net
 from neutron.extensions import l3
 from neutron.extensions import l3_ext_gw_mode
+from neutron.extensions import l3_flavors
 from neutron.extensions import portbindings
 from neutron.extensions import providernet as pnet
 from neutron.extensions import router_availability_zone
@@ -37,6 +38,7 @@ from neutron.services.qos import qos_consts
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.db.test_allowedaddresspairs_db as test_addr_pair
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
+from neutron.tests.unit.extensions import base as extension
 import neutron.tests.unit.extensions.test_l3 as test_l3_plugin
 import neutron.tests.unit.extensions.test_l3_ext_gw_mode as test_ext_gw_mode
 import neutron.tests.unit.extensions.test_portsecurity as test_psec
@@ -138,8 +140,16 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
         self.default_res_pool = 'respool-28'
         cfg.CONF.set_override("resource_pool_id", self.default_res_pool,
                               group="nsxv")
-        super(NsxVPluginV2TestCase, self).setUp(plugin=plugin,
-                                                ext_mgr=ext_mgr)
+        if service_plugins is not None:
+            # override the service plugins only if specified directly
+            super(NsxVPluginV2TestCase, self).setUp(
+                plugin=plugin,
+                service_plugins=service_plugins,
+                ext_mgr=ext_mgr)
+        else:
+            super(NsxVPluginV2TestCase, self).setUp(
+                plugin=plugin,
+                ext_mgr=ext_mgr)
         self.addCleanup(self.fc2.reset_all)
         plugin_instance = manager.NeutronManager.get_plugin()
         plugin_instance.real_get_edge = plugin_instance._get_edge_id_by_rtr_id
@@ -1770,6 +1780,8 @@ class TestL3ExtensionManager(object):
                 router_size.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
             l3.RESOURCE_ATTRIBUTE_MAP[key].update(
                 router_availability_zone.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
+            l3.RESOURCE_ATTRIBUTE_MAP[key].update(
+                l3_flavors.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
         # Finally add l3 resources to the global attribute map
         attributes.RESOURCE_ATTRIBUTE_MAP.update(
             l3.RESOURCE_ATTRIBUTE_MAP)
@@ -4736,3 +4748,177 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
 
     def test_create_rotuer_without_az_hint(self):
         self._test_create_rotuer_with_az_hint(False)
+
+
+class TestRouterFlavorTestCase(extension.ExtensionTestCase,
+                               test_l3_plugin.L3NatTestCaseMixin,
+                               L3NatTest
+                               ):
+
+    FLAVOR_PLUGIN = 'neutron.services.flavors.flavors_plugin.FlavorsPlugin'
+
+    def setUp(self, plugin=PLUGIN_NAME):
+        # init the core plugin and flavors plugin
+        service_plugins = {plugin_const.FLAVORS: self.FLAVOR_PLUGIN}
+        super(TestRouterFlavorTestCase, self).setUp(
+            plugin=plugin, service_plugins=service_plugins)
+        self.plugin = manager.NeutronManager.get_plugin()
+        self.plugin._flv_plugin = (
+            manager.NeutronManager.get_service_plugins().
+            get(plugin_const.FLAVORS))
+        self.plugin._process_router_flavor_create = mock.Mock()
+
+        # init the availability zones
+        self.az_name = 'az7'
+        az_config = self.az_name + ':respool-7:datastore-7:True'
+        cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
+        self.plugin._availability_zones_data = (
+            nsx_az.ConfiguredAvailabilityZones())
+
+    def _test_router_create_with_flavor(
+        self, metainfo, expected_data,
+        create_type=None,
+        create_size=None,
+        create_az=None):
+
+        router_data = {'flavor_id': 'dummy',
+                       'tenant_id': 'whatever',
+                       'name': 'test_router',
+                       'admin_state_up': True}
+
+        if create_type is not None:
+            router_data['router_type'] = create_type
+        if create_size is not None:
+            router_data['router_size'] = create_size
+        if create_az is not None:
+            router_data['availability_zone_hints'] = [create_az]
+
+        flavor_data = {'service_type': plugin_const.L3_ROUTER_NAT,
+                       'enabled': True,
+                       'service_profiles': ['profile_id']}
+
+        # Mock the flavors plugin
+        with mock.patch(self.FLAVOR_PLUGIN + '.get_flavor',
+            return_value=flavor_data):
+            with mock.patch(self.FLAVOR_PLUGIN + '.get_service_profile',
+                return_value={'metainfo': metainfo}):
+                router = self.plugin.create_router(
+                    context.get_admin_context(),
+                    {'router': router_data})
+                for key, expected_val in expected_data.items():
+                    self.assertEqual(expected_val, router[key])
+
+    def test_router_create_with_flavor_different_sizes(self):
+        """Create exclusive router with size in flavor
+        """
+        for size in ['compact', 'large', 'xlarge', 'quadlarge']:
+            metainfo = "{'router_size':'%s'}" % size
+            expected_router = {'router_type': 'exclusive',
+                               'router_size': size}
+            self._test_router_create_with_flavor(
+                metainfo, expected_router,
+                create_type='exclusive')
+
+    def test_router_create_with_flavor_ex_different_sizes(self):
+        """Create exclusive router with size and type in flavor
+        """
+        for size in ['compact', 'large', 'xlarge', 'quadlarge']:
+            metainfo = "{'router_size':'%s','router_type':'exclusive'}" % size
+            expected_router = {'router_type': 'exclusive',
+                               'router_size': size}
+            self._test_router_create_with_flavor(
+                metainfo, expected_router)
+
+    def test_router_create_with_flavor_az(self):
+        """Create exclusive router with availability zone in flavor
+        """
+        metainfo = "{'availability_zone_hints':'%s'}" % self.az_name
+        expected_router = {'router_type': 'exclusive',
+                           'availability_zone_hints': [self.az_name],
+                           'distributed': False}
+        self._test_router_create_with_flavor(
+            metainfo, expected_router,
+            create_type='exclusive')
+
+    def test_router_create_with_flavor_shared(self):
+        """Create shared router with availability zone and type in flavor
+        """
+        metainfo = ("{'availability_zone_hints':'%s',"
+                    "'router_type':'shared'}" % self.az_name)
+        expected_router = {'router_type': 'shared',
+                           'availability_zone_hints': [self.az_name],
+                           'distributed': False}
+        self._test_router_create_with_flavor(
+            metainfo, expected_router)
+
+    def test_router_create_with_flavor_distributed(self):
+        """Create distributed router with availability zone and type in flavor
+        """
+        metainfo = ("{'availability_zone_hints':'%s',"
+                    "'distributed':true}" % self.az_name)
+        expected_router = {'distributed': True,
+                           'availability_zone_hints': [self.az_name]}
+        self._test_router_create_with_flavor(
+            metainfo, expected_router)
+
+    def test_router_flavor_error_parsing(self):
+        """Use the wrong format for the flavor metainfo
+
+        It should be ignored, and default values are used
+        """
+        metainfo = "xxx"
+        expected_router = {'distributed': False,
+                           'router_type': 'shared'}
+        self._test_router_create_with_flavor(
+            metainfo, expected_router)
+
+    def _test_router_create_with_flavor_error(
+        self, metainfo, error_code,
+        create_type=None,
+        create_size=None,
+        create_az=None):
+
+        router_data = {'flavor_id': 'dummy',
+                       'tenant_id': 'whatever',
+                       'name': 'test_router',
+                       'admin_state_up': True}
+
+        if create_type is not None:
+            router_data['router_type'] = create_type
+        if create_size is not None:
+            router_data['router_size'] = create_size
+        if create_az is not None:
+            router_data['availability_zone_hints'] = [create_az]
+
+        flavor_data = {'service_type': plugin_const.L3_ROUTER_NAT,
+                       'enabled': True,
+                       'service_profiles': ['profile_id']}
+
+        # Mock the flavors plugin
+        with mock.patch(self.FLAVOR_PLUGIN + '.get_flavor',
+            return_value=flavor_data):
+            with mock.patch(self.FLAVOR_PLUGIN + '.get_service_profile',
+                return_value={'metainfo': metainfo}):
+                self.assertRaises(error_code,
+                    self.plugin.create_router,
+                    context.get_admin_context(),
+                    {'router': router_data})
+
+    def test_router_flavor_size_conflict(self):
+        metainfo = "{'router_size':'large','router_type':'exclusive'}"
+        self._test_router_create_with_flavor_error(
+            metainfo, n_exc.BadRequest,
+            create_size='compact')
+
+    def test_router_flavor_type_conflict(self):
+        metainfo = "{'router_size':'large','router_type':'exclusive'}"
+        self._test_router_create_with_flavor_error(
+            metainfo, n_exc.BadRequest,
+            create_type='shared')
+
+    def test_router_flavor_az_conflict(self):
+        metainfo = ("{'availability_zone_hints':'%s',"
+                    "'distributed':true}" % self.az_name)
+        self._test_router_create_with_flavor_error(
+            metainfo, n_exc.BadRequest,
+            create_az=['az2'])
