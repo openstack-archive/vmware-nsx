@@ -410,6 +410,37 @@ class NSXClient(object):
         for lr in tier0_routers:
             self.cleanup_logical_router_ports(lr)
 
+    def get_logical_dhcp_servers(self):
+        """
+        Retrieve all logical DHCP servers on NSX backend
+        """
+        response = self.get(endpoint="/dhcp/servers")
+        return response.json()['results']
+
+    def get_os_logical_dhcp_servers(self):
+        """
+        Retrieve all logical DHCP servers created from OpenStack
+        """
+        dhcp_servers = self.get_logical_dhcp_servers()
+        return self.get_os_resources(dhcp_servers)
+
+    def cleanup_os_logical_dhcp_servers(self):
+        """
+        Cleanup all logical DHCP servers created from OpenStack plugin
+        """
+        dhcp_servers = self.get_os_logical_dhcp_servers()
+        print("Number of OS Logical DHCP Servers to be deleted: %s" %
+              len(dhcp_servers))
+        for server in dhcp_servers:
+            endpoint = "/dhcp/servers/%s" % server['id']
+            response = self.delete(endpoint=endpoint)
+            if response.status_code == requests.codes.ok:
+                print("Successfully deleted logical DHCP server: %s" %
+                      server['display_name'])
+            else:
+                print("Failed to delete logical DHCP server: %s" %
+                      server['display_name'])
+
     def cleanup_all(self):
         """
         Cleanup steps:
@@ -427,6 +458,7 @@ class NSXClient(object):
         self.cleanup_os_tier0_logical_ports()
         self.cleanup_os_logical_ports()
         self.cleanup_os_logical_switches()
+        self.cleanup_os_logical_dhcp_servers()
         self.cleanup_os_switching_profiles()
 
 
