@@ -244,3 +244,49 @@ class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
                'id': id}
         expected = '%s-%s' % (name[:43], id)
         self.assertEqual(expected, self._plugin._dvs_get_id(net))
+
+    def test_update_dvs_network(self):
+        """Test update of a DVS network
+        """
+        params = {'provider:network_type': 'flat',
+                  'admin_state_up': True,
+                  'name': 'test_net',
+                  'tenant_id': 'fake_tenant',
+                  'shared': False,
+                  'port_security_enabled': False}
+
+        with mock.patch.object(self._plugin._dvs, 'add_port_group'):
+            ctx = context.get_admin_context()
+            # create the initial network
+            network = self._plugin.create_network(ctx, {'network': params})
+            id = network['id']
+
+            # update the different attributes of the DVS network
+
+            # cannot update the provider type
+            self.assertRaises(
+                exp.InvalidInput,
+                self._plugin.update_network,
+                ctx, id,
+                {'network': {'provider:network_type': 'vlan'}})
+
+            # update the Shared attribute
+            self.assertEqual(False, network['shared'])
+            updated_net = self._plugin.update_network(
+                ctx, id,
+                {'network': {'shared': True}})
+            self.assertEqual(True, updated_net['shared'])
+
+            # Update the description attribute
+            self.assertEqual(None, network['description'])
+            updated_net = self._plugin.update_network(
+                ctx, id,
+                {'network': {'description': 'test'}})
+            self.assertEqual('test', updated_net['description'])
+
+            # update the port security attribute
+            self.assertEqual(False, network['port_security_enabled'])
+            updated_net = self._plugin.update_network(
+                ctx, id,
+                {'network': {'port_security_enabled': True}})
+            self.assertEqual(True, updated_net['port_security_enabled'])

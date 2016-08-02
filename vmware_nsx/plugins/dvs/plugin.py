@@ -43,7 +43,6 @@ from neutron_lib import exceptions as n_exc
 import vmware_nsx
 from vmware_nsx._i18n import _, _LE, _LW
 from vmware_nsx.common import config  # noqa
-from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils as c_utils
 from vmware_nsx.db import db as nsx_db
@@ -271,8 +270,18 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                 [self._fields(network, fields) for network in networks])
 
     def update_network(self, context, id, network):
-        raise nsx_exc.NsxPluginException(
-            err_msg=_("Unable to update DVS network"))
+        net_attrs = network['network']
+        pnet._raise_if_updates_provider_attributes(net_attrs)
+
+        with context.session.begin(subtransactions=True):
+            net_res = super(NsxDvsV2, self).update_network(context, id,
+                                                           network)
+            # Process port security extension
+            self._process_network_port_security_update(
+                context, net_attrs, net_res)
+            self._extend_network_dict_provider(context, net_res)
+
+        return net_res
 
     def create_port(self, context, port):
         # If PORTSECURITY is not the default value ATTR_NOT_SPECIFIED
