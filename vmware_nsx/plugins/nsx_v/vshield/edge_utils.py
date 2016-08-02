@@ -2198,9 +2198,7 @@ def _delete_interface(nsxv_manager, context, router_id, network_id,
 def update_nat_rules(nsxv_manager, context, router_id, snat, dnat):
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
     if binding:
-        task = nsxv_manager.update_nat_rules(
-            router_id, binding['edge_id'], snat, dnat)
-        task.wait(task_const.TaskState.RESULT)
+        nsxv_manager.update_nat_rules(binding['edge_id'], snat, dnat)
     else:
         LOG.warning(_LW("Bindings do not exists for %s"), router_id)
 
@@ -2319,6 +2317,3 @@ class NsxVCallbacks(object):
 
     def interface_update_result(self, task):
         LOG.debug("interface_update_result %d", task.status)
-
-    def nat_update_result(self, task):
-        LOG.debug("nat_update_result %d", task.status)
