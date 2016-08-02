@@ -1500,9 +1500,8 @@ class EdgeManager(object):
         plr_vnic_index = nsxv_db.get_edge_vnic_binding(
             context.session, plr_edge_id, lswitch_id).vnic_index
         # Clear static routes before delete internal vnic
-        task = self.nsxv_manager.update_routes(
-            plr_id, plr_edge_id, None, [])
-        task.wait(task_const.TaskState.RESULT)
+        self.nsxv_manager.update_routes(plr_edge_id, None, [])
+
         # Delete internal vnic
         self.nsxv_manager.delete_interface(plr_id, plr_edge_id, plr_vnic_index)
         nsxv_db.free_edge_vnic_by_network(
@@ -1511,9 +1510,8 @@ class EdgeManager(object):
         self.delete_lrouter(context, plr_id)
 
         # Clear static routes of vdr
-        task = self.nsxv_manager.update_routes(
-            router_id, tlr_edge_id, None, [])
-        task.wait(task_const.TaskState.RESULT)
+        self.nsxv_manager.update_routes(tlr_edge_id, None, [])
+
         #First delete the vdr's external interface
         tlr_vnic_index = nsxv_db.get_edge_vnic_binding(
             context.session, tlr_edge_id, lswitch_id).vnic_index
@@ -1875,8 +1873,7 @@ def update_gateway(nsxv_manager, context, router_id, nexthop, routes=None):
     edge_id = binding['edge_id']
     if routes is None:
         routes = []
-    task = nsxv_manager.update_routes(router_id, edge_id, nexthop, routes)
-    task.wait(task_const.TaskState.RESULT)
+    nsxv_manager.update_routes(edge_id, nexthop, routes)
 
 
 def get_routes(edge_manager, context, router_id):
@@ -1908,9 +1905,7 @@ def get_routes(edge_manager, context, router_id):
     return routes
 
 
-def update_routes(edge_manager, context, router_id, routes,
-                  nexthop=None,
-                  gateway_vnic_index=vcns_const.EXTERNAL_VNIC_INDEX):
+def update_routes(edge_manager, context, router_id, routes, nexthop=None):
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
     if not binding:
         LOG.error(_LE('Router binding not found for router %s'), router_id)
@@ -1945,9 +1940,7 @@ def update_routes(edge_manager, context, router_id, routes,
                            'net_id': route['network_id'],
                            'dest': route['destination'],
                            'nexthop': route['nexthop']})
-    task = edge_manager.update_routes(router_id, edge_id, nexthop, edge_routes,
-                                      gateway_vnic_index=gateway_vnic_index)
-    task.wait(task_const.TaskState.RESULT)
+    edge_manager.update_routes(edge_id, nexthop, edge_routes)
 
 
 def get_internal_lswitch_id_of_plr_tlr(context, router_id):
@@ -2315,9 +2308,6 @@ class NsxVCallbacks(object):
 
     def interface_update_result(self, task):
         LOG.debug("interface_update_result %d", task.status)
-
-    def routes_update_result(self, task):
-        LOG.debug("routes_update_result %d", task.status)
 
     def nat_update_result(self, task):
         LOG.debug("nat_update_result %d", task.status)

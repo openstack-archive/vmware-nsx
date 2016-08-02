@@ -364,10 +364,6 @@ class VcnsDriverTestCase(base.BaseTestCase):
         if task.status == ts_const.TaskStatus.COMPLETED:
             task.userdata['jobdata']['nat_update_result'] = True
 
-    def routes_update_result(self, task):
-        if task.status == ts_const.TaskStatus.COMPLETED:
-            task.userdata['jobdata']['routes_update_result'] = True
-
     def interface_update_result(self, task):
         if task.status == ts_const.TaskStatus.COMPLETED:
             task.userdata['jobdata']['interface_update_result'] = True
@@ -460,7 +456,6 @@ class VcnsDriverTestCase(base.BaseTestCase):
 
     def test_update_routes(self):
         self._deploy_edge()
-        jobdata = {}
         routes = [{
             'cidr': '192.168.1.0/24',
             'nexthop': '169.254.2.1'
@@ -472,10 +467,9 @@ class VcnsDriverTestCase(base.BaseTestCase):
             'nexthop': '169.254.2.1'
         }
         ]
-        task = self.vcns_driver.update_routes(
-            'router-id', self.edge_id, '10.0.0.1', routes, jobdata=jobdata)
-        task.wait(ts_const.TaskState.RESULT)
-        self.assertTrue(jobdata.get('routes_update_result'))
+        result = self.vcns_driver.update_routes(
+            self.edge_id, '10.0.0.1', routes)
+        self.assertTrue(result)
 
     def test_update_interface(self):
         self._deploy_edge()
