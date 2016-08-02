@@ -33,6 +33,7 @@ from vmware_nsx.plugins.nsx_v.vshield import (
     nsxv_loadbalancer as nsxv_lb)
 from vmware_nsx.plugins.nsx_v.vshield.common import (
     constants as vcns_const)
+from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 from vmware_nsx.services.lbaas.nsx_v import lbaas_common
 
@@ -284,7 +285,16 @@ class NsxVMetadataProxyHandler(object):
             edge_id = self._get_edge_id_by_rtr_id(rtr_id)
 
         # Read and validate DGW. If different, replace with new value
-        h, routes = self.nsxv_plugin.nsx_v.vcns.get_routes(edge_id)
+        try:
+            # This may fail if the edge was deleted on backend
+            h, routes = self.nsxv_plugin.nsx_v.vcns.get_routes(edge_id)
+        except exceptions.ResourceNotFound as e:
+            # log this error and return without the ip, but don't fail
+            LOG.error(_LE("Failed to get routes for metadata proxy edge "
+                          "%(edge)s: %(err)s"),
+                      {'edge': edge_id, 'err': e})
+            return
+
         dgw = routes.get('defaultRoute', {}).get('gatewayAddress')
 
         if dgw != cfg.CONF.nsxv.mgt_net_default_gateway:
@@ -346,7 +356,14 @@ class NsxVMetadataProxyHandler(object):
                 error = _('Number of metadata members should not change')
                 raise nsxv_exc.NsxPluginException(err_msg=error)
 
-            lb_obj.submit_to_backend(self.nsxv_plugin.nsx_v.vcns, edge_id)
+            try:
+                # This may fail if the edge is powered off right now
+                lb_obj.submit_to_backend(self.nsxv_plugin.nsx_v.vcns, edge_id)
+            except exceptions.RequestBad as e:
+                # log the error and continue
+                LOG.error(_LE("Failed to update load balancer on metadata "
+                              "proxy edge %(edge)s: %(err)s"),
+                          {'edge': edge_id, 'err': e})
 
         edge_ip = self._get_edge_internal_ip(rtr_id)
 
