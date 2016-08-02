@@ -13,14 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+import mock
 from oslo_log import log
-from oslo_serialization import jsonutils
 
 from vmware_nsx.common import nsx_constants
-from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.tests.unit.nsx_v3 import mocks as nsx_v3_mocks
 from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
-from vmware_nsx.tests.unit.nsxlib.v3 import test_client
 
 
 LOG = log.getLogger(__name__)
@@ -46,59 +45,49 @@ class NsxLibSwitchTestCase(nsxlib_testcase.NsxClientTestCase):
         """
         Test creating a switch returns the correct response and 200 status
         """
-        api = self.mocked_rest_fns(nsxlib, 'client')
 
-        nsxlib.create_logical_switch(
-            nsx_v3_mocks.FAKE_NAME, NsxLibSwitchTestCase._tz_id, [])
-
-        test_client.assert_json_call(
-            'post', api,
-            'https://1.2.3.4/api/v1/logical-switches',
-            data=jsonutils.dumps(self._create_body(), sort_keys=True))
+        with mock.patch.object(self.nsxlib.client, 'create') as create:
+            self.nsxlib.create_logical_switch(
+                nsx_v3_mocks.FAKE_NAME, NsxLibSwitchTestCase._tz_id, [])
+            create.assert_called_with('logical-switches', self._create_body())
 
     def test_create_logical_switch_admin_down(self):
         """
         Test creating switch with admin_state down
         """
-        api = self.mocked_rest_fns(nsxlib, 'client')
 
-        nsxlib.create_logical_switch(
-            nsx_v3_mocks.FAKE_NAME, NsxLibSwitchTestCase._tz_id,
-            [], admin_state=False)
+        with mock.patch.object(self.nsxlib.client, 'create') as create:
+            self.nsxlib.create_logical_switch(
+                nsx_v3_mocks.FAKE_NAME, NsxLibSwitchTestCase._tz_id,
+                [], admin_state=False)
 
-        test_client.assert_json_call(
-            'post', api,
-            'https://1.2.3.4/api/v1/logical-switches',
-            data=jsonutils.dumps(self._create_body(
-                admin_state=nsx_constants.ADMIN_STATE_DOWN),
-                sort_keys=True))
+            create.assert_called_with(
+                'logical-switches',
+                self._create_body(
+                    admin_state=nsx_constants.ADMIN_STATE_DOWN))
 
     def test_create_logical_switch_vlan(self):
         """
         Test creating switch with provider:network_type VLAN
         """
-        api = self.mocked_rest_fns(nsxlib, 'client')
 
-        nsxlib.create_logical_switch(
-            nsx_v3_mocks.FAKE_NAME, NsxLibSwitchTestCase._tz_id,
-            [], vlan_id='123')
+        with mock.patch.object(self.nsxlib.client, 'create') as create:
+            self.nsxlib.create_logical_switch(
+                nsx_v3_mocks.FAKE_NAME, NsxLibSwitchTestCase._tz_id,
+                [], vlan_id='123')
 
-        test_client.assert_json_call(
-            'post', api,
-            'https://1.2.3.4/api/v1/logical-switches',
-            data=jsonutils.dumps(self._create_body(vlan_id='123'),
-                                 sort_keys=True))
+            create.assert_called_with(
+                'logical-switches',
+                self._create_body(vlan_id='123'))
 
     def test_delete_logical_switch(self):
         """
         Test deleting switch
         """
-        api = self.mocked_rest_fns(nsxlib, 'client')
 
-        fake_switch = nsx_v3_mocks.make_fake_switch()
-        nsxlib.delete_logical_switch(fake_switch['id'])
-
-        test_client.assert_json_call(
-            'delete', api,
-            'https://1.2.3.4/api/v1/logical-switches/%s'
-            '?detach=true&cascade=true' % fake_switch['id'])
+        with mock.patch.object(self.nsxlib.client, 'delete') as delete:
+            fake_switch = nsx_v3_mocks.make_fake_switch()
+            self.nsxlib.delete_logical_switch(fake_switch['id'])
+            delete.assert_called_with(
+                'logical-switches/%s'
+                '?detach=true&cascade=true' % fake_switch['id'])

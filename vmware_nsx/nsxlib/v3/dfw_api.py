@@ -19,10 +19,10 @@ NSX-V3 Distributed Firewall
 """
 from oslo_log import log
 
-from vmware_nsx._i18n import _, _LW
-from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx._i18n import _LW
 from vmware_nsx.common import utils
 from vmware_nsx.nsxlib.v3 import client as nsxclient
+from vmware_nsx.nsxlib.v3 import exceptions
 
 LOG = log.getLogger(__name__)
 
@@ -72,223 +72,198 @@ IPV6 = 'IPV6'
 IPV4_IPV6 = 'IPV4_IPV6'
 
 
-class NSGroupMemberNotFound(nsx_exc.NsxPluginException):
-    message = _("Could not find NSGroup %(nsgroup_id)s member %(member_id)s "
-                "for removal.")
+class DfwApi(object):
 
+    def get_nsservice(self, resource_type, **properties):
+        service = {'resource_type': resource_type}
+        service.update(properties)
+        return {'service': service}
 
-class NSGroupIsFull(nsx_exc.NsxPluginException):
-    message = _("NSGroup %(nsgroup_id)s contains has reached its maximum "
-                "capacity, unable to add additional members.")
+    def get_nsgroup_port_tag_expression(self, scope, tag):
+        return {'resource_type': NSGROUP_TAG_EXPRESSION,
+                'target_type': LOGICAL_PORT,
+                'scope': scope,
+                'tag': tag}
 
+    def create_nsgroup(self, display_name, description, tags,
+                       membership_criteria=None):
+        body = {'display_name': display_name,
+                'description': description,
+                'tags': tags,
+                'members': []}
+        if membership_criteria:
+            body.update({'membership_criteria': [membership_criteria]})
+        return self.client.create('ns-groups', body)
 
-def get_nsservice(resource_type, **properties):
-    service = {'resource_type': resource_type}
-    service.update(properties)
-    return {'service': service}
+    def list_nsgroups(self):
+        return self.client.get(
+            'ns-groups?populate_references=false').get('results', [])
 
+    @utils.retry_upon_exception_nsxv3(exceptions.StaleRevision)
+    def update_nsgroup(self, nsgroup_id, display_name=None, description=None,
+                       membership_criteria=None, members=None):
+        nsgroup = self.read_nsgroup(nsgroup_id)
+        if display_name is not None:
+            nsgroup['display_name'] = display_name
+        if description is not None:
+            nsgroup['description'] = description
+        if members is not None:
+            nsgroup['members'] = members
+        if membership_criteria is not None:
+            nsgroup['membership_criteria'] = [membership_criteria]
+        return self.client.update(
+            'ns-groups/%s' % nsgroup_id, nsgroup)
 
-def get_nsgroup_port_tag_expression(scope, tag):
-    return {'resource_type': NSGROUP_TAG_EXPRESSION,
-            'target_type': LOGICAL_PORT,
-            'scope': scope,
-            'tag': tag}
+    def get_nsgroup_member_expression(self, target_type, target_id):
+        return {'resource_type': NSGROUP_SIMPLE_EXPRESSION,
+                'target_property': 'id',
+                'target_type': target_type,
+                'op': EQUALS,
+                'value': target_id}
 
+    @utils.retry_upon_exception_nsxv3(exceptions.ManagerError)
+    def _update_nsgroup_with_members(self, nsgroup_id, members, action):
+        members_update = 'ns-groups/%s?action=%s' % (nsgroup_id, action)
+        return self.client.create(members_update, members)
 
-def create_nsgroup(display_name, description, tags, membership_criteria=None):
-    body = {'display_name': display_name,
-            'description': description,
-            'tags': tags,
-            'members': []}
-    if membership_criteria:
-        body.update({'membership_criteria': [membership_criteria]})
-    return nsxclient.create_resource('ns-groups', body)
+    def add_nsgroup_members(self, nsgroup_id, target_type, target_ids):
+        members = []
+        for target_id in target_ids:
+            member_expr = self.get_nsgroup_member_expression(
+                target_type, target_id)
+            members.append(member_expr)
+        members = {'members': members}
+        try:
+            return self._update_nsgroup_with_members(
+                nsgroup_id, members, ADD_MEMBERS)
+        except (exceptions.StaleRevision, exceptions.ResourceNotFound):
+            raise
+        except exceptions.ManagerError:
+            # REVISIT(roeyc): A ManagerError might have been raised for a
+            # different reason, e.g - NSGroup does not exists.
+            LOG.warning(_LW("Failed to add %(target_type)s resources "
+                            "(%(target_ids))s to NSGroup %(nsgroup_id)s"),
+                        {'target_type': target_type,
+                         'target_ids': target_ids,
+                         'nsgroup_id': nsgroup_id})
 
+            raise exceptions.NSGroupIsFull(nsgroup_id=nsgroup_id)
 
-def list_nsgroups():
-    return nsxclient.get_resource(
-        'ns-groups?populate_references=false').get('results', [])
+    def remove_nsgroup_member(self, nsgroup_id, target_type,
+                              target_id, verify=False):
+        member_expr = self.get_nsgroup_member_expression(
+            target_type, target_id)
+        members = {'members': [member_expr]}
+        try:
+            return self._update_nsgroup_with_members(
+                nsgroup_id, members, REMOVE_MEMBERS)
+        except exceptions.ManagerError:
+            if verify:
+                raise exceptions.NSGroupMemberNotFound(member_id=target_id,
+                                                       nsgroup_id=nsgroup_id)
 
+    def read_nsgroup(self, nsgroup_id):
+        return self.client.get(
+            'ns-groups/%s?populate_references=true' % nsgroup_id)
 
-@utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision)
-def update_nsgroup(nsgroup_id, display_name=None, description=None,
-                   membership_criteria=None, members=None):
-    nsgroup = read_nsgroup(nsgroup_id)
-    if display_name is not None:
-        nsgroup['display_name'] = display_name
-    if description is not None:
-        nsgroup['description'] = description
-    if members is not None:
-        nsgroup['members'] = members
-    if membership_criteria is not None:
-        nsgroup['membership_criteria'] = [membership_criteria]
-    return nsxclient.update_resource('ns-groups/%s' % nsgroup_id, nsgroup)
+    def delete_nsgroup(self, nsgroup_id):
+        try:
+            return self.client.delete(
+                'ns-groups/%s?force=true' % nsgroup_id)
+        # FIXME(roeyc): Should only except NotFound error.
+        except Exception:
+            LOG.debug("NSGroup %s does not exists for delete request.",
+                      nsgroup_id)
 
+    def _build_section(self, display_name, description, applied_tos, tags):
+        return {'display_name': display_name,
+                'description': description,
+                'stateful': True,
+                'section_type': LAYER3,
+                'applied_tos': [self.get_nsgroup_reference(t_id)
+                                for t_id in applied_tos],
+                'tags': tags}
 
-def get_nsgroup_member_expression(target_type, target_id):
-    return {'resource_type': NSGROUP_SIMPLE_EXPRESSION,
-            'target_property': 'id',
-            'target_type': target_type,
-            'op': EQUALS,
-            'value': target_id}
+    def create_empty_section(self, display_name, description, applied_tos,
+                             tags, operation=INSERT_BOTTOM,
+                             other_section=None):
+        resource = 'firewall/sections?operation=%s' % operation
+        body = self._build_section(display_name, description,
+                                   applied_tos, tags)
+        if other_section:
+            resource += '&id=%s' % other_section
+        return self.client.create(resource, body)
 
+    @utils.retry_upon_exception_nsxv3(exceptions.StaleRevision)
+    def update_section(self, section_id, display_name=None, description=None,
+                       applied_tos=None, rules=None):
+        resource = 'firewall/sections/%s' % section_id
+        section = self.read_section(section_id)
 
-@utils.retry_upon_exception_nsxv3(nsx_exc.ManagerError)
-def _update_nsgroup_with_members(nsgroup_id, members, action):
-    members_update = 'ns-groups/%s?action=%s' % (nsgroup_id, action)
-    return nsxclient.create_resource(members_update, members)
+        if rules is not None:
+            resource += '?action=update_with_rules'
+            section.update({'rules': rules})
+        if display_name is not None:
+            section['display_name'] = display_name
+        if description is not None:
+            section['description'] = description
+        if applied_tos is not None:
+            section['applied_tos'] = [self.get_nsgroup_reference(nsg_id)
+                                      for nsg_id in applied_tos]
+        if rules is not None:
+            return nsxclient.create_resource(resource, section)
+        elif any(p is not None for p in (display_name, description,
+                                         applied_tos)):
+            return self.client.update(resource, section)
 
+    def read_section(self, section_id):
+        resource = 'firewall/sections/%s' % section_id
+        return self.client.get(resource)
 
-def add_nsgroup_members(nsgroup_id, target_type, target_ids):
-    members = []
-    for target_id in target_ids:
-        member_expr = get_nsgroup_member_expression(target_type, target_id)
-        members.append(member_expr)
-    members = {'members': members}
-    try:
-        return _update_nsgroup_with_members(nsgroup_id, members, ADD_MEMBERS)
-    except (nsx_exc.StaleRevision, nsx_exc.ResourceNotFound):
-        raise
-    except nsx_exc.ManagerError:
-        # REVISIT(roeyc): A ManagerError might have been raised for a
-        # different reason, e.g - NSGroup does not exists.
-        LOG.warning(_LW("Failed to add %(target_type)s resources "
-                        "(%(target_ids))s to NSGroup %(nsgroup_id)s"),
-                    {'target_type': target_type,
-                     'target_ids': target_ids,
-                     'nsgroup_id': nsgroup_id})
-        raise NSGroupIsFull(nsgroup_id=nsgroup_id)
+    def list_sections(self):
+        resource = 'firewall/sections'
+        return self.client.get(resource).get('results', [])
 
+    def delete_section(self, section_id):
+        resource = 'firewall/sections/%s?cascade=true' % section_id
+        return self.client.delete(resource)
 
-def remove_nsgroup_member(nsgroup_id, target_type, target_id, verify=False):
-    member_expr = get_nsgroup_member_expression(target_type, target_id)
-    members = {'members': [member_expr]}
-    try:
-        return _update_nsgroup_with_members(
-            nsgroup_id, members, REMOVE_MEMBERS)
-    except nsx_exc.ManagerError:
-        if verify:
-            raise NSGroupMemberNotFound(member_id=target_id,
-                                        nsgroup_id=nsgroup_id)
+    def get_nsgroup_reference(self, nsgroup_id):
+        return {'target_id': nsgroup_id,
+                'target_type': NSGROUP}
 
+    def get_ip_cidr_reference(self, ip_cidr_block, ip_protocol):
+        target_type = IPV4ADDRESS if ip_protocol == IPV4 else IPV6ADDRESS
+        return {'target_id': ip_cidr_block,
+                'target_type': target_type}
 
-def read_nsgroup(nsgroup_id):
-    return nsxclient.get_resource(
-        'ns-groups/%s?populate_references=true' % nsgroup_id)
+    def get_firewall_rule_dict(self, display_name, source=None,
+                               destination=None,
+                               direction=IN_OUT, ip_protocol=IPV4_IPV6,
+                               service=None, action=ALLOW, logged=False):
+        return {'display_name': display_name,
+                'sources': [source] if source else [],
+                'destinations': [destination] if destination else [],
+                'direction': direction,
+                'ip_protocol': ip_protocol,
+                'services': [service] if service else [],
+                'action': action,
+                'logged': logged}
 
+    def add_rule_in_section(self, rule, section_id):
+        resource = 'firewall/sections/%s/rules' % section_id
+        params = '?operation=insert_bottom'
+        return self.client.create(resource + params, rule)
 
-def delete_nsgroup(nsgroup_id):
-    try:
-        return nsxclient.delete_resource('ns-groups/%s?force=true'
-                                         % nsgroup_id)
-    #FIXME(roeyc): Should only except NotFound error.
-    except Exception:
-        LOG.debug("NSGroup %s does not exists for delete request.",
-                  nsgroup_id)
+    def add_rules_in_section(self, rules, section_id):
+        resource = 'firewall/sections/%s/rules' % section_id
+        params = '?action=create_multiple&operation=insert_bottom'
+        return self.client.create(resource + params, {'rules': rules})
 
+    def delete_rule(self, section_id, rule_id):
+        resource = 'firewall/sections/%s/rules/%s' % (section_id, rule_id)
+        return self.client.delete(resource)
 
-def _build_section(display_name, description, applied_tos, tags):
-    return {'display_name': display_name,
-            'description': description,
-            'stateful': True,
-            'section_type': LAYER3,
-            'applied_tos': [get_nsgroup_reference(t_id)
-                            for t_id in applied_tos],
-            'tags': tags}
-
-
-def create_empty_section(display_name, description, applied_tos, tags,
-                         operation=INSERT_BOTTOM, other_section=None):
-    resource = 'firewall/sections?operation=%s' % operation
-    body = _build_section(display_name, description, applied_tos, tags)
-    if other_section:
-        resource += '&id=%s' % other_section
-    return nsxclient.create_resource(resource, body)
-
-
-@utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision)
-def update_section(section_id, display_name=None, description=None,
-                   applied_tos=None, rules=None):
-    resource = 'firewall/sections/%s' % section_id
-    section = read_section(section_id)
-
-    if rules is not None:
-        resource += '?action=update_with_rules'
-        section.update({'rules': rules})
-    if display_name is not None:
-        section['display_name'] = display_name
-    if description is not None:
-        section['description'] = description
-    if applied_tos is not None:
-        section['applied_tos'] = [get_nsgroup_reference(nsg_id)
-                                  for nsg_id in applied_tos]
-    if rules is not None:
-        return nsxclient.create_resource(resource, section)
-    elif any(p is not None for p in (display_name, description, applied_tos)):
-        return nsxclient.update_resource(resource, section)
-
-
-def read_section(section_id):
-    resource = 'firewall/sections/%s' % section_id
-    return nsxclient.get_resource(resource)
-
-
-def list_sections():
-    resource = 'firewall/sections'
-    return nsxclient.get_resource(resource).get('results', [])
-
-
-def delete_section(section_id):
-    resource = 'firewall/sections/%s?cascade=true' % section_id
-    try:
-        return nsxclient.delete_resource(resource)
-    #FIXME(roeyc): Should only except NotFound error.
-    except Exception:
-        LOG.debug("Firewall section %s does not exists for delete request.",
-                  section_id)
-
-
-def get_nsgroup_reference(nsgroup_id):
-    return {'target_id': nsgroup_id,
-            'target_type': NSGROUP}
-
-
-def get_ip_cidr_reference(ip_cidr_block, ip_protocol):
-    target_type = IPV4ADDRESS if ip_protocol == IPV4 else IPV6ADDRESS
-    return {'target_id': ip_cidr_block,
-            'target_type': target_type}
-
-
-def get_firewall_rule_dict(display_name, source=None, destination=None,
-                           direction=IN_OUT, ip_protocol=IPV4_IPV6,
-                           service=None, action=ALLOW, logged=False):
-    return {'display_name': display_name,
-            'sources': [source] if source else [],
-            'destinations': [destination] if destination else [],
-            'direction': direction,
-            'ip_protocol': ip_protocol,
-            'services': [service] if service else [],
-            'action': action,
-            'logged': logged}
-
-
-def add_rule_in_section(rule, section_id):
-    resource = 'firewall/sections/%s/rules' % section_id
-    params = '?operation=insert_bottom'
-    return nsxclient.create_resource(resource + params, rule)
-
-
-def add_rules_in_section(rules, section_id):
-    resource = 'firewall/sections/%s/rules' % section_id
-    params = '?action=create_multiple&operation=insert_bottom'
-    return nsxclient.create_resource(resource + params, {'rules': rules})
-
-
-def delete_rule(section_id, rule_id):
-    resource = 'firewall/sections/%s/rules/%s' % (section_id, rule_id)
-    return nsxclient.delete_resource(resource)
-
-
-def get_section_rules(section_id):
-    resource = 'firewall/sections/%s/rules' % section_id
-    return nsxclient.get_resource(resource)
+    def get_section_rules(self, section_id):
+        resource = 'firewall/sections/%s/rules' % section_id
+        return self.client.get(resource)

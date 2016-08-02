@@ -29,7 +29,6 @@ from neutron.tests import base
 
 from neutron_lib import exceptions as n_exc
 from vmware_nsx.common import nsx_constants
-from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.services.l2gateway.nsx_v3 import driver as nsx_v3_driver
 from vmware_nsx.tests.unit.nsx_v3 import mocks as nsx_v3_mocks
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_nsx_v3_plugin
@@ -85,8 +84,9 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
                                   "nsx_v3")
             nsx_v3_driver.NsxV3Driver(mock.MagicMock())
             l2gws = self.driver._get_l2_gateways(self.context)
-            def_bridge_cluster_id = nsxlib.get_bridge_cluster_id_by_name_or_id(
-                def_bridge_cluster_name)
+            def_bridge_cluster_id = (
+                self.nsxlib.get_bridge_cluster_id_by_name_or_id(
+                    def_bridge_cluster_name))
             def_l2gw = None
             for l2gw in l2gws:
                 for device in l2gw['devices']:

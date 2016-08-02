@@ -22,10 +22,9 @@ from neutron_lib import exceptions as n_exc
 from oslo_log import log
 
 from vmware_nsx._i18n import _, _LW
-from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils
-from vmware_nsx.nsxlib import v3 as nsxlib
+from vmware_nsx.nsxlib.v3 import exceptions
 
 LOG = log.getLogger(__name__)
 
@@ -41,15 +40,16 @@ GW_NAT_PRI = 1000
 
 class RouterLib(object):
 
-    def __init__(self, router_client, router_port_client):
+    def __init__(self, router_client, router_port_client, nsxlib):
         self._router_client = router_client
         self._router_port_client = router_port_client
+        self.nsxlib = nsxlib
 
     def validate_tier0(self, tier0_groups_dict, tier0_uuid):
         err_msg = None
         try:
             lrouter = self._router_client.get(tier0_uuid)
-        except nsx_exc.ResourceNotFound:
+        except exceptions.ResourceNotFound:
             err_msg = (_("Tier0 router %s not found at the backend. Either a "
                          "valid UUID must be specified or a default tier0 "
                          "router UUID must be configured in nsx.ini") %
@@ -60,7 +60,7 @@ class RouterLib(object):
                 err_msg = _("Failed to get edge cluster uuid from tier0 "
                             "router %s at the backend") % lrouter
             else:
-                edge_cluster = nsxlib.get_edge_cluster(edge_cluster_uuid)
+                edge_cluster = self.nsxlib.get_edge_cluster(edge_cluster_uuid)
                 member_index_list = [member['member_index']
                                      for member in edge_cluster['members']]
                 if len(member_index_list) < MIN_EDGE_NODE_NUM:
@@ -101,7 +101,7 @@ class RouterLib(object):
         try:
             tier1_link_port = (
                 self._router_port_client.get_tier1_link_port(tier1_uuid))
-        except nsx_exc.ResourceNotFound:
+        except exceptions.ResourceNotFound:
             LOG.warning(_LW("Logical router link port for tier1 router: %s "
                             "not found at the backend"), tier1_uuid)
             return
@@ -113,20 +113,20 @@ class RouterLib(object):
 
     def update_advertisement(self, logical_router_id, advertise_route_nat,
                              advertise_route_connected, enabled=True):
-        return nsxlib.update_logical_router_advertisement(
+        return self.nsxlib.update_logical_router_advertisement(
             logical_router_id,
             advertise_nat_routes=advertise_route_nat,
             advertise_nsx_connected_routes=advertise_route_connected,
             enabled=enabled)
 
     def delete_gw_snat_rule(self, logical_router_id, gw_ip):
-        return nsxlib.delete_nat_rule_by_values(logical_router_id,
-                                                translated_network=gw_ip)
+        return self.nsxlib.delete_nat_rule_by_values(logical_router_id,
+                                                     translated_network=gw_ip)
 
     def add_gw_snat_rule(self, logical_router_id, gw_ip):
-        return nsxlib.add_nat_rule(logical_router_id, action="SNAT",
-                                   translated_network=gw_ip,
-                                   rule_priority=GW_NAT_PRI)
+        return self.nsxlib.add_nat_rule(logical_router_id, action="SNAT",
+                                        translated_network=gw_ip,
+                                        rule_priority=GW_NAT_PRI)
 
     def update_router_edge_cluster(self, nsx_router_id, edge_cluster_uuid):
         return self._router_client.update(nsx_router_id,
@@ -140,7 +140,7 @@ class RouterLib(object):
                                                  address_groups):
         try:
             port = self._router_port_client.get_by_lswitch_id(ls_id)
-        except nsx_exc.ResourceNotFound:
+        except exceptions.ResourceNotFound:
             return self._router_port_client.create(
                 logical_router_id,
                 display_name,
@@ -153,30 +153,31 @@ class RouterLib(object):
                 port['id'], subnets=address_groups)
 
     def add_fip_nat_rules(self, logical_router_id, ext_ip, int_ip):
-        nsxlib.add_nat_rule(logical_router_id, action="SNAT",
-                            translated_network=ext_ip,
-                            source_net=int_ip,
-                            rule_priority=FIP_NAT_PRI)
-        nsxlib.add_nat_rule(logical_router_id, action="DNAT",
-                            translated_network=int_ip,
-                            dest_net=ext_ip,
-                            rule_priority=FIP_NAT_PRI)
+        self.nsxlib.add_nat_rule(logical_router_id, action="SNAT",
+                                 translated_network=ext_ip,
+                                 source_net=int_ip,
+                                 rule_priority=FIP_NAT_PRI)
+        self.nsxlib.add_nat_rule(logical_router_id, action="DNAT",
+                                 translated_network=int_ip,
+                                 dest_net=ext_ip,
+                                 rule_priority=FIP_NAT_PRI)
 
     def delete_fip_nat_rules(self, logical_router_id, ext_ip, int_ip):
-        nsxlib.delete_nat_rule_by_values(logical_router_id,
-                                         action="SNAT",
-                                         translated_network=ext_ip,
-                                         match_source_network=int_ip)
-        nsxlib.delete_nat_rule_by_values(logical_router_id,
-                                         action="DNAT",
-                                         translated_network=int_ip,
-                                         match_destination_network=ext_ip)
+        self.nsxlib.delete_nat_rule_by_values(logical_router_id,
+                                              action="SNAT",
+                                              translated_network=ext_ip,
+                                              match_source_network=int_ip)
+        self.nsxlib.delete_nat_rule_by_values(logical_router_id,
+                                              action="DNAT",
+                                              translated_network=int_ip,
+                                              match_destination_network=ext_ip)
 
     def add_static_routes(self, nsx_router_id, route):
-        return nsxlib.add_static_route(nsx_router_id, route['destination'],
-                                       route['nexthop'])
+        return self.nsxlib.add_static_route(nsx_router_id,
+                                            route['destination'],
+                                            route['nexthop'])
 
     def delete_static_routes(self, nsx_router_id, route):
-        return nsxlib.delete_static_route_by_values(
+        return self.nsxlib.delete_static_route_by_values(
             nsx_router_id, dest_cidr=route['destination'],
             nexthop=route['nexthop'])

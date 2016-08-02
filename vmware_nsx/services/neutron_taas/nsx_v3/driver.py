@@ -30,6 +30,7 @@ from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.nsxlib import v3 as nsxlib
+from vmware_nsx.nsxlib.v3 import exceptions as nsxlib_exc
 from vmware_nsx.nsxlib.v3 import resources as nsx_resources
 
 LOG = logging.getLogger(__name__)
@@ -219,7 +220,7 @@ class NsxV3Driver(base_driver.TaasBaseDriver,
                                        direction=direction,
                                        destinations=destinations,
                                        tags=tags))
-        except nsx_exc.ManagerError:
+        except nsxlib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE("Unable to create port mirror switch profile "
                               "for tap flow %s on NSX backend, rolling back "
@@ -245,7 +246,7 @@ class NsxV3Driver(base_driver.TaasBaseDriver,
             self._update_port_at_backend(context=context, port_id=src_port_id,
                                          switching_profile=port_mirror_profile,
                                          delete_profile=False)
-        except nsx_exc.ManagerError:
+        except nsxlib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE("Unable to update source port %(port)s with "
                               "switching profile %(profile) for tap flow "
@@ -272,14 +273,14 @@ class NsxV3Driver(base_driver.TaasBaseDriver,
             context._plugin_context.session, dest_port_id)
         # Create port mirror session on the backend
         try:
-            pm_session = nsxlib.create_port_mirror_session(
+            pm_session = nsxlib.NsxLib().create_port_mirror_session(
                 source_ports=nsx_src_ports,
                 dest_ports=nsx_dest_ports,
                 direction=direction,
                 description=tf.get('description'),
                 name=tf.get('name'),
                 tags=tags)
-        except nsx_exc.ManagerError:
+        except nsxlib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE("Unable to create port mirror session %s "
                               "on NSX backend, rolling back "
@@ -298,7 +299,7 @@ class NsxV3Driver(base_driver.TaasBaseDriver,
                 LOG.error(_LE("Unable to create port mirror session db "
                               "mappings for tap flow %s. Rolling back "
                               "changes in Neutron."), tf['id'])
-                nsxlib.delete_port_mirror_session(pm_session['id'])
+                nsxlib.NsxLib().delete_port_mirror_session(pm_session['id'])
 
     def delete_tap_flow_precommit(self, context):
         pass
@@ -343,7 +344,7 @@ class NsxV3Driver(base_driver.TaasBaseDriver,
             self._update_port_at_backend(context=context, port_id=src_port_id,
                                          switching_profile=port_mirror_profile,
                                          delete_profile=True)
-        except nsx_exc.ManagerError:
+        except nsxlib_exc.ManagerError:
             LOG.error(_LE("Unable to update source port %(port)s "
                           "to delete port mirror profile %(pm)s on NSX "
                           "backend."),
@@ -352,7 +353,7 @@ class NsxV3Driver(base_driver.TaasBaseDriver,
         try:
             # Delete port mirroring switching profile
             self._nsx_plugin._switching_profiles.delete(uuid=pm_profile_id)
-        except nsx_exc.ManagerError:
+        except nsxlib_exc.ManagerError:
             LOG.error(_LE("Unable to delete port mirror switching profile "
                           "%s on NSX backend."), pm_profile_id)
 
@@ -360,7 +361,7 @@ class NsxV3Driver(base_driver.TaasBaseDriver,
         # Delete port mirroring session on the backend
         try:
             nsxlib.delete_port_mirror_session(pm_session_id)
-        except nsx_exc.ManagerError:
+        except nsxlib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE("Unable to delete port mirror session %s "
                               "on NSX backend."), pm_session_id)

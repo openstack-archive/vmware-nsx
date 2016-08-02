@@ -244,8 +244,8 @@ class ProviderSecurityGroupExtTestCase(
                 self.assertEqual([sg_id], port['port']['security_groups'])
 
 
-class TestNSXv3ProviderSecurityGrp(test_nsxv3_plugin.NsxV3PluginTestCaseMixin,
-                                   ProviderSecurityGroupExtTestCase):
+class TestNSXv3ProviderSecurityGrp(ProviderSecurityGroupExtTestCase,
+                                   test_nsxv3_plugin.NsxV3PluginTestCaseMixin):
     pass
 
 

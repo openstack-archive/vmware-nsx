@@ -42,7 +42,6 @@ from neutron import version
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
-from oslo_serialization import jsonutils
 from oslo_utils import uuidutils
 
 from vmware_nsx.common import exceptions as nsx_exc
@@ -50,8 +49,6 @@ from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.extensions import advancedserviceproviders as as_providers
-from vmware_nsx.nsxlib.v3 import client as nsx_client
-from vmware_nsx.nsxlib.v3 import cluster as nsx_cluster
 from vmware_nsx.nsxlib.v3 import resources as nsx_resources
 from vmware_nsx.plugins.nsx_v3 import plugin as nsx_plugin
 from vmware_nsx.tests import unit as vmware
@@ -63,6 +60,84 @@ from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
 PLUGIN_NAME = 'vmware_nsx.plugin.NsxV3Plugin'
 
 
+def _mock_create_firewall_rules(*args):
+    # NOTE(arosen): the code in the neutron plugin expects the
+    # neutron rule id as the display_name.
+    rules = args[5]
+    return {
+        'rules': [
+            {'display_name': rule['id'], 'id': uuidutils.generate_uuid()}
+            for rule in rules
+        ]}
+
+
+def _mock_nsx_backend_calls():
+    mock.patch("vmware_nsx.nsxlib.v3.client.NSX3Client").start()
+
+    class FakeProfile(object):
+        profile_id = uuidutils.generate_uuid()
+        profile_type = 'FakeProfile'
+
+    def _init_nsx_profiles():
+        return (
+            FakeProfile(),  # _psec_profile
+            FakeProfile(),  # _no_psec_profile_id
+            FakeProfile(),  # _dhcp_profile
+            FakeProfile(),  # _mac_learning_profile
+        )
+
+    def _return_id_key(*args, **kwargs):
+        return {'id': uuidutils.generate_uuid()}
+
+    def _return_id(*args, **kwargs):
+        return uuidutils.generate_uuid()
+
+    mock.patch(
+        "vmware_nsx.plugins.nsx_v3.plugin.NsxV3Plugin._init_nsx_profiles",
+        side_effect=_init_nsx_profiles).start()
+
+    mock.patch(
+        "vmware_nsx.plugins.nsx_v3.plugin.NsxV3Plugin"
+        "._get_port_security_profile_id", return_value=FakeProfile()
+    ).start()
+
+    mock.patch(
+        "vmware_nsx.nsxlib.v3.router.RouterLib.validate_tier0").start()
+
+    mock.patch(
+        "vmware_nsx.nsxlib.v3.resources.SwitchingProfile."
+        "create_port_mirror_profile",
+        side_effect=_return_id_key).start()
+
+    mock.patch(
+        "vmware_nsx.nsxlib.v3.NsxLib.get_bridge_cluster_id_by_name_or_id",
+        return_value=uuidutils.generate_uuid()).start()
+
+    mock.patch(
+        "vmware_nsx.nsxlib.v3.NsxLib.create_bridge_endpoint",
+        side_effect=_return_id_key).start()
+
+    mock.patch(
+        "vmware_nsx.nsxlib.v3.NsxLib.create_logical_switch",
+        side_effect=_return_id_key).start()
+
+    mock.patch(
+        "vmware_nsx.nsxlib.v3.resources.LogicalPort.create",
+        side_effect=_return_id_key).start()
+
+    mock.patch(
+        "vmware_nsx.nsxlib.v3.resources.LogicalRouter.create",
+        side_effect=_return_id_key).start()
+
+    mock.patch(
+        "vmware_nsx.nsxlib.v3.resources.LogicalDhcpServer.create",
+        side_effect=_return_id_key).start()
+
+    mock.patch(
+        "vmware_nsx.nsxlib.v3.resources.LogicalDhcpServer.create_binding",
+        side_effect=_return_id_key).start()
+
+
 class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
                                nsxlib_testcase.NsxClientTestCase):
 
@@ -72,83 +147,8 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
 
         self._patchers = []
 
-        self.mock_api = nsx_v3_mocks.MockRequestSessionApi()
+        _mock_nsx_backend_calls()
         nsxlib_testcase.NsxClientTestCase.setup_conf_overrides()
-        self.cluster = nsx_cluster.NSXClusteredAPI(
-            http_provider=nsxlib_testcase.MemoryMockAPIProvider(self.mock_api))
-
-        def _patch_object(*args, **kwargs):
-            patcher = mock.patch.object(*args, **kwargs)
-            patcher.start()
-            self._patchers.append(patcher)
-
-        def _new_cluster(*args, **kwargs):
-            return self.cluster
-
-        self.mocked_rest_fns(
-            nsx_plugin.security.firewall, 'nsxclient',
-            mock_cluster=self.cluster)
-        self.mocked_rest_fns(
-            nsx_plugin.router.nsxlib, 'client', mock_cluster=self.cluster)
-
-        mock_client_module = mock.Mock()
-        mock_cluster_module = mock.Mock()
-        mocked_client = self.new_mocked_client(
-            nsx_client.NSX3Client, mock_cluster=self.cluster)
-        mock_cluster_module.NSXClusteredAPI.return_value = self.cluster
-        mock_client_module.NSX3Client.return_value = mocked_client
-        _patch_object(nsx_plugin, 'nsx_client', new=mock_client_module)
-        _patch_object(nsx_plugin, 'nsx_cluster', new=mock_cluster_module)
-        self._mock_client_module = mock_client_module
-        self._mock_cluster_module = mock_cluster_module
-
-        # Mock the nsx v3 version
-        mock_nsxlib_get_version = mock.patch(
-            "vmware_nsx.nsxlib.v3.get_version",
-            return_value='1.1.0')
-        mock_nsxlib_get_version.start()
-
-        # populate pre-existing mock resources
-        cluster_id = uuidutils.generate_uuid()
-        self.mock_api.post(
-            'api/v1/logical-routers',
-            data=jsonutils.dumps({
-                'display_name': nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID,
-                'router_type': "TIER0",
-                'id': nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID,
-                'edge_cluster_id': cluster_id}),
-            headers=nsx_client.JSONRESTClient._DEFAULT_HEADERS)
-
-        self.mock_api.post(
-            'api/v1/edge-clusters',
-            data=jsonutils.dumps({
-                'id': cluster_id,
-                'members': [
-                    {'member_index': 0},
-                    {'member_index': 1}
-                ]}),
-            headers=nsx_client.JSONRESTClient._DEFAULT_HEADERS)
-
-        self.mock_api.post(
-                'api/v1/switching-profiles',
-                data=jsonutils.dumps({
-                    'id': uuidutils.generate_uuid(),
-                    'display_name': nsx_plugin.NSX_V3_NO_PSEC_PROFILE_NAME
-                }), headers=nsx_client.JSONRESTClient._DEFAULT_HEADERS)
-
-        self.mock_api.post(
-                'api/v1/transport-zones',
-                data=jsonutils.dumps({
-                    'id': uuidutils.generate_uuid(),
-                    'display_name': nsxlib_testcase.NSX_TZ_NAME
-                }), headers=nsx_client.JSONRESTClient._DEFAULT_HEADERS)
-
-        self.mock_api.post(
-                'api/v1/bridge-clusters',
-                data=jsonutils.dumps({
-                    'id': uuidutils.generate_uuid(),
-                    'display_name': nsx_v3_mocks.NSX_BRIDGE_CLUSTER_NAME
-                }), headers=nsx_client.JSONRESTClient._DEFAULT_HEADERS)
 
         super(NsxV3PluginTestCaseMixin, self).setUp(plugin=plugin,
                                                     ext_mgr=ext_mgr)
@@ -646,8 +646,8 @@ class TestL3NatTestCase(L3NatTest,
         self.skipTest('not supported')
 
 
-class ExtGwModeTestCase(L3NatTest,
-                        test_ext_gw_mode.ExtGwModeIntTestCase):
+class ExtGwModeTestCase(test_ext_gw_mode.ExtGwModeIntTestCase,
+                        L3NatTest):
     def test_router_gateway_set_fail_after_port_create(self):
         self.skipTest("TBD")
 
@@ -869,8 +869,10 @@ class NsxNativeDhcpTestCase(NsxV3PluginTestCaseMixin):
     def _verify_dhcp_binding(self, subnet, port_data, update_data,
                              assert_data):
         # Verify if DHCP binding is updated.
-        with mock.patch.object(nsx_resources.LogicalDhcpServer,
-                               'update_binding') as update_dhcp_binding:
+
+        with mock.patch(
+            'vmware_nsx.nsxlib.v3.resources.LogicalDhcpServer.update_binding'
+        ) as update_dhcp_binding:
             device_owner = constants.DEVICE_OWNER_COMPUTE_PREFIX + 'None'
             device_id = uuidutils.generate_uuid()
             with self.port(subnet=subnet, device_owner=device_owner,

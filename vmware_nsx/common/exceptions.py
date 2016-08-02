@@ -83,11 +83,6 @@ class ServiceOverQuota(n_exc.Conflict):
     message = _("Quota exceeded for NSX resource %(overs)s: %(err_msg)s")
 
 
-class ServiceClusterUnavailable(NsxPluginException):
-    message = _("Service cluster: '%(cluster_id)s' is unavailable. Please, "
-                "check NSX setup and/or configuration")
-
-
 class PortConfigurationError(NsxPluginException):
     message = _("An error occurred while connecting LSN %(lsn_id)s "
                 "and network %(net_id)s via port %(port_id)s")
@@ -127,27 +122,6 @@ class NoRouterAvailable(n_exc.ResourceExhausted):
                 "No tenant router is available for allocation.")
 
 
-class ManagerError(NsxPluginException):
-    message = _("Unexpected error from backend manager (%(manager)s) "
-                "for %(operation)s %(details)s")
-
-    def __init__(self, **kwargs):
-        kwargs['details'] = (': %s' % kwargs['details']
-                             if 'details' in kwargs
-                             else '')
-        super(ManagerError, self).__init__(**kwargs)
-        self.msg = self.message % kwargs
-
-
-class ResourceNotFound(ManagerError):
-    message = _("Resource could not be found on backend (%(manager)s) for "
-                "%(operation)s")
-
-
-class StaleRevision(ManagerError):
-    pass
-
-
 class NsxL2GWConnectionMappingNotFound(n_exc.NotFound):
     message = _('Unable to find mapping for L2 gateway connection: %(conn)s')
 
@@ -165,8 +139,7 @@ class InvalidIPAddress(n_exc.InvalidInput):
 
 
 class SecurityGroupMaximumCapacityReached(NsxPluginException):
-    message = _("Security Group %(sg_id)s has reached its maximum capacity, "
-                "no more ports can be associated with this security-group.")
+    pass
 
 
 class NsxResourceNotFound(n_exc.NotFound):

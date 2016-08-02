@@ -35,8 +35,9 @@ from oslo_service import loopingcall
 from requests import adapters
 from requests import exceptions as requests_exceptions
 from vmware_nsx._i18n import _, _LI, _LW
-from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.nsxlib.v3 import client as nsx_client
+from vmware_nsx.nsxlib.v3 import exceptions
+
 
 LOG = log.getLogger(__name__)
 
@@ -117,7 +118,7 @@ class NSXRequestsHTTPProvider(AbstractHTTPProvider):
             msg = _("No transport zones found "
                     "for '%s'") % endpoint.provider.url
             LOG.warning(msg)
-            raise nsx_exc.ResourceNotFound(
+            raise exceptions.ResourceNotFound(
                 manager=endpoint.provider.url, operation=msg)
 
     def new_connection(self, cluster_api, provider):
@@ -392,7 +393,7 @@ class ClusteredAPI(object):
                       [str(ep) for ep in self._endpoints.values()])
             # all endpoints are DOWN and will have their next
             # state updated as per _endpoint_keepalive()
-            raise nsx_exc.ServiceClusterUnavailable(
+            raise exceptions.ServiceClusterUnavailable(
                 cluster_id=self.cluster_id)
 
         if endpoint.pool.free() == 0:

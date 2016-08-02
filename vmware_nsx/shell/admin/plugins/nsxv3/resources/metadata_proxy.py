@@ -20,8 +20,6 @@ from oslo_config import cfg
 from vmware_nsx._i18n import _LI, _LE
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils as nsx_utils
-from vmware_nsx.nsxlib.v3 import client
-from vmware_nsx.nsxlib.v3 import cluster
 from vmware_nsx.nsxlib.v3 import resources
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
@@ -36,9 +34,7 @@ neutron_client = utils.NeutronDbClient()
 def nsx_update_metadata_proxy(resource, event, trigger, **kwargs):
     """Update Metadata proxy for NSXv3 CrossHairs."""
 
-    cluster_api = cluster.NSXClusteredAPI()
-    nsx_client = client.NSX3Client(cluster_api)
-    client._set_default_api_cluster(cluster_api)
+    nsx_client = utils.get_nsxv3_client()
     port_resource = resources.LogicalPort(nsx_client)
 
     for network in neutron_client.get_networks():

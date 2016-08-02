@@ -20,12 +20,12 @@ from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
 from vmware_nsx._i18n import _, _LW
-from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.nsxlib.v3 import exceptions
 
 LOG = log.getLogger(__name__)
 
-ERRORS = {requests.codes.NOT_FOUND: nsx_exc.ResourceNotFound,
-          requests.codes.PRECONDITION_FAILED: nsx_exc.StaleRevision}
+ERRORS = {requests.codes.NOT_FOUND: exceptions.ResourceNotFound,
+          requests.codes.PRECONDITION_FAILED: exceptions.StaleRevision}
 
 
 class RESTClient(object):
@@ -63,8 +63,8 @@ class RESTClient(object):
     def update(self, uuid, body=None, headers=None):
         return self.url_put(uuid, body, headers=headers)
 
-    def create(self, body=None, headers=None):
-        return self.url_post('', body, headers=headers)
+    def create(self, resource='', body=None, headers=None):
+        return self.url_post(resource, body, headers=headers)
 
     def url_list(self, url, headers=None):
         return self.url_get(url, headers=headers)
@@ -93,7 +93,7 @@ class RESTClient(object):
                          'body': result_msg})
 
             manager_error = ERRORS.get(
-                result.status_code, nsx_exc.ManagerError)
+                result.status_code, exceptions.ManagerError)
             if isinstance(result_msg, dict):
                 result_msg = result_msg.get('error_message', result_msg)
             raise manager_error(

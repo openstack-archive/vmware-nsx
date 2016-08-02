@@ -18,8 +18,10 @@ import mock
 import unittest
 
 from oslo_config import cfg
+from oslo_utils import uuidutils
 from requests import exceptions as requests_exceptions
 
+from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.nsxlib.v3 import client as nsx_client
 from vmware_nsx.nsxlib.v3 import cluster as nsx_cluster
 
@@ -37,6 +39,54 @@ NSX_METADATA_PROXY_ID = 'default metadata proxy'
 V3_CLIENT_PKG = 'vmware_nsx.nsxlib.v3.client'
 BRIDGE_FNS = ['create_resource', 'delete_resource',
               'update_resource', 'get_resource']
+
+
+def _mock_nsxlib():
+    def _return_id_key(*args, **kwargs):
+        return {'id': uuidutils.generate_uuid()}
+
+    # FIXME(arosen): this is duplicated in test_plugin
+    def _mock_create_firewall_rules(*args):
+        # NOTE(arosen): the code in the neutron plugin expects the
+        # neutron rule id as the display_name.
+        rules = args[5]
+        return {
+            'rules': [
+                {'display_name': rule['id'], 'id': uuidutils.generate_uuid()}
+                for rule in rules
+            ]}
+
+    mock.patch(
+        "vmware_nsx.nsxlib.v3.cluster.NSXRequestsHTTPProvider"
+        ".validate_connection").start()
+
+    mock.patch(
+        "vmware_nsx.nsxlib.v3.NsxLib.create_nsgroup",
+        side_effect=_return_id_key
+    ).start()
+
+    mock.patch(
+        "vmware_nsx.nsxlib.v3.NsxLib.create_empty_section",
+        side_effect=_return_id_key).start()
+
+    mock.patch(
+        "vmware_nsx.nsxlib.v3.NsxLib._init_default_section",
+        side_effect=_return_id_key).start()
+
+    mock.patch(
+        "vmware_nsx.nsxlib.v3.NsxLib.list_nsgroups").start()
+
+    mock.patch(
+        "vmware_nsx.nsxlib.v3.NsxLib.create_firewall_rules",
+        side_effect=_mock_create_firewall_rules).start()
+
+    mock.patch(
+        "vmware_nsx.nsxlib.v3.NsxLib.get_transport_zone_id_by_name_or_id",
+        side_effect=_return_id_key).start()
+
+    mock.patch(
+        "vmware_nsx.nsxlib.v3.NsxLib.get_version",
+        return_value='1.1.0').start()
 
 
 class NsxLibTestCase(unittest.TestCase):
@@ -57,12 +107,27 @@ class NsxLibTestCase(unittest.TestCase):
         cfg.CONF.set_override('http_timeout', NSX_HTTP_TIMEOUT, 'nsx_v3')
         cfg.CONF.set_override('http_read_timeout',
                               NSX_HTTP_READ_TIMEOUT, 'nsx_v3')
-        cfg.CONF.set_override('network_scheduler_driver',
+        cfg.CONF.set_override(
+            'network_scheduler_driver',
             'neutron.scheduler.dhcp_agent_scheduler.AZAwareWeightScheduler')
 
     def setUp(self, *args, **kwargs):
         super(NsxLibTestCase, self).setUp()
         NsxClientTestCase.setup_conf_overrides()
+        _mock_nsxlib()
+
+        self.nsxlib = nsxlib.NsxLib(
+            username=cfg.CONF.nsx_v3.nsx_api_user,
+            password=cfg.CONF.nsx_v3.nsx_api_password,
+            retries=cfg.CONF.nsx_v3.http_retries,
+            insecure=cfg.CONF.nsx_v3.insecure,
+            ca_file=cfg.CONF.nsx_v3.ca_file,
+            concurrent_connections=cfg.CONF.nsx_v3.concurrent_connections,
+            http_timeout=cfg.CONF.nsx_v3.http_timeout,
+            http_read_timeout=cfg.CONF.nsx_v3.http_read_timeout,
+            conn_idle_timeout=cfg.CONF.nsx_v3.conn_idle_timeout,
+            http_provider=None,
+            max_attempts=cfg.CONF.nsx_v3.retries)
 
         # print diffs when assert comparisons fail
         self.maxDiff = None
@@ -254,9 +319,10 @@ class NsxClientTestCase(NsxLibTestCase):
         return client
 
     def mocked_rest_fns(self, module, attr, mock_validate=True,
-                        mock_cluster=None):
-        client = nsx_client.NSX3Client(
-            mock_cluster or self.mock_nsx_clustered_api())
+                        mock_cluster=None, client=None):
+        if client is None:
+            client = nsx_client.NSX3Client(
+                mock_cluster or self.mock_nsx_clustered_api())
         mocked_fns = NsxClientTestCase.MockBridge(client)
         mocked_fns.JSONRESTClient = nsx_client.JSONRESTClient
 

@@ -31,7 +31,6 @@ from vmware_nsx.shell.admin.plugins.nsxv3.resources import ports
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils as v3_utils
 from vmware_nsx.shell import resources as shell
 from vmware_nsx._i18n import _LE, _LW
-from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.nsxlib.v3 import dfw_api as firewall
 from vmware_nsx.nsxlib.v3 import security
 
@@ -107,6 +106,7 @@ class NeutronSecurityGroupApi(securitygroups_db.SecurityGroupDbMixin,
 
 neutron_sg = NeutronSecurityGroupApi()
 neutron_db = v3_utils.NeutronDbClient()
+nsxlib = v3_utils.get_connected_nsxlib()
 
 
 def _log_info(resource, data, attrs=['display_name', 'id']):
@@ -126,7 +126,7 @@ def list_security_groups_mappings(resource, event, trigger, **kwargs):
 @admin_utils.list_handler(constants.FIREWALL_SECTIONS)
 @admin_utils.output_header
 def nsx_list_dfw_sections(resource, event, trigger, **kwargs):
-    fw_sections = firewall.list_sections()
+    fw_sections = nsxlib.list_sections()
     _log_info(constants.FIREWALL_SECTIONS, fw_sections)
     return bool(fw_sections)
 
@@ -134,13 +134,13 @@ def nsx_list_dfw_sections(resource, event, trigger, **kwargs):
 @admin_utils.list_handler(constants.FIREWALL_NSX_GROUPS)
 @admin_utils.output_header
 def nsx_list_security_groups(resource, event, trigger, **kwargs):
-    nsx_secgroups = firewall.list_nsgroups()
+    nsx_secgroups = nsxlib.list_nsgroups()
     _log_info(constants.FIREWALL_NSX_GROUPS, nsx_secgroups)
     return bool(nsx_secgroups)
 
 
 def _find_missing_security_groups():
-    nsx_secgroups = firewall.list_nsgroups()
+    nsx_secgroups = nsxlib.list_nsgroups()
     sg_mappings = neutron_sg.get_security_groups_mappings()
     missing_secgroups = {}
     for sg_db in sg_mappings:
@@ -169,7 +169,7 @@ def list_missing_security_groups(resource, event, trigger, **kwargs):
 
 
 def _find_missing_sections():
-    fw_sections = firewall.list_sections()
+    fw_sections = nsxlib.list_sections()
     sg_mappings = neutron_sg.get_security_groups_mappings()
     missing_sections = {}
     for sg_db in sg_mappings:
@@ -204,13 +204,13 @@ def fix_security_groups(resource, event, trigger, **kwargs):
 
     for sg_id, sg in inconsistent_secgroups.items():
         secgroup = plugin.get_security_group(context_, sg_id)
-        firewall.delete_section(sg['section-id'])
-        firewall.delete_nsgroup(sg['nsx-securitygroup-id'])
+        nsxlib.delete_section(sg['section-id'])
+        nsxlib.delete_nsgroup(sg['nsx-securitygroup-id'])
         neutron_sg.delete_security_group_section_mapping(sg_id)
         neutron_sg.delete_security_group_backend_mapping(sg_id)
         nsgroup, fw_section = (
             plugin._create_security_group_backend_resources(secgroup))
-        security.save_sg_mappings(
+        nsxlib.save_sg_mappings(
             context_.session, sg_id, nsgroup['id'], fw_section['id'])
         # If version > 1.1 then we use dynamic criteria tags, and the port
         # should already have them.
@@ -219,7 +219,7 @@ def fix_security_groups(resource, event, trigger, **kwargs):
             for port_id in neutron_db.get_ports_in_security_group(sg_id):
                 lport_id = neutron_db.get_logical_port_id(port_id)
                 members.append(lport_id)
-            firewall.add_nsgroup_members(
+            nsxlib.add_nsgroup_members(
                 nsgroup['id'], firewall.LOGICAL_PORT, members)
 
         for rule in secgroup['security_group_rules']:
@@ -231,11 +231,11 @@ def fix_security_groups(resource, event, trigger, **kwargs):
         action = (firewall.DROP
                   if secgroup.get(provider_sg.PROVIDER)
                   else firewall.ALLOW)
-        rules = security.create_firewall_rules(
+        rules = nsxlib.create_firewall_rules(
             context_, fw_section['id'], nsgroup['id'],
             secgroup.get(sg_logging.LOGGING, False), action,
             secgroup['security_group_rules'])
-        security.save_sg_rule_mappings(context_.session, rules['rules'])
+        nsxlib.save_sg_rule_mappings(context_.session, rules['rules'])
         # Add nsgroup to a nested group
         plugin.nsgroup_manager.add_nsgroup(nsgroup['id'])
 
@@ -250,7 +250,7 @@ def _update_ports_dynamic_criteria_tags():
 
         _, lport_id = neutron_db.get_lswitch_and_lport_id(port['id'])
         lport = port_client.get(lport_id)
-        criteria_tags = security.get_lport_tags_for_security_groups(secgroups)
+        criteria_tags = nsxlib.get_lport_tags_for_security_groups(secgroups)
         lport['tags'] = utils.update_v3_tags(
             lport.get('tags', []), criteria_tags)
         port_client._client.update(lport_id, body=lport)
@@ -260,14 +260,14 @@ def _update_security_group_dynamic_criteria():
     secgroups = neutron_sg.get_security_groups()
     for sg in secgroups:
         nsgroup_id = neutron_sg.get_nsgroup_id(sg['id'])
-        membership_criteria = firewall.get_nsgroup_port_tag_expression(
+        membership_criteria = nsxlib.get_nsgroup_port_tag_expression(
             security.PORT_SG_SCOPE, sg['id'])
         try:
             # We want to add the dynamic criteria and remove all direct members
             # they will be added by the manager using the new criteria.
-            firewall.update_nsgroup(nsgroup_id,
-                                    membership_criteria=membership_criteria,
-                                    members=[])
+            nsxlib.update_nsgroup(nsgroup_id,
+                                  membership_criteria=membership_criteria,
+                                  members=[])
         except Exception as e:
             LOG.warning(_LW("Failed to update membership criteria for nsgroup "
                             "%(nsgroup_id)s, request to backend returned "

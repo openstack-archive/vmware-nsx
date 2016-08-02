@@ -20,10 +20,10 @@ import six
 from oslo_config import cfg
 
 from vmware_nsx._i18n import _
-from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils
 from vmware_nsx.nsxlib.v3 import client
+from vmware_nsx.nsxlib.v3 import exceptions
 
 
 SwitchingProfileTypeId = collections.namedtuple(
@@ -281,13 +281,13 @@ class LogicalPort(AbstractRESTResource):
         return self._client.create(body=body)
 
     @utils.retry_upon_exception_nsxv3(
-        nsx_exc.StaleRevision,
+        exceptions.StaleRevision,
         max_attempts=cfg.CONF.nsx_v3.retries)
     def delete(self, lport_id):
         return self._client.url_delete('%s?detach=true' % lport_id)
 
     @utils.retry_upon_exception_nsxv3(
-        nsx_exc.StaleRevision,
+        exceptions.StaleRevision,
         max_attempts=cfg.CONF.nsx_v3.retries)
     def update(self, lport_id, vif_uuid,
                name=None, admin_state=None,
@@ -338,7 +338,7 @@ class LogicalRouter(AbstractRESTResource):
         return self._client.url_delete(lrouter_id)
 
     @utils.retry_upon_exception_nsxv3(
-        nsx_exc.StaleRevision,
+        exceptions.StaleRevision,
         max_attempts=cfg.CONF.nsx_v3.retries)
     def update(self, lrouter_id, *args, **kwargs):
         lrouter = self.get(lrouter_id)
@@ -382,10 +382,10 @@ class LogicalRouterPort(AbstractRESTResource):
         if edge_cluster_member_index:
             body['edge_cluster_member_index'] = edge_cluster_member_index
 
-        return self._client.create(body)
+        return self._client.create(body=body)
 
     @utils.retry_upon_exception_nsxv3(
-        nsx_exc.StaleRevision,
+        exceptions.StaleRevision,
         max_attempts=cfg.CONF.nsx_v3.retries)
     def update(self, logical_port_id, **kwargs):
         logical_router_port = self.get(logical_port_id)
@@ -405,15 +405,15 @@ class LogicalRouterPort(AbstractRESTResource):
         router_ports = self._client.url_get(resource)
         result_count = int(router_ports.get('result_count', "0"))
         if result_count >= 2:
-            raise nsx_exc.NsxPluginException(
-                err_msg=_("Can't support more than one logical router ports "
+            raise exceptions.ManagerError(
+                details=_("Can't support more than one logical router ports "
                           "on same logical switch %s ") % logical_switch_id)
         elif result_count == 1:
             return router_ports['results'][0]
         else:
             err_msg = (_("Logical router link port not found on logical "
                          "switch %s") % logical_switch_id)
-            raise nsx_exc.ResourceNotFound(
+            raise exceptions.ResourceNotFound(
                 manager=client._get_nsx_managers_from_conf(),
                 operation=err_msg)
 
@@ -435,7 +435,7 @@ class LogicalRouterPort(AbstractRESTResource):
         for port in logical_router_ports:
             if port['resource_type'] == nsx_constants.LROUTERPORT_LINKONTIER1:
                 return port
-        raise nsx_exc.ResourceNotFound(
+        raise exceptions.ResourceNotFound(
             manager=client._get_nsx_managers_from_conf(),
             operation="get router link port")
 
@@ -501,7 +501,7 @@ class LogicalDhcpServer(AbstractRESTResource):
         return self._client.create(body=body)
 
     @utils.retry_upon_exception_nsxv3(
-        nsx_exc.StaleRevision,
+        exceptions.StaleRevision,
         max_attempts=cfg.CONF.nsx_v3.retries)
     def update(self, uuid, dhcp_profile_id=None, server_ip=None, name=None,
                dns_servers=None, domain_name=None, gateway_ip=None,
@@ -529,7 +529,7 @@ class LogicalDhcpServer(AbstractRESTResource):
         return self._client.url_get(url)
 
     @utils.retry_upon_exception_nsxv3(
-        nsx_exc.StaleRevision,
+        exceptions.StaleRevision,
         max_attempts=cfg.CONF.nsx_v3.retries)
     def update_binding(self, server_uuid, binding_uuid, **kwargs):
         body = self.get_binding(server_uuid, binding_uuid)

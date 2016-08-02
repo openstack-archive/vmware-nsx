@@ -32,9 +32,7 @@ from neutron_lbaas.services.loadbalancer.drivers.vmware import db  # noqa
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import config  # noqa
-from vmware_nsx.nsxlib.v3 import client as nsx_v3_client
 from vmware_nsx.nsxlib.v3 import resources as nsx_v3_resources
-from vmware_nsx.plugins.nsx_v3 import plugin as nsx_v3_plugin
 from vmware_nsx.shell import resources
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.nsx_v.vshield import fake_vcns
@@ -132,10 +130,7 @@ class TestNsxv3AdminUtils(AbstractTestAdminUtils,
         self._patchers.append(patcher)
 
     def _init_mock_plugin(self):
-        self._patch_object(nsx_v3_client, 'NSX3Client',
-                          new=self._mock_client_module)
-        self._patch_object(nsx_v3_plugin, 'nsx_cluster',
-                           new=self._mock_cluster_module)
+        test_v3_plugin._mock_nsx_backend_calls()
 
         # mock resources
         self._patch_object(nsx_v3_resources.LogicalPort,

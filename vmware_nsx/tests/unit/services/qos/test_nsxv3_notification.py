@@ -26,15 +26,14 @@ from neutron.tests.unit.services.qos import base
 
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
-from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
-from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
+from vmware_nsx.tests.unit.nsx_v3 import test_plugin
 
 PLUGIN_NAME = 'vmware_nsx.plugins.nsx_v3.plugin.NsxV3Plugin'
 
 
-class TestQosNsxV3Notification(nsxlib_testcase.NsxClientTestCase,
-                               base.BaseQosTestCase):
+class TestQosNsxV3Notification(base.BaseQosTestCase,
+                               test_plugin.NsxV3PluginTestCaseMixin):
 
     def setUp(self):
         super(TestQosNsxV3Notification, self).setUp()
@@ -47,7 +46,6 @@ class TestQosNsxV3Notification(nsxlib_testcase.NsxClientTestCase,
             ['vmware_nsx.tests.unit.services.qos.fake_notifier.'
              'DummyNotificationDriver'],
             "qos")
-
         self.qos_plugin = qos_plugin.QoSPlugin()
         self.ctxt = context.Context('fake_user', 'fake_tenant')
         self.policy_data = {
@@ -81,7 +79,7 @@ class TestQosNsxV3Notification(nsxlib_testcase.NsxClientTestCase,
         mock.patch(
             'neutron.objects.qos.policy.QosPolicy.obj_load_attr').start()
         mock.patch.object(nsx_db, 'get_switch_profile_by_qos_policy',
-            return_value=self.fake_profile_id).start()
+                          return_value=self.fake_profile_id).start()
 
         self.peak_bw_multiplier = cfg.CONF.NSX.qos_peak_bw_multiplier
 
@@ -91,8 +89,10 @@ class TestQosNsxV3Notification(nsxlib_testcase.NsxClientTestCase,
     @mock.patch.object(nsx_db, 'add_qos_policy_profile_mapping')
     def test_policy_create_profile(self, fake_db_add, fake_rbac_create):
         # test the switch profile creation when a QoS policy is created
-        with mock.patch.object(nsxlib, 'create_qos_switching_profile',
-            return_value=self.fake_profile) as create_profile:
+        with mock.patch(
+            'vmware_nsx.nsxlib.v3.NsxLib.create_qos_switching_profile',
+            return_value=self.fake_profile
+        ) as create_profile:
             with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
                 return_value=self.policy):
                 with mock.patch('neutron.objects.qos.policy.QosPolicy.create'):
@@ -117,8 +117,9 @@ class TestQosNsxV3Notification(nsxlib_testcase.NsxClientTestCase,
         # test the switch profile update when a QoS policy is updated
         fields = base_object.get_updatable_fields(
             policy_object.QosPolicy, self.policy_data['policy'])
-        with mock.patch.object(nsxlib,
-            'update_qos_switching_profile') as update_profile:
+        with mock.patch(
+            'vmware_nsx.nsxlib.v3.NsxLib.update_qos_switching_profile'
+        ) as update_profile:
             with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
                 return_value=self.policy):
                 with mock.patch('neutron.objects.qos.policy.QosPolicy.update'):
@@ -147,8 +148,10 @@ class TestQosNsxV3Notification(nsxlib_testcase.NsxClientTestCase,
         setattr(_policy, "rules", [self.rule])
         with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
             return_value=_policy):
-            with mock.patch.object(nsxlib,
-                'update_qos_switching_profile_shaping') as update_profile:
+            with mock.patch(
+                'vmware_nsx.nsxlib.v3.NsxLib.'
+                'update_qos_switching_profile_shaping'
+            ) as update_profile:
                 with mock.patch('neutron.objects.db.api.update_object',
                     return_value=self.rule_data):
                     self.qos_plugin.update_policy_bandwidth_limit_rule(
@@ -188,8 +191,10 @@ class TestQosNsxV3Notification(nsxlib_testcase.NsxClientTestCase,
         setattr(_policy, "rules", [rule])
         with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
             return_value=_policy):
-            with mock.patch.object(nsxlib,
-                'update_qos_switching_profile_shaping') as update_profile:
+            with mock.patch(
+                'vmware_nsx.nsxlib.v3.NsxLib.'
+                'update_qos_switching_profile_shaping'
+            ) as update_profile:
                 with mock.patch('neutron.objects.db.api.update_object',
                     return_value=rule_data):
                     self.qos_plugin.update_policy_bandwidth_limit_rule(
@@ -219,8 +224,10 @@ class TestQosNsxV3Notification(nsxlib_testcase.NsxClientTestCase,
         setattr(_policy, "rules", [self.dscp_rule])
         with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
             return_value=_policy):
-            with mock.patch.object(nsxlib,
-                'update_qos_switching_profile_shaping') as update_profile:
+            with mock.patch(
+                'vmware_nsx.nsxlib.v3.NsxLib.'
+                'update_qos_switching_profile_shaping'
+            ) as update_profile:
                 with mock.patch('neutron.objects.db.api.'
                     'update_object', return_value=self.dscp_rule_data):
                     self.qos_plugin.update_policy_dscp_marking_rule(
@@ -250,8 +257,10 @@ class TestQosNsxV3Notification(nsxlib_testcase.NsxClientTestCase,
         # as if it was deleted
         with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
             return_value=_policy):
-            with mock.patch.object(nsxlib,
-                'update_qos_switching_profile_shaping') as update_profile:
+            with mock.patch(
+                "vmware_nsx.nsxlib.v3.NsxLib."
+                "update_qos_switching_profile_shaping"
+            ) as update_profile:
                 setattr(_policy, "rules", [self.rule])
                 self.qos_plugin.delete_policy_bandwidth_limit_rule(
                     self.ctxt, self.rule.id, self.policy.id)
@@ -269,7 +278,9 @@ class TestQosNsxV3Notification(nsxlib_testcase.NsxClientTestCase,
     @mock.patch('neutron.objects.db.api.get_object', return_value=None)
     def test_policy_delete_profile(self, *mocks):
         # test the switch profile deletion when a QoS policy is deleted
-        with mock.patch.object(nsxlib, 'delete_qos_switching_profile',
-            return_value=self.fake_profile) as delete_profile:
+        with mock.patch(
+            'vmware_nsx.nsxlib.v3.NsxLib.delete_qos_switching_profile',
+            return_value=self.fake_profile
+        ) as delete_profile:
             self.qos_plugin.delete_policy(self.ctxt, self.policy.id)
             delete_profile.assert_called_once_with(self.fake_profile_id)

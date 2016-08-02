@@ -21,9 +21,6 @@ from oslo_config import cfg
 from vmware_nsx._i18n import _LI
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils as comm_utils
-from vmware_nsx.nsxlib import v3 as nsxlib
-from vmware_nsx.nsxlib.v3 import client
-from vmware_nsx.nsxlib.v3 import cluster
 from vmware_nsx.nsxlib.v3 import native_dhcp
 from vmware_nsx.nsxlib.v3 import resources
 from vmware_nsx.shell.admin.plugins.common import constants
@@ -51,15 +48,13 @@ def list_dhcp_bindings(resource, event, trigger, **kwargs):
 def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
     """Resync DHCP bindings for NSXv3 CrossHairs."""
 
-    nsx_version = nsxlib.get_version()
+    nsx_version = utils.get_connected_nsxlib().get_version()
     if not comm_utils.is_nsx_version_1_1_0(nsx_version):
         LOG.info(_LI("This utility is not available for NSX version %s"),
                  nsx_version)
         return
 
-    cluster_api = cluster.NSXClusteredAPI()
-    nsx_client = client.NSX3Client(cluster_api)
-    client._set_default_api_cluster(cluster_api)
+    nsx_client = utils.get_nsxv3_client()
     port_resource = resources.LogicalPort(nsx_client)
     dhcp_server_resource = resources.LogicalDhcpServer(nsx_client)
 

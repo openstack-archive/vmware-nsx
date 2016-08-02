@@ -27,7 +27,6 @@ from neutron_lib import constants as const
 
 from vmware_nsx.db import extended_security_group_rule as ext_rule_db
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix as ext_loip
-from vmware_nsx.nsxlib.v3 import dfw_api as v3_fw
 from vmware_nsx.plugins.nsx_v.vshield import securitygroup_utils
 from vmware_nsx.tests.unit.nsx_v import test_plugin as test_nsxv_plugin
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_nsxv3_plugin
@@ -124,15 +123,30 @@ class TestNsxVExtendedSGRule(test_nsxv_plugin.NsxVSecurityGroupsTestCase,
 class TestNSXv3ExtendedSGRule(test_nsxv3_plugin.NsxV3PluginTestCaseMixin,
                               LocalIPPrefixExtTestCase):
     def test_create_rule_with_local_ip_prefix(self):
-        local_ip_prefix = '239.255.0.0/16'
-        dest = v3_fw.get_ip_cidr_reference(local_ip_prefix, v3_fw.IPV4)
+        sg_rules = [
+            {'tenant_id': mock.ANY,
+             'id': mock.ANY,
+             'port_range_min': None,
+             'local_ip_prefix': '239.255.0.0/16',
+             'ethertype': 'IPv4',
+             'protocol': u'udp', 'remote_ip_prefix': '10.0.0.0/24',
+             'port_range_max': None,
+             'security_group_id': mock.ANY,
+             'remote_group_id': None, 'direction': u'ingress',
+             'description': ''}]
 
-        with mock.patch.object(v3_fw, 'get_firewall_rule_dict',
-            side_effect=v3_fw.get_firewall_rule_dict) as mock_rule:
+        with mock.patch(
+            "vmware_nsx.nsxlib.v3.NsxLib.create_firewall_rules",
+            side_effect=test_nsxv3_plugin._mock_create_firewall_rules,
+        ) as mock_rule:
 
             super(TestNSXv3ExtendedSGRule,
                   self).test_create_rule_with_local_ip_prefix()
 
-            mock_rule.assert_called_with(mock.ANY, mock.ANY, dest, mock.ANY,
-                                         v3_fw.IPV4, mock.ANY, v3_fw.ALLOW,
-                                         mock.ANY)
+            mock_rule.assert_called_with(
+                mock.ANY,  # content
+                mock.ANY,  # firewall_section_id
+                mock.ANY,  # ns_group_id
+                False,  # logging
+                'ALLOW',  # action
+                sg_rules)  # sg_rules

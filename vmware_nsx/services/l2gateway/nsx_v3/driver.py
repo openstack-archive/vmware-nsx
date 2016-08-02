@@ -34,11 +34,10 @@ from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 
 from vmware_nsx._i18n import _, _LE, _LI
-from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.db import db as nsx_db
-from vmware_nsx.nsxlib import v3 as nsxlib
+from vmware_nsx.nsxlib.v3 import exceptions as nsxlib_exc
 
 LOG = logging.getLogger(__name__)
 
@@ -83,8 +82,9 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
             return
         admin_ctx = context.get_admin_context()
 
-        def_l2gw_uuid = nsxlib.get_bridge_cluster_id_by_name_or_id(
-            def_l2gw_name)
+        def_l2gw_uuid = (
+            self._core_plugin.nsxlib.get_bridge_cluster_id_by_name_or_id(
+                def_l2gw_name))
 
         # Optimistically create the default L2 gateway in neutron DB
         device = {'device_name': def_l2gw_uuid,
@@ -221,11 +221,11 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
             tags = nsx_utils.build_v3_tags_payload(
                 gw_connection, resource_type='os-neutron-l2gw-id',
                 project_name=context.tenant_name)
-            bridge_endpoint = nsxlib.create_bridge_endpoint(
+            bridge_endpoint = self._core_plugin.nsxlib.create_bridge_endpoint(
                 device_name=device_name,
                 seg_id=seg_id,
                 tags=tags)
-        except nsx_exc.ManagerError as e:
+        except nsxlib_exc.ManagerError as e:
             LOG.exception(_LE("Unable to create bridge endpoint, rolling back "
                               "changes on neutron. Exception is %s"), e)
             raise l2gw_exc.L2GatewayServiceDriverError(
@@ -252,11 +252,12 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
                                                         fixed_ip['subnet_id'],
                                                         fixed_ip['ip_address'])
             LOG.debug("IP addresses deallocated on port %s", port['id'])
-        except (nsx_exc.ManagerError,
+        except (nsxlib_exc.ManagerError,
                 n_exc.NeutronException):
             LOG.exception(_LE("Unable to create L2 gateway port, "
                               "rolling back changes on neutron"))
-            nsxlib.delete_bridge_endpoint(bridge_endpoint['id'])
+            self._core_plugin.nsxlib.delete_bridge_endpoint(
+                bridge_endpoint['id'])
             raise l2gw_exc.L2GatewayServiceDriverError(
                 method='create_l2_gateway_connection_postcommit')
         try:
@@ -270,7 +271,8 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("Unable to add L2 gateway connection "
                                   "mappings, rolling back changes on neutron"))
-                nsxlib.delete_bridge_endpoint(bridge_endpoint['id'])
+                self._core_plugin.nsxlib.delete_bridge_endpoint(
+                    bridge_endpoint['id'])
                 super(NsxV3Driver,
                       self).delete_l2_gateway_connection(
                           context,
@@ -294,8 +296,8 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
                                       port_id=conn_mapping.get('port_id'),
                                       l2gw_port_check=False)
         try:
-            nsxlib.delete_bridge_endpoint(bridge_endpoint_id)
-        except nsx_exc.ManagerError as e:
+            self._core_plugin.nsxlib.delete_bridge_endpoint(bridge_endpoint_id)
+        except nsxlib_exc.ManagerError as e:
             LOG.exception(_LE("Unable to delete bridge endpoint %(id)s on the "
                               "backend due to exc: %(exc)s"),
                           {'id': bridge_endpoint_id, 'exc': e})
