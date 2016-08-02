@@ -21,7 +21,6 @@ from oslo_config import cfg
 from vmware_nsx._i18n import _LI
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils as comm_utils
-from vmware_nsx.dhcp_meta import rpc as nsx_rpc
 from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.nsxlib.v3 import client
 from vmware_nsx.nsxlib.v3 import cluster
@@ -102,7 +101,7 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
         for (mac, ip) in bindings:
             hostname = 'host-%s' % ip.replace('.', '-')
             options = {'option121': {'static_routes': [
-                {'network': '%s' % nsx_rpc.METADATA_DHCP_ROUTE,
+                {'network': '%s' % cfg.CONF.nsx_v3.native_metadata_route,
                  'next_hop': ip}]}}
             dhcp_server_resource.create_binding(
                 dhcp_server_id, mac, ip, hostname,

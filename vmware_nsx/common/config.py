@@ -353,6 +353,10 @@ nsx_v3_opts = [
                 default=False,
                 help=_("If true, DHCP and metadata proxy services will be "
                        "provided by NSX backend.")),
+    cfg.StrOpt('native_metadata_route',
+               default="169.254.169.254/32",
+               help=_("The metadata route used for native metadata proxy "
+                      "service.")),
     cfg.StrOpt('dhcp_profile_uuid',
                help=_("This is the UUID of the NSX DHCP Profile that will be "
                       "used to enable native DHCP service. It needs to be "

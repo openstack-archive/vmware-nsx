@@ -1374,7 +1374,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         try:
             hostname = 'host-%s' % ip.replace('.', '-')
             options = {'option121': {'static_routes': [
-                {'network': '%s' % nsx_rpc.METADATA_DHCP_ROUTE,
+                {'network': '%s' % cfg.CONF.nsx_v3.native_metadata_route,
                  'next_hop': ip}]}}
             binding = self._dhcp_server.create_binding(
                 dhcp_service_id, port['mac_address'], ip, hostname,
@@ -1526,7 +1526,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if ip != binding['ip_address']:
                 data['host_name'] = 'host-%s' % ip.replace('.', '-')
                 data['options'] = {'option121': {'static_routes': [
-                    {'network': '%s' % nsx_rpc.METADATA_DHCP_ROUTE,
+                    {'network': '%s' % cfg.CONF.nsx_v3.native_metadata_route,
                      'next_hop': ip}]}}
             self._dhcp_server.update_binding(
                 binding['nsx_service_id'], binding['nsx_binding_id'], **data)
