@@ -439,13 +439,10 @@ class EdgeManager(object):
                 header, _ = self.nsxv_manager.vcns.delete_interface(edge_id,
                                                                     vnic_index)
                 if port_group_id:
-                    objuri = header['location']
-                    job_id = objuri[objuri.rfind("/") + 1:]
                     dvs_id, net_type = self._get_physical_provider_network(
                         context, network_id)
                     self.nsxv_manager.delete_portgroup(dvs_id,
-                                                       port_group_id,
-                                                       job_id)
+                                                       port_group_id)
             else:
                 self.nsxv_manager.vcns.update_interface(edge_id, vnic_config)
         except nsxapi_exc.VcnsApiException:

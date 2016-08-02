@@ -106,7 +106,7 @@ def nsx_redo_metadata_cfg(resource, event, trigger, **kwargs):
                         monitor_port=s_port)
                     pool.add_member(member)
 
-                lb.submit_to_backend(nsxv, edge_id, False)
+                lb.submit_to_backend(nsxv, edge_id)
 
 
 @admin_utils.output_header
@@ -142,7 +142,7 @@ def update_shared_secret(resource, event, trigger, **kwargs):
                 sign_app_rule = nsxv_lb.NsxvLBAppRule('insert-auth', sign)
                 virt.add_app_rule('insert-auth', sign_app_rule)
 
-            lb.submit_to_backend(nsxv, edge_id, False)
+            lb.submit_to_backend(nsxv, edge_id)
 
 
 def _md_member_status(title, edge_ids):

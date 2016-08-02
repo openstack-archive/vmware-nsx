@@ -622,9 +622,7 @@ class NsxVMetadataProxyHandler(object):
         virt_srvr.set_default_pool(pool)
         lb_obj.add_virtual_server(virt_srvr)
 
-        lb_obj.submit_to_backend(
-            self.nsxv_plugin.nsx_v.vcns,
-            edge_id, async=False)
+        lb_obj.submit_to_backend(self.nsxv_plugin.nsx_v.vcns, edge_id)
 
     def configure_router_edge(self, rtr_id, context=None):
         # Connect router interface to inter-edge network
