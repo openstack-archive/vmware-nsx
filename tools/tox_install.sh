@@ -38,7 +38,7 @@ zuul_cloner () {
 
 pip_hardcode () {
     echo "PIP HARDCODE: $1" >> /tmp/tox_install.txt
-    pip install -U -egit+https://git.openstack.org/openstack/$1@$BRANCH_NAME#egg=$1
+    pip install -chttps://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt?h=$BRANCH_NAME -U -egit+https://git.openstack.org/openstack/$1@$BRANCH_NAME#egg=$1
 }
 
 if [ $neutron_installed -eq 0 ]; then
