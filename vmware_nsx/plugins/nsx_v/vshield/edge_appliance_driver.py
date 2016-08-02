@@ -16,14 +16,17 @@
 
 import time
 
+from neutron.plugins.common import constants as plugin_const
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import excutils
 
-from vmware_nsx._i18n import _LE, _LI, _LW
+from vmware_nsx._i18n import _, _LE, _LI, _LW
+from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.common import utils
+from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield.common import constants
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
@@ -373,66 +376,6 @@ class EdgeApplianceDriver(object):
         LOG.debug("Deletion complete vnic %(vnic_index)s: on edge %(edge_id)s",
                   {'vnic_index': index, 'edge_id': edge_id})
 
-    def _deploy_edge(self, task):
-        userdata = task.userdata
-        LOG.debug("NSXv: start deploying edge")
-        request = userdata['request']
-        try:
-            header = self.vcns.deploy_edge(request)[0]
-            objuri = header['location']
-            job_id = objuri[objuri.rfind("/") + 1:]
-            response = self.vcns.get_edge_id(job_id)[1]
-            edge_id = response['edgeId']
-            LOG.debug("VCNS: deploying edge %s", edge_id)
-            userdata['edge_id'] = edge_id
-            status = task_constants.TaskStatus.PENDING
-        except exceptions.VcnsApiException:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("NSXv: deploy edge failed."))
-
-        return status
-
-    def _status_edge(self, task):
-        edge_id = task.userdata['edge_id']
-        try:
-            response = self.vcns.get_edge_deploy_status(edge_id)[1]
-            task.userdata['retries'] = 0
-            system_status = response.get('systemStatus', None)
-            if system_status is None:
-                status = task_constants.TaskStatus.PENDING
-            elif system_status == 'good':
-                status = task_constants.TaskStatus.COMPLETED
-            else:
-                status = task_constants.TaskStatus.ERROR
-        except exceptions.VcnsApiException as e:
-            LOG.exception(_LE("VCNS: Edge %s status query failed."), edge_id)
-            raise e
-        except Exception as e:
-            retries = task.userdata.get('retries', 0) + 1
-            if retries < 3:
-                task.userdata['retries'] = retries
-                LOG.exception(_LE("VCNS: Unable to retrieve edge %(edge_id)s "
-                                  "status. Retry %(retries)d."),
-                              {'edge_id': edge_id,
-                               'retries': retries})
-                status = task_constants.TaskStatus.PENDING
-            else:
-                LOG.exception(_LE("VCNS: Unable to retrieve edge %s status. "
-                                  "Abort."), edge_id)
-                status = task_constants.TaskStatus.ERROR
-        LOG.debug("VCNS: Edge %s status", edge_id)
-        return status
-
-    def _result_edge(self, task):
-        edge_id = task.userdata.get('edge_id')
-        if task.status != task_constants.TaskStatus.COMPLETED:
-            LOG.error(_LE("NSXv: Failed to deploy edge %(edge_id)s "
-                          "status %(status)d"),
-                      {'edge_id': edge_id,
-                       'status': task.status})
-        else:
-            LOG.debug("NSXv: Edge %s is deployed", edge_id)
-
     def _update_edge(self, task):
         edge_id = task.userdata['edge_id']
         LOG.debug("start update edge %s", edge_id)
@@ -495,11 +438,11 @@ class EdgeApplianceDriver(object):
             LOG.exception(_LE("VCNS: Failed to get edges:\n%s"), e.response)
             raise e
 
-    def deploy_edge(self, resource_id, name, internal_network, jobdata=None,
-                    dist=False, wait_for_exec=False, loadbalancer_enable=True,
-                    appliance_size=nsxv_constants.LARGE, async=True,
+    def deploy_edge(self, context, router_id, name, internal_network,
+                    dist=False, loadbalancer_enable=True,
+                    appliance_size=nsxv_constants.LARGE,
                     availability_zone=None):
-        task_name = 'deploying-%s' % name
+
         edge_name = name
         edge = self._assemble_edge(
             edge_name, datacenter_moid=self.datacenter_moid,
@@ -538,50 +481,35 @@ class EdgeApplianceDriver(object):
         if not dist and loadbalancer_enable:
             self._enable_loadbalancer(edge)
 
-        if async:
-            userdata = {
-                'dist': dist,
-                'request': edge,
-                'router_name': name,
-                'jobdata': jobdata
-            }
-            task = tasks.Task(task_name, resource_id,
-                              self._deploy_edge,
-                              status_callback=self._status_edge,
-                              result_callback=self._result_edge,
-                              userdata=userdata)
-            task.add_executed_monitor(self.callbacks.edge_deploy_started)
-            task.add_result_monitor(self.callbacks.edge_deploy_result)
-            self.task_manager.add(task)
+        edge_id = None
+        try:
+            header = self.vcns.deploy_edge(edge)[0]
+            edge_id = header.get('location', '/').split('/')[-1]
 
-            if wait_for_exec:
-                # wait until the deploy task is executed so edge_id is
-                # available
-                task.wait(task_constants.TaskState.EXECUTED)
+            if edge_id:
+                nsxv_db.update_nsxv_router_binding(
+                    context.session, router_id, edge_id=edge_id)
+                if not dist:
+                    # Init Edge vnic binding
+                    nsxv_db.init_edge_vnic_binding(
+                        context.session, edge_id)
+            else:
+                if router_id:
+                    nsxv_db.update_nsxv_router_binding(
+                        context.session, router_id,
+                        status=plugin_const.ERROR)
+                error = _('Failed to deploy edge')
+                raise nsxv_exc.NsxPluginException(err_msg=error)
 
-            return task
-        else:
-            edge_id = None
-            try:
-                header = self.vcns.deploy_edge(edge,
-                                               async=False)[0]
-                edge_id = header['location'].split('/')[-1]
-                LOG.debug("VCNS: deploying edge %s", edge_id)
+            self.callbacks.complete_edge_creation(
+                context, edge_id, name, router_id, dist, True)
 
-                self.callbacks.edge_deploy_started_sync(
-                    jobdata['context'], edge_id, name,
-                    jobdata['router_id'], dist)
-
-                self.callbacks.edge_deploy_result_sync(
-                    jobdata['context'], edge_id, name, jobdata['router_id'],
-                    dist, True)
-
-            except exceptions.VcnsApiException:
-                self.callbacks.edge_deploy_result_sync(
-                    jobdata['context'], edge_id, name, jobdata['router_id'],
-                    dist, False)
-                with excutils.save_and_reraise_exception():
-                    LOG.exception(_LE("NSXv: deploy edge failed."))
+        except exceptions.VcnsApiException:
+            self.callbacks.complete_edge_creation(
+                context, edge_id, name, router_id, dist, False)
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE("NSXv: deploy edge failed."))
+        return edge_id
 
     def update_edge(self, router_id, edge_id, name, internal_network,
                     jobdata=None, dist=False, loadbalancer_enable=True,

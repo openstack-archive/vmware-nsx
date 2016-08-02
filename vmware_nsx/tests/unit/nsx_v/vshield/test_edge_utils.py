@@ -203,13 +203,9 @@ class EdgeUtilsTestCase(EdgeUtilsTestCaseMixin):
         edge_utils.create_lrouter(self.nsxv_manager, self.ctx, lrouter,
                                   lswitch=None, dist=False,
                                   availability_zone=self.az)
-        self.nsxv_manager.deploy_edge.assert_called_once_with(
+        self.nsxv_manager.deploy_edge.assert_called_once_with(self.ctx,
             lrouter['id'], (lrouter['name'] + '-' + lrouter['id']),
             internal_network=None, dist=False, availability_zone=self.az,
-            jobdata={'router_id': lrouter['id'],
-                     'lrouter': lrouter,
-                     'lswitch': None,
-                     'context': self.ctx},
             appliance_size=vcns_const.SERVICE_SIZE_MAPPING['router'])
 
     def _test_update_intereface_primary_addr(self, old_ip, new_ip, isUplink):
