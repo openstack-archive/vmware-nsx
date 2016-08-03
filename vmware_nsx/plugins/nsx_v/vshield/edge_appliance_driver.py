@@ -687,16 +687,10 @@ class EdgeApplianceDriver(object):
         self.task_manager.add(task)
         return task
 
-    def _update_routes(self, task):
-        edge_id = task.userdata['edge_id']
-        if (task != self.updated_task['route'][edge_id] and
-            task.userdata.get('skippable', True)):
-            # this task does not have the latest config, abort now
-            # for speedup
-            return task_constants.TaskStatus.ABORT
-        gateway = task.userdata['gateway']
-        routes = task.userdata['routes']
-        LOG.debug("VCNS: start updating routes for %s", edge_id)
+    def update_routes(self, edge_id, gateway, routes):
+        if gateway:
+            gateway = gateway.split('/')[0]
+
         static_routes = []
         for route in routes:
             if route.get('vnic_index') is None:
@@ -725,35 +719,11 @@ class EdgeApplianceDriver(object):
             }
         try:
             self.vcns.update_routes(edge_id, request)
-            status = task_constants.TaskStatus.COMPLETED
+            return True
         except exceptions.VcnsApiException as e:
             LOG.exception(_LE("VCNS: Failed to update routes:\n%s"),
                           e.response)
-            status = task_constants.TaskStatus.ERROR
-
-        return status
-
-    def update_routes(self, router_id, edge_id, gateway, routes,
-                      skippable=True, jobdata=None,
-                      gateway_vnic_index=constants.EXTERNAL_VNIC_INDEX):
-        if gateway:
-            gateway = gateway.split('/')[0]
-
-        userdata = {
-            'edge_id': edge_id,
-            'gateway': gateway,
-            'gateway_vnic_index': gateway_vnic_index,
-            'routes': routes,
-            'skippable': skippable,
-            'jobdata': jobdata
-        }
-        task_name = "update-routes-%s" % (edge_id)
-        task = tasks.Task(task_name, router_id, self._update_routes,
-                          userdata=userdata)
-        task.add_result_monitor(self.callbacks.routes_update_result)
-        self.updated_task['route'][edge_id] = task
-        self.task_manager.add(task)
-        return task
+            return False
 
     def create_lswitch(self, name, tz_config, tags=None,
                        port_isolation=False, replication_mode="service"):

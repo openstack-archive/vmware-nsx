@@ -69,11 +69,6 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         self, context, router_id,
         newnexthop=vcns_const.INTEGRATION_EDGE_IPADDRESS,
         metadata_gateway=None):
-        internal_vnic_index = None
-        if newnexthop:
-            internal_vnic_index = (
-                edge_utils.get_internal_vnic_index_of_plr_tlr(
-                    context, router_id))
         routes = []
 
         # If metadata service is configured, add a static route to direct
@@ -89,8 +84,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         routes.extend([route for route in extra_routes
                        if not route.get('external')])
         edge_utils.update_routes(self.nsx_v, context,
-                                 router_id, routes, newnexthop,
-                                 gateway_vnic_index=internal_vnic_index)
+                                 router_id, routes, newnexthop)
 
     def create_router(self, context, lrouter, appliance_size=None,
                       allow_metadata=True):
