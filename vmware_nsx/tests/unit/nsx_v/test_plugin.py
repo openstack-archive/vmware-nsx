@@ -68,11 +68,10 @@ from vmware_nsx.plugins.nsx_v.drivers import (
     shared_router_driver as router_driver)
 from vmware_nsx.plugins.nsx_v import md_proxy
 from vmware_nsx.plugins.nsx_v.vshield.common import constants as vcns_const
+from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as vcns_exc
 from vmware_nsx.plugins.nsx_v.vshield import edge_appliance_driver
 from vmware_nsx.plugins.nsx_v.vshield import edge_firewall_driver
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
-from vmware_nsx.plugins.nsx_v.vshield.tasks import (
-    constants as task_constants)
 from vmware_nsx.services.qos.nsx_v import utils as qos_utils
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.extensions import test_vnic_index
@@ -3043,6 +3042,10 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
             TestExclusiveRouterTestCase,
             self).test_router_add_interface_multiple_ipv6_subnets_same_net()
 
+    def _fake_update_edge(self, edge_id, request):
+        raise vcns_exc.VcnsApiException(
+            status=400, header={'status': 200}, uri='fake_url', response='')
+
     def test_create_router_with_update_error(self):
         p = manager.NeutronManager.get_plugin()
 
@@ -3056,8 +3059,8 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                return_value=available_edge):
             # Mock for update_edge task failure
             with mock.patch.object(
-                p.nsx_v, '_update_edge',
-                return_value=task_constants.TaskStatus.ERROR):
+                p.nsx_v.vcns, 'update_edge',
+                side_effect=self._fake_update_edge):
                 router = {'router': {'admin_state_up': True,
                           'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
                           'tenant_id': context.get_admin_context().tenant_id,

@@ -57,7 +57,6 @@ class EdgeUtilsTestCaseMixin(testlib_api.SqlTestCase):
         get_ver.return_value = '6.1.4'
         self.ctx = context.get_admin_context()
         self.addCleanup(nsxv_manager_p.stop)
-        self.fake_jobdata = {'router_id': 'fake_id', 'context': self.ctx}
         self.az = (nsx_az.ConfiguredAvailabilityZones().
                    get_default_availability_zone())
 
@@ -129,9 +128,8 @@ class EdgeDHCPManagerTestCase(EdgeUtilsTestCaseMixin):
                                                        fake_network['id'],
                                                        fake_subnet)
         resource_id = (vcns_const.DHCP_EDGE_PREFIX + fake_network['id'])[:36]
-        jobdata = {'router_id': resource_id, 'context': self.ctx}
         self.nsxv_manager.update_edge.assert_called_once_with(
-            resource_id, 'edge-1', mock.ANY, None, jobdata=jobdata,
+            self.ctx, resource_id, 'edge-1', mock.ANY, None,
             appliance_size=vcns_const.SERVICE_SIZE_MAPPING['dhcp'],
             dist=False, set_errors=True,
             availability_zone=mock.ANY)
@@ -697,10 +695,9 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         edge_id = (EDGE_AVAIL + nsxv_constants.LARGE + '-' +
                    nsxv_constants.SERVICE_EDGE + '-edge-' + str(0))
         self.nsxv_manager.update_edge.assert_has_calls(
-            [mock.call('fake_id', edge_id, 'fake_name', None,
-                       jobdata=self.fake_jobdata, set_errors=True,
-                       appliance_size=nsxv_constants.LARGE, dist=False,
-                       availability_zone=self.az)])
+            [mock.call(self.ctx, 'fake_id', edge_id, 'fake_name', None,
+                       set_errors=True, appliance_size=nsxv_constants.LARGE,
+                       dist=False, availability_zone=self.az)])
 
     def test_allocate_compact_edge_appliance_with_default(self):
         self.edge_manager.edge_pool_dicts = self.default_edge_pool_dicts
@@ -717,10 +714,9 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         edge_id = (EDGE_AVAIL + nsxv_constants.COMPACT + '-' +
                    nsxv_constants.SERVICE_EDGE + '-edge-' + str(0))
         self.nsxv_manager.update_edge.assert_has_calls(
-            [mock.call('fake_id', edge_id, 'fake_name', None,
-                       jobdata=self.fake_jobdata, set_errors=True,
-                       appliance_size=nsxv_constants.COMPACT, dist=False,
-                       availability_zone=self.az)])
+            [mock.call(self.ctx, 'fake_id', edge_id, 'fake_name', None,
+                       set_errors=True, appliance_size=nsxv_constants.COMPACT,
+                       dist=False, availability_zone=self.az)])
 
     def test_allocate_large_edge_appliance_with_vdr(self):
         self.edge_manager.edge_pool_dicts = self.vdr_edge_pool_dicts
@@ -737,10 +733,9 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         edge_id = (EDGE_AVAIL + nsxv_constants.LARGE + '-' +
                    nsxv_constants.VDR_EDGE + '-edge-' + str(0))
         self.nsxv_manager.update_edge.assert_has_calls(
-            [mock.call('fake_id', edge_id, 'fake_name', None,
-                       jobdata=self.fake_jobdata, set_errors=True,
-                       appliance_size=nsxv_constants.LARGE, dist=True,
-                       availability_zone=self.az)])
+            [mock.call(self.ctx, 'fake_id', edge_id, 'fake_name', None,
+                       set_errors=True, appliance_size=nsxv_constants.LARGE,
+                       dist=True, availability_zone=self.az)])
 
     def test_free_edge_appliance_with_empty(self):
         self.edge_manager._clean_all_error_edge_bindings = mock.Mock()
@@ -760,7 +755,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
             self.ctx, 'fake_id')
         assert not self.nsxv_manager.delete_edge.called
         self.nsxv_manager.update_edge.assert_has_calls(
-            [mock.call(mock.ANY, mock.ANY, mock.ANY, None,
+            [mock.call(mock.ANY, mock.ANY, mock.ANY, mock.ANY, None,
                        appliance_size=nsxv_constants.COMPACT, dist=False,
                        availability_zone=mock.ANY)])
 

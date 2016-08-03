@@ -376,20 +376,6 @@ class EdgeApplianceDriver(object):
         LOG.debug("Deletion complete vnic %(vnic_index)s: on edge %(edge_id)s",
                   {'vnic_index': index, 'edge_id': edge_id})
 
-    def _update_edge(self, task):
-        edge_id = task.userdata['edge_id']
-        LOG.debug("start update edge %s", edge_id)
-        request = task.userdata['request']
-        try:
-            self.vcns.update_edge(edge_id, request)
-            status = task_constants.TaskStatus.COMPLETED
-        except exceptions.VcnsApiException as e:
-            LOG.error(_LE("Failed to update edge: %s"),
-                      e.response)
-            status = task_constants.TaskStatus.ERROR
-
-        return status
-
     def _delete_edge(self, task):
         edge_id = task.userdata['edge_id']
         LOG.debug("VCNS: start destroying edge %s", edge_id)
@@ -490,15 +476,13 @@ class EdgeApplianceDriver(object):
                 LOG.exception(_LE("NSXv: deploy edge failed."))
         return edge_id
 
-    def update_edge(self, router_id, edge_id, name, internal_network,
-                    jobdata=None, dist=False, loadbalancer_enable=True,
+    def update_edge(self, context, router_id, edge_id, name, internal_network,
+                    dist=False, loadbalancer_enable=True,
                     appliance_size=nsxv_constants.LARGE,
                     set_errors=False, availability_zone=None):
         """Update edge name."""
-        task_name = 'update-%s' % name
-        edge_name = name
         edge = self._assemble_edge(
-            edge_name, datacenter_moid=self.datacenter_moid,
+            name, datacenter_moid=self.datacenter_moid,
             deployment_container_id=self.deployment_container_id,
             appliance_size=appliance_size, remote_access=False, dist=dist,
             edge_ha=availability_zone.edge_ha)
@@ -527,19 +511,19 @@ class EdgeApplianceDriver(object):
             edge['vnics']['vnics'].append(internal_vnic)
         if not dist and loadbalancer_enable:
             self._enable_loadbalancer(edge)
-        userdata = {
-            'router_id': router_id,
-            'edge_id': edge_id,
-            'request': edge,
-            'jobdata': jobdata,
-            'set_errors': set_errors
-        }
-        task = tasks.Task(task_name, router_id,
-                          self._update_edge,
-                          userdata=userdata)
-        task.add_result_monitor(self.callbacks.edge_update_result)
-        self.task_manager.add(task)
-        return task
+
+        try:
+            self.vcns.update_edge(edge_id, edge)
+            self.callbacks.complete_edge_update(
+                context, edge_id, router_id, True, set_errors)
+        except exceptions.VcnsApiException as e:
+            LOG.error(_LE("Failed to update edge: %s"),
+                      e.response)
+            self.callbacks.complete_edge_update(
+                context, edge_id, router_id, False, set_errors)
+            return False
+
+        return True
 
     def rename_edge(self, edge_id, name):
         """rename edge."""
