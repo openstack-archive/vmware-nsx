@@ -178,6 +178,19 @@ def create_network(SELF, client=None, tenant_id=None, name=None, **kwargs):
     return net_network
 
 
+def create_port(SELF, client=None, **kwargs):
+        if not client:
+            client = SELF.port_client
+        result = client.create_port(**kwargs)
+        net_port = result['port']
+        SELF.assertIsNotNone(result, 'Unable to allocate port')
+        SELF.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        client.delete_port,
+                        net_port['id'])
+
+        return net_port
+
+
 # gateway=None means don't set gateway_ip in subnet
 def create_subnet(SELF, network, client=None,
                   gateway='', cidr=None, mask_bits=None,
