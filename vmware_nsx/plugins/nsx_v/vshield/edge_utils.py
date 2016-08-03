@@ -430,7 +430,7 @@ class EdgeManager(object):
                 if port_group_id:
                     dvs_id, net_type = self._get_physical_provider_network(
                         context, network_id)
-                    self.nsxv_manager.delete_portgroup(dvs_id,
+                    self.nsxv_manager.delete_port_group(dvs_id,
                                                        port_group_id)
             else:
                 self.nsxv_manager.vcns.update_interface(edge_id, vnic_config)
