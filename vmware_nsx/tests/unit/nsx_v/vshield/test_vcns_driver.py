@@ -472,11 +472,9 @@ class VcnsDriverTestCase(base.BaseTestCase):
 
     def test_delete_edge(self):
         self._deploy_edge()
-        jobdata = {}
-        task = self.vcns_driver.delete_edge(
-            'router-id', self.edge_id, jobdata=jobdata)
-        task.wait(ts_const.TaskState.RESULT)
-        self.assertTrue(jobdata.get('edge_delete_result'))
+        result = self.vcns_driver.delete_edge(
+            self.ctx, 'router-id', self.edge_id)
+        self.assertTrue(result)
 
     def test_create_lswitch(self):
         tz_config = [{

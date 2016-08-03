@@ -760,6 +760,9 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
                        availability_zone=mock.ANY)])
 
     def test_free_edge_appliance_with_default_with_full(self):
+        def _fake_spawn(method, *args, **kwargs):
+            method(*args, **kwargs)
+
         self.edge_pool_dicts = {
             nsxv_constants.SERVICE_EDGE: {
                 nsxv_constants.LARGE: {'minimum_pooled_edges': 1,
@@ -767,10 +770,14 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
                 nsxv_constants.COMPACT: {'minimum_pooled_edges': 1,
                                          'maximum_pooled_edges': 3}},
             nsxv_constants.VDR_EDGE: {}}
-        self.edge_manager._allocate_edge_appliance(
-            self.ctx, 'fake_id', 'fake_name',
-            availability_zone=self.az)
-        self.edge_manager._free_edge_appliance(
-            self.ctx, 'fake_id')
-        assert self.nsxv_manager.delete_edge.called
-        assert not self.nsxv_manager.update_edge.called
+        # Avoid use of eventlet greenpool as this breaks the UT
+        with mock.patch.object(self.edge_manager.worker_pool,
+                               'spawn_n',
+                               side_effect=_fake_spawn):
+            self.edge_manager._allocate_edge_appliance(
+                self.ctx, 'fake_id', 'fake_name',
+                availability_zone=self.az)
+            self.edge_manager._free_edge_appliance(
+                self.ctx, 'fake_id')
+            assert self.nsxv_manager.delete_edge.called
+            assert not self.nsxv_manager.update_edge.called
