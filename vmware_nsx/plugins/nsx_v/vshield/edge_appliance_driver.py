@@ -582,37 +582,7 @@ class EdgeApplianceDriver(object):
                           e.response)
             raise e
 
-    def _update_nat_rule(self, task):
-        # TODO(fank): use POST for optimization
-        #             return rule_id for future reference
-        edge_id = task.userdata['edge_id']
-        if task != self.updated_task['nat'][edge_id]:
-            # this task does not have the latest config, abort now
-            # for speedup
-            return task_constants.TaskStatus.ABORT
-
-        rules = task.userdata['rules']
-        LOG.debug("VCNS: start updating nat rules: %s", rules)
-
-        nat = {
-            'featureType': 'nat',
-            'rules': {
-                'natRulesDtos': rules
-            }
-        }
-
-        try:
-            self.vcns.update_nat_config(edge_id, nat)
-            status = task_constants.TaskStatus.COMPLETED
-        except exceptions.VcnsApiException as e:
-            LOG.exception(_LE("VCNS: Failed to create snat rule:\n%s"),
-                          e.response)
-            status = task_constants.TaskStatus.ERROR
-
-        return status
-
-    def update_nat_rules(self, router_id, edge_id, snats, dnats,
-                         jobdata=None):
+    def update_nat_rules(self, edge_id, snats, dnats):
         LOG.debug("VCNS: update nat rule\n"
                   "SNAT:%(snat)s\n"
                   "DNAT:%(dnat)s\n", {
@@ -638,18 +608,20 @@ class EdgeApplianceDriver(object):
                 'snat', snat['src'], snat['translated'], vnic_index=vnic_index
             ))
 
-        userdata = {
-            'edge_id': edge_id,
-            'rules': nat_rules,
-            'jobdata': jobdata,
+        nat = {
+            'featureType': 'nat',
+            'rules': {
+                'natRulesDtos': nat_rules
+            }
         }
-        task_name = "update-nat-%s" % edge_id
-        task = tasks.Task(task_name, router_id, self._update_nat_rule,
-                          userdata=userdata)
-        task.add_result_monitor(self.callbacks.nat_update_result)
-        self.updated_task['nat'][edge_id] = task
-        self.task_manager.add(task)
-        return task
+
+        try:
+            self.vcns.update_nat_config(edge_id, nat)
+            return True
+        except exceptions.VcnsApiException as e:
+            LOG.exception(_LE("VCNS: Failed to create snat rule:\n%s"),
+                          e.response)
+            return False
 
     def update_routes(self, edge_id, gateway, routes):
         if gateway:
