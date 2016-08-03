@@ -390,27 +390,6 @@ class EdgeApplianceDriver(object):
 
         return status
 
-    def _rename_edge(self, task):
-        edge_id = task.userdata['edge_id']
-        LOG.debug("start rename edge %s", edge_id)
-        try:
-            # First get the current edge structure
-            # [0] is the status, [1] is the body
-            edge = self.vcns.get_edge(edge_id)[1]
-            # remove some data that will make the update fail
-            edge_utils.remove_irrelevant_keys_from_edge_request(edge)
-            # set the new name in the request
-            edge['name'] = task.userdata['name']
-            # update the edge
-            self.vcns.update_edge(edge_id, edge)
-            status = task_constants.TaskStatus.COMPLETED
-        except exceptions.VcnsApiException as e:
-            LOG.error(_LE("Failed to rename edge: %s"),
-                      e.response)
-            status = task_constants.TaskStatus.ERROR
-
-        return status
-
     def _delete_edge(self, task):
         edge_id = task.userdata['edge_id']
         LOG.debug("VCNS: start destroying edge %s", edge_id)
@@ -562,20 +541,21 @@ class EdgeApplianceDriver(object):
         self.task_manager.add(task)
         return task
 
-    def rename_edge(self, router_id, edge_id, name):
+    def rename_edge(self, edge_id, name):
         """rename edge."""
-        task_name = 'rename-%s' % name
-
-        userdata = {
-            'edge_id': edge_id,
-            'name': name
-        }
-        task = tasks.Task(task_name, router_id,
-                          self._rename_edge,
-                          userdata=userdata)
-        task.add_result_monitor(self.callbacks.edge_rename_result)
-        self.task_manager.add(task)
-        return task
+        try:
+            # First get the current edge structure
+            # [0] is the status, [1] is the body
+            edge = self.vcns.get_edge(edge_id)[1]
+            # remove some data that will make the update fail
+            edge_utils.remove_irrelevant_keys_from_edge_request(edge)
+            # set the new name in the request
+            edge['name'] = name
+            # update the edge
+            self.vcns.update_edge(edge_id, edge)
+        except exceptions.VcnsApiException as e:
+            LOG.error(_LE("Failed to rename edge: %s"),
+                      e.response)
 
     def delete_edge(self, resource_id, edge_id, jobdata=None, dist=False):
         task_name = 'delete-%s' % edge_id

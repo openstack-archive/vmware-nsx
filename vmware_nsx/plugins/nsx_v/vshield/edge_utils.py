@@ -764,9 +764,7 @@ class EdgeManager(object):
         edge_id = binding['edge_id']
         with locking.LockManager.get_lock(str(edge_id)):
             router_name = self._build_lrouter_name(router_id, new_name)
-            task = self.nsxv_manager.rename_edge(
-                router_id, edge_id, router_name)
-            task.wait(task_const.TaskState.RESULT)
+            self.nsxv_manager.rename_edge(edge_id, router_name)
 
     def update_dhcp_edge_bindings(self, context, network_id):
         """Reconfigure the DHCP to the edge."""
@@ -2318,9 +2316,6 @@ class NsxVCallbacks(object):
                 nsxv_db.clean_edge_vnic_binding(context.session, edge_id)
         except sa_exc.NoResultFound:
             LOG.warning(_LW("Router Binding for %s not found"), router_id)
-
-    def edge_rename_result(self, task):
-        LOG.debug("edge_rename_result %d", task.status)
 
     def interface_update_result(self, task):
         LOG.debug("interface_update_result %d", task.status)
