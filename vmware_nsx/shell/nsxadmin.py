@@ -30,6 +30,7 @@ import sys
 
 from neutron.callbacks import registry
 from neutron.common import config as neutron_config
+from neutron.conf import common as neutron_common_config
 
 from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import config  # noqa
@@ -55,7 +56,7 @@ def _init_cfg():
     # so we unregister these options
     cfg.CONF.unregister_opts(_options.common_cli_opts)
     cfg.CONF.unregister_opts(_options.logging_cli_opts)
-    cfg.CONF.unregister_opts(neutron_config.core_cli_opts)
+    cfg.CONF.unregister_opts(neutron_common_config.core_cli_opts)
 
     # Init the neutron config
     neutron_config.init(args=['--config-file', constants.NEUTRON_CONF,
