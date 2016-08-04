@@ -151,8 +151,8 @@ nw_gw_quota_opts = [
 
 cfg.CONF.register_opts(nw_gw_quota_opts, 'QUOTAS')
 
-validators.validators['type:device_list'] = _validate_device_list
-validators.validators['type:connector_type'] = _validate_connector_type
+validators.add_validator('device_list', _validate_device_list)
+validators.add_validator('connector_type', _validate_connector_type)
 
 
 class Networkgw(extensions.ExtensionDescriptor):

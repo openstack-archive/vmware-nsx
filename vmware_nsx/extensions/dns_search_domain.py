@@ -64,7 +64,7 @@ def _validate_dns_search_domain(data, max_len=attributes.NAME_MAX_LEN):
         return msg
 
 
-validators.validators['type:dns_search_domain'] = (_validate_dns_search_domain)
+validators.add_validator('dns_search_domain', _validate_dns_search_domain)
 
 
 DNS_SEARCH_DOMAIN = 'dns_search_domain'

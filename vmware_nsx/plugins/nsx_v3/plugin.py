@@ -2623,7 +2623,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if cfg.CONF.api_replay_mode:
             def _pass(data, _dummy=None):
                 pass
-            ext_sg.validators.validators['type:name_not_default'] = _pass
+            validators.add_validator('name_not_default', _pass)
 
     def get_security_groups(self, context, filters=None, fields=None,
                             sorts=None, limit=None,
