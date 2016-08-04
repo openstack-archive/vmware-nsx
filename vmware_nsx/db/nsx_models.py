@@ -191,7 +191,7 @@ class MultiProviderNetworks(model_base.BASEV2, models.TimestampMixin):
         self.network_id = network_id
 
 
-class NetworkConnection(model_base.BASEV2, model_base.HasTenant,
+class NetworkConnection(model_base.BASEV2, model_base.HasProject,
                         models.TimestampMixin):
     """Defines a connection between a network gateway and a network."""
     # We use port_id as the primary key as one can connect a gateway
@@ -227,7 +227,7 @@ class NetworkGatewayDeviceReference(model_base.BASEV2, models.TimestampMixin):
 
 
 class NetworkGatewayDevice(model_base.BASEV2, model_base.HasId,
-                           model_base.HasTenant, models.TimestampMixin):
+                           model_base.HasProject, models.TimestampMixin):
     nsx_id = sa.Column(sa.String(36))
     # Optional name for the gateway device
     name = sa.Column(sa.String(255))
@@ -241,7 +241,7 @@ class NetworkGatewayDevice(model_base.BASEV2, model_base.HasId,
 
 
 class NetworkGateway(model_base.BASEV2, model_base.HasId,
-                     model_base.HasTenant, models.TimestampMixin):
+                     model_base.HasProject, models.TimestampMixin):
     """Defines the data model for a network gateway."""
     name = sa.Column(sa.String(255))
     default = sa.Column(sa.Boolean())
@@ -296,7 +296,7 @@ class Lsn(models_v2.model_base.BASEV2, models.TimestampMixin):
         self.lsn_id = lsn_id
 
 
-class QoSQueue(model_base.BASEV2, model_base.HasId, model_base.HasTenant,
+class QoSQueue(model_base.BASEV2, model_base.HasId, model_base.HasProject,
                models.TimestampMixin):
     name = sa.Column(sa.String(255))
     default = sa.Column(sa.Boolean, default=False, server_default=sql.false())
