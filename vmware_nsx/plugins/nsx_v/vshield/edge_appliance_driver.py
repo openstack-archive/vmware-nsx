@@ -714,16 +714,6 @@ class EdgeApplianceDriver(object):
             return task_constants.TaskStatus.ERROR
         return task_constants.TaskStatus.COMPLETED
 
-    def delete_portgroup(self, dvs_id, port_group_id):
-        task_name = "delete-port-group-%s" % port_group_id
-        userdata = {'dvs_id': dvs_id,
-                    'port_group_id': port_group_id}
-        task = tasks.Task(task_name, port_group_id,
-                          self._delete_port_group,
-                          status_callback=self._delete_port_group,
-                          userdata=userdata)
-        self.task_manager.add(task)
-
     def _retry_task(self, task):
         delay = 0.5
         max_retries = max(cfg.CONF.nsxv.retries, 1)
