@@ -23,8 +23,9 @@ import uuid
 from neutron_lib import constants
 from oslo_config import cfg
 from oslo_log import log
+from oslo_utils import excutils
 
-from vmware_nsx._i18n import _, _LW
+from vmware_nsx._i18n import _, _LW, _LE
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils
 from vmware_nsx.db import nsx_models
@@ -262,6 +263,9 @@ def update_lport_with_security_groups(context, lport_id, original, updated):
                 firewall.remove_nsgroup_member(
                     nsgroup_id, firewall.LOGICAL_PORT, lport_id)
             raise nsx_exc.SecurityGroupMaximumCapacityReached(sg_id=sg_id)
+        except nsx_exc.ResourceNotFound:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("NSGroup %s doesn't exists"), nsgroup_id)
     for sg_id in removed:
         nsgroup_id, s = get_sg_mappings(context.session, sg_id)
         firewall.remove_nsgroup_member(

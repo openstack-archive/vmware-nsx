@@ -143,7 +143,7 @@ def add_nsgroup_member(nsgroup_id, target_type, target_id):
     members = {'members': [member_expr]}
     try:
         return _update_nsgroup_with_members(nsgroup_id, members, ADD_MEMBERS)
-    except nsx_exc.StaleRevision:
+    except (nsx_exc.StaleRevision, nsx_exc.ResourceNotFound):
         raise
     except nsx_exc.ManagerError:
         # REVISIT(roeyc): A ManagerError might have been raised for a
