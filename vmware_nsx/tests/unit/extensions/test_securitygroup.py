@@ -38,7 +38,7 @@ def _mock_create_and_list_nsgroups(test_method):
     def _create_nsgroup_mock(name, desc, tags, membership_criteria=None):
         nsgroup = {'id': NSG_IDS[len(nsgroups)],
                    'display_name': name,
-                   'desc': desc,
+                   'description': desc,
                    'tags': tags}
         nsgroups.append(nsgroup)
         return nsgroup
@@ -72,7 +72,7 @@ class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
 
     @_mock_create_and_list_nsgroups
     @mock.patch.object(firewall, 'remove_nsgroup_member')
-    @mock.patch.object(firewall, 'add_nsgroup_member')
+    @mock.patch.object(firewall, 'add_nsgroup_members')
     def test_create_port_with_multiple_security_groups(self,
                                                        add_member_mock,
                                                        remove_member_mock):
@@ -87,7 +87,7 @@ class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
 
     @_mock_create_and_list_nsgroups
     @mock.patch.object(firewall, 'remove_nsgroup_member')
-    @mock.patch.object(firewall, 'add_nsgroup_member')
+    @mock.patch.object(firewall, 'add_nsgroup_members')
     def test_update_port_with_multiple_security_groups(self,
                                                        add_member_mock,
                                                        remove_member_mock):
@@ -104,7 +104,7 @@ class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
 
     @_mock_create_and_list_nsgroups
     @mock.patch.object(firewall, 'remove_nsgroup_member')
-    @mock.patch.object(firewall, 'add_nsgroup_member')
+    @mock.patch.object(firewall, 'add_nsgroup_members')
     def test_update_port_remove_security_group_empty_list(self,
                                                           add_member_mock,
                                                           remove_member_mock):
@@ -117,7 +117,7 @@ class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
             NSG_IDS[1], firewall.LOGICAL_PORT, mock.ANY)
 
     @_mock_create_and_list_nsgroups
-    @mock.patch.object(firewall, 'add_nsgroup_member')
+    @mock.patch.object(firewall, 'add_nsgroup_members')
     def test_create_port_with_full_security_group(self, add_member_mock):
 
         def _add_member_mock(nsgroup, target_type, target_id):
@@ -136,7 +136,7 @@ class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
 
     @_mock_create_and_list_nsgroups
     @mock.patch.object(firewall, 'remove_nsgroup_member')
-    @mock.patch.object(firewall, 'add_nsgroup_member')
+    @mock.patch.object(firewall, 'add_nsgroup_members')
     def test_update_port_with_full_security_group(self,
                                                   add_member_mock,
                                                   remove_member_mock):
@@ -204,7 +204,7 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
 
     @_mock_create_and_list_nsgroups
     @mock.patch.object(firewall, 'remove_nsgroup_member')
-    @mock.patch.object(firewall, 'add_nsgroup_member')
+    @mock.patch.object(firewall, 'add_nsgroup_members')
     def test_add_and_remove_nsgroups(self,
                                      add_member_mock,
                                      remove_member_mock):
@@ -222,13 +222,13 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
         # There are 5 nested groups, the hash function will return 7, therefore
         # we expect that the nsgroup will be placed in the 3rd group.
         add_member_mock.assert_called_once_with(
-            NSG_IDS[2], firewall.NSGROUP, nsgroup_id)
+            NSG_IDS[2], firewall.NSGROUP, [nsgroup_id])
         remove_member_mock.assert_called_once_with(
             NSG_IDS[2], firewall.NSGROUP, nsgroup_id, verify=True)
 
     @_mock_create_and_list_nsgroups
     @mock.patch.object(firewall, 'remove_nsgroup_member')
-    @mock.patch.object(firewall, 'add_nsgroup_member')
+    @mock.patch.object(firewall, 'add_nsgroup_members')
     def test_when_nested_group_is_full(self,
                                        add_member_mock,
                                        remove_member_mock):
@@ -255,8 +255,8 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
         # Trying to add nsgroup to the nested group at index 2 will raise
         # NSGroupIsFull exception, we expect that the nsgroup will be added to
         # the nested group at index 3.
-        calls = [mock.call(NSG_IDS[2], firewall.NSGROUP, nsgroup_id),
-                 mock.call(NSG_IDS[3], firewall.NSGROUP, nsgroup_id)]
+        calls = [mock.call(NSG_IDS[2], firewall.NSGROUP, [nsgroup_id]),
+                 mock.call(NSG_IDS[3], firewall.NSGROUP, [nsgroup_id])]
         add_member_mock.assert_has_calls(calls)
 
         # Since the nsgroup was added to the nested group at index 3, it will
@@ -271,7 +271,7 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
 
     @_mock_create_and_list_nsgroups
     @mock.patch.object(firewall, 'remove_nsgroup_member')
-    @mock.patch.object(firewall, 'add_nsgroup_member')
+    @mock.patch.object(firewall, 'add_nsgroup_members')
     def initialize_with_absent_nested_groups(self,
                                              add_member_mock,
                                              remove_member_mock):

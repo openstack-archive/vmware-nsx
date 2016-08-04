@@ -139,9 +139,12 @@ def _update_nsgroup_with_members(nsgroup_id, members, action):
     return nsxclient.create_resource(members_update, members)
 
 
-def add_nsgroup_member(nsgroup_id, target_type, target_id):
-    member_expr = get_nsgroup_member_expression(target_type, target_id)
-    members = {'members': [member_expr]}
+def add_nsgroup_members(nsgroup_id, target_type, target_ids):
+    members = []
+    for target_id in target_ids:
+        member_expr = get_nsgroup_member_expression(target_type, target_id)
+        members.append(member_expr)
+    members = {'members': members}
     try:
         return _update_nsgroup_with_members(nsgroup_id, members, ADD_MEMBERS)
     except (nsx_exc.StaleRevision, nsx_exc.ResourceNotFound):
@@ -149,10 +152,10 @@ def add_nsgroup_member(nsgroup_id, target_type, target_id):
     except nsx_exc.ManagerError:
         # REVISIT(roeyc): A ManagerError might have been raised for a
         # different reason, e.g - NSGroup does not exists.
-        LOG.warning(_LW("Failed to add %(target_type)s %(target_id)s to "
-                        "NSGroup %(nsgroup_id)s"),
+        LOG.warning(_LW("Failed to add %(target_type)s resources "
+                        "(%(target_ids))s to NSGroup %(nsgroup_id)s"),
                     {'target_type': target_type,
-                     'target_id': target_id,
+                     'target_ids': target_ids,
                      'nsgroup_id': nsgroup_id})
         raise NSGroupIsFull(nsgroup_id=nsgroup_id)
 
@@ -175,7 +178,13 @@ def read_nsgroup(nsgroup_id):
 
 
 def delete_nsgroup(nsgroup_id):
-    return nsxclient.delete_resource('ns-groups/%s?force=true' % nsgroup_id)
+    try:
+        return nsxclient.delete_resource('ns-groups/%s?force=true'
+                                         % nsgroup_id)
+    #FIXME(roeyc): Should only except NotFound error.
+    except Exception:
+        LOG.debug("NSGroup %s does not exists for delete request.",
+                  nsgroup_id)
 
 
 def _build_section(display_name, description, applied_tos, tags):
@@ -231,7 +240,12 @@ def list_sections():
 
 def delete_section(section_id):
     resource = 'firewall/sections/%s?cascade=true' % section_id
-    return nsxclient.delete_resource(resource)
+    try:
+        return nsxclient.delete_resource(resource)
+    #FIXME(roeyc): Should only except NotFound error.
+    except Exception:
+        LOG.debug("Firewall section %s does not exists for delete request.",
+                  section_id)
 
 
 def get_nsgroup_reference(nsgroup_id):

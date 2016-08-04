@@ -16,6 +16,7 @@ from neutron import context
 from neutron.db import db_base_plugin_v2
 
 from vmware_nsx.db import db as nsx_db
+from vmware_nsx.plugins.nsx_v3 import plugin
 
 
 class NeutronDbClient(db_base_plugin_v2.NeutronDbPluginV2):
@@ -48,3 +49,22 @@ class NeutronDbClient(db_base_plugin_v2.NeutronDbPluginV2):
     def net_id_to_lswitch_id(self, net_id):
         lswitch_ids = nsx_db.get_nsx_switch_ids(self.context.session, net_id)
         return lswitch_ids[0] if lswitch_ids else None
+
+
+class NsxV3PluginWrapper(plugin.NsxV3Plugin):
+    def _init_dhcp_metadata(self):
+        pass
+
+    def _process_security_group_logging(self):
+        pass
+
+    def _init_port_security_profile(self):
+        return True
+
+    def _init_dhcp_switching_profile(self):
+        pass
+
+    def _extend_get_network_dict_provider(self, context, net):
+        self._extend_network_dict_provider(context, net)
+        # skip getting the Qos policy ID because get_object calls
+        # plugin init again on admin-util environment

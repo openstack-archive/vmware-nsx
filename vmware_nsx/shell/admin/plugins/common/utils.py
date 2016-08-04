@@ -17,6 +17,8 @@ import six
 import sys
 
 from vmware_nsx._i18n import _LI, _
+from neutron.callbacks import registry
+from vmware_nsx.shell import resources as nsxadmin
 
 LOG = logging.getLogger(__name__)
 
@@ -83,3 +85,27 @@ def query_yes_no(question, default="yes"):
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
+
+
+def list_handler(resource):
+    def wrap(func):
+        registry.subscribe(func, resource,
+                           nsxadmin.Operations.LIST.value)
+        return func
+    return wrap
+
+
+def list_mismatches_handler(resource):
+    def wrap(func):
+        registry.subscribe(func, resource,
+                           nsxadmin.Operations.LIST_MISMATCHES.value)
+        return func
+    return wrap
+
+
+def fix_mismatches_handler(resource):
+    def wrap(func):
+        registry.subscribe(func, resource,
+                           nsxadmin.Operations.FIX_MISMATCH.value)
+        return func
+    return wrap

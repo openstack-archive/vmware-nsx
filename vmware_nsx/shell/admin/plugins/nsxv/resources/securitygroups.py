@@ -16,7 +16,6 @@
 import logging
 import xml.etree.ElementTree as et
 
-from neutron.callbacks import registry
 from neutron import context
 from neutron.db import models_v2
 from neutron.db import securitygroups_db
@@ -28,7 +27,6 @@ from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv.resources import utils
-from vmware_nsx.shell import resources as nsxadmin
 
 
 LOG = logging.getLogger(__name__)
@@ -133,31 +131,7 @@ def _log_info(resource, data, attrs=['name', 'id']):
     LOG.info(formatters.output_formatter(resource, data, attrs))
 
 
-def list_handler(resource):
-    def wrap(func):
-        registry.subscribe(func, resource,
-                           nsxadmin.Operations.LIST.value)
-        return func
-    return wrap
-
-
-def list_mismatches_handler(resource):
-    def wrap(func):
-        registry.subscribe(func, resource,
-                           nsxadmin.Operations.LIST_MISMATCHES.value)
-        return func
-    return wrap
-
-
-def fix_mismatches_handler(resource):
-    def wrap(func):
-        registry.subscribe(func, resource,
-                           nsxadmin.Operations.FIX_MISMATCH.value)
-        return func
-    return wrap
-
-
-@list_handler(constants.SECURITY_GROUPS)
+@admin_utils.list_handler(constants.SECURITY_GROUPS)
 @admin_utils.output_header
 def neutron_list_security_groups_mappings(resource, event, trigger, **kwargs):
     sg_mappings = neutron_sg.get_security_groups_mappings()
@@ -167,7 +141,7 @@ def neutron_list_security_groups_mappings(resource, event, trigger, **kwargs):
     return bool(sg_mappings)
 
 
-@list_handler(constants.FIREWALL_SECTIONS)
+@admin_utils.list_handler(constants.FIREWALL_SECTIONS)
 @admin_utils.output_header
 def nsx_list_dfw_sections(resource, event, trigger, **kwargs):
     fw_sections = nsxv_firewall.list_fw_sections()
@@ -175,7 +149,7 @@ def nsx_list_dfw_sections(resource, event, trigger, **kwargs):
     return bool(fw_sections)
 
 
-@list_handler(constants.FIREWALL_NSX_GROUPS)
+@admin_utils.list_handler(constants.FIREWALL_NSX_GROUPS)
 @admin_utils.output_header
 def nsx_list_security_groups(resource, event, trigger, **kwargs):
     nsx_secgroups = nsxv_firewall.list_security_groups()
@@ -196,7 +170,7 @@ def _find_missing_security_groups():
     return missing_secgroups
 
 
-@list_mismatches_handler(constants.FIREWALL_NSX_GROUPS)
+@admin_utils.list_mismatches_handler(constants.FIREWALL_NSX_GROUPS)
 @admin_utils.output_header
 def list_missing_security_groups(resource, event, trigger, **kwargs):
     sgs_with_missing_nsx_group = _find_missing_security_groups()
@@ -225,7 +199,7 @@ def _find_missing_sections():
     return missing_sections
 
 
-@list_mismatches_handler(constants.FIREWALL_SECTIONS)
+@admin_utils.list_mismatches_handler(constants.FIREWALL_SECTIONS)
 @admin_utils.output_header
 def list_missing_firewall_sections(resource, event, trigger, **kwargs):
     sgs_with_missing_section = _find_missing_sections()
@@ -238,7 +212,7 @@ def list_missing_firewall_sections(resource, event, trigger, **kwargs):
     return bool(missing_sections_info)
 
 
-@fix_mismatches_handler(constants.SECURITY_GROUPS)
+@admin_utils.fix_mismatches_handler(constants.SECURITY_GROUPS)
 @admin_utils.output_header
 def fix_security_groups(resource, event, trigger, **kwargs):
     context_ = context.get_admin_context()

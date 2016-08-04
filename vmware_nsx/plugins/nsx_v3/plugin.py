@@ -2661,14 +2661,45 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 marker=marker, page_reverse=page_reverse,
                 default_sg=default_sg)
 
+    def _create_fw_section_for_secgroup(self, nsgroup, is_provider):
+        # NOTE(arosen): if a security group is provider we want to
+        # insert our rules at the top.
+        operation = (firewall.INSERT_TOP
+                     if is_provider
+                     else firewall.INSERT_BEFORE)
+
+        # security-group rules are located in a dedicated firewall section.
+        firewall_section = (
+            firewall.create_empty_section(
+                nsgroup['display_name'], nsgroup['description'],
+                [nsgroup['id']], nsgroup['tags'],
+                operation=operation,
+                other_section=self.default_section))
+        return firewall_section
+
+    def _create_security_group_backend_resources(self, secgroup):
+        tags = utils.build_v3_tags_payload(
+            secgroup, resource_type='os-neutron-secgr-id',
+            project_name=secgroup['tenant_id'])
+        name = security.get_nsgroup_name(secgroup)
+
+        if utils.is_nsx_version_1_1_0(self._nsx_version):
+                tag_expression = (
+                    firewall.get_nsgroup_port_tag_expression(
+                        security.PORT_SG_SCOPE, secgroup['id']))
+        else:
+            tag_expression = None
+
+        ns_group = firewall.create_nsgroup(
+            name, secgroup['description'], tags, tag_expression)
+        # security-group rules are located in a dedicated firewall section.
+        firewall_section = self._create_fw_section_for_secgroup(
+            ns_group, secgroup.get(provider_sg.PROVIDER))
+        return ns_group, firewall_section
+
     def create_security_group(self, context, security_group, default_sg=False):
         secgroup = security_group['security_group']
         secgroup['id'] = secgroup.get('id') or uuidutils.generate_uuid()
-
-        tags = utils.build_v3_tags_payload(
-            secgroup, resource_type='os-neutron-secgr-id',
-            project_name=context.tenant_name)
-        name = security.get_nsgroup_name(secgroup)
         ns_group = {}
         firewall_section = {}
 
@@ -2676,34 +2707,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             tenant_id = secgroup['tenant_id']
             self._ensure_default_security_group(context, tenant_id)
         try:
-            if utils.is_nsx_version_1_1_0(self._nsx_version):
-                tag_expression = (
-                    firewall.get_nsgroup_port_tag_expression(
-                        security.PORT_SG_SCOPE, secgroup['id']))
-            else:
-                tag_expression = None
-            # NOTE(roeyc): We first create the nsgroup so that once the sg is
-            # saved into db its already backed up by an nsx resource.
-            ns_group = firewall.create_nsgroup(
-                name, secgroup['description'], tags, tag_expression)
-
-            operation = firewall.INSERT_BEFORE
-            action = firewall.ALLOW
-            if secgroup.get(provider_sg.PROVIDER) is True:
-                # NOTE(arosen): if a security group is provider we want to
-                # insert our rules at the top.
-                operation = firewall.INSERT_TOP
-                # We also want to block the traffic as provider rules are
-                # drops.
-                action = firewall.DROP
-
-            # security-group rules are located in a dedicated firewall section.
-            firewall_section = (
-                firewall.create_empty_section(
-                    name, secgroup.get('description', ''), [ns_group['id']],
-                    tags, operation=operation,
-                    other_section=self.default_section))
-
+            ns_group, firewall_section = (
+                self._create_security_group_backend_resources(secgroup))
             # REVISIT(roeyc): Ideally, at this point we need not be under an
             # open db transactions, however, unittests fail if omitting
             # subtransactions=True.
@@ -2753,6 +2758,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 # translate and creates firewall rules.
                 logging = (cfg.CONF.nsx_v3.log_security_groups_allowed_traffic
                            or secgroup.get(sg_logging.LOGGING, False))
+                action = (firewall.DROP
+                          if secgroup.get(provider_sg.PROVIDER)
+                          else firewall.ALLOW)
                 rules = security.create_firewall_rules(
                     context, firewall_section['id'], ns_group['id'],
                     logging, action, sg_rules)
