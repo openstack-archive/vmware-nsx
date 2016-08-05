@@ -83,6 +83,8 @@ class TestQosNsxV3Notification(nsxlib_testcase.NsxClientTestCase,
         mock.patch.object(nsx_db, 'get_switch_profile_by_qos_policy',
             return_value=self.fake_profile_id).start()
 
+        self.peak_bw_multiplier = cfg.CONF.NSX.qos_peak_bw_multiplier
+
     @mock.patch(
         'neutron.objects.rbac_db.RbacNeutronDbObjectMixin'
         '.create_rbac_policy')
@@ -156,11 +158,12 @@ class TestQosNsxV3Notification(nsxlib_testcase.NsxClientTestCase,
                     rule_dict = self.rule_data['bandwidth_limit_rule']
                     expected_bw = rule_dict['max_kbps'] // 1024
                     expected_burst = rule_dict['max_burst_kbps'] * 128
+                    expected_peak = int(expected_bw * self.peak_bw_multiplier)
                     update_profile.assert_called_once_with(
                         self.fake_profile_id,
                         average_bandwidth=expected_bw,
                         burst_size=expected_burst,
-                        peak_bandwidth=expected_bw,
+                        peak_bandwidth=expected_peak,
                         shaping_enabled=True,
                         qos_marking='trusted',
                         dscp=0
@@ -196,11 +199,12 @@ class TestQosNsxV3Notification(nsxlib_testcase.NsxClientTestCase,
                     rule_dict = rule_data['bandwidth_limit_rule']
                     expected_bw = qos_utils.MAX_KBPS_MIN_VALUE / 1024
                     expected_burst = rule_dict['max_burst_kbps'] * 128
+                    expected_peak = int(expected_bw * self.peak_bw_multiplier)
                     update_profile.assert_called_once_with(
                         self.fake_profile_id,
                         average_bandwidth=expected_bw,
                         burst_size=expected_burst,
-                        peak_bandwidth=expected_bw,
+                        peak_bandwidth=expected_peak,
                         shaping_enabled=True,
                         dscp=0,
                         qos_marking='trusted'

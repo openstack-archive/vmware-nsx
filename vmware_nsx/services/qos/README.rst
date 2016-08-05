@@ -27,4 +27,9 @@
     [qos]
     notification_drivers = vmware_nsxv3_message_queue
 
-5. run ``stack.sh``
+5. Optional: Update the nsx qos_peak_bw_multiplier in nsx.ini (default value is 2.0)::
+
+    [NSX]
+    qos_peak_bw_multiplier = <i.e 10.0>
+
+6. run ``stack.sh``

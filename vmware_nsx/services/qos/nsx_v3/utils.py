@@ -19,6 +19,7 @@ from neutron import context as n_context
 from neutron.objects.qos import policy as qos_policy
 from neutron.services.qos import qos_consts
 from neutron_lib.api import validators
+from oslo_config import cfg
 from oslo_log import log as logging
 
 from vmware_nsx._i18n import _, _LW
@@ -136,9 +137,13 @@ class QosNotificationsHandler(object):
             burst_size = int(bw_rule.max_burst_kbps) * 128
 
             # translate kbps -> Mbps
-            peak_bandwidth = int(float(bw_rule.max_kbps) / 1024)
-            # neutron QoS does not support this parameter
-            average_bandwidth = peak_bandwidth
+            average_bandwidth = int(float(bw_rule.max_kbps) / 1024)
+
+            # peakBandwidth: a Multiplying on the average BW
+            # because the neutron qos configuration supports
+            # only 1 value
+            peak_bandwidth = int(average_bandwidth *
+                                 cfg.CONF.NSX.qos_peak_bw_multiplier)
         else:
             shaping_enabled = False
             burst_size = None
