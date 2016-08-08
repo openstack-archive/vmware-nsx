@@ -96,7 +96,8 @@ def _decide_service(sg_rule):
                                       protocol_number=l4_protocol)
 
 
-def _get_fw_rule_from_sg_rule(sg_rule, nsgroup_id, rmt_nsgroup_id, logged):
+def _get_fw_rule_from_sg_rule(sg_rule, nsgroup_id, rmt_nsgroup_id,
+                              logged, action):
     # IPV4 or IPV6
     ip_protocol = sg_rule['ethertype'].upper()
     direction = _get_direction(sg_rule)
@@ -127,11 +128,11 @@ def _get_fw_rule_from_sg_rule(sg_rule, nsgroup_id, rmt_nsgroup_id, logged):
     return firewall.get_firewall_rule_dict(name, source,
                                            destination, direction,
                                            ip_protocol, service,
-                                           firewall.ALLOW, logged)
+                                           action, logged)
 
 
 def create_firewall_rules(context, section_id, nsgroup_id, logging_enabled,
-                          security_group_rules):
+                          action, security_group_rules):
 
     # 1. translate rules
     # 2. insert in section
@@ -143,7 +144,7 @@ def create_firewall_rules(context, section_id, nsgroup_id, logging_enabled,
             context, sg_rule, nsgroup_id)
 
         fw_rule = _get_fw_rule_from_sg_rule(
-            sg_rule, nsgroup_id, remote_nsgroup_id, logging_enabled)
+            sg_rule, nsgroup_id, remote_nsgroup_id, logging_enabled, action)
 
         firewall_rules.append(fw_rule)
 

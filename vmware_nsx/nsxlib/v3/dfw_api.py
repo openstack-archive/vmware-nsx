@@ -31,6 +31,7 @@ LAYER3 = 'LAYER3'
 
 INSERT_BEFORE = 'insert_before'
 INSERT_BOTTOM = 'insert_bottom'
+INSERT_TOP = 'insert_top'
 
 # firewall rule actions
 ALLOW = 'ALLOW'
