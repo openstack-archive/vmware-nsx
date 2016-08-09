@@ -155,7 +155,8 @@ class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
         self._plugin = manager.NeutronManager.get_plugin()
 
     def _create_and_delete_dvs_network(self, network_type='flat', vlan_tag=0):
-        params = {'provider:network_type': network_type}
+        params = {'provider:network_type': network_type,
+                  'provider:physical_network': 'fake-moid'}
         if network_type == 'vlan':
             params['provider:segmentation_id'] = vlan_tag
         params['arg_list'] = tuple(params.keys())
@@ -169,16 +170,18 @@ class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
                 dvs_id = '%s-%s' % (network['network']['name'], id)
                 binding = nsx_db.get_network_bindings(ctx.session, id)
                 self.assertIsNotNone(binding)
-                self.assertEqual('dvs', binding[0].phy_uuid)
                 if network_type == 'flat':
                     self.assertEqual('flat', binding[0].binding_type)
                     self.assertEqual(0, binding[0].vlan_id)
+                    self.assertEqual('dvs', binding[0].phy_uuid)
                 elif network_type == 'vlan':
                     self.assertEqual('vlan', binding[0].binding_type)
                     self.assertEqual(vlan_tag, binding[0].vlan_id)
+                    self.assertEqual('dvs', binding[0].phy_uuid)
                 elif network_type == 'portgroup':
                     self.assertEqual('portgroup', binding[0].binding_type)
                     self.assertEqual(0, binding[0].vlan_id)
+                    self.assertEqual('fake-moid', binding[0].phy_uuid)
                 else:
                     self.fail()
             if network_type != 'portgroup':

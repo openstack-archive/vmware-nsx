@@ -146,6 +146,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         if net_data.get(pnet.NETWORK_TYPE) == c_utils.NetworkTypes.VLAN:
             vlan_tag = net_data.get(pnet.SEGMENTATION_ID, 0)
 
+        net_id = None
         if net_data.get(pnet.NETWORK_TYPE) == c_utils.NetworkTypes.PORTGROUP:
             net_id = net_data.get(pnet.PHYSICAL_NETWORK)
             dvs_id = self._dvs._net_id_to_moref(net_id).value
@@ -164,7 +165,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                 nsx_db.add_network_binding(
                     context.session, new_net['id'],
                     net_data.get(pnet.NETWORK_TYPE),
-                    'dvs',
+                    net_id or 'dvs',
                     vlan_tag)
         except Exception:
             with excutils.save_and_reraise_exception():
@@ -174,7 +175,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                     self._dvs.delete_port_group(dvs_id)
 
         new_net[pnet.NETWORK_TYPE] = net_data.get(pnet.NETWORK_TYPE)
-        new_net[pnet.PHYSICAL_NETWORK] = 'dvs'
+        new_net[pnet.PHYSICAL_NETWORK] = net_id or 'dvs'
         new_net[pnet.SEGMENTATION_ID] = vlan_tag
 
         # this extra lookup is necessary to get the
