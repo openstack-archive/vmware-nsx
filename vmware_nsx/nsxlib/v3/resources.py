@@ -166,6 +166,15 @@ class SwitchingProfile(AbstractRESTResource):
                            mac_learning=mac_learning,
                            source_mac_change_allowed=True)
 
+    def create_port_mirror_profile(self, display_name, description,
+                                   direction, destinations, tags=None):
+        return self.create(SwitchingProfileTypes.PORT_MIRRORING,
+                           display_name=display_name,
+                           description=description,
+                           tags=tags or [],
+                           direction=direction,
+                           destinations=destinations)
+
     @classmethod
     def build_switch_profile_ids(cls, client, *profiles):
         ids = []
