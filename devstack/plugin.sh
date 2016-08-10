@@ -42,7 +42,7 @@ elif [[ $Q_PLUGIN == 'vmware_nsx_v3' ]]; then
     if [[ "$1" == "stack" && "$2" == "post-config" ]]; then
         init_vmware_nsx_v3
     elif [[ "$1" == "unstack" ]]; then
-        stop_vmware_nsx
+        stop_vmware_nsx_v3
         NSX_MANAGER=${NSX_MANAGERS:-$NSX_MANAGER}
         IFS=','
         NSX_MANAGER=($NSX_MANAGER)
