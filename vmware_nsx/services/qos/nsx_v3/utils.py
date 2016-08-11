@@ -32,7 +32,12 @@ LOG = logging.getLogger(__name__)
 MAX_KBPS_MIN_VALUE = 1024
 
 
-def handle_qos_notification(policy_obj, event_type):
+def handle_qos_notification(policies_list, event_type):
+    for policy_obj in policies_list:
+        handle_qos_policy_notification(policy_obj, event_type)
+
+
+def handle_qos_policy_notification(policy_obj, event_type):
     handler = QosNotificationsHandler()
     context = n_context.get_admin_context()
 

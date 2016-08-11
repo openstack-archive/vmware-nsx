@@ -609,7 +609,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                                return_value=fake_policy):
             with mock.patch.object(qos_pol.QosPolicy, "get_bound_networks",
                                    return_value=[net["id"]]):
-                plugin._handle_qos_notification(fake_policy,
+                plugin._handle_qos_notification([fake_policy],
                                                 callbacks_events.UPDATED)
                 # make sure the policy data was read, and the dvs was updated
                 self.assertTrue(fake_init_from_policy.called)

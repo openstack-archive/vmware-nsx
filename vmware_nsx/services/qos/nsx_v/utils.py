@@ -90,28 +90,34 @@ class NsxVQosRule(object):
         return self
 
 
-def handle_qos_notification(policy_obj, event_type, dvs):
+def handle_qos_notification(policies_list, event_type, dvs):
     # Check if QoS policy rule was created/deleted/updated
     # Only if the policy rule was updated, we need to update the dvs
-    if (event_type == callbacks_events.UPDATED and
-        hasattr(policy_obj, "rules")):
+    if event_type != callbacks_events.UPDATED:
+        return
 
-        # Reload the policy as admin so we will have a context
-        context = n_context.get_admin_context()
-        admin_policy = qos_policy.QosPolicy.get_object(
-            context, id=policy_obj.id)
-        # get all the bound networks of this policy
-        networks = admin_policy.get_bound_networks()
-        qos_rule = NsxVQosRule(context=context,
-                               qos_policy_id=policy_obj.id)
+    for policy_obj in policies_list:
+        if hasattr(policy_obj, "rules"):
+            handle_qos_policy_notification(policy_obj, dvs)
 
-        for net_id in networks:
-            # update the new bw limitations for this network
-            net_morefs = nsx_db.get_nsx_switch_ids(context.session, net_id)
-            for moref in net_morefs:
-                # update the qos restrictions of the network
-                dvs.update_port_groups_config(
-                    net_id,
-                    moref,
-                    dvs.update_port_group_spec_qos,
-                    qos_rule)
+
+def handle_qos_policy_notification(policy_obj, dvs):
+    # Reload the policy as admin so we will have a context
+    context = n_context.get_admin_context()
+    admin_policy = qos_policy.QosPolicy.get_object(
+        context, id=policy_obj.id)
+    # get all the bound networks of this policy
+    networks = admin_policy.get_bound_networks()
+    qos_rule = NsxVQosRule(context=context,
+                           qos_policy_id=policy_obj.id)
+
+    for net_id in networks:
+        # update the new bw limitations for this network
+        net_morefs = nsx_db.get_nsx_switch_ids(context.session, net_id)
+        for moref in net_morefs:
+            # update the qos restrictions of the network
+            dvs.update_port_groups_config(
+                net_id,
+                moref,
+                dvs.update_port_group_spec_qos,
+                qos_rule)

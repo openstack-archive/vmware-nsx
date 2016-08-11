@@ -3184,8 +3184,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 error = _("Configured %s not found") % field
                 raise nsx_exc.NsxPluginException(err_msg=error)
 
-    def _handle_qos_notification(self, qos_policy, event_type):
-        qos_utils.handle_qos_notification(qos_policy, event_type, self._dvs)
+    def _handle_qos_notification(self, qos_policys, event_type):
+        qos_utils.handle_qos_notification(qos_policys, event_type, self._dvs)
 
     def get_az_by_hint(self, hint):
         az = self._availability_zones_data.get_availability_zone(hint)
