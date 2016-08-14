@@ -12,16 +12,18 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import mock
+import webob.exc
 
 from neutron.api.v2 import attributes as attr
 from neutron import context
 from neutron.db import db_base_plugin_v2
 from neutron.db import securitygroups_db
 from neutron.tests.unit.extensions import test_securitygroup
-import webob.exc
 
 from vmware_nsx.db import extended_security_group
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
+from vmware_nsx.tests.unit.nsx_v import test_plugin as test_nsxv_plugin
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_nsxv3_plugin
 
 
@@ -246,4 +248,34 @@ class TestNSXv3ProviderSecurityGrp(test_nsxv3_plugin.NsxV3PluginTestCaseMixin,
                                    ProviderSecurityGroupExtTestCase):
     pass
 
-# TODO(roeyc): add nsxv test case mixin when ready
+
+class TestNSXvProviderSecurityGroup(test_nsxv_plugin.NsxVPluginV2TestCase,
+                                    ProviderSecurityGroupExtTestCase):
+    def test_create_provider_security_group(self):
+        _create_section_tmp = self.fc2.create_section
+
+        def _create_section(*args, **kwargs):
+            return _create_section_tmp(*args, **kwargs)
+
+        with mock.patch.object(self.fc2, 'create_section',
+                               side_effect=_create_section) as create_sec_mock:
+            super(TestNSXvProviderSecurityGroup,
+                  self).test_create_provider_security_group()
+            create_sec_mock.assert_called_with('ip', mock.ANY,
+                                               insert_top=True,
+                                               insert_before=mock.ANY)
+
+    def test_create_provider_security_group_rule(self):
+        provider_secgroup = self._create_provider_security_group()
+        sg_id = provider_secgroup['security_group']['id']
+        _create_nsx_rule_tmp = self.plugin._create_nsx_rule
+
+        def m_create_nsx_rule(*args, **kwargs):
+            return _create_nsx_rule_tmp(*args, **kwargs)
+
+        with mock.patch.object(self.plugin, '_create_nsx_rule',
+                               side_effect=m_create_nsx_rule) as create_rule_m:
+            with self.security_group_rule(security_group_id=sg_id):
+                create_rule_m.assert_called_with(mock.ANY, mock.ANY,
+                                                 logged=mock.ANY,
+                                                 action='deny')
