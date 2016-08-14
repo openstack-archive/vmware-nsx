@@ -21,6 +21,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import excutils
+from sqlalchemy.orm import exc as sa_exc
 
 from vmware_nsx._i18n import _, _LE, _LI, _LW
 from vmware_nsx.common import exceptions as nsxv_exc
@@ -376,26 +377,6 @@ class EdgeApplianceDriver(object):
         LOG.debug("Deletion complete vnic %(vnic_index)s: on edge %(edge_id)s",
                   {'vnic_index': index, 'edge_id': edge_id})
 
-    def _delete_edge(self, task):
-        edge_id = task.userdata['edge_id']
-        LOG.debug("VCNS: start destroying edge %s", edge_id)
-        status = task_constants.TaskStatus.COMPLETED
-        if edge_id:
-            try:
-                self.vcns.delete_edge(edge_id)
-            except exceptions.ResourceNotFound:
-                pass
-            except exceptions.VcnsApiException as e:
-                LOG.exception(_LE("VCNS: Failed to delete %(edge_id)s:\n"
-                                  "%(response)s"),
-                              {'edge_id': edge_id, 'response': e.response})
-                status = task_constants.TaskStatus.ERROR
-            except Exception:
-                LOG.exception(_LE("VCNS: Failed to delete %s"), edge_id)
-                status = task_constants.TaskStatus.ERROR
-
-        return status
-
     def _get_edges(self):
         try:
             return self.vcns.get_edges()[1]
@@ -541,19 +522,28 @@ class EdgeApplianceDriver(object):
             LOG.error(_LE("Failed to rename edge: %s"),
                       e.response)
 
-    def delete_edge(self, resource_id, edge_id, jobdata=None, dist=False):
-        task_name = 'delete-%s' % edge_id
-        userdata = {
-            'router_id': resource_id,
-            'dist': dist,
-            'edge_id': edge_id,
-            'jobdata': jobdata
-        }
-        task = tasks.Task(task_name, resource_id, self._delete_edge,
-                          userdata=userdata)
-        task.add_result_monitor(self.callbacks.edge_delete_result)
-        self.task_manager.add(task)
-        return task
+    def delete_edge(self, context, router_id, edge_id, dist=False):
+        try:
+            nsxv_db.delete_nsxv_router_binding(context.session, router_id)
+            if not dist:
+                nsxv_db.clean_edge_vnic_binding(context.session, edge_id)
+        except sa_exc.NoResultFound:
+            LOG.warning(_LW("Router Binding for %s not found"), router_id)
+
+        if edge_id:
+            try:
+                self.vcns.delete_edge(edge_id)
+                return True
+            except exceptions.ResourceNotFound:
+                return True
+            except exceptions.VcnsApiException as e:
+                LOG.exception(_LE("VCNS: Failed to delete %(edge_id)s:\n"
+                                  "%(response)s"),
+                              {'edge_id': edge_id, 'response': e.response})
+                return False
+            except Exception:
+                LOG.exception(_LE("VCNS: Failed to delete %s"), edge_id)
+                return False
 
     def _assemble_nat_rule(self, action, original_address,
                            translated_address,

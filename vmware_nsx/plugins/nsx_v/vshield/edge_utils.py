@@ -27,7 +27,6 @@ from oslo_serialization import jsonutils
 from oslo_utils import excutils
 from oslo_utils import uuidutils
 from six import moves
-from sqlalchemy.orm import exc as sa_exc
 
 from neutron import context as q_context
 from neutron.extensions import l3
@@ -46,8 +45,6 @@ from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v.vshield.common import (
     constants as vcns_const)
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as nsxapi_exc
-from vmware_nsx.plugins.nsx_v.vshield.tasks import (
-    constants as task_const)
 from vmware_nsx.plugins.nsx_v.vshield import vcns
 
 WORKER_POOL_SIZE = 8
@@ -193,15 +190,14 @@ class EdgeManager(object):
 
     def _pool_creator(self, context, router_ids, appliance_size,
                       edge_type, availability_zone):
-        pool = self.worker_pool
         for router_id in router_ids:
             fake_router = {
                 'id': router_id,
                 'name': router_id}
-            pool.spawn_n(self._deploy_edge, context, fake_router,
-                         appliance_size=appliance_size,
-                         edge_type=edge_type,
-                         availability_zone=availability_zone)
+            self.worker_pool.spawn_n(self._deploy_edge, context, fake_router,
+                                     appliance_size=appliance_size,
+                                     edge_type=edge_type,
+                                     availability_zone=availability_zone)
 
     def _delete_edge(self, context, router_binding):
         if router_binding['status'] == plugin_const.ERROR:
@@ -209,13 +205,12 @@ class EdgeManager(object):
                             "edge: %(edge_id)s due to status error"),
                         {'router_id': router_binding['router_id'],
                          'edge_id': router_binding['edge_id']})
-        jobdata = {'context': context}
         nsxv_db.update_nsxv_router_binding(
             context.session, router_binding['router_id'],
             status=plugin_const.PENDING_DELETE)
-        self.nsxv_manager.delete_edge(
+        self.worker_pool.spawn_n(
+            self.nsxv_manager.delete_edge, q_context.get_admin_context(),
             router_binding['router_id'], router_binding['edge_id'],
-            jobdata=jobdata,
             dist=(router_binding['edge_type'] == nsxv_constants.VDR_EDGE))
 
     def _delete_backup_edges_on_db(self, context, backup_router_bindings):
@@ -229,11 +224,9 @@ class EdgeManager(object):
             # delete edge
             LOG.debug("Start deleting extra edge: %s in pool",
                       binding['edge_id'])
-            jobdata = {
-                'context': context
-            }
-            self.nsxv_manager.delete_edge(
-                binding['router_id'], binding['edge_id'], jobdata=jobdata,
+            self.worker_pool.spawn_n(
+                self.nsxv_manager.delete_edge, q_context.get_admin_context(),
+                binding['router_id'], binding['edge_id'],
                 dist=(binding['edge_type'] == nsxv_constants.VDR_EDGE))
 
     def _clean_all_error_edge_bindings(self, context, availability_zone):
@@ -668,12 +661,9 @@ class EdgeManager(object):
                 context.session, router_id,
                 status=plugin_const.PENDING_DELETE)
             # delete edge
-            jobdata = {
-                'context': context,
-                'router_id': router_id
-            }
-            self.nsxv_manager.delete_edge(
-                router_id, edge_id, jobdata=jobdata, dist=dist)
+            self.worker_pool.spawn_n(
+                self.nsxv_manager.delete_edge, q_context.get_admin_context(),
+                router_id, edge_id, dist=dist)
             return
 
         availability_zone = self._availability_zones.get_availability_zone(
@@ -710,12 +700,9 @@ class EdgeManager(object):
                 context.session, router_id,
                 status=plugin_const.PENDING_DELETE)
             # delete edge
-            jobdata = {
-                'context': context,
-                'router_id': router_id
-            }
-            self.nsxv_manager.delete_edge(
-                router_id, edge_id, jobdata=jobdata, dist=dist)
+            self.worker_pool.spawn_n(
+                self.nsxv_manager.delete_edge, q_context.get_admin_context(),
+                router_id, edge_id, dist=dist)
 
     def _allocate_dhcp_edge_appliance(self, context, resource_id,
                                       availability_zone):
@@ -1765,12 +1752,7 @@ def delete_lrouter(nsxv_manager, context, router_id, dist=False):
             status=plugin_const.PENDING_DELETE)
         edge_id = binding['edge_id']
         # delete edge
-        jobdata = {
-            'context': context
-        }
-        task = nsxv_manager.delete_edge(router_id, edge_id,
-                                        jobdata=jobdata, dist=dist)
-        task.wait(task_const.TaskState.RESULT)
+        nsxv_manager.delete_edge(context, router_id, edge_id, dist=dist)
     else:
         LOG.warning(_LW("router binding for router: %s not found"), router_id)
 
@@ -2275,19 +2257,6 @@ class NsxVCallbacks(object):
                 except l3.RouterNotFound:
                     # Router might have been deleted before deploy finished
                     LOG.warning(_LW("Router %s not found"), router_id)
-
-    def edge_delete_result(self, task):
-        jobdata = task.userdata['jobdata']
-        router_id = task.userdata['router_id']
-        dist = task.userdata.get('dist')
-        edge_id = task.userdata['edge_id']
-        context = jobdata['context']
-        try:
-            nsxv_db.delete_nsxv_router_binding(context.session, router_id)
-            if not dist:
-                nsxv_db.clean_edge_vnic_binding(context.session, edge_id)
-        except sa_exc.NoResultFound:
-            LOG.warning(_LW("Router Binding for %s not found"), router_id)
 
     def interface_update_result(self, task):
         LOG.debug("interface_update_result %d", task.status)
