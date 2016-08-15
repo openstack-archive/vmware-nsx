@@ -31,7 +31,7 @@ API_FIND_ALL_BY_UUID = 'FindAllByUuid'
 class DvsManager(object):
     """Management class for dvs related tasks."""
 
-    def __init__(self):
+    def __init__(self, dvs_id=None):
         """Initializer.
 
         A global session with the VC will be established. In addition to this
@@ -42,8 +42,12 @@ class DvsManager(object):
         """
         self._session = dvs_utils.dvs_create_session()
         # In the future we may decide to support more than one DVS
-        self._dvs_moref = self._get_dvs_moref(self._session,
-                                              dvs_utils.dvs_name_get())
+        if dvs_id is None:
+            self._dvs_moref = self._get_dvs_moref(self._session,
+                                                  dvs_utils.dvs_name_get())
+        else:
+            self._dvs_moref = vim_util.get_moref(dvs_id,
+                                              'VmwareDistributedVirtualSwitch')
 
     def _get_dvs_moref(self, session, dvs_name):
         """Get the moref of the configured DVS."""
@@ -97,7 +101,7 @@ class DvsManager(object):
         LOG.info(_LI("%(net_id)s with tag %(vlan_tag)s created on %(dvs)s."),
                  {'net_id': net_id,
                   'vlan_tag': vlan_tag,
-                  'dvs': dvs_utils.dvs_name_get()})
+                  'dvs': self._dvs_moref.value})
 
     def _net_id_to_moref(self, net_id):
         """Gets the moref for the specific neutron network."""
@@ -302,7 +306,7 @@ class DvsManager(object):
                               net_id)
         LOG.info(_LI("%(net_id)s delete from %(dvs)s."),
                  {'net_id': net_id,
-                  'dvs': dvs_utils.dvs_name_get()})
+                  'dvs': self._dvs_moref.value})
 
     def get_vm_moref(self, instance_uuid):
         """Get reference to the VM.

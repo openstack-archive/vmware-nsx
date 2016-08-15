@@ -211,7 +211,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._router_managers = managers.RouterTypeManager(self)
 
         if cfg.CONF.nsxv.use_dvs_features:
-            self._dvs = dvs.DvsManager()
+            self._dvs = dvs.DvsManager(dvs_id=self.dvs_id)
         else:
             self._dvs = None
 

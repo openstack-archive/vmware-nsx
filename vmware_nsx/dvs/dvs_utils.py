@@ -57,10 +57,10 @@ CONF = cfg.CONF
 CONF.register_opts(dvs_opts, 'dvs')
 
 
-def dvs_is_enabled():
+def dvs_is_enabled(dvs_id=None):
     """Returns the configured DVS status."""
     return bool(CONF.dvs.host_ip and CONF.dvs.host_username and
-                CONF.dvs.host_password and CONF.dvs.dvs_name)
+                CONF.dvs.host_password and (dvs_id or CONF.dvs.dvs_name))
 
 
 def dvs_create_session():
