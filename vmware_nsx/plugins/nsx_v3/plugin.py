@@ -2694,19 +2694,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             return super(NsxV3Plugin, self)._ensure_default_security_group(
                 context, tenant_id)
 
-    def _stub__validate_name_not_default(self):
-        # NOTE(arosen): if in replay mode we need stub out this validator to
-        # all default security groups to be created via the api
-        if cfg.CONF.api_replay_mode:
-            def _pass(data, _dummy=None):
-                pass
-            validators.add_validator('name_not_default', _pass)
-
     def get_security_groups(self, context, filters=None, fields=None,
                             sorts=None, limit=None,
                             marker=None, page_reverse=False, default_sg=False):
-
-        self._stub__validate_name_not_default()
         return super(NsxV3Plugin, self).get_security_groups(
                 context, filters=filters, fields=fields,
                 sorts=sorts, limit=limit,

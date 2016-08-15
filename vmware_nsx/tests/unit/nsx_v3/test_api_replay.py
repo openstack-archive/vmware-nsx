@@ -15,19 +15,29 @@
 
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin
 
+from neutron import manager
+from oslo_config import cfg
 
-# FIXME(arosen): - these tests pass but seem to break the other tests
-# as the attribute map doesn't get reset after each test class. I tried
-# backing it up and restoring it here though that doesn't seem to be doing
-# the trick either...
+
 class TestApiReplay(test_plugin.NsxV3PluginTestCaseMixin):
 
     def setUp(self, plugin=None, ext_mgr=None, service_plugins=None):
         # enables api_replay_mode for these tests
+        cfg.CONF.set_override('api_replay_mode', True)
+
         super(TestApiReplay, self).setUp()
 
+    def tearDown(self):
+        # disables api_replay_mode for these tests
+        cfg.CONF.set_override('api_replay_mode', False)
+
+        # remove the extension from the plugin
+        manager.NeutronManager.get_plugin().supported_extension_aliases.remove(
+            'api-replay')
+
+        super(TestApiReplay, self).tearDown()
+
     def test_create_port_specify_id(self):
-        self.skipTest("...fixme...")
         specified_network_id = '555e762b-d7a1-4b44-b09b-2a34ada56c9f'
         specified_port_id = 'e55e762b-d7a1-4b44-b09b-2a34ada56c9f'
         network_res = self._create_network(self.fmt,

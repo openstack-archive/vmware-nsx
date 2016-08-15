@@ -101,6 +101,8 @@ class ApiReplayClient(object):
         source_sec_groups = source_sec_groups['security_groups']
         dest_sec_groups = dest_sec_groups['security_groups']
 
+        drop_sg_fields = ['revision']
+
         for sg in source_sec_groups:
             dest_sec_group = self.have_id(sg['id'], dest_sec_groups)
             # If the security group already exists on the the dest_neutron
@@ -112,9 +114,10 @@ class ApiReplayClient(object):
                                     dest_sec_group['security_group_rules'])
                        is False):
                         try:
+                            body = self.drop_fields(sg_rule, drop_sg_fields)
                             print(
                                 self.dest_neutron.create_security_group_rule(
-                                    {'security_group_rule': sg_rule}))
+                                    {'security_group_rule': body}))
                         except n_exc.Conflict:
                             # NOTE(arosen): when you create a default
                             # security group it is automatically populated
@@ -127,8 +130,9 @@ class ApiReplayClient(object):
             else:
                 sg_rules = sg.pop('security_group_rules')
                 try:
+                    body = self.drop_fields(sg, drop_sg_fields)
                     new_sg = self.dest_neutron.create_security_group(
-                        {'security_group': sg})
+                        {'security_group': body})
                     print("Created security-group %s" % new_sg)
                 except Exception as e:
                     # TODO(arosen): improve exception handing here.
@@ -136,8 +140,9 @@ class ApiReplayClient(object):
 
                 for sg_rule in sg_rules:
                     try:
+                        body = self.drop_fields(sg_rule, drop_sg_fields)
                         rule = self.dest_neutron.create_security_group_rule(
-                            {'security_group_rule': sg_rule})
+                            {'security_group_rule': body})
                         print("created security group rule %s " % rule['id'])
                     except Exception:
                         # NOTE(arosen): when you create a default
@@ -158,7 +163,12 @@ class ApiReplayClient(object):
                 drop_router_fields = ['status',
                                       'routes',
                                       'ha',
-                                      'external_gateway_info']
+                                      'external_gateway_info',
+                                      'router_type',
+                                      'availability_zone_hints',
+                                      'availability_zones',
+                                      'distributed',
+                                      'revision']
                 body = self.drop_fields(router, drop_router_fields)
                 new_router = (self.dest_neutron.create_router(
                     {'router': body}))
@@ -178,23 +188,24 @@ class ApiReplayClient(object):
         drop_subnet_fields = ['updated_at',
                               'created_at',
                               'network_id',
-                              'id']
+                              'advanced_service_providers',
+                              'id', 'revision']
 
-        # NOTE: These are fields we drop of when creating a subnet as the
-        # network api doesn't allow us to specify them.
-        # TODO(arosen): revisit this to make these fields passable.
         drop_port_fields = ['updated_at',
                             'created_at',
                             'status',
                             'port_security_enabled',
                             'binding:vif_details',
                             'binding:vif_type',
-                            'binding:host_id', 'qos_policy_id']
+                            'binding:host_id', 'qos_policy_id',
+                            'revision',
+                            'vnic_index']
 
         drop_network_fields = ['status', 'subnets', 'availability_zones',
                                'created_at', 'updated_at', 'tags',
                                'qos_policy_id', 'ipv4_address_scope',
-                               'ipv6_address_scope', 'mtu']
+                               'ipv6_address_scope', 'mtu',
+                               'revision']
 
         for network in source_networks:
             body = self.drop_fields(network, drop_network_fields)
@@ -210,6 +221,7 @@ class ApiReplayClient(object):
                     {'network': body})['network']
                 print("Created network:  %s " % created_net)
 
+            created_subnet = None
             for subnet_id in network['subnets']:
                 subnet = self.find_subnet_by_id(subnet_id, source_subnets)
                 body = self.drop_fields(subnet, drop_subnet_fields)
@@ -263,7 +275,8 @@ class ApiReplayClient(object):
                     if port['device_owner'] == 'network:floatingip':
                         continue
 
-                    if port['device_owner'] == 'network:router_interface':
+                    if (port['device_owner'] == 'network:router_interface' and
+                        created_subnet is not None):
                         try:
                             # uplink router_interface ports
                             self.dest_neutron.add_interface_router(
@@ -285,7 +298,7 @@ class ApiReplayClient(object):
     def migrate_floatingips(self):
         """Migrates floatingips from source to dest neutron."""
         source_fips = self.source_neutron.list_floatingips()['floatingips']
-        drop_fip_fields = ['status', 'router_id', 'id']
+        drop_fip_fields = ['status', 'router_id', 'id', 'revision']
 
         for source_fip in source_fips:
             body = self.drop_fields(source_fip, drop_fip_fields)
