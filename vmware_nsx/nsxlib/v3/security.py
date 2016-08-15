@@ -254,8 +254,8 @@ def update_lport_with_security_groups(context, lport_id, original, updated):
     for sg_id in added:
         nsgroup_id, s = get_sg_mappings(context.session, sg_id)
         try:
-            firewall.add_nsgroup_member(
-                nsgroup_id, firewall.LOGICAL_PORT, lport_id)
+            firewall.add_nsgroup_members(
+                nsgroup_id, firewall.LOGICAL_PORT, [lport_id])
         except firewall.NSGroupIsFull:
             for sg_id in added:
                 nsgroup_id, s = get_sg_mappings(context.session, sg_id)
@@ -415,9 +415,9 @@ class NSGroupManager(object):
             try:
                 LOG.debug("Adding NSGroup %s to nested group %s",
                           nsgroup_id, group)
-                firewall.add_nsgroup_member(group,
-                                            firewall.NSGROUP,
-                                            nsgroup_id)
+                firewall.add_nsgroup_members(group,
+                                             firewall.NSGROUP,
+                                             [nsgroup_id])
                 break
             except firewall.NSGroupIsFull:
                 LOG.debug("Nested group %(group_id)s is full, trying the "

@@ -17,17 +17,20 @@ import logging
 from neutron.callbacks import registry
 from neutron import context as neutron_context
 from neutron.db import common_db_mixin as common_db
-from neutron.db import securitygroups_db as sg_db
+from neutron.db import securitygroups_db
 
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
+from vmware_nsx.db import nsx_models
+from vmware_nsx.extensions import providersecuritygroup as provider_sg
+from vmware_nsx.extensions import securitygrouplogging as sg_logging
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import ports
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils as v3_utils
 from vmware_nsx.shell import resources as shell
-from vmware_nsx._i18n import _LE, _LI, _LW
+from vmware_nsx._i18n import _LE, _LW
 from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.nsxlib.v3 import dfw_api as firewall
 from vmware_nsx.nsxlib.v3 import security
@@ -35,7 +38,7 @@ from vmware_nsx.nsxlib.v3 import security
 LOG = logging.getLogger(__name__)
 
 
-class NeutronSecurityGroupApi(sg_db.SecurityGroupDbMixin,
+class NeutronSecurityGroupApi(securitygroups_db.SecurityGroupDbMixin,
                               common_db.CommonDbMixin):
     def __init__(self):
         super(NeutronSecurityGroupApi, self)
@@ -58,96 +61,183 @@ class NeutronSecurityGroupApi(sg_db.SecurityGroupDbMixin,
             self.context, {'port_id': [port_id]})
         return [b['security_group_id'] for b in secgroups_bindings]
 
-    def get_security_group_ports(self, security_group_id):
+    def get_ports_in_security_group(self, security_group_id):
         secgroups_bindings = self._get_port_security_group_bindings(
             self.context, {'security_group_id': [security_group_id]})
         return [b['port_id'] for b in secgroups_bindings]
+
+    def delete_security_group_section_mapping(self, sg_id):
+        fw_mapping = self.context.session.query(
+            nsx_models.NeutronNsxFirewallSectionMapping).filter_by(
+                neutron_id=sg_id).one_or_none()
+        if fw_mapping:
+            with self.context.session.begin(subtransactions=True):
+                self.context.session.delete(fw_mapping)
+
+    def delete_security_group_backend_mapping(self, sg_id):
+        sg_mapping = self.context.session.query(
+            nsx_models.NeutronNsxSecurityGroupMapping).filter_by(
+                neutron_id=sg_id).one_or_none()
+        if sg_mapping:
+            with self.context.session.begin(subtransactions=True):
+                self.context.session.delete(sg_mapping)
+
+    def get_security_groups_mappings(self):
+        q = self.context.session.query(
+            securitygroups_db.SecurityGroup.name,
+            securitygroups_db.SecurityGroup.id,
+            nsx_models.NeutronNsxFirewallSectionMapping.nsx_id,
+            nsx_models.NeutronNsxSecurityGroupMapping.nsx_id).join(
+                nsx_models.NeutronNsxFirewallSectionMapping,
+                nsx_models.NeutronNsxSecurityGroupMapping).all()
+        sg_mappings = [{'name': mapp[0],
+                        'id': mapp[1],
+                        'section-id': mapp[2],
+                        'nsx-securitygroup-id': mapp[3]}
+                       for mapp in q]
+        return sg_mappings
+
+    def get_logical_port_id(self, port_id):
+        mapping = self.context.session.query(
+            nsx_models.NeutronNsxPortMapping).filter_by(
+                neutron_id=port_id).one_or_none()
+        if mapping:
+            return mapping.nsx_id
 
 
 neutron_sg = NeutronSecurityGroupApi()
 neutron_db = v3_utils.NeutronDbClient()
 
 
+def _log_info(resource, data, attrs=['display_name', 'id']):
+    LOG.info(formatters.output_formatter(resource, data, attrs))
+
+
+@admin_utils.list_handler(constants.SECURITY_GROUPS)
+@admin_utils.output_header
+def list_security_groups_mappings(resource, event, trigger, **kwargs):
+    sg_mappings = neutron_sg.get_security_groups_mappings()
+    _log_info(constants.SECURITY_GROUPS,
+              sg_mappings,
+              attrs=['name', 'id', 'section-id', 'nsx-securitygroup-id'])
+    return bool(sg_mappings)
+
+
+@admin_utils.list_handler(constants.FIREWALL_SECTIONS)
+@admin_utils.output_header
+def nsx_list_dfw_sections(resource, event, trigger, **kwargs):
+    fw_sections = firewall.list_sections()
+    _log_info(constants.FIREWALL_SECTIONS, fw_sections)
+    return bool(fw_sections)
+
+
+@admin_utils.list_handler(constants.FIREWALL_NSX_GROUPS)
 @admin_utils.output_header
 def nsx_list_security_groups(resource, event, trigger, **kwargs):
-    sections = firewall.list_sections()
-    LOG.info(formatters.output_formatter(constants.FIREWALL_SECTIONS,
-                                         sections, ['display_name', 'id']))
-    nsgroups = firewall.list_nsgroups()
-    LOG.info(formatters.output_formatter(constants.FIREWALL_NSX_GROUPS,
-                                         nsgroups, ['display_name', 'id']))
-    return bool(sections) or bool(nsgroups)
+    nsx_secgroups = firewall.list_nsgroups()
+    _log_info(constants.FIREWALL_NSX_GROUPS, nsx_secgroups)
+    return bool(nsx_secgroups)
 
 
+def _find_missing_security_groups():
+    nsx_secgroups = firewall.list_nsgroups()
+    sg_mappings = neutron_sg.get_security_groups_mappings()
+    missing_secgroups = {}
+    for sg_db in sg_mappings:
+        for nsx_sg in nsx_secgroups:
+            if nsx_sg['id'] == sg_db['nsx-securitygroup-id']:
+                break
+        else:
+            missing_secgroups[sg_db['id']] = sg_db
+    return missing_secgroups
+
+
+@admin_utils.list_mismatches_handler(constants.FIREWALL_NSX_GROUPS)
 @admin_utils.output_header
-def nsx_delete_security_groups(resource, event, trigger, **kwargs):
-    if 'force' in kwargs and kwargs['force'] is False:
-        if nsx_list_security_groups(resource, event, trigger, **kwargs):
-            msg = ('Do you want to delete the following NSX firewall '
-                   'sections/nsgroups?')
-            user_confirm = admin_utils.query_yes_no(msg, default='no')
-
-            if user_confirm is False:
-                LOG.info(_LI('NSX security groups cleanup aborted by user'))
-                return
-
-    sections = firewall.list_sections()
-    # NOTE(roeyc): We use -2 indexing because don't want to delete the
-    # default firewall sections.
-    if sections:
-        NON_DEFAULT_SECURITY_GROUPS = -2
-        for section in sections[:NON_DEFAULT_SECURITY_GROUPS]:
-            LOG.info(_LI("Deleting firewall section %(display_name)s, "
-                         "section id %(id)s"),
-                     {'display_name': section['display_name'],
-                      'id': section['id']})
-            firewall.delete_section(section['id'])
-
-    nsgroups = firewall.list_nsgroups()
-    if nsgroups:
-        for nsgroup in [nsg for nsg in nsgroups
-                        if not utils.is_internal_resource(nsg)]:
-            LOG.info(_LI("Deleting ns-group %(display_name)s, "
-                         "ns-group id %(id)s"),
-                     {'display_name': nsgroup['display_name'],
-                      'id': nsgroup['id']})
-            firewall.delete_nsgroup(nsgroup['id'])
+def list_missing_security_groups(resource, event, trigger, **kwargs):
+    sgs_with_missing_nsx_group = _find_missing_security_groups()
+    missing_securitgroups_info = [
+        {'securitygroup-name': sg['name'],
+         'securitygroup-id': sg['id'],
+         'nsx-securitygroup-id':
+         sg['nsx-securitygroup-id']}
+        for sg in sgs_with_missing_nsx_group.values()]
+    _log_info(constants.FIREWALL_NSX_GROUPS, missing_securitgroups_info,
+              attrs=['securitygroup-name', 'securitygroup-id',
+                     'nsx-securitygroup-id'])
+    return bool(missing_securitgroups_info)
 
 
+def _find_missing_sections():
+    fw_sections = firewall.list_sections()
+    sg_mappings = neutron_sg.get_security_groups_mappings()
+    missing_sections = {}
+    for sg_db in sg_mappings:
+        for fw_section in fw_sections:
+            if fw_section['id'] == sg_db['section-id']:
+                break
+        else:
+            missing_sections[sg_db['id']] = sg_db
+    return missing_sections
+
+
+@admin_utils.list_mismatches_handler(constants.FIREWALL_SECTIONS)
 @admin_utils.output_header
-def neutron_list_security_groups(resource, event, trigger, **kwargs):
-    security_groups = neutron_sg.get_security_groups()
-    LOG.info(formatters.output_formatter(constants.SECURITY_GROUPS,
-                                         security_groups, ['name', 'id']))
-    return bool(security_groups)
+def list_missing_firewall_sections(resource, event, trigger, **kwargs):
+    sgs_with_missing_section = _find_missing_sections()
+    missing_sections_info = [{'securitygroup-name': sg['name'],
+                              'securitygroup-id': sg['id'],
+                              'section-id': sg['section-id']}
+                             for sg in sgs_with_missing_section.values()]
+    _log_info(constants.FIREWALL_SECTIONS, missing_sections_info,
+              attrs=['securitygroup-name', 'securitygroup-id', 'section-id'])
+    return bool(missing_sections_info)
 
 
+@admin_utils.fix_mismatches_handler(constants.SECURITY_GROUPS)
 @admin_utils.output_header
-def neutron_delete_security_groups(resource, event, trigger, **kwargs):
-    if 'force' in kwargs and kwargs['force'] is False:
-        if neutron_list_security_groups(resource, event, trigger, **kwargs):
-            msg = ('Do you want to delete the following neutron '
-                   'security groups?')
-            user_confirm = admin_utils.query_yes_no(msg, default='no')
-            if user_confirm is False:
-                LOG.info(_LI('Neutron security groups cleanup aborted by '
-                             'user'))
-                return
+def fix_security_groups(resource, event, trigger, **kwargs):
+    context_ = neutron_context.get_admin_context()
+    plugin = v3_utils.NsxV3PluginWrapper()
+    inconsistent_secgroups = _find_missing_sections()
+    inconsistent_secgroups.update(_find_missing_security_groups())
 
-    security_groups = neutron_sg.get_security_groups()
-    if not security_groups:
-        return
+    for sg_id, sg in inconsistent_secgroups.items():
+        secgroup = plugin.get_security_group(context_, sg_id)
+        firewall.delete_section(sg['section-id'])
+        firewall.delete_nsgroup(sg['nsx-securitygroup-id'])
+        neutron_sg.delete_security_group_section_mapping(sg_id)
+        neutron_sg.delete_security_group_backend_mapping(sg_id)
+        nsgroup, fw_section = (
+            plugin._create_security_group_backend_resources(secgroup))
+        security.save_sg_mappings(
+            context_.session, sg_id, nsgroup['id'], fw_section['id'])
+        # If version > 1.1 then we use dynamic criteria tags, and the port
+        # should already have them.
+        if not utils.is_nsx_version_1_1_0(plugin._nsx_version):
+            members = []
+            for port_id in neutron_db.get_ports_in_security_group(sg_id):
+                lport_id = neutron_db.get_logical_port_id(port_id)
+                members.append(lport_id)
+            firewall.add_nsgroup_members(
+                nsgroup['id'], firewall.LOGICAL_PORT, members)
 
-    for security_group in security_groups:
-        try:
-            LOG.info(_LI('Trying to delete %(sg_id)s'),
-                     {'sg_id': security_group['id']})
-            neutron_sg.delete_security_group(security_group['id'])
-            LOG.info(_LI("Deleted security group name: %(name)s id: %(id)s"),
-                     {'name': security_group['name'],
-                      'id': security_group['id']})
-        except Exception as e:
-            LOG.warning(str(e))
+        for rule in secgroup['security_group_rules']:
+            rule_mapping = (context_.session.query(
+                nsx_models.NeutronNsxRuleMapping).filter_by(
+                    neutron_id=rule['id']).one())
+            with context_.session.begin(subtransactions=True):
+                context_.session.delete(rule_mapping)
+        action = (firewall.DROP
+                  if secgroup.get(provider_sg.PROVIDER)
+                  else firewall.ALLOW)
+        rules = security.create_firewall_rules(
+            context_, fw_section['id'], nsgroup['id'],
+            secgroup.get(sg_logging.LOGGING, False), action,
+            secgroup['security_group_rules'])
+        security.save_sg_rule_mappings(context_.session, rules['rules'])
+        # Add nsgroup to a nested group
+        plugin.nsgroup_manager.add_nsgroup(nsgroup['id'])
 
 
 def _update_ports_dynamic_criteria_tags():
@@ -197,33 +287,6 @@ def migrate_nsgroups_to_dynamic_criteria(resource, event, trigger, **kwargs):
     _update_security_group_dynamic_criteria()
 
 
-registry.subscribe(nsx_list_security_groups,
-                   constants.SECURITY_GROUPS,
-                   shell.Operations.LIST.value)
-registry.subscribe(nsx_list_security_groups,
-                   constants.SECURITY_GROUPS,
-                   shell.Operations.NSX_LIST.value)
-
-registry.subscribe(neutron_list_security_groups,
-                   constants.SECURITY_GROUPS,
-                   shell.Operations.LIST.value)
-registry.subscribe(neutron_list_security_groups,
-                   constants.SECURITY_GROUPS,
-                   shell.Operations.NEUTRON_LIST.value)
-
-registry.subscribe(nsx_delete_security_groups,
-                   constants.SECURITY_GROUPS,
-                   shell.Operations.CLEAN.value)
-registry.subscribe(nsx_delete_security_groups,
-                   constants.SECURITY_GROUPS,
-                   shell.Operations.NSX_CLEAN.value)
-
-registry.subscribe(neutron_delete_security_groups,
-                   constants.SECURITY_GROUPS,
-                   shell.Operations.CLEAN.value)
-registry.subscribe(neutron_delete_security_groups,
-                   constants.SECURITY_GROUPS,
-                   shell.Operations.NEUTRON_CLEAN.value)
 registry.subscribe(migrate_nsgroups_to_dynamic_criteria,
                    constants.FIREWALL_NSX_GROUPS,
                    shell.Operations.MIGRATE_TO_DYNAMIC_CRITERIA.value)

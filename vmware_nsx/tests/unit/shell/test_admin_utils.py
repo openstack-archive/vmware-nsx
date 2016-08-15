@@ -19,6 +19,7 @@ import mock
 import six
 
 from oslo_config import cfg
+from oslo_utils import uuidutils
 
 from neutron.callbacks import registry
 from neutron.common import config as neutron_config
@@ -146,7 +147,10 @@ class TestNsxv3AdminUtils(AbstractTestAdminUtils,
         self._patch_object(nsx_v3_resources.SwitchingProfile,
                            '__init__', return_value=None)
         self._patch_object(nsx_v3_resources.SwitchingProfile,
-                           'find_by_display_name', return_value=None)
+                           'find_by_display_name',
+                           return_value=[{'id': uuidutils.generate_uuid()}])
+        self._patch_object(nsx_v3_resources.LogicalRouterPort,
+                           '__init__', return_value=None)
 
     def _get_plugin_name(self):
         return 'nsxv3'

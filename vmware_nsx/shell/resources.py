@@ -61,14 +61,15 @@ class Resource(object):
 # Add supported NSX-V3 resources in this dictionary
 nsxv3_resources = {
     constants.SECURITY_GROUPS: Resource(constants.SECURITY_GROUPS,
-                                        [Operations.CLEAN.value,
-                                         Operations.LIST.value,
-                                         Operations.NSX_LIST.value,
-                                         Operations.NSX_CLEAN.value,
-                                         Operations.NEUTRON_LIST.value,
-                                         Operations.NEUTRON_CLEAN.value]),
+                                        [Operations.LIST.value,
+                                         Operations.FIX_MISMATCH.value]),
+    constants.FIREWALL_SECTIONS: Resource(constants.FIREWALL_SECTIONS,
+                                          [Operations.LIST.value,
+                                           Operations.LIST_MISMATCHES.value]),
     constants.FIREWALL_NSX_GROUPS: Resource(
         constants.FIREWALL_NSX_GROUPS, [
+            Operations.LIST.value,
+            Operations.LIST_MISMATCHES.value,
             Operations.MIGRATE_TO_DYNAMIC_CRITERIA.value]),
     constants.NETWORKS: Resource(constants.NETWORKS,
                                  [Operations.LIST_MISMATCHES.value]),
