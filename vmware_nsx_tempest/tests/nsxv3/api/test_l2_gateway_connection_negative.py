@@ -20,6 +20,7 @@ from tempest import config
 from tempest import test
 
 from tempest.lib.common.utils import data_utils
+from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
 from tempest.lib import exceptions as lib_exc
 
@@ -63,8 +64,8 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
         Clean all the resources used during the test.
         """
         super(L2GatewayConnectionNegative, cls).resource_cleanup()
-        cls._try_delete_resource(cls.networks_client.delete_network,
-                                 cls.network["id"])
+        test_utils.call_and_ignore_notfound_exc(
+            cls.networks_client.delete_network, cls.network["id"])
 
     @classmethod
     def l2gw_cleanup(cls):
@@ -105,7 +106,6 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
         self.assertRaises(lib_exc.Conflict, self.delete_l2gw, l2gw_id)
         self.addCleanup(self.l2gw_cleanup)
 
-    @decorators.skip_because(bug="634513")
     @test.attr(type="nsxv3")
     @test.idempotent_id("488faaae-180a-4c48-8b7a-44c3a243369f")
     def test_recreate_l2_gateway_connection(self):
@@ -132,7 +132,6 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
                           l2gwc_param)
         self.addCleanup(self.l2gw_cleanup)
 
-    @decorators.skip_because(bug="1640042")
     @test.attr(type="nsxv3")
     @test.idempotent_id("14606e74-4f65-402e-ae50-a0adcd877a83")
     def test_create_l2gwc_with_nonexist_l2gw(self):
