@@ -40,6 +40,7 @@ from neutron.db import extradhcpopt_db
 from neutron.db import extraroute_db
 from neutron.db import l3_db
 from neutron.db import l3_gwmode_db
+from neutron.db.models import securitygroup as securitygroup_model  # noqa
 from neutron.db import models_v2
 from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
@@ -155,8 +156,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         port=models_v2.Port,
         subnet=models_v2.Subnet,
         subnetpool=models_v2.SubnetPool,
-        security_group=securitygroups_db.SecurityGroup,
-        security_group_rule=securitygroups_db.SecurityGroupRule,
+        security_group=securitygroup_model.SecurityGroup,
+        security_group_rule=securitygroup_model.SecurityGroupRule,
         router=l3_db.Router,
         floatingip=l3_db.FloatingIP)
     def __init__(self):

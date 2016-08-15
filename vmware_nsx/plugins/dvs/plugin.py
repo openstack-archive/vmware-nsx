@@ -24,6 +24,7 @@ from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
 from neutron.db import l3_db
+from neutron.db.models import securitygroup as securitygroup_model  # noqa
 from neutron.db import models_v2
 from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
@@ -82,8 +83,8 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         port=models_v2.Port,
         subnet=models_v2.Subnet,
         subnetpool=models_v2.SubnetPool,
-        security_group=securitygroups_db.SecurityGroup,
-        security_group_rule=securitygroups_db.SecurityGroupRule)
+        security_group=securitygroup_model.SecurityGroup,
+        security_group_rule=securitygroup_model.SecurityGroupRule)
     def __init__(self):
         super(NsxDvsV2, self).__init__()
         LOG.debug('Driver support: DVS: %s' % dvs_utils.dvs_is_enabled())
