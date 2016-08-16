@@ -117,6 +117,21 @@ def router_add_interface(SELF, net_router, net_subnet, client_mgr):
                                 routers_client)
 
 
+def router_port_interface_add(SELF, router_id, port_id, client=None):
+    routers_client = client or SELF.routers_client
+    routers_client.add_router_interface(router_id,
+                                        port_id=port_id)
+    SELF.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                    routers_client.remove_router_interface,
+                    router_id, port_id=port_id)
+
+
+def router_add_port_interface(SELF, net_router, net_port, client_mgr):
+    routers_client = client_mgr.routers_client
+    return router_port_interface_add(SELF, net_router['id'], net_port['id'],
+                                     routers_client)
+
+
 def check_networks(SELF, t_network, t_subnet=None, t_router=None):
     """Checks that we see the newly created network/subnet/router.
 
