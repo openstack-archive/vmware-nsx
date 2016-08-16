@@ -18,7 +18,7 @@ import netaddr
 
 from tempest import config
 from tempest.lib.common.utils import data_utils
-from tempest.lib import decorators
+from tempest.lib.common.utils import test_utils
 from tempest import test
 
 from vmware_nsx_tempest._i18n import _LI
@@ -60,8 +60,8 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
         Clean all the resources used during the test.
         """
         super(L2GatewayConnectionTest, cls).resource_cleanup()
-        cls._try_delete_resource(cls.networks_client.delete_network,
-                                 cls.network["id"])
+        test_utils.call_and_ignore_notfound_exc(
+            cls.networks_client.delete_network, cls.network["id"])
 
     @classmethod
     def l2gw_cleanup(cls):
@@ -76,7 +76,6 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
             cls.l2gw_created.pop(l2gw_id)
 
     @test.attr(type="nsxv3")
-    @decorators.skip_because(bug="634513")
     @test.idempotent_id("81edfb9e-4722-4565-939c-6593b8405ff4")
     def test_l2_gateway_connection_create(self):
         """
@@ -110,7 +109,6 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
         self.addCleanup(self.l2gw_cleanup)
 
     @test.attr(type="nsxv3")
-    @decorators.skip_because(bug="634513")
     @test.idempotent_id("7db4f6c9-18c5-4a99-93c1-68bc2ecb48a7")
     def test_l2_gateway_connection_create_with_multiple_vlans(self):
         """
