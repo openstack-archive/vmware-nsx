@@ -541,11 +541,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return is_provider_net, net_type, physical_net, vlan_id
 
-    def _get_edge_cluster_and_members(self, tier0_uuid):
+    def _get_edge_cluster(self, tier0_uuid):
         self._routerlib.validate_tier0(self.tier0_groups_dict, tier0_uuid)
         tier0_info = self.tier0_groups_dict[tier0_uuid]
-        return (tier0_info['edge_cluster_uuid'],
-                tier0_info['member_index_list'])
+        return tier0_info['edge_cluster_uuid']
 
     def _validate_external_net_create(self, net_data):
         is_provider_net = False
@@ -2124,15 +2123,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 nsx_router_id, org_tier0_uuid)
         if add_router_link_port:
             # First update edge cluster info for router
-            edge_cluster_uuid, members = self._get_edge_cluster_and_members(
-                new_tier0_uuid)
+            edge_cluster_uuid = self._get_edge_cluster(new_tier0_uuid)
             self._routerlib.update_router_edge_cluster(
                 nsx_router_id, edge_cluster_uuid)
             tags = utils.build_v3_tags_payload(
                    router, resource_type='os-neutron-rport',
                    project_name=context.tenant_name)
             self._routerlib.add_router_link_port(nsx_router_id, new_tier0_uuid,
-                                                 members, tags=tags)
+                                                 tags=tags)
         if add_snat_rules:
             self._routerlib.add_gw_snat_rule(nsx_router_id, newaddr)
         if bgp_announce:
