@@ -2359,14 +2359,20 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         port_filters = {'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF],
                         'network_id': [net_id]}
         intf_ports = self.get_ports(context.elevated(), filters=port_filters)
-        router_ids = [port['device_id'] for port in intf_ports]
+        router_ids = [port['device_id']
+                      for port in intf_ports if port['device_id']]
         if len(router_ids) > 0:
             err_msg = _("Only one subnet of network %(net_id)s can be "
                         "attached to router, one subnet is already attached "
                         "to router %(router_id)s") % {
                 'net_id': net_id,
                 'router_id': router_ids[0]}
-            raise n_exc.InvalidInput(error_message=err_msg)
+            if router_id in router_ids:
+                # attach to the same router again
+                raise n_exc.InvalidInput(error_message=err_msg)
+            else:
+                # attach to multiple routers
+                raise n_exc.Conflict(error_message=err_msg)
 
     def _add_router_interface_wrapper(self, context, router_id,
                                       interface_info):

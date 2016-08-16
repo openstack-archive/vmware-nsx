@@ -2499,7 +2499,21 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                 self.assertEqual(net['network'][k], v)
 
     def test_router_add_interface_delete_port_after_failure(self):
-        self.skipTest("FIXME")
+        # Clone the same function in neutron/tests/unit/extensions/test_l3.py,
+        # but change self.subnet() to self.subnet(enable_dhcp=False).
+        with self.router() as r, self.subnet(enable_dhcp=False) as s:
+            plugin = manager.NeutronManager.get_plugin()
+            # inject a failure in the update port that happens at the end
+            # to ensure the port gets deleted
+            with mock.patch.object(
+                    plugin, 'update_port',
+                    side_effect=n_exc.InvalidInput(error_message='x')):
+                self._router_interface_action('add',
+                                              r['router']['id'],
+                                              s['subnet']['id'],
+                                              None,
+                                              webob.exc.HTTPBadRequest.code)
+                self.assertFalse(plugin.get_ports(context.get_admin_context()))
 
     def test_create_router_fail_at_the_backend(self):
         p = manager.NeutronManager.get_plugin()
@@ -3309,11 +3323,22 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
     def test_floatingip_same_external_and_internal(self):
         self.skipTest('skipped')
 
-    def test_router_add_interface_dup_port(self):
-        self.skipTest("FIXME")
-
     def test_router_add_interface_delete_port_after_failure(self):
-        self.skipTest("FIXME")
+        # Clone the same function in neutron/tests/unit/extensions/test_l3.py,
+        # but change self.subnet() to self.subnet(enable_dhcp=False).
+        with self.router() as r, self.subnet(enable_dhcp=False) as s:
+            plugin = manager.NeutronManager.get_plugin()
+            # inject a failure in the update port that happens at the end
+            # to ensure the port gets deleted
+            with mock.patch.object(
+                    plugin, 'update_port',
+                    side_effect=n_exc.InvalidInput(error_message='x')):
+                self._router_interface_action('add',
+                                              r['router']['id'],
+                                              s['subnet']['id'],
+                                              None,
+                                              webob.exc.HTTPBadRequest.code)
+                self.assertFalse(plugin.get_ports(context.get_admin_context()))
 
     def test_create_router_fail_at_the_backend(self):
         p = manager.NeutronManager.get_plugin()

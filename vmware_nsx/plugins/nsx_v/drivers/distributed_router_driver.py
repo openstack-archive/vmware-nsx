@@ -220,13 +220,18 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         router_ids = [port['device_id'] for port in intf_ports]
         all_routers = _nsxv_plugin.get_routers(context,
                                                filters={'id': router_ids})
-        dist_routers = [router for router in all_routers
+        dist_routers = [router['id'] for router in all_routers
                         if router.get('distributed') is True]
         if len(dist_routers) > 0:
             err_msg = _("network can only be attached to just one distributed "
                         "router, the network is already attached to router "
-                        "%(router_id)s") % {'router_id': dist_routers[0]['id']}
-            raise n_exc.InvalidInput(error_message=err_msg)
+                        "%(router_id)s") % {'router_id': dist_routers[0]}
+            if router_id in dist_routers:
+                # attach to the same router again
+                raise n_exc.InvalidInput(error_message=err_msg)
+            else:
+                # attach to multiple routers
+                raise n_exc.Conflict(error_message=err_msg)
 
     def add_router_interface(self, context, router_id, interface_info):
         self._validate_multiple_subnets_routers(
