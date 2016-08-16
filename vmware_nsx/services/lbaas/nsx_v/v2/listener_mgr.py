@@ -50,23 +50,23 @@ def listener_to_edge_app_profile(listener, edge_cert_id):
             edge_app_profile['sslPassthrough'] = True
 
     if listener.default_pool:
-        persistence = None
-        if listener.pool.sessionpersistence:
+        if listener.default_pool.sessionpersistence:
             persistence = {
                 'method':
                     lb_const.SESSION_PERSISTENCE_METHOD_MAP.get(
-                        listener.pool.sessionpersistence.type)}
+                        listener.default_pool.sessionpersistence.type)}
 
-        if (listener.pool.sessionpersistence.type in
-                lb_const.SESSION_PERSISTENCE_COOKIE_MAP):
-            persistence.update({
-                'cookieName': getattr(listener.pool.sessionpersistence,
-                                      'cookie_name',
-                                      'default_cookie_name'),
-                'cookieMode': lb_const.SESSION_PERSISTENCE_COOKIE_MAP[
-                    listener.pool.sessionpersistence.type]})
+            if (listener.default_pool.sessionpersistence.type in
+                    lb_const.SESSION_PERSISTENCE_COOKIE_MAP):
+                persistence.update({
+                    'cookieName': getattr(
+                        listener.default_pool.sessionpersistence,
+                        'cookie_name',
+                        'default_cookie_name'),
+                    'cookieMode': lb_const.SESSION_PERSISTENCE_COOKIE_MAP[
+                        listener.default_pool.sessionpersistence.type]})
 
-            edge_app_profile['persistence'] = persistence
+                edge_app_profile['persistence'] = persistence
 
     return edge_app_profile
 
@@ -127,7 +127,7 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
 
         if listener.default_pool and listener.default_pool.id:
             pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
-                context.session, lb_id, listener.id, listener.default_pool.id)
+                context.session, lb_id, listener.default_pool.id)
             if pool_binding:
                 default_pool = pool_binding['edge_pool_id']
 
@@ -183,9 +183,13 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
         default_pool = None
         if new_listener.default_pool and new_listener.default_pool.id:
             pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
-                context.session, new_listener.default_pool.id, None, None)
+                context.session, new_listener.loadbalancer_id,
+                new_listener.default_pool.id)
             if pool_binding:
                 default_pool = pool_binding['edge_pool_id']
+            else:
+                LOG.error(_LE("Couldn't find pool binding for pool %s"),
+                          new_listener.default_pool.id)
 
         lb_id = new_listener.loadbalancer_id
         listener_binding = nsxv_db.get_nsxv_lbaas_listener_binding(

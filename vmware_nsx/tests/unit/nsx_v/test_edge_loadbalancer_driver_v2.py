@@ -53,7 +53,6 @@ EDGE_POOL_ID = 'pool-xx'
 EDGE_POOL_DEF = {'transparent': False, 'name': 'pool_' + POOL_ID,
                  'algorithm': 'round-robin', 'description': ''}
 POOL_BINDING = {'loadbalancer_id': LB_ID,
-                'listener_id': LISTENER_ID,
                 'pool_id': POOL_ID,
                 'edge_pool_id': EDGE_POOL_ID}
 MEMBER_ID = 'mmm-mmm'
@@ -68,7 +67,6 @@ EDGE_HM_DEF = {'maxRetries': 1, 'interval': 3, 'type': 'icmp', 'name': HM_ID,
                'timeout': 3}
 
 HM_BINDING = {'loadbalancer_id': LB_ID,
-              'listener_id': LISTENER_ID,
               'pool_id': POOL_ID,
               'hm_id': HM_ID,
               'edge_id': LB_EDGE_ID,
@@ -101,7 +99,9 @@ class BaseTestEdgeLbaasV2(base.BaseTestCase):
                                            loadbalancer=self.lb)
         self.pool = lb_models.Pool(POOL_ID, LB_TENANT_ID, 'pool-name', '',
                                    None, 'HTTP', 'ROUND_ROBIN',
-                                   listener=self.listener)
+                                   loadbalancer_id=LB_ID,
+                                   listener=self.listener,
+                                   listeners=[self.listener])
         self.member = lb_models.Member(MEMBER_ID, LB_TENANT_ID, POOL_ID,
                                        MEMBER_ADDRESS, 80, 1, pool=self.pool)
         self.hm = lb_models.HealthMonitor(HM_ID, LB_TENANT_ID, 'PING', 3, 3,
@@ -340,8 +340,7 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
             mock_create_pool.assert_called_with(LB_EDGE_ID,
                                                 EDGE_POOL_DEF.copy())
             mock_add_binding.assert_called_with(self.context.session,
-                                                LB_ID, LISTENER_ID, POOL_ID,
-                                                EDGE_POOL_ID)
+                                                LB_ID, POOL_ID, EDGE_POOL_ID)
             edge_vip_def = EDGE_VIP_DEF.copy()
             edge_vip_def['defaultPoolId'] = EDGE_POOL_ID
             mock_upd_vip.assert_called_with(LB_EDGE_ID, EDGE_VIP_ID,
@@ -398,7 +397,7 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
                                             EDGE_VIP_DEF)
             mock_del_pool.assert_called_with(LB_EDGE_ID, EDGE_POOL_ID)
             mock_del_binding.assert_called_with(
-                self.context.session, LB_ID, LISTENER_ID, POOL_ID)
+                self.context.session, LB_ID, POOL_ID)
             mock_successful_completion = (
                 self.lbv2_driver.pool.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
@@ -541,8 +540,8 @@ class TestEdgeLbaasV2HealthMonitor(BaseTestEdgeLbaasV2):
 
             mock_create_hm.assert_called_with(LB_EDGE_ID, EDGE_HM_DEF)
             mock_add_hm_binding.assert_called_with(
-                self.context.session, LB_ID, LISTENER_ID, POOL_ID, HM_ID,
-                LB_EDGE_ID, EDGE_HM_ID)
+                self.context.session, LB_ID, POOL_ID, HM_ID, LB_EDGE_ID,
+                EDGE_HM_ID)
             edge_pool_def = EDGE_POOL_DEF.copy()
             edge_pool_def['monitorId'] = [EDGE_HM_ID]
             mock_update_pool.assert_called_with(
@@ -610,8 +609,7 @@ class TestEdgeLbaasV2HealthMonitor(BaseTestEdgeLbaasV2):
             mock_update_pool.assert_called_with(
                 LB_EDGE_ID, EDGE_POOL_ID, edge_pool_def)
             mock_del_binding.assert_called_with(self.context.session, LB_ID,
-                                                LISTENER_ID, POOL_ID, HM_ID,
-                                                LB_EDGE_ID)
+                                                POOL_ID, HM_ID, LB_EDGE_ID)
             mock_successful_completion = (
                 self.lbv2_driver.health_monitor.successful_completion)
             mock_successful_completion.assert_called_with(self.context,

@@ -298,7 +298,6 @@ class NsxvLbaasPoolBinding(model_base.BASEV2, models.TimestampMixin):
     __tablename__ = 'nsxv_lbaas_pool_bindings'
 
     loadbalancer_id = sa.Column(sa.String(36), primary_key=True)
-    listener_id = sa.Column(sa.String(36), primary_key=True)
     pool_id = sa.Column(sa.String(36),
                         sa.ForeignKey('lbaas_pools.id',
                                       name='fk_lbaas_pools_id',
@@ -313,7 +312,6 @@ class NsxvLbaasMonitorBinding(model_base.BASEV2, models.TimestampMixin):
     __tablename__ = 'nsxv_lbaas_monitor_bindings'
 
     loadbalancer_id = sa.Column(sa.String(36), primary_key=True)
-    listener_id = sa.Column(sa.String(36), primary_key=True)
     pool_id = sa.Column(sa.String(36), primary_key=True)
     hm_id = sa.Column(sa.String(36),
                       sa.ForeignKey('lbaas_healthmonitors.id',

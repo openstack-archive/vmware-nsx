@@ -45,12 +45,9 @@ class EdgePoolManager(base_mgr.EdgeLoadbalancerBaseManager):
             'transparent': False
         }
 
-        listener = pool.listener
-        lb_id = listener.loadbalancer_id
+        lb_id = pool.loadbalancer_id
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
-        listener_binding = nsxv_db.get_nsxv_lbaas_listener_binding(
-            context.session, lb_id, listener.id)
 
         edge_id = lb_binding['edge_id']
 
@@ -59,18 +56,21 @@ class EdgePoolManager(base_mgr.EdgeLoadbalancerBaseManager):
                 h = self.vcns.create_pool(edge_id, edge_pool)[0]
                 edge_pool_id = lb_common.extract_resource_id(h['location'])
             nsxv_db.add_nsxv_lbaas_pool_binding(context.session, lb_id,
-                                                listener.id,
                                                 pool.id,
                                                 edge_pool_id)
 
-            # Associate listener with pool
-            vse = listener_mgr.listener_to_edge_vse(
-                listener,
-                lb_binding['vip_address'],
-                edge_pool_id,
-                listener_binding['app_profile_id'])
-            with locking.LockManager.get_lock(edge_id):
-                self.vcns.update_vip(edge_id, listener_binding['vse_id'], vse)
+            if pool.listener:
+                listener_binding = nsxv_db.get_nsxv_lbaas_listener_binding(
+                    context.session, lb_id, pool.listener.id)
+                # Associate listener with pool
+                vse = listener_mgr.listener_to_edge_vse(
+                    pool.listener,
+                    lb_binding['vip_address'],
+                    edge_pool_id,
+                    listener_binding['app_profile_id'])
+                with locking.LockManager.get_lock(edge_id):
+                    self.vcns.update_vip(edge_id, listener_binding['vse_id'],
+                                         vse)
 
             self.lbv2_driver.pool.successful_completion(context, pool)
 
@@ -90,12 +90,16 @@ class EdgePoolManager(base_mgr.EdgeLoadbalancerBaseManager):
             'transparent': False
         }
 
-        listener = new_pool.listener
-        lb_id = listener.loadbalancer_id
+        if new_pool.listener:
+            listener = new_pool.listener
+            lb_id = listener.loadbalancer_id
+        else:
+            lb_id = new_pool.loadbalancer_id
+
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
         pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
-            context.session, lb_id, listener.id, new_pool.id)
+            context.session, lb_id, new_pool.id)
 
         edge_id = lb_binding['edge_id']
         edge_pool_id = pool_binding['edge_pool_id']
@@ -113,31 +117,34 @@ class EdgePoolManager(base_mgr.EdgeLoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def delete(self, context, pool):
-        listener = pool.listener
-        lb_id = listener.loadbalancer_id
+        lb_id = pool.loadbalancer_id
+
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
         pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
-            context.session, lb_id, listener.id, pool.id)
-        listener_binding = nsxv_db.get_nsxv_lbaas_listener_binding(
-            context.session, lb_id, listener.id)
+            context.session, lb_id, pool.id)
 
         edge_id = lb_binding['edge_id']
         edge_pool_id = pool_binding['edge_pool_id']
 
         try:
-            vse = listener_mgr.listener_to_edge_vse(
-                listener,
-                lb_binding['vip_address'],
-                None,
-                listener_binding['app_profile_id'])
-            with locking.LockManager.get_lock(edge_id):
-                self.vcns.update_vip(edge_id, listener_binding['vse_id'], vse)
-                self.vcns.delete_pool(edge_id, edge_pool_id)
+            if pool.listeners:
+                for listener in pool.listeners:
+                    listener_binding = nsxv_db.get_nsxv_lbaas_listener_binding(
+                        context.session, lb_id, listener.id)
+                    vse = listener_mgr.listener_to_edge_vse(
+                        listener,
+                        lb_binding['vip_address'],
+                        None,
+                        listener_binding['app_profile_id'])
+                    with locking.LockManager.get_lock(edge_id):
+                        self.vcns.update_vip(
+                            edge_id, listener_binding['vse_id'], vse)
+            self.vcns.delete_pool(edge_id, edge_pool_id)
             self.lbv2_driver.pool.successful_completion(
                 context, pool, delete=True)
             nsxv_db.del_nsxv_lbaas_pool_binding(
-                context.session, lb_id, listener.id, pool.id)
+                context.session, lb_id, pool.id)
         except nsxv_exc.VcnsApiException:
             self.lbv2_driver.pool.failed_completion(context, pool)
             LOG.error(_LE('Failed to delete pool %s'), pool['id'])
