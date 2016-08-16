@@ -687,10 +687,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                             nsx_net_id, cfg.CONF.nsx_v3.metadata_proxy_uuid,
                             tags=tags, name=name,
                             attachment_type=nsx_constants.ATTACHMENT_MDPROXY)
-                        LOG.info(_LI("Created MD-Proxy logical port %(port)s "
-                                     "for network %(network)s"),
-                                 {'port': md_port['id'],
-                                  'network': net_data['id']})
+                        LOG.debug("Created MD-Proxy logical port %(port)s "
+                                  "for network %(network)s",
+                                  {'port': md_port['id'],
+                                   'network': net_data['id']})
         except Exception:
             with excutils.save_and_reraise_exception():
                 # Undo creation on the backend
@@ -887,16 +887,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         dhcp_server = None
         try:
             dhcp_server = self._dhcp_server.create(**server_data)
-            LOG.info(_LI("Created logical DHCP server %(server)s for network "
-                         "%(network)s"),
-                     {'server': dhcp_server['id'], 'network': network['id']})
+            LOG.debug("Created logical DHCP server %(server)s for network "
+                      "%(network)s",
+                      {'server': dhcp_server['id'], 'network': network['id']})
             name = self._get_port_name(context, port_data)
             nsx_port = self._port_client.create(
                 nsx_net_id, dhcp_server['id'], tags=tags, name=name,
                 attachment_type=nsx_constants.ATTACHMENT_DHCP)
-            LOG.info(_LI("Created DHCP logical port %(port)s for "
-                         "network %(network)s"),
-                     {'port': nsx_port['id'], 'network': network['id']})
+            LOG.debug("Created DHCP logical port %(port)s for "
+                      "network %(network)s",
+                      {'port': nsx_port['id'], 'network': network['id']})
         except nsx_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE("Unable to create logical DHCP server for "
@@ -940,10 +940,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         try:
             self._dhcp_server.delete(dhcp_service['nsx_service_id'])
-            LOG.info(_LI("Deleted logical DHCP server %(server)s for network "
-                         "%(network)s"),
-                     {'server': dhcp_service['nsx_service_id'],
-                      'network': network_id})
+            LOG.debug("Deleted logical DHCP server %(server)s for network "
+                      "%(network)s",
+                      {'server': dhcp_service['nsx_service_id'],
+                       'network': network_id})
         except nsx_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE("Unable to delete logical DHCP server %(server)s"
@@ -1386,11 +1386,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             binding = self._dhcp_server.create_binding(
                 dhcp_service_id, port['mac_address'], ip, hostname,
                 cfg.CONF.nsx_v3.dhcp_lease_time, options)
-            LOG.info(_LI("Created static binding (mac: %(mac)s, ip: %(ip)s) "
-                         "for port %(port)s on logical DHCP server "
-                         "%(server)s"),
-                     {'mac': port['mac_address'], 'ip': ip, 'port': port['id'],
-                      'server': dhcp_service_id})
+            LOG.debug("Created static binding (mac: %(mac)s, ip: %(ip)s) "
+                      "for port %(port)s on logical DHCP server %(server)s",
+                      {'mac': port['mac_address'], 'ip': ip,
+                       'port': port['id'], 'server': dhcp_service_id})
             return binding
         except nsx_exc.ManagerError:
             with excutils.save_and_reraise_exception():
@@ -1420,10 +1419,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         try:
             self._dhcp_server.delete_binding(
                 binding['nsx_service_id'], binding['nsx_binding_id'])
-            LOG.info(_LI("Deleted static binding for port %(port)s) on "
-                         "logical DHCP server %(server)s"),
-                     {'port': binding['port_id'],
-                      'server': binding['nsx_service_id']})
+            LOG.debug("Deleted static binding for port %(port)s) on "
+                      "logical DHCP server %(server)s",
+                      {'port': binding['port_id'],
+                       'server': binding['nsx_service_id']})
         except nsx_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE("Unable to delete static binding for port "
@@ -1472,10 +1471,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 try:
                     self._dhcp_server.update(dhcp_service['nsx_service_id'],
                                              server_ip=new_ip)
-                    LOG.info(_LI("Updated IP %(ip)s for logical DHCP server "
-                                 "%(server)s"),
-                             {'ip': new_ip,
-                              'server': dhcp_service['nsx_service_id']})
+                    LOG.debug("Updated IP %(ip)s for logical DHCP server "
+                              "%(server)s",
+                              {'ip': new_ip,
+                               'server': dhcp_service['nsx_service_id']})
                 except nsx_exc.ManagerError:
                     with excutils.save_and_reraise_exception():
                         LOG.error(_LE("Unable to update IP %(ip)s for logical "
@@ -1537,11 +1536,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                      'next_hop': ip}]}}
             self._dhcp_server.update_binding(
                 binding['nsx_service_id'], binding['nsx_binding_id'], **data)
-            LOG.info(_LI("Updated static binding (mac: %(mac)s, ip: %(ip)s) "
-                         "for port %(port)s on logical DHCP server "
-                         "%(server)s"),
-                     {'mac': mac, 'ip': ip, 'port': binding['port_id'],
-                      'server': binding['nsx_service_id']})
+            LOG.debug("Updated static binding (mac: %(mac)s, ip: %(ip)s) "
+                      "for port %(port)s on logical DHCP server %(server)s",
+                      {'mac': mac, 'ip': ip, 'port': binding['port_id'],
+                       'server': binding['nsx_service_id']})
         except nsx_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE("Unable to update static binding (mac: %(mac)s, "
