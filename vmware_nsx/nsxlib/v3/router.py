@@ -78,8 +78,7 @@ class RouterLib(object):
                 'edge_cluster_uuid': edge_cluster_uuid,
                 'member_index_list': member_index_list}
 
-    def add_router_link_port(self, tier1_uuid, tier0_uuid, edge_members,
-                             tags):
+    def add_router_link_port(self, tier1_uuid, tier0_uuid, tags):
         # Create Tier0 logical router link port
         t0_tags = copy.copy(tags)
         t0_tags = utils.add_v3_tag(t0_tags, 'os-tier0-uuid', tier0_uuid)
