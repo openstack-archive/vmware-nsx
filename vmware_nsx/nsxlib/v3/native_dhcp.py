@@ -39,12 +39,12 @@ def build_dhcp_server_config(network, subnet, port, project_name):
     host_routes = [{'network': subnet['cidr'], 'next_hop': '0.0.0.0'}]
     # Copy routes from subnet host_routes attribute.
     for hr in subnet['host_routes']:
-        if hr.destination == constants.IPv4_ANY:
+        if hr['destination'] == constants.IPv4_ANY:
             if not gateway_ip:
-                gateway_ip = hr.nexthop
+                gateway_ip = hr['nexthop']
         else:
-            host_routes.append({'network': hr.destination,
-                                'next_hop': hr.nexthop})
+            host_routes.append({'network': hr['destination'],
+                                'next_hop': hr['nexthop']})
     # If gateway_ip is defined, add default route via this gateway.
     if gateway_ip:
         host_routes.append({'network': constants.IPv4_ANY,
