@@ -635,7 +635,8 @@ def validate_nsxv_config_options():
         LOG.warning(_LW("dvs_id must be configured to support VLANs!"))
     if cfg.CONF.nsxv.vdn_scope_id is None:
         LOG.warning(_LW("vdn_scope_id must be configured to support VXLANs!"))
-    if cfg.CONF.nsxv.use_dvs_features and not dvs_utils.dvs_is_enabled():
+    if cfg.CONF.nsxv.use_dvs_features and not dvs_utils.dvs_is_enabled(
+                                                 dvs_id=cfg.CONF.nsxv.dvs_id):
         error = _("dvs host/vcenter credentials must be defined to use "
                   "dvs features")
         raise nsx_exc.NsxPluginException(err_msg=error)

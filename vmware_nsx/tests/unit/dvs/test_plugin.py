@@ -50,12 +50,12 @@ class DvsTestCase(base.BaseTestCase):
     @mock.patch.object(dvs_utils, 'dvs_create_session',
                        return_value=fake_session())
     @mock.patch.object(dvs.DvsManager, '_get_dvs_moref',
-                       return_value='dvs-moref')
+                       return_value=mock.MagicMock())
     def setUp(self, mock_moref, mock_session):
         super(DvsTestCase, self).setUp()
         cfg.CONF.set_override('dvs_name', 'fake_dvs', group='dvs')
         self._dvs = dvs.DvsManager()
-        self.assertEqual('dvs-moref', self._dvs._dvs_moref)
+        self.assertEqual(mock_moref.return_value, self._dvs._dvs_moref)
         mock_moref.assert_called_once_with(mock_session.return_value,
                                            'fake_dvs')
 
@@ -141,7 +141,7 @@ class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
     @mock.patch.object(dvs_utils, 'dvs_create_session',
                        return_value=fake_session())
     @mock.patch.object(dvs.DvsManager, '_get_dvs_moref',
-                       return_value='dvs-moref')
+                       return_value=mock.MagicMock())
     def setUp(self, mock_moref, mock_session,
               plugin=PLUGIN_NAME,
               ext_mgr=None,
