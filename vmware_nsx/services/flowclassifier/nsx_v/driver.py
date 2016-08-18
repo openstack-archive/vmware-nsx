@@ -55,14 +55,10 @@ class NsxvFlowClassifierDriver(fc_driver.FlowClassifierDriverBase):
         self.init_security_group_in_profile()
 
         # register an event to the end of the init to handle the first upgrade
-        # TODO(asarfaty): This registry will call the callback on each
-        # spawned thread, but we need it to be called only once.
-        # So it should be replaces with events.BEFORE_SPAWN after approved
-        # in neutron
         if self._is_new_security_group:
             registry.subscribe(self.init_complete,
                                resources.PROCESS,
-                               events.AFTER_INIT)
+                               events.BEFORE_SPAWN)
 
     def init_profile_id(self):
         """Init the service insertion profile ID
@@ -122,19 +118,16 @@ class NsxvFlowClassifierDriver(fc_driver.FlowClassifierDriverBase):
                 et.tostring(profile_binding, encoding="us-ascii"))
 
     def init_complete(self, resource, event, trigger, **kwargs):
-        # This callback is called for each process.
-        # Until fixing it, lock is used to keep things in order
-        with locking.LockManager.get_lock('service_insertion_init_complete'):
-            if self._is_new_security_group:
-                # add existing VMs to the new security group
-                # This code must run after init is done
-                core_plugin = manager.NeutronManager.get_plugin()
-                core_plugin.add_vms_to_service_insertion(
-                    self._security_group_id)
+        if self._is_new_security_group:
+            # add existing VMs to the new security group
+            # This code must run after init is done
+            core_plugin = manager.NeutronManager.get_plugin()
+            core_plugin.add_vms_to_service_insertion(
+                self._security_group_id)
 
-                # Add the first flow classifier entry
-                if cfg.CONF.nsxv.service_insertion_redirect_all:
-                    self.add_any_any_redirect_rule()
+            # Add the first flow classifier entry
+            if cfg.CONF.nsxv.service_insertion_redirect_all:
+                self.add_any_any_redirect_rule()
 
     def add_any_any_redirect_rule(self):
         """Add an any->any flow classifier entry
