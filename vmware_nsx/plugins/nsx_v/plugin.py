@@ -2280,6 +2280,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         router,
                         appliance_size=appliance_size)
                     # continue to update the router with the new driver
+                    # but remove the router-size that was already updated
+                    router['router'].pop(ROUTER_SIZE, None)
 
         router_driver = self._find_router_driver(context, router_id)
         return router_driver.update_router(context, router_id, router)
