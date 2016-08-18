@@ -224,15 +224,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                      callbacks_resources.QOS_POLICY)
         self._start_rpc_listeners()
 
-        has_metadata_cfg = (
-            cfg.CONF.nsxv.nova_metadata_ips
-            and cfg.CONF.nsxv.mgt_net_moid
-            and cfg.CONF.nsxv.mgt_net_proxy_ips
-            and cfg.CONF.nsxv.mgt_net_proxy_netmask)
-        if has_metadata_cfg:
-            self.metadata_proxy_handler = (
-                nsx_v_md_proxy.NsxVMetadataProxyHandler(self))
-
         # Service insertion driver register
         self._si_handler = fc_utils.NsxvServiceInsertionHandler(self)
         registry.subscribe(self.add_vms_to_service_insertion,
@@ -243,6 +234,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             self.supported_extension_aliases.append("provider-security-group")
 
     def init_complete(self, resource, event, trigger, **kwargs):
+        has_metadata_cfg = (
+            cfg.CONF.nsxv.nova_metadata_ips
+            and cfg.CONF.nsxv.mgt_net_moid
+            and cfg.CONF.nsxv.mgt_net_proxy_ips
+            and cfg.CONF.nsxv.mgt_net_proxy_netmask)
+        if has_metadata_cfg:
+            self.metadata_proxy_handler = (
+                nsx_v_md_proxy.NsxVMetadataProxyHandler(self))
+
         self.init_is_complete = True
 
     def add_vms_to_service_insertion(self, sg_id):
