@@ -24,6 +24,9 @@ from oslo_config import cfg
 from oslo_utils import importutils
 from oslo_utils import uuidutils
 
+from neutron.callbacks import events
+from neutron.callbacks import registry
+from neutron.callbacks import resources
 from neutron import context
 from neutron.tests import base
 
@@ -65,51 +68,50 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
 
     def test_nsxl2gw_driver_init(self):
         with mock.patch.object(nsx_v3_driver.NsxV3Driver,
-                               '_ensure_default_l2_gateway') as def_gw:
-            with mock.patch.object(nsx_v3_driver.NsxV3Driver,
-                                   'subscribe_callback_notifications') as sub:
-                with mock.patch.object(nsx_v3_driver.LOG,
-                                       'debug') as debug:
-                    nsx_v3_driver.NsxV3Driver(mock.MagicMock())
-                    self.assertTrue(def_gw.called)
-                    self.assertTrue(sub.called)
-                    self.assertTrue(debug.called)
+                               'subscribe_callback_notifications') as sub:
+            with mock.patch.object(nsx_v3_driver.LOG,
+                                   'debug') as debug:
+                nsx_v3_driver.NsxV3Driver(mock.MagicMock())
+                self.assertTrue(sub.called)
+                self.assertTrue(debug.called)
 
     def test_create_default_l2_gateway(self):
         def_bridge_cluster_name = nsx_v3_mocks.NSX_BRIDGE_CLUSTER_NAME
-        with mock.patch.object(nsx_v3_driver.NsxV3Driver,
-                               'subscribe_callback_notifications'):
-            cfg.CONF.set_override("default_bridge_cluster",
-                                  def_bridge_cluster_name,
-                                  "nsx_v3")
-            nsx_v3_driver.NsxV3Driver(mock.MagicMock())
-            l2gws = self.driver._get_l2_gateways(self.context)
-            def_bridge_cluster_id = (
-                self.nsxlib.get_bridge_cluster_id_by_name_or_id(
-                    def_bridge_cluster_name))
-            def_l2gw = None
-            for l2gw in l2gws:
-                for device in l2gw['devices']:
-                    if device['device_name'] == def_bridge_cluster_id:
-                        def_l2gw = l2gw
-            self.assertIsNotNone(def_l2gw)
-            self.assertTrue(def_l2gw.devices[0].device_name,
-                            def_bridge_cluster_id)
-            self.assertTrue(def_l2gw.devices[0].interfaces[0].interface_name,
-                            'default-bridge-cluster')
+        cfg.CONF.set_override("default_bridge_cluster",
+                              def_bridge_cluster_name,
+                              "nsx_v3")
+        nsx_v3_driver.NsxV3Driver(mock.MagicMock())
+        # fake the callback invoked after init
+        registry.notify(resources.PROCESS, events.BEFORE_SPAWN,
+                        mock.MagicMock())
+        l2gws = self.driver._get_l2_gateways(self.context)
+        def_bridge_cluster_id = (
+            self.nsxlib.get_bridge_cluster_id_by_name_or_id(
+                def_bridge_cluster_name))
+        def_l2gw = None
+        for l2gw in l2gws:
+            for device in l2gw['devices']:
+                if device['device_name'] == def_bridge_cluster_id:
+                    def_l2gw = l2gw
+        self.assertIsNotNone(def_l2gw)
+        self.assertTrue(def_l2gw.devices[0].device_name,
+                        def_bridge_cluster_id)
+        self.assertTrue(def_l2gw.devices[0].interfaces[0].interface_name,
+                        'default-bridge-cluster')
 
     def test_create_duplicate_default_l2_gateway_noop(self):
         def_bridge_cluster_name = nsx_v3_mocks.NSX_BRIDGE_CLUSTER_NAME
-        with mock.patch.object(nsx_v3_driver.NsxV3Driver,
-                               'subscribe_callback_notifications'):
-            cfg.CONF.set_override("default_bridge_cluster",
-                                  def_bridge_cluster_name,
-                                  "nsx_v3")
+        cfg.CONF.set_override("default_bridge_cluster",
+                              def_bridge_cluster_name,
+                              "nsx_v3")
+        for i in range(0, 2):
             nsx_v3_driver.NsxV3Driver(mock.MagicMock())
-            nsx_v3_driver.NsxV3Driver(mock.MagicMock())
-            l2gws = self.driver._get_l2_gateways(self.context)
-            # Verify whether only one default L2 gateway is created
-            self.assertEqual(1, len(l2gws))
+            # fake the callback invoked after init
+            registry.notify(resources.PROCESS, events.BEFORE_SPAWN,
+                            mock.MagicMock())
+        l2gws = self.driver._get_l2_gateways(self.context)
+        # Verify whether only one default L2 gateway is created
+        self.assertEqual(1, len(l2gws))
 
     def test_create_default_l2_gateway_no_bc_uuid_noop(self):
         with mock.patch.object(nsx_v3_driver.NsxV3Driver,

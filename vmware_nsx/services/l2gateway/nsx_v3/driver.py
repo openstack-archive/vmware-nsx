@@ -53,7 +53,6 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         super(NsxV3Driver, self).__init__()
         self._plugin = plugin
         LOG.debug("Starting service plugin for NSX L2Gateway")
-        self._ensure_default_l2_gateway()
         self.subscribe_callback_notifications()
         LOG.debug("Initialization complete for NSXv3 driver for "
                   "L2 gateway service plugin.")
@@ -65,8 +64,10 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
     def subscribe_callback_notifications(self):
         registry.subscribe(self._prevent_l2gw_port_delete, resources.PORT,
                            events.BEFORE_DELETE)
+        registry.subscribe(self._ensure_default_l2_gateway, resources.PROCESS,
+                           events.BEFORE_SPAWN)
 
-    def _ensure_default_l2_gateway(self):
+    def _ensure_default_l2_gateway(self, resource, event, trigger, **kwargs):
         """
         Create a default logical L2 gateway.
 
