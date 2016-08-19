@@ -19,6 +19,6 @@ WebTest>=2.0 # MIT
 # This is needed for subunit-trace
 tempest-lib>=0.14.0 # Apache-2.0
 reno>=1.8.0 # Apache2
-bandit>=1.0.1 # Apache-2.0
+bandit>=1.1.0 # Apache-2.0
 tempest>=12.1.0 # Apache-2.0
 pylint==1.4.5 # GPLv2
