@@ -1,0 +1,7 @@
+---
+prelude: >
+    Support VLAN-aware-VM feature in NSXv3 plugin.
+features:
+  - Trunk driver for NSXv3 plugin which allows creation of trunk ports
+    and subports which subsequently create parent port and child ports
+    relationship in the backend.

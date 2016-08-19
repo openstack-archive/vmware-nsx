@@ -94,6 +94,7 @@ from vmware_nsx.nsxlib.v3 import router
 from vmware_nsx.nsxlib.v3 import security
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
+from vmware_nsx.services.trunk.nsx_v3 import driver as trunk_driver
 
 
 LOG = log.getLogger(__name__)
@@ -214,6 +215,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         # translate configured transport zones/rotuers names to uuid
         self._translate_configured_names_2_uuids()
+
+        # Register NSXv3 trunk driver to support trunk extensions
+        self.trunk_driver = trunk_driver.NsxV3TrunkDriver.create(self)
 
     def _init_nsx_profiles(self):
         LOG.debug("Initializing NSX v3 port spoofguard switching profile")
