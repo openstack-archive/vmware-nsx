@@ -429,6 +429,7 @@ class Vcns(object):
         uri = self._build_uri_path(edge_id, IPSEC_VPN_SERVICE)
         return self.do_request(HTTP_GET, uri)
 
+    @retry_upon_exception(exceptions.RequestBad)
     def create_virtual_wire(self, vdn_scope_id, request):
         """Creates a VXLAN virtual wire
 
