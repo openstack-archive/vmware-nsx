@@ -195,22 +195,28 @@ class NsxV3Driver(base_driver.TaasBaseDriver,
                        tags):
         """Create a PortMirroring SwitchingProfile for L3SPAN."""
         tf = context.tap_flow
-        dest_port = self._get_port_details(context._plugin_context,
-                                           dest_port_id)
+        # Verify whether destination port is L3 reachable. i.e. destination
+        # port has a floating IP address.
+        fips = self._nsx_plugin.get_floatingips(
+            context._plugin_context, filters={'port_id': dest_port_id})
+        if not fips:
+            msg = (_("Destination port %s must have a floating IP for "
+                     "L3 SPAN") % dest_port_id)
+            raise nsx_exc.NsxTaaSDriverException(msg=msg)
         destinations = []
         # Retrieve destination port's IP addresses and add it to the list
         # since the backend expects a list of IP addresses.
-        for fixed_ip in dest_port['fixed_ips']:
+        for fip in fips:
             # NOTE(abhiraut): nsx-v3 doesn't seem to handle ipv6 addresses
             # currently so for now we remove them here and do not pass
             # them to the backend which would raise an error.
-            if netaddr.IPNetwork(fixed_ip['ip_address']).version == 6:
+            if netaddr.IPNetwork(fip['floating_ip_address']).version == 6:
                 LOG.warning(_LW("Skipping IPv6 address %(ip)s for L3SPAN "
                                 "tap flow: %(tap_flow)s"),
                             {'tap_flow': tf['id'],
-                             'ip': fixed_ip['ip_address']})
+                             'ip': fip['floating_ip_address']})
                 continue
-            destinations.append(fixed_ip['ip_address'])
+            destinations.append(fip['floating_ip_address'])
         # Create a switch profile in the backend.
         try:
             port_mirror_profile = (self._nsx_plugin._switching_profiles.

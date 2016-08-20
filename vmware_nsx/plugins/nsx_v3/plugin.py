@@ -2593,6 +2593,18 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     if floatingip['floatingip']['port_id']
                     else const.FLOATINGIP_STATUS_DOWN))
 
+    def get_floatingips(self, context, filters=None, fields=None,
+                        sorts=None, limit=None, marker=None,
+                        page_reverse=False):
+        #NOTE(abhiraut): Although this method does not do anything fancy
+        #                we have defined it here so that TaaS driver
+        #                can retrieve floating IP for a particular port ID
+        #                using filters.
+        return super(NsxV3Plugin, self).get_floatingips(
+            context, filters=filters, fields=fields,
+            sorts=sorts, limit=limit, marker=marker,
+            page_reverse=page_reverse)
+
     def create_floatingip(self, context, floatingip):
         new_fip = self._create_floating_ip_wrapper(context, floatingip)
         router_id = new_fip['router_id']
