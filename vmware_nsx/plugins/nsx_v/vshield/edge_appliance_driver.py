@@ -512,6 +512,9 @@ class EdgeApplianceDriver(object):
             # First get the current edge structure
             # [0] is the status, [1] is the body
             edge = self.vcns.get_edge(edge_id)[1]
+            if edge['name'] == name:
+                LOG.debug('Edge %s is already named %s', edge_id, name)
+                return
             # remove some data that will make the update fail
             edge_utils.remove_irrelevant_keys_from_edge_request(edge)
             # set the new name in the request
