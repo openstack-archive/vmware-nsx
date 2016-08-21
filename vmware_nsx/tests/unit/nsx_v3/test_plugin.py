@@ -645,6 +645,9 @@ class TestL3NatTestCase(L3NatTest,
     def test_router_add_interface_multiple_ipv4_subnets(self):
         self.skipTest('not supported')
 
+    def test_floatingip_update_to_same_port_id_twice(self):
+        self.skipTest('Plugin changes floating port status')
+
 
 class ExtGwModeTestCase(test_ext_gw_mode.ExtGwModeIntTestCase,
                         L3NatTest):

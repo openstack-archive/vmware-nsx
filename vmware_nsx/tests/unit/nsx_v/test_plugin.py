@@ -3127,6 +3127,9 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
         self.assertEqual([az_name],
                          returned_router['availability_zones'])
 
+    def test_floatingip_update_to_same_port_id_twice(self):
+        self.skipTest('Plugin changes floating port status')
+
 
 class ExtGwModeTestCase(NsxVPluginV2TestCase,
                         test_ext_gw_mode.ExtGwModeIntTestCase):
@@ -3661,6 +3664,9 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
 
     def test_create_router_gateway_fails(self):
         self.skipTest('not supported')
+
+    def test_floatingip_update_to_same_port_id_twice(self):
+        self.skipTest('Plugin changes floating port status')
 
 
 class TestNSXvAllowedAddressPairs(NsxVPluginV2TestCase,

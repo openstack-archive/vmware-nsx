@@ -880,6 +880,9 @@ class TestL3NatTestCase(L3NatTest,
             super(TestL3NatTestCase,
                   self).test_update_subnet_gateway_for_external_net()
 
+    def test_floatingip_update_to_same_port_id_twice(self):
+        self.skipTest('Plugin changes floating port status')
+
     def test_floating_port_status_not_applicable(self):
         self.skipTest('Plugin changes floating port status')
 
