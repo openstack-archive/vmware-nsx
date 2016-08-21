@@ -156,7 +156,8 @@ class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
 
     def _create_and_delete_dvs_network(self, network_type='flat', vlan_tag=0):
         params = {'provider:network_type': network_type,
-                  'provider:physical_network': 'fake-moid'}
+                  'provider:physical_network': 'fake-moid',
+                  'name': 'fake-name'}
         if network_type == 'vlan':
             params['provider:segmentation_id'] = vlan_tag
         params['arg_list'] = tuple(params.keys())
@@ -198,12 +199,14 @@ class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
 
     @mock.patch.object(dvs.DvsManager, '_net_id_to_moref')
     def test_create_and_delete_dvs_network_portgroup(self, fake_get_moref):
+        fake_get_moref.return_value.name = 'fake-name'
         self._create_and_delete_dvs_network(network_type='portgroup')
         self.assertTrue(fake_get_moref.call_count)
 
     @mock.patch.object(dvs.DvsManager, '_net_id_to_moref')
     def test_create_and_delete_dvs_network_portgroup_vlan(self,
                                                           fake_get_moref):
+        fake_get_moref.return_value.name = 'fake-name'
         self._create_and_delete_dvs_network(network_type='portgroup',
                                             vlan_tag=7)
         self.assertTrue(fake_get_moref.call_count)
@@ -293,3 +296,13 @@ class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
                 ctx, id,
                 {'network': {'port_security_enabled': True}})
             self.assertEqual(True, updated_net['port_security_enabled'])
+
+    @mock.patch.object(dvs.DvsManager, '_net_id_to_moref')
+    def test_create_and_delete_portgroup_network_invalid_name(self,
+                                                          fake_get_moref):
+        fake_get_moref.return_value.name = 'fake-different-name'
+        data = {'network': {'provider:network_type': 'portgroup',
+                            'name': 'fake-name',
+                            'admin_state_up': True}}
+        self.assertRaises(exp.BadRequest, self._plugin.create_network,
+                          context.get_admin_context(), data)
