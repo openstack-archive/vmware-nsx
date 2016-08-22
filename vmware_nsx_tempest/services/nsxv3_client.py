@@ -359,3 +359,35 @@ class NSXV3Client(object):
         endpoint = "/logical-routers/%s/nat/rules" % lrouter['id']
         response = self.get(endpoint=endpoint)
         return response.json()['results']
+
+    def get_logical_dhcp_servers(self):
+        """
+        Get all logical DHCP servers on NSX backend
+        """
+        response = self.get(endpoint="/dhcp/servers")
+        return response.json()['results']
+
+    def get_logical_dhcp_server(self, os_name, os_uuid):
+        """
+        Get the logical dhcp server based on the name and uuid provided.
+
+        The name of the logical dhcp server should follow
+            <os_network_name>_<first 5 os uuid>...<last 5 os uuid>
+        Return logical dhcp server if found, otherwise return None
+        """
+        if not os_name or not os_uuid:
+            LOG.error(_LE("Name and uuid of OpenStack L2 network need to be "
+                          "present in order to query backend logical dhcp "
+                          "server!"))
+            return None
+        nsx_name = os_name + "_" + os_uuid[:5] + "..." + os_uuid[-5:]
+        dhcp_servers = self.get_logical_dhcp_servers()
+        return self.get_nsx_resource_by_name(dhcp_servers, nsx_name)
+
+    def get_dhcp_server_static_bindings(self, dhcp_server):
+        """
+        Get all DHCP static bindings of a logical DHCP server
+        """
+        uri = "/dhcp/servers/%s/static-bindings" % dhcp_server
+        response = self.get(endpoint=uri)
+        return response.json()['results']
