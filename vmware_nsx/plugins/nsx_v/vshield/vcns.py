@@ -190,6 +190,7 @@ class Vcns(object):
         uri = "%s/%s/vnics" % (URI_PREFIX, edge_id)
         return self.do_request(HTTP_GET, uri, decode=True)
 
+    @retry_upon_exception(exceptions.RequestBad)
     def update_interface(self, edge_id, vnic):
         uri = "%s/%s/vnics/%d" % (URI_PREFIX, edge_id,
                                   vnic['index'])
