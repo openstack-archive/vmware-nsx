@@ -47,6 +47,9 @@ RESOURCE_ATTRIBUTE_MAP = {
     'routers': {
         'id': ID_WITH_POST,
     },
+    'policies': {  # QoS policies
+        'id': ID_WITH_POST,
+    },
 }
 
 
@@ -79,3 +82,7 @@ class Api_replay(extensions.ExtensionDescriptor):
         # make sure this extension is called after those, so our change
         # will not be overridden
         return ["security-group", "router"]
+
+    def get_optional_extensions(self):
+        # QoS is optional since it is not always enabled
+        return ["qos"]

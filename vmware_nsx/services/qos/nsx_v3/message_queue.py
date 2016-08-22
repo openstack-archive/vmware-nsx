@@ -26,4 +26,4 @@ class NsxV3QosNotificationDriver(
     """
 
     def create_policy(self, context, policy):
-        self.notification_api.push(context, policy, events.CREATED)
+        self.notification_api.push(context, [policy], events.CREATED)

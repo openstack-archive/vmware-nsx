@@ -45,6 +45,7 @@ class ApiReplayClient(object):
             auth_url=self._dest_os_auth_url)
 
         self.migrate_security_groups()
+        self.migrate_qos_policies()
         self.migrate_routers()
         self.migrate_networks_subnets_ports()
         self.migrate_floatingips()
@@ -89,6 +90,81 @@ class ApiReplayClient(object):
                 continue
             body[k] = v
         return body
+
+    def migrate_qos_rule(self, dest_policy, source_rule):
+        """Add the QoS rule from the source to the QoS policy
+
+        If there is already a rule of that type, skip it since
+        the QoS policy can have only one rule of each type
+        """
+        #TODO(asarfaty) also take rule direction into account once
+        #ingress support is upstream
+        rule_type = source_rule.get('type')
+        dest_rules = dest_policy.get('rules')
+        if dest_rules:
+            for dest_rule in dest_rules:
+                if dest_rule['type'] == rule_type:
+                    return
+        pol_id = dest_policy['id']
+        drop_qos_rule_fields = ['revision', 'type', 'qos_policy_id', 'id']
+        body = self.drop_fields(source_rule, drop_qos_rule_fields)
+        try:
+            if rule_type == 'bandwidth_limit':
+                rule = self.dest_neutron.create_bandwidth_limit_rule(
+                    pol_id, body={'bandwidth_limit_rule': body})
+            elif rule_type == 'dscp_marking':
+                rule = self.dest_neutron.create_dscp_marking_rule(
+                    pol_id, body={'dscp_marking_rule': body})
+            else:
+                print("QoS rule type %s is not supported for policy %s" % (
+                    rule_type, pol_id))
+            print("created QoS policy %s rule %s " % (pol_id, rule))
+        except Exception as e:
+            print("Failed to create QoS rule for policy %s: %s" % (pol_id, e))
+
+    def migrate_qos_policies(self):
+        """Migrates QoS policies from source to dest neutron."""
+
+        # first fetch the QoS policies from both the
+        # source and destination neutron server
+        try:
+            source_qos_pols = self.source_neutron.list_qos_policies()[
+                'policies']
+        except n_exc.NotFound:
+            # QoS disabled on source
+            return
+        try:
+            dest_qos_pols = self.dest_neutron.list_qos_policies()['policies']
+        except n_exc.NotFound:
+            # QoS disabled on dest
+            print("QoS is disabled on destination: ignoring QoS policies")
+            return
+
+        drop_qos_policy_fields = ['revision']
+
+        for pol in source_qos_pols:
+            dest_pol = self.have_id(pol['id'], dest_qos_pols)
+            # If the policy already exists on the the dest_neutron
+            if dest_pol:
+                # make sure all the QoS policy rules are there and
+                # create them if not
+                for qos_rule in pol['rules']:
+                    self.migrate_qos_rule(dest_pol, qos_rule)
+
+            # dest server doesn't have the group so we create it here.
+            else:
+                qos_rules = pol.pop('rules')
+                try:
+                    body = self.drop_fields(pol, drop_qos_policy_fields)
+                    new_pol = self.dest_neutron.create_qos_policy(
+                        body={'policy': body})
+                except Exception as e:
+                    print("Failed to create QoS policy %s: %s" % (
+                        pol['id'], e))
+                    continue
+                print("Created QoS policy %s" % new_pol)
+                for qos_rule in qos_rules:
+                    self.migrate_qos_rule(new_pol['policy'], qos_rule)
 
     def migrate_security_groups(self):
         """Migrates security groups from source to dest neutron."""
@@ -197,15 +273,14 @@ class ApiReplayClient(object):
                             'port_security_enabled',
                             'binding:vif_details',
                             'binding:vif_type',
-                            'binding:host_id', 'qos_policy_id',
+                            'binding:host_id',
                             'revision',
                             'vnic_index']
 
         drop_network_fields = ['status', 'subnets', 'availability_zones',
                                'created_at', 'updated_at', 'tags',
-                               'qos_policy_id', 'ipv4_address_scope',
-                               'ipv6_address_scope', 'mtu',
-                               'revision']
+                               'ipv4_address_scope', 'ipv6_address_scope',
+                               'mtu', 'revision']
 
         for network in source_networks:
             body = self.drop_fields(network, drop_network_fields)
