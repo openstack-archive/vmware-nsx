@@ -10,6 +10,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import six
 
 from neutronclient.common import exceptions as n_exc
 from neutronclient.v2_0 import client
@@ -46,9 +47,10 @@ class ApiReplayClient(object):
 
         self.migrate_security_groups()
         self.migrate_qos_policies()
-        self.migrate_routers()
+        routers_routes = self.migrate_routers()
         self.migrate_networks_subnets_ports()
         self.migrate_floatingips()
+        self.migrate_routers_routes(routers_routes)
 
     def find_subnet_by_id(self, subnet_id, subnets):
         for subnet in subnets:
@@ -229,13 +231,22 @@ class ApiReplayClient(object):
                         pass
 
     def migrate_routers(self):
-        """Migrates routers from source to dest neutron."""
+        """Migrates routers from source to dest neutron.
+
+        Also return a dictionary of the routes that should be added to
+        each router. Static routes must be added later, after the router
+        ports are set.
+        """
         source_routers = self.source_neutron.list_routers()['routers']
         dest_routers = self.dest_neutron.list_routers()['routers']
+        update_routes = {}
 
         for router in source_routers:
             dest_router = self.have_id(router['id'], dest_routers)
             if dest_router is False:
+                if router.get('routes'):
+                    update_routes[router['id']] = router['routes']
+
                 drop_router_fields = ['status',
                                       'routes',
                                       'ha',
@@ -249,6 +260,14 @@ class ApiReplayClient(object):
                 new_router = (self.dest_neutron.create_router(
                     {'router': body}))
                 print("created router %s" % new_router)
+        return update_routes
+
+    def migrate_routers_routes(self, routers_routes):
+        """Add static routes to the created routers."""
+        for router_id, routes in six.iteritems(routers_routes):
+            self.dest_neutron.update_router(router_id,
+                {'router': {'routes': routes}})
+            print("Added routes to router %s" % router_id)
 
     def migrate_networks_subnets_ports(self):
         """Migrates networks/ports/router-uplinks from src to dest neutron."""
