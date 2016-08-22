@@ -706,22 +706,22 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         neutron_net_id,
                         nsx_net_id)
 
-                    if cfg.CONF.nsx_v3.native_dhcp_metadata:
-                        # Enable native metadata proxy for this network.
-                        tags = utils.build_v3_tags_payload(
-                            net_data, resource_type='os-neutron-net-id',
-                            project_name=context.tenant_name)
-                        name = utils.get_name_and_uuid('%s-%s' % (
-                            'mdproxy', created_net['name'] or 'network'),
-                                                       created_net['id'])
-                        md_port = self._port_client.create(
-                            nsx_net_id, cfg.CONF.nsx_v3.metadata_proxy_uuid,
-                            tags=tags, name=name,
-                            attachment_type=nsx_constants.ATTACHMENT_MDPROXY)
-                        LOG.debug("Created MD-Proxy logical port %(port)s "
-                                  "for network %(network)s",
-                                  {'port': md_port['id'],
-                                   'network': net_data['id']})
+            if is_backend_network and cfg.CONF.nsx_v3.native_dhcp_metadata:
+                # Enable native metadata proxy for this network.
+                tags = utils.build_v3_tags_payload(
+                    net_data, resource_type='os-neutron-net-id',
+                    project_name=context.tenant_name)
+                name = utils.get_name_and_uuid('%s-%s' % (
+                    'mdproxy', created_net['name'] or 'network'),
+                                               created_net['id'])
+                md_port = self._port_client.create(
+                    nsx_net_id, cfg.CONF.nsx_v3.metadata_proxy_uuid,
+                    tags=tags, name=name,
+                    attachment_type=nsx_constants.ATTACHMENT_MDPROXY)
+                LOG.debug("Created MD-Proxy logical port %(port)s "
+                          "for network %(network)s",
+                          {'port': md_port['id'],
+                           'network': net_data['id']})
         except Exception:
             with excutils.save_and_reraise_exception():
                 # Undo creation on the backend
