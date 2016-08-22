@@ -16,33 +16,36 @@
 #
 
 from neutron.api import extensions
+from neutron.api.v2 import attributes
 
+
+# The attributes map is here for 2 reasons:
+# 1) allow posting id for the different objects we are importing
+# 2) make sure security-group named 'default' is also copied
+
+ID_WITH_POST = {'allow_post': True, 'allow_put': False,
+                'validate': {'type:uuid': None},
+                'is_visible': True,
+                'primary_key': True}
 
 RESOURCE_ATTRIBUTE_MAP = {
     'ports': {
-        'id': {'allow_post': True, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True},
+        'id': ID_WITH_POST,
     },
     'networks': {
-        'id': {'allow_post': True, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True},
+        'id': ID_WITH_POST,
     },
     'security_groups': {
-        'id': {'allow_post': True, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True},
+        'id': ID_WITH_POST,
+        'name': {'allow_post': True, 'allow_put': True,
+                 'is_visible': True, 'default': '',
+                 'validate': {'type:string': attributes.NAME_MAX_LEN}},
     },
     'security_group_rules': {
-        'id': {'allow_post': True, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True},
+        'id': ID_WITH_POST,
     },
     'routers': {
-        'id': {'allow_post': True, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True},
+        'id': ID_WITH_POST,
     },
 }
 
@@ -71,3 +74,8 @@ class Api_replay(extensions.ExtensionDescriptor):
             return RESOURCE_ATTRIBUTE_MAP
         else:
             return {}
+
+    def get_required_extensions(self):
+        # make sure this extension is called after those, so our change
+        # will not be overridden
+        return ["security-group", "router"]
