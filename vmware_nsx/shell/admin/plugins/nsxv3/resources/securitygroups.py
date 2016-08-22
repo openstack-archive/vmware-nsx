@@ -210,7 +210,7 @@ def fix_security_groups(resource, event, trigger, **kwargs):
         neutron_sg.delete_security_group_backend_mapping(sg_id)
         nsgroup, fw_section = (
             plugin._create_security_group_backend_resources(secgroup))
-        nsxlib.save_sg_mappings(
+        nsx_db.save_sg_mappings(
             context_.session, sg_id, nsgroup['id'], fw_section['id'])
         # If version > 1.1 then we use dynamic criteria tags, and the port
         # should already have them.

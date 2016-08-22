@@ -2776,10 +2776,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         super(NsxV3Plugin, self).create_security_group(
                             context, security_group, default_sg))
 
-                self.nsxlib.save_sg_mappings(context.session,
-                                             secgroup_db['id'],
-                                             ns_group['id'],
-                                             firewall_section['id'])
+                nsx_db.save_sg_mappings(context.session,
+                                        secgroup_db['id'],
+                                        ns_group['id'],
+                                        firewall_section['id'])
 
                 self._process_security_group_properties_create(context,
                                                                secgroup_db,
@@ -2920,6 +2920,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         rule_db = self._get_security_group_rule(context, id)
         sg_id = rule_db['security_group_id']
         _, section_id = self.nsxlib.get_sg_mappings(context.session, sg_id)
-        fw_rule_id = self.nsxlib.get_sg_rule_mapping(context.session, id)
+        fw_rule_id = nsx_db.get_sg_rule_mapping(context.session, id)
         self.nsxlib.delete_rule(section_id, fw_rule_id)
         super(NsxV3Plugin, self).delete_security_group_rule(context, id)
