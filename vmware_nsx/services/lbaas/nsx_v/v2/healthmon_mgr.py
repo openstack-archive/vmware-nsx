@@ -55,18 +55,17 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def create(self, context, hm):
-        listener = hm.pool.listener
-        lb_id = listener.loadbalancer_id
+        lb_id = hm.pool.loadbalancer_id
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
         pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
-            context.session, lb_id, listener.id, hm.pool.id)
+            context.session, lb_id, hm.pool.id)
 
         edge_id = lb_binding['edge_id']
         edge_pool_id = pool_binding['edge_pool_id']
 
         hm_binding = nsxv_db.get_nsxv_lbaas_monitor_binding(
-            context.session, lb_id, listener.id, hm.pool.id, hm.id, edge_id)
+            context.session, lb_id, hm.pool.id, hm.id, edge_id)
         edge_mon_id = None
 
         if hm_binding:
@@ -80,8 +79,8 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
                     edge_mon_id = lb_common.extract_resource_id(h['location'])
 
                 nsxv_db.add_nsxv_lbaas_monitor_binding(
-                    context.session, lb_id, listener.id, hm.pool.id, hm.id,
-                    edge_id, edge_mon_id)
+                    context.session, lb_id, hm.pool.id, hm.id, edge_id,
+                    edge_mon_id)
 
             except nsxv_exc.VcnsApiException:
                 with excutils.save_and_reraise_exception():
@@ -112,16 +111,14 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def update(self, context, old_hm, new_hm):
-        listener = new_hm.pool.listener
-        lb_id = listener.loadbalancer_id
+        lb_id = new_hm.pool.loadbalancer_id
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
 
         edge_id = lb_binding['edge_id']
 
         hm_binding = nsxv_db.get_nsxv_lbaas_monitor_binding(
-            context.session, lb_id, listener.id, new_hm.pool.id, new_hm.id,
-            edge_id)
+            context.session, lb_id, new_hm.pool.id, new_hm.id, edge_id)
 
         edge_monitor = self._convert_lbaas_monitor(new_hm)
 
@@ -142,18 +139,17 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def delete(self, context, hm):
-        listener = hm.pool.listener
-        lb_id = listener.loadbalancer_id
+        lb_id = hm.pool.loadbalancer_id
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
         pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
-            context.session, lb_id, listener.id, hm.pool.id)
+            context.session, lb_id, hm.pool.id)
 
         edge_id = lb_binding['edge_id']
         edge_pool_id = pool_binding['edge_pool_id']
 
         hm_binding = nsxv_db.get_nsxv_lbaas_monitor_binding(
-            context.session, lb_id, listener.id, hm.pool.id, hm.id, edge_id)
+            context.session, lb_id, hm.pool.id, hm.id, edge_id)
 
         edge_pool = self.vcns.get_pool(edge_id, edge_pool_id)[1]
         edge_pool['monitorId'].remove(hm_binding['edge_mon_id'])
@@ -182,6 +178,6 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
                         _LE('Failed to delete monitor on edge: %s'), edge_id)
 
         nsxv_db.del_nsxv_lbaas_monitor_binding(
-            context.session, lb_id, listener.id, hm.pool.id, hm.id, edge_id)
+            context.session, lb_id, hm.pool.id, hm.id, edge_id)
         self.lbv2_driver.health_monitor.successful_completion(
             context, hm, delete=True)

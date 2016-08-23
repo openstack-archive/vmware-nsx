@@ -53,7 +53,7 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
         pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
-            context.session, lb_id, listener.id, member.pool_id)
+            context.session, lb_id, member.pool_id)
 
         edge_id = lb_binding['edge_id']
         edge_pool_id = pool_binding['edge_pool_id']
@@ -98,7 +98,7 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
         pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(context.session,
-                                                           lb_id, listener.id,
+                                                           lb_id,
                                                            new_member.pool_id)
 
         edge_id = lb_binding['edge_id']
@@ -147,7 +147,7 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
         pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
-            context.session, lb_id, listener.id, member.pool_id)
+            context.session, lb_id, member.pool_id)
 
         edge_id = lb_binding['edge_id']
         edge_pool_id = pool_binding['edge_pool_id']

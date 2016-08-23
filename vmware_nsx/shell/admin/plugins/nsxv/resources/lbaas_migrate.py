@@ -195,7 +195,6 @@ def _create_v2_nsx_mappings(v1_pool_id, v1_hm_id, v2_pool_id, v2_lb_id,
         nsxv_db.add_nsxv_lbaas_monitor_binding(
             neutron_db.context.session,
             v2_lb_id,
-            v2_listener_id,
             v2_pool_id,
             v2_hm_id,
             v1_hm_map['edge_id'],
@@ -209,7 +208,6 @@ def _create_v2_nsx_mappings(v1_pool_id, v1_hm_id, v2_pool_id, v2_lb_id,
             nsxv_db.add_nsxv_lbaas_pool_binding(
                 neutron_db.context.session,
                 v2_lb_id,
-                v2_listener_id,
                 v2_pool_id,
                 v1_pool_map['edge_pool_id'])
 
