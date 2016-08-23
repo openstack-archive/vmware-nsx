@@ -16,6 +16,7 @@
 from oslo_utils import uuidutils
 import sqlalchemy as sa
 from sqlalchemy import orm
+from sqlalchemy.orm import exc
 
 from neutron.api.v2 import attributes
 from neutron.common import utils as n_utils
@@ -94,9 +95,12 @@ class ExtendedSecurityGroupPropertiesMixin(object):
 
     def _get_security_group_properties(self, context, security_group_id):
         with context.session.begin(subtransactions=True):
-            prop = context.session.query(
-                NsxExtendedSecurityGroupProperties).filter_by(
-                    security_group_id=security_group_id).one()
+            try:
+                prop = context.session.query(
+                    NsxExtendedSecurityGroupProperties).filter_by(
+                        security_group_id=security_group_id).one()
+            except exc.NoResultFound:
+                raise ext_sg.SecurityGroupNotFound(id=security_group_id)
         return prop
 
     def _process_security_group_properties_update(self, context,
@@ -237,6 +241,12 @@ class ExtendedSecurityGroupPropertiesMixin(object):
             self._process_port_create_provider_security_group(
                 context, updated_port,
                 updated_port[provider_sg.PROVIDER_SECURITYGROUPS])
+
+    def _prevent_non_admin_delete_provider_sg(self, context, sg_id):
+        # Only someone who is an admin is allowed to delete this.
+        if not context.is_admin and self._is_provider_security_group(context,
+                                                                     sg_id):
+            raise provider_sg.ProviderSecurityGroupDeleteNotAdmin(id=sg_id)
 
     def _extend_security_group_with_properties(self, sg_res, sg_db):
         if sg_db.ext_properties:
