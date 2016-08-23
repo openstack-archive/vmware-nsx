@@ -184,6 +184,7 @@ class Security(object):
         # for usability purposes.
         return '%(name)s - %(id)s' % security_group
 
+    # XXX remove db calls from nsxlib
     def save_sg_rule_mappings(self, session, firewall_rules):
         # REVISIT(roeyc): This method should take care db access only.
         rules = [(rule['display_name'], rule['id']) for rule in firewall_rules]
@@ -193,23 +194,6 @@ class Security(object):
                     neutron_id=neutron_id, nsx_id=nsx_id)
                 session.add(mapping)
         return mapping
-
-    # XXX db calls should not be here...
-    def save_sg_mappings(self, session, sg_id, nsgroup_id, section_id):
-        with session.begin(subtransactions=True):
-            session.add(
-                nsx_models.NeutronNsxFirewallSectionMapping(neutron_id=sg_id,
-                                                            nsx_id=section_id))
-            session.add(
-                nsx_models.NeutronNsxSecurityGroupMapping(neutron_id=sg_id,
-                                                          nsx_id=nsgroup_id))
-
-    # XXX db calls should not be here...
-    def get_sg_rule_mapping(self, session, rule_id):
-        rule_mapping = session.query(
-            nsx_models.NeutronNsxRuleMapping).filter_by(
-            neutron_id=rule_id).one()
-        return rule_mapping.nsx_id
 
     # XXX db calls should not be here...
     def get_sg_mappings(self, session, sg_id):

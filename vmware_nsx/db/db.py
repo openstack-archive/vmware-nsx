@@ -349,3 +349,20 @@ def get_port_mirror_session_mapping(session, tf_id):
 def delete_port_mirror_session_mapping(session, tf_id):
     return (session.query(nsx_models.NsxPortMirrorSessionMapping).
             filter_by(tap_flow_id=tf_id).delete())
+
+
+def save_sg_mappings(session, sg_id, nsgroup_id, section_id):
+    with session.begin(subtransactions=True):
+        session.add(
+            nsx_models.NeutronNsxFirewallSectionMapping(neutron_id=sg_id,
+                                                        nsx_id=section_id))
+        session.add(
+            nsx_models.NeutronNsxSecurityGroupMapping(neutron_id=sg_id,
+                                                      nsx_id=nsgroup_id))
+
+
+def get_sg_rule_mapping(session, rule_id):
+    rule_mapping = session.query(
+        nsx_models.NeutronNsxRuleMapping).filter_by(
+        neutron_id=rule_id).one()
+    return rule_mapping.nsx_id
