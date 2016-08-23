@@ -13,6 +13,15 @@
 from oslo_config import cfg
 from tempest import config
 
+service_available_group = cfg.OptGroup(name="service_available",
+                                       title="Available OpenStack Services")
+
+ServiceAvailableGroup = [
+    cfg.BoolOpt("vmware_nsx",
+                default=True,
+                help="Whether or not vmware_nsx is expected to be available"),
+]
+
 scenario_group = config.scenario_group
 ScenarioGroup = [
     cfg.FloatOpt('waitfor_disassoc',
