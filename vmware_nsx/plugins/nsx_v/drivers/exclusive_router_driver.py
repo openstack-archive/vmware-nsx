@@ -87,26 +87,24 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
             metadata_proxy_handler.cleanup_router_edge(router_id)
 
     def _build_router_data_from_db(self, router_db, router):
-        if 'status' not in router['router']:
-            router['router']['status'] = router_db.status
-        if 'name' not in router['router']:
-            router['router']['name'] = router_db.name
-        if 'admin_state_up' not in router['router']:
-            router['router']['admin_state_up'] = router_db.admin_state_up
-        if 'tenant_id' not in router['router']:
-            router['router']['tenant_id'] = router_db.tenant_id
-        if 'id' not in router['router']:
-            router['router']['id'] = router_db.id
+        """Return a new dictionary with all DB & requested router attributes
+        """
+        router_attr = router['router'].copy()
+        fields = ['status', 'name', 'admin_state_up', 'tenant_id', 'id']
+        for field in fields:
+            if field not in router['router']:
+                router_attr[field] = getattr(router_db, field)
+        return router_attr
 
     def attach_router(self, context, router_id, router, appliance_size=None):
         router_db = self.plugin._get_router(context, router_id)
 
         # Add DB attributes to the router data structure
         # before creating it as an exclusive router
-        self._build_router_data_from_db(router_db, router)
+        router_attr = self._build_router_data_from_db(router_db, router)
 
         self.create_router(context,
-                           router['router'],
+                           router_attr,
                            allow_metadata=False,
                            appliance_size=appliance_size)
 
