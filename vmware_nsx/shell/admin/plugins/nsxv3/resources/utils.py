@@ -17,6 +17,7 @@ from neutron import context
 from neutron.db import db_base_plugin_v2
 from oslo_config import cfg
 
+from vmware_nsx.common import nsx_constants
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.nsxlib import v3
 from vmware_nsx.plugins.nsx_v3 import plugin
@@ -72,8 +73,17 @@ class NeutronDbClient(db_base_plugin_v2.NeutronDbPluginV2):
         lswitch_ids = nsx_db.get_nsx_switch_ids(self.context.session, net_id)
         return lswitch_ids[0] if lswitch_ids else None
 
+    def add_dhcp_service_binding(self, network_id, port_id, server_id):
+        return nsx_db.add_neutron_nsx_service_binding(
+            self.context.session, network_id, port_id,
+            nsx_constants.SERVICE_DHCP, server_id)
+
 
 class NsxV3PluginWrapper(plugin.NsxV3Plugin):
+    def __init__(self):
+        super(NsxV3PluginWrapper, self).__init__()
+        self.context = context.get_admin_context()
+
     def _init_dhcp_metadata(self):
         pass
 
@@ -90,3 +100,11 @@ class NsxV3PluginWrapper(plugin.NsxV3Plugin):
         self._extend_network_dict_provider(context, net)
         # skip getting the Qos policy ID because get_object calls
         # plugin init again on admin-util environment
+
+    def delete_network(self, network_id):
+        return super(NsxV3PluginWrapper, self).delete_network(
+            self.context, network_id)
+
+    def remove_router_interface(self, router_id, interface):
+        return super(NsxV3PluginWrapper, self).remove_router_interface(
+            self.context, router_id, interface)
