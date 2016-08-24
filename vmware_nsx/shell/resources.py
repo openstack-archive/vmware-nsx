@@ -46,6 +46,7 @@ class Operations(enum.Enum):
     NSX_UPDATE_SECRET = 'nsx-update-secret'
     NSX_RECREATE = 'nsx-recreate'
     MIGRATE_TO_DYNAMIC_CRITERIA = 'migrate-to-dynamic-criteria'
+    NSX_MIGRATE_V_V3 = 'nsx-migrate-v-v3'
     STATUS = 'status'
 
 ops = [op.value for op in Operations]
@@ -73,7 +74,8 @@ nsxv3_resources = {
     constants.NETWORKS: Resource(constants.NETWORKS,
                                  [Operations.LIST_MISMATCHES.value]),
     constants.PORTS: Resource(constants.PORTS,
-                              [Operations.LIST_MISMATCHES.value]),
+                              [Operations.LIST_MISMATCHES.value,
+                               Operations.NSX_MIGRATE_V_V3.value]),
     constants.ROUTERS: Resource(constants.ROUTERS,
                                 [Operations.LIST_MISMATCHES.value]),
     constants.DHCP_BINDING: Resource(constants.DHCP_BINDING,
