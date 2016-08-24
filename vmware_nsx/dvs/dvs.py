@@ -308,7 +308,17 @@ class DvsManager(object):
                  {'net_id': net_id,
                   'dvs': self._dvs_moref.value})
 
-    def get_vm_moref(self, instance_uuid):
+    def get_portgroup_info(self, pg_moref):
+        """Get portgroup information."""
+        # Expand the properties to collect on need basis.
+        properties = ['name']
+        pg_info = self._session.invoke_api(vim_util,
+                                           'get_object_properties_dict',
+                                           self._session.vim,
+                                           pg_moref, properties)
+        return pg_info
+
+    def get_vm_moref_obj(self, instance_uuid):
         """Get reference to the VM.
         The method will make use of FindAllByUuid to get the VM reference.
         This method finds all VM's on the backend that match the
@@ -323,14 +333,105 @@ class DvsManager(object):
             vmSearch=True,
             instanceUuid=True)
         if vm_refs:
-            return vm_refs[0].value
+            return vm_refs[0]
 
-    def get_portgroup_info(self, pg_moref):
-        """Get portgroup information."""
-        # Expand the properties to collect on need basis.
-        properties = ['name']
-        pg_info = self._session.invoke_api(vim_util,
-                                           'get_object_properties_dict',
+    def get_vm_moref(self, instance_uuid):
+        """Get reference to the VM.
+        """
+        vm_ref = self.get_vm_moref_obj(instance_uuid)
+        if vm_ref:
+            return vm_ref.value
+
+    def get_vm_spec(self, vm_moref):
+        vm_spec = self._session.invoke_api(vim_util,
+                                           'get_object_properties',
                                            self._session.vim,
-                                           pg_moref, properties)
-        return pg_info
+                                           vm_moref, ['network'])[0]
+        return vm_spec
+
+    def _build_vm_spec_attach(self, neutron_port_id, port_mac,
+                              nsx_net_id, device_type):
+        # Code inspired by nova: _create_vif_spec
+        client_factory = self._session.vim.client.factory
+        vm_spec = client_factory.create('ns0:VirtualMachineConfigSpec')
+        device_change = client_factory.create('ns0:VirtualDeviceConfigSpec')
+        device_change.operation = "add"
+
+        net_device = client_factory.create('ns0:' + device_type)
+        net_device.key = -47
+        net_device.addressType = "manual"
+        # configure the neutron port id and mac
+        net_device.externalId = neutron_port_id
+        net_device.macAddress = port_mac
+        net_device.wakeOnLanEnabled = True
+
+        backing = client_factory.create(
+            'ns0:VirtualEthernetCardOpaqueNetworkBackingInfo')
+        # configure the NSX network Id
+        backing.opaqueNetworkId = nsx_net_id
+        backing.opaqueNetworkType = "nsx.LogicalSwitch"
+        net_device.backing = backing
+
+        connectable_spec = client_factory.create(
+            'ns0:VirtualDeviceConnectInfo')
+        connectable_spec.startConnected = True
+        connectable_spec.allowGuestControl = True
+        connectable_spec.connected = True
+
+        net_device.connectable = connectable_spec
+
+        device_change.device = net_device
+        vm_spec.deviceChange = [device_change]
+
+        return vm_spec
+
+    def attach_vm_interface(self, vm_moref, neutron_port_id,
+                            port_mac, nsx_net_id, device_type):
+        new_spec = self._build_vm_spec_attach(
+            neutron_port_id, port_mac, nsx_net_id, device_type)
+        task = self._session.invoke_api(self._session.vim,
+                                        'ReconfigVM_Task',
+                                        vm_moref,
+                                        spec=new_spec)
+        try:
+            self._session.wait_for_task(task)
+            LOG.info(_LI("Updated VM moref %(moref)s spec - "
+                         "attached an interface"),
+                     {'moref': vm_moref.value})
+        except Exception as e:
+            LOG.error(_LE("Failed to reconfigure VM %(moref)s spec: %(e)s"),
+                      {'moref': vm_moref.value, 'e': e})
+
+    def _build_vm_spec_detach(self, device):
+        """Builds the vif detach config spec."""
+        # Code inspired by nova: get_network_detach_config_spec
+        client_factory = self._session.vim.client.factory
+        config_spec = client_factory.create('ns0:VirtualMachineConfigSpec')
+        virtual_device_config = client_factory.create(
+                                'ns0:VirtualDeviceConfigSpec')
+        virtual_device_config.operation = "remove"
+        virtual_device_config.device = device
+        config_spec.deviceChange = [virtual_device_config]
+        return config_spec
+
+    def detach_vm_interface(self, vm_moref, device):
+        new_spec = self._build_vm_spec_detach(device)
+        task = self._session.invoke_api(self._session.vim,
+                                        'ReconfigVM_Task',
+                                        vm_moref,
+                                        spec=new_spec)
+        try:
+            self._session.wait_for_task(task)
+            LOG.info(_LI("Updated VM %(moref)s spec - detached an interface"),
+                     {'moref': vm_moref.value})
+        except Exception as e:
+            LOG.error(_LE("Failed to reconfigure vm moref %(moref)s: %(e)s"),
+                      {'moref': vm_moref.value, 'e': e})
+
+    def get_vm_interfaces_info(self, vm_moref):
+        hardware_devices = self._session.invoke_api(vim_util,
+                                                    "get_object_property",
+                                                    self._session.vim,
+                                                    vm_moref,
+                                                    "config.hardware.device")
+        return hardware_devices

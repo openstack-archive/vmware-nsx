@@ -174,6 +174,10 @@ Ports
 
     nsxadmin -r ports -o list-mismatches
 
+- Update the VMs ports on the backend after migrating nsx-v -> nsx-v3
+
+    nsxadmin -r ports -o nsx-migrate-v-v3
+
 Security Groups
 ~~~~~~~~~~~~~~~
 

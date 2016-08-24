@@ -17,10 +17,11 @@ import logging
 
 from sqlalchemy.orm import exc
 
-from vmware_nsx._i18n import _LI, _LW
+from vmware_nsx._i18n import _LE, _LI, _LW
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import nsx_models
+from vmware_nsx.dvs import dvs
 from vmware_nsx.nsxlib.v3 import resources
 from vmware_nsx.plugins.nsx_v3 import plugin
 from vmware_nsx.services.qos.common import utils as qos_utils
@@ -56,6 +57,20 @@ def get_port_nsx_id(session, neutron_id):
         return mapping['nsx_port_id']
     except exc.NoResultFound:
         pass
+
+
+def get_network_nsx_id(session, neutron_id):
+    # get the nsx switch id from the DB mapping
+    mappings = nsx_db.get_nsx_switch_ids(session, neutron_id)
+    if not mappings or len(mappings) == 0:
+        LOG.debug("Unable to find NSX mappings for neutron "
+                  "network %s.", neutron_id)
+        # fallback in case we didn't find the id in the db mapping
+        # This should not happen, but added here in case the network was
+        # created before this code was added.
+        return neutron_id
+    else:
+        return mappings[0]
 
 
 def get_port_and_profile_clients():
@@ -168,6 +183,83 @@ def list_missing_ports(resource, event, trigger, **kwargs):
         LOG.info(_LI("All internal ports verified on the NSX manager"))
 
 
+def get_vm_network_device(dvs_mng, vm_moref, mac_address):
+    """Return the network device with MAC 'mac_address'.
+
+    This code was inspired by Nova vif.get_network_device
+    """
+    hardware_devices = dvs_mng.get_vm_interfaces_info(vm_moref)
+    if hardware_devices.__class__.__name__ == "ArrayOfVirtualDevice":
+        hardware_devices = hardware_devices.VirtualDevice
+    for device in hardware_devices:
+        if hasattr(device, 'macAddress'):
+            if device.macAddress == mac_address:
+                return device
+
+
+def migrate_compute_ports_vms(resource, event, trigger, **kwargs):
+    """Update the VMs ports on the backend after migrating nsx-v -> nsx-v3
+
+    After using api_replay to migrate the neutron data from NSX-V to NSX-T
+    we need to update the VM ports to use OpaqueNetwork instead of
+    DistributedVirtualPortgroup
+    """
+    # Connect to the DVS manager, using the configuration parameters
+    try:
+        dvs_mng = dvs.DvsManager()
+    except Exception as e:
+        LOG.error(_LE("Cannot connect to the DVS: Please update the [dvs] "
+                      "section in the nsx.ini file: %s"), e)
+        return
+
+    # Go over all the compute ports from the plugin
+    plugin = PortsPlugin()
+    admin_cxt = neutron_context.get_admin_context()
+    port_filters = {'device_owner': ['compute:None']}
+    neutron_ports = plugin.get_ports(admin_cxt, filters=port_filters)
+
+    for port in neutron_ports:
+        device_id = port.get('device_id')
+
+        # get the vm moref & spec from the DVS
+        vm_moref = dvs_mng.get_vm_moref_obj(device_id)
+        vm_spec = dvs_mng.get_vm_spec(vm_moref)
+
+        # Go over the VM interfaces and check if it should be updated
+        update_spec = False
+        for prop in vm_spec.propSet:
+            if (prop.name == 'network' and
+                hasattr(prop.val, 'ManagedObjectReference')):
+                for net in prop.val.ManagedObjectReference:
+                    if net._type == 'DistributedVirtualPortgroup':
+                        update_spec = True
+
+        if not update_spec:
+            LOG.info(_LI("No need to update the spec of vm %s"), device_id)
+            continue
+
+        # find the old interface by it's mac and delete it
+        device = get_vm_network_device(dvs_mng, vm_moref, port['mac_address'])
+        if device is None:
+            LOG.warning(_LW("No device with MAC address %s exists on the VM"),
+                        port['mac_address'])
+            continue
+        device_type = device.__class__.__name__
+
+        LOG.info(_LI("Detaching old interface from VM %s"), device_id)
+        dvs_mng.detach_vm_interface(vm_moref, device)
+
+        # add the new interface as OpaqueNetwork
+        LOG.info(_LI("Attaching new interface to VM %s"), device_id)
+        nsx_net_id = get_network_nsx_id(admin_cxt.session, port['network_id'])
+        dvs_mng.attach_vm_interface(vm_moref, port['id'], port['mac_address'],
+                                    nsx_net_id, device_type)
+
+
 registry.subscribe(list_missing_ports,
                    constants.PORTS,
                    shell.Operations.LIST_MISMATCHES.value)
+
+registry.subscribe(migrate_compute_ports_vms,
+                   constants.PORTS,
+                   shell.Operations.NSX_MIGRATE_V_V3.value)
