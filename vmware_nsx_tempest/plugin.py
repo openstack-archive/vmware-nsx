@@ -43,6 +43,10 @@ class VMwareNsxTempestPlugin(plugins.TempestPlugin):
     def register_opts(self, conf):
         config.register_opt_group(
             conf,
+            config_nsx.service_available_group,
+            config_nsx.ServiceAvailableGroup)
+        config.register_opt_group(
+            conf,
             config_nsx.scenario_group, config_nsx.ScenarioGroup)
         config.register_opt_group(
             conf,
@@ -58,4 +62,7 @@ class VMwareNsxTempestPlugin(plugins.TempestPlugin):
             config_nsx.nsxv3_group, config_nsx.NSXv3Group)
 
     def get_opt_lists(self):
-        return [(config_nsx.scenario_group.name, config_nsx.scenario_group)]
+        return [
+            (config_nsx.scenario_group.name, config_nsx.scenario_group),
+            ('service_available', config_nsx.ServiceAvailableGroup)
+        ]
