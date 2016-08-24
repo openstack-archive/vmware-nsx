@@ -897,6 +897,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # LogicalDhcpServer on the backend. Then create the corresponding
         # logical port for the Neutron port with DHCP attachment as the
         # LogicalDhcpServer UUID.
+
+        # Delete obsolete settings if exist. This could happen when a
+        # previous failed transaction was rolled back. But the backend
+        # entries are still there.
+        self._disable_native_dhcp(context, network['id'])
+
         port_data = {
             "name": "",
             "admin_state_up": True,
@@ -964,9 +970,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             return
 
         if dhcp_service['port_id']:
-            self.delete_port(context, dhcp_service['port_id'])
+            try:
+                self.delete_port(context, dhcp_service['port_id'])
+            except Exception:
+                # This could happen when the port has been manually deleted.
+                LOG.error(_LE("Failed to delete DHCP port %(port)s for "
+                              "network %(network)s"),
+                          {'port': dhcp_service['port_id'],
+                           'network': network_id})
         else:
-            LOG.error(_LE("Unable to find DHCP port for network %s"),
+            LOG.error(_LE("DHCP port is not configured for network %s"),
                       network_id)
 
         try:
