@@ -20,7 +20,7 @@ from neutron.db import l3_db
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 
-from vmware_nsx._i18n import _, _LE
+from vmware_nsx._i18n import _LE, _LW
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.drivers import (
@@ -124,6 +124,12 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
 
     def delete_router(self, context, router_id):
         self.edge_manager.delete_lrouter(context, router_id, dist=True)
+
+        # This should address cases where the binding remains due to breakage
+        if nsxv_db.get_vdr_dhcp_binding_by_vdr(context.session, router_id):
+            LOG.warning(_LW("DHCP bind wasn't cleaned for router %s. "
+                            "Cleaning up entry"), router_id)
+            nsxv_db.delete_vdr_dhcp_binding(context.session, router_id)
 
     def update_routes(self, context, router_id, newnexthop,
                       metadata_gateway=None):

@@ -22,6 +22,7 @@ from sqlalchemy import exc as db_base_exc
 import time
 
 from oslo_config import cfg
+from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import excutils
@@ -1235,8 +1236,16 @@ class EdgeManager(object):
                         dhcp_edge_id,
                         [RP_FILTER_PROPERTY_OFF_TEMPLATE % ('all', '0')])
 
-            nsxv_db.add_vdr_dhcp_binding(context.session, vdr_router_id,
-                                         dhcp_edge_id)
+            try:
+                nsxv_db.add_vdr_dhcp_binding(context.session, vdr_router_id,
+                                             dhcp_edge_id)
+            except db_exc.DBDuplicateEntry:
+                # Could have garbage binding in the DB - warn and overwrite
+                LOG.warning(_LW('Conflict found in VDR DHCP bindings - %s '
+                                'was already bound'), dhcp_edge_id)
+                nsxv_db.delete_vdr_dhcp_binding(context.session, vdr_router_id)
+                nsxv_db.add_vdr_dhcp_binding(context.session, vdr_router_id,
+                                             dhcp_edge_id)
 
         address_groups = self.plugin._create_network_dhcp_address_group(
             context, network_id)
