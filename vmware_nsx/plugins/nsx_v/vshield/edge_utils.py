@@ -715,6 +715,12 @@ class EdgeManager(object):
 
     def _free_dhcp_edge_appliance(self, context, network_id):
         router_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
+
+        # if there are still metadata ports on this edge - delete them now
+        metadata_proxy_handler = self.plugin.metadata_proxy_handler
+        if metadata_proxy_handler:
+            metadata_proxy_handler.cleanup_router_edge(router_id, warn=True)
+
         self._free_edge_appliance(context, router_id)
 
     def _build_lrouter_name(self, router_id, router_name):
