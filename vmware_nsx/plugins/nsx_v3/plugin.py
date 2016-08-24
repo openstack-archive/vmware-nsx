@@ -1507,8 +1507,11 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             # its DHCP port), by creating it if needed.
             nsx_rpc.handle_router_metadata_access(self, context, router_id,
                                                   interface=info)
-        except nsx_exc.ManagerError:
+        except Exception:
             with excutils.save_and_reraise_exception():
+                LOG.error(_LE("Neutron failed to add_router_interface on "
+                              "router %s, and would try to rollback."),
+                          router_id)
                 self.remove_router_interface(
                     context, router_id, interface_info)
         return info
