@@ -352,7 +352,6 @@ class ClusteredAPI(object):
             with endpoint.pool.item() as conn:
                 self._http_provider.validate_connection(self, endpoint, conn)
                 endpoint.set_state(EndpointState.UP)
-                LOG.debug("Validated API cluster endpoint: %s", endpoint)
         except Exception as e:
             endpoint.set_state(EndpointState.DOWN)
             LOG.warning(_LW("Failed to validate API cluster endpoint "
