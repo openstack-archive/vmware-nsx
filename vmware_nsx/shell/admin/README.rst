@@ -157,6 +157,31 @@ Example
      }
 
 
+Upgrade Steps (Version 1.0.0 to Version 1.1.0)
+----------------------------------------------
+
+1. Upgrade NSX backend from version 1.0.0 to version 1.1.0
+
+2. Create a DHCP-Profile and a Metadata-Proxy in NSX backend
+
+3. Stop Neutron
+
+4. Install version 1.1.0 Neutron plugin
+
+5. Run admin tools to migrate version 1.0.0 objects to version 1.1.0 objects
+
+   * nsxadmin -r metadata-proxy -o nsx-update --property metadata_proxy_uuid=<UUID of Metadata-Proxy created in Step 2>
+
+   * nsxadmin -r dhcp-binding -o nsx-update --property dhcp_profile_uuid=<UUID of DHCP-Profile created in Step 2>
+
+6. Start Neutron
+
+7. Make sure /etc/nova/nova.conf has
+   metadata_proxy_shared_secret = <Secret of Metadata-Proxy created in Step 2>
+
+8. Restart VMs or ifdown/ifup their network interface to get new DHCP options
+
+
 Help
 ----
 ::

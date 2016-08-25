@@ -79,6 +79,9 @@ nsxv3_resources = {
     constants.DHCP_BINDING: Resource(constants.DHCP_BINDING,
                                      [Operations.LIST.value,
                                       Operations.NSX_UPDATE.value]),
+    constants.METADATA_PROXY: Resource(constants.METADATA_PROXY,
+                                       [Operations.LIST.value,
+                                        Operations.NSX_UPDATE.value]),
 }
 
 # Add supported NSX-V resources in this dictionary
