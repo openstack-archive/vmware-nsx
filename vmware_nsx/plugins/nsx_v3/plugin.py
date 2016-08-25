@@ -1036,9 +1036,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     # Check if it is the last DHCP-enabled subnet to delete.
                     network = self._get_network(context, subnet['network_id'])
                     if self._has_single_dhcp_enabled_subnet(context, network):
-                        self._disable_native_dhcp(context, network['id'])
                         super(NsxV3Plugin, self).delete_subnet(
                             context, subnet_id)
+                        self._disable_native_dhcp(context, network['id'])
                         return
         super(NsxV3Plugin, self).delete_subnet(context, subnet_id)
 
