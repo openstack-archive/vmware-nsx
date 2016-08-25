@@ -105,6 +105,10 @@ NSXvGroup = [
     cfg.IntOpt('provider_vlan_id',
                default=888,
                help="The default vlan_id for admin vlan."),
+    cfg.IntOpt('create_router_http_timeout',
+               default=900,
+               help="Specific for router_size tests. This value defines"
+                    " how long http.request should retry."),
     cfg.BoolOpt('no_router_type',
                default=False,
                help="router_type is NSXv extension."
