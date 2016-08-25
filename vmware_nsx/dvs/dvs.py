@@ -324,3 +324,13 @@ class DvsManager(object):
             instanceUuid=True)
         if vm_refs:
             return vm_refs[0].value
+
+    def get_portgroup_info(self, pg_moref):
+        """Get portgroup information."""
+        # Expand the properties to collect on need basis.
+        properties = ['name']
+        pg_info = self._session.invoke_api(vim_util,
+                                           'get_object_properties_dict',
+                                           self._session.vim,
+                                           pg_moref, properties)
+        return pg_info

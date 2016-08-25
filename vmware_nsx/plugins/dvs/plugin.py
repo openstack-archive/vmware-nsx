@@ -151,9 +151,10 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         if net_data.get(pnet.NETWORK_TYPE) == c_utils.NetworkTypes.PORTGROUP:
             net_id = net_data.get(pnet.PHYSICAL_NETWORK)
             dvpg_moref = self._dvs._net_id_to_moref(net_id)
-            if dvpg_moref.name != net_data.get('name'):
-                err_msg = (_("Portgroup name %s(dvpg)s must match network "
-                            "name %(network)s"), {'dvpg': dvpg_moref.name,
+            pg_info = self._dvs.get_portgroup_info(dvpg_moref)
+            if pg_info.get('name') != net_data.get('name'):
+                err_msg = (_("Portgroup name %(dvpg)s must match network "
+                            "name %(network)s") % {'dvpg': pg_info.get('name'),
                             'network': net_data.get('name')})
                 raise n_exc.InvalidInput(error_message=err_msg)
             dvs_id = dvpg_moref.value
