@@ -22,10 +22,10 @@ class DummyNotificationDriver(
     message_queue.RpcQosServiceNotificationDriver):
 
     def create_policy(self, context, policy):
-        qos_utils.handle_qos_notification(policy, events.CREATED)
+        qos_utils.handle_qos_notification([policy], events.CREATED)
 
     def update_policy(self, context, policy):
-        qos_utils.handle_qos_notification(policy, events.UPDATED)
+        qos_utils.handle_qos_notification([policy], events.UPDATED)
 
     def delete_policy(self, context, policy):
-        qos_utils.handle_qos_notification(policy, events.DELETED)
+        qos_utils.handle_qos_notification([policy], events.DELETED)

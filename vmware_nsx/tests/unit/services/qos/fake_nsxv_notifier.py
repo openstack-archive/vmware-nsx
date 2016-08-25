@@ -33,7 +33,7 @@ class DummyNsxVNotificationDriver(
         pass
 
     def update_policy(self, context, policy):
-        qos_utils.handle_qos_notification(policy, events.UPDATED, self._dvs)
+        qos_utils.handle_qos_notification([policy], events.UPDATED, self._dvs)
 
     def delete_policy(self, context, policy):
-        qos_utils.handle_qos_notification(policy, events.DELETED, self._dvs)
+        qos_utils.handle_qos_notification([policy], events.DELETED, self._dvs)
