@@ -23,7 +23,7 @@ from neutron_lib import constants
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from vmware_nsx._i18n import _, _LE
+from vmware_nsx._i18n import _, _LE, _LW
 from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import locking
 from vmware_nsx.common import nsxv_constants
@@ -681,13 +681,21 @@ class NsxVMetadataProxyHandler(object):
                                 proxy_lb=False,
                                 context=context)
 
-    def cleanup_router_edge(self, rtr_id):
+    def cleanup_router_edge(self, rtr_id, warn=False):
         filters = {
             'network_id': [self.internal_net],
             'device_id': [rtr_id]}
         ports = self.nsxv_plugin.get_ports(self.context, filters=filters)
 
         if ports:
-            self.nsxv_plugin.delete_port(
-                self.context, ports[0]['id'],
-                l3_port_check=False)
+            if warn:
+                LOG.warning(_LW("cleanup_router_edge found port %(port)s for "
+                                "router %(router)s - deleting it now."),
+                            {'port': ports[0]['id'], 'router': rtr_id})
+            try:
+                self.nsxv_plugin.delete_port(
+                    self.context, ports[0]['id'],
+                    l3_port_check=False)
+            except Exception as e:
+                LOG.error(_LE("Failed to delete md_proxy port %(port)s: "
+                              "%(e)s"), {'port': ports[0]['id'], 'e': e})
