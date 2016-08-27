@@ -977,8 +977,7 @@ class TestPortsV2(NsxVPluginV2TestCase,
             # By default user is admin - now test non admin user
             ctx = context.Context(user_id=None,
                                   tenant_id=self._tenant_id,
-                                  is_admin=False,
-                                  read_deleted="no")
+                                  is_admin=False)
             ports = self._list('ports', neutron_context=ctx)['ports']
             self.assertEqual(2, len(ports))
             for non_admin_port in ports:
@@ -1041,8 +1040,7 @@ class TestPortsV2(NsxVPluginV2TestCase,
             # By default user is admin - now test non admin user
             ctx = context.Context(user_id=None,
                                   tenant_id=self._tenant_id,
-                                  is_admin=False,
-                                  read_deleted="no")
+                                  is_admin=False)
             ports = self._list('ports', neutron_context=ctx)['ports']
             self.assertEqual(2, len(ports))
             for non_admin_port in ports:
@@ -2553,8 +2551,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
     def test_router_create_with_gwinfo_and_l3_ext_net_with_non_admin(self):
         ctx = context.Context(user_id=None,
                               tenant_id=self._router_tenant_id,
-                              is_admin=False,
-                              read_deleted="no")
+                              is_admin=False)
         self._test_router_create_with_gwinfo_and_l3_ext_net(router_ctx=ctx)
 
     def test_router_create_with_different_sizes(self):
@@ -2662,8 +2659,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
     def test_router_update_gateway_on_l3_ext_net_with_non_admin(self):
         ctx = context.Context(user_id=None,
                               tenant_id=self._router_tenant_id,
-                              is_admin=False,
-                              read_deleted="no")
+                              is_admin=False)
         self._test_router_update_gateway_on_l3_ext_net(router_ctx=ctx)
 
     def test_router_update_gateway_on_l3_ext_net_with_vlan(self):
