@@ -1370,6 +1370,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         gw_info = self._extract_external_gw(context, router, is_extract=False)
         router_data = router['router']
         nsx_router_id = None
+        routes_added = []
+        routes_removed = []
         try:
             if 'routes' in router_data:
                 new_routes = router_data['routes']
