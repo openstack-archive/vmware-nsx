@@ -17,6 +17,7 @@ import logging
 from neutron.callbacks import registry
 from neutron import context as neutron_context
 from neutron.db import common_db_mixin as common_db
+from neutron.db.models import securitygroup
 from neutron.db import securitygroups_db
 
 from vmware_nsx.common import utils
@@ -83,8 +84,8 @@ class NeutronSecurityGroupApi(securitygroups_db.SecurityGroupDbMixin,
 
     def get_security_groups_mappings(self):
         q = self.context.session.query(
-            securitygroups_db.SecurityGroup.name,
-            securitygroups_db.SecurityGroup.id,
+            securitygroup.SecurityGroup.name,
+            securitygroup.SecurityGroup.id,
             nsx_models.NeutronNsxFirewallSectionMapping.nsx_id,
             nsx_models.NeutronNsxSecurityGroupMapping.nsx_id).join(
                 nsx_models.NeutronNsxFirewallSectionMapping,
