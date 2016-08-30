@@ -264,7 +264,7 @@ class EdgeLbDriver(object):
     def _get_lb_plugin(self):
         if not self._lb_plugin:
             loaded_plugins = manager.NeutronManager.get_service_plugins()
-            self._lb_plugin = loaded_plugins[constants.LOADBALANCER]
+            self._lb_plugin = loaded_plugins.get(constants.LOADBALANCER)
         return self._lb_plugin
 
     @property
