@@ -102,6 +102,7 @@ class ConfiguredAvailabilityZones(object):
         """
         if name in self.availability_zones.keys():
             return self.availability_zones[name]
+        return self.get_default_availability_zone()
 
     def get_default_availability_zone(self):
         """Return the default availability zone object
