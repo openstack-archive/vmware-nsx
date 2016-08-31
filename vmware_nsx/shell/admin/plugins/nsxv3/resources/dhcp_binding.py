@@ -64,7 +64,7 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
 
     cfg.CONF.set_override('dhcp_agent_notification', False)
     cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
-    cfg.CONF.set_override('dhcp_profile_uuid', dhcp_profile_uuid, 'nsx_v3')
+    cfg.CONF.set_override('dhcp_profile', dhcp_profile_uuid, 'nsx_v3')
 
     nsx_client = utils.get_nsxv3_client()
     port_resource = resources.LogicalPort(nsx_client)

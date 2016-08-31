@@ -55,7 +55,6 @@ class NsxLibNativeDhcp(utils.NsxLibApiBase):
         name = utils.get_name_and_uuid(network['name'] or 'dhcpserver',
                                        network['id'])
         return {'name': name,
-                'dhcp_profile_id': self.nsxlib_config.dhcp_profile_uuid,
                 'server_ip': server_ip,
                 'dns_nameservers': dns_nameservers,
                 'domain_name': self.nsxlib_config.dns_domain,

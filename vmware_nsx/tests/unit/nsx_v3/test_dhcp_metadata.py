@@ -43,8 +43,10 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
         cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
         self._patcher = mock.patch.object(nsx_resources.DhcpProfile, 'get')
         self._patcher.start()
-        # Need to run _init_dhcp_metadata() manually because plugin was started
+        # Need to run _translate_configured_names_to_uuids and
+        # _init_dhcp_metadata() manually because plugin was started
         # before setUp() overrides CONF.nsx_v3.native_dhcp_metadata.
+        self.plugin._translate_configured_names_to_uuids()
         self.plugin._init_dhcp_metadata()
 
     def tearDown(self):
@@ -93,7 +95,7 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                     dhcp_binding['nsx_binding_id'], **binding_data)
 
     def test_dhcp_profile_configuration(self):
-        # Test if dhcp_agent_notification and dhcp_profile_uuid are
+        # Test if dhcp_agent_notification and dhcp_profile are
         # configured correctly.
         orig_dhcp_agent_notification = cfg.CONF.dhcp_agent_notification
         cfg.CONF.set_override('dhcp_agent_notification', True)
@@ -101,11 +103,11 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                           self.plugin._init_dhcp_metadata)
         cfg.CONF.set_override('dhcp_agent_notification',
                               orig_dhcp_agent_notification)
-        orig_dhcp_profile_uuid = cfg.CONF.nsx_v3.dhcp_profile_uuid
-        cfg.CONF.set_override('dhcp_profile_uuid', '', 'nsx_v3')
+        orig_dhcp_profile_uuid = cfg.CONF.nsx_v3.dhcp_profile
+        cfg.CONF.set_override('dhcp_profile', '', 'nsx_v3')
         self.assertRaises(cfg.RequiredOptError,
-                          self.plugin._init_dhcp_metadata)
-        cfg.CONF.set_override('dhcp_profile_uuid', orig_dhcp_profile_uuid,
+                          self.plugin._translate_configured_names_to_uuids)
+        cfg.CONF.set_override('dhcp_profile', orig_dhcp_profile_uuid,
                               'nsx_v3')
 
     def test_dhcp_service_with_create_network(self):
@@ -420,8 +422,10 @@ class NsxNativeMetadataTestCase(test_plugin.NsxV3PluginTestCaseMixin):
         cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
         self._patcher = mock.patch.object(nsx_resources.MetaDataProxy, 'get')
         self._patcher.start()
-        # Need to run _init_dhcp_metadata() manually because plugin was
-        # started before setUp() overrides CONF.nsx_v3.native_dhcp_metadata.
+        # Need to run _translate_configured_names_to_uuids and
+        # _init_dhcp_metadata() manually because plugin was started
+        # before setUp() overrides CONF.nsx_v3.native_dhcp_metadata.
+        self.plugin._translate_configured_names_to_uuids()
         self.plugin._init_dhcp_metadata()
 
     def tearDown(self):
@@ -433,7 +437,7 @@ class NsxNativeMetadataTestCase(test_plugin.NsxV3PluginTestCaseMixin):
         super(NsxNativeMetadataTestCase, self).tearDown()
 
     def test_metadata_proxy_configuration(self):
-        # Test if dhcp_agent_notification and metadata_proxy_uuid are
+        # Test if dhcp_agent_notification and metadata_proxy are
         # configured correctly.
         orig_dhcp_agent_notification = cfg.CONF.dhcp_agent_notification
         cfg.CONF.set_override('dhcp_agent_notification', True)
@@ -441,11 +445,11 @@ class NsxNativeMetadataTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                           self.plugin._init_dhcp_metadata)
         cfg.CONF.set_override('dhcp_agent_notification',
                               orig_dhcp_agent_notification)
-        orig_metadata_proxy_uuid = cfg.CONF.nsx_v3.metadata_proxy_uuid
-        cfg.CONF.set_override('metadata_proxy_uuid', '', 'nsx_v3')
+        orig_metadata_proxy_uuid = cfg.CONF.nsx_v3.metadata_proxy
+        cfg.CONF.set_override('metadata_proxy', '', 'nsx_v3')
         self.assertRaises(cfg.RequiredOptError,
-                          self.plugin._init_dhcp_metadata)
-        cfg.CONF.set_override('metadata_proxy_uuid', orig_metadata_proxy_uuid,
+                          self.plugin._translate_configured_names_to_uuids)
+        cfg.CONF.set_override('metadata_proxy', orig_metadata_proxy_uuid,
                               'nsx_v3')
 
     def test_metadata_proxy_with_create_network(self):
@@ -463,7 +467,7 @@ class NsxNativeMetadataTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                     'mdproxy', network['network']['name'] or 'network'),
                                                network['network']['id'])
                 create_logical_port.assert_called_once_with(
-                    nsx_net_id, cfg.CONF.nsx_v3.metadata_proxy_uuid,
+                    nsx_net_id, cfg.CONF.nsx_v3.metadata_proxy,
                     tags=tags, name=name,
                     attachment_type=nsx_constants.ATTACHMENT_MDPROXY)
 
