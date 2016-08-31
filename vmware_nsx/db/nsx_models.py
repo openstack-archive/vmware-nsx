@@ -19,11 +19,11 @@ This module defines data models used by the VMware NSX plugin family.
 
 """
 
+from neutron_lib.db import model_base
 import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy import sql
 
-from neutron.db import model_base
 from neutron.db import models_v2
 from oslo_db.sqlalchemy import models
 

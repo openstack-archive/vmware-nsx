@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron_lib.db import model_base
 from oslo_utils import uuidutils
 import sqlalchemy as sa
 from sqlalchemy import orm
@@ -21,7 +22,6 @@ from neutron.api.v2 import attributes
 from neutron.common import utils as n_utils
 from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
-from neutron.db import model_base
 from neutron.db.models import securitygroup as securitygroups_db  # noqa
 from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.api import validators
