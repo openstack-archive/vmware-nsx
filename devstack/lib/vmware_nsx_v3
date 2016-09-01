@@ -51,7 +51,7 @@ function _ovsdb_connection {
     die_if_not_set $LINENO NSX_PASSWORD "NSX_PASSWORD has not been set!"
     managers=(${NSX_MANAGER//,/ })
     NSX_MGR_IP=${managers[0]}
-    NSX_VER=$(curl -s -k -u "$NSX_USER:$NSX_PASSWORD" -H 'Accept: application/json' https://$NSX_MGR_IP/api/v1/node | python -c  'import sys, json; print json.load(sys.stdin)["node_version"][:5]')
+    NSX_VER=$(curl -1 -s -k -u "$NSX_USER:$NSX_PASSWORD" -H 'Accept: application/json' https://$NSX_MGR_IP/api/v1/node | python -c  'import sys, json; print json.load(sys.stdin)["node_version"][:5]')
     if [ $(_version $NSX_VER) -ge $(_version 1.1.0) ]; then
         echo "unix:/var/run/vmware/nsx-agent/nsxagent_ovsdb.sock"
     else
