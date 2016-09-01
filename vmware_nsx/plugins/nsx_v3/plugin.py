@@ -1223,10 +1223,9 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             # TODO(berlin): bgp announce on new tier0 router
             pass
 
-        if remove_snat_rules or add_snat_rules:
-            self._routerlib.update_advertisement(nsx_router_id,
-                                           advertise_route_nat_flag,
-                                           advertise_route_connected_flag)
+        self._routerlib.update_advertisement(nsx_router_id,
+                                       advertise_route_nat_flag,
+                                       advertise_route_connected_flag)
 
     def create_router(self, context, router):
         # TODO(berlin): admin_state_up support
