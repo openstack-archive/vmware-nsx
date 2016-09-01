@@ -13,6 +13,7 @@
 #    under the License.
 
 import copy
+import netaddr
 
 from oslo_serialization import jsonutils
 from oslo_utils import uuidutils
@@ -20,6 +21,7 @@ import six
 import xml.etree.ElementTree as ET
 
 from vmware_nsx._i18n import _
+from vmware_nsx.plugins.nsx_v.vshield.common import constants
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
 
 SECTION_LOCATION_HEADER = '/api/4.0/firewall/globalroot-0/config/%s/%s'
@@ -68,6 +70,7 @@ class FakeVcns(object):
         self._sections = {'section_ids': 0, 'rule_ids': 0, 'names': set()}
         self._dhcp_bindings = {}
         self._spoofguard_policies = []
+        self._ipam_pools = {}
 
     def set_fake_nsx_api(self, fake_nsx_api):
         self._fake_nsx_api = fake_nsx_api
@@ -1121,6 +1124,7 @@ class FakeVcns(object):
         self._securitygroups = {'ids': 0, 'names': set()}
         self._sections = {'section_ids': 0, 'rule_ids': 0, 'names': set()}
         self._dhcp_bindings = {}
+        self._ipam_pools = {}
 
     def validate_datacenter_moid(self, object_id):
         return True
@@ -1207,3 +1211,133 @@ class FakeVcns(object):
         response = ''
         headers = {'status': 200}
         return (headers, response)
+
+    def create_ipam_ip_pool(self, request):
+        pool_id = uuidutils.generate_uuid()
+        # format the request before saving it:
+        fixed_request = request['ipamAddressPool']
+        ranges = fixed_request['ipRanges']
+        for i in range(len(ranges)):
+            ranges[i] = ranges[i]['ipRangeDto']
+        self._ipam_pools[pool_id] = {'request': fixed_request,
+                                     'allocated': []}
+        header = {'status': 200}
+        response = pool_id
+        return (header, response)
+
+    def delete_ipam_ip_pool(self, pool_id):
+        response = ''
+        if pool_id in self._ipam_pools:
+            pool = self._ipam_pools.pop(pool_id)
+            if len(pool['allocated']) > 0:
+                header = {'status': 400}
+                msg = ("Unable to delete IP pool %s. IP addresses from this "
+                       "pool are being used." % pool_id)
+                response = self._get_bad_req_response(
+                    msg, 120053, 'core-services')
+            else:
+                header = {'status': 200}
+            return (header, response)
+        else:
+            header = {'status': 400}
+            msg = ("Unable to delete IP pool %s. Pool does not exist." %
+                   pool_id)
+            response = self._get_bad_req_response(
+                msg, 120054, 'core-services')
+        return self.return_helper(header, response)
+
+    def get_ipam_ip_pool(self, pool_id):
+        if pool_id in self._ipam_pools:
+            header = {'status': 200}
+            response = self._ipam_pools[pool_id]['request']
+        else:
+            header = {'status': 400}
+            msg = ("Unable to retrieve IP pool %s. Pool does not exist." %
+                   pool_id)
+            response = self._get_bad_req_response(
+                msg, 120054, 'core-services')
+        return self.return_helper(header, response)
+
+    def _allocate_ipam_add_ip_and_return(self, pool, ip_addr):
+        # build the response
+        response_text = (
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+            "<allocatedIpAddress><id>%(id)s</id>"
+            "<ipAddress>%(ip)s</ipAddress>"
+            "<gateway>%(gateway)s</gateway>"
+            "<prefixLength>%(prefix)s</prefixLength>"
+            "<subnetId>subnet-44</subnetId></allocatedIpAddress>")
+        response_args = {'id': len(pool['allocated']),
+                         'gateway': pool['request']['gateway'],
+                         'prefix': pool['request']['prefixLength']}
+
+        response_args['ip'] = ip_addr
+        response = response_text % response_args
+
+        # add the ip to the list of allocated ips
+        pool['allocated'].append(ip_addr)
+
+        header = {'status': 200}
+        return (header, response)
+
+    def allocate_ipam_ip_from_pool(self, pool_id, ip_addr=None):
+        if pool_id in self._ipam_pools:
+            pool = self._ipam_pools[pool_id]
+            if ip_addr:
+                # verify that this ip was not yet allocated
+                if ip_addr in pool['allocated']:
+                    header = {'status': 400}
+                    msg = ("Unable to allocate IP from pool %(pool)s. "
+                           "IP %(ip)s already in use." %
+                           {'pool': pool_id, 'ip': ip_addr})
+                    response = self._get_bad_req_response(
+                        msg, constants.NSX_ERROR_IPAM_ALLOCATE_IP_USED,
+                        'core-services')
+                else:
+                    return self._allocate_ipam_add_ip_and_return(
+                        pool, ip_addr)
+            else:
+                # get an unused ip from the pool
+                for ip_range in pool['request']['ipRanges']:
+                    r = netaddr.IPRange(ip_range['startAddress'],
+                                        ip_range['endAddress'])
+                    for ip_addr in r:
+                        if ip_addr not in pool['allocated']:
+                            return self._allocate_ipam_add_ip_and_return(
+                                pool, ip_addr)
+                # if we got here - no ip was found
+                header = {'status': 400}
+                msg = ("Unable to allocate IP from pool %(pool)s. "
+                       "All IPs have been used." %
+                       {'pool': pool_id})
+                response = self._get_bad_req_response(
+                    msg, constants.NSX_ERROR_IPAM_ALLOCATE_ALL_USED,
+                    'core-services')
+        else:
+            header = {'status': 400}
+            msg = ("Unable to allocate IP from pool %s. Pool does not "
+                   "exist." % pool_id)
+            response = self._get_bad_req_response(
+                msg, 120054, 'core-services')
+        return self.return_helper(header, response)
+
+    def release_ipam_ip_to_pool(self, pool_id, ip_addr):
+        if pool_id in self._ipam_pools:
+            pool = self._ipam_pools[pool_id]
+            if ip_addr not in pool['allocated']:
+                header = {'status': 400}
+                msg = ("IP %(ip)s was not allocated from pool %(pool)s." %
+                       {'ip': ip_addr, 'pool': pool_id})
+                response = self._get_bad_req_response(
+                    msg, 120056, 'core-services')
+            else:
+                pool.remove(ip_addr)
+                response = ''
+                header = {'status': 200}
+        else:
+            header = {'status': 400}
+            msg = ("Unable to release IP to pool %s. Pool does not exist." %
+                   pool_id)
+            response = self._get_bad_req_response(
+                msg, 120054, 'core-services')
+        return self.return_helper(header, response)

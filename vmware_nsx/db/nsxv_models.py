@@ -348,3 +348,12 @@ class NsxvSubnetExtAttributes(model_base.BASEV2, models.TimestampMixin):
         models_v2.Subnet,
         backref=orm.backref("nsxv_subnet_attributes", lazy='joined',
                             uselist=False, cascade='delete'))
+
+
+class NsxvSubnetIpam(model_base.BASEV2, models.TimestampMixin):
+    """Map Subnets with their backend pool id."""
+    __tablename__ = 'nsxv_subnet_ipam'
+    # the Subnet id is not a foreign key because the subnet is deleted
+    # before the pool does
+    subnet_id = sa.Column(sa.String(36), primary_key=True)
+    nsx_pool_id = sa.Column(sa.String(36), primary_key=True)
