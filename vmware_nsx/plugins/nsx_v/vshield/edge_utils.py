@@ -223,6 +223,7 @@ class EdgeManager(object):
         filters = {'appliance_size': [appliance_size],
                    'edge_type': [edge_type],
                    'status': [plugin_const.PENDING_CREATE,
+                              plugin_const.PENDING_UPDATE,
                               plugin_const.ACTIVE]}
         like_filters = {'router_id': vcns_const.BACKUP_ROUTER_PREFIX + "%"}
         return nsxv_db.get_nsxv_router_bindings(
