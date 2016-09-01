@@ -17,6 +17,7 @@ import logging
 import xml.etree.ElementTree as et
 
 from neutron import context
+from neutron.db.models import securitygroup as sg_models
 from neutron.db import models_v2
 from neutron.db import securitygroups_db
 
@@ -41,8 +42,8 @@ class NeutronSecurityGroupDB(utils.NeutronDbClient,
 
     def get_security_groups_mappings(self):
         q = self.context.session.query(
-            securitygroups_db.SecurityGroup.name,
-            securitygroups_db.SecurityGroup.id,
+            sg_models.SecurityGroup.name,
+            sg_models.SecurityGroup.id,
             nsxv_models.NsxvSecurityGroupSectionMapping.ip_section_id,
             nsx_models.NeutronNsxSecurityGroupMapping.nsx_id).join(
                 nsxv_models.NsxvSecurityGroupSectionMapping,
@@ -82,7 +83,7 @@ class NeutronSecurityGroupDB(utils.NeutronDbClient,
         vnics = []
         query = self.context.session.query(
             models_v2.Port.id, models_v2.Port.device_id
-        ).join(securitygroups_db.SecurityGroupPortBinding).filter_by(
+        ).join(sg_models.SecurityGroupPortBinding).filter_by(
             security_group_id=security_group_id).all()
         for p in query:
             vnic_index = plugin._get_port_vnic_index(self.context, p.id)
