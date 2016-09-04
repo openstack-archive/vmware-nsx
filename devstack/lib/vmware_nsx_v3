@@ -78,9 +78,9 @@ function neutron_plugin_create_nova_conf {
     fi
     # if n-api is enabled, then setup the metadata_proxy_shared_secret
     if is_service_enabled n-api; then
+        iniset $NOVA_CONF neutron service_metadata_proxy True
         if [[ "$NATIVE_DHCP_METADATA" == "True" ]]; then
             iniset $NOVA_CONF neutron metadata_proxy_shared_secret $METADATA_PROXY_SHARED_SECRET
-            iniset $NOVA_CONF neutron service_metadata_proxy True
         fi
     fi
 }
