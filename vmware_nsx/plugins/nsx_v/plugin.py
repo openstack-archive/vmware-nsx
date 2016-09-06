@@ -1052,7 +1052,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         context.session, dhcp_edge['edge_id'])
                     if rtr_binding:
                         rtr_id = rtr_binding['router_id']
-                        self.metadata_proxy_handler.cleanup_router_edge(rtr_id)
+                        self.metadata_proxy_handler.cleanup_router_edge(
+                            context, rtr_id)
 
     def _update_dhcp_edge_service(self, context, network_id, address_groups):
         self.edge_manager.update_dhcp_edge_service(

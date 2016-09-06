@@ -158,6 +158,9 @@ class EdgeManager(object):
                      edge_type=nsxv_constants.SERVICE_EDGE,
                      availability_zone=None):
         """Create an edge for logical router support."""
+        if context is None:
+            context = q_context.get_admin_context()
+
         # deploy edge
         self.nsxv_manager.deploy_edge(context, lrouter['id'],
             lrouter['name'], internal_network=None,
@@ -186,16 +189,16 @@ class EdgeManager(object):
         appliance_size=nsxv_constants.COMPACT,
         edge_type=nsxv_constants.SERVICE_EDGE,
         availability_zone=None):
-        eventlet.spawn_n(self._pool_creator, context, router_ids,
-                         appliance_size, edge_type, availability_zone)
+        eventlet.spawn_n(self._pool_creator, router_ids, appliance_size,
+                         edge_type, availability_zone)
 
-    def _pool_creator(self, context, router_ids, appliance_size,
-                      edge_type, availability_zone):
+    def _pool_creator(self, router_ids, appliance_size, edge_type,
+                      availability_zone):
         for router_id in router_ids:
             fake_router = {
                 'id': router_id,
                 'name': router_id}
-            self.worker_pool.spawn_n(self._deploy_edge, context, fake_router,
+            self.worker_pool.spawn_n(self._deploy_edge, None, fake_router,
                                      appliance_size=appliance_size,
                                      edge_type=edge_type,
                                      availability_zone=availability_zone)

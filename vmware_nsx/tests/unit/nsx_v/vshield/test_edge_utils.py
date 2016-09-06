@@ -588,8 +588,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         binding_ids = [bind.router_id for bind in router_bindings]
         self.assertEqual(2, len(router_bindings))
         edge_utils.eventlet.spawn_n.assert_called_with(
-            mock.ANY, mock.ANY, binding_ids, appliance_size,
-            edge_type, self.az)
+            mock.ANY, binding_ids, appliance_size, edge_type, self.az)
 
     def test_check_backup_edge_pools_with_empty_conf(self):
         pool_edges = (self._create_edge_pools(1, 2, 3, 4, 5) +
