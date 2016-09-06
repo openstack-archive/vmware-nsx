@@ -46,9 +46,6 @@ source $TOP_DIR/lib/neutron_plugins/ovs_base
 function _version { echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'; }
 
 function _ovsdb_connection {
-    die_if_not_set $LINENO NSX_MANAGER "NSX_MANAGER has not been set!"
-    die_if_not_set $LINENO NSX_USER "NSX_USER has not been set!"
-    die_if_not_set $LINENO NSX_PASSWORD "NSX_PASSWORD has not been set!"
     managers=(${NSX_MANAGER//,/ })
     NSX_MGR_IP=${managers[0]}
     NSX_VER=$(curl -1 -s -k -u "$NSX_USER:$NSX_PASSWORD" -H 'Accept: application/json' https://$NSX_MGR_IP/api/v1/node | python -c  'import sys, json; print json.load(sys.stdin)["node_version"][:5]')
@@ -60,6 +57,9 @@ function _ovsdb_connection {
 }
 
 function setup_integration_bridge {
+    die_if_not_set $LINENO NSX_MANAGER "NSX_MANAGER has not been set!"
+    die_if_not_set $LINENO NSX_USER "NSX_USER has not been set!"
+    die_if_not_set $LINENO NSX_PASSWORD "NSX_PASSWORD has not been set!"
     _neutron_ovs_base_setup_bridge $OVS_BRIDGE
     sudo ovs-vsctl set bridge $OVS_BRIDGE external_ids:bridge-id=nsx-managed
     sudo ovs-vsctl set-manager $(_ovsdb_connection)
