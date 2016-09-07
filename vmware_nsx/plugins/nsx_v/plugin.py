@@ -836,6 +836,21 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     def get_router_az(self, router):
         return self.get_network_or_router_az(router)
 
+    def _prepare_spoofguard_policy(self, network_type, net_data, net_morefs):
+        # The method will determine if a portgroup is already assigned to a
+        # spoofguard policy. If so, it will return the predefined policy. If
+        # not a new spoofguard policy will be created
+        if network_type == c_utils.NsxVNetworkTypes.PORTGROUP:
+            pcs = self.nsx_v.vcns.get_spoofguard_policies()[1].get('policies',
+                                                                   [])
+            for policy in pcs:
+                for ep in policy['enforcementPoints']:
+                    if ep['id'] == net_morefs[0]:
+                        return policy['policyId'], True
+        sg_policy_id = self.nsx_v.vcns.create_spoofguard_policy(
+                net_morefs, net_data['id'], net_data[psec.PORTSECURITY])[1]
+        return sg_policy_id, False
+
     def create_network(self, context, network):
         net_data = network['network']
         tenant_id = net_data['tenant_id']
@@ -851,8 +866,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                            validators.is_attr_set(external) and not external)
         self._validate_network_qos(net_data, backend_network)
 
+        network_type = None
         if backend_network:
-            network_type = None
             #NOTE(abhiraut): Consider refactoring code below to have more
             #                readable conditions.
             if provider_type is not None:
@@ -914,10 +929,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             net_data[psec.PORTSECURITY] = net_data.get(psec.PORTSECURITY, True)
             # Create SpoofGuard policy for network anti-spoofing
             if cfg.CONF.nsxv.spoofguard_enabled and backend_network:
+                # This variable is set as the method below may result in a
+                # exception and we may need to rollback
                 sg_policy_id = None
-                sg_policy_id = self.nsx_v.vcns.create_spoofguard_policy(
-                    net_morefs, net_data['id'],
-                    net_data[psec.PORTSECURITY])[1]
+                predefined = False
+                sg_policy_id, predefined = self._prepare_spoofguard_policy(
+                    network_type, net_data, net_morefs)
             with context.session.begin(subtransactions=True):
                 new_net = super(NsxVPluginV2, self).create_network(context,
                                                                    network)
@@ -990,10 +1007,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             with excutils.save_and_reraise_exception():
                 # Delete the backend network
                 if backend_network:
-                    if cfg.CONF.nsxv.spoofguard_enabled and sg_policy_id:
+                    if (cfg.CONF.nsxv.spoofguard_enabled and sg_policy_id and
+                        not predefined):
                         self.nsx_v.vcns.delete_spoofguard_policy(sg_policy_id)
-                    for net_moref in net_morefs:
-                        self._delete_backend_network(net_moref)
+                    # Ensure that an predefined portgroup will not be deleted
+                    if network_type != c_utils.NsxVNetworkTypes.PORTGROUP:
+                        for net_moref in net_morefs:
+                            self._delete_backend_network(net_moref)
                 LOG.exception(_LE('Failed to create network'))
 
         # If init is incomplete calling _update_qos_network() will result a
@@ -1061,6 +1081,21 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     def _delete_dhcp_edge_service(self, context, id):
         self.edge_manager.delete_dhcp_edge_service(context, id)
 
+    def _is_neutron_spoofguard_policy(self, net_id, moref, policy_id):
+        # A neutron policy will have the network UUID as the name of the
+        # policy
+        try:
+            policy = self.nsx_v.vcns.get_spoofguard_policy(policy_id)[1]
+        except Exception:
+            LOG.error(_LE("Policy does not exists for %s"), policy_id)
+            # We will not attempt to delete a policy that does not exist
+            return False
+        if policy:
+            for ep in policy['enforcementPoints']:
+                if ep['id'] == moref and policy['name'] == net_id:
+                    return True
+        return False
+
     def delete_network(self, context, id):
         mappings = nsx_db.get_nsx_switch_ids(context.session, id)
         bindings = nsxv_db.get_network_bindings(context.session, id)
@@ -1104,7 +1139,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if (bindings and
             bindings[0].binding_type == c_utils.NsxVNetworkTypes.PORTGROUP):
             if cfg.CONF.nsxv.spoofguard_enabled and sg_policy_id:
-                self.nsx_v.vcns.delete_spoofguard_policy(sg_policy_id)
+                if self._is_neutron_spoofguard_policy(id, mappings[0],
+                                                      sg_policy_id):
+                    self.nsx_v.vcns.delete_spoofguard_policy(sg_policy_id)
             return
 
         # Delete the backend network if necessary. This is done after
