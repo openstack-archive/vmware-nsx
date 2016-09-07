@@ -73,6 +73,10 @@ SYSCTL_SERVICE = 'systemcontrol/config'
 # L2 gateway constants
 BRIDGE = "bridging/config"
 
+# IPAM constants
+IPAM_POOL_SCOPE = "scope/globalroot-0"
+IPAM_POOL_SERVICE = "ipam/pools"
+
 # Self Signed Certificate constants
 CSR = "csr"
 CERTIFICATE = "certificate"
@@ -949,3 +953,33 @@ class Vcns(object):
                                      profile_id, 'binding')
         return self.do_request(HTTP_POST, profiles_uri, request, format='xml',
                                decode=False)
+
+    def create_ipam_ip_pool(self, request):
+        uri = '%s/%s/%s' % (SERVICES_PREFIX, IPAM_POOL_SERVICE,
+                            IPAM_POOL_SCOPE)
+        return self.do_request(HTTP_POST, uri, request, format='xml',
+                               decode=False)
+
+    def delete_ipam_ip_pool(self, pool_id):
+        uri = '%s/%s/%s' % (SERVICES_PREFIX, IPAM_POOL_SERVICE, pool_id)
+        return self.do_request(HTTP_DELETE, uri)
+
+    def get_ipam_ip_pool(self, pool_id):
+        uri = '%s/%s/%s' % (SERVICES_PREFIX, IPAM_POOL_SERVICE, pool_id)
+        return self.do_request(HTTP_GET, uri, decode=True)
+
+    def allocate_ipam_ip_from_pool(self, pool_id, ip_addr=None):
+        uri = '%s/%s/%s/%s' % (SERVICES_PREFIX, IPAM_POOL_SERVICE, pool_id,
+                               'ipaddresses')
+        if ip_addr:
+            request = {'ipAddressRequest': {'allocationMode': 'RESERVE',
+                                            'ipAddress': ip_addr}}
+        else:
+            request = {'ipAddressRequest': {'allocationMode': 'ALLOCATE'}}
+        return self.do_request(HTTP_POST, uri, request, format='xml',
+                               decode=False)
+
+    def release_ipam_ip_to_pool(self, pool_id, ip_addr):
+        uri = '%s/%s/%s/%s/%s' % (SERVICES_PREFIX, IPAM_POOL_SERVICE, pool_id,
+                               'ipaddresses', ip_addr)
+        return self.do_request(HTTP_DELETE, uri)

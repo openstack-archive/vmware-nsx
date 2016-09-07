@@ -796,3 +796,28 @@ def update_nsxv_subnet_ext_attributes(session, subnet_id,
         binding[ext_dns_search_domain.DNS_SEARCH_DOMAIN] = dns_search_domain
         binding[ext_dhcp_mtu.DHCP_MTU] = dhcp_mtu
     return binding
+
+
+def add_nsxv_ipam_subnet_pool(session, subnet_id, nsx_pool_id):
+    with session.begin(subtransactions=True):
+        binding = nsxv_models.NsxvSubnetIpam(
+            subnet_id=subnet_id,
+            nsx_pool_id=nsx_pool_id)
+        session.add(binding)
+    return binding
+
+
+def get_nsxv_ipam_pool_for_subnet(session, subnet_id):
+    try:
+        entry = session.query(
+            nsxv_models.NsxvSubnetIpam).filter_by(
+            subnet_id=subnet_id).one()
+        return entry.nsx_pool_id
+    except exc.NoResultFound:
+        return
+
+
+def del_nsxv_ipam_subnet_pool(session, subnet_id, nsx_pool_id):
+    return (session.query(nsxv_models.NsxvSubnetIpam).
+            filter_by(subnet_id=subnet_id,
+                      nsx_pool_id=nsx_pool_id).delete())
