@@ -603,9 +603,6 @@ class EdgeManager(object):
                 appliance_size=appliance_size,
                 edge_type=edge_type,
                 availability_zone=availability_zone.name)
-            LOG.debug("Select edge: %(edge_id)s from pool for %(name)s",
-                      {'edge_id': available_router_binding['edge_id'],
-                       'name': name})
             edge_id = available_router_binding['edge_id']
             with locking.LockManager.get_lock(str(edge_id)):
                 self.nsxv_manager.callbacks.complete_edge_creation(
