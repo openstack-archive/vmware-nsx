@@ -464,7 +464,7 @@ class EdgeManager(object):
                                           "%(edge_id)s overlaps with new net "
                                           "%(net_id)s. we would update with "
                                           "deleting it for DB consistency"),
-                                      {'id': net_ids[0],
+                                      {'id': ls_id,
                                        'edge_id': edge_id,
                                        'net_id': network_id})
             iface_list = [sub for sub in sub_interfaces
