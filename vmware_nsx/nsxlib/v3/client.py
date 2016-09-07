@@ -94,8 +94,13 @@ class RESTClient(object):
 
             manager_error = ERRORS.get(
                 result.status_code, exceptions.ManagerError)
-            if isinstance(result_msg, dict):
-                result_msg = result_msg.get('error_message', result_msg)
+            if isinstance(result_msg, dict) and 'error_message' in result_msg:
+                related_errors = [error['error_message'] for error in
+                                  result_msg.get('related_errors', [])]
+                result_msg = result_msg['error_message']
+                if related_errors:
+                    result_msg += " relatedErrors: %s" % ' '.join(
+                        related_errors)
             raise manager_error(
                 manager=_get_nsx_managers_from_conf(),
                 operation=operation,
