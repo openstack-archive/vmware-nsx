@@ -297,8 +297,8 @@ class NsxvIpamSubnet(ipam_base.Subnet, NsxvIpamBase):
         try:
             self._vcns.release_ipam_ip_to_pool(self._nsx_pool_id, address)
         except vc_exc.VcnsApiException as e:
-            LOG.error(_LE("NSX IPAM failed to free ip %(ip)s of subnet %(id):"
-                          " %(e)S"),
+            LOG.error(_LE("NSX IPAM failed to free ip %(ip)s of subnet %(id)s:"
+                          " %(e)s"),
                       {'e': e.response,
                        'ip': address,
                        'id': self._subnet_id})
