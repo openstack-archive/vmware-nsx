@@ -24,6 +24,7 @@ from oslo_utils import uuidutils
 from neutron.callbacks import registry
 from neutron.common import config as neutron_config
 from neutron.db import servicetype_db  # noqa
+from neutron.quota import resource_registry
 from neutron.tests import base
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_n_plugin
 
@@ -48,11 +49,15 @@ class AbstractTestAdminUtils(base.BaseTestCase):
 
         super(AbstractTestAdminUtils, self).setUp()
 
+        # remove resource registration conflicts
+        resource_registry.unregister_all_resources()
+
         # Init the neutron config
         neutron_config.init(args=['--config-file', BASE_CONF_PATH,
                                   '--config-file', NSX_INI_PATH])
         self._init_mock_plugin()
         self._init_resource_plugin()
+        self.addCleanup(resource_registry.unregister_all_resources)
 
     @abc.abstractmethod
     def _init_mock_plugin(self):
