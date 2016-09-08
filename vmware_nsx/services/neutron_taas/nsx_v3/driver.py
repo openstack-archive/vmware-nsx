@@ -198,7 +198,7 @@ class NsxV3Driver(base_driver.TaasBaseDriver,
         # Verify whether destination port is L3 reachable. i.e. destination
         # port has a floating IP address.
         fips = self._nsx_plugin.get_floatingips(
-            context._plugin_context, filters={'port_id': dest_port_id})
+            context._plugin_context, filters={'port_id': [dest_port_id]})
         if not fips:
             msg = (_("Destination port %s must have a floating IP for "
                      "L3 SPAN") % dest_port_id)
