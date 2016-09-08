@@ -2609,6 +2609,24 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                     edge_id,
                     new_name + '-' + router_id)
 
+    def test_router_resize(self):
+        with self.router() as r:
+            with mock.patch.object(edge_appliance_driver.EdgeApplianceDriver,
+                       'resize_edge') as edge_resize:
+                new_size = 'large'
+                router_id = r['router']['id']
+                # get the edge of this router
+                plugin = manager.NeutronManager.get_plugin()
+                router_obj = ex_router_driver.RouterExclusiveDriver(plugin)
+                ctx = context.get_admin_context()
+                edge_id = router_obj._get_edge_id_or_raise(ctx, router_id)
+
+                # update the router size
+                body = self._update('routers', router_id,
+                                    {'router': {'router_size': new_size}})
+                self.assertEqual(new_size, body['router']['router_size'])
+                edge_resize.assert_called_once_with(edge_id, new_size)
+
     def _test_router_update_gateway_on_l3_ext_net(self, vlan_id=None,
                                                   validate_ext_gw=False,
                                                   distributed=False,
