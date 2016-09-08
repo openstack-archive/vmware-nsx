@@ -755,6 +755,21 @@ class EdgeManager(object):
             router_name = self._build_lrouter_name(router_id, new_name)
             self.nsxv_manager.rename_edge(edge_id, router_name)
 
+    def resize_lrouter(self, context, router_id, new_size):
+        # get the router edge-id
+        binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
+        if not binding or not binding['edge_id']:
+            LOG.warning(_LW("router binding for router: %s "
+                            "not found"), router_id)
+            return
+        edge_id = binding['edge_id']
+        with locking.LockManager.get_lock(str(edge_id)):
+            # update the router on backend
+            self.nsxv_manager.resize_edge(edge_id, new_size)
+            # update the DB
+            nsxv_db.update_nsxv_router_binding(
+                context.session, router_id, appliance_size=new_size)
+
     def update_dhcp_edge_bindings(self, context, network_id):
         """Reconfigure the DHCP to the edge."""
         resource_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
