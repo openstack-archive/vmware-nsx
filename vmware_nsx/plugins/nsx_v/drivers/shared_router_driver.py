@@ -600,6 +600,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                         address_groups, admin_state)
 
     def _unbind_router_on_edge(self, context, router_id):
+        self.edge_manager.reconfigure_shared_edge_metadata_port(
+            context, router_id)
         self.edge_manager.unbind_router_on_edge(context, router_id)
         metadata_proxy_handler = self.plugin.metadata_proxy_handler
         if metadata_proxy_handler:

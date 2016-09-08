@@ -1006,6 +1006,12 @@ class EdgeManager(object):
                                          conflicting, availability_zone)
 
     def remove_network_from_dhcp_edge(self, context, network_id, edge_id):
+        # If DHCP edge was created initially for this network, metadata port
+        # Might use this network's DHCP router_id as device_id. Call the
+        # following to validate this
+        self.reconfigure_shared_edge_metadata_port(
+            context, (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36])
+
         old_binding = nsxv_db.get_edge_vnic_binding(
             context.session, edge_id, network_id)
         if not old_binding:
@@ -1057,6 +1063,44 @@ class EdgeManager(object):
             availability_zone=availability_zone.name)
         nsxv_db.allocate_edge_vnic_with_tunnel_index(
             context.session, edge_id, network_id)
+
+    def reconfigure_shared_edge_metadata_port(self, context, org_router_id):
+        if not self.plugin.metadata_proxy_handler:
+            return
+
+        net_list = nsxv_db.get_nsxv_internal_network(
+            context.session,
+            vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE)
+
+        if not net_list:
+            return
+        internal_net = net_list[0]['network_id']
+
+        ports = self.nsxv_plugin.get_ports(
+            context, filters={'device_id': [org_router_id],
+                              'network_id': [internal_net]})
+
+        if not ports:
+            LOG.debug('No metadata ports found for %s', org_router_id)
+            return
+        elif len(ports) > 1:
+            LOG.debug('Expecting one metadata port for %s. Found %d ports',
+                      org_router_id, len(ports))
+
+        org_binding = nsxv_db.get_nsxv_router_binding(context.session,
+                                                      org_router_id)
+
+        if org_binding:
+            edge_id = org_binding['edge_id']
+            bindings = nsxv_db.get_nsxv_router_bindings(
+                context.session, filters={'edge_id': [edge_id]})
+            for binding in bindings:
+                if binding['router_id'] != org_router_id:
+                    for port in ports:
+                        self.plugin.update_port(
+                            context, port['id'],
+                            {'port': {'device_id': binding['router_id']}})
+                    return
 
     def allocate_new_dhcp_edge(self, context, network_id, resource_id,
                                availability_zone):
