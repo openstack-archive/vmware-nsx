@@ -1,0 +1,7 @@
+---
+prelude: >
+    The new extension dhcp-mtu of subnets in the NSX-v plugin can be used to
+    configure the DHCP client network interface MTU
+features:
+  - The new extension dhcp-mtu of subnets in the NSX-v plugin can be used to
+    configure the DHCP client network interface MTU.

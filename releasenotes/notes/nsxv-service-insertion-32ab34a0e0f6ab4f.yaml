@@ -1,0 +1,9 @@
+---
+prelude: >
+    The NSX-V plugin supports service insertion by redirecting traffic matched
+    to the neutron flow classifiers, to the NSX-V partner security services.
+features:
+  - The NSX-V plugin supports service insertion by redirecting traffic matched
+    to the neutron flow classifiers, to the NSX-V partner security services.
+    For each flow-classifier defined in neutron, a new traffic redirection rule
+    will be created in the NSX partner security services tab.

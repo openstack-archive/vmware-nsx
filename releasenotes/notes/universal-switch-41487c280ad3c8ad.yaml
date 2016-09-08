@@ -1,0 +1,8 @@
+---
+prelude: >
+    The NSX-v plugin supports universal switches.
+features:
+    The NSX-v universal transport zone can be used in order to create universal
+    switches as VXLAN networks over all the nsx managers. For this option to be
+    enabled, the vdn_scope_id parameter in nsx.ini should be set to the ID of
+    the universal transport zone which is 'universalvdnscope'.

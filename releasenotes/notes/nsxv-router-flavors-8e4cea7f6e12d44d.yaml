@@ -1,0 +1,7 @@
+---
+prelude: >
+    The NSX-v plugin supports using router flavors in routers creation.
+features:
+  - The NSX-v plugin supports using router flavors in routers creation.
+    A router flavor can include the router type, size, distributed flag and
+    availability zones in order to easily create similar routers.

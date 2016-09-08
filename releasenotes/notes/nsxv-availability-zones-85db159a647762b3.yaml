@@ -1,0 +1,11 @@
+---
+prelude: >
+    The NSX-v plugin supports availability zones hints on routers and networks
+    creation in order to create them on the requested nsx datastore and
+    resource pool.
+features:
+  - The NSX-v plugin supports availability zones hints on routers and networks
+    creation in order to create them on the requested nsx datastore and
+    resource pool.
+    The availability zones configuration includes the resource pool, datastore,
+    and HA datastore.
