@@ -1,0 +1,7 @@
+---
+prelude: >
+    Support Tap-as-a-Service for port mirroring in NSXv3 plugin.
+features:
+  - NSXv3 plugin now supports port mirroring via TaaS APIs which integrates
+    into the backend L3SPAN APIs i.e. the mirrored packets are sent to the
+    destination port over L3.
