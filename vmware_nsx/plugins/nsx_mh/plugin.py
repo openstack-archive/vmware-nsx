@@ -30,6 +30,7 @@ import webob.exc
 from neutron.api import extensions as neutron_extensions
 from neutron.api.v2 import attributes as attr
 from neutron.api.v2 import base
+from neutron.common import constants as const
 from neutron import context as q_context
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
@@ -2413,7 +2414,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         for rule in rules['security_group_rules']:
             r = rule.get('security_group_rule')
             port_based_proto = (self._get_ip_proto_number(r['protocol'])
-                                in constants.IP_PROTOCOL_MAP.values())
+                                in const.IP_PROTOCOL_MAP.values())
             if (not port_based_proto and
                 (r['port_range_min'] is not None or
                  r['port_range_max'] is not None)):

@@ -20,7 +20,7 @@ NSX-V3 Plugin security integration module
 
 import uuid
 
-from neutron_lib import constants
+from neutron.common import constants as const
 from oslo_config import cfg
 from oslo_log import log
 
@@ -40,8 +40,8 @@ DEFAULT_SECTION_TAG_NAME = 'neutron_default_dfw_section'
 def _get_l4_protocol_name(protocol_number):
     if protocol_number is None:
         return
-    protocol_number = constants.IP_PROTOCOL_MAP.get(protocol_number,
-                                                    protocol_number)
+    protocol_number = const.IP_PROTOCOL_MAP.get(protocol_number,
+                                                protocol_number)
     protocol_number = int(protocol_number)
     if protocol_number == 6:
         return firewall.TCP
