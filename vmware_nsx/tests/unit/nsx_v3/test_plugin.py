@@ -215,6 +215,17 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
             self.assertListEqual(az_hints, zone)
 
 
+class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
+
+    def test_create_subnet_with_shared_address_space(self):
+        with self.network() as network:
+            data = {'subnet': {'network_id': network['network']['id'],
+                               'cidr': '100.64.0.0/16'}}
+            self.assertRaises(n_exc.InvalidInput,
+                              self.plugin.create_subnet,
+                              context.get_admin_context(), data)
+
+
 class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                   test_bindings.PortBindingsTestCase,
                   test_bindings.PortBindingsHostTestCaseMixin,
