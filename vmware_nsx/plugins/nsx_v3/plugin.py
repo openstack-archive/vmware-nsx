@@ -1004,7 +1004,20 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 LOG.error(_LE("Unable to delete DHCP server mapping for "
                               "network %s"), network_id)
 
+    def _validate_address_space(self, subnet):
+        cidr = subnet.get('cidr')
+        if (not validators.is_attr_set(cidr) or
+            netaddr.IPNetwork(cidr).version != 4):
+            return
+        # Check if subnet overlaps with shared address space.
+        # This is checked on the backend when attaching subnet to a router.
+        if netaddr.IPSet([cidr]) & netaddr.IPSet(['100.64.0.0/10']):
+            msg = _("Subnet overlaps with shared address space 100.64.0.0/10")
+            raise n_exc.InvalidInput(error_message=msg)
+
     def create_subnet(self, context, subnet):
+        self._validate_address_space(subnet['subnet'])
+
         # TODO(berlin): public external subnet announcement
         if (cfg.CONF.nsx_v3.native_dhcp_metadata and
             subnet['subnet'].get('enable_dhcp', False)):
