@@ -5,5 +5,6 @@
 .. toctree::
    :maxdepth: 1
 
-   liberty
    unreleased
+   newton
+   liberty
