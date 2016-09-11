@@ -458,7 +458,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                               router_id)
 
                 # Reattach to regular DHCP Edge
-                self.edge_manager.create_dhcp_edge_service(
+                dhcp_id = self.edge_manager.create_dhcp_edge_service(
                     context, network_id, subnet)
 
                 address_groups = (
@@ -466,6 +466,15 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                                                                    network_id))
                 self.edge_manager.update_dhcp_edge_service(
                     context, network_id, address_groups=address_groups)
+                if dhcp_id:
+                    edge_id = self.plugin._get_edge_id_by_rtr_id(context,
+                                                                 dhcp_id)
+                    if edge_id:
+                        with locking.LockManager.get_lock(str(edge_id)):
+                            md_proxy_handler = (
+                                self.plugin.metadata_proxy_handler)
+                            if md_proxy_handler:
+                                md_proxy_handler.configure_router_edge(dhcp_id)
 
             return info
 
