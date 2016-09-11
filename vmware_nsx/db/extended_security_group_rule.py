@@ -18,7 +18,7 @@ import sqlalchemy as sa
 from sqlalchemy import orm
 
 from neutron.db import db_base_plugin_v2
-from neutron.db import securitygroups_db
+from neutron.db.models import securitygroup
 from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.api import validators
 from neutron_lib import exceptions as nexception
@@ -46,7 +46,7 @@ class NsxExtendedSecurityGroupRuleProperties(model_base.BASEV2):
     local_ip_prefix = sa.Column(sa.String(255), nullable=False)
 
     rule = orm.relationship(
-        securitygroups_db.SecurityGroupRule,
+        securitygroup.SecurityGroupRule,
         backref=orm.backref('ext_properties', lazy='joined',
                             uselist=False, cascade='delete'))
 
