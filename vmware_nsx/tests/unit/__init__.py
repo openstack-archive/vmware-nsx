@@ -14,7 +14,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import eventlet
+import mock
 import os
+import time
 
 from networking_l2gw.db.l2gateway import l2gateway_models  # noqa
 
@@ -47,6 +50,11 @@ VCNS_DRIVER_NAME = '%s.%s' % (vcns_driver.__module__, vcns_driver.__name__)
 VCNSAPI_NAME = '%s.%s' % (vcns_api_helper.__module__, vcns_api_helper.__name__)
 EDGE_MANAGE_NAME = '%s.%s' % (edge_manage_class.__module__,
                               edge_manage_class.__name__)
+
+# Mock for the tenacity retrying sleeping method
+eventlet.monkey_patch()
+mocked_retry_sleep = mock.patch.object(time, 'sleep')
+mocked_retry_sleep.start()
 
 
 def get_fake_conf(filename):
