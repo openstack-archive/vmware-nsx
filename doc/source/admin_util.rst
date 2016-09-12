@@ -20,17 +20,21 @@ Edges
 
     nsxadmin -r edges -o neutron-list
 
+- Update Resource pool / Datastore on all edges in the backend. This utility can update resource pool and datastore ID of all edges to the nsx.ini configuration::
+
+    nsxadmin -r edges -o nsx-update-all --property appliances=True
+
 - Update Resource pool / Datastore / edge HA of an edge: This utility can be used on upgrade after the customer added ha_datastore_id to the nsx.ini configuration or after changing the resource pool / data store globally or per availability zone. This Utility can update the deployment of existing edges::
 
     nsxadmin -r edges -o nsx-update --property edge-id=<edge-id> --property appliances=True
 
 - Update the size of an edge::
 
-   nsxadmin -r edges -o nsx-update --property edge-id=edge-55 --property size=compact
+    nsxadmin -r edges -o nsx-update --property edge-id=edge-55 --property size=compact
 
 - Update the high availability of an edge: enable/disable high availability of an edge::
 
-   nsxadmin -r edges -o nsx-update --property edge-id=edge-55 --property highavailability=<True/False>
+    nsxadmin -r edges -o nsx-update --property edge-id=edge-55 --property highavailability=<True/False>
 
 Orphaned Edges
 ~~~~~~~~~~~~~~
@@ -55,98 +59,98 @@ Backup Edges
 
 - List backend backup edges with their id, name and some more information::
 
-   nsxadmin -r backup-edges -o list
+    nsxadmin -r backup-edges -o list
 
 - Delete backup edge::
 
-   nsxadmin -r backup-edges -o clean --property edge-id=edge-9
+    nsxadmin -r backup-edges -o clean --property edge-id=edge-9
 
 - List Edge name mismatches between DB and backend, and backup edges that are missing from the backend::
 
-   nsxadmin -r backup-edges -o list-mismatches
+    nsxadmin -r backup-edges -o list-mismatches
 
 - Fix Edge name mismatch between DB and backend by updating the name on the backend::
 
-   nsxadmin -r backup-edges -o fix-mismatch --property edge-id=edge-9
+    nsxadmin -r backup-edges -o fix-mismatch --property edge-id=edge-9
 
 DHCP Bindings
 ~~~~~~~~~~~~~
 - List missing DHCP bindings: list dhcp edges that are missing from the NSXv backend::
 
-   nsxadmin -r dhcp-binding -o list
+    nsxadmin -r dhcp-binding -o list
 
 - Update DHCP bindings on an edge::
 
-   nsxadmin -r dhcp-binding -o nsx-update --property edge-id=edge-15
+    nsxadmin -r dhcp-binding -o nsx-update --property edge-id=edge-15
 
 - Recreate DHCP edge by moving all the networks to other edges::
 
-   nsxadmin -r dhcp-binding -o nsx-recreate --property edge-id=edge-222
+    nsxadmin -r dhcp-binding -o nsx-recreate --property edge-id=edge-222
 
 Routers
 ~~~~~~~
 - Recreate a router edge by moving the router/s to other edge/s::
 
-   nsxadmin -r routers -o nsx-recreate --property edge-id=edge-308
+    nsxadmin -r routers -o nsx-recreate --property edge-id=edge-308
 
 Networks
 ~~~~~~~~
 
 - Ability to update or get the teaming policy for a DVS::
 
-   nsxadmin -r networks -o nsx-update --property dvs-id=<id> --property teamingpolicy=<policy>
+    nsxadmin -r networks -o nsx-update --property dvs-id=<id> --property teamingpolicy=<policy>
 
 - List backend networks and their network morefs::
 
-   nsxadmin -r networks -o list
+    nsxadmin -r networks -o list
 
 Missing Networks
 ~~~~~~~~~~~~~~~~
 
 - List networks which are missing from the backend::
 
-   nsxadmin -r missing-networks -o list
+    nsxadmin -r missing-networks -o list
 
 Orphaned Networks
 ~~~~~~~~~~~~~~~~~
 
 - List networks which are missing from the neutron DB::
 
-   nsxadmin -r orphaned-networks -o list
+    nsxadmin -r orphaned-networks -o list
 
 - Delete a backend network by it's moref::
 
-   nsxadmin -r orphaned-networks -o nsx-clean --property moref=<moref>
+    nsxadmin -r orphaned-networks -o nsx-clean --property moref=<moref>
 
 Security Groups, Firewall and Spoofguard
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Security groups. This adds support to list security-groups mappings and miss-matches between the mappings and backend resources as: firewall-sections and nsx-security-groups::
 
-   nsxadmin --resource security-groups --operation list
-   nsxadmin -r nsx-security-groups -o {list, list-missmatches}
-   nsxadmin -r firewall-sections -o {list, list-missmatches}
+    nsxadmin --resource security-groups --operation list
+    nsxadmin -r nsx-security-groups -o {list, list-missmatches}
+    nsxadmin -r firewall-sections -o {list, list-missmatches}
 
 - Spoofguard support::
 
-   nsxadmin -r spoofguard-policy -o list-mismatches
-   nsxadmin -r spoofguard-policy -o clean --property policy-id=spoofguardpolicy-10
-   nsxadmin -r spoofguard-policy -o list --property reverse (entries defined on NSXv and not in Neutron)
+    nsxadmin -r spoofguard-policy -o list-mismatches
+    nsxadmin -r spoofguard-policy -o clean --property policy-id=spoofguardpolicy-10
+    nsxadmin -r spoofguard-policy -o list --property reverse (entries defined on NSXv and not in Neutron)
 
 Metadata
 ~~~~~~~~
 
 - Update loadbalancer members on router and DHCP edges::
 
-   nsxadmin -r metadata -o nsx-update
+    nsxadmin -r metadata -o nsx-update
 
 - Update shared secret on router and DHCP edges::
 
-   nsxadmin -r metadata -o nsx-update-secret
+    nsxadmin -r metadata -o nsx-update-secret
 
 - Retrieve metadata connectivity - optionally for a specific network::
 
-   nsxadmin -r metadata -o status [--property network_id=<net_id>]
+    nsxadmin -r metadata -o status [--property network_id=<net_id>]
 
 NSXv3
 -----
@@ -174,7 +178,7 @@ Ports
 
     nsxadmin -r ports -o list-mismatches
 
-- Update the VMs ports on the backend after migrating nsx-v -> nsx-v3
+- Update the VMs ports on the backend after migrating nsx-v -> nsx-v3::
 
     nsxadmin -r ports -o nsx-migrate-v-v3
 

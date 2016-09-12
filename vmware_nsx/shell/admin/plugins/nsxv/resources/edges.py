@@ -258,6 +258,34 @@ def nsx_update_edge(resource, event, trigger, **kwargs):
         LOG.error(usage_msg)
 
 
+@admin_utils.output_header
+def nsx_update_edges(resource, event, trigger, **kwargs):
+    """Update all edges with the given property"""
+    if not kwargs.get('property'):
+        usage_msg = _LE("Need to specify a property to update all edges. "
+                        "Add --property appliances=<True/False>")
+        LOG.error(usage_msg)
+        return
+
+    edges = utils.get_nsxv_backend_edges()
+    properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
+    result = 0
+    for edge in edges:
+        if properties.get('appliances', 'false').lower() == "true":
+            try:
+                change_edge_appliance(edge.get('edge-id'))
+            except Exception as e:
+                result += 1
+                LOG.error(_LE("Failed to update edge %(edge)s. Exception: "
+                              "%(e)s"), {'edge': edge.get('edge-id'),
+                                         'e': str(e)})
+    if result > 0:
+        total = len(edges)
+        msg = (_LE("%(result)s of %(total)s edges failed "
+                   "to update.") % {'result': result, 'total': total})
+        LOG.error(msg)
+
+
 registry.subscribe(nsx_list_edges,
                    constants.EDGES,
                    shell.Operations.NSX_LIST.value)
@@ -276,3 +304,6 @@ registry.subscribe(nsx_list_missing_edges,
 registry.subscribe(nsx_update_edge,
                    constants.EDGES,
                    shell.Operations.NSX_UPDATE.value)
+registry.subscribe(nsx_update_edges,
+                   constants.EDGES,
+                   shell.Operations.NSX_UPDATE_ALL.value)

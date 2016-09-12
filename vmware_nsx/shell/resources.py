@@ -43,6 +43,7 @@ class Operations(enum.Enum):
     NSX_LIST = 'nsx-list'
     NSX_CLEAN = 'nsx-clean'
     NSX_UPDATE = 'nsx-update'
+    NSX_UPDATE_ALL = 'nsx-update-all'
     NSX_UPDATE_SECRET = 'nsx-update-secret'
     NSX_RECREATE = 'nsx-recreate'
     MIGRATE_TO_DYNAMIC_CRITERIA = 'migrate-to-dynamic-criteria'
@@ -91,7 +92,8 @@ nsxv_resources = {
     constants.EDGES: Resource(constants.EDGES,
                               [Operations.NSX_LIST.value,
                                Operations.NEUTRON_LIST.value,
-                               Operations.NSX_UPDATE.value]),
+                               Operations.NSX_UPDATE.value,
+                               Operations.NSX_UPDATE_ALL.value]),
     constants.BACKUP_EDGES: Resource(constants.BACKUP_EDGES,
                                      [Operations.LIST.value,
                                       Operations.CLEAN.value,
