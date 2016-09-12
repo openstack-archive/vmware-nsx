@@ -18,6 +18,7 @@ from oslo_utils import uuidutils
 import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy.orm import exc
+from sqlalchemy import sql
 
 from neutron.api.v2 import attributes
 from neutron.common import utils as n_utils
@@ -41,7 +42,8 @@ class NsxExtendedSecurityGroupProperties(model_base.BASEV2):
                                                 ondelete="CASCADE"),
                                   primary_key=True)
     logging = sa.Column(sa.Boolean, default=False, nullable=False)
-    provider = sa.Column(sa.Boolean, default=False, nullable=False)
+    provider = sa.Column(sa.Boolean, default=False, server_default=sql.false(),
+                         nullable=False)
     security_group = orm.relationship(
         securitygroups_db.SecurityGroup,
         backref=orm.backref('ext_properties', lazy='joined',

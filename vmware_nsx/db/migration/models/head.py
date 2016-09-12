@@ -14,6 +14,8 @@
 
 from neutron.db.migration.models import head
 
+from vmware_nsx.db import extended_security_group  # noqa
+from vmware_nsx.db import extended_security_group_rule  # noqa
 from vmware_nsx.db import nsx_models  # noqa
 from vmware_nsx.db import nsxv_models  # noqa
 from vmware_nsx.db import vcns_models  # noqa

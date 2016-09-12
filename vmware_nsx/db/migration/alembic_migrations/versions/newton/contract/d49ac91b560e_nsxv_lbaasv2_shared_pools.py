@@ -46,6 +46,6 @@ def upgrade():
 def change_pk_constraint(table_name, columns):
     inspector = reflection.Inspector.from_engine(op.get_bind())
     pk_constraint = inspector.get_pk_constraint(table_name)
-    op.drop_constraint(pk_constraint, table_name, type_='primary')
+    op.drop_constraint(pk_constraint.get('name'), table_name, type_='primary')
     op.drop_column(table_name, 'listener_id')
     op.create_primary_key(None, table_name, columns)
