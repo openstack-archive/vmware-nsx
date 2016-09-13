@@ -39,16 +39,17 @@ class RequestsHTTPProviderTestCase(unittest.TestCase):
 
     def test_new_connection(self):
         mock_api = mock.Mock()
-        mock_api.username = 'nsxuser'
-        mock_api.password = 'nsxpassword'
+        mock_api._username = 'nsxuser'
+        mock_api._password = 'nsxpassword'
         mock_api.retries = 100
         mock_api.insecure = True
-        mock_api.ca_file = None
+        mock_api._ca_file = None
         mock_api.http_timeout = 99
         mock_api.conn_idle_timeout = 39
         provider = cluster.NSXRequestsHTTPProvider()
         session = provider.new_connection(
-            mock_api, cluster.Provider('9.8.7.6', 'https://9.8.7.6'))
+            mock_api, cluster.Provider('9.8.7.6', 'https://9.8.7.6',
+                'nsxuser', 'nsxpassword', None))
 
         self.assertEqual(session.auth, ('nsxuser', 'nsxpassword'))
         self.assertEqual(session.verify, False)
