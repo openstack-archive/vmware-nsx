@@ -1,0 +1,14 @@
+---
+prelude: >
+    Tenant specific blocking firewall rules to be managed via Neutron
+    security-group API
+features:
+    - Admin user can now create a security-group with the 'provider' flag to
+      indicate whether rules take implicit 'deny' action.
+    - Provider security-group rules takes precedence over normal security-group
+      rules
+    - Each tenant may have at most one security-group marked as provider
+    - New tenant ports are associated with the provider
+      security-group automatically, unless explicitly asked otherwise
+    - Supported by NSX V3
+    - Supported by NSX VSphere, version 6.2 or newer
