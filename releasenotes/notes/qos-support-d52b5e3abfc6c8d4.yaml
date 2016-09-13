@@ -1,0 +1,9 @@
+---
+prelude: >
+    Support for QoS bandwidth limit and DSCP marking.
+features:
+  - The plugin can apply a QoS rule to networks and ports that mark outgoing
+    traffic's type of service packet header field.
+  - The plugin can apply a QoS rule to networks and ports that limits the
+    outgoing traffic with the defined average and peak bandwidth.
+
