@@ -98,8 +98,10 @@ class NetworkGatewayExtensionTestCase(base.BaseTestCase):
 
     def test_network_gateway_create(self):
         nw_gw_id = _uuid()
+        tenant_id = _uuid()
         data = {self._gw_resource: {'name': 'nw-gw',
-                                    'tenant_id': _uuid(),
+                                    'tenant_id': tenant_id,
+                                    'project_id': tenant_id,
                                     'devices': [{'id': _uuid(),
                                                  'interface_name': 'xxx'}]}}
         return_value = data[self._gw_resource].copy()
@@ -274,8 +276,10 @@ class NetworkGatewayExtensionTestCase(base.BaseTestCase):
 
     def test_gateway_device_create(self):
         gw_dev_id = _uuid()
+        tenant_id = _uuid()
         data = {self._dev_resource: {'name': 'test-dev',
-                                     'tenant_id': _uuid(),
+                                     'tenant_id': tenant_id,
+                                     'project_id': tenant_id,
                                      'client_certificate': 'xyz',
                                      'connector_type': 'stt',
                                      'connector_ip': '1.1.1.1'}}
