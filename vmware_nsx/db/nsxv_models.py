@@ -25,7 +25,7 @@ from oslo_db.sqlalchemy import models
 from vmware_nsx.common import nsxv_constants
 
 
-class NsxvRouterBinding(model_base.BASEV2, models_v2.HasStatusDescription,
+class NsxvRouterBinding(model_base.BASEV2, model_base.HasStatusDescription,
                         models.TimestampMixin):
     """Represents the mapping between neutron router and vShield Edge."""
 
