@@ -27,11 +27,11 @@ from oslo_utils import excutils
 
 from vmware_nsx._i18n import _, _LE, _LW
 from vmware_nsx.common import exceptions as nsx_exc
-from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.nsxlib.v3 import exceptions as nsxlib_exc
 from vmware_nsx.nsxlib.v3 import resources as nsx_resources
+from vmware_nsx.nsxlib.v3 import utils as nsxlib_utils
 
 LOG = logging.getLogger(__name__)
 
@@ -177,7 +177,7 @@ class NsxV3Driver(base_driver.TaasBaseDriver,
                                    tf.get('tap_service_id'))
         src_port_id = tf.get('source_port')
         dest_port_id = ts.get('port_id')
-        tags = nsx_utils.build_v3_tags_payload(
+        tags = nsxlib_utils.build_v3_tags_payload(
                 tf, resource_type='os-neutron-mirror-id',
                 project_name=context._plugin_context.tenant_name)
         nsx_direction = self._convert_to_backend_direction(

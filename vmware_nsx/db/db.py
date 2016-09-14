@@ -14,10 +14,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import six
+from sqlalchemy.orm import exc
+
 from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
-from sqlalchemy.orm import exc
 
 import neutron.db.api as db
 
@@ -25,6 +27,20 @@ from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import nsx_models
 
 LOG = logging.getLogger(__name__)
+
+
+def _apply_filters_to_query(query, model, filters, like_filters=None):
+    if filters:
+        for key, value in six.iteritems(filters):
+            column = getattr(model, key, None)
+            if column:
+                query = query.filter(column.in_(value))
+    if like_filters:
+        for key, search_term in six.iteritems(like_filters):
+            column = getattr(model, key, None)
+            if column:
+                query = query.filter(column.like(search_term))
+    return query
 
 
 def get_network_bindings(session, network_id):
@@ -247,6 +263,19 @@ def get_nsx_security_group_id(session, neutron_id):
         return None
 
 
+def get_nsx_security_group_ids(session, neutron_ids):
+    """Return list of ids of a security groups in the NSX backend.
+    """
+    filters = {'neutron_id': neutron_ids}
+    like_filters = None
+    query = session.query(nsx_models.NeutronNsxSecurityGroupMapping)
+    mappings = _apply_filters_to_query(
+        query, nsx_models.NeutronNsxSecurityGroupMapping,
+        filters, like_filters).all()
+    return [mapping['nsx_id'] for mapping in mappings
+            if mapping['nsx_id'] is not None]
+
+
 def _delete_by_neutron_id(session, model, neutron_id):
     return session.query(model).filter_by(neutron_id=neutron_id).delete()
 
@@ -361,8 +390,26 @@ def save_sg_mappings(session, sg_id, nsgroup_id, section_id):
                                                       nsx_id=nsgroup_id))
 
 
+def get_sg_mappings(session, sg_id):
+    nsgroup_mapping = session.query(
+        nsx_models.NeutronNsxSecurityGroupMapping
+    ).filter_by(neutron_id=sg_id).one()
+    section_mapping = session.query(
+        nsx_models.NeutronNsxFirewallSectionMapping
+    ).filter_by(neutron_id=sg_id).one()
+    return nsgroup_mapping.nsx_id, section_mapping.nsx_id
+
+
 def get_sg_rule_mapping(session, rule_id):
     rule_mapping = session.query(
         nsx_models.NeutronNsxRuleMapping).filter_by(
         neutron_id=rule_id).one()
     return rule_mapping.nsx_id
+
+
+def save_sg_rule_mappings(session, rules):
+    with session.begin(subtransactions=True):
+        for neutron_id, nsx_id in rules:
+            mapping = nsx_models.NeutronNsxRuleMapping(
+                neutron_id=neutron_id, nsx_id=nsx_id)
+            session.add(mapping)

@@ -17,8 +17,8 @@ import mock
 
 from oslo_log import log
 
-from vmware_nsx.tests.unit.nsx_v3 import test_constants as test_constants_v3
 from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
+from vmware_nsx.tests.unit.nsxlib.v3 import test_constants as test_constants_v3
 
 LOG = log.getLogger(__name__)
 

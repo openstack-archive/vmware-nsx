@@ -25,11 +25,12 @@ from oslo_config import cfg
 from oslo_utils import uuidutils
 
 from vmware_nsx.common import exceptions as nsx_exc
-from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.extensions import advancedserviceproviders as as_providers
+from vmware_nsx.nsxlib.v3 import nsx_constants
 from vmware_nsx.nsxlib.v3 import resources as nsx_resources
+from vmware_nsx.nsxlib.v3 import utils as nsxlib_utils
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin
 
 
@@ -456,7 +457,7 @@ class NsxNativeMetadataTestCase(test_plugin.NsxV3PluginTestCaseMixin):
             with self.network() as network:
                 nsx_net_id = self.plugin._get_network_nsx_id(
                     context.get_admin_context(), network['network']['id'])
-                tags = utils.build_v3_tags_payload(
+                tags = nsxlib_utils.build_v3_tags_payload(
                     network['network'], resource_type='os-neutron-net-id',
                     project_name=None)
                 name = utils.get_name_and_uuid('%s-%s' % (

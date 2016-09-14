@@ -17,7 +17,7 @@ import six.moves.urllib.parse as urlparse
 
 from oslo_serialization import jsonutils
 from oslo_utils import uuidutils
-from vmware_nsx.common import nsx_constants
+from vmware_nsx.nsxlib.v3 import nsx_constants
 
 
 FAKE_NAME = "fake_name"
@@ -135,7 +135,7 @@ class MockRequestSessionApi(object):
 
     def _build_response(self, url, content=None,
                         status=requests.codes.ok, **kwargs):
-        if type(content) is list:
+        if isinstance(content, list):
             content = {
                 'result_count': len(content),
                 'results': content

@@ -31,10 +31,10 @@ from neutron import context
 from neutron.tests import base
 
 from neutron_lib import exceptions as n_exc
-from vmware_nsx.common import nsx_constants
+from vmware_nsx.nsxlib.v3 import nsx_constants
 from vmware_nsx.services.l2gateway.nsx_v3 import driver as nsx_v3_driver
-from vmware_nsx.tests.unit.nsx_v3 import mocks as nsx_v3_mocks
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_nsx_v3_plugin
+from vmware_nsx.tests.unit.nsxlib.v3 import mocks as nsx_v3_mocks
 
 
 NSX_V3_PLUGIN_CLASS = ('vmware_nsx.plugins.nsx_v3.plugin.NsxV3Plugin')

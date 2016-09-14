@@ -21,10 +21,10 @@ from oslo_config import cfg
 from oslo_log import log
 
 from vmware_nsx._i18n import _, _LW
-from vmware_nsx.common import utils
 from vmware_nsx.nsxlib import v3
-from vmware_nsx.nsxlib.v3 import dfw_api as firewall
 from vmware_nsx.nsxlib.v3 import exceptions
+from vmware_nsx.nsxlib.v3 import nsx_constants as consts
+from vmware_nsx.nsxlib.v3 import utils as nsxlib_utils
 
 
 LOG = log.getLogger(__name__)
@@ -40,7 +40,7 @@ class NSGroupManager(object):
     are also of type NSGroups) to group the other NSGroups and associate it
     with these rules.
     In practice, one NSGroup (nested) can't contain all the other NSGroups, as
-    it has strict size limit. To overcome the limited space challange, we
+    it has strict size limit. To overcome the limited space challenge, we
     create several nested groups instead of just one, and we evenly distribute
     NSGroups (security-groups) between them.
     By using an hashing function on the NSGroup uuid we determine in which
@@ -52,7 +52,7 @@ class NSGroupManager(object):
     NESTED_GROUP_DESCRIPTION = ('OpenStack NSGroup. Do not delete.')
 
     def __init__(self, size):
-        # XXX intergrate this in a better way..
+        # TODO(asarfaty): integrate this in a better way..
         self.nsx = v3.NsxLib(
             username=cfg.CONF.nsx_v3.nsx_api_user,
             password=cfg.CONF.nsx_v3.nsx_api_password,
@@ -84,7 +84,7 @@ class NSGroupManager(object):
         nested_groups = {
             self._get_nested_group_index_from_name(nsgroup): nsgroup['id']
             for nsgroup in self.nsx.list_nsgroups()
-            if utils.is_internal_resource(nsgroup)}
+            if nsxlib_utils.is_internal_resource(nsgroup)}
 
         if nested_groups:
             size = max(requested_size, max(nested_groups) + 1)
@@ -115,7 +115,7 @@ class NSGroupManager(object):
         name_prefix = NSGroupManager.NESTED_GROUP_NAME
         name = '%s %s' % (name_prefix, index + 1)
         description = NSGroupManager.NESTED_GROUP_DESCRIPTION
-        tags = utils.build_v3_api_version_tag()
+        tags = nsxlib_utils.build_v3_api_version_tag()
         return self.nsx.create_nsgroup(name, description, tags)
 
     def _hash_uuid(self, internal_id):
@@ -138,7 +138,7 @@ class NSGroupManager(object):
                 LOG.debug("Adding NSGroup %s to nested group %s",
                           nsgroup_id, group)
                 self.nsx.add_nsgroup_members(group,
-                                            firewall.NSGROUP,
+                                            consts.NSGROUP,
                                             [nsgroup_id])
                 break
             except exceptions.NSGroupIsFull:
@@ -153,7 +153,8 @@ class NSGroupManager(object):
         for group in self._suggest_nested_group(nsgroup_id):
             try:
                 self.nsx.remove_nsgroup_member(
-                    group, firewall.NSGROUP, nsgroup_id, verify=True)
+                    group, consts.NSGROUP,
+                    nsgroup_id, verify=True)
                 break
             except exceptions.NSGroupMemberNotFound:
                 LOG.warning(_LW("NSGroup %(nsgroup)s was expected to be found "

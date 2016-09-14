@@ -24,8 +24,8 @@ from neutron.objects.qos import rule as rule_object
 from neutron.services.qos import qos_plugin
 from neutron.tests.unit.services.qos import base
 
-from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
+from vmware_nsx.nsxlib.v3 import utils
 from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin
 

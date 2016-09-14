@@ -25,8 +25,8 @@ from oslo_log import log as logging
 
 from vmware_nsx._i18n import _, _LW
 from vmware_nsx.common import exceptions as nsx_exc
-from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
+from vmware_nsx.nsxlib.v3 import utils
 
 LOG = logging.getLogger(__name__)
 MAX_KBPS_MIN_VALUE = 1024

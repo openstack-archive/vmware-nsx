@@ -13,14 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from neutron.tests.unit.db import test_db_base_plugin_v2 as test_plugin
 from neutron import version
 from neutron_lib import exceptions as n_exc
 
-from vmware_nsx.common import utils
-from vmware_nsx.tests.unit.nsx_v3 import test_plugin
+from vmware_nsx.nsxlib.v3 import utils
+from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
 
 
-class TestNsxV3Utils(test_plugin.NsxV3PluginTestCaseMixin):
+class TestNsxV3Utils(test_plugin.NeutronDbPluginV2TestCase,
+                     nsxlib_testcase.NsxClientTestCase):
 
     def test_build_v3_tags_payload(self):
         result = utils.build_v3_tags_payload(

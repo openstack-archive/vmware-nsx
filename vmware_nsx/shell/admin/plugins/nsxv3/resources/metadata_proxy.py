@@ -19,10 +19,11 @@ from neutron_lib import constants as const
 from oslo_config import cfg
 
 from vmware_nsx._i18n import _LE, _LI
-from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.dhcp_meta import rpc as nsx_rpc
+from vmware_nsx.nsxlib.v3 import nsx_constants
 from vmware_nsx.nsxlib.v3 import resources
+from vmware_nsx.nsxlib.v3 import utils as nsxlib_utils
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
@@ -104,7 +105,7 @@ def nsx_update_metadata_proxy(resource, event, trigger, **kwargs):
             lswitch_id = neutron_client.net_id_to_lswitch_id(network['id'])
             if not lswitch_id:
                 continue
-            tags = nsx_utils.build_v3_tags_payload(
+            tags = nsxlib_utils.build_v3_tags_payload(
                 network, resource_type='os-neutron-net-id',
                 project_name='admin')
             name = nsx_utils.get_name_and_uuid('%s-%s' % (

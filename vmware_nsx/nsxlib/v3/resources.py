@@ -20,10 +20,10 @@ import six
 from oslo_config import cfg
 
 from vmware_nsx._i18n import _
-from vmware_nsx.common import nsx_constants
-from vmware_nsx.common import utils
 from vmware_nsx.nsxlib.v3 import client
 from vmware_nsx.nsxlib.v3 import exceptions
+from vmware_nsx.nsxlib.v3 import nsx_constants
+from vmware_nsx.nsxlib.v3 import utils
 
 
 SwitchingProfileTypeId = collections.namedtuple(
@@ -285,13 +285,13 @@ class LogicalPort(AbstractRESTResource):
             attachment=attachment))
         return self._client.create(body=body)
 
-    @utils.retry_upon_exception_nsxv3(
+    @utils.retry_upon_exception(
         exceptions.StaleRevision,
         max_attempts=cfg.CONF.nsx_v3.retries)
     def delete(self, lport_id):
         return self._client.url_delete('%s?detach=true' % lport_id)
 
-    @utils.retry_upon_exception_nsxv3(
+    @utils.retry_upon_exception(
         exceptions.StaleRevision,
         max_attempts=cfg.CONF.nsx_v3.retries)
     def update(self, lport_id, vif_uuid,
@@ -342,7 +342,7 @@ class LogicalRouter(AbstractRESTResource):
     def delete(self, lrouter_id):
         return self._client.url_delete(lrouter_id)
 
-    @utils.retry_upon_exception_nsxv3(
+    @utils.retry_upon_exception(
         exceptions.StaleRevision,
         max_attempts=cfg.CONF.nsx_v3.retries)
     def update(self, lrouter_id, *args, **kwargs):
@@ -389,7 +389,7 @@ class LogicalRouterPort(AbstractRESTResource):
 
         return self._client.create(body=body)
 
-    @utils.retry_upon_exception_nsxv3(
+    @utils.retry_upon_exception(
         exceptions.StaleRevision,
         max_attempts=cfg.CONF.nsx_v3.retries)
     def update(self, logical_port_id, **kwargs):
@@ -402,7 +402,7 @@ class LogicalRouterPort(AbstractRESTResource):
         # new revision_id
         return self._client.update(logical_port_id, body=logical_router_port)
 
-    @utils.retry_upon_exception_nsxv3(
+    @utils.retry_upon_exception(
         exceptions.StaleRevision,
         max_attempts=cfg.CONF.nsx_v3.retries)
     def delete(self, logical_port_id):
@@ -511,7 +511,7 @@ class LogicalDhcpServer(AbstractRESTResource):
                                options, tags)
         return self._client.create(body=body)
 
-    @utils.retry_upon_exception_nsxv3(
+    @utils.retry_upon_exception(
         exceptions.StaleRevision,
         max_attempts=cfg.CONF.nsx_v3.retries)
     def update(self, uuid, dhcp_profile_id=None, server_ip=None, name=None,
@@ -539,7 +539,7 @@ class LogicalDhcpServer(AbstractRESTResource):
         url = "%s/static-bindings/%s" % (server_uuid, binding_uuid)
         return self._client.url_get(url)
 
-    @utils.retry_upon_exception_nsxv3(
+    @utils.retry_upon_exception(
         exceptions.StaleRevision,
         max_attempts=cfg.CONF.nsx_v3.retries)
     def update_binding(self, server_uuid, binding_uuid, **kwargs):

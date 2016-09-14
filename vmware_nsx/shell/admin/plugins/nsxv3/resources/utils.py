@@ -17,9 +17,9 @@ from neutron import context
 from neutron.db import db_base_plugin_v2
 from oslo_config import cfg
 
-from vmware_nsx.common import nsx_constants
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.nsxlib import v3
+from vmware_nsx.nsxlib.v3 import nsx_constants
 from vmware_nsx.plugins.nsx_v3 import plugin
 
 

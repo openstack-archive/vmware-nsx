@@ -27,7 +27,7 @@ from sqlalchemy import sql
 from neutron.db import models_v2
 from oslo_db.sqlalchemy import models
 
-from vmware_nsx.common import nsx_constants
+from vmware_nsx.nsxlib.v3 import nsx_constants
 
 
 class TzNetworkBinding(model_base.BASEV2, models.TimestampMixin):
