@@ -30,3 +30,13 @@ VNCSERVER_PROXYCLIENT_ADDRESS=$VNCSERVER_LISTEN
 disable_service zookeeper
 #DEBUG=False
 #DEFAULT_VLAN_TZ_UUID=changeme     # Optional, for VLAN provider networks
+
+# Enable Logging
+LOGFILE=/opt/stack/logs/stack.sh.log
+VERBOSE=True
+LOG_COLOR=True
+SCREEN_LOGDIR=/opt/stack/logs
+
+NSX_MANAGER=<nsx-manager1-ip>
+NSX_USER=<nsx-manager-user>
+NSX_PASSWORD=<nsx-manager-password>
