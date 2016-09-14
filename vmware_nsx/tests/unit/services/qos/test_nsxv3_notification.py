@@ -48,6 +48,8 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
             "qos")
         self.qos_plugin = qos_plugin.QoSPlugin()
         self.ctxt = context.Context('fake_user', 'fake_tenant')
+        mock.patch.object(self.ctxt.session, 'refresh').start()
+        mock.patch.object(self.ctxt.session, 'expunge').start()
         self.policy_data = {
             'policy': {'id': uuidutils.generate_uuid(),
                        'tenant_id': uuidutils.generate_uuid(),

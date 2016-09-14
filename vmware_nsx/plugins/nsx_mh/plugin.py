@@ -1892,7 +1892,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 context, {'id': floatingip_db.id,
                           'port_id': floatingip_db.fixed_port_id,
                           'fixed_ip_address': floatingip_db.fixed_ip_address,
-                          'tenant_id': floatingip_db.tenant_id})
+                          'tenant_id': floatingip_db.tenant_id},
+                floatingip_db.tenant_id)
             nsx_gw_port_id = routerlib.find_router_gw_port(
                 context, self.cluster, nsx_old_router_id)['uuid']
             self._retrieve_and_delete_nat_rules(
