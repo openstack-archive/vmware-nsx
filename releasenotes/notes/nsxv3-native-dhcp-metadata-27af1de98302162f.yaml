@@ -1,0 +1,9 @@
+---
+prelude: >
+    The NSX-V3 plugin supports native DHCP and metadata services provided
+    by NSX backend.
+features:
+  - The NSX-V3 plugin version 1.1.0 allows users to use native DHCP and
+    metadata services provided by designated edge cluster in NSX backend
+    version 1.1.0. The edge cluster can provides high availability if
+    more than one edge nodes are configured in the cluster.
