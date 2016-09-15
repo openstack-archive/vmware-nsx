@@ -146,6 +146,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         router=l3_db.Router,
         floatingip=l3_db.FloatingIP)
     def __init__(self):
+        LOG.warning(_LW("The NSX-MH plugin is deprecated and may be removed "
+                        "in the O or the P cycle"))
         super(NsxPluginV2, self).__init__()
         # TODO(salv-orlando): Replace These dicts with
         # collections.defaultdict for better handling of default values
