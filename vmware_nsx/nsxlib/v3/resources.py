@@ -384,6 +384,9 @@ class LogicalRouterPort(AbstractRESTResource):
         # new revision_id
         return self._client.update(logical_port_id, body=logical_router_port)
 
+    @utils.retry_upon_exception_nsxv3(
+        nsx_exc.StaleRevision,
+        max_attempts=cfg.CONF.nsx_v3.retries)
     def delete(self, logical_port_id):
         return self._client.url_delete(logical_port_id)
 
