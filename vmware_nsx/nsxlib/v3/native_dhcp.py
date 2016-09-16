@@ -25,9 +25,9 @@ def build_dhcp_server_config(network, subnet, port, project_name):
     # Prepare the configutation for a new logical DHCP server.
     server_ip = "%s/%u" % (port['fixed_ips'][0]['ip_address'],
                            netaddr.IPNetwork(subnet['cidr']).prefixlen)
-    dns_servers = subnet['dns_nameservers']
-    if not dns_servers or not validators.is_attr_set(dns_servers):
-        dns_servers = cfg.CONF.nsx_v3.nameservers
+    dns_nameservers = subnet['dns_nameservers']
+    if not dns_nameservers or not validators.is_attr_set(dns_nameservers):
+        dns_nameservers = cfg.CONF.nsx_v3.nameservers
     gateway_ip = subnet['gateway_ip']
     if not validators.is_attr_set(gateway_ip):
         gateway_ip = None
@@ -58,7 +58,7 @@ def build_dhcp_server_config(network, subnet, port, project_name):
     return {'name': name,
             'dhcp_profile_id': cfg.CONF.nsx_v3.dhcp_profile_uuid,
             'server_ip': server_ip,
-            'dns_servers': dns_servers,
+            'dns_nameservers': dns_nameservers,
             'domain_name': cfg.CONF.nsx_v3.dns_domain,
             'gateway_ip': gateway_ip,
             'options': options,
