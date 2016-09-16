@@ -1501,6 +1501,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # Note that Neutron allows a port with multiple IPs in the
         # same subnet. But backend DHCP server may not support that.
 
+        if old_port["device_owner"] != new_port["device_owner"]:
+            if old_port["device_owner"].startswith(
+                const.DEVICE_OWNER_COMPUTE_PREFIX):
+                self._delete_dhcp_binding(context, old_port)
+            else:
+                self._add_dhcp_binding(context, new_port)
+            return
+
         # Collect IPv4 DHCP addresses from original and updated fixed_ips
         # in the form of [(subnet_id, ip_address)].
         old_fixed_ips = set([(fixed_ip['subnet_id'], fixed_ip['ip_address'])
@@ -1581,8 +1589,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     self._update_dhcp_binding_on_server(
                         context, binding, new_port['mac_address'],
                         binding['ip_address'])
-        elif old_port["device_owner"] != new_port["device_owner"]:
-            self._add_dhcp_binding(context, new_port)
 
     def _update_dhcp_binding_on_server(self, context, binding, mac, ip):
         try:
