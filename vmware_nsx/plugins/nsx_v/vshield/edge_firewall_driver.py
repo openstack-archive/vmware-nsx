@@ -12,7 +12,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.db import db_base_plugin_v2
 from oslo_log import log as logging
 from oslo_utils import excutils
 
@@ -30,7 +29,7 @@ FWAAS_ALLOW = "allow"
 FWAAS_DENY = "deny"
 
 
-class EdgeFirewallDriver(db_base_plugin_v2.NeutronDbPluginV2):
+class EdgeFirewallDriver(object):
     """Implementation of driver APIs for
        Edge Firewall feature configuration
     """
