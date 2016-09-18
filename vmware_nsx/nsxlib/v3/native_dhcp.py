@@ -16,18 +16,18 @@
 import netaddr
 from neutron_lib.api import validators
 from neutron_lib import constants
-from oslo_config import cfg
 
 from vmware_nsx.nsxlib.v3 import utils
 
 
-def build_dhcp_server_config(network, subnet, port, project_name):
-    # Prepare the configutation for a new logical DHCP server.
+def build_dhcp_server_config(network, subnet, port, project_name,
+                             nameservers, dhcp_profile_uuid, dns_domain):
+    # Prepare the configuration for a new logical DHCP server.
     server_ip = "%s/%u" % (port['fixed_ips'][0]['ip_address'],
                            netaddr.IPNetwork(subnet['cidr']).prefixlen)
     dns_nameservers = subnet['dns_nameservers']
     if not dns_nameservers or not validators.is_attr_set(dns_nameservers):
-        dns_nameservers = cfg.CONF.nsx_v3.nameservers
+        dns_nameservers = nameservers
     gateway_ip = subnet['gateway_ip']
     if not validators.is_attr_set(gateway_ip):
         gateway_ip = None
@@ -56,10 +56,10 @@ def build_dhcp_server_config(network, subnet, port, project_name):
     tags = utils.build_v3_tags_payload(
         network, resource_type='os-neutron-net-id', project_name=project_name)
     return {'name': name,
-            'dhcp_profile_id': cfg.CONF.nsx_v3.dhcp_profile_uuid,
+            'dhcp_profile_id': dhcp_profile_uuid,
             'server_ip': server_ip,
             'dns_nameservers': dns_nameservers,
-            'domain_name': cfg.CONF.nsx_v3.dns_domain,
+            'domain_name': dns_domain,
             'gateway_ip': gateway_ip,
             'options': options,
             'tags': tags}

@@ -27,6 +27,7 @@ MAX_RESOURCE_TYPE_LEN = 20
 MAX_TAG_LEN = 40
 NSX_NEUTRON_PLUGIN = 'NSX Neutron plugin'
 OS_NEUTRON_ID_SCOPE = 'os-neutron-id'
+DEFAULT_MAX_ATTEMPTS = 10
 
 
 def is_internal_resource(nsx_resource):
@@ -111,9 +112,8 @@ def update_v3_tags(current_tags, tags_update):
     return tags
 
 
-#Todo(asarfaty): figure out a way to use an NsxLib class variable in the
-#retry decorator instead of the configuration/constant one
-def retry_upon_exception(exc, delay=500, max_delay=2000, max_attempts=10):
+def retry_upon_exception(exc, delay=500, max_delay=2000,
+                         max_attempts=DEFAULT_MAX_ATTEMPTS):
     return retrying.retry(retry_on_exception=lambda e: isinstance(e, exc),
                           wait_exponential_multiplier=delay,
                           wait_exponential_max=max_delay,

@@ -81,23 +81,6 @@ def make_fake_metadata_proxy():
             "edge_cluster_member_indexes": [0, 1]}
 
 
-def get_resource(resource):
-    return {'id': resource.split('/')[-1]}
-
-
-def create_resource(resource, data):
-    data['id'] = uuidutils.generate_uuid()
-    return data
-
-
-def update_resource(resource, data):
-    return resource
-
-
-def delete_resource(resource):
-    pass
-
-
 class MockRequestsResponse(object):
     def __init__(self, status_code, content=None):
         self.status_code = status_code

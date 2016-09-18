@@ -190,7 +190,7 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
     @_mock_create_and_list_nsgroups
     def test_first_initialization(self):
         size = 5
-        cont_manager = ns_group_manager.NSGroupManager(size)
+        cont_manager = ns_group_manager.NSGroupManager(self.nsxlib, size)
         nested_groups = cont_manager.nested_groups
         self.assertEqual({i: NSG_IDS[i] for i in range(size)},
                          nested_groups)
@@ -204,11 +204,12 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
 
         size = 2
         # Creates 2 nested groups.
-        ns_group_manager.NSGroupManager(size)
+        ns_group_manager.NSGroupManager(self.nsxlib, size)
 
         size = 5
         # Creates another 3 nested groups.
-        nested_groups = ns_group_manager.NSGroupManager(size).nested_groups
+        nested_groups = ns_group_manager.NSGroupManager(
+            self.nsxlib, size).nested_groups
         self.assertEqual({i: NSG_IDS[i] for i in range(size)},
                          nested_groups)
 
@@ -222,7 +223,7 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
         # according to its id and the number of nested groups.
 
         size = 5
-        cont_manager = ns_group_manager.NSGroupManager(size)
+        cont_manager = ns_group_manager.NSGroupManager(self.nsxlib, size)
         nsgroup_id = 'nsgroup_id'
 
         with mock.patch.object(cont_manager, '_hash_uuid', return_value=7):
@@ -257,7 +258,7 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
         remove_member_mock.side_effect = _remove_member_mock
 
         size = 5
-        cont_manager = ns_group_manager.NSGroupManager(size)
+        cont_manager = ns_group_manager.NSGroupManager(self.nsxlib, size)
         nsgroup_id = 'nsgroup_id'
 
         with mock.patch.object(cont_manager, '_hash_uuid', return_value=7):
@@ -292,7 +293,7 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
                                              add_member_mock,
                                              remove_member_mock):
         size = 3
-        cont_manager = ns_group_manager.NSGroupManager(size)
+        cont_manager = ns_group_manager.NSGroupManager(self.nsxlib, size)
         # list_nsgroups will return nested group 1 and 3, but not group 2.
         # FIXME: Not sure what this mock does. no one calls this method now.
         #with mock.patch.object(vmware_nsx.nsxlib.v3.NsxLib.list_nsgroups,
@@ -300,7 +301,6 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
         #    list_nsgroups_mock = lambda: list_nsgroups_mock()[::2]
         # invoking the initialization process again, it should process
         # groups 1 and 3 and create group 2.
-        cont_manager = ns_group_manager.NSGroupManager(size)
         self.assertEqual({1: NSG_IDS[0],
                           2: NSG_IDS[3],
                           3: NSG_IDS[2]},
@@ -309,7 +309,7 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
     @_mock_create_and_list_nsgroups
     def test_suggest_nested_group(self):
         size = 5
-        cont_manager = ns_group_manager.NSGroupManager(size)
+        cont_manager = ns_group_manager.NSGroupManager(self.nsxlib, size)
         # We expect that the first suggested index is 2
         expected_suggested_groups = NSG_IDS[2:5] + NSG_IDS[:2]
         suggest_group = lambda: cont_manager._suggest_nested_group('fake-id')

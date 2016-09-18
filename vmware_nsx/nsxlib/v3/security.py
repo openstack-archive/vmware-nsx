@@ -23,7 +23,6 @@ from oslo_log import log
 from oslo_utils import excutils
 
 from vmware_nsx._i18n import _LE, _LW
-from vmware_nsx.nsxlib.v3 import client as nsxclient
 from vmware_nsx.nsxlib.v3 import exceptions
 from vmware_nsx.nsxlib.v3 import nsx_constants as consts
 from vmware_nsx.nsxlib.v3 import utils
@@ -286,20 +285,26 @@ class Security(object):
         return self.client.get(
             'ns-groups?populate_references=false').get('results', [])
 
-    @utils.retry_upon_exception(exceptions.StaleRevision)
     def update_nsgroup(self, nsgroup_id, display_name=None, description=None,
                        membership_criteria=None, members=None):
-        nsgroup = self.read_nsgroup(nsgroup_id)
-        if display_name is not None:
-            nsgroup['display_name'] = display_name
-        if description is not None:
-            nsgroup['description'] = description
-        if members is not None:
-            nsgroup['members'] = members
-        if membership_criteria is not None:
-            nsgroup['membership_criteria'] = [membership_criteria]
-        return self.client.update(
-            'ns-groups/%s' % nsgroup_id, nsgroup)
+        #Using internal method so we can access max_attempts in the decorator
+        @utils.retry_upon_exception(
+            exceptions.StaleRevision,
+            max_attempts=self.max_attempts)
+        def _do_update():
+            nsgroup = self.read_nsgroup(nsgroup_id)
+            if display_name is not None:
+                nsgroup['display_name'] = display_name
+            if description is not None:
+                nsgroup['description'] = description
+            if members is not None:
+                nsgroup['members'] = members
+            if membership_criteria is not None:
+                nsgroup['membership_criteria'] = [membership_criteria]
+            return self.client.update(
+                'ns-groups/%s' % nsgroup_id, nsgroup)
+
+        return _do_update()
 
     def get_nsgroup_member_expression(self, target_type, target_id):
         return {
@@ -309,10 +314,16 @@ class Security(object):
             'op': consts.EQUALS,
             'value': target_id}
 
-    @utils.retry_upon_exception(exceptions.ManagerError)
     def _update_nsgroup_with_members(self, nsgroup_id, members, action):
-        members_update = 'ns-groups/%s?action=%s' % (nsgroup_id, action)
-        return self.client.create(members_update, members)
+        #Using internal method so we can access max_attempts in the decorator
+        @utils.retry_upon_exception(
+            exceptions.StaleRevision,
+            max_attempts=self.max_attempts)
+        def _do_update():
+            members_update = 'ns-groups/%s?action=%s' % (nsgroup_id, action)
+            return self.client.create(members_update, members)
+
+        return _do_update()
 
     def add_nsgroup_members(self, nsgroup_id, target_type, target_ids):
         members = []
@@ -383,27 +394,33 @@ class Security(object):
             resource += '&id=%s' % other_section
         return self.client.create(resource, body)
 
-    @utils.retry_upon_exception(exceptions.StaleRevision)
     def update_section(self, section_id, display_name=None, description=None,
                        applied_tos=None, rules=None):
-        resource = 'firewall/sections/%s' % section_id
-        section = self.read_section(section_id)
+        #Using internal method so we can access max_attempts in the decorator
+        @utils.retry_upon_exception(
+            exceptions.StaleRevision,
+            max_attempts=self.max_attempts)
+        def _do_update():
+            resource = 'firewall/sections/%s' % section_id
+            section = self.read_section(section_id)
 
-        if rules is not None:
-            resource += '?action=update_with_rules'
-            section.update({'rules': rules})
-        if display_name is not None:
-            section['display_name'] = display_name
-        if description is not None:
-            section['description'] = description
-        if applied_tos is not None:
-            section['applied_tos'] = [self.get_nsgroup_reference(nsg_id)
-                                      for nsg_id in applied_tos]
-        if rules is not None:
-            return nsxclient.create_resource(resource, section)
-        elif any(p is not None for p in (display_name, description,
-                                         applied_tos)):
-            return self.client.update(resource, section)
+            if rules is not None:
+                resource += '?action=update_with_rules'
+                section.update({'rules': rules})
+            if display_name is not None:
+                section['display_name'] = display_name
+            if description is not None:
+                section['description'] = description
+            if applied_tos is not None:
+                section['applied_tos'] = [self.get_nsgroup_reference(nsg_id)
+                                          for nsg_id in applied_tos]
+            if rules is not None:
+                return self.client.create(resource, section)
+            elif any(p is not None for p in (display_name, description,
+                                             applied_tos)):
+                return self.client.update(resource, section)
+
+        return _do_update()
 
     def read_section(self, section_id):
         resource = 'firewall/sections/%s' % section_id

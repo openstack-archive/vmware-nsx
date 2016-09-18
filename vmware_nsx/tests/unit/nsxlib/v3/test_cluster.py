@@ -17,7 +17,6 @@ import mock
 import six.moves.urllib.parse as urlparse
 import unittest
 
-from oslo_config import cfg
 from oslo_serialization import jsonutils
 from requests import exceptions as requests_exceptions
 from vmware_nsx.nsxlib.v3 import client
@@ -89,64 +88,35 @@ class NsxV3ClusteredAPITestCase(nsxlib_testcase.NsxClientTestCase):
 
     def test_conf_providers_no_scheme(self):
         conf_managers = ['8.9.10.11', '9.10.11.12:4433']
-        cfg.CONF.set_override(
-            'nsx_api_managers', conf_managers, 'nsx_v3')
-
-        mock_provider = mock.Mock()
-        mock_provider.default_scheme = 'https'
-        mock_provider.validate_connection = _validate_conn_up
-
-        api = cluster.NSXClusteredAPI(http_provider=mock_provider)
+        api = self.new_mocked_cluster(conf_managers, _validate_conn_up)
 
         self._assert_providers(
             api, [(p, "https://%s" % p) for p in conf_managers])
 
     def test_conf_providers_with_scheme(self):
         conf_managers = ['http://8.9.10.11:8080', 'https://9.10.11.12:4433']
-        cfg.CONF.set_override(
-            'nsx_api_managers', conf_managers, 'nsx_v3')
-
-        mock_provider = mock.Mock()
-        mock_provider.default_scheme = 'https'
-        mock_provider.validate_connection = _validate_conn_up
-
-        api = cluster.NSXClusteredAPI(http_provider=mock_provider)
+        api = self.new_mocked_cluster(conf_managers, _validate_conn_up)
 
         self._assert_providers(
             api, [(urlparse.urlparse(p).netloc, p) for p in conf_managers])
 
     def test_http_retries(self):
-        cfg.CONF.set_override(
-            'http_retries', 9, 'nsx_v3')
-
-        api = self.mock_nsx_clustered_api()
+        api = self.mock_nsx_clustered_api(retries=9)
         with api.endpoints['1.2.3.4'].pool.item() as session:
             self.assertEqual(
                     session.adapters['https://'].max_retries.total, 9)
 
     def test_conns_per_pool(self):
-        cfg.CONF.set_override(
-            'concurrent_connections', 11, 'nsx_v3')
         conf_managers = ['8.9.10.11', '9.10.11.12:4433']
-        cfg.CONF.set_override(
-            'nsx_api_managers', conf_managers, 'nsx_v3')
-
-        mock_provider = mock.Mock()
-        mock_provider.default_scheme = 'https'
-        mock_provider.validate_connection = _validate_conn_up
-
-        api = cluster.NSXClusteredAPI(http_provider=mock_provider)
+        api = self.new_mocked_cluster(
+            conf_managers, _validate_conn_up,
+            concurrent_connections=11)
 
         for ep_id, ep in api.endpoints.items():
             self.assertEqual(ep.pool.max_size, 11)
 
     def test_timeouts(self):
-        cfg.CONF.set_override(
-            'http_read_timeout', 37, 'nsx_v3')
-        cfg.CONF.set_override(
-            'http_timeout', 7, 'nsx_v3')
-
-        api = self.mock_nsx_clustered_api()
+        api = self.mock_nsx_clustered_api(http_read_timeout=37, http_timeout=7)
         api.get('logical-ports')
         mock_call = api.recorded_calls.method_calls[0]
         name, args, kwargs = mock_call
@@ -157,14 +127,8 @@ class ClusteredAPITestCase(nsxlib_testcase.NsxClientTestCase):
 
     def _test_health(self, validate_fn, expected_health):
         conf_managers = ['8.9.10.11', '9.10.11.12']
-        cfg.CONF.set_override(
-            'nsx_api_managers', conf_managers, 'nsx_v3')
+        api = self.new_mocked_cluster(conf_managers, validate_fn)
 
-        mock_provider = mock.Mock()
-        mock_provider.default_scheme = 'https'
-
-        mock_provider.validate_connection = validate_fn
-        api = cluster.NSXClusteredAPI(http_provider=mock_provider)
         self.assertEqual(api.health, expected_health)
 
     def test_orange_health(self):
@@ -183,14 +147,7 @@ class ClusteredAPITestCase(nsxlib_testcase.NsxClientTestCase):
 
     def test_cluster_validate_with_exception(self):
         conf_managers = ['8.9.10.11', '9.10.11.12', '10.11.12.13']
-        cfg.CONF.set_override(
-            'nsx_api_managers', conf_managers, 'nsx_v3')
-
-        mock_provider = mock.Mock()
-        mock_provider.default_scheme = 'https'
-
-        mock_provider.validate_connection = _validate_conn_down
-        api = cluster.NSXClusteredAPI(http_provider=mock_provider)
+        api = self.new_mocked_cluster(conf_managers, _validate_conn_down)
 
         self.assertEqual(len(api.endpoints), 3)
         self.assertRaises(nsxlib_exc.ServiceClusterUnavailable,
@@ -218,10 +175,7 @@ class ClusteredAPITestCase(nsxlib_testcase.NsxClientTestCase):
 
     def test_cluster_round_robin_servicing(self):
         conf_managers = ['8.9.10.11', '9.10.11.12', '10.11.12.13']
-        cfg.CONF.set_override(
-            'nsx_api_managers', conf_managers, 'nsx_v3')
-
-        api = self.mock_nsx_clustered_api()
+        api = self.mock_nsx_clustered_api(nsx_api_managers=conf_managers)
         api._validate = mock.Mock()
 
         eps = list(api._endpoints.values())

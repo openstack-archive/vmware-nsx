@@ -52,6 +52,9 @@ from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
 
 
 PLUGIN_NAME = 'vmware_nsx.plugin.NsxV3Plugin'
+NSX_TZ_NAME = 'default transport zone'
+NSX_DHCP_PROFILE_ID = 'default dhcp profile'
+NSX_METADATA_PROXY_ID = 'default metadata proxy'
 
 
 def _mock_create_firewall_rules(*args):
@@ -135,6 +138,17 @@ def _mock_nsx_backend_calls():
 class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
                                nsxlib_testcase.NsxClientTestCase):
 
+    def setup_conf_overrides(self):
+        cfg.CONF.set_override('default_overlay_tz', NSX_TZ_NAME, 'nsx_v3')
+        cfg.CONF.set_override('native_dhcp_metadata', False, 'nsx_v3')
+        cfg.CONF.set_override('dhcp_profile_uuid',
+                              NSX_DHCP_PROFILE_ID, 'nsx_v3')
+        cfg.CONF.set_override('metadata_proxy_uuid',
+                              NSX_METADATA_PROXY_ID, 'nsx_v3')
+        cfg.CONF.set_override(
+            'network_scheduler_driver',
+            'neutron.scheduler.dhcp_agent_scheduler.AZAwareWeightScheduler')
+
     def setUp(self, plugin=PLUGIN_NAME,
               ext_mgr=None,
               service_plugins=None):
@@ -142,7 +156,7 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
         self._patchers = []
 
         _mock_nsx_backend_calls()
-        nsxlib_testcase.NsxClientTestCase.setup_conf_overrides()
+        self.setup_conf_overrides()
 
         super(NsxV3PluginTestCaseMixin, self).setUp(plugin=plugin,
                                                     ext_mgr=ext_mgr)

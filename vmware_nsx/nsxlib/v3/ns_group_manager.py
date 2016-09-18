@@ -17,11 +17,9 @@
 
 import uuid
 
-from oslo_config import cfg
 from oslo_log import log
 
 from vmware_nsx._i18n import _, _LW
-from vmware_nsx.nsxlib import v3
 from vmware_nsx.nsxlib.v3 import exceptions
 from vmware_nsx.nsxlib.v3 import nsx_constants as consts
 from vmware_nsx.nsxlib.v3 import utils as nsxlib_utils
@@ -51,21 +49,8 @@ class NSGroupManager(object):
     NESTED_GROUP_NAME = 'OS Nested Group'
     NESTED_GROUP_DESCRIPTION = ('OpenStack NSGroup. Do not delete.')
 
-    def __init__(self, size):
-        # TODO(asarfaty): integrate this in a better way..
-        self.nsx = v3.NsxLib(
-            username=cfg.CONF.nsx_v3.nsx_api_user,
-            password=cfg.CONF.nsx_v3.nsx_api_password,
-            retries=cfg.CONF.nsx_v3.http_retries,
-            insecure=cfg.CONF.nsx_v3.insecure,
-            ca_file=cfg.CONF.nsx_v3.ca_file,
-            concurrent_connections=cfg.CONF.nsx_v3.concurrent_connections,
-            http_timeout=cfg.CONF.nsx_v3.http_timeout,
-            http_read_timeout=cfg.CONF.nsx_v3.http_read_timeout,
-            conn_idle_timeout=cfg.CONF.nsx_v3.conn_idle_timeout,
-            http_provider=None,
-            max_attempts=cfg.CONF.nsx_v3.retries)
-
+    def __init__(self, nsxlib, size):
+        self.nsx = nsxlib
         self._nested_groups = self._init_nested_groups(size)
         self._size = len(self._nested_groups)
 

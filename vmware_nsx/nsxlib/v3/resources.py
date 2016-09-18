@@ -17,10 +17,7 @@ import abc
 import collections
 import six
 
-from oslo_config import cfg
-
 from vmware_nsx._i18n import _
-from vmware_nsx.nsxlib.v3 import client
 from vmware_nsx.nsxlib.v3 import exceptions
 from vmware_nsx.nsxlib.v3 import nsx_constants
 from vmware_nsx.nsxlib.v3 import utils
@@ -285,40 +282,47 @@ class LogicalPort(AbstractRESTResource):
             attachment=attachment))
         return self._client.create(body=body)
 
-    @utils.retry_upon_exception(
-        exceptions.StaleRevision,
-        max_attempts=cfg.CONF.nsx_v3.retries)
     def delete(self, lport_id):
-        return self._client.url_delete('%s?detach=true' % lport_id)
+        #Using internal method so we can access max_attempts in the decorator
+        @utils.retry_upon_exception(
+            exceptions.StaleRevision,
+            max_attempts=self._client.max_attempts)
+        def _do_delete():
+            return self._client.url_delete('%s?detach=true' % lport_id)
 
-    @utils.retry_upon_exception(
-        exceptions.StaleRevision,
-        max_attempts=cfg.CONF.nsx_v3.retries)
+        return _do_delete()
+
     def update(self, lport_id, vif_uuid,
                name=None, admin_state=None,
                address_bindings=None, switch_profile_ids=None,
                tags_update=None,
                attachment_type=nsx_constants.ATTACHMENT_VIF,
                parent_vif_id=None, parent_tag=None):
-        lport = self.get(lport_id)
-        tags = lport.get('tags', [])
-        if tags_update:
-            tags = utils.update_v3_tags(tags, tags_update)
-        attachment = self._prepare_attachment(vif_uuid, parent_vif_id,
-                                              parent_tag, address_bindings,
-                                              attachment_type)
-        lport.update(self._build_body_attrs(
-            display_name=name,
-            admin_state=admin_state, tags=tags,
-            address_bindings=address_bindings,
-            switch_profile_ids=switch_profile_ids,
-            attachment=attachment))
+        #Using internal method so we can access max_attempts in the decorator
+        @utils.retry_upon_exception(
+            exceptions.StaleRevision,
+            max_attempts=self._client.max_attempts)
+        def do_update():
+            lport = self.get(lport_id)
+            tags = lport.get('tags', [])
+            if tags_update:
+                tags = utils.update_v3_tags(tags, tags_update)
+            attachment = self._prepare_attachment(vif_uuid, parent_vif_id,
+                                                  parent_tag, address_bindings,
+                                                  attachment_type)
+            lport.update(self._build_body_attrs(
+                display_name=name,
+                admin_state=admin_state, tags=tags,
+                address_bindings=address_bindings,
+                switch_profile_ids=switch_profile_ids,
+                attachment=attachment))
 
-        # If revision_id of the payload that we send is older than what NSX has
-        # then we will get a 412: Precondition Failed. In that case we need to
-        # re-fetch, patch the response and send it again with the
-        # new revision_id
-        return self._client.update(lport_id, body=lport)
+            # If revision_id of the payload that we send is older than what
+            # NSX has, we will get a 412: Precondition Failed.
+            # In that case we need to re-fetch, patch the response and send
+            # it again with the new revision_id
+            return self._client.update(lport_id, body=lport)
+        return do_update()
 
 
 class LogicalRouter(AbstractRESTResource):
@@ -342,18 +346,22 @@ class LogicalRouter(AbstractRESTResource):
     def delete(self, lrouter_id):
         return self._client.url_delete(lrouter_id)
 
-    @utils.retry_upon_exception(
-        exceptions.StaleRevision,
-        max_attempts=cfg.CONF.nsx_v3.retries)
     def update(self, lrouter_id, *args, **kwargs):
-        lrouter = self.get(lrouter_id)
-        for k in kwargs:
-            lrouter[k] = kwargs[k]
-        # If revision_id of the payload that we send is older than what NSX has
-        # then we will get a 412: Precondition Failed. In that case we need to
-        # re-fetch, patch the response and send it again with the
-        # new revision_id
-        return self._client.update(lrouter_id, body=lrouter)
+        #Using internal method so we can access max_attempts in the decorator
+        @utils.retry_upon_exception(
+            exceptions.StaleRevision,
+            max_attempts=self._client.max_attempts)
+        def _do_update():
+            lrouter = self.get(lrouter_id)
+            for k in kwargs:
+                lrouter[k] = kwargs[k]
+            # If revision_id of the payload that we send is older than what
+            # NSX has, we will get a 412: Precondition Failed.
+            # In that case we need to re-fetch, patch the response and send
+            # it again with the new revision_id
+            return self._client.update(lrouter_id, body=lrouter)
+
+        return _do_update()
 
 
 class LogicalRouterPort(AbstractRESTResource):
@@ -389,24 +397,32 @@ class LogicalRouterPort(AbstractRESTResource):
 
         return self._client.create(body=body)
 
-    @utils.retry_upon_exception(
-        exceptions.StaleRevision,
-        max_attempts=cfg.CONF.nsx_v3.retries)
     def update(self, logical_port_id, **kwargs):
-        logical_router_port = self.get(logical_port_id)
-        for k in kwargs:
-            logical_router_port[k] = kwargs[k]
-        # If revision_id of the payload that we send is older than what NSX has
-        # then we will get a 412: Precondition Failed. In that case we need to
-        # re-fetch, patch the response and send it again with the
-        # new revision_id
-        return self._client.update(logical_port_id, body=logical_router_port)
+        #Using internal method so we can access max_attempts in the decorator
+        @utils.retry_upon_exception(
+            exceptions.StaleRevision,
+            max_attempts=self._client.max_attempts)
+        def _do_update():
+            logical_router_port = self.get(logical_port_id)
+            for k in kwargs:
+                logical_router_port[k] = kwargs[k]
+            # If revision_id of the payload that we send is older than what
+            # NSX has, we will get a 412: Precondition Failed.
+            # In that case we need to re-fetch, patch the response and send
+            # it again with the new revision_id
+            return self._client.update(logical_port_id,
+                                       body=logical_router_port)
+        return _do_update()
 
-    @utils.retry_upon_exception(
-        exceptions.StaleRevision,
-        max_attempts=cfg.CONF.nsx_v3.retries)
     def delete(self, logical_port_id):
-        return self._client.url_delete(logical_port_id)
+        #Using internal method so we can access max_attempts in the decorator
+        @utils.retry_upon_exception(
+            exceptions.StaleRevision,
+            max_attempts=self._client.max_attempts)
+        def _do_delete():
+            return self._client.url_delete(logical_port_id)
+
+        return _do_delete()
 
     def get_by_lswitch_id(self, logical_switch_id):
         resource = '?logical_switch_id=%s' % logical_switch_id
@@ -422,7 +438,7 @@ class LogicalRouterPort(AbstractRESTResource):
             err_msg = (_("Logical router link port not found on logical "
                          "switch %s") % logical_switch_id)
             raise exceptions.ResourceNotFound(
-                manager=client._get_nsx_managers_from_conf(),
+                manager=self._client.nsx_api_managers,
                 operation=err_msg)
 
     def update_by_lswitch_id(self, logical_router_id, ls_id, **payload):
@@ -444,7 +460,7 @@ class LogicalRouterPort(AbstractRESTResource):
             if port['resource_type'] == nsx_constants.LROUTERPORT_LINKONTIER1:
                 return port
         raise exceptions.ResourceNotFound(
-            manager=client._get_nsx_managers_from_conf(),
+            manager=self._client.nsx_api_managers,
             operation="get router link port")
 
 
@@ -511,17 +527,21 @@ class LogicalDhcpServer(AbstractRESTResource):
                                options, tags)
         return self._client.create(body=body)
 
-    @utils.retry_upon_exception(
-        exceptions.StaleRevision,
-        max_attempts=cfg.CONF.nsx_v3.retries)
     def update(self, uuid, dhcp_profile_id=None, server_ip=None, name=None,
                dns_nameservers=None, domain_name=None, gateway_ip=False,
                options=None, tags=None):
-        body = self._client.get(uuid)
-        self._construct_server(body, dhcp_profile_id, server_ip, name,
-                               dns_nameservers, domain_name, gateway_ip,
-                               options, tags)
-        return self._client.update(uuid, body=body)
+        #Using internal method so we can access max_attempts in the decorator
+        @utils.retry_upon_exception(
+            exceptions.StaleRevision,
+            max_attempts=self._client.max_attempts)
+        def _do_update():
+            body = self._client.get(uuid)
+            self._construct_server(body, dhcp_profile_id, server_ip, name,
+                                   dns_nameservers, domain_name, gateway_ip,
+                                   options, tags)
+            return self._client.update(uuid, body=body)
+
+        return _do_update()
 
     def create_binding(self, server_uuid, mac, ip, hostname=None,
                        lease_time=None, options=None):
@@ -539,14 +559,18 @@ class LogicalDhcpServer(AbstractRESTResource):
         url = "%s/static-bindings/%s" % (server_uuid, binding_uuid)
         return self._client.url_get(url)
 
-    @utils.retry_upon_exception(
-        exceptions.StaleRevision,
-        max_attempts=cfg.CONF.nsx_v3.retries)
     def update_binding(self, server_uuid, binding_uuid, **kwargs):
-        body = self.get_binding(server_uuid, binding_uuid)
-        body.update(kwargs)
-        url = "%s/static-bindings/%s" % (server_uuid, binding_uuid)
-        return self._client.url_put(url, body)
+        #Using internal method so we can access max_attempts in the decorator
+        @utils.retry_upon_exception(
+            exceptions.StaleRevision,
+            max_attempts=self._client.max_attempts)
+        def _do_update():
+            body = self.get_binding(server_uuid, binding_uuid)
+            body.update(kwargs)
+            url = "%s/static-bindings/%s" % (server_uuid, binding_uuid)
+            return self._client.url_put(url, body)
+
+        return _do_update()
 
     def delete_binding(self, server_uuid, binding_uuid):
         url = "%s/static-bindings/%s" % (server_uuid, binding_uuid)

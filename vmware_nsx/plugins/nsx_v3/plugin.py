@@ -83,7 +83,6 @@ from vmware_nsx.extensions import advancedserviceproviders as as_providers
 from vmware_nsx.extensions import maclearning as mac_ext
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
-from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.nsxlib.v3 import exceptions as nsx_lib_exc
 from vmware_nsx.nsxlib.v3 import native_dhcp
 from vmware_nsx.nsxlib.v3 import ns_group_manager
@@ -92,6 +91,7 @@ from vmware_nsx.nsxlib.v3 import resources as nsx_resources
 from vmware_nsx.nsxlib.v3 import router
 from vmware_nsx.nsxlib.v3 import security
 from vmware_nsx.nsxlib.v3 import utils as nsxlib_utils
+from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
 from vmware_nsx.services.trunk.nsx_v3 import driver as trunk_driver
@@ -165,18 +165,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         super(NsxV3Plugin, self).__init__()
         LOG.info(_LI("Starting NsxV3Plugin"))
 
-        self.nsxlib = nsxlib.NsxLib(
-            username=cfg.CONF.nsx_v3.nsx_api_user,
-            password=cfg.CONF.nsx_v3.nsx_api_password,
-            retries=cfg.CONF.nsx_v3.http_retries,
-            insecure=cfg.CONF.nsx_v3.insecure,
-            ca_file=cfg.CONF.nsx_v3.ca_file,
-            concurrent_connections=cfg.CONF.nsx_v3.concurrent_connections,
-            http_timeout=cfg.CONF.nsx_v3.http_timeout,
-            http_read_timeout=cfg.CONF.nsx_v3.http_read_timeout,
-            conn_idle_timeout=cfg.CONF.nsx_v3.conn_idle_timeout,
-            http_provider=None,
-            max_attempts=cfg.CONF.nsx_v3.retries)
+        self.nsxlib = v3_utils.get_nsxlib_wrapper()
 
         self._nsx_version = self.nsxlib.get_version()
         LOG.info(_LI("NSX Version: %s"), self._nsx_version)
@@ -416,7 +405,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _init_nsgroup_manager_and_default_section_rules(self):
         with locking.LockManager.get_lock('nsxv3_nsgroup_manager_init'):
             nsgroup_manager = ns_group_manager.NSGroupManager(
-                cfg.CONF.nsx_v3.number_of_nested_groups)
+                self.nsxlib, cfg.CONF.nsx_v3.number_of_nested_groups)
             section_description = ("This section is handled by OpenStack to "
                                    "contain default rules on security-groups.")
             section_id = self.nsxlib.init_default_section(
@@ -927,7 +916,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         neutron_port = super(NsxV3Plugin, self).create_port(
             context, {'port': port_data})
         server_data = native_dhcp.build_dhcp_server_config(
-            network, subnet, neutron_port, context.tenant_name)
+            network, subnet, neutron_port, context.tenant_name,
+            cfg.CONF.nsx_v3.nameservers,
+            cfg.CONF.nsx_v3.dhcp_profile_uuid,
+            cfg.CONF.nsx_v3.dns_domain)
         nsx_net_id = self._get_network_nsx_id(context, network['id'])
         tags = nsxlib_utils.build_v3_tags_payload(
             neutron_port, resource_type='os-neutron-dport-id',

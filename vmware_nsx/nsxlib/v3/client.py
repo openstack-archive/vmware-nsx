@@ -16,7 +16,6 @@
 import requests
 import six.moves.urllib.parse as urlparse
 
-from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
 from vmware_nsx._i18n import _, _LW
@@ -26,6 +25,7 @@ LOG = log.getLogger(__name__)
 
 ERRORS = {requests.codes.NOT_FOUND: exceptions.ResourceNotFound,
           requests.codes.PRECONDITION_FAILED: exceptions.StaleRevision}
+DEFAULT_ERROR = exceptions.ManagerError
 
 
 class RESTClient(object):
@@ -81,6 +81,10 @@ class RESTClient(object):
     def url_post(self, url, body, headers=None):
         return self._rest_call(url, method='POST', body=body, headers=headers)
 
+    def _raise_error(self, status_code, operation, result_msg):
+        error = ERRORS.get(status_code, DEFAULT_ERROR)
+        raise error(manager='', operation=operation, details=result_msg)
+
     def _validate_result(self, result, expected, operation):
         if result.status_code not in expected:
             result_msg = result.json() if result.content else ''
@@ -92,8 +96,6 @@ class RESTClient(object):
                                                for code in expected]),
                          'body': result_msg})
 
-            manager_error = ERRORS.get(
-                result.status_code, exceptions.ManagerError)
             if isinstance(result_msg, dict) and 'error_message' in result_msg:
                 related_errors = [error['error_message'] for error in
                                   result_msg.get('related_errors', [])]
@@ -101,10 +103,7 @@ class RESTClient(object):
                 if related_errors:
                     result_msg += " relatedErrors: %s" % ' '.join(
                         related_errors)
-            raise manager_error(
-                manager=_get_nsx_managers_from_conf(),
-                operation=operation,
-                details=result_msg)
+            self._raise_error(result.status_code, operation, result_msg)
 
     @classmethod
     def merge_headers(cls, *headers):
@@ -175,7 +174,11 @@ class NSX3Client(JSONRESTClient):
     _NSX_V1_API_PREFIX = 'api/v1/'
 
     def __init__(self, connection, url_prefix=None,
-                 default_headers=None):
+                 default_headers=None,
+                 nsx_api_managers=None,
+                 max_attempts=0):
+
+        self.nsx_api_managers = nsx_api_managers or []
 
         url_prefix = url_prefix or NSX3Client._NSX_V1_API_PREFIX
         if url_prefix and NSX3Client._NSX_V1_API_PREFIX not in url_prefix:
@@ -184,52 +187,15 @@ class NSX3Client(JSONRESTClient):
             else:
                 url_prefix = "%s/%s" % (NSX3Client._NSX_V1_API_PREFIX,
                                         url_prefix or '')
+        self.max_attempts = max_attempts
 
         super(NSX3Client, self).__init__(
             connection, url_prefix=url_prefix,
             default_headers=default_headers)
 
-
-# TODO(boden): remove mod level fns and vars below
-_DEFAULT_API_CLUSTER = None
-
-
-def _get_default_api_cluster():
-    global _DEFAULT_API_CLUSTER
-    if _DEFAULT_API_CLUSTER is None:
-        # removes circular ref between client / cluster
-        import vmware_nsx.nsxlib.v3.cluster as nsx_cluster
-        _DEFAULT_API_CLUSTER = nsx_cluster.NSXClusteredAPI()
-    return _DEFAULT_API_CLUSTER
-
-
-def _set_default_api_cluster(cluster):
-    global _DEFAULT_API_CLUSTER
-    old = _DEFAULT_API_CLUSTER
-    _DEFAULT_API_CLUSTER = cluster
-    return old
-
-
-def _get_client(client):
-    return client or NSX3Client(_get_default_api_cluster())
-
-
-# NOTE(shihli): tmp until all refs use client class
-def _get_nsx_managers_from_conf():
-    return cfg.CONF.nsx_v3.nsx_api_managers
-
-
-def get_resource(resource, client=None):
-    return _get_client(client).get(resource)
-
-
-def create_resource(resource, data, client=None):
-    return _get_client(client).url_post(resource, body=data)
-
-
-def update_resource(resource, data, client=None):
-    return _get_client(client).update(resource, body=data)
-
-
-def delete_resource(resource, client=None):
-    return _get_client(client).delete(resource)
+    def _raise_error(self, status_code, operation, result_msg):
+        """Override the Rest client errors to add the manager IPs"""
+        error = ERRORS.get(status_code, DEFAULT_ERROR)
+        raise error(manager=self.nsx_api_managers,
+                    operation=operation,
+                    details=result_msg)

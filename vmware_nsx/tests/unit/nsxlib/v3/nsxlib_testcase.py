@@ -17,28 +17,23 @@ import copy
 import mock
 import unittest
 
-from oslo_config import cfg
 from oslo_utils import uuidutils
 from requests import exceptions as requests_exceptions
 
-from vmware_nsx.nsxlib import v3 as nsxlib
 from vmware_nsx.nsxlib.v3 import client as nsx_client
 from vmware_nsx.nsxlib.v3 import cluster as nsx_cluster
+from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 
 NSX_USER = 'admin'
 NSX_PASSWORD = 'default'
 NSX_MANAGER = '1.2.3.4'
 NSX_INSECURE = False
 NSX_CERT = '/opt/stack/certs/nsx.pem'
+NSX_HTTP_RETRIES = 10
 NSX_HTTP_TIMEOUT = 10
 NSX_HTTP_READ_TIMEOUT = 180
-NSX_TZ_NAME = 'default transport zone'
-NSX_DHCP_PROFILE_ID = 'default dhcp profile'
-NSX_METADATA_PROXY_ID = 'default metadata proxy'
-
-V3_CLIENT_PKG = 'vmware_nsx.nsxlib.v3.client'
-BRIDGE_FNS = ['create_resource', 'delete_resource',
-              'update_resource', 'get_resource']
+NSX_CONCURENT_CONN = 10
+NSX_CONN_IDLE_TIME = 10
 
 
 def _mock_nsxlib():
@@ -91,43 +86,11 @@ def _mock_nsxlib():
 
 class NsxLibTestCase(unittest.TestCase):
 
-    @classmethod
-    def setup_conf_overrides(cls):
-        cfg.CONF.set_override('default_overlay_tz', NSX_TZ_NAME, 'nsx_v3')
-        cfg.CONF.set_override('native_dhcp_metadata', False, 'nsx_v3')
-        cfg.CONF.set_override('dhcp_profile_uuid',
-                              NSX_DHCP_PROFILE_ID, 'nsx_v3')
-        cfg.CONF.set_override('metadata_proxy_uuid',
-                              NSX_METADATA_PROXY_ID, 'nsx_v3')
-        cfg.CONF.set_override('nsx_api_user', NSX_USER, 'nsx_v3')
-        cfg.CONF.set_override('nsx_api_password', NSX_PASSWORD, 'nsx_v3')
-        cfg.CONF.set_override('nsx_api_managers', [NSX_MANAGER], 'nsx_v3')
-        cfg.CONF.set_override('insecure', NSX_INSECURE, 'nsx_v3')
-        cfg.CONF.set_override('ca_file', NSX_CERT, 'nsx_v3')
-        cfg.CONF.set_override('http_timeout', NSX_HTTP_TIMEOUT, 'nsx_v3')
-        cfg.CONF.set_override('http_read_timeout',
-                              NSX_HTTP_READ_TIMEOUT, 'nsx_v3')
-        cfg.CONF.set_override(
-            'network_scheduler_driver',
-            'neutron.scheduler.dhcp_agent_scheduler.AZAwareWeightScheduler')
-
     def setUp(self, *args, **kwargs):
         super(NsxLibTestCase, self).setUp()
-        NsxClientTestCase.setup_conf_overrides()
         _mock_nsxlib()
 
-        self.nsxlib = nsxlib.NsxLib(
-            username=cfg.CONF.nsx_v3.nsx_api_user,
-            password=cfg.CONF.nsx_v3.nsx_api_password,
-            retries=cfg.CONF.nsx_v3.http_retries,
-            insecure=cfg.CONF.nsx_v3.insecure,
-            ca_file=cfg.CONF.nsx_v3.ca_file,
-            concurrent_connections=cfg.CONF.nsx_v3.concurrent_connections,
-            http_timeout=cfg.CONF.nsx_v3.http_timeout,
-            http_read_timeout=cfg.CONF.nsx_v3.http_read_timeout,
-            conn_idle_timeout=cfg.CONF.nsx_v3.conn_idle_timeout,
-            http_provider=None,
-            max_attempts=cfg.CONF.nsx_v3.retries)
+        self.nsxlib = v3_utils.get_nsxlib_wrapper()
 
         # print diffs when assert comparisons fail
         self.maxDiff = None
@@ -158,42 +121,34 @@ class MemoryMockAPIProvider(nsx_cluster.AbstractHTTPProvider):
 
 class NsxClientTestCase(NsxLibTestCase):
 
-    class MockBridge(object):
-        """The MockBridge class is used to mock the nsxlib/v3/client.py file,
-        and includes the relevant functions & classes APIs
-        """
-
-        def __init__(self, api_client):
-            self._client = api_client
-
-        def get_resource(self, resource):
-            return nsx_client.get_resource(
-                resource, client=self._client)
-
-        def create_resource(self, resource, data):
-            return nsx_client.create_resource(
-                resource, data, client=self._client)
-
-        def delete_resource(self, resource):
-            return nsx_client.delete_resource(
-                resource, client=self._client)
-
-        def update_resource(self, resource, data):
-            return nsx_client.update_resource(
-                resource, data, client=self._client)
-
-        def NSX3Client(self, cluster_api):
-            return self._client
-
-        def _set_default_api_cluster(self, cluster_api):
-            pass
-
     class MockNSXClusteredAPI(nsx_cluster.NSXClusteredAPI):
 
-        def __init__(self, session_response=None):
+        def __init__(
+            self, session_response=None,
+            username=None,
+            password=None,
+            retries=None,
+            insecure=None,
+            ca_file=None,
+            concurrent_connections=None,
+            http_timeout=None,
+            http_read_timeout=None,
+            conn_idle_timeout=None,
+            nsx_api_managers=None):
             super(NsxClientTestCase.MockNSXClusteredAPI, self).__init__(
+                username=username or NSX_USER,
+                password=password or NSX_PASSWORD,
+                retries=retries or NSX_HTTP_RETRIES,
+                insecure=insecure if insecure is not None else NSX_INSECURE,
+                ca_file=ca_file or NSX_CERT,
+                concurrent_connections=(concurrent_connections or
+                                        NSX_CONCURENT_CONN),
+                http_timeout=http_timeout or NSX_HTTP_TIMEOUT,
+                http_read_timeout=http_read_timeout or NSX_HTTP_READ_TIMEOUT,
+                conn_idle_timeout=conn_idle_timeout or NSX_CONN_IDLE_TIME,
                 http_provider=NsxClientTestCase.MockHTTPProvider(
-                    session_response=session_response))
+                    session_response=session_response),
+                nsx_api_managers=nsx_api_managers or [NSX_MANAGER])
             self._record = mock.Mock()
 
         def record_call(self, request, **kwargs):
@@ -284,9 +239,9 @@ class NsxClientTestCase(NsxLibTestCase):
         def validate_connection(self, cluster_api, endpoint, conn):
             assert conn is not None
 
-    def mock_nsx_clustered_api(self, session_response=None):
+    def mock_nsx_clustered_api(self, session_response=None, **kwargs):
         return NsxClientTestCase.MockNSXClusteredAPI(
-            session_response=session_response)
+            session_response=session_response, **kwargs)
 
     def mocked_resource(self, resource_class, mock_validate=True,
                         session_response=None):
@@ -318,17 +273,22 @@ class NsxClientTestCase(NsxLibTestCase):
 
         return client
 
-    def mocked_rest_fns(self, module, attr, mock_validate=True,
-                        mock_cluster=None, client=None):
-        if client is None:
-            client = nsx_client.NSX3Client(
-                mock_cluster or self.mock_nsx_clustered_api())
-        mocked_fns = NsxClientTestCase.MockBridge(client)
-        mocked_fns.JSONRESTClient = nsx_client.JSONRESTClient
+    def new_mocked_cluster(self, conf_managers, validate_conn_func,
+                           concurrent_connections=None):
+        mock_provider = mock.Mock()
+        mock_provider.default_scheme = 'https'
+        mock_provider.validate_connection = validate_conn_func
 
-        if mock_validate:
-            mock.patch.object(client, '_validate_result').start()
-
-        mock.patch.object(module, attr, new=mocked_fns).start()
-
-        return mocked_fns
+        return nsx_cluster.NSXClusteredAPI(
+            username=NSX_USER,
+            password=NSX_PASSWORD,
+            retries=NSX_HTTP_RETRIES,
+            insecure=NSX_INSECURE,
+            ca_file=NSX_CERT,
+            concurrent_connections=(concurrent_connections or
+                                    NSX_CONCURENT_CONN),
+            http_timeout=NSX_HTTP_TIMEOUT,
+            http_read_timeout=NSX_HTTP_READ_TIMEOUT,
+            conn_idle_timeout=NSX_CONN_IDLE_TIME,
+            http_provider=mock_provider,
+            nsx_api_managers=conf_managers)

@@ -89,7 +89,10 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
                 # logical port of the Neutron DHCP port.
                 network = neutron_client.get_network(port['network_id'])
                 server_data = native_dhcp.build_dhcp_server_config(
-                    network, subnet, port, 'admin')
+                    network, subnet, port, 'admin',
+                    cfg.CONF.nsx_v3.nameservers,
+                    cfg.CONF.nsx_v3.dhcp_profile_uuid,
+                    cfg.CONF.nsx_v3.dns_domain)
                 dhcp_server = dhcp_server_resource.create(**server_data)
                 LOG.info(_LI("Created logical DHCP server %(server)s for "
                              "network %(network)s"),

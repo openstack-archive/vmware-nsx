@@ -275,7 +275,7 @@ class NsxV3APIClientBridgeTestCase(nsxlib_testcase.NsxClientTestCase):
 
     def test_get_resource(self):
         api = self.new_mocked_client(client.NSX3Client)
-        client.get_resource('ports', client=api)
+        api.get('ports')
 
         assert_json_call(
             'get', api,
@@ -283,9 +283,7 @@ class NsxV3APIClientBridgeTestCase(nsxlib_testcase.NsxClientTestCase):
 
     def test_create_resource(self):
         api = self.new_mocked_client(client.NSX3Client)
-        client.create_resource(
-            'ports', {'resource-name': 'port1'},
-            client=api)
+        api.create('ports', {'resource-name': 'port1'})
 
         assert_json_call(
             'post', api,
@@ -294,8 +292,7 @@ class NsxV3APIClientBridgeTestCase(nsxlib_testcase.NsxClientTestCase):
 
     def test_update_resource(self):
         api = self.new_mocked_client(client.NSX3Client)
-        client.update_resource(
-            'ports/1', {'name': 'a-new-name'}, client=api)
+        api.update('ports/1', {'name': 'a-new-name'})
 
         assert_json_call(
             'put', api,
@@ -304,7 +301,7 @@ class NsxV3APIClientBridgeTestCase(nsxlib_testcase.NsxClientTestCase):
 
     def test_delete_resource(self):
         api = self.new_mocked_client(client.NSX3Client)
-        client.delete_resource('ports/11', client=api)
+        api.delete('ports/11')
 
         assert_json_call(
             'delete', api,
