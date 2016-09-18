@@ -2136,7 +2136,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._get_external_attachment_info(
                 context, router))
 
-        # TODO(berlin): For nonat user case, we actually don't need a gw port
+        # TODO(berlin): For nonat use case, we actually don't need a gw port
         # which consumes one external ip. But after looking at the DB logic
         # and we need to make a big change so don't touch it at present.
         super(NsxV3Plugin, self)._update_router_gw_info(
@@ -2186,8 +2186,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         (new_tier0_uuid != org_tier0_uuid or
                          not org_enable_snat))
 
-        # Always set nat route flag True to support FIP
-        advertise_route_nat_flag = True
+        # Advertise NAT routes if enable SNAT to support FIP. In the NoNAT
+        # use case, only NSX connected routes need to be advertised.
+        advertise_route_nat_flag = True if new_enable_snat else False
         advertise_route_connected_flag = True if not new_enable_snat else False
 
         if revocate_bgp_announce:
