@@ -1650,6 +1650,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 sgids |= set(provider_groups)
             self._extend_port_dict_binding(context, port_data)
             if validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)):
+                if is_psec_on:
+                    msg = _('Mac learning requires that port security be '
+                            'disabled')
+                    raise n_exc.InvalidInput(error_message=msg)
                 self._create_mac_learning_state(context, port_data)
             elif mac_ext.MAC_LEARNING in port_data:
                 # This is due to the fact that the default is
@@ -1951,7 +1955,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         with context.session.begin(subtransactions=True):
             original_port = super(NsxV3Plugin, self).get_port(context, id)
-            _, nsx_lport_id = nsx_db.get_nsx_switch_and_port_id(
+            nsx_lswitch_id, nsx_lport_id = nsx_db.get_nsx_switch_and_port_id(
                 context.session, id)
             is_external_net = self._network_is_external(
                 context, original_port['network_id'])
@@ -1989,6 +1993,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             new_mac_learning_state = updated_port.get(mac_ext.MAC_LEARNING)
             if (new_mac_learning_state is not None and
                 old_mac_learning_state != new_mac_learning_state):
+                if port_security and new_mac_learning_state:
+                    msg = _('Mac learning requires that port security be '
+                            'disabled')
+                    raise n_exc.InvalidInput(error_message=msg)
                 self._update_mac_learning_state(context, id,
                                                 new_mac_learning_state)
 
