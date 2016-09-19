@@ -525,6 +525,24 @@ class EdgeApplianceDriver(object):
             LOG.error(_LE("Failed to rename edge: %s"),
                       e.response)
 
+    def resize_edge(self, edge_id, size):
+        """update the size of a router edge."""
+        try:
+            # First get the current edge structure
+            # [0] is the status, [1] is the body
+            edge = self.vcns.get_edge(edge_id)[1]
+            if edge.get('appliances'):
+                if edge['appliances']['applianceSize'] == size:
+                    LOG.debug('Edge %s is already with size %s',
+                              edge_id, size)
+                    return
+            # set the new size in the request
+            edge['appliances']['applianceSize'] = size
+            # update the edge
+            self.vcns.update_edge(edge_id, edge)
+        except exceptions.VcnsApiException as e:
+            LOG.error(_LE("Failed to resize edge: %s"), e.response)
+
     def delete_edge(self, context, router_id, edge_id, dist=False):
         try:
             nsxv_db.delete_nsxv_router_binding(context.session, router_id)
