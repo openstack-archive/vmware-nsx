@@ -23,6 +23,7 @@ from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_serialization import jsonutils
 from oslo_utils import excutils
 from oslo_utils import uuidutils
 from sqlalchemy.orm import exc as sa_exc
@@ -56,15 +57,18 @@ from neutron.db import securitygroups_db
 from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import availability_zone as az_ext
 from neutron.extensions import external_net as ext_net_extn
+from neutron.extensions import flavors
 from neutron.extensions import l3
 from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import portbindings as pbin
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
+from neutron import manager
 from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils
 from neutron.quota import resource_registry
+from neutron.services.flavors import flavors_plugin
 from neutron.services.qos import qos_consts
 from vmware_nsx.dvs import dvs
 from vmware_nsx.services.qos.common import utils as qos_com_utils
@@ -154,7 +158,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                    "subnet_allocation",
                                    "availability_zone",
                                    "network_availability_zone",
-                                   "router_availability_zone"]
+                                   "router_availability_zone",
+                                   "l3-flavors", "flavors"]
 
     supported_qos_rule_types = [qos_consts.RULE_TYPE_BANDWIDTH_LIMIT,
                                 qos_consts.RULE_TYPE_DSCP_MARKING]
@@ -2218,8 +2223,98 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if r.get('router_type') == nsxv_constants.EXCLUSIVE:
                 r[ROUTER_SIZE] = cfg.CONF.nsxv.exclusive_router_appliance_size
 
+    def _get_router_flavor_profile(self, context, flavor_id):
+        flv_plugin = manager.NeutronManager.get_service_plugins().get(
+            plugin_const.FLAVORS)
+        if not flv_plugin:
+            msg = _("Flavors plugin not found")
+            raise n_exc.BadRequest(resource="router", msg=msg)
+
+        # Will raise FlavorNotFound if doesn't exist
+        fl_db = flavors_plugin.FlavorsPlugin.get_flavor(
+            flv_plugin, context, flavor_id)
+
+        if fl_db['service_type'] != plugin_const.L3_ROUTER_NAT:
+            raise flavors.InvalidFlavorServiceType(
+                service_type=fl_db['service_type'])
+
+        if not fl_db['enabled']:
+            raise flavors.FlavorDisabled()
+
+        # get the profile (Currently only 1 is supported, so take the first)
+        if not fl_db['service_profiles']:
+            return
+        profile_id = fl_db['service_profiles'][0]
+
+        return flavors_plugin.FlavorsPlugin.get_service_profile(
+            flv_plugin,
+            context,
+            profile_id)
+
+    def _get_flavor_metainfo_from_profile(self, flavor_id, flavor_profile):
+        if not flavor_profile:
+            return {}
+        metainfo_string = flavor_profile.get('metainfo').replace("'", "\"")
+        try:
+            metainfo = jsonutils.loads(metainfo_string)
+            if not isinstance(metainfo, dict):
+                LOG.warning(_LW("Skipping router flavor %(flavor)s metainfo "
+                                "[%(metainfo)s]: expected a dictionary"),
+                            {'flavor': flavor_id,
+                             'metainfo': metainfo_string})
+                metainfo = {}
+        except ValueError as e:
+            LOG.warning(_LW("Error reading router flavor %(flavor)s metainfo "
+                            "[%(metainfo)s]: %(error)s"),
+                        {'flavor': flavor_id,
+                         'metainfo': metainfo_string,
+                         'error': e})
+            metainfo = {}
+        return metainfo
+
+    def _get_router_config_from_flavor(self, context, router):
+        """Validate the router flavor and initialize router data
+
+        Validate that the flavor is legit, and that contradicting configuration
+        does not exist.
+        Also update the router data to reflect the selected flavor.
+        """
+        if not validators.is_attr_set(router.get('flavor_id')):
+            return
+        flavor_id = router['flavor_id']
+        flavor_profile = self._get_router_flavor_profile(context, flavor_id)
+        metainfo = self._get_flavor_metainfo_from_profile(flavor_id,
+                                                          flavor_profile)
+
+        # Go over the attributes of the metainfo
+        allowed_keys = [ROUTER_SIZE, 'router_type', 'distributed',
+                        az_ext.AZ_HINTS]
+        for k, v in metainfo.items():
+            if k in allowed_keys:
+                #special case for availability zones hints which are an array
+                if k == az_ext.AZ_HINTS:
+                    if not isinstance(v, list):
+                        v = [v]
+                    # The default az hists is an empty array
+                    if (validators.is_attr_set(router.get(k)) and
+                        len(router[k]) > 0):
+                        msg = (_("Cannot specify %s if the flavor profile "
+                                 "defines it") % k)
+                        raise n_exc.BadRequest(resource="router", msg=msg)
+
+                elif validators.is_attr_set(router.get(k)) and router[k] != v:
+                    msg = _("Cannot specify %s if the flavor defines it") % k
+                    raise n_exc.BadRequest(resource="router", msg=msg)
+                # Legal value
+                router[k] = v
+            else:
+                LOG.warning(_LW("Skipping router flavor metainfo [%(k)s:%(v)s]"
+                                ":unsupported field"),
+                            {'k': k, 'v': v})
+
     def create_router(self, context, router, allow_metadata=True):
         r = router['router']
+        self._get_router_config_from_flavor(context, r)
         self._decide_router_type(context, r)
         self._validate_router_size(router)
         self._validate_availability_zones_in_obj(context, 'router', r)
@@ -2234,6 +2329,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             router_db = self._get_router(context, lrouter['id'])
             self._process_extra_attr_router_create(context, router_db, r)
             self._process_nsx_router_create(context, router_db, r)
+            self._process_router_flavor_create(context, router_db, r)
 
         lrouter = super(NsxVPluginV2, self).get_router(context,
                                                        lrouter['id'])
@@ -2387,6 +2483,18 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             return [self._get_availability_zone_name_by_edge(
                 context, edge_id)]
         return []
+
+    def _process_router_flavor_create(self, context, router_db, r):
+        """Update the router DB structure with the flavor ID upon creation
+        """
+        if validators.is_attr_set(r.get('flavor_id')):
+            router_db.flavor_id = r['flavor_id']
+
+    def add_flavor_id(plugin, router_res, router_db):
+        router_res['flavor_id'] = router_db['flavor_id']
+
+    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
+        l3.ROUTERS, [add_flavor_id])
 
     def get_router(self, context, id, fields=None):
         router = super(NsxVPluginV2, self).get_router(context, id, fields)
