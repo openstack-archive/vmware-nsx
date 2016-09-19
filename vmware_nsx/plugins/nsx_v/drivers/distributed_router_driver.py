@@ -398,6 +398,8 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         router_db = self.plugin._get_router(context, router_id)
         subnet = self.plugin.get_subnet(context, info['subnet_id'])
         network_id = subnet['network_id']
+        vdr_dhcp_binding = nsxv_db.get_vdr_dhcp_binding_by_vdr(
+            context.session, router_id)
 
         with locking.LockManager.get_lock(self._get_edge_id(context,
                                                             router_id)):
@@ -413,11 +415,6 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                     context, router_db)[2]
                 md_gw_data = self._get_metadata_gw_data(context, router_id)
                 self._update_routes(context, router_id, nexthop, md_gw_data)
-                if (subnet['enable_dhcp']
-                    and self.plugin.metadata_proxy_handler
-                    and not md_gw_data):
-                    # No more DHCP interfaces on VDR. Remove DHCP binding
-                    nsxv_db.delete_vdr_dhcp_binding(context.session, router_id)
 
             # If DHCP is disabled, this remove cannot trigger metadata change
             # as metadata is served via DHCP Edge
@@ -434,49 +431,46 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
             edge_utils.delete_interface(
                 self.nsx_v, context, router_id, network_id, dist=True)
 
-            # The network would be the last one attached to the VDR if
-            # md_gw_data is None. For such condition, we just keep network
-            # attached to the dhcp edge since the dhcp edge is a pure dhcp
-            # support edge now
-            if (self.plugin.metadata_proxy_handler and subnet['enable_dhcp']
-                and md_gw_data):
-                # Detach network from VDR-dedicated DHCP Edge
-                vdr_dhcp_binding = nsxv_db.get_vdr_dhcp_binding_by_vdr(
-                    context.session, router_id)
-
-                # A case where we do not have a vdr_dhcp_binding indicates a DB
-                # inconsistency. We check for this anyway, in case that
-                # something is broken.
-                if vdr_dhcp_binding:
-                    self.edge_manager.reset_sysctl_rp_filter_for_vdr_dhcp(
-                        context, vdr_dhcp_binding['dhcp_edge_id'], network_id)
-
-                    self.edge_manager.remove_network_from_dhcp_edge(
-                        context, network_id, vdr_dhcp_binding['dhcp_edge_id'])
-                else:
-                    LOG.error(_LE('VDR DHCP binding is missing for %s'),
-                              router_id)
-
-                # Reattach to regular DHCP Edge
-                dhcp_id = self.edge_manager.create_dhcp_edge_service(
-                    context, network_id, subnet)
-
-                address_groups = (
-                    self.plugin._create_network_dhcp_address_group(context,
-                                                                   network_id))
-                self.edge_manager.update_dhcp_edge_service(
-                    context, network_id, address_groups=address_groups)
-                if dhcp_id:
-                    edge_id = self.plugin._get_edge_id_by_rtr_id(context,
-                                                                 dhcp_id)
-                    if edge_id:
-                        with locking.LockManager.get_lock(str(edge_id)):
-                            md_proxy_handler = (
-                                self.plugin.metadata_proxy_handler)
-                            if md_proxy_handler:
-                                md_proxy_handler.configure_router_edge(dhcp_id)
+            if self.plugin.metadata_proxy_handler and subnet['enable_dhcp']:
+                self._attach_network_to_regular_dhcp(
+                    context, router_id, network_id, subnet, vdr_dhcp_binding)
 
             return info
+
+    def _attach_network_to_regular_dhcp(
+            self, context, router_id, network_id, subnet, vdr_dhcp_binding):
+        # Detach network from VDR-dedicated DHCP Edge
+
+        # A case where we do not have a vdr_dhcp_binding indicates a DB
+        # inconsistency. We check for this anyway, in case that
+        # something is broken.
+        if vdr_dhcp_binding:
+            self.edge_manager.reset_sysctl_rp_filter_for_vdr_dhcp(
+                context, vdr_dhcp_binding['dhcp_edge_id'], network_id)
+
+            self.edge_manager.remove_network_from_dhcp_edge(
+                context, network_id, vdr_dhcp_binding['dhcp_edge_id'])
+        else:
+            LOG.error(_LE('VDR DHCP binding is missing for %s'),
+                      router_id)
+
+        # Reattach to regular DHCP Edge
+        dhcp_id = self.edge_manager.create_dhcp_edge_service(
+            context, network_id, subnet)
+
+        address_groups = self.plugin._create_network_dhcp_address_group(
+            context, network_id)
+        self.edge_manager.update_dhcp_edge_service(
+            context, network_id, address_groups=address_groups)
+        if dhcp_id:
+            edge_id = self.plugin._get_edge_id_by_rtr_id(context,
+                                                         dhcp_id)
+            if edge_id:
+                with locking.LockManager.get_lock(str(edge_id)):
+                    md_proxy_handler = (
+                        self.plugin.metadata_proxy_handler)
+                    if md_proxy_handler:
+                        md_proxy_handler.configure_router_edge(dhcp_id)
 
     def _update_edge_router(self, context, router_id):
         router = self.plugin._get_router(context.elevated(), router_id)
