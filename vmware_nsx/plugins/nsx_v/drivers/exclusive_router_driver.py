@@ -68,15 +68,8 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
         if 'name' in r:
             self.edge_manager.rename_lrouter(context, router_id, r['name'])
         if r.get('router_size'):
-            edge_id = edge_utils.get_router_edge_id(context, router_id)
-            with locking.LockManager.get_lock(edge_id):
-                edge_cfg = self.vcns.get_edge(edge_id)[1]
-                if edge_cfg.get('appliances'):
-                    edge_cfg['appliances']['applianceSize'] = r['router_size']
-                    self.vcns.update_edge(edge_id, edge_cfg)
-                    nsxv_db.update_nsxv_router_binding(
-                        context.session, router_id,
-                        appliance_size=r['router_size'])
+            self.edge_manager.resize_lrouter(context, router_id,
+                                             r['router_size'])
         return self.plugin.get_router(context, router_id)
 
     def detach_router(self, context, router_id, router):
