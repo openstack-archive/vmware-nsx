@@ -476,43 +476,46 @@ class LogicalDhcpServer(AbstractRESTResource):
         return 'dhcp/servers'
 
     def _construct_server(self, body, dhcp_profile_id=None, server_ip=None,
-                          name=None, dns_servers=None, domain_name=None,
-                          gateway_ip=None, options=None, tags=None):
+                          name=None, dns_nameservers=None, domain_name=None,
+                          gateway_ip=False, options=None, tags=None):
         if name:
             body['display_name'] = name
         if dhcp_profile_id:
             body['dhcp_profile_id'] = dhcp_profile_id
         if server_ip:
             body['ipv4_dhcp_server']['dhcp_server_ip'] = server_ip
-        if dns_servers:
-            body['ipv4_dhcp_server']['dns_nameservers'] = dns_servers
+        if dns_nameservers is not None:
+            # Note that [] is valid for dns_nameservers, means deleting it.
+            body['ipv4_dhcp_server']['dns_nameservers'] = dns_nameservers
         if domain_name:
             body['ipv4_dhcp_server']['domain_name'] = domain_name
-        if gateway_ip:
+        if gateway_ip is not False:
+            # Note that None is valid for gateway_ip, means deleting it.
             body['ipv4_dhcp_server']['gateway_ip'] = gateway_ip
         if options:
             body['ipv4_dhcp_server']['options'] = options
         if tags:
             body['tags'] = tags
 
-    def create(self, dhcp_profile_id, server_ip, name=None, dns_servers=None,
-               domain_name=None, gateway_ip=None, options=None, tags=None):
+    def create(self, dhcp_profile_id, server_ip, name=None,
+               dns_nameservers=None, domain_name=None, gateway_ip=False,
+               options=None, tags=None):
         body = {'ipv4_dhcp_server': {}}
         self._construct_server(body, dhcp_profile_id, server_ip, name,
-                               dns_servers, domain_name, gateway_ip, options,
-                               tags)
+                               dns_nameservers, domain_name, gateway_ip,
+                               options, tags)
         return self._client.create(body=body)
 
     @utils.retry_upon_exception_nsxv3(
         exceptions.StaleRevision,
         max_attempts=cfg.CONF.nsx_v3.retries)
     def update(self, uuid, dhcp_profile_id=None, server_ip=None, name=None,
-               dns_servers=None, domain_name=None, gateway_ip=None,
+               dns_nameservers=None, domain_name=None, gateway_ip=False,
                options=None, tags=None):
         body = self._client.get(uuid)
         self._construct_server(body, dhcp_profile_id, server_ip, name,
-                               dns_servers, domain_name, gateway_ip, options,
-                               tags)
+                               dns_nameservers, domain_name, gateway_ip,
+                               options, tags)
         return self._client.update(uuid, body=body)
 
     def create_binding(self, server_uuid, mac, ip, hostname=None,
