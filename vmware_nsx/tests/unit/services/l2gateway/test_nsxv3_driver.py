@@ -86,7 +86,7 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
                         mock.MagicMock())
         l2gws = self.driver._get_l2_gateways(self.context)
         def_bridge_cluster_id = (
-            self.nsxlib.get_bridge_cluster_id_by_name_or_id(
+            self.nsxlib.bridge_cluster.get_id_by_name_or_id(
                 def_bridge_cluster_name))
         def_l2gw = None
         for l2gw in l2gws:

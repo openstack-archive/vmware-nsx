@@ -56,27 +56,27 @@ def _mock_nsxlib():
         ".validate_connection").start()
 
     mock.patch(
-        "vmware_nsx.nsxlib.v3.NsxLib.create_nsgroup",
+        "vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.create",
         side_effect=_return_id_key
     ).start()
 
     mock.patch(
-        "vmware_nsx.nsxlib.v3.NsxLib.create_empty_section",
+        "vmware_nsx.nsxlib.v3.security.NsxLibFirewallSection.create_empty",
         side_effect=_return_id_key).start()
 
     mock.patch(
-        "vmware_nsx.nsxlib.v3.NsxLib.init_default_section",
+        "vmware_nsx.nsxlib.v3.security.NsxLibFirewallSection.init_default",
         side_effect=_return_id_key).start()
 
     mock.patch(
-        "vmware_nsx.nsxlib.v3.NsxLib.list_nsgroups").start()
+        "vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.list").start()
 
     mock.patch(
-        "vmware_nsx.nsxlib.v3.NsxLib.add_rules_in_section",
+        "vmware_nsx.nsxlib.v3.security.NsxLibFirewallSection.add_rules",
         side_effect=_mock_add_rules_in_section).start()
 
     mock.patch(
-        "vmware_nsx.nsxlib.v3.NsxLib.get_transport_zone_id_by_name_or_id",
+        "vmware_nsx.nsxlib.v3.NsxLibTransportZone.get_id_by_name_or_id",
         side_effect=_return_id_key).start()
 
     mock.patch(

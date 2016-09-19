@@ -137,7 +137,7 @@ class TestNSXv3ExtendedSGRule(test_nsxv3_plugin.NsxV3PluginTestCaseMixin,
              'description': ''}]
 
         with mock.patch(
-            "vmware_nsx.nsxlib.v3.NsxLib.create_firewall_rules",
+            "vmware_nsx.nsxlib.v3.security.NsxLibFirewallSection.create_rules",
             side_effect=test_nsxv3_plugin._mock_create_firewall_rules,
         ) as mock_rule:
 

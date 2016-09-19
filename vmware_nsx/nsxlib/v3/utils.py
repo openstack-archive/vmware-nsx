@@ -20,6 +20,7 @@ from neutron_lib import exceptions
 from oslo_log import log
 
 from vmware_nsx._i18n import _
+from vmware_nsx.nsxlib.v3 import exceptions as nsxlib_exceptions
 
 LOG = log.getLogger(__name__)
 
@@ -169,3 +170,48 @@ def get_name_and_uuid(name, uuid, tag=None, maxlen=80):
         return name[:maxlen] + '_' + tag + short_uuid
     else:
         return name[:maxlen] + short_uuid
+
+
+class NsxLibApiBase(object):
+    """Base class for nsxlib api """
+    def __init__(self, client, max_attempts):
+        self.client = client
+        self.max_attempts = max_attempts
+        super(NsxLibApiBase, self).__init__()
+
+    def _update_resource_with_retry(self, resource, payload):
+        #Using internal method so we can access max_attempts in the decorator
+        @retry_upon_exception(nsxlib_exceptions.StaleRevision,
+                             max_attempts=self.max_attempts)
+        def do_update():
+            revised_payload = self.client.get(resource)
+            for key_name in payload.keys():
+                revised_payload[key_name] = payload[key_name]
+            return self.client.update(resource, revised_payload)
+
+        return do_update()
+
+    def _get_resource_by_name_or_id(self, name_or_id, resource):
+        all_results = self.client.get(resource)['results']
+        matched_results = []
+        for rs in all_results:
+            if rs.get('id') == name_or_id:
+                # Matched by id - must be unique
+                return name_or_id
+
+            if rs.get('display_name') == name_or_id:
+                # Matched by name - add to the list to verify it is unique
+                matched_results.append(rs)
+
+        if len(matched_results) == 0:
+            err_msg = (_("Could not find %(resource)s %(name)s") %
+                       {'name': name_or_id, 'resource': resource})
+            # XXX improve exception handling...
+            raise exceptions.ManagerError(details=err_msg)
+        elif len(matched_results) > 1:
+            err_msg = (_("Found multiple %(resource)s named %(name)s") %
+                       {'name': name_or_id, 'resource': resource})
+            # XXX improve exception handling...
+            raise exceptions.ManagerError(details=err_msg)
+
+        return matched_results[0].get('id')

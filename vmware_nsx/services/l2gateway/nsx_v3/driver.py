@@ -85,7 +85,7 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         admin_ctx = context.get_admin_context()
 
         def_l2gw_uuid = (
-            self._core_plugin.nsxlib.get_bridge_cluster_id_by_name_or_id(
+            self._core_plugin.nsxlib.bridge_cluster.get_id_by_name_or_id(
                 def_l2gw_name))
 
         # Optimistically create the default L2 gateway in neutron DB
@@ -223,7 +223,7 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
             tags = nsxlib_utils.build_v3_tags_payload(
                 gw_connection, resource_type='os-neutron-l2gw-id',
                 project_name=context.tenant_name)
-            bridge_endpoint = self._core_plugin.nsxlib.create_bridge_endpoint(
+            bridge_endpoint = self._core_plugin.nsxlib.bridge_endpoint.create(
                 device_name=device_name,
                 seg_id=seg_id,
                 tags=tags)
@@ -258,7 +258,7 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
                 n_exc.NeutronException):
             LOG.exception(_LE("Unable to create L2 gateway port, "
                               "rolling back changes on neutron"))
-            self._core_plugin.nsxlib.delete_bridge_endpoint(
+            self._core_plugin.nsxlib.bridge_endpoint.delete(
                 bridge_endpoint['id'])
             raise l2gw_exc.L2GatewayServiceDriverError(
                 method='create_l2_gateway_connection_postcommit')
@@ -273,7 +273,7 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("Unable to add L2 gateway connection "
                                   "mappings, rolling back changes on neutron"))
-                self._core_plugin.nsxlib.delete_bridge_endpoint(
+                self._core_plugin.nsxlib.bridge_endpoint.delete(
                     bridge_endpoint['id'])
                 super(NsxV3Driver,
                       self).delete_l2_gateway_connection(
@@ -298,7 +298,7 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
                                       port_id=conn_mapping.get('port_id'),
                                       l2gw_port_check=False)
         try:
-            self._core_plugin.nsxlib.delete_bridge_endpoint(bridge_endpoint_id)
+            self._core_plugin.nsxlib.bridge_endpoint.delete(bridge_endpoint_id)
         except nsxlib_exc.ManagerError as e:
             LOG.exception(_LE("Unable to delete bridge endpoint %(id)s on the "
                               "backend due to exc: %(exc)s"),

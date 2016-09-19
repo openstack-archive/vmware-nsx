@@ -60,7 +60,7 @@ class RouterLib(object):
                 err_msg = _("Failed to get edge cluster uuid from tier0 "
                             "router %s at the backend") % lrouter
             else:
-                edge_cluster = self.nsxlib.get_edge_cluster(edge_cluster_uuid)
+                edge_cluster = self.nsxlib.edge_cluster.get(edge_cluster_uuid)
                 member_index_list = [member['member_index']
                                      for member in edge_cluster['members']]
                 if len(member_index_list) < MIN_EDGE_NODE_NUM:
@@ -116,7 +116,7 @@ class RouterLib(object):
                              advertise_route_connected,
                              advertise_route_static=False,
                              enabled=True):
-        return self.nsxlib.update_logical_router_advertisement(
+        return self.nsxlib.logical_router.update_advertisement(
             logical_router_id,
             advertise_nat_routes=advertise_route_nat,
             advertise_nsx_connected_routes=advertise_route_connected,
@@ -124,13 +124,15 @@ class RouterLib(object):
             enabled=enabled)
 
     def delete_gw_snat_rule(self, logical_router_id, gw_ip):
-        return self.nsxlib.delete_nat_rule_by_values(logical_router_id,
-                                                     translated_network=gw_ip)
+        return self.nsxlib.logical_router.delete_nat_rule_by_values(
+            logical_router_id,
+            translated_network=gw_ip)
 
     def add_gw_snat_rule(self, logical_router_id, gw_ip):
-        return self.nsxlib.add_nat_rule(logical_router_id, action="SNAT",
-                                        translated_network=gw_ip,
-                                        rule_priority=GW_NAT_PRI)
+        return self.nsxlib.logical_router.add_nat_rule(
+            logical_router_id, action="SNAT",
+            translated_network=gw_ip,
+            rule_priority=GW_NAT_PRI)
 
     def update_router_edge_cluster(self, nsx_router_id, edge_cluster_uuid):
         return self._router_client.update(nsx_router_id,
@@ -157,31 +159,36 @@ class RouterLib(object):
                 port['id'], subnets=address_groups)
 
     def add_fip_nat_rules(self, logical_router_id, ext_ip, int_ip):
-        self.nsxlib.add_nat_rule(logical_router_id, action="SNAT",
-                                 translated_network=ext_ip,
-                                 source_net=int_ip,
-                                 rule_priority=FIP_NAT_PRI)
-        self.nsxlib.add_nat_rule(logical_router_id, action="DNAT",
-                                 translated_network=int_ip,
-                                 dest_net=ext_ip,
-                                 rule_priority=FIP_NAT_PRI)
+        self.nsxlib.logical_router.add_nat_rule(
+            logical_router_id, action="SNAT",
+            translated_network=ext_ip,
+            source_net=int_ip,
+            rule_priority=FIP_NAT_PRI)
+        self.nsxlib.logical_router.add_nat_rule(
+            logical_router_id, action="DNAT",
+            translated_network=int_ip,
+            dest_net=ext_ip,
+            rule_priority=FIP_NAT_PRI)
 
     def delete_fip_nat_rules(self, logical_router_id, ext_ip, int_ip):
-        self.nsxlib.delete_nat_rule_by_values(logical_router_id,
-                                              action="SNAT",
-                                              translated_network=ext_ip,
-                                              match_source_network=int_ip)
-        self.nsxlib.delete_nat_rule_by_values(logical_router_id,
-                                              action="DNAT",
-                                              translated_network=int_ip,
-                                              match_destination_network=ext_ip)
+        self.nsxlib.logical_router.delete_nat_rule_by_values(
+            logical_router_id,
+            action="SNAT",
+            translated_network=ext_ip,
+            match_source_network=int_ip)
+        self.nsxlib.logical_router.delete_nat_rule_by_values(
+            logical_router_id,
+            action="DNAT",
+            translated_network=int_ip,
+            match_destination_network=ext_ip)
 
     def add_static_routes(self, nsx_router_id, route):
-        return self.nsxlib.add_static_route(nsx_router_id,
-                                            route['destination'],
-                                            route['nexthop'])
+        return self.nsxlib.logical_router.add_static_route(
+            nsx_router_id,
+            route['destination'],
+            route['nexthop'])
 
     def delete_static_routes(self, nsx_router_id, route):
-        return self.nsxlib.delete_static_route_by_values(
+        return self.nsxlib.logical_router.delete_static_route_by_values(
             nsx_router_id, dest_cidr=route['destination'],
             nexthop=route['nexthop'])

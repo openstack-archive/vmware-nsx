@@ -50,7 +50,7 @@ class NSGroupManager(object):
     NESTED_GROUP_DESCRIPTION = ('OpenStack NSGroup. Do not delete.')
 
     def __init__(self, nsxlib, size):
-        self.nsx = nsxlib
+        self.nsxlib_nsgroup = nsxlib.ns_group
         self._nested_groups = self._init_nested_groups(size)
         self._size = len(self._nested_groups)
 
@@ -68,7 +68,7 @@ class NSGroupManager(object):
         size = requested_size
         nested_groups = {
             self._get_nested_group_index_from_name(nsgroup): nsgroup['id']
-            for nsgroup in self.nsx.list_nsgroups()
+            for nsgroup in self.nsxlib_nsgroup.list()
             if nsxlib_utils.is_internal_resource(nsgroup)}
 
         if nested_groups:
@@ -101,7 +101,7 @@ class NSGroupManager(object):
         name = '%s %s' % (name_prefix, index + 1)
         description = NSGroupManager.NESTED_GROUP_DESCRIPTION
         tags = nsxlib_utils.build_v3_api_version_tag()
-        return self.nsx.create_nsgroup(name, description, tags)
+        return self.nsxlib_nsgroup.create(name, description, tags)
 
     def _hash_uuid(self, internal_id):
         return hash(uuid.UUID(internal_id))
@@ -122,9 +122,8 @@ class NSGroupManager(object):
             try:
                 LOG.debug("Adding NSGroup %s to nested group %s",
                           nsgroup_id, group)
-                self.nsx.add_nsgroup_members(group,
-                                            consts.NSGROUP,
-                                            [nsgroup_id])
+                self.nsxlib_nsgroup.add_members(
+                    group, consts.NSGROUP, [nsgroup_id])
                 break
             except exceptions.NSGroupIsFull:
                 LOG.debug("Nested group %(group_id)s is full, trying the "
@@ -137,7 +136,7 @@ class NSGroupManager(object):
     def remove_nsgroup(self, nsgroup_id):
         for group in self._suggest_nested_group(nsgroup_id):
             try:
-                self.nsx.remove_nsgroup_member(
+                self.nsxlib_nsgroup.remove_member(
                     group, consts.NSGROUP,
                     nsgroup_id, verify=True)
                 break

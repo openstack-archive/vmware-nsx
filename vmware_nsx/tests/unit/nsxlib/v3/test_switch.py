@@ -47,7 +47,7 @@ class NsxLibSwitchTestCase(nsxlib_testcase.NsxClientTestCase):
         """
 
         with mock.patch.object(self.nsxlib.client, 'create') as create:
-            self.nsxlib.create_logical_switch(
+            self.nsxlib.logical_switch.create(
                 nsx_v3_mocks.FAKE_NAME, NsxLibSwitchTestCase._tz_id, [])
             create.assert_called_with('logical-switches', self._create_body())
 
@@ -57,7 +57,7 @@ class NsxLibSwitchTestCase(nsxlib_testcase.NsxClientTestCase):
         """
 
         with mock.patch.object(self.nsxlib.client, 'create') as create:
-            self.nsxlib.create_logical_switch(
+            self.nsxlib.logical_switch.create(
                 nsx_v3_mocks.FAKE_NAME, NsxLibSwitchTestCase._tz_id,
                 [], admin_state=False)
 
@@ -72,7 +72,7 @@ class NsxLibSwitchTestCase(nsxlib_testcase.NsxClientTestCase):
         """
 
         with mock.patch.object(self.nsxlib.client, 'create') as create:
-            self.nsxlib.create_logical_switch(
+            self.nsxlib.logical_switch.create(
                 nsx_v3_mocks.FAKE_NAME, NsxLibSwitchTestCase._tz_id,
                 [], vlan_id='123')
 
@@ -87,7 +87,7 @@ class NsxLibSwitchTestCase(nsxlib_testcase.NsxClientTestCase):
 
         with mock.patch.object(self.nsxlib.client, 'delete') as delete:
             fake_switch = nsx_v3_mocks.make_fake_switch()
-            self.nsxlib.delete_logical_switch(fake_switch['id'])
+            self.nsxlib.logical_switch.delete(fake_switch['id'])
             delete.assert_called_with(
                 'logical-switches/%s'
                 '?detach=true&cascade=true' % fake_switch['id'])

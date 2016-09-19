@@ -84,6 +84,10 @@ class QosNotificationsHandler(object):
     def _core_plugin(self):
         return manager.NeutronManager.get_plugin()
 
+    @property
+    def _nsxlib_qos(self):
+        return self._core_plugin.nsxlib.qos_switching_profile
+
     def _get_tags(self, context, policy):
         policy_dict = {'id': policy.id, 'tenant_id': policy.tenant_id}
         return utils.build_v3_tags_payload(
@@ -93,7 +97,7 @@ class QosNotificationsHandler(object):
     def create_policy(self, context, policy):
         policy_id = policy.id
         tags = self._get_tags(context, policy)
-        result = self._core_plugin.nsxlib.create_qos_switching_profile(
+        result = self._nsxlib_qos.create(
             tags=tags, name=policy.name,
             description=policy.description)
         if not result or not validators.is_attr_set(result.get('id')):
@@ -109,13 +113,13 @@ class QosNotificationsHandler(object):
     def delete_policy(self, context, policy_id):
         profile_id = nsx_db.get_switch_profile_by_qos_policy(
             context.session, policy_id)
-        self._core_plugin.nsxlib.delete_qos_switching_profile(profile_id)
+        self._nsxlib_qos.delete(profile_id)
 
     def update_policy(self, context, policy_id, policy):
         profile_id = nsx_db.get_switch_profile_by_qos_policy(
             context.session, policy_id)
         tags = self._get_tags(context, policy)
-        self._core_plugin.nsxlib.update_qos_switching_profile(
+        self._nsxlib_qos.update(
             profile_id,
             tags=tags,
             name=policy.name,
@@ -185,7 +189,7 @@ class QosNotificationsHandler(object):
             average_bw) = self._get_bw_values_from_rule(bw_rule)
 
         qos_marking, dscp = self._get_dscp_values_from_rule(dscp_rule)
-        self._core_plugin.nsxlib.update_qos_switching_profile_shaping(
+        self._nsxlib_qos.update_shaping(
             profile_id,
             shaping_enabled=shaping_enabled,
             burst_size=burst_size,

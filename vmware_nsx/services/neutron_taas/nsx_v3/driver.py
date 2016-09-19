@@ -281,7 +281,7 @@ class NsxV3Driver(base_driver.TaasBaseDriver,
         # Create port mirror session on the backend
         try:
             nsxlib = v3_utils.get_nsxlib_wrapper()
-            pm_session = nsxlib.create_port_mirror_session(
+            pm_session = nsxlib.port_mirror.create_session(
                     source_ports=nsx_src_ports,
                     dest_ports=nsx_dest_ports,
                     direction=direction,
@@ -307,8 +307,7 @@ class NsxV3Driver(base_driver.TaasBaseDriver,
                 LOG.error(_LE("Unable to create port mirror session db "
                               "mappings for tap flow %s. Rolling back "
                               "changes in Neutron."), tf['id'])
-                nsxlib.delete_port_mirror_session(
-                    pm_session['id'])
+                nsxlib.port_mirror.delete_session(pm_session['id'])
 
     def delete_tap_flow_precommit(self, context):
         pass
@@ -369,7 +368,7 @@ class NsxV3Driver(base_driver.TaasBaseDriver,
     def _delete_local_span(self, context, pm_session_id):
         # Delete port mirroring session on the backend
         try:
-            nsxlib.delete_port_mirror_session(pm_session_id)
+            nsxlib.port_mirror.delete_session(pm_session_id)
         except nsxlib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE("Unable to delete port mirror session %s "

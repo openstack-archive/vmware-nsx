@@ -26,7 +26,7 @@ from vmware_nsx.nsxlib.v3 import utils
 LOG = log.getLogger(__name__)
 
 
-class NsxLib(security.Security):
+class NsxLib(object):
 
     def __init__(self,
                  username=None,
@@ -61,6 +61,28 @@ class NsxLib(security.Security):
             self.cluster,
             max_attempts=max_attempts)
 
+        # init the api object
+        self.port_mirror = NsxLibPortMirror(
+            self.client, self.max_attempts)
+        self.bridge_endpoint = NsxLibBridgeEndpoint(
+            self.client, self.max_attempts)
+        self.logical_switch = NsxLibLogicalSwitch(
+            self.client, self.max_attempts)
+        self.logical_router = NsxLibLogicalRouter(
+            self.client, self.max_attempts)
+        self.qos_switching_profile = NsxLibQosSwitchingProfile(
+            self.client, self.max_attempts)
+        self.edge_cluster = NsxLibEdgeCluster(
+            self.client, self.max_attempts)
+        self.bridge_cluster = NsxLibBridgeCluster(
+            self.client, self.max_attempts)
+        self.transport_zone = NsxLibTransportZone(
+            self.client, self.max_attempts)
+        self.firewall_section = security.NsxLibFirewallSection(
+            self.client, self.max_attempts)
+        self.ns_group = security.NsxLibNsGroup(
+            self.client, self.max_attempts, self.firewall_section)
+
         super(NsxLib, self).__init__()
 
     def get_version(self):
@@ -68,53 +90,76 @@ class NsxLib(security.Security):
         version = node.get('node_version')
         return version
 
-    def get_edge_cluster(self, edge_cluster_uuid):
-        resource = "edge-clusters/%s" % edge_cluster_uuid
-        return self.client.get(resource)
 
-    def update_resource_with_retry(self, resource, payload):
-        #Using internal method so we can access max_attempts in the decorator
-        @utils.retry_upon_exception(exceptions.StaleRevision,
-                                    max_attempts=self.max_attempts)
-        def _do_update():
-            revised_payload = self.client.get(resource)
-            for key_name in payload.keys():
-                revised_payload[key_name] = payload[key_name]
-            return self.client.update(resource, revised_payload)
+class NsxLibPortMirror(utils.NsxLibApiBase):
 
-        return _do_update()
+    def create_session(self, source_ports, dest_ports, direction,
+                       description, name, tags):
+        """Create a PortMirror Session on the backend.
 
-    def delete_resource_by_values(self, resource,
-                                  skip_not_found=True, **kwargs):
-        resources_get = self.client.get(resource)
-        matched_num = 0
-        for res in resources_get['results']:
-            if utils.dict_match(kwargs, res):
-                LOG.debug("Deleting %s from resource %s", res, resource)
-                delete_resource = resource + "/" + str(res['id'])
-                self.client.delete(delete_resource)
-                matched_num = matched_num + 1
-        if matched_num == 0:
-            if skip_not_found:
-                LOG.warning(_LW("No resource in %(res)s matched for values: "
-                                "%(values)s"), {'res': resource,
-                                                'values': kwargs})
-            else:
-                err_msg = (_("No resource in %(res)s matched for values: "
-                             "%(values)s") % {'res': resource,
-                                              'values': kwargs})
-                raise exceptions.ResourceNotFound(
-                    manager=self.cluster.nsx_api_managers,
-                    operation=err_msg)
-        elif matched_num > 1:
-            LOG.warning(_LW("%(num)s resources in %(res)s matched for values: "
-                            "%(values)s"), {'num': matched_num,
-                                            'res': resource,
-                                            'values': kwargs})
+        :param source_ports: List of UUIDs of the ports whose traffic is to be
+                            mirrored.
+        :param dest_ports: List of UUIDs of the ports where the mirrored
+                          traffic is to be sent.
+        :param direction: String representing the direction of traffic to be
+                          mirrored. [INGRESS, EGRESS, BIDIRECTIONAL]
+        :param description: String representing the description of the session.
+        :param name: String representing the name of the session.
+        :param tags: nsx backend specific tags.
+        """
 
-    def create_logical_switch(self, display_name, transport_zone_id, tags,
-                              replication_mode=nsx_constants.MTEP,
-                              admin_state=True, vlan_id=None):
+        resource = 'mirror-sessions'
+        body = {'direction': direction,
+                'tags': tags,
+                'display_name': name,
+                'description': description,
+                'mirror_sources': source_ports,
+                'mirror_destination': dest_ports}
+        return self.client.create(resource, body)
+
+    def delete_session(self, mirror_session_id):
+        """Delete a PortMirror session on the backend.
+
+        :param mirror_session_id: string representing the UUID of the port
+                                  mirror session to be deleted.
+        """
+        resource = 'mirror-sessions/%s' % mirror_session_id
+        self.client.delete(resource)
+
+
+class NsxLibBridgeEndpoint(utils.NsxLibApiBase):
+
+    def create(self, device_name, seg_id, tags):
+        """Create a bridge endpoint on the backend.
+
+        Create a bridge endpoint resource on a bridge cluster for the L2
+        gateway network connection.
+        :param device_name: device_name actually refers to the bridge cluster's
+                            UUID.
+        :param seg_id: integer representing the VLAN segmentation ID.
+        :param tags: nsx backend specific tags.
+        """
+        resource = 'bridge-endpoints'
+        body = {'bridge_cluster_id': device_name,
+                'tags': tags,
+                'vlan': seg_id}
+        return self.client.create(resource, body)
+
+    def delete(self, bridge_endpoint_id):
+        """Delete a bridge endpoint on the backend.
+
+        :param bridge_endpoint_id: string representing the UUID of the bridge
+                                   endpoint to be deleted.
+        """
+        resource = 'bridge-endpoints/%s' % bridge_endpoint_id
+        self.client.delete(resource)
+
+
+class NsxLibLogicalSwitch(utils.NsxLibApiBase):
+
+    def create(self, display_name, transport_zone_id, tags,
+               replication_mode=nsx_constants.MTEP,
+               admin_state=True, vlan_id=None):
         # TODO(salv-orlando): Validate Replication mode and admin_state
         # NOTE: These checks might be moved to the API client library if one
         # that performs such checks in the client is available
@@ -135,7 +180,7 @@ class NsxLib(security.Security):
 
         return self.client.create(resource, body)
 
-    def delete_logical_switch(self, lswitch_id):
+    def delete(self, lswitch_id):
         #Using internal method so we can access max_attempts in the decorator
         @utils.retry_upon_exception(exceptions.StaleRevision,
                                     max_attempts=self.max_attempts)
@@ -146,18 +191,17 @@ class NsxLib(security.Security):
 
         _do_delete()
 
-    def get_logical_switch(self, logical_switch_id):
+    def get(self, logical_switch_id):
         resource = "logical-switches/%s" % logical_switch_id
         return self.client.get(resource)
 
-    def update_logical_switch(self, lswitch_id, name=None, admin_state=None,
-                              tags=None):
+    def update(self, lswitch_id, name=None, admin_state=None, tags=None):
         #Using internal method so we can access max_attempts in the decorator
         @utils.retry_upon_exception(exceptions.StaleRevision,
                                     max_attempts=self.max_attempts)
         def _do_update():
             resource = "logical-switches/%s" % lswitch_id
-            lswitch = self.get_logical_switch(lswitch_id)
+            lswitch = self.get(lswitch_id)
             if name is not None:
                 lswitch['display_name'] = name
             if admin_state is not None:
@@ -171,70 +215,16 @@ class NsxLib(security.Security):
 
         return _do_update()
 
-    def add_nat_rule(self, logical_router_id, action, translated_network,
-                     source_net=None, dest_net=None,
-                     enabled=True, rule_priority=None):
-        resource = 'logical-routers/%s/nat/rules' % logical_router_id
-        body = {'action': action,
-                'enabled': enabled,
-                'translated_network': translated_network}
-        if source_net:
-            body['match_source_network'] = source_net
-        if dest_net:
-            body['match_destination_network'] = dest_net
-        if rule_priority:
-            body['rule_priority'] = rule_priority
-        return self.client.create(resource, body)
 
-    def add_static_route(self, logical_router_id, dest_cidr, nexthop):
-        resource = ('logical-routers/%s/routing/static-routes' %
-                    logical_router_id)
-        body = {}
-        if dest_cidr:
-            body['network'] = dest_cidr
-        if nexthop:
-            body['next_hops'] = [{"ip_address": nexthop}]
-        return self.client.create(resource, body)
+class NsxLibQosSwitchingProfile(utils.NsxLibApiBase):
 
-    def delete_static_route(self, logical_router_id, static_route_id):
-        resource = 'logical-routers/%s/routing/static-routes/%s' % (
-            logical_router_id, static_route_id)
-        self.client.delete(resource)
-
-    def delete_static_route_by_values(self, logical_router_id,
-                                      dest_cidr=None, nexthop=None):
-        resource = ('logical-routers/%s/routing/static-routes' %
-                    logical_router_id)
-        kwargs = {}
-        if dest_cidr:
-            kwargs['network'] = dest_cidr
-        if nexthop:
-            kwargs['next_hops'] = [{"ip_address": nexthop}]
-        return self.delete_resource_by_values(resource, **kwargs)
-
-    def delete_nat_rule(self, logical_router_id, nat_rule_id):
-        resource = 'logical-routers/%s/nat/rules/%s' % (logical_router_id,
-                                                        nat_rule_id)
-        self.client.delete(resource)
-
-    def delete_nat_rule_by_values(self, logical_router_id, **kwargs):
-        resource = 'logical-routers/%s/nat/rules' % logical_router_id
-        return self.delete_resource_by_values(resource, **kwargs)
-
-    def update_logical_router_advertisement(self, logical_router_id, **kwargs):
-        resource = ('logical-routers/%s/routing/advertisement' %
-                    logical_router_id)
-        return self.update_resource_with_retry(resource, kwargs)
-
-    def _build_qos_switching_profile_args(self, tags, name=None,
-                                          description=None):
+    def _build_args(self, tags, name=None, description=None):
         body = {"resource_type": "QosSwitchingProfile",
                 "tags": tags}
-        return self._update_qos_switching_profile_args(
+        return self._update_args(
             body, name=name, description=description)
 
-    def _update_qos_switching_profile_args(self, body, name=None,
-                                           description=None):
+    def _update_args(self, body, name=None, description=None):
         if name:
             body["display_name"] = name
         if description:
@@ -277,32 +267,28 @@ class NsxLib(security.Security):
 
         return body
 
-    def create_qos_switching_profile(self, tags, name=None,
-                                     description=None):
+    def create(self, tags, name=None, description=None):
         resource = 'switching-profiles'
-        body = self._build_qos_switching_profile_args(tags, name,
-                                                      description)
+        body = self._build_args(tags, name, description)
         return self.client.create(resource, body)
 
-    def update_qos_switching_profile(self, profile_id, tags, name=None,
-                                     description=None):
+    def update(self, profile_id, tags, name=None, description=None):
         resource = 'switching-profiles/%s' % profile_id
         # get the current configuration
-        body = self.get_qos_switching_profile(profile_id)
+        body = self.get(profile_id)
         # update the relevant fields
-        body = self._update_qos_switching_profile_args(body, name,
-                                                       description)
-        return self.update_resource_with_retry(resource, body)
+        body = self._update_args(body, name, description)
+        return self._update_resource_with_retry(resource, body)
 
-    def update_qos_switching_profile_shaping(self, profile_id,
-                                             shaping_enabled=False,
-                                             burst_size=None,
-                                             peak_bandwidth=None,
-                                             average_bandwidth=None,
-                                             qos_marking=None, dscp=None):
+    def update_shaping(self, profile_id,
+                       shaping_enabled=False,
+                       burst_size=None,
+                       peak_bandwidth=None,
+                       average_bandwidth=None,
+                       qos_marking=None, dscp=None):
         resource = 'switching-profiles/%s' % profile_id
         # get the current configuration
-        body = self.get_qos_switching_profile(profile_id)
+        body = self.get(profile_id)
         # update the relevant fields
         if shaping_enabled:
             body = self._enable_shaping_in_args(
@@ -312,77 +298,103 @@ class NsxLib(security.Security):
         else:
             body = self._disable_shaping_in_args(body)
         body = self._update_dscp_in_args(body, qos_marking, dscp)
-        return self.update_resource_with_retry(resource, body)
+        return self._update_resource_with_retry(resource, body)
 
-    def get_qos_switching_profile(self, profile_id):
+    def get(self, profile_id):
         resource = 'switching-profiles/%s' % profile_id
         return self.client.get(resource)
 
-    def delete_qos_switching_profile(self, profile_id):
+    def delete(self, profile_id):
         resource = 'switching-profiles/%s' % profile_id
         self.client.delete(resource)
 
-    def create_bridge_endpoint(self, device_name, seg_id, tags):
-        """Create a bridge endpoint on the backend.
 
-        Create a bridge endpoint resource on a bridge cluster for the L2
-        gateway network connection.
-        :param device_name: device_name actually refers to the bridge cluster's
-                            UUID.
-        :param seg_id: integer representing the VLAN segmentation ID.
-        :param tags: nsx backend specific tags.
-        """
-        resource = 'bridge-endpoints'
-        body = {'bridge_cluster_id': device_name,
-                'tags': tags,
-                'vlan': seg_id}
+class NsxLibLogicalRouter(utils.NsxLibApiBase):
+
+    def _delete_resource_by_values(self, resource,
+                                   skip_not_found=True, **kwargs):
+        resources_get = self.client.get(resource)
+        matched_num = 0
+        for res in resources_get['results']:
+            if utils.dict_match(kwargs, res):
+                LOG.debug("Deleting %s from resource %s", res, resource)
+                delete_resource = resource + "/" + str(res['id'])
+                self.client.delete(delete_resource)
+                matched_num = matched_num + 1
+        if matched_num == 0:
+            if skip_not_found:
+                LOG.warning(_LW("No resource in %(res)s matched for values: "
+                                "%(values)s"), {'res': resource,
+                                                'values': kwargs})
+            else:
+                err_msg = (_("No resource in %(res)s matched for values: "
+                             "%(values)s") % {'res': resource,
+                                              'values': kwargs})
+                raise exceptions.ResourceNotFound(
+                    manager=self.cluster.nsx_api_managers,
+                    operation=err_msg)
+        elif matched_num > 1:
+            LOG.warning(_LW("%(num)s resources in %(res)s matched for values: "
+                            "%(values)s"), {'num': matched_num,
+                                            'res': resource,
+                                            'values': kwargs})
+
+    def add_nat_rule(self, logical_router_id, action, translated_network,
+                     source_net=None, dest_net=None,
+                     enabled=True, rule_priority=None):
+        resource = 'logical-routers/%s/nat/rules' % logical_router_id
+        body = {'action': action,
+                'enabled': enabled,
+                'translated_network': translated_network}
+        if source_net:
+            body['match_source_network'] = source_net
+        if dest_net:
+            body['match_destination_network'] = dest_net
+        if rule_priority:
+            body['rule_priority'] = rule_priority
         return self.client.create(resource, body)
 
-    def delete_bridge_endpoint(self, bridge_endpoint_id):
-        """Delete a bridge endpoint on the backend.
+    def add_static_route(self, logical_router_id, dest_cidr, nexthop):
+        resource = ('logical-routers/%s/routing/static-routes' %
+                    logical_router_id)
+        body = {}
+        if dest_cidr:
+            body['network'] = dest_cidr
+        if nexthop:
+            body['next_hops'] = [{"ip_address": nexthop}]
+        return self.client.create(resource, body)
 
-        :param bridge_endpoint_id: string representing the UUID of the bridge
-                                   endpoint to be deleted.
-        """
-        resource = 'bridge-endpoints/%s' % bridge_endpoint_id
+    def delete_static_route(self, logical_router_id, static_route_id):
+        resource = 'logical-routers/%s/routing/static-routes/%s' % (
+            logical_router_id, static_route_id)
         self.client.delete(resource)
 
-    def _get_resource_by_name_or_id(self, name_or_id, resource):
-        all_results = self.client.get(resource)['results']
-        matched_results = []
-        for rs in all_results:
-            if rs.get('id') == name_or_id:
-                # Matched by id - must be unique
-                return name_or_id
+    def delete_static_route_by_values(self, logical_router_id,
+                                      dest_cidr=None, nexthop=None):
+        resource = ('logical-routers/%s/routing/static-routes' %
+                    logical_router_id)
+        kwargs = {}
+        if dest_cidr:
+            kwargs['network'] = dest_cidr
+        if nexthop:
+            kwargs['next_hops'] = [{"ip_address": nexthop}]
+        return self._delete_resource_by_values(resource, **kwargs)
 
-            if rs.get('display_name') == name_or_id:
-                # Matched by name - add to the list to verify it is unique
-                matched_results.append(rs)
+    def delete_nat_rule(self, logical_router_id, nat_rule_id):
+        resource = 'logical-routers/%s/nat/rules/%s' % (logical_router_id,
+                                                        nat_rule_id)
+        self.client.delete(resource)
 
-        if len(matched_results) == 0:
-            err_msg = (_("Could not find %(resource)s %(name)s") %
-                       {'name': name_or_id, 'resource': resource})
-            # TODO(asarfaty): improve exception handling...
-            raise exceptions.ManagerError(details=err_msg)
-        elif len(matched_results) > 1:
-            err_msg = (_("Found multiple %(resource)s named %(name)s") %
-                       {'name': name_or_id, 'resource': resource})
-            # TODO(asarfaty): improve exception handling...
-            raise exceptions.ManagerError(details=err_msg)
+    def delete_nat_rule_by_values(self, logical_router_id, **kwargs):
+        resource = 'logical-routers/%s/nat/rules' % logical_router_id
+        return self._delete_resource_by_values(resource, **kwargs)
 
-        return matched_results[0].get('id')
+    def update_advertisement(self, logical_router_id, **kwargs):
+        resource = ('logical-routers/%s/routing/advertisement' %
+                    logical_router_id)
+        return self._update_resource_with_retry(resource, kwargs)
 
-    def get_transport_zone_id_by_name_or_id(self, name_or_id):
-        """Get a transport zone by it's display name or uuid
-
-        Return the transport zone data, or raise an exception if not found or
-        not unique
-        """
-
-        return self._get_resource_by_name_or_id(name_or_id,
-                                                'transport-zones')
-
-    def get_logical_router_id_by_name_or_id(self, name_or_id):
+    def get_id_by_name_or_id(self, name_or_id):
         """Get a logical router by it's display name or uuid
 
         Return the logical router data, or raise an exception if not found or
@@ -392,7 +404,30 @@ class NsxLib(security.Security):
         return self._get_resource_by_name_or_id(name_or_id,
                                                 'logical-routers')
 
-    def get_bridge_cluster_id_by_name_or_id(self, name_or_id):
+
+class NsxLibEdgeCluster(utils.NsxLibApiBase):
+
+    def get(self, edge_cluster_uuid):
+        resource = "edge-clusters/%s" % edge_cluster_uuid
+        return self.client.get(resource)
+
+
+class NsxLibTransportZone(utils.NsxLibApiBase):
+
+    def get_id_by_name_or_id(self, name_or_id):
+        """Get a transport zone by it's display name or uuid
+
+        Return the transport zone data, or raise an exception if not found or
+        not unique
+        """
+
+        return self._get_resource_by_name_or_id(name_or_id,
+                                                'transport-zones')
+
+
+class NsxLibBridgeCluster(utils.NsxLibApiBase):
+
+    def get_id_by_name_or_id(self, name_or_id):
         """Get a bridge cluster by it's display name or uuid
 
         Return the bridge cluster data, or raise an exception if not found or
@@ -401,36 +436,3 @@ class NsxLib(security.Security):
 
         return self._get_resource_by_name_or_id(name_or_id,
                                                 'bridge-clusters')
-
-    def create_port_mirror_session(self, source_ports, dest_ports, direction,
-                                   description, name, tags):
-        """Create a PortMirror Session on the backend.
-
-        :param source_ports: List of UUIDs of the ports whose traffic is to be
-                            mirrored.
-        :param dest_ports: List of UUIDs of the ports where the mirrored
-                          traffic is to be sent.
-        :param direction: String representing the direction of traffic to be
-                          mirrored. [INGRESS, EGRESS, BIDIRECTIONAL]
-        :param description: String representing the description of the session.
-        :param name: String representing the name of the session.
-        :param tags: nsx backend specific tags.
-        """
-
-        resource = 'mirror-sessions'
-        body = {'direction': direction,
-                'tags': tags,
-                'display_name': name,
-                'description': description,
-                'mirror_sources': source_ports,
-                'mirror_destination': dest_ports}
-        return self.client.create(resource, body)
-
-    def delete_port_mirror_session(self, mirror_session_id):
-        """Delete a PortMirror session on the backend.
-
-        :param mirror_session_id: string representing the UUID of the port
-                                  mirror session to be deleted.
-        """
-        resource = 'mirror-sessions/%s' % mirror_session_id
-        self.client.delete(resource)

@@ -54,7 +54,7 @@ def list_missing_networks(resource, event, trigger, **kwargs):
             pass
         else:
             try:
-                admin_utils.get_connected_nsxlib().get_logical_switch(nsx_id)
+                admin_utils.get_connected_nsxlib().logical_switch.get(nsx_id)
             except nsx_exc.ResourceNotFound:
                 networks.append({'name': net['name'],
                                  'neutron_id': neutron_id,
