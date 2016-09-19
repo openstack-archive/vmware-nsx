@@ -16,6 +16,7 @@
 from distutils import version
 import eventlet
 import netaddr
+import os
 import random
 import six
 from sqlalchemy import exc as db_base_exc
@@ -108,6 +109,8 @@ class EdgeManager(object):
 
     def __init__(self, nsxv_manager, plugin):
         LOG.debug("Start Edge Manager initialization")
+        self._worker_pool_pid = None
+        self._worker_pool = None
         self.nsxv_manager = nsxv_manager
         self.dvs_id = cfg.CONF.nsxv.dvs_id
         self.edge_pool_dicts = parse_backup_edge_pool_opt()
@@ -115,9 +118,14 @@ class EdgeManager(object):
         self.plugin = plugin
         self._availability_zones = nsx_az.ConfiguredAvailabilityZones()
         self.per_interface_rp_filter = self._get_per_edge_rp_filter_state()
-        self.worker_pool = eventlet.GreenPool(WORKER_POOL_SIZE)
         self._check_backup_edge_pools()
         self._validate_new_features()
+
+    def _get_worker_pool(self):
+        if self._worker_pool_pid != os.getpid():
+            self._worker_pool_pid = os.getpid()
+            self._worker_pool = eventlet.GreenPool(WORKER_POOL_SIZE)
+        return self._worker_pool
 
     def _validate_new_features(self):
         self.is_dhcp_opt_enabled = False
@@ -198,10 +206,10 @@ class EdgeManager(object):
             fake_router = {
                 'id': router_id,
                 'name': router_id}
-            self.worker_pool.spawn_n(self._deploy_edge, None, fake_router,
-                                     appliance_size=appliance_size,
-                                     edge_type=edge_type,
-                                     availability_zone=availability_zone)
+            self._get_worker_pool().spawn_n(
+                self._deploy_edge, None, fake_router,
+                appliance_size=appliance_size, edge_type=edge_type,
+                availability_zone=availability_zone)
 
     def _delete_edge(self, context, router_binding):
         if router_binding['status'] == plugin_const.ERROR:
@@ -212,7 +220,7 @@ class EdgeManager(object):
         nsxv_db.update_nsxv_router_binding(
             context.session, router_binding['router_id'],
             status=plugin_const.PENDING_DELETE)
-        self.worker_pool.spawn_n(
+        self._get_worker_pool().spawn_n(
             self.nsxv_manager.delete_edge, q_context.get_admin_context(),
             router_binding['router_id'], router_binding['edge_id'],
             dist=(router_binding['edge_type'] == nsxv_constants.VDR_EDGE))
@@ -228,7 +236,7 @@ class EdgeManager(object):
             # delete edge
             LOG.debug("Start deleting extra edge: %s in pool",
                       binding['edge_id'])
-            self.worker_pool.spawn_n(
+            self._get_worker_pool().spawn_n(
                 self.nsxv_manager.delete_edge, q_context.get_admin_context(),
                 binding['router_id'], binding['edge_id'],
                 dist=(binding['edge_type'] == nsxv_constants.VDR_EDGE))
@@ -663,7 +671,7 @@ class EdgeManager(object):
                 context.session, router_id,
                 status=plugin_const.PENDING_DELETE)
             # delete edge
-            self.worker_pool.spawn_n(
+            self._get_worker_pool().spawn_n(
                 self.nsxv_manager.delete_edge, q_context.get_admin_context(),
                 router_id, edge_id, dist=dist)
             return
@@ -702,7 +710,7 @@ class EdgeManager(object):
                 context.session, router_id,
                 status=plugin_const.PENDING_DELETE)
             # delete edge
-            self.worker_pool.spawn_n(
+            self._get_worker_pool().spawn_n(
                 self.nsxv_manager.delete_edge, q_context.get_admin_context(),
                 router_id, edge_id, dist=dist)
 
