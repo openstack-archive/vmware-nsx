@@ -22,7 +22,6 @@ from oslo_log import log
 from vmware_nsx._i18n import _, _LW
 from vmware_nsx.nsxlib.v3 import exceptions
 from vmware_nsx.nsxlib.v3 import nsx_constants as consts
-from vmware_nsx.nsxlib.v3 import utils as nsxlib_utils
 
 
 LOG = log.getLogger(__name__)
@@ -69,7 +68,7 @@ class NSGroupManager(object):
         nested_groups = {
             self._get_nested_group_index_from_name(nsgroup): nsgroup['id']
             for nsgroup in self.nsxlib_nsgroup.list()
-            if nsxlib_utils.is_internal_resource(nsgroup)}
+            if self.nsxlib_nsgroup.is_internal_resource(nsgroup)}
 
         if nested_groups:
             size = max(requested_size, max(nested_groups) + 1)
@@ -100,7 +99,7 @@ class NSGroupManager(object):
         name_prefix = NSGroupManager.NESTED_GROUP_NAME
         name = '%s %s' % (name_prefix, index + 1)
         description = NSGroupManager.NESTED_GROUP_DESCRIPTION
-        tags = nsxlib_utils.build_v3_api_version_tag()
+        tags = self.nsxlib_nsgroup.build_v3_api_version_tag()
         return self.nsxlib_nsgroup.create(name, description, tags)
 
     def _hash_uuid(self, internal_id):

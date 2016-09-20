@@ -21,7 +21,6 @@ from oslo_config import cfg
 
 from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import utils as nsx_utils
-from vmware_nsx.nsxlib.v3 import native_dhcp
 from vmware_nsx.nsxlib.v3 import nsx_constants
 from vmware_nsx.nsxlib.v3 import resources
 from vmware_nsx.shell.admin.plugins.common import constants
@@ -48,7 +47,8 @@ def list_dhcp_bindings(resource, event, trigger, **kwargs):
 def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
     """Resync DHCP bindings for NSXv3 CrossHairs."""
 
-    nsx_version = utils.get_connected_nsxlib().get_version()
+    nsxlib = utils.get_connected_nsxlib()
+    nsx_version = nsxlib.get_version()
     if not nsx_utils.is_nsx_version_1_1_0(nsx_version):
         LOG.info(_LI("This utility is not available for NSX version %s"),
                  nsx_version)
@@ -88,11 +88,11 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
                 # and update the attachment type to DHCP on the corresponding
                 # logical port of the Neutron DHCP port.
                 network = neutron_client.get_network(port['network_id'])
-                server_data = native_dhcp.build_dhcp_server_config(
-                    network, subnet, port, 'admin',
-                    cfg.CONF.nsx_v3.nameservers,
-                    cfg.CONF.nsx_v3.dhcp_profile_uuid,
-                    cfg.CONF.nsx_v3.dns_domain)
+                net_tags = nsxlib.build_v3_tags_payload(
+                    network, resource_type='os-neutron-net-id',
+                    project_name='admin')
+                server_data = nsxlib.native_dhcp.build_server_config(
+                    network, subnet, port, net_tags)
                 dhcp_server = dhcp_server_resource.create(**server_data)
                 LOG.info(_LI("Created logical DHCP server %(server)s for "
                              "network %(network)s"),

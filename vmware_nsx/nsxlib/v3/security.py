@@ -30,7 +30,6 @@ from vmware_nsx.nsxlib.v3 import utils
 
 LOG = log.getLogger(__name__)
 
-DEFAULT_SECTION = 'OS Default Section for Neutron Security-Groups'
 PORT_SG_SCOPE = 'os-security-group'
 MAX_NSGROUPS_CRITERIA_TAGS = 10
 
@@ -168,7 +167,7 @@ class NsxLibNsGroup(utils.NsxLibApiBase):
         #Using internal method so we can access max_attempts in the decorator
         @utils.retry_upon_exception(
             exceptions.StaleRevision,
-            max_attempts=self.max_attempts)
+            max_attempts=self.nsxlib_config.max_attempts)
         def _do_update():
             nsgroup = self.read(nsgroup_id)
             if display_name is not None:
@@ -196,7 +195,7 @@ class NsxLibNsGroup(utils.NsxLibApiBase):
         #Using internal method so we can access max_attempts in the decorator
         @utils.retry_upon_exception(
             exceptions.StaleRevision,
-            max_attempts=self.max_attempts)
+            max_attempts=self.nsxlib_config.max_attempts)
         def _do_update():
             members_update = 'ns-groups/%s?action=%s' % (nsgroup_id, action)
             return self.client.create(members_update, members)
@@ -342,7 +341,7 @@ class NsxLibFirewallSection(utils.NsxLibApiBase):
         #Using internal method so we can access max_attempts in the decorator
         @utils.retry_upon_exception(
             exceptions.StaleRevision,
-            max_attempts=self.max_attempts)
+            max_attempts=self.nsxlib_config.max_attempts)
         def _do_update():
             resource = 'firewall/sections/%s' % section_id
             section = self.read(section_id)
@@ -494,7 +493,7 @@ class NsxLibFirewallSection(utils.NsxLibApiBase):
             if section['display_name'] == name:
                 break
         else:
-            tags = utils.build_v3_api_version_tag()
+            tags = self.build_v3_api_version_tag()
             section = self.create_empty(
                 name, description, nested_groups, tags)
 

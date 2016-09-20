@@ -38,13 +38,14 @@ class RequestsHTTPProviderTestCase(unittest.TestCase):
 
     def test_new_connection(self):
         mock_api = mock.Mock()
-        mock_api._username = 'nsxuser'
-        mock_api._password = 'nsxpassword'
-        mock_api.retries = 100
-        mock_api.insecure = True
-        mock_api._ca_file = None
-        mock_api.http_timeout = 99
-        mock_api.conn_idle_timeout = 39
+        mock_api.nsxlib_config = mock.Mock()
+        mock_api.nsxlib_config.username = 'nsxuser'
+        mock_api.nsxlib_config.password = 'nsxpassword'
+        mock_api.nsxlib_config.retries = 100
+        mock_api.nsxlib_config.insecure = True
+        mock_api.nsxlib_config.ca_file = None
+        mock_api.nsxlib_config.http_timeout = 99
+        mock_api.nsxlib_config.conn_idle_timeout = 39
         provider = cluster.NSXRequestsHTTPProvider()
         session = provider.new_connection(
             mock_api, cluster.Provider('9.8.7.6', 'https://9.8.7.6',
@@ -196,3 +197,8 @@ class ClusteredAPITestCase(nsxlib_testcase.NsxClientTestCase):
 
         eps[0]._state = cluster.EndpointState.UP
         self.assertEqual(_get_schedule(4), [eps[0], eps[2], eps[0], eps[2]])
+
+    def test_reinitialize_cluster(self):
+        api = self.mock_nsx_clustered_api()
+        # just make sure this api is defined, and does not crash
+        api._reinit_cluster()

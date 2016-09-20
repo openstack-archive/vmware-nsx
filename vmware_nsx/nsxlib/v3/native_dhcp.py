@@ -20,46 +20,45 @@ from neutron_lib import constants
 from vmware_nsx.nsxlib.v3 import utils
 
 
-def build_dhcp_server_config(network, subnet, port, project_name,
-                             nameservers, dhcp_profile_uuid, dns_domain):
-    # Prepare the configuration for a new logical DHCP server.
-    server_ip = "%s/%u" % (port['fixed_ips'][0]['ip_address'],
-                           netaddr.IPNetwork(subnet['cidr']).prefixlen)
-    dns_nameservers = subnet['dns_nameservers']
-    if not dns_nameservers or not validators.is_attr_set(dns_nameservers):
-        dns_nameservers = nameservers
-    gateway_ip = subnet['gateway_ip']
-    if not validators.is_attr_set(gateway_ip):
-        gateway_ip = None
+class NsxLibNativeDhcp(utils.NsxLibApiBase):
 
-    # The following code is based on _generate_opts_per_subnet() in
-    # neutron/agent/linux/dhcp.py. It prepares DHCP options for a subnet.
+    def build_server_config(self, network, subnet, port, tags):
+        # Prepare the configuration for a new logical DHCP server.
+        server_ip = "%s/%u" % (port['fixed_ips'][0]['ip_address'],
+                               netaddr.IPNetwork(subnet['cidr']).prefixlen)
+        dns_nameservers = subnet['dns_nameservers']
+        if not dns_nameservers or not validators.is_attr_set(dns_nameservers):
+            dns_nameservers = self.nsxlib_config.dns_nameservers
+        gateway_ip = subnet['gateway_ip']
+        if not validators.is_attr_set(gateway_ip):
+            gateway_ip = None
 
-    # Add route for directly connected network.
-    host_routes = [{'network': subnet['cidr'], 'next_hop': '0.0.0.0'}]
-    # Copy routes from subnet host_routes attribute.
-    for hr in subnet['host_routes']:
-        if hr['destination'] == constants.IPv4_ANY:
-            if not gateway_ip:
-                gateway_ip = hr['nexthop']
-        else:
-            host_routes.append({'network': hr['destination'],
-                                'next_hop': hr['nexthop']})
-    # If gateway_ip is defined, add default route via this gateway.
-    if gateway_ip:
-        host_routes.append({'network': constants.IPv4_ANY,
-                            'next_hop': gateway_ip})
+        # The following code is based on _generate_opts_per_subnet() in
+        # neutron/agent/linux/dhcp.py. It prepares DHCP options for a subnet.
 
-    options = {'option121': {'static_routes': host_routes}}
-    name = utils.get_name_and_uuid(network['name'] or 'dhcpserver',
-                                   network['id'])
-    tags = utils.build_v3_tags_payload(
-        network, resource_type='os-neutron-net-id', project_name=project_name)
-    return {'name': name,
-            'dhcp_profile_id': dhcp_profile_uuid,
-            'server_ip': server_ip,
-            'dns_nameservers': dns_nameservers,
-            'domain_name': dns_domain,
-            'gateway_ip': gateway_ip,
-            'options': options,
-            'tags': tags}
+        # Add route for directly connected network.
+        host_routes = [{'network': subnet['cidr'], 'next_hop': '0.0.0.0'}]
+        # Copy routes from subnet host_routes attribute.
+        for hr in subnet['host_routes']:
+            if hr['destination'] == constants.IPv4_ANY:
+                if not gateway_ip:
+                    gateway_ip = hr['nexthop']
+            else:
+                host_routes.append({'network': hr['destination'],
+                                    'next_hop': hr['nexthop']})
+        # If gateway_ip is defined, add default route via this gateway.
+        if gateway_ip:
+            host_routes.append({'network': constants.IPv4_ANY,
+                                'next_hop': gateway_ip})
+
+        options = {'option121': {'static_routes': host_routes}}
+        name = utils.get_name_and_uuid(network['name'] or 'dhcpserver',
+                                       network['id'])
+        return {'name': name,
+                'dhcp_profile_id': self.nsxlib_config.dhcp_profile_uuid,
+                'server_ip': server_ip,
+                'dns_nameservers': dns_nameservers,
+                'domain_name': self.nsxlib_config.dns_domain,
+                'gateway_ip': gateway_ip,
+                'options': options,
+                'tags': tags}

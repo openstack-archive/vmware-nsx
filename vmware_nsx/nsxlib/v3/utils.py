@@ -15,7 +15,6 @@
 
 import retrying
 
-from neutron import version as n_version
 from neutron_lib import exceptions
 from oslo_log import log
 
@@ -26,31 +25,7 @@ LOG = log.getLogger(__name__)
 
 MAX_RESOURCE_TYPE_LEN = 20
 MAX_TAG_LEN = 40
-NSX_NEUTRON_PLUGIN = 'NSX Neutron plugin'
-OS_NEUTRON_ID_SCOPE = 'os-neutron-id'
 DEFAULT_MAX_ATTEMPTS = 10
-
-
-def is_internal_resource(nsx_resource):
-    """
-    Indicates whether the passed nsx-resource is owned by the plugin for
-    internal use.
-    """
-    for tag in nsx_resource.get('tags', []):
-        if tag['scope'] == OS_NEUTRON_ID_SCOPE:
-            return tag['tag'] == NSX_NEUTRON_PLUGIN
-    return False
-
-
-def build_v3_api_version_tag():
-    """
-    Some resources are created on the manager that do not have a corresponding
-    Neutron resource.
-    """
-    return [{'scope': OS_NEUTRON_ID_SCOPE,
-             'tag': NSX_NEUTRON_PLUGIN},
-            {'scope': "os-api-version",
-             'tag': n_version.version_info.release_string()}]
 
 
 def _validate_resource_type_length(resource_type):
@@ -61,31 +36,6 @@ def _validate_resource_type_length(resource_type):
                              'characters: %(resource_type)s') %
                            {'max_len': MAX_RESOURCE_TYPE_LEN,
                             'resource_type': resource_type}))
-
-
-def build_v3_tags_payload(resource, resource_type, project_name):
-    """
-    Construct the tags payload that will be pushed to NSX-v3
-    Add <resource_type>:<resource-id>, os-project-id:<tenant-id>,
-    os-project-name:<project_name> os-api-version:<neutron-api-version>
-    """
-    _validate_resource_type_length(resource_type)
-    # There may be cases when the plugin creates the port, for example DHCP
-    if not project_name:
-        project_name = NSX_NEUTRON_PLUGIN
-    tenant_id = resource.get('tenant_id', '')
-    # If tenant_id is present in resource and set to None, explicitly set
-    # the tenant_id in tags as ''.
-    if tenant_id is None:
-        tenant_id = ''
-    return [{'scope': resource_type,
-             'tag': resource.get('id', '')[:MAX_TAG_LEN]},
-            {'scope': 'os-project-id',
-             'tag': tenant_id[:MAX_TAG_LEN]},
-            {'scope': 'os-project-name',
-             'tag': project_name[:MAX_TAG_LEN]},
-            {'scope': 'os-api-version',
-             'tag': n_version.version_info.release_string()[:MAX_TAG_LEN]}]
 
 
 def add_v3_tag(tags, resource_type, tag):
@@ -174,15 +124,15 @@ def get_name_and_uuid(name, uuid, tag=None, maxlen=80):
 
 class NsxLibApiBase(object):
     """Base class for nsxlib api """
-    def __init__(self, client, max_attempts):
+    def __init__(self, client, nsxlib_config):
         self.client = client
-        self.max_attempts = max_attempts
+        self.nsxlib_config = nsxlib_config
         super(NsxLibApiBase, self).__init__()
 
     def _update_resource_with_retry(self, resource, payload):
         #Using internal method so we can access max_attempts in the decorator
         @retry_upon_exception(nsxlib_exceptions.StaleRevision,
-                             max_attempts=self.max_attempts)
+                             max_attempts=self.nsxlib_config.max_attempts)
         def do_update():
             revised_payload = self.client.get(resource)
             for key_name in payload.keys():
@@ -215,3 +165,47 @@ class NsxLibApiBase(object):
             raise exceptions.ManagerError(details=err_msg)
 
         return matched_results[0].get('id')
+
+    def build_v3_api_version_tag(self,):
+        """
+        Some resources are created on the manager that do not have a
+        corresponding plugin resource.
+        """
+        return [{'scope': self.nsxlib_config.plugin_scope,
+                 'tag': self.nsxlib_config.plugin_tag},
+                {'scope': "os-api-version",
+                 'tag': self.nsxlib_config.plugin_ver}]
+
+    def is_internal_resource(self, nsx_resource):
+        """
+        Indicates whether the passed nsx-resource is owned by the plugin for
+        internal use.
+        """
+        for tag in nsx_resource.get('tags', []):
+            if tag['scope'] == self.nsxlib_config.plugin_scope:
+                return tag['tag'] == self.nsxlib_config.plugin_tag
+        return False
+
+    def build_v3_tags_payload(self, resource, resource_type, project_name):
+        """
+        Construct the tags payload that will be pushed to NSX-v3
+        Add <resource_type>:<resource-id>, os-project-id:<project-id>,
+        os-project-name:<project_name> os-api-version:<plugin-api-version>
+        """
+        _validate_resource_type_length(resource_type)
+        # There may be cases when the plugin creates the port, for example DHCP
+        if not project_name:
+            project_name = self.nsxlib_config.plugin_tag
+        tenant_id = resource.get('tenant_id', '')
+        # If tenant_id is present in resource and set to None, explicitly set
+        # the tenant_id in tags as ''.
+        if tenant_id is None:
+            tenant_id = ''
+        return [{'scope': resource_type,
+                 'tag': resource.get('id', '')[:MAX_TAG_LEN]},
+                {'scope': 'os-project-id',
+                 'tag': tenant_id[:MAX_TAG_LEN]},
+                {'scope': 'os-project-name',
+                 'tag': project_name[:MAX_TAG_LEN]},
+                {'scope': 'os-api-version',
+                 'tag': self.nsxlib_config.plugin_ver}]

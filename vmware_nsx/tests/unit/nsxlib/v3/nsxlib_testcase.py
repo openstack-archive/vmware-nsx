@@ -20,9 +20,10 @@ import unittest
 from oslo_utils import uuidutils
 from requests import exceptions as requests_exceptions
 
+from vmware_nsx.nsxlib import v3
 from vmware_nsx.nsxlib.v3 import client as nsx_client
 from vmware_nsx.nsxlib.v3 import cluster as nsx_cluster
-from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
+from vmware_nsx.nsxlib.v3 import config
 
 NSX_USER = 'admin'
 NSX_PASSWORD = 'default'
@@ -34,6 +35,10 @@ NSX_HTTP_TIMEOUT = 10
 NSX_HTTP_READ_TIMEOUT = 180
 NSX_CONCURENT_CONN = 10
 NSX_CONN_IDLE_TIME = 10
+
+PLUGIN_SCOPE = "plugin scope"
+PLUGIN_TAG = "plugin tag"
+PLUGIN_VER = "plugin ver"
 
 
 def _mock_nsxlib():
@@ -84,13 +89,32 @@ def _mock_nsxlib():
         return_value='1.1.0').start()
 
 
+def get_default_nsxlib_config():
+    return config.NsxLibConfig(
+        username=NSX_USER,
+        password=NSX_PASSWORD,
+        retries=NSX_HTTP_RETRIES,
+        insecure=NSX_INSECURE,
+        ca_file=NSX_CERT,
+        concurrent_connections=NSX_CONCURENT_CONN,
+        http_timeout=NSX_HTTP_TIMEOUT,
+        http_read_timeout=NSX_HTTP_READ_TIMEOUT,
+        conn_idle_timeout=NSX_CONN_IDLE_TIME,
+        http_provider=None,
+        nsx_api_managers=[],
+        plugin_scope=PLUGIN_SCOPE,
+        plugin_tag=PLUGIN_TAG,
+        plugin_ver=PLUGIN_VER)
+
+
 class NsxLibTestCase(unittest.TestCase):
 
     def setUp(self, *args, **kwargs):
         super(NsxLibTestCase, self).setUp()
         _mock_nsxlib()
 
-        self.nsxlib = v3_utils.get_nsxlib_wrapper()
+        nsxlib_config = get_default_nsxlib_config()
+        self.nsxlib = v3.NsxLib(nsxlib_config)
 
         # print diffs when assert comparisons fail
         self.maxDiff = None
@@ -135,7 +159,8 @@ class NsxClientTestCase(NsxLibTestCase):
             http_read_timeout=None,
             conn_idle_timeout=None,
             nsx_api_managers=None):
-            super(NsxClientTestCase.MockNSXClusteredAPI, self).__init__(
+
+            nsxlib_config = config.NsxLibConfig(
                 username=username or NSX_USER,
                 password=password or NSX_PASSWORD,
                 retries=retries or NSX_HTTP_RETRIES,
@@ -148,7 +173,13 @@ class NsxClientTestCase(NsxLibTestCase):
                 conn_idle_timeout=conn_idle_timeout or NSX_CONN_IDLE_TIME,
                 http_provider=NsxClientTestCase.MockHTTPProvider(
                     session_response=session_response),
-                nsx_api_managers=nsx_api_managers or [NSX_MANAGER])
+                nsx_api_managers=nsx_api_managers or [NSX_MANAGER],
+                plugin_scope=PLUGIN_SCOPE,
+                plugin_tag=PLUGIN_TAG,
+                plugin_ver=PLUGIN_VER)
+
+            super(NsxClientTestCase.MockNSXClusteredAPI, self).__init__(
+                nsxlib_config)
             self._record = mock.Mock()
 
         def record_call(self, request, **kwargs):
@@ -279,16 +310,10 @@ class NsxClientTestCase(NsxLibTestCase):
         mock_provider.default_scheme = 'https'
         mock_provider.validate_connection = validate_conn_func
 
-        return nsx_cluster.NSXClusteredAPI(
-            username=NSX_USER,
-            password=NSX_PASSWORD,
-            retries=NSX_HTTP_RETRIES,
-            insecure=NSX_INSECURE,
-            ca_file=NSX_CERT,
-            concurrent_connections=(concurrent_connections or
-                                    NSX_CONCURENT_CONN),
-            http_timeout=NSX_HTTP_TIMEOUT,
-            http_read_timeout=NSX_HTTP_READ_TIMEOUT,
-            conn_idle_timeout=NSX_CONN_IDLE_TIME,
-            http_provider=mock_provider,
-            nsx_api_managers=conf_managers)
+        nsxlib_config = get_default_nsxlib_config()
+        if concurrent_connections:
+            nsxlib_config.concurrent_connections = concurrent_connections
+        nsxlib_config.http_provider = mock_provider
+        nsxlib_config.nsx_api_managers = conf_managers
+
+        return nsx_cluster.NSXClusteredAPI(nsxlib_config)
