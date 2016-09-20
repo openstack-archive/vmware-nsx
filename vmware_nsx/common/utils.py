@@ -20,6 +20,7 @@ import hashlib
 import eventlet
 from neutron import version as n_version
 from neutron_lib.api import validators
+from neutron_lib import constants
 from neutron_lib import exceptions
 from oslo_config import cfg
 from oslo_context import context as common_context
@@ -279,6 +280,12 @@ def is_ipv4_ip_address(addr):
         if not _valid_part(ip_part):
             return False
     return True
+
+
+def is_port_dhcp_configurable(port):
+    owner = port.get('device_owner')
+    return (owner and
+            not owner.startswith(constants.DEVICE_OWNER_NETWORK_PREFIX))
 
 
 def spawn_n(func, *args, **kwargs):

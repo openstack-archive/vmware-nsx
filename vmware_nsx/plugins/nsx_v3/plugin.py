@@ -1408,8 +1408,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return ips
 
     def _add_dhcp_binding(self, context, port):
-        if not port["device_owner"].startswith(
-            const.DEVICE_OWNER_COMPUTE_PREFIX):
+        if not utils.is_port_dhcp_configurable(port):
             return
         dhcp_service = nsx_db.get_nsx_service_binding(
             context.session, port['network_id'], nsx_constants.SERVICE_DHCP)
@@ -1499,9 +1498,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # Note that Neutron allows a port with multiple IPs in the
         # same subnet. But backend DHCP server may not support that.
 
-        if old_port["device_owner"] != new_port["device_owner"]:
-            if old_port["device_owner"].startswith(
-                const.DEVICE_OWNER_COMPUTE_PREFIX):
+        if (utils.is_port_dhcp_configurable(old_port) !=
+            utils.is_port_dhcp_configurable(new_port)):
+            # Note that the device_owner could be changed,
+            # but still needs DHCP binding.
+            if utils.is_port_dhcp_configurable(old_port):
                 self._delete_dhcp_binding(context, old_port)
             else:
                 self._add_dhcp_binding(context, new_port)
@@ -1545,8 +1546,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                       "DHCP server %(server)s"),
                                   {'ip': new_ip,
                                    'server': dhcp_service['nsx_service_id']})
-        elif old_port["device_owner"].startswith(
-            const.DEVICE_OWNER_COMPUTE_PREFIX):
+        elif utils.is_port_dhcp_configurable(old_port):
             # Update static DHCP bindings for a compute port.
             bindings = nsx_db.get_nsx_dhcp_bindings(context.session,
                                                     old_port['id'])
