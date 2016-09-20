@@ -300,7 +300,8 @@ def free_edge_vnic_by_network(session, edge_id, network_id):
     return binding
 
 
-def create_edge_dhcp_static_binding(session, edge_id, mac_address, binding_id):
+def _create_edge_dhcp_static_binding(session, edge_id, mac_address,
+                                     binding_id):
     with session.begin(subtransactions=True):
         binding = nsxv_models.NsxvEdgeDhcpStaticBinding(
             edge_id=edge_id,
@@ -308,6 +309,19 @@ def create_edge_dhcp_static_binding(session, edge_id, mac_address, binding_id):
             binding_id=binding_id)
         session.add(binding)
     return binding
+
+
+def create_edge_dhcp_static_binding(session, edge_id, mac_address, binding_id):
+    try:
+        return _create_edge_dhcp_static_binding(session, edge_id, mac_address,
+                                                binding_id)
+    except db_exc.DBDuplicateEntry:
+        LOG.warning(_LW('Conflicting DHCP binding entry for '
+                        '%(edge_id)s:%(mac_address)s. Overwriting!'),
+                    {'edge_id': edge_id, 'mac_address': mac_address})
+        delete_edge_dhcp_static_binding(session, edge_id, mac_address)
+        return _create_edge_dhcp_static_binding(session, edge_id, mac_address,
+                                                binding_id)
 
 
 def get_edge_dhcp_static_binding(session, edge_id, mac_address):
