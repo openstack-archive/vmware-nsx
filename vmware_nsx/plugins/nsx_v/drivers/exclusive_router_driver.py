@@ -95,10 +95,10 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
         # Add DB attributes to the router data structure
         # before creating it as an exclusive router
         router_attr = self._build_router_data_from_db(router_db, router)
-
+        allow_metadata = True if self.plugin.metadata_proxy_handler else False
         self.create_router(context,
                            router_attr,
-                           allow_metadata=False,
+                           allow_metadata=allow_metadata,
                            appliance_size=appliance_size)
 
         edge_id = edge_utils.get_router_edge_id(context, router_id)
