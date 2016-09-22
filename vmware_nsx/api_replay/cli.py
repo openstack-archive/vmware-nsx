@@ -32,7 +32,7 @@ class ApiReplayCli(object):
     def _setup_argparse(self):
         parser = argparse.ArgumentParser()
 
-        # Arguements required to connect to source
+        # Arguments required to connect to source
         # neutron which we will fetch all of the data from.
         parser.add_argument(
             "--source-os-username",
@@ -53,7 +53,7 @@ class ApiReplayCli(object):
             required=True,
             help="They keystone api endpoint for this user.")
 
-        # Arguements required to connect to the dest neutron which
+        # Arguments required to connect to the dest neutron which
         # we will recreate all of these resources over.
         parser.add_argument(
             "--dest-os-username",
