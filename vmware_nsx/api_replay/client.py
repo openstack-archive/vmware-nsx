@@ -146,7 +146,7 @@ class ApiReplayClient(object):
 
         for pol in source_qos_pols:
             dest_pol = self.have_id(pol['id'], dest_qos_pols)
-            # If the policy already exists on the the dest_neutron
+            # If the policy already exists on the dest_neutron
             if dest_pol:
                 # make sure all the QoS policy rules are there and
                 # create them if not
@@ -183,7 +183,7 @@ class ApiReplayClient(object):
 
         for sg in source_sec_groups:
             dest_sec_group = self.have_id(sg['id'], dest_sec_groups)
-            # If the security group already exists on the the dest_neutron
+            # If the security group already exists on the dest_neutron
             if dest_sec_group:
                 # make sure all the security group rules are there and
                 # create them if not
@@ -201,7 +201,7 @@ class ApiReplayClient(object):
                             # security group it is automatically populated
                             # with some rules. When we go to create the rules
                             # that already exist because of a match an error
-                            # is raised here but thats okay.
+                            # is raised here but that's okay.
                             pass
 
             # dest server doesn't have the group so we create it here.
@@ -227,7 +227,7 @@ class ApiReplayClient(object):
                         # security group it is automatically populated
                         # with some rules. When we go to create the rules
                         # that already exist because of a match an error
-                        # is raised here but thats okay.
+                        # is raised here but that's okay.
                         pass
 
     def migrate_routers(self):
@@ -361,7 +361,7 @@ class ApiReplayClient(object):
                         print("Uplinked router %s" % router_uplink)
                         continue
 
-                    # Let the neutron dhcp-agent recreate this on it's own
+                    # Let the neutron dhcp-agent recreate this on its own
                     if port['device_owner'] == 'network:dhcp':
                         continue
 
