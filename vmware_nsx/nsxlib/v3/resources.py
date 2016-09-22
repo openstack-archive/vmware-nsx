@@ -240,8 +240,8 @@ class LogicalPort(AbstractRESTResource):
                 })
             body['switching_profile_ids'] = profiles
 
-        if attachment:
-            body['attachment'] = attachment
+        # Note that attachment could be None, meaning reset it.
+        body['attachment'] = attachment
 
         return body
 
