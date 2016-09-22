@@ -39,8 +39,7 @@ def list_dhcp_bindings(resource, event, trigger, **kwargs):
     """List DHCP bindings in Neutron."""
 
     comp_ports = [port for port in neutron_client.get_ports()
-                  if port['device_owner'].startswith(
-                      const.DEVICE_OWNER_COMPUTE_PREFIX)]
+                  if nsx_utils.is_port_dhcp_configurable(port)]
     LOG.info(formatters.output_formatter(constants.DHCP_BINDING, comp_ports,
                                          ['id', 'mac_address', 'fixed_ips']))
 
@@ -77,7 +76,7 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
     for port in ports:
         device_owner = port['device_owner']
         if (device_owner != const.DEVICE_OWNER_DHCP and
-            not device_owner.startswith(const.DEVICE_OWNER_COMPUTE_PREFIX)):
+            not nsx_utils.is_port_dhcp_configurable(port)):
             continue
         for fixed_ip in port['fixed_ips']:
             if netaddr.IPNetwork(fixed_ip['ip_address']).version == 6:
