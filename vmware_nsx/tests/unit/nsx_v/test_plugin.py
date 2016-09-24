@@ -2437,12 +2437,7 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
 class IPv6ExpectedFailuresTestMixin(object):
 
     def test_router_add_interface_ipv6_subnet(self):
-        # Expect a 400 statuc code as IPv6 subnets w/DHCP are not supported
-        with testlib_api.ExpectedException(
-                webob.exc.HTTPClientError) as ctx_manager:
-            super(IPv6ExpectedFailuresTestMixin, self).\
-                test_router_add_interface_ipv6_subnet()
-            self.assertEqual(ctx_manager.exception.code, 400)
+        self.skipTest('Not supported')
 
     def test_router_add_iface_ipv6_ext_ra_subnet_returns_400(self):
         # This returns a 400 too, but as an exception is raised the response
@@ -2454,12 +2449,7 @@ class IPv6ExpectedFailuresTestMixin(object):
             self.assertEqual(ctx_manager.exception.code, 400)
 
     def test_router_add_gateway_multiple_subnets_ipv6(self):
-        # Expect a 400 statuc code as IPv6 subnets w/DHCP are not supported
-        with testlib_api.ExpectedException(
-                webob.exc.HTTPClientError) as ctx_manager:
-            super(IPv6ExpectedFailuresTestMixin, self).\
-                test_router_add_gateway_multiple_subnets_ipv6()
-            self.assertEqual(ctx_manager.exception.code, 400)
+        self.skipTest('not supported')
 
 
 class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
@@ -3139,6 +3129,12 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
     def test_floatingip_update_to_same_port_id_twice(self):
         self.skipTest('Plugin changes floating port status')
 
+    def test_router_add_interface_ipv6_subnet(self):
+        self.skipTest('Not supported')
+
+    def test_router_add_gateway_multiple_subnets_ipv6(self):
+        self.skipTest('not supported')
+
 
 class ExtGwModeTestCase(NsxVPluginV2TestCase,
                         test_ext_gw_mode.ExtGwModeIntTestCase):
@@ -3328,6 +3324,12 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
 
     def test_floatingip_multi_external_one_internal(self):
         self.skipTest('skipped')
+
+    def test_router_add_gateway_multiple_subnets_ipv6(self):
+        self.skipTest('not supported')
+
+    def test_router_add_interface_ipv6_subnet(self):
+        self.skipTest('Not supported')
 
     def test_router_add_interface_dup_subnet2_returns_400(self):
         self.skipTest('skipped')
