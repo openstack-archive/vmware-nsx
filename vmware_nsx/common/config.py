@@ -15,6 +15,7 @@
 import logging
 
 from oslo_config import cfg
+from oslo_config import types
 
 from vmware_nsx._i18n import _, _LW
 from vmware_nsx.common import exceptions as nsx_exc
@@ -562,6 +563,7 @@ nsxv_opts = [
                 help=_("If True, the server instance will attempt to "
                        "initialize the metadata infrastructure")),
     cfg.ListOpt('metadata_service_allowed_ports',
+                item_type=types.Port(),
                 default=[],
                 help=_('List of tcp ports, to be allowed access to the '
                        'metadata proxy, in addition to the default '
