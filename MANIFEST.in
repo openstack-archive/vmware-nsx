@@ -2,6 +2,10 @@ include AUTHORS
 include README.rst
 include ChangeLog
 include LICENSE
+
+include vmware_nsx/db/migration/alembic_migrations/script.py.mako
+recursive-include vmware_nsx/db/migration/alembic_migrations/versions *
+
 recursive-include vmware_nsx/neutron/locale *
 
 exclude .gitignore
