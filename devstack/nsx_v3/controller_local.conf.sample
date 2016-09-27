@@ -71,7 +71,10 @@ ENABLED_SERVICES+=,tempest
 
 # Neutron - Networking Service
 # If Neutron is not declared the old good nova-network will be used
-ENABLED_SERVICES+=,q-svc,q-dhcp,q-meta,neutron
+# If use agent to provider DHCP and metadata
+#ENABLED_SERVICES+=,q-svc,q-dhcp,q-meta,neutron
+# If use native DHCP support from NSX, q-dhcp & q-meta shouldn't be enabled
+ENABLED_SERVICES+=,q-svc,neutron
 
 ## Neutron - Load Balancing
 #ENABLED_SERVICES+=,q-lbaas
@@ -103,3 +106,9 @@ NSX_PASSWORD=<nsx-password>
 DEFAULT_TIER0_ROUTER_UUID=<tier0-router-uuid>
 # Default Edge cluster uuid
 DEFAULT_EDGE_CLUSTER_UUID=<edge-cluster-uuid>
+
+# Enabled native DHCP support from NSX backend
+DHCP_PROFILE_UUID=<dhcp-profile-uuid>
+METADATA_PROXY_UUID=<metadata-proxy-uuid>
+METADATA_PROXY_SHARED_SECRET=<metadata-proxy-secret>
+NATIVE_DHCP_METADATA=True
