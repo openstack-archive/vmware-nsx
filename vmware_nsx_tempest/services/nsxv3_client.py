@@ -132,19 +132,37 @@ class NSXV3Client(object):
                                  data=jsonutils.dumps(body))
         return response
 
+    def get_logical_resources(self, endpoint):
+        """
+        Get logical resources based on the endpoint
+
+        The max page_size in NSXv3 is 1000. So if the results are more than
+        1000, we need to loop over multiple pages based on cursor to get
+        all the logical resources.
+        """
+        response = self.get(endpoint=endpoint)
+        res_json = response.json()
+        cursor = res_json['cursor']
+        res_count = res_json['result_count']
+        pages = res_count / 1000
+        results = res_json['results']
+        for p in range(pages):
+            response = self.get(endpoint=endpoint, params={"cursor": cursor})
+            results += response.json()['results']
+            cursor = response.json()['cursor']
+        return results
+
     def get_transport_zones(self):
         """
         Retrieve all transport zones
         """
-        response = self.get(endpoint="/transport-zones")
-        return response.json()['results']
+        return self.get_logical_resources("/transport-zones")
 
     def get_logical_ports(self):
         """
         Retrieve all logical ports on NSX backend
         """
-        response = self.get(endpoint="/logical-ports")
-        return response.json()['results']
+        return self.get_logical_resources("/logical-ports")
 
     def get_os_logical_ports(self):
         """
@@ -220,8 +238,7 @@ class NSXV3Client(object):
         """
         Retrieve all logical switches on NSX backend
         """
-        response = self.get(endpoint="/logical-switches")
-        return response.json()['results']
+        return self.get_logical_resources("/logical-switches")
 
     def get_bridge_cluster_info(self):
         """
@@ -229,8 +246,7 @@ class NSXV3Client(object):
 
         :return: returns bridge cluster id and bridge cluster name.
         """
-        response = self.get(endpoint="/bridge-clusters")
-        return response.json()["results"]
+        return self.get_logical_resources("/bridge-clusters")
 
     def get_logical_switch(self, os_name, os_uuid):
         """
@@ -259,8 +275,7 @@ class NSXV3Client(object):
         """
         Retrieve all firewall sections
         """
-        response = self.get(endpoint="/firewall/sections")
-        return response.json()['results']
+        return self.get_logical_resources("/firewall/sections")
 
     def get_firewall_section(self, os_name, os_uuid):
         """
@@ -280,8 +295,7 @@ class NSXV3Client(object):
         Retrieve all fw rules for a given fw section
         """
         endpoint = "/firewall/sections/%s/rules" % fw_section['id']
-        response = self.get(endpoint=endpoint)
-        return response.json()['results']
+        return self.get_logical_resources(endpoint)
 
     def get_firewall_section_rule(self, fw_section, os_uuid):
         """
@@ -295,8 +309,7 @@ class NSXV3Client(object):
         """
         Retrieve all NSGroups on NSX backend
         """
-        response = self.get(endpoint="/ns-groups")
-        return response.json()['results']
+        return self.get_logical_resources("/ns-groups")
 
     def get_ns_group(self, os_name, os_uuid):
         """
@@ -322,8 +335,7 @@ class NSXV3Client(object):
             endpoint = "/logical-routers?router_type=%s" % tier
         else:
             endpoint = "/logical-routers"
-        response = self.get(endpoint=endpoint)
-        return response.json()['results']
+        return self.get_logical_resources(endpoint)
 
     def get_logical_router(self, os_name, os_uuid):
         """
@@ -345,8 +357,7 @@ class NSXV3Client(object):
         Get all logical ports attached to lrouter
         """
         endpoint = "/logical-router-ports?logical_router_id=%s" % lrouter['id']
-        response = self.get(endpoint=endpoint)
-        return response.json()['results']
+        return self.get_logical_resources(endpoint)
 
     def get_logical_router_nat_rules(self, lrouter):
         """
@@ -357,15 +368,13 @@ class NSXV3Client(object):
                           "to get the NAT rules"))
             return None
         endpoint = "/logical-routers/%s/nat/rules" % lrouter['id']
-        response = self.get(endpoint=endpoint)
-        return response.json()['results']
+        return self.get_logical_resources(endpoint)
 
     def get_logical_dhcp_servers(self):
         """
         Get all logical DHCP servers on NSX backend
         """
-        response = self.get(endpoint="/dhcp/servers")
-        return response.json()['results']
+        return self.get_logical_resources("/dhcp/servers")
 
     def get_logical_dhcp_server(self, os_name, os_uuid):
         """
@@ -388,6 +397,5 @@ class NSXV3Client(object):
         """
         Get all DHCP static bindings of a logical DHCP server
         """
-        uri = "/dhcp/servers/%s/static-bindings" % dhcp_server
-        response = self.get(endpoint=uri)
-        return response.json()['results']
+        endpoint = "/dhcp/servers/%s/static-bindings" % dhcp_server
+        return self.get_logical_resources(endpoint)
