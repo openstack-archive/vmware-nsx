@@ -45,7 +45,12 @@ neutron_db = utils.NeutronDbClient()
 def nsx_get_static_bindings_by_edge(edge_id):
     nsx_dhcp_static_bindings = set()
 
-    nsx_dhcp_bindings = nsxv.query_dhcp_configuration(edge_id)
+    try:
+        nsx_dhcp_bindings = nsxv.query_dhcp_configuration(edge_id)
+    except exceptions.ResourceNotFound:
+        LOG.error(_LE("Edge %s was not found"), edge_id)
+        return
+
     # nsx_dhcp_bindings[0] contains response headers;
     # nsx_dhcp_bindings[1] contains response payload
     sbindings = nsx_dhcp_bindings[1].get('staticBindings').get(
@@ -76,12 +81,13 @@ def list_missing_dhcp_bindings(resource, event, trigger, **kwargs):
     Missing DHCP bindings are those that exist in Neutron DB;
     but are not present on corresponding NSXv Edge.
     """
-
-    for (edge_id, __) in nsxv_db.get_nsxv_dhcp_bindings_count_per_edge(
+    for (edge_id, count) in nsxv_db.get_nsxv_dhcp_bindings_count_per_edge(
             neutron_db.context.session):
         LOG.info(_LI("%s"), "=" * 60)
         LOG.info(_LI("For edge: %s"), edge_id)
         nsx_dhcp_static_bindings = nsx_get_static_bindings_by_edge(edge_id)
+        if nsx_dhcp_static_bindings is None:
+            continue
         neutron_dhcp_static_bindings = \
             neutron_get_static_bindings_by_edge(edge_id)
         LOG.info(_LI("# of DHCP bindings in Neutron DB: %s"),
