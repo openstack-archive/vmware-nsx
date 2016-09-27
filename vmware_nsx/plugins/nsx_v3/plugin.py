@@ -1278,17 +1278,25 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             context, port_data)
         address_bindings = (self._build_address_bindings(port_data)
                             if psec_is_on else [])
-        vif_uuid = port_data['id']
-        attachment_type = nsx_constants.ATTACHMENT_VIF
-        if not device_owner or device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF:
+
+        if not device_owner:
+            # no attachment
             attachment_type = None
             vif_uuid = None
-        # Change the attachment type for L2 gateway owned ports.
-        if l2gw_port_check:
+        elif l2gw_port_check:
+            # Change the attachment type for L2 gateway owned ports.
             # NSX backend requires the vif id be set to bridge endpoint id
             # for ports plugged into a Bridge Endpoint.
             vif_uuid = device_id
             attachment_type = device_owner
+        elif device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF:
+            # no attachment change
+            attachment_type = False
+            vif_uuid = False
+        else:
+            # default attachment
+            attachment_type = nsx_constants.ATTACHMENT_VIF
+            vif_uuid = port_data['id']
 
         profiles = []
         if psec_is_on and address_bindings:
@@ -1863,13 +1871,21 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 tags_update = utils.add_v3_tag(tags_update, resource_type,
                                                updated_device_id)
 
-        vif_uuid = updated_port['id']
         parent_vif_id, tag = self._get_data_from_binding_profile(
             context, updated_port)
-        attachment_type = nsx_constants.ATTACHMENT_VIF
-        if (not updated_device_owner or
-            updated_device_owner in (l3_db.DEVICE_OWNER_ROUTER_INTF,
-                                     nsx_constants.BRIDGE_ENDPOINT)):
+
+        if updated_device_owner in (original_device_owner,
+                                    l3_db.DEVICE_OWNER_ROUTER_INTF,
+                                    nsx_constants.BRIDGE_ENDPOINT):
+            # no attachment change
+            attachment_type = False
+            vif_uuid = False
+        elif updated_device_owner:
+            # default attachment
+            attachment_type = nsx_constants.ATTACHMENT_VIF
+            vif_uuid = updated_port['id']
+        else:
+            # no attachment
             attachment_type = None
             vif_uuid = None
 

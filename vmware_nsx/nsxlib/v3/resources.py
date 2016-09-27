@@ -241,7 +241,8 @@ class LogicalPort(AbstractRESTResource):
             body['switching_profile_ids'] = profiles
 
         # Note that attachment could be None, meaning reset it.
-        body['attachment'] = attachment
+        if attachment is not False:
+            body['attachment'] = attachment
 
         return body
 
@@ -256,6 +257,10 @@ class LogicalPort(AbstractRESTResource):
                            'resource_type': nsx_constants.CIF_RESOURCE_TYPE}
                 attachment['context'] = context
             return attachment
+        elif attachment_type is None or vif_uuid is None:
+            return None   # reset attachment
+        else:
+            return False  # no attachment change
 
     def create(self, lswitch_id, vif_uuid, tags=None,
                attachment_type=nsx_constants.ATTACHMENT_VIF,
