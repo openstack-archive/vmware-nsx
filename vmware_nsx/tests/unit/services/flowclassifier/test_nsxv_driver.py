@@ -25,6 +25,7 @@ from neutron.common import config
 from neutron import context
 from neutron.extensions import portbindings
 from neutron import manager
+from neutron.plugins.ml2.drivers import type_vxlan   # noqa
 
 from networking_sfc.db import flowclassifier_db as fdb
 from networking_sfc.extensions import flowclassifier
