@@ -689,8 +689,18 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                         self._unbind_router_on_edge(context, router_id)
                         is_migrated = True
                     else:
+                        updated_routes = False
                         # Update external vnic if addr or mask is changed
                         if orgaddr != newaddr or orgmask != newmask:
+                            # If external gateway is removed, the default
+                            # gateway should be cleared before updating the
+                            # interface, or else the backend will fail.
+                            if (new_ext_net_id != org_ext_net_id and
+                                new_ext_net_id is None):
+                                self._update_routes_on_routers(
+                                    context, router_id, router_ids)
+                                updated_routes = True
+
                             self._update_external_interface_on_routers(
                                 context, router_id, router_ids)
 
@@ -709,9 +719,10 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                                 context, router_id, router_ids,
                                 allow_external=True)
 
-                        # Update static routes in all.
-                        self._update_routes_on_routers(
-                            context, router_id, router_ids)
+                        # Update static routes in all (if not updated yet).
+                        if not updated_routes:
+                            self._update_routes_on_routers(
+                                context, router_id, router_ids)
             if is_migrated:
                 self._bind_router_on_available_edge(
                     context, router_id, router.admin_state_up)
