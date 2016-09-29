@@ -1423,7 +1423,14 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                     if nsx_port_id:
                         name = utils.get_name_and_uuid(
                             router_name, port['id'], tag='port')
-                        self._port_client.update(nsx_port_id, None, name=name)
+                        try:
+                            self._port_client.update(nsx_port_id, None,
+                                                     name=name)
+                        except Exception as e:
+                            LOG.error(_LE("Unable to update port %(port_id)s. "
+                                          "Reason: %(e)s"),
+                                      {'port_id': nsx_port_id,
+                                       'e': e})
             return super(NsxV3Plugin, self).update_router(
                 context, router_id, router)
         except nsx_exc.ResourceNotFound:
