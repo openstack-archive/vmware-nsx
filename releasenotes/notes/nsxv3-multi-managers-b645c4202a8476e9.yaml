@@ -1,0 +1,7 @@
+---
+prelude: >
+    The NSX-v3 plugin supports different credentials for the NSX managers.
+features:
+    The nsxv3 configuration parameters ca_file, nsx_api_user & nsx_api_password
+    are now lists, in  order to support different credentials for each of the
+    NSX managers.

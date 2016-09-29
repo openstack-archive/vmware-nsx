@@ -124,14 +124,14 @@ class NSXRequestsHTTPProvider(AbstractHTTPProvider):
     def new_connection(self, cluster_api, provider):
         session = TimeoutSession(cluster_api.http_timeout,
                                  cluster_api.http_read_timeout)
-        session.auth = (cluster_api.username, cluster_api.password)
+        session.auth = (provider.username, provider.password)
         # NSX v3 doesn't use redirects
         session.max_redirects = 0
 
         session.verify = not cluster_api.insecure
-        if session.verify and cluster_api.ca_file:
+        if session.verify and provider.ca_file:
             # verify using the said ca bundle path
-            session.verify = cluster_api.ca_file
+            session.verify = provider.ca_file
 
         # we are pooling with eventlet in the cluster class
         adapter = adapters.HTTPAdapter(
@@ -172,12 +172,15 @@ class EndpointState(object):
 
 class Provider(object):
     """Data holder for a provider which has a unique id
-    and a connection URL.
+    a connection URL, and the credential details.
     """
 
-    def __init__(self, provider_id, provider_url):
+    def __init__(self, provider_id, provider_url, username, password, ca_file):
         self.id = provider_id
         self.url = provider_url
+        self.username = username
+        self.password = password
+        self.ca_file = ca_file
 
     def __str__(self):
         return str(self.url)
@@ -459,11 +462,15 @@ class NSXClusteredAPI(ClusteredAPI):
                  http_read_timeout=None,
                  conn_idle_timeout=None,
                  http_provider=None):
-        self.username = username or cfg.CONF.nsx_v3.nsx_api_user
-        self.password = password or cfg.CONF.nsx_v3.nsx_api_password
         self.retries = retries or cfg.CONF.nsx_v3.http_retries
         self.insecure = insecure or cfg.CONF.nsx_v3.insecure
-        self.ca_file = ca_file or cfg.CONF.nsx_v3.ca_file
+
+        # username, password & ca_file may be lists, in order to support
+        # different credentials per nsx manager
+        self._username = username or cfg.CONF.nsx_v3.nsx_api_user
+        self._password = password or cfg.CONF.nsx_v3.nsx_api_password
+        self._ca_file = ca_file or cfg.CONF.nsx_v3.ca_file
+
         self.conns_per_pool = (concurrent_connections or
                                cfg.CONF.nsx_v3.concurrent_connections)
         self.http_timeout = http_timeout or cfg.CONF.nsx_v3.http_timeout
@@ -494,14 +501,40 @@ class NSXClusteredAPI(ClusteredAPI):
         conf_urls = cfg.CONF.nsx_v3.nsx_api_managers[:]
         urls = []
         providers = []
-
+        provider_index = -1
         for conf_url in conf_urls:
+            provider_index += 1
             conf_url = _schemed_url(conf_url)
             if conf_url in urls:
                 LOG.warning(_LW("'%s' already defined in configuration file. "
                                 "Skipping."), urlparse.urlunparse(conf_url))
                 continue
             urls.append(conf_url)
-            providers.append(Provider(
-                conf_url.netloc, urlparse.urlunparse(conf_url)))
+            providers.append(
+                Provider(
+                    conf_url.netloc,
+                    urlparse.urlunparse(conf_url),
+                    self.username(provider_index),
+                    self.password(provider_index),
+                    self.ca_file(provider_index)))
         return providers
+
+    def _attribute_by_index(self, scalar_or_list, index):
+        if isinstance(scalar_or_list, list):
+            if not len(scalar_or_list):
+                return None
+            if len(scalar_or_list) > index:
+                return scalar_or_list[index]
+            # if not long enough - use the first one as default
+            return scalar_or_list[0]
+        # this is a scalar
+        return scalar_or_list
+
+    def username(self, index):
+        return self._attribute_by_index(self._username, index)
+
+    def password(self, index):
+        return self._attribute_by_index(self._password, index)
+
+    def ca_file(self, index):
+        return self._attribute_by_index(self._ca_file, index)

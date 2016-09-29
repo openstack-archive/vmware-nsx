@@ -246,15 +246,15 @@ nsx_common_opts = [
 ]
 
 nsx_v3_opts = [
-    cfg.StrOpt('nsx_api_user',
+    cfg.ListOpt('nsx_api_user',
                deprecated_name='nsx_user',
-               default='admin',
-               help=_('User name for the NSX manager')),
-    cfg.StrOpt('nsx_api_password',
+               default=['admin'],
+               help=_('User names for the NSX managers')),
+    cfg.ListOpt('nsx_api_password',
                deprecated_name='nsx_password',
-               default='default',
+               default=['default'],
                secret=True,
-               help=_('Password for the NSX manager')),
+               help=_('Passwords for the NSX managers')),
     cfg.ListOpt('nsx_api_managers',
                 default=[],
                 deprecated_name='nsx_manager',
@@ -291,10 +291,10 @@ nsx_v3_opts = [
                default=10,
                help=_('Maximum number of times to retry API requests upon '
                       'stale revision errors.')),
-    cfg.StrOpt('ca_file',
-               help=_('Specify a CA bundle file to use in verifying the NSX '
-                      'Manager server certificate. This option is ignored if '
-                      '"insecure" is set to True. If "insecure" is set to '
+    cfg.ListOpt('ca_file',
+               help=_('Specify a CA bundle files to use in verifying the NSX '
+                      'Managers server certificate. This option is ignored '
+                      'if "insecure" is set to True. If "insecure" is set to '
                       'False and ca_file is unset, the system root CAs will '
                       'be used to verify the server certificate.')),
     cfg.BoolOpt('insecure',
