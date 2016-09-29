@@ -120,10 +120,50 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
 
     def setUp(self):
         super(TopoDeployScenarioManager, self).setUp()
+        self.cleanup_waits = []
+        self.addCleanup(self._wait_for_cleanups)
         self.servers_on_net = {}
 
     def tearDown(self):
         super(TopoDeployScenarioManager, self).tearDown()
+
+    def addCleanup_with_wait(self, waiter_callable, thing_id, thing_id_param,
+                             cleanup_callable, cleanup_args=None,
+                             cleanup_kwargs=None, waiter_client=None):
+        """Adds wait for async resource deletion at the end of cleanups
+
+        @param waiter_callable: callable to wait for the resource to delete
+            with the following waiter_client if specified.
+        @param thing_id: the id of the resource to be cleaned-up
+        @param thing_id_param: the name of the id param in the waiter
+        @param cleanup_callable: method to load pass to self.addCleanup with
+            the following *cleanup_args, **cleanup_kwargs.
+            usually a delete method.
+        """
+        if cleanup_args is None:
+            cleanup_args = []
+        if cleanup_kwargs is None:
+            cleanup_kwargs = {}
+        self.addCleanup(cleanup_callable, *cleanup_args, **cleanup_kwargs)
+        wait_dict = {
+            'waiter_callable': waiter_callable,
+            thing_id_param: thing_id
+        }
+        if waiter_client:
+            wait_dict['client'] = waiter_client
+        self.cleanup_waits.append(wait_dict)
+
+    def _wait_for_cleanups(self):
+        # To handle async delete actions, a list of waits is added
+        # which will be iterated over as the last step of clearing the
+        # cleanup queue. That way all the delete calls are made up front
+        # and the tests won't succeed unless the deletes are eventually
+        # successful. This is the same basic approach used in the api tests to
+        # limit cleanup execution time except here it is multi-resource,
+        # because of the nature of the scenario tests.
+        for wait in self.cleanup_waits:
+            waiter_callable = wait.pop('waiter_callable')
+            waiter_callable(**wait)
 
     # overwrite parent class which does not accept NSX-v extension
     def _create_router(self, client_mgr=None, tenant_id=None,
