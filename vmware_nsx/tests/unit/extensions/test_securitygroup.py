@@ -17,9 +17,9 @@ import mock
 from neutron.extensions import securitygroup as ext_sg
 from neutron.tests.unit.extensions import test_securitygroup as test_ext_sg
 
-from vmware_nsx.nsxlib.v3 import dfw_api as firewall
 from vmware_nsx.nsxlib.v3 import exceptions as nsxlib_exc
 from vmware_nsx.nsxlib.v3 import ns_group_manager
+from vmware_nsx.nsxlib.v3 import nsx_constants as consts
 from vmware_nsx.plugins.nsx_v3 import plugin as nsx_plugin
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_nsxv3
 from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
@@ -84,8 +84,10 @@ class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
 
         # The first nsgroup is associated with the default secgroup, which is
         # not added to this port.
-        calls = [mock.call(NSG_IDS[1], firewall.LOGICAL_PORT, mock.ANY),
-                 mock.call(NSG_IDS[2], firewall.LOGICAL_PORT, mock.ANY)]
+        calls = [mock.call(NSG_IDS[1],
+                           consts.TARGET_TYPE_LOGICAL_PORT, mock.ANY),
+                 mock.call(NSG_IDS[2],
+                           consts.TARGET_TYPE_LOGICAL_PORT, mock.ANY)]
         add_member_mock.assert_has_calls(calls, any_order=True)
 
     @_mock_create_and_list_nsgroups
@@ -97,13 +99,16 @@ class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
         super(TestSecurityGroupsNoDynamicCriteria,
               self).test_update_port_with_multiple_security_groups()
 
-        calls = [mock.call(NSG_IDS[0], firewall.LOGICAL_PORT, mock.ANY),
-                 mock.call(NSG_IDS[1], firewall.LOGICAL_PORT, mock.ANY),
-                 mock.call(NSG_IDS[2], firewall.LOGICAL_PORT, mock.ANY)]
+        calls = [mock.call(NSG_IDS[0],
+                           consts.TARGET_TYPE_LOGICAL_PORT, mock.ANY),
+                 mock.call(NSG_IDS[1],
+                           consts.TARGET_TYPE_LOGICAL_PORT, mock.ANY),
+                 mock.call(NSG_IDS[2],
+                           consts.TARGET_TYPE_LOGICAL_PORT, mock.ANY)]
         add_member_mock.assert_has_calls(calls, any_order=True)
 
         remove_member_mock.assert_called_with(
-            NSG_IDS[0], firewall.LOGICAL_PORT, mock.ANY)
+            NSG_IDS[0], consts.TARGET_TYPE_LOGICAL_PORT, mock.ANY)
 
     @_mock_create_and_list_nsgroups
     @mock.patch('vmware_nsx.nsxlib.v3.NsxLib.remove_nsgroup_member')
@@ -115,9 +120,9 @@ class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
               self).test_update_port_remove_security_group_empty_list()
 
         add_member_mock.assert_called_with(
-            NSG_IDS[1], firewall.LOGICAL_PORT, mock.ANY)
+            NSG_IDS[1], consts.TARGET_TYPE_LOGICAL_PORT, mock.ANY)
         remove_member_mock.assert_called_with(
-            NSG_IDS[1], firewall.LOGICAL_PORT, mock.ANY)
+            NSG_IDS[1], consts.TARGET_TYPE_LOGICAL_PORT, mock.ANY)
 
     @_mock_create_and_list_nsgroups
     @mock.patch('vmware_nsx.nsxlib.v3.NsxLib.add_nsgroup_members')
@@ -166,8 +171,10 @@ class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
         # Because the update has failed we excpect that the plugin will try to
         # revert any changes in the NSGroups - It is required to remove the
         # lport from any NSGroups which it was added to during that call.
-        calls = [mock.call(NSG_IDS[1], firewall.LOGICAL_PORT, mock.ANY),
-                 mock.call(NSG_IDS[2], firewall.LOGICAL_PORT, mock.ANY)]
+        calls = [mock.call(NSG_IDS[1],
+                           consts.TARGET_TYPE_LOGICAL_PORT, mock.ANY),
+                 mock.call(NSG_IDS[2],
+                           consts.TARGET_TYPE_LOGICAL_PORT, mock.ANY)]
         remove_member_mock.assert_has_calls(calls, any_order=True)
 
     def test_create_security_group_rule_icmpv6_legacy_protocol_name(self):
@@ -225,9 +232,10 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
         # There are 5 nested groups, the hash function will return 7, therefore
         # we expect that the nsgroup will be placed in the 3rd group.
         add_member_mock.assert_called_once_with(
-            NSG_IDS[2], firewall.NSGROUP, [nsgroup_id])
+            NSG_IDS[2], consts.NSGROUP, [nsgroup_id])
         remove_member_mock.assert_called_once_with(
-            NSG_IDS[2], firewall.NSGROUP, nsgroup_id, verify=True)
+            NSG_IDS[2], consts.NSGROUP, nsgroup_id,
+            verify=True)
 
     @_mock_create_and_list_nsgroups
     @mock.patch('vmware_nsx.nsxlib.v3.NsxLib.remove_nsgroup_member')
@@ -259,8 +267,10 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
         # Trying to add nsgroup to the nested group at index 2 will raise
         # NSGroupIsFull exception, we expect that the nsgroup will be added to
         # the nested group at index 3.
-        calls = [mock.call(NSG_IDS[2], firewall.NSGROUP, [nsgroup_id]),
-                 mock.call(NSG_IDS[3], firewall.NSGROUP, [nsgroup_id])]
+        calls = [mock.call(NSG_IDS[2],
+                           consts.NSGROUP, [nsgroup_id]),
+                 mock.call(NSG_IDS[3],
+                           consts.NSGROUP, [nsgroup_id])]
         add_member_mock.assert_has_calls(calls)
 
         # Since the nsgroup was added to the nested group at index 3, it will
@@ -268,9 +278,11 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
         # remove it from the group at index 3.
         calls = [
             mock.call(
-                NSG_IDS[2], firewall.NSGROUP, nsgroup_id, verify=True),
+                NSG_IDS[2], consts.NSGROUP,
+                nsgroup_id, verify=True),
             mock.call(
-                NSG_IDS[3], firewall.NSGROUP, nsgroup_id, verify=True)]
+                NSG_IDS[3], consts.NSGROUP,
+                nsgroup_id, verify=True)]
         remove_member_mock.assert_has_calls(calls)
 
     @_mock_create_and_list_nsgroups
@@ -282,16 +294,17 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
         size = 3
         cont_manager = ns_group_manager.NSGroupManager(size)
         # list_nsgroups will return nested group 1 and 3, but not group 2.
-        with mock.patch.object(firewall,
-                               'list_nsgroups_mock') as list_nsgroups_mock:
-            list_nsgroups_mock = lambda: list_nsgroups_mock()[::2]
-            # invoking the initialization process again, it should process
-            # groups 1 and 3 and create group 2.
-            cont_manager = ns_group_manager.NSGroupManager(size)
-            self.assertEqual({1: NSG_IDS[0],
-                              2: NSG_IDS[3],
-                              3: NSG_IDS[2]},
-                             cont_manager.nested_groups)
+        # FIXME: Not sure what this mock does. no one calls this method now.
+        #with mock.patch.object(vmware_nsx.nsxlib.v3.NsxLib.list_nsgroups,
+        #                       'list_nsgroups_mock') as list_nsgroups_mock:
+        #    list_nsgroups_mock = lambda: list_nsgroups_mock()[::2]
+        # invoking the initialization process again, it should process
+        # groups 1 and 3 and create group 2.
+        cont_manager = ns_group_manager.NSGroupManager(size)
+        self.assertEqual({1: NSG_IDS[0],
+                          2: NSG_IDS[3],
+                          3: NSG_IDS[2]},
+                         cont_manager.nested_groups)
 
     @_mock_create_and_list_nsgroups
     def test_suggest_nested_group(self):

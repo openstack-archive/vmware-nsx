@@ -22,9 +22,9 @@ from neutron_lib import exceptions as n_exc
 from oslo_log import log
 
 from vmware_nsx._i18n import _, _LW
-from vmware_nsx.common import nsx_constants
-from vmware_nsx.common import utils
 from vmware_nsx.nsxlib.v3 import exceptions
+from vmware_nsx.nsxlib.v3 import nsx_constants
+from vmware_nsx.nsxlib.v3 import utils
 
 LOG = log.getLogger(__name__)
 

@@ -29,6 +29,7 @@ from sqlalchemy.sql import expression as expr
 from vmware_nsx._i18n import _, _LE, _LW
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsxv_constants
+from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import nsxv_models
 from vmware_nsx.extensions import dhcp_mtu as ext_dhcp_mtu
 from vmware_nsx.extensions import dns_search_domain as ext_dns_search_domain
@@ -36,20 +37,6 @@ from vmware_nsx.plugins.nsx_v.vshield.common import constants
 
 NsxvEdgeDhcpStaticBinding = nsxv_models.NsxvEdgeDhcpStaticBinding
 LOG = logging.getLogger(__name__)
-
-
-def _apply_filters_to_query(query, model, filters, like_filters=None):
-    if filters:
-        for key, value in six.iteritems(filters):
-            column = getattr(model, key, None)
-            if column:
-                query = query.filter(column.in_(value))
-    if like_filters:
-        for key, search_term in six.iteritems(like_filters):
-            column = getattr(model, key, None)
-            if column:
-                query = query.filter(column.like(search_term))
-    return query
 
 
 def add_nsxv_router_binding(session, router_id, vse_id, lswitch_id, status,
@@ -117,8 +104,8 @@ def get_nsxv_router_bindings(session, filters=None,
                              like_filters=None):
     session = db.get_session()
     query = session.query(nsxv_models.NsxvRouterBinding)
-    return _apply_filters_to_query(query, nsxv_models.NsxvRouterBinding,
-                                   filters, like_filters).all()
+    return nsx_db._apply_filters_to_query(query, nsxv_models.NsxvRouterBinding,
+                                          filters, like_filters).all()
 
 
 def update_nsxv_router_binding(session, router_id, **kwargs):
@@ -586,7 +573,7 @@ def get_nsxv_spoofguard_policy_network_mappings(session, filters=None,
                                                 like_filters=None):
     session = db.get_session()
     query = session.query(nsxv_models.NsxvSpoofGuardPolicyNetworkMapping)
-    return _apply_filters_to_query(
+    return nsx_db._apply_filters_to_query(
                query, nsxv_models.NsxvSpoofGuardPolicyNetworkMapping,
                filters, like_filters).all()
 

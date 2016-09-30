@@ -45,14 +45,14 @@ def _mock_nsxlib():
     def _return_id_key(*args, **kwargs):
         return {'id': uuidutils.generate_uuid()}
 
-    # FIXME(arosen): this is duplicated in test_plugin
-    def _mock_create_firewall_rules(*args):
+    def _mock_add_rules_in_section(*args):
         # NOTE(arosen): the code in the neutron plugin expects the
         # neutron rule id as the display_name.
-        rules = args[5]
+        rules = args[0]
         return {
             'rules': [
-                {'display_name': rule['id'], 'id': uuidutils.generate_uuid()}
+                {'display_name': rule['display_name'],
+                 'id': uuidutils.generate_uuid()}
                 for rule in rules
             ]}
 
@@ -70,15 +70,15 @@ def _mock_nsxlib():
         side_effect=_return_id_key).start()
 
     mock.patch(
-        "vmware_nsx.nsxlib.v3.NsxLib._init_default_section",
+        "vmware_nsx.nsxlib.v3.NsxLib.init_default_section",
         side_effect=_return_id_key).start()
 
     mock.patch(
         "vmware_nsx.nsxlib.v3.NsxLib.list_nsgroups").start()
 
     mock.patch(
-        "vmware_nsx.nsxlib.v3.NsxLib.create_firewall_rules",
-        side_effect=_mock_create_firewall_rules).start()
+        "vmware_nsx.nsxlib.v3.NsxLib.add_rules_in_section",
+        side_effect=_mock_add_rules_in_section).start()
 
     mock.patch(
         "vmware_nsx.nsxlib.v3.NsxLib.get_transport_zone_id_by_name_or_id",

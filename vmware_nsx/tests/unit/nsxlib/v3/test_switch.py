@@ -17,8 +17,8 @@
 import mock
 from oslo_log import log
 
-from vmware_nsx.common import nsx_constants
-from vmware_nsx.tests.unit.nsx_v3 import mocks as nsx_v3_mocks
+from vmware_nsx.nsxlib.v3 import nsx_constants
+from vmware_nsx.tests.unit.nsxlib.v3 import mocks as nsx_v3_mocks
 from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
 
 

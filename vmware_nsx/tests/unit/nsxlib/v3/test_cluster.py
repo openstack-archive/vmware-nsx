@@ -23,7 +23,7 @@ from requests import exceptions as requests_exceptions
 from vmware_nsx.nsxlib.v3 import client
 from vmware_nsx.nsxlib.v3 import cluster
 from vmware_nsx.nsxlib.v3 import exceptions as nsxlib_exc
-from vmware_nsx.tests.unit.nsx_v3 import mocks
+from vmware_nsx.tests.unit.nsxlib.v3 import mocks
 from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
 
 

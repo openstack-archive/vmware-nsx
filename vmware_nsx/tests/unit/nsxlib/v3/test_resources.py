@@ -20,10 +20,10 @@ import mock
 from oslo_serialization import jsonutils
 
 from vmware_nsx.nsxlib.v3 import resources
-from vmware_nsx.tests.unit.nsx_v3 import mocks
-from vmware_nsx.tests.unit.nsx_v3 import test_constants as test_constants_v3
+from vmware_nsx.tests.unit.nsxlib.v3 import mocks
 from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
 from vmware_nsx.tests.unit.nsxlib.v3 import test_client
+from vmware_nsx.tests.unit.nsxlib.v3 import test_constants as test_constants_v3
 
 
 CLIENT_PKG = test_client.CLIENT_PKG

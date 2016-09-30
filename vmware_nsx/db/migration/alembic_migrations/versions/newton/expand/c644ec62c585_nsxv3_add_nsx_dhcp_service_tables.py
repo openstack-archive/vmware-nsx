@@ -27,7 +27,7 @@ down_revision = 'c288bb6a7252'
 from alembic import op
 import sqlalchemy as sa
 
-from vmware_nsx.common import nsx_constants
+from vmware_nsx.nsxlib.v3 import nsx_constants
 
 
 nsx_service_type_enum = sa.Enum(

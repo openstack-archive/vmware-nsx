@@ -16,23 +16,17 @@
 from oslo_log import log
 
 from vmware_nsx._i18n import _, _LW
-from vmware_nsx.common import nsx_constants
-from vmware_nsx.common import utils
 from vmware_nsx.nsxlib.v3 import client
 from vmware_nsx.nsxlib.v3 import cluster
-from vmware_nsx.nsxlib.v3 import dfw_api
 from vmware_nsx.nsxlib.v3 import exceptions
+from vmware_nsx.nsxlib.v3 import nsx_constants
 from vmware_nsx.nsxlib.v3 import security
+from vmware_nsx.nsxlib.v3 import utils
 
 LOG = log.getLogger(__name__)
 
-# Max amount of time to try a request
-DEFAULT_MAX_ATTEMPTS = 3
 
-
-class NsxLib(dfw_api.DfwApi, security.Security):
-
-    MAX_ATTEMPTS = DEFAULT_MAX_ATTEMPTS
+class NsxLib(security.Security):
 
     def __init__(self,
                  username=None,
@@ -45,9 +39,11 @@ class NsxLib(dfw_api.DfwApi, security.Security):
                  http_read_timeout=None,
                  conn_idle_timeout=None,
                  http_provider=None,
-                 max_attempts=DEFAULT_MAX_ATTEMPTS):
+                 max_attempts=0):
 
-        self.max_attempts = max_attempts
+        # TODO(asarfaty): use max_attempts instead of cfg value
+
+        # create the Cluster
         self.cluster = cluster.NSXClusteredAPI(
             username=username, password=password,
             retries=retries, insecure=insecure,
@@ -58,7 +54,9 @@ class NsxLib(dfw_api.DfwApi, security.Security):
             conn_idle_timeout=conn_idle_timeout,
             http_provider=http_provider)
 
+        # create the Client
         self.client = client.NSX3Client(self.cluster)
+
         super(NsxLib, self).__init__()
 
     def get_version(self):
@@ -70,7 +68,7 @@ class NsxLib(dfw_api.DfwApi, security.Security):
         resource = "edge-clusters/%s" % edge_cluster_uuid
         return self.client.get(resource)
 
-    @utils.retry_upon_exception_nsxv3(exceptions.StaleRevision)
+    @utils.retry_upon_exception(exceptions.StaleRevision)
     def update_resource_with_retry(self, resource, payload):
         revised_payload = self.client.get(resource)
         for key_name in payload.keys():
@@ -128,8 +126,7 @@ class NsxLib(dfw_api.DfwApi, security.Security):
 
         return self.client.create(resource, body)
 
-    @utils.retry_upon_exception_nsxv3(exceptions.StaleRevision,
-                                      max_attempts=MAX_ATTEMPTS)
+    @utils.retry_upon_exception(exceptions.StaleRevision)
     def delete_logical_switch(self, lswitch_id):
         resource = 'logical-switches/%s?detach=true&cascade=true' % lswitch_id
         self.client.delete(resource)
@@ -138,8 +135,7 @@ class NsxLib(dfw_api.DfwApi, security.Security):
         resource = "logical-switches/%s" % logical_switch_id
         return self.client.get(resource)
 
-    @utils.retry_upon_exception_nsxv3(exceptions.StaleRevision,
-                                      max_attempts=MAX_ATTEMPTS)
+    @utils.retry_upon_exception(exceptions.StaleRevision)
     def update_logical_switch(self, lswitch_id, name=None, admin_state=None,
                               tags=None):
         resource = "logical-switches/%s" % lswitch_id
@@ -346,12 +342,12 @@ class NsxLib(dfw_api.DfwApi, security.Security):
         if len(matched_results) == 0:
             err_msg = (_("Could not find %(resource)s %(name)s") %
                        {'name': name_or_id, 'resource': resource})
-            # XXX improve exception handling...
+            # TODO(asarfaty): improve exception handling...
             raise exceptions.ManagerError(details=err_msg)
         elif len(matched_results) > 1:
             err_msg = (_("Found multiple %(resource)s named %(name)s") %
                        {'name': name_or_id, 'resource': resource})
-            # XXX improve exception handling...
+            # TODO(asarfaty): improve exception handling...
             raise exceptions.ManagerError(details=err_msg)
 
         return matched_results[0].get('id')

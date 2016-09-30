@@ -18,7 +18,7 @@ from neutron_lib.api import validators
 from neutron_lib import constants
 from oslo_config import cfg
 
-from vmware_nsx.common import utils
+from vmware_nsx.nsxlib.v3 import utils
 
 
 def build_dhcp_server_config(network, subnet, port, project_name):

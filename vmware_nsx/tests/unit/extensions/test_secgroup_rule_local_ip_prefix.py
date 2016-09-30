@@ -150,4 +150,5 @@ class TestNSXv3ExtendedSGRule(test_nsxv3_plugin.NsxV3PluginTestCaseMixin,
                 mock.ANY,  # ns_group_id
                 False,  # logging
                 'ALLOW',  # action
-                sg_rules)  # sg_rules
+                sg_rules,  # sg_rules
+                mock.ANY)  # ruleid_2_remote_nsgroup_map
