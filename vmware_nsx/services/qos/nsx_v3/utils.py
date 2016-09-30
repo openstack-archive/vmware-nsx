@@ -26,7 +26,6 @@ from oslo_log import log as logging
 from vmware_nsx._i18n import _, _LW
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import db as nsx_db
-from vmware_nsx.nsxlib.v3 import utils
 
 LOG = logging.getLogger(__name__)
 MAX_KBPS_MIN_VALUE = 1024
@@ -90,7 +89,7 @@ class QosNotificationsHandler(object):
 
     def _get_tags(self, context, policy):
         policy_dict = {'id': policy.id, 'tenant_id': policy.tenant_id}
-        return utils.build_v3_tags_payload(
+        return self._nsxlib_qos.build_v3_tags_payload(
             policy_dict, resource_type='os-neutron-qos-id',
             project_name=context.tenant_name)
 

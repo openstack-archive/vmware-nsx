@@ -52,7 +52,7 @@ class NsxLibQosTestCase(nsxlib_testcase.NsxClientTestCase):
         body["description"] = description
 
         for shaper in body["shaper_configuration"]:
-            # Neutron currently support only shaping of Egress traffic
+            # We currently support only shaping of Egress traffic
             if shaper["resource_type"] == "EgressRateShaper":
                 shaper["enabled"] = shaping_enabled
                 if burst_size:

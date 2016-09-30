@@ -14,11 +14,18 @@
 #    under the License.
 from oslo_config import cfg
 
+from neutron import version as n_version
+
 from vmware_nsx.nsxlib import v3
+from vmware_nsx.nsxlib.v3 import config
+
+
+NSX_NEUTRON_PLUGIN = 'NSX Neutron plugin'
+OS_NEUTRON_ID_SCOPE = 'os-neutron-id'
 
 
 def get_nsxlib_wrapper():
-    return v3.NsxLib(
+    nsxlib_config = config.NsxLibConfig(
         username=cfg.CONF.nsx_v3.nsx_api_user,
         password=cfg.CONF.nsx_v3.nsx_api_password,
         retries=cfg.CONF.nsx_v3.http_retries,
@@ -30,4 +37,11 @@ def get_nsxlib_wrapper():
         conn_idle_timeout=cfg.CONF.nsx_v3.conn_idle_timeout,
         http_provider=None,
         max_attempts=cfg.CONF.nsx_v3.retries,
-        nsx_api_managers=cfg.CONF.nsx_v3.nsx_api_managers)
+        nsx_api_managers=cfg.CONF.nsx_v3.nsx_api_managers,
+        plugin_scope=OS_NEUTRON_ID_SCOPE,
+        plugin_tag=NSX_NEUTRON_PLUGIN,
+        plugin_ver=n_version.version_info.release_string(),
+        dns_nameservers=cfg.CONF.nsx_v3.nameservers,
+        dns_domain=cfg.CONF.nsx_v3.dns_domain,
+        dhcp_profile_uuid=cfg.CONF.nsx_v3.dhcp_profile_uuid)
+    return v3.NsxLib(nsxlib_config)

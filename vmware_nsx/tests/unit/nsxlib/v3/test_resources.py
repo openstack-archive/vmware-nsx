@@ -93,7 +93,7 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
         mocked_resource = self._mocked_switching_profile()
 
         mocked_resource.create_spoofguard_profile(
-            'neutron-spoof', 'spoofguard-for-neutron',
+            'plugin-spoof', 'spoofguard-for-plugin',
             whitelist_ports=True, tags=tags)
 
         test_client.assert_json_call(
@@ -101,8 +101,8 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
             'https://1.2.3.4/api/v1/switching-profiles',
             data=jsonutils.dumps({
                 'resource_type': profile_types.SPOOF_GUARD,
-                'display_name': 'neutron-spoof',
-                'description': 'spoofguard-for-neutron',
+                'display_name': 'plugin-spoof',
+                'description': 'spoofguard-for-plugin',
                 'white_list_providers': ['LPORT_BINDINGS'],
                 'tags': tags
             }, sort_keys=True))
@@ -123,7 +123,7 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
         mocked_resource = self._mocked_switching_profile()
 
         mocked_resource.create_dhcp_profile(
-            'neutron-dhcp', 'dhcp-for-neutron',
+            'plugin-dhcp', 'dhcp-for-plugin',
             tags=tags)
 
         test_client.assert_json_call(
@@ -135,8 +135,8 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
                     'white_list': []
                 },
                 'resource_type': profile_types.SWITCH_SECURITY,
-                'display_name': 'neutron-dhcp',
-                'description': 'dhcp-for-neutron',
+                'display_name': 'plugin-dhcp',
+                'description': 'dhcp-for-plugin',
                 'tags': tags,
                 'dhcp_filter': {
                     'client_block_enabled': True,
@@ -168,7 +168,7 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
         mocked_resource = self._mocked_switching_profile()
 
         mocked_resource.create_mac_learning_profile(
-            'neutron-mac-learning', 'mac-learning-for-neutron',
+            'plugin-mac-learning', 'mac-learning-for-plugin',
             tags=tags)
 
         test_client.assert_json_call(
@@ -179,8 +179,8 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
                     'enabled': True,
                 },
                 'resource_type': profile_types.MAC_LEARNING,
-                'display_name': 'neutron-mac-learning',
-                'description': 'mac-learning-for-neutron',
+                'display_name': 'plugin-mac-learning',
+                'description': 'mac-learning-for-plugin',
                 'tags': tags,
                 'source_mac_change_allowed': True,
             }, sort_keys=True))

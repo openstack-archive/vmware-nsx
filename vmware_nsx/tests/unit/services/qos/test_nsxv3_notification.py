@@ -25,7 +25,7 @@ from neutron.services.qos import qos_plugin
 from neutron.tests.unit.services.qos import base
 
 from vmware_nsx.db import db as nsx_db
-from vmware_nsx.nsxlib.v3 import utils
+from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin
 
@@ -85,6 +85,8 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
 
         self.peak_bw_multiplier = cfg.CONF.NSX.qos_peak_bw_multiplier
 
+        self.nsxlib = v3_utils.get_nsxlib_wrapper()
+
     @mock.patch(
         'neutron.objects.rbac_db.RbacNeutronDbObjectMixin'
         '.create_rbac_policy')
@@ -100,7 +102,7 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                 with mock.patch('neutron.objects.qos.policy.QosPolicy.create'):
                     policy = self.qos_plugin.create_policy(self.ctxt,
                                                            self.policy_data)
-                    expected_tags = utils.build_v3_tags_payload(
+                    expected_tags = self.nsxlib.build_v3_tags_payload(
                         policy,
                         resource_type='os-neutron-qos-id',
                         project_name=self.ctxt.tenant_name)
@@ -129,7 +131,7 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                         self.ctxt, self.policy.id, {'policy': fields})
                     # verify that the profile was updated with the correct data
                     self.policy_data["policy"]["id"] = self.policy.id
-                    expected_tags = utils.build_v3_tags_payload(
+                    expected_tags = self.nsxlib.build_v3_tags_payload(
                         self.policy_data["policy"],
                         resource_type='os-neutron-qos-id',
                         project_name=self.ctxt.tenant_name)

@@ -13,71 +13,69 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from neutron.tests.unit.db import test_db_base_plugin_v2 as test_plugin
-from neutron import version
 from neutron_lib import exceptions as n_exc
 
 from vmware_nsx.nsxlib.v3 import utils
 from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
 
 
-class TestNsxV3Utils(test_plugin.NeutronDbPluginV2TestCase,
-                     nsxlib_testcase.NsxClientTestCase):
+class TestNsxV3Utils(nsxlib_testcase.NsxClientTestCase):
 
     def test_build_v3_tags_payload(self):
-        result = utils.build_v3_tags_payload(
+        result = self.nsxlib.build_v3_tags_payload(
             {'id': 'fake_id',
              'tenant_id': 'fake_tenant_id'},
-            resource_type='os-neutron-net-id',
+            resource_type='os-net-id',
             project_name='fake_tenant_name')
-        expected = [{'scope': 'os-neutron-net-id', 'tag': 'fake_id'},
+        expected = [{'scope': 'os-net-id', 'tag': 'fake_id'},
                     {'scope': 'os-project-id', 'tag': 'fake_tenant_id'},
                     {'scope': 'os-project-name', 'tag': 'fake_tenant_name'},
                     {'scope': 'os-api-version',
-                     'tag': version.version_info.release_string()}]
+                     'tag': nsxlib_testcase.PLUGIN_VER}]
         self.assertEqual(expected, result)
 
     def test_build_v3_tags_payload_internal(self):
-        result = utils.build_v3_tags_payload(
+        result = self.nsxlib.build_v3_tags_payload(
             {'id': 'fake_id',
              'tenant_id': 'fake_tenant_id'},
-            resource_type='os-neutron-net-id',
+            resource_type='os-net-id',
             project_name=None)
-        expected = [{'scope': 'os-neutron-net-id', 'tag': 'fake_id'},
+        expected = [{'scope': 'os-net-id', 'tag': 'fake_id'},
                     {'scope': 'os-project-id', 'tag': 'fake_tenant_id'},
-                    {'scope': 'os-project-name', 'tag': 'NSX Neutron plugin'},
+                    {'scope': 'os-project-name',
+                     'tag': nsxlib_testcase.PLUGIN_TAG},
                     {'scope': 'os-api-version',
-                     'tag': version.version_info.release_string()}]
+                     'tag': nsxlib_testcase.PLUGIN_VER}]
         self.assertEqual(expected, result)
 
     def test_build_v3_tags_payload_invalid_length(self):
         self.assertRaises(n_exc.InvalidInput,
-                          utils.build_v3_tags_payload,
+                          self.nsxlib.build_v3_tags_payload,
                           {'id': 'fake_id',
                            'tenant_id': 'fake_tenant_id'},
-                          resource_type='os-neutron-maldini-rocks-id',
+                          resource_type='os-longer-maldini-rocks-id',
                           project_name='fake')
 
     def test_build_v3_api_version_tag(self):
-        result = utils.build_v3_api_version_tag()
-        expected = [{'scope': 'os-neutron-id',
-                     'tag': 'NSX Neutron plugin'},
+        result = self.nsxlib.build_v3_api_version_tag()
+        expected = [{'scope': nsxlib_testcase.PLUGIN_SCOPE,
+                     'tag': nsxlib_testcase.PLUGIN_TAG},
                     {'scope': 'os-api-version',
-                     'tag': version.version_info.release_string()}]
+                     'tag': nsxlib_testcase.PLUGIN_VER}]
         self.assertEqual(expected, result)
 
     def test_is_internal_resource(self):
-        project_tag = utils.build_v3_tags_payload(
+        project_tag = self.nsxlib.build_v3_tags_payload(
             {'id': 'fake_id',
              'tenant_id': 'fake_tenant_id'},
-            resource_type='os-neutron-net-id',
+            resource_type='os-net-id',
             project_name=None)
-        internal_tag = utils.build_v3_api_version_tag()
+        internal_tag = self.nsxlib.build_v3_api_version_tag()
 
-        expect_false = utils.is_internal_resource({'tags': project_tag})
+        expect_false = self.nsxlib.is_internal_resource({'tags': project_tag})
         self.assertFalse(expect_false)
 
-        expect_true = utils.is_internal_resource({'tags': internal_tag})
+        expect_true = self.nsxlib.is_internal_resource({'tags': internal_tag})
         self.assertTrue(expect_true)
 
     def test_get_name_and_uuid(self):
@@ -93,16 +91,16 @@ class TestNsxV3Utils(test_plugin.NeutronDbPluginV2TestCase,
         self.assertEqual(expected, short_name)
 
     def test_build_v3_tags_max_length_payload(self):
-        result = utils.build_v3_tags_payload(
+        result = self.nsxlib.build_v3_tags_payload(
             {'id': 'X' * 255,
              'tenant_id': 'X' * 255},
-            resource_type='os-neutron-net-id',
+            resource_type='os-net-id',
             project_name='X' * 255)
-        expected = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+        expected = [{'scope': 'os-net-id', 'tag': 'X' * 40},
                     {'scope': 'os-project-id', 'tag': 'X' * 40},
                     {'scope': 'os-project-name', 'tag': 'X' * 40},
                     {'scope': 'os-api-version',
-                     'tag': version.version_info.release_string()}]
+                     'tag': nsxlib_testcase.PLUGIN_VER}]
         self.assertEqual(expected, result)
 
     def test_add_v3_tag(self):
@@ -123,59 +121,59 @@ class TestNsxV3Utils(test_plugin.NeutronDbPluginV2TestCase,
                           'fake-tag')
 
     def test_update_v3_tags_addition(self):
-        tags = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+        tags = [{'scope': 'os-net-id', 'tag': 'X' * 40},
                 {'scope': 'os-project-id', 'tag': 'Y' * 40},
                 {'scope': 'os-project-name', 'tag': 'Z' * 40},
                 {'scope': 'os-api-version',
-                 'tag': version.version_info.release_string()}]
+                 'tag': nsxlib_testcase.PLUGIN_VER}]
         resources = [{'scope': 'os-instance-uuid',
                       'tag': 'A' * 40}]
         tags = utils.update_v3_tags(tags, resources)
-        expected = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+        expected = [{'scope': 'os-net-id', 'tag': 'X' * 40},
                     {'scope': 'os-project-id', 'tag': 'Y' * 40},
                     {'scope': 'os-project-name', 'tag': 'Z' * 40},
                     {'scope': 'os-api-version',
-                     'tag': version.version_info.release_string()},
+                     'tag': nsxlib_testcase.PLUGIN_VER},
                     {'scope': 'os-instance-uuid',
                      'tag': 'A' * 40}]
         self.assertEqual(sorted(expected, key=lambda x: x.get('tag')),
                          sorted(tags, key=lambda x: x.get('tag')))
 
     def test_update_v3_tags_removal(self):
-        tags = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+        tags = [{'scope': 'os-net-id', 'tag': 'X' * 40},
                 {'scope': 'os-project-id', 'tag': 'Y' * 40},
                 {'scope': 'os-project-name', 'tag': 'Z' * 40},
                 {'scope': 'os-api-version',
-                 'tag': version.version_info.release_string()}]
-        resources = [{'scope': 'os-neutron-net-id',
+                 'tag': nsxlib_testcase.PLUGIN_VER}]
+        resources = [{'scope': 'os-net-id',
                       'tag': ''}]
         tags = utils.update_v3_tags(tags, resources)
         expected = [{'scope': 'os-project-id', 'tag': 'Y' * 40},
                     {'scope': 'os-project-name', 'tag': 'Z' * 40},
                     {'scope': 'os-api-version',
-                     'tag': version.version_info.release_string()}]
+                     'tag': nsxlib_testcase.PLUGIN_VER}]
         self.assertEqual(sorted(expected, key=lambda x: x.get('tag')),
                          sorted(tags, key=lambda x: x.get('tag')))
 
     def test_update_v3_tags_update(self):
-        tags = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+        tags = [{'scope': 'os-net-id', 'tag': 'X' * 40},
                 {'scope': 'os-project-id', 'tag': 'Y' * 40},
                 {'scope': 'os-project-name', 'tag': 'Z' * 40},
                 {'scope': 'os-api-version',
-                 'tag': version.version_info.release_string()}]
+                 'tag': nsxlib_testcase.PLUGIN_VER}]
         resources = [{'scope': 'os-project-id',
                       'tag': 'A' * 40}]
         tags = utils.update_v3_tags(tags, resources)
-        expected = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+        expected = [{'scope': 'os-net-id', 'tag': 'X' * 40},
                     {'scope': 'os-project-id', 'tag': 'A' * 40},
                     {'scope': 'os-project-name', 'tag': 'Z' * 40},
                     {'scope': 'os-api-version',
-                     'tag': version.version_info.release_string()}]
+                     'tag': nsxlib_testcase.PLUGIN_VER}]
         self.assertEqual(sorted(expected, key=lambda x: x.get('tag')),
                          sorted(tags, key=lambda x: x.get('tag')))
 
     def test_update_v3_tags_repetitive_scopes(self):
-        tags = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+        tags = [{'scope': 'os-net-id', 'tag': 'X' * 40},
                 {'scope': 'os-project-id', 'tag': 'Y' * 40},
                 {'scope': 'os-project-name', 'tag': 'Z' * 40},
                 {'scope': 'os-security-group', 'tag': 'SG1'},
@@ -183,7 +181,7 @@ class TestNsxV3Utils(test_plugin.NeutronDbPluginV2TestCase,
         tags_update = [{'scope': 'os-security-group', 'tag': 'SG3'},
                        {'scope': 'os-security-group', 'tag': 'SG4'}]
         tags = utils.update_v3_tags(tags, tags_update)
-        expected = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+        expected = [{'scope': 'os-net-id', 'tag': 'X' * 40},
                     {'scope': 'os-project-id', 'tag': 'Y' * 40},
                     {'scope': 'os-project-name', 'tag': 'Z' * 40},
                     {'scope': 'os-security-group', 'tag': 'SG3'},
@@ -192,14 +190,14 @@ class TestNsxV3Utils(test_plugin.NeutronDbPluginV2TestCase,
                          sorted(tags, key=lambda x: x.get('tag')))
 
     def test_update_v3_tags_repetitive_scopes_remove(self):
-        tags = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+        tags = [{'scope': 'os-net-id', 'tag': 'X' * 40},
                 {'scope': 'os-project-id', 'tag': 'Y' * 40},
                 {'scope': 'os-project-name', 'tag': 'Z' * 40},
                 {'scope': 'os-security-group', 'tag': 'SG1'},
                 {'scope': 'os-security-group', 'tag': 'SG2'}]
         tags_update = [{'scope': 'os-security-group', 'tag': None}]
         tags = utils.update_v3_tags(tags, tags_update)
-        expected = [{'scope': 'os-neutron-net-id', 'tag': 'X' * 40},
+        expected = [{'scope': 'os-net-id', 'tag': 'X' * 40},
                     {'scope': 'os-project-id', 'tag': 'Y' * 40},
                     {'scope': 'os-project-name', 'tag': 'Z' * 40}]
         self.assertEqual(sorted(expected, key=lambda x: x.get('tag')),

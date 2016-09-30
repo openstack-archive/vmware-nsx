@@ -38,7 +38,6 @@ from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.nsxlib.v3 import exceptions as nsxlib_exc
 from vmware_nsx.nsxlib.v3 import nsx_constants
-from vmware_nsx.nsxlib.v3 import utils as nsxlib_utils
 
 LOG = logging.getLogger(__name__)
 
@@ -220,7 +219,7 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
             tenant_id = context.tenant_id
             gw_connection['tenant_id'] = tenant_id
         try:
-            tags = nsxlib_utils.build_v3_tags_payload(
+            tags = self._core_plugin.nsxlib.build_v3_tags_payload(
                 gw_connection, resource_type='os-neutron-l2gw-id',
                 project_name=context.tenant_name)
             bridge_endpoint = self._core_plugin.nsxlib.bridge_endpoint.create(
