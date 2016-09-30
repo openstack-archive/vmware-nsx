@@ -54,20 +54,19 @@ class TestDvsNetworkBasicOps(manager.NetworkScenarioTest):
                          'provider:physical_network': 'dvs',
                          'shared': True})
             body = self.admin_net_client.create_network(**body)
-        self.addCleanup(self.delete_wrapper,
-                        self.admin_net_client.delete_network,
+        self.addCleanup(self.admin_net_client.delete_network,
                         body['network']['id'])
         return body['network']
 
     def _create_subnet(self, network):
         # The cidr and mask_bits depend on the ip version.
         if self._ip_version == 4:
-            cidr = netaddr.IPNetwork(CONF.network.tenant_network_cidr
+            cidr = netaddr.IPNetwork(CONF.network.project_network_cidr
                                      or "192.168.101.0/24")
-            mask_bits = CONF.network.tenant_network_mask_bits or 24
+            mask_bits = CONF.network.project_network_mask_bits or 24
         elif self._ip_version == 6:
-            cidr = netaddr.IPNetwork(CONF.network.tenant_network_v6_cidr)
-            mask_bits = CONF.network.tenant_network_v6_mask_bits
+            cidr = netaddr.IPNetwork(CONF.network.project_network_v6_cidr)
+            mask_bits = CONF.network.project_network_v6_mask_bits
         # Find a cidr that is not in use yet and create a subnet with it
         for subnet_cidr in cidr.subnet(mask_bits):
             try:
@@ -133,7 +132,8 @@ class TestDvsNetworkBasicOps(manager.NetworkScenarioTest):
                                    should_connect=True):
         private_key = self._get_server_key(self.servers[0])
         ip_address = address_list[0]
-        ssh_source = self._ssh_to_server(ip_address, private_key)
+        ssh_source = self.get_remote_client(ip_address,
+                                            private_key=private_key)
         for remote_ip in address_list:
             if should_connect:
                 msg = "Timed out waiting for "
@@ -145,7 +145,7 @@ class TestDvsNetworkBasicOps(manager.NetworkScenarioTest):
                                 (ssh_source, remote_ip, should_connect),
                                 msg)
             except Exception:
-                LOG.exception("Unable to access {dest} via ssh to "
+                LOG.exception("Unable to access {dest} via ping to "
                               "fix-ip {src}".format(dest=remote_ip,
                                                     src=ip_address))
                 raise
@@ -158,7 +158,6 @@ class TestDvsNetworkBasicOps(manager.NetworkScenarioTest):
         pinging both, because L3 and DHCP agents might be on different nodes
         """
         server = self.servers[0]
-        self._create_server()
         # get internal ports' ips:
         # get all network ports in the new network
         internal_ips = ([p['fixed_ips'][0]['ip_address'] for p in
@@ -188,10 +187,6 @@ class TestDvsNetworkBasicOps(manager.NetworkScenarioTest):
 
         - the Tempest host can ssh into the VM via the IP address and
          successfully execute the following:
-
-        - ping an internal IP address, implying connectivity to another
-           VM on the same network.
-
         """
         self._setup_network()
         self._check_networks()

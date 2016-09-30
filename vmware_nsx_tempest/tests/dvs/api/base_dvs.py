@@ -62,12 +62,12 @@ class BaseDvsAdminNetworkTest(base.BaseAdminNetworkTest):
         """Wrapper utility that returns a test subnet."""
         # The cidr and mask_bits depend on the ip version.
         if cls._ip_version == 4:
-            cidr = netaddr.IPNetwork(CONF.network.tenant_network_cidr
+            cidr = netaddr.IPNetwork(CONF.network.project_network_cidr
                                      or "192.168.101.0/24")
-            mask_bits = CONF.network.tenant_network_mask_bits or 24
+            mask_bits = CONF.network.project_network_mask_bits or 24
         elif cls._ip_version == 6:
-            cidr = netaddr.IPNetwork(CONF.network.tenant_network_v6_cidr)
-            mask_bits = CONF.network.tenant_network_v6_mask_bits
+            cidr = netaddr.IPNetwork(CONF.network.project_network_v6_cidr)
+            mask_bits = CONF.network.project_network_v6_mask_bits
         # Find a cidr that is not in use yet and create a subnet with it
         for subnet_cidr in cidr.subnet(mask_bits):
             try:
