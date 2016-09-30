@@ -240,6 +240,12 @@ class NSXV3Client(object):
         """
         return self.get_logical_resources("/logical-switches")
 
+    def get_logical_switch_profiles(self):
+        """
+        Retrieve all switching profiles on NSX backend
+        """
+        return self.get_logical_resources("/switching-profiles")
+
     def get_bridge_cluster_info(self):
         """
         Get bridge cluster information.
