@@ -589,6 +589,21 @@ class EdgeManager(object):
         dist = (binding['edge_type'] == nsxv_constants.VDR_EDGE)
         edge_pool_range = self.edge_pool_dicts[binding['edge_type']].get(
             binding['appliance_size'])
+
+        nsxv_db.delete_nsxv_router_binding(
+            context.session, router_id)
+        backup_router_id = (vcns_const.BACKUP_ROUTER_PREFIX +
+                            _uuid())[:vcns_const.EDGE_NAME_LEN]
+        nsxv_db.add_nsxv_router_binding(
+            context.session,
+            backup_router_id,
+            binding['edge_id'],
+            None,
+            plugin_const.PENDING_UPDATE,
+            appliance_size=binding['appliance_size'],
+            edge_type=binding['edge_type'])
+
+        router_id = backup_router_id
         if (not self.check_edge_active_at_backend(binding['edge_id']) or
             not edge_pool_range):
             nsxv_db.update_nsxv_router_binding(
@@ -611,18 +626,6 @@ class EdgeManager(object):
         backup_num = len(backup_router_bindings)
         # collect the edge to pool if pool not full
         if backup_num < edge_pool_range['maximum_pooled_edges']:
-            nsxv_db.delete_nsxv_router_binding(
-                context.session, router_id)
-            backup_router_id = (vcns_const.BACKUP_ROUTER_PREFIX +
-                                _uuid())[:vcns_const.EDGE_NAME_LEN]
-            nsxv_db.add_nsxv_router_binding(
-                context.session,
-                backup_router_id,
-                binding['edge_id'],
-                None,
-                plugin_const.PENDING_UPDATE,
-                appliance_size=binding['appliance_size'],
-                edge_type=binding['edge_type'])
             # change edge's name at backend
             task = self.nsxv_manager.update_edge(
                 router_id, binding['edge_id'], backup_router_id, None,
