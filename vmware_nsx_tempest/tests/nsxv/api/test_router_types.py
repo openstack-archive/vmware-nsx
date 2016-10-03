@@ -14,23 +14,20 @@
 #    under the License.
 
 import re
-import time
-
-from tempest.lib.common.utils import data_utils
 
 from tempest.api.network import base_routers as base
 from tempest import config
+from tempest.lib.common.utils import data_utils
 from tempest import test
 from vmware_nsx_tempest.services import nsxv_client
 
 CONF = config.CONF
-ROUTER_SIZE = ('compact', 'large', 'xlarge', 'quadlarge')
 
 
 class ExcRouterTest(base.BaseRouterTest):
     """
     Test class for exclusive router type, which is 1:1 mapping of
-    NSX-v service edge. Tests will sipped if the router-type
+    NSX-v service edge. Tests will skipped if the router-type
     extension is not enabled.
     """
 
@@ -141,58 +138,3 @@ class ExcRouterTest(base.BaseRouterTest):
         self.assertNotIn(router['router']['id'], routers_list)
         nsxv_edge_name = "%s-%s" % (name, router['router']['id'])
         self.assertEqual(self.vsm.get_edge(nsxv_edge_name), None)
-
-    @test.attr(type='nsxv')
-    @test.idempotent_id('d75fbcd5-c8cb-49ea-a868-ada12fd8c87f')
-    def test_create_update_delete_compact_router(self):
-        self.do_create_update_delete_router_with_size('compact')
-
-    @test.attr(type='nsxv')
-    @test.idempotent_id('da00c74f-81e6-4ef9-8aca-8e0345b376e9')
-    def test_create_update_delete_large_router(self):
-        self.do_create_update_delete_router_with_size('large', 20.0)
-
-    @test.attr(type='nsxv')
-    @test.idempotent_id('091dad07-6044-4ca3-b16c-54a3ef92254b')
-    def test_create_update_delete_xlarge_router(self):
-        self.do_create_update_delete_router_with_size('xlarge', 20.0)
-
-    @test.attr(type='nsxv')
-    @test.idempotent_id('0f69bf8a-4b06-47ac-a3f7-eedba95fd395')
-    def test_create_update_delete_quadlarge_router(self):
-        self.do_create_update_delete_router_with_size('quadlarge', 30.0)
-
-    def do_create_update_delete_router_with_size(self,
-                                                 router_size,
-                                                 del_waitfor=10.0,
-                                                 del_interval=1.5):
-        name = data_utils.rand_name('rtr-%s' % router_size)
-        router = self.routers_client.create_router(
-            name=name, external_gateway_info={
-                "network_id": CONF.network.public_network_id},
-            admin_state_up=False, router_type='exclusive',
-            router_size=router_size)
-        self.assertEqual(router['router']['name'], name)
-        # Update the name of the exclusive router
-        updated_name = 'updated' + name
-        update_body = self.routers_client.update_router(
-            router['router']['id'], name=updated_name)
-        self.assertEqual(update_body['router']['name'], updated_name)
-        # Delete the exclusive router and verify it has been deleted
-        # from nsxv backend
-        self.routers_client.delete_router(router['router']['id'])
-        list_body = self.routers_client.list_routers()
-        routers_list = [r['id'] for r in list_body['routers']]
-        self.assertNotIn(router['router']['id'], routers_list)
-        nsxv_edge_name = "%s-%s" % (name, router['router']['id'])
-        wait_till = time.time() + del_waitfor
-        while (time.time() < wait_till):
-            try:
-                self.assertEqual(self.vsm.get_edge(nsxv_edge_name), None)
-                return
-            except Exception:
-                time.sleep(del_interval)
-        # last try. Fail if nesx_edge still exists
-        fail_msg = ("%s router nsxv_edge[%s] still exists after %s seconds." %
-                    (router_size, nsxv_edge_name, del_waitfor))
-        self.assertEqual(self.vsm.get_edge(nsxv_edge_name), None, fail_msg)
