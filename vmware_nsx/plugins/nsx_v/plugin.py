@@ -2102,7 +2102,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     LOG.debug('Update metadata for resource %s',
                               resource_id)
                     self.metadata_proxy_handler.configure_router_edge(
-                        resource_id, context)
+                        context, resource_id)
 
                 self.setup_dhcp_edge_fw_rules(context, self,
                                               resource_id)

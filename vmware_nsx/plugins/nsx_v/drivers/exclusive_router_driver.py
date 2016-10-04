@@ -42,7 +42,7 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
             availability_zone=availability_zone)
         if allow_metadata:
             self.plugin.metadata_proxy_handler.configure_router_edge(
-                lrouter['id'], context)
+                context, lrouter['id'])
 
     def update_router(self, context, router_id, router):
         r = router['router']

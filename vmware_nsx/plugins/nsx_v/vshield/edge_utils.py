@@ -1301,7 +1301,7 @@ class EdgeManager(object):
                 context, network_id, resource_id, availability_zone)
 
             self.plugin.metadata_proxy_handler.configure_router_edge(
-                resource_id, context)
+                context, resource_id)
             self.plugin.setup_dhcp_edge_fw_rules(
                 context, self.plugin, resource_id)
 
