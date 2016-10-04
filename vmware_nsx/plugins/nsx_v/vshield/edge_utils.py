@@ -721,7 +721,8 @@ class EdgeManager(object):
         # if there are still metadata ports on this edge - delete them now
         metadata_proxy_handler = self.plugin.metadata_proxy_handler
         if metadata_proxy_handler:
-            metadata_proxy_handler.cleanup_router_edge(router_id, warn=True)
+            metadata_proxy_handler.cleanup_router_edge(context, router_id,
+                                                       warn=True)
 
         self._free_edge_appliance(context, router_id)
 
