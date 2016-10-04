@@ -22,11 +22,74 @@ from neutron.tests.functional.db import test_migrations
 from neutron.tests.unit import testlib_api
 
 from vmware_nsx.db.migration import alembic_migrations
-from vmware_nsx.db.models import head
+from vmware_nsx.db.migration.models import head
+
+#TODO(abhiraut): Remove this list from here once *aaS repos forms its
+#                own list.
+# Add *aaS tables to EXTERNAL_TABLES since they should not be
+# tested.
+LBAAS_TABLES = {
+    'nsxv_edge_monitor_mappings',
+    'nsxv_edge_pool_mappings',
+    'nsxv_edge_vip_mappings',
+
+    # LBaaS v2 tables
+    'lbaas_healthmonitors',
+    'lbaas_l7policies',
+    'lbaas_l7rules',
+    'lbaas_listeners',
+    'lbaas_loadbalancer_statistics',
+    'lbaas_loadbalanceragentbindings',
+    'lbaas_loadbalancers',
+    'lbaas_members',
+    'lbaas_pools',
+    'lbaas_sessionpersistences',
+    'lbaas_sni',
+}
+
+L2GW_TABLES = {
+    'l2gw_alembic_version',
+    'physical_locators',
+    'physical_switches',
+    'physical_ports',
+    'logical_switches',
+    'ucast_macs_locals',
+    'ucast_macs_remotes',
+    'vlan_bindings',
+    'l2gatewayconnections',
+    'l2gatewayinterfaces',
+    'l2gatewaydevices',
+    'l2gateways',
+    'pending_ucast_macs_remotes'
+}
+
+SFC_TABLES = {
+    'sfc_flow_classifier_l7_parameters',
+    'sfc_flow_classifiers',
+    'sfc_port_chain_parameters',
+    'sfc_service_function_params',
+    'sfc_port_pair_group_params',
+    'sfc_chain_classifier_associations',
+    'sfc_port_pairs',
+    'sfc_chain_group_associations',
+    'sfc_port_pair_groups',
+    'sfc_port_chains',
+    'sfc_uuid_intid_associations',
+    'sfc_path_port_associations',
+    'sfc_portpair_details',
+    'sfc_path_nodes',
+}
+
+TAAS_TABLES = {
+    'tap_services',
+    'tap_flows',
+    'tap_id_associations',
+}
 
 # EXTERNAL_TABLES should contain all names of tables that are not related to
 # current repo.
-EXTERNAL_TABLES = set(external.TABLES) - set(external.REPO_VMWARE_TABLES)
+EXTERNAL_TABLES = (set(external.TABLES) | LBAAS_TABLES |
+                   L2GW_TABLES | SFC_TABLES | TAAS_TABLES)
 
 
 class _TestModelsMigrationsFoo(test_migrations._TestModelsMigrations):
@@ -42,12 +105,13 @@ class _TestModelsMigrationsFoo(test_migrations._TestModelsMigrations):
         return head.get_metadata()
 
     def include_object(self, object_, name, type_, reflected, compare_to):
-        if type_ == 'table' and (name == 'alembic' or
+        if type_ == 'table' and (name.startswith('alembic') or
                                  name == alembic_migrations.VERSION_TABLE or
                                  name in EXTERNAL_TABLES):
             return False
-        else:
-            return True
+        if type_ == 'index' and reflected and name.startswith("idx_autoinc_"):
+            return False
+        return True
 
 
 class TestModelsMigrationsMysql(testlib_api.MySQLTestCaseMixin,
