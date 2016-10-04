@@ -35,6 +35,7 @@ NSX_HTTP_TIMEOUT = 10
 NSX_HTTP_READ_TIMEOUT = 180
 NSX_CONCURENT_CONN = 10
 NSX_CONN_IDLE_TIME = 10
+NSX_MAX_ATTEMPTS = 10
 
 PLUGIN_SCOPE = "plugin scope"
 PLUGIN_TAG = "plugin tag"
@@ -277,7 +278,8 @@ class NsxClientTestCase(NsxLibTestCase):
     def mocked_resource(self, resource_class, mock_validate=True,
                         session_response=None):
         mocked = resource_class(nsx_client.NSX3Client(
-            self.mock_nsx_clustered_api(session_response=session_response)))
+            self.mock_nsx_clustered_api(session_response=session_response),
+            max_attempts=NSX_MAX_ATTEMPTS))
         if mock_validate:
             mock.patch.object(mocked._client, '_validate_result').start()
 

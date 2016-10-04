@@ -20,6 +20,7 @@ from oslo_log import log
 from oslo_serialization import jsonutils
 from vmware_nsx._i18n import _, _LW
 from vmware_nsx.nsxlib.v3 import exceptions
+from vmware_nsx.nsxlib.v3 import utils
 
 LOG = log.getLogger(__name__)
 
@@ -38,10 +39,12 @@ class RESTClient(object):
     }
 
     def __init__(self, connection, url_prefix=None,
-                 default_headers=None):
+                 default_headers=None,
+                 max_attempts=utils.DEFAULT_MAX_ATTEMPTS):
         self._conn = connection
         self._url_prefix = url_prefix or ""
         self._default_headers = default_headers or {}
+        self.max_attempts = max_attempts
 
     def new_client_for(self, *uri_segments):
         uri = self._build_url('/'.join(uri_segments))
@@ -49,7 +52,8 @@ class RESTClient(object):
         return self.__class__(
             self._conn,
             url_prefix=uri,
-            default_headers=self._default_headers)
+            default_headers=self._default_headers,
+            max_attempts=self.max_attempts)
 
     def list(self, headers=None):
         return self.url_list('')
@@ -154,13 +158,15 @@ class JSONRESTClient(RESTClient):
     }
 
     def __init__(self, connection, url_prefix=None,
-                 default_headers=None):
+                 default_headers=None,
+                 max_attempts=utils.DEFAULT_MAX_ATTEMPTS):
 
         super(JSONRESTClient, self).__init__(
             connection,
             url_prefix=url_prefix,
             default_headers=RESTClient.merge_headers(
-                JSONRESTClient._DEFAULT_HEADERS, default_headers))
+                JSONRESTClient._DEFAULT_HEADERS, default_headers),
+            max_attempts=max_attempts)
 
     def _rest_call(self, *args, **kwargs):
         if kwargs.get('body') is not None:
@@ -176,7 +182,7 @@ class NSX3Client(JSONRESTClient):
     def __init__(self, connection, url_prefix=None,
                  default_headers=None,
                  nsx_api_managers=None,
-                 max_attempts=0):
+                 max_attempts=utils.DEFAULT_MAX_ATTEMPTS):
 
         self.nsx_api_managers = nsx_api_managers or []
 
@@ -187,11 +193,11 @@ class NSX3Client(JSONRESTClient):
             else:
                 url_prefix = "%s/%s" % (NSX3Client._NSX_V1_API_PREFIX,
                                         url_prefix or '')
-        self.max_attempts = max_attempts
 
         super(NSX3Client, self).__init__(
             connection, url_prefix=url_prefix,
-            default_headers=default_headers)
+            default_headers=default_headers,
+            max_attempts=max_attempts)
 
     def _raise_error(self, status_code, operation, result_msg):
         """Override the Rest client errors to add the manager IPs"""
