@@ -470,7 +470,8 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                     md_proxy_handler = (
                         self.plugin.metadata_proxy_handler)
                     if md_proxy_handler:
-                        md_proxy_handler.configure_router_edge(dhcp_id)
+                        md_proxy_handler.configure_router_edge(
+                            context, dhcp_id)
 
     def _update_edge_router(self, context, router_id):
         router = self.plugin._get_router(context.elevated(), router_id)
