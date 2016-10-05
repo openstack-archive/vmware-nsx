@@ -115,7 +115,7 @@ def get_nsgroup_member_expression(target_type, target_id):
             'value': target_id}
 
 
-@utils.retry_upon_exception_nsxv3(nsx_exc.ManagerError)
+@utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision)
 def _update_nsgroup_with_members(nsgroup_id, members, action):
     members_update = 'ns-groups/%s?action=%s' % (nsgroup_id, action)
     return nsxclient.create_resource(members_update, members)
