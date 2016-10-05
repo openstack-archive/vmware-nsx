@@ -584,8 +584,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             # configure metadata service on the router.
             metadata_proxy_handler = self.plugin.metadata_proxy_handler
             if metadata_proxy_handler and new:
-                metadata_proxy_handler.configure_router_edge(router_id,
-                                                             context)
+                metadata_proxy_handler.configure_router_edge(context,
+                                                             router_id)
             edge_id = edge_utils.get_router_edge_id(context, router_id)
             with locking.LockManager.get_lock(str(edge_id)):
                 # add all internal interfaces of the router on edge
