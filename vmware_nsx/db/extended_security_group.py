@@ -33,6 +33,7 @@ from neutron_lib import constants as n_constants
 from vmware_nsx._i18n import _
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
+from vmware_nsx.extensions import securitygrouppolicy as sg_policy
 
 
 class NsxExtendedSecurityGroupProperties(model_base.BASEV2):
@@ -45,6 +46,7 @@ class NsxExtendedSecurityGroupProperties(model_base.BASEV2):
     logging = sa.Column(sa.Boolean, default=False, nullable=False)
     provider = sa.Column(sa.Boolean, default=False, server_default=sql.false(),
                          nullable=False)
+    policy = sa.Column(sa.String(36))
     security_group = orm.relationship(
         securitygroups_db.SecurityGroup,
         backref=orm.backref('ext_properties', lazy='joined',
@@ -91,10 +93,12 @@ class ExtendedSecurityGroupPropertiesMixin(object):
             properties = NsxExtendedSecurityGroupProperties(
                 security_group_id=sg_res['id'],
                 logging=sg_req.get(sg_logging.LOGGING, False),
-                provider=sg_req.get(provider_sg.PROVIDER, False))
+                provider=sg_req.get(provider_sg.PROVIDER, False),
+                policy=sg_req.get(sg_policy.POLICY))
             context.session.add(properties)
         sg_res[sg_logging.LOGGING] = sg_req.get(sg_logging.LOGGING, False)
         sg_res[provider_sg.PROVIDER] = sg_req.get(provider_sg.PROVIDER, False)
+        sg_res[sg_policy.POLICY] = sg_req.get(sg_policy.POLICY)
 
     def _get_security_group_properties(self, context, security_group_id):
         with context.session.begin(subtransactions=True):
@@ -108,13 +112,20 @@ class ExtendedSecurityGroupPropertiesMixin(object):
 
     def _process_security_group_properties_update(self, context,
                                                   sg_res, sg_req):
-        if (sg_logging.LOGGING in sg_req
+        if ((sg_logging.LOGGING in sg_req
                 and (sg_req[sg_logging.LOGGING] !=
-                     sg_res.get(sg_logging.LOGGING, False))):
+                     sg_res.get(sg_logging.LOGGING, False))) or
+            (sg_policy.POLICY in sg_req
+                and (sg_req[sg_policy.POLICY] !=
+                     sg_res.get(sg_policy.POLICY)))):
             prop = self._get_security_group_properties(context, sg_res['id'])
             with context.session.begin(subtransactions=True):
-                prop.update({sg_logging.LOGGING: sg_req[sg_logging.LOGGING]})
-            sg_res[sg_logging.LOGGING] = sg_req[sg_logging.LOGGING]
+                prop.update({
+                    sg_logging.LOGGING: sg_req.get(sg_logging.LOGGING, False),
+                    sg_policy.POLICY: sg_req.get(sg_policy.POLICY)})
+
+            sg_res[sg_logging.LOGGING] = sg_req.get(sg_logging.LOGGING, False)
+            sg_res[sg_policy.POLICY] = sg_req.get(sg_policy.POLICY)
 
     def _is_security_group_logged(self, context, security_group_id):
         prop = self._get_security_group_properties(context, security_group_id)
@@ -124,6 +135,11 @@ class ExtendedSecurityGroupPropertiesMixin(object):
         sg_prop = self._get_security_group_properties(context,
                                                       security_group_id)
         return sg_prop.provider
+
+    def _is_policy_security_group(self, context, security_group_id):
+        sg_prop = self._get_security_group_properties(context,
+                                                      security_group_id)
+        return True if sg_prop.policy else False
 
     def _check_provider_security_group_exists(self, context,
                                               security_group_id):
@@ -251,10 +267,17 @@ class ExtendedSecurityGroupPropertiesMixin(object):
                                                                      sg_id):
             raise provider_sg.ProviderSecurityGroupDeleteNotAdmin(id=sg_id)
 
+    def _prevent_non_admin_delete_policy_sg(self, context, sg_id):
+        # Only someone who is an admin is allowed to delete this.
+        if not context.is_admin and self._is_policy_security_group(context,
+                                                                   sg_id):
+            raise sg_policy.PolicySecurityGroupDeleteNotAdmin(id=sg_id)
+
     def _extend_security_group_with_properties(self, sg_res, sg_db):
         if sg_db.ext_properties:
             sg_res[sg_logging.LOGGING] = sg_db.ext_properties.logging
             sg_res[provider_sg.PROVIDER] = sg_db.ext_properties.provider
+            sg_res[sg_policy.POLICY] = sg_db.ext_properties.policy
 
     def _extend_port_dict_provider_security_group(self, port_res, port_db):
         # NOTE(arosen): this method overrides the one in the base

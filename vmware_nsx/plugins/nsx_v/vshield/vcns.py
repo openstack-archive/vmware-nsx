@@ -51,6 +51,7 @@ SPOOFGUARD_PREFIX = '/api/4.0/services/spoofguard'
 TRUSTSTORE_PREFIX = '%s/%s' % (SERVICES_PREFIX, 'truststore')
 EXCLUDELIST_PREFIX = '/api/2.1/app/excludelist'
 SERVICE_INSERTION_PROFILE_PREFIX = '/api/2.0/si/serviceprofile'
+SECURITY_POLICY_PREFIX = '/api/2.0/services/policy/securitypolicy'
 
 #LbaaS Constants
 LOADBALANCER_SERVICE = "loadbalancer/config"
@@ -984,3 +985,16 @@ class Vcns(object):
         uri = '%s/%s/%s/%s/%s' % (SERVICES_PREFIX, IPAM_POOL_SERVICE, pool_id,
                                'ipaddresses', ip_addr)
         return self.do_request(HTTP_DELETE, uri)
+
+    def get_security_policy(self, policy_id):
+        # get the policy configuration as an xml string
+        uri = '%s/%s' % (SECURITY_POLICY_PREFIX, policy_id)
+        h, policy = self.do_request(HTTP_GET, uri, format='xml', decode=False)
+        return policy
+
+    def update_security_policy(self, policy_id, request):
+        # update the policy configuration. request should be an xml string
+        uri = '%s/%s' % (SECURITY_POLICY_PREFIX, policy_id)
+        return self.do_request(HTTP_PUT, uri, request,
+                               format='xml',
+                               decode=False, encode=True)
