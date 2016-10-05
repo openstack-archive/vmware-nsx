@@ -184,7 +184,7 @@ class NSXClient(object):
         """
         os_resources = [r for r in resources if 'tags' in r
                         for tag in r['tags']
-                        if 'os-project-id' in tag.values()]
+                        if 'os-api-version' in tag.values()]
         return os_resources
 
     def get_logical_switches(self):
@@ -286,7 +286,8 @@ class NSXClient(object):
         Retrieve all NSGroups on NSX backend
         """
         response = self.get(endpoint="/ns-groups")
-        return response.json()['results']
+        ns_groups = response.json()['results']
+        return self.get_os_resources(ns_groups)
 
     def cleanup_os_ns_groups(self):
         """
