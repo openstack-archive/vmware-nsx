@@ -356,14 +356,6 @@ class VcnsDriverTestCase(base.BaseTestCase):
             availability_zone=self.az)
         self.assertEqual(self.edge_id, 'edge-1')
 
-    def edge_delete_result(self, task):
-        if task.status == ts_const.TaskStatus.COMPLETED:
-            task.userdata['jobdata']['edge_delete_result'] = True
-
-    def interface_update_result(self, task):
-        if task.status == ts_const.TaskStatus.COMPLETED:
-            task.userdata['jobdata']['interface_update_result'] = True
-
     def test_deploy_edge_with(self):
         self.vcns_driver.deploy_edge(
             self.ctx, 'router-id', 'myedge', 'internal-network',
