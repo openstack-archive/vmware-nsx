@@ -1020,6 +1020,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # This is checked on the backend when attaching subnet to a router.
         if netaddr.IPSet([cidr]) & netaddr.IPSet(['100.64.0.0/10']):
             msg = _("Subnet overlaps with shared address space 100.64.0.0/10")
+            LOG.error(msg)
             raise n_exc.InvalidInput(error_message=msg)
 
     def create_subnet(self, context, subnet):
@@ -1040,6 +1041,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 else:
                     msg = _("Can not create more than one DHCP-enabled subnet "
                             "in network %s") % subnet['subnet']['network_id']
+                    LOG.error(msg)
                     raise n_exc.InvalidInput(error_message=msg)
         else:
             created_subnet = super(NsxV3Plugin, self).create_subnet(
@@ -1084,6 +1086,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                             msg = (_("Multiple DHCP-enabled subnets is not "
                                      "allowed in network %s") %
                                    orig_subnet['network_id'])
+                            LOG.error(msg)
                             raise n_exc.InvalidInput(error_message=msg)
                     elif self._has_single_dhcp_enabled_subnet(context,
                                                               network):
@@ -1198,14 +1201,17 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # If one is set, they both must be set.
             msg = _('Invalid binding:profile. parent_name and tag are '
                     'both required.')
+            LOG.error(msg)
             raise n_exc.InvalidInput(error_message=msg)
         if not isinstance(parent_name, six.string_types):
             msg = _('Invalid binding:profile. parent_name "%s" must be '
                     'a string.') % parent_name
+            LOG.error(msg)
             raise n_exc.InvalidInput(error_message=msg)
         if not n_utils.is_valid_vlan_tag(tag):
             msg = _('Invalid binding:profile. tag "%s" must be '
                     'an int between 1 and 4096, inclusive.') % tag
+            LOG.error(msg)
             raise n_exc.InvalidInput(error_message=msg)
         # Make sure we can successfully look up the port indicated by
         # parent_name.  Just let it raise the right exception if there is a
@@ -1247,6 +1253,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # Didn't find it
         err_msg = _("Could not find QoS switching profile for policy "
                     "%s") % policy_id
+        LOG.error(err_msg)
         raise n_exc.InvalidInput(error_message=err_msg)
 
     def _create_port_at_the_backend(self, context, port_data,
@@ -1541,6 +1548,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # port is changed.
             if len(new_fixed_ips) != 1:
                 msg = _("Can only configure one IP address on a DHCP server")
+                LOG.error(msg)
                 raise n_exc.InvalidInput(error_message=msg)
             # Locate the backend DHCP server for this DHCP port.
             dhcp_service = nsx_db.get_nsx_service_binding(
@@ -1676,6 +1684,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 if is_psec_on:
                     msg = _('Mac learning requires that port security be '
                             'disabled')
+                    LOG.error(msg)
                     raise n_exc.InvalidInput(error_message=msg)
                 self._create_mac_learning_state(context, port_data)
             elif mac_ext.MAC_LEARNING in port_data:
@@ -2027,6 +2036,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 if port_security and new_mac_learning_state:
                     msg = _('Mac learning requires that port security be '
                             'disabled')
+                    LOG.error(msg)
                     raise n_exc.InvalidInput(error_message=msg)
                 self._update_mac_learning_state(context, id,
                                                 new_mac_learning_state)
@@ -2352,6 +2362,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                        "can't be supported") %
                                      {'dest': route['destination'],
                                       'nexthop': route['nexthop']})
+                    LOG.error(error_message)
                     raise n_exc.InvalidInput(error_message=error_message)
 
     def _update_router_wrapper(self, context, router_id, router):
@@ -2481,6 +2492,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             err_msg = (_("Only overlay networks can be attached to a logical "
                          "router. Network %(net_id)s is a %(net_type)s based "
                          "network") % {'net_id': net_id, 'net_type': net_type})
+            LOG.error(err_msg)
             raise n_exc.InvalidInput(error_message=err_msg)
 
         port_filters = {'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF],
@@ -2495,9 +2507,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 'net_id': net_id,
                 'router_id': router_ids[0]}
             if router_id in router_ids:
+                LOG.error(err_msg)
                 # attach to the same router again
                 raise n_exc.InvalidInput(error_message=err_msg)
             else:
+                LOG.error(err_msg)
                 # attach to multiple routers
                 raise n_exc.Conflict(error_message=err_msg)
 
