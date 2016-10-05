@@ -461,6 +461,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if err_msg:
             raise n_exc.InvalidInput(error_message=err_msg)
 
+    def _validate_physical_network(self, physical_network):
+        dvs_ids = self._get_dvs_ids(physical_network)
+        for dvs_id in dvs_ids:
+            if not self.nsx_v.vcns.validate_dvs(dvs_id):
+                raise nsx_exc.NsxResourceNotFound(res_name='dvs_id',
+                                                  res_id=dvs_id)
+
     def _validate_provider_create(self, context, network):
         if not validators.is_attr_set(network.get(mpnet.SEGMENTS)):
             return
@@ -480,6 +487,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 if segmentation_id_set:
                     err_msg = _("Segmentation ID cannot be specified with "
                                 "flat network type")
+                if physical_network_set:
+                    self._validate_physical_network(physical_network)
             elif network_type == c_utils.NsxVNetworkTypes.VLAN:
                 if not segmentation_id_set:
                     err_msg = _("Segmentation ID must be specified with "
@@ -505,12 +514,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                     physical_network=phy_uuid)
                 # Verify whether the DVSes exist in the backend.
                 if physical_network_set:
-                    dvs_ids = self._get_dvs_ids(physical_network)
-                    for dvs_id in dvs_ids:
-                        if not self.nsx_v.vcns.validate_dvs(dvs_id):
-                            raise nsx_exc.NsxResourceNotFound(
-                                res_name='dvs_id',
-                                res_id=dvs_id)
+                    self._validate_physical_network(physical_network)
 
             elif network_type == c_utils.NsxVNetworkTypes.VXLAN:
                 # Currently unable to set the segmentation id
@@ -520,8 +524,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 external = network.get(ext_net_extn.EXTERNAL)
                 if segmentation_id_set:
                     err_msg = _("Segmentation ID cannot be set with portgroup")
-                physical_net_set = validators.is_attr_set(physical_network)
-                if not physical_net_set:
+                if not physical_network_set:
                     err_msg = _("Physical network must be set!")
                 elif not self.nsx_v.vcns.validate_network(physical_network):
                     err_msg = _("Physical network doesn't exist")
