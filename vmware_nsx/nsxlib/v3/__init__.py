@@ -85,7 +85,7 @@ class NsxLib(object):
             resource, resource_type, project_name)
 
     def reinitialize_cluster(self, resource, event, trigger, **kwargs):
-        self.cluster.reinit_cluster()
+        self.cluster._reinit_cluster()
 
 
 class NsxLibPortMirror(utils.NsxLibApiBase):
