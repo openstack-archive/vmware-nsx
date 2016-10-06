@@ -160,8 +160,7 @@ class SwitchingProfile(AbstractRESTResource):
                            display_name=display_name,
                            description=description,
                            tags=tags or [],
-                           mac_learning=mac_learning,
-                           source_mac_change_allowed=True)
+                           mac_learning=mac_learning)
 
     def create_port_mirror_profile(self, display_name, description,
                                    direction, destinations, tags=None):
