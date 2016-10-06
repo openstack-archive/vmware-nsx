@@ -279,6 +279,7 @@ class NsxClientTestCase(NsxLibTestCase):
                         session_response=None):
         mocked = resource_class(nsx_client.NSX3Client(
             self.mock_nsx_clustered_api(session_response=session_response),
+            nsx_api_managers=[NSX_MANAGER],
             max_attempts=NSX_MAX_ATTEMPTS))
         if mock_validate:
             mock.patch.object(mocked._client, '_validate_result').start()

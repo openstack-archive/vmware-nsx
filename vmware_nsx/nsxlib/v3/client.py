@@ -40,11 +40,10 @@ class RESTClient(object):
 
     def __init__(self, connection, url_prefix=None,
                  default_headers=None,
-                 max_attempts=utils.DEFAULT_MAX_ATTEMPTS):
+                 client_obj=None):
         self._conn = connection
         self._url_prefix = url_prefix or ""
         self._default_headers = default_headers or {}
-        self.max_attempts = max_attempts
 
     def new_client_for(self, *uri_segments):
         uri = self._build_url('/'.join(uri_segments))
@@ -53,7 +52,7 @@ class RESTClient(object):
             self._conn,
             url_prefix=uri,
             default_headers=self._default_headers,
-            max_attempts=self.max_attempts)
+            client_obj=self)
 
     def list(self, headers=None):
         return self.url_list('')
@@ -93,7 +92,7 @@ class RESTClient(object):
         if result.status_code not in expected:
             result_msg = result.json() if result.content else ''
             LOG.warning(_LW("The HTTP request returned error code "
-                            "%(result)d, whereas %(expected)s response "
+                            "%(result)s, whereas %(expected)s response "
                             "codes were expected. Response body %(body)s"),
                         {'result': result.status_code,
                          'expected': '/'.join([str(code)
@@ -132,7 +131,6 @@ class RESTClient(object):
         request_url = self._build_url(url)
 
         do_request = getattr(self._conn, method.lower())
-
         LOG.debug("REST call: %s %s\nHeaders: %s\nBody: %s",
                   method, request_url, request_headers, body)
 
@@ -159,14 +157,14 @@ class JSONRESTClient(RESTClient):
 
     def __init__(self, connection, url_prefix=None,
                  default_headers=None,
-                 max_attempts=utils.DEFAULT_MAX_ATTEMPTS):
+                 client_obj=None):
 
         super(JSONRESTClient, self).__init__(
             connection,
             url_prefix=url_prefix,
             default_headers=RESTClient.merge_headers(
                 JSONRESTClient._DEFAULT_HEADERS, default_headers),
-            max_attempts=max_attempts)
+            client_obj=client_obj)
 
     def _rest_call(self, *args, **kwargs):
         if kwargs.get('body') is not None:
@@ -182,9 +180,16 @@ class NSX3Client(JSONRESTClient):
     def __init__(self, connection, url_prefix=None,
                  default_headers=None,
                  nsx_api_managers=None,
-                 max_attempts=utils.DEFAULT_MAX_ATTEMPTS):
+                 max_attempts=utils.DEFAULT_MAX_ATTEMPTS,
+                 client_obj=None):
 
-        self.nsx_api_managers = nsx_api_managers or []
+        # If the client obj is defined - copy configuration from it
+        if client_obj:
+            self.nsx_api_managers = client_obj.nsx_api_managers or []
+            self.max_attempts = client_obj.max_attempts
+        else:
+            self.nsx_api_managers = nsx_api_managers or []
+            self.max_attempts = max_attempts
 
         url_prefix = url_prefix or NSX3Client._NSX_V1_API_PREFIX
         if url_prefix and NSX3Client._NSX_V1_API_PREFIX not in url_prefix:
@@ -197,7 +202,7 @@ class NSX3Client(JSONRESTClient):
         super(NSX3Client, self).__init__(
             connection, url_prefix=url_prefix,
             default_headers=default_headers,
-            max_attempts=max_attempts)
+            client_obj=client_obj)
 
     def _raise_error(self, status_code, operation, result_msg):
         """Override the Rest client errors to add the manager IPs"""

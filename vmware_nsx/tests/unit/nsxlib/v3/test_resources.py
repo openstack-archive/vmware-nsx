@@ -19,6 +19,7 @@ import mock
 
 from oslo_serialization import jsonutils
 
+from vmware_nsx.nsxlib.v3 import exceptions
 from vmware_nsx.nsxlib.v3 import resources
 from vmware_nsx.tests.unit.nsxlib.v3 import mocks
 from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
@@ -230,9 +231,10 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
 
 class LogicalPortTestCase(nsxlib_testcase.NsxClientTestCase):
 
-    def _mocked_lport(self, session_response=None):
+    def _mocked_lport(self, mock_validate=True, session_response=None):
         return self.mocked_resource(
-            resources.LogicalPort, session_response=session_response)
+            resources.LogicalPort, mock_validate=mock_validate,
+            session_response=session_response)
 
     def _get_profile_dicts(self, fake_port):
         fake_profile_dicts = []
@@ -388,6 +390,31 @@ class LogicalPortTestCase(nsxlib_testcase.NsxClientTestCase):
             'put', mocked_resource,
             'https://1.2.3.4/api/v1/logical-ports/%s' % fake_port['id'],
             data=jsonutils.dumps(fake_port, sort_keys=True))
+
+    def test_create_logical_port_fail(self):
+        """
+        Test the failure of port creation
+        """
+        fake_port = test_constants_v3.FAKE_PORT.copy()
+
+        profile_dicts = self._get_profile_dicts(fake_port)
+
+        pkt_classifiers, binding_repr = self._get_pktcls_bindings()
+
+        fake_port['address_bindings'] = binding_repr
+
+        mocked_resource = self._mocked_lport(mock_validate=False)
+
+        switch_profile = resources.SwitchingProfile
+        try:
+            mocked_resource.create(
+                fake_port['logical_switch_id'],
+                fake_port['attachment']['id'],
+                address_bindings=pkt_classifiers,
+                switch_profile_ids=switch_profile.build_switch_profile_ids(
+                    mock.Mock(), *profile_dicts))
+        except exceptions.ManagerError as e:
+            self.assertIn(nsxlib_testcase.NSX_MANAGER, e.msg)
 
 
 class LogicalRouterTestCase(nsxlib_testcase.NsxClientTestCase):

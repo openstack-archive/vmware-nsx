@@ -39,6 +39,7 @@ class NsxLib(object):
         # create the Client
         self.client = client.NSX3Client(
             self.cluster,
+            nsx_api_managers=nsxlib_config.nsx_api_managers,
             max_attempts=nsxlib_config.max_attempts)
 
         # init the api object
