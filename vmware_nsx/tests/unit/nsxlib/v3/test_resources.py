@@ -182,7 +182,6 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
                 'display_name': 'neutron-mac-learning',
                 'description': 'mac-learning-for-neutron',
                 'tags': tags,
-                'source_mac_change_allowed': True,
             }, sort_keys=True))
 
     def test_find_by_display_name(self):
