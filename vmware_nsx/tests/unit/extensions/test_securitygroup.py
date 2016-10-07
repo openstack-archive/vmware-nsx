@@ -289,22 +289,22 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
     @_mock_create_and_list_nsgroups
     @mock.patch('vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.remove_member')
     @mock.patch('vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.add_members')
-    def initialize_with_absent_nested_groups(self,
-                                             add_member_mock,
-                                             remove_member_mock):
+    def test_initialize_with_absent_nested_groups(self,
+                                                  add_member_mock,
+                                                  remove_member_mock):
         size = 3
         cont_manager = ns_group_manager.NSGroupManager(self.nsxlib, size)
         # list_nsgroups will return nested group 1 and 3, but not group 2.
-        # FIXME: Not sure what this mock does. no one calls this method now.
-        #with mock.patch.object(vmware_nsx.nsxlib.v3.NsxLib.list_nsgroups,
-        #                       'list_nsgroups_mock') as list_nsgroups_mock:
-        #    list_nsgroups_mock = lambda: list_nsgroups_mock()[::2]
-        # invoking the initialization process again, it should process
-        # groups 1 and 3 and create group 2.
-        self.assertEqual({1: NSG_IDS[0],
-                          2: NSG_IDS[3],
-                          3: NSG_IDS[2]},
-                         cont_manager.nested_groups)
+        nsgroups = cont_manager.nsxlib_nsgroup.list()
+        with mock.patch("vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.list",
+                        side_effect=lambda: nsgroups[::2]):
+            # invoking the initialization process again, it should process
+            # groups 1 and 3 and create group 2.
+            cont_manager = ns_group_manager.NSGroupManager(self.nsxlib, size)
+            self.assertEqual({0: NSG_IDS[0],
+                              1: NSG_IDS[3],
+                              2: NSG_IDS[2]},
+                             cont_manager.nested_groups)
 
     @_mock_create_and_list_nsgroups
     def test_suggest_nested_group(self):
