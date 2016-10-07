@@ -81,6 +81,7 @@ LOG = log.getLogger(__name__)
 NSX_V3_PSEC_PROFILE_NAME = 'neutron_port_spoof_guard_profile'
 NSX_V3_NO_PSEC_PROFILE_NAME = 'nsx-default-spoof-guard-vif-profile'
 NSX_V3_DHCP_PROFILE_NAME = 'neutron_port_dhcp_profile'
+NSX_V3_MAC_LEARNING_PROFILE_NAME = 'neutron_port_mac_learning_profile'
 
 
 class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
@@ -170,6 +171,15 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             msg = _("Unable to initialize NSX v3 DHCP "
                     "switching profile: %s") % NSX_V3_DHCP_PROFILE_NAME
             raise nsx_exc.NsxPluginException(msg)
+        LOG.debug("Initializing NSX v3 Mac Learning switching profile")
+        self._mac_learning_profile = None
+        try:
+            self._mac_learning_profile = self._init_mac_learning_profile()
+        except Exception as e:
+            LOG.warning(_LW("Unable to initialize NSX v3 MAC Learning "
+                            "profile: %(name)s. Reason: %(reason)s"),
+                        {'name': NSX_V3_MAC_LEARNING_PROFILE_NAME,
+                         'reason': e})
         self._unsubscribe_callback_events()
 
     def _extend_port_dict_binding(self, port_res, port_db):
@@ -232,6 +242,26 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         return nsx_resources.SwitchingProfileTypeId(
             profile_type=(nsx_resources.SwitchingProfileTypes.
                           SWITCH_SECURITY),
+            profile_id=profile[0]['id']) if profile else None
+
+    def _init_mac_learning_profile(self):
+        with locking.LockManager.get_lock('nsxv3_mac_learning_profile_init'):
+            profile = self._get_mac_learning_profile()
+            if not profile:
+                self._switching_profiles.create_mac_learning_profile(
+                    NSX_V3_MAC_LEARNING_PROFILE_NAME,
+                    'Neutron MAC Learning Profile',
+                    tags=utils.build_v3_api_version_tag())
+            return self._get_mac_learning_profile()
+
+    def _get_mac_learning_profile(self):
+        if self._mac_learning_profile:
+            return self._mac_learning_profile
+        profile = self._switching_profiles.find_by_display_name(
+            NSX_V3_MAC_LEARNING_PROFILE_NAME)
+        return nsx_resources.SwitchingProfileTypeId(
+            profile_type=(nsx_resources.SwitchingProfileTypes.
+                          MAC_LEARNING),
             profile_id=profile[0]['id']) if profile else None
 
     def _get_port_security_profile_id(self):
@@ -758,8 +788,10 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             vif_uuid = port_data['id']
 
         profiles = []
+        mac_learning_profile_set = False
         if psec_is_on and address_bindings:
-            profiles = [self._get_port_security_profile_id()]
+            mac_learning_profile_set = True
+            profiles.append(self._get_port_security_profile_id())
         if device_owner == const.DEVICE_OWNER_DHCP:
             if self._dhcp_profile:
                 profiles.append(self._dhcp_profile)
@@ -768,6 +800,9 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                                 "config file. DHCP port: %s configured with "
                                 "default profile on the backend"),
                             port_data['id'])
+
+        if mac_learning_profile_set and self._mac_learning_profile:
+            profiles.append(self._mac_learning_profile)
 
         name = self._get_port_name(context, port_data)
 
@@ -1073,6 +1108,11 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         if updated_device_owner == const.DEVICE_OWNER_DHCP:
             if self._dhcp_profile:
                 switch_profile_ids.append(self._dhcp_profile)
+
+        mac_learning_profile_set = (
+            self._get_port_security_profile_id() in switch_profile_ids)
+        if mac_learning_profile_set and self._mac_learning_profile:
+            switch_profile_ids.append(self._mac_learning_profile)
 
         self._port_client.update(
             lport_id, vif_uuid, name=name,
