@@ -290,7 +290,7 @@ class EdgeApplianceDriver(object):
 
     def update_interface(self, router_id, edge_id, index, network,
                          tunnel_index=-1, address=None, netmask=None,
-                         secondary=None, jobdata=None, is_connected=True,
+                         secondary=None, is_connected=True,
                          address_groups=None):
         LOG.debug("VCNS: update vnic %(index)d: %(addr)s %(netmask)s", {
             'index': index, 'addr': address, 'netmask': netmask})
@@ -362,7 +362,7 @@ class EdgeApplianceDriver(object):
         # avoid bug 1389358
         self.check_edge_jobs(edge_id)
 
-    def delete_interface(self, router_id, edge_id, index, jobdata=None):
+    def delete_interface(self, router_id, edge_id, index):
         LOG.debug("Deleting vnic %(vnic_index)s: on edge %(edge_id)s",
                   {'vnic_index': index, 'edge_id': edge_id})
         try:
