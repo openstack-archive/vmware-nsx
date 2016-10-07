@@ -183,6 +183,7 @@ class TestSwitchingProfileTestCase(nsxlib_testcase.NsxClientTestCase):
                 'display_name': 'plugin-mac-learning',
                 'description': 'mac-learning-for-plugin',
                 'tags': tags,
+                'mac_change_allowed': True,
             }, sort_keys=True))
 
     def test_find_by_display_name(self):
