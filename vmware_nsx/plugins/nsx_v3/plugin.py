@@ -1022,6 +1022,47 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             msg = _("Subnet overlaps with shared address space 100.64.0.0/10")
             raise n_exc.InvalidInput(error_message=msg)
 
+    def _create_bulk_with_rollback(self, resource, context, request_items,
+                                   rollback_func=None):
+        # This is a copy of the _create_bulk() in db_base_plugin_v2.py,
+        # but extended with a user-provided rollback function.
+        objects = []
+        collection = "%ss" % resource
+        items = request_items[collection]
+        context.session.begin(subtransactions=True)
+        try:
+            for item in items:
+                obj_creator = getattr(self, 'create_%s' % resource)
+                objects.append(obj_creator(context, item))
+            context.session.commit()
+        except Exception:
+            if rollback_func:
+                # The rollback function is called before session is reset.
+                for obj in objects:
+                    rollback_func(obj)
+            context.session.rollback()
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("An exception occurred while creating "
+                              "the %(resource)s:%(item)s"),
+                          {'resource': resource, 'item': item})
+        return objects
+
+    def _rollback_subnet(self, context, subnet):
+        if subnet['enable_dhcp']:
+            LOG.debug("Rollback native DHCP entries for network %s",
+                      subnet['network_id'])
+            self._disable_native_dhcp(context, subnet['network_id'])
+
+    def create_subnet_bulk(self, context, subnets):
+        def _rollback(subnet):
+            self._rollback_subnet(context, subnet)
+
+        if cfg.CONF.nsx_v3.native_dhcp_metadata:
+            return self._create_bulk_with_rollback('subnet', context, subnets,
+                                                   _rollback)
+        else:
+            return self._create_bulk('subnet', context, subnets)
+
     def create_subnet(self, context, subnet):
         self._validate_address_space(subnet['subnet'])
 
