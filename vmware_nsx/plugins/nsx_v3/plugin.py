@@ -84,17 +84,17 @@ from vmware_nsx.extensions import advancedserviceproviders as as_providers
 from vmware_nsx.extensions import maclearning as mac_ext
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
-from vmware_nsx.nsxlib.v3 import exceptions as nsx_lib_exc
-from vmware_nsx.nsxlib.v3 import ns_group_manager
-from vmware_nsx.nsxlib.v3 import nsx_constants as nsxlib_consts
-from vmware_nsx.nsxlib.v3 import resources as nsx_resources
-from vmware_nsx.nsxlib.v3 import router
-from vmware_nsx.nsxlib.v3 import security
-from vmware_nsx.nsxlib.v3 import utils as nsxlib_utils
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
 from vmware_nsx.services.trunk.nsx_v3 import driver as trunk_driver
+from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
+from vmware_nsxlib.v3 import ns_group_manager
+from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
+from vmware_nsxlib.v3 import resources as nsx_resources
+from vmware_nsxlib.v3 import router
+from vmware_nsxlib.v3 import security
+from vmware_nsxlib.v3 import utils as nsxlib_utils
 
 
 LOG = log.getLogger(__name__)

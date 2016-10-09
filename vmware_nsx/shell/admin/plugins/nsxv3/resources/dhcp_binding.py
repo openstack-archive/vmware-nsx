@@ -21,13 +21,13 @@ from oslo_config import cfg
 
 from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import utils as nsx_utils
-from vmware_nsx.nsxlib.v3 import nsx_constants
-from vmware_nsx.nsxlib.v3 import resources
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils
 import vmware_nsx.shell.resources as shell
+from vmware_nsxlib.v3 import nsx_constants
+from vmware_nsxlib.v3 import resources
 
 LOG = logging.getLogger(__name__)
 neutron_client = utils.NeutronDbClient()

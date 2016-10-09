@@ -18,12 +18,12 @@ import logging
 from vmware_nsx._i18n import _LI
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import db as nsx_db
-from vmware_nsx.nsxlib.v3 import resources as nsx_resources
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils
 from vmware_nsx.shell import resources as shell
+from vmware_nsxlib.v3 import resources as nsx_resources
 
 from neutron.callbacks import registry
 from neutron import context as neutron_context

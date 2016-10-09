@@ -32,9 +32,9 @@ from vmware_nsx.shell.admin.plugins.nsxv3.resources import ports
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils as v3_utils
 from vmware_nsx.shell import resources as shell
 from vmware_nsx._i18n import _LE, _LW
-from vmware_nsx.nsxlib.v3 import nsx_constants as consts
-from vmware_nsx.nsxlib.v3 import security
-from vmware_nsx.nsxlib.v3 import utils as nsxlib_utils
+from vmware_nsxlib.v3 import nsx_constants as consts
+from vmware_nsxlib.v3 import security
+from vmware_nsxlib.v3 import utils as nsxlib_utils
 
 LOG = logging.getLogger(__name__)
 

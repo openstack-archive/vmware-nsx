@@ -17,12 +17,12 @@ import mock
 from neutron.extensions import securitygroup as ext_sg
 from neutron.tests.unit.extensions import test_securitygroup as test_ext_sg
 
-from vmware_nsx.nsxlib.v3 import exceptions as nsxlib_exc
-from vmware_nsx.nsxlib.v3 import ns_group_manager
-from vmware_nsx.nsxlib.v3 import nsx_constants as consts
 from vmware_nsx.plugins.nsx_v3 import plugin as nsx_plugin
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_nsxv3
-from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
+from vmware_nsxlib.tests.unit.v3 import nsxlib_testcase
+from vmware_nsxlib.v3 import exceptions as nsxlib_exc
+from vmware_nsxlib.v3 import ns_group_manager
+from vmware_nsxlib.v3 import nsx_constants as consts
 
 
 # Pool of fake ns-groups uuids
@@ -46,11 +46,11 @@ def _mock_create_and_list_nsgroups(test_method):
 
     def wrap(*args, **kwargs):
         with mock.patch(
-            'vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.create'
+            'vmware_nsxlib.v3.security.NsxLibNsGroup.create'
         ) as create_nsgroup_mock:
             create_nsgroup_mock.side_effect = _create_nsgroup_mock
             with mock.patch(
-                "vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.list"
+                "vmware_nsxlib.v3.security.NsxLibNsGroup.list"
             ) as list_nsgroups_mock:
                 list_nsgroups_mock.side_effect = lambda: nsgroups
                 test_method(*args, **kwargs)
@@ -74,8 +74,8 @@ class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
         self._patchers.append(mock_nsx_version)
 
     @_mock_create_and_list_nsgroups
-    @mock.patch('vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.remove_member')
-    @mock.patch('vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.add_members')
+    @mock.patch('vmware_nsxlib.v3.security.NsxLibNsGroup.remove_member')
+    @mock.patch('vmware_nsxlib.v3.security.NsxLibNsGroup.add_members')
     def test_create_port_with_multiple_security_groups(self,
                                                        add_member_mock,
                                                        remove_member_mock):
@@ -91,8 +91,8 @@ class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
         add_member_mock.assert_has_calls(calls, any_order=True)
 
     @_mock_create_and_list_nsgroups
-    @mock.patch('vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.remove_member')
-    @mock.patch('vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.add_members')
+    @mock.patch('vmware_nsxlib.v3.security.NsxLibNsGroup.remove_member')
+    @mock.patch('vmware_nsxlib.v3.security.NsxLibNsGroup.add_members')
     def test_update_port_with_multiple_security_groups(self,
                                                        add_member_mock,
                                                        remove_member_mock):
@@ -111,8 +111,8 @@ class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
             NSG_IDS[0], consts.TARGET_TYPE_LOGICAL_PORT, mock.ANY)
 
     @_mock_create_and_list_nsgroups
-    @mock.patch('vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.remove_member')
-    @mock.patch('vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.add_members')
+    @mock.patch('vmware_nsxlib.v3.security.NsxLibNsGroup.remove_member')
+    @mock.patch('vmware_nsxlib.v3.security.NsxLibNsGroup.add_members')
     def test_update_port_remove_security_group_empty_list(self,
                                                           add_member_mock,
                                                           remove_member_mock):
@@ -125,7 +125,7 @@ class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
             NSG_IDS[1], consts.TARGET_TYPE_LOGICAL_PORT, mock.ANY)
 
     @_mock_create_and_list_nsgroups
-    @mock.patch('vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.add_members')
+    @mock.patch('vmware_nsxlib.v3.security.NsxLibNsGroup.add_members')
     def test_create_port_with_full_security_group(self, add_member_mock):
 
         def _add_member_mock(nsgroup, target_type, target_id):
@@ -143,8 +143,8 @@ class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
                          res_body['NeutronError']['type'])
 
     @_mock_create_and_list_nsgroups
-    @mock.patch('vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.remove_member')
-    @mock.patch('vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.add_members')
+    @mock.patch('vmware_nsxlib.v3.security.NsxLibNsGroup.remove_member')
+    @mock.patch('vmware_nsxlib.v3.security.NsxLibNsGroup.add_members')
     def test_update_port_with_full_security_group(self,
                                                   add_member_mock,
                                                   remove_member_mock):
@@ -184,7 +184,7 @@ class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
 class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
     """
     This test suite is responsible for unittesting of class
-    vmware_nsx.nsxlib.v3.ns_group_manager.NSGroupManager.
+    vmware_nsxlib.v3.ns_group_manager.NSGroupManager.
     """
 
     @_mock_create_and_list_nsgroups
@@ -214,8 +214,8 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
                          nested_groups)
 
     @_mock_create_and_list_nsgroups
-    @mock.patch('vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.remove_member')
-    @mock.patch('vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.add_members')
+    @mock.patch('vmware_nsxlib.v3.security.NsxLibNsGroup.remove_member')
+    @mock.patch('vmware_nsxlib.v3.security.NsxLibNsGroup.add_members')
     def test_add_and_remove_nsgroups(self,
                                      add_member_mock,
                                      remove_member_mock):
@@ -239,8 +239,8 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
             verify=True)
 
     @_mock_create_and_list_nsgroups
-    @mock.patch('vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.remove_member')
-    @mock.patch('vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.add_members')
+    @mock.patch('vmware_nsxlib.v3.security.NsxLibNsGroup.remove_member')
+    @mock.patch('vmware_nsxlib.v3.security.NsxLibNsGroup.add_members')
     def test_when_nested_group_is_full(self,
                                        add_member_mock,
                                        remove_member_mock):
@@ -287,8 +287,8 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
         remove_member_mock.assert_has_calls(calls)
 
     @_mock_create_and_list_nsgroups
-    @mock.patch('vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.remove_member')
-    @mock.patch('vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.add_members')
+    @mock.patch('vmware_nsxlib.v3.security.NsxLibNsGroup.remove_member')
+    @mock.patch('vmware_nsxlib.v3.security.NsxLibNsGroup.add_members')
     def test_initialize_with_absent_nested_groups(self,
                                                   add_member_mock,
                                                   remove_member_mock):
@@ -296,7 +296,7 @@ class TestNSGroupManager(nsxlib_testcase.NsxLibTestCase):
         cont_manager = ns_group_manager.NSGroupManager(self.nsxlib, size)
         # list_nsgroups will return nested group 1 and 3, but not group 2.
         nsgroups = cont_manager.nsxlib_nsgroup.list()
-        with mock.patch("vmware_nsx.nsxlib.v3.security.NsxLibNsGroup.list",
+        with mock.patch("vmware_nsxlib.v3.security.NsxLibNsGroup.list",
                         side_effect=lambda: nsgroups[::2]):
             # invoking the initialization process again, it should process
             # groups 1 and 3 and create group 2.
