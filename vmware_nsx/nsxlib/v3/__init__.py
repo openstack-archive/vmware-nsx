@@ -61,6 +61,10 @@ class NsxLib(object):
             self.client, nsxlib_config)
         self.transport_zone = NsxLibTransportZone(
             self.client, nsxlib_config)
+        self.native_dhcp_profile = NsxLibDhcpProfile(
+             self.client, nsxlib_config)
+        self.native_md_proxy = NsxLibMetadataProxy(
+             self.client, nsxlib_config)
         self.firewall_section = security.NsxLibFirewallSection(
             self.client, nsxlib_config)
         self.ns_group = security.NsxLibNsGroup(
@@ -423,6 +427,32 @@ class NsxLibTransportZone(utils.NsxLibApiBase):
 
         return self._get_resource_by_name_or_id(name_or_id,
                                                 'transport-zones')
+
+
+class NsxLibDhcpProfile(utils.NsxLibApiBase):
+
+    def get_id_by_name_or_id(self, name_or_id):
+        """Get a dhcp profile by it's display name or uuid
+
+        Return the dhcp profile data, or raise an exception if not found or
+        not unique
+        """
+
+        return self._get_resource_by_name_or_id(name_or_id,
+                                                'dhcp/server-profiles')
+
+
+class NsxLibMetadataProxy(utils.NsxLibApiBase):
+
+    def get_id_by_name_or_id(self, name_or_id):
+        """Get a metadata proxy by it's display name or uuid
+
+        Return the metadata proxy data, or raise an exception if not found or
+        not unique
+        """
+
+        return self._get_resource_by_name_or_id(name_or_id,
+                                                'md-proxies')
 
 
 class NsxLibBridgeCluster(utils.NsxLibApiBase):

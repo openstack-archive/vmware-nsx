@@ -1,0 +1,9 @@
+---
+prelude: >
+  - In NSX|v3 plugin, the 'dhcp_profile_uuid' and 'metadata_proxy_uuid'
+    options have been deprecated and replaced by 'dhcp_profile'
+    and 'metadata_proxy' respectively, which can accept both name or uuid.
+deprecations:
+  - In NSX|v3 plugin, the 'dhcp_profile_uuid' and 'metadata_proxy_uuid'
+    options have been deprecated and replaced by 'dhcp_profile'
+    and 'metadata_proxy' respectively, which can accept both name or uuid.

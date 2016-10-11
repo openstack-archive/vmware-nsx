@@ -363,11 +363,12 @@ nsx_v3_opts = [
                default="169.254.169.254/32",
                help=_("The metadata route used for native metadata proxy "
                       "service.")),
-    cfg.StrOpt('dhcp_profile_uuid',
-               help=_("This is the UUID of the NSX DHCP Profile that will be "
-                      "used to enable native DHCP service. It needs to be "
-                      "created in NSX before starting Neutron with the NSX "
-                      "plugin.")),
+    cfg.StrOpt('dhcp_profile',
+               deprecated_name='dhcp_profile_uuid',
+               help=_("This is the name or UUID of the NSX DHCP Profile "
+                      "that will be used to enable native DHCP service. It "
+                      "needs to be created in NSX before starting Neutron"
+                      "with the NSX plugin")),
     cfg.IntOpt('dhcp_lease_time',
                default=86400,
                help=_("DHCP default lease time.")),
@@ -379,11 +380,12 @@ nsx_v3_opts = [
                 help=_("List of nameservers to configure for the DHCP "
                        "binding entries. These will be used if there are no "
                        "nameservers defined on the subnet.")),
-    cfg.StrOpt('metadata_proxy_uuid',
-               help=_("This is the UUID of the NSX Metadata Proxy that will "
-                      "be used to enable native metadata service. It needs "
-                      "to be created in NSX before starting Neutron with "
-                      "the NSX plugin.")),
+    cfg.StrOpt('metadata_proxy',
+               deprecated_name='metadata_proxy_uuid',
+               help=_("This is the name or UUID of the NSX Metadata Proxy "
+                      "that will be used to enable native metadata service. "
+                      "It needs to be created in NSX before starting Neutron "
+                      "with the NSX plugin.")),
     cfg.BoolOpt('log_security_groups_blocked_traffic',
                 default=False,
                 help=_("(Optional) Indicates whether distributed-firewall "

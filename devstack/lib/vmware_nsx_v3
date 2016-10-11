@@ -166,8 +166,8 @@ function neutron_plugin_configure_service {
     if [[ "$NATIVE_DHCP_METADATA" == "True" ]]; then
         _nsxv3_ini_set native_dhcp_metadata $NATIVE_DHCP_METADATA
         _nsxv3_ini_set native_metadata_route $NATIVE_METADATA_ROUTE
-        _nsxv3_ini_set dhcp_profile_uuid $DHCP_PROFILE_UUID
-        _nsxv3_ini_set metadata_proxy_uuid $METADATA_PROXY_UUID
+        _nsxv3_ini_set dhcp_profile $DHCP_PROFILE_UUID
+        _nsxv3_ini_set metadata_proxy $METADATA_PROXY_UUID
         iniset $NEUTRON_CONF DEFAULT dhcp_agent_notification False
     fi
 }

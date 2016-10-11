@@ -43,5 +43,5 @@ def get_nsxlib_wrapper():
         plugin_ver=n_version.version_info.release_string(),
         dns_nameservers=cfg.CONF.nsx_v3.nameservers,
         dns_domain=cfg.CONF.nsx_v3.dns_domain,
-        dhcp_profile_uuid=cfg.CONF.nsx_v3.dhcp_profile_uuid)
+        dhcp_profile_uuid=cfg.CONF.nsx_v3.dhcp_profile)
     return v3.NsxLib(nsxlib_config)

@@ -74,7 +74,7 @@ def nsx_update_metadata_proxy(resource, event, trigger, **kwargs):
 
     cfg.CONF.set_override('dhcp_agent_notification', False)
     cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
-    cfg.CONF.set_override('metadata_proxy_uuid', metadata_proxy_uuid, 'nsx_v3')
+    cfg.CONF.set_override('metadata_proxy', metadata_proxy_uuid, 'nsx_v3')
 
     plugin = utils.NsxV3PluginWrapper()
     nsx_client = utils.get_nsxv3_client()
