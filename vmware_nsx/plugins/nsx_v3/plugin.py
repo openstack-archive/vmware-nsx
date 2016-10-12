@@ -244,11 +244,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     "switching profile: %s") % NSX_V3_DHCP_PROFILE_NAME
             raise nsx_exc.NsxPluginException(msg)
 
+        self._mac_learning_profile = None
+        # Only create MAC Learning profile when nsxv3 version >= 1.1.0
         if utils.is_nsx_version_1_1_0(self._nsx_version):
             LOG.debug("Initializing NSX v3 Mac Learning switching profile")
             try:
-                # XXX improve logic to avoid requiring setting this to none.
-                self._mac_learning_profile = None
                 self._mac_learning_profile = self._init_mac_learning_profile()
                 # Only expose the extension if it is supported
                 self.supported_extension_aliases.append('mac-learning')
