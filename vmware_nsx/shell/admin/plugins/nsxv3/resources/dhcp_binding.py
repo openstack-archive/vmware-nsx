@@ -93,6 +93,7 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
                     project_name='admin')
                 server_data = nsxlib.native_dhcp.build_server_config(
                     network, subnet, port, net_tags)
+                server_data['dhcp_profile_id'] = dhcp_profile_uuid
                 dhcp_server = dhcp_server_resource.create(**server_data)
                 LOG.info(_LI("Created logical DHCP server %(server)s for "
                              "network %(network)s"),
