@@ -26,32 +26,26 @@ from vmware_nsx_tempest.services.lbaas import members_client
 from vmware_nsx_tempest.services.lbaas import pools_client
 from vmware_nsx_tempest.tests.nsxv.scenario import (
     manager_topo_deployment as dmgr)
-from vmware_nsx_tempest.tests.nsxv.scenario import test_v1_lbaas_basic_ops
 
 
 CONF = config.CONF
 LOG = dmgr.manager.log.getLogger(__name__)
 
 
-class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
+class LBaasRoundRobinBaseTest(dmgr.TopoDeployScenarioManager):
+    """Base class to support LBaaS ROUND-ROBIN test.
 
-    """This test checks basic load balancer V2 ROUND-ROBIN operation.
+    It provides the methods to create loadbalancer network, and
+    start web servers.
 
-    The following is the scenario outline:
-    1. Create network with exclusive router, and 2 servers
-    2. SSH to each instance and start web server
-    3. Create a load balancer with 1 listener, 1 pool, 1 healthmonitor
-       and 2 members and with ROUND_ROBIN algorithm.
-    4. Associate loadbalancer's vip_address with a floating ip
-    5. Send NUM requests to vip's floating ip and check that they are shared
-       between the two servers.
+    Default lb_algorithm is ROUND_ROBIND.
     """
 
     tenant_router_attrs = {'router_type': 'exclusive'}
 
     @classmethod
     def skip_checks(cls):
-        super(TestLBaasRoundRobinOps, cls).skip_checks()
+        super(LBaasRoundRobinBaseTest, cls).skip_checks()
         cfg = CONF.network
         if not test.is_extension_enabled('lbaasv2', 'network'):
             msg = 'lbaasv2 extension is not enabled.'
@@ -63,7 +57,7 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
 
     @classmethod
     def resource_setup(cls):
-        super(TestLBaasRoundRobinOps, cls).resource_setup()
+        super(LBaasRoundRobinBaseTest, cls).resource_setup()
         cls.create_lbaas_clients(cls.manager)
 
     @classmethod
@@ -78,10 +72,10 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
     def setup_credentials(cls):
         # Ask framework to not create network resources for these tests.
         cls.set_network_resources()
-        super(TestLBaasRoundRobinOps, cls).setup_credentials()
+        super(LBaasRoundRobinBaseTest, cls).setup_credentials()
 
     def setUp(self):
-        super(TestLBaasRoundRobinOps, self).setUp()
+        super(LBaasRoundRobinBaseTest, self).setUp()
         CONF.validation.ssh_shell_prologue = ''
         self.namestart = 'lbaas-ops'
         self.poke_counters = 10
@@ -91,6 +85,7 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
         self.hm_delay = 4
         self.hm_max_retries = 3
         self.hm_timeout = 10
+        self.hm_type = 'PING'
         self.server_names = []
         self.loadbalancer = None
         self.vip_fip = None
@@ -108,7 +103,7 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
         # make sure servers terminated before teardown network resources
         LOG.debug("tearDown lbaas servers")
         server_id_list = []
-        for servid in ['server1', 'server2']:
+        for servid in ['server1', 'server2', 'server7', 'server8']:
             server = getattr(self, servid, None)
             if server:
                 if '_floating_ip' in server:
@@ -120,7 +115,7 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
             waiters.wait_for_server_termination(
                 self.manager.servers_client, server_id)
         # delete lbaas network before handing back to framework
-        super(TestLBaasRoundRobinOps, self).tearDown()
+        super(LBaasRoundRobinBaseTest, self).tearDown()
         LOG.debug("tearDown lbaas exiting...")
 
     def delete_loadbalancer_resources(self, lb_id):
@@ -129,32 +124,40 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
         statuses = statuses.get('statuses', statuses)
         lb = statuses.get('loadbalancer')
         for listener in lb.get('listeners', []):
+            for policy in listener.get('l7policies'):
+                self.l7policies_client.delete_policy(policy.get('id'))
             for pool in listener.get('pools'):
-                pool_id = pool.get('id')
-                hm = pool.get('healthmonitor')
-                if hm:
-                    test_utils.call_and_ignore_notfound_exc(
-                        self.health_monitors_client.delete_health_monitor,
-                        pool.get('healthmonitor').get('id'))
-                    self.wait_for_load_balancer_status(lb_id)
-                test_utils.call_and_ignore_notfound_exc(
-                    self.pools_client.delete_pool, pool.get('id'))
-                self.wait_for_load_balancer_status(lb_id)
-                for member in pool.get('members', []):
-                    test_utils.call_and_ignore_notfound_exc(
-                        self.members_client.delete_member,
-                        pool_id, member.get('id'))
-                    self.wait_for_load_balancer_status(lb_id)
+                self.delete_lb_pool_resources(lb_id, pool)
             test_utils.call_and_ignore_notfound_exc(
                 self.listeners_client.delete_listener,
                 listener.get('id'))
             self.wait_for_load_balancer_status(lb_id)
+        # delete pools not attached to listener, but loadbalancer
+        for pool in lb.get('pools', []):
+            self.delete_lb_pool_resources(lb_id, pool)
         test_utils.call_and_ignore_notfound_exc(
             lb_client.delete_load_balancer, lb_id)
         self.load_balancers_client.wait_for_load_balancer_status(
             lb_id, is_delete_op=True)
         lbs = lb_client.list_load_balancers()['loadbalancers']
         self.assertEqual(0, len(lbs))
+
+    def delete_lb_pool_resources(self, lb_id, pool):
+        pool_id = pool.get('id')
+        hm = pool.get('healthmonitor')
+        if hm:
+            test_utils.call_and_ignore_notfound_exc(
+                self.health_monitors_client.delete_health_monitor,
+                pool.get('healthmonitor').get('id'))
+            self.wait_for_load_balancer_status(lb_id)
+        test_utils.call_and_ignore_notfound_exc(
+            self.pools_client.delete_pool, pool.get('id'))
+        self.wait_for_load_balancer_status(lb_id)
+        for member in pool.get('members', []):
+            test_utils.call_and_ignore_notfound_exc(
+                self.members_client.delete_member,
+                pool_id, member.get('id'))
+            self.wait_for_load_balancer_status(lb_id)
 
     def wait_for_load_balancer_status(self, lb_id):
         # Wait for load balancer become ONLINE and ACTIVE
@@ -180,10 +183,11 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
             security_groups=security_groups,
             key_name=key_name,
             servers_client=self.manager.servers_client)
-        self.wait_for_servers_become_active()
+        self.rr_server_list = [self.server1, self.server2]
+        self.wait_for_servers_become_active(self.rr_server_list)
 
-    def wait_for_servers_become_active(self):
-        for serv in [self.server1, self.server2]:
+    def wait_for_servers_become_active(self, server_list):
+        for serv in server_list:
             waiters.wait_for_server_status(
                 self.manager.servers_client,
                 serv['id'], 'ACTIVE')
@@ -205,13 +209,14 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
             tenant_id=self.tenant_id,
             **rule)
 
-    def start_web_servers(self):
+    def start_web_servers(self, server_list=None):
         """Start predefined servers:
 
         1. SSH to the instance
         2. Start http backends listening on port 80
         """
-        for server in [self.server1, self.server2]:
+        server_list = server_list or self.rr_server_list
+        for server in server_list:
             fip = self.create_floatingip_for_server(
                 server, self.public_network_id,
                 client_mgr=self.manager)
@@ -220,7 +225,7 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
             self.start_web_server(server, server_fip, server['name'])
         # need to wait for web server to be able to response
         time.sleep(self.web_service_start_delay)
-        for server in [self.server1, self.server2]:
+        for server in server_list:
             server_name = server['name']
             fip = server['_floating_ip']
             web_fip = fip['floating_ip_address']
@@ -248,10 +253,9 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
             with tempfile.NamedTemporaryFile() as key:
                 key.write(private_key)
                 key.flush()
-                test_v1_lbaas_basic_ops.copy_file_to_host(
-                        script.name,
-                        "/tmp/script",
-                        server_fip, username, key.name)
+                dmgr.copy_file_to_host(script.name,
+                                       "/tmp/script",
+                                       server_fip, username, key.name)
 
         # Start netcat
         start_server = ('while true; do '
@@ -294,7 +298,7 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
 
         self.healthmonitor = (
             self.health_monitors_client.create_health_monitor(
-                pool_id=pool_id, type=self.protocol_type,
+                pool_id=pool_id, type=self.hm_type,
                 delay=self.hm_delay, max_retries=self.hm_max_retries,
                 timeout=self.hm_timeout))
         self.wait_for_load_balancer_status(lb_id)
@@ -324,20 +328,30 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
             port_id=self.loadbalancer['vip_port_id'],
             client_mgr=self.manager)
         self.vip_ip_address = self.vip_fip['floating_ip_address']
-        time.sleep(1.0)
-        self.send_request(self.vip_ip_address)
+        for x in range(1, 8):
+            time.sleep(2)
+            resp = self.send_request(self.vip_ip_address)
+            if resp:
+                break
+            LOG.debug('#%d LBaaS-VIP get NO response from its members', x)
         return self.vip_ip_address
 
-    def check_project_lbaas(self):
+    def do_http_request(self, start_path='', send_counts=None):
         statuses = self.load_balancers_client.show_load_balancer_status_tree(
             self.loadbalancer['id'])
         statuses = statuses.get('statuses', statuses)
         self.http_cnt = {}
         http = urllib3.PoolManager(retries=10)
-        url_path = "http://{0}/".format(self.vip_ip_address)
-        for x in range(self.poke_counters):
+        send_counts = send_counts or self.poke_counters
+        send_counts = (send_counts * 2) / 2
+        url_path = "http://{0}/{1}".format(self.vip_ip_address, start_path)
+        for x in range(send_counts):
             resp = http.request('GET', url_path)
             self.count_response(resp.data.strip())
+        return self.http_cnt
+
+    def check_project_lbaas(self):
+        self.do_http_request(send_counts=self.poke_counters)
         # should response from 2 servers
         self.assertEqual(2, len(self.http_cnt))
         # ROUND_ROUBIN, so equal counts
@@ -351,10 +365,25 @@ class TestLBaasRoundRobinOps(dmgr.TopoDeployScenarioManager):
         else:
             self.http_cnt[response] = 1
 
+
+class TestLBaasRoundRobinOps(LBaasRoundRobinBaseTest):
+
+    """This test checks basic load balancer V2 ROUND-ROBIN operation.
+
+    The following is the scenario outline:
+    1. Create network with exclusive router, and 2 servers
+    2. SSH to each instance and start web server
+    3. Create a load balancer with 1 listener, 1 pool, 1 healthmonitor
+       and 2 members and with ROUND_ROBIN algorithm.
+    4. Associate loadbalancer's vip_address with a floating ip
+    5. Send NUM requests to vip's floating ip and check that they are shared
+       between the two servers.
+    """
+
     @test.idempotent_id('077d2a5c-4938-448f-a80f-8e65f5cc49d7')
     @test.services('compute', 'network')
     def test_lbaas_round_robin_ops(self):
         self.create_lbaas_networks()
-        self.start_web_servers()
+        self.start_web_servers(self.rr_server_list)
         self.create_project_lbaas()
         self.check_project_lbaas()

@@ -14,7 +14,6 @@ from oslo_log import log as logging
 from oslo_utils import uuidutils
 
 from tempest import config
-from tempest.lib import decorators
 from tempest.lib import exceptions as ex
 from tempest import test
 
@@ -70,12 +69,12 @@ class TestHealthMonitors(base.BaseAdminTestCase):
         self.assertEqual(admin_tenant_id, hm_tenant_id)
 
     @test.attr(type='negative')
-    @decorators.skip_because(bug="1638148")
     @test.idempotent_id('acbff982-15d6-43c5-a015-e72b7df30998')
     def test_create_health_monitor_empty_tenant_id_field(self):
         """Test with admin user
 
         creating health monitor with an empty tenant id field should fail.
+        Kilo: @decorators.skip_because(bug="1638148")
         """
         self.assertRaises(ex.BadRequest, self._create_health_monitor,
                           type='HTTP', delay=3, max_retries=10,

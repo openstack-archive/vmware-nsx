@@ -16,6 +16,7 @@
 import collections
 import os
 import re
+import shlex
 import subprocess
 import time
 import traceback
@@ -25,6 +26,7 @@ from tempest.common import waiters
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
+from tempest.lib import exceptions
 from tempest.scenario import manager
 from tempest import test
 
@@ -90,8 +92,8 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
     @classmethod
     def check_preconditions(cls):
         super(TopoDeployScenarioManager, cls).check_preconditions()
-        if not (CONF.network.project_networks_reachable
-                or CONF.network.public_network_id):
+        if not (CONF.network.project_networks_reachable or
+                CONF.network.public_network_id):
             msg = ('Either project_networks_reachable must be "true", or '
                    'public_network_id must be defined.')
             cls.enabled = False
@@ -386,18 +388,60 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
         return HELO.create_subnet(self, network, **kwargs)
 
     def create_floatingip_for_server(self, server, external_network_id=None,
-                                     port_id=None, client_mgr=None):
+                                     port_id=None, client_mgr=None,
+                                     and_check_assigned=True):
         client_mgr = client_mgr or self.manager
         net_floatingip = self.create_floating_ip(
             server,
             external_network_id=external_network_id,
             port_id=port_id,
             client=client_mgr.floating_ips_client)
+        if port_id:
+            # attached to port, will not check ip assignement & reachability
+            return net_floatingip
+        if not and_check_assigned:
+            # caller will do the floatingip assigned to server and ping tests
+            return net_floatingip
+        self._waitfor_floatingip_assigned_to_server(client_mgr.servers_client,
+                                                    server.get('id'))
         server_pingable = self._waitfor_associated_floatingip(net_floatingip)
         self.assertTrue(
             server_pingable,
             msg="Expect server to be reachable after floatingip assigned.")
         return net_floatingip
+
+    def _waitfor_floatingip_assigned_to_server(self, server_client, server_id,
+                                               on_network=None,
+                                               extra_timeout=60):
+        timeout = server_client.build_timeout + extra_timeout
+        interval = server_client.build_interval
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            sv = server_client.show_server(server_id)
+            sv = sv.get('server', sv)
+            fip = self.get_server_ip_address(sv, 'floating')
+            if fip:
+                elapse_time = time.time() - start_time
+                xmsg = ("%s Take %d seconds to assign floatingip to server[%s]"
+                    % ("OS-STATS:", int(elapse_time), sv.get('name')))
+                LOG.debug(xmsg)
+                return fip
+            time.sleep(interval)
+        raise Exception(
+            "Server[%s] did not get its floatingip in %s seconds" %
+            (server_id, timeout))
+
+    def get_server_ip_address(self, server, ip_type='fixed',
+                              network_name=None):
+        if network_name and server['addresses'].get(network_name):
+            s_if = network_name
+        else:
+            s_if = server['addresses'].keys()[0]
+
+        for s_address in server['addresses'][s_if]:
+            if s_address['OS-EXT-IPS:type'] == ip_type:
+                return s_address.get('addr')
+        return None
 
     def _waitfor_associated_floatingip(self, net_floatingip):
         host_ip = net_floatingip['floating_ip_address']
@@ -705,3 +749,23 @@ def waitfor_servers_terminated(tenant_servers_client, pause=2.0):
         if len(s_list) < 1:
             return
         time.sleep(pause)
+
+
+def copy_file_to_host(file_from, dest, host, username, pkey):
+    dest = "%s@%s:%s" % (username, host, dest)
+    cmd = "scp -v -o UserKnownHostsFile=/dev/null " \
+          "-o StrictHostKeyChecking=no " \
+          "-i %(pkey)s %(file1)s %(dest)s" % {'pkey': pkey,
+                                              'file1': file_from,
+                                              'dest': dest}
+    args = shlex.split(cmd.encode('utf-8'))
+    subprocess_args = {'stdout': subprocess.PIPE,
+                       'stderr': subprocess.STDOUT}
+    proc = subprocess.Popen(args, **subprocess_args)
+    stdout, stderr = proc.communicate()
+    if proc.returncode != 0:
+        raise exceptions.SSHExecCommandFailed(cmd,
+                                              proc.returncode,
+                                              stdout,
+                                              stderr)
+    return stdout

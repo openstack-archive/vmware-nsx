@@ -13,9 +13,9 @@
 import netaddr
 
 from oslo_log import log as logging
+import testtools
 
 from tempest import config
-from tempest.lib import decorators
 from tempest.lib import exceptions
 from tempest import test
 
@@ -240,10 +240,12 @@ class LoadBalancersTest(base.BaseTestCase):
                           tenant_id="&^%123")
 
     @test.attr(type='negative')
-    @decorators.skip_because(bug="1637877")
     @test.idempotent_id('b8c56e4a-9644-4119-8fc9-130841caf662')
     def test_create_load_balancer_invalid_name(self):
-        """Test create load balancer with an invalid name"""
+        """Test create load balancer with an invalid name
+
+        Kilo: @decorators.skip_because(bug="1637877")
+        """
         self.assertRaises(exceptions.BadRequest,
                           self._create_load_balancer,
                           wait=False,
@@ -252,10 +254,12 @@ class LoadBalancersTest(base.BaseTestCase):
                           name='n' * 256)
 
     @test.attr(type='negative')
-    @decorators.skip_because(bug="1637877")
     @test.idempotent_id('d638ae60-7de5-45da-a7d9-53eca4998980')
     def test_create_load_balancer_invalid_description(self):
-        """Test create load balancer with an invalid description"""
+        """Test create load balancer with an invalid description
+
+        Kilo: @decorators.skip_because(bug="1637877")
+        """
         self.assertRaises(exceptions.BadRequest,
                           self._create_load_balancer,
                           wait=False,
@@ -307,21 +311,23 @@ class LoadBalancersTest(base.BaseTestCase):
                           tenant_id=tenant)
 
     @test.attr(type='negative')
+    @testtools.skipIf('1703396' in CONF.nsxv.bugs_to_resolve,
+                      "skip_because bug=1703396")
     @test.idempotent_id('9963cbf5-97d0-4ab9-96e5-6cbd65c98714')
-    # TODO(akang): upstream is exceptions.NotFound
     def test_create_load_balancer_invalid_flavor_field(self):
         """Test create load balancer with an invalid flavor field"""
-        self.assertRaises(exceptions.BadRequest,
+        self.assertRaises(exceptions.NotFound,
                           self._create_load_balancer,
                           vip_subnet_id=self.subnet['id'],
                           flavor_id="NO_SUCH_FLAVOR")
 
     @test.attr(type='negative')
+    @testtools.skipIf('1703396' in CONF.nsxv.bugs_to_resolve,
+                      "skip_because bug=1703396")
     @test.idempotent_id('f7319e32-0fad-450e-8f53-7567f56e8223')
-    # TODO(akang): upstream is exceptions.Conflict
     def test_create_load_balancer_provider_flavor_conflict(self):
         """Test create load balancer with both a provider and a flavor"""
-        self.assertRaises(exceptions.BadRequest,
+        self.assertRaises(exceptions.Conflict,
                           self._create_load_balancer,
                           vip_subnet_id=self.subnet['id'],
                           flavor_id="NO_SUCH_FLAVOR",
@@ -348,10 +354,12 @@ class LoadBalancersTest(base.BaseTestCase):
         self.assertEqual(load_balancer.get('name'), "")
 
     @test.attr(type='negative')
-    @decorators.skip_because(bug="1637877")
     @test.idempotent_id('551be885-215d-4941-8870-651cbc871162')
     def test_update_load_balancer_invalid_name(self):
-        """Test update load balancer with invalid name"""
+        """Test update load balancer with invalid name
+
+        Kilo: @decorators.skip_because(bug="1637877")
+        """
         self.assertRaises(exceptions.BadRequest,
                           self._update_load_balancer,
                           load_balancer_id=self.load_balancer_id,
@@ -372,10 +380,12 @@ class LoadBalancersTest(base.BaseTestCase):
         self.assertEqual(load_balancer_initial, load_balancer_new)
 
     @test.attr(type='negative')
-    @decorators.skip_because(bug="1637877")
     @test.idempotent_id('ab3550c6-8b21-463c-bc5d-e79cbae3432f')
     def test_update_load_balancer_invalid_description(self):
-        """Test update load balancer with invalid description"""
+        """Test update load balancer with invalid description
+
+        Kilo: @decorators.skip_because(bug="1637877")
+        """
         self.assertRaises(exceptions.BadRequest,
                           self._update_load_balancer,
                           load_balancer_id=self.load_balancer_id,

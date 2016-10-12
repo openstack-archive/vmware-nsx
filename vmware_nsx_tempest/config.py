@@ -114,6 +114,11 @@ NSXvGroup = [
                help="router_type is NSXv extension."
                     "Set it to True allow tests to remove this attribute"
                     " when creating router."),
+    cfg.ListOpt('bugs_to_resolve',
+                default=[],
+                help="Bugs to be resolved. Define this at tempest.conf and"
+                     " test case testtools.skipIf(condition, reasons) to"
+                     " skip test cannot be run at specific plugin env."),
 ]
 
 

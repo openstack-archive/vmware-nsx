@@ -13,7 +13,6 @@
 from oslo_log import log as logging
 
 from tempest import config
-from tempest.lib import decorators
 from tempest.lib import exceptions as ex
 from tempest import test
 
@@ -54,10 +53,12 @@ class ListenersTest(base.BaseAdminTestCase):
         super(ListenersTest, cls).resource_cleanup()
 
     @test.attr(type='negative')
-    @decorators.skip_because(bug="1638738")
     @test.idempotent_id('f84bfb35-7f73-4576-b2ca-26193850d2bf')
     def test_create_listener_empty_tenant_id(self):
-        """Test create listener with an empty tenant id should fail"""
+        """Test create listener with an empty tenant id should fail
+
+        Kilo: @decorators.skip_because(bug="1638738")
+        """
         create_new_listener_kwargs = self.create_listener_kwargs
         create_new_listener_kwargs['protocol_port'] = 8081
         create_new_listener_kwargs['tenant_id'] = ""

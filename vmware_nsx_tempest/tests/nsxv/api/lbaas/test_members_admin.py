@@ -13,7 +13,6 @@
 from oslo_log import log as logging
 
 from tempest import config
-from tempest.lib import decorators
 from tempest.lib import exceptions as ex
 from tempest import test
 
@@ -71,9 +70,11 @@ class MemberTest(base.BaseAdminTestCase):
 
     @test.attr(type='negative')
     @test.idempotent_id('01c9ea0c-bdfe-4108-95d1-69ecdc0a1f26')
-    @decorators.skip_because(bug="1638148")
     def test_create_member_empty_tenant_id(self):
-        """Test create member with an empty tenant_id should fail"""
+        """Test create member with an empty tenant_id should fail
+
+        Kilo: @decorators.skip_because(bug="1638148")
+        """
         member_opts = {}
         member_opts['address'] = "127.0.0.1"
         member_opts['protocol_port'] = 80

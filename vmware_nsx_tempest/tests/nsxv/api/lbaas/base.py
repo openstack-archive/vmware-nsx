@@ -28,6 +28,8 @@ from tempest.lib import exceptions
 
 from vmware_nsx_tempest._i18n import _LI
 from vmware_nsx_tempest.services.lbaas import health_monitors_client
+from vmware_nsx_tempest.services.lbaas import l7policies_client
+from vmware_nsx_tempest.services.lbaas import l7rules_client
 from vmware_nsx_tempest.services.lbaas import listeners_client
 from vmware_nsx_tempest.services.lbaas import load_balancers_client
 from vmware_nsx_tempest.services.lbaas import members_client
@@ -68,6 +70,9 @@ class BaseTestCase(base.BaseNetworkTest):
         cls.pools_client = pools_client.get_client(mgr)
         cls.members_client = members_client.get_client(mgr)
         cls.health_monitors_client = health_monitors_client.get_client(mgr)
+        # l7-switching clients
+        cls.l7policies_client = l7policies_client.get_client(cls.manager)
+        cls.l7rules_client = l7rules_client.get_client(cls.manager)
 
     @classmethod
     def setup_lbaas_core_network(cls):
@@ -95,36 +100,48 @@ class BaseTestCase(base.BaseNetworkTest):
             except exceptions.NotFound:
                 continue
             for listener in lb.get('listeners', []):
-                for pool in listener.get('pools'):
-                    # delete pool's health-monitor
-                    hm = pool.get('healthmonitor')
-                    if hm:
-                        test_utils.call_and_ignore_notfound_exc(
-                            cls.health_monitors_client.delete_health_monitor,
-                            pool.get('healthmonitor').get('id'))
-                        cls._wait_for_load_balancer_status(lb_id)
-                    # delete pool's members
-                    members = pool.get('members', [])
-                    for member in members:
-                        test_utils.call_and_ignore_notfound_exc(
-                            cls.members_client.delete_member,
-                            pool.get('id'), member.get('id'))
-                        cls._wait_for_load_balancer_status(lb_id)
-                    # delete pool
+                for policy in listener.get('l7policies'):
                     test_utils.call_and_ignore_notfound_exc(
-                        cls.pools_client.delete_pool, pool.get('id'))
+                        cls.l7policies_client.delete_l7policy,
+                        policy.get('id'))
                     cls._wait_for_load_balancer_status(lb_id)
+                for pool in listener.get('pools'):
+                    cls.delete_lb_pool_resources(lb_id, pool)
                 # delete listener
                 test_utils.call_and_ignore_notfound_exc(
                     cls.listeners_client.delete_listener,
                     listener.get('id'))
                 cls._wait_for_load_balancer_status(lb_id)
+            # delete pools not attached to listener, but loadbalancer
+            for pool in lb.get('pools', []):
+                cls.delete_lb_pool_resources(lb_id, pool)
             # delete load-balancer
             test_utils.call_and_ignore_notfound_exc(
                 cls._delete_load_balancer, lb_id)
         # NSX-v: delete exclusive router
         cls.delete_router(cls.router)
         super(BaseTestCase, cls).resource_cleanup()
+
+    @classmethod
+    def delete_lb_pool_resources(cls, lb_id, pool):
+        # delete pool's health-monitor
+        hm = pool.get('healthmonitor')
+        if hm:
+            test_utils.call_and_ignore_notfound_exc(
+                cls.health_monitors_client.delete_health_monitor,
+                pool.get('healthmonitor').get('id'))
+            cls._wait_for_load_balancer_status(lb_id)
+        # delete pool's members
+        members = pool.get('members', [])
+        for member in members:
+            test_utils.call_and_ignore_notfound_exc(
+                cls.members_client.delete_member,
+                pool.get('id'), member.get('id'))
+            cls._wait_for_load_balancer_status(lb_id)
+        # delete pool
+        test_utils.call_and_ignore_notfound_exc(
+            cls.pools_client.delete_pool, pool.get('id'))
+        cls._wait_for_load_balancer_status(lb_id)
 
     @classmethod
     def setUpClass(cls):
@@ -137,16 +154,16 @@ class BaseTestCase(base.BaseNetworkTest):
 
     def tearDown(cls):
         super(BaseTestCase, cls).tearDown()
-        cls.LOG.info(_LI('Finished: {0}\n').format(cls._testMethodName))
+        cls.LOG.info(_LI('Finished: {0}').format(cls._testMethodName))
 
     @classmethod
     def _create_load_balancer(cls, wait=True, **lb_kwargs):
         lb = cls.load_balancers_client.create_load_balancer(**lb_kwargs)
         lb = lb.get('loadbalancer', lb)
+        cls._lbs_to_delete.append(lb.get('id'))
         if wait:
             cls._wait_for_load_balancer_status(lb.get('id'))
 
-        cls._lbs_to_delete.append(lb.get('id'))
         port = cls.ports_client.show_port(lb['vip_port_id'])
         cls.ports.append(port['port'])
         return lb
@@ -414,8 +431,9 @@ class BaseAdminTestCase(BaseTestCase):
     def resource_setup(cls):
         super(BaseAdminTestCase, cls).resource_setup()
 
-        mgr = cls.get_client_manager(credential_type='admin')
-        cls.create_lbaas_clients(mgr)
+        cls.admin_mgr = cls.get_client_manager(credential_type='admin')
+        cls.admin_tenant_id = cls.admin_mgr.networks_client.tenant_id
+        cls.create_lbaas_clients(cls.admin_mgr)
         cls.setup_lbaas_core_network()
 
     @classmethod

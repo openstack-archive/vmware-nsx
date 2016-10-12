@@ -10,7 +10,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from tempest.lib import decorators
 from tempest.lib import exceptions as ex
 from tempest import test
 
@@ -381,11 +380,11 @@ class TestPools(base.BaseTestCase):
 
     @test.attr(type='negative')
     @test.idempotent_id('cb564af8-89aa-40ca-850e-55418da0f235')
-    @decorators.skip_because(bug="1637877")
     def test_create_pool_invalid_name_field(self):
         """known bug with
 
         input more than 255 chars Test create pool with invalid name field
+        Kilo: @decorators.skip_because(bug="1637877")
         """
         self.assertRaises(ex.BadRequest, self._create_pool,
                           protocol='HTTP',
@@ -394,12 +393,12 @@ class TestPools(base.BaseTestCase):
                           name='n' * 256)
 
     @test.attr(type='negative')
-    @decorators.skip_because(bug="1637877")
     @test.idempotent_id('7f4472be-feb7-4ab7-9fb9-97e08f1fa787')
     def test_create_pool_invalid_desc_field(self):
         """known bug with
 
         input more than 255 chars Test create pool with invalid desc field
+        Kilo: @decorators.skip_because(bug="1637877")
         """
         self.assertRaises(ex.BadRequest, self._prepare_and_create_pool,
                           protocol='HTTP',
@@ -521,19 +520,23 @@ class TestPools(base.BaseTestCase):
         self.assertAlmostEqual(sess_pers, pool.get('session_persistence'))
 
     @test.attr(type='negative')
-    @decorators.skip_because(bug="1637877")
     @test.idempotent_id('23a9dbaf-105b-450e-95cf-050203b28366')
     def test_update_pool_invalid_name(self):
-        """Test update pool with invalid name"""
+        """Test update pool with invalid name
+
+        Kilo: @decorators.skip_because(bug="1637877")
+        """
         new_pool = self._prepare_and_create_pool()
         self.assertRaises(ex.BadRequest, self._update_pool,
                           new_pool.get('id'), name='n' * 256)
 
     @test.attr(type='negative')
-    @decorators.skip_because(bug="1637877")
     @test.idempotent_id('efeeb827-5cb0-4349-8272-b2dbcbf42d22')
     def test_update_pool_invalid_desc(self):
-        """Test update pool with invalid desc"""
+        """Test update pool with invalid desc
+
+        Kilo: @decorators.skip_because(bug="1637877")
+        """
         new_pool = self._prepare_and_create_pool()
         self.assertRaises(ex.BadRequest, self._update_pool,
                           new_pool.get('id'),
