@@ -13,7 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import retrying
+import tenacity
 
 from neutron_lib import exceptions
 from oslo_log import log
@@ -63,12 +63,13 @@ def update_v3_tags(current_tags, tags_update):
     return tags
 
 
-def retry_upon_exception(exc, delay=500, max_delay=2000,
+def retry_upon_exception(exc, delay=0.5, max_delay=2,
                          max_attempts=DEFAULT_MAX_ATTEMPTS):
-    return retrying.retry(retry_on_exception=lambda e: isinstance(e, exc),
-                          wait_exponential_multiplier=delay,
-                          wait_exponential_max=max_delay,
-                          stop_max_attempt_number=max_attempts)
+    return tenacity.retry(reraise=True,
+                          retry=tenacity.retry_if_exception_type(exc),
+                          wait=tenacity.wait_exponential(
+                                multiplier=delay, max=max_delay),
+                          stop=tenacity.stop_after_attempt(max_attempts))
 
 
 def list_match(list1, list2):
