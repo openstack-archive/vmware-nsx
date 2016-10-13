@@ -2308,16 +2308,32 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         tags = utils.build_v3_tags_payload(
             router['router'], resource_type='os-neutron-router-id',
             project_name=context.tenant_name)
-        result = self._router_client.create(
-            display_name=utils.get_name_and_uuid(
-                router['router']['name'] or 'router', router['router']['id']),
-            tags=tags)
 
         with context.session.begin():
             router = super(NsxV3Plugin, self).create_router(
                 context, router)
+
+        # Create backend entries here in case neutron DB exception
+        # occurred during super.create_router(), which will cause
+        # API retry and leaves dangling backend entries.
+        try:
+            result = self._router_client.create(
+                display_name=utils.get_name_and_uuid(
+                    router['name'] or 'router', router['id']), tags=tags)
+        except nsx_lib_exc.ManagerError:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("Unable to create logical router for "
+                              "neutron router %s"), router['id'])
+                self.delete_router(context, router['id'])
+
+        try:
             nsx_db.add_neutron_nsx_router_mapping(
                 context.session, router['id'], result['id'])
+        except db_exc.DBError:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("Unable to create router mapping for "
+                              "router %s"), router['id'])
+                self.delete_router(context, router['id'])
 
         if gw_info != const.ATTR_NOT_SPECIFIED:
             try:
