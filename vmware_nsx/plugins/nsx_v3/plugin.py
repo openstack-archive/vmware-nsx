@@ -1383,10 +1383,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             profiles.append(qos_profile_id)
 
         # Add mac_learning profile if it exists and is configured
-        if (mac_learning_profile_set or
-            (self._mac_learning_profile and
-             validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)) and
-             port_data.get(mac_ext.MAC_LEARNING) is True)):
+        if (self._mac_learning_profile and
+            (mac_learning_profile_set or
+             (validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)) and
+              port_data.get(mac_ext.MAC_LEARNING) is True))):
             profiles.append(self._mac_learning_profile)
 
         name = self._get_port_name(context, port_data)
@@ -2001,8 +2001,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         mac_learning_profile_set = (
             self._get_port_security_profile_id() in switch_profile_ids)
         # Add mac_learning profile if it exists and is configured
-        if (mac_learning_profile_set or
-            (self._mac_learning_profile and
+        if (self._mac_learning_profile and
+            (mac_learning_profile_set or
              updated_port.get(mac_ext.MAC_LEARNING) is True)):
             switch_profile_ids.append(self._mac_learning_profile)
 
