@@ -2546,12 +2546,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         "to router %(router_id)s") % {
                 'net_id': net_id,
                 'router_id': router_ids[0]}
+            LOG.error(err_msg)
             if router_id in router_ids:
                 # attach to the same router again
                 raise n_exc.InvalidInput(error_message=err_msg)
             else:
                 # attach to multiple routers
-                raise n_exc.Conflict(error_message=err_msg)
+                raise l3.RouterInterfaceAttachmentConflict(reason=err_msg)
 
     def _add_router_interface_wrapper(self, context, router_id,
                                       interface_info):
