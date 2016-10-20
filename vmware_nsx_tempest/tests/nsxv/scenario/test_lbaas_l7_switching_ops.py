@@ -11,7 +11,6 @@
 #    under the License.
 import time
 
-from tempest import config
 from tempest import test
 
 from vmware_nsx_tempest.services.lbaas import l7policies_client
@@ -19,10 +18,9 @@ from vmware_nsx_tempest.services.lbaas import l7rules_client
 from vmware_nsx_tempest.tests.nsxv.scenario import (
     test_lbaas_round_robin_ops as lbaas_ops)
 
-CONF = config.CONF
-
 
 class TestL7SwitchingOps(lbaas_ops.LBaasRoundRobinBaseTest):
+
     """This test validates lbaas l7 switching with round-robin opertion.
 
     Test leverage test_lbaas_round_robin to create the basic round-robin
@@ -31,14 +29,6 @@ class TestL7SwitchingOps(lbaas_ops.LBaasRoundRobinBaseTest):
 
     Manual operation can be found at test proc: https://goo.gl/btDMXy
     """
-
-    @classmethod
-    def skip_checks(cls):
-        super(TestL7SwitchingOps, cls).skip_checks()
-        if '1739510' in CONF.nsxv.bugs_to_resolve:
-            msg = ("skip lbaas_l7_switching_ops because bug=1739150"
-                   "  -- l7 switching is not supported")
-            raise cls.skipException(msg)
 
     @classmethod
     def resource_setup(cls):
@@ -55,19 +45,22 @@ class TestL7SwitchingOps(lbaas_ops.LBaasRoundRobinBaseTest):
         super(TestL7SwitchingOps, self).setUp()
         self.switching_startswith_value1 = "/api"
         self.switching_startswith_value2 = "/api2"
+        self.reject_startswith = "/api/v1"
         self.pool7 = None
         self.l7policy1 = None
         self.l7rule1 = None
         self.l7rule_kwargs = dict(type='PATH',
                                   compare_type='STARTS_WITH',
                                   value=self.switching_startswith_value1)
+        self.l7policy_reject = None
 
     def tearDown(self):
         lb_id = self.loadbalancer['id']
         # teardown lbaas l7 provision
-        if self.l7policy1:
-            self.l7policies_client.delete_l7policy(self.l7policy1.get('id'))
-            self.wait_for_load_balancer_status(lb_id)
+        for policy in [self.l7policy1, self.l7policy_reject]:
+            if policy:
+                self.l7policies_client.delete_l7policy(policy.get('id'))
+                self.wait_for_load_balancer_status(lb_id)
         if self.pool7:
             self.pools_client.delete_pool(self.pool7.get('id'))
             self.wait_for_load_balancer_status(lb_id)
@@ -122,6 +115,18 @@ class TestL7SwitchingOps(lbaas_ops.LBaasRoundRobinBaseTest):
         policy_id = self.l7policy1.get('id')
         self.l7rule1 = self.l7rules_client.create_l7rule(
             policy_id, **self.l7rule_kwargs)['rule']
+        l7policy_kwargs = dict(action="REJECT", position=1,
+                               redirect_pool_id=pool_id,
+                               listener_id=redirect_to_listener_id,
+                               name='policy-reject')
+        l7policy1 = self.l7policies_client.create_l7policy(**l7policy_kwargs)
+        self.l7policy_reject = l7policy1.get(u'l7policy', l7policy1)
+        self.reject_policy_id = self.l7policy_reject.get('id')
+        l7rule_kwargs = dict(type='PATH',
+                             compare_type='STARTS_WITH',
+                             value=self.reject_startswith)
+        self.l7rule_reject = self.l7rules_client.create_l7rule(
+            self.reject_policy_id, **l7rule_kwargs)['rule']
 
     def check_l7_switching(self, start_path, expected_server_list,
                            send_count=6):
@@ -133,12 +138,17 @@ class TestL7SwitchingOps(lbaas_ops.LBaasRoundRobinBaseTest):
     def validate_l7_switching(self):
         l7_sv_name_list = [s['name'] for s in self.l7_server_list]
         rr_sv_name_list = [s['name'] for s in self.rr_server_list]
+        reject_name_list = ["403"]
+
         # URL prefix api switching to pool7
         self.check_l7_switching('api', l7_sv_name_list, 6)
         # URL prefix ap/i switching to pool1
         self.check_l7_switching('ap/i', rr_sv_name_list, 6)
         # URL prefix api2 switching to pool7
         self.check_l7_switching('api2', l7_sv_name_list, 6)
+
+        # URL /api/v1 should be rejected, status=403
+        self.check_l7_switching('api/v1', reject_name_list, 6)
 
         # change rule starts_with's value to /api2
         # and /api & /api/2 will be swithed to default pool
@@ -156,6 +166,9 @@ class TestL7SwitchingOps(lbaas_ops.LBaasRoundRobinBaseTest):
         self.check_l7_switching('api2', l7_sv_name_list, 6)
         # URL prefix api2 switching to pool
         self.check_l7_switching('xapi2', rr_sv_name_list, 6)
+
+        # URL /api/v1 should be rejected, status=403
+        self.check_l7_switching('api/v1', reject_name_list, 6)
 
     @test.idempotent_id('f11e19e4-16b5-41c7-878d-59b9e943e3ce')
     @test.services('compute', 'network')
