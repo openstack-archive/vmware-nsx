@@ -16,6 +16,7 @@ import netaddr
 from oslo_config import cfg
 
 from neutron.db import l3_db
+from neutron.db.models import l3 as l3_db_models
 from neutron.db import models_v2
 from neutron_lib.api import validators
 from neutron_lib import constants
@@ -117,7 +118,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             context, router_id)
 
     def _get_router_next_hop(self, context, router_id):
-        router_qry = context.session.query(l3_db.Router)
+        router_qry = context.session.query(l3_db_models.Router)
         router_db = router_qry.filter_by(id=router_id).one()
         return self.plugin._get_external_attachment_info(
             context, router_db)[2]
@@ -206,7 +207,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         vnics_by_router = self._get_all_routers_vnic_indices(
             context, router_ids)
         for router_id in router_ids:
-            router_qry = context.session.query(l3_db.Router)
+            router_qry = context.session.query(l3_db_models.Router)
             router = router_qry.filter_by(id=router_id).one()
             if router.gw_port:
                 snat, dnat = self.plugin._get_nat_rules(context, router)
@@ -246,7 +247,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         else:
             ext_net_id = ext_net_ids[0]
         for router_id in router_ids:
-            router_qry = context.session.query(l3_db.Router)
+            router_qry = context.session.query(l3_db_models.Router)
             router = router_qry.filter_by(id=router_id).one()
             addr, mask, nexthop = self.plugin._get_external_attachment_info(
                 context, router)
@@ -275,7 +276,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                                                      allow_external=True):
         fake_fw_rules = []
         for router_id in router_ids:
-            router_qry = context.session.query(l3_db.Router)
+            router_qry = context.session.query(l3_db_models.Router)
             router = router_qry.filter_by(id=router_id).one()
             subnet_cidrs = self.plugin._find_router_subnets_cidrs(
                 context, router['id'])
@@ -344,7 +345,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
     def _get_ext_net_ids(self, context, router_ids):
         ext_net_ids = []
         for router_id in router_ids:
-            router_qry = context.session.query(l3_db.Router)
+            router_qry = context.session.query(l3_db_models.Router)
             router_db = router_qry.filter_by(id=router_id).one()
             ext_net_id = router_db.gw_port_id and router_db.gw_port.network_id
             if ext_net_id and ext_net_id not in ext_net_ids:
@@ -353,7 +354,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
 
     def _get_shared_routers(self, context):
         shared_routers = []
-        routers_qry = context.session.query(l3_db.Router).all()
+        routers_qry = context.session.query(l3_db_models.Router).all()
         for r in routers_qry:
             nsx_attr = (context.session.query(
                 nsxv_models.NsxvRouterExtAttributes).filter_by(
@@ -535,7 +536,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         """
         ext_net_id = self._get_external_network_id_by_router(context,
                                                              router_id)
-        routers = context.session.query(l3_db.Router).all()
+        routers = context.session.query(l3_db_models.Router).all()
         optional_router_ids = []
         conflict_router_ids = []
 

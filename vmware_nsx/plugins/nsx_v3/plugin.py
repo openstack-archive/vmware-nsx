@@ -40,6 +40,7 @@ from neutron.db import extradhcpopt_db
 from neutron.db import extraroute_db
 from neutron.db import l3_db
 from neutron.db import l3_gwmode_db
+from neutron.db.models import l3 as l3_db_models
 from neutron.db.models import securitygroup as securitygroup_model  # noqa
 from neutron.db import models_v2
 from neutron.db import portbindings_db
@@ -159,8 +160,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         subnetpool=models_v2.SubnetPool,
         security_group=securitygroup_model.SecurityGroup,
         security_group_rule=securitygroup_model.SecurityGroupRule,
-        router=l3_db.Router,
-        floatingip=l3_db.FloatingIP)
+        router=l3_db_models.Router,
+        floatingip=l3_db_models.FloatingIP)
     def __init__(self):
         super(NsxV3Plugin, self).__init__()
         LOG.info(_LI("Starting NsxV3Plugin"))
@@ -2837,7 +2838,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return new_fip
 
     def disassociate_floatingips(self, context, port_id):
-        fip_qry = context.session.query(l3_db.FloatingIP)
+        fip_qry = context.session.query(l3_db_models.FloatingIP)
         fip_dbs = fip_qry.filter_by(fixed_port_id=port_id)
 
         for fip_db in fip_dbs:

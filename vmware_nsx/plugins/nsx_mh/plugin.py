@@ -42,6 +42,7 @@ from neutron.db import extraroute_db
 from neutron.db import l3_db
 from neutron.db import l3_dvr_db
 from neutron.db import l3_gwmode_db
+from neutron.db.models import l3 as l3_db_models
 from neutron.db.models import securitygroup as securitygroup_model  # noqa
 from neutron.db import models_v2
 from neutron.db import portbindings_db
@@ -143,8 +144,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         subnetpool=models_v2.SubnetPool,
         security_group=securitygroup_model.SecurityGroup,
         security_group_rule=securitygroup_model.SecurityGroupRule,
-        router=l3_db.Router,
-        floatingip=l3_db.FloatingIP)
+        router=l3_db_models.Router,
+        floatingip=l3_db_models.FloatingIP)
     def __init__(self):
         LOG.warning(_LW("The NSX-MH plugin is deprecated and may be removed "
                         "in the O or the P cycle"))
@@ -1475,11 +1476,12 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # Transaction nesting is needed to avoid foreign key violations
             # when processing the distributed router binding
             with context.session.begin(subtransactions=True):
-                router_db = l3_db.Router(id=neutron_router_id,
-                                         tenant_id=tenant_id,
-                                         name=r['name'],
-                                         admin_state_up=r['admin_state_up'],
-                                         status=lrouter['status'])
+                router_db = l3_db_models.Router(
+                    id=neutron_router_id,
+                    tenant_id=tenant_id,
+                    name=r['name'],
+                    admin_state_up=r['admin_state_up'],
+                    status=lrouter['status'])
                 context.session.add(router_db)
                 self._process_extra_attr_router_create(context, router_db, r)
                 # Ensure neutron router is moved into the transaction's buffer
@@ -1991,7 +1993,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def disassociate_floatingips(self, context, port_id):
         try:
-            fip_qry = context.session.query(l3_db.FloatingIP)
+            fip_qry = context.session.query(l3_db_models.FloatingIP)
             fip_dbs = fip_qry.filter_by(fixed_port_id=port_id)
 
             for fip_db in fip_dbs:
