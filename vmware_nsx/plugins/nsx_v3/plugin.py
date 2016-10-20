@@ -2554,8 +2554,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             address_groups.append(address_group)
         return (ports, address_groups)
 
-    def _validate_multiple_subnets_routers(self, context, router_id,
-                                           interface_info):
+    def _get_interface_network(self, context, interface_info):
         is_port, is_sub = self._validate_interface_info(interface_info)
         if is_port:
             net_id = self.get_port(context,
@@ -2563,7 +2562,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         elif is_sub:
             net_id = self.get_subnet(context,
                                      interface_info['subnet_id'])['network_id']
+        return net_id
 
+    def _validate_multiple_subnets_routers(self, context, router_id, net_id):
         network = self.get_network(context, net_id)
         net_type = network.get(pnet.NETWORK_TYPE)
         if (net_type and net_type != utils.NsxV3NetworkTypes.VXLAN):
@@ -2608,12 +2609,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                  context, router_id, interface_info)
 
     def add_router_interface(self, context, router_id, interface_info):
-        # disallow more than one subnets belong to same network being attached
-        # to routers
-        self._validate_multiple_subnets_routers(context,
-                                                router_id, interface_info)
-        info = self._add_router_interface_wrapper(context, router_id,
-                                                  interface_info)
+        net_id = self._get_interface_network(context, interface_info)
+        with locking.LockManager.get_lock(str(net_id)):
+            # disallow more than one subnets belong to same network being
+            # attached to routers
+            self._validate_multiple_subnets_routers(context, router_id, net_id)
+            info = self._add_router_interface_wrapper(context, router_id,
+                                                      interface_info)
         try:
             subnet = self.get_subnet(context, info['subnet_ids'][0])
             port = self.get_port(context, info['port_id'])
