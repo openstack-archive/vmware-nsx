@@ -14,6 +14,7 @@
 #    under the License.
 
 from neutron_lib.db import model_base
+from neutron_lib.utils import helpers
 from oslo_utils import uuidutils
 import sqlalchemy as sa
 from sqlalchemy import orm
@@ -214,7 +215,7 @@ class ExtendedSecurityGroupPropertiesMixin(object):
                                  p[provider_sg.PROVIDER_SECURITYGROUPS] !=
                                  n_constants.ATTR_NOT_SPECIFIED)
         provider_sg_changed = (
-            provider_sg_specified and not n_utils.compare_elements(
+            provider_sg_specified and not helpers.compare_elements(
                 original_port[provider_sg.PROVIDER_SECURITYGROUPS],
                 p[provider_sg.PROVIDER_SECURITYGROUPS]))
         sg_changed = (
