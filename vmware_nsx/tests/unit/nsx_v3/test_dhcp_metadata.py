@@ -193,8 +193,16 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                 network_id=network2['network']['id'], cidr='20.0.0.0/24',
                 tenant_id=network2['network']['tenant_id'])
             subnets = {'subnets': [subnet1, subnet2]}
-            self.plugin.create_subnet_bulk(
-                context.get_admin_context(), subnets)
+
+            with mock.patch.object(self.plugin, '_post_create_subnet'
+                                   ) as post_create_subnet:
+                self.plugin.create_subnet_bulk(
+                    context.get_admin_context(), subnets)
+                # Check if post_create function has been called for
+                # both subnets.
+                self.assertEqual(len(subnets['subnets']),
+                                 post_create_subnet.call_count)
+
             # Check if the bindings to backend DHCP entries are created.
             dhcp_service = nsx_db.get_nsx_service_binding(
                 context.get_admin_context().session,
@@ -229,27 +237,26 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                 with mock.patch.object(self.plugin,
                                        '_rollback_subnet') as rollback_subnet:
                     try:
-                        admin_context = context.get_admin_context()
-                        self.plugin.create_subnet_bulk(admin_context, subnets)
+                        self.plugin.create_subnet_bulk(
+                            context.get_admin_context(), subnets)
                     except Exception:
                         pass
                     # Check if rollback function has been called for
                     # the subnet in the first network.
-                    rollback_subnet.assert_called_once_with(admin_context,
-                                                            mock.ANY)
-                    subnet_arg = rollback_subnet.call_args[0][1]
+                    rollback_subnet.assert_called_once_with(mock.ANY, mock.ANY)
+                    subnet_arg = rollback_subnet.call_args[0][0]
                     self.assertEqual(network1['network']['id'],
                                      subnet_arg['network_id'])
-                    # Check if the bindings to backend DHCP entries are
-                    # removed.
-                    dhcp_service = nsx_db.get_nsx_service_binding(
-                        context.get_admin_context().session,
-                        network1['network']['id'], nsx_constants.SERVICE_DHCP)
-                    self.assertFalse(dhcp_service)
-                    dhcp_service = nsx_db.get_nsx_service_binding(
-                        context.get_admin_context().session,
-                        network2['network']['id'], nsx_constants.SERVICE_DHCP)
-                    self.assertFalse(dhcp_service)
+
+                # Check if the bindings to backend DHCP entries are removed.
+                dhcp_service = nsx_db.get_nsx_service_binding(
+                    context.get_admin_context().session,
+                    network1['network']['id'], nsx_constants.SERVICE_DHCP)
+                self.assertFalse(dhcp_service)
+                dhcp_service = nsx_db.get_nsx_service_binding(
+                    context.get_admin_context().session,
+                    network2['network']['id'], nsx_constants.SERVICE_DHCP)
+                self.assertFalse(dhcp_service)
 
     def test_dhcp_service_with_create_multiple_dhcp_subnets(self):
         # Test if multiple DHCP-enabled subnets cannot be created in a network.
