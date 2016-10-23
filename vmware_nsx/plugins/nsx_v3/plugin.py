@@ -28,7 +28,6 @@ from neutron.callbacks import registry
 from neutron.callbacks import resources
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
-from neutron.common import utils as neutron_utils
 from neutron import context as q_context
 from neutron.db import agents_db
 from neutron.db import agentschedulers_db
@@ -62,6 +61,7 @@ from neutron.services.qos import qos_consts
 from neutron_lib.api import validators
 from neutron_lib import constants as const
 from neutron_lib import exceptions as n_exc
+from neutron_lib.utils import helpers
 from oslo_config import cfg
 from oslo_db import exception as db_exc
 from oslo_log import log
@@ -2473,7 +2473,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 old_routes, routes_dict = (
                     self._get_extra_routes_dict_by_router_id(
                         context, router_id))
-                routes_added, routes_removed = neutron_utils.diff_list_of_dict(
+                routes_added, routes_removed = helpers.diff_list_of_dict(
                     old_routes, new_routes)
                 nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                          router_id)
