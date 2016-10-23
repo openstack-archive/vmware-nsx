@@ -25,8 +25,8 @@ from oslo_utils import timeutils
 import six
 
 from neutron import context
-from neutron.db import external_net_db
-from neutron.db import l3_db
+from neutron.db.models import external_net as external_net_db
+from neutron.db.models import l3 as l3_db
 from neutron.db import models_v2
 from neutron.extensions import l3
 

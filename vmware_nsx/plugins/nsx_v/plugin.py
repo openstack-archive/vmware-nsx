@@ -48,6 +48,7 @@ from neutron.db import external_net_db
 from neutron.db import extraroute_db
 from neutron.db import l3_db
 from neutron.db import l3_gwmode_db
+from neutron.db.models import l3 as l3_db_models
 from neutron.db.models import securitygroup as securitygroup_model  # noqa
 from neutron.db import models_v2
 from neutron.db import portbindings_db
@@ -175,8 +176,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         subnetpool=models_v2.SubnetPool,
         security_group=securitygroup_model.SecurityGroup,
         security_group_rule=securitygroup_model.SecurityGroupRule,
-        router=l3_db.Router,
-        floatingip=l3_db.FloatingIP)
+        router=l3_db_models.Router,
+        floatingip=l3_db_models.FloatingIP)
     def __init__(self):
         super(NsxVPluginV2, self).__init__()
         self.init_is_complete = False
@@ -308,7 +309,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             return container_id
 
     def _find_router_driver(self, context, router_id):
-        router_qry = context.session.query(l3_db.Router)
+        router_qry = context.session.query(l3_db_models.Router)
         router_db = router_qry.filter_by(id=router_id).one()
         return self._get_router_driver(context, router_db)
 
@@ -2694,7 +2695,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         return cidrs
 
     def _get_nat_rules(self, context, router):
-        fip_qry = context.session.query(l3_db.FloatingIP)
+        fip_qry = context.session.query(l3_db_models.FloatingIP)
         fip_db = fip_qry.filter_by(router_id=router['id']).all()
 
         snat = []
@@ -2809,7 +2810,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             context, router_id, interface_info)
 
     def _get_floatingips_by_router(self, context, router_id):
-        fip_qry = context.session.query(l3_db.FloatingIP)
+        fip_qry = context.session.query(l3_db_models.FloatingIP)
         fip_db = fip_qry.filter_by(router_id=router_id).all()
         return [fip.floating_ip_address
                 for fip in fip_db if fip.fixed_port_id]
@@ -2887,7 +2888,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     def disassociate_floatingips(self, context, port_id):
         router_id = None
         try:
-            fip_qry = context.session.query(l3_db.FloatingIP)
+            fip_qry = context.session.query(l3_db_models.FloatingIP)
             fip_db = fip_qry.filter_by(fixed_port_id=port_id)
             for fip in fip_db:
                 if fip.router_id:
