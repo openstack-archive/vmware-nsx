@@ -2374,7 +2374,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if gw_info != const.ATTR_NOT_SPECIFIED:
             try:
                 self._update_router_gw_info(context, router['id'], gw_info)
-            except nsx_lib_exc.ManagerError:
+            except (db_exc.DBError, nsx_lib_exc.ManagerError):
                 with excutils.save_and_reraise_exception():
                     LOG.error(_LE("Failed to set gateway info for router "
                                   "being created: %s - removing router"),
