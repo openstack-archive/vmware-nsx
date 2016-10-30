@@ -146,13 +146,13 @@ class QosNotificationsHandler(object):
             burst_size = int(bw_rule.max_burst_kbps) * 128
 
             # translate kbps -> Mbps
-            average_bandwidth = int(float(bw_rule.max_kbps) / 1024)
+            average_bandwidth = int(round(float(bw_rule.max_kbps) / 1024))
 
             # peakBandwidth: a Multiplying on the average BW
             # because the neutron qos configuration supports
             # only 1 value
-            peak_bandwidth = int(average_bandwidth *
-                                 cfg.CONF.NSX.qos_peak_bw_multiplier)
+            peak_bandwidth = int(round(average_bandwidth *
+                                       cfg.CONF.NSX.qos_peak_bw_multiplier))
         else:
             shaping_enabled = False
             burst_size = None

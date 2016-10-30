@@ -78,9 +78,9 @@ class NsxVQosRule(object):
                         # peakBandwidth: a Multiplying on the average BW
                         # because the neutron qos configuration supports
                         # only 1 value
-                        self.peakBandwidth = int(
+                        self.peakBandwidth = int(round(
                             self.averageBandwidth *
-                            cfg.CONF.NSX.qos_peak_bw_multiplier)
+                            cfg.CONF.NSX.qos_peak_bw_multiplier))
                         # burstSize: kbps (neutron) -> Bytes (nsxv)
                         self.burstSize = rule_obj['max_burst_kbps'] * 128
                     if rule_obj['type'] == qos_consts.RULE_TYPE_DSCP_MARKING:
