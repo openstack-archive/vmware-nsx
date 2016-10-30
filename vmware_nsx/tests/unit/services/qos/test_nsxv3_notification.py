@@ -162,7 +162,8 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
 
                     # validate the data on the profile
                     rule_dict = self.rule_data['bandwidth_limit_rule']
-                    expected_bw = rule_dict['max_kbps'] // 1024
+                    expected_bw = int(round(float(
+                        rule_dict['max_kbps']) / 1024))
                     expected_burst = rule_dict['max_burst_kbps'] * 128
                     expected_peak = int(expected_bw * self.peak_bw_multiplier)
                     update_profile.assert_called_once_with(
