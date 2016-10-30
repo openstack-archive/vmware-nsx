@@ -17,10 +17,11 @@ from neutron_lib import constants
 
 
 ROUTER_TYPE = 'router_type'
+VALID_TYPES = ['shared', 'exclusive']
 EXTENDED_ATTRIBUTES_2_0 = {
     'routers': {
         ROUTER_TYPE: {'allow_post': True, 'allow_put': True,
-                      'validate': {'type:values': ['shared', 'exclusive']},
+                      'validate': {'type:values': VALID_TYPES},
                       'default': constants.ATTR_NOT_SPECIFIED,
                       'is_visible': True},
     }
