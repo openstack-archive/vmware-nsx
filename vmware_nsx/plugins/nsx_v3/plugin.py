@@ -1039,10 +1039,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             LOG.error(msg)
             raise n_exc.InvalidInput(error_message=msg)
 
-    def _create_bulk_with_rollback(self, resource, context, request_items,
-                                   rollback_func=None):
+    def _create_bulk_with_callback(self, resource, context, request_items,
+                                   post_create_func=None, rollback_func=None):
         # This is a copy of the _create_bulk() in db_base_plugin_v2.py,
-        # but extended with a user-provided rollback function.
+        # but extended with user-provided callback functions.
         objects = []
         collection = "%ss" % resource
         items = request_items[collection]
@@ -1050,13 +1050,35 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         try:
             for item in items:
                 obj_creator = getattr(self, 'create_%s' % resource)
-                objects.append(obj_creator(context, item))
+                obj = obj_creator(context, item)
+                objects.append(obj)
+                if post_create_func:
+                    # The user-provided post_create function is called
+                    # after a new object is created.
+                    post_create_func(obj)
             context.session.commit()
         except Exception:
             if rollback_func:
-                # The rollback function is called before session is reset.
+                # The user-provided rollback function is called when an
+                # exception occurred.
                 for obj in objects:
                     rollback_func(obj)
+
+            # Note that the session.rollback() function is called here.
+            # session.rollback() will invoke transaction.rollback() on
+            # the transaction this session maintains. The latter will
+            # deactive the transaction and clear the session's cache.
+            #
+            # But depending on where the exception occurred,
+            # transaction.rollback() may have already been called
+            # internally before reaching here.
+            #
+            # For example, if the exception happened under a
+            # "with session.begin(subtransactions=True):" statement
+            # anywhere in the middle of processing obj_creator(),
+            # transaction.__exit__() will invoke transaction.rollback().
+            # Thus when the exception reaches here, the session's cache
+            # is already empty.
             context.session.rollback()
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE("An exception occurred while creating "
@@ -1064,19 +1086,52 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                           {'resource': resource, 'item': item})
         return objects
 
-    def _rollback_subnet(self, context, subnet):
-        if subnet['enable_dhcp']:
-            LOG.debug("Rollback native DHCP entries for network %s",
-                      subnet['network_id'])
-            self._disable_native_dhcp(context, subnet['network_id'])
+    def _post_create_subnet(self, context, subnet):
+        LOG.debug("Collect native DHCP entries for network %s",
+                  subnet['network_id'])
+        dhcp_service = nsx_db.get_nsx_service_binding(
+            context.session, subnet['network_id'], nsxlib_consts.SERVICE_DHCP)
+        if dhcp_service:
+            _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
+                context.session, dhcp_service['port_id'])
+            return {'nsx_port_id': nsx_port_id,
+                    'nsx_service_id': dhcp_service['nsx_service_id']}
+
+    def _rollback_subnet(self, subnet, dhcp_info):
+        LOG.debug("Rollback native DHCP entries for network %s",
+                  subnet['network_id'])
+        if dhcp_info:
+            try:
+                self._port_client.delete(dhcp_info['nsx_port_id'])
+            except Exception as e:
+                LOG.error(_LE("Failed to delete logical port %(id)s "
+                              "during rollback. Exception: %(e)s"),
+                          {'id': dhcp_info['nsx_port_id'], 'e': e})
+            try:
+                self._dhcp_server.delete(dhcp_info['nsx_service_id'])
+            except Exception:
+                LOG.error(_LE("Failed to delete logical DHCP server %(id)s "
+                              "during rollback. Exception: %(e)s"),
+                          {'id': dhcp_info['nsx_service_id'], 'e': e})
 
     def create_subnet_bulk(self, context, subnets):
+        # Maintain a local cache here because when the rollback function
+        # is called, the cache in the session may have already been cleared.
+        _subnet_dhcp_info = {}
+
+        def _post_create(subnet):
+            if subnet['enable_dhcp']:
+                _subnet_dhcp_info[subnet['id']] = self._post_create_subnet(
+                    context, subnet)
+
         def _rollback(subnet):
-            self._rollback_subnet(context, subnet)
+            if subnet['enable_dhcp'] and subnet['id'] in _subnet_dhcp_info:
+                self._rollback_subnet(subnet, _subnet_dhcp_info[subnet['id']])
+                del _subnet_dhcp_info[subnet['id']]
 
         if cfg.CONF.nsx_v3.native_dhcp_metadata:
-            return self._create_bulk_with_rollback('subnet', context, subnets,
-                                                   _rollback)
+            return self._create_bulk_with_callback('subnet', context, subnets,
+                                                   _post_create, _rollback)
         else:
             return self._create_bulk('subnet', context, subnets)
 
