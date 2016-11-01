@@ -16,6 +16,7 @@
 from sqlalchemy.orm import exc
 
 from neutron.api.v2 import attributes
+from neutron.db import _utils as db_utils
 from neutron.db import db_base_plugin_v2
 
 from oslo_log import log as logging
@@ -32,7 +33,7 @@ class MacLearningDbMixin(object):
     def _make_mac_learning_state_dict(self, port, fields=None):
         res = {'port_id': port['port_id'],
                mac.MAC_LEARNING: port[mac.MAC_LEARNING]}
-        return self._fields(res, fields)
+        return db_utils.resource_fields(res, fields)
 
     def _extend_port_mac_learning_state(self, port_res, port_db):
         state = port_db.mac_learning_state

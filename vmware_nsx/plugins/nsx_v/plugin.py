@@ -39,6 +39,7 @@ from neutron.callbacks import resources
 from neutron.common import ipv6_utils
 from neutron.common import rpc as n_rpc
 from neutron import context as n_context
+from neutron.db import _utils as db_utils
 from neutron.db import agents_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db.availability_zone import router as router_az_db
@@ -1181,7 +1182,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             net_result = self._make_network_dict(network,
                                                  context=context)
             self._extend_get_network_dict_provider(context, net_result)
-        return self._fields(net_result, fields)
+        return db_utils.resource_fields(net_result, fields)
 
     def get_networks(self, context, filters=None, fields=None,
                      sorts=None, limit=None, marker=None,
@@ -1195,7 +1196,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             for net in networks:
                 self._extend_get_network_dict_provider(context, net)
         return (networks if not fields else
-                [self._fields(network, fields) for network in networks])
+                [db_utils.resource_fields(network,
+                                          fields) for network in networks])
 
     def update_network(self, context, id, network):
         net_attrs = network['network']
@@ -1238,8 +1240,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     net_attrs[psec.PORTSECURITY])
             except Exception:
                 with excutils.save_and_reraise_exception():
-                    revert_update = self._fields(original_network,
-                                                 ['shared', psec.PORTSECURITY])
+                    revert_update = db_utils.resource_fields(
+                        original_network, ['shared', psec.PORTSECURITY])
                     self._process_network_port_security_update(
                         context, revert_update, net_res)
                     super(NsxVPluginV2, self).update_network(

@@ -19,6 +19,7 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 
 from neutron.api import extensions as neutron_extensions
+from neutron.db import _utils as db_utils
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import db_base_plugin_v2
@@ -259,7 +260,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             net_result = self._make_network_dict(network,
                                                  context=context)
             self._extend_network_dict_provider(context, net_result)
-        return self._fields(net_result, fields)
+        return db_utils.resource_fields(net_result, fields)
 
     def get_network(self, context, id, fields=None):
         return self._dvs_get_network(context, id, fields=None)
@@ -276,7 +277,8 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             for net in networks:
                 self._extend_network_dict_provider(context, net)
         return (networks if not fields else
-                [self._fields(network, fields) for network in networks])
+                [db_utils.resource_fields(network,
+                                          fields) for network in networks])
 
     def update_network(self, context, id, network):
         net_attrs = network['network']

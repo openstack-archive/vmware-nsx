@@ -16,6 +16,7 @@
 from sqlalchemy.orm import exc
 
 from neutron.api.v2 import attributes as attr
+from neutron.db import _utils as db_utils
 from neutron.db import db_base_plugin_v2
 from neutron.db import models_v2
 
@@ -147,17 +148,17 @@ class QoSDbMixin(qos.QueuePluginBase):
                'max': queue.get('max'),
                'qos_marking': queue.get('qos_marking'),
                'dscp': queue.get('dscp')}
-        return self._fields(res, fields)
+        return db_utils.resource_fields(res, fields)
 
     def _make_port_queue_binding_dict(self, queue, fields=None):
         res = {'port_id': queue['port_id'],
                'queue_id': queue['queue_id']}
-        return self._fields(res, fields)
+        return db_utils.resource_fields(res, fields)
 
     def _make_network_queue_binding_dict(self, queue, fields=None):
         res = {'network_id': queue['network_id'],
                'queue_id': queue['queue_id']}
-        return self._fields(res, fields)
+        return db_utils.resource_fields(res, fields)
 
     def _check_for_queue_and_create(self, context, port):
         """Check for queue and create.
