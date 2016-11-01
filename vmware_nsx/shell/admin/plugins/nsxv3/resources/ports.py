@@ -15,6 +15,7 @@
 
 import logging
 
+from oslo_config import cfg
 from sqlalchemy.orm import exc
 
 from vmware_nsx._i18n import _LE, _LI, _LW
@@ -145,7 +146,10 @@ def list_missing_ports(resource, event, trigger, **kwargs):
                 profiles_dict[prf['key']] = prf['value']
 
             # DHCP port: neutron dhcp profile should be attached
-            if port.get('device_owner') == const.DEVICE_OWNER_DHCP:
+            # to logical ports created for neutron DHCP but not
+            # for native DHCP.
+            if (port.get('device_owner') == const.DEVICE_OWNER_DHCP and
+                not cfg.CONF.nsx_v3.native_dhcp_metadata):
                 prf_id = profiles_dict[dhcp_profile_key]
                 if prf_id != dhcp_profile_id:
                     add_profile_mismatch(problems, neutron_id, nsx_id,
