@@ -26,6 +26,7 @@ PORTGROUP_PREFIX = 'dvportgroup'
 QOS_IN_DIRECTION = 'incomingPackets'
 QOS_AGENT_NAME = 'dvfilter-generic-vmware'
 API_FIND_ALL_BY_UUID = 'FindAllByUuid'
+DSCP_RULE_DESCRIPTION = 'Openstack Dscp Marking Rule'
 
 
 class DvsManager(object):
@@ -176,11 +177,19 @@ class DvsManager(object):
                 # create the entire structure
                 client_factory = self._session.vim.client.factory
                 filter_rule = client_factory.create('ns0:DvsTrafficRule')
+                filter_rule.description = DSCP_RULE_DESCRIPTION
                 filter_rule.action = client_factory.create(
                     'ns0:DvsUpdateTagNetworkRuleAction')
                 filter_rule.action.dscpTag = qos_data.dscpMarkValue
                 # mark only incoming packets (openstack egress = nsx ingress)
                 filter_rule.direction = QOS_IN_DIRECTION
+                # Add IP any->any qualifier
+                qualifier = client_factory.create(
+                    'ns0:DvsIpNetworkRuleQualifier')
+                qualifier.protocol = 0
+                qualifier.sourceAddress = None
+                qualifier.destinationAddress = None
+                filter_rule.qualifier = [qualifier]
 
                 traffic_filter_config = client_factory.create(
                     'ns0:DvsTrafficFilterConfig')
