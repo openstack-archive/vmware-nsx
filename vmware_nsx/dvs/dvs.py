@@ -23,7 +23,7 @@ from vmware_nsx.dvs import dvs_utils
 
 LOG = logging.getLogger(__name__)
 PORTGROUP_PREFIX = 'dvportgroup'
-QOS_OUT_DIRECTION = 'outgoingPackets'
+QOS_IN_DIRECTION = 'incomingPackets'
 QOS_AGENT_NAME = 'dvfilter-generic-vmware'
 API_FIND_ALL_BY_UUID = 'FindAllByUuid'
 
@@ -148,8 +148,11 @@ class DvsManager(object):
 
     def update_port_group_spec_qos(self, pg_spec, qos_data):
         port_conf = pg_spec.defaultPortConfig
-        # Update the out bandwidth shaping policy
-        outPol = port_conf.outShapingPolicy
+        # Update the in bandwidth shaping policy
+        # Note: openstack refers to the directions from the VM point of view,
+        # while the NSX refers to the vswitch point of view.
+        # so open stack egress is actually inShaping here.
+        outPol = port_conf.inShapingPolicy
         if qos_data.bandwidthEnabled:
             outPol.inherited = False
             outPol.enabled.inherited = False
@@ -176,8 +179,8 @@ class DvsManager(object):
                 filter_rule.action = client_factory.create(
                     'ns0:DvsUpdateTagNetworkRuleAction')
                 filter_rule.action.dscpTag = qos_data.dscpMarkValue
-                # mark only outgoing packets
-                filter_rule.direction = QOS_OUT_DIRECTION
+                # mark only incoming packets (openstack egress = nsx ingress)
+                filter_rule.direction = QOS_IN_DIRECTION
 
                 traffic_filter_config = client_factory.create(
                     'ns0:DvsTrafficFilterConfig')
