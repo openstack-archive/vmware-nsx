@@ -229,7 +229,8 @@ class NsxLib(dfw_api.DfwApi, security.Security):
                                 peak_bandwidth=None, average_bandwidth=None):
         for shaper in body["shaper_configuration"]:
             # Neutron currently supports only shaping of Egress traffic
-            if shaper["resource_type"] == "EgressRateShaper":
+            # And the direction on NSX is opposite (vswitch point of view)
+            if shaper["resource_type"] == "IngressRateShaper":
                 shaper["enabled"] = True
                 if burst_size:
                     shaper["burst_size_bytes"] = burst_size
@@ -244,7 +245,8 @@ class NsxLib(dfw_api.DfwApi, security.Security):
     def _disable_shaping_in_args(self, body):
         for shaper in body["shaper_configuration"]:
             # Neutron currently supports only shaping of Egress traffic
-            if shaper["resource_type"] == "EgressRateShaper":
+            # And the direction on NSX is opposite (vswitch point of view)
+            if shaper["resource_type"] == "IngressRateShaper":
                 shaper["enabled"] = False
                 shaper["burst_size_bytes"] = 0
                 shaper["peak_bandwidth_mbps"] = 0
