@@ -46,6 +46,13 @@ def add_nsx_extensions_to_parser(parser, client_manager, for_create=True):
             action='store_true',
             help=_("Provider security group")
         )
+    if 'security-group-policy' in utils.get_extensions(client_manager):
+        # policy
+        parser.add_argument(
+            '--policy',
+            metavar='<policy>',
+            help=_("NSX Policy Id")
+        )
 
 
 def _get_plugin_attrs(attrs, parsed_args, client_manager):
@@ -59,6 +66,10 @@ def _get_plugin_attrs(attrs, parsed_args, client_manager):
         # provider
         if hasattr(parsed_args, 'provider') and parsed_args.provider:
             attrs['provider'] = True
+    if 'security-group-policy' in utils.get_extensions(client_manager):
+        # policy
+        if parsed_args.policy is not None:
+            attrs['policy'] = parsed_args.policy
 
     return attrs
 
