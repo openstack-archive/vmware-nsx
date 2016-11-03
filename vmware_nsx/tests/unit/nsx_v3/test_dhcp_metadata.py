@@ -17,6 +17,7 @@ import mock
 import netaddr
 
 from neutron import context
+from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as secgrp
 
 from neutron_lib import constants
@@ -257,6 +258,22 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                     context.get_admin_context().session,
                     network2['network']['id'], nsx_constants.SERVICE_DHCP)
                 self.assertFalse(dhcp_service)
+
+    def test_dhcp_service_with_create_dhcp_subnet_in_vlan_network(self):
+        # Test if a DHCP-enabled subnet cannot be created in a vlan network.
+        povidernet_args = {pnet.NETWORK_TYPE: 'vlan',
+                           pnet.PHYSICAL_NETWORK: 'tzuuid',
+                           pnet.SEGMENTATION_ID: 100}
+        with self.network(providernet_args=povidernet_args,
+                          arg_list=(pnet.NETWORK_TYPE,
+                                    pnet.PHYSICAL_NETWORK,
+                                    pnet.SEGMENTATION_ID)) as network:
+            subnet = {'subnet': {'network_id': network['network']['id'],
+                                 'cidr': '10.0.0.0/24',
+                                 'enable_dhcp': True}}
+            self.assertRaises(
+                n_exc.InvalidInput, self.plugin.create_subnet,
+                context.get_admin_context(), subnet)
 
     def test_dhcp_service_with_create_multiple_dhcp_subnets(self):
         # Test if multiple DHCP-enabled subnets cannot be created in a network.
