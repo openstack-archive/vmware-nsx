@@ -30,11 +30,11 @@ from neutron.tests.unit.db import test_db_base_plugin_v2 as test_n_plugin
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import config  # noqa
-from vmware_nsx.nsxlib.v3 import resources as nsx_v3_resources
 from vmware_nsx.shell import resources
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.nsx_v.vshield import fake_vcns
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_v3_plugin
+from vmware_nsxlib.v3 import resources as nsx_v3_resources
 
 LOG = logging.getLogger(__name__)
 NSX_INI_PATH = vmware.get_fake_conf('nsx.ini.test')

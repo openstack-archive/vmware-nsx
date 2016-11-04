@@ -47,8 +47,8 @@ from vmware_nsx.common import utils
 from vmware_nsx.plugins.nsx_v3 import plugin as nsx_plugin
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.extensions import test_metadata
-from vmware_nsx.tests.unit.nsxlib.v3 import mocks as nsx_v3_mocks
-from vmware_nsx.tests.unit.nsxlib.v3 import nsxlib_testcase
+from vmware_nsxlib.tests.unit.v3 import mocks as nsx_v3_mocks
+from vmware_nsxlib.tests.unit.v3 import nsxlib_testcase
 
 
 PLUGIN_NAME = 'vmware_nsx.plugin.NsxV3Plugin'
@@ -69,7 +69,7 @@ def _mock_create_firewall_rules(*args):
 
 
 def _mock_nsx_backend_calls():
-    mock.patch("vmware_nsx.nsxlib.v3.client.NSX3Client").start()
+    mock.patch("vmware_nsxlib.v3.client.NSX3Client").start()
 
     class FakeProfile(object):
         profile_id = uuidutils.generate_uuid()
@@ -99,47 +99,47 @@ def _mock_nsx_backend_calls():
     ).start()
 
     mock.patch(
-        "vmware_nsx.nsxlib.v3.router.RouterLib.validate_tier0").start()
+        "vmware_nsxlib.v3.router.RouterLib.validate_tier0").start()
 
     mock.patch(
-        "vmware_nsx.nsxlib.v3.resources.SwitchingProfile."
+        "vmware_nsxlib.v3.resources.SwitchingProfile."
         "create_port_mirror_profile",
         side_effect=_return_id_key).start()
 
     mock.patch(
-        "vmware_nsx.nsxlib.v3.NsxLibBridgeCluster.get_id_by_name_or_id",
+        "vmware_nsxlib.v3.NsxLibBridgeCluster.get_id_by_name_or_id",
         return_value=uuidutils.generate_uuid()).start()
 
     mock.patch(
-        "vmware_nsx.nsxlib.v3.NsxLibBridgeEndpoint.create",
+        "vmware_nsxlib.v3.NsxLibBridgeEndpoint.create",
         side_effect=_return_id_key).start()
 
     mock.patch(
-        "vmware_nsx.nsxlib.v3.NsxLibLogicalSwitch.create",
+        "vmware_nsxlib.v3.NsxLibLogicalSwitch.create",
         side_effect=_return_id_key).start()
 
     mock.patch(
-        "vmware_nsx.nsxlib.v3.NsxLibDhcpProfile.get_id_by_name_or_id",
+        "vmware_nsxlib.v3.NsxLibDhcpProfile.get_id_by_name_or_id",
         return_value=NSX_DHCP_PROFILE_ID).start()
 
     mock.patch(
-        "vmware_nsx.nsxlib.v3.NsxLibMetadataProxy.get_id_by_name_or_id",
+        "vmware_nsxlib.v3.NsxLibMetadataProxy.get_id_by_name_or_id",
         return_value=NSX_METADATA_PROXY_ID).start()
 
     mock.patch(
-        "vmware_nsx.nsxlib.v3.resources.LogicalPort.create",
+        "vmware_nsxlib.v3.resources.LogicalPort.create",
         side_effect=_return_id_key).start()
 
     mock.patch(
-        "vmware_nsx.nsxlib.v3.resources.LogicalRouter.create",
+        "vmware_nsxlib.v3.resources.LogicalRouter.create",
         side_effect=_return_id_key).start()
 
     mock.patch(
-        "vmware_nsx.nsxlib.v3.resources.LogicalDhcpServer.create",
+        "vmware_nsxlib.v3.resources.LogicalDhcpServer.create",
         side_effect=_return_id_key).start()
 
     mock.patch(
-        "vmware_nsx.nsxlib.v3.resources.LogicalDhcpServer.create_binding",
+        "vmware_nsxlib.v3.resources.LogicalDhcpServer.create_binding",
         side_effect=_return_id_key).start()
 
 

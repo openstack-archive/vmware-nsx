@@ -36,8 +36,8 @@ from neutron_lib import exceptions as n_exc
 from vmware_nsx._i18n import _, _LE, _LI
 from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.db import db as nsx_db
-from vmware_nsx.nsxlib.v3 import exceptions as nsxlib_exc
-from vmware_nsx.nsxlib.v3 import nsx_constants
+from vmware_nsxlib.v3 import exceptions as nsxlib_exc
+from vmware_nsxlib.v3 import nsx_constants
 
 LOG = logging.getLogger(__name__)
 

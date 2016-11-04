@@ -28,8 +28,8 @@ from vmware_nsx._i18n import _LE
 from vmware_nsx.common import nsx_constants as nsx_consts
 from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.db import db as nsx_db
-from vmware_nsx.nsxlib.v3 import exceptions as nsxlib_exc
-from vmware_nsx.nsxlib.v3 import resources as nsx_resources
+from vmware_nsxlib.v3 import exceptions as nsxlib_exc
+from vmware_nsxlib.v3 import resources as nsx_resources
 
 LOG = logging.getLogger(__name__)
 

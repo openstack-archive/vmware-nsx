@@ -28,10 +28,10 @@ from oslo_utils import excutils
 from vmware_nsx._i18n import _, _LE, _LW
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import db as nsx_db
-from vmware_nsx.nsxlib import v3 as nsxlib
-from vmware_nsx.nsxlib.v3 import exceptions as nsxlib_exc
-from vmware_nsx.nsxlib.v3 import resources as nsx_resources
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
+from vmware_nsxlib import v3 as nsxlib
+from vmware_nsxlib.v3 import exceptions as nsxlib_exc
+from vmware_nsxlib.v3 import resources as nsx_resources
 
 LOG = logging.getLogger(__name__)
 

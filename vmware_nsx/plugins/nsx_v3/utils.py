@@ -16,8 +16,8 @@ from oslo_config import cfg
 
 from neutron import version as n_version
 
-from vmware_nsx.nsxlib import v3
-from vmware_nsx.nsxlib.v3 import config
+from vmware_nsxlib import v3
+from vmware_nsxlib.v3 import config
 
 
 NSX_NEUTRON_PLUGIN = 'NSX Neutron plugin'

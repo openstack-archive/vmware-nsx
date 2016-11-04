@@ -17,9 +17,9 @@ from neutron import context
 from neutron.db import db_base_plugin_v2
 
 from vmware_nsx.db import db as nsx_db
-from vmware_nsx.nsxlib.v3 import nsx_constants
 from vmware_nsx.plugins.nsx_v3 import plugin
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
+from vmware_nsxlib.v3 import nsx_constants
 
 
 def get_nsxv3_client():

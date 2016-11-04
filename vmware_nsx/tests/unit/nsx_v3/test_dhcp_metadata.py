@@ -29,9 +29,9 @@ from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.extensions import advancedserviceproviders as as_providers
-from vmware_nsx.nsxlib.v3 import nsx_constants
-from vmware_nsx.nsxlib.v3 import resources as nsx_resources
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin
+from vmware_nsxlib.v3 import nsx_constants
+from vmware_nsxlib.v3 import resources as nsx_resources
 
 
 class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
@@ -96,7 +96,7 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
         # Verify if DHCP binding is updated.
 
         with mock.patch(
-            'vmware_nsx.nsxlib.v3.resources.LogicalDhcpServer.update_binding'
+            'vmware_nsxlib.v3.resources.LogicalDhcpServer.update_binding'
         ) as update_dhcp_binding:
             device_owner = constants.DEVICE_OWNER_COMPUTE_PREFIX + 'None'
             device_id = uuidutils.generate_uuid()
