@@ -16,8 +16,8 @@
 import logging
 
 from vmware_nsx._i18n import _LI
-from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import db as nsx_db
+from vmware_nsx.nsxlib.v3 import exceptions as nsx_exc
 from vmware_nsx.nsxlib.v3 import resources as nsx_resources
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
