@@ -108,10 +108,15 @@ def check_and_truncate(display_name):
     return display_name or ''
 
 
+def normalize_xml(data):
+    data = data.encode('ascii', 'ignore')
+    return et.fromstring(data)
+
+
 def _get_bad_request_error_code(e):
     """Get the error code out of the exception"""
     try:
-        desc = et.fromstring(e.response)
+        desc = normalize_xml(e.response)
         return int(desc.find('errorCode').text)
     except Exception:
         pass
