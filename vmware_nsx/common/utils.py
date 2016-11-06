@@ -27,6 +27,7 @@ from oslo_context import context as common_context
 from oslo_log import log
 import retrying
 import six
+import xml.etree.ElementTree as et
 
 from vmware_nsx._i18n import _, _LE
 
@@ -120,6 +121,11 @@ def is_internal_resource(nsx_resource):
         if tag['scope'] == OS_NEUTRON_ID_SCOPE:
             return tag['tag'] == NSX_NEUTRON_PLUGIN
     return False
+
+
+def normalize_xml(data):
+    data = data.encode('ascii', 'ignore')
+    return et.fromstring(data)
 
 
 def build_v3_api_version_tag():
