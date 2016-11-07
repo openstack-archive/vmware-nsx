@@ -3034,11 +3034,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                                          context,
                                                          securitygroup):
         nsx_sg_id = self._create_nsx_security_group(context, securitygroup)
-        if self._use_nsx_policies:
+        policy = securitygroup.get(sg_policy.POLICY)
+        if self._use_nsx_policies and policy:
             # When using policies - no rules should be created.
             # just add the security group to the policy on the backend.
             self._update_nsx_security_group_policies(
-                securitygroup[sg_policy.POLICY], None, nsx_sg_id)
+                policy, None, nsx_sg_id)
 
             # Delete the neutron default rules (do not exist on the backend)
             if securitygroup.get(ext_sg.SECURITYGROUPRULES):
@@ -3064,11 +3065,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             self._add_member_to_security_group(self.sg_container_id,
                                                nsx_sg_id)
 
-    def _validate_security_group(self, security_group, default_sg,
-                                 from_create=True):
+    def _validate_security_group(self, context, security_group, default_sg,
+                                 id=None):
         if self._use_nsx_policies:
             new_policy = None
-            if from_create:
+            sg_with_policy = False
+            if not id:
                 # called from create_security_group
                 # must have a policy:
                 if not security_group.get(sg_policy.POLICY):
@@ -3076,21 +3078,29 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         # For default sg the default policy will be used
                         security_group[sg_policy.POLICY] = (
                             cfg.CONF.nsxv.default_policy_id)
-                    else:
+                    elif not cfg.CONF.nsxv.allow_tenant_rules_with_policy:
                         msg = _('A security group must be assigned to a '
                                 'policy')
                         raise n_exc.InvalidInput(error_message=msg)
-                    #TODO(asarfaty): add support for tenant sg with rules
-                new_policy = security_group[sg_policy.POLICY]
+
+                new_policy = security_group.get(sg_policy.POLICY)
+                sg_with_policy = True if new_policy else False
             else:
-                # called from update_security_group
+                # called from update_security_group.
+                # Check if the existing security group has policy or not
+                sg_with_policy = self._is_policy_security_group(context, id)
                 if sg_policy.POLICY in security_group:
                     new_policy = security_group[sg_policy.POLICY]
-                    if not new_policy:
-                        msg = _('A security group must be assigned to a '
-                                'policy')
+                    if sg_with_policy and not new_policy:
+                        # cannot remove a policy from an existing sg
+                        msg = (_('Security group %s must be assigned to a '
+                                'policy') % id)
                         raise n_exc.InvalidInput(error_message=msg)
-                        #TODO(asarfaty): add support for tenant sg with rules
+                    if not sg_with_policy and new_policy:
+                        # cannot add a policy to a non-policy security group
+                        msg = (_('Cannot add policy to an existing security '
+                                 'group %s') % id)
+                        raise n_exc.InvalidInput(error_message=msg)
 
             # validate that the new policy exists
             if new_policy and not self.nsx_v.vcns.validate_inventory(
@@ -3099,7 +3109,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 raise n_exc.InvalidInput(error_message=msg)
 
             # Do not support logging with policy
-            if security_group.get(sg_logging.LOGGING):
+            if sg_with_policy and security_group.get(sg_logging.LOGGING):
                 msg = _('Cannot support logging when using NSX policies')
                 raise n_exc.InvalidInput(error_message=msg)
         else:
@@ -3112,7 +3122,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         """Create a security group."""
         sg_data = security_group['security_group']
         sg_id = sg_data["id"] = str(uuid.uuid4())
-        self._validate_security_group(sg_data, default_sg, from_create=True)
+        self._validate_security_group(context, sg_data, default_sg)
 
         with context.session.begin(subtransactions=True):
             if sg_data.get(provider_sg.PROVIDER):
@@ -3177,7 +3187,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def update_security_group(self, context, id, security_group):
         s = security_group['security_group']
-        self._validate_security_group(s, False, from_create=False)
+        self._validate_security_group(context, s, False, id=id)
         nsx_sg_id = nsx_db.get_nsx_security_group_id(context.session, id)
         section_uri = self._get_section_uri(context.session, id)
         section_needs_update = False
@@ -3194,10 +3204,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         # security groups with NSX policy - update the backend policy attached
         # to the security group
-        if self._use_nsx_policies and sg_policy.POLICY in sg_data:
-            self._update_security_group_with_policy(s, sg_data, nsx_sg_id)
+        if (self._use_nsx_policies and
+            self._is_policy_security_group(context, id)):
+            if sg_policy.POLICY in sg_data:
+                self._update_security_group_with_policy(s, sg_data, nsx_sg_id)
 
-        if self._use_nsx_policies:
             # The rest of the update are not relevant to policies security
             # groups as there is no matching section
             self._process_security_group_properties_update(
@@ -3331,10 +3342,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         sg_rules = security_group_rules['security_group_rules']
         sg_id = sg_rules[0]['security_group_rule']['security_group_id']
 
-        if self._use_nsx_policies:
+        if (self._use_nsx_policies and
+            self._is_policy_security_group(context, sg_id)):
             # If policies are enabled - creating rules is forbidden
-            msg = _('Cannot create rules cannot for security group %s with'
-                    ' a policy') % sg_id
+            msg = (_('Cannot create rules for security group %s with'
+                     ' a policy') % sg_id)
             raise n_exc.InvalidInput(error_message=msg)
 
         self._prevent_non_admin_delete_provider_sg(context, sg_id)
