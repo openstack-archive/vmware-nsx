@@ -53,11 +53,14 @@ class SecGroupPolicyExtensionTestCase(
         del attr.RESOURCE_ATTRIBUTE_MAP['security_groups']['policy']
         super(SecGroupPolicyExtensionTestCase, self).tearDown()
 
-    def _create_secgroup_with_policy(self, policy_id, logging=False):
-        body = {'security_group': {'name': 'sg-policy',
-                                   'tenant_id': self._tenant_id,
-                                   'policy': policy_id,
-                                   'logging': logging}}
+    def _create_secgroup_with_policy(self, policy_id, description=None,
+                                     logging=False):
+        body = {'security_group':
+            {'name': 'sg-policy',
+             'tenant_id': self._tenant_id,
+             'policy': policy_id,
+             'description': description if description else '',
+             'logging': logging}}
         security_group_req = self.new_create_request('security-groups', body)
         return security_group_req.get_response(self.ext_api)
 
@@ -71,6 +74,15 @@ class SecGroupPolicyExtensionTestCase(
         res = self._create_secgroup_with_policy(policy_id)
         sg = self.deserialize(self.fmt, res)
         self.assertEqual(policy_id, sg['security_group']['policy'])
+        self.assertEqual('dummy', sg['security_group']['description'])
+
+    def test_secgroup_create_with_policyand_desc(self):
+        policy_id = 'policy-5'
+        desc = 'test'
+        res = self._create_secgroup_with_policy(policy_id, description=desc)
+        sg = self.deserialize(self.fmt, res)
+        self.assertEqual(policy_id, sg['security_group']['policy'])
+        self.assertEqual(desc, sg['security_group']['description'])
 
     def test_secgroup_create_without_policy(self):
         res = self._create_secgroup_with_policy(None)
@@ -169,9 +181,11 @@ class SecGroupPolicyExtensionTestCaseWithRules(
     def test_secgroup_create_without_policy(self):
         # in case allow_tenant_rules_with_policy is True, it is allowed to
         # create a regular sg
-        res = self._create_secgroup_with_policy(None)
+        desc = 'test'
+        res = self._create_secgroup_with_policy(None, description=desc)
         sg = self.deserialize(self.fmt, res)
         self.assertIsNone(sg['security_group']['policy'])
+        self.assertEqual(desc, sg['security_group']['description'])
 
     def test_secgroup_create_without_policy_update_policy(self):
         # Create a regular security group. adding the policy later should fail

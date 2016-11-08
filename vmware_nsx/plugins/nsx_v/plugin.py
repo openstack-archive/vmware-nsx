@@ -3114,6 +3114,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if sg_with_policy and security_group.get(sg_logging.LOGGING):
                 msg = _('Cannot support logging when using NSX policies')
                 raise n_exc.InvalidInput(error_message=msg)
+
+            # Use the NSX policy description as the description of this
+            # security group if the description was not set by the user
+            # and the security group is new or policy was updated
+            if new_policy and not security_group.get('description'):
+                security_group['description'] = (
+                    self.nsx_sg_utils.get_nsx_policy_description(new_policy))
         else:
             # must not have a policy:
             if security_group.get(sg_policy.POLICY):
