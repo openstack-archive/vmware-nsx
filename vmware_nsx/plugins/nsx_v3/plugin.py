@@ -3160,7 +3160,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self._process_security_group_rule_properties(
                     context, rules_db[i], r['security_group_rule'])
 
-            # NOTE(arosen): here are are assuming that all of the security
+            # NOTE(arosen): here are assuming that all of the security
             # group rules being added are part of the same security
             # group. We should be validating that this is the case though...
             sg_id = sg_rules[0]['security_group_rule']['security_group_id']
