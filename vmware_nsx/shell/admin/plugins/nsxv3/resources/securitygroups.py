@@ -206,7 +206,14 @@ def fix_security_groups(resource, event, trigger, **kwargs):
 
     for sg_id, sg in inconsistent_secgroups.items():
         secgroup = plugin.get_security_group(context_, sg_id)
-        nsxlib.firewall_section.delete(sg['section-id'])
+
+        try:
+            # FIXME(roeyc): try..except clause should be removed once the api
+            # will return 404 response code instead 400 for trying to delete a
+            # non-existing firewall section.
+            nsxlib.firewall_section.delete(sg['section-id'])
+        except Exception:
+            pass
         nsxlib.ns_group.delete(sg['nsx-securitygroup-id'])
         neutron_sg.delete_security_group_section_mapping(sg_id)
         neutron_sg.delete_security_group_backend_mapping(sg_id)
