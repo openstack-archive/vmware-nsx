@@ -13,7 +13,7 @@
 #    under the License.
 
 from neutron.api import extensions
-from neutron.api.v2 import attributes
+from neutron_lib.api import converters
 
 LOGGING = 'logging'
 
@@ -22,7 +22,7 @@ RESOURCE_ATTRIBUTE_MAP = {
         LOGGING: {
             'allow_post': True,
             'allow_put': True,
-            'convert_to': attributes.convert_to_boolean,
+            'convert_to': converters.convert_to_boolean,
             'default': False,
             'enforce_policy': True,
             'is_visible': True}
