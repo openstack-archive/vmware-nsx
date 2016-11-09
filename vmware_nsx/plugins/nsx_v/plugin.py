@@ -1912,18 +1912,19 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 err_msg = _("The requested subnet contains reserved IP's")
                 raise n_exc.InvalidInput(error_message=err_msg)
 
-        with locking.LockManager.get_lock('nsx-edge-pool'):
-            s = super(NsxVPluginV2, self).create_subnet(context, subnet)
-        if s['enable_dhcp']:
-            try:
-                self._process_subnet_ext_attr_create(
-                    session=context.session,
-                    subnet_db=s,
-                    subnet_req=data)
-                self._update_dhcp_service_with_subnet(context, s)
-            except Exception:
-                with excutils.save_and_reraise_exception():
-                    self.delete_subnet(context, s['id'])
+        with locking.LockManager.get_lock(subnet['subnet']['network_id']):
+            with locking.LockManager.get_lock('nsx-edge-pool'):
+                s = super(NsxVPluginV2, self).create_subnet(context, subnet)
+            if s['enable_dhcp']:
+                try:
+                    self._process_subnet_ext_attr_create(
+                        session=context.session,
+                        subnet_db=s,
+                        subnet_req=data)
+                    self._update_dhcp_service_with_subnet(context, s)
+                except Exception:
+                    with excutils.save_and_reraise_exception():
+                        self.delete_subnet(context, s['id'])
         return s
 
     def _process_subnet_ext_attr_create(self, session, subnet_db,
