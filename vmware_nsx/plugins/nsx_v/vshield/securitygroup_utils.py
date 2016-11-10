@@ -17,6 +17,8 @@ import xml.etree.ElementTree as et
 
 from oslo_log import log as logging
 
+from neutron.api.v2 import attributes
+
 from vmware_nsx.common import utils
 
 WAIT_INTERVAL = 2000
@@ -202,3 +204,16 @@ class NsxSecurityGroupUtils(object):
 
         return self.nsxv_manager.vcns.update_security_policy(
             policy_id, et.tostring(policy))
+
+    def get_nsx_policy_description(self, policy_id):
+        if not policy_id:
+            return
+        # Get the policy configuration
+        policy = self.nsxv_manager.vcns.get_security_policy(policy_id)
+        policy = utils.normalize_xml(policy)
+        # If no description - use the name instead
+        description = policy.find('description').text
+        if not description:
+            description = policy.find('name').text
+        # use only the allowed length
+        return description[:attributes.DESCRIPTION_MAX_LEN]

@@ -1346,6 +1346,8 @@ class FakeVcns(object):
         response_text = (
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
             "<securityPolicy><objectId>%s</objectId>"
+            "<name>pol1</name>"
+            "<description>dummy</description>"
             "</securityPolicy>") % policy_id
         return response_text
 
