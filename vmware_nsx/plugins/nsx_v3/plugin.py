@@ -68,6 +68,7 @@ from oslo_log import log
 from oslo_utils import excutils
 from oslo_utils import importutils
 from oslo_utils import uuidutils
+from sqlalchemy import exc as sql_exc
 
 from vmware_nsx._i18n import _, _LE, _LI, _LW
 from vmware_nsx.api_replay import utils as api_replay_utils
@@ -982,7 +983,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             nsx_db.add_neutron_nsx_service_binding(
                 context.session, network['id'], neutron_port['id'],
                 nsxlib_consts.SERVICE_DHCP, dhcp_server['id'])
-        except db_exc.DBError:
+        except (db_exc.DBError, sql_exc.TimeoutError):
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE("Failed to create mapping for DHCP port %s,"
                               "deleting port and logical DHCP server"),
@@ -1586,7 +1587,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     context.session, port['id'], fixed_ip['subnet_id'],
                     fixed_ip['ip_address'], dhcp_service['nsx_service_id'],
                     binding['id'])
-            except db_exc.DBError:
+            except (db_exc.DBError, sql_exc.TimeoutError):
                 LOG.error(_LE("Failed to add mapping of DHCP binding "
                               "%(binding)s for port %(port)s, deleting"
                               "DHCP binding on server"),
