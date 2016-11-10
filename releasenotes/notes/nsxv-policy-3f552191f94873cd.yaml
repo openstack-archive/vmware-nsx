@@ -1,0 +1,8 @@
+---
+prelude: >
+    The NSX-V plugin allows admin user to create security groups consuming
+    NSX policies, both as regular / default and provider security gruops.
+features:
+  - The NSX-V plugin supports the concumption of NSX policies through security
+    groups. Depending on the configuration, an admin user can create security
+    groups without rules, that will be connected to an NSX policy.
