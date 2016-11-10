@@ -17,6 +17,8 @@ import xml.etree.ElementTree as et
 
 from oslo_log import log as logging
 
+from vmware_nsx.common import utils
+
 WAIT_INTERVAL = 2000
 MAX_ATTEMPTS = 5
 
@@ -165,3 +167,38 @@ class NsxSecurityGroupUtils(object):
                 rule.attrib['logged'] = value
                 updated = True
         return updated
+
+    def del_nsx_security_group_from_policy(self, policy_id, sg_id):
+        if not policy_id:
+            return
+        policy = self.nsxv_manager.vcns.get_security_policy(policy_id)
+        policy = utils.normalize_xml(policy)
+
+        # check if the security group is already bounded to the policy
+        for binding in policy.iter('securityGroupBinding'):
+            if binding.find('objectId').text == sg_id:
+                # delete this entry
+                policy.remove(binding)
+
+                return self.nsxv_manager.vcns.update_security_policy(
+                    policy_id, et.tostring(policy))
+
+    def add_nsx_security_group_to_policy(self, policy_id, sg_id):
+        if not policy_id:
+            return
+        # Get the policy configuration
+        policy = self.nsxv_manager.vcns.get_security_policy(policy_id)
+        policy = utils.normalize_xml(policy)
+
+        # check if the security group is already bounded to the policy
+        for binding in policy.iter('securityGroupBinding'):
+            if binding.find('objectId').text == sg_id:
+                # Already there
+                return
+
+        # Add a new binding entry
+        new_binding = et.SubElement(policy, 'securityGroupBinding')
+        et.SubElement(new_binding, 'objectId').text = sg_id
+
+        return self.nsxv_manager.vcns.update_security_policy(
+            policy_id, et.tostring(policy))

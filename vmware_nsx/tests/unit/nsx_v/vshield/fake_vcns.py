@@ -1341,3 +1341,13 @@ class FakeVcns(object):
             response = self._get_bad_req_response(
                 msg, 120054, 'core-services')
         return self.return_helper(header, response)
+
+    def get_security_policy(self, policy_id):
+        response_text = (
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+            "<securityPolicy><objectId>%s</objectId>"
+            "</securityPolicy>") % policy_id
+        return response_text
+
+    def update_security_policy(self, policy_id, request):
+        pass

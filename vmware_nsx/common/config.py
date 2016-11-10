@@ -617,6 +617,12 @@ nsxv_opts = [
                 help=_("(Optional) If set to True, the plugin will create "
                        "a redirect rule to send all the traffic to the "
                        "security partner")),
+    cfg.BoolOpt('use_nsx_policies', default=False,
+                help=_("If set to True, the plugin will use NSX policies "
+                       "in the neutron security groups.")),
+    cfg.StrOpt('default_policy_id',
+               help=_("(Optional) If use_nsx_policies is True, this policy "
+                      "will be used as the default policy for new tenants.")),
 ]
 
 # Register the configuration options

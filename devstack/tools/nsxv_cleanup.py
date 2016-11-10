@@ -215,8 +215,11 @@ class VSMClient(object):
         # Get layer3 sections related to security group
         if response.status_code is 200:
             l3_sections = response.json()['layer3Sections']['layer3Sections']
-            firewall_sections = [s for s in l3_sections if s['name'] !=
-                                 "Default Section Layer3"]
+            # do not delete the default section, or sections created by the
+            # service composer
+            firewall_sections = [s for s in l3_sections if (s['name'] !=
+                                 "Default Section Layer3" and
+                                 "NSX Service Composer" not in s['name'])]
         else:
             print("ERROR: wrong response status code! Exiting...")
             sys.exit()
