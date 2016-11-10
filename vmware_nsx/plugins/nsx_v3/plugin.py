@@ -29,6 +29,7 @@ from neutron.callbacks import resources
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
 from neutron import context as q_context
+from neutron.db import _utils as db_utils
 from neutron.db import agents_db
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
@@ -1305,7 +1306,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # provider networks fields
             net = self._make_network_dict(network, context=context)
             self._extend_get_network_dict_provider(context, net)
-        return self._fields(net, fields)
+        return db_utils.resource_fields(net, fields)
 
     def get_networks(self, context, filters=None, fields=None,
                      sorts=None, limit=None, marker=None,
@@ -1321,7 +1322,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             for net in networks:
                 self._extend_get_network_dict_provider(context, net)
         return (networks if not fields else
-                [self._fields(network, fields) for network in networks])
+                [db_utils.resource_fields(network,
+                                          fields) for network in networks])
 
     def _get_data_from_binding_profile(self, context, port):
         if (pbin.PROFILE not in port or
@@ -2254,7 +2256,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         port = super(NsxV3Plugin, self).get_port(context, id, fields=None)
         self._extend_get_port_dict_binding(context, port)
 
-        return self._fields(port, fields)
+        return db_utils.resource_fields(port, fields)
 
     def get_ports(self, context, filters=None, fields=None,
                   sorts=None, limit=None, marker=None,
@@ -2269,7 +2271,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             for port in ports:
                 self._extend_get_port_dict_binding(context, port)
         return (ports if not fields else
-                [self._fields(port, fields) for port in ports])
+                [db_utils.resource_fields(port, fields) for port in ports])
 
     def _extract_external_gw(self, context, router, is_extract=True):
         r = router['router']

@@ -14,6 +14,7 @@
 
 from sqlalchemy.orm import exc as sa_orm_exc
 
+from neutron.db import _utils as db_utils
 from neutron.plugins.common import utils
 from neutron_lib import constants
 from neutron_lib import exceptions
@@ -119,7 +120,7 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
         if not fields or 'ports' in fields:
             res['ports'] = [self._make_gw_connection_dict(conn)
                             for conn in network_gateway.network_connections]
-        return self._fields(res, fields)
+        return db_utils.resource_fields(res, fields)
 
     def _set_mapping_info_defaults(self, mapping_info):
         if not mapping_info.get('segmentation_type'):
@@ -390,7 +391,7 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
             if fields:
                 fields.append('nsx_id')
             res['nsx_id'] = gateway_device['nsx_id']
-        return self._fields(res, fields)
+        return db_utils.resource_fields(res, fields)
 
     def _get_gateway_device(self, context, device_id):
         try:
