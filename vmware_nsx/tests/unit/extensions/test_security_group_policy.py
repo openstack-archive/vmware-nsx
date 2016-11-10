@@ -19,7 +19,9 @@ import webob.exc
 from neutron.api.v2 import attributes as attr
 from neutron import context
 from neutron.tests.unit.extensions import test_securitygroup
+from neutron_lib import constants
 
+from vmware_nsx.extensions import securitygrouplogging as ext_logging
 from vmware_nsx.extensions import securitygrouppolicy as ext_policy
 from vmware_nsx.tests.unit.nsx_v import test_plugin
 from vmware_nsx.tests.unit.nsx_v.vshield import fake_vcns
@@ -40,21 +42,29 @@ class SecGroupPolicyExtensionTestCase(
             super(SecGroupPolicyExtensionTestCase, self).setUp(
                 plugin=plugin, ext_mgr=ext_mgr)
             self._tenant_id = 'foobar'
-            # add policy security group attribute
+            # add policy & logging security group attribute
             attr.RESOURCE_ATTRIBUTE_MAP['security_groups'].update(
                 ext_policy.RESOURCE_ATTRIBUTE_MAP['security_groups'])
+            attr.RESOURCE_ATTRIBUTE_MAP['security_groups'].update(
+                ext_logging.RESOURCE_ATTRIBUTE_MAP['security_groups'])
 
     def tearDown(self):
         # remove policy security group attribute
         del attr.RESOURCE_ATTRIBUTE_MAP['security_groups']['policy']
         super(SecGroupPolicyExtensionTestCase, self).tearDown()
 
-    def _create_secgroup_with_policy(self, policy_id):
+    def _create_secgroup_with_policy(self, policy_id, logging=False):
         body = {'security_group': {'name': 'sg-policy',
                                    'tenant_id': self._tenant_id,
-                                   'policy': policy_id}}
+                                   'policy': policy_id,
+                                   'logging': logging}}
         security_group_req = self.new_create_request('security-groups', body)
         return security_group_req.get_response(self.ext_api)
+
+    def _get_secgroup_with_policy(self):
+        policy_id = 'policy-5'
+        res = self._create_secgroup_with_policy(policy_id)
+        return self.deserialize(self.fmt, res)
 
     def test_secgroup_create_with_policy(self):
         policy_id = 'policy-5'
@@ -74,7 +84,14 @@ class SecGroupPolicyExtensionTestCase(
             res = self._create_secgroup_with_policy(policy_id)
             self.assertEqual(400, res.status_int)
 
+    def test_secgroup_create_with_policy_and_logging(self):
+        # We do not support policy & logging together
+        policy_id = 'policy-5'
+        res = self._create_secgroup_with_policy(policy_id, logging=True)
+        self.assertEqual(400, res.status_int)
+
     def test_secgroup_update_with_policy(self):
+        # Test that updating the policy is allowed
         old_policy = 'policy-5'
         new_policy = 'policy-6'
         res = self._create_secgroup_with_policy(old_policy)
@@ -86,30 +103,38 @@ class SecGroupPolicyExtensionTestCase(
         self.assertEqual(new_policy, updated_sg['security_group']['policy'])
 
     def test_secgroup_update_no_policy_change(self):
+        # Test updating without changing the policy
         old_policy = 'policy-5'
+        desc = 'abc'
         res = self._create_secgroup_with_policy(old_policy)
         sg = self.deserialize(self.fmt, res)
-        data = {'security_group': {'description': 'abc'}}
+        data = {'security_group': {'description': desc}}
         req = self.new_update_request('security-groups', data,
                                       sg['security_group']['id'])
         updated_sg = self.deserialize(self.fmt, req.get_response(self.ext_api))
         self.assertEqual(old_policy, updated_sg['security_group']['policy'])
+        self.assertEqual(desc, updated_sg['security_group']['description'])
 
     def test_secgroup_update_remove_policy(self):
-        old_policy = 'policy-5'
-        new_policy = None
-        res = self._create_secgroup_with_policy(old_policy)
-        sg = self.deserialize(self.fmt, res)
-        data = {'security_group': {'policy': new_policy}}
+        # removing the policy is not allowed
+        sg = self._get_secgroup_with_policy()
+        data = {'security_group': {'policy': None}}
+        req = self.new_update_request('security-groups', data,
+                                      sg['security_group']['id'])
+        res = req.get_response(self.ext_api)
+        self.assertEqual(400, res.status_int)
+
+    def test_secgroup_update_add_logging(self):
+        # We do not support policy & logging together
+        sg = self._get_secgroup_with_policy()
+        data = {'security_group': {'logging': True}}
         req = self.new_update_request('security-groups', data,
                                       sg['security_group']['id'])
         res = req.get_response(self.ext_api)
         self.assertEqual(400, res.status_int)
 
     def test_non_admin_cannot_delete_policy_sg_and_admin_can(self):
-        policy_id = 'policy-5'
-        res = self._create_secgroup_with_policy(policy_id)
-        sg = self.deserialize(self.fmt, res)
+        sg = self._get_secgroup_with_policy()
         sg_id = sg['security_group']['id']
 
         # Try deleting the request as a normal user returns forbidden
@@ -121,3 +146,54 @@ class SecGroupPolicyExtensionTestCase(
         # can be deleted though as admin
         self._delete('security-groups', sg_id,
                      expected_code=webob.exc.HTTPNoContent.code)
+
+    def test_create_rule(self):
+        sg = self._get_secgroup_with_policy()
+        rule = self._build_security_group_rule(
+            sg['security_group']['id'], 'ingress',
+            constants.PROTO_NAME_TCP, '22', '22')
+        res = self._create_security_group_rule(self.fmt, rule)
+        self.deserialize(self.fmt, res)
+        self.assertEqual(400, res.status_int)
+
+
+class SecGroupPolicyExtensionTestCaseWithRules(
+    SecGroupPolicyExtensionTestCase):
+
+    def setUp(self, plugin=PLUGIN_NAME, ext_mgr=None):
+        cfg.CONF.set_override('allow_tenant_rules_with_policy',
+                              True, group='nsxv')
+        super(SecGroupPolicyExtensionTestCaseWithRules, self).setUp(
+            plugin=plugin, ext_mgr=ext_mgr)
+
+    def test_secgroup_create_without_policy(self):
+        # in case allow_tenant_rules_with_policy is True, it is allowed to
+        # create a regular sg
+        res = self._create_secgroup_with_policy(None)
+        sg = self.deserialize(self.fmt, res)
+        self.assertIsNone(sg['security_group']['policy'])
+
+    def test_secgroup_create_without_policy_update_policy(self):
+        # Create a regular security group. adding the policy later should fail
+        res = self._create_secgroup_with_policy(None)
+        sg = self.deserialize(self.fmt, res)
+        data = {'security_group': {'policy': 'policy-1'}}
+        req = self.new_update_request('security-groups', data,
+                                      sg['security_group']['id'])
+        res = req.get_response(self.ext_api)
+        self.assertEqual(400, res.status_int)
+
+    def test_secgroup_create_without_policy_and_rule(self):
+        # Test that regular security groups can have rules
+        res = self._create_secgroup_with_policy(None)
+        sg = self.deserialize(self.fmt, res)
+        self.assertIsNone(sg['security_group']['policy'])
+
+        rule = self._build_security_group_rule(
+            sg['security_group']['id'], 'ingress',
+            constants.PROTO_NAME_TCP, '22', '22')
+        res = self._create_security_group_rule(self.fmt, rule)
+        rule_data = self.deserialize(self.fmt, res)
+        self.assertEqual(
+            sg['security_group']['id'],
+            rule_data['security_group_rule']['security_group_id'])

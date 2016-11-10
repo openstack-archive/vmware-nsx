@@ -623,6 +623,10 @@ nsxv_opts = [
     cfg.StrOpt('default_policy_id',
                help=_("(Optional) If use_nsx_policies is True, this policy "
                       "will be used as the default policy for new tenants.")),
+    cfg.BoolOpt('allow_tenant_rules_with_policy', default=False,
+                help=_("(Optional) If use_nsx_policies is True, this value "
+                       "will determine if a tenants can add rules to their "
+                       "security groups.")),
 ]
 
 # Register the configuration options

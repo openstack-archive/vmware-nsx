@@ -120,6 +120,7 @@ function neutron_plugin_configure_service {
     _nsxv_ini_set use_dvs_features "$NSXV_USE_DVS_FEATURES"
     _nsxv_ini_set use_nsx_policies "$NSXV_USE_NSX_POLICIES"
     _nsxv_ini_set default_policy_id "$NSXV_DEFAULT_POLICY_ID"
+    _nsxv_ini_set allow_tenant_rules_with_policy "$NSXV_ALLOW_TENANT_RULES_WITH_POLICY"
 }
 
 function neutron_plugin_setup_interface_driver {
