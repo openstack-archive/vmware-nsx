@@ -118,7 +118,8 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
                 lswitch_id = neutron_client.net_id_to_lswitch_id(network_id)
                 bindings = port_bindings.get(lswitch_id, [])
                 bindings.append((port['id'], port['mac_address'],
-                                 fixed_ip['ip_address']))
+                                 fixed_ip['ip_address'],
+                                 fixed_ip['subnet_id']))
                 port_bindings[lswitch_id] = bindings
             break  # process only the first IPv4 address
 
@@ -127,14 +128,17 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
         dhcp_server_id = server_bindings.get(lswitch_id)
         if not dhcp_server_id:
             continue
-        for (port_id, mac, ip) in bindings:
+        for (port_id, mac, ip, subnet_id) in bindings:
             hostname = 'host-%s' % ip.replace('.', '-')
             options = {'option121': {'static_routes': [
                 {'network': '%s' % cfg.CONF.nsx_v3.native_metadata_route,
                  'next_hop': ip}]}}
-            dhcp_server_resource.create_binding(
+            binding = dhcp_server_resource.create_binding(
                 dhcp_server_id, mac, ip, hostname,
                 cfg.CONF.nsx_v3.dhcp_lease_time, options)
+            # Add DHCP static binding in neutron DB.
+            neutron_client.add_dhcp_static_binding(
+                port_id, subnet_id, ip, dhcp_server_id, binding['id'])
             LOG.info(_LI("Added DHCP binding (mac: %(mac)s, ip: %(ip)s) "
                          "for neutron port %(port)s"),
                      {'mac': mac, 'ip': ip, 'port': port_id})

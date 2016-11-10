@@ -66,6 +66,12 @@ class NeutronDbClient(db_base_plugin_v2.NeutronDbPluginV2):
             self.context.session, network_id, port_id,
             nsx_constants.SERVICE_DHCP, server_id)
 
+    def add_dhcp_static_binding(self, port_id, subnet_id, ip_address,
+                                server_id, binding_id):
+        return nsx_db.add_neutron_nsx_dhcp_binding(
+            self.context.session, port_id, subnet_id, ip_address, server_id,
+            binding_id)
+
 
 class NsxV3PluginWrapper(plugin.NsxV3Plugin):
     def __init__(self):
