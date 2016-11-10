@@ -254,39 +254,12 @@ class EdgeApplianceDriver(object):
         return edges_status_level
 
     def get_interface(self, edge_id, vnic_index):
-        self.check_edge_jobs(edge_id)
         # get vnic interface address groups
         try:
             return self.vcns.query_interface(edge_id, vnic_index)
         except exceptions.VcnsApiException:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("NSXv: Failed to query vnic %s"), vnic_index)
-
-    def check_edge_jobs(self, edge_id):
-        retries = max(cfg.CONF.nsxv.retries, 1)
-        delay = 0.5
-        for attempt in range(1, retries + 1):
-            if attempt != 1:
-                time.sleep(delay)
-                delay = min(2 * delay, 60)
-            h, jobs = self.vcns.get_edge_jobs(edge_id)
-            if jobs['edgeJob'] == []:
-                return
-            job_number = len(jobs['edgeJob'])
-            # Assume one job would wait time out after 20 minutes and one
-            # job takes about 1 minute to be completed.
-            if job_number < 20:
-                LOG.warning(_LW("NSXv: %(num)s jobs still running on edge "
-                                "%(edge_id)s."),
-                            {'num': job_number,
-                             'edge_id': edge_id})
-            else:
-                LOG.error(_LE("NSXv: %(num)s jobs still running on edge "
-                              "%(edge_id)s. Too many jobs may lead to job "
-                              "time out at the backend"),
-                          {'num': job_number,
-                           'edge_id': edge_id})
-        LOG.error(_LE('NSXv: jobs are still runnings!'))
 
     def update_interface(self, router_id, edge_id, index, network,
                          tunnel_index=-1, address=None, netmask=None,
@@ -359,8 +332,6 @@ class EdgeApplianceDriver(object):
                 LOG.exception(_LE("Failed to delete vdr interface on edge: "
                                   "%s"),
                               edge_id)
-        # avoid bug 1389358
-        self.check_edge_jobs(edge_id)
 
     def delete_interface(self, router_id, edge_id, index):
         LOG.debug("Deleting vnic %(vnic_index)s: on edge %(edge_id)s",
