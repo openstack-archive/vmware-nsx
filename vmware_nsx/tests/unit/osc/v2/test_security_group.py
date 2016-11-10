@@ -22,7 +22,9 @@ from openstackclient.tests.unit import utils as tests_utils
 from vmware_nsx.osc.v2 import security_group
 
 
-supported_extensions = ('security-group-logging', 'provider-security-group')
+supported_extensions = ('security-group-logging',
+                        'provider-security-group',
+                        'security-group-policy')
 
 
 class TestCreateSecurityGroup(
@@ -75,6 +77,37 @@ class TestCreateSecurityGroup(
     def test_create_with_provider(self):
         self._test_create_with_flag_arg('provider', 'provider', True)
 
+    def _test_create_with_arg_val(self, arg_name, arg_val):
+        self.network.create_security_group = mock.Mock(
+            return_value=self._security_group)
+        # add '--' to the arg name and change '_' to '-'
+        conv_name = '--' + re.sub('_', '-', arg_name)
+        arglist = [
+            '--description', self._security_group.description,
+            conv_name, str(arg_val),
+            self._security_group.name
+        ]
+        verifylist = [
+            ('description', self._security_group.description),
+            ('name', self._security_group.name),
+            (arg_name, arg_val),
+        ]
+
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        columns, data = self.cmd.take_action(parsed_args)
+
+        self.network.create_security_group.assert_called_once_with(**{
+            'description': self._security_group.description,
+            'name': self._security_group.name,
+            arg_name: arg_val,
+        })
+        self.assertEqual(self.columns, columns)
+        self.assertEqual(self.data, data)
+
+    def test_create_with_policy(self):
+        self._test_create_with_arg_val('policy', 'policy-1')
+
 
 class TestSetSecurityGroup(test_security_group.TestSetSecurityGroupNetwork):
 
@@ -126,3 +159,29 @@ class TestSetSecurityGroup(test_security_group.TestSetSecurityGroupNetwork):
         # modifying the provider flag should fail
         self._test_set_with_flag_arg('provider', 'provider',
                                      True, is_valid=False)
+
+    def _test_set_with_arg_val(self, arg_name, arg_val):
+        self.network.create_security_group = mock.Mock(
+            return_value=self._security_group)
+        # add '--' to the arg name and change '_' to '-'
+        conv_name = '--' + re.sub('_', '-', arg_name)
+        arglist = [
+            conv_name, str(arg_val),
+            self._security_group.name
+        ]
+        verifylist = [
+            (arg_name, arg_val),
+            ('group', self._security_group.name),
+        ]
+
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        result = self.cmd.take_action(parsed_args)
+
+        self.network.update_security_group.assert_called_once_with(
+            self._security_group,
+            **{arg_name: arg_val})
+        self.assertIsNone(result)
+
+    def test_set_with_policyr(self):
+        self._test_set_with_arg_val('policy', 'policy-1')
