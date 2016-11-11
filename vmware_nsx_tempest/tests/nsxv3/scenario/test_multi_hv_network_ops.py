@@ -76,8 +76,7 @@ class TestMultiHVNetworkOps(manager.NetworkScenarioTest):
         self.kvm_image = CONF.compute.image_ref_alt
 
     def _setup_l2_topo(self, **kwargs):
-        self.security_group = self._create_security_group(
-            tenant_id=self.tenant_id)
+        self.security_group = self._create_security_group()
         self.network, self.subnet, self.router = self.create_networks(**kwargs)
         esx_server_name = data_utils.rand_name('server-esx')
         kvm_server_name = data_utils.rand_name('server-kvm')

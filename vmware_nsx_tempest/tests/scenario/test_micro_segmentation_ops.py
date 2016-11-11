@@ -70,10 +70,8 @@ class TestMicroSegmentationOps(manager.NetworkScenarioTest):
         self.keypairs = {}
 
     def _create_security_groups(self):
-        web_sg = self._create_empty_security_group(tenant_id=self.tenant_id,
-                                                   namestart="secgroup-web")
-        app_sg = self._create_empty_security_group(tenant_id=self.tenant_id,
-                                                   namestart="secgroup-app")
+        web_sg = self._create_empty_security_group(namestart="secgroup-web")
+        app_sg = self._create_empty_security_group(namestart="secgroup-app")
         # Common rules to allow the following traffic
         # 1. Egress ICMP IPv4 any any
         # 2. Egress ICMP IPv6 any any
@@ -153,7 +151,7 @@ class TestMicroSegmentationOps(manager.NetworkScenarioTest):
     def _create_network_topo(self, **kwargs):
         self.web_net, self.web_subnet, self.router = self.create_networks(
             **kwargs)
-        self.app_net = self._create_network(tenant_id=self.tenant_id)
+        self.app_net = self._create_network()
         self.app_subnet = self._create_subnet(network=self.app_net)
         router_id = self.router['id']
         self.routers_client.add_router_interface(
