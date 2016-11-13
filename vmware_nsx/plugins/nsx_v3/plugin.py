@@ -1169,7 +1169,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     if self._has_single_dhcp_enabled_subnet(context, network):
                         super(NsxV3Plugin, self).delete_subnet(
                             context, subnet_id)
-                        self._disable_native_dhcp(context, network['id'])
+                        try:
+                            self._disable_native_dhcp(context, network['id'])
+                        except Exception as e:
+                            LOG.error(_LE("Failed to disable native DHCP for"
+                                          "network %(id)s. Exception: %(e)s"),
+                                      {'id': network['id'], 'e': e})
                         return
         super(NsxV3Plugin, self).delete_subnet(context, subnet_id)
 
