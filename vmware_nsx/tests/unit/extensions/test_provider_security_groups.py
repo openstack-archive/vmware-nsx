@@ -155,6 +155,14 @@ class ProviderSecurityGroupExtTestCase(
         self.assertEqual(
             provider_secgroup['security_group']['security_group_rules'], [])
 
+    def test_create_provider_security_groups_same_tenant(self):
+        provider_secgroup = self._create_provider_security_group()
+        self.assertTrue(provider_secgroup['security_group']['provider'])
+
+        # Verify that another one can also be created for the same tenant
+        provider_secgroup2 = self._create_provider_security_group()
+        self.assertTrue(provider_secgroup2['security_group']['provider'])
+
     def test_create_port_gets_provider_sg(self):
         # need to create provider security group first.
         provider_secgroup = self._create_provider_security_group()
