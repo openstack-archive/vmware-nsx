@@ -1721,8 +1721,9 @@ class EdgeManager(object):
             dhcp_binding = nsxv_db.get_edge_dhcp_static_binding(
                 context.session, edge_id, mac_address)
             if dhcp_binding:
-                self.nsxv_manager.vcns.delete_dhcp_binding(
-                    edge_id, dhcp_binding.binding_id)
+                with locking.LockManager.get_lock(str(edge_id)):
+                    self.nsxv_manager.vcns.delete_dhcp_binding(
+                        edge_id, dhcp_binding.binding_id)
                 nsxv_db.delete_edge_dhcp_static_binding(
                     context.session, edge_id, mac_address)
             else:
@@ -1739,8 +1740,9 @@ class EdgeManager(object):
     @vcns.retry_upon_exception(nsxapi_exc.VcnsApiException, max_delay=10)
     def _create_dhcp_binding(self, edge_id, binding):
         try:
-            h, c = self.nsxv_manager.vcns.create_dhcp_binding(
-                edge_id, binding)
+            with locking.LockManager.get_lock(str(edge_id)):
+                h, c = self.nsxv_manager.vcns.create_dhcp_binding(
+                    edge_id, binding)
         except nsxapi_exc.VcnsApiException as e:
             with excutils.save_and_reraise_exception():
                 binding_id = None
@@ -1767,8 +1769,9 @@ class EdgeManager(object):
                     LOG.debug("Overlapping hostname %s with binding %s",
                               binding['hostname'], binding_id)
                 if binding_id:
-                    self.nsxv_manager.vcns.delete_dhcp_binding(
-                        edge_id, binding_id)
+                    with locking.LockManager.get_lock(str(edge_id)):
+                        self.nsxv_manager.vcns.delete_dhcp_binding(
+                            edge_id, binding_id)
         return h['location'].split('/')[-1]
 
     def create_dhcp_bindings(self, context, port_id, network_id, bindings):
@@ -1799,8 +1802,9 @@ class EdgeManager(object):
             except nsxapi_exc.VcnsApiException:
                 with excutils.save_and_reraise_exception():
                     for binding_id, mac_address in configured_bindings:
-                        self.nsxv_manager.vcns.delete_dhcp_binding(
-                            edge_id, binding_id)
+                        with locking.LockManager.get_lock(str(edge_id)):
+                            self.nsxv_manager.vcns.delete_dhcp_binding(
+                                edge_id, binding_id)
                         nsxv_db.delete_edge_dhcp_static_binding(
                             context.session, edge_id, mac_address)
         else:
