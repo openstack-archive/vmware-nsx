@@ -48,6 +48,7 @@ class Operations(enum.Enum):
     NSX_RECREATE = 'nsx-recreate'
     MIGRATE_TO_DYNAMIC_CRITERIA = 'migrate-to-dynamic-criteria'
     NSX_MIGRATE_V_V3 = 'nsx-migrate-v-v3'
+    MIGRATE_TO_POLICY = 'migrate-to-policy'
     STATUS = 'status'
 
 ops = [op.value for op in Operations]
@@ -121,7 +122,8 @@ nsxv_resources = {
                                   Operations.NSX_CLEAN.value]),
     constants.SECURITY_GROUPS: Resource(constants.SECURITY_GROUPS,
                                         [Operations.LIST.value,
-                                         Operations.FIX_MISMATCH.value]),
+                                         Operations.FIX_MISMATCH.value,
+                                         Operations.MIGRATE_TO_POLICY.value]),
     constants.FIREWALL_SECTIONS: Resource(constants.FIREWALL_SECTIONS,
                                           [Operations.LIST.value,
                                            Operations.LIST_MISMATCHES.value]),

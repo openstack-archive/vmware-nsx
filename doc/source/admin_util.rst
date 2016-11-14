@@ -137,6 +137,10 @@ Security Groups, Firewall and Spoofguard
     nsxadmin -r spoofguard-policy -o clean --property policy-id=spoofguardpolicy-10
     nsxadmin -r spoofguard-policy -o list --property reverse (entries defined on NSXv and not in Neutron)
 
+- Migrate a security group from using rules to using a policy
+
+    nsxadmin -r security-groups -o migrate-to-policy --property policy-id=policy-10 --property security-group-id=733f0741-fa2c-4b32-811c-b78e4dc8ec39
+
 Metadata
 ~~~~~~~~
 
