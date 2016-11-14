@@ -1096,7 +1096,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                           {'id': dhcp_info['nsx_port_id'], 'e': e})
             try:
                 self._dhcp_server.delete(dhcp_info['nsx_service_id'])
-            except Exception:
+            except Exception as e:
                 LOG.error(_LE("Failed to delete logical DHCP server %(id)s "
                               "during rollback. Exception: %(e)s"),
                           {'id': dhcp_info['nsx_service_id'], 'e': e})
