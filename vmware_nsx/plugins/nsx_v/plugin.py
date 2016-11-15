@@ -421,6 +421,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 # required.
                 for sg in [sg for sg in self.get_security_groups(context)
                            if sg[sg_logging.LOGGING] is False]:
+                    if sg.get(sg_policy.POLICY):
+                        # Logging is not relevant with a policy
+                        continue
+
                     section_uri = self._get_section_uri(context.session,
                                                         sg['id'])
                     if section_uri is None:
@@ -440,8 +444,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                 section_uri,
                                 self.nsx_sg_utils.to_xml_string(section), h)
                     except Exception as exc:
-                        LOG.error(_LE('Unable to update section for logging. '
-                                      '%s'), exc)
+                        LOG.error(_LE('Unable to update security group %(sg)s '
+                                      'section for logging. %(e)s'),
+                                  {'e': exc, 'sg': sg['id']})
 
         c_utils.spawn_n(process_security_groups_rules_logging)
 
