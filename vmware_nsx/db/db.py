@@ -191,6 +191,11 @@ def delete_neutron_nsx_dhcp_binding(session, port_id, binding_id):
         port_id=port_id, nsx_binding_id=binding_id).delete()
 
 
+def delete_neutron_nsx_dhcp_bindings_by_service_id(session, service_id):
+    return session.query(nsx_models.NeutronNsxDhcpBinding).filter_by(
+        nsx_service_id=service_id).delete()
+
+
 def get_nsx_switch_ids(session, neutron_id):
     # This function returns a list of NSX switch identifiers because of
     # the possibility of chained logical switches
