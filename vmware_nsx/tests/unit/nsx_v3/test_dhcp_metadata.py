@@ -380,6 +380,40 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                         port['port']['mac_address'], ip, hostname,
                         cfg.CONF.nsx_v3.dhcp_lease_time, options)
 
+    def test_dhcp_binding_with_disable_enable_dhcp(self):
+        # Test if DHCP binding is preserved after DHCP is disabled and
+        # re-enabled on a subnet.
+        with self.subnet(enable_dhcp=True) as subnet:
+            device_owner = constants.DEVICE_OWNER_COMPUTE_PREFIX + 'None'
+            device_id = uuidutils.generate_uuid()
+            with self.port(subnet=subnet, device_owner=device_owner,
+                           device_id=device_id) as port:
+                ip = port['port']['fixed_ips'][0]['ip_address']
+                dhcp_bindings = nsx_db.get_nsx_dhcp_bindings(
+                    context.get_admin_context().session, port['port']['id'])
+                dhcp_service = dhcp_bindings[0]['nsx_service_id']
+                self.assertEqual(1, len(dhcp_bindings))
+                self.assertEqual(ip, dhcp_bindings[0]['ip_address'])
+                # Disable DHCP on subnet.
+                data = {'subnet': {'enable_dhcp': False}}
+                self.plugin.update_subnet(context.get_admin_context(),
+                                          subnet['subnet']['id'], data)
+                dhcp_bindings = nsx_db.get_nsx_dhcp_bindings(
+                    context.get_admin_context().session, port['port']['id'])
+                self.assertEqual([], dhcp_bindings)
+                # Re-enable DHCP on subnet.
+                data = {'subnet': {'enable_dhcp': True}}
+                self.plugin.update_subnet(context.get_admin_context(),
+                                          subnet['subnet']['id'], data)
+                dhcp_bindings = nsx_db.get_nsx_dhcp_bindings(
+                    context.get_admin_context().session, port['port']['id'])
+                self.assertEqual(1, len(dhcp_bindings))
+                self.assertEqual(ip, dhcp_bindings[0]['ip_address'])
+                # The DHCP service ID should be different because a new
+                # logical DHCP server is created for re-enabling DHCP.
+                self.assertNotEqual(dhcp_service,
+                                    dhcp_bindings[0]['nsx_service_id'])
+
     def test_dhcp_binding_with_delete_port(self):
         # Test if DHCP binding is removed when the associated compute port
         # is deleted.

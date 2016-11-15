@@ -931,6 +931,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # entries are still there.
         self._disable_native_dhcp(context, network['id'])
 
+        # Get existing ports on subnet.
+        existing_ports = super(NsxV3Plugin, self).get_ports(
+            context, filters={'network_id': [network['id']],
+                              'fixed_ips': {'subnet_id': [subnet['id']]}})
         port_data = {
             "name": "",
             "admin_state_up": True,
@@ -992,6 +996,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self._dhcp_server.delete(dhcp_server['id'])
                 self._cleanup_port(context, neutron_port['id'], nsx_port['id'])
 
+        # Configure existing ports to work with the new DHCP server
+        try:
+            for port_data in existing_ports:
+                self._add_dhcp_binding(context, port_data)
+        except Exception:
+            LOG.error(_LE('Unable to create DHCP bindings for existing ports '
+                          'on subnet %s'), subnet['id'])
+
     def _disable_native_dhcp(self, context, network_id):
         # Disable native DHCP service on the backend for this network.
         # First delete the DHCP port in this network. Then delete the
@@ -1030,6 +1042,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # Delete neutron_id -> dhcp_service_id mapping from the DB.
             nsx_db.delete_neutron_nsx_service_binding(
                 context.session, network_id, nsxlib_consts.SERVICE_DHCP)
+            # Delete all DHCP bindings under this DHCP server from the DB.
+            nsx_db.delete_neutron_nsx_dhcp_bindings_by_service_id(
+                context.session, dhcp_service['nsx_service_id'])
         except db_exc.DBError:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE("Unable to delete DHCP server mapping for "
