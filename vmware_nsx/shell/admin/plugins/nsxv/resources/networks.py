@@ -94,7 +94,8 @@ def nsx_update_switch(resource, event, trigger, **kwargs):
         return
     supported_policies = ['ETHER_CHANNEL', 'LOADBALANCE_LOADBASED',
                           'LOADBALANCE_SRCID', 'LOADBALANCE_SRCMAC',
-                          'FAILOVER_ORDER']
+                          'FAILOVER_ORDER', 'LACP_ACTIVE', 'LACP_PASSIVE',
+                          'LACP_V2']
     policy = properties.get('teamingpolicy')
     if policy in supported_policies:
         if switch['teamingPolicy'] == policy:
