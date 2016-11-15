@@ -59,5 +59,4 @@ CSR_REQUEST = ("<csr><subject>"
 # Reserved IPs that cannot overlap defined subnets
 RESERVED_IPS = ["169.254.128.0/17",
                 "169.254.1.0/24",
-                "169.254.2.0/28",
                 "169.254.64.192/26"]

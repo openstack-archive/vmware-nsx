@@ -773,3 +773,72 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
                 availability_zone=self.az)
             self.edge_manager._free_edge_appliance(
                 self.ctx, 'fake_id')
+
+
+class VdrTransitNetUtilDefaultTestCase(EdgeUtilsTestCaseMixin):
+    EXPECTED_NETMASK = '255.255.255.240'
+    EXPECTED_TLR_IP = '169.254.2.1'
+    EXPECTED_PLR_IP = '169.254.2.2'
+
+    def setUp(self):
+        super(VdrTransitNetUtilDefaultTestCase, self).setUp()
+
+    def test_get_vdr_transit_network_netmask(self):
+        self.assertEqual(edge_utils.get_vdr_transit_network_netmask(),
+                         self.EXPECTED_NETMASK)
+
+    def test_get_vdr_transit_network_tlr_address(self):
+        self.assertEqual(edge_utils.get_vdr_transit_network_tlr_address(),
+                         self.EXPECTED_TLR_IP)
+
+    def test_get_vdr_transit_network_plr_address(self):
+        self.assertEqual(edge_utils.get_vdr_transit_network_plr_address(),
+                         self.EXPECTED_PLR_IP)
+
+    def test_is_overlapping_reserved_subnets(self):
+        self.assertTrue(
+            edge_utils.is_overlapping_reserved_subnets('169.254.1.0/24',
+                                                       ['169.254.0.0/16']))
+        self.assertTrue(
+            edge_utils.is_overlapping_reserved_subnets('169.254.1.0/24',
+                                                       ['192.168.2.0/24',
+                                                        '169.254.0.0/16']))
+        self.assertFalse(
+            edge_utils.is_overlapping_reserved_subnets('169.254.1.0/24',
+                                                       ['169.253.0.0/16']))
+        self.assertFalse(
+            edge_utils.is_overlapping_reserved_subnets('169.254.1.0/24',
+                                                       ['192.168.2.0/24',
+                                                        '169.253.0.0/16']))
+
+
+class VdrTransitNetUtilTestCase(EdgeUtilsTestCaseMixin):
+    EXPECTED_NETMASK = '255.255.255.0'
+    EXPECTED_TLR_IP = '192.168.1.1'
+    EXPECTED_PLR_IP = '192.168.1.2'
+
+    def setUp(self):
+        super(VdrTransitNetUtilTestCase, self).setUp()
+
+
+class VdrTransitNetValidatorTestCase(EdgeUtilsTestCaseMixin):
+    def setUp(self):
+        super(VdrTransitNetValidatorTestCase, self).setUp()
+
+    def _test_validator(self, cidr):
+        cfg.CONF.set_override('vdr_transit_network', cidr, 'nsxv')
+        return edge_utils.validate_vdr_transit_network()
+
+    def test_vdr_transit_net_validator_success(self):
+        self.assertIsNone(self._test_validator('192.168.253.0/24'))
+
+    def test_vdr_transit_net_validator_junk_cidr(self):
+        self.assertRaises(n_exc.Invalid, self._test_validator, 'not_a_subnet')
+
+    def test_vdr_transit_net_validator_too_small_cidr(self):
+        self.assertRaises(
+            n_exc.Invalid, self._test_validator, '169.254.2.0/31')
+
+    def test_vdr_transit_net_validator_overlap_cidr(self):
+        self.assertRaises(
+            n_exc.Invalid, self._test_validator, '169.254.0.0/16')

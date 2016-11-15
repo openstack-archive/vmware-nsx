@@ -26,8 +26,6 @@ from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.drivers import (
     abstract_router_driver as router_driver)
 from vmware_nsx.plugins.nsx_v import plugin as nsx_v
-from vmware_nsx.plugins.nsx_v.vshield.common import (
-    constants as vcns_const)
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 
 LOG = logging.getLogger(__name__)
@@ -52,8 +50,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         for subnet in subnets:
             routes.append({
                 'destination': subnet,
-                'nexthop': (vcns_const.INTEGRATION_LR_IPADDRESS.
-                            split('/')[0]),
+                'nexthop': (edge_utils.get_vdr_transit_network_tlr_address()),
                 'network_id': lswitch_id
             })
 
@@ -67,7 +64,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
 
     def _update_routes_on_tlr(
         self, context, router_id,
-        newnexthop=vcns_const.INTEGRATION_EDGE_IPADDRESS,
+        newnexthop=edge_utils.get_vdr_transit_network_plr_address(),
         metadata_gateway=None):
         routes = []
 

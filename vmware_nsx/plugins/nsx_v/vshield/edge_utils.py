@@ -56,6 +56,59 @@ LOG = logging.getLogger(__name__)
 _uuid = uuidutils.generate_uuid
 
 
+def _get_vdr_transit_network_ipobj():
+    transit_net = cfg.CONF.nsxv.vdr_transit_network
+    return netaddr.IPNetwork(transit_net)
+
+
+def get_vdr_transit_network_netmask():
+    ip = _get_vdr_transit_network_ipobj()
+    return str(ip.netmask)
+
+
+def get_vdr_transit_network_tlr_address():
+    ip = _get_vdr_transit_network_ipobj()
+    return str(ip[1])
+
+
+def get_vdr_transit_network_plr_address():
+    ip = _get_vdr_transit_network_ipobj()
+    return str(ip[2])
+
+
+def validate_vdr_transit_network():
+    try:
+        ip = _get_vdr_transit_network_ipobj()
+    except Exception:
+        raise n_exc.Invalid(_("Invalid VDR transit network"))
+    if len(ip) < 4:
+        raise n_exc.Invalid(_("VDR transit address range too small"))
+
+    if is_overlapping_reserved_subnets(cfg.CONF.nsxv.vdr_transit_network,
+                                       nsxv_constants.RESERVED_IPS):
+        raise n_exc.Invalid(_("VDR transit network overlaps reserved subnet"))
+
+
+def is_overlapping_reserved_subnets(cidr, reserved_subnets):
+    """Return True if the subnet overlaps with reserved subnets.
+
+    For the V plugin we have a limitation that we should not use
+    some reserved ranges like: 169.254.128.0/17 and 169.254.1.0/24
+    """
+    range = netaddr.IPNetwork(cidr)
+
+    # Check each reserved subnet for intersection
+    for reserved_subnet in reserved_subnets:
+        # translate the reserved subnet to a range object
+        reserved_range = netaddr.IPNetwork(reserved_subnet)
+        # check if new subnet overlaps this reserved subnet
+        if (range.first <= reserved_range.last
+            and reserved_range.first <= range.last):
+            return True
+
+    return False
+
+
 def parse_backup_edge_pool_opt():
     """Parse edge pool opts and returns result."""
     edge_pool_opts = cfg.CONF.nsxv.backup_edge_pool
@@ -1523,8 +1576,8 @@ class EdgeManager(object):
         # add vdr's external interface to the lswitch
         tlr_vnic_index = self.nsxv_manager.add_vdr_internal_interface(
             tlr_edge_id, lswitch_id,
-            address=vcns_const.INTEGRATION_LR_IPADDRESS.split('/')[0],
-            netmask=vcns_const.INTEGRATION_SUBNET_NETMASK,
+            address=get_vdr_transit_network_tlr_address(),
+            netmask=get_vdr_transit_network_netmask(),
             type="uplink")
         nsxv_db.create_edge_vnic_binding(
             context.session, tlr_edge_id, tlr_vnic_index, lswitch_id)
@@ -1548,8 +1601,8 @@ class EdgeManager(object):
         #TODO(berlin): the internal ip should change based on vnic_index
         self.nsxv_manager.update_interface(
             plr_router['id'], plr_edge_id, plr_vnic_index, lswitch_id,
-            address=vcns_const.INTEGRATION_EDGE_IPADDRESS,
-            netmask=vcns_const.INTEGRATION_SUBNET_NETMASK)
+            address=get_vdr_transit_network_plr_address(),
+            netmask=get_vdr_transit_network_netmask())
         return plr_router['id']
 
     def delete_plr_by_tlr_id(self, context, plr_id, router_id):

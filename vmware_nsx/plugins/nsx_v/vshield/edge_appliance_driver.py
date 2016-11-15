@@ -383,8 +383,8 @@ class EdgeApplianceDriver(object):
             vnic_inside = self._assemble_edge_vnic(
                 constants.INTERNAL_VNIC_NAME, constants.INTERNAL_VNIC_INDEX,
                 internal_network,
-                constants.INTEGRATION_EDGE_IPADDRESS,
-                constants.INTEGRATION_SUBNET_NETMASK,
+                edge_utils.get_vdr_transit_network_plr_address(),
+                edge_utils.get_vdr_transit_network_netmask(),
                 type="internal")
             edge['vnics']['vnics'].append(vnic_inside)
 
@@ -457,8 +457,8 @@ class EdgeApplianceDriver(object):
             internal_vnic = self._assemble_edge_vnic(
                 constants.INTERNAL_VNIC_NAME, constants.INTERNAL_VNIC_INDEX,
                 internal_network,
-                constants.INTEGRATION_EDGE_IPADDRESS,
-                constants.INTEGRATION_SUBNET_NETMASK,
+                edge_utils.get_vdr_transit_network_plr_address(),
+                edge_utils.get_vdr_transit_network_netmask(),
                 type="internal")
             edge['vnics']['vnics'].append(internal_vnic)
         if not dist and loadbalancer_enable:

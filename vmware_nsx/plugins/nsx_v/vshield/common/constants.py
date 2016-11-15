@@ -40,10 +40,6 @@ MAX_TUNNEL_NUM = (cfg.CONF.nsxv.maximum_tunnels_per_vnic if
                    cfg.CONF.nsxv.maximum_tunnels_per_vnic > 0)
                   else 10)
 
-INTEGRATION_LR_IPADDRESS = "169.254.2.1/28"
-INTEGRATION_EDGE_IPADDRESS = "169.254.2.3"
-INTEGRATION_SUBNET_NETMASK = "255.255.255.240"
-
 # SNAT rule location
 PREPEND = 0
 APPEND = -1
