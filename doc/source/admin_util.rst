@@ -151,7 +151,7 @@ Metadata
 NSXv3
 -----
 
-The following resources are supported: 'security-groups', 'routers', 'networks', 'nsx-security-groups', 'dhcp-binding' and 'ports'.
+The following resources are supported: 'security-groups', 'routers', 'networks', 'nsx-security-groups', 'dhcp-binding', 'metadata-proxy', 'orphaned-dhcp-servers', and 'ports'.
 
 Networks
 ~~~~~~~~
@@ -230,6 +230,17 @@ DHCP Bindings
 - Resync DHCP bindings for NSXv3 version 1.1.0 and above::
 
     nsxadmin -r dhcp-binding -o nsx-update --property dhcp_profile_uuid=<dhcp_profile_uuid>
+
+Orphaned DHCP Servers
+~~~~~~~~~~~~~~~~~~~~~
+
+- List orphaned DHCP servers (exist on NSXv3 backend but don't have a corresponding binding in Neutron DB)::
+
+    nsxadmin -r orphaned-dhcp-servers -o nsx-list
+
+- Clean orphaned DHCP servers (delete logical DHCP servers from NSXv3 backend)::
+
+    nsxadmin -r orphaned-dhcp-servers -o nsx-clean
 
 Upgrade Steps (Version 1.0.0 to Version 1.1.0)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

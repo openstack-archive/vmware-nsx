@@ -139,6 +139,8 @@ class TestNsxv3AdminUtils(AbstractTestAdminUtils,
                            '__init__', return_value=None)
         self._patch_object(nsx_v3_resources.LogicalDhcpServer,
                            '__init__', return_value=None)
+        self._patch_object(nsx_v3_resources.LogicalDhcpServer,
+                           'list', return_value={'results': []})
         self._patch_object(nsx_v3_resources.LogicalRouter,
                            '__init__', return_value=None)
         self._patch_object(nsx_v3_resources.SwitchingProfile,

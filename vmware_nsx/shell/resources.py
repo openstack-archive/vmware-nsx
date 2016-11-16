@@ -84,6 +84,9 @@ nsxv3_resources = {
     constants.METADATA_PROXY: Resource(constants.METADATA_PROXY,
                                        [Operations.LIST.value,
                                         Operations.NSX_UPDATE.value]),
+    constants.ORPHANED_DHCP_SERVERS: Resource(constants.ORPHANED_DHCP_SERVERS,
+                                              [Operations.NSX_LIST.value,
+                                               Operations.NSX_CLEAN.value]),
 }
 
 # Add supported NSX-V resources in this dictionary

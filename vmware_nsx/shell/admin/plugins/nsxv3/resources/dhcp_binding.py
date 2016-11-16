@@ -32,6 +32,7 @@ import vmware_nsx.shell.resources as shell
 
 LOG = logging.getLogger(__name__)
 neutron_client = utils.NeutronDbClient()
+nsxlib = utils.get_connected_nsxlib()
 
 
 @admin_utils.output_header
@@ -48,10 +49,10 @@ def list_dhcp_bindings(resource, event, trigger, **kwargs):
 def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
     """Resync DHCP bindings for NSXv3 CrossHairs."""
 
-    nsx_version = utils.get_connected_nsxlib().get_version()
+    nsx_version = nsxlib.get_version()
     if not nsx_utils.is_nsx_version_1_1_0(nsx_version):
-        LOG.info(_LI("This utility is not available for NSX version %s"),
-                 nsx_version)
+        LOG.error(_LE("This utility is not available for NSX version %s"),
+                  nsx_version)
         return
 
     dhcp_profile_uuid = None

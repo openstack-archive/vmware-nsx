@@ -23,22 +23,23 @@ NSXV_PLUGIN = 'vmware_nsx.plugin.NsxVPlugin'
 # Common Resource Constants
 NETWORKS = 'networks'
 ROUTERS = 'routers'
+DHCP_BINDING = 'dhcp-binding'
 
 # NSXV3 Resource Constants
 FIREWALL_SECTIONS = 'firewall-sections'
 FIREWALL_NSX_GROUPS = 'nsx-security-groups'
 SECURITY_GROUPS = 'security-groups'
 PORTS = 'ports'
+METADATA_PROXY = 'metadata-proxy'
+ORPHANED_DHCP_SERVERS = 'orphaned-dhcp-servers'
 
 # NSXV Resource Constants
 EDGES = 'edges'
 SPOOFGUARD_POLICY = 'spoofguard-policy'
-DHCP_BINDING = 'dhcp-binding'
 BACKUP_EDGES = 'backup-edges'
 ORPHANED_EDGES = 'orphaned-edges'
 MISSING_EDGES = 'missing-edges'
 METADATA = 'metadata'
-METADATA_PROXY = 'metadata-proxy'
 MISSING_NETWORKS = 'missing-networks'
 ORPHANED_NETWORKS = 'orphaned-networks'
 LBAAS = 'lbaas'
