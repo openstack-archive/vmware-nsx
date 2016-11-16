@@ -16,18 +16,24 @@
 import logging
 import xml.etree.ElementTree as et
 
+from neutron.callbacks import registry
 from neutron import context
 from neutron.db.models import securitygroup as sg_models
 from neutron.db import models_v2
 from neutron.db import securitygroups_db
+from neutron.extensions import securitygroup as ext_sg
 
+from vmware_nsx._i18n import _LE, _LI, _LW
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import nsx_models
+from vmware_nsx.db import nsxv_db
 from vmware_nsx.db import nsxv_models
+from vmware_nsx.extensions import securitygrouppolicy as sg_policy
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv.resources import utils
+from vmware_nsx.shell import resources as shell
 
 
 LOG = logging.getLogger(__name__)
@@ -242,3 +248,80 @@ def fix_security_groups(resource, event, trigger, **kwargs):
         nsx_id = nsx_db.get_nsx_security_group_id(context_.session, sg_id)
         for vnic_id in neutron_sg.get_vnics_in_security_group(sg_id):
             plugin._add_member_to_security_group(nsx_id, vnic_id)
+
+
+@admin_utils.output_header
+def migrate_sg_to_policy(resource, event, trigger, **kwargs):
+    """Change the mode of a security group from rules to NSX policy"""
+    if not kwargs.get('property'):
+        LOG.error(_LE("Need to specify security-group-id and policy-id "
+                    "parameters"))
+        return
+
+    # input validation
+    properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
+    sg_id = properties.get('security-group-id')
+    if not sg_id:
+        LOG.error(_LE("Need to specify security-group-id parameter"))
+        return
+    policy_id = properties.get('policy-id')
+    if not policy_id:
+        LOG.error(_LE("Need to specify policy-id parameter"))
+        return
+
+    # validate that the security group exist and contains rules and no policy
+    context_ = context.get_admin_context()
+    plugin = utils.NsxVPluginWrapper()
+    try:
+        secgroup = plugin.get_security_group(context_, sg_id)
+    except ext_sg.SecurityGroupNotFound:
+        LOG.error(_LE("Security group %s was not found"), sg_id)
+        return
+    if secgroup.get('policy'):
+        LOG.error(_LE("Security group %s already uses a policy"), sg_id)
+        return
+
+    # validate that the policy exists
+    if not plugin.nsx_v.vcns.validate_inventory(policy_id):
+        LOG.error(_LE("NSX policy %s was not found"), policy_id)
+        return
+
+    # Delete the rules from the security group
+    LOG.info(_LI("Deleting the rules of security group: %s"), sg_id)
+    for rule in secgroup.get('security_group_rules', []):
+        try:
+            plugin.delete_security_group_rule(context_, rule['id'])
+        except Exception as e:
+            LOG.warning(_LW("Failed to delete rule %(r)s from security group "
+                          "%(sg)s: %(e)s"),
+                      {'r': rule['id'], 'sg': sg_id, 'e': e})
+            # continue anyway
+
+    # Delete the security group FW section
+    LOG.info(_LI("Deleting the section of security group: %s"), sg_id)
+    try:
+        section_uri = plugin._get_section_uri(context_.session, sg_id)
+        plugin._delete_section(section_uri)
+        nsxv_db.delete_neutron_nsx_section_mapping(context_.session, sg_id)
+    except Exception as e:
+        LOG.warning(_LW("Failed to delete firewall section of security group "
+                      "%(sg)s: %(e)s"),
+                  {'sg': sg_id, 'e': e})
+        # continue anyway
+
+    # bind this security group to the policy in the backend and DB
+    nsx_sg_id = nsx_db.get_nsx_security_group_id(context_.session, sg_id)
+    LOG.info(_LI("Binding the NSX security group %(nsx)s to policy %(pol)s"),
+             {'nsx': nsx_sg_id, 'pol': policy_id})
+    plugin._update_nsx_security_group_policies(
+        policy_id, None, nsx_sg_id)
+    prop = plugin._get_security_group_properties(context_, sg_id)
+    with context_.session.begin(subtransactions=True):
+        prop.update({sg_policy.POLICY: policy_id})
+
+    LOG.info(_LI("Done."))
+
+
+registry.subscribe(migrate_sg_to_policy,
+                   constants.SECURITY_GROUPS,
+                   shell.Operations.MIGRATE_TO_POLICY.value)

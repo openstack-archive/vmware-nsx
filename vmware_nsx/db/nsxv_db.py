@@ -448,6 +448,12 @@ def get_nsx_section(session, neutron_id):
                   "stored in Neutron DB", neutron_id)
 
 
+def delete_neutron_nsx_section_mapping(session, neutron_id):
+    with session.begin(subtransactions=True):
+        return (session.query(nsxv_models.NsxvSecurityGroupSectionMapping).
+                filter_by(neutron_id=neutron_id).delete())
+
+
 def get_nsx_rule_id(session, neutron_id):
     try:
         mapping = (session.query(nsxv_models.NsxvRuleMapping).
