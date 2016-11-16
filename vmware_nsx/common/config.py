@@ -627,6 +627,10 @@ nsxv_opts = [
                 help=_("(Optional) If use_nsx_policies is True, this value "
                        "will determine if a tenants can add rules to their "
                        "security groups.")),
+    cfg.StrOpt('vdr_transit_network', default="169.254.2.0/28",
+               help=_("(Optional) Sets the network address for distributed "
+                      "router TLR-PLR connectivity, with "
+                      "<network IP>/<prefix> syntax")),
 ]
 
 # Register the configuration options
