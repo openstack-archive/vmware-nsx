@@ -50,8 +50,23 @@ def get_values():
                                      sa.Column('logging', sa.Boolean(),
                                                nullable=False))
 
+    secgroup_table = sa.Table('securitygroups',
+                              sa.MetaData(),
+                              sa.Column('id', sa.String(36)))
+
+    # If we run NSX-V plugin then we want the current values for security-group
+    # logging, taken from the section mapping table.
     for row in session.query(section_mapping_table).all():
         values.append({'security_group_id': row.neutron_id,
                        'logging': row.logging})
+
+    # If we run NSX-V3 plugin then previous table is empty, since
+    # security-group logging isn't supported on previous versions, we set the
+    # current value to false (the default).
+    if not values:
+        for row in session.query(secgroup_table).all():
+            values.append({'security_group_id': row.id,
+                           'logging': False})
+
     session.commit()
     return values
