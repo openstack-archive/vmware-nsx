@@ -38,6 +38,10 @@ from vmware_nsx_tempest.services.lbaas import pools_client
 CONF = config.CONF
 LOG = logging.getLogger(__name__)
 NO_ROUTER_TYPE = CONF.nsxv.no_router_type
+L7_POLICY_ACTIONS = ('REJECT', 'REDIRECT_TO_URL', 'REDIRECT_TO_POOL')
+L7_RULE_TYPES = ('HOSTNAME', 'PATH', 'FILE_TYPE', 'HEADER', 'COOKIE')
+L7_RULE_COMPARISON_TYPES = ('REGEXP', 'STARTS_WITH', 'ENDS_WITH',
+                            'CONTAINS', 'EQUAL_TO')
 
 
 class BaseTestCase(base.BaseNetworkTest):
@@ -372,6 +376,75 @@ class BaseTestCase(base.BaseNetworkTest):
         members = cls.members_client.list_members(pool_id, **filters)
         member_list = members.get('members', members)
         return member_list
+
+    @classmethod
+    def _create_l7policy(cls, wait=True, **kwargs):
+        l7policy = cls.l7policies_client.create_l7policy(**kwargs)
+        l7policy = l7policy.get('l7policy', l7policy)
+        if wait:
+            cls._wait_for_load_balancer_status(cls.load_balancer.get('id'))
+        return l7policy
+
+    @classmethod
+    def _delete_l7policy(cls, policy_id, wait=True):
+        cls.l7policies_client.delete_l7policy(policy_id)
+        if wait:
+            cls._wait_for_load_balancer_status(cls.load_balancer.get('id'))
+
+    @classmethod
+    def _update_l7policy(cls, policy_id, wait=True, **kwargs):
+        l7policy = cls.l7policies_client.update_l7policy(policy_id, **kwargs)
+        l7policy = l7policy.get('l7policy', l7policy)
+        if wait:
+            cls._wait_for_load_balancer_status(cls.load_balancer.get('id'))
+        return l7policy
+
+    @classmethod
+    def _show_l7policy(cls, policy_id, **fields):
+        l7policy = cls.l7policies_client.show_l7policy(policy_id, **fields)
+        l7policy = l7policy.get('l7policy', l7policy)
+        return l7policy
+
+    @classmethod
+    def _list_l7policies(cls, **filters):
+        l7policies = cls.l7policies_client.list_l7policies(**filters)
+        l7policies = l7policies.get('l7policies', l7policies)
+        return l7policies
+
+    @classmethod
+    def _create_l7rule(cls, policy_id, wait=True, **kwargs):
+        l7rule = cls.l7rules_client.create_l7rule(policy_id, **kwargs)
+        l7rule = l7rule.get('rule', l7rule)
+        if wait:
+            cls._wait_for_load_balancer_status(cls.load_balancer.get('id'))
+        return l7rule
+
+    @classmethod
+    def _delete_l7rule(cls, policy_id, rule_id, wait=True):
+        cls.l7rules_client.delete_l7rule(policy_id, rule_id)
+        if wait:
+            cls._wait_for_load_balancer_status(cls.load_balancer.get('id'))
+
+    @classmethod
+    def _update_l7rule(cls, policy_id, rule_id, wait=True, **kwargs):
+        l7rule = cls.l7rules_client.update_l7rule(policy_id, rule_id,
+                                                  **kwargs)
+        l7rule = l7rule.get('rule', l7rule)
+        if wait:
+            cls._wait_for_load_balancer_status(cls.load_balancer.get('id'))
+        return l7rule
+
+    @classmethod
+    def _show_l7rule(cls, policy_id, rule_id, **fields):
+        l7rule = cls.l7rules_client.show_l7rule(policy_id, rule_id, **fields)
+        l7rule = l7rule.get('rule', l7rule)
+        return l7rule
+
+    @classmethod
+    def _list_l7rules(cls, policy_id, **filters):
+        l7rules = cls.l7rules_client.list_l7rules(policy_id, **filters)
+        l7rules = l7rules.get('rules', l7rules)
+        return l7rules
 
     @classmethod
     def _check_status_tree(cls, load_balancer_id, listener_ids=None,

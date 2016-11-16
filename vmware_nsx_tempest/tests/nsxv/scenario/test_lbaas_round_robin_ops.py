@@ -125,7 +125,9 @@ class LBaasRoundRobinBaseTest(dmgr.TopoDeployScenarioManager):
         lb = statuses.get('loadbalancer')
         for listener in lb.get('listeners', []):
             for policy in listener.get('l7policies'):
-                self.l7policies_client.delete_policy(policy.get('id'))
+                test_utils.call_and_ignore_notfound_exc(
+                    self.l7policies_client.delete_policy,
+                    policy.get('id'))
             for pool in listener.get('pools'):
                 self.delete_lb_pool_resources(lb_id, pool)
             test_utils.call_and_ignore_notfound_exc(
@@ -347,7 +349,10 @@ class LBaasRoundRobinBaseTest(dmgr.TopoDeployScenarioManager):
         url_path = "http://{0}/{1}".format(self.vip_ip_address, start_path)
         for x in range(send_counts):
             resp = http.request('GET', url_path)
-            self.count_response(resp.data.strip())
+            if resp.status == 200:
+                self.count_response(resp.data.strip())
+            else:
+                self.count_response(str(resp.status))
         return self.http_cnt
 
     def check_project_lbaas(self):
