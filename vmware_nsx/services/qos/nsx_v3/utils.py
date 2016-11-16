@@ -16,10 +16,10 @@
 
 from neutron.api.rpc.callbacks import events as callbacks_events
 from neutron import context as n_context
-from neutron import manager
 from neutron.objects.qos import policy as qos_policy
 from neutron.services.qos import qos_consts
 from neutron_lib.api import validators
+from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -81,7 +81,7 @@ class QosNotificationsHandler(object):
 
     @property
     def _core_plugin(self):
-        return manager.NeutronManager.get_plugin()
+        return directory.get_plugin()
 
     @property
     def _nsxlib_qos(self):

@@ -21,9 +21,9 @@ from oslo_utils import uuidutils
 from neutron.api.v2 import attributes
 from neutron.db import db_base_plugin_v2
 from neutron.db import securitygroups_db
-from neutron import manager
 from neutron.tests.unit.extensions import test_securitygroup
 from neutron_lib import constants as const
+from neutron_lib.plugins import directory
 
 from vmware_nsx.db import extended_security_group_rule as ext_rule_db
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix as ext_loip
@@ -107,7 +107,7 @@ class TestNsxVExtendedSGRule(test_nsxv_plugin.NsxVSecurityGroupsTestCase,
     def test_create_rule_with_local_ip_prefix(self):
         sg_utils = securitygroup_utils.NsxSecurityGroupUtils(None)
         local_ip_prefix = '239.255.0.0/16'
-        plugin = manager.NeutronManager.get_plugin()
+        plugin = directory.get_plugin()
         dest = {'type': 'Ipv4Address', 'value': local_ip_prefix}
 
         plugin.nsx_sg_utils.get_rule_config = mock.Mock(

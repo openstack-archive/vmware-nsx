@@ -21,6 +21,7 @@ import netaddr
 from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
+from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
@@ -66,7 +67,6 @@ from neutron.extensions import portbindings as pbin
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
-from neutron import manager
 from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils
 from neutron.quota import resource_registry
@@ -2244,8 +2244,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 r[ROUTER_SIZE] = cfg.CONF.nsxv.exclusive_router_appliance_size
 
     def _get_router_flavor_profile(self, context, flavor_id):
-        flv_plugin = manager.NeutronManager.get_service_plugins().get(
-            plugin_const.FLAVORS)
+        flv_plugin = directory.get_plugin(plugin_const.FLAVORS)
         if not flv_plugin:
             msg = _("Flavors plugin not found")
             raise n_exc.BadRequest(resource="router", msg=msg)

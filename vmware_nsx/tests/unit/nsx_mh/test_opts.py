@@ -16,7 +16,6 @@
 import fixtures
 
 import mock
-from neutron import manager
 from neutron.tests import base
 from oslo_config import cfg
 from oslo_utils import uuidutils
@@ -29,6 +28,7 @@ from vmware_nsx.common import exceptions
 from vmware_nsx.common import sync
 from vmware_nsx import nsx_cluster
 from vmware_nsx.nsxlib.mh import lsn as lsnlib
+from vmware_nsx import plugin as mh_plugin
 from vmware_nsx.tests import unit as vmware
 
 BASE_CONF_PATH = vmware.get_fake_conf('neutron.conf.test')
@@ -76,7 +76,7 @@ class ConfigurationTest(base.BaseTestCase):
     def setUp(self):
         super(ConfigurationTest, self).setUp()
         self.useFixture(fixtures.MonkeyPatch(
-                        'neutron.manager.NeutronManager._instance',
+                        'neutron_lib.plugins.directory._instance',
                         None))
         # Avoid runs of the synchronizer looping call
         patch_sync = mock.patch.object(sync, '_start_loopingcall')
@@ -96,11 +96,16 @@ class ConfigurationTest(base.BaseTestCase):
         self.assertEqual('whatever', cluster.default_l3_gw_service_uuid)
         self.assertEqual('whatever', cluster.nsx_default_interface_name)
 
+    def _get_mh_plugin(self):
+        with mock.patch("neutron.common.rpc.create_connection"):
+            plugin = mh_plugin.NsxPlugin()
+        return plugin
+
     def test_load_plugin_with_full_options(self):
         self.config_parse(args=['--config-file', BASE_CONF_PATH,
                                 '--config-file', NSX_INI_FULL_PATH])
         cfg.CONF.set_override('core_plugin', vmware.PLUGIN_NAME)
-        plugin = manager.NeutronManager().get_plugin()
+        plugin = self._get_mh_plugin()
         cluster = plugin.cluster
         self._assert_required_options(cluster)
         self._assert_extra_options(cluster)
@@ -109,7 +114,7 @@ class ConfigurationTest(base.BaseTestCase):
         self.config_parse(args=['--config-file', BASE_CONF_PATH,
                                 '--config-file', NSX_INI_PATH])
         cfg.CONF.set_override('core_plugin', vmware.PLUGIN_NAME)
-        plugin = manager.NeutronManager().get_plugin()
+        plugin = self._get_mh_plugin()
         self._assert_required_options(plugin.cluster)
 
     def test_defaults(self):
@@ -137,7 +142,7 @@ class ConfigurationTest(base.BaseTestCase):
                                 '--config-file', NSX_INI_FULL_PATH])
         cfg.CONF.set_override('core_plugin', vmware.PLUGIN_NAME)
         # Load the configuration, and initialize the plugin
-        manager.NeutronManager().get_plugin()
+        self._get_mh_plugin()
         self.assertIn('extensions', cfg.CONF.api_extensions_path)
 
     def test_agentless_extensions(self):
@@ -153,7 +158,7 @@ class ConfigurationTest(base.BaseTestCase):
             with mock.patch.object(lsnlib,
                                    'service_cluster_exists',
                                    return_value=True):
-                plugin = manager.NeutronManager().get_plugin()
+                plugin = self._get_mh_plugin()
                 self.assertNotIn('agent',
                                  plugin.supported_extension_aliases)
                 self.assertNotIn('dhcp_agent_scheduler',
@@ -170,8 +175,13 @@ class ConfigurationTest(base.BaseTestCase):
         with mock.patch.object(client.NsxApiClient,
                                'get_version',
                                return_value=version.Version("3.2")):
-            self.assertRaises(exceptions.NsxPluginException,
-                              manager.NeutronManager)
+            try:
+                self._get_mh_plugin()
+            except exceptions.NsxPluginException:
+                # This is the correct result
+                pass
+            else:
+                self.fail('Expected NsxPluginException exception')
 
     def test_agentless_extensions_unmet_deps_fail(self):
         self.config_parse(args=['--config-file', BASE_CONF_PATH,
@@ -185,8 +195,13 @@ class ConfigurationTest(base.BaseTestCase):
             with mock.patch.object(lsnlib,
                                    'service_cluster_exists',
                                    return_value=False):
-                self.assertRaises(exceptions.NsxPluginException,
-                                  manager.NeutronManager)
+                try:
+                    self._get_mh_plugin()
+                except exceptions.NsxPluginException:
+                    # This is the correct result
+                    pass
+                else:
+                    self.fail('Expected NsxPluginException exception')
 
     def test_agent_extensions(self):
         self.config_parse(args=['--config-file', BASE_CONF_PATH,
@@ -194,7 +209,7 @@ class ConfigurationTest(base.BaseTestCase):
         cfg.CONF.set_override('core_plugin', vmware.PLUGIN_NAME)
         self.assertEqual(config.AgentModes.AGENT,
                          cfg.CONF.NSX.agent_mode)
-        plugin = manager.NeutronManager().get_plugin()
+        plugin = self._get_mh_plugin()
         self.assertIn('agent',
                       plugin.supported_extension_aliases)
         self.assertIn('dhcp_agent_scheduler',
@@ -212,7 +227,7 @@ class ConfigurationTest(base.BaseTestCase):
             with mock.patch.object(lsnlib,
                                    'service_cluster_exists',
                                    return_value=True):
-                plugin = manager.NeutronManager().get_plugin()
+                plugin = self._get_mh_plugin()
                 self.assertIn('agent',
                               plugin.supported_extension_aliases)
                 self.assertIn('dhcp_agent_scheduler',
@@ -226,7 +241,7 @@ class OldNVPConfigurationTest(base.BaseTestCase):
     def setUp(self):
         super(OldNVPConfigurationTest, self).setUp()
         self.useFixture(fixtures.MonkeyPatch(
-                        'neutron.manager.NeutronManager._instance',
+                        'neutron_lib.plugins.directory._instance',
                         None))
         # Avoid runs of the synchronizer looping call
         patch_sync = mock.patch.object(sync, '_start_loopingcall')
@@ -242,10 +257,11 @@ class OldNVPConfigurationTest(base.BaseTestCase):
         self.config_parse(args=['--config-file', BASE_CONF_PATH,
                                 '--config-file', NVP_INI_DEPR_PATH])
         cfg.CONF.set_override('core_plugin', vmware.PLUGIN_NAME)
-        plugin = manager.NeutronManager().get_plugin()
-        cluster = plugin.cluster
-        # Verify old nvp_* params have been fully parsed
-        self._assert_required_options(cluster)
-        self.assertEqual(3, cluster.http_timeout)
-        self.assertEqual(2, cluster.retries)
-        self.assertEqual(2, cluster.redirects)
+        with mock.patch("neutron.common.rpc.create_connection"):
+            plugin = mh_plugin.NsxPlugin()
+            cluster = plugin.cluster
+            # Verify old nvp_* params have been fully parsed
+            self._assert_required_options(cluster)
+            self.assertEqual(3, cluster.http_timeout)
+            self.assertEqual(2, cluster.retries)
+            self.assertEqual(2, cluster.redirects)

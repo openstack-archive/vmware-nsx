@@ -25,7 +25,6 @@ from neutron.extensions import l3_ext_gw_mode
 from neutron.extensions import portbindings
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as secgrp
-from neutron import manager
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
 from neutron.tests.unit.extensions import test_extra_dhcp_opt as test_dhcpopts
@@ -35,6 +34,7 @@ import neutron.tests.unit.extensions.test_securitygroup as ext_sg
 from neutron.tests.unit import testlib_api
 from neutron_lib import constants
 from neutron_lib import exceptions as ntn_exc
+from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_db import exception as db_exc
 from oslo_log import log
@@ -225,7 +225,7 @@ class TestPortsV2(NsxPluginV2TestCase,
                                  'admin_state_up': False,
                                  'fixed_ips': [],
                                  'tenant_id': self._tenant_id}}
-                plugin = manager.NeutronManager.get_plugin()
+                plugin = directory.get_plugin()
                 with mock.patch.object(plugin, 'get_network',
                                        return_value=net['network']):
                     port_req = self.new_create_request('ports', data, self.fmt)
@@ -350,7 +350,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxPluginV2TestCase):
     def test_update_network_with_admin_false(self):
         data = {'network': {'admin_state_up': False}}
         with self.network() as net:
-            plugin = manager.NeutronManager.get_plugin()
+            plugin = directory.get_plugin()
             self.assertRaises(NotImplementedError,
                               plugin.update_network,
                               context.get_admin_context(),
@@ -365,7 +365,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxPluginV2TestCase):
             # Because of commit 79c9712 a tenant must be specified otherwise
             # the unit test will fail
             ctx.tenant_id = 'whatever'
-            plugin = manager.NeutronManager.get_plugin()
+            plugin = directory.get_plugin()
             net = plugin.create_network(
                 ctx, {'network': {'name': 'xxx',
                                   'admin_state_up': True,
@@ -393,7 +393,7 @@ class SecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
 
         instance.return_value.request.side_effect = self.fc.fake_request
         super(SecurityGroupsTestCase, self).setUp(vmware.PLUGIN_NAME)
-        self.plugin = manager.NeutronManager.get_plugin()
+        self.plugin = directory.get_plugin()
 
 
 class TestSecurityGroup(ext_sg.TestSecurityGroups, SecurityGroupsTestCase):
@@ -516,7 +516,7 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxPluginV2TestCase):
         ext_mgr = ext_mgr or TestL3ExtensionManager()
         super(L3NatTest, self).setUp(
             plugin=plugin, ext_mgr=ext_mgr, service_plugins=service_plugins)
-        plugin_instance = manager.NeutronManager.get_plugin()
+        plugin_instance = directory.get_plugin()
         self._plugin_name = "%s.%s" % (
             plugin_instance.__module__,
             plugin_instance.__class__.__name__)
@@ -812,7 +812,7 @@ class TestL3NatTestCase(L3NatTest,
         with self.port() as p:
             private_sub = {'subnet': {'id':
                                       p['port']['fixed_ips'][0]['subnet_id']}}
-            plugin = manager.NeutronManager.get_plugin()
+            plugin = directory.get_plugin()
             with mock.patch.object(plugin, 'notify_routers_updated') as notify:
                 with self.floatingip_no_assoc(private_sub) as fip:
                     port_id = p['port']['id']
@@ -873,7 +873,7 @@ class TestL3NatTestCase(L3NatTest,
                                               p['port']['id'])
 
     def test_update_subnet_gateway_for_external_net(self):
-        plugin = manager.NeutronManager.get_plugin()
+        plugin = directory.get_plugin()
         port_mock = {'uuid': uuidutils.generate_uuid()}
         with mock.patch.object(plugin, '_find_router_gw_port',
                                return_value=port_mock):

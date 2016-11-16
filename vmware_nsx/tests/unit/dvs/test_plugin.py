@@ -19,10 +19,10 @@ from oslo_utils import uuidutils
 
 from neutron import context
 from neutron.extensions import portbindings
-from neutron import manager
 from neutron.tests import base
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
 from neutron_lib import exceptions as exp
+from neutron_lib.plugins import directory
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.dvs import dvs
@@ -152,7 +152,7 @@ class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
         cfg.CONF.set_override('host_password', 'fake_password', group='dvs')
         cfg.CONF.set_override('dvs_name', 'fake_dvs', group='dvs')
         super(NeutronSimpleDvsTest, self).setUp(plugin=PLUGIN_NAME)
-        self._plugin = manager.NeutronManager.get_plugin()
+        self._plugin = directory.get_plugin()
 
     def _create_and_delete_dvs_network(self, network_type='flat', vlan_tag=0):
         params = {'provider:network_type': network_type,

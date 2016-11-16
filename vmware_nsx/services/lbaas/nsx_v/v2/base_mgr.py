@@ -13,8 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron import manager
-from neutron.plugins.common import constants
+from neutron_lib import constants
+from neutron_lib.plugins import directory
 
 
 class EdgeLoadbalancerBaseManager(object):
@@ -26,8 +26,7 @@ class EdgeLoadbalancerBaseManager(object):
         self.vcns_driver = vcns_driver
 
     def _get_plugin(self, plugin_type):
-        loaded_plugins = manager.NeutronManager.get_service_plugins()
-        return loaded_plugins[plugin_type]
+        return directory.get_plugin(plugin_type)
 
     @property
     def lbv2_driver(self):

@@ -19,10 +19,10 @@ import abc
 from neutron.api import extensions
 from neutron.api.v2 import attributes as attr
 from neutron.api.v2 import base
-from neutron import manager
 
 from neutron_lib.api import converters
 from neutron_lib import exceptions as nexception
+from neutron_lib.plugins import directory
 
 from vmware_nsx._i18n import _
 
@@ -188,7 +188,7 @@ class Qos_queue(extensions.ExtensionDescriptor):
     def get_resources(cls):
         """Returns Ext Resources."""
         exts = []
-        plugin = manager.NeutronManager.get_plugin()
+        plugin = directory.get_plugin()
         resource_name = 'qos_queue'
         collection_name = resource_name.replace('_', '-') + "s"
         params = RESOURCE_ATTRIBUTE_MAP.get(resource_name + "s", dict())

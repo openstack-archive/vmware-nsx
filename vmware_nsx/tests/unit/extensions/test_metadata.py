@@ -17,10 +17,9 @@ import mock
 import netaddr
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
+from neutron_lib.plugins import directory
 from oslo_config import cfg
 import webob.exc
-
-from neutron import manager
 
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import config
@@ -176,7 +175,7 @@ class MetaDataTestCase(object):
             with self.subnet() as s:
                 # Save function being mocked.
                 real_func = self._plugin_class.add_router_interface
-                plugin_instance = manager.NeutronManager.get_plugin()
+                plugin_instance = directory.get_plugin()
 
                 # Raise a NeutronException when adding metadata subnet
                 # to router.
@@ -236,7 +235,7 @@ class MetaDataTestCase(object):
                 meta_port_id = ports[0]['id']
                 # Save function being mocked.
                 real_func = self._plugin_class.remove_router_interface
-                plugin_instance = manager.NeutronManager.get_plugin()
+                plugin_instance = directory.get_plugin()
 
                 # Raise a NeutronException when removing metadata subnet
                 # from router.

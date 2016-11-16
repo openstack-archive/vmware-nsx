@@ -294,15 +294,15 @@ class SyncTestCase(testlib_api.SqlTestCase):
                 '--config-file', vmware.get_fake_conf('nsx.ini.test')]
         self.config_parse(args=args)
         cfg.CONF.set_override('allow_overlapping_ips', True)
-        self._plugin = plugin.NsxPlugin()
-        # Mock neutron manager plugin load functions to speed up tests
-        mock_nm_get_plugin = mock.patch('neutron.manager.NeutronManager.'
-                                        'get_plugin')
-        mock_nm_get_service_plugins = mock.patch(
-            'neutron.manager.NeutronManager.get_service_plugins')
+
+        with mock.patch("neutron.common.rpc.create_connection"):
+            self._plugin = plugin.NsxPlugin()
+
+        mock_nm_get_plugin = mock.patch(
+            "neutron_lib.plugins.directory.get_plugin")
         self.mock_nm_get_plugin = mock_nm_get_plugin.start()
         self.mock_nm_get_plugin.return_value = self._plugin
-        mock_nm_get_service_plugins.start()
+
         super(SyncTestCase, self).setUp()
         self.addCleanup(self.fc.reset_all)
 

@@ -30,7 +30,6 @@ from neutron.extensions import portbindings
 from neutron.extensions import providernet as pnet
 from neutron.extensions import router_availability_zone
 from neutron.extensions import securitygroup as secgrp
-from neutron import manager
 from neutron.objects.qos import policy as qos_pol
 from neutron.plugins.common import constants as plugin_const
 from neutron.services.qos import qos_consts
@@ -46,6 +45,7 @@ from neutron.tests.unit import testlib_api
 from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
+from neutron_lib.plugins import directory
 from neutron_lib.utils import helpers
 from oslo_config import cfg
 from oslo_utils import uuidutils
@@ -151,7 +151,7 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
                 plugin=plugin,
                 ext_mgr=ext_mgr)
         self.addCleanup(self.fc2.reset_all)
-        plugin_instance = manager.NeutronManager.get_plugin()
+        plugin_instance = directory.get_plugin()
         plugin_instance.real_get_edge = plugin_instance._get_edge_id_by_rtr_id
         plugin_instance._get_edge_id_by_rtr_id = mock.Mock()
         plugin_instance._get_edge_id_by_rtr_id.return_value = False
@@ -160,14 +160,14 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
     def _get_core_plugin_with_dvs(self):
         # enable dvs features to allow policy with QOS
         cfg.CONF.set_default('use_dvs_features', True, 'nsxv')
-        plugin = manager.NeutronManager.get_plugin()
+        plugin = directory.get_plugin()
         with mock.patch.object(dvs_utils, 'dvs_create_session'):
             with mock.patch.object(dvs.DvsManager, '_get_dvs_moref'):
                 plugin._dvs = dvs.DvsManager()
         return plugin
 
     def test_get_vlan_network_name(self):
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         net_id = uuidutils.generate_uuid()
         dvs_id = 'dvs-10'
         net = {'name': '',
@@ -192,7 +192,7 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
                          p._get_vlan_network_name(net, dvs_id))
 
     def test_get_vlan_network_name_with_net_name_missing(self):
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         net_id = uuidutils.generate_uuid()
         dvs_id = 'dvs-10'
         net = {'id': net_id}
@@ -297,7 +297,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
     def test_update_network_with_admin_false(self):
         data = {'network': {'admin_state_up': False}}
         with self.network() as net:
-            plugin = manager.NeutronManager.get_plugin()
+            plugin = directory.get_plugin()
             self.assertRaises(NotImplementedError,
                               plugin.update_network,
                               context.get_admin_context(),
@@ -355,7 +355,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
         providernet_args = {pnet.NETWORK_TYPE: 'vlan',
                             pnet.SEGMENTATION_ID: 100,
                             pnet.PHYSICAL_NETWORK: 'dvs-1, dvs-2, dvs-3'}
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         with mock.patch.object(
             p, '_create_vlan_network_at_backend',
             # Return three netmorefs as side effect
@@ -377,7 +377,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                     pnet.SEGMENTATION_ID: 100,
                     pnet.PHYSICAL_NETWORK: 'dvs-1, dvs-2, dvs-3'}
         network = {'network': net_data}
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         with mock.patch.object(
             p, '_create_vlan_network_at_backend',
             # Return two successful netmorefs and fail on the backend
@@ -401,7 +401,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                     pnet.SEGMENTATION_ID: 100,
                     pnet.PHYSICAL_NETWORK: 'dvs-1, dvs-2, dvs-3'}
         network = {'network': net_data}
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         with mock.patch.object(
             p, '_validate_provider_create',
             side_effect=[nsxv_exc.NsxResourceNotFound(res_id='dvs-2',
@@ -420,7 +420,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
         providernet_args = {pnet.NETWORK_TYPE: 'vlan',
                             pnet.SEGMENTATION_ID: 100,
                             pnet.PHYSICAL_NETWORK: 'dvs-1, dvs-2, dvs-1'}
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         with mock.patch.object(
             p, '_create_vlan_network_at_backend',
             # Return two netmorefs as side effect
@@ -436,7 +436,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                 self.assertEqual(2, vlan_net_call.call_count)
 
     def test_get_dvs_ids_for_multiple_dvs_vlan_network(self):
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         # If no DVS-ID is provided as part of physical network, return
         # global DVS-ID configured in nsx.ini
         physical_network = constants.ATTR_NOT_SPECIFIED
@@ -481,7 +481,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                    pnet.SEGMENTATION_ID: constants.ATTR_NOT_SPECIFIED,
                    pnet.NETWORK_TYPE: 'vxlan',
                    pnet.PHYSICAL_NETWORK: 'vdnscope-2'}}
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         with mock.patch.object(p.nsx_v.vcns, 'validate_vdn_scope',
                                side_effect=[False]):
             self.assertRaises(nsxv_exc.NsxResourceNotFound,
@@ -496,7 +496,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                    'name': 'test-qos',
                    'tenant_id': self._tenant_id,
                    'qos_policy_id': _uuid()}}
-        plugin = manager.NeutronManager.get_plugin()
+        plugin = directory.get_plugin()
         self.assertRaises(n_exc.InvalidInput,
                           plugin.create_network,
                           context.get_admin_context(),
@@ -507,7 +507,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
         # and no use_dvs_features configured
         data = {'network': {'qos_policy_id': _uuid()}}
         with self.network() as net:
-            plugin = manager.NeutronManager.get_plugin()
+            plugin = directory.get_plugin()
             self.assertRaises(n_exc.InvalidInput,
                               plugin.update_network,
                               context.get_admin_context(),
@@ -626,7 +626,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                 self.assertTrue(fake_dvs_update.called)
 
     def test_create_network_with_bad_az_hint(self):
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         ctx = context.get_admin_context()
         data = {'network': {
                 'name': 'test-qos',
@@ -644,7 +644,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
         az_name = 'az7'
         az_config = az_name + ':respool-7:datastore-7:False'
         cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
         ctx = context.get_admin_context()
 
@@ -708,7 +708,7 @@ class TestPortsV2(NsxVPluginV2TestCase,
             tenid = p['port']['tenant_id']
             ctx = context.Context(user_id=None, tenant_id=tenid,
                                   is_admin=False)
-            pl = manager.NeutronManager.get_plugin()
+            pl = directory.get_plugin()
             count = pl.get_ports_count(ctx, filters={'tenant_id': [tenid]})
             # Each port above has subnet => we have an additional port
             # for DHCP
@@ -1015,7 +1015,7 @@ class TestPortsV2(NsxVPluginV2TestCase,
             self.assertEqual('testhosttemp', port[portbindings.HOST_ID])
 
     def test_ports_vif_details(self):
-        plugin = manager.NeutronManager.get_plugin()
+        plugin = directory.get_plugin()
         cfg.CONF.set_default('allow_overlapping_ips', True)
         with self.subnet(enable_dhcp=False) as subnet,\
                 self.port(subnet), self.port(subnet):
@@ -1217,7 +1217,7 @@ class TestPortsV2(NsxVPluginV2TestCase,
                 data = {'port': {'fixed_ips': [{'subnet_id':
                                                 subnet['subnet']['id'],
                                                 'ip_address': "10.0.0.10"}]}}
-                plugin = manager.NeutronManager.get_plugin()
+                plugin = directory.get_plugin()
                 ctx = context.get_admin_context()
                 with mock.patch.object(
                     plugin.edge_manager,
@@ -1235,7 +1235,7 @@ class TestPortsV2(NsxVPluginV2TestCase,
                 data = {'port': {'fixed_ips': [{'subnet_id':
                                                 subnet['subnet']['id'],
                                                 'ip_address': "10.0.0.10"}]}}
-                plugin = manager.NeutronManager.get_plugin()
+                plugin = directory.get_plugin()
                 with mock.patch.object(
                     plugin.edge_manager,
                     'delete_dhcp_binding') as delete_dhcp:
@@ -1261,7 +1261,7 @@ class TestPortsV2(NsxVPluginV2TestCase,
                                  'fixed_ips': [{'subnet_id':
                                                 subnet['subnet']['id'],
                                                 'ip_address': "10.0.0.10"}]}}
-                plugin = manager.NeutronManager.get_plugin()
+                plugin = directory.get_plugin()
                 self.assertRaises(n_exc.BadRequest,
                                   plugin.update_port,
                                   context.get_admin_context(),
@@ -1280,7 +1280,7 @@ class TestPortsV2(NsxVPluginV2TestCase,
                 data = {'port': {'fixed_ips': [{'subnet_id':
                                                 subnet['subnet']['id'],
                                                 'ip_address': new_ip}]}}
-                plugin = manager.NeutronManager.get_plugin()
+                plugin = directory.get_plugin()
                 ctx = context.get_admin_context()
                 router_obj = router_driver.RouterSharedDriver(plugin)
                 with mock.patch.object(plugin, '_find_router_driver',
@@ -1313,7 +1313,7 @@ class TestPortsV2(NsxVPluginV2TestCase,
                 data = {'port': {'fixed_ips': [{'subnet_id':
                                                 subnet['subnet']['id'],
                                                 'ip_address': new_ip}]}}
-                plugin = manager.NeutronManager.get_plugin()
+                plugin = directory.get_plugin()
                 ctx = context.get_admin_context()
                 router_obj = router_driver.RouterSharedDriver(plugin)
                 with mock.patch.object(plugin, '_find_router_driver',
@@ -1342,7 +1342,7 @@ class TestPortsV2(NsxVPluginV2TestCase,
                            device_owner=owner,
                            fixed_ips=[{'ip_address': old_ip}]) as port:
                 data = {'port': {'fixed_ips': []}}
-                plugin = manager.NeutronManager.get_plugin()
+                plugin = directory.get_plugin()
                 ctx = context.get_admin_context()
                 router_obj = router_driver.RouterSharedDriver(plugin)
                 with mock.patch.object(plugin, '_find_router_driver',
@@ -1823,14 +1823,14 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
         ext_mgr = ext_mgr or TestL3ExtensionManager()
         super(L3NatTest, self).setUp(
             plugin=plugin, ext_mgr=ext_mgr, service_plugins=service_plugins)
-        self.plugin_instance = manager.NeutronManager.get_plugin()
+        self.plugin_instance = directory.get_plugin()
         self._plugin_name = "%s.%s" % (
             self.plugin_instance.__module__,
             self.plugin_instance.__class__.__name__)
         self._plugin_class = self.plugin_instance.__class__
 
     def tearDown(self):
-        plugin = manager.NeutronManager.get_plugin()
+        plugin = directory.get_plugin()
         _manager = plugin.nsx_v.task_manager
         # wait max ~10 seconds for all tasks to be finished
         for i in range(100):
@@ -2499,7 +2499,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                 self.assertEqual(net['network'][k], v)
 
     def test_create_router_fail_at_the_backend(self):
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         edge_manager = p.edge_manager
         with mock.patch.object(edge_manager, 'create_lrouter',
                                side_effect=[n_exc.NeutronException]):
@@ -2597,7 +2597,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                 new_name = 'new_name'
                 router_id = r['router']['id']
                 # get the edge of this router
-                plugin = manager.NeutronManager.get_plugin()
+                plugin = directory.get_plugin()
                 router_obj = ex_router_driver.RouterExclusiveDriver(plugin)
                 ctx = context.get_admin_context()
                 edge_id = router_obj._get_edge_id_or_raise(ctx, router_id)
@@ -2618,7 +2618,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                 new_size = 'large'
                 router_id = r['router']['id']
                 # get the edge of this router
-                plugin = manager.NeutronManager.get_plugin()
+                plugin = directory.get_plugin()
                 router_obj = ex_router_driver.RouterExclusiveDriver(plugin)
                 ctx = context.get_admin_context()
                 edge_id = router_obj._get_edge_id_or_raise(ctx, router_id)
@@ -2737,7 +2737,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                  constants.FLOATINGIP_STATUS_DOWN)
 
     def test_update_floatingip_with_edge_router_update_failure(self):
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         with self.subnet() as subnet,\
                 self.port(subnet=subnet) as p1,\
                 self.port(subnet=subnet) as p2:
@@ -2759,7 +2759,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                 self.assertEqual(len(res['floatingips']), 0)
 
     def test_create_floatingip_with_edge_router_update_failure(self):
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         with self.subnet(cidr='200.0.0.0/24') as public_sub:
             public_network_id = public_sub['subnet']['network_id']
             self._set_net_external(public_network_id)
@@ -3063,7 +3063,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
             status=400, header={'status': 200}, uri='fake_url', response='')
 
     def test_create_router_with_update_error(self):
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
 
         # make sure there is an available edge so we will use backend update
         available_edge = {'edge_id': 'edge-11', 'router_id': 'fake_id'}
@@ -3093,7 +3093,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                 self.assertEqual(plugin_const.ERROR, new_router['status'])
 
     def test_create_router_with_bad_az_hint(self):
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         router = {'router': {'admin_state_up': True,
                   'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
                   'tenant_id': context.get_admin_context().tenant_id,
@@ -3108,7 +3108,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
         az_name = 'az7'
         az_config = az_name + ':respool-7:datastore-7:True'
         cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
         p._get_edge_id_by_rtr_id = p.real_get_edge
 
@@ -3167,7 +3167,7 @@ class NsxVSecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
         c_utils.spawn_n = mock.Mock(side_effect=lambda f: f())
         super(NsxVSecurityGroupsTestCase, self).setUp(plugin=plugin,
                                                       ext_mgr=ext_mgr)
-        self.plugin = manager.NeutronManager.get_plugin()
+        self.plugin = directory.get_plugin()
         self.addCleanup(self.fc2.reset_all)
 
 
@@ -3182,7 +3182,7 @@ class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
 
         super(NsxVTestSecurityGroup, self).setUp(
             plugin=plugin, ext_mgr=ext_mgr, service_plugins=service_plugins)
-        plugin_instance = manager.NeutronManager.get_plugin()
+        plugin_instance = directory.get_plugin()
         plugin_instance._get_edge_id_by_rtr_id = mock.Mock()
         plugin_instance._get_edge_id_by_rtr_id.return_value = False
 
@@ -3198,7 +3198,7 @@ class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
                 self._delete('ports', port['id'])
 
     def test_vnic_security_group_membership(self):
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         self.fc2.add_member_to_security_group = (
             mock.Mock().add_member_to_security_group)
         self.fc2.remove_member_from_security_group = (
@@ -3338,7 +3338,7 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
         self.skipTest('skipped')
 
     def test_create_router_fail_at_the_backend(self):
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         edge_manager = p.edge_manager
         with mock.patch.object(edge_manager, 'create_lrouter',
                                side_effect=[n_exc.NeutronException]):
@@ -3519,7 +3519,7 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
         az_name = 'az7'
         az_config = az_name + ':respool-7:datastore-7:False'
         cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
 
         # create a router with/without hints
@@ -3980,7 +3980,7 @@ class TestNSXPortSecurity(test_psec.TestPortSecurity,
 
     def test_service_insertion(self):
         # init the plugin mocks
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         self.fc2.add_member_to_security_group = (
             mock.Mock().add_member_to_security_group)
         self.fc2.remove_member_from_security_group = (
@@ -4024,7 +4024,7 @@ class TestNSXPortSecurity(test_psec.TestPortSecurity,
         self._add_vnic_to_port(port3['port']['id'], True, 3)
 
         # init the plugin mocks
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         self.fc2.add_member_to_security_group = (
             mock.Mock().add_member_to_security_group)
 
@@ -4727,7 +4727,7 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
         az_name = 'az7'
         az_config = az_name + ':respool-7:datastore-7:True'
         cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
-        p = manager.NeutronManager.get_plugin()
+        p = directory.get_plugin()
         p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
 
         # create a router with/without hints
@@ -4782,10 +4782,8 @@ class TestRouterFlavorTestCase(extension.ExtensionTestCase,
         service_plugins = {plugin_const.FLAVORS: self.FLAVOR_PLUGIN}
         super(TestRouterFlavorTestCase, self).setUp(
             plugin=plugin, service_plugins=service_plugins)
-        self.plugin = manager.NeutronManager.get_plugin()
-        self.plugin._flv_plugin = (
-            manager.NeutronManager.get_service_plugins().
-            get(plugin_const.FLAVORS))
+        self.plugin = directory.get_plugin()
+        self.plugin._flv_plugin = directory.get_plugin(plugin_const.FLAVORS)
         self.plugin._process_router_flavor_create = mock.Mock()
 
         # init the availability zones

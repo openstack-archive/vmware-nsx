@@ -14,10 +14,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 #
-
 from neutron.api import extensions
 from neutron.api.v2 import base
-from neutron import manager
+from neutron_lib.plugins import directory
 
 
 EXT_ALIAS = 'lsn'
@@ -60,7 +59,7 @@ class Lsn(extensions.ExtensionDescriptor):
     def get_resources(cls):
         """Returns Ext Resources."""
         exts = []
-        plugin = manager.NeutronManager.get_plugin()
+        plugin = directory.get_plugin()
         resource_name = EXT_ALIAS
         collection_name = resource_name.replace('_', '-') + "s"
         params = RESOURCE_ATTRIBUTE_MAP.get(COLLECTION_NAME, dict())

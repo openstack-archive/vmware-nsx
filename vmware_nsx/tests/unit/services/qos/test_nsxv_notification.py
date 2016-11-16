@@ -18,12 +18,12 @@ from oslo_config import cfg
 from oslo_utils import uuidutils
 
 from neutron import context
-from neutron import manager
 from neutron.objects.qos import policy as policy_object
 from neutron.objects.qos import rule as rule_object
 from neutron.services.qos import qos_consts
 from neutron.services.qos import qos_plugin
 from neutron.tests.unit.services.qos import base
+from neutron_lib.plugins import directory
 
 from vmware_nsx.dvs import dvs
 from vmware_nsx.dvs import dvs_utils
@@ -44,7 +44,7 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
         self._init_dvs_config()
         super(TestQosNsxVNotification, self).setUp(plugin=CORE_PLUGIN,
                                                    ext_mgr=None)
-        plugin_instance = manager.NeutronManager.get_plugin()
+        plugin_instance = directory.get_plugin()
         self._core_plugin = plugin_instance
         self._core_plugin.init_is_complete = True
 

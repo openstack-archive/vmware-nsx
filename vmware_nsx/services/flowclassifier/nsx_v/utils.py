@@ -14,7 +14,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron import manager
+from neutron_lib.plugins import directory
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
@@ -44,8 +44,7 @@ class NsxvServiceInsertionHandler(object):
 
     def is_service_insertion_enabled(self):
         # Note - this cannot be called during init, since the manager is busy
-        if (manager.NeutronManager.get_service_plugins().get(
-                FLOW_CLASSIFIER_EXT)):
+        if (directory.get_plugin(FLOW_CLASSIFIER_EXT)):
             return True
         return False
 

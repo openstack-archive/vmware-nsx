@@ -27,7 +27,6 @@ from neutron.extensions import l3_ext_gw_mode
 from neutron.extensions import portbindings
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as secgrp
-from neutron import manager
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_plugin
 from neutron.tests.unit.extensions import test_extra_dhcp_opt as test_dhcpopts
@@ -40,6 +39,7 @@ from neutron.tests.unit.scheduler \
 
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
+from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_utils import uuidutils
 
@@ -258,7 +258,7 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
 
     def setUp(self):
         super(TestPortsV2, self).setUp()
-        self.plugin = manager.NeutronManager.get_plugin()
+        self.plugin = directory.get_plugin()
         self.ctx = context.get_admin_context()
 
     def test_update_port_delete_ip(self):
@@ -408,7 +408,7 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                     get_profile.assert_called_once_with(self.ctx, policy_id)
 
     def _get_ports_with_fields(self, tenid, fields, expected_count):
-        pl = manager.NeutronManager.get_plugin()
+        pl = directory.get_plugin()
         ctx = context.Context(user_id=None, tenant_id=tenid,
                               is_admin=False)
         ports = pl.get_ports(ctx, filters={'tenant_id': [tenid]},
@@ -440,12 +440,13 @@ class NSXv3DHCPAgentAZAwareWeightSchedulerTestCase(
 
     def setUp(self):
         super(NSXv3DHCPAgentAZAwareWeightSchedulerTestCase, self).setUp()
-        self.plugin = manager.NeutronManager.get_plugin()
+        self.plugin = directory.get_plugin()
         self.ctx = context.get_admin_context()
 
-    def setup_coreplugin(self, core_plugin=None):
+    def setup_coreplugin(self, core_plugin=None, load_plugins=True):
         super(NSXv3DHCPAgentAZAwareWeightSchedulerTestCase,
-              self).setup_coreplugin(core_plugin=PLUGIN_NAME)
+              self).setup_coreplugin(core_plugin=PLUGIN_NAME,
+                                     load_plugins=load_plugins)
 
 
 class TestL3ExtensionManager(object):
@@ -495,7 +496,7 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxV3PluginTestCaseMixin):
         ext_mgr = ext_mgr or TestL3ExtensionManager()
         super(L3NatTest, self).setUp(
             plugin=plugin, ext_mgr=ext_mgr, service_plugins=service_plugins)
-        self.plugin_instance = manager.NeutronManager.get_plugin()
+        self.plugin_instance = directory.get_plugin()
         self._plugin_name = "%s.%s" % (
             self.plugin_instance.__module__,
             self.plugin_instance.__class__.__name__)

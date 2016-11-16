@@ -24,12 +24,13 @@ from neutron.api.v2 import attributes
 from neutron import context
 from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
-from neutron import manager
 from neutron import quota
 from neutron.tests import base
 from neutron.tests.unit.api import test_extensions
 from neutron.tests.unit.api.v2 import test_base
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_db_plugin
+from neutron_lib import constants
+from neutron_lib.plugins import directory
 
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import exceptions as nsx_exc
@@ -85,8 +86,9 @@ class NetworkGatewayExtensionTestCase(base.BaseTestCase):
         self.plugin = _plugin_patcher.start()
 
         # Instantiate mock plugin and enable extensions
-        manager.NeutronManager.get_plugin().supported_extension_aliases = (
+        self.plugin.return_value.supported_extension_aliases = (
             [networkgw.EXT_ALIAS])
+        directory.add_plugin(constants.CORE, self.plugin.return_value)
         ext_mgr = TestExtensionManager()
         extensions.PluginAwareExtensionManager._instance = ext_mgr
         self.ext_mdw = test_extensions.setup_extensions_middleware(ext_mgr)

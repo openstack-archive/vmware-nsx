@@ -23,7 +23,7 @@ from neutron.callbacks import events
 from neutron.callbacks import registry
 from neutron.callbacks import resources
 from neutron import context as n_context
-from neutron import manager
+from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
@@ -121,7 +121,7 @@ class NsxvFlowClassifierDriver(fc_driver.FlowClassifierDriverBase):
         if self._is_new_security_group:
             # add existing VMs to the new security group
             # This code must run after init is done
-            core_plugin = manager.NeutronManager.get_plugin()
+            core_plugin = directory.get_plugin()
             core_plugin.add_vms_to_service_insertion(
                 self._security_group_id)
 
@@ -137,9 +137,7 @@ class NsxvFlowClassifierDriver(fc_driver.FlowClassifierDriverBase):
         The user will be able to delete/change it later
         """
         context = n_context.get_admin_context()
-        fc_plugin = manager.NeutronManager.get_service_plugins().get(
-                flowclassifier.FLOW_CLASSIFIER_EXT)
-
+        fc_plugin = directory.get_plugin(flowclassifier.FLOW_CLASSIFIER_EXT)
         # first check that there is no other flow classifier entry defined:
         fcs = fc_plugin.get_flow_classifiers(context)
         if len(fcs) > 0:

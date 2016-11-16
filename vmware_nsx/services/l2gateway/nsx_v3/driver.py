@@ -28,10 +28,10 @@ from neutron.callbacks import registry
 from neutron.callbacks import resources
 from neutron import context
 from neutron.extensions import providernet
-from neutron import manager
 from neutron.plugins.common import utils as n_utils
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
+from neutron_lib.plugins import directory
 
 from vmware_nsx._i18n import _, _LE, _LI
 from vmware_nsx.common import utils as nsx_utils
@@ -59,7 +59,7 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
 
     @property
     def _core_plugin(self):
-        return manager.NeutronManager.get_plugin()
+        return directory.get_plugin()
 
     def subscribe_callback_notifications(self):
         registry.subscribe(self._prevent_l2gw_port_delete, resources.PORT,

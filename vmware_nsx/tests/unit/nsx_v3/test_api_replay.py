@@ -15,7 +15,7 @@
 
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin
 
-from neutron import manager
+from neutron_lib.plugins import directory
 from oslo_config import cfg
 
 
@@ -32,7 +32,7 @@ class TestApiReplay(test_plugin.NsxV3PluginTestCaseMixin):
         cfg.CONF.set_override('api_replay_mode', False)
 
         # remove the extension from the plugin
-        manager.NeutronManager.get_plugin().supported_extension_aliases.remove(
+        directory.get_plugin().supported_extension_aliases.remove(
             'api-replay')
 
         super(TestApiReplay, self).tearDown()

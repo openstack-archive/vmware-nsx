@@ -19,9 +19,10 @@ from oslo_utils import uuidutils
 
 from neutron import context as neutron_context
 from neutron.db import db_base_plugin_v2
-from neutron import manager
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_db_plugin
 from neutron_lib.api import validators
+from neutron_lib.plugins import directory
+
 from vmware_nsx.db import vnic_index_db
 from vmware_nsx.extensions import vnicindex as vnicidx
 from vmware_nsx.tests import unit as vmware
@@ -80,7 +81,7 @@ class VnicIndexDbTestCase(test_db_plugin.NeutronDbPluginV2TestCase):
         return res
 
     def test_vnic_index_db(self):
-        plugin = manager.NeutronManager.get_plugin()
+        plugin = directory.get_plugin()
         vnic_index = 2
         device_id = _uuid()
         context = neutron_context.get_admin_context()
@@ -100,7 +101,7 @@ class VnicIndexDbTestCase(test_db_plugin.NeutronDbPluginV2TestCase):
         # self.assertIsNone(plugin._get_port_vnic_index(context, port_id))
 
     def test_vnic_index_db_duplicate(self):
-        plugin = manager.NeutronManager.get_plugin()
+        plugin = directory.get_plugin()
         vnic_index = 2
         device_id = _uuid()
         context = neutron_context.get_admin_context()
@@ -113,7 +114,7 @@ class VnicIndexDbTestCase(test_db_plugin.NeutronDbPluginV2TestCase):
                                                 vnic_index)
 
     def test_vnic_index_db_duplicate_new_port(self):
-        plugin = manager.NeutronManager.get_plugin()
+        plugin = directory.get_plugin()
         vnic_index = 2
         device_id = _uuid()
         context = neutron_context.get_admin_context()

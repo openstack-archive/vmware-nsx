@@ -16,10 +16,10 @@
 
 from neutron.api.rpc.callbacks import events as callbacks_events
 from neutron import context as n_context
-from neutron import manager
 from neutron.objects.qos import policy as qos_policy
 from neutron.plugins.common import constants
 from neutron.services.qos import qos_consts
+from neutron_lib.plugins import directory
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -52,8 +52,7 @@ class NsxVQosRule(object):
 
     def _get_qos_plugin(self):
         if not self._qos_plugin:
-            loaded_plugins = manager.NeutronManager.get_service_plugins()
-            self._qos_plugin = loaded_plugins[constants.QOS]
+            self._qos_plugin = directory.get_plugin(constants.QOS)
         return self._qos_plugin
 
     # init the nsx_v qos data (outShapingPolicy) from a neutron qos policy

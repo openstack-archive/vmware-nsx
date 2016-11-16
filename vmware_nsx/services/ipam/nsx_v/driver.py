@@ -25,8 +25,8 @@ from neutron.ipam.drivers.neutrondb_ipam import driver as neutron_driver
 from neutron.ipam import exceptions as ipam_exc
 from neutron.ipam import requests as ipam_req
 from neutron.ipam import subnet_alloc
-from neutron import manager
 from neutron_lib.api import validators
+from neutron_lib.plugins import directory
 from oslo_log import log as logging
 
 from vmware_nsx._i18n import _, _LE
@@ -41,7 +41,7 @@ LOG = logging.getLogger(__name__)
 class NsxvIpamBase(object):
     @classmethod
     def get_core_plugin(cls):
-        return manager.NeutronManager.get_plugin()
+        return directory.get_plugin()
 
     @classmethod
     def _fetch_subnet(cls, context, id):

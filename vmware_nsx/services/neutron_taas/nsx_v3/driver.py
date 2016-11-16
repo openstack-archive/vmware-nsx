@@ -16,7 +16,7 @@
 
 import netaddr
 
-from neutron import manager
+from neutron_lib.plugins import directory
 
 from neutron_taas.db import taas_db
 from neutron_taas.services.taas import service_drivers as base_driver
@@ -47,7 +47,7 @@ class NsxV3Driver(base_driver.TaasBaseDriver,
 
     @property
     def _nsx_plugin(self):
-        return manager.NeutronManager.get_plugin()
+        return directory.get_plugin()
 
     def _validate_tap_flow(self, source_port, dest_port):
         # Verify whether the source port is not same as the destination port

@@ -24,8 +24,8 @@ from neutron.api import extensions as api_ext
 from neutron.common import config
 from neutron import context
 from neutron.extensions import portbindings
-from neutron import manager
 from neutron.plugins.ml2.drivers import type_vxlan   # noqa
+from neutron_lib.plugins import directory
 
 from networking_sfc.db import flowclassifier_db as fdb
 from networking_sfc.extensions import flowclassifier
@@ -118,11 +118,18 @@ class TestNsxvFlowClassifierDriver(
         self.assertEqual(self._profile_id, self.driver._profile_id)
         self.assertEqual(self.driver._security_group_id, '0')
 
+        orig_get_plugin = directory.get_plugin
+
+        def mocked_get_plugin(plugin=None):
+            # mock only the core plugin
+            if plugin:
+                return orig_get_plugin(plugin)
+            return mock_nsxv_plugin
+
         mock_nsxv_plugin = mock.Mock()
-        fc_plugin = manager.NeutronManager.get_service_plugins().get(
-                flowclassifier.FLOW_CLASSIFIER_EXT)
-        with mock.patch.object(manager.NeutronManager, 'get_plugin',
-                               return_value=mock_nsxv_plugin):
+        fc_plugin = directory.get_plugin(flowclassifier.FLOW_CLASSIFIER_EXT)
+        with mock.patch.object(directory, 'get_plugin',
+                               new=mocked_get_plugin):
             with mock.patch.object(
                 mock_nsxv_plugin,
                 'add_vms_to_service_insertion') as fake_add:
