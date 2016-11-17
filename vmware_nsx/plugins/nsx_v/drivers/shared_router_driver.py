@@ -213,9 +213,12 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                 snat, dnat = self.plugin._get_nat_rules(context, router)
                 snats.extend(snat)
                 dnats.extend(dnat)
-                if len(dnat) > 0:
+                if (not cfg.CONF.nsxv.bind_floatingip_to_all_interfaces and
+                    len(dnat) > 0):
                     # Copy each DNAT rule to all vnics of the other routers,
                     # to allow NAT-ed traffic between routers
+                    # no need for that if bind_floatingip_to_all_interfaces
+                    # is on (default)
                     other_vnics = []
                     for other_router_id in router_ids:
                         if other_router_id != router_id:

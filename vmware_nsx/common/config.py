@@ -631,6 +631,12 @@ nsxv_opts = [
                help=_("(Optional) Sets the network address for distributed "
                       "router TLR-PLR connectivity, with "
                       "<network IP>/<prefix> syntax")),
+    cfg.BoolOpt('bind_floatingip_to_all_interfaces', default=True,
+                help=_("If set to False, router will associate floating ip "
+                       "with external interface of only, thus denying "
+                       "connectivity between hosts on same network via "
+                       "their floating ips. If True, floating ip will "
+                       "be associated with all router interfaces.")),
 ]
 
 # Register the configuration options

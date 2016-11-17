@@ -411,6 +411,7 @@ class VcnsDriverTestCase(base.BaseTestCase):
             'translated': '192.168.2.1'
         }
         ]
+
         result = self.vcns_driver.update_nat_rules(self.edge_id, snats, dnats)
         self.assertTrue(result)
 
@@ -424,6 +425,97 @@ class VcnsDriverTestCase(base.BaseTestCase):
         self.natEquals(rules[4], snats[0])
         self.natEquals(rules[5], snats[1])
         self.natEquals(rules[6], snats[2])
+
+    def test_update_nat_rules_for_all_vnics(self):
+        self._deploy_edge()
+        snats = [{
+            'src': '192.168.1.0/24',
+            'translated': '10.0.0.1'
+        }, {
+            'src': '192.168.2.0/24',
+            'translated': '10.0.0.2'
+        }, {
+            'src': '192.168.3.0/24',
+            'translated': '10.0.0.3'
+        }
+        ]
+        dnats = [{
+            'dst': '100.0.0.4',
+            'translated': '192.168.1.1'
+        }, {
+            'dst': '100.0.0.5',
+            'translated': '192.168.2.1'
+        }
+        ]
+
+        indices = [0, 1, 2, 3]
+        result = self.vcns_driver.update_nat_rules(self.edge_id,
+                snats, dnats, indices)
+        self.assertTrue(result)
+
+        natcfg = self.vcns_driver.get_nat_config(self.edge_id)
+        rules = natcfg['rules']['natRulesDtos']
+
+        self.assertEqual(len(rules), 2 * len(indices) * len(dnats)
+                + len(indices) * len(snats))
+
+        sorted_rules = sorted(rules, key=lambda k: k['vnic'])
+        for i in range(0, len(sorted_rules), 7):
+            self.natEquals(sorted_rules[i], dnats[0])
+            self.natEquals(sorted_rules[i + 1], self.snat_for_dnat(dnats[0]))
+            self.natEquals(sorted_rules[i + 2], dnats[1])
+            self.natEquals(sorted_rules[i + 3], self.snat_for_dnat(dnats[1]))
+            self.natEquals(sorted_rules[i + 4], snats[0])
+            self.natEquals(sorted_rules[i + 5], snats[1])
+            self.natEquals(sorted_rules[i + 6], snats[2])
+
+    def test_update_nat_rules_for_specific_vnics(self):
+        self._deploy_edge()
+        snats = [{
+            'src': '192.168.1.0/24',
+            'translated': '10.0.0.1',
+            'vnic_index': 5
+        }, {
+            'src': '192.168.2.0/24',
+            'translated': '10.0.0.2'
+        }, {
+            'src': '192.168.3.0/24',
+            'translated': '10.0.0.3'
+        }
+        ]
+        dnats = [{
+            'dst': '100.0.0.4',
+            'translated': '192.168.1.1',
+            'vnic_index': 2
+        }, {
+            'dst': '100.0.0.5',
+            'translated': '192.168.2.1'
+        }
+        ]
+
+        result = self.vcns_driver.update_nat_rules(self.edge_id, snats, dnats)
+        self.assertTrue(result)
+
+        natcfg = self.vcns_driver.get_nat_config(self.edge_id)
+
+        rules = natcfg['rules']['natRulesDtos']
+
+        self.assertEqual(len(rules), 2 * len(dnats) + len(snats))
+
+        self.natEquals(rules[0], dnats[0])
+        self.assertEqual(rules[0]['vnic'], 2)
+        self.natEquals(rules[1], self.snat_for_dnat(dnats[0]))
+        self.assertEqual(rules[1]['vnic'], 2)
+        self.natEquals(rules[2], dnats[1])
+        self.assertNotIn('vnic', rules[2])
+        self.natEquals(rules[3], self.snat_for_dnat(dnats[1]))
+        self.assertNotIn('vnic', rules[3])
+        self.natEquals(rules[4], snats[0])
+        self.assertEqual(rules[4]['vnic'], 5)
+        self.natEquals(rules[5], snats[1])
+        self.assertNotIn('vnic', rules[5])
+        self.natEquals(rules[6], snats[2])
+        self.assertNotIn('vnic', rules[6])
 
     def snat_for_dnat(self, dnat):
         return {
