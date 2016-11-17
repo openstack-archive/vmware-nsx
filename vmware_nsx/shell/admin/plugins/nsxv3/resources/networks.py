@@ -21,6 +21,7 @@ from vmware_nsx.nsxlib.v3 import exceptions as nsx_exc
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
+from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils
 from vmware_nsx.shell import resources as shell
 
 from neutron.callbacks import registry
@@ -54,7 +55,7 @@ def list_missing_networks(resource, event, trigger, **kwargs):
             pass
         else:
             try:
-                admin_utils.get_connected_nsxlib().get_logical_switch(nsx_id)
+                utils.get_connected_nsxlib().get_logical_switch(nsx_id)
             except nsx_exc.ResourceNotFound:
                 networks.append({'name': net['name'],
                                  'neutron_id': neutron_id,
