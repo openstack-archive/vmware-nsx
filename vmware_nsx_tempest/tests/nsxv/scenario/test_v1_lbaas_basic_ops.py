@@ -127,8 +127,7 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
         network = self._create_network(
             routers_client=routers_client,
             networks_client=networks_client,
-            namestart=namestart,
-            tenant_id=self.tenant_id)
+            namestart=namestart)
 
         subnet_kwargs = dict(network=network,
                              namestart=namestart,
@@ -154,8 +153,7 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
         HELO.check_networks(self, self.network, self.subnet, self.router)
 
     def _create_security_group_for_test(self):
-        self.security_group = self._create_security_group(
-            tenant_id=self.tenant_id)
+        self.security_group = self._create_security_group()
         self._create_security_group_rules_for_port(self.port1)
         self._create_security_group_rules_for_port(self.port2)
 
@@ -168,7 +166,6 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
         }
         self._create_security_group_rule(
             secgroup=self.security_group,
-            tenant_id=self.tenant_id,
             **rule)
 
     def _create_server(self, name):
