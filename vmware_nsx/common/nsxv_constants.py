@@ -41,9 +41,9 @@ ROUTER_NAME_LENGTH = (78 - 1)
 
 # LoadBalancer Certificate constants
 #NOTE(abhiraut): Number of days specify the total number of days for which the
-#                the certificate will be active. This certificate will expire
-#                in 10 years. Once the backend API allows creation of certs
-#                which do not expire, the following constant should be removed.
+#                certificate will be active. This certificate will expire in
+#                10 years. Once the backend API allows creation of certs which
+#                do not expire, the following constant should be removed.
 CERT_NUMBER_OF_DAYS = 3650
 CSR_REQUEST = ("<csr><subject>"
                "<attribute><key>CN</key><value>metadata.nsx.local</value>"

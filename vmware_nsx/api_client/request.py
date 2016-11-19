@@ -176,7 +176,7 @@ class ApiRequest(object):
             # If we receive any of these responses, then
             # our server did not process our request and may be in an
             # errored state. Raise an exception, which will cause the
-            # the conn to be released with is_conn_error == True
+            # conn to be released with is_conn_error == True
             # which puts the conn on the back of the client's priority
             # queue.
             if (response.status == httplib.INTERNAL_SERVER_ERROR and
