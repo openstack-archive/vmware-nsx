@@ -1966,6 +1966,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
              'fixed_port_id': port_id,
              'router_id': router_id,
              'status': self._floatingip_status(floatingip_db, router_id)})
+        return floatingip_db
 
     @lockutils.synchronized('vmware', 'neutron-')
     def create_floatingip(self, context, floatingip):
