@@ -195,8 +195,7 @@ class LBaasRoundRobinBaseTest(dmgr.TopoDeployScenarioManager):
                 serv['id'], 'ACTIVE')
 
     def _create_security_group_for_test(self):
-        self.security_group = self._create_security_group(
-            tenant_id=self.tenant_id)
+        self.security_group = self._create_security_group()
         self._create_security_group_rules_for_port(self.protocol_port)
 
     def _create_security_group_rules_for_port(self, port):
@@ -208,7 +207,6 @@ class LBaasRoundRobinBaseTest(dmgr.TopoDeployScenarioManager):
         }
         self._create_security_group_rule(
             secgroup=self.security_group,
-            tenant_id=self.tenant_id,
             **rule)
 
     def start_web_servers(self, server_list=None):
