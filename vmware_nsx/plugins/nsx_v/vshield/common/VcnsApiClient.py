@@ -17,6 +17,7 @@ import base64
 import eventlet
 from oslo_serialization import jsonutils
 import six
+import xml.etree.ElementTree as et
 
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
 
@@ -73,6 +74,11 @@ class VcnsApiHelper(object):
         503: exceptions.ServiceUnavailable
     }
 
+    nsx_errors = {
+        # firewall rule doesn't exists for deletion.
+        100046: exceptions.ResourceNotFound,
+    }
+
     def __init__(self, address, user, password, format='json', ca_file=None,
                  insecure=True):
         self.authToken = base64.encodestring(six.b("%s:%s" % (user, password)))
@@ -86,6 +92,19 @@ class VcnsApiHelper(object):
             self.encode = xmldumps
         self.ca_file = ca_file
         self.insecure = insecure
+
+    def _get_nsx_errorcode(self, content):
+        try:
+            if self.format == 'xml':
+                error = et.fromstring(content).find('errorCode')
+                errcode = error and int(error.text)
+            else:  # json
+                error = jsonutils.loads(content)
+                errcode = int(error.get('errorCode'))
+            return errcode
+        except (TypeError, ValueError, et.ParseError):
+            # We won't assume that integer error-code value is guaranteed.
+            return None
 
     def request(self, method, uri, params=None, headers=None,
                 encodeparams=True):
@@ -112,8 +131,12 @@ class VcnsApiHelper(object):
         status = int(header['status'])
         if 200 <= status < 300:
             return header, response
+
+        nsx_errcode = self._get_nsx_errorcode(response.text)
         if status in self.errors:
             cls = self.errors[status]
+        elif nsx_errcode in self.nsx_errors:
+            cls = self.nsx_errors[nsx_errcode]
         else:
             cls = exceptions.VcnsApiException
         raise cls(uri=uri, status=status, header=header, response=response)
