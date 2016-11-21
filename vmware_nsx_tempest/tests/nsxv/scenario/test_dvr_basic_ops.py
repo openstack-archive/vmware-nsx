@@ -18,7 +18,6 @@ import re
 import time
 
 from oslo_log import log as logging
-import testtools
 
 from tempest import config
 from tempest.lib.common.utils import data_utils
@@ -378,8 +377,6 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
                                                    "floating ip")
 
     @test.idempotent_id('d99b62ec-28ce-44db-a195-edb74037a354')
-    @testtools.skipIf(CONF.baremetal.driver_enabled,
-                      'Baremetal relies on a shared physical network.')
     @test.services('compute', 'network')
     def test_dvr_connectivity_between_vms_on_different_networks(self):
         """
@@ -427,9 +424,6 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
                                                   should_connect=True)
 
     @test.idempotent_id('a73fd605-d55e-4151-b25e-41e7a7ff2258')
-    @testtools.skipIf(CONF.baremetal.driver_enabled,
-                      'Router state cannot be altered on a shared baremetal '
-                      'network')
     @test.services('compute', 'network')
     def test_dvr_update_router_admin_state(self):
         """
