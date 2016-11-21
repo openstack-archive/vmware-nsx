@@ -1611,17 +1611,27 @@ class EdgeManager(object):
             context.session, router_id)
         lswitch_id = tlr_binding.lswitch_id
         tlr_edge_id = tlr_binding.edge_id
-        plr_edge_id = nsxv_db.get_nsxv_router_binding(
-            context.session, plr_id).edge_id
-        plr_vnic_index = nsxv_db.get_edge_vnic_binding(
-            context.session, plr_edge_id, lswitch_id).vnic_index
-        # Clear static routes before delete internal vnic
-        self.nsxv_manager.update_routes(plr_edge_id, None, [])
+        router_binding = nsxv_db.get_nsxv_router_binding(
+            context.session, plr_id)
 
-        # Delete internal vnic
-        self.nsxv_manager.delete_interface(plr_id, plr_edge_id, plr_vnic_index)
-        nsxv_db.free_edge_vnic_by_network(
-            context.session, plr_edge_id, lswitch_id)
+        if router_binding is None:
+            LOG.debug("Router binding not found for router: %s", router_id)
+        else:
+            plr_edge_id = router_binding.edge_id
+            vnic_binding = nsxv_db.get_edge_vnic_binding(
+                    context.session, plr_edge_id, lswitch_id)
+            if vnic_binding is None:
+                LOG.debug("Vnic binding not found for router: %s", router_id)
+            else:
+                # Clear static routes before delete internal vnic
+                self.nsxv_manager.update_routes(plr_edge_id, None, [])
+
+                # Delete internal vnic
+                self.nsxv_manager.delete_interface(plr_id, plr_edge_id,
+                        vnic_binding.vnic_index)
+                nsxv_db.free_edge_vnic_by_network(
+                    context.session, plr_edge_id, lswitch_id)
+
         # Delete the PLR
         self.delete_lrouter(context, plr_id)
 
@@ -1629,12 +1639,16 @@ class EdgeManager(object):
         self.nsxv_manager.update_routes(tlr_edge_id, None, [])
 
         #First delete the vdr's external interface
-        tlr_vnic_index = nsxv_db.get_edge_vnic_binding(
-            context.session, tlr_edge_id, lswitch_id).vnic_index
-        self.nsxv_manager.delete_vdr_internal_interface(
-            tlr_edge_id, tlr_vnic_index)
-        nsxv_db.delete_edge_vnic_binding_by_network(
-            context.session, tlr_edge_id, lswitch_id)
+        tlr_vnic_binding = nsxv_db.get_edge_vnic_binding(
+                context.session, tlr_edge_id, lswitch_id)
+        if tlr_vnic_binding is None:
+            LOG.debug("Vnic binding not found for router: %s", router_id)
+        else:
+            self.nsxv_manager.delete_vdr_internal_interface(
+                tlr_edge_id, tlr_vnic_binding.vnic_index)
+            nsxv_db.delete_edge_vnic_binding_by_network(
+                context.session, tlr_edge_id, lswitch_id)
+
         try:
             # Then delete the internal lswitch
             self.nsxv_manager.delete_virtual_wire(lswitch_id)
