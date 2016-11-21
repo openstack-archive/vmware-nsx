@@ -257,7 +257,7 @@ class LogicalPort(AbstractRESTResource):
                            'resource_type': nsx_constants.CIF_RESOURCE_TYPE}
                 attachment['context'] = context
             return attachment
-        elif attachment_type is None or vif_uuid is None:
+        elif attachment_type is None and vif_uuid is None:
             return None   # reset attachment
         else:
             return False  # no attachment change
