@@ -118,6 +118,7 @@ class Vcns(object):
                                                          format='xml',
                                                          ca_file=ca_file,
                                                          insecure=insecure)
+        self._nsx_version = None
 
     @retry_upon_exception(exceptions.ServiceConflict)
     def _client_request(self, client, method, uri,
@@ -867,13 +868,15 @@ class Vcns(object):
         return version
 
     def get_version(self):
-        try:
-            return self._get_version()
-        except Exception as e:
-            # Versions prior to 6.2.0 do not support the above API
-            LOG.error(_LE("Unable to get NSX version. Exception: %s"), e)
-            # Minimum supported version is 6.1
-            return '6.1'
+        if self._nsx_version is None:
+            try:
+                self._nsx_version = self._get_version()
+            except Exception as e:
+                # Versions prior to 6.2.0 do not support the above API
+                LOG.error(_LE("Unable to get NSX version. Exception: %s"), e)
+                # Minimum supported version is 6.1
+                self._nsx_version = '6.1'
+        return self._nsx_version
 
     def get_tuning_configration(self):
         uri = '/api/4.0/edgePublish/tuningConfiguration'
