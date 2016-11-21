@@ -20,6 +20,7 @@ import uuid
 import netaddr
 from neutron_lib.api import validators
 from neutron_lib import constants
+from neutron_lib.db import constants as db_const
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
 from oslo_config import cfg
@@ -98,6 +99,7 @@ from vmware_nsx.extensions import (
     vnicindex as ext_vnic_idx)
 from vmware_nsx.extensions import dhcp_mtu as ext_dhcp_mtu
 from vmware_nsx.extensions import dns_search_domain as ext_dns_search_domain
+from vmware_nsx.extensions import nsxpolicy
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.extensions import routersize
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix
@@ -136,7 +138,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                    securitygroups_db.SecurityGroupDbMixin,
                    extended_secgroup.ExtendedSecurityGroupPropertiesMixin,
                    vnic_index_db.VnicIndexDbMixin,
-                   dns_db.DNSDbMixin):
+                   dns_db.DNSDbMixin, nsxpolicy.NsxPolicyPluginBase):
 
     supported_extension_aliases = ["agent",
                                    "allowed-address-pairs",
@@ -227,6 +229,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             self._use_nsx_policies = True
             # enable the extension
             self.supported_extension_aliases.append("security-group-policy")
+            self.supported_extension_aliases.append("nsx-policy")
 
         self.sg_container_id = self._create_security_group_container()
         self.default_section = self._create_cluster_default_fw_section()
@@ -3115,9 +3118,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                  'group %s') % id)
                         raise n_exc.InvalidInput(error_message=msg)
 
-            # validate that the new policy exists
-            if new_policy and not self.nsx_v.vcns.validate_inventory(
-                new_policy):
+            # validate that the new policy exists (and not hidden) by using the
+            # plugin getter that raises an exception if it fails.
+            try:
+                new_policy = self.get_nsx_policy(context, new_policy)
+            except n_exc.ObjectNotFound:
                 msg = _('Policy %s was not found on the NSX') % new_policy
                 raise n_exc.InvalidInput(error_message=msg)
 
@@ -3129,9 +3134,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # Use the NSX policy description as the description of this
             # security group if the description was not set by the user
             # and the security group is new or policy was updated
+            # if the nsx policy has not description - use its name
             if new_policy and not security_group.get('description'):
                 security_group['description'] = (
-                    self.nsx_sg_utils.get_nsx_policy_description(new_policy))
+                    new_policy.get('description') or
+                    new_policy.get('name'))[:db_const.DESCRIPTION_FIELD_SIZE]
         else:
             # must not have a policy:
             if security_group.get(sg_policy.POLICY):
@@ -3575,6 +3582,34 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def get_default_az(self):
         return self._availability_zones_data.get_default_availability_zone()
+
+    def _nsx_policy_is_hidden(self, policy):
+        for attrib in policy.get('extendedAttributes', []):
+            if (attrib['name'].lower() == 'ishidden' and
+                attrib['value'].lower() == 'true'):
+                return True
+        return False
+
+    def _nsx_policy_to_dict(self, policy):
+        return {'id': policy['objectId'],
+                'name': policy.get('name'),
+                'description': policy.get('description')}
+
+    def get_nsx_policy(self, context, id, fields=None):
+        policy = self.nsx_v.vcns.get_security_policy(id, return_xml=False)
+        if self._nsx_policy_is_hidden(policy):
+            raise n_exc.ObjectNotFound(id=id)
+        return self._nsx_policy_to_dict(policy)
+
+    def get_nsx_policies(self, context, filters=None, fields=None,
+                         sorts=None, limit=None, marker=None,
+                         page_reverse=False):
+        policies = self.nsx_v.vcns.get_security_policies()
+        results = []
+        for policy in policies.get('policies', []):
+            if not self._nsx_policy_is_hidden(policy):
+                results.append(self._nsx_policy_to_dict(policy))
+        return results
 
 
 # Register the callback
