@@ -447,3 +447,21 @@ class DvsManager(object):
                                                     vm_moref,
                                                     "config.hardware.device")
         return hardware_devices
+
+    def update_port_group_spec_teaming(self, pg_spec, teaming_data):
+        mapping = {'FAILOVER_ORDER': 'failover_explicit',
+                   'ETHER_CHANNEL': 'loadbalance_ip',
+                   'LACP_ACTIVE': 'loadbalance_ip',
+                   'LACP_PASSIVE': 'loadbalance_ip',
+                   'LACP_V2': 'loadbalance_ip',
+                   'LOADBALANCE_SRCID': 'loadbalance_srcid',
+                   'LOADBALANCE_SRCMAC': 'loadbalance_srcmac',
+                   'LOADBALANCE_LOADBASED': 'loadbalance_loadbased'}
+        port_conf = pg_spec.defaultPortConfig
+        policy = port_conf.uplinkTeamingPolicy
+        policy.inherited = False
+        policy.policy.inherited = False
+        policy.policy.value = mapping[teaming_data['teamingPolicy']]
+        policy.uplinkPortOrder.inherited = False
+        ports = teaming_data['failoverUplinkPortNames']
+        policy.uplinkPortOrder.activeUplinkPort = ports
