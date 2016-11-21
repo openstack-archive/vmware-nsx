@@ -1456,8 +1456,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # Change the attachment type for L2 gateway owned ports.
             # NSX backend requires the vif id be set to bridge endpoint id
             # for ports plugged into a Bridge Endpoint.
+            # Also set port security to False, since L2GW port does not have
+            # an IP address.
             vif_uuid = device_id
             attachment_type = device_owner
+            psec_is_on = False
         elif device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF:
             # no attachment change
             attachment_type = False
