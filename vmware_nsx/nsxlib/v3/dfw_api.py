@@ -142,7 +142,7 @@ class DfwApi(object):
             # REVISIT(roeyc): A ManagerError might have been raised for a
             # different reason, e.g - NSGroup does not exists.
             LOG.warning(_LW("Failed to add %(target_type)s resources "
-                            "(%(target_ids))s to NSGroup %(nsgroup_id)s"),
+                            "(%(target_ids)s) to NSGroup %(nsgroup_id)s"),
                         {'target_type': target_type,
                          'target_ids': target_ids,
                          'nsgroup_id': nsgroup_id})
