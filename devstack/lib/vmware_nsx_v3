@@ -71,10 +71,12 @@ function is_neutron_ovs_base_plugin {
 }
 
 function neutron_plugin_create_nova_conf {
-    # if n-cpu is enabled, then setup integration bridge
-    if is_service_enabled n-cpu; then
+    # if n-cpu or octavia is enabled, then setup integration bridge
+    if is_service_enabled n-cpu || is_service_enabled octavia ; then
         setup_integration_bridge
-        iniset $NOVA_CONF neutron ovs_bridge $OVS_BRIDGE
+        if is_service_enabled n-cpu ; then
+            iniset $NOVA_CONF neutron ovs_bridge $OVS_BRIDGE
+        fi
     fi
     # if n-api is enabled, then setup the metadata_proxy_shared_secret
     if is_service_enabled n-api; then
