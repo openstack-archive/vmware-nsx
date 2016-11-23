@@ -1442,8 +1442,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         profiles = []
         mac_learning_profile_set = False
-        if psec_is_on and address_bindings:
-            mac_learning_profile_set = True
+        if psec_is_on:
+            address_pairs = port_data.get(addr_pair.ADDRESS_PAIRS)
+            if validators.is_attr_set(address_pairs) and address_pairs:
+                mac_learning_profile_set = True
             profiles.append(self._get_port_security_profile_id())
         if device_owner == const.DEVICE_OWNER_DHCP:
             profiles.append(self._dhcp_profile)
@@ -2064,7 +2066,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if qos_profile_id is not None:
             switch_profile_ids.append(qos_profile_id)
 
+        address_pairs = updated_port.get(addr_pair.ADDRESS_PAIRS)
         mac_learning_profile_set = (
+            validators.is_attr_set(address_pairs) and address_pairs and
             self._get_port_security_profile_id() in switch_profile_ids)
         # Add mac_learning profile if it exists and is configured
         if (self._mac_learning_profile and
