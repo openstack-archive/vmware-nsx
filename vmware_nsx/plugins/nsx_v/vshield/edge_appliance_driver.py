@@ -539,14 +539,15 @@ class EdgeApplianceDriver(object):
 
     def _assemble_nat_rule(self, action, original_address,
                            translated_address,
-                           vnic_index=constants.EXTERNAL_VNIC_INDEX,
+                           vnic_index=None,
                            enabled=True,
                            protocol='any',
                            original_port='any',
                            translated_port='any'):
         nat_rule = {}
         nat_rule['action'] = action
-        nat_rule['vnic'] = vnic_index
+        if vnic_index is not None:
+            nat_rule['vnic'] = vnic_index
         nat_rule['originalAddress'] = original_address
         nat_rule['translatedAddress'] = translated_address
         nat_rule['enabled'] = enabled
@@ -564,31 +565,57 @@ class EdgeApplianceDriver(object):
                           e.response)
             raise e
 
-    def update_nat_rules(self, edge_id, snats, dnats):
+    def update_nat_rules(self, edge_id, snats, dnats, indices=None):
         LOG.debug("VCNS: update nat rule\n"
                   "SNAT:%(snat)s\n"
-                  "DNAT:%(dnat)s\n", {
-                        'snat': snats, 'dnat': dnats})
+                  "DNAT:%(dnat)s\n"
+                  "INDICES: %(index)s\n", {
+                        'snat': snats, 'dnat': dnats, 'index': indices})
         nat_rules = []
 
         for dnat in dnats:
-            vnic_index = constants.EXTERNAL_VNIC_INDEX
+            vnic_index = None
             if 'vnic_index' in dnat:
                 vnic_index = dnat['vnic_index']
-            nat_rules.append(self._assemble_nat_rule(
-                'dnat', dnat['dst'], dnat['translated'], vnic_index=vnic_index
-            ))
-            nat_rules.append(self._assemble_nat_rule(
-                'snat', dnat['translated'], dnat['dst'], vnic_index=vnic_index
-            ))
+            if vnic_index or not indices:
+                # we are adding a predefined index or
+                # adding to all interfaces
+                nat_rules.append(self._assemble_nat_rule(
+                    'dnat', dnat['dst'], dnat['translated'],
+                    vnic_index=vnic_index
+                ))
+                nat_rules.append(self._assemble_nat_rule(
+                    'snat', dnat['translated'], dnat['dst'],
+                    vnic_index=vnic_index
+                ))
+            else:
+                for index in indices:
+                    nat_rules.append(self._assemble_nat_rule(
+                        'dnat', dnat['dst'], dnat['translated'],
+                        vnic_index=index
+                    ))
+                    nat_rules.append(self._assemble_nat_rule(
+                        'snat', dnat['translated'], dnat['dst'],
+                        vnic_index=index
+                    ))
 
         for snat in snats:
-            vnic_index = constants.EXTERNAL_VNIC_INDEX
+            vnic_index = None
             if 'vnic_index' in snat:
                 vnic_index = snat['vnic_index']
-            nat_rules.append(self._assemble_nat_rule(
-                'snat', snat['src'], snat['translated'], vnic_index=vnic_index
-            ))
+            if vnic_index or not indices:
+                # we are adding a predefined index
+                # or adding to all interfaces
+                nat_rules.append(self._assemble_nat_rule(
+                    'snat', snat['src'], snat['translated'],
+                    vnic_index=vnic_index
+                ))
+            else:
+                for index in indices:
+                    nat_rules.append(self._assemble_nat_rule(
+                        'snat', snat['src'], snat['translated'],
+                        vnic_index=index
+                    ))
 
         nat = {
             'featureType': 'nat',

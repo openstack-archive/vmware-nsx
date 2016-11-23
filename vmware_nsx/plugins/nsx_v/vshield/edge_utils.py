@@ -2299,7 +2299,29 @@ def _delete_interface(nsxv_manager, context, router_id, network_id,
 def update_nat_rules(nsxv_manager, context, router_id, snat, dnat):
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
     if binding:
-        nsxv_manager.update_nat_rules(binding['edge_id'], snat, dnat)
+        bind_to_all = cfg.CONF.nsxv.bind_floatingip_to_all_interfaces
+
+        indices = None
+        if bind_to_all:
+            # from 6.2.4 onwards, unspecified vnic will result
+            # in binding the rule to all interfaces
+            ver = nsxv_manager.vcns.get_version()
+            if version.LooseVersion(ver) < version.LooseVersion('6.2.4'):
+                LOG.debug("NSX version %s requires explicit nat rule "
+                          "for each interface", ver)
+                edge_id = binding['edge_id']
+                vnic_bindings = nsxv_db.get_edge_vnic_bindings_by_edge(
+                                context.session, edge_id)
+                indices = [vnic_binding.vnic_index
+                          for vnic_binding in vnic_bindings]
+
+                indices.append(vcns_const.EXTERNAL_VNIC_INDEX)
+        else:
+            LOG.debug("Configuring nat rules on external "
+                      "interface only for %s", router_id)
+            indices = [vcns_const.EXTERNAL_VNIC_INDEX]
+
+        nsxv_manager.update_nat_rules(binding['edge_id'], snat, dnat, indices)
     else:
         LOG.warning(_LW("Bindings do not exists for %s"), router_id)
 
