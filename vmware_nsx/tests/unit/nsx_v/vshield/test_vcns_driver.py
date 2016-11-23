@@ -250,7 +250,7 @@ class VcnsDriverTaskManagerTestCase(base.BaseTestCase):
 
         for res, tasks in six.iteritems(alltasks):
             for task in tasks:
-                self.assertEqual(task.status, ts_const.TaskStatus.ABORT)
+                self.assertEqual(ts_const.TaskStatus.ABORT, task.status)
 
     def test_task_manager_stop_1(self):
         self._test_task_manager_stop(True, True, 0)
@@ -354,14 +354,14 @@ class VcnsDriverTestCase(base.BaseTestCase):
         self.edge_id = self.vcns_driver.deploy_edge(
             self.ctx, 'router-id', 'myedge', 'internal-network',
             availability_zone=self.az)
-        self.assertEqual(self.edge_id, 'edge-1')
+        self.assertEqual('edge-1', self.edge_id)
 
     def test_deploy_edge_with(self):
         self.vcns_driver.deploy_edge(
             self.ctx, 'router-id', 'myedge', 'internal-network',
             availability_zone=self.az)
         status = self.vcns_driver.get_edge_status('edge-1')
-        self.assertEqual(status, vcns_const.RouterStatus.ROUTER_STATUS_ACTIVE)
+        self.assertEqual(vcns_const.RouterStatus.ROUTER_STATUS_ACTIVE, status)
 
     def test_deploy_edge_fail(self):
         self.vcns_driver.deploy_edge(
@@ -378,7 +378,7 @@ class VcnsDriverTestCase(base.BaseTestCase):
     def test_get_edge_status(self):
         self._deploy_edge()
         status = self.vcns_driver.get_edge_status(self.edge_id)
-        self.assertEqual(status, vcns_const.RouterStatus.ROUTER_STATUS_ACTIVE)
+        self.assertEqual(vcns_const.RouterStatus.ROUTER_STATUS_ACTIVE, status)
 
     def test_get_edges(self):
         self._deploy_edge()
@@ -417,7 +417,7 @@ class VcnsDriverTestCase(base.BaseTestCase):
 
         natcfg = self.vcns_driver.get_nat_config(self.edge_id)
         rules = natcfg['rules']['natRulesDtos']
-        self.assertEqual(len(rules), 2 * len(dnats) + len(snats))
+        self.assertEqual(2 * len(dnats) + len(snats), len(rules))
         self.natEquals(rules[0], dnats[0])
         self.natEquals(rules[1], self.snat_for_dnat(dnats[0]))
         self.natEquals(rules[2], dnats[1])
@@ -456,8 +456,8 @@ class VcnsDriverTestCase(base.BaseTestCase):
         natcfg = self.vcns_driver.get_nat_config(self.edge_id)
         rules = natcfg['rules']['natRulesDtos']
 
-        self.assertEqual(len(rules), 2 * len(indices) * len(dnats)
-                + len(indices) * len(snats))
+        self.assertEqual(2 * len(indices) * len(dnats)
+                + len(indices) * len(snats), len(rules))
 
         sorted_rules = sorted(rules, key=lambda k: k['vnic'])
         for i in range(0, len(sorted_rules), 7):
@@ -500,18 +500,18 @@ class VcnsDriverTestCase(base.BaseTestCase):
 
         rules = natcfg['rules']['natRulesDtos']
 
-        self.assertEqual(len(rules), 2 * len(dnats) + len(snats))
+        self.assertEqual(2 * len(dnats) + len(snats), len(rules))
 
         self.natEquals(rules[0], dnats[0])
-        self.assertEqual(rules[0]['vnic'], 2)
+        self.assertEqual(2, rules[0]['vnic'])
         self.natEquals(rules[1], self.snat_for_dnat(dnats[0]))
-        self.assertEqual(rules[1]['vnic'], 2)
+        self.assertEqual(2, rules[1]['vnic'])
         self.natEquals(rules[2], dnats[1])
         self.assertNotIn('vnic', rules[2])
         self.natEquals(rules[3], self.snat_for_dnat(dnats[1]))
         self.assertNotIn('vnic', rules[3])
         self.natEquals(rules[4], snats[0])
-        self.assertEqual(rules[4]['vnic'], 5)
+        self.assertEqual(5, rules[4]['vnic'])
         self.natEquals(rules[5], snats[1])
         self.assertNotIn('vnic', rules[5])
         self.natEquals(rules[6], snats[2])
@@ -528,8 +528,8 @@ class VcnsDriverTestCase(base.BaseTestCase):
         if not addr:
             addr = exp.get('dst')
 
-        self.assertEqual(rule['originalAddress'], addr)
-        self.assertEqual(rule['translatedAddress'], exp['translated'])
+        self.assertEqual(addr, rule['originalAddress'])
+        self.assertEqual(exp['translated'], rule['translatedAddress'])
 
     def test_update_routes(self):
         self._deploy_edge()
@@ -565,8 +565,8 @@ class VcnsDriverTestCase(base.BaseTestCase):
             'transport_zone_uuid': 'tz-uuid'
         }]
         lswitch = self.vcns_driver.create_lswitch('lswitch', tz_config)
-        self.assertEqual(lswitch['display_name'], 'lswitch')
-        self.assertEqual(lswitch['type'], 'LogicalSwitchConfig')
+        self.assertEqual('lswitch', lswitch['display_name'])
+        self.assertEqual('LogicalSwitchConfig', lswitch['type'])
         self.assertIn('uuid', lswitch)
 
     def test_delete_lswitch(self):
@@ -596,7 +596,7 @@ class VcnsDriverHATestCase(VcnsDriverTestCase):
         # validate the appliance structure in the request,
         # and return the regular (fake) response
         found_app = request['appliances']['appliances']
-        self.assertEqual(len(found_app), 2)
-        self.assertEqual(found_app[0]['datastoreId'], self._data_store)
-        self.assertEqual(found_app[1]['datastoreId'], self._ha_data_store)
+        self.assertEqual(2, len(found_app))
+        self.assertEqual(self._data_store, found_app[0]['datastoreId'])
+        self.assertEqual(self._ha_data_store, found_app[1]['datastoreId'])
         return self.vcns_driver.vcns.orig_deploy(request)
