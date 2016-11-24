@@ -32,6 +32,7 @@ from vmware_nsx.shell.admin.plugins.nsxv3.resources import ports
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils as v3_utils
 from vmware_nsx.shell import resources as shell
 from vmware_nsx._i18n import _LE, _LW
+from vmware_nsxlib.v3 import exceptions as exc
 from vmware_nsxlib.v3 import nsx_constants as consts
 from vmware_nsxlib.v3 import security
 from vmware_nsxlib.v3 import utils as nsxlib_utils
@@ -258,7 +259,12 @@ def _update_ports_dynamic_criteria_tags():
             continue
 
         _, lport_id = neutron_db.get_lswitch_and_lport_id(port['id'])
-        lport = port_client.get(lport_id)
+        try:
+            lport = port_client.get(lport_id)
+        except exc.ResourceNotFound:
+            LOG.warning(_LW("Failed to update logical-port %s, resource "
+                            "doesn't exists on backend."), lport_id)
+            continue
         criteria_tags = nsxlib.ns_group.get_lport_tags(secgroups)
         lport['tags'] = nsxlib_utils.update_v3_tags(
             lport.get('tags', []), criteria_tags)
