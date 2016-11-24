@@ -2979,8 +2979,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         # TODO(berlin): Add fw rules if fw service is supported
         fake_fw = {'firewall_rule_list': fake_fw_rules}
-        edge_utils.update_firewall(self.nsx_v, context, router_id, fake_fw,
-                                   allow_external=allow_external)
+        try:
+            edge_utils.update_firewall(self.nsx_v, context, router_id, fake_fw,
+                                       allow_external=allow_external)
+        except vsh_exc.ResourceNotFound:
+            LOG.error(_LE("Failed to update firewall for router %s"),
+                      router_id)
 
     # Security group handling section #
     def _delete_nsx_security_group(self, nsx_sg_id):
