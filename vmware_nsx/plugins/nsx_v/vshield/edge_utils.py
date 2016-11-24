@@ -1616,13 +1616,15 @@ class EdgeManager(object):
             context.session, plr_id)
 
         if router_binding is None:
-            LOG.debug("Router binding not found for router: %s", router_id)
+            LOG.error(_LE("Router binding not found for router: %s"),
+                      router_id)
         else:
             plr_edge_id = router_binding.edge_id
             vnic_binding = nsxv_db.get_edge_vnic_binding(
                     context.session, plr_edge_id, lswitch_id)
             if vnic_binding is None:
-                LOG.debug("Vnic binding not found for router: %s", router_id)
+                LOG.error(_LE("Vnic binding not found for router: %s"),
+                          router_id)
             else:
                 # Clear static routes before delete internal vnic
                 self.nsxv_manager.update_routes(plr_edge_id, None, [])
@@ -1643,7 +1645,7 @@ class EdgeManager(object):
         tlr_vnic_binding = nsxv_db.get_edge_vnic_binding(
                 context.session, tlr_edge_id, lswitch_id)
         if tlr_vnic_binding is None:
-            LOG.debug("Vnic binding not found for router: %s", router_id)
+            LOG.error(_LE("Vnic binding not found for router: %s"), router_id)
         else:
             self.nsxv_manager.delete_vdr_internal_interface(
                 tlr_edge_id, tlr_vnic_binding.vnic_index)
