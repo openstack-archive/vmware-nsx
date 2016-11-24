@@ -448,7 +448,8 @@ class EdgeManager(object):
                 context, network_id)
             pg, port_group_id = self.nsxv_manager.vcns.create_port_group(
                 dvs_id, config_spec)
-
+            # Ensure that the portgroup has the correct teaming
+            self.plugin._update_network_teaming(dvs_id, None, port_group_id)
         interface = {
             'name': _uuid(),
             'tunnelId': tunnel_index,

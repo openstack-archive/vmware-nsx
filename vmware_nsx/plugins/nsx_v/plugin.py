@@ -700,6 +700,19 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             return '%s-%s-%s' % (dvs_id[:8], net_data['name'][:35],
                                  net_data['id'])
 
+    def _update_network_teaming(self, dvs_id, net_id, net_moref):
+        if self._dvs:
+            h, switch = self.nsx_v.vcns.get_vdn_switch(dvs_id)
+            try:
+                self._dvs.update_port_groups_config(
+                    net_id, net_moref,
+                    self._dvs.update_port_group_spec_teaming,
+                    switch)
+            except Exception as e:
+                LOG.error(_LE('Unable to update teaming information for '
+                              'net %(net_id)s. Error: %(e)s'),
+                          {'net_id': net_id, 'e': e})
+
     def _create_vlan_network_at_backend(self, net_data, dvs_id):
         network_name = self._get_vlan_network_name(net_data, dvs_id)
         segment = net_data[mpnet.SEGMENTS][0]
@@ -715,12 +728,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         try:
             h, c = self.nsx_v.vcns.create_port_group(dvs_id,
                                                      config_spec)
-            return c
         except Exception as e:
             error = (_("Failed to create port group on DVS: %(dvs_id)s. "
                        "Reason: %(reason)s") % {'dvs_id': dvs_id,
                                                 'reason': e.response})
             raise nsx_exc.NsxPluginException(err_msg=error)
+        self._update_network_teaming(dvs_id, net_data['id'], c)
+        return c
 
     def _get_dvs_ids(self, physical_network):
         """Extract DVS-IDs provided in the physical network field.
