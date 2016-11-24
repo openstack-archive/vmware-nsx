@@ -348,6 +348,11 @@ class EdgeApplianceDriver(object):
                   {'vnic_index': index, 'edge_id': edge_id})
         try:
             self.vcns.delete_interface(edge_id, index)
+        except exceptions.ResourceNotFound:
+            LOG.error(_LE('Failed to delete vnic %(vnic_index)s on edge '
+                          '%(edge_id)s: edge was not found'),
+                      {'vnic_index': index,
+                       'edge_id': edge_id})
         except exceptions.VcnsApiException:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("Failed to delete vnic %(vnic_index)s: "
