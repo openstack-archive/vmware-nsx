@@ -733,7 +733,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                                            network['name'] or 'network'),
                                            network['id'])
         elif device_owner.startswith(const.DEVICE_OWNER_COMPUTE_PREFIX):
-            name = 'instance-port_%s' % port_data['id']
+            name = utils.get_name_and_uuid(
+                port_data['name'] or 'instance-port', port_data['id'])
         else:
             name = port_data['name']
         return name
