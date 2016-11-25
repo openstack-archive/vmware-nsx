@@ -15,6 +15,7 @@
 
 import logging
 import pprint
+import textwrap
 
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
@@ -39,9 +40,24 @@ nsxv = utils.get_nsxv_client()
 @admin_utils.output_header
 def nsx_list_edges(resource, event, trigger, **kwargs):
     """List edges from NSXv backend"""
+
+    headers = ['id', 'name', 'type', 'size']
     edges = utils.get_nsxv_backend_edges()
-    LOG.info(formatters.output_formatter(constants.EDGES, edges,
-                                         ['id', 'name', 'type', 'size']))
+    if (kwargs.get('verbose')):
+        headers += ['syslog']
+        extend_edge_info(edges)
+
+    LOG.info(formatters.output_formatter(constants.EDGES, edges, headers))
+
+
+def extend_edge_info(edges):
+    """Add syslog info to each edge in list"""
+
+    for edge in edges:
+        # for the table to remain human readable, we need to
+        # wrap long edge names
+        edge['name'] = textwrap.fill(edge['name'], 25)
+        edge['syslog'] = utils.get_edge_syslog_info(edge['id'])
 
 
 def get_router_edge_bindings():
@@ -171,6 +187,41 @@ def change_edge_ha(ha, edge_id):
         LOG.error(_LE("%s"), str(e))
 
 
+def change_edge_syslog(properties):
+    request = {
+        'featureType': 'syslog',
+        'serverAddresses': {'ipAddress': [], 'type': 'IpAddressesDto'}}
+
+    request['protocol'] = properties.get('syslog-proto', 'tcp')
+    if request['protocol'] not in ['tcp', 'udp']:
+        LOG.error(_LE("Property value error: syslog-proto must be tcp/udp"))
+        return
+
+    if properties.get('syslog-server'):
+        request['serverAddresses']['ipAddress'].append(
+                properties.get('syslog-server'))
+    if properties.get('syslog-server2'):
+        request['serverAddresses']['ipAddress'].append(
+                properties.get('syslog-server2'))
+
+    edge_id = properties.get('edge-id')
+    try:
+        nsxv.update_edge_syslog(edge_id, request)
+    except nsxv_exceptions.ResourceNotFound as e:
+        LOG.error(_LE("Edge %s not found"), edge_id)
+    except exceptions.NeutronException as e:
+        LOG.error(_LE("%s"), str(e))
+
+
+def delete_edge_syslog(edge_id):
+    try:
+        nsxv.delete_edge_syslog(edge_id)
+    except nsxv_exceptions.ResourceNotFound as e:
+        LOG.error(_LE("Edge %s not found"), edge_id)
+    except exceptions.NeutronException as e:
+        LOG.error(_LE("%s"), str(e))
+
+
 def change_edge_appliance_size(properties):
     size = properties.get('size')
     if size not in nsxv_constants.ALLOWED_EDGE_SIZES:
@@ -234,7 +285,10 @@ def nsx_update_edge(resource, event, trigger, **kwargs):
     usage_msg = _LE("Need to specify edge-id parameter and "
                     "attribute to update. Add --property edge-id=<edge-id> "
                     "and --property highavailability=<True/False> or "
-                    "--property size=<size> or --property appliances=True")
+                    "--property size=<size> or --property appliances=True. "
+                    "For syslog, add --property syslog-server=<ip>|none and "
+                    "(optional) --property syslog-server2=<ip> and/or "
+                    "(optional) --property syslog-proto=[tcp/udp]")
     if not kwargs.get('property'):
         LOG.error(usage_msg)
         return
@@ -253,6 +307,11 @@ def nsx_update_edge(resource, event, trigger, **kwargs):
     elif (properties.get('appliances') and
           properties.get('appliances').lower() == "true"):
         change_edge_appliance(properties['edge-id'])
+    elif properties.get('syslog-server'):
+        if (properties.get('syslog-server').lower() == "none"):
+            delete_edge_syslog(properties['edge-id'])
+        else:
+            change_edge_syslog(properties)
     else:
         # no attribute was specified
         LOG.error(usage_msg)
