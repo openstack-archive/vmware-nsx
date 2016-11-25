@@ -1633,7 +1633,10 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
                 self.assertNotEqual(dhcp_server_id, dhcp_server_id_1)
 
     def test_create_subnet_ipv6_slaac_with_db_reference_error(self):
-        self.skipTest('Currently not support')
+        self.skipTest('Currently not supported')
+
+    def test_create_subnet_ipv6_slaac_with_port_not_found(self):
+        self.skipTest('Currently not supported')
 
     def test_create_subnet_ipv6_gw_values(self):
         # This test should fail with response code 400 as IPv6 subnets with
@@ -1702,6 +1705,9 @@ class TestSubnetPoolsV2(NsxVPluginV2TestCase, test_plugin.TestSubnetsV2):
         self.skipTest('Not supported')
 
     def test_create_subnet_ipv6_slaac_with_db_reference_error(self):
+        self.skipTest('Not supported')
+
+    def test_create_subnet_ipv6_slaac_with_port_not_found(self):
         self.skipTest('Not supported')
 
     def test_create_subnet_ipv6_slaac_with_dhcp_port_on_network(self):
@@ -2419,6 +2425,9 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
         self.skipTest('No DHCP v6 Support yet')
 
     def test_router_update_gateway_add_multiple_prefixes_ipv6(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_router_concurrent_delete_upon_subnet_create(self):
         self.skipTest('No DHCP v6 Support yet')
 
     def test_router_update_gateway_upon_subnet_create_ipv6(self):
