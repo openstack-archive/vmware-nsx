@@ -14,8 +14,7 @@
 
 import re
 
-from neutron.api import extensions
-
+from neutron_lib.api import extensions
 from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib.db import constants as db_const

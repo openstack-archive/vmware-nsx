@@ -12,9 +12,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.api import extensions
 from neutron.extensions import securitygroup
 
+from neutron_lib.api import extensions
 from neutron_lib import constants
 
 LOCAL_IP_PREFIX = 'local_ip_prefix'

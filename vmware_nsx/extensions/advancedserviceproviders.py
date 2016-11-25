@@ -12,7 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.api import extensions
+from neutron_lib.api import extensions
 
 # Attribute Map
 ADV_SERVICE_PROVIDERS = 'advanced_service_providers'

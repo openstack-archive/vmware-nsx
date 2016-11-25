@@ -20,6 +20,7 @@ from neutron.api import extensions
 from neutron.api.v2 import base
 
 from neutron_lib.api import converters
+from neutron_lib.api import extensions as api_extensions
 from neutron_lib.db import constants as db_const
 from neutron_lib import exceptions as nexception
 from neutron_lib.plugins import directory
@@ -166,7 +167,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
 }
 
 
-class Qos_queue(extensions.ExtensionDescriptor):
+class Qos_queue(api_extensions.ExtensionDescriptor):
     """Port Queue extension."""
 
     @classmethod

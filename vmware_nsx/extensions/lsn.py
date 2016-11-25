@@ -16,6 +16,8 @@
 #
 from neutron.api import extensions
 from neutron.api.v2 import base
+
+from neutron_lib.api import extensions as api_extensions
 from neutron_lib.plugins import directory
 
 
@@ -36,7 +38,7 @@ RESOURCE_ATTRIBUTE_MAP = {
 }
 
 
-class Lsn(extensions.ExtensionDescriptor):
+class Lsn(api_extensions.ExtensionDescriptor):
     """Enable LSN configuration for Neutron NSX networks."""
 
     @classmethod
