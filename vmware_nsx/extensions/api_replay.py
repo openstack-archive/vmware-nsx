@@ -15,8 +15,9 @@
 #    under the License.
 #
 
+from neutron_lib.db import constants as db_const
+
 from neutron.api import extensions
-from neutron.api.v2 import attributes
 
 
 # The attributes map is here for 2 reasons:
@@ -39,7 +40,7 @@ RESOURCE_ATTRIBUTE_MAP = {
         'id': ID_WITH_POST,
         'name': {'allow_post': True, 'allow_put': True,
                  'is_visible': True, 'default': '',
-                 'validate': {'type:string': attributes.NAME_MAX_LEN}},
+                 'validate': {'type:string': db_const.NAME_FIELD_SIZE}},
     },
     'security_group_rules': {
         'id': ID_WITH_POST,

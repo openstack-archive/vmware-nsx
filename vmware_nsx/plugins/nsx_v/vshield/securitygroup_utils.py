@@ -15,9 +15,8 @@
 
 import xml.etree.ElementTree as et
 
+from neutron_lib.db import constants as db_const
 from oslo_log import log as logging
-
-from neutron.api.v2 import attributes
 
 from vmware_nsx.common import utils
 
@@ -216,4 +215,4 @@ class NsxSecurityGroupUtils(object):
         if not description:
             description = policy.find('name').text
         # use only the allowed length
-        return description[:attributes.DESCRIPTION_MAX_LEN]
+        return description[:db_const.DESCRIPTION_FIELD_SIZE]

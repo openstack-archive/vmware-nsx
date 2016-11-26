@@ -15,10 +15,10 @@
 import re
 
 from neutron.api import extensions
-from neutron.api.v2 import attributes
 
 from neutron_lib.api import validators
 from neutron_lib import constants
+from neutron_lib.db import constants as db_const
 
 from vmware_nsx._i18n import _
 
@@ -53,7 +53,7 @@ def _validate_dns_format(data):
         return msg
 
 
-def _validate_dns_search_domain(data, max_len=attributes.NAME_MAX_LEN):
+def _validate_dns_search_domain(data, max_len=db_const.NAME_FIELD_SIZE):
     msg = validators.validate_string(data, max_len)
     if msg:
         return msg
@@ -73,7 +73,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
         DNS_SEARCH_DOMAIN: {
             'allow_post': True, 'allow_put': True,
             'default': constants.ATTR_NOT_SPECIFIED,
-            'validate': {'type:dns_search_domain': attributes.NAME_MAX_LEN},
+            'validate': {'type:dns_search_domain': db_const.NAME_FIELD_SIZE},
             'is_visible': True},
     }
 }
