@@ -294,4 +294,4 @@ class TestNsxvFlowClassifierDriver(
                 self.assertTrue(mock_update_section.called)
                 section = mock_update_section.call_args[0][0]
                 # make sure the rule is not there
-                self.assertEqual(None, section.find('rule'))
+                self.assertIsNone(section.find('rule'))

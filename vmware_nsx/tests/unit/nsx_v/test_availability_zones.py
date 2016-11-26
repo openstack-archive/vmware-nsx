@@ -37,7 +37,7 @@ class NsxvAvailabilityZonesTestCase(base.BaseTestCase):
         self.assertEqual("respool", az.resource_pool)
         self.assertEqual("datastore", az.datastore_id)
         self.assertEqual(True, az.edge_ha)
-        self.assertEqual(None, az.ha_datastore_id)
+        self.assertIsNone(az.ha_datastore_id)
 
     def test_availability_zone_without_edge_ha(self):
         az = nsx_az.ConfiguredAvailabilityZone(
@@ -46,7 +46,7 @@ class NsxvAvailabilityZonesTestCase(base.BaseTestCase):
         self.assertEqual("respool", az.resource_pool)
         self.assertEqual("datastore", az.datastore_id)
         self.assertEqual(False, az.edge_ha)
-        self.assertEqual(None, az.ha_datastore_id)
+        self.assertIsNone(az.ha_datastore_id)
 
     def test_availability_fail_long_name(self):
         self.assertRaises(
