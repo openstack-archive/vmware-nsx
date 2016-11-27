@@ -132,11 +132,13 @@ class ManagerError(NsxPluginException):
                 "for %(operation)s %(details)s")
 
     def __init__(self, **kwargs):
-        kwargs['details'] = (': %s' % kwargs['details']
-                             if 'details' in kwargs
-                             else '')
+        details = kwargs.get('details', '')
+        kwargs['details'] = ': %s' % details
         super(ManagerError, self).__init__(**kwargs)
-        self.msg = self.message % kwargs
+        try:
+            self.msg = self.message % kwargs
+        except KeyError:
+            self.msg = details
 
 
 class ResourceNotFound(ManagerError):
