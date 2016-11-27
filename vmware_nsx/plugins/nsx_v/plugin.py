@@ -2066,6 +2066,21 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             for port in ports:
                 if port["device_owner"] == constants.DEVICE_OWNER_DHCP:
                     self.ipam.delete_port(context, port['id'])
+            # Delete the DHCP edge service
+            network_id = subnet['network_id']
+            filters = {'network_id': [network_id]}
+            subnets = self.get_subnets(context, filters=filters)
+            cleaup_edge = True
+            for s in subnets:
+                if s['enable_dhcp']:
+                    cleaup_edge = False
+            if cleaup_edge:
+                self._cleanup_dhcp_edge_before_deletion(
+                    context, network_id)
+                LOG.debug("Delete the DHCP service for network %s",
+                          network_id)
+                self._delete_dhcp_edge_service(context, network_id)
+                return
         address_groups = self._create_network_dhcp_address_group(context,
                                                                  network_id)
         self._update_dhcp_edge_service(context, network_id, address_groups)
