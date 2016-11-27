@@ -104,9 +104,9 @@ if __name__ == "__main__":
                       help="Enable the autodraft setting for NSX "
                       "distributed firewal.")
     (options, args) = parser.parse_args()
-    print ("vsm-ip: %s" % options.vsm_ip)
-    print ("username: %s" % options.username)
-    print ("password: %s" % options.password)
+    print("vsm-ip: %s" % options.vsm_ip)
+    print("username: %s" % options.username)
+    print("password: %s" % options.password)
 
     if options.disabled and options.enabled:
         print("Please provide only one of the options: --disable-autodraft, "

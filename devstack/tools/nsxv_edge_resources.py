@@ -89,7 +89,7 @@ class NSXClient(object):
         self._put("xml",
                   "/api/4.0/edgePublish/tuningConfiguration",
                   et.tostring(tuning))
-        print ("Edge resource limits set")
+        print("Edge resource limits set")
 
 
 if __name__ == "__main__":
@@ -101,9 +101,9 @@ if __name__ == "__main__":
     parser.add_option("-p", "--password", default="default", dest="password",
                       help="NSX Manager password")
     (options, args) = parser.parse_args()
-    print ("vsm-ip: %s" % options.vsm_ip)
-    print ("username: %s" % options.username)
-    print ("password: %s" % options.password)
+    print("vsm-ip: %s" % options.vsm_ip)
+    print("username: %s" % options.username)
+    print("password: %s" % options.password)
 
     nsx_client = NSXClient(options.vsm_ip, options.username,
                            options.password)
