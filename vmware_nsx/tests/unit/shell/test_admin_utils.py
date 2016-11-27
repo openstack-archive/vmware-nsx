@@ -19,6 +19,7 @@ import mock
 import six
 
 from oslo_config import cfg
+from oslo_log import _options
 from oslo_utils import uuidutils
 
 from neutron.callbacks import registry
@@ -45,6 +46,7 @@ BASE_CONF_PATH = vmware.get_fake_conf('neutron.conf.test')
 class AbstractTestAdminUtils(base.BaseTestCase):
 
     def setUp(self):
+        cfg.CONF.unregister_opts(_options.common_cli_opts)
         cfg.CONF.register_cli_opts(resources.cli_opts)
 
         super(AbstractTestAdminUtils, self).setUp()

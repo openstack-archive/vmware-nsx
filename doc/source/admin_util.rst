@@ -16,6 +16,10 @@ Edges
 
     nsxadmin -r edges -o nsx-list
 
+- List backend NSX edges with more details::
+
+    nsxadmin -r edges -o nsx-list --verbose
+
 - Neutron list::
 
     nsxadmin -r edges -o neutron-list
@@ -35,6 +39,14 @@ Edges
 - Update the high availability of an edge: enable/disable high availability of an edge::
 
     nsxadmin -r edges -o nsx-update --property edge-id=edge-55 --property highavailability=<True/False>
+
+- Update syslog config on edge (syslog-proto and syslog-server2 are optional)::
+
+    nsxadmin -o nsx-update -r edges -p edge-id=edge-55 --property syslog-server=<server ip> --property syslog-server2=<server ip> --property syslog-proto=<tcp|udp>
+
+- Delete syslog config on edge::
+
+    nsxadmin -o nsx-update -r edges -p edge-id=edge-55 --property syslog-server=none
 
 Orphaned Edges
 ~~~~~~~~~~~~~~

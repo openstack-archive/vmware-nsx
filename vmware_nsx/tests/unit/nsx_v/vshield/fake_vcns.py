@@ -1169,6 +1169,30 @@ class FakeVcns(object):
         response = ''
         return (header, response)
 
+    def get_edge_syslog(self, edge_id):
+        header = {
+            'status': 200,
+        }
+        response = {
+            'protocol': 'tcp',
+            'serverAddresses': {'ipAddress': ['1.1.1.1']}
+        }
+        return (header, response)
+
+    def update_edge_syslog(self, edge_id, config):
+        header = {
+            'status': 204
+        }
+        response = ''
+        return (header, response)
+
+    def delete_edge_syslog(self, edge_id):
+        header = {
+            'status': 204
+        }
+        response = ''
+        return (header, response)
+
     def change_edge_appliance_size(self, edge_id, size):
         header = {
             'status': 204

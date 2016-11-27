@@ -49,7 +49,6 @@ LOG = logging.getLogger(__name__)
 
 
 def _init_cfg():
-    cfg.CONF.register_cli_opts(resources.cli_opts)
 
     # NOTE(gangila): neutron.common.config registers some options by default
     # which are then shown in the help message. We don't need them
@@ -57,6 +56,9 @@ def _init_cfg():
     cfg.CONF.unregister_opts(_options.common_cli_opts)
     cfg.CONF.unregister_opts(_options.logging_cli_opts)
     cfg.CONF.unregister_opts(neutron_common_config.core_cli_opts)
+
+    # register must come after above unregister to avoid duplicates
+    cfg.CONF.register_cli_opts(resources.cli_opts)
 
     # Init the neutron config
     neutron_config.init(args=['--config-file', constants.NEUTRON_CONF,
@@ -111,7 +113,8 @@ def main(argv=sys.argv[1:]):
     _validate_op_choice(cfg.CONF.operation, nsx_plugin_in_use)
 
     registry.notify(cfg.CONF.resource, cfg.CONF.operation, 'nsxadmin',
-                    force=cfg.CONF.force, property=cfg.CONF.property)
+                    force=cfg.CONF.force, property=cfg.CONF.property,
+                    verbose=cfg.CONF.verbose)
 
 
 if __name__ == "__main__":

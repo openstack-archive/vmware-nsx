@@ -197,7 +197,11 @@ cli_opts = [cfg.StrOpt('fmt',
             cfg.MultiStrOpt('property',
                             short='p',
                             help='Key-value pair containing the information '
-                                 'to be updated. For ex: key=value.')
+                                 'to be updated. For ex: key=value.'),
+            cfg.BoolOpt('verbose',
+                        short='v',
+                        default=False,
+                        help='Triggers detailed output for some commands')
             ]
 
 

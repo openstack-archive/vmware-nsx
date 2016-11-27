@@ -68,3 +68,21 @@ def get_nsxv_backend_edges():
         }
         backend_edges.append(edge_data)
     return backend_edges
+
+
+def get_edge_syslog_info(edge_id):
+    """Get syslog information for specific edge id"""
+
+    nsxv = get_nsxv_client()
+    syslog_info = nsxv.get_edge_syslog(edge_id)[1]
+    if not syslog_info['enabled']:
+        return 'Disabled'
+
+    output = ""
+    if 'protocol' in syslog_info:
+        output += syslog_info['protocol']
+    if 'serverAddresses' in syslog_info:
+        for server_address in syslog_info['serverAddresses']['ipAddress']:
+            output += "\n" + server_address
+
+    return output
