@@ -290,7 +290,7 @@ class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
             self.assertEqual(True, updated_net['shared'])
 
             # Update the description attribute
-            self.assertEqual(None, network['description'])
+            self.assertIsNone(network['description'])
             updated_net = self._plugin.update_network(
                 ctx, id,
                 {'network': {'description': 'test'}})
