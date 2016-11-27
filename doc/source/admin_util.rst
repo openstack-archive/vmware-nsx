@@ -48,6 +48,10 @@ Edges
 
     nsxadmin -o nsx-update -r edges -p edge-id=edge-55 --property syslog-server=none
 
+- Update reservations of an edge::
+
+    nsxadmin -o nsx-update -r edges -p edge-id=edge-55 --property resource=<cpu|memory> --property limit=<limit> --property reservation=<reservation> --property shares=<shares>
+
 Orphaned Edges
 ~~~~~~~~~~~~~~
 
