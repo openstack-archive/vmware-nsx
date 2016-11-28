@@ -1366,14 +1366,28 @@ class FakeVcns(object):
                 msg, 120054, 'core-services')
         return self.return_helper(header, response)
 
-    def get_security_policy(self, policy_id):
-        response_text = (
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-            "<securityPolicy><objectId>%s</objectId>"
-            "<name>pol1</name>"
-            "<description>dummy</description>"
-            "</securityPolicy>") % policy_id
-        return response_text
+    def get_security_policy(self, policy_id, return_xml=True):
+        name = 'pol1'
+        description = 'dummy'
+        if return_xml:
+            response_text = (
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                "<securityPolicy><objectId>%(id)s</objectId>"
+                "<name>%(name)s</name>"
+                "<description>%(desc)s</description>"
+                "</securityPolicy>") % {'id': policy_id, 'name': name,
+                                        'desc': description}
+            return response_text
+        else:
+            return {'objectId': policy_id,
+                    'name': name,
+                    'description': description}
 
     def update_security_policy(self, policy_id, request):
         pass
+
+    def get_security_policies(self):
+        policies = []
+        for id in ['policy-1', 'policy-2', 'policy-3']:
+            policies.append(self.get_security_policy(id, return_xml=False))
+        return {'policies': policies}

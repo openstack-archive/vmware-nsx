@@ -1001,10 +1001,17 @@ class Vcns(object):
                                'ipaddresses', ip_addr)
         return self.do_request(HTTP_DELETE, uri)
 
-    def get_security_policy(self, policy_id):
-        # get the policy configuration as an xml string
+    def get_security_policy(self, policy_id, return_xml=True):
+        # get the policy configuration as an xml string / dictionary
         uri = '%s/%s' % (SECURITY_POLICY_PREFIX, policy_id)
-        h, policy = self.do_request(HTTP_GET, uri, format='xml', decode=False)
+        if return_xml:
+            format = 'xml'
+            decode = False
+        else:
+            format = 'json'
+            decode = True
+        h, policy = self.do_request(HTTP_GET, uri, format=format,
+                                    decode=decode)
         return policy
 
     def update_security_policy(self, policy_id, request):
@@ -1013,3 +1020,9 @@ class Vcns(object):
         return self.do_request(HTTP_PUT, uri, request,
                                format='xml',
                                decode=False, encode=True)
+
+    def get_security_policies(self):
+        # get the policies configuration dictionary
+        uri = '%s/all' % (SECURITY_POLICY_PREFIX)
+        h, policies = self.do_request(HTTP_GET, uri, decode=True)
+        return policies
