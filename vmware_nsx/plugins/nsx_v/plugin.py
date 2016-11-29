@@ -3144,11 +3144,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
             # validate that the new policy exists (and not hidden) by using the
             # plugin getter that raises an exception if it fails.
-            try:
-                new_policy = self.get_nsx_policy(context, new_policy)
-            except n_exc.ObjectNotFound:
-                msg = _('Policy %s was not found on the NSX') % new_policy
-                raise n_exc.InvalidInput(error_message=msg)
+            if new_policy:
+                try:
+                    policy_obj = self.get_nsx_policy(context, new_policy)
+                except n_exc.ObjectNotFound:
+                    msg = _('Policy %s was not found on the NSX') % new_policy
+                    raise n_exc.InvalidInput(error_message=msg)
 
             # Do not support logging with policy
             if sg_with_policy and security_group.get(sg_logging.LOGGING):
@@ -3161,8 +3162,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # if the nsx policy has not description - use its name
             if new_policy and not security_group.get('description'):
                 security_group['description'] = (
-                    new_policy.get('description') or
-                    new_policy.get('name'))[:db_const.DESCRIPTION_FIELD_SIZE]
+                    policy_obj.get('description') or
+                    policy_obj.get('name'))[:db_const.DESCRIPTION_FIELD_SIZE]
         else:
             # must not have a policy:
             if security_group.get(sg_policy.POLICY):
@@ -3620,8 +3621,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 'description': policy.get('description')}
 
     def get_nsx_policy(self, context, id, fields=None):
-        policy = self.nsx_v.vcns.get_security_policy(id, return_xml=False)
+        try:
+            policy = self.nsx_v.vcns.get_security_policy(id, return_xml=False)
+        except vsh_exc.ResourceNotFound:
+            # no such policy on backend
+            raise n_exc.ObjectNotFound(id=id)
         if self._nsx_policy_is_hidden(policy):
+            # This is an hidden policy
             raise n_exc.ObjectNotFound(id=id)
         return self._nsx_policy_to_dict(policy)
 
