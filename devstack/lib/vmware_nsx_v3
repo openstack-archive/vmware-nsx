@@ -60,6 +60,10 @@ function setup_integration_bridge {
     die_if_not_set $LINENO NSX_MANAGER "NSX_MANAGER has not been set!"
     die_if_not_set $LINENO NSX_USER "NSX_USER has not been set!"
     die_if_not_set $LINENO NSX_PASSWORD "NSX_PASSWORD has not been set!"
+    # Ensure that the OVS params are set for the OVS utils
+    iniset $NEUTRON_CONF DEFAULT ovs_integration_bridge $OVS_BRIDGE
+    iniset $NEUTRON_CONF OVS ovsdb_connection $(_ovsdb_connection)
+    iniset $NEUTRON_CONF OVS ovsdb_interface vsctl
     _neutron_ovs_base_setup_bridge $OVS_BRIDGE
     sudo ovs-vsctl set bridge $OVS_BRIDGE external_ids:bridge-id=nsx-managed
     sudo ovs-vsctl set-manager $(_ovsdb_connection)
