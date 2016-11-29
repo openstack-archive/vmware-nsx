@@ -41,6 +41,7 @@ from neutron.common import rpc as n_rpc
 from neutron import context as n_context
 from neutron.db import agents_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
+from neutron.db import api as db_api
 from neutron.db.availability_zone import router as router_az_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import dns_db
@@ -1275,6 +1276,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 ap['mac_address'] != db_port['mac_address']):
                 msg = _('Address pairs should have same MAC as the port')
                 raise n_exc.BadRequest(resource='address_pairs', msg=msg)
+
+    @db_api.retry_db_errors
+    def base_create_port(self, context, port):
+        return super(NsxVPluginV2, self).create_port(context, port)
 
     def create_port(self, context, port):
         port_data = port['port']
