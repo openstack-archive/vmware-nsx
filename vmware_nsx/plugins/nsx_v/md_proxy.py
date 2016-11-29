@@ -434,7 +434,7 @@ class NsxVMetadataProxyHandler(object):
                     'port_security_enabled': False,
                     'tenant_id': None}}
 
-            port = self.nsxv_plugin.create_port(context, port_data)
+            port = self.nsxv_plugin.base_create_port(context, port_data)
 
             address_groups = self._get_address_groups(
                 context, self.internal_net, rtr_id, is_proxy=True)
@@ -662,7 +662,7 @@ class NsxVMetadataProxyHandler(object):
                 'port_security_enabled': False,
                 'tenant_id': None}}
 
-        self.nsxv_plugin.create_port(ctx, port_data)
+        self.nsxv_plugin.base_create_port(ctx, port_data)
 
         address_groups = self._get_address_groups(
             ctx,
