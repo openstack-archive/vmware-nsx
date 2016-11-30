@@ -148,7 +148,7 @@ class RouterSizeBaseTest(base.BaseRouterTest):
         wait_till = time.time() + del_waitfor
         while (time.time() < wait_till):
             try:
-                self.assertEqual(self.vsm.get_edge(nsxv_edge_name), None)
+                self.assertIsNone(self.vsm.get_edge(nsxv_edge_name))
                 return
             except Exception:
                 time.sleep(del_interval)

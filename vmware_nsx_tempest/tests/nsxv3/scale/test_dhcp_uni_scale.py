@@ -109,7 +109,7 @@ class NSXv3DHCPUniScaleTest(base.BaseNetworkTest):
         self.create_subnet(network)
         dhcp_server = self.nsx.get_logical_dhcp_server(network['name'],
                                                        network['id'])
-        self.assertNotEqual(dhcp_server, None)
+        self.assertIsNotNone(dhcp_server)
         for i in range(scale):
             port = self.create_port(network, device_owner='compute:None')
             self.addCleanup(self.ports_client.delete_port, port['id'])

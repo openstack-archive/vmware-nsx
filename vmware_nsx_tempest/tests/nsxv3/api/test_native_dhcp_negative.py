@@ -61,8 +61,8 @@ class NSXv3NativeDHCPNegative(base.BaseNetworkTest):
                                                  network['id'])
         dhcp_server = self.nsx.get_logical_dhcp_server(network['name'],
                                                        network['id'])
-        self.assertNotEqual(nsx_switch, None)
-        self.assertEqual(dhcp_server, None)
+        self.assertIsNotNone(nsx_switch)
+        self.assertIsNone(dhcp_server)
 
     @test.attr(type='nsxv3')
     @test.attr(type=['negative'])
@@ -79,8 +79,8 @@ class NSXv3NativeDHCPNegative(base.BaseNetworkTest):
                                                  network['id'])
         dhcp_server = self.nsx.get_logical_dhcp_server(network['name'],
                                                        network['id'])
-        self.assertNotEqual(nsx_switch, None)
-        self.assertEqual(dhcp_server, None)
+        self.assertIsNotNone(nsx_switch)
+        self.assertIsNone(dhcp_server)
 
     @test.attr(type='nsxv3')
     @test.attr(type=['negative'])
@@ -97,10 +97,10 @@ class NSXv3NativeDHCPNegative(base.BaseNetworkTest):
                                                  network['id'])
         dhcp_server = self.nsx.get_logical_dhcp_server(network['name'],
                                                        network['id'])
-        self.assertNotEqual(nsx_switch, None)
-        self.assertNotEqual(dhcp_server, None)
+        self.assertIsNotNone(nsx_switch)
+        self.assertIsNotNone(dhcp_server)
         # Update subnet to disable DHCP
         self.subnets_client.update_subnet(subnet['id'], enable_dhcp=False)
         dhcp_server = self.nsx.get_logical_dhcp_server(network['name'],
                                                        network['id'])
-        self.assertEqual(dhcp_server, None)
+        self.assertIsNone(dhcp_server)

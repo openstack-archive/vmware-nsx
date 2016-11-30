@@ -46,7 +46,7 @@ class NSXv3NetworksTest(base.BaseNetworkTest):
         nsx_network = self.nsx.get_logical_switch(network['name'],
                                                   network['id'])
         self.assertEqual('ACTIVE', network['status'])
-        self.assertNotEqual(nsx_network, None)
+        self.assertIsNotNone(nsx_network)
         # Verify network update
         new_name = "New_network"
         body = self.networks_client.update_network(net_id, name=new_name)
@@ -54,9 +54,9 @@ class NSXv3NetworksTest(base.BaseNetworkTest):
         nsx_network = self.nsx.get_logical_switch(updated_net['name'],
                                                   updated_net['id'])
         self.assertEqual(updated_net['name'], new_name)
-        self.assertNotEqual(nsx_network, None)
+        self.assertIsNotNone(nsx_network)
         # Verify delete network
         self.networks_client.delete_network(updated_net['id'])
         nsx_network = self.nsx.get_logical_switch(updated_net['name'],
                                                   updated_net['id'])
-        self.assertEqual(nsx_network, None)
+        self.assertIsNone(nsx_network)

@@ -108,10 +108,10 @@ class NSXv3NativeDHCPTest(base.BaseNetworkTest):
         self.assertEqual('ACTIVE', network['status'])
         nsx_network = self.nsx.get_logical_switch(network['name'],
                                                   network['id'])
-        self.assertNotEqual(nsx_network, None)
+        self.assertIsNotNone(nsx_network)
         dhcp_server = self.nsx.get_logical_dhcp_server(network['name'],
                                                        network['id'])
-        self.assertNotEqual(dhcp_server, None)
+        self.assertIsNotNone(dhcp_server)
 
     @test.attr(type='nsxv3')
     @test.idempotent_id('cc970d9b-786a-49c3-8bfb-2f8bc5580ead')
@@ -132,7 +132,7 @@ class NSXv3NativeDHCPTest(base.BaseNetworkTest):
             nsx_dhcp_server = self.nsx.get_logical_dhcp_server(network['name'],
                                                                network['id'])
             dhcp_server = nsx_dhcp_server['ipv4_dhcp_server']
-            self.assertNotEqual(dhcp_server, None)
+            self.assertIsNotNone(dhcp_server)
             self.assertEqual(dhcp_server['dhcp_server_ip'], "192.168.100.2/24")
             self.assertEqual(dhcp_server['gateway_ip'],
                              self._subnet_data['gateway'])
