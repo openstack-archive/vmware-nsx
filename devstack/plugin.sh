@@ -17,9 +17,17 @@
 #    under the License.
 
 
+GITDIR['vmware-nsxlib']=$DEST/vmware-nsxlib
+GITREPO['vmware-nsxlib']=${NSXLIB_REPO:-${GIT_BASE}/openstack/vmware-nsxlib.git}
+GITBRANCH['vmware-nsxlib']=${NSXLIB_BRANCH:-master}
+
 dir=${GITDIR['vmware-nsx']}/devstack
 
 if [[ "$1" == "stack" && "$2" == "install" ]]; then
+    if use_library_from_git 'vmware-nsxlib'; then
+        git_clone_by_name 'vmware-nsxlib'
+        setup_dev_lib 'vmware-nsxlib'
+    fi
     setup_develop ${GITDIR['vmware-nsx']}
 fi
 
