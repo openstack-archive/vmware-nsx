@@ -137,4 +137,4 @@ class ExcRouterTest(base.BaseRouterTest):
         routers_list = [r['id'] for r in list_body['routers']]
         self.assertNotIn(router['router']['id'], routers_list)
         nsxv_edge_name = "%s-%s" % (name, router['router']['id'])
-        self.assertEqual(self.vsm.get_edge(nsxv_edge_name), None)
+        self.assertIsNone(self.vsm.get_edge(nsxv_edge_name))
