@@ -13,8 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron_lib.db import model_base
-from neutron_lib.utils import helpers
+from oslo_log import log as logging
 from oslo_utils import uuidutils
 import sqlalchemy as sa
 from sqlalchemy import orm
@@ -29,10 +28,16 @@ from neutron.db.models import securitygroup as securitygroups_db  # noqa
 from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.api import validators
 from neutron_lib import constants as n_constants
+from neutron_lib.db import model_base
+from neutron_lib.utils import helpers
 
+from vmware_nsx._i18n import _LW
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
 from vmware_nsx.extensions import securitygrouppolicy as sg_policy
+
+
+LOG = logging.getLogger(__name__)
 
 
 class NsxExtendedSecurityGroupProperties(model_base.BASEV2):
@@ -149,12 +154,28 @@ class ExtendedSecurityGroupPropertiesMixin(object):
         if not sg[provider_sg.PROVIDER]:
             raise provider_sg.SecurityGroupNotProvider(id=sg)
 
-    def _check_invalid_security_groups_specified(self, context, port):
+    def _check_invalid_security_groups_specified(self, context, port,
+                                                 only_warn=False):
+        """Check if the lists of security groups are valid
+
+        When only_warn is True we do not raise an exception here, because this
+        may fail nova boot.
+        Instead we will later remove provider security groups from the regular
+        security groups list of the port.
+        Since all the provider security groups of the tenant will be on this
+        list anyway, the result will be the same.
+        """
         if validators.is_attr_set(port.get(ext_sg.SECURITYGROUPS)):
             for sg in port.get(ext_sg.SECURITYGROUPS, []):
                 # makes sure user doesn't add non-provider secgrp as secgrp
                 if self._is_provider_security_group(context, sg):
-                    raise provider_sg.SecurityGroupIsProvider(id=sg)
+                    if only_warn:
+                        LOG.warning(
+                            _LW("Ignored provider security group %(sg)s in "
+                                "security groups list for port %(id)s"),
+                            {'sg': sg, 'id': port['id']})
+                    else:
+                        raise provider_sg.SecurityGroupIsProvider(id=sg)
 
         if validators.is_attr_set(
                 port.get(provider_sg.PROVIDER_SECURITYGROUPS)):
@@ -193,8 +214,6 @@ class ExtendedSecurityGroupPropertiesMixin(object):
         if p.get('device_owner') and n_utils.is_port_trusted(p):
             return
 
-        self._check_invalid_security_groups_specified(context, p)
-
         if not validators.is_attr_set(provider_sgs):
             if provider_sgs is n_constants.ATTR_NOT_SPECIFIED:
                 provider_sgs = self._get_tenant_provider_security_groups(
@@ -204,6 +223,36 @@ class ExtendedSecurityGroupPropertiesMixin(object):
                 # associated with any provider security-group.
                 provider_sgs = []
         return provider_sgs
+
+    def _get_port_security_groups_lists(self, context, port):
+        """Return 2 lists of this port security groups:
+
+        1) Regular security groups for this port
+        2) Provider security groups for this port
+        """
+        port_data = port['port']
+        # First check that the configuration is valid
+        self._check_invalid_security_groups_specified(
+            context, port_data, only_warn=True)
+
+        # get the 2 separate lists of security groups
+        sgids = self._get_security_groups_on_port(
+            context, port) or []
+        psgids = self._get_provider_security_groups_on_port(
+            context, port) or []
+        had_sgs = len(sgids) > 0
+
+        # remove provider security groups which were specified also in the
+        # regular sg list
+        sgids = list(set(sgids) - set(psgids))
+        if not len(sgids) and had_sgs:
+            # Add the default sg of the tenant if no other remained
+            tenant_id = port_data.get('tenant_id')
+            default_sg = self._ensure_default_security_group(
+                context, tenant_id)
+            sgids.append(default_sg)
+
+        return (sgids, psgids)
 
     def _process_port_create_provider_security_group(self, context, p,
                                                      security_group_ids):
@@ -227,6 +276,8 @@ class ExtendedSecurityGroupPropertiesMixin(object):
         sg_changed = (
             set(original_port[ext_sg.SECURITYGROUPS]) !=
             set(updated_port[ext_sg.SECURITYGROUPS]))
+        if sg_changed or provider_sg_changed:
+            self._check_invalid_security_groups_specified(context, p)
 
         if provider_sg_changed:
             port['port']['tenant_id'] = original_port['id']
@@ -234,8 +285,6 @@ class ExtendedSecurityGroupPropertiesMixin(object):
             updated_port[provider_sg.PROVIDER_SECURITYGROUPS] = (
                 self._get_provider_security_groups_on_port(context, port))
         else:
-            if sg_changed:
-                self._check_invalid_security_groups_specified(context, p)
             updated_port[provider_sg.PROVIDER_SECURITYGROUPS] = (
                 original_port[provider_sg.PROVIDER_SECURITYGROUPS])
 
