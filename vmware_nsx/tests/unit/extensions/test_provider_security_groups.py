@@ -168,8 +168,24 @@ class ProviderSecurityGroupExtTestCase(
         provider_secgroup = self._create_provider_security_group()
         with self.port(tenant_id=self._tenant_id) as p:
             # check that the provider security group is on port resource.
+            self.assertEqual(1, len(p['port']['provider_security_groups']))
             self.assertEqual(provider_secgroup['security_group']['id'],
                              p['port']['provider_security_groups'][0])
+
+            # confirm there is still a default security group.
+            self.assertEqual(len(p['port']['security_groups']), 1)
+
+    def test_create_port_gets_multi_provider_sg(self):
+        # need to create provider security groups first.
+        provider_secgroup1 = self._create_provider_security_group()
+        provider_secgroup2 = self._create_provider_security_group()
+        with self.port(tenant_id=self._tenant_id) as p:
+            # check that the provider security group is on port resource.
+            self.assertEqual(2, len(p['port']['provider_security_groups']))
+            self.assertIn(provider_secgroup1['security_group']['id'],
+                          p['port']['provider_security_groups'])
+            self.assertIn(provider_secgroup2['security_group']['id'],
+                          p['port']['provider_security_groups'])
 
             # confirm there is still a default security group.
             self.assertEqual(len(p['port']['security_groups']), 1)

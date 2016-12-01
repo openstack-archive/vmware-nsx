@@ -168,8 +168,8 @@ class ExtendedSecurityGroupPropertiesMixin(object):
             NsxExtendedSecurityGroupProperties.security_group_id
         ).join(securitygroups_db.SecurityGroup).filter(
             securitygroups_db.SecurityGroup.tenant_id == tenant_id,
-            NsxExtendedSecurityGroupProperties.provider == sa.true()).scalar()
-        return [res] if res else []
+            NsxExtendedSecurityGroupProperties.provider == sa.true()).all()
+        return [r[0] for r in res]
 
     def _validate_security_group_properties_create(self, context,
                                                    security_group, default_sg):
