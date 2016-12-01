@@ -966,7 +966,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             name = self._get_port_name(context, port_data)
             nsx_port = self._port_client.create(
                 nsx_net_id, dhcp_server['id'], tags=port_tags, name=name,
-                attachment_type=nsxlib_consts.ATTACHMENT_DHCP)
+                attachment_type=nsxlib_consts.ATTACHMENT_DHCP,
+                switch_profile_ids=[self._dhcp_profile])
             LOG.debug("Created DHCP logical port %(port)s for "
                       "network %(network)s",
                       {'port': nsx_port['id'], 'network': network['id']})
