@@ -91,7 +91,6 @@ from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
 from vmware_nsx.services.trunk.nsx_v3 import driver as trunk_driver
 from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
-from vmware_nsxlib.v3 import ns_group_manager
 from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
 from vmware_nsxlib.v3 import resources as nsx_resources
 from vmware_nsxlib.v3 import router
@@ -187,8 +186,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._init_dhcp_metadata()
 
         self._port_client = nsx_resources.LogicalPort(self._nsx_client)
-        self.nsgroup_manager, self.default_section = (
-            self._init_nsgroup_manager_and_default_section_rules())
+        self.default_section = self._init_default_section_rules()
         self._process_security_group_logging()
         self._router_client = nsx_resources.LogicalRouter(self._nsx_client)
         self._router_port_client = nsx_resources.LogicalRouterPort(
@@ -428,17 +426,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         utils.spawn_n(process_security_group_logging)
 
-    def _init_nsgroup_manager_and_default_section_rules(self):
-        with locking.LockManager.get_lock('nsxv3_nsgroup_manager_init'):
-            nsgroup_manager = ns_group_manager.NSGroupManager(
-                self.nsxlib, cfg.CONF.nsx_v3.number_of_nested_groups)
+    def _init_default_section_rules(self):
+        with locking.LockManager.get_lock('nsxv3_default_section'):
             section_description = ("This section is handled by OpenStack to "
                                    "contain default rules on security-groups.")
             section_id = self.nsxlib.firewall_section.init_default(
-                NSX_V3_FW_DEFAULT_SECTION, section_description,
-                nsgroup_manager.nested_groups.values(),
+                NSX_V3_FW_DEFAULT_SECTION, section_description, [],
                 cfg.CONF.nsx_v3.log_security_groups_blocked_traffic)
-            return nsgroup_manager, section_id
+            return section_id
 
     def _init_dhcp_metadata(self):
         if cfg.CONF.nsx_v3.native_dhcp_metadata:
@@ -3115,7 +3110,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     context, firewall_section['id'], ns_group['id'],
                     logging, action, sg_rules)
                 self.save_security_group_rule_mappings(context, rules['rules'])
-                self.nsgroup_manager.add_nsgroup(ns_group['id'])
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("Failed to create backend firewall rules "
@@ -3163,7 +3157,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         super(NsxV3Plugin, self).delete_security_group(context, id)
         self.nsxlib.firewall_section.delete(section_id)
         self.nsxlib.ns_group.delete(nsgroup_id)
-        self.nsgroup_manager.remove_nsgroup(nsgroup_id)
 
     def create_security_group_rule(self, context, security_group_rule):
         bulk_rule = {'security_group_rules': [security_group_rule]}
