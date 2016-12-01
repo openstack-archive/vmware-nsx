@@ -2328,6 +2328,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             metainfo = {}
         return metainfo
 
+    def get_flavor_metainfo(self, context, flavor_id):
+        """Retrieve metainfo from first profile of specified flavor"""
+        flavor_profile = self._get_router_flavor_profile(context, flavor_id)
+        return self._get_flavor_metainfo_from_profile(flavor_id,
+                                                      flavor_profile)
+
     def _get_router_config_from_flavor(self, context, router):
         """Validate the router flavor and initialize router data
 
@@ -2337,14 +2343,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         """
         if not validators.is_attr_set(router.get('flavor_id')):
             return
-        flavor_id = router['flavor_id']
-        flavor_profile = self._get_router_flavor_profile(context, flavor_id)
-        metainfo = self._get_flavor_metainfo_from_profile(flavor_id,
-                                                          flavor_profile)
+        metainfo = self.get_flavor_metainfo(context, router['flavor_id'])
 
         # Go over the attributes of the metainfo
         allowed_keys = [ROUTER_SIZE, 'router_type', 'distributed',
                         az_ext.AZ_HINTS]
+        # This info will be used later on
+        # and is not part of standard router config
+        future_use_keys = ['syslog']
         for k, v in metainfo.items():
             if k in allowed_keys:
                 #special case for availability zones hints which are an array
@@ -2363,6 +2369,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     raise n_exc.BadRequest(resource="router", msg=msg)
                 # Legal value
                 router[k] = v
+            elif k in future_use_keys:
+                pass
             else:
                 LOG.warning(_LW("Skipping router flavor metainfo [%(k)s:%(v)s]"
                                 ":unsupported field"),

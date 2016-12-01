@@ -4795,12 +4795,43 @@ class TestRouterFlavorTestCase(extension.ExtensionTestCase,
         self.plugin._flv_plugin = directory.get_plugin(plugin_const.FLAVORS)
         self.plugin._process_router_flavor_create = mock.Mock()
 
+        def mock_add_flavor_id(self, router_res, router_db):
+            # this function is a registered callback so we can't mock it
+            # in a regular way.
+            # need to change behavior for this test suite only, since
+            # there is no "unregister_dict_extend_funcs"
+            if router_res['name'] == 'router_with_flavor':
+                router_res['flavor_id'] = 'raspberry'
+
+        self.plugin.register_dict_extend_funcs(
+                l3.ROUTERS, [mock_add_flavor_id])
+
         # init the availability zones
         self.az_name = 'az7'
         az_config = self.az_name + ':respool-7:datastore-7:True'
         cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
         self.plugin._availability_zones_data = (
             nsx_az.ConfiguredAvailabilityZones())
+        self._iteration = 1
+
+    def assertSyslogConfig(self, expected):
+        """Verify syslog was updated in fake driver
+
+        Test assumes edge ids are created sequentally starting from edge-1
+        """
+        edge_id = ('edge-%s' % self._iteration)
+        actual = self.plugin.nsx_v.vcns.get_edge_syslog(edge_id)[1]
+        if not expected:
+            # test expects no syslog to be configured
+            self.assertNotIn('serverAddresses', actual)
+            return
+
+        self.assertEqual(expected['protocol'], actual['protocol'])
+        self.assertEqual(expected['server_ip'],
+                actual['serverAddresses']['ipAddress'][0])
+        if 'server2_ip' in expected:
+            self.assertEqual(expected['server2_ip'],
+                    actual['serverAddresses']['ipAddress'][1])
 
     def _test_router_create_with_flavor(
         self, metainfo, expected_data,
@@ -4810,7 +4841,7 @@ class TestRouterFlavorTestCase(extension.ExtensionTestCase,
 
         router_data = {'flavor_id': 'dummy',
                        'tenant_id': 'whatever',
-                       'name': 'test_router',
+                       'name': 'router_with_flavor',
                        'admin_state_up': True}
 
         if create_type is not None:
@@ -4832,6 +4863,12 @@ class TestRouterFlavorTestCase(extension.ExtensionTestCase,
                 router = self.plugin.create_router(
                     context.get_admin_context(),
                     {'router': router_data})
+                # syslog data is not part of router config
+                # and needs to be validated separately
+                if 'syslog' in expected_data.keys():
+                    self.assertSyslogConfig(expected_data['syslog'])
+                    del expected_data['syslog']
+
                 for key, expected_val in expected_data.items():
                     self.assertEqual(expected_val, router[key])
 
@@ -4898,6 +4935,55 @@ class TestRouterFlavorTestCase(extension.ExtensionTestCase,
                            'router_type': 'shared'}
         self._test_router_create_with_flavor(
             metainfo, expected_router)
+
+    def test_router_create_with_syslog_flavor(self):
+        """Create exclusive router with syslog config in flavor"""
+        # Basic config - server IP only
+        ip = '1.1.1.10'
+        expected_router = {'router_type': 'exclusive',
+                    'syslog': {'protocol': 'tcp',
+                    'server_ip': ip}}
+
+        metainfo = ("{'router_type':'exclusive',"
+                    "'syslog':{'server_ip':'%s'}}" % ip)
+
+        self._iteration = 1
+        self._test_router_create_with_flavor(
+            metainfo, expected_router)
+
+        # Advanced config - secondary server IP and protocol
+        ip2 = '1.1.1.11'
+        for protocol in ['tcp', 'udp']:
+            expected_router = {'router_type': 'exclusive',
+                           'syslog': {'protocol': protocol,
+                               'server_ip': ip, 'server2_ip': ip2}}
+
+            metainfo = ("{'router_type':'exclusive',"
+                    "'syslog':{'server_ip':'%s', 'server2_ip':'%s',"
+                    "'protocol':'%s'}}" % (ip, ip2, protocol))
+
+            self._iteration += 1
+            self._test_router_create_with_flavor(
+                metainfo, expected_router)
+
+    def test_router_create_with_syslog_flavor_error(self):
+        """Create router based on flavor with badly formed syslog metadata
+
+        Syslog metadata should be ignored
+        """
+        expected_router = {'router_type': 'exclusive',
+                           'syslog': None}
+
+        self._iteration = 0
+        bad_defs = ("'server_ip':'1.1.1.1', 'protocol':'http2'",
+                "'server2_ip':'2.2.2.2'",
+                "'protocol':'tcp'")
+        for meta in bad_defs:
+            metainfo = "{'router_type':'exclusive', 'syslog': {%s}}" % meta
+
+            self._iteration += 1
+            self._test_router_create_with_flavor(
+                metainfo, expected_router)
 
     def _test_router_create_with_flavor_error(
         self, metainfo, error_code,

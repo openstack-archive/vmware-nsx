@@ -795,3 +795,28 @@ class EdgeApplianceDriver(object):
             'featureType': "highavailability_4.0",
             'enabled': True}
         self.vcns.enable_ha(edge_id, ha_request)
+
+    def update_edge_syslog(self, edge_id, syslog_config, router_id):
+        if 'server_ip' not in syslog_config:
+            LOG.warning(_LW("Server IP missing in syslog config for %s"),
+                        router_id)
+            return
+
+        protocol = syslog_config.get('protocol', 'tcp')
+        if protocol not in ['tcp', 'udp']:
+            LOG.warning(_LW("Invalid protocol in syslog config for %s"),
+                        router_id)
+            return
+
+        server_ip = syslog_config['server_ip']
+        request = {'featureType': 'syslog',
+                   'protocol': protocol,
+                   'serverAddresses': {'ipAddress': [server_ip],
+                                       'type': 'IpAddressesDto'}}
+
+        # edge allows up to 2 syslog servers
+        if 'server2_ip' in syslog_config:
+            request['serverAddresses']['ipAddress'].append(
+                    syslog_config['server2_ip'])
+
+        self.vcns.update_edge_syslog(edge_id, request)
