@@ -18,14 +18,11 @@
 NSX-V3 Plugin security integration module
 """
 
-import uuid
-
 from neutron.common import constants as const
-from oslo_config import cfg
 from oslo_log import log
 from oslo_utils import excutils
 
-from vmware_nsx._i18n import _, _LW, _LE
+from vmware_nsx._i18n import _LE
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils
 from vmware_nsx.db import nsx_models
@@ -233,29 +230,26 @@ def update_lport_with_security_groups(context, lport_id, original, updated):
             nsgroup_id, firewall.LOGICAL_PORT, lport_id)
 
 
-def init_nsgroup_manager_and_default_section_rules():
+def init_default_section_rules():
     section_description = ("This section is handled by OpenStack to contain "
                            "default rules on security-groups.")
 
-    nsgroup_manager = NSGroupManager(cfg.CONF.nsx_v3.number_of_nested_groups)
-    section_id = _init_default_section(
-        DEFAULT_SECTION, section_description,
-        nsgroup_manager.nested_groups.values())
-    return nsgroup_manager, section_id
+    section_id = _init_default_section(DEFAULT_SECTION, section_description)
+    return section_id
 
 
-def _init_default_section(name, description, nested_groups):
+def _init_default_section(name, description):
     fw_sections = firewall.list_sections()
     for section in fw_sections:
         if section['display_name'] == name:
             firewall.update_section(section['id'],
                                     name, section['description'],
-                                    applied_tos=nested_groups)
+                                    applied_tos=[])
             break
     else:
         tags = utils.build_v3_api_version_tag()
         section = firewall.create_empty_section(
-            name, description, nested_groups, tags)
+            name, description, [], tags)
         block_rule = firewall.get_firewall_rule_dict(
             'Block All', action=firewall.DROP)
         # TODO(roeyc): Add additional rules to allow IPV6 NDP.
@@ -279,125 +273,3 @@ def _init_default_section(name, description, nested_groups):
                                        block_rule],
                                       section['id'])
     return section['id']
-
-
-class NSGroupManager(object):
-    """
-    This class assists with NSX integration for Neutron security-groups,
-    Each Neutron security-group is associated with NSX NSGroup object.
-    Some specific security policies are the same across all security-groups,
-    i.e - Default drop rule, DHCP. In order to bind these rules to all
-    NSGroups (security-groups), we create a nested NSGroup (which its members
-    are also of type NSGroups) to group the other NSGroups and associate it
-    with these rules.
-    In practice, one NSGroup (nested) can't contain all the other NSGroups, as
-    it has strict size limit. To overcome the limited space challange, we
-    create several nested groups instead of just one, and we evenly distribute
-    NSGroups (security-groups) between them.
-    By using an hashing function on the NSGroup uuid we determine in which
-    group it should be added, and when deleting an NSGroup (security-group) we
-    use the same procedure to find which nested group it was added.
-    """
-
-    NESTED_GROUP_NAME = 'OS Nested Group'
-    NESTED_GROUP_DESCRIPTION = ('OpenStack NSGroup. Do not delete.')
-
-    def __init__(self, size):
-        self._nested_groups = self._init_nested_groups(size)
-        self._size = len(self._nested_groups)
-
-    @property
-    def size(self):
-        return self._size
-
-    @property
-    def nested_groups(self):
-        return self._nested_groups
-
-    def _init_nested_groups(self, requested_size):
-        # Construct the groups dict -
-        # {0: <groups-1>,.., n-1: <groups-n>}
-        size = requested_size
-        nested_groups = {
-            self._get_nested_group_index_from_name(nsgroup): nsgroup['id']
-            for nsgroup in firewall.list_nsgroups()
-            if utils.is_internal_resource(nsgroup)}
-
-        if nested_groups:
-            size = max(requested_size, max(nested_groups) + 1)
-            if size > requested_size:
-                LOG.warning(_LW("Lowering the value of "
-                                "nsx_v3:number_of_nested_groups isn't "
-                                "supported, '%s' nested-groups will be used."),
-                            size)
-
-        absent_groups = set(range(size)) - set(nested_groups.keys())
-        if absent_groups:
-            LOG.warning(
-                _LW("Found %(num_present)s Nested Groups, "
-                    "creating %(num_absent)s more."),
-                {'num_present': len(nested_groups),
-                 'num_absent': len(absent_groups)})
-            for i in absent_groups:
-                cont = self._create_nested_group(i)
-                nested_groups[i] = cont['id']
-
-        return nested_groups
-
-    def _get_nested_group_index_from_name(self, nested_group):
-        # The name format is "Nested Group <index+1>"
-        return int(nested_group['display_name'].split()[-1]) - 1
-
-    def _create_nested_group(self, index):
-        name_prefix = NSGroupManager.NESTED_GROUP_NAME
-        name = '%s %s' % (name_prefix, index + 1)
-        description = NSGroupManager.NESTED_GROUP_DESCRIPTION
-        tags = utils.build_v3_api_version_tag()
-        return firewall.create_nsgroup(name, description, tags)
-
-    def _hash_uuid(self, internal_id):
-        return hash(uuid.UUID(internal_id))
-
-    def _suggest_nested_group(self, internal_id):
-        # Suggests a nested group to use, can be iterated to find alternative
-        # group in case that previous suggestions did not help.
-
-        index = self._hash_uuid(internal_id) % self.size
-        yield self.nested_groups[index]
-
-        for i in range(1, self.size):
-            index = (index + 1) % self.size
-            yield self.nested_groups[index]
-
-    def add_nsgroup(self, nsgroup_id):
-        for group in self._suggest_nested_group(nsgroup_id):
-            try:
-                LOG.debug("Adding NSGroup %s to nested group %s",
-                          nsgroup_id, group)
-                firewall.add_nsgroup_member(group,
-                                            firewall.NSGROUP,
-                                            nsgroup_id)
-                break
-            except firewall.NSGroupIsFull:
-                LOG.debug("Nested group %(group_id)s is full, trying the "
-                          "next group..", {'group_id': group})
-        else:
-            raise nsx_exc.NsxPluginException(
-                err_msg=_("Reached the maximum supported amount of "
-                          "security groups."))
-
-    def remove_nsgroup(self, nsgroup_id):
-        for group in self._suggest_nested_group(nsgroup_id):
-            try:
-                firewall.remove_nsgroup_member(
-                    group, firewall.NSGROUP, nsgroup_id, verify=True)
-                break
-            except firewall.NSGroupMemberNotFound:
-                LOG.warning(_LW("NSGroup %(nsgroup)s was expected to be found "
-                                "in group %(group_id)s, but wasn't. "
-                                "Looking in the next group.."),
-                            {'nsgroup': nsgroup_id, 'group_id': group})
-                continue
-        else:
-            LOG.warning(_LW("NSGroup %s was marked for removal, but its "
-                            "reference is missing."), nsgroup_id)

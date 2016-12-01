@@ -142,8 +142,7 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         self._start_rpc_notifiers()
 
         self._port_client = nsx_resources.LogicalPort(self._nsx_client)
-        self.nsgroup_manager, self.default_section = (
-            self._init_nsgroup_manager_and_default_section_rules())
+        self.default_section = self._init_default_section_rules()
         self._router_client = nsx_resources.LogicalRouter(self._nsx_client)
         self._router_port_client = nsx_resources.LogicalRouterPort(
             self._nsx_client)
@@ -293,9 +292,9 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 tags=utils.build_v3_api_version_tag())
         return self._get_port_security_profile()
 
-    def _init_nsgroup_manager_and_default_section_rules(self):
-        with locking.LockManager.get_lock('nsxv3_nsgroup_manager_init'):
-            return security.init_nsgroup_manager_and_default_section_rules()
+    def _init_default_section_rules(self):
+        with locking.LockManager.get_lock('nsxv3_default_section'):
+            return security.init_default_section_rules()
 
     def _setup_rpc(self):
         self.endpoints = [dhcp_rpc.DhcpRpcCallback(),
@@ -1869,7 +1868,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 context, firewall_section['id'], ns_group['id'], sg_rules)
             security.save_sg_rule_mappings(context.session, rules['rules'])
 
-            self.nsgroup_manager.add_nsgroup(ns_group['id'])
         except nsx_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("Failed to create backend firewall rules "
@@ -1912,7 +1910,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         super(NsxV3Plugin, self).delete_security_group(context, id)
         firewall.delete_section(section_id)
         firewall.delete_nsgroup(nsgroup_id)
-        self.nsgroup_manager.remove_nsgroup(nsgroup_id)
 
     def create_security_group_rule(self, context, security_group_rule):
         bulk_rule = {'security_group_rules': [security_group_rule]}
