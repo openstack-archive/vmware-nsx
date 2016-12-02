@@ -816,6 +816,9 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             parent_name=parent_name, parent_tag=tag,
             switch_profile_ids=profiles)
 
+        # Add the DHCP port to the exlcude
+        if device_owner == const.DEVICE_OWNER_DHCP:
+            firewall.add_member_to_fw_exclude_list(result['id'])
         return result
 
     def _validate_address_pairs(self, address_pairs):

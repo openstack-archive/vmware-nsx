@@ -261,3 +261,15 @@ def add_rules_in_section(rules, section_id):
 def delete_rule(section_id, rule_id):
     resource = 'firewall/sections/%s/rules/%s' % (section_id, rule_id)
     return nsxclient.delete_resource(resource)
+
+
+def add_member_to_fw_exclude_list(port_id):
+    resource = 'firewall/excludelist?action=add_member'
+    return nsxclient.create_resource(
+        resource, {'target_id': port_id, 'target_type': LOGICAL_PORT})
+
+
+def remove_member_from_exclude_list(port_id):
+    resource = 'firewall/excludelist'
+    params = '?action=remove_member&object_id=%s' % port_id
+    return nsxclient.create_resource(resource + params)

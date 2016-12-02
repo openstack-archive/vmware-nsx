@@ -258,7 +258,7 @@ def _init_default_section(name, description):
                                              source_ports=[67],
                                              destination_ports=[68])
         dhcp_client_rule_in = firewall.get_firewall_rule_dict(
-            'DHCP Reply', direction=firewall.IN_OUT, service=dhcp_client)
+            'DHCP Reply', direction=firewall.IN, service=dhcp_client)
 
         dhcp_server = (
             firewall.get_nsservice(firewall.L4_PORT_SET_NSSERVICE,
@@ -266,7 +266,7 @@ def _init_default_section(name, description):
                                    source_ports=[68],
                                    destination_ports=[67]))
         dhcp_client_rule_out = firewall.get_firewall_rule_dict(
-            'DHCP Request', direction=firewall.IN_OUT, service=dhcp_server)
+            'DHCP Request', direction=firewall.OUT, service=dhcp_server)
 
         firewall.add_rules_in_section([dhcp_client_rule_out,
                                        dhcp_client_rule_in,
