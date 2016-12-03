@@ -447,3 +447,24 @@ class NSXV3Client(object):
         """
         endpoint = "/dhcp/servers/%s/static-bindings" % dhcp_server
         return self.get_logical_resources(endpoint)
+
+    def get_md_proxies(self):
+        """
+        Get md proxies.
+
+        :return: returns list of md proxies information.
+        """
+        return self.get_logical_resources("/md-proxies")
+
+    def delete_md_proxy(self, uuid):
+        """
+        Delete md proxies.
+        """
+        return self.delete_logical_resources("/md-proxies/%s" % uuid)
+
+    def delete_logical_resources(self, endpoint):
+        """
+        Delete logical resources based on the endpoint.
+        """
+        response = self.delete(endpoint=endpoint)
+        return response.json()
