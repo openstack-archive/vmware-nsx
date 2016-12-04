@@ -94,6 +94,10 @@ class NsxClientTestCase(NsxLibTestCase):
             return nsx_client.get_resource(
                 resource, client=self._client)
 
+        def list_resource(self, resource):
+            return nsx_client.list_resource(
+                resource, client=self._client)
+
         def create_resource(self, resource, data):
             return nsx_client.create_resource(
                 resource, data, client=self._client)
