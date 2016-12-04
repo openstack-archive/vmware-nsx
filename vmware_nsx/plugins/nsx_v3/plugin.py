@@ -790,6 +790,13 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
         if resource_type:
             tags = utils.add_v3_tag(tags, resource_type, device_id)
 
+        # Treat DHCP port and port security disabled
+        if (device_owner != l3_db.DEVICE_OWNER_ROUTER_INTF and
+            (device_owner == const.DEVICE_OWNER_DHCP or
+             not psec_is_on)):
+            tags.append({'scope': security.PORT_SG_SCOPE,
+                         'tag': firewall.EXCLUDE_PORT})
+
         if utils.is_nsx_version_1_1_0(self._nsx_version):
             # If port has no security-groups then we don't need to add any
             # security criteria tag.
@@ -839,11 +846,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             profiles.append(self._mac_learning_profile)
 
         name = self._get_port_name(context, port_data)
-
-        # Add the DHCP port to the exlcude-port NSGroup.
-        if device_owner == const.DEVICE_OWNER_DHCP:
-            tags.append({'scope': security.PORT_SG_SCOPE,
-                         'tag': firewall.EXCLUDE_PORT})
 
         return self._port_client.create(
             port_data['network_id'], vif_uuid,
@@ -1131,6 +1133,13 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             vif_uuid = None
 
         name = self._get_port_name(context, updated_port)
+
+        original_ps = original_port.get('port_security_enabled')
+        updated_ps = updated_port.get('port_security_enabled')
+        if original_ps != updated_ps:
+            if not updated_ps:
+                tags_update.append({'scope': security.PORT_SG_SCOPE,
+                                    'tag': firewall.EXCLUDE_PORT})
 
         if utils.is_nsx_version_1_1_0(self._nsx_version):
             tags_update += security.get_lport_tags_for_security_groups(
