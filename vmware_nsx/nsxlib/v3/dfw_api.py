@@ -96,7 +96,7 @@ class DfwApi(object):
         return self.client.create('ns-groups', body)
 
     def list_nsgroups(self):
-        return self.client.get(
+        return self.client.list(
             'ns-groups?populate_references=false').get('results', [])
 
     @utils.retry_upon_exception_nsxv3(exceptions.StaleRevision)
@@ -222,7 +222,7 @@ class DfwApi(object):
 
     def list_sections(self):
         resource = 'firewall/sections'
-        return self.client.get(resource).get('results', [])
+        return self.client.list(resource).get('results', [])
 
     def delete_section(self, section_id):
         resource = 'firewall/sections/%s?cascade=true' % section_id
