@@ -1468,6 +1468,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if resource_type:
             tags = nsxlib_utils.add_v3_tag(tags, resource_type, device_id)
 
+        if device_owner != l3_db.DEVICE_OWNER_ROUTER_INTF:
+            if ((device_owner == const.DEVICE_OWNER_DHCP and
+                 not cfg.CONF.nsx_v3.native_dhcp_metadata) or
+                (device_owner != const.DEVICE_OWNER_DHCP and
+                 not psec_is_on)):
+                    tags.append({'scope': security.PORT_SG_SCOPE,
+                                 'tag': nsxlib_consts.EXCLUDE_PORT})
+
         if utils.is_nsx_version_1_1_0(self._nsx_version):
             # If port has no security-groups then we don't need to add any
             # security criteria tag.
@@ -1528,11 +1536,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
              (validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)) and
               port_data.get(mac_ext.MAC_LEARNING) is True))):
             profiles.append(self._mac_learning_profile)
-
-        if not cfg.CONF.nsx_v3.native_dhcp_metadata:
-            if device_owner == const.DEVICE_OWNER_DHCP:
-                tags.append({'scope': security.PORT_SG_SCOPE,
-                             'tag': nsxlib_consts.EXCLUDE_PORT})
 
         name = self._get_port_name(context, port_data)
 
@@ -2115,6 +2118,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         name = self._get_port_name(context, updated_port)
 
+        original_ps = original_port.get('port_security_enabled')
+        updated_ps = updated_port.get('port_security_enabled')
+        if original_ps != updated_ps:
+            if not updated_ps:
+                tags_update.append({'scope': security.PORT_SG_SCOPE,
+                                    'tag': nsxlib_consts.EXCLUDE_PORT})
+
         if utils.is_nsx_version_1_1_0(self._nsx_version):
             tags_update += self.nsxlib.ns_group.get_lport_tags(
                 updated_port.get(ext_sg.SECURITYGROUPS, []) +
@@ -2143,10 +2153,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if qos_profile_id is not None:
             switch_profile_ids.append(qos_profile_id)
 
+        psec_is_on = self._get_port_security_profile_id() in switch_profile_ids
+
         address_pairs = updated_port.get(addr_pair.ADDRESS_PAIRS)
         mac_learning_profile_set = (
             validators.is_attr_set(address_pairs) and address_pairs and
-            self._get_port_security_profile_id() in switch_profile_ids)
+            psec_is_on)
         # Add mac_learning profile if it exists and is configured
         if (self._mac_learning_profile and
             (mac_learning_profile_set or
