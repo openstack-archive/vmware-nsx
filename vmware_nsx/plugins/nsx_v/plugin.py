@@ -599,7 +599,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         # update availability zones
         network[az_ext.AVAILABILITY_ZONES] = (
-            self.get_network_availability_zones(context, network))
+            self._get_network_availability_zones(context, network))
 
     def _get_subnet_as_providers(self, context, subnet):
         net_id = subnet.get('network_id')
@@ -2519,9 +2519,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # fallback
         return nsx_az.DEFAULT_NAME
 
-    def get_network_availability_zones(self, context, net_db):
-        """Return availability zones which a network belongs to."""
+    def get_network_availability_zones(self, net_db):
+        context = n_context.get_admin_context()
+        return self._get_network_availability_zones(context, net_db)
 
+    def _get_network_availability_zones(self, context, net_db):
+        """Return availability zones which a network belongs to."""
         resource_id = (vcns_const.DHCP_EDGE_PREFIX + net_db["id"])[:36]
         dhcp_edge_binding = nsxv_db.get_nsxv_router_binding(
             context.session, resource_id)
