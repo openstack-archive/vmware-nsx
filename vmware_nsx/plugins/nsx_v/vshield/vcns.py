@@ -248,6 +248,12 @@ class Vcns(object):
         uri = "%s/%s/syslog/config" % (URI_PREFIX, edge_id)
         return self.do_request(HTTP_DELETE, uri)
 
+    def update_edge_config_with_modifier(self, edge_id, module, modifier):
+        uri = "%s/%s/%s/config" % (URI_PREFIX, edge_id, module)
+        config = self.do_request(HTTP_GET, uri)[1]
+        if modifier(config):
+            return self.do_request(HTTP_PUT, uri, config)
+
     def get_edge_interfaces(self, edge_id):
         uri = "%s/%s/interfaces" % (URI_PREFIX, edge_id)
         return self.do_request(HTTP_GET, uri, decode=True)

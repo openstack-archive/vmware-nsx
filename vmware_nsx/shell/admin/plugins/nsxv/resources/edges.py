@@ -222,6 +222,111 @@ def delete_edge_syslog(edge_id):
         LOG.error(_LE("%s"), str(e))
 
 
+def default_loglevel_modifier(config, level):
+    """Modify log level settings in edge config bulk (standard syntax)"""
+
+    if 'logging' not in config:
+        LOG.error(_LE("Logging section missing in configuration"))
+        return False
+
+    enable = True
+    if level == 'none':
+        enable = False
+        level = 'info'  # default
+
+    config['logging']['enable'] = enable
+    config['logging']['logLevel'] = level
+    return True
+
+
+def routing_loglevel_modifier(config, level):
+    """Modify log level in routing global settings"""
+
+    if 'routingGlobalConfig' not in config:
+        LOG.error(_LE("routingGlobalConfig section missing in configuration"))
+        return False
+
+    return default_loglevel_modifier(config['routingGlobalConfig'], level)
+
+
+def get_loglevel_modifier(module, level):
+    """This function picks modifier according to module and sets log level"""
+    special_modifiers = {'routing': routing_loglevel_modifier}
+
+    modifier = default_loglevel_modifier
+    if module in special_modifiers.keys():
+        modifier = special_modifiers[module]
+
+    def wrapper(config):
+        return modifier(config, level)
+
+    return wrapper
+
+
+def change_edge_loglevel(properties):
+    """Update log level on edge
+
+    Update log level either for specific module or for all modules.
+    'none' disables logging, any other level enables logging
+    Returns True if found any log level properties (regardless if action
+    succeeded)
+    """
+
+    supported_modules = ('routing', 'highavailability',
+            'dhcp', 'loadbalancer', 'dns')
+    supported_levels = ('none', 'debug', 'info', 'warning', 'error')
+
+    modules = {}
+    if properties.get('log-level'):
+        level = properties.get('log-level')
+        if level in supported_levels:
+            # change log level for all modules
+            modules = {k: level for k in supported_modules}
+        else:
+            LOG.info(_LI("Skipping unrecognized level (%s)"), level)
+            return True
+    else:
+        # check for log level settings for specific modules
+        for k, v in properties.items():
+            if k.endswith('-log-level'):
+                module = k[:-10]   # module is in parameter prefix
+                if module in supported_modules:
+                    if v in supported_levels:
+                        modules[module] = v
+                    else:
+                        LOG.info(_LI("Skipping unrecognized level (%s)"), v)
+                        return True
+
+                else:
+                    LOG.info(_LI("Skipping unrecognized module (%s)"), k)
+                    return True
+
+    if not modules:
+        # no log level properties
+        return False
+
+    edge_id = properties.get('edge-id')
+
+    for module, level in modules.items():
+        try:
+            if level == 'none':
+                LOG.info(_LI("Disabling logging for %s"), module)
+            else:
+                LOG.info(_LI("Enabling logging for %(m)s with level %(l)s"),
+                        {'m': module, 'l': level})
+
+            nsxv.update_edge_config_with_modifier(edge_id, module,
+                    get_loglevel_modifier(module, level))
+
+        except nsxv_exceptions.ResourceNotFound as e:
+            LOG.error(_LE("Edge %s not found"), edge_id)
+        except exceptions.NeutronException as e:
+            LOG.error(_LE("%s"), str(e))
+
+    # take ownership for properties
+    return True
+
+
 def change_edge_appliance_size(properties):
     size = properties.get('size')
     if size not in nsxv_constants.ALLOWED_EDGE_SIZES:
@@ -320,10 +425,14 @@ def nsx_update_edge(resource, event, trigger, **kwargs):
                     "attribute to update. Add --property edge-id=<edge-id> "
                     "and --property highavailability=<True/False> or "
                     "--property size=<size> or --property appliances=True. "
-                    "For syslog, add --property syslog-server=<ip>|none and "
+                    "\nFor syslog, add --property syslog-server=<ip>|none and "
                     "(optional) --property syslog-server2=<ip> and/or "
                     "(optional) --property syslog-proto=[tcp/udp] "
-                    "For edge reservations, add "
+                    "\nFor log levels, add --property [routing|dhcp|dns|"
+                    "highavailability|loadbalancer]-log-level="
+                    "[debug|info|warning|error]. To set log level for all "
+                    "modules, add --property log-level=<level> "
+                    "\nFor edge reservations, add "
                     "--property resource=cpu|memory and "
                     "(optional) --property limit=<limit> and/or "
                     "(optional) --property shares=<shares> and/or "
@@ -353,6 +462,8 @@ def nsx_update_edge(resource, event, trigger, **kwargs):
             change_edge_syslog(properties)
     elif properties.get('resource'):
         change_edge_appliance_reservations(properties)
+    elif change_edge_loglevel(properties):
+        pass
     else:
         # no attribute was specified
         LOG.error(usage_msg)

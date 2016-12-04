@@ -48,6 +48,18 @@ Edges
 
     nsxadmin -o nsx-update -r edges -p edge-id=edge-55 --property syslog-server=none
 
+- Enable logging with specified log level for specific module (routing, dns, dhcp, highavailability, loadbalancer) on edge::
+
+    nsxadmin -o nsx-update -r edges -p edge-id=edge-55 --property routing-log-level=debug
+
+- Enable logging with specified log level for all supported modules on edge::
+
+    nsxadmin -o nsx-update -r edges -p edge-id=edge-55 --property log-level=debug
+
+- Disable logging on edge::
+
+    nsxadmin -o nsx-update -r edges -p edge-id=edge-55 --property log-level=none
+
 - Update reservations of an edge::
 
     nsxadmin -o nsx-update -r edges -p edge-id=edge-55 --property resource=<cpu|memory> --property limit=<limit> --property reservation=<reservation> --property shares=<shares>

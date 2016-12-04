@@ -1193,6 +1193,13 @@ class FakeVcns(object):
         response = ''
         return (header, response)
 
+    def update_edge_config_with_modifier(self, edge_id, module, modifier):
+        header = {
+            'status': 204
+        }
+        response = ''
+        return (header, response)
+
     def change_edge_appliance_size(self, edge_id, size):
         header = {
             'status': 204
