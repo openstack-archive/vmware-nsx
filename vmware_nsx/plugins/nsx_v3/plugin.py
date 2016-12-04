@@ -102,6 +102,7 @@ NSX_V3_PSEC_PROFILE_NAME = 'neutron_port_spoof_guard_profile'
 NSX_V3_NO_PSEC_PROFILE_NAME = 'nsx-default-spoof-guard-vif-profile'
 NSX_V3_DHCP_PROFILE_NAME = 'neutron_port_dhcp_profile'
 NSX_V3_MAC_LEARNING_PROFILE_NAME = 'neutron_port_mac_learning_profile'
+NSX_V3_EXCLUDED_PORT_NSGROUP_NAME = 'neutron_excluded_port_nsgroup'
 
 
 # NOTE(asarfaty): the order of inheritance here is important. in order for the
@@ -203,6 +204,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         (self._psec_profile, self._no_psec_profile_id, self._dhcp_profile,
          self._mac_learning_profile) = self._init_nsx_profiles()
 
+        # Include exclude NSGroup
+        LOG.debug("Initializing NSX v3 Excluded Port NSGroup")
+        self._excluded_port_nsgroup = None
+        self._excluded_port_nsgroup = self._init_excluded_port_nsgroup()
+        if not self._excluded_port_nsgroup:
+            msg = _("Unable to initialize NSX v3 Excluded Port NSGroup %s"
+                    ) % NSX_V3_EXCLUDED_PORT_NSGROUP_NAME
+            raise nsx_exc.NsxPluginException(err_msg=msg)
+
         # Bind QoS notifications
         callbacks_registry.subscribe(qos_utils.handle_qos_notification,
                                      callbacks_resources.QOS_POLICY)
@@ -226,7 +236,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if not self._psec_profile:
             msg = _("Unable to initialize NSX v3 port spoofguard "
                     "switching profile: %s") % NSX_V3_PSEC_PROFILE_NAME
-            raise nsx_exc.NsxPluginException(msg)
+            raise nsx_exc.NsxPluginException(err_msg=msg)
         profiles = nsx_resources.SwitchingProfile
         self._no_psec_profile_id = profiles.build_switch_profile_ids(
                 self._switching_profiles,
@@ -241,7 +251,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         except Exception:
             msg = _("Unable to initialize NSX v3 DHCP "
                     "switching profile: %s") % NSX_V3_DHCP_PROFILE_NAME
-            raise nsx_exc.NsxPluginException(msg)
+            raise nsx_exc.NsxPluginException(err_msg=msg)
 
         self._mac_learning_profile = None
         # Only create MAC Learning profile when nsxv3 version >= 1.1.0
@@ -291,6 +301,32 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 'security-group' in self.supported_extension_aliases,
                 'nsx-logical-switch-id':
                 self._get_network_nsx_id(context, port_data['network_id'])}
+
+    @utils.retry_upon_exception_nsxv3(Exception)
+    def _init_excluded_port_nsgroup(self):
+        with locking.LockManager.get_lock('nsxv3_excluded_port_nsgroup_init'):
+            nsgroup = self._get_excluded_port_nsgroup()
+            if not nsgroup:
+                # Create a new NSGroup for excluded ports.
+                membership_criteria = (
+                    self.nsxlib.get_nsgroup_port_tag_expression(
+                        security.PORT_SG_SCOPE, firewall.EXCLUDE_PORT))
+                nsgroup = self.nsxlib.create_nsgroup(
+                    NSX_V3_EXCLUDED_PORT_NSGROUP_NAME,
+                    'Neutron Excluded Port NSGroup',
+                    tags=utils.build_v3_api_version_tag(),
+                    membership_criteria=membership_criteria)
+                # Add this NSGroup to NSX Exclusion List.
+                self.nsxlib.add_member_to_fw_exclude_list(
+                    nsgroup['id'], firewall.NSGROUP)
+            return self._get_excluded_port_nsgroup()
+
+    def _get_excluded_port_nsgroup(self):
+        if self._excluded_port_nsgroup:
+            return self._excluded_port_nsgroup
+        nsgroups = self.nsxlib.find_nsgroups_by_display_name(
+            NSX_V3_EXCLUDED_PORT_NSGROUP_NAME)
+        return nsgroups[0] if nsgroups else None
 
     def _unsubscribe_callback_events(self):
         # l3_db explicitly subscribes to the port delete callback. This
@@ -1468,7 +1504,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         name = self._get_port_name(context, port_data)
 
+        if not cfg.CONF.nsx_v3.native_dhcp_metadata:
+            if device_owner == const.DEVICE_OWNER_DHCP:
+                tags.append({'scope': security.PORT_SG_SCOPE,
+                             'tag': firewall.EXCLUDE_PORT})
+
         nsx_net_id = port_data[pbin.VIF_DETAILS]['nsx-logical-switch-id']
+
         try:
             result = self._port_client.create(
                 nsx_net_id, vif_uuid,
