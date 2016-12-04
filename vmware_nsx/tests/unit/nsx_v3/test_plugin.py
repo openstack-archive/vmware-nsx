@@ -115,6 +115,10 @@ def _mock_nsx_backend_calls():
         side_effect=_return_id_key).start()
 
     mock.patch(
+        "vmware_nsxlib.v3.security.NsxLibNsGroup.find_by_display_name",
+    ).start()
+
+    mock.patch(
         "vmware_nsxlib.v3.NsxLibLogicalSwitch.create",
         side_effect=_return_id_key).start()
 

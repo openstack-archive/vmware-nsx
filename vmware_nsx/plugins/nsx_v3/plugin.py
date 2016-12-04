@@ -104,6 +104,7 @@ NSX_V3_NO_PSEC_PROFILE_NAME = 'nsx-default-spoof-guard-vif-profile'
 NSX_V3_DHCP_PROFILE_NAME = 'neutron_port_dhcp_profile'
 NSX_V3_MAC_LEARNING_PROFILE_NAME = 'neutron_port_mac_learning_profile'
 NSX_V3_FW_DEFAULT_SECTION = 'OS Default Section for Neutron Security-Groups'
+NSX_V3_EXCLUDED_PORT_NSGROUP_NAME = 'neutron_excluded_port_nsgroup'
 
 
 # NOTE(asarfaty): the order of inheritance here is important. in order for the
@@ -201,6 +202,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # init profiles on nsx backend
         (self._psec_profile, self._no_psec_profile_id, self._dhcp_profile,
          self._mac_learning_profile) = self._init_nsx_profiles()
+
+        # Include exclude NSGroup
+        LOG.debug("Initializing NSX v3 Excluded Port NSGroup")
+        self._excluded_port_nsgroup = None
+        self._excluded_port_nsgroup = self._init_excluded_port_nsgroup()
+        if not self._excluded_port_nsgroup:
+            msg = _("Unable to initialize NSX v3 Excluded Port NSGroup %s"
+                    ) % NSX_V3_EXCLUDED_PORT_NSGROUP_NAME
+            raise nsx_exc.NsxPluginException(err_msg=msg)
 
         # Bind QoS notifications
         callbacks_registry.subscribe(qos_utils.handle_qos_notification,
@@ -308,6 +318,33 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 'security-group' in self.supported_extension_aliases,
                 'nsx-logical-switch-id':
                 self._get_network_nsx_id(context, port_data['network_id'])}
+
+    @nsxlib_utils.retry_upon_exception(
+        Exception, max_attempts=cfg.CONF.nsx_v3.retries)
+    def _init_excluded_port_nsgroup(self):
+        with locking.LockManager.get_lock('nsxv3_excluded_port_nsgroup_init'):
+            nsgroup = self._get_excluded_port_nsgroup()
+            if not nsgroup:
+                # Create a new NSGroup for excluded ports.
+                membership_criteria = (
+                    self.nsxlib.ns_group.get_port_tag_expression(
+                        security.PORT_SG_SCOPE, nsxlib_consts.EXCLUDE_PORT))
+                nsgroup = self.nsxlib.ns_group.create(
+                    NSX_V3_EXCLUDED_PORT_NSGROUP_NAME,
+                    'Neutron Excluded Port NSGroup',
+                    tags=self.nsxlib.build_v3_api_version_tag(),
+                    membership_criteria=membership_criteria)
+                # Add this NSGroup to NSX Exclusion List.
+                self.nsxlib.add_member_to_fw_exclude_list(
+                    nsgroup['id'], nsxlib_consts.NSGROUP)
+            return self._get_excluded_port_nsgroup()
+
+    def _get_excluded_port_nsgroup(self):
+        if self._excluded_port_nsgroup:
+            return self._excluded_port_nsgroup
+        nsgroups = self.nsxlib.ns_group.find_by_display_name(
+            NSX_V3_EXCLUDED_PORT_NSGROUP_NAME)
+        return nsgroups[0] if nsgroups else None
 
     def _unsubscribe_callback_events(self):
         # l3_db explicitly subscribes to the port delete callback. This
@@ -1491,6 +1528,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
              (validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)) and
               port_data.get(mac_ext.MAC_LEARNING) is True))):
             profiles.append(self._mac_learning_profile)
+
+        if not cfg.CONF.nsx_v3.native_dhcp_metadata:
+            if device_owner == const.DEVICE_OWNER_DHCP:
+                tags.append({'scope': security.PORT_SG_SCOPE,
+                             'tag': nsxlib_consts.EXCLUDE_PORT})
 
         name = self._get_port_name(context, port_data)
 
