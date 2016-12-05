@@ -56,6 +56,8 @@ IN = 'IN'
 OUT = 'OUT'
 IN_OUT = 'IN_OUT'
 
+EXCLUDE_PORT = 'Exclude-Port'
+
 # NSServices resource types
 L4_PORT_SET_NSSERVICE = 'L4PortSetNSService'
 ICMP_TYPE_NSSERVICE = 'ICMPTypeNSService'
@@ -107,6 +109,14 @@ def create_nsgroup(display_name, description, tags, membership_criteria=None):
 def list_nsgroups():
     return nsxclient.list_resource(
         'ns-groups?populate_references=false').get('results', [])
+
+
+def find_nsgroups_by_display_name(display_name):
+    found = []
+    for resource in list_nsgroups():
+        if resource['display_name'] == display_name:
+            found.append(resource)
+    return found
 
 
 @utils.retry_upon_exception_nsxv3(nsx_exc.StaleRevision)
@@ -263,13 +273,13 @@ def delete_rule(section_id, rule_id):
     return nsxclient.delete_resource(resource)
 
 
-def add_member_to_fw_exclude_list(port_id):
+def add_member_to_fw_exclude_list(target_id, target_type):
     resource = 'firewall/excludelist?action=add_member'
     return nsxclient.create_resource(
-        resource, {'target_id': port_id, 'target_type': LOGICAL_PORT})
+        resource, {'target_id': target_id, 'target_type': target_type})
 
 
-def remove_member_from_exclude_list(port_id):
+def remove_member_from_exclude_list(target_id):
     resource = 'firewall/excludelist'
-    params = '?action=remove_member&object_id=%s' % port_id
+    params = '?action=remove_member&object_id=%s' % target_id
     return nsxclient.create_resource(resource + params)

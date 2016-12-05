@@ -82,6 +82,7 @@ NSX_V3_PSEC_PROFILE_NAME = 'neutron_port_spoof_guard_profile'
 NSX_V3_NO_PSEC_PROFILE_NAME = 'nsx-default-spoof-guard-vif-profile'
 NSX_V3_DHCP_PROFILE_NAME = 'neutron_port_dhcp_profile'
 NSX_V3_MAC_LEARNING_PROFILE_NAME = 'neutron_port_mac_learning_profile'
+NSX_V3_EXCLUDED_PORT_NSGROUP_NAME = 'neutron_excluded_port_nsgroup'
 
 
 class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
@@ -179,6 +180,13 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                             "profile: %(name)s. Reason: %(reason)s"),
                         {'name': NSX_V3_MAC_LEARNING_PROFILE_NAME,
                          'reason': e})
+        LOG.debug("Initializing NSX v3 Excluded Port NSGroup")
+        self._excluded_port_nsgroup = None
+        self._excluded_port_nsgroup = self._init_excluded_port_nsgroup()
+        if not self._excluded_port_nsgroup:
+            msg = _("Unable to initialize NSX v3 Excluded Port NSGroup %s"
+                    ) % NSX_V3_EXCLUDED_PORT_NSGROUP_NAME
+            raise nsx_exc.NsxPluginException(msg)
         self._unsubscribe_callback_events()
 
     def _extend_port_dict_binding(self, port_res, port_db):
@@ -291,6 +299,32 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 whitelist_ports=True, whitelist_switches=False,
                 tags=utils.build_v3_api_version_tag())
         return self._get_port_security_profile()
+
+    @utils.retry_upon_exception_nsxv3(Exception)
+    def _init_excluded_port_nsgroup(self):
+        with locking.LockManager.get_lock('nsxv3_excluded_port_nsgroup_init'):
+            nsgroup = self._get_excluded_port_nsgroup()
+            if not nsgroup:
+                # Create a new NSGroup for excluded ports.
+                membership_criteria = (
+                    firewall.get_nsgroup_port_tag_expression(
+                        security.PORT_SG_SCOPE, firewall.EXCLUDE_PORT))
+                nsgroup = firewall.create_nsgroup(
+                    NSX_V3_EXCLUDED_PORT_NSGROUP_NAME,
+                    'Neutron Excluded Port NSGroup',
+                    tags=utils.build_v3_api_version_tag(),
+                    membership_criteria=membership_criteria)
+                # Add this NSGroup to NSX Exclusion List.
+                firewall.add_member_to_fw_exclude_list(
+                    nsgroup['id'], firewall.NSGROUP)
+            return self._get_excluded_port_nsgroup()
+
+    def _get_excluded_port_nsgroup(self):
+        if self._excluded_port_nsgroup:
+            return self._excluded_port_nsgroup
+        nsgroups = firewall.find_nsgroups_by_display_name(
+            NSX_V3_EXCLUDED_PORT_NSGROUP_NAME)
+        return nsgroups[0] if nsgroups else None
 
     def _init_default_section_rules(self):
         with locking.LockManager.get_lock('nsxv3_default_section'):
@@ -806,7 +840,12 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
 
         name = self._get_port_name(context, port_data)
 
-        result = self._port_client.create(
+        # Add the DHCP port to the exlcude-port NSGroup.
+        if device_owner == const.DEVICE_OWNER_DHCP:
+            tags.append({'scope': security.PORT_SG_SCOPE,
+                         'tag': firewall.EXCLUDE_PORT})
+
+        return self._port_client.create(
             port_data['network_id'], vif_uuid,
             tags=tags,
             name=name,
@@ -815,11 +854,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             attachment_type=attachment_type,
             parent_name=parent_name, parent_tag=tag,
             switch_profile_ids=profiles)
-
-        # Add the DHCP port to the exlcude
-        if device_owner == const.DEVICE_OWNER_DHCP:
-            firewall.add_member_to_fw_exclude_list(result['id'])
-        return result
 
     def _validate_address_pairs(self, address_pairs):
         for pair in address_pairs:
