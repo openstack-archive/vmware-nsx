@@ -57,6 +57,8 @@ IN = 'IN'
 OUT = 'OUT'
 IN_OUT = 'IN_OUT'
 
+EXCLUDE_PORT = 'Exclude-Port'
+
 # NSServices resource types
 L4_PORT_SET_NSSERVICE = 'L4PortSetNSService'
 ICMP_TYPE_NSSERVICE = 'ICMPTypeNSService'
@@ -98,6 +100,13 @@ class DfwApi(object):
     def list_nsgroups(self):
         return self.client.list(
             'ns-groups?populate_references=false').get('results', [])
+
+    def find_nsgroups_by_display_name(self, display_name):
+        found = []
+        for resource in self.list_nsgroups():
+            if resource['display_name'] == display_name:
+                found.append(resource)
+        return found
 
     @utils.retry_upon_exception_nsxv3(exceptions.StaleRevision)
     def update_nsgroup(self, nsgroup_id, display_name=None, description=None,
@@ -267,3 +276,13 @@ class DfwApi(object):
     def get_section_rules(self, section_id):
         resource = 'firewall/sections/%s/rules' % section_id
         return self.client.get(resource)
+
+    def add_member_to_fw_exclude_list(self, target_id, target_type):
+        resource = 'firewall/excludelist?action=add_member'
+        return nsxclient.create_resource(
+            resource, {'target_id': target_id, 'target_type': target_type})
+
+    def remove_member_from_exclude_list(self, target_id):
+        resource = 'firewall/excludelist'
+        params = '?action=remove_member&object_id=%s' % target_id
+        return nsxclient.create_resource(resource + params, {})
