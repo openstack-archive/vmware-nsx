@@ -147,6 +147,12 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
             self._update_routes_on_tlr(context, router_id, newnexthop=None,
                                        metadata_gateway=metadata_gateway)
 
+    def _update_nexthop(self, context, router_id, newnexthop):
+        plr_id = self.edge_manager.get_plr_by_tlr_id(context, router_id)
+        if plr_id:
+            self._update_routes_on_plr(context, router_id, plr_id,
+                                       newnexthop)
+
     def _update_router_gw_info(self, context, router_id, info,
                                is_routes_update=False,
                                force_update=False):

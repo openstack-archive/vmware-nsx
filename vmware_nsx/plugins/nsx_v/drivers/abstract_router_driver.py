@@ -127,3 +127,7 @@ class RouterBaseDriver(RouterAbstractDriver):
     def get_router_az_by_id(self, context, router_id):
         lrouter = self.plugin.get_router(context, router_id)
         return self.get_router_az(lrouter)
+
+    def _update_nexthop(self, context, router_id, newnexthop):
+        """Update the router edge on gateway subnet default gateway change."""
+        self.plugin._update_routes(context, router_id, newnexthop)

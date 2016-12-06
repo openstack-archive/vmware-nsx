@@ -2030,6 +2030,18 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             update_dhcp_config = True
         return update_dhcp_config
 
+    def _update_routers_on_gateway_change(self, context, subnet_id,
+                                          new_gateway):
+        """Update all relevant router edges that the nexthop changed."""
+        port_filters = {'device_owner': [l3_db.DEVICE_OWNER_ROUTER_GW],
+                        'fixed_ips': {'subnet_id': [subnet_id]}}
+        intf_ports = self.get_ports(context.elevated(),
+                                    filters=port_filters)
+        router_ids = [port['device_id'] for port in intf_ports]
+        for router_id in router_ids:
+            router_driver = self._find_router_driver(context, router_id)
+            router_driver._update_nexthop(context, router_id, new_gateway)
+
     def update_subnet(self, context, id, subnet):
         s = subnet['subnet']
         orig = self._get_subnet(context, id)
@@ -2053,6 +2065,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # Update the edge
             network_id = subnet['network_id']
             self.edge_manager.update_dhcp_edge_bindings(context, network_id)
+            # also update routers that use this subnet as their gateway
+            if gateway_ip != subnet['gateway_ip']:
+                self._update_routers_on_gateway_change(context, id,
+                                                       subnet['gateway_ip'])
         if enable_dhcp != subnet['enable_dhcp']:
             self._update_subnet_dhcp_status(subnet, context)
         return subnet

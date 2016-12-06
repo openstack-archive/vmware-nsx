@@ -65,6 +65,8 @@ from vmware_nsx.extensions import securitygrouplogging
 from vmware_nsx.extensions import vnicindex as ext_vnic_idx
 from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v.drivers import (
+    distributed_router_driver as dist_router_driver)
+from vmware_nsx.plugins.nsx_v.drivers import (
     exclusive_router_driver as ex_router_driver)
 from vmware_nsx.plugins.nsx_v.drivers import (
     shared_router_driver as router_driver)
@@ -3144,6 +3146,17 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
     def test_router_add_gateway_multiple_subnets_ipv6(self):
         self.skipTest('not supported')
 
+    def test_update_subnet_gateway_for_external_net(self):
+        plugin = directory.get_plugin()
+        router_obj = ex_router_driver.RouterExclusiveDriver(plugin)
+        with mock.patch.object(plugin, '_find_router_driver',
+                               return_value=router_obj):
+            with mock.patch.object(router_obj,
+                                   '_update_nexthop') as update_nexthop:
+                super(TestExclusiveRouterTestCase,
+                      self).test_update_subnet_gateway_for_external_net()
+                self.assertTrue(update_nexthop.called)
+
 
 class ExtGwModeTestCase(NsxVPluginV2TestCase,
                         test_ext_gw_mode.ExtGwModeIntTestCase):
@@ -3670,6 +3683,17 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
 
     def test_floatingip_update_to_same_port_id_twice(self):
         self.skipTest('Plugin changes floating port status')
+
+    def test_update_subnet_gateway_for_external_net(self):
+        plugin = directory.get_plugin()
+        router_obj = dist_router_driver.RouterDistributedDriver(plugin)
+        with mock.patch.object(plugin, '_find_router_driver',
+                               return_value=router_obj):
+            with mock.patch.object(router_obj,
+                                   '_update_nexthop') as update_nexthop:
+                super(TestVdrTestCase,
+                      self).test_update_subnet_gateway_for_external_net()
+                self.assertTrue(update_nexthop.called)
 
 
 class TestNSXvAllowedAddressPairs(NsxVPluginV2TestCase,
