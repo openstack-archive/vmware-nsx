@@ -164,6 +164,38 @@ class NSXV3Client(object):
         """
         return self.get_logical_resources("/logical-ports")
 
+    def get_logical_port(self, os_name):
+        """
+        Get the logical port based on the os_name provided.
+        The name of the logical port shoud match the os_name.
+        Return the logical port if found, otherwise return None.
+        """
+        if not os_name:
+            LOG.error(_LE("Name of OS port should be present "
+                          "in order to query backend logical port created"))
+            return None
+        lports = self.get_logical_ports()
+        return self.get_nsx_resource_by_name(lports, os_name)
+
+    def get_logical_port_info(self, lport):
+        """
+        Retrieve attributes of a given logical port
+        """
+        lport_uri = "/logical-ports/%s" % lport
+
+        response = self.get(endpoint=lport_uri)
+        res_json = response.json()
+        return res_json
+
+    def get_switching_profile(self, switch_profile):
+        """
+        Retrieve attributes of a given nsx switching profile
+        """
+        sw_profile_uri = "/switching-profiles/%s" % switch_profile
+        response = self.get(endpoint=sw_profile_uri)
+        res_json = response.json()
+        return res_json
+
     def get_os_logical_ports(self):
         """
         Retrieve all logical ports created from OpenStack
