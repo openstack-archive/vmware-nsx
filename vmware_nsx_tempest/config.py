@@ -119,6 +119,20 @@ NSXvGroup = [
                 help="Bugs to be resolved. Define this at tempest.conf and"
                      " test case testtools.skipIf(condition, reasons) to"
                      " skip test cannot be run at specific plugin env."),
+    cfg.StrOpt('default_policy_id',
+               default='',
+               help="NSX security-policy ID used to create all tenants"
+                    " default security-group-policy."
+                    " This must be the same as the one at vmware/nsx.ini"),
+    cfg.StrOpt('alt_policy_id',
+               default='',
+               help="NSX security-policy ID used to create the 2nd"
+                    " security-group-policy, and != default_policy_id."),
+    cfg.BoolOpt('allow_tenant_rules_with_policy',
+               default=False,
+               help="Default=False; a tenant cannot create security-group."
+                    " If True, tenant can create non-policy security-group."
+                    " Sync this value with nsx.ini file."),
 ]
 
 
