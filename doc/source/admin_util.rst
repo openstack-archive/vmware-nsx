@@ -119,6 +119,10 @@ DHCP Bindings
 
     nsxadmin -r dhcp-binding -o nsx-recreate --property edge-id=edge-222
 
+- Recreate DHCP edge for a specific network (when the edge does not exist)::
+
+    nsxadmin -r dhcp-binding -o nsx-recreate --property net-id=5253ae45-75b4-4489-8aa1-6a9e1cfa80a6
+
 Routers
 ~~~~~~~
 - Recreate a router edge by moving the router/s to other edge/s::
