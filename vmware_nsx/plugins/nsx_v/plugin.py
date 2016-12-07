@@ -1921,6 +1921,28 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                             "6.2.3 or higher")
                 raise n_exc.InvalidInput(error_message=err_msg)
 
+    def create_subnet_bulk(self, context, subnets):
+
+        collection = "subnets"
+        items = subnets[collection]
+        new_subnets = []
+        for item in items:
+            try:
+                s = self.create_subnet(context, item)
+                new_subnets.append(s)
+            except Exception as e:
+                LOG.error(_LE('Unable to create bulk subnets. Failed to '
+                              'create item %(item)s. Rolling back. '
+                              'Error: %(e)s'), {'item': item, 'e': e})
+                for subnet in new_subnets:
+                    s_id = subnet['id']
+                    try:
+                        self.delete_subnet(context, s_id)
+                    except Exception:
+                        LOG.error(_LE('Unable to delete subnet %s'), s_id)
+                raise
+        return new_subnets
+
     def create_subnet(self, context, subnet):
         """Create subnet on nsx_v provider network.
 
