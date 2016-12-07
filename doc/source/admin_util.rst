@@ -101,6 +101,10 @@ Backup Edges
 
     nsxadmin -r backup-edges -o fix-mismatch --property edge-id=edge-9
 
+- Delete a backup edge from the DB and NSX by it's router ID::
+
+    nsxadmin -r backup-edges -o neutron-clean --property router-id=backup-26ab1a3a-d73d
+
 DHCP Bindings
 ~~~~~~~~~~~~~
 - List missing DHCP bindings: list dhcp edges that are missing from the NSXv backend::
