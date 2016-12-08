@@ -60,6 +60,26 @@ def nsx_list_backup_edges(resource, event, trigger, **kwargs):
                                          ['id', 'name', 'size', 'type']))
 
 
+def _delete_backup_from_neutron_db(edge_id, router_id):
+    # Remove bindings from Neutron DB
+    edgeapi = utils.NeutronDbClient()
+    nsxv_db.delete_nsxv_router_binding(
+        edgeapi.context.session, router_id)
+    if edge_id:
+        nsxv_db.clean_edge_vnic_binding(edgeapi.context.session, edge_id)
+
+
+def _delete_edge_from_nsx_and_neutron(edge_id, router_id):
+    try:
+        with locking.LockManager.get_lock(edge_id):
+            # Delete from NSXv backend
+            nsxv.delete_edge(edge_id)
+            # Remove bindings from Neutron DB
+            _delete_backup_from_neutron_db(edge_id, router_id)
+    except Exception as expt:
+        LOG.error(_LE("%s"), str(expt))
+
+
 def nsx_clean_backup_edge(resource, event, trigger, **kwargs):
     """Delete backup edge"""
     errmsg = ("Need to specify edge-id property. Add --property "
@@ -91,18 +111,42 @@ def nsx_clean_backup_edge(resource, event, trigger, **kwargs):
         if not confirm:
             LOG.info(_LI("Backup edge deletion aborted by user"))
             return
-        try:
-            with locking.LockManager.get_lock(edge_id):
-                # Delete from NSXv backend
-                nsxv.delete_edge(edge_id)
-                # Remove bindings from Neutron DB
-                edgeapi = utils.NeutronDbClient()
-                nsxv_db.delete_nsxv_router_binding(
-                    edgeapi.context.session, edge[1]['name'])
-                nsxv_db.clean_edge_vnic_binding(edgeapi.context.session,
-                                                edge_id)
-        except Exception as expt:
-            LOG.error(_LE("%s"), str(expt))
+        _delete_edge_from_nsx_and_neutron(edge_id, edge[1]['name'])
+
+
+@admin_utils.output_header
+def neutron_clean_backup_edge(resource, event, trigger, **kwargs):
+    """Delete a backup edge from the neutron, and backend by it's name
+
+    The name of the backup edge is the router-id column in the BD table
+    nsxv_router_bindings, and it is also printed by list-mismatches
+    """
+    errmsg = ("Need to specify router-id property. Add --property "
+              "router-id=<router-id>")
+    if not kwargs.get('property'):
+        LOG.error(_LE("%s"), errmsg)
+        return
+    properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
+    router_id = properties.get('router-id')
+    if not router_id:
+        LOG.error(_LE("%s"), errmsg)
+        return
+
+    # look for the router-binding entry
+    edgeapi = utils.NeutronDbClient()
+    rtr_binding = nsxv_db.get_nsxv_router_binding(
+            edgeapi.context.session, router_id)
+    if not rtr_binding:
+        LOG.error(_LE('Backup %s was not found in DB'), router_id)
+        return
+
+    edge_id = rtr_binding['edge_id']
+    if edge_id:
+        # delete from backend too
+        _delete_edge_from_nsx_and_neutron(edge_id, router_id)
+    else:
+        # delete only from DB
+        _delete_backup_from_neutron_db(None, router_id)
 
 
 @admin_utils.output_header
@@ -249,3 +293,6 @@ registry.subscribe(nsx_list_name_mismatches,
 registry.subscribe(nsx_fix_name_mismatch,
                    constants.BACKUP_EDGES,
                    shell.Operations.FIX_MISMATCH.value)
+registry.subscribe(neutron_clean_backup_edge,
+                   constants.BACKUP_EDGES,
+                   shell.Operations.NEUTRON_CLEAN.value)
