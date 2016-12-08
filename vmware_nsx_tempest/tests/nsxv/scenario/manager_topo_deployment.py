@@ -399,15 +399,21 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
         if port_id:
             # attached to port, will not check ip assignement & reachability
             return net_floatingip
+        serv_fip = net_floatingip['floating_ip_address']
+        # in some condiction, remove the serv_fip from your local known_hosts
+        # can solve the ssh "Connection refused" problem.
+        rm_sshkey(serv_fip)
         if not and_check_assigned:
             # caller will do the floatingip assigned to server and ping tests
             return net_floatingip
         self._waitfor_floatingip_assigned_to_server(client_mgr.servers_client,
                                                     server.get('id'))
         server_pingable = self._waitfor_associated_floatingip(net_floatingip)
+        STEPINTO_DEBUG_IF_TRUE(not server_pingable)
         self.assertTrue(
             server_pingable,
-            msg="Expect server to be reachable after floatingip assigned.")
+            msg=("Expect server to be reachable after"
+                 " floating-ip[%s] assigned." % serv_fip))
         return net_floatingip
 
     def _waitfor_floatingip_assigned_to_server(self, server_client, server_id,
@@ -526,7 +532,8 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
 
     def _check_floatingip_connectivity(self, floating_ip, server,
                                        should_connect=True,
-                                       msg=None, ping_timeout=30):
+                                       msg=None, ping_timeout=30,
+                                       floating_ips_client=None):
         ip_address = floating_ip['floating_ip_address']
         floatingip_status = 'ACTIVE' if should_connect else 'DOWN'
         is_pingable = self.ping_ip_address(ip_address,
@@ -537,7 +544,37 @@ class TopoDeployScenarioManager(manager.NetworkScenarioTest):
             self.assertTrue(is_pingable, msg=msg)
         else:
             self.assertFalse(is_pingable, msg=msg)
-        self.check_floating_ip_status(floating_ip, floatingip_status)
+        self.check_floating_ip_status(floating_ip, floatingip_status,
+                                      floating_ips_client)
+
+    def check_floating_ip_status(self, floating_ip, status,
+                                 floating_ips_client=None):
+        """Verifies floatingip reaches the given status
+
+        :param dict floating_ip: floating IP dict to check status
+        :param status: target status
+        :raises: AssertionError if status doesn't match
+        """
+        floating_ips_client = floating_ips_client or self.floating_ips_client
+        floatingip_id = floating_ip['id']
+
+        def refresh():
+            result = (floating_ips_client.
+                      show_floatingip(floatingip_id)['floatingip'])
+            return status == result['status']
+
+        test_utils.call_until_true(refresh,
+                                   CONF.network.build_timeout,
+                                   CONF.network.build_interval)
+        floating_ip = floating_ips_client.show_floatingip(
+            floatingip_id)['floatingip']
+        self.assertEqual(status, floating_ip['status'],
+                         message="FloatingIP: {fp} is at status: {cst}. "
+                                 "failed  to reach status: {st}"
+                         .format(fp=floating_ip, cst=floating_ip['status'],
+                                 st=status))
+        LOG.info("FloatingIP: {fp} is at status: {st}"
+                 .format(fp=floating_ip, st=status))
 
     def get_image_userpass(self):
         return (CONF.validation.image_ssh_user,
@@ -769,3 +806,13 @@ def copy_file_to_host(file_from, dest, host, username, pkey):
                                               stdout,
                                               stderr)
     return stdout
+
+
+def STEPINTO_DEBUG_IF_TRUE(want2debug=False):
+    """Betting you are not set OS_TEST_TIMEOUT=24-hours running tempest"""
+    t_timeout = int(os.environ.get('OS_TEST_TIMEOUT', 0))
+    if want2debug and t_timeout > 86400:
+        # uncomment following statements to turn on debuggging
+        # import pdb
+        # pdb.set_trace()
+        pass
