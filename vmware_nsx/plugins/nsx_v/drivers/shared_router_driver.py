@@ -580,7 +580,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             conflict_router_ids.extend(new_conflict_router_ids)
             conflict_router_ids = list(set(conflict_router_ids))
 
-            az = self.get_router_az_by_id(context, router_id)
+            az, flavor_id = self.get_router_az_and_flavor_by_id(context,
+                                                                router_id)
             new = self.edge_manager.bind_router_on_available_edge(
                 context, router_id, optional_router_ids,
                 conflict_router_ids, conflict_network_ids,
@@ -602,6 +603,14 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                     edge_utils.update_internal_interface(
                         self.nsx_v, context, router_id, network_id,
                         address_groups, admin_state)
+
+            if flavor_id:
+                # if several routers share same edge, they might have
+                # different flavors with conflicting syslog settings.
+                # in this case, each new router association will override
+                # previous syslog settings on the edge
+                self.edge_manager.update_syslog_by_flavor(context, router_id,
+                        flavor_id, edge_id)
 
     def _unbind_router_on_edge(self, context, router_id):
         self.edge_manager.reconfigure_shared_edge_metadata_port(

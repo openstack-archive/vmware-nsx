@@ -124,6 +124,10 @@ class RouterBaseDriver(RouterAbstractDriver):
     def get_router_az(self, lrouter):
         return self.plugin.get_router_az(lrouter)
 
+    def get_router_az_and_flavor_by_id(self, context, router_id):
+        lrouter = self.plugin.get_router(context, router_id)
+        return (self.get_router_az(lrouter), lrouter.get('flavor_id'))
+
     def get_router_az_by_id(self, context, router_id):
         lrouter = self.plugin.get_router(context, router_id)
         return self.get_router_az(lrouter)

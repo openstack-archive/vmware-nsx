@@ -34,6 +34,7 @@ from neutron import context as q_context
 from neutron.extensions import l3
 from neutron.plugins.common import constants as plugin_const
 
+from neutron_lib.api import validators
 from neutron_lib import exceptions as n_exc
 
 from vmware_nsx._i18n import _, _LE, _LW
@@ -221,9 +222,8 @@ class EdgeManager(object):
         """Create an edge for logical router support."""
         if context is None:
             context = q_context.get_admin_context()
-
         # deploy edge
-        self.nsxv_manager.deploy_edge(context, lrouter['id'],
+        return self.nsxv_manager.deploy_edge(context, lrouter['id'],
             lrouter['name'], internal_network=None,
             appliance_size=appliance_size,
             dist=(edge_type == nsxv_constants.VDR_EDGE),
@@ -618,11 +618,10 @@ class EdgeManager(object):
                 appliance_size=appliance_size,
                 edge_type=edge_type,
                 availability_zone=availability_zone.name)
-            self._deploy_edge(context, lrouter,
+            return self._deploy_edge(context, lrouter,
                               appliance_size=appliance_size,
                               edge_type=edge_type,
                               availability_zone=availability_zone)
-            return
 
         with locking.LockManager.get_lock('nsx-edge-request'):
             self._clean_all_error_edge_bindings(
@@ -645,7 +644,7 @@ class EdgeManager(object):
                 appliance_size=appliance_size,
                 edge_type=edge_type,
                 availability_zone=availability_zone.name)
-            self._deploy_edge(context, lrouter,
+            edge_id = self._deploy_edge(context, lrouter,
                               appliance_size=appliance_size,
                               edge_type=edge_type,
                               availability_zone=availability_zone)
@@ -688,6 +687,8 @@ class EdgeManager(object):
             context, router_ids,
             appliance_size=appliance_size, edge_type=edge_type,
             availability_zone=availability_zone)
+
+        return edge_id
 
     def _free_edge_appliance(self, context, router_id):
         """Try to collect one edge to pool."""
@@ -793,16 +794,30 @@ class EdgeManager(object):
             router_name[:nsxv_constants.ROUTER_NAME_LENGTH - len(router_id)] +
             '-' + router_id)
 
+    def update_syslog_by_flavor(self, context, router_id, flavor_id, edge_id):
+        """Update syslog config on edge according to router flavor."""
+        syslog_config = self._get_syslog_config_from_flavor(context,
+                                                            router_id,
+                                                            flavor_id)
+        if syslog_config:
+            self.nsxv_manager.update_edge_syslog(edge_id, syslog_config,
+                                                 router_id)
+
     def create_lrouter(
         self, context, lrouter, lswitch=None, dist=False,
         appliance_size=vcns_const.SERVICE_SIZE_MAPPING['router'],
         availability_zone=None):
         """Create an edge for logical router support."""
         router_name = self._build_lrouter_name(lrouter['id'], lrouter['name'])
-        self._allocate_edge_appliance(
+
+        edge_id = self._allocate_edge_appliance(
             context, lrouter['id'], router_name,
             appliance_size=appliance_size,
             dist=dist, availability_zone=availability_zone)
+
+        if lrouter.get('flavor_id'):
+            self.update_syslog_by_flavor(context,
+                    lrouter['id'], lrouter['flavor_id'], edge_id)
 
     def delete_lrouter(self, context, router_id, dist=False):
         self._free_edge_appliance(context, router_id)
@@ -1881,6 +1896,13 @@ class EdgeManager(object):
             LOG.warning(_LW("Failed to create dhcp bindings since dhcp edge "
                             "for net %s not found at the backend"),
                         network_id)
+
+    def _get_syslog_config_from_flavor(self, context, router_id, flavor_id):
+        if not validators.is_attr_set(flavor_id):
+            return
+
+        metainfo = self.plugin.get_flavor_metainfo(context, flavor_id)
+        return metainfo.get('syslog')
 
 
 def create_lrouter(nsxv_manager, context, lrouter, lswitch=None, dist=False,
