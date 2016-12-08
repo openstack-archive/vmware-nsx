@@ -67,7 +67,9 @@ class ProviderSecurityGroupTestPlugin(
 
         with context.session.begin(subtransactions=True):
             self._ensure_default_security_group_on_port(context, port)
-            sgids = self._get_security_groups_on_port(context, port)
+            (sgids, provider_groups) = self._get_port_security_groups_lists(
+                context, port)
+
             port_db = super(ProviderSecurityGroupTestPlugin, self).create_port(
                 context, port)
             port_data.update(port_db)
@@ -77,8 +79,6 @@ class ProviderSecurityGroupTestPlugin(
                 context, port_db, sgids)
 
             # handling adding provider security group to port if there are any
-            provider_groups = self._get_provider_security_groups_on_port(
-                context, port)
             self._process_port_create_provider_security_group(
                 context, port_data, provider_groups)
         return port_data

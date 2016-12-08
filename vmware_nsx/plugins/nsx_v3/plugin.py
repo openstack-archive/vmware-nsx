@@ -1876,19 +1876,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 context, port_data, dhcp_opts)
 
             # handle adding security groups to port
-            sgids = self._get_security_groups_on_port(context, port)
+            (sgids, provider_groups) = self._get_port_security_groups_lists(
+                context, port)
             self._process_port_create_security_group(
                 context, port_data, sgids)
-
-            # handling adding provider security group to port if there are any
-            provider_groups = self._get_provider_security_groups_on_port(
-                context, port)
             self._process_port_create_provider_security_group(
                 context, port_data, provider_groups)
             # add provider groups to other security groups list.
             # sgids is a set() so we need to | it in.
             if provider_groups:
-                sgids |= set(provider_groups)
+                sgids = list(set(sgids) | set(provider_groups))
             self._extend_port_dict_binding(context, port_data)
             if validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)):
                 if is_psec_on:

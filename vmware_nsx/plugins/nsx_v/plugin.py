@@ -1365,8 +1365,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             else:
                 port_data[provider_sg.PROVIDER_SECURITYGROUPS] = []
 
-            sgids = self._get_security_groups_on_port(context, port)
-            ssgids = self._get_provider_security_groups_on_port(context, port)
+            (sgids, ssgids) = self._get_port_security_groups_lists(
+                context, port)
+
             self._process_port_create_security_group(context, port_data, sgids)
             self._process_port_create_provider_security_group(context,
                                                               port_data,
