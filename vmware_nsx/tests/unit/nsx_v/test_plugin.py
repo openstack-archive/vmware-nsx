@@ -4891,10 +4891,10 @@ class TestRouterFlavorTestCase(extension.ExtensionTestCase,
                 # and needs to be validated separately
                 if 'syslog' in expected_data.keys():
                     self.assertSyslogConfig(expected_data['syslog'])
-                    del expected_data['syslog']
 
                 for key, expected_val in expected_data.items():
-                    self.assertEqual(expected_val, router[key])
+                    if key != 'syslog':
+                        self.assertEqual(expected_val, router[key])
 
     def test_router_create_with_flavor_different_sizes(self):
         """Create exclusive router with size in flavor
@@ -4975,20 +4975,22 @@ class TestRouterFlavorTestCase(extension.ExtensionTestCase,
         self._test_router_create_with_flavor(
             metainfo, expected_router)
 
-        # Advanced config - secondary server IP and protocol
+        # Advanced config - secondary server IP, protocol and loglevel
         ip2 = '1.1.1.11'
         for protocol in ['tcp', 'udp']:
-            expected_router = {'router_type': 'exclusive',
-                           'syslog': {'protocol': protocol,
-                               'server_ip': ip, 'server2_ip': ip2}}
+            for loglevel in ['none', 'debug', 'info', 'warning', 'error']:
+                expected_router = {'router_type': 'exclusive',
+                               'syslog': {'protocol': protocol,
+                                   'server_ip': ip, 'server2_ip': ip2}}
 
-            metainfo = ("{'router_type':'exclusive',"
-                    "'syslog':{'server_ip':'%s', 'server2_ip':'%s',"
-                    "'protocol':'%s'}}" % (ip, ip2, protocol))
+                metainfo = ("{'router_type':'exclusive',"
+                        "'syslog':{'server_ip':'%s', 'server2_ip':'%s',"
+                        "'protocol':'%s', 'log_level':'%s'}}" %
+                        (ip, ip2, protocol, loglevel))
 
-            self._iteration += 1
-            self._test_router_create_with_flavor(
-                metainfo, expected_router)
+                self._iteration += 1
+                self._test_router_create_with_flavor(
+                    metainfo, expected_router)
 
     def test_router_create_with_syslog_flavor_error(self):
         """Create router based on flavor with badly formed syslog metadata
@@ -5001,7 +5003,9 @@ class TestRouterFlavorTestCase(extension.ExtensionTestCase,
         self._iteration = 0
         bad_defs = ("'server_ip':'1.1.1.1', 'protocol':'http2'",
                 "'server2_ip':'2.2.2.2'",
-                "'protocol':'tcp'")
+                "'protocol':'tcp'",
+                "'server_ip':'1.1.1.1', 'protocol':'udp','log_level':'pro'",
+                "'log_level':'error'")
         for meta in bad_defs:
             metainfo = "{'router_type':'exclusive', 'syslog': {%s}}" % meta
 

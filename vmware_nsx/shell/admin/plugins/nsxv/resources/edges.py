@@ -17,6 +17,7 @@ import logging
 import pprint
 import textwrap
 
+from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 
@@ -222,47 +223,6 @@ def delete_edge_syslog(edge_id):
         LOG.error(_LE("%s"), str(e))
 
 
-def default_loglevel_modifier(config, level):
-    """Modify log level settings in edge config bulk (standard syntax)"""
-
-    if 'logging' not in config:
-        LOG.error(_LE("Logging section missing in configuration"))
-        return False
-
-    enable = True
-    if level == 'none':
-        enable = False
-        level = 'info'  # default
-
-    config['logging']['enable'] = enable
-    config['logging']['logLevel'] = level
-    return True
-
-
-def routing_loglevel_modifier(config, level):
-    """Modify log level in routing global settings"""
-
-    if 'routingGlobalConfig' not in config:
-        LOG.error(_LE("routingGlobalConfig section missing in configuration"))
-        return False
-
-    return default_loglevel_modifier(config['routingGlobalConfig'], level)
-
-
-def get_loglevel_modifier(module, level):
-    """This function picks modifier according to module and sets log level"""
-    special_modifiers = {'routing': routing_loglevel_modifier}
-
-    modifier = default_loglevel_modifier
-    if module in special_modifiers.keys():
-        modifier = special_modifiers[module]
-
-    def wrapper(config):
-        return modifier(config, level)
-
-    return wrapper
-
-
 def change_edge_loglevel(properties):
     """Update log level on edge
 
@@ -272,34 +232,17 @@ def change_edge_loglevel(properties):
     succeeded)
     """
 
-    supported_modules = ('routing', 'highavailability',
-            'dhcp', 'loadbalancer', 'dns')
-    supported_levels = ('none', 'debug', 'info', 'warning', 'error')
-
     modules = {}
     if properties.get('log-level'):
         level = properties.get('log-level')
-        if level in supported_levels:
-            # change log level for all modules
-            modules = {k: level for k in supported_modules}
-        else:
-            LOG.info(_LI("Skipping unrecognized level (%s)"), level)
-            return True
+        # change log level for all modules
+        modules = {k: level for k in edge_utils.SUPPORTED_EDGE_LOG_MODULES}
     else:
         # check for log level settings for specific modules
         for k, v in properties.items():
             if k.endswith('-log-level'):
                 module = k[:-10]   # module is in parameter prefix
-                if module in supported_modules:
-                    if v in supported_levels:
-                        modules[module] = v
-                    else:
-                        LOG.info(_LI("Skipping unrecognized level (%s)"), v)
-                        return True
-
-                else:
-                    LOG.info(_LI("Skipping unrecognized module (%s)"), k)
-                    return True
+                modules[module] = v
 
     if not modules:
         # no log level properties
@@ -308,15 +251,13 @@ def change_edge_loglevel(properties):
     edge_id = properties.get('edge-id')
 
     for module, level in modules.items():
+        if level == 'none':
+            LOG.info(_LI("Disabling logging for %s"), module)
+        else:
+            LOG.info(_LI("Enabling logging for %(m)s with level %(l)s"),
+                    {'m': module, 'l': level})
         try:
-            if level == 'none':
-                LOG.info(_LI("Disabling logging for %s"), module)
-            else:
-                LOG.info(_LI("Enabling logging for %(m)s with level %(l)s"),
-                        {'m': module, 'l': level})
-
-            nsxv.update_edge_config_with_modifier(edge_id, module,
-                    get_loglevel_modifier(module, level))
+            edge_utils.update_edge_loglevel(nsxv, edge_id, module, level)
 
         except nsxv_exceptions.ResourceNotFound as e:
             LOG.error(_LE("Edge %s not found"), edge_id)

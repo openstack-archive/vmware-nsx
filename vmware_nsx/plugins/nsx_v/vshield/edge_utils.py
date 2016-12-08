@@ -57,6 +57,12 @@ LOG = logging.getLogger(__name__)
 _uuid = uuidutils.generate_uuid
 
 
+SUPPORTED_EDGE_LOG_MODULES = ('routing', 'highavailability',
+                              'dhcp', 'loadbalancer', 'dns')
+
+SUPPORTED_EDGE_LOG_LEVELS = ('none', 'debug', 'info', 'warning', 'error')
+
+
 def _get_vdr_transit_network_ipobj():
     transit_net = cfg.CONF.nsxv.vdr_transit_network
     return netaddr.IPNetwork(transit_net)
@@ -2394,6 +2400,63 @@ def check_network_in_use_at_backend(context, network_id):
             return
         LOG.warning(_LW('NSXv: network is still in use at the backend'))
     LOG.error(_LE('NSXv: network is still in use at the backend'))
+
+
+def default_loglevel_modifier(config, level):
+    """Modify log level settings in edge config bulk (standard syntax)"""
+
+    if 'logging' not in config:
+        LOG.error(_LE("Logging section missing in configuration"))
+        return False
+
+    enable = True
+    if level == 'none':
+        enable = False
+        level = 'info'  # default
+
+    config['logging']['enable'] = enable
+    config['logging']['logLevel'] = level
+    return True
+
+
+def routing_loglevel_modifier(config, level):
+    """Modify log level in routing global settings"""
+
+    if 'routingGlobalConfig' not in config:
+        LOG.error(_LE("routingGlobalConfig section missing in config"))
+        return False
+
+    return default_loglevel_modifier(config['routingGlobalConfig'],
+                                     level)
+
+
+def get_loglevel_modifier(module, level):
+    """Pick modifier according to module and set log level"""
+    special_modifiers = {'routing': routing_loglevel_modifier}
+
+    modifier = default_loglevel_modifier
+    if module in special_modifiers.keys():
+        modifier = special_modifiers[module]
+
+    def wrapper(config):
+        return modifier(config, level)
+
+    return wrapper
+
+
+def update_edge_loglevel(vcns, edge_id, module, level):
+    """Update loglevel on edge for specified module"""
+    if module not in SUPPORTED_EDGE_LOG_MODULES:
+        LOG.error(_LE("Unrecognized logging module %s - ignored"), module)
+        return
+
+    if level not in SUPPORTED_EDGE_LOG_LEVELS:
+        LOG.error(_LE("Unrecognized log level %s - ignored"), level)
+        return
+
+    vcns.update_edge_config_with_modifier(edge_id, module,
+                                          get_loglevel_modifier(module,
+                                                                level))
 
 
 class NsxVCallbacks(object):

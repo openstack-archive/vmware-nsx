@@ -808,6 +808,12 @@ class EdgeApplianceDriver(object):
                         router_id)
             return
 
+        loglevel = syslog_config.get('log_level')
+        if loglevel and loglevel not in edge_utils.SUPPORTED_EDGE_LOG_LEVELS:
+            LOG.warning(_LW("Invalid loglevel in syslog config for %s"),
+                        router_id)
+            return
+
         server_ip = syslog_config['server_ip']
         request = {'featureType': 'syslog',
                    'protocol': protocol,
@@ -820,3 +826,8 @@ class EdgeApplianceDriver(object):
                     syslog_config['server2_ip'])
 
         self.vcns.update_edge_syslog(edge_id, request)
+
+        # update log level for routing in separate API call
+        if loglevel:
+            edge_utils.update_edge_loglevel(self.vcns, edge_id,
+                                            'routing', loglevel)
