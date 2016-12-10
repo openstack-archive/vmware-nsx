@@ -18,6 +18,7 @@ import optparse
 import requests
 
 from oslo_serialization import jsonutils
+import six.moves.urllib.parse as urlparse
 
 
 requests.packages.urllib3.disable_warnings()
@@ -26,6 +27,7 @@ requests.packages.urllib3.disable_warnings()
 class NSXClient(object):
     """Base NSX REST client"""
     API_VERSION = "v1"
+    NULL_CURSOR_PREFIX = '0000'
 
     def __init__(self, host, username, password, *args, **kwargs):
         self.host = host
@@ -99,6 +101,30 @@ class NSXClient(object):
                                 verify=self.verify, params=params)
         return response
 
+    def get_list_results(self, endpoint=None, params=None):
+        """
+        Query method for json API get for list (takes care of pagination)
+        """
+        self.__set_url(endpoint=endpoint)
+        response = requests.get(self.url, headers=self.headers,
+                                verify=self.verify, params=params).json()
+        results = response['results']
+        missing = response['result_count'] - len(results)
+        cursor = response['cursor']
+
+        op = '&' if urlparse.urlparse(self.url).query else '?'
+        url = self.url + op + 'cursor='
+
+        # we will enter the loop if response does not fit into single page
+        while missing > 0 and not cursor.startswith(self.NULL_CURSOR_PREFIX):
+            response = requests.get(url + cursor, headers=self.headers,
+                                verify=self.verify, params=params).json()
+            cursor = response['cursor']
+            missing -= len(response['results'])
+            results += response['results']
+
+        return results
+
     def put(self, endpoint=None, body=None):
         """
         Basic put API method on endpoint
@@ -131,15 +157,13 @@ class NSXClient(object):
         """
         Retrieve all transport zones
         """
-        response = self.get(endpoint="/transport-zones")
-        return response.json()['results']
+        return self.get_list_results(endpoint="/transport-zones")
 
     def get_logical_ports(self):
         """
         Retrieve all logical ports on NSX backend
         """
-        response = self.get(endpoint="/logical-ports")
-        return response.json()['results']
+        return self.get_list_results(endpoint="/logical-ports")
 
     def get_os_logical_ports(self):
         """
@@ -191,8 +215,7 @@ class NSXClient(object):
         """
         Retrieve all logical switches on NSX backend
         """
-        response = self.get(endpoint="/logical-switches")
-        return response.json()['results']
+        return self.get_list_results(endpoint="/logical-switches")
 
     def get_os_logical_switches(self):
         """
@@ -229,8 +252,7 @@ class NSXClient(object):
         """
         Retrieve all firewall sections
         """
-        response = self.get(endpoint="/firewall/sections")
-        return response.json()['results']
+        return self.get_list_results(endpoint="/firewall/sections")
 
     def get_os_firewall_sections(self):
         """
@@ -244,8 +266,7 @@ class NSXClient(object):
         Retrieve all fw rules for a given fw section
         """
         endpoint = "/firewall/sections/%s/rules" % fw_section['id']
-        response = self.get(endpoint=endpoint)
-        return response.json()['results']
+        return self.get_list_results(endpoint=endpoint)
 
     def cleanup_firewall_section_rules(self, fw_section):
         """
@@ -285,8 +306,7 @@ class NSXClient(object):
         """
         Retrieve all NSGroups on NSX backend
         """
-        response = self.get(endpoint="/ns-groups")
-        ns_groups = response.json()['results']
+        ns_groups = self.get_list_results(endpoint="/ns-groups")
         return self.get_os_resources(ns_groups)
 
     def cleanup_os_ns_groups(self):
@@ -307,8 +327,7 @@ class NSXClient(object):
         """
         Retrieve all Switching Profiles on NSX backend
         """
-        response = self.get(endpoint="/switching-profiles")
-        return response.json()['results']
+        return self.get_list_results(endpoint="/switching-profiles")
 
     def get_os_switching_profiles(self):
         """
@@ -343,8 +362,7 @@ class NSXClient(object):
             endpoint = "/logical-routers?router_type=%s" % tier
         else:
             endpoint = "/logical-routers"
-        response = self.get(endpoint=endpoint)
-        return response.json()['results']
+        return self.get_list_results(endpoint=endpoint)
 
     def get_os_logical_routers(self):
         """
@@ -358,8 +376,7 @@ class NSXClient(object):
         Get all logical ports attached to lrouter
         """
         endpoint = "/logical-router-ports?logical_router_id=%s" % lrouter['id']
-        response = self.get(endpoint=endpoint)
-        return response.json()['results']
+        return self.get_list_results(endpoint=endpoint)
 
     def get_os_logical_router_ports(self, lrouter):
         """
@@ -415,8 +432,7 @@ class NSXClient(object):
         """
         Retrieve all logical DHCP servers on NSX backend
         """
-        response = self.get(endpoint="/dhcp/servers")
-        return response.json()['results']
+        return self.get_list_results(endpoint="/dhcp/servers")
 
     def get_os_logical_dhcp_servers(self):
         """
