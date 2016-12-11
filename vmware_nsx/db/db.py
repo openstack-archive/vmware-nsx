@@ -423,3 +423,28 @@ def save_sg_rule_mappings(session, rules):
             mapping = nsx_models.NeutronNsxRuleMapping(
                 neutron_id=neutron_id, nsx_id=nsx_id)
             session.add(mapping)
+
+
+def add_nsx_ipam_subnet_pool(session, subnet_id, nsx_pool_id):
+    with session.begin(subtransactions=True):
+        binding = nsx_models.NsxSubnetIpam(
+            subnet_id=subnet_id,
+            nsx_pool_id=nsx_pool_id)
+        session.add(binding)
+    return binding
+
+
+def get_nsx_ipam_pool_for_subnet(session, subnet_id):
+    try:
+        entry = session.query(
+            nsx_models.NsxSubnetIpam).filter_by(
+            subnet_id=subnet_id).one()
+        return entry.nsx_pool_id
+    except exc.NoResultFound:
+        return
+
+
+def del_nsx_ipam_subnet_pool(session, subnet_id, nsx_pool_id):
+    return (session.query(nsx_models.NsxSubnetIpam).
+            filter_by(subnet_id=subnet_id,
+                      nsx_pool_id=nsx_pool_id).delete())
