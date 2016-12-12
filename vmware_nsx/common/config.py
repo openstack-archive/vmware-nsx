@@ -580,6 +580,9 @@ nsxv_opts = [
                       "exclusive_router_appliance_size will be picked up if "
                       "--router-size parameter is not specified while doing "
                       "neutron router-create")),
+    cfg.StrOpt('dns_search_domain',
+               help=_("(Optional) Use this search domain if there is no "
+                      "search domain configured on the subnet.")),
     cfg.ListOpt('nameservers',
                 default=[],
                 help=_('List of nameservers to configure for the DHCP binding '

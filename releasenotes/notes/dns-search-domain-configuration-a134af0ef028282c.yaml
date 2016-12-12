@@ -1,0 +1,9 @@
+---
+prelude: >
+    Enable an admin to configure a global search domain.
+    This is used if no search domain is configured on a
+    subnet.
+features:
+  - A new configuration variable in the nsxv section will
+    enable the admin to configure a search domain. The new
+    variable is dns_search_domain.
