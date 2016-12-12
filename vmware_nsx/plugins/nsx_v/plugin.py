@@ -31,6 +31,8 @@ from neutron.api.v2 import attributes as attr
 from neutron.callbacks import events
 from neutron.callbacks import registry
 from neutron.callbacks import resources
+from neutron.common import rpc as n_rpc
+from neutron.common import topics
 from neutron.db import agents_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import db_base_plugin_v2
@@ -184,6 +186,26 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if has_metadata_cfg:
             self.metadata_proxy_handler = (
                 nsx_v_md_proxy.NsxVMetadataProxyHandler(self))
+
+        # Make sure starting rpc listeners (for QoS and other agents)
+        # will happen only once
+        self.start_rpc_listeners_called = False
+
+    def start_rpc_listeners(self):
+        if self.start_rpc_listeners_called:
+            # If called more than once - we should not create it again
+            return self.conn.consume_in_threads()
+
+        LOG.info(_LI("NSXV plugin: starting RPC listeners"))
+
+        self.endpoints = [agents_db.AgentExtRpcCallback()]
+        self.topic = topics.PLUGIN
+
+        self.conn = n_rpc.create_connection()
+        self.conn.create_consumer(self.topic, self.endpoints, fanout=False)
+
+        self.start_rpc_listeners_called = True
+        return self.conn.consume_in_threads()
 
     def _create_security_group_container(self):
         name = "OpenStack Security Group container"
