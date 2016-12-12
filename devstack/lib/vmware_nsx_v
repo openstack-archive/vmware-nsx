@@ -118,6 +118,14 @@ function neutron_plugin_configure_service {
     _nsxv_ini_set edge_ha "$NSXV_EDGE_HA"
     _nsxv_ini_set exclusive_router_appliance_size "$NSXV_EXCLUSIVE_ROUTER_APPLIANCE_SIZE"
     _nsxv_ini_set use_dvs_features "$NSXV_USE_DVS_FEATURES"
+    if [[ "$NSXV_USE_DVS_FEATURES" != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE dvs host_ip "$VMWAREAPI_IP"
+        iniset /$Q_PLUGIN_CONF_FILE dvs host_username "$VMWAREAPI_USER"
+        iniset /$Q_PLUGIN_CONF_FILE dvs host_password "$VMWAREAPI_PASSWORD"
+        iniset /$Q_PLUGIN_CONF_FILE dvs ca_file "$VMWAREAPI_CA_FILE"
+        iniset /$Q_PLUGIN_CONF_FILE dvs insecure "$VMWAREAPI_INSECURE"
+        iniset /$Q_PLUGIN_CONF_FILE dvs dvs_name "$VMWARE_DVS_NAME"
+    fi
 }
 
 function neutron_plugin_setup_interface_driver {
