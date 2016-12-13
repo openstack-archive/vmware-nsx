@@ -270,8 +270,13 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
             # Update edge's firewall rules to accept subnets flows.
             self.plugin._update_subnets_and_dnat_firewall(context, router_db)
 
+            sids = self.plugin.get_subnets(context,
+                                           filters={'network_id': [network_id],
+                                                    'enable_dhcp': [True]},
+                                           fields=['id'])
+            is_dhcp_network = len(sids) > 0
             do_metadata = False
-            if self.plugin.metadata_proxy_handler:
+            if self.plugin.metadata_proxy_handler and is_dhcp_network:
                 for fixed_ip in port.get("fixed_ips", []):
                     if fixed_ip['ip_address'] == subnet['gateway_ip']:
                         do_metadata = True
@@ -404,6 +409,11 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         vdr_dhcp_binding = nsxv_db.get_vdr_dhcp_binding_by_vdr(
             context.session, router_id)
 
+        sids = self.plugin.get_subnets(context,
+                                       filters={'network_id': [network_id],
+                                                'enable_dhcp': [True]},
+                                       fields=['id'])
+        is_dhcp_network = len(sids) > 0
         with locking.LockManager.get_lock(self._get_edge_id(context,
                                                             router_id)):
             if router_db.gw_port and router_db.enable_snat:
@@ -421,7 +431,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
 
             # If DHCP is disabled, this remove cannot trigger metadata change
             # as metadata is served via DHCP Edge
-            elif (subnet['enable_dhcp']
+            elif (is_dhcp_network
                   and self.plugin.metadata_proxy_handler):
                 md_gw_data = self._get_metadata_gw_data(context, router_id)
                 if self._metadata_cfg_required_after_port_remove(
