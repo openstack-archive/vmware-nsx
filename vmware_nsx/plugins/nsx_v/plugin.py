@@ -38,6 +38,7 @@ from neutron.callbacks import registry
 from neutron.callbacks import resources
 from neutron.common import ipv6_utils
 from neutron.common import rpc as n_rpc
+from neutron.common import topics
 from neutron import context as n_context
 from neutron.db import agents_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
@@ -229,7 +230,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Bind QoS notifications
         callbacks_registry.subscribe(self._handle_qos_notification,
                                      callbacks_resources.QOS_POLICY)
-        self._start_rpc_listeners()
+
+        # Make sure starting rpc listeners (for QoS and other agents)
+        # will happen only once
+        self.start_rpc_listeners_called = False
 
         # Service insertion driver register
         self._si_handler = fc_utils.NsxvServiceInsertionHandler(self)
@@ -285,14 +289,27 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # in case there are many compute ports
         c_utils.spawn_n(_add_vms_to_service_insertion, sg_id)
 
-    def _start_rpc_listeners(self):
+    def start_rpc_listeners(self):
+        if self.start_rpc_listeners_called:
+            # If called more than once - we should not create it again
+            return self.conn.consume_in_threads()
+
+        LOG.info(_LI("NSXV plugin: starting RPC listeners"))
+
+        self.endpoints = [agents_db.AgentExtRpcCallback()]
+        self.topic = topics.PLUGIN
+
         self.conn = n_rpc.create_connection()
+        self.conn.create_consumer(self.topic, self.endpoints, fanout=False)
+
+        # Add QoS
         qos_topic = resources_rpc.resource_type_versioned_topic(
             callbacks_resources.QOS_POLICY)
         self.conn.create_consumer(
             qos_topic, [resources_rpc.ResourcesPushRpcCallback()],
             fanout=False)
 
+        self.start_rpc_listeners_called = True
         return self.conn.consume_in_threads()
 
     def _create_security_group_container(self):
