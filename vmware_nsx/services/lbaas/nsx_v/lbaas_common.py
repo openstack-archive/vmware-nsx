@@ -14,17 +14,14 @@
 #    under the License.
 
 import netaddr
-import xml.etree.ElementTree as et
 
 from neutron_lib import exceptions as n_exc
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
-from vmware_nsx.plugins.nsx_v.vshield import vcns as nsxv_api
 
 MEMBER_ID_PFX = 'member-'
-LBAAS_FW_SECTION_NAME = 'LBaaS FW Rules'
 
 
 def get_member_id(member_id):
@@ -191,64 +188,6 @@ def get_edge_ip_addresses(vcns, edge_id):
             for address_group in address_groups['addressGroups']:
                 edge_ips.append(address_group['primaryAddress'])
     return edge_ips
-
-
-def update_pool_fw_rule(vcns, pool_id, edge_id, section_id, member_ips):
-    edge_ips = get_edge_ip_addresses(vcns, edge_id)
-
-    with locking.LockManager.get_lock('lbaas-fw-section'):
-        section_uri = '%s/%s/%s' % (nsxv_api.FIREWALL_PREFIX,
-                                    'layer3sections',
-                                    section_id)
-        xml_section = vcns.get_section(section_uri)[1]
-        section = et.fromstring(xml_section)
-        pool_rule = None
-        for rule in section.iter('rule'):
-            if rule.find('name').text == pool_id:
-                pool_rule = rule
-                if member_ips:
-                    pool_rule.find('sources').find('source').find(
-                        'value').text = (','.join(edge_ips))
-                    pool_rule.find('destinations').find(
-                        'destination').find('value').text = ','.join(
-                        member_ips)
-                else:
-                    section.remove(pool_rule)
-                break
-
-        if member_ips and pool_rule is None:
-            pool_rule = et.SubElement(section, 'rule')
-            et.SubElement(pool_rule, 'name').text = pool_id
-            et.SubElement(pool_rule, 'action').text = 'allow'
-            sources = et.SubElement(pool_rule, 'sources')
-            sources.attrib['excluded'] = 'false'
-            source = et.SubElement(sources, 'source')
-            et.SubElement(source, 'type').text = 'Ipv4Address'
-            et.SubElement(source, 'value').text = ','.join(edge_ips)
-
-            destinations = et.SubElement(pool_rule, 'destinations')
-            destinations.attrib['excluded'] = 'false'
-            destination = et.SubElement(destinations, 'destination')
-            et.SubElement(destination, 'type').text = 'Ipv4Address'
-            et.SubElement(destination, 'value').text = ','.join(member_ips)
-
-        vcns.update_section(section_uri,
-                            et.tostring(section, encoding="us-ascii"),
-                            None)
-
-
-def get_lbaas_fw_section_id(vcns):
-    # Avoid concurrent creation of section by multiple neutron
-    # instances
-    with locking.LockManager.get_lock('lbaas-fw-section'):
-        fw_section_id = vcns.get_section_id(LBAAS_FW_SECTION_NAME)
-        if not fw_section_id:
-            section = et.Element('section')
-            section.attrib['name'] = LBAAS_FW_SECTION_NAME
-            sect = vcns.create_section('ip', et.tostring(section))[1]
-            fw_section_id = et.fromstring(sect).attrib['id']
-
-        return fw_section_id
 
 
 def enable_edge_acceleration(vcns, edge_id):
