@@ -167,6 +167,11 @@ def get_nsx_dhcp_bindings(session, port_id):
         nsx_models.NeutronNsxDhcpBinding).filter_by(port_id=port_id)]
 
 
+def get_nsx_dhcp_bindings_by_service(session, service_id):
+    return [binding for binding in session.query(
+        nsx_models.NeutronNsxDhcpBinding).filter_by(nsx_service_id=service_id)]
+
+
 def add_neutron_nsx_dhcp_binding(session, port_id, subnet_id, ip_address,
                                  service_id, binding_id):
     """Store DHCP binding of each Neutron port.

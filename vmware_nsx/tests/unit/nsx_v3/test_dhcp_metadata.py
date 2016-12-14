@@ -378,7 +378,8 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                     create_dhcp_binding.assert_called_once_with(
                         dhcp_service['nsx_service_id'],
                         port['port']['mac_address'], ip, hostname,
-                        cfg.CONF.nsx_v3.dhcp_lease_time, options)
+                        cfg.CONF.nsx_v3.dhcp_lease_time, options,
+                        subnet['subnet']['gateway_ip'])
 
     def test_dhcp_binding_with_disable_enable_dhcp(self):
         # Test if DHCP binding is preserved after DHCP is disabled and
