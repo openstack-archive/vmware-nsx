@@ -130,9 +130,11 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
             options = {'option121': {'static_routes': [
                 {'network': '%s' % cfg.CONF.nsx_v3.native_metadata_route,
                  'next_hop': ip}]}}
+            subnet = neutron_client.get_subnet(subnet_id)
             binding = dhcp_server_resource.create_binding(
                 dhcp_server_id, mac, ip, hostname,
-                cfg.CONF.nsx_v3.dhcp_lease_time, options)
+                cfg.CONF.nsx_v3.dhcp_lease_time, options,
+                subnet.get('gateway_ip'))
             # Add DHCP static binding in neutron DB.
             neutron_client.add_dhcp_static_binding(
                 port_id, subnet_id, ip, dhcp_server_id, binding['id'])
