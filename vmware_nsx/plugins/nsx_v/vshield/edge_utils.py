@@ -912,12 +912,16 @@ class EdgeManager(object):
             sub_binding = nsxv_db.get_nsxv_subnet_ext_attributes(
                 context.session,
                 subnet_id)
-            if sub_binding:
-                if sub_binding.dns_search_domain is not None:
-                    static_config['domainName'] = sub_binding.dns_search_domain
-                if sub_binding.dhcp_mtu:
-                    static_config = self.add_mtu_on_static_binding(
-                        static_config, sub_binding.dhcp_mtu)
+            dns_search_domain = None
+            if sub_binding and sub_binding.dns_search_domain:
+                dns_search_domain = sub_binding.dns_search_domain
+            elif cfg.CONF.nsxv.dns_search_domain:
+                dns_search_domain = cfg.CONF.nsxv.dns_search_domain
+            if dns_search_domain:
+                static_config['domainName'] = dns_search_domain
+            if sub_binding and sub_binding.dhcp_mtu:
+                static_config = self.add_mtu_on_static_binding(
+                    static_config, sub_binding.dhcp_mtu)
 
             self.handle_meta_static_route(
                 context, subnet_id, [static_config])
