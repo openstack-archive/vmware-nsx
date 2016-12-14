@@ -368,7 +368,7 @@ nsx_v3_opts = [
                deprecated_name='dhcp_profile_uuid',
                help=_("This is the name or UUID of the NSX DHCP Profile "
                       "that will be used to enable native DHCP service. It "
-                      "needs to be created in NSX before starting Neutron"
+                      "needs to be created in NSX before starting Neutron "
                       "with the NSX plugin")),
     cfg.IntOpt('dhcp_lease_time',
                default=86400,
