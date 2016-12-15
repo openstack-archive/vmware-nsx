@@ -524,7 +524,7 @@ class LogicalDhcpServer(AbstractRESTResource):
         return self._client.update(uuid, body=body)
 
     def create_binding(self, server_uuid, mac, ip, hostname=None,
-                       lease_time=None, options=None):
+                       lease_time=None, options=None, gateway_ip=False):
         body = {'mac_address': mac, 'ip_address': ip}
         if hostname:
             body['host_name'] = hostname
@@ -532,6 +532,9 @@ class LogicalDhcpServer(AbstractRESTResource):
             body['lease_time'] = lease_time
         if options:
             body['options'] = options
+        if gateway_ip is not False:
+            # Note that None is valid for gateway_ip, means deleting it.
+            body['gateway_ip'] = gateway_ip
         url = "%s/static-bindings" % server_uuid
         return self._client.url_post(url, body)
 
