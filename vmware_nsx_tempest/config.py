@@ -181,4 +181,7 @@ NSXv3Group = [
     cfg.StrOpt('nsx_password',
                default='default',
                help="NSX manager password"),
+    cfg.BoolOpt('native_dhcp_metadata',
+                default=False,
+                help="Enable or disable Native DHCP and MDProxy for nsxv3"),
 ]

@@ -30,3 +30,9 @@ L2GWC = "l2_gateway_connection"
 MAC_SW_PROFILE = "MacManagementSwitchingProfile"
 PORT_SEC_PROFILE = "SpoofGuardSwitchingProfile"
 SEC_GRPS_PROFILE = "SwitchSecuritySwitchingProfile"
+
+# NSXV3 MDProxy constants.
+MD_ERROR_CODE_WHEN_LS_BOUNDED = "10026"
+INTERVAL_BETWEEN_EXEC_RETRY_ON_SSH = 5
+MAX_NO_OF_TIMES_EXECUTION_OVER_SSH = 30
+MD_BASE_URL = "http://169.254.169.254/"
