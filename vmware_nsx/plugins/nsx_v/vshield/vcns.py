@@ -51,6 +51,7 @@ SPOOFGUARD_PREFIX = '/api/4.0/services/spoofguard'
 TRUSTSTORE_PREFIX = '%s/%s' % (SERVICES_PREFIX, 'truststore')
 EXCLUDELIST_PREFIX = '/api/2.1/app/excludelist'
 SERVICE_INSERTION_PROFILE_PREFIX = '/api/2.0/si/serviceprofile'
+APPLICATION_PREFIX = '%s/%s' % (SERVICES_PREFIX, 'application')
 
 #LbaaS Constants
 LOADBALANCER_SERVICE = "loadbalancer/config"
@@ -977,3 +978,8 @@ class Vcns(object):
         uri = '%s/%s/%s/%s/%s' % (SERVICES_PREFIX, IPAM_POOL_SERVICE, pool_id,
                                'ipaddresses', ip_addr)
         return self.do_request(HTTP_DELETE, uri)
+
+    def list_applications(self):
+        uri = '%s/scope/globalroot-0' % APPLICATION_PREFIX
+        h, apps = self.do_request(HTTP_GET, uri, decode=True)
+        return apps

@@ -2162,11 +2162,24 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                               subnet['id'])
 
     def setup_dhcp_edge_fw_rules(self, context, plugin, router_id):
-        rules = [{"name": "ICMPPing",
+        rules = []
+        # It would be best to configure the rule with icmp type 8 (Echo),
+        # but this format is broken on Edge (should be fixed in 6.3.1)
+        # TODO(annak): use icmp type when fix is available
+        # Workaround: use applications, but since application ids can change,
+        # need to look them up by application name
+        try:
+            application_ids = plugin.nsx_v.get_icmp_echo_application_ids()
+
+            rules = [{"name": "ICMPPing",
                   "enabled": True,
                   "action": "allow",
-                  "protocol": "icmp",
-                  "icmp_type": 8}]
+                  "application": {
+                      "applicationId": application_ids}}]
+
+        except Exception as e:
+            LOG.error(
+                _LE('Could not find ICMP Echo application. Exception %s'), e)
 
         if plugin.metadata_proxy_handler:
             rules += nsx_v_md_proxy.get_router_fw_rules()

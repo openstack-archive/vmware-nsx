@@ -1341,3 +1341,10 @@ class FakeVcns(object):
             response = self._get_bad_req_response(
                 msg, 120054, 'core-services')
         return self.return_helper(header, response)
+
+    def list_applications(self):
+        applications = [{'name': 'ICMP Echo', 'objectID': 'application-333'},
+                        {'name': 'IPv6-ICMP Echo',
+                            'objectID': 'application-1001'}]
+
+        return applications
