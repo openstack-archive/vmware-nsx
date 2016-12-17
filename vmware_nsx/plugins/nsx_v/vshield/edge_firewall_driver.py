@@ -16,6 +16,7 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 
 from vmware_nsx._i18n import _, _LE
+from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield.common import (
     exceptions as vcns_exc)
@@ -33,6 +34,10 @@ class EdgeFirewallDriver(object):
     """Implementation of driver APIs for
        Edge Firewall feature configuration
     """
+    def __init__(self):
+        super(EdgeFirewallDriver, self).__init__()
+        self._icmp_echo_application_ids = None
+
     def _convert_firewall_action(self, action):
         if action == FWAAS_ALLOW:
             return VSE_FWAAS_ALLOW
@@ -409,3 +414,26 @@ class EdgeFirewallDriver(object):
                         }
                         nsxv_db.add_nsxv_edge_firewallrule_binding(
                             context.session, map_info)
+
+    def get_icmp_echo_application_ids(self):
+        # check cached list first
+        # (if backend version changes, neutron should be restarted)
+        if self._icmp_echo_application_ids:
+            return self._icmp_echo_application_ids
+
+        self._icmp_echo_application_ids = self.get_application_ids(
+                ['ICMP Echo', 'IPv6-ICMP Echo'])
+        if not self._icmp_echo_application_ids:
+            raise nsx_exc.NsxResourceNotFound(
+                        res_name='ICMP Echo', res_id='')
+        return self._icmp_echo_application_ids
+
+    def get_application_ids(self, application_names):
+        results = self.vcns.list_applications()
+        application_ids = []
+        for result in results:
+            for name in application_names:
+                if result['name'] == name:
+                    application_ids.append(result['objectId'])
+
+        return application_ids
