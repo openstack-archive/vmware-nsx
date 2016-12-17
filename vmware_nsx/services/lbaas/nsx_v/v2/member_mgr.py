@@ -33,19 +33,6 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
         super(EdgeMemberManager, self).__init__(vcns_driver)
         self._fw_section_id = None
 
-    def _get_pool_member_ips(self, pool, operation, address):
-        member_ips = [member.address for member in pool.members]
-        if operation == 'add' and address not in member_ips:
-            member_ips.append(address)
-        elif operation == 'del' and address in member_ips:
-            member_ips.remove(address)
-        return member_ips
-
-    def _get_lbaas_fw_section_id(self):
-        if not self._fw_section_id:
-            self._fw_section_id = lb_common.get_lbaas_fw_section_id(self.vcns)
-        return self._fw_section_id
-
     @log_helpers.log_method_call
     def create(self, context, member):
         listener = member.pool.listener
@@ -75,14 +62,6 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
 
             try:
                 self.vcns.update_pool(edge_id, edge_pool_id, edge_pool)
-
-                member_ips = self._get_pool_member_ips(member.pool, 'add',
-                                                       member.address)
-                lb_common.update_pool_fw_rule(self.vcns, member.pool_id,
-                                              edge_id,
-                                              self._get_lbaas_fw_section_id(),
-                                              member_ips)
-
                 self.lbv2_driver.member.successful_completion(context, member)
 
             except nsxv_exc.VcnsApiException:

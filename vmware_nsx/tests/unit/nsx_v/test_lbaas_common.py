@@ -91,51 +91,6 @@ class TestLbaasCommon(base.BaseTestCase):
     def _mock_edge_driver_vcns(self, attr):
         return mock.patch.object(self.edge_driver.vcns, attr)
 
-    def test_update_pool_fw_rule_add(self):
-        vip_ips = ['10.0.0.1', '11.0.0.1']
-        member_ips = ['10.0.0.10', '11.0.0.10']
-        edge_fw_section = firewall_section_maker(vip_ips, ['10.0.0.10'])
-        edge_fw_updated_section = firewall_section_maker(vip_ips, member_ips)
-
-        with self._mock_edge_driver_vcns(
-                    'get_section') as mock_get_section,\
-                self._mock_edge_driver_vcns(
-                    'update_section') as mock_update_section:
-
-            tmp_get_ips = lb_common.get_edge_ip_addresses
-            lb_common.get_edge_ip_addresses = mock.Mock()
-            lb_common.get_edge_ip_addresses.return_value = vip_ips
-
-            mock_get_section.return_value = (None, edge_fw_section)
-            lb_common.update_pool_fw_rule(
-                self.edge_driver.vcns, POOL_ID, EDGE_ID, '1111', member_ips)
-            mock_update_section.assert_called_with(
-                '/api/4.0/firewall/globalroot-0/config/layer3sections/1111',
-                edge_fw_updated_section.encode('utf-8'), None)
-            lb_common.get_edge_ip_addresses = tmp_get_ips
-
-    def test_update_pool_fw_rule_del(self):
-        vip_ips = ['10.0.0.1', '11.0.0.1']
-        member_ips = ['10.0.0.10']
-        edge_fw_section = firewall_section_maker(vip_ips, ['10.0.0.10',
-                                                           '11.0.0.10'])
-        edge_fw_updated_section = firewall_section_maker(vip_ips, member_ips)
-
-        with self._mock_edge_driver_vcns('get_section') as mock_get_section, \
-                self._mock_edge_driver_vcns(
-                    'update_section') as mock_update_section:
-
-            tmp_get_ips = lb_common.get_edge_ip_addresses
-            lb_common.get_edge_ip_addresses = mock.Mock()
-            lb_common.get_edge_ip_addresses.return_value = vip_ips
-            mock_get_section.return_value = (None, edge_fw_section)
-            lb_common.update_pool_fw_rule(
-                self.edge_driver.vcns, POOL_ID, EDGE_ID, '1111', member_ips)
-            mock_update_section.assert_called_with(
-                '/api/4.0/firewall/globalroot-0/config/layer3sections/1111',
-                edge_fw_updated_section.encode('utf-8'), None)
-            lb_common.get_edge_ip_addresses = tmp_get_ips
-
     def test_add_vip_as_secondary_ip(self):
         update_if = if_maker(['10.0.0.6', '10.0.0.8'])
 
