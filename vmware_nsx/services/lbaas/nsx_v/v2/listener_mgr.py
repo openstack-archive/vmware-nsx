@@ -85,6 +85,8 @@ def listener_to_edge_vse(listener, vip_address, default_pool, app_profile_id):
         'port': listener.protocol_port,
         'connectionLimit': connection_limit,
         'defaultPoolId': default_pool,
+        'accelerationEnabled': (
+            listener.protocol == lb_const.LB_PROTOCOL_TCP),
         'applicationProfileId': app_profile_id}
 
 
