@@ -9,8 +9,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+from tempest import config
 from tempest.lib.services.network import base
+
+CONF = config.CONF
 
 
 # netowrk/json/base.py does not include thoese method in network_client
@@ -40,3 +42,11 @@ default_params_2 = {
     'endpoint_type': 'publicURL',
     'build_timeout': 300,
     'build_interval': 1}
+
+default_params_3 = config.service_client_config()
+
+default_params_with_timeout_values = {
+    'build_interval': CONF.network.build_interval,
+    'build_timeout': CONF.network.build_timeout
+}
+default_params_with_timeout_values.update(default_params_3)

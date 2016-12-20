@@ -25,6 +25,7 @@ from tempest import config
 from tempest import test
 
 from vmware_nsx_tempest.services import load_balancer_v1_client as LBV1C
+from vmware_nsx_tempest.services import network_client_base as base_client
 
 CONF = config.CONF
 
@@ -60,7 +61,7 @@ class LoadBalancerTestJSON(base.BaseNetworkTest):
     @classmethod
     def resource_setup(cls):
         super(LoadBalancerTestJSON, cls).resource_setup()
-        _params = cls.manager.default_params_with_timeout_values.copy()
+        _params = base_client.default_params_with_timeout_values.copy()
         for p in _params.keys():
             if p in ['service', 'region', 'endpoint_type']:
                 _params.pop(p)
