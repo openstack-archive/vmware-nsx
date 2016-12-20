@@ -2376,14 +2376,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if nsx_rule_id and section_uri:
                 self.nsx_v.vcns.remove_rule_from_section(
                     section_uri, nsx_rule_id)
-
-            with context.session.begin(subtransactions=True):
-                context.session.delete(rule_db)
         except Exception:
             # FIXME(roeyc): reraise unless rule does not exists
             LOG.warning(_LW("Failed to delete security group rule %s(id)s. "
                             "nsx_rule_id is: %(nsx_rule_id)s"),
                         {'id': id, 'nsx_rule_id': nsx_rule_id})
+        with context.session.begin(subtransactions=True):
+            context.session.delete(rule_db)
 
     def _check_for_duplicate_rules(self, context, rules):
         # Remove rule id's before comparing between rules
