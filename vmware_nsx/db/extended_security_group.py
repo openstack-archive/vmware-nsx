@@ -145,6 +145,11 @@ class ExtendedSecurityGroupPropertiesMixin(object):
                                                       security_group_id)
         return True if sg_prop.policy else False
 
+    def _get_security_group_policy(self, context, security_group_id):
+        sg_prop = self._get_security_group_properties(context,
+                                                      security_group_id)
+        return sg_prop.policy
+
     def _check_provider_security_group_exists(self, context,
                                               security_group_id):
         # NOTE(roeyc): We want to retrieve the security-group info by calling
