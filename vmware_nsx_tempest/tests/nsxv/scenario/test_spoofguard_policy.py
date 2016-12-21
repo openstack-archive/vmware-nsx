@@ -16,8 +16,10 @@
 
 import re
 
+from tempest.common.utils.linux import remote_client
 from tempest import config
 from tempest.lib.common.utils import data_utils
+from tempest.lib.common.utils import test_utils
 from tempest import test
 
 from vmware_nsx_tempest._i18n import _LI
@@ -70,6 +72,10 @@ class TestSpoofGuardBasicOps(dmgr.TopoDeployScenarioManager):
     def resource_cleanup(cls):
         super(TestSpoofGuardBasicOps, cls).resource_cleanup()
 
+    def setUp(self):
+        super(TestSpoofGuardBasicOps, self).setUp()
+        self.keypairs = {}
+
     def tearDown(self):
         self.remove_project_network()
         super(TestSpoofGuardBasicOps, self).tearDown()
@@ -97,35 +103,63 @@ class TestSpoofGuardBasicOps(dmgr.TopoDeployScenarioManager):
         host_ip = serv_addr['addr']
         self.waitfor_host_connected(host_ip)
 
-    def setup_vm_enviornment(self, client_mgr, t_id,
+    def _get_server_key(self, server):
+        return self.keypairs[server['key_name']]['private_key']
+
+    def _create_sec_group(self):
+        # Create security group
+        sg_name = data_utils.rand_name('disable-spoof')
+        sg_desc = sg_name + " description"
+        secgroup = self.compute_security_groups_client.create_security_group(
+            name=sg_name, description=sg_desc)['security_group']
+        self.addCleanup(
+            test_utils.call_and_ignore_notfound_exc,
+            self.compute_security_groups_client.delete_security_group,
+            secgroup['id'])
+
+    def setup_vm_environment(self, client_mgr, t_id,
                              check_outside_world=True,
                              cidr_offset=0):
+        sg_name = data_utils.rand_name('disable-spoof')
+        sg_desc = sg_name + " description"
+        t_security_group = \
+            self.compute_security_groups_client.create_security_group(
+                name=sg_name, description=sg_desc)['security_group']
+        self.addCleanup(
+            test_utils.call_and_ignore_notfound_exc,
+            self.compute_security_groups_client.delete_security_group,
+            t_security_group['id'])
+        rule = {'direction': 'ingress', 'protocol': 'tcp'}
+        self._create_security_group_rule(secgroup=t_security_group, **rule)
+        rule = {'direction': 'ingress'}
+        rule_id = self._create_security_group_rule(secgroup=t_security_group,
+                                                   **rule)['id']
+        keypair = self.create_keypair()
+        self.keypairs[keypair['name']] = keypair
         t_network, t_subnet, t_router = self.setup_project_network(
             self.public_network_id, namestart=("deploy-%s-spoofuard" % t_id),
             cidr_offset=0)
-        t_security_group = self._create_security_group(
-            security_groups_client=self.security_groups_client,
-            security_group_rules_client=self.security_group_rules_client,
-            namestart='adm')
         username, password = self.get_image_userpass()
         security_groups = [{'name': t_security_group['id']}]
+        key_name = keypair['name']
         t_serv1 = self.create_server_on_network(
-            t_network, security_groups,
+            t_network, security_groups, key_name=key_name,
             image=self.get_server_image(),
             flavor=self.get_server_flavor(),
             name=t_network['name'])
         self.check_server_connected(t_serv1)
         t_floatingip = self.create_floatingip_for_server(
-            t_serv1, client_mgr=self.admin_manager)
+            t_serv1, client_mgr=client_mgr)
         msg = ("Associate t_floatingip[%s] to server[%s]"
                % (t_floatingip, t_serv1['name']))
         self._check_floatingip_connectivity(
             t_floatingip, t_serv1, should_connect=True, msg=msg)
-        vm_enviornment = dict(security_group=t_security_group,
+        vm_environment = dict(security_group=t_security_group,
                               network=t_network, subnet=t_subnet,
                               router=t_router, client_mgr=client_mgr,
-                              serv1=t_serv1, fip1=t_floatingip)
-        return vm_enviornment
+                              serv1=t_serv1, fip1=t_floatingip,
+                              rule_id=rule_id)
+        return vm_environment
 
     def get_port_id(self, port_client, vm_info):
         tenant_name = vm_info['name']
@@ -143,7 +177,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
     @test.idempotent_id('2804f55d-3221-440a-9fa8-ab16a8932634')
     def test_exclude_list_with_new_attach_port(self):
         port_client = self.manager.ports_client
-        self.green = self.setup_vm_enviornment(self.manager, 'green', True)
+        self.green = self.setup_vm_environment(self.manager, 'green', True)
         vm_id = self.green['serv1']['id']
         net_id = self.green['network']['id']
         name = 'disabled-port-security-port'
@@ -174,12 +208,86 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         self.interface_client.delete_interface(vm_id, port_id)
 
     @test.attr(type='nsxv')
+    @test.idempotent_id('a5420350-2658-47e4-9e2b-490b200e9f41')
+    def test_spoofguard_with_ping_between_servers_on_same_network(self):
+        username, password = self.get_image_userpass()
+        image = self.get_server_image()
+        flavor = self.get_server_flavor()
+        port_client = self.manager.ports_client
+        self.green = self.setup_vm_environment(self.manager, 'green', True)
+        security_groups = [{'name': self.green['security_group']['id']}]
+        # Boot instance vm2
+        keypair = self.create_keypair()
+        self.keypairs[keypair['name']] = keypair
+        key_name = keypair['name']
+        t_serv2 = self.create_server_on_network(
+            self.green['network'], security_groups,
+            key_name=key_name,
+            image=image,
+            flavor=flavor,
+            name=self.green['network']['name'])
+        self.check_server_connected(t_serv2)
+        t_floatingip2 = self.create_floatingip_for_server(
+            t_serv2, client_mgr=self.manager)
+        msg = ("Associate t_floatingip[%s] to server[%s]"
+               % (t_floatingip2, t_serv2['name']))
+        self._check_floatingip_connectivity(
+            t_floatingip2, t_serv2, should_connect=True, msg=msg)
+        public_ip_vm_1 = self.green['fip1']['floating_ip_address']
+        public_ip_vm_2 = t_floatingip2['floating_ip_address']
+        private_ip_vm_1 = \
+            self.green['fip1']['fixed_ip_address']
+        private_ip_vm_2 = \
+            t_floatingip2['fixed_ip_address']
+        private_key_1 = self._get_server_key(self.green['serv1'])
+        client1 = remote_client.RemoteClient(public_ip_vm_1, username=username,
+                                             pkey=private_key_1,
+                                             password=password)
+        private_key_2 = self._get_server_key(t_serv2)
+        client2 = remote_client.RemoteClient(public_ip_vm_2, username=username,
+                                             pkey=private_key_2,
+                                             password=password)
+        self.assertEqual(True, dmgr.is_reachable(client1, private_ip_vm_2),
+                         "Destination is reachable")
+        port1_id = self.green['fip1']['port_id']
+        # Update vm1 port to disbale port security
+        port_client.update_port(
+            port_id=port1_id,
+            port_security_enabled='false')
+        self.compute_security_group_rules_client.\
+            delete_security_group_rule(self.green['rule_id'])
+        self.assertEqual(False, dmgr.is_reachable(client1, private_ip_vm_2),
+                         "Destination is not reachable")
+        self.assertEqual(True, dmgr.is_reachable(client2, private_ip_vm_1),
+                         "Destination is reachable")
+
+    def create_port(self, network_id):
+        port_client = self.manager.ports_client
+        return HELO.create_port(self, network_id=network_id,
+                                client=port_client)
+
+    def create_network_subnet_with_cidr(self, client_mgr=None,
+                                        tenant_id=None, name=None, cidr=None):
+        client_mgr = client_mgr or self.manager
+        tenant_id = tenant_id
+        name = name or data_utils.rand_name('topo-deploy-network')
+        net_network = self.create_network(
+            client=client_mgr.networks_client,
+            tenant_id=tenant_id, name=name)
+        cidr_offset = 16
+        net_subnet = self.create_subnet(
+            client=client_mgr.subnets_client,
+            network=net_network,
+            cidr=cidr, cidr_offset=cidr_offset, name=net_network['name'])
+        return net_network, net_subnet
+
+    @test.attr(type='nsxv')
     @test.idempotent_id('38c213df-bfc2-4681-9c9c-3a31c05b0e6f')
     def test_exclude_with_multiple_vm(self):
         image = self.get_server_image()
         flavor = self.get_server_flavor()
         port_client = self.manager.ports_client
-        self.green = self.setup_vm_enviornment(self.manager, 'green', True)
+        self.green = self.setup_vm_environment(self.manager, 'green', True)
         vm_id = self.green['serv1']['id']
         security_groups = [{'name': self.green['security_group']['id']}]
         # Boot instance vm2
@@ -244,7 +352,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
     @test.idempotent_id('f034d3e9-d717-4bcd-8e6e-18e9ada7b81a')
     def test_exclude_list_with_single_vm_port(self):
         port_client = self.manager.ports_client
-        self.green = self.setup_vm_enviornment(self.manager, 'green', True)
+        self.green = self.setup_vm_environment(self.manager, 'green', True)
         port_id = self.green['fip1']['port_id']
         # Update vm port to disable port security
         port_client.update_port(
@@ -301,7 +409,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
     @test.idempotent_id('c8683cb7-4be5-4670-95c6-344a0aea3667')
     def test_exclude_list_with_multiple_ports(self):
         port_client = self.manager.ports_client
-        self.green = self.setup_vm_enviornment(self.manager, 'green', True)
+        self.green = self.setup_vm_environment(self.manager, 'green', True)
         vm_id = self.green['serv1']['id']
         net_id = self.green['network']['id']
         name = 'disabled-port-security-port1'
