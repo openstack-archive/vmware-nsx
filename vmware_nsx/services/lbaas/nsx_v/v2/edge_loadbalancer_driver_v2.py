@@ -26,6 +26,7 @@ from vmware_nsx.services.lbaas.nsx_v.v2 import pool_mgr
 class EdgeLoadbalancerDriverV2(object):
     @log_helpers.log_method_call
     def __init__(self):
+        super(EdgeLoadbalancerDriverV2, self).__init__()
         self.loadbalancer = lb_mgr.EdgeLoadBalancerManager(self)
         self.listener = listener_mgr.EdgeListenerManager(self)
         self.pool = pool_mgr.EdgePoolManager(self)

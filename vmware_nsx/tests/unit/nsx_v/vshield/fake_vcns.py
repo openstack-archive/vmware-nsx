@@ -1402,3 +1402,10 @@ class FakeVcns(object):
         for id in ['policy-1', 'policy-2', 'policy-3']:
             policies.append(self.get_security_policy(id, return_xml=False))
         return {'policies': policies}
+
+    def list_applications(self):
+        applications = [{'name': 'ICMP Echo', 'objectID': 'application-333'},
+                        {'name': 'IPv6-ICMP Echo',
+                            'objectID': 'application-1001'}]
+
+        return applications

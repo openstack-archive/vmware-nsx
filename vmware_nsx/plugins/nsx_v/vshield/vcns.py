@@ -50,6 +50,7 @@ TRUSTSTORE_PREFIX = '%s/%s' % (SERVICES_PREFIX, 'truststore')
 EXCLUDELIST_PREFIX = '/api/2.1/app/excludelist'
 SERVICE_INSERTION_PROFILE_PREFIX = '/api/2.0/si/serviceprofile'
 SECURITY_POLICY_PREFIX = '/api/2.0/services/policy/securitypolicy'
+APPLICATION_PREFIX = '%s/%s' % (SERVICES_PREFIX, 'application')
 
 #LbaaS Constants
 LOADBALANCER_SERVICE = "loadbalancer/config"
@@ -1030,3 +1031,8 @@ class Vcns(object):
         uri = '%s/all' % (SECURITY_POLICY_PREFIX)
         h, policies = self.do_request(HTTP_GET, uri, decode=True)
         return policies
+
+    def list_applications(self):
+        uri = '%s/scope/globalroot-0' % APPLICATION_PREFIX
+        h, apps = self.do_request(HTTP_GET, uri, decode=True)
+        return apps
