@@ -3089,12 +3089,25 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             LOG.error(_LE("Failed to update firewall for router %s"),
                       router_id)
 
-    # Security group handling section #
-    def _delete_nsx_security_group(self, nsx_sg_id):
+    def _delete_nsx_security_group(self, nsx_sg_id, nsx_policy):
         """Helper method to delete nsx security group."""
         if nsx_sg_id is not None:
+            if nsx_policy:
+                # First remove this security group from the NSX policy,
+                # Or else the delete will fail
+                try:
+                    with locking.LockManager.get_lock(
+                        'neutron-security-policy-' + str(nsx_policy)):
+                        self.nsx_sg_utils.del_nsx_security_group_from_policy(
+                            nsx_policy, nsx_sg_id)
+                except Exception as e:
+                    LOG.warning(_LW("Failed to remove nsx security group "
+                                    "%(id)s from policy %(pol)s : %(e)s"),
+                                {'id': nsx_sg_id, 'pol': nsx_policy, 'e': e})
+
             self.nsx_v.vcns.delete_security_group(nsx_sg_id)
 
+    # Security group handling section #
     def _delete_section(self, section_uri):
         """Helper method to delete nsx rule section."""
         if section_uri is not None:
@@ -3175,7 +3188,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     context, securitygroup, nsx_sg_id)
             except Exception:
                 with excutils.save_and_reraise_exception():
-                    self._delete_nsx_security_group(nsx_sg_id)
+                    self._delete_nsx_security_group(nsx_sg_id, policy)
 
         if not securitygroup[provider_sg.PROVIDER]:
             # Add Security Group to the Security Groups container in order to
@@ -3374,6 +3387,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         """Delete a security group."""
         self._prevent_non_admin_delete_provider_sg(context, id)
         self._prevent_non_admin_delete_policy_sg(context, id)
+        policy = self._get_security_group_policy(context, id)
         try:
             # Find nsx rule sections
             section_uri = self._get_section_uri(context.session, id)
@@ -3388,7 +3402,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             self._delete_section(section_uri)
 
             # Delete nsx security group
-            self._delete_nsx_security_group(nsx_sg_id)
+            self._delete_nsx_security_group(nsx_sg_id, policy)
 
         except Exception:
             with excutils.save_and_reraise_exception():
