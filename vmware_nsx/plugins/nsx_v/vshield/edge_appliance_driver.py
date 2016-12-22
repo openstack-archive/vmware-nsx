@@ -12,6 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from distutils import version
 import time
 
 from neutron.plugins.common import constants as plugin_const
@@ -510,6 +511,11 @@ class EdgeApplianceDriver(object):
                     LOG.debug('Edge %s is already with size %s',
                               edge_id, size)
                     return
+            ver = self.vcns.get_version()
+            if version.LooseVersion(ver) < version.LooseVersion('6.2.3'):
+                # remove some data that will make the update fail
+                edge_utils.remove_irrelevant_keys_from_edge_request(edge)
+
             # set the new size in the request
             edge['appliances']['applianceSize'] = size
             # update the edge
