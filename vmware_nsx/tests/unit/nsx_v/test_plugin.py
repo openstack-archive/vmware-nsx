@@ -18,6 +18,7 @@ from eventlet import greenthread
 import mock
 import netaddr
 from neutron.api.rpc.callbacks import events as callbacks_events
+from neutron.api.rpc.callbacks import resources as callbacks_resources
 from neutron.api.v2 import attributes
 from neutron import context
 from neutron.extensions import allowedaddresspairs as addr_pair
@@ -621,8 +622,9 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                                return_value=fake_policy):
             with mock.patch.object(qos_pol.QosPolicy, "get_bound_networks",
                                    return_value=[net["id"]]):
-                plugin._handle_qos_notification([fake_policy],
-                                                callbacks_events.UPDATED)
+                plugin._handle_qos_notification(
+                    ctx, callbacks_resources.QOS_POLICY,
+                    [fake_policy], callbacks_events.UPDATED)
                 # make sure the policy data was read, and the dvs was updated
                 self.assertTrue(fake_init_from_policy.called)
                 self.assertTrue(fake_dvs_update.called)

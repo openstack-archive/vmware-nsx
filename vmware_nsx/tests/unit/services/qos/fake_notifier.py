@@ -14,6 +14,7 @@
 #    under the License.
 
 from neutron.api.rpc.callbacks import events
+from neutron.api.rpc.callbacks import resources
 from neutron.services.qos.notification_drivers import message_queue
 from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
 
@@ -22,10 +23,16 @@ class DummyNotificationDriver(
     message_queue.RpcQosServiceNotificationDriver):
 
     def create_policy(self, context, policy):
-        qos_utils.handle_qos_notification([policy], events.CREATED)
+        qos_utils.handle_qos_notification(
+            context, resources.QOS_POLICY,
+            [policy], events.CREATED)
 
     def update_policy(self, context, policy):
-        qos_utils.handle_qos_notification([policy], events.UPDATED)
+        qos_utils.handle_qos_notification(
+            context, resources.QOS_POLICY,
+            [policy], events.UPDATED)
 
     def delete_policy(self, context, policy):
-        qos_utils.handle_qos_notification([policy], events.DELETED)
+        qos_utils.handle_qos_notification(
+            context, resources.QOS_POLICY,
+            [policy], events.DELETED)

@@ -249,8 +249,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             self.supported_extension_aliases.append("dhcp-mtu")
 
         # Bind QoS notifications
-        callbacks_registry.subscribe(self._handle_qos_notification,
-                                     callbacks_resources.QOS_POLICY)
+        callbacks_registry.register(self._handle_qos_notification,
+                                    callbacks_resources.QOS_POLICY)
 
         # Make sure starting rpc listeners (for QoS and other agents)
         # will happen only once
@@ -3689,7 +3689,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if cfg.CONF.nsxv.vdr_transit_network:
             edge_utils.validate_vdr_transit_network()
 
-    def _handle_qos_notification(self, qos_policys, event_type):
+    def _handle_qos_notification(self, context, resource_type,
+                                 qos_policys, event_type):
         qos_utils.handle_qos_notification(qos_policys, event_type, self._dvs)
 
     def get_az_by_hint(self, hint):

@@ -213,8 +213,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
         # Bind QoS notifications
-        callbacks_registry.subscribe(qos_utils.handle_qos_notification,
-                                     callbacks_resources.QOS_POLICY)
+        callbacks_registry.register(qos_utils.handle_qos_notification,
+                                    callbacks_resources.QOS_POLICY)
         self.start_rpc_listeners_called = False
 
         self._unsubscribe_callback_events()
