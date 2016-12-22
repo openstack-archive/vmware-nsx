@@ -2,7 +2,7 @@ This folder contains services for managing NSX-v, NSX-v3.
 
 Services provided:
 
-# Openstack tempest service clients
+# OpenStack tempest service clients
 l2_gateway_client.py
     based on tempest BaseNetworkClient implements client APIs to manage
     neutron l2-gateway resources
