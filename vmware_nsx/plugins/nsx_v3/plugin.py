@@ -2434,6 +2434,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._get_external_attachment_info(
                 context, router))
 
+        # Ensure that a router cannot have SNAT disabled if there are
+        # floating IP's assigned
+        if (info and 'enable_snat' in info and
+            org_enable_snat != info.get('enable_snat') and
+            info.get('enable_snat') is False and
+            self.router_gw_port_has_floating_ips(context, router_id)):
+            msg = _("Unable to set SNAT disabled. Floating IPs assigned.")
+            raise n_exc.InvalidInput(error_message=msg)
+
         # TODO(berlin): For nonat use case, we actually don't need a gw port
         # which consumes one external ip. But after looking at the DB logic
         # and we need to make a big change so don't touch it at present.
@@ -2968,6 +2977,18 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                              'ext_ip': fip['floating_ip_address'],
                              'int_ip': fip['fixed_ip_address']})
         super(NsxV3Plugin, self).delete_floatingip(context, fip_id)
+
+    def get_router_for_floatingip(self, context, internal_port,
+                                  internal_subnet, external_network_id):
+        router_id = super(NsxV3Plugin, self).get_router_for_floatingip(
+            context, internal_port, internal_subnet, external_network_id)
+        if router_id:
+            router = self._get_router(context.elevated(), router_id)
+            if not router.enable_snat:
+                msg = _("Unable to assign a floating IP to a router that "
+                        "has SNAT disabled")
+                raise n_exc.InvalidInput(error_message=msg)
+        return router_id
 
     def update_floatingip(self, context, fip_id, floatingip):
         old_fip = self.get_floatingip(context, fip_id)
