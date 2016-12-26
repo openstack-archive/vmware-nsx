@@ -71,17 +71,9 @@ def _mock_create_firewall_rules(*args):
 def _mock_nsx_backend_calls():
     mock.patch("vmware_nsxlib.v3.client.NSX3Client").start()
 
-    class FakeProfile(object):
-        profile_id = uuidutils.generate_uuid()
-        profile_type = 'FakeProfile'
-
-    def _init_nsx_profiles():
-        return (
-            FakeProfile(),  # _psec_profile
-            FakeProfile(),  # _no_psec_profile_id
-            FakeProfile(),  # _dhcp_profile
-            FakeProfile(),  # _mac_learning_profile
-        )
+    fake_profile = {'key': 'FakeKey',
+                    'resource_type': 'FakeResource',
+                    'id': uuidutils.generate_uuid()}
 
     def _return_id_key(*args, **kwargs):
         return {'id': uuidutils.generate_uuid()}
@@ -90,12 +82,8 @@ def _mock_nsx_backend_calls():
         return uuidutils.generate_uuid()
 
     mock.patch(
-        "vmware_nsx.plugins.nsx_v3.plugin.NsxV3Plugin._init_nsx_profiles",
-        side_effect=_init_nsx_profiles).start()
-
-    mock.patch(
-        "vmware_nsx.plugins.nsx_v3.plugin.NsxV3Plugin"
-        "._get_port_security_profile_id", return_value=FakeProfile()
+        "vmware_nsxlib.v3.resources.SwitchingProfile.find_by_display_name",
+        return_value=[fake_profile]
     ).start()
 
     mock.patch(

@@ -200,8 +200,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._nsx_client)
 
         # init profiles on nsx backend
-        (self._psec_profile, self._no_psec_profile_id, self._dhcp_profile,
-         self._mac_learning_profile) = self._init_nsx_profiles()
+        self._init_nsx_profiles()
 
         # Include exclude NSGroup
         LOG.debug("Initializing NSX v3 Excluded Port NSGroup")
@@ -226,14 +225,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def _init_nsx_profiles(self):
         LOG.debug("Initializing NSX v3 port spoofguard switching profile")
-        # TODO(asarfaty): improve logic to avoid requiring setting
-        # this to none.
-        self._psec_profile = None
-        self._psec_profile = self._init_port_security_profile()
-        if not self._psec_profile:
+        if not self._init_port_security_profile():
             msg = _("Unable to initialize NSX v3 port spoofguard "
                     "switching profile: %s") % NSX_V3_PSEC_PROFILE_NAME
-            raise nsx_exc.NsxPluginException(msg)
+            raise nsx_exc.NsxPluginException(err_msg=msg)
         profiles = nsx_resources.SwitchingProfile
         self._no_psec_profile_id = profiles.build_switch_profile_ids(
                 self._switching_profiles,
@@ -242,23 +237,20 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         LOG.debug("Initializing NSX v3 DHCP switching profile")
         try:
-            # TODO(asarfaty): improve logic to avoid requiring setting
-            # this to none.
-            self._dhcp_profile = None
-            self._dhcp_profile = self._init_dhcp_switching_profile()
-        except Exception:
-            msg = _("Unable to initialize NSX v3 DHCP "
-                    "switching profile: %s") % NSX_V3_DHCP_PROFILE_NAME
-            raise nsx_exc.NsxPluginException(msg)
+            self._init_dhcp_switching_profile()
+        except Exception as e:
+            msg = (_("Unable to initialize NSX v3 DHCP switching profile: "
+                     "%(id)s. Reason: %(reason)s") % {
+                   'id': NSX_V3_DHCP_PROFILE_NAME,
+                   'reason': str(e)})
+            raise nsx_exc.NsxPluginException(err_msg=msg)
 
         self._mac_learning_profile = None
         # Only create MAC Learning profile when nsxv3 version >= 1.1.0
         if utils.is_nsx_version_1_1_0(self._nsx_version):
             LOG.debug("Initializing NSX v3 Mac Learning switching profile")
             try:
-                # TODO(asarfaty): improve logic to avoid requiring setting
-                # this to none.
-                self._mac_learning_profile = self._init_mac_learning_profile()
+                self._init_mac_learning_profile()
                 # Only expose the extension if it is supported
                 self.supported_extension_aliases.append('mac-learning')
             except Exception as e:
@@ -266,8 +258,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                 "profile: %(name)s. Reason: %(reason)s"),
                             {'name': NSX_V3_MAC_LEARNING_PROFILE_NAME,
                              'reason': e})
-        return (self._psec_profile, self._no_psec_profile_id,
-                self._dhcp_profile, self._mac_learning_profile)
 
     def _translate_configured_names_to_uuids(self):
         # default VLAN transport zone name / uuid
@@ -375,27 +365,26 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         Exception, max_attempts=cfg.CONF.nsx_v3.retries)
     def _init_dhcp_switching_profile(self):
         with locking.LockManager.get_lock('nsxv3_dhcp_profile_init'):
-            profile = self._get_dhcp_security_profile()
-            if not profile:
+            if not self._get_dhcp_security_profile():
                 self._switching_profiles.create_dhcp_profile(
                     NSX_V3_DHCP_PROFILE_NAME, 'Neutron DHCP Security Profile',
                     tags=self.nsxlib.build_v3_api_version_tag())
             return self._get_dhcp_security_profile()
 
     def _get_dhcp_security_profile(self):
-        if self._dhcp_profile:
+        if hasattr(self, '_dhcp_profile') and self._dhcp_profile:
             return self._dhcp_profile
         profile = self._switching_profiles.find_by_display_name(
             NSX_V3_DHCP_PROFILE_NAME)
-        return nsx_resources.SwitchingProfileTypeId(
+        self._dhcp_profile = nsx_resources.SwitchingProfileTypeId(
             profile_type=(nsx_resources.SwitchingProfileTypes.
                           SWITCH_SECURITY),
             profile_id=profile[0]['id']) if profile else None
+        return self._dhcp_profile
 
     def _init_mac_learning_profile(self):
         with locking.LockManager.get_lock('nsxv3_mac_learning_profile_init'):
-            profile = self._get_mac_learning_profile()
-            if not profile:
+            if not self._get_mac_learning_profile():
                 self._switching_profiles.create_mac_learning_profile(
                     NSX_V3_MAC_LEARNING_PROFILE_NAME,
                     'Neutron MAC Learning Profile',
@@ -403,25 +392,28 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             return self._get_mac_learning_profile()
 
     def _get_mac_learning_profile(self):
-        if self._mac_learning_profile:
+        if (hasattr(self, '_mac_learning_profile')
+            and self._mac_learning_profile):
             return self._mac_learning_profile
         profile = self._switching_profiles.find_by_display_name(
             NSX_V3_MAC_LEARNING_PROFILE_NAME)
-        return nsx_resources.SwitchingProfileTypeId(
+        self._mac_learning_profile = nsx_resources.SwitchingProfileTypeId(
             profile_type=(nsx_resources.SwitchingProfileTypes.
                           MAC_LEARNING),
             profile_id=profile[0]['id']) if profile else None
+        return self._mac_learning_profile
 
     def _get_port_security_profile_id(self):
         return nsx_resources.SwitchingProfile.build_switch_profile_ids(
-            self._switching_profiles, self._get_port_security_profile())[0]
+            self._switching_profiles, self._psec_profile)[0]
 
     def _get_port_security_profile(self):
-        if self._psec_profile:
+        if hasattr(self, '_psec_profile') and self._psec_profile:
             return self._psec_profile
         profile = self._switching_profiles.find_by_display_name(
             NSX_V3_PSEC_PROFILE_NAME)
-        return profile[0] if profile else None
+        self._psec_profile = profile[0] if profile else None
+        return self._psec_profile
 
     @nsxlib_utils.retry_upon_exception(
         Exception, max_attempts=cfg.CONF.nsx_v3.retries)
