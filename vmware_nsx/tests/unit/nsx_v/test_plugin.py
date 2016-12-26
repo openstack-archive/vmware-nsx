@@ -2920,7 +2920,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
 
     @mock.patch.object(edge_utils, "update_firewall")
     def test_router_interfaces_with_update_firewall_metadata_conf(self, mock):
-        """Test the metadata proxy firewall rule with additional configured ports
+        """Test the metadata proxy firewall rule with configured ports
         """
         cfg.CONF.set_override('dhcp_force_metadata', True, group='nsxv')
         cfg.CONF.set_override('metadata_service_allowed_ports',
