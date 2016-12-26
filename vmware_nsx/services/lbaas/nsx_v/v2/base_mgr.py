@@ -14,6 +14,7 @@
 #    under the License.
 
 from neutron.plugins.common import constants
+from neutron_lib import constants as lib_const
 from neutron_lib.plugins import directory
 
 
@@ -42,7 +43,7 @@ class EdgeLoadbalancerBaseManager(object):
     def core_plugin(self):
         if not EdgeLoadbalancerBaseManager._core_plugin:
             EdgeLoadbalancerBaseManager._core_plugin = (
-                self._get_plugin(constants.CORE))
+                self._get_plugin(lib_const.CORE))
 
         return EdgeLoadbalancerBaseManager._core_plugin
 
