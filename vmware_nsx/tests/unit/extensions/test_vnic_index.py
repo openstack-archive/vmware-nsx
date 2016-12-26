@@ -94,11 +94,11 @@ class VnicIndexDbTestCase(test_db_plugin.NeutronDbPluginV2TestCase):
             self.assertRaises(d_exc.DBDuplicateEntry,
                               plugin._set_port_vnic_index_mapping,
                               context, port_id, device_id, 1)
-        # Check that the call for _delete_port_vnic_index remove the row from
-        # the table
 
-        # TODO(kobis): deletion was removed from port - fix this assert
-        # self.assertIsNone(plugin._get_port_vnic_index(context, port_id))
+            # Check that the call for _delete_port_vnic_index_mapping remove
+            # the row from the table
+            plugin._delete_port_vnic_index_mapping(context, port_id)
+            self.assertIsNone(plugin._get_port_vnic_index(context, port_id))
 
     def test_vnic_index_db_duplicate(self):
         plugin = directory.get_plugin()
