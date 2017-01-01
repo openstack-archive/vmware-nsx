@@ -21,13 +21,18 @@ from vmware_nsx.plugins.nsx_v3 import plugin
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 from vmware_nsxlib.v3 import nsx_constants
 
+_NSXLIB = None
+
 
 def get_nsxv3_client():
     return get_connected_nsxlib().client
 
 
 def get_connected_nsxlib():
-    return v3_utils.get_nsxlib_wrapper()
+    global _NSXLIB
+    if _NSXLIB is None:
+        _NSXLIB = v3_utils.get_nsxlib_wrapper()
+    return _NSXLIB
 
 
 class NeutronDbClient(db_base_plugin_v2.NeutronDbPluginV2):
