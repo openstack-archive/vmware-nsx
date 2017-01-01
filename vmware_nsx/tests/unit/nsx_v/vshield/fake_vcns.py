@@ -1006,6 +1006,9 @@ class FakeVcns(object):
     def update_section_by_id(self, id, type, request):
         pass
 
+    def get_default_l3_id(self):
+        return 1234
+
     def get_dfw_config(self):
         response = ""
         for sec_id in range(0, self._sections['section_ids']):
