@@ -997,6 +997,9 @@ class FakeVcns(object):
                 and v['name'] == section_name):
                 return k
 
+    def get_default_l3_id(self):
+        return 1234
+
     def remove_rule_from_section(self, section_uri, rule_id):
         section_id = self._get_section_id_from_uri(section_uri)
         if section_id not in self._sections:
