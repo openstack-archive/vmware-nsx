@@ -627,6 +627,16 @@ class Vcns(object):
         return self.do_request(HTTP_GET, section_uri, format='xml',
                                decode=False)
 
+    def get_default_l3_id(self):
+        """Retrieve the id of the default l3 section."""
+        h, firewall_config = self.get_dfw_config()
+        root = utils.normalize_xml(firewall_config)
+        for child in root:
+            if str(child.tag) == 'layer3Sections':
+                sections = list(child.iter('section'))
+                default = sections[-1]
+                return default.attrib['id']
+
     def get_dfw_config(self):
         uri = FIREWALL_PREFIX
         return self.do_request(HTTP_GET, uri, decode=False, format='xml')
