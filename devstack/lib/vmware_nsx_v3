@@ -70,8 +70,10 @@ function setup_integration_bridge {
 }
 
 function is_neutron_ovs_base_plugin {
-    # NSX uses OVS, but not the l3-agent
-    return 0
+    # This allows the deployer to decide whether devstack should install OVS.
+    # By default, we install OVS, to change this behavior add "OVS_BASE=1" to your localrc file.
+    # Note: Any KVM compute must have OVS installed on it.
+    return ${OVS_BASE:-0}
 }
 
 function neutron_plugin_create_nova_conf {
