@@ -3678,8 +3678,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         for res in az_resources:
             inventory.append((res, 'availability_zones'))
 
-        if cfg.CONF.nsxv.default_policy_id:
-            inventory.append((cfg.CONF.nsxv.default_policy_id, 'policy'))
+        if cfg.CONF.nsxv.use_nsx_policies:
+            # if use_nsx_policies=True, the default policy must be defined
+            if not cfg.CONF.nsxv.default_policy_id:
+                error = _("default_policy_id must be defined")
+                raise nsx_exc.NsxPluginException(err_msg=error)
+            inventory.append((cfg.CONF.nsxv.default_policy_id,
+                              'default_policy_id'))
 
         for moref, field in inventory:
             if moref and not self.nsx_v.vcns.validate_inventory(moref):
