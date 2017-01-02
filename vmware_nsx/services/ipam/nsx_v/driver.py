@@ -116,6 +116,12 @@ class NsxvIpamDriver(common.NsxAbstractIpamDriver, NsxVIpamBase):
             LOG.error(_LE("Failed to delete IPAM from backend: %s"), e)
             # Continue anyway, since this subnet was already removed
 
+    def update_backend_pool(self, subnet_request):
+        # The NSX-v backend does not support changing the ip pool cidr
+        # or gateway.
+        # If this function is called - there is no need to update the backend
+        pass
+
 
 class NsxvIpamSubnet(common.NsxAbstractIpamSubnet, NsxVIpamBase):
     """Manage IP addresses for the NSX-V IPAM driver."""

@@ -67,6 +67,12 @@ class NsxAbstractIpamDriver(subnet_alloc.SubnetAllocator, NsxIpamBase):
         # the neutron internal driver will be used
         self.default_ipam = neutron_driver.NeutronDbPool(subnetpool, context)
 
+        # Mark which updates to the pool are supported
+        # (The NSX-v  backend does not support changing the ip pool cidr
+        # or gateway)
+        self.support_update_gateway = False
+        self.support_update_pools = False
+
     def _is_supported_net(self, subnet_request):
         """By default - all networks are supported"""
         return True
@@ -123,6 +129,10 @@ class NsxAbstractIpamDriver(subnet_alloc.SubnetAllocator, NsxIpamBase):
                                        self._context,
                                        tenant_id=subnet_request.tenant_id)
 
+    @abc.abstractmethod
+    def update_backend_pool(self, nsx_pool_id, subnet_request):
+        pass
+
     def _raise_update_not_supported(self):
         msg = _('Changing the subnet range or gateway is not supported')
         raise ipam_exc.IpamValueInvalid(message=msg)
@@ -130,9 +140,8 @@ class NsxAbstractIpamDriver(subnet_alloc.SubnetAllocator, NsxIpamBase):
     def update_subnet(self, subnet_request):
         """Update subnet info in the IPAM driver.
 
-        The NSX backend does not support changing the ip pool cidr or gateway
+        Do the update only if the specific change is supported by the backend
         """
-        #TODO(asarfaty): the nsx-v3 backend does support update
         nsx_pool_id = nsx_db.get_nsx_ipam_pool_for_subnet(
             self._context.session, subnet_request.subnet_id)
         if not nsx_pool_id:
@@ -145,24 +154,49 @@ class NsxAbstractIpamDriver(subnet_alloc.SubnetAllocator, NsxIpamBase):
             subnet_request.subnet_id, nsx_pool_id,
             self._context, tenant_id=subnet_request.tenant_id).get_details()
 
-        # check that the gateway / cidr / pools did not change
-        if (subnet_request.gateway_ip and
-            str(subnet_request.gateway_ip) != str(curr_subnet.gateway_ip)):
-            self._raise_update_not_supported()
+        # check if the gateway changed
+        gateway_changed = False
+        if (str(subnet_request.gateway_ip) != str(curr_subnet.gateway_ip)):
+            if not self.support_update_gateway:
+                self._raise_update_not_supported()
+            gateway_changed = True
 
+        # check that the prefix / cidr / pools changed
+        pools_changed = False
         if subnet_request.prefixlen != curr_subnet.prefixlen:
-            self._raise_update_not_supported()
+            if not self.support_update_pools:
+                self._raise_update_not_supported()
+            pools_changed = True
+
+        if subnet_request.subnet_cidr[0] != curr_subnet.subnet_cidr[0]:
+            if not self.support_update_pools:
+                self._raise_update_not_supported()
+            pools_changed = True
 
         if (len(subnet_request.allocation_pools) !=
             len(curr_subnet.allocation_pools)):
-            self._raise_update_not_supported()
-
-        for pool_ind in range(len(subnet_request.allocation_pools)):
-            pool_req = subnet_request.allocation_pools[pool_ind]
-            curr_pool = curr_subnet.allocation_pools[pool_ind]
-            if (pool_req.first != curr_pool.first or
-                pool_req.last != curr_pool.last):
+            if not self.support_update_pools:
                 self._raise_update_not_supported()
+            pools_changed = True
+
+        if (len(subnet_request.allocation_pools) !=
+            len(curr_subnet.allocation_pools)):
+            if not self.support_update_pools:
+                self._raise_update_not_supported()
+            pools_changed = True
+        else:
+            for pool_ind in range(len(subnet_request.allocation_pools)):
+                pool_req = subnet_request.allocation_pools[pool_ind]
+                curr_pool = curr_subnet.allocation_pools[pool_ind]
+                if (pool_req.first != curr_pool.first or
+                    pool_req.last != curr_pool.last):
+                    if not self.support_update_pools:
+                        self._raise_update_not_supported()
+                    pools_changed = True
+
+        # update the relevant attributes at the backend pool
+        if gateway_changed or pools_changed:
+            self.update_backend_pool(nsx_pool_id, subnet_request)
 
     @abc.abstractmethod
     def delete_backend_pool(self, nsx_pool_id):

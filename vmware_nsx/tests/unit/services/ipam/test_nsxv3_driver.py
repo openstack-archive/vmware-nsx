@@ -33,13 +33,28 @@ class MockIPPools(object):
             gateway_ip = None
             if kwargs.get('gateway_ip'):
                 gateway_ip = str(kwargs['gateway_ip'])
-            subnet = {"allocation_ranges": kwargs.get('ranges'),
+            subnet = {"allocation_ranges": kwargs.get('allocation_ranges'),
                       "gateway_ip": gateway_ip,
                       "cidr": args[0]}
             pool = {'id': pool_id,
                     'subnets': [subnet]}
             self.nsx_pools[pool_id] = {'pool': pool, 'allocated': []}
             return {'id': pool_id}
+
+        def _update_pool(pool_id, **kwargs):
+            pool = self.nsx_pools[pool_id]['pool']
+            subnet = pool['subnets'][0]
+            if 'gateway_ip' in kwargs:
+                if kwargs['gateway_ip']:
+                    subnet["gateway_ip"] = str(kwargs['gateway_ip'])
+                else:
+                    del subnet["gateway_ip"]
+
+            if 'allocation_ranges' in kwargs:
+                if kwargs['allocation_ranges']:
+                    subnet["allocation_ranges"] = kwargs['allocation_ranges']
+                else:
+                    del subnet["allocation_ranges"]
 
         def _delete_pool(pool_id):
             del self.nsx_pools[pool_id]
@@ -77,6 +92,9 @@ class MockIPPools(object):
             "vmware_nsxlib.v3.resources.IpPool.create",
             side_effect=_create_pool).start()
         mock.patch(
+            "vmware_nsxlib.v3.resources.IpPool.update",
+            side_effect=_update_pool).start()
+        mock.patch(
             "vmware_nsxlib.v3.resources.IpPool.delete",
             side_effect=_delete_pool).start()
         mock.patch(
@@ -95,29 +113,8 @@ class TestNsxv3IpamSubnets(test_plugin.TestSubnetsV2, MockIPPools):
         super(TestNsxv3IpamSubnets, self).setUp()
         self.patch_nsxlib_ipam()
 
-    def test_update_subnet_from_gw_to_new_gw(self):
-        self.skipTest('Update ipam subnet is not supported')
-
-    def test_update_subnet_gw_outside_cidr_returns_200(self):
-        self.skipTest('Update ipam subnet is not supported')
-
-    def test_update_subnet_from_gw_to_no_gw(self):
-        self.skipTest('Update ipam subnet is not supported')
-
-    def test_update_subnet_allocation_pools(self):
-        self.skipTest('Update ipam subnet is not supported')
-
-    def test_update_subnet_allocation_pools_and_gateway_ip(self):
-        self.skipTest('Update ipam subnet is not supported')
-
     def test_update_subnet_gw_ip_in_use_by_router_returns_409(self):
-        self.skipTest('Update ipam subnet is not supported')
-
-    def test_update_subnet_from_no_gw_to_no_gw(self):
-        self.skipTest('Update ipam subnet is not supported')
-
-    def _test_subnet_update_ipv4_and_ipv6_pd_subnets(self, ra_addr_mode):
-        self.skipTest('Update ipam subnet is not supported')
+        self.skipTest('Allocating a specific IP is not supported')
 
     def test_subnet_with_allocation_range(self):
         self.skipTest('Allocating a specific IP is not supported')
@@ -138,6 +135,12 @@ class TestNsxv3IpamSubnets(test_plugin.TestSubnetsV2, MockIPPools):
         self.skipTest('Allocating a specific IP is not supported')
 
     def test_create_subnet_ipv6_slaac_with_db_reference_error(self):
+        self.skipTest('Allocating a specific IP is not supported')
+
+    def test_subnet_update_ipv4_and_ipv6_pd_slaac_subnets(self):
+        self.skipTest('Allocating a specific IP is not supported')
+
+    def test_subnet_update_ipv4_and_ipv6_pd_v6stateless_subnets(self):
         self.skipTest('Allocating a specific IP is not supported')
 
 
