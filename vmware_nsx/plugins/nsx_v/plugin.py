@@ -426,7 +426,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self.nsx_v.vcns.update_section_by_id(
                     section_id, 'ip', section_req_body)
             else:
-                h, c = self.nsx_v.vcns.create_section('ip', section_req_body)
+                # cluster section does not exists. Create it above the
+                # default l3 section
+                l3_id = self.nsx_v.vcns.get_default_l3_id()
+                h, c = self.nsx_v.vcns.create_section('ip', section_req_body,
+                                                      insert_before=l3_id)
                 section_id = self.nsx_sg_utils.parse_and_get_section_id(c)
         return section_id
 
