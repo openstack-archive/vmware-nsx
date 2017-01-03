@@ -735,6 +735,21 @@ class FakeVcns(object):
         del self._fake_app_profiles_dict[edge_id][app_profileid]
         return self.return_helper(header, response)
 
+    def create_app_rule(self, edge_id, app_rule):
+        app_ruleid = uuidutils.generate_uuid()
+        header = {
+            'status': 204,
+            'location': "https://host/api/4.0/edges/edge_id"
+                        "/loadbalancer/config/%s" % app_ruleid}
+        response = ""
+        return self.return_helper(header, response)
+
+    def update_app_rule(self, edge_id, app_ruleid, app_rule):
+        pass
+
+    def delete_app_rule(self, edge_id, app_ruleid):
+        pass
+
     def get_loadbalancer_config(self, edge_id):
         header = {'status': 204}
         response = {'config': False}

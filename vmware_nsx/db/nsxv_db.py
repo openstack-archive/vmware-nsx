@@ -779,6 +779,34 @@ def del_nsxv_lbaas_certificate_binding(session, cert_id, edge_id):
                       edge_id=edge_id).delete())
 
 
+def add_nsxv_lbaas_l7policy_binding(session, policy_id, edge_id,
+                                    edge_app_rule_id):
+    with session.begin(subtransactions=True):
+        binding = nsxv_models.NsxvLbaasL7PolicyBinding(
+            policy_id=policy_id,
+            edge_id=edge_id,
+            edge_app_rule_id=edge_app_rule_id)
+        session.add(binding)
+    return binding
+
+
+def get_nsxv_lbaas_l7policy_binding(session, policy_id):
+    try:
+        return session.query(
+            nsxv_models.NsxvLbaasL7PolicyBinding).filter_by(
+            policy_id=policy_id).one()
+    except exc.NoResultFound:
+        return
+
+
+def del_nsxv_lbaas_l7policy_binding(session, policy_id):
+    try:
+        return (session.query(nsxv_models.NsxvLbaasL7PolicyBinding).
+                filter_by(policy_id=policy_id).delete())
+    except exc.NoResultFound:
+        return
+
+
 def add_nsxv_subnet_ext_attributes(session, subnet_id,
                                    dns_search_domain=None,
                                    dhcp_mtu=None):

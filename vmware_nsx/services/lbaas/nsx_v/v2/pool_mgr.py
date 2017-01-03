@@ -17,6 +17,8 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import excutils
 
+from neutron_lib import exceptions as n_exc
+
 from vmware_nsx._i18n import _LE
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
@@ -48,7 +50,10 @@ class EdgePoolManager(base_mgr.EdgeLoadbalancerBaseManager):
         lb_id = pool.loadbalancer_id
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
-
+        if not lb_binding:
+            msg = _(
+                'No suitable Edge found for pool %s') % pool.id
+            raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
         edge_id = lb_binding['edge_id']
 
         try:
@@ -64,6 +69,7 @@ class EdgePoolManager(base_mgr.EdgeLoadbalancerBaseManager):
                     context.session, lb_id, pool.listener.id)
                 # Associate listener with pool
                 vse = listener_mgr.listener_to_edge_vse(
+                    context,
                     pool.listener,
                     lb_binding['vip_address'],
                     edge_pool_id,
@@ -133,6 +139,7 @@ class EdgePoolManager(base_mgr.EdgeLoadbalancerBaseManager):
                     listener_binding = nsxv_db.get_nsxv_lbaas_listener_binding(
                         context.session, lb_id, listener.id)
                     vse = listener_mgr.listener_to_edge_vse(
+                        context,
                         listener,
                         lb_binding['vip_address'],
                         None,

@@ -331,6 +331,20 @@ class NsxvLbaasCertificateBinding(model_base.BASEV2, models.TimestampMixin):
     edge_cert_id = sa.Column(sa.String(36), nullable=False)
 
 
+class NsxvLbaasL7PolicyBinding(model_base.BASEV2, models.TimestampMixin):
+    """Mapping between NSX Edge and LBaaSv2 L7 policy """
+
+    __tablename__ = 'nsxv_lbaas_l7policy_bindings'
+
+    policy_id = sa.Column(sa.String(36),
+                          sa.ForeignKey('lbaas_l7policies.id',
+                                        name='fk_lbaas_l7policies_id',
+                                        ondelete="CASCADE"),
+                          primary_key=True)
+    edge_id = sa.Column(sa.String(36), nullable=False)
+    edge_app_rule_id = sa.Column(sa.String(36), nullable=False)
+
+
 class NsxvSubnetExtAttributes(model_base.BASEV2, models.TimestampMixin):
     """Subnet attributes managed by NSX plugin extensions."""
 

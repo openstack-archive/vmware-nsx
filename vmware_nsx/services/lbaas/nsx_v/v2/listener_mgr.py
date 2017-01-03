@@ -71,13 +71,14 @@ def listener_to_edge_app_profile(listener, edge_cert_id):
     return edge_app_profile
 
 
-def listener_to_edge_vse(listener, vip_address, default_pool, app_profile_id):
+def listener_to_edge_vse(context, listener, vip_address, default_pool,
+                         app_profile_id):
     if listener.connection_limit:
         connection_limit = max(0, listener.connection_limit)
     else:
         connection_limit = 0
 
-    return {
+    vse = {
         'name': 'vip_' + listener.id,
         'description': listener.description,
         'ipAddress': vip_address,
@@ -88,6 +89,18 @@ def listener_to_edge_vse(listener, vip_address, default_pool, app_profile_id):
         'accelerationEnabled': (
             listener.protocol == lb_const.LB_PROTOCOL_TCP),
         'applicationProfileId': app_profile_id}
+
+    # Add the L7 policies
+    if listener.l7_policies:
+        app_rule_ids = []
+        for pol in listener.l7_policies:
+            binding = nsxv_db.get_nsxv_lbaas_l7policy_binding(
+                context.session, pol.id)
+            if binding:
+                app_rule_ids.append(binding['edge_app_rule_id'])
+        vse['applicationRuleId'] = app_rule_ids
+
+    return vse
 
 
 class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
@@ -157,7 +170,8 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
                 LOG.error(_LE('Failed to create app profile on edge: %s'),
                           lb_binding['edge_id'])
 
-        vse = listener_to_edge_vse(listener, lb_binding['vip_address'],
+        vse = listener_to_edge_vse(context, listener,
+                                   lb_binding['vip_address'],
                                    default_pool,
                                    app_profile_id)
 
@@ -227,7 +241,7 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
                 self.vcns.update_app_profile(
                     edge_id, app_profile_id, app_profile)
 
-            vse = listener_to_edge_vse(new_listener,
+            vse = listener_to_edge_vse(context, new_listener,
                                        lb_binding['vip_address'],
                                        default_pool,
                                        app_profile_id)
