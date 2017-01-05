@@ -30,11 +30,13 @@ from neutron.db import models_v2
 from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
 from neutron.db import securitygroups_db
+from neutron.db import vlantransparent_db as vlan_ext_db
 from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
+from neutron.extensions import vlantransparent as vlan_ext
 from neutron.plugins.common import constants
 from neutron.plugins.common import utils
 from neutron.quota import resource_registry
@@ -64,7 +66,8 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                l3_db.L3_NAT_dbonly_mixin,
                portbindings_db.PortBindingMixin,
                portsecurity_db.PortSecurityDbMixin,
-               securitygroups_db.SecurityGroupDbMixin):
+               securitygroups_db.SecurityGroupDbMixin,
+               vlan_ext_db.Vlantransparent_db_mixin):
 
     supported_extension_aliases = ["allowed-address-pairs",
                                    "binding",
@@ -74,7 +77,8 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                                    "provider",
                                    "quotas",
                                    "router",
-                                   "security-group"]
+                                   "security-group",
+                                   "vlan-transparent"]
 
     __native_bulk_support = True
     __native_pagination_support = True
@@ -149,6 +153,11 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         if net_data.get(pnet.NETWORK_TYPE) == c_utils.NetworkTypes.VLAN:
             vlan_tag = net_data.get(pnet.SEGMENTATION_ID, 0)
 
+        trunk_mode = False
+        # vlan transparent can be an object if not set.
+        if net_data.get(vlan_ext.VLANTRANSPARENT) is True:
+            trunk_mode = True
+
         net_id = None
         if net_data.get(pnet.NETWORK_TYPE) == c_utils.NetworkTypes.PORTGROUP:
             net_id = net_data.get(pnet.PHYSICAL_NETWORK)
@@ -162,7 +171,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             dvs_id = dvpg_moref.value
         else:
             dvs_id = self._dvs_get_id(net_data)
-            self._dvs.add_port_group(dvs_id, vlan_tag)
+            self._dvs.add_port_group(dvs_id, vlan_tag, trunk_mode=trunk_mode)
 
         try:
             with context.session.begin(subtransactions=True):
@@ -171,6 +180,12 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                 # Process port security extension
                 self._process_network_port_security_create(
                     context, net_data, new_net)
+
+                # Process vlan transparent extension
+                net_db = self._get_network(context, new_net['id'])
+                net_db['vlan_transparent'] = trunk_mode
+                net_data['vlan_transparent'] = trunk_mode
+                self._apply_dict_extend_functions('networks', net_data, net_db)
 
                 nsx_db.add_network_binding(
                     context.session, new_net['id'],
