@@ -3177,15 +3177,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # just add the security group to the policy on the backend.
             self._update_nsx_security_group_policies(
                 policy, None, nsx_sg_id)
-
-            # Delete the neutron default rules (do not exist on the backend)
-            if securitygroup.get(ext_sg.SECURITYGROUPRULES):
-                with context.session.begin(subtransactions=True):
-                    for rule in securitygroup[ext_sg.SECURITYGROUPRULES]:
-                        rule_db = self._get_security_group_rule(context,
-                                                                rule['id'])
-                        context.session.delete(rule_db)
-                securitygroup.pop(ext_sg.SECURITYGROUPRULES)
         else:
             try:
                 self._create_fw_section_for_security_group(
@@ -3274,9 +3265,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._validate_security_group(context, sg_data, default_sg)
 
         with context.session.begin(subtransactions=True):
-            if sg_data.get(provider_sg.PROVIDER):
-                new_sg = self.create_provider_security_group(
-                    context, security_group)
+            is_provider = True if sg_data.get(provider_sg.PROVIDER) else False
+            is_policy = True if sg_data.get(sg_policy.POLICY) else False
+            if is_provider or is_policy:
+                new_sg = self.create_security_group_without_rules(
+                    context, security_group, default_sg, is_provider)
             else:
                 new_sg = super(NsxVPluginV2, self).create_security_group(
                     context, security_group, default_sg)

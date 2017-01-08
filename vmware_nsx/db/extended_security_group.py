@@ -21,10 +21,13 @@ from sqlalchemy.orm import exc
 from sqlalchemy import sql
 
 from neutron.api.v2 import attributes
+from neutron.callbacks import events
+from neutron.callbacks import registry
+from neutron.callbacks import resources
 from neutron.common import utils as n_utils
 from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
-from neutron.db.models import securitygroup as securitygroups_db  # noqa
+from neutron.db.models import securitygroup as securitygroups_db
 from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.api import validators
 from neutron_lib import constants as n_constants
@@ -69,13 +72,29 @@ class ExtendedSecurityGroupPropertiesMixin(object):
                      "==SecurityGroupPortBinding.security_group_id"))
 
     def create_provider_security_group(self, context, security_group):
-        """Create a provider security group.
+        return self.create_security_group_without_rules(
+            context, security_group, False, True)
+
+    def create_security_group_without_rules(self, context, security_group,
+                                            default_sg, is_provider):
+        """Create a neutron security group, without any default rules.
 
         This method creates a security group that does not by default
         enable egress traffic which normal neutron security groups do.
         """
         s = security_group['security_group']
+        kwargs = {
+            'context': context,
+            'security_group': s,
+            'is_default': default_sg,
+        }
+
+        self._registry_notify(resources.SECURITY_GROUP, events.BEFORE_CREATE,
+                              exc_cls=ext_sg.SecurityGroupConflict, **kwargs)
         tenant_id = s['tenant_id']
+
+        if not default_sg:
+            self._ensure_default_security_group(context, tenant_id)
 
         with db_api.autonested_transaction(context.session):
             security_group_db = securitygroups_db.SecurityGroup(
@@ -84,8 +103,17 @@ class ExtendedSecurityGroupPropertiesMixin(object):
                 tenant_id=tenant_id,
                 name=s.get('name', ''))
             context.session.add(security_group_db)
+            if default_sg:
+                context.session.add(securitygroups_db.DefaultSecurityGroup(
+                    security_group=security_group_db,
+                    tenant_id=tenant_id))
+
         secgroup_dict = self._make_security_group_dict(security_group_db)
-        secgroup_dict[provider_sg.PROVIDER] = True
+        secgroup_dict[sg_policy.POLICY] = s.get(sg_policy.POLICY)
+        secgroup_dict[provider_sg.PROVIDER] = is_provider
+        kwargs['security_group'] = secgroup_dict
+        registry.notify(resources.SECURITY_GROUP, events.AFTER_CREATE, self,
+                        **kwargs)
         return secgroup_dict
 
     def _process_security_group_properties_create(self, context,
