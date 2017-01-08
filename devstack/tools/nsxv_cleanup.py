@@ -52,19 +52,53 @@ Tong Liu <tongl@vmware.com>
 import base64
 import optparse
 import requests
+import sqlalchemy as sa
 import sys
 
+
 from oslo_serialization import jsonutils
+from vmware_nsx.db import nsx_models
+from vmware_nsx.db import nsxv_models
 
 requests.packages.urllib3.disable_warnings()
+
+
+class NeutronNsxDB(object):
+    def __init__(self, db_connection):
+        super(NeutronNsxDB, self).__init__()
+        engine = sa.create_engine(db_connection)
+        self.session = sa.orm.session.sessionmaker()(bind=engine)
+
+    def query_all(self, column, model):
+        return list(set([r[column] for r in self.session.query(model).all()]))
+
+    def query_all_firewall_sections(self):
+        return self.query_all('ip_section_id',
+                              nsxv_models.NsxvSecurityGroupSectionMapping)
+
+    def query_all_security_groups(self):
+        return self.query_all('nsx_id',
+                              nsx_models.NeutronNsxSecurityGroupMapping)
+
+    def query_all_logical_switches(self):
+        return self.query_all('nsx_id',
+                              nsx_models.NeutronNsxNetworkMapping)
+
+    def query_all_spoofguard_policies(self):
+        return self.query_all('policy_id',
+                              nsxv_models.NsxvSpoofGuardPolicyNetworkMapping)
+
+    def query_all_edges(self):
+        return self.query_all('edge_id',
+                              nsxv_models.NsxvRouterBinding)
 
 
 class VSMClient(object):
     """Base VSM REST client """
     API_VERSION = "2.0"
 
-    def __init__(self, host, username, password, *args, **kwargs):
-        self.force = True if 'force' in kwargs else False
+    def __init__(self, host, username, password, db_connection, force):
+        self.force = force
         self.host = host
         self.username = username
         self.password = password
@@ -78,7 +112,8 @@ class VSMClient(object):
         self.url = None
         self.headers = None
         self.api_version = VSMClient.API_VERSION
-
+        self.neutron_db = (NeutronNsxDB(db_connection) if db_connection
+                           else None)
         self.__set_headers()
 
     def __set_endpoint(self, endpoint):
@@ -192,6 +227,11 @@ class VSMClient(object):
             temp_lswitches = response.json()['dataPage']['data']
             lswitches += temp_lswitches
 
+        if self.neutron_db:
+            db_lswitches = self.neutron_db.query_all_logical_switches()
+            lswitches = [ls for ls in lswitches
+                         if ls['objectId'] in db_lswitches]
+
         return lswitches
 
     def cleanup_logical_switch(self):
@@ -224,6 +264,10 @@ class VSMClient(object):
             print("ERROR: wrong response status code! Exiting...")
             sys.exit()
 
+        if self.neutron_db:
+            db_sections = self.neutron_db.query_all_firewall_sections()
+            firewall_sections = [fws for fws in firewall_sections if fws['id']
+                                 in db_sections]
         return firewall_sections
 
     def cleanup_firewall_section(self):
@@ -254,6 +298,11 @@ class VSMClient(object):
         # related to any security group created by OpenStack
         security_groups = [sg for sg in sg_all if
                            sg['name'] != "Activity Monitoring Data Collection"]
+
+        if self.neutron_db:
+            db_sgs = self.neutron_db.query_all_security_groups()
+            security_groups = [sg for sg in security_groups
+                               if sg['objectId'] in db_sgs]
         return security_groups
 
     def cleanup_security_group(self):
@@ -280,6 +329,10 @@ class VSMClient(object):
         sgp_all = response.json()
         policies = [sgp for sgp in sgp_all['policies'] if
                     sgp['name'] != 'Default Policy']
+
+        if self.neutron_db:
+            db_policies = self.neutron_db.query_all_spoofguard_policies()
+            policies = [p for p in policies if p['policyId'] in db_policies]
         return policies
 
     def cleanup_spoofguard_policies(self):
@@ -312,6 +365,10 @@ class VSMClient(object):
             response = self.get(params=params)
             temp_edges = response.json()['edgePage']['data']
             edges += temp_edges
+
+        if self.neutron_db:
+            db_edges = self.neutron_db.query_all_edges()
+            edges = [e for e in edges if e['id'] in db_edges]
 
         return edges
 
@@ -350,20 +407,20 @@ if __name__ == "__main__":
                       help="NSX Manager username")
     parser.add_option("-p", "--password", default="default", dest="password",
                       help="NSX Manager password")
+    parser.add_option("--db-connection", dest="db_connection", default="",
+                      help=("When set, cleaning only backend resources that "
+                            "have db record."))
     parser.add_option("-f", "--force", dest="force", action="store_true",
                       help="Force cleanup option")
     (options, args) = parser.parse_args()
     print("vsm-ip: %s" % options.vsm_ip)
     print("username: %s" % options.username)
     print("password: %s" % options.password)
+    print("db-connection: %s" % options.db_connection)
     print("force: %s" % options.force)
 
     # Get VSM REST client
-    if options.force:
-        vsm_client = VSMClient(options.vsm_ip, options.username,
-                               options.password, force=options.force)
-    else:
-        vsm_client = VSMClient(options.vsm_ip, options.username,
-                               options.password)
+    vsm_client = VSMClient(options.vsm_ip, options.username, options.password,
+                           options.db_connection, options.force)
     # Clean all objects created by OpenStack
     vsm_client.cleanup_all()

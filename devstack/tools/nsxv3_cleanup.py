@@ -16,12 +16,48 @@
 import base64
 import optparse
 import requests
+import sqlalchemy as sa
 
 from oslo_serialization import jsonutils
 import six.moves.urllib.parse as urlparse
+from vmware_nsx.db import nsx_models
 
 
 requests.packages.urllib3.disable_warnings()
+
+
+class NeutronNsxDB(object):
+    def __init__(self, db_connection):
+        super(NeutronNsxDB, self).__init__()
+        engine = sa.create_engine(db_connection)
+        self.session = sa.orm.session.sessionmaker()(bind=engine)
+
+    def query_all(self, column, model):
+        return list(set([r[column] for r in self.session.query(model).all()]))
+
+    def get_logical_ports(self):
+        return self.query_all('nsx_port_id',
+                              nsx_models.NeutronNsxPortMapping)
+
+    def get_nsgroups(self):
+        return self.query_all('nsx_id',
+                              nsx_models.NeutronNsxSecurityGroupMapping)
+
+    def get_firewall_sections(self):
+        return self.query_all('nsx_id',
+                              nsx_models.NeutronNsxFirewallSectionMapping)
+
+    def get_logical_routers(self):
+        return self.query_all('nsx_id',
+                              nsx_models.NeutronNsxRouterMapping)
+
+    def get_logical_switches(self):
+        return self.query_all('nsx_id',
+                              nsx_models.NeutronNsxNetworkMapping)
+
+    def get_logical_dhcp_servers(self):
+        return self.query_all('nsx_service_id',
+                              nsx_models.NeutronNsxServiceBinding)
 
 
 class NSXClient(object):
@@ -29,7 +65,7 @@ class NSXClient(object):
     API_VERSION = "v1"
     NULL_CURSOR_PREFIX = '0000'
 
-    def __init__(self, host, username, password, *args, **kwargs):
+    def __init__(self, host, username, password, db_connection):
         self.host = host
         self.username = username
         self.password = password
@@ -43,6 +79,8 @@ class NSXClient(object):
         self.url = None
         self.headers = None
         self.api_version = NSXClient.API_VERSION
+        self.neutron_db = (NeutronNsxDB(db_connection)
+                           if db_connection else None)
 
         self.__set_headers()
 
@@ -169,8 +207,12 @@ class NSXClient(object):
         """
         Retrieve all logical ports created from OpenStack
         """
-        lports = self.get_logical_ports()
-        return self.get_os_resources(lports)
+        lports = self.get_os_resources(
+            self.get_logical_ports())
+        if self.neutron_db:
+            db_lports = self.neutron_db.get_logical_ports()
+            lports = [lp for lp in lports if lp['id'] in db_lports]
+        return lports
 
     def update_logical_port_attachment(self, lports):
         """
@@ -188,8 +230,7 @@ class NSXClient(object):
         """
         Delete all logical ports created by OpenStack
         """
-        lports = self.get_logical_ports()
-        os_lports = self.get_os_resources(lports)
+        os_lports = self.get_os_logical_ports()
         print("Number of OS Logical Ports to be deleted: %s" % len(os_lports))
         # logical port vif detachment
         self.update_logical_port_attachment(os_lports)
@@ -221,8 +262,14 @@ class NSXClient(object):
         """
         Retrieve all logical switches created from OpenStack
         """
-        lswitches = self.get_logical_switches()
-        return self.get_os_resources(lswitches)
+        lswitches = self.get_os_resources(
+            self.get_logical_switches())
+
+        if self.neutron_db:
+            db_lswitches = self.neutron_db.get_logical_switches()
+            lswitches = [ls for ls in lswitches
+                         if ls['id'] in db_lswitches]
+        return lswitches
 
     def get_lswitch_ports(self, ls_id):
         """
@@ -258,8 +305,13 @@ class NSXClient(object):
         """
         Retrieve all firewall sections created from OpenStack
         """
-        fw_sections = self.get_firewall_sections()
-        return self.get_os_resources(fw_sections)
+        fw_sections = self.get_os_resources(
+            self.get_firewall_sections())
+        if self.neutron_db:
+            db_sections = self.neutron_db.get_firewall_sections()
+            fw_sections = [fws for fws in fw_sections
+                           if fws['id'] in db_sections]
+        return fw_sections
 
     def get_firewall_section_rules(self, fw_section):
         """
@@ -306,8 +358,13 @@ class NSXClient(object):
         """
         Retrieve all NSGroups on NSX backend
         """
-        ns_groups = self.get_list_results(endpoint="/ns-groups")
-        return self.get_os_resources(ns_groups)
+        ns_groups = self.get_os_resources(
+            self.get_list_results(endpoint="/ns-groups"))
+        if self.neutron_db:
+            db_nsgroups = self.neutron_db.get_nsgroups()
+            ns_groups = [nsg for nsg in ns_groups
+                         if nsg['id'] in db_nsgroups]
+        return ns_groups
 
     def cleanup_os_ns_groups(self):
         """
@@ -333,8 +390,11 @@ class NSXClient(object):
         """
         Retrieve all Switching Profiles created from OpenStack
         """
-        sw_profiles = self.get_switching_profiles()
-        return self.get_os_resources(sw_profiles)
+        sw_profiles = self.get_os_resources(
+            self.get_switching_profiles())
+        if self.neutron_db:
+            sw_profiles = []
+        return sw_profiles
 
     def cleanup_os_switching_profiles(self):
         """
@@ -362,7 +422,13 @@ class NSXClient(object):
             endpoint = "/logical-routers?router_type=%s" % tier
         else:
             endpoint = "/logical-routers"
-        return self.get_list_results(endpoint=endpoint)
+        lrouters = self.get_list_results(endpoint=endpoint)
+
+        if self.neutron_db:
+            db_routers = self.neutron_db.get_logical_routers()
+            lrouters = [lr for lr in lrouters
+                        if lr['id'] in db_routers]
+        return lrouters
 
     def get_os_logical_routers(self):
         """
@@ -438,8 +504,14 @@ class NSXClient(object):
         """
         Retrieve all logical DHCP servers created from OpenStack
         """
-        dhcp_servers = self.get_logical_dhcp_servers()
-        return self.get_os_resources(dhcp_servers)
+        dhcp_servers = self.get_os_resources(
+            self.get_logical_dhcp_servers())
+
+        if self.neutron_db:
+            db_dhcp_servers = self.neutron_db.get_logical_dhcp_servers()
+            dhcp_servers = [srv for srv in dhcp_servers
+                            if srv['id'] in db_dhcp_servers]
+        return dhcp_servers
 
     def cleanup_os_logical_dhcp_servers(self):
         """
@@ -487,10 +559,13 @@ if __name__ == "__main__":
                       help="NSX Manager username")
     parser.add_option("-p", "--password", default="default", dest="password",
                       help="NSX Manager password")
+    parser.add_option("--db-connection", default="", dest="db_connection",
+                      help=("When set, cleaning only backend resources that "
+                            "have db record."))
     (options, args) = parser.parse_args()
 
     # Get NSX REST client
     nsx_client = NSXClient(options.mgr_ip, options.username,
-                           options.password)
+                           options.password, options.db_connection)
     # Clean all objects created by OpenStack
     nsx_client.cleanup_all()

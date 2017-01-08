@@ -34,8 +34,14 @@ fi
 if [[ $Q_PLUGIN == 'vmware_nsx_v' ]]; then
     source $dir/lib/vmware_nsx_v
     if [[ "$1" == "unstack" ]]; then
-        python $dir/tools/nsxv_cleanup.py --vsm-ip ${NSXV_MANAGER_URI/https:\/\/} --user $NSXV_USER --password $NSXV_PASSWORD
+        db_connection=$(iniget $NEUTRON_CONF database connection)
+        python $dir/tools/nsxv_cleanup.py --vsm-ip ${NSXV_MANAGER_URI/https:\/\/} --user $NSXV_USER --password $NSXV_PASSWORD --db-connection $db_connection
+    elif [[ "$1" == "clean" ]]; then
+        if is_service_enabled q-svc || is_service_enabled neutron-api; then
+            python $dir/tools/nsxv_cleanup.py --vsm-ip ${NSXV_MANAGER_URI/https:\/\/} --user $NSXV_USER --password $NSXV_PASSWORD
+        fi
     fi
+
 elif [[ $Q_PLUGIN == 'vmware_nsx' ]]; then
     source $dir/lib/vmware_nsx
     if [[ "$1" == "stack" && "$2" == "post-config" ]]; then
@@ -50,6 +56,7 @@ elif [[ $Q_PLUGIN == 'vmware_nsx_v3' ]]; then
     if [[ "$1" == "stack" && "$2" == "post-config" ]]; then
         init_vmware_nsx_v3
     elif [[ "$1" == "unstack" ]]; then
+        db_connection=$(iniget $NEUTRON_CONF database connection)
         stop_vmware_nsx_v3
         # only clean up when q-svc (legacy support) or neutron-api is enabled
         if is_service_enabled q-svc || is_service_enabled neutron-api; then
@@ -57,6 +64,10 @@ elif [[ $Q_PLUGIN == 'vmware_nsx_v3' ]]; then
             IFS=','
             NSX_MANAGER=($NSX_MANAGER)
             unset IFS
+            python $dir/tools/nsxv3_cleanup.py --mgr-ip $NSX_MANAGER --user $NSX_USER --password $NSX_PASSWORD --db-connection $db_connection
+        fi
+    elif [[ "$1" == 'clean' ]]; then
+        if is_service_enabled q-svc || is_service_enabled neutron-api; then
             python $dir/tools/nsxv3_cleanup.py --mgr-ip $NSX_MANAGER --user $NSX_USER --password $NSX_PASSWORD
         fi
     fi
