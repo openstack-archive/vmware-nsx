@@ -1732,6 +1732,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                              'device owner [%(dev_own)s] and port %(pid)s'),
                          {'dev_own': owner, 'pid': original_port['id']})
 
+        # update port security in DB if changed
+        if psec.PORTSECURITY in port['port']:
+            self._process_port_port_security_update(
+                context, port_data, ret_port)
+
         # Processing compute port update
         vnic_idx = original_port.get(ext_vnic_idx.VNIC_INDEX)
         if validators.is_attr_set(vnic_idx) and is_compute_port:
@@ -1772,8 +1777,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             else:
                 # port security enabled / disabled
                 if port_sec_change:
-                    self._process_port_port_security_update(
-                        context, port_data, ret_port)
                     if has_port_security:
                         LOG.debug("Assigning vnic port fixed-ips: port %s, "
                                   "vnic %s, with fixed-ips %s", id, vnic_id,
