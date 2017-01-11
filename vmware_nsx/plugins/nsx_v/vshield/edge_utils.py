@@ -368,8 +368,12 @@ class EdgeManager(object):
             # Return user input physical network value for all network types
             # except VXLAN networks. The DVS-ID of the mgmt/edge cluster must
             # be returned for VXLAN network types.
+            # We also validate that this binding starts with 'dvs'. If a admin
+            # creates a provider portgroup then we need to use the default
+            # configured DVS.
             elif (not network_type == c_utils.NsxVNetworkTypes.VXLAN
-                  and binding['phy_uuid'] != ''):
+                  and binding['phy_uuid'] != ''
+                  and binding['phy_uuid'].startswith('dvs')):
                 phys_net = binding['phy_uuid']
         return phys_net, network_type
 
