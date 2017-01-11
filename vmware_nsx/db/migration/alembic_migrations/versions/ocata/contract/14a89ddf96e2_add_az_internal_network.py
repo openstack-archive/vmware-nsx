@@ -28,6 +28,12 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.engine import reflection
 
+from neutron.db import migration
+
+
+# milestone identifier, used by neutron-db-manage
+neutron_milestone = [migration.OCATA]
+
 
 def upgrade():
     table_name = 'nsxv_internal_networks'

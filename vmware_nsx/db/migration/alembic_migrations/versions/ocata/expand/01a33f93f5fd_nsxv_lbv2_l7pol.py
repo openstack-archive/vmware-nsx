@@ -29,6 +29,10 @@ import sqlalchemy as sa
 from neutron.db import migration
 
 
+# milestone identifier, used by neutron-db-manage
+neutron_milestone = [migration.OCATA]
+
+
 def upgrade():
     if migration.schema_has_table('lbaas_l7policies'):
         op.create_table(
