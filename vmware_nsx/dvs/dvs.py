@@ -465,3 +465,11 @@ class DvsManager(object):
         policy.uplinkPortOrder.inherited = False
         ports = teaming_data['failoverUplinkPortNames']
         policy.uplinkPortOrder.activeUplinkPort = ports
+        # The standby port will be those not configure as active ones
+        uplinks = self._session.invoke_api(vim_util,
+                                           "get_object_property",
+                                           self._session.vim,
+                                           self._dvs_moref,
+                                           "config.uplinkPortPolicy")
+        standby = list(set(uplinks.uplinkPortName) - set(ports))
+        policy.uplinkPortOrder.standbyUplinkPort = standby
