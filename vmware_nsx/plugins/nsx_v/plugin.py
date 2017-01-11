@@ -1339,6 +1339,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 msg = _('Address pairs should have same MAC as the port')
                 raise n_exc.BadRequest(resource='address_pairs', msg=msg)
 
+    def _is_mac_in_use(self, context, network_id, mac_address):
+        # Override this method as the backed doesn't support using the same
+        # mac twice on any network, not just this specific network
+        admin_ctx = context.elevated()
+        return bool(admin_ctx.session.query(models_v2.Port).
+                    filter(models_v2.Port.mac_address == mac_address).
+                    count())
+
     @db_api.retry_db_errors
     def base_create_port(self, context, port):
         return super(NsxVPluginV2, self).create_port(context, port)
