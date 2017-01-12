@@ -1,0 +1,7 @@
+---
+prelude: >
+    We have added a new configuration variable that will enable us to
+    enable existing extensions. The new configuration variable is
+    ``nsx_extension_drivers``. This is in the default section.
+    This is a list of extansion names. The code for the drivers
+    must be in the directory vmware_nsx.extension_drivers.
