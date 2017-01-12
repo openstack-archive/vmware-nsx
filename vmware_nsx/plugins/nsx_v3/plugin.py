@@ -2515,8 +2515,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             pass
 
         self._routerlib.update_advertisement(nsx_router_id,
-                                       advertise_route_nat_flag,
-                                       advertise_route_connected_flag)
+                                             advertise_route_nat_flag,
+                                             advertise_route_connected_flag)
 
     def create_router(self, context, router):
         # TODO(berlin): admin_state_up support
@@ -2537,7 +2537,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         try:
             result = self._router_client.create(
                 display_name=utils.get_name_and_uuid(
-                    router['name'] or 'router', router['id']), tags=tags)
+                    router['name'] or 'router', router['id']),
+                description=router.get('description'),
+                tags=tags)
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE("Unable to create logical router for "
@@ -2553,7 +2555,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                               "router %s"), router['id'])
                 self.delete_router(context, router['id'])
 
-        if gw_info != const.ATTR_NOT_SPECIFIED:
+        if gw_info and gw_info != const.ATTR_NOT_SPECIFIED:
             try:
                 self._update_router_gw_info(context, router['id'], gw_info)
             except (db_exc.DBError, nsx_lib_exc.ManagerError):
@@ -2688,6 +2690,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                           "Reason: %(e)s"),
                                       {'port_id': nsx_port_id,
                                        'e': e})
+            if 'description' in router_data:
+                nsx_router_id = nsx_db.get_nsx_router_id(context.session,
+                                                         router_id)
+                self._router_client.update(
+                    nsx_router_id,
+                    description=router_data['description'])
+
             return self._update_router_wrapper(context, router_id, router)
         except nsx_lib_exc.ResourceNotFound:
             with context.session.begin(subtransactions=True):
