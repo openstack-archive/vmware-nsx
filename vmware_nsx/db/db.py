@@ -448,3 +448,27 @@ def del_nsx_ipam_subnet_pool(session, subnet_id, nsx_pool_id):
     return (session.query(nsx_models.NsxSubnetIpam).
             filter_by(subnet_id=subnet_id,
                       nsx_pool_id=nsx_pool_id).delete())
+
+
+def get_certificate(session, purpose):
+    try:
+        cert_entry = session.query(
+            nsx_models.NsxCertificateRepository).filter_by(
+                purpose=purpose).one()
+        return cert_entry.certificate, cert_entry.private_key
+    except exc.NoResultFound:
+        return None, None
+
+
+def save_certificate(session, purpose, cert, pk):
+    with session.begin(subtransactions=True):
+        cert_entry = nsx_models.NsxCertificateRepository(
+                purpose=purpose,
+                certificate=cert,
+                private_key=pk)
+        session.add(cert_entry)
+
+
+def delete_certificate(session, purpose):
+    return (session.query(nsx_models.NsxCertificateRepository).
+            filter_by(purpose=purpose).delete())

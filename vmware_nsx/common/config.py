@@ -272,6 +272,17 @@ nsx_v3_opts = [
                        "[<scheme>://]<ip_adress>[:<port>]\nIf scheme is not "
                        "provided https is used. If port is not provided port "
                        "80 is used for http and port 443 for https.")),
+    cfg.BoolOpt('nsx_use_client_auth',
+                default=False,
+                help=_("Use client certificate in NSX manager "
+                       "authentication")),
+    cfg.StrOpt('nsx_client_cert_file',
+               default='',
+               help=_("File to contain client certificate and private key")),
+    cfg.StrOpt('nsx_client_cert_storage',
+               default='nsx-db',
+               choices=['nsx-db', 'none'],
+               help=_("Storage type for client certificate sensitive data")),
     cfg.StrOpt('default_overlay_tz',
                deprecated_name='default_overlay_tz_uuid',
                help=_("This is the name or UUID of the default NSX overlay "

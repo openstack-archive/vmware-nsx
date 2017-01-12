@@ -52,6 +52,9 @@ class Operations(enum.Enum):
     NSX_MIGRATE_V_V3 = 'nsx-migrate-v-v3'
     MIGRATE_TO_POLICY = 'migrate-to-policy'
     STATUS = 'status'
+    GENERATE = 'generate'
+    IMPORT = 'import'
+    SHOW = 'show'
 
 ops = [op.value for op in Operations]
 
@@ -91,6 +94,11 @@ nsxv3_resources = {
     constants.ORPHANED_DHCP_SERVERS: Resource(constants.ORPHANED_DHCP_SERVERS,
                                               [Operations.NSX_LIST.value,
                                                Operations.NSX_CLEAN.value]),
+    constants.CERTIFICATE: Resource(constants.CERTIFICATE,
+                                    [Operations.GENERATE.value,
+                                     Operations.SHOW.value,
+                                     Operations.CLEAN.value,
+                                     Operations.IMPORT.value])
 }
 
 # Add supported NSX-V resources in this dictionary

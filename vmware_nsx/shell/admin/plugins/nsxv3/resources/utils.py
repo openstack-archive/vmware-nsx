@@ -24,12 +24,23 @@ from vmware_nsxlib.v3 import nsx_constants
 _NSXLIB = None
 
 
-def get_nsxv3_client():
-    return get_connected_nsxlib().client
+def get_nsxv3_client(nsx_username=None, nsx_password=None,
+                     use_basic_auth=False):
+
+    return get_connected_nsxlib(nsx_username,
+                                nsx_password,
+                                use_basic_auth).client
 
 
-def get_connected_nsxlib():
+def get_connected_nsxlib(nsx_username=None, nsx_password=None,
+                         use_basic_auth=False):
     global _NSXLIB
+
+    # for non-default agruments, initiate new lib
+    if nsx_username or use_basic_auth:
+        return v3_utils.get_nsxlib_wrapper(nsx_username,
+                                           nsx_password,
+                                           use_basic_auth)
     if _NSXLIB is None:
         _NSXLIB = v3_utils.get_nsxlib_wrapper()
     return _NSXLIB
