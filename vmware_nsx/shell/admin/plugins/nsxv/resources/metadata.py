@@ -15,11 +15,11 @@
 
 import hashlib
 import hmac
-import logging
 
 from neutron.callbacks import registry
 from neutron.db import models_v2
 from oslo_config import cfg
+from oslo_log import log as logging
 
 from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import config

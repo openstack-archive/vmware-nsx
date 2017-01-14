@@ -13,8 +13,6 @@
 #    under the License.
 
 
-import logging
-
 from vmware_nsx._i18n import _LI
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.shell.admin.plugins.common import constants
@@ -29,6 +27,7 @@ from neutron.callbacks import registry
 from neutron import context as neutron_context
 from neutron.db import db_base_plugin_v2
 from neutron.db import l3_db
+from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 

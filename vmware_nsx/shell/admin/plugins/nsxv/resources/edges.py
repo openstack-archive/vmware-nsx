@@ -13,7 +13,6 @@
 #    under the License.
 
 
-import logging
 import pprint
 import textwrap
 
@@ -28,6 +27,7 @@ import vmware_nsx.shell.resources as shell
 
 from neutron.callbacks import registry
 from neutron_lib import exceptions
+from oslo_log import log as logging
 
 from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import nsxv_constants

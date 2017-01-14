@@ -24,7 +24,6 @@ TODO: Add support for other resources, ports, logical switches etc.
 TODO: Autocomplete command line args
 """
 
-import logging
 import requests
 import sys
 
@@ -37,6 +36,7 @@ from vmware_nsx.common import config  # noqa
 
 from oslo_config import cfg
 from oslo_log import _options
+from oslo_log import log as logging
 
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin import version

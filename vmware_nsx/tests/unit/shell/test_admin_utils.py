@@ -14,12 +14,12 @@
 #    under the License.
 
 import abc
-import logging
 import mock
 import six
 
 from oslo_config import cfg
 from oslo_log import _options
+from oslo_log import log as logging
 from oslo_utils import uuidutils
 
 from neutron.callbacks import registry

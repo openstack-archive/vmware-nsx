@@ -12,13 +12,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import logging
 import six
 import sys
 
 from vmware_nsx._i18n import _LI, _
 from neutron.callbacks import registry
 from neutron.common import profiler  # noqa
+from oslo_log import log as logging
 from vmware_nsx.shell import resources as nsxadmin
 
 LOG = logging.getLogger(__name__)

@@ -13,9 +13,8 @@
 #    under the License.
 
 
-import logging
-
 from oslo_config import cfg
+from oslo_log import log as logging
 from sqlalchemy.orm import exc
 
 from vmware_nsx._i18n import _LE, _LI, _LW

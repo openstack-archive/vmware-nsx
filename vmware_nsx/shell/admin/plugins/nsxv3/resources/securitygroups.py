@@ -12,13 +12,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import logging
-
 from neutron.callbacks import registry
 from neutron import context as neutron_context
 from neutron.db import common_db_mixin as common_db
 from neutron.db.models import securitygroup
 from neutron.db import securitygroups_db
+from oslo_log import log as logging
 
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db

@@ -14,9 +14,8 @@
 #    under the License.
 
 
-import logging
-
 from osc_lib import utils
+from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 

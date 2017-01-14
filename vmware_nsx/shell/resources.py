@@ -15,10 +15,10 @@
 import enum
 import glob
 import importlib
-import logging
 import os
 
 from oslo_config import cfg
+from oslo_log import log as logging
 import requests
 
 from vmware_nsx.common import config  # noqa
