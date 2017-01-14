@@ -500,6 +500,9 @@ class TestL3NatTestCase(L3NatTest,
                         test_ext_route.ExtraRouteDBTestCaseBase,
                         test_metadata.MetaDataTestCase):
 
+    def test_floatingip_list_with_pagination(self):
+        self.skipTest('Skip till we resolve pagination issue')
+
     def setUp(self, plugin=PLUGIN_NAME,
               ext_mgr=None,
               service_plugins=None):

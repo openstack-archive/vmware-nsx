@@ -17,6 +17,8 @@ import logging
 from oslo_config import cfg
 from oslo_config import types
 
+from neutron.db import l3_hamode_db
+
 from vmware_nsx._i18n import _, _LW
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.dvs import dvs_utils
@@ -649,6 +651,10 @@ cfg.CONF.register_opts(nsx_v3_opts, group="nsx_v3")
 cfg.CONF.register_opts(nsxv_opts, group="nsxv")
 cfg.CONF.register_opts(base_opts, group="NSX")
 cfg.CONF.register_opts(sync_opts, group="NSX_SYNC")
+
+# registser l3_ha config opts. This is due to commit
+# a7c633dc8e8a67e65e558ecbdf9ea8efc5468251
+cfg.CONF.register_opts(l3_hamode_db.L3_HA_OPTS)
 
 
 def validate_nsxv_config_options():
