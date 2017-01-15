@@ -17,65 +17,33 @@
 import netaddr
 import xml.etree.ElementTree as et
 
+from oslo_log import log as logging
+
 from neutron.extensions import external_net as ext_net_extn
 from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import providernet as pnet
-from neutron.ipam import driver as ipam_base
-from neutron.ipam.drivers.neutrondb_ipam import driver as neutron_driver
 from neutron.ipam import exceptions as ipam_exc
 from neutron.ipam import requests as ipam_req
-from neutron.ipam import subnet_alloc
 from neutron_lib.api import validators
-from neutron_lib.plugins import directory
-from oslo_log import log as logging
 
 from vmware_nsx._i18n import _, _LE
-from vmware_nsx.common import locking
-from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield.common import constants
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as vc_exc
+from vmware_nsx.services.ipam.common import driver as common
 
 LOG = logging.getLogger(__name__)
 
 
-class NsxvIpamBase(object):
-    @classmethod
-    def get_core_plugin(cls):
-        return directory.get_plugin()
-
-    @classmethod
-    def _fetch_subnet(cls, context, id):
-        p = cls.get_core_plugin()
-        return p._get_subnet(context, id)
-
-    @classmethod
-    def _fetch_network(cls, context, id):
-        p = cls.get_core_plugin()
-        return p.get_network(context, id)
+class NsxVIpamBase(common.NsxIpamBase):
 
     @property
     def _vcns(self):
         p = self.get_core_plugin()
         return p.nsx_v.vcns
 
-    def _get_vcns_error_code(self, e):
-        """Get the error code out of VcnsApiException"""
-        try:
-            desc = et.fromstring(e.response)
-            return int(desc.find('errorCode').text)
-        except Exception:
-            LOG.error(_LE('IPAM pool: Error code not present. %s'),
-                e.response)
 
-
-class NsxvIpamDriver(subnet_alloc.SubnetAllocator, NsxvIpamBase):
+class NsxvIpamDriver(common.NsxAbstractIpamDriver, NsxVIpamBase):
     """IPAM Driver For NSX-V external & provider networks."""
-
-    def __init__(self, subnetpool, context):
-        super(NsxvIpamDriver, self).__init__(subnetpool, context)
-        # in case of regular networks (not external, not provider net)
-        # or ipv6 networks, the neutron internal driver will be used
-        self.default_ipam = neutron_driver.NeutronDbPool(subnetpool, context)
 
     def _is_ext_or_provider_net(self, subnet_request):
         """Return True if the network of the request is external or
@@ -110,19 +78,9 @@ class NsxvIpamDriver(subnet_alloc.SubnetAllocator, NsxvIpamBase):
         return (self._is_ext_or_provider_net(subnet_request) and
                 not self._is_ipv6_subnet(subnet_request))
 
-    def get_subnet_request_factory(self):
-        # override the OOB factory to add the network ID
-        return NsxvSubnetRequestFactory
-
-    def get_subnet(self, subnet_id):
-        """Retrieve an IPAM subnet."""
-        nsx_pool_id = nsxv_db.get_nsxv_ipam_pool_for_subnet(
-            self._context.session, subnet_id)
-        if not nsx_pool_id:
-            # Unsupported (or pre-upgrade) network
-            return self.default_ipam.get_subnet(subnet_id)
-
-        return NsxvIpamSubnet.load(subnet_id, nsx_pool_id, self._context)
+    @property
+    def _subnet_class(self):
+        return NsxvIpamSubnet
 
     def allocate_backend_pool(self, subnet_request):
         """Create a pool on the NSX backend and return its ID"""
@@ -151,114 +109,27 @@ class NsxvIpamDriver(subnet_alloc.SubnetAllocator, NsxvIpamBase):
 
         return nsx_pool_id
 
-    def allocate_subnet(self, subnet_request):
-        """Create an IPAMSubnet object for the provided request."""
-        if not self._is_supported_net(subnet_request=subnet_request):
-            # fallback to the neutron internal driver implementation
-            return self.default_ipam.allocate_subnet(subnet_request)
-
-        if self._subnetpool:
-            subnet = super(NsxvIpamDriver, self).allocate_subnet(
-                subnet_request)
-            subnet_request = subnet.get_details()
-
-        # SubnetRequest must be an instance of SpecificSubnet
-        if not isinstance(subnet_request, ipam_req.SpecificSubnetRequest):
-            raise ipam_exc.InvalidSubnetRequestType(
-                subnet_type=type(subnet_request))
-
-        # Add the pool to the NSX backend
-        nsx_pool_id = self.allocate_backend_pool(subnet_request)
-
-        # Add the pool to the DB
-        nsxv_db.add_nsxv_ipam_subnet_pool(self._context.session,
-                                          subnet_request.subnet_id,
-                                          nsx_pool_id)
-        # return the subnet object
-        return NsxvIpamSubnet(subnet_request.subnet_id, nsx_pool_id,
-                              self._context, subnet_request.tenant_id)
-
-    def _raise_update_not_supported(self):
-        msg = _('Changing the subnet range or gateway is not supported')
-        raise ipam_exc.IpamValueInvalid(message=msg)
-
-    def update_subnet(self, subnet_request):
-        """Update subnet info in the IPAM driver.
-
-        The NSX backend does not support changing the ip pool cidr or gateway
-        """
-        nsx_pool_id = nsxv_db.get_nsxv_ipam_pool_for_subnet(
-            self._context.session, subnet_request.subnet_id)
-        if not nsx_pool_id:
-            # Unsupported (or pre-upgrade) network
-            return self.default_ipam.update_subnet(
-                subnet_request)
-
-        # get the current pool data
-        curr_subnet = NsxvIpamSubnet(
-            subnet_request.subnet_id, nsx_pool_id,
-            self._context, subnet_request.tenant_id).get_details()
-
-        # check that the gateway / cidr / pools did not change
-        if str(subnet_request.gateway_ip) != str(curr_subnet.gateway_ip):
-            self._raise_update_not_supported()
-
-        if subnet_request.prefixlen != curr_subnet.prefixlen:
-            self._raise_update_not_supported()
-
-        if (len(subnet_request.allocation_pools) !=
-            len(curr_subnet.allocation_pools)):
-            self._raise_update_not_supported()
-
-        for pool_ind in range(len(subnet_request.allocation_pools)):
-            pool_req = subnet_request.allocation_pools[pool_ind]
-            curr_pool = curr_subnet.allocation_pools[pool_ind]
-            if (pool_req.first != curr_pool.first or
-                pool_req.last != curr_pool.last):
-                self._raise_update_not_supported()
-
-    def remove_subnet(self, subnet_id):
-        """Delete an IPAM subnet pool from backend & DB."""
-        nsx_pool_id = nsxv_db.get_nsxv_ipam_pool_for_subnet(
-            self._context.session, subnet_id)
-        if not nsx_pool_id:
-            # Unsupported (or pre-upgrade) network
-            self.default_ipam.remove_subnet(subnet_id)
-            return
-
-        with locking.LockManager.get_lock('nsx-ipam-' + nsx_pool_id):
-            # Delete from backend
-            try:
-                self._vcns.delete_ipam_ip_pool(nsx_pool_id)
-            except vc_exc.VcnsApiException as e:
-                LOG.error(_LE("Failed to delete IPAM from backend: %s"), e)
-                # Continue anyway, since this subnet was already removed
-
-            # delete pool from DB
-            nsxv_db.del_nsxv_ipam_subnet_pool(self._context.session,
-                                              subnet_id, nsx_pool_id)
+    def delete_backend_pool(self, nsx_pool_id):
+        try:
+            self._vcns.delete_ipam_ip_pool(nsx_pool_id)
+        except vc_exc.VcnsApiException as e:
+            LOG.error(_LE("Failed to delete IPAM from backend: %s"), e)
+            # Continue anyway, since this subnet was already removed
 
 
-class NsxvIpamSubnet(ipam_base.Subnet, NsxvIpamBase):
-    """Manage IP addresses for the NSX IPAM driver."""
+class NsxvIpamSubnet(common.NsxAbstractIpamSubnet, NsxVIpamBase):
+    """Manage IP addresses for the NSX-V IPAM driver."""
 
-    def __init__(self, subnet_id, nsx_pool_id, ctx, tenant_id):
-        self._subnet_id = subnet_id
-        self._nsx_pool_id = nsx_pool_id
-        self._context = ctx
-        self._tenant_id = tenant_id
+    def _get_vcns_error_code(self, e):
+        """Get the error code out of VcnsApiException"""
+        try:
+            desc = et.fromstring(e.response)
+            return int(desc.find('errorCode').text)
+        except Exception:
+            LOG.error(_LE('IPAM pool: Error code not present. %s'),
+                e.response)
 
-    @classmethod
-    def load(cls, neutron_subnet_id, nsx_pool_id, ctx, tenant_id=None):
-        """Load an IPAM subnet object given its neutron ID."""
-        return cls(neutron_subnet_id, nsx_pool_id, ctx, tenant_id)
-
-    def allocate(self, address_request):
-        """Allocate an IP from the pool"""
-        with locking.LockManager.get_lock('nsx-ipam-' + self._nsx_pool_id):
-            return self._allocate(address_request)
-
-    def _allocate(self, address_request):
+    def backend_allocate(self, address_request):
         try:
             # allocate a specific IP
             if isinstance(address_request, ipam_req.SpecificAddressRequest):
@@ -288,12 +159,7 @@ class NsxvIpamSubnet(ipam_base.Subnet, NsxvIpamBase):
                 raise ipam_exc.IPAllocationFailed()
         return ip_address
 
-    def deallocate(self, address):
-        """Return an IP to the pool"""
-        with locking.LockManager.get_lock('nsx-ipam-' + self._nsx_pool_id):
-            self._deallocate(address)
-
-    def _deallocate(self, address):
+    def backend_deallocate(self, address):
         try:
             self._vcns.release_ipam_ip_to_pool(self._nsx_pool_id, address)
         except vc_exc.VcnsApiException as e:
@@ -305,10 +171,6 @@ class NsxvIpamSubnet(ipam_base.Subnet, NsxvIpamBase):
             raise ipam_exc.IpAddressAllocationNotFound(
                 subnet_id=self._subnet_id,
                 ip_address=address)
-
-    def update_allocation_pools(self, pools, cidr):
-        # Not supported
-        pass
 
     def _get_pool_cidr(self, pool):
         # rebuild the cidr from the pool range & prefix using the first
@@ -334,17 +196,3 @@ class NsxvIpamSubnet(ipam_base.Subnet, NsxvIpamBase):
         return ipam_req.SpecificSubnetRequest(
             self._tenant_id, self._subnet_id,
             cidr, gateway_ip=gateway_ip, allocation_pools=pools)
-
-
-class NsxvSubnetRequestFactory(ipam_req.SubnetRequestFactory, NsxvIpamBase):
-    """Builds request using subnet info, including the network id"""
-
-    @classmethod
-    def get_request(cls, context, subnet, subnetpool):
-        req = super(NsxvSubnetRequestFactory, cls).get_request(
-            context, subnet, subnetpool)
-        # Add the network id into the request
-        if 'network_id' in subnet:
-            req.network_id = subnet['network_id']
-
-        return req

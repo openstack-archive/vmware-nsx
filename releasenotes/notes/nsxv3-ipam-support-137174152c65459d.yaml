@@ -1,0 +1,11 @@
+---
+prelude: >
+    The NSX-v3 plugin can use the platform IPAM for ip allocations for all
+    network types.
+features:
+  - The NSX-v3 plugin can use the platform IPAM for ip allocations for all
+    network types.
+    In order to use this feature, the ipam_driver in the neutron.conf file
+    should be set to vmware_nsxv3_ipam.
+    Currently the plugin does not support allocating a specific address
+    from the pool depending on the NSX version.
