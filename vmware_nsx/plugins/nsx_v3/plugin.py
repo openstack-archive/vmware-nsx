@@ -22,6 +22,7 @@ from neutron.api.rpc.callbacks import resources as callbacks_resources
 from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
 from neutron.api.rpc.handlers import resources_rpc
+from neutron.api.v2 import attributes
 from neutron.callbacks import events
 from neutron.callbacks import exceptions as callback_exc
 from neutron.callbacks import registry
@@ -33,6 +34,7 @@ from neutron.db import _utils as db_utils
 from neutron.db import agents_db
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
+from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron.db import dns_db
 from neutron.db import external_net_db
@@ -77,6 +79,7 @@ from vmware_nsx.api_replay import utils as api_replay_utils
 from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import locking
+from vmware_nsx.common import managers
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import extended_security_group
@@ -166,9 +169,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         router=l3_db_models.Router,
         floatingip=l3_db_models.FloatingIP)
     def __init__(self):
+        self._extension_manager = managers.ExtensionManager()
         super(NsxV3Plugin, self).__init__()
         LOG.info(_LI("Starting NsxV3Plugin"))
-
+        self._extension_manager.initialize()
+        self.supported_extension_aliases.extend(
+            self._extension_manager.extension_aliases())
         self.nsxlib = v3_utils.get_nsxlib_wrapper()
         # reinitialize the cluster upon fork for api workers to ensure each
         # process has its own keepalive loops + state
@@ -223,6 +229,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         # Register NSXv3 trunk driver to support trunk extensions
         self.trunk_driver = trunk_driver.NsxV3TrunkDriver.create(self)
+
+    # Register extend dict methods for network and port resources.
+    # Each extension driver that supports extend attribute for the resources
+    # can add those attribute to the result.
+    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
+        attributes.NETWORKS, ['_ext_extend_network_dict'])
+    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
+        attributes.PORTS, ['_ext_extend_port_dict'])
+    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
+        attributes.SUBNETS, ['_ext_extend_subnet_dict'])
 
     def _init_nsx_profiles(self):
         LOG.debug("Initializing NSX v3 port spoofguard switching profile")
@@ -538,6 +554,22 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return self.conn.consume_in_threads()
 
+    def _ext_extend_network_dict(self, result, netdb):
+        session = db_api.get_session()
+        with session.begin(subtransactions=True):
+            self._extension_manager.extend_network_dict(session, netdb, result)
+
+    def _ext_extend_port_dict(self, result, portdb):
+        session = db_api.get_session()
+        with session.begin(subtransactions=True):
+            self._extension_manager.extend_port_dict(session, portdb, result)
+
+    def _ext_extend_subnet_dict(self, result, subnetdb):
+        session = db_api.get_session()
+        with session.begin(subtransactions=True):
+            self._extension_manager.extend_subnet_dict(
+                session, subnetdb, result)
+
     def _validate_provider_create(self, context, network_data):
         is_provider_net = any(
             validators.is_attr_set(network_data.get(f))
@@ -726,7 +758,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 # Create network in Neutron
                 created_net = super(NsxV3Plugin, self).create_network(context,
                                                                       network)
-
+                self._extension_manager.process_create_network(
+                    context, net_data, created_net)
                 if psec.PORTSECURITY not in net_data:
                     net_data[psec.PORTSECURITY] = True
                 self._process_network_port_security_create(
@@ -891,7 +924,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._assert_on_external_net_with_qos(net_data)
         updated_net = super(NsxV3Plugin, self).update_network(context, id,
                                                               network)
-
+        self._extension_manager.process_update_network(context, net_data,
+                                                       updated_net)
         if psec.PORTSECURITY in network['network']:
             self._process_network_port_security_update(
                 context, network['network'], updated_net)
@@ -1201,6 +1235,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     if self._has_no_dhcp_enabled_subnet(context, network):
                         created_subnet = super(
                             NsxV3Plugin, self).create_subnet(context, subnet)
+                        self._extension_manager.process_create_subnet(context,
+                            subnet['subnet'], created_subnet)
                         self._enable_native_dhcp(context, network,
                                                  created_subnet)
                         msg = None
@@ -1259,6 +1295,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                 updated_subnet = super(
                                     NsxV3Plugin, self).update_subnet(
                                     context, subnet_id, subnet)
+                                self._extension_manager.process_update_subnet(
+                                    context, subnet['subnet'], updated_subnet)
                                 self._enable_native_dhcp(context, network,
                                                          updated_subnet)
                                 msg = None
@@ -1279,10 +1317,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         updated_subnet = super(
                             NsxV3Plugin, self).update_subnet(
                             context, subnet_id, subnet)
+                        self._extension_manager.process_update_subnet(
+                            context, subnet['subnet'], updated_subnet)
 
         if not updated_subnet:
             updated_subnet = super(NsxV3Plugin, self).update_subnet(
                 context, subnet_id, subnet)
+            self._extension_manager.process_update_subnet(
+                context, subnet['subnet'], updated_subnet)
 
         # Check if needs to update logical DHCP server for native DHCP.
         if (cfg.CONF.nsx_v3.native_dhcp_metadata and
@@ -1881,6 +1923,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self._assert_on_external_net_port_with_qos(port_data)
 
             neutron_db = super(NsxV3Plugin, self).create_port(context, port)
+            self._extension_manager.process_create_port(
+                context, port_data, neutron_db)
             port["port"].update(neutron_db)
 
             (is_psec_on, has_ip) = self._create_port_preprocess_security(
@@ -2242,7 +2286,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             old_mac_learning_state = original_port.get(mac_ext.MAC_LEARNING)
             updated_port = super(NsxV3Plugin, self).update_port(context,
                                                                 id, port)
-
+            self._extension_manager.process_update_port(context, port['port'],
+                                                        updated_port)
             # copy values over - except fixed_ips as
             # they've already been processed
             port['port'].pop('fixed_ips', None)

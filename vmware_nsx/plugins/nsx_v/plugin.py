@@ -85,6 +85,7 @@ from vmware_nsx._i18n import _, _LE, _LI, _LW
 from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import locking
+from vmware_nsx.common import managers as nsx_managers
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.common import utils as c_utils
@@ -186,11 +187,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         router=l3_db_models.Router,
         floatingip=l3_db_models.FloatingIP)
     def __init__(self):
+        self._extension_manager = nsx_managers.ExtensionManager()
         super(NsxVPluginV2, self).__init__()
         self.init_is_complete = False
         registry.subscribe(self.init_complete,
                            resources.PROCESS,
                            events.AFTER_INIT)
+        self._extension_manager.initialize()
+        self.supported_extension_aliases.extend(
+            self._extension_manager.extension_aliases())
         self.metadata_proxy_handler = None
         config.validate_nsxv_config_options()
         neutron_extensions.append_api_extensions_path(
@@ -266,6 +271,16 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if c_utils.is_nsxv_version_6_2(self.nsx_v.vcns.get_version()):
             self.supported_extension_aliases.append("provider-security-group")
 
+    # Register extend dict methods for network and port resources.
+    # Each extension driver that supports extend attribute for the resources
+    # can add those attribute to the result.
+    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
+        attr.NETWORKS, ['_ext_extend_network_dict'])
+    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
+        attr.PORTS, ['_ext_extend_port_dict'])
+    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
+        attr.SUBNETS, ['_ext_extend_subnet_dict'])
+
     def init_complete(self, resource, event, trigger, **kwargs):
         has_metadata_cfg = (
             cfg.CONF.nsxv.nova_metadata_ips
@@ -333,6 +348,22 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         self.start_rpc_listeners_called = True
         return self.conn.consume_in_threads()
+
+    def _ext_extend_network_dict(self, result, netdb):
+        session = db_api.get_session()
+        with session.begin(subtransactions=True):
+            self._extension_manager.extend_network_dict(session, netdb, result)
+
+    def _ext_extend_port_dict(self, result, portdb):
+        session = db_api.get_session()
+        with session.begin(subtransactions=True):
+            self._extension_manager.extend_port_dict(session, portdb, result)
+
+    def _ext_extend_subnet_dict(self, result, subnetdb):
+        session = db_api.get_session()
+        with session.begin(subtransactions=True):
+            self._extension_manager.extend_subnet_dict(
+                session, subnetdb, result)
 
     def _create_security_group_container(self):
         name = "OpenStack Security Group container"
@@ -1006,6 +1037,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             with context.session.begin(subtransactions=True):
                 new_net = super(NsxVPluginV2, self).create_network(context,
                                                                    network)
+                self._extension_manager.process_create_network(
+                    context, net_data, new_net)
                 # Process port security extension
                 self._process_network_port_security_create(
                     context, net_data, new_net)
@@ -1283,6 +1316,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         with context.session.begin(subtransactions=True):
             net_res = super(NsxVPluginV2, self).update_network(context, id,
                                                                network)
+            self._extension_manager.process_update_network(context, net_attrs,
+                                                           net_res)
             self._process_network_port_security_update(
                 context, net_attrs, net_res)
             self._process_l3_update(context, net_res, net_attrs)
@@ -1350,13 +1385,18 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     @db_api.retry_db_errors
     def base_create_port(self, context, port):
-        return super(NsxVPluginV2, self).create_port(context, port)
+        created_port = super(NsxVPluginV2, self).create_port(context, port)
+        self._extension_manager.process_create_port(
+            context, port['port'], created_port)
+        return created_port
 
     def create_port(self, context, port):
         port_data = port['port']
         with context.session.begin(subtransactions=True):
             # First we allocate port in neutron database
             neutron_db = super(NsxVPluginV2, self).create_port(context, port)
+            self._extension_manager.process_create_port(
+                context, port_data, neutron_db)
             # Port port-security is decided by the port-security state on the
             # network it belongs to, unless specifically specified here
             if validators.is_attr_set(port_data.get(psec.PORTSECURITY)):
@@ -1599,6 +1639,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         with context.session.begin(subtransactions=True):
             ret_port = super(NsxVPluginV2, self).update_port(
                 context, id, port)
+            self._extension_manager.process_update_port(
+                context, port_data, ret_port)
             # copy values over - except fixed_ips as
             # they've already been processed
             updates_fixed_ips = port['port'].pop('fixed_ips', [])
@@ -2002,6 +2044,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         with locking.LockManager.get_lock(subnet['subnet']['network_id']):
             with locking.LockManager.get_lock('nsx-edge-pool'):
                 s = super(NsxVPluginV2, self).create_subnet(context, subnet)
+            self._extension_manager.process_create_subnet(
+                context, subnet['subnet'], s)
             if s['enable_dhcp']:
                 try:
                     self._process_subnet_ext_attr_create(
@@ -2083,6 +2127,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                          orig_enable_dhcp=enable_dhcp,
                                          orig_host_routes=orig_host_routes)
         subnet = super(NsxVPluginV2, self).update_subnet(context, id, subnet)
+        self._extension_manager.process_update_subnet(context, s, subnet)
         update_dhcp_config = self._process_subnet_ext_attr_update(
             context.session, subnet, s)
         if (gateway_ip != subnet['gateway_ip'] or update_dhcp_config or
@@ -2723,9 +2768,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         since the actual backend work was already done by the router driver,
         and it may cause a deadlock.
         """
-        super(NsxVPluginV2, self).update_port(context,
-                                              router.gw_port['id'],
-                                              {'port': {'fixed_ips': ext_ips}})
+        port_data = {'fixed_ips': ext_ips}
+        updated_port = super(NsxVPluginV2, self).update_port(
+            context, router.gw_port['id'], {'port': port_data})
+        self._extension_manager.process_update_port(
+            context, port_data, updated_port)
         context.session.expire(router.gw_port)
 
     def _update_router_gw_info(self, context, router_id, info,

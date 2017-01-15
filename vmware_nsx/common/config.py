@@ -245,6 +245,11 @@ nsx_common_opts = [
                        "specify the id of resources. This should only "
                        "be enabled in order to allow one to migrate an "
                        "existing install of neutron to the nsx-v3 plugin.")),
+    cfg.ListOpt('nsx_extension_drivers',
+                default=[],
+                help=_("An ordered list of extension driver "
+                       "entrypoints to be loaded from the "
+                       "vmware_nsx.extension_drivers namespace.")),
 ]
 
 nsx_v3_opts = [
