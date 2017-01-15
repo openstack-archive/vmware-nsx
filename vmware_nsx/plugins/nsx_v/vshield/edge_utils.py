@@ -1397,13 +1397,33 @@ class EdgeManager(object):
             try:
                 nsxv_db.add_vdr_dhcp_binding(context.session, vdr_router_id,
                                              dhcp_edge_id)
-            except db_exc.DBDuplicateEntry:
+            except db_exc.DBDuplicateEntry as e:
                 # Could have garbage binding in the DB - warn and overwrite
-                LOG.warning(_LW('Conflict found in VDR DHCP bindings - %s '
-                                'was already bound'), dhcp_edge_id)
-                nsxv_db.delete_vdr_dhcp_binding(context.session, vdr_router_id)
-                nsxv_db.add_vdr_dhcp_binding(context.session, vdr_router_id,
-                                             dhcp_edge_id)
+                if 'PRIMARY' in e.columns:
+                    LOG.warning(_LW('Conflict found in VDR DHCP bindings - '
+                                    'router %s was already bound'),
+                                vdr_router_id)
+                    del_vdr = vdr_router_id
+                else:
+                    LOG.warning(_LW('Conflict found in VDR DHCP bindings - '
+                                    'DHCP edge %s was already bound'),
+                                dhcp_edge_id)
+                    bind = nsxv_db.get_vdr_dhcp_binding_by_edge(
+                        context.session, dhcp_edge_id)
+                    if bind:
+                        del_vdr = bind['vdr_router_id']
+                    else:
+                        del_vdr = None
+
+                if del_vdr:
+                    nsxv_db.delete_vdr_dhcp_binding(context.session,
+                                                    del_vdr)
+                    nsxv_db.add_vdr_dhcp_binding(context.session,
+                                                 vdr_router_id, dhcp_edge_id)
+                else:
+                    LOG.error(_LE('Database conflict could not be recovered '
+                                  'for VDR %(vdr)s DHCP edge %(dhcp)s'),
+                              {'vdr': vdr_router_id, 'dhcp': dhcp_edge_id})
 
         address_groups = self.plugin._create_network_dhcp_address_group(
             context, network_id)
