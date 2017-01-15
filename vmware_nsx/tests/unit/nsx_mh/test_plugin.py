@@ -542,12 +542,6 @@ class TestL3NatTestCase(L3NatTest,
                         NsxPluginV2TestCase,
                         test_metadata.MetaDataTestCase):
 
-    def test_floatingip_list_with_pagination(self):
-        self.skipTest('Skip till we resolve pagination issue')
-
-    def test_floatingip_list_with_pagination_reverse(self):
-        self.skipTest('Skip till we resolve pagination issue')
-
     def _test_create_l3_ext_network(self, vlan_id=0):
         name = 'l3_ext_net'
         net_type = utils.NetworkTypes.L3_EXT
