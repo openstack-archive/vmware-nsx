@@ -693,6 +693,17 @@ class TestPortsV2(NsxVPluginV2TestCase,
     VIF_TYPE = nsx_constants.VIF_TYPE_DVS
     HAS_PORT_FILTER = True
 
+    def test_is_mac_in_use(self):
+        ctx = context.get_admin_context()
+        with self.port() as port:
+            net_id = port['port']['network_id']
+            mac = port['port']['mac_address']
+            self.assertTrue(self.plugin._is_mac_in_use(ctx, net_id, mac))
+            mac2 = '00:22:00:44:00:66'  # other mac, same network
+            self.assertFalse(self.plugin._is_mac_in_use(ctx, net_id, mac2))
+            net_id2 = port['port']['id']  # other net uuid, same mac
+            self.assertTrue(self.plugin._is_mac_in_use(ctx, net_id2, mac))
+
     def test_duplicate_mac_generation(self):
         # simulate duplicate mac generation to make sure DBDuplicate is retried
         responses = ['12:34:56:78:00:00', '12:34:56:78:00:00',
@@ -1429,6 +1440,34 @@ class TestPortsV2(NsxVPluginV2TestCase,
                     self.assertEqual(1, len(port_list))
                     self.assertNotIn(port1['port']['id'], port_ids)
                     self.assertIn(port2['port']['id'], port_ids)
+
+    def test_mac_duplication(self):
+        # create 2 networks
+        res = self._create_network(fmt=self.fmt, name='net1',
+                                   admin_state_up=True)
+        network1 = self.deserialize(self.fmt, res)
+        net1_id = network1['network']['id']
+
+        res = self._create_network(fmt=self.fmt, name='net2',
+                                   admin_state_up=True)
+        network2 = self.deserialize(self.fmt, res)
+        net2_id = network2['network']['id']
+
+        # create a port on the first network
+        mac = '33:00:00:00:00:01'
+        res = self._create_port(self.fmt, net_id=net1_id,
+                                arg_list=('mac_address',),
+                                mac_address=mac)
+        port1 = self.deserialize('json', res)
+        self.assertEqual(mac, port1['port']['mac_address'])
+
+        # creating another port on a different network with the same mac
+        # should fail
+        res = self._create_port(self.fmt, net_id=net2_id,
+                                arg_list=('mac_address',),
+                                mac_address=mac)
+        port2 = self.deserialize('json', res)
+        self.assertEqual("MacAddressInUse", port2['NeutronError']['type'])
 
 
 class TestSubnetsV2(NsxVPluginV2TestCase,
