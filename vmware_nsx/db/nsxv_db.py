@@ -135,6 +135,12 @@ def delete_nsxv_router_binding(session, router_id):
             session.delete(binding)
 
 
+def get_edge_vnic_bindings_with_networks(session):
+    query = session.query(nsxv_models.NsxvEdgeVnicBinding)
+    return query.filter(
+        nsxv_models.NsxvEdgeVnicBinding.network_id != expr.null()).all()
+
+
 def get_edge_vnic_binding(session, edge_id, network_id):
     return session.query(nsxv_models.NsxvEdgeVnicBinding).filter_by(
         edge_id=edge_id, network_id=network_id).first()
