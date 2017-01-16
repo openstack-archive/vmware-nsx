@@ -1,0 +1,6 @@
+---
+prelude: >
+    The dns-integration extension is now supported in both NSXV and NSXV3 
+    plugins. It can be enabled by adding 'vmware_nsxv_dns' (for NSXV) or
+    'vmware_nsxv3_dns' (for NSXV3) to the ``nsx_extension_drivers``
+    configuration variable in neutron.conf file.
