@@ -38,6 +38,10 @@ class Nsxv3IpamDriver(common.NsxAbstractIpamDriver):
         self.nsxlib_ipam = resources.IpPool(
             self.get_core_plugin().nsxlib.client)
 
+        # Mark which updates to the pool are supported
+        self.support_update_gateway = True
+        self.support_update_pools = True
+
     @property
     def _subnet_class(self):
         return Nsxv3IpamSubnet
@@ -46,22 +50,25 @@ class Nsxv3IpamDriver(common.NsxAbstractIpamDriver):
         return "%s/%s" % (subnet_request.subnet_cidr[0],
                           subnet_request.prefixlen)
 
-    def allocate_backend_pool(self, subnet_request):
-        """Create a pool on the NSX backend and return its ID"""
+    def _get_ranges_from_request(self, subnet_request):
         if subnet_request.allocation_pools:
             ranges = [
                 {'start': str(pool[0]), 'end': str(pool[-1])}
                 for pool in subnet_request.allocation_pools]
         else:
             ranges = []
+        return ranges
 
+    def allocate_backend_pool(self, subnet_request):
+        """Create a pool on the NSX backend and return its ID"""
         # name/description length on backend is long, so there is no problem
         name = 'subnet_' + subnet_request.subnet_id
         description = 'OS IP pool for subnet ' + subnet_request.subnet_id
         try:
             response = self.nsxlib_ipam.create(
                 self._get_cidr_from_request(subnet_request),
-                ranges=ranges,
+                allocation_ranges=self._get_ranges_from_request(
+                    subnet_request),
                 display_name=name,
                 description=description,
                 gateway_ip=subnet_request.gateway_ip)
@@ -93,6 +100,33 @@ class Nsxv3IpamDriver(common.NsxAbstractIpamDriver):
         except Exception as e:
             LOG.error(_LE("Failed to delete IPAM from backend: %s"), e)
             # Continue anyway, since this subnet was already removed
+
+    def update_backend_pool(self, nsx_pool_id, subnet_request):
+        update_args = {
+            'cidr': self._get_cidr_from_request(subnet_request),
+            'allocation_ranges': self._get_ranges_from_request(subnet_request),
+            'gateway_ip': subnet_request.gateway_ip}
+        try:
+            self.nsxlib_ipam.update(
+                nsx_pool_id, **update_args)
+        except nsx_lib_exc.ManagerError as e:
+            LOG.error(_LE("NSX IPAM failed to update pool %(id)s: "
+                          " %(e)s; code %(code)s"),
+                      {'e': e,
+                       'id': nsx_pool_id,
+                       'code': e.error_code})
+            if (e.error_code == error.ERR_CODE_IPAM_RANGE_MODIFY or
+                e.error_code == error.ERR_CODE_IPAM_RANGE_DELETE or
+                e.error_code == error.ERR_CODE_IPAM_RANGE_SHRUNK):
+                # The change is not allowed: already allocated IPs out of
+                # the new range
+                raise ipam_exc.InvalidSubnetRequest(
+                    reason=_("Already allocated IPs outside of the updated "
+                             "pools"))
+        except Exception as e:
+            # unexpected error
+            msg = _('Failed to update subnet IPAM: %s') % e
+            raise ipam_exc.IpamValueInvalid(message=msg)
 
 
 class Nsxv3IpamSubnet(common.NsxAbstractIpamSubnet):
