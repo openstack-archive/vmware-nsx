@@ -232,11 +232,11 @@ class NsxLib(dfw_api.DfwApi, security.Security):
             # And the direction on NSX is opposite (vswitch point of view)
             if shaper["resource_type"] == "IngressRateShaper":
                 shaper["enabled"] = True
-                if burst_size:
+                if burst_size is not None:
                     shaper["burst_size_bytes"] = burst_size
-                if peak_bandwidth:
+                if peak_bandwidth is not None:
                     shaper["peak_bandwidth_mbps"] = peak_bandwidth
-                if average_bandwidth:
+                if average_bandwidth is not None:
                     shaper["average_bandwidth_mbps"] = average_bandwidth
                 break
 
