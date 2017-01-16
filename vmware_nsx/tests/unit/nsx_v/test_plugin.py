@@ -2008,12 +2008,6 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
 
 class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
 
-    def test_floatingip_list_with_pagination(self):
-        self.skipTest('Skip till we resolve pagination issue')
-
-    def test_floatingip_list_with_pagination_reverse(self):
-        self.skipTest('Skip till we resolve pagination issue')
-
     def test_create_floatingip_with_specific_ip(self):
         with self.subnet(cidr='10.0.0.0/24',
                          enable_dhcp=False) as s:
@@ -2514,12 +2508,6 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                   test_l3_plugin.L3NatDBIntTestCase,
                                   IPv6ExpectedFailuresTestMixin,
                                   NsxVPluginV2TestCase):
-
-    def test_floatingip_list_with_pagination(self):
-        self.skipTest('Skip till we resolve pagination issue')
-
-    def test_floatingip_list_with_pagination_reverse(self):
-        self.skipTest('Skip till we resolve pagination issue')
 
     def setUp(self, plugin=PLUGIN_NAME, ext_mgr=None, service_plugins=None):
         super(TestExclusiveRouterTestCase, self).setUp(
@@ -3376,12 +3364,6 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                       IPv6ExpectedFailuresTestMixin,
                       NsxVPluginV2TestCase):
 
-    def test_floatingip_list_with_pagination(self):
-        self.skipTest('Skip till we resolve pagination issue')
-
-    def test_floatingip_list_with_pagination_reverse(self):
-        self.skipTest('Skip till we resolve pagination issue')
-
     def setUp(self, plugin=PLUGIN_NAME, ext_mgr=None, service_plugins=None):
         # init the availability zones in the configuration of the plugin
         self.az_name = 'az7'
@@ -4134,12 +4116,6 @@ class TestNSXPortSecurity(test_psec.TestPortSecurity,
 class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                test_l3_plugin.L3NatTestCaseMixin,
                                NsxVPluginV2TestCase):
-
-    def test_floatingip_list_with_pagination(self):
-        self.skipTest('Skip till we resolve pagination issue')
-
-    def test_floatingip_list_with_pagination_reverse(self):
-        self.skipTest('Skip till we resolve pagination issue')
 
     def _create_router(self, fmt, tenant_id, name=None,
                        admin_state_up=None, set_context=False,
