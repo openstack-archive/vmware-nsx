@@ -669,7 +669,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         if not context.is_admin:
             return subnet
-        elif not fields or as_providers.ADV_SERVICE_PROVIDERS in fields:
+        elif fields and as_providers.ADV_SERVICE_PROVIDERS in fields:
             subnet[as_providers.ADV_SERVICE_PROVIDERS] = (
                 self._get_subnet_as_providers(context, subnet))
         return subnet
@@ -680,16 +680,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                                         fields, sorts, limit,
                                                         marker, page_reverse)
 
-        if not context.is_admin:
+        if not context.is_admin or (not filters and not fields):
             return subnets
 
         new_subnets = []
-        if (not fields
-            or as_providers.ADV_SERVICE_PROVIDERS in fields
+        if ((fields and as_providers.ADV_SERVICE_PROVIDERS in fields)
             or (filters and filters.get(as_providers.ADV_SERVICE_PROVIDERS))):
 
             # We only deal metadata provider field when:
-            # - All fields are retrieved
             # - adv_service_provider is explicitly retrieved
             # - adv_service_provider is used in a filter
             for subnet in subnets:
@@ -700,8 +698,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
                 if md_filter is None or len(set(as_provider) & set(md_filter)):
                     # Include metadata_providers only if requested in results
-                    if (not fields
-                        or as_providers.ADV_SERVICE_PROVIDERS in fields):
+                    if fields and as_providers.ADV_SERVICE_PROVIDERS in fields:
                         subnet[as_providers.ADV_SERVICE_PROVIDERS] = (
                             as_provider)
 
