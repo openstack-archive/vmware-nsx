@@ -29,7 +29,11 @@ from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
 
 LOG = logging.getLogger(__name__)
+
 MAX_KBPS_MIN_VALUE = 1024
+# The max limit is calculated so that the value sent to the backed will
+# be smaller than 2**31
+MAX_BURST_MAX_VALUE = int((2 ** 31 - 1) / 128)
 
 
 def handle_qos_notification(policies_list, event_type):
@@ -121,6 +125,29 @@ class QosNotificationsHandler(object):
             name=policy.name,
             description=policy.description)
 
+    def _validate_bw_values(self, bw_rule):
+        """Validate that the configured values are allowed by the NSX backend.
+
+        Since failing the action from the notification callback
+        is not possible, just log the warning and use the minimal/maximal
+        values.
+        """
+        # Validate the max bandwidth value minimum value
+        # (max value is above what neutron allows so no need to check it)
+        if (bw_rule.max_kbps < MAX_KBPS_MIN_VALUE):
+            LOG.warning(_LW("Invalid input for max_kbps. "
+                            "The minimal legal value is %s"),
+                        MAX_KBPS_MIN_VALUE)
+            bw_rule.max_kbps = MAX_KBPS_MIN_VALUE
+
+        # validate the burst size value max value
+        # (max value is 0, and neutron already validates this)
+        if (bw_rule.max_burst_kbps > MAX_BURST_MAX_VALUE):
+            LOG.warning(_LW("Invalid input for burst_size. "
+                            "The maximal legal value is %s"),
+                        MAX_BURST_MAX_VALUE)
+            bw_rule.max_burst_kbps = MAX_BURST_MAX_VALUE
+
     def _get_bw_values_from_rule(self, bw_rule):
         """Translate the neutron bandwidth_limit_rule values, into the
         values expected by the NSX-v3 QoS switch profile,
@@ -128,19 +155,7 @@ class QosNotificationsHandler(object):
         """
         if bw_rule:
             shaping_enabled = True
-
-            # validate the max_kbps - it must be at least 1Mbps for the
-            # switch profile configuration to succeed.
-            if (bw_rule.max_kbps < MAX_KBPS_MIN_VALUE):
-                # Since failing the action from the notification callback
-                # is not possible, just log the warning and use the
-                # minimal value.
-                LOG.warning(_LW("Invalid input for max_kbps. "
-                                "The minimal legal value is 1024"))
-                bw_rule.max_kbps = MAX_KBPS_MIN_VALUE
-
-            # 'None' value means we will keep the old value
-            burst_size = peak_bandwidth = average_bandwidth = None
+            self._validate_bw_values(bw_rule)
 
             # translate kbps -> bytes
             burst_size = int(bw_rule.max_burst_kbps) * 128
