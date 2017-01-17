@@ -692,7 +692,8 @@ class NsxVMetadataProxyHandler(object):
         filters = {
             'network_id': [self.internal_net],
             'device_id': [rtr_id]}
-        ports = self.nsxv_plugin.get_ports(context, filters=filters)
+        ctx = context.elevated()
+        ports = self.nsxv_plugin.get_ports(ctx, filters=filters)
 
         if ports:
             if warn:
@@ -701,7 +702,7 @@ class NsxVMetadataProxyHandler(object):
                             {'port': ports[0]['id'], 'router': rtr_id})
             try:
                 self.nsxv_plugin.delete_port(
-                    context, ports[0]['id'],
+                    ctx, ports[0]['id'],
                     l3_port_check=False)
             except Exception as e:
                 LOG.error(_LE("Failed to delete md_proxy port %(port)s: "
