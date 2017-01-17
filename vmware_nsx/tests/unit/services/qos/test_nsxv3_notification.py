@@ -219,6 +219,48 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                     )
 
     @mock.patch.object(policy_object.QosPolicy, 'reload_rules')
+    def test_bw_rule_create_profile_maximal_val(self, *mocks):
+        # test the switch profile update when a QoS rule is created
+        # with an invalid burst value
+        bad_burst = qos_utils.MAX_BURST_MAX_VALUE + 1
+        rule_data = {
+            'bandwidth_limit_rule': {'id': uuidutils.generate_uuid(),
+                                     'max_kbps': 1025,
+                                     'max_burst_kbps': bad_burst}}
+
+        rule = rule_object.QosBandwidthLimitRule(
+            self.ctxt, **rule_data['bandwidth_limit_rule'])
+
+        _policy = policy_object.QosPolicy(
+            self.ctxt, **self.policy_data['policy'])
+        # add a rule to the policy
+        setattr(_policy, "rules", [rule])
+        with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
+            return_value=_policy):
+            with mock.patch(
+                'vmware_nsxlib.v3.NsxLibQosSwitchingProfile.update_shaping'
+            ) as update_profile:
+                with mock.patch('neutron.objects.db.api.update_object',
+                    return_value=rule_data):
+                    self.qos_plugin.update_policy_bandwidth_limit_rule(
+                        self.ctxt, rule.id, _policy.id, rule_data)
+
+                    # validate the data on the profile
+                    rule_dict = rule_data['bandwidth_limit_rule']
+                    expected_burst = qos_utils.MAX_BURST_MAX_VALUE * 128
+                    expected_bw = int(rule_dict['max_kbps'] / 1024)
+                    expected_peak = int(expected_bw * self.peak_bw_multiplier)
+                    update_profile.assert_called_once_with(
+                        self.fake_profile_id,
+                        average_bandwidth=expected_bw,
+                        burst_size=expected_burst,
+                        peak_bandwidth=expected_peak,
+                        shaping_enabled=True,
+                        dscp=0,
+                        qos_marking='trusted'
+                    )
+
+    @mock.patch.object(policy_object.QosPolicy, 'reload_rules')
     def test_dscp_rule_create_profile(self, *mocks):
         # test the switch profile update when a QoS DSCP rule is created
         _policy = policy_object.QosPolicy(
