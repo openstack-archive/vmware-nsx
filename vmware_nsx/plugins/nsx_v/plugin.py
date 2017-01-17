@@ -596,14 +596,17 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         network[az_ext.AVAILABILITY_ZONES] = (
             self.get_network_availability_zones(context, network))
 
-    def _get_subnet_as_providers(self, context, subnet):
+    def _get_subnet_as_providers(self, context, subnet, nw_dict=None):
         net_id = subnet.get('network_id')
         if net_id is None:
             net_id = self.get_subnet(context, subnet['id']).get('network_id')
-        as_provider_data = nsxv_db.get_edge_vnic_bindings_by_int_lswitch(
-            context.session, net_id)
 
-        providers = [asp['edge_id'] for asp in as_provider_data]
+        if nw_dict:
+            providers = nw_dict.get(net_id, [])
+        else:
+            as_provider_data = nsxv_db.get_edge_vnic_bindings_by_int_lswitch(
+                context.session, net_id)
+            providers = [asp['edge_id'] for asp in as_provider_data]
         return providers
 
     def get_subnet(self, context, id, fields=None):
@@ -629,11 +632,24 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if ((fields and as_providers.ADV_SERVICE_PROVIDERS in fields)
             or (filters and filters.get(as_providers.ADV_SERVICE_PROVIDERS))):
 
+            # This ugly mess should reduce DB calls with network_id field
+            # as filter - as network_id is not indexed
+            vnic_binds = nsxv_db.get_edge_vnic_bindings_with_networks(
+                context.session)
+            nw_dict = {}
+            for vnic_bind in vnic_binds:
+                if nw_dict.get(vnic_bind['network_id']):
+                    nw_dict[vnic_bind['network_id']].append(
+                        vnic_bind['edge_id'])
+                else:
+                    nw_dict[vnic_bind['network_id']] = [vnic_bind['edge_id']]
+
             # We only deal metadata provider field when:
             # - adv_service_provider is explicitly retrieved
             # - adv_service_provider is used in a filter
             for subnet in subnets:
-                as_provider = self._get_subnet_as_providers(context, subnet)
+                as_provider = self._get_subnet_as_providers(
+                    context, subnet, nw_dict)
                 md_filter = (
                     None if filters is None
                     else filters.get(as_providers.ADV_SERVICE_PROVIDERS))
