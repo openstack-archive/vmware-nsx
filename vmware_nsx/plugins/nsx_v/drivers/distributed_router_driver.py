@@ -104,7 +104,10 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
             router_db = self.plugin._get_router(context, router_id)
             nexthop = self.plugin._get_external_attachment_info(
                 context, router_db)[2]
-            self.plugin._update_subnets_and_dnat_firewall(context, router_db)
+            with locking.LockManager.get_lock(self._get_edge_id(context,
+                                                                router_id)):
+                self.plugin._update_subnets_and_dnat_firewall(context,
+                                                              router_db)
             md_gw_data = self._get_metadata_gw_data(context, router_id)
             self._update_routes(context, router_id, nexthop, md_gw_data)
         if 'admin_state_up' in r:

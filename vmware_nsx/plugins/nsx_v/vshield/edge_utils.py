@@ -1385,8 +1385,9 @@ class EdgeManager(object):
 
             self.plugin.metadata_proxy_handler.configure_router_edge(
                 context, resource_id)
-            self.plugin.setup_dhcp_edge_fw_rules(
-                context, self.plugin, resource_id)
+            with locking.LockManager.get_lock(str(dhcp_edge_id)):
+                self.plugin.setup_dhcp_edge_fw_rules(
+                    context, self.plugin, resource_id)
 
             if not self.per_interface_rp_filter:
                 with locking.LockManager.get_lock(str(dhcp_edge_id)):
