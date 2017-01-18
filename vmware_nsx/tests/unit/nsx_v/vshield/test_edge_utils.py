@@ -22,6 +22,7 @@ from neutron import context
 from neutron.plugins.common import constants as plugin_const
 from neutron.tests.unit import testlib_api
 from neutron_lib import exceptions as n_exc
+from vmware_nsx.common import config as conf
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_db
@@ -778,7 +779,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
 class VdrTransitNetUtilDefaultTestCase(EdgeUtilsTestCaseMixin):
     EXPECTED_NETMASK = '255.255.255.240'
     EXPECTED_TLR_IP = '169.254.2.1'
-    EXPECTED_PLR_IP = '169.254.2.2'
+    EXPECTED_PLR_IP = conf.DEFAULT_PLR_ADDRESS
 
     def setUp(self):
         super(VdrTransitNetUtilDefaultTestCase, self).setUp()
