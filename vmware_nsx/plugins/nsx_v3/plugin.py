@@ -54,7 +54,6 @@ from neutron.extensions import availability_zone as az_ext
 from neutron.extensions import external_net as ext_net_extn
 from neutron.extensions import extra_dhcp_opt as ext_edo
 from neutron.extensions import l3
-from neutron.extensions import portbindings as pbin
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
@@ -62,6 +61,7 @@ from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils as n_utils
 from neutron.quota import resource_registry
 from neutron.services.qos import qos_consts
+from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators
 from neutron_lib import constants as const

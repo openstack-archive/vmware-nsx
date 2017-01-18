@@ -18,9 +18,9 @@ from oslo_config import cfg
 from oslo_utils import uuidutils
 
 from neutron import context
-from neutron.extensions import portbindings
 from neutron.tests import base
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
+from neutron_lib.api.definitions import portbindings
 from neutron_lib import exceptions as exp
 from neutron_lib.plugins import directory
 from vmware_nsx.common import exceptions as nsx_exc

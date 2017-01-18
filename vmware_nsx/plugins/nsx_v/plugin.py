@@ -67,7 +67,6 @@ from neutron.extensions import external_net as ext_net_extn
 from neutron.extensions import flavors
 from neutron.extensions import l3
 from neutron.extensions import multiprovidernet as mpnet
-from neutron.extensions import portbindings as pbin
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
@@ -76,6 +75,7 @@ from neutron.plugins.common import utils
 from neutron.quota import resource_registry
 from neutron.services.flavors import flavors_plugin
 from neutron.services.qos import qos_consts
+from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet
 from vmware_nsx.dvs import dvs
 from vmware_nsx.services.qos.common import utils as qos_com_utils

@@ -12,7 +12,8 @@
 # implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from neutron.extensions import portbindings as pbin
+
+from neutron_lib.api.definitions import portbindings as pbin
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_nsx_v3_plugin
 
 

@@ -20,9 +20,9 @@ from oslo_utils import excutils
 
 from neutron.callbacks import events
 from neutron.callbacks import registry
-from neutron.extensions import portbindings
 from neutron.services.trunk import constants as trunk_consts
 from neutron.services.trunk.drivers import base
+from neutron_lib.api.definitions import portbindings
 
 from vmware_nsx._i18n import _LE
 from vmware_nsx.common import nsx_constants as nsx_consts
