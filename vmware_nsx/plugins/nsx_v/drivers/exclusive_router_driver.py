@@ -115,12 +115,13 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
         intf_net_ids = (
             self.plugin._get_internal_network_ids_by_router(context,
                                                             router_id))
-        for network_id in intf_net_ids:
-            address_groups = self.plugin._get_address_groups(
-                context, router_id, network_id)
-            edge_utils.update_internal_interface(
-                self.nsx_v, context, router_id, network_id,
-                address_groups, router_db.admin_state_up)
+        with locking.LockManager.get_lock(edge_id):
+            for network_id in intf_net_ids:
+                address_groups = self.plugin._get_address_groups(
+                    context, router_id, network_id)
+                edge_utils.update_internal_interface(
+                    self.nsx_v, context, router_id, network_id,
+                    address_groups, router_db.admin_state_up)
 
         # Update external interface (which also update nat rules, routes, etc)
         external_net_id = self._get_external_network_id_by_router(context,

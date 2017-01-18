@@ -2619,16 +2619,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self.create_port(context, {'port': port_dict})
 
         try:
-            resource_id = self.edge_manager.create_dhcp_edge_service(
-                context, network_id, subnet)
+            self.edge_manager.create_dhcp_edge_service(context, network_id,
+                                                       subnet)
             # Create all dhcp ports within the network
             address_groups = self._create_network_dhcp_address_group(
                 context, network_id)
             self.edge_manager.update_dhcp_edge_service(
                 context, network_id, address_groups=address_groups)
-
-            if resource_id:
-                self._update_dhcp_service_new_edge(context, resource_id)
 
         except Exception:
             with excutils.save_and_reraise_exception():
@@ -3298,15 +3295,17 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # for each one to reflect the router admin-state-up status.
         intf_net_ids = (
             self._get_internal_network_ids_by_router(context, router_id))
-        for network_id in intf_net_ids:
-            address_groups = (
-                self._get_address_groups(context, router_id, network_id))
-            update_args = (self.nsx_v, context, router_id, network_id,
-                           address_groups, admin_state)
-            if router_type == 'distributed':
-                edge_utils.update_vdr_internal_interface(*update_args)
-            else:
-                edge_utils.update_internal_interface(*update_args)
+        edge_id = self._get_edge_id_by_rtr_id(context, router_id)
+        with locking.LockManager.get_lock(edge_id):
+            for network_id in intf_net_ids:
+                address_groups = (
+                    self._get_address_groups(context, router_id, network_id))
+                update_args = (self.nsx_v, context, router_id, network_id,
+                               address_groups, admin_state)
+                if router_type == 'distributed':
+                    edge_utils.update_vdr_internal_interface(*update_args)
+                else:
+                    edge_utils.update_internal_interface(*update_args)
 
     def _get_interface_info_net_id(self, context, interface_info):
         is_port, is_sub = self._validate_interface_info(interface_info)

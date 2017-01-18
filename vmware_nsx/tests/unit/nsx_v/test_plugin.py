@@ -3255,7 +3255,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
             TestExclusiveRouterTestCase,
             self).test_router_add_interface_multiple_ipv6_subnets_same_net()
 
-    def _fake_update_edge(self, edge_id, request):
+    def _fake_rename_edge(self, edge_id, name):
         raise vcns_exc.VcnsApiException(
             status=400, header={'status': 200}, uri='fake_url', response='')
 
@@ -3272,8 +3272,8 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                return_value=available_edge):
             # Mock for update_edge task failure
             with mock.patch.object(
-                p.nsx_v.vcns, 'update_edge',
-                side_effect=self._fake_update_edge):
+                p.edge_manager.nsxv_manager, 'rename_edge',
+                side_effect=self._fake_rename_edge):
                 router = {'router': {'admin_state_up': True,
                           'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
                           'tenant_id': context.get_admin_context().tenant_id,
