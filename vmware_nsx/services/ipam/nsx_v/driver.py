@@ -21,9 +21,9 @@ from oslo_log import log as logging
 
 from neutron.extensions import external_net as ext_net_extn
 from neutron.extensions import multiprovidernet as mpnet
-from neutron.extensions import providernet as pnet
 from neutron.ipam import exceptions as ipam_exc
 from neutron.ipam import requests as ipam_req
+from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators
 
 from vmware_nsx._i18n import _, _LE

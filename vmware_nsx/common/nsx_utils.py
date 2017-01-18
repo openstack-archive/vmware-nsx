@@ -14,7 +14,7 @@
 #    under the License.
 
 from neutron.extensions import multiprovidernet as mpnet
-from neutron.extensions import providernet as pnet
+from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc

@@ -34,11 +34,12 @@ from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import portbindings as pbin
 from neutron.extensions import portsecurity as psec
-from neutron.extensions import providernet as pnet
+from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import constants
 from neutron.plugins.common import utils
 from neutron.quota import resource_registry
+from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators
 from neutron_lib import exceptions as n_exc
 
@@ -282,7 +283,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def update_network(self, context, id, network):
         net_attrs = network['network']
-        pnet._raise_if_updates_provider_attributes(net_attrs)
+        providernet._raise_if_updates_provider_attributes(net_attrs)
 
         with context.session.begin(subtransactions=True):
             net_res = super(NsxDvsV2, self).update_network(context, id,

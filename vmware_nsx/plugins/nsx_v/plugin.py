@@ -69,13 +69,14 @@ from neutron.extensions import l3
 from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import portbindings as pbin
 from neutron.extensions import portsecurity as psec
-from neutron.extensions import providernet as pnet
+from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils
 from neutron.quota import resource_registry
 from neutron.services.flavors import flavors_plugin
 from neutron.services.qos import qos_consts
+from neutron_lib.api.definitions import provider_net as pnet
 from vmware_nsx.dvs import dvs
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v import utils as qos_utils
@@ -1307,7 +1308,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         net_attrs = network['network']
         original_network = self.get_network(context, id)
 
-        pnet._raise_if_updates_provider_attributes(net_attrs)
+        providernet._raise_if_updates_provider_attributes(net_attrs)
         if net_attrs.get("admin_state_up") is False:
             raise NotImplementedError(_("admin_state_up=False networks "
                                         "are not supported."))

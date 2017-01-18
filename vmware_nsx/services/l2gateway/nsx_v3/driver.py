@@ -27,8 +27,8 @@ from neutron.callbacks import events
 from neutron.callbacks import registry
 from neutron.callbacks import resources
 from neutron import context
-from neutron.extensions import providernet
 from neutron.plugins.common import utils as n_utils
+from neutron_lib.api.definitions import provider_net as providernet
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
