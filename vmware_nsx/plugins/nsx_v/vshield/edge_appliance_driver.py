@@ -382,7 +382,7 @@ class EdgeApplianceDriver(object):
     def deploy_edge(self, context, router_id, name, internal_network,
                     dist=False, loadbalancer_enable=True,
                     appliance_size=nsxv_constants.LARGE,
-                    availability_zone=None):
+                    availability_zone=None, deploy_metadata=False):
 
         edge_name = name
         edge = self._assemble_edge(
@@ -444,7 +444,7 @@ class EdgeApplianceDriver(object):
 
             self.callbacks.complete_edge_creation(
                 context, edge_id, name, router_id, dist, True,
-                availability_zone)
+                availability_zone, deploy_metadata)
 
         except exceptions.VcnsApiException:
             self.callbacks.complete_edge_creation(
