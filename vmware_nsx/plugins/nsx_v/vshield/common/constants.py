@@ -17,7 +17,6 @@ from oslo_config import cfg
 
 from vmware_nsx.common import nsxv_constants
 
-
 EDGE_ID = 'edge_id'
 ROUTER_ID = 'router_id'
 DHCP_EDGE_PREFIX = 'dhcp-'
