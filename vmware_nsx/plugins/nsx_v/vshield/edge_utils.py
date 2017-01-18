@@ -1374,10 +1374,12 @@ class EdgeManager(object):
             context.session, vdr_router_id)
         availability_zone = self.plugin.get_network_az(context, network_id)
         if vdr_dhcp_binding:
-            dhcp_edge_id = vdr_dhcp_binding['dhcp_edge_id']
-            self.reuse_existing_dhcp_edge(
-                context, dhcp_edge_id, resource_id, network_id,
-                availability_zone)
+            with locking.LockManager.get_lock('nsx-edge-pool'):
+                dhcp_edge_id = vdr_dhcp_binding['dhcp_edge_id']
+                with locking.LockManager.get_lock(str(dhcp_edge_id)):
+                    self.reuse_existing_dhcp_edge(
+                        context, dhcp_edge_id, resource_id, network_id,
+                        availability_zone)
         else:
             # Attach to DHCP Edge
             dhcp_edge_id = self.allocate_new_dhcp_edge(
