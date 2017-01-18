@@ -81,6 +81,7 @@ class VcnsApiHelper(object):
     nsx_errors = {
         # firewall rule doesn't exists for deletion.
         100046: exceptions.ResourceNotFound,
+        100029: exceptions.ResourceNotFound,
     }
 
     def __init__(self, address, user, password, format='json', ca_file=None,
