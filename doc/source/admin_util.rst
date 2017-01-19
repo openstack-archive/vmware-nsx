@@ -309,6 +309,15 @@ Client Certificate
 
     nsxadmin -r certificate -o show
 
+- Import external certificate to NSX::
+
+    nsxadmin -r certificate -o import --property username=<username> --property password=<password>
+
+- List certificates associated with openstack principal identity in NSX::
+
+    nsxadmin -r certificate -o nsx-list
+
+
 Upgrade Steps (Version 1.0.0 to Version 1.1.0)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
