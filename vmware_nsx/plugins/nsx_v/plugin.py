@@ -2163,7 +2163,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._update_routers_on_gateway_change(context, id,
                                                        subnet['gateway_ip'])
         if enable_dhcp != subnet['enable_dhcp']:
-            self._update_subnet_dhcp_status(subnet, context)
+            vdr_id = self._is_subnet_gw_a_vdr(context, subnet)
+            if (vdr_id and self.metadata_proxy_handler):
+                self._update_subnet_dhcp_status_vdr(subnet, context, vdr_id)
+            else:
+                self._update_subnet_dhcp_status(subnet, context)
         return subnet
 
     db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
@@ -2174,6 +2178,56 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if subnet_attr:
             subnet_res['dns_search_domain'] = subnet_attr.dns_search_domain
             subnet_res['dhcp_mtu'] = subnet_attr.dhcp_mtu
+
+    def _is_subnet_gw_a_vdr(self, context, subnet):
+        filters = {'fixed_ips': {'subnet_id': [subnet['id']],
+                                 'ip_address': [subnet['gateway_ip']]}}
+        ports = self.get_ports(context, filters=filters)
+        if ports and ports[0].get('device_id'):
+            rtr_id = ports[0].get('device_id')
+            rtr = self.get_router(context, rtr_id)
+            if rtr and rtr.get('distributed'):
+                return rtr_id
+
+    def _update_subnet_dhcp_status_vdr(self, subnet, context, vdr_id):
+        network_id = subnet['network_id']
+        vdr_driver = self._find_router_driver(context, vdr_id)
+        if subnet['enable_dhcp']:
+            with locking.LockManager.get_lock(
+                    self._get_edge_id_by_rtr_id(context, vdr_id)):
+                self.edge_manager.configure_dhcp_for_vdr_network(
+                    context, network_id, vdr_id)
+                if vdr_driver._metadata_cfg_required_after_port_add(
+                    context, vdr_id, subnet):
+                    vdr_driver._metadata_route_update(context, vdr_id)
+        else:
+            vdr_dhcp_binding = nsxv_db.get_vdr_dhcp_binding_by_vdr(
+                context.session, vdr_id)
+            if vdr_dhcp_binding:
+                pass
+            else:
+                LOG.error(_LE('VDR DHCP binding not found for router %s'),
+                          vdr_id)
+            sids = self.get_subnets(context,
+                                    filters={'network_id': [network_id],
+                                             'enable_dhcp': [True]},
+                                    fields=['id'])
+            is_dhcp_network = len(sids) > 0
+            with locking.LockManager.get_lock(
+                    self._get_edge_id_by_rtr_id(context, vdr_id)):
+                if vdr_driver._metadata_cfg_required_after_port_remove(
+                        context, vdr_id, subnet):
+                    vdr_driver._metadata_route_update(context, vdr_id)
+                if not is_dhcp_network:
+                    # No other DHCP-enabled subnets on this network
+                    if vdr_dhcp_binding:
+                        self.edge_manager.reset_sysctl_rp_filter_for_vdr_dhcp(
+                            context, vdr_dhcp_binding['dhcp_edge_id'],
+                            network_id)
+
+                        self.edge_manager.remove_network_from_dhcp_edge(
+                            context, network_id,
+                            vdr_dhcp_binding['dhcp_edge_id'])
 
     def _update_subnet_dhcp_status(self, subnet, context):
         network_id = subnet['network_id']
