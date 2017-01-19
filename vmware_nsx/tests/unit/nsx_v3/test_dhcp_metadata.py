@@ -17,9 +17,9 @@ import mock
 import netaddr
 
 from neutron import context
-from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as secgrp
 
+from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 from oslo_config import cfg

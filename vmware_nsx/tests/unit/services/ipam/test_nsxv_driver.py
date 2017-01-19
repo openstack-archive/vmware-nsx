@@ -16,7 +16,7 @@ from oslo_config import cfg
 
 from vmware_nsx.tests.unit.nsx_v import test_plugin
 
-from neutron.extensions import providernet as pnet
+from neutron_lib.api.definitions import provider_net as pnet
 
 
 class TestNsxvIpamSubnets(test_plugin.TestSubnetsV2):

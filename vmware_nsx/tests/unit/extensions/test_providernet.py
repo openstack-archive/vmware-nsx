@@ -17,7 +17,7 @@ from oslo_config import cfg
 import webob.exc
 
 from neutron.extensions import multiprovidernet as mpnet
-from neutron.extensions import providernet as pnet
+from neutron_lib.api.definitions import provider_net as pnet
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.nsx_mh import test_plugin as test_nsx_plugin
 

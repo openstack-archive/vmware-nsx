@@ -28,7 +28,6 @@ from neutron.extensions import l3
 from neutron.extensions import l3_ext_gw_mode
 from neutron.extensions import l3_flavors
 from neutron.extensions import portbindings
-from neutron.extensions import providernet as pnet
 from neutron.extensions import router_availability_zone
 from neutron.extensions import securitygroup as secgrp
 from neutron.objects.qos import policy as qos_pol
@@ -43,6 +42,7 @@ import neutron.tests.unit.extensions.test_l3_ext_gw_mode as test_ext_gw_mode
 import neutron.tests.unit.extensions.test_portsecurity as test_psec
 import neutron.tests.unit.extensions.test_securitygroup as ext_sg
 from neutron.tests.unit import testlib_api
+from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc

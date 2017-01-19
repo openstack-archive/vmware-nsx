@@ -16,8 +16,8 @@
 import mock
 from neutron.db import api as db_api
 from neutron.extensions import multiprovidernet as mpnet
-from neutron.extensions import providernet as pnet
 from neutron.tests import base
+from neutron_lib.api.definitions import provider_net as pnet
 from oslo_utils import uuidutils
 
 from vmware_nsx.api_client import exception as api_exc

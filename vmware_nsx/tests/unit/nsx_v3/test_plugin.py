@@ -25,7 +25,6 @@ from neutron.extensions import extraroute
 from neutron.extensions import l3
 from neutron.extensions import l3_ext_gw_mode
 from neutron.extensions import portbindings
-from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as secgrp
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_plugin
@@ -37,6 +36,7 @@ from neutron.tests.unit.extensions \
 from neutron.tests.unit.scheduler \
     import test_dhcp_agent_scheduler as test_dhcpagent
 
+from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
