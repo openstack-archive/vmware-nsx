@@ -2924,7 +2924,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             for subnet in subnets:
                 snat.append({
                     'src': subnet,
-                    'translated': snat_ip
+                    'translated': snat_ip,
+                    'vnic_index': vcns_const.EXTERNAL_VNIC_INDEX,
                 })
         return (snat, dnat)
 
