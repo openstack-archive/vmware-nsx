@@ -4112,6 +4112,44 @@ class TestNSXPortSecurity(test_psec.TestPortSecurity,
         c_utils.spawn_n = orig_spawn
         self.assertEqual(2, self.fc2.add_member_to_security_group.call_count)
 
+    def test_toggle_non_compute_port_security(self):
+        # create a network without port security
+        res = self._create_network('json', 'net1', True)
+        net = self.deserialize('json', res)
+
+        # create a port with this network and a device
+        res = self._create_port('json', net['network']['id'],
+                                arg_list=('port_security_enabled',),
+                                port_security_enabled=True)
+        port = self.deserialize('json', res)
+        port_id = port['port']['id']
+
+        # Disable port security
+        data = {'port': {'port_security_enabled': False}}
+        updated_port = self.deserialize(
+            'json',
+            self.new_update_request('ports', data,
+                                    port_id).get_response(self.api))
+        self.assertFalse(updated_port['port']['port_security_enabled'])
+        shown_port = self.deserialize(
+            'json',
+            self.new_show_request('ports',
+                                  port_id).get_response(self.api))
+        self.assertFalse(shown_port['port']['port_security_enabled'])
+
+        # Enable port security
+        data = {'port': {'port_security_enabled': True}}
+        updated_port = self.deserialize(
+            'json',
+            self.new_update_request('ports', data,
+                                    port_id).get_response(self.api))
+        self.assertTrue(updated_port['port']['port_security_enabled'])
+        shown_port = self.deserialize(
+            'json',
+            self.new_show_request('ports',
+                                  port_id).get_response(self.api))
+        self.assertTrue(shown_port['port']['port_security_enabled'])
+
 
 class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                test_l3_plugin.L3NatTestCaseMixin,
