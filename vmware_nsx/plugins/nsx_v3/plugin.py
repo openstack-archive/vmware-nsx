@@ -721,7 +721,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _assert_on_external_net_with_qos(self, net_data):
         # Prevent creating/update external network with QoS policy
         if validators.is_attr_set(net_data.get(qos_consts.QOS_POLICY_ID)):
-            err_msg = _("Cannot configure QOS on networks")
+            err_msg = _("Cannot configure QOS on external networks")
             raise n_exc.InvalidInput(error_message=err_msg)
 
     def get_subnets(self, context, filters=None, fields=None, sorts=None,
@@ -1675,6 +1675,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             LOG.warning(err_msg)
             raise n_exc.InvalidInput(error_message=err_msg)
 
+    def _assert_on_router_port_with_qos(self, port_data, device_owner):
+        # Prevent creating/update port with QoS policy
+        # on router-interface ports.
+        if (device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF and
+            validators.is_attr_set(port_data.get(qos_consts.QOS_POLICY_ID))):
+            err_msg = _("Unable to update/create a router port with a QoS "
+                        "policy")
+            LOG.warning(err_msg)
+            raise n_exc.InvalidInput(error_message=err_msg)
+
     def _filter_ipv4_dhcp_fixed_ips(self, context, fixed_ips):
         ips = []
         for fixed_ip in fixed_ips:
@@ -1922,6 +1932,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if is_external_net:
                 self._assert_on_external_net_with_compute(port_data)
                 self._assert_on_external_net_port_with_qos(port_data)
+
+            self._assert_on_router_port_with_qos(
+                port_data, port_data.get('device_owner'))
 
             neutron_db = super(NsxV3Plugin, self).create_port(context, port)
             self._extension_manager.process_create_port(
@@ -2281,6 +2294,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if is_external_net:
                 self._assert_on_external_net_with_compute(port['port'])
                 self._assert_on_external_net_port_with_qos(port['port'])
+
+            device_owner = (port['port']['device_owner']
+                            if 'device_owner' in port['port']
+                            else original_port.get('device_owner'))
+            self._assert_on_router_port_with_qos(
+                port['port'], device_owner)
 
             old_mac_learning_state = original_port.get(mac_ext.MAC_LEARNING)
             updated_port = super(NsxV3Plugin, self).update_port(context,
