@@ -128,6 +128,38 @@ class NsxFirewallAPI(object):
                              'id': sec_id})
         return sections
 
+    def reorder_fw_sections(self):
+        # read all the sections
+        h, firewall_config = self.vcns.get_dfw_config()
+        root = et.fromstring(firewall_config)
+
+        for child in root:
+            if str(child.tag) == 'layer3Sections':
+                # go over the L3 sections and reorder them.
+                # policy sections should come first
+                sections = list(child.iter('section'))
+                regular_sections = []
+                policy_sections = []
+
+                for sec in sections:
+                    if sec.attrib.get('managedBy') == 'NSX Service Composer':
+                        policy_sections.append(sec)
+                    else:
+                        regular_sections.append(sec)
+                    child.remove(sec)
+
+                if not policy_sections:
+                    LOG.info(_LI("No need to reorder the firewall sections."))
+                    return
+
+                # reorder the sections to have the policy sections first
+                reordered_sections = policy_sections + regular_sections
+                child.extend(reordered_sections)
+
+                # update the new order of sections in the backend
+                self.vcns.update_dfw_config(et.tostring(root), h)
+                LOG.info(_LI("L3 Firewall sections were reordered."))
+
 
 neutron_sg = NeutronSecurityGroupDB()
 nsxv_firewall = NsxFirewallAPI()
@@ -217,6 +249,12 @@ def list_missing_firewall_sections(resource, event, trigger, **kwargs):
     _log_info(constants.FIREWALL_SECTIONS, missing_sections_info,
               attrs=['securitygroup-name', 'securitygroup-id', 'section-uri'])
     return bool(missing_sections_info)
+
+
+@admin_utils.list_mismatches_handler(constants.FIREWALL_SECTIONS)
+@admin_utils.output_header
+def reorder_firewall_sections(resource, event, trigger, **kwargs):
+    nsxv_firewall.reorder_fw_sections()
 
 
 @admin_utils.fix_mismatches_handler(constants.SECURITY_GROUPS)
@@ -325,3 +363,7 @@ def migrate_sg_to_policy(resource, event, trigger, **kwargs):
 registry.subscribe(migrate_sg_to_policy,
                    constants.SECURITY_GROUPS,
                    shell.Operations.MIGRATE_TO_POLICY.value)
+
+registry.subscribe(reorder_firewall_sections,
+                   constants.FIREWALL_SECTIONS,
+                   shell.Operations.NSX_REORDER.value)

@@ -177,6 +177,10 @@ Security Groups, Firewall and Spoofguard
 
     nsxadmin -r security-groups -o migrate-to-policy --property policy-id=policy-10 --property security-group-id=733f0741-fa2c-4b32-811c-b78e4dc8ec39
 
+- Reorder the nsx L3 firewall sections to correctly support the policy security groups
+
+    nsxadmin -r firewall-sections -o nsx-reorder
+
 Metadata
 ~~~~~~~~
 

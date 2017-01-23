@@ -46,6 +46,7 @@ class Operations(enum.Enum):
     NSX_UPDATE_ALL = 'nsx-update-all'
     NSX_UPDATE_SECRET = 'nsx-update-secret'
     NSX_RECREATE = 'nsx-recreate'
+    NSX_REORDER = 'nsx-reorder'
     MIGRATE_TO_DYNAMIC_CRITERIA = 'migrate-to-dynamic-criteria'
     NSX_MIGRATE_V_V3 = 'nsx-migrate-v-v3'
     MIGRATE_TO_POLICY = 'migrate-to-policy'
@@ -130,7 +131,8 @@ nsxv_resources = {
                                          Operations.MIGRATE_TO_POLICY.value]),
     constants.FIREWALL_SECTIONS: Resource(constants.FIREWALL_SECTIONS,
                                           [Operations.LIST.value,
-                                           Operations.LIST_MISMATCHES.value]),
+                                           Operations.LIST_MISMATCHES.value,
+                                           Operations.NSX_REORDER.value]),
     constants.FIREWALL_NSX_GROUPS: Resource(
         constants.FIREWALL_NSX_GROUPS, [Operations.LIST.value,
                                         Operations.LIST_MISMATCHES.value]),

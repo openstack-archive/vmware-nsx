@@ -641,6 +641,12 @@ class Vcns(object):
         uri = FIREWALL_PREFIX
         return self.do_request(HTTP_GET, uri, decode=False, format='xml')
 
+    def update_dfw_config(self, request, h):
+        uri = FIREWALL_PREFIX
+        headers = self._get_section_header(None, h)
+        return self.do_request(HTTP_PUT, uri, request, format='xml',
+                               decode=False, encode=False, headers=headers)
+
     def get_section_id(self, section_name):
         """Retrieve the id of a section from nsx."""
         h, firewall_config = self.get_dfw_config()
