@@ -3296,8 +3296,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         security_group[sg_policy.POLICY] = (
                             cfg.CONF.nsxv.default_policy_id)
                     elif not cfg.CONF.nsxv.allow_tenant_rules_with_policy:
-                        msg = _('A security group must be assigned to a '
-                                'policy')
+                        if context.is_admin:
+                            msg = _('A security group must be assigned to a '
+                                    'policy')
+                        else:
+                            msg = _('Creation of security group is not '
+                                    'allowed')
                         raise n_exc.InvalidInput(error_message=msg)
 
                 new_policy = security_group.get(sg_policy.POLICY)
