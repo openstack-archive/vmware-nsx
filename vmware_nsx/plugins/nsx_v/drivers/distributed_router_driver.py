@@ -461,11 +461,13 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         # inconsistency. We check for this anyway, in case that
         # something is broken.
         if vdr_dhcp_binding:
-            self.edge_manager.reset_sysctl_rp_filter_for_vdr_dhcp(
-                context, vdr_dhcp_binding['dhcp_edge_id'], network_id)
+            with locking.LockManager.get_lock(
+                    vdr_dhcp_binding['dhcp_edge_id']):
+                self.edge_manager.reset_sysctl_rp_filter_for_vdr_dhcp(
+                    context, vdr_dhcp_binding['dhcp_edge_id'], network_id)
 
-            self.edge_manager.remove_network_from_dhcp_edge(
-                context, network_id, vdr_dhcp_binding['dhcp_edge_id'])
+                self.edge_manager.remove_network_from_dhcp_edge(
+                    context, network_id, vdr_dhcp_binding['dhcp_edge_id'])
         else:
             LOG.error(_LE('VDR DHCP binding is missing for %s'),
                       router_id)
