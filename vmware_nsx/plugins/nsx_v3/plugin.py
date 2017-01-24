@@ -66,6 +66,7 @@ from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators
 from neutron_lib import constants as const
 from neutron_lib import exceptions as n_exc
+from neutron_lib.plugins import directory
 from neutron_lib.utils import helpers
 from oslo_config import cfg
 from oslo_db import exception as db_exc
@@ -95,6 +96,7 @@ from vmware_nsx.extensions import securitygrouplogging as sg_logging
 from vmware_nsx.plugins.nsx_v3 import cert_utils
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 from vmware_nsx.services.qos.common import utils as qos_com_utils
+from vmware_nsx.services.qos.nsx_v3 import driver as qos_driver
 from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
 from vmware_nsx.services.trunk.nsx_v3 import driver as trunk_driver
 from vmware_nsxlib.v3 import client_cert
@@ -228,9 +230,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     ) % NSX_V3_EXCLUDED_PORT_NSGROUP_NAME
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
-        # Bind QoS notifications
-        callbacks_registry.register(qos_utils.handle_qos_notification,
-                                    callbacks_resources.QOS_POLICY)
+        self._init_qos_callbacks()
+
         self.start_rpc_listeners_called = False
 
         self._unsubscribe_callback_events()
@@ -514,6 +515,20 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 cfg.CONF.nsx_v3.log_security_groups_blocked_traffic)
             return section_id
 
+    def _init_qos_callbacks(self):
+        # Bind QoS notifications. the RPC option will be deprecated soon,
+        # but for now we need to support both options
+        qos_plugin = directory.get_plugin(plugin_const.QOS)
+        if (qos_plugin and qos_plugin.driver_manager and
+            qos_plugin.driver_manager.rpc_notifications_required):
+            # TODO(asarfaty) this option should be deprecated on Pike
+            self.qos_use_rpc = True
+            callbacks_registry.register(qos_utils.handle_qos_notification,
+                                        callbacks_resources.QOS_POLICY)
+        else:
+            self.qos_use_rpc = False
+            qos_driver.register()
+
     def _init_dhcp_metadata(self):
         if cfg.CONF.nsx_v3.native_dhcp_metadata:
             if cfg.CONF.dhcp_agent_notification:
@@ -578,11 +593,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self.conn.create_consumer(topics.REPORTS,
                                   [agents_db.AgentExtRpcCallback()],
                                   fanout=False)
-        qos_topic = resources_rpc.resource_type_versioned_topic(
-            callbacks_resources.QOS_POLICY)
-        self.conn.create_consumer(qos_topic,
-                                  [resources_rpc.ResourcesPushRpcCallback()],
-                                  fanout=False)
+        if self.qos_use_rpc:
+            qos_topic = resources_rpc.resource_type_versioned_topic(
+                callbacks_resources.QOS_POLICY)
+            self.conn.create_consumer(
+                qos_topic,
+                [resources_rpc.ResourcesPushRpcCallback()],
+                fanout=False)
         self.start_rpc_listeners_called = True
 
         return self.conn.consume_in_threads()

@@ -14,7 +14,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.api.rpc.callbacks import events
 from neutron.services.qos.notification_drivers import message_queue
 
 
@@ -24,6 +23,6 @@ class NsxV3QosNotificationDriver(
     Overriding the create_policy method in order to add a notification
     message in this case too.
     """
-
-    def create_policy(self, context, policy):
-        self.notification_api.push(context, [policy], events.CREATED)
+    # The message queue is no longer needed in Pike.
+    # Keeping this class for a while for existing configurations.
+    pass
