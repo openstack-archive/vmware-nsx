@@ -20,6 +20,7 @@ from tempest.lib.services.network import base
 
 from vmware_nsx_tempest._i18n import _LI
 from vmware_nsx_tempest._i18n import _LW
+from vmware_nsx_tempest.services import network_client_base as base_client
 
 LOG = log.getLogger(__name__)
 
@@ -95,7 +96,7 @@ def get_client(client_mgr):
     try:
         manager = getattr(client_mgr, "manager", client_mgr)
         net_client = getattr(manager, "networks_client")
-        _params = manager.default_params_with_timeout_values.copy()
+        _params = base_client.default_params_with_timeout_values.copy()
     except AttributeError as attribute_err:
         LOG.warning(_LW("Failed to locate the attribute, Error: %(err_msg)s") %
                     {"err_msg": attribute_err.__str__()})

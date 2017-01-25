@@ -11,6 +11,7 @@
 #    under the License.
 
 from tempest.lib.services.network import base
+from vmware_nsx_tempest.services import network_client_base as base_client
 
 
 class PoliciesClient(base.BaseNetworkClient):
@@ -62,7 +63,7 @@ def get_client(client_mgr,
     manager = getattr(client_mgr, 'manager', client_mgr)
     net_client = getattr(manager, 'networks_client')
     try:
-        _params = manager.default_params_with_timeout_values.copy()
+        _params = base_client.default_params_with_timeout_values.copy()
     except Exception:
         _params = {}
     client = PoliciesClient(net_client.auth_provider,

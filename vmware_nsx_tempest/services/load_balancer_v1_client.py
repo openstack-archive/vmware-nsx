@@ -309,7 +309,7 @@ def get_client(client_mgr):
     manager = getattr(client_mgr, 'manager', client_mgr)
     net_client = getattr(manager, 'networks_client')
     try:
-        _params = manager.default_params_with_timeout_values.copy()
+        _params = base.default_params_with_timeout_values.copy()
     except Exception:
         _params = {}
     client = LoadBalancerV1Client(net_client.auth_provider,
