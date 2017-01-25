@@ -76,8 +76,30 @@ def _delete_edge_from_nsx_and_neutron(edge_id, router_id):
             nsxv.delete_edge(edge_id)
             # Remove bindings from Neutron DB
             _delete_backup_from_neutron_db(edge_id, router_id)
+            return True
     except Exception as expt:
         LOG.error(_LE("%s"), str(expt))
+        return False
+
+
+def _nsx_delete_backup_edge(edge_id, all_backup_edges):
+    """Delete a specific backup edge"""
+    try:
+        edge_result = nsxv.get_edge(edge_id)
+    except exceptions.NeutronException as x:
+        LOG.error(_LE("%s"), str(x))
+    else:
+        # edge_result[0] is response status code
+        # edge_result[1] is response body
+        edge = edge_result[1]
+        backup_edges = [e['id'] for e in all_backup_edges]
+        if (not edge['name'].startswith('backup-')
+            or edge['id'] not in backup_edges):
+            LOG.error(
+                _LE('Edge: %s is not a backup edge; aborting delete'),
+                edge_id)
+        else:
+            return _delete_edge_from_nsx_and_neutron(edge_id, edge['name'])
 
 
 def nsx_clean_backup_edge(resource, event, trigger, **kwargs):
@@ -92,26 +114,35 @@ def nsx_clean_backup_edge(resource, event, trigger, **kwargs):
     if not edge_id:
         LOG.error(_LE("%s"), errmsg)
         return
-    try:
-        edge = nsxv.get_edge(edge_id)
-    except exceptions.NeutronException as x:
-        LOG.error(_LE("%s"), str(x))
-    else:
-        # edge[0] is response status code
-        # edge[1] is response body
-        backup_edges = [e['id'] for e in get_nsxv_backup_edges()]
-        if (not edge[1]['name'].startswith('backup-')
-            or edge[1]['id'] not in backup_edges):
-            LOG.error(
-                _LE('Edge: %s is not a backup edge; aborting delete'), edge_id)
-            return
+    #ask for the user confirmation
+    confirm = admin_utils.query_yes_no(
+        "Do you want to delete edge: %s" % edge_id, default="no")
+    if not confirm:
+        LOG.info(_LI("Backup edge deletion aborted by user"))
+        return
+    # delete the backup edge
+    _nsx_delete_backup_edge(edge_id, get_nsxv_backup_edges())
 
-        confirm = admin_utils.query_yes_no(
-            "Do you want to delete edge: %s" % edge_id, default="no")
-        if not confirm:
-            LOG.info(_LI("Backup edge deletion aborted by user"))
-            return
-        _delete_edge_from_nsx_and_neutron(edge_id, edge[1]['name'])
+
+def nsx_clean_all_backup_edges(resource, event, trigger, **kwargs):
+    """Delete all backup edges"""
+    backup_edges = get_nsxv_backup_edges()
+
+    #ask for the user confirmation
+    confirm = admin_utils.query_yes_no(
+        "Do you want to delete %s backup edges?" % len(backup_edges),
+        default="no")
+    if not confirm:
+        LOG.info(_LI("Backup edges deletion aborted by user"))
+        return
+
+    deleted_cnt = 0
+    for edge in backup_edges:
+        # delete the backup edge
+        if _nsx_delete_backup_edge(edge['id'], backup_edges):
+            deleted_cnt = deleted_cnt + 1
+
+    LOG.info(_LI('Done Deleting %s backup edges'), deleted_cnt)
 
 
 @admin_utils.output_header
@@ -287,6 +318,9 @@ registry.subscribe(nsx_list_backup_edges,
 registry.subscribe(nsx_clean_backup_edge,
                    constants.BACKUP_EDGES,
                    shell.Operations.CLEAN.value)
+registry.subscribe(nsx_clean_all_backup_edges,
+                   constants.BACKUP_EDGES,
+                   shell.Operations.CLEAN_ALL.value)
 registry.subscribe(nsx_list_name_mismatches,
                    constants.BACKUP_EDGES,
                    shell.Operations.LIST_MISMATCHES.value)
