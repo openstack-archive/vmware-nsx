@@ -438,6 +438,51 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                 # physical network attribute.
                 self.assertEqual(2, vlan_net_call.call_count)
 
+    def test_update_vlan_network_with_multiple_dvs(self):
+        name = 'multi-dvs-vlan-net'
+        providernet_args = {pnet.NETWORK_TYPE: 'vlan',
+                            pnet.SEGMENTATION_ID: 100,
+                            pnet.PHYSICAL_NETWORK: 'dvs-1, dvs-2'}
+        p = directory.get_plugin()
+        with mock.patch.object(
+            p, '_create_vlan_network_at_backend',
+            # Return three netmorefs as side effect
+            side_effect=[_uuid(), _uuid(), _uuid()]) as vlan_net_call:
+            with self.network(name=name,
+                              providernet_args=providernet_args,
+                              arg_list=(pnet.NETWORK_TYPE,
+                                        pnet.SEGMENTATION_ID,
+                                        pnet.PHYSICAL_NETWORK)) as net:
+                # _create_vlan_network_at_backend is expected to be called
+                # 2 times since we have 2 DVS IDs in the physical
+                # network attribute.
+                self.assertEqual(2, vlan_net_call.call_count)
+                self.assertEqual('dvs-1, dvs-2',
+                                 net['network'][pnet.PHYSICAL_NETWORK])
+                # Add another dvs
+                data = {'network': {pnet.PHYSICAL_NETWORK: 'dvs-3'}}
+                req = self.new_update_request('networks', data,
+                                              net['network']['id'])
+                res = self.deserialize('json', req.get_response(self.api))
+                self.assertEqual(3, vlan_net_call.call_count)
+                self.assertEqual('dvs-1, dvs-2, dvs-3',
+                                 res['network'][pnet.PHYSICAL_NETWORK])
+
+                # make sure it is updates also in the DB
+                req = self.new_show_request('networks', net['network']['id'])
+                res = self.deserialize('json', req.get_response(self.api))
+                self.assertEqual('dvs-1, dvs-2, dvs-3',
+                                 res['network'][pnet.PHYSICAL_NETWORK])
+
+                # update again - with no real change
+                data = {'network': {pnet.PHYSICAL_NETWORK: 'dvs-3'}}
+                req = self.new_update_request('networks', data,
+                                              net['network']['id'])
+                res = self.deserialize('json', req.get_response(self.api))
+                self.assertEqual(3, vlan_net_call.call_count)
+                self.assertEqual('dvs-1, dvs-2, dvs-3',
+                                 res['network'][pnet.PHYSICAL_NETWORK])
+
     def test_get_dvs_ids_for_multiple_dvs_vlan_network(self):
         p = directory.get_plugin()
         # If no DVS-ID is provided as part of physical network, return

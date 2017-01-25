@@ -1304,11 +1304,75 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 [db_utils.resource_fields(network,
                                           fields) for network in networks])
 
+    def _raise_if_updates_provider_attributes(self, original_network, attrs):
+        """Raise exception if provider attributes are present.
+
+        For the NSX-V we want to allow changing the physical network of
+        vlan type networks.
+        """
+        if (original_network.get(providernet.NETWORK_TYPE) ==
+            c_utils.NsxVNetworkTypes.VLAN
+            and validators.is_attr_set(
+                attrs.get(providernet.PHYSICAL_NETWORK))
+            and not validators.is_attr_set(
+                attrs.get(providernet.NETWORK_TYPE))
+            and not validators.is_attr_set(
+                attrs.get(providernet.SEGMENTATION_ID))):
+            self._validate_physical_network(
+                attrs[providernet.PHYSICAL_NETWORK])
+            return
+        providernet._raise_if_updates_provider_attributes(attrs)
+
+    def _update_vlan_network_dvs_ids(self, network, new_physical_network):
+        """Update the dvs ids of a vlan provider network
+
+        The new values will be added to the current ones.
+        No support for removing dvs-ids.
+
+        Actions done in this function:
+        - Create a backend network for each new dvs
+        - Return the relevant information in order to later also update
+          the spoofguard policy, qos, network object and DB
+
+        Returns:
+        - dvs_list_changed True/False
+        - dvs_pg_mappings - mapping of the new elements dvs->moref
+        """
+        net_morefs = []
+        dvs_pg_mappings = {}
+
+        current_dvs_ids = set(self._get_dvs_ids(
+            network[providernet.PHYSICAL_NETWORK]))
+        new_dvs_ids = set(self._get_dvs_ids(
+            new_physical_network))
+        additinal_dvs_ids = new_dvs_ids - current_dvs_ids
+
+        if not additinal_dvs_ids:
+            return False, dvs_pg_mappings
+
+        # create all the new ones
+        for dvs_id in additinal_dvs_ids:
+            try:
+                self._convert_to_transport_zones_dict(network)
+                net_moref = self._create_vlan_network_at_backend(
+                    dvs_id=dvs_id,
+                    net_data=network)
+            except nsx_exc.NsxPluginException:
+                with excutils.save_and_reraise_exception():
+                    # Delete VLAN networks on other DVSes if it
+                    # fails to be created on one DVS and reraise
+                    # the original exception.
+                    for net_moref in net_morefs:
+                        self._delete_backend_network(net_moref)
+            dvs_pg_mappings[dvs_id] = net_moref
+
+        return True, dvs_pg_mappings
+
     def update_network(self, context, id, network):
         net_attrs = network['network']
-        original_network = self.get_network(context, id)
-
-        providernet._raise_if_updates_provider_attributes(net_attrs)
+        orig_net = self.get_network(context, id)
+        self._raise_if_updates_provider_attributes(
+            orig_net, net_attrs)
         if net_attrs.get("admin_state_up") is False:
             raise NotImplementedError(_("admin_state_up=False networks "
                                         "are not supported."))
@@ -1319,13 +1383,26 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # PortSecurity validation checks
         # TODO(roeyc): enacapsulate validation in a method
         psec_update = (psec.PORTSECURITY in net_attrs and
-                       original_network[psec.PORTSECURITY] !=
+                       orig_net[psec.PORTSECURITY] !=
                        net_attrs[psec.PORTSECURITY])
         if psec_update and not net_attrs[psec.PORTSECURITY]:
             LOG.warning(_LW("Disabling port-security on network %s would "
                             "require instance in the network to have VM tools "
                             "installed in order for security-groups to "
                             "function properly."))
+
+        # Check if the physical network of a vlan provider network was updated
+        updated_morefs = False
+        if (net_attrs.get(providernet.PHYSICAL_NETWORK) and
+            orig_net.get(providernet.NETWORK_TYPE) ==
+            c_utils.NsxVNetworkTypes.VLAN):
+            (updated_morefs,
+             new_dvs_pg_mappings) = self._update_vlan_network_dvs_ids(
+                orig_net,
+                net_attrs[providernet.PHYSICAL_NETWORK])
+            if updated_morefs:
+                new_dvs = list(new_dvs_pg_mappings.values())
+                net_morefs.extend(new_dvs)
 
         with context.session.begin(subtransactions=True):
             net_res = super(NsxVPluginV2, self).update_network(context, id,
@@ -1336,31 +1413,54 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 context, net_attrs, net_res)
             self._process_l3_update(context, net_res, net_attrs)
             self._extend_network_dict_provider(context, net_res)
+            if updated_morefs:
+                # Save netmoref to dvs id mappings for VLAN network
+                # type for future access.
+                all_dvs = net_res.get(providernet.PHYSICAL_NETWORK)
+                for dvs_id, netmoref in six.iteritems(new_dvs_pg_mappings):
+                    nsx_db.add_neutron_nsx_network_mapping(
+                        session=context.session,
+                        neutron_id=id,
+                        nsx_switch_id=netmoref,
+                        dvs_id=dvs_id)
+                    all_dvs = '%s, %s' % (all_dvs, dvs_id)
+                net_res[providernet.PHYSICAL_NETWORK] = all_dvs
+                vlan_id = net_res.get(providernet.SEGMENTATION_ID)
+                nsxv_db.update_network_binding_phy_uuid(
+                    context.session, id,
+                    net_res.get(providernet.NETWORK_TYPE),
+                    vlan_id, all_dvs)
 
         # Updating SpoofGuard policy if exists, on failure revert to network
         # old state
-        if cfg.CONF.nsxv.spoofguard_enabled and psec_update:
+        if (cfg.CONF.nsxv.spoofguard_enabled and
+            (psec_update or updated_morefs)):
             policy_id = nsxv_db.get_spoofguard_policy_id(context.session, id)
+            port_sec = (net_attrs[psec.PORTSECURITY]
+                if psec.PORTSECURITY in net_attrs
+                else orig_net.get(psec.PORTSECURITY))
             try:
                 self.nsx_v.vcns.update_spoofguard_policy(
-                    policy_id, net_morefs, id,
-                    net_attrs[psec.PORTSECURITY])
+                    policy_id, net_morefs, id, port_sec)
             except Exception:
                 with excutils.save_and_reraise_exception():
                     revert_update = db_utils.resource_fields(
-                        original_network, ['shared', psec.PORTSECURITY])
+                        orig_net, ['shared', psec.PORTSECURITY])
                     self._process_network_port_security_update(
                         context, revert_update, net_res)
                     super(NsxVPluginV2, self).update_network(
                         context, id, {'network': revert_update})
 
         # Handle QOS updates (Value can be None, meaning to delete the
-        # current policy)
-        if qos_consts.QOS_POLICY_ID in net_attrs:
+        # current policy), or moref updates with an existing qos policy
+        if ((qos_consts.QOS_POLICY_ID in net_attrs) or
+            (updated_morefs and orig_net.get(qos_consts.QOS_POLICY_ID))):
             # update the qos data
+            qos_policy_id = (net_attrs[qos_consts.QOS_POLICY_ID]
+                if qos_consts.QOS_POLICY_ID in net_attrs
+                else orig_net.get(qos_consts.QOS_POLICY_ID))
             qos_data = qos_utils.NsxVQosRule(
-                context=context,
-                qos_policy_id=net_attrs[qos_consts.QOS_POLICY_ID])
+                context=context, qos_policy_id=qos_policy_id)
 
             # get the network moref/s from the db
             for moref in net_morefs:
@@ -1370,7 +1470,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
                 # attach the policy to the network in neutron DB
                 qos_com_utils.update_network_policy_binding(
-                    context, id, net_attrs[qos_consts.QOS_POLICY_ID])
+                    context, id, qos_policy_id)
 
             net_res[qos_consts.QOS_POLICY_ID] = (
                 qos_com_utils.get_network_policy_id(context, id))

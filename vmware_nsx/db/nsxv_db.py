@@ -517,6 +517,17 @@ def get_network_bindings_by_vlanid(session, vlan_id):
             all())
 
 
+def update_network_binding_phy_uuid(session, network_id, binding_type,
+                                    vlan_id, phy_uuid):
+    with session.begin(subtransactions=True):
+        bindings = (session.query(nsxv_models.NsxvTzNetworkBinding).filter_by(
+            vlan_id=vlan_id,
+            network_id=network_id,
+            binding_type=binding_type).all())
+        for binding in bindings:
+            binding['phy_uuid'] = phy_uuid
+
+
 #
 # Edge Firewall binding methods
 #
