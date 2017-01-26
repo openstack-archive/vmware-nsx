@@ -2301,7 +2301,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._assert_on_router_port_with_qos(
                 port['port'], device_owner)
 
-            old_mac_learning_state = original_port.get(mac_ext.MAC_LEARNING)
             updated_port = super(NsxV3Plugin, self).update_port(context,
                                                                 id, port)
             self._extension_manager.process_update_port(context, port['port'],
@@ -2329,16 +2328,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._process_portbindings_create_and_update(
                 context, port['port'], updated_port)
             self._extend_port_dict_binding(context, updated_port)
-            new_mac_learning_state = updated_port.get(mac_ext.MAC_LEARNING)
-            if (new_mac_learning_state is not None and
-                old_mac_learning_state != new_mac_learning_state):
-                if port_security and new_mac_learning_state:
+            mac_learning_state = updated_port.get(mac_ext.MAC_LEARNING)
+            if mac_learning_state is not None:
+                if port_security and mac_learning_state:
                     msg = _('Mac learning requires that port security be '
                             'disabled')
                     LOG.error(msg)
                     raise n_exc.InvalidInput(error_message=msg)
                 self._update_mac_learning_state(context, id,
-                                                new_mac_learning_state)
+                                                mac_learning_state)
 
         address_bindings = self._build_address_bindings(updated_port)
         if port_security and address_bindings:
