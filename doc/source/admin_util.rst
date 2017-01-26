@@ -93,6 +93,10 @@ Backup Edges
 
     nsxadmin -r backup-edges -o clean --property edge-id=edge-9
 
+- Delete all backup edges::
+
+    nsxadmin -r backup-edges -o clean-all
+
 - List Edge name mismatches between DB and backend, and backup edges that are missing from the backend::
 
     nsxadmin -r backup-edges -o list-mismatches

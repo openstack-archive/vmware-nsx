@@ -61,9 +61,10 @@ class AbstractTestAdminUtils(base.BaseTestCase):
         self._init_resource_plugin()
         self.addCleanup(resource_registry.unregister_all_resources)
 
-    @abc.abstractmethod
     def _init_mock_plugin(self):
-        pass
+        mock_query = mock.patch(
+            "vmware_nsx.shell.admin.plugins.common.utils.query_yes_no")
+        mock_query.start()
 
     @abc.abstractmethod
     def _get_plugin_name(self):
@@ -106,6 +107,7 @@ class TestNsxvAdminUtils(AbstractTestAdminUtils,
         mock_vcns_instance.return_value = self.fc
 
         self.addCleanup(self.fc.reset_all)
+        super(TestNsxvAdminUtils, self)._init_mock_plugin()
 
     def _get_plugin_name(self):
         return 'nsxv'
@@ -152,6 +154,7 @@ class TestNsxv3AdminUtils(AbstractTestAdminUtils,
                            return_value=[{'id': uuidutils.generate_uuid()}])
         self._patch_object(nsx_v3_resources.LogicalRouterPort,
                            '__init__', return_value=None)
+        super(TestNsxv3AdminUtils, self)._init_mock_plugin()
 
     def _get_plugin_name(self):
         return 'nsxv3'

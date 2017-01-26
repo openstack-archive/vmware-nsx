@@ -33,6 +33,7 @@ LOG = logging.getLogger(__name__)
 class Operations(enum.Enum):
     LIST = 'list'
     CLEAN = 'clean'
+    CLEAN_ALL = 'clean-all'
     LIST_MISMATCHES = 'list-mismatches'
     FIX_MISMATCH = 'fix-mismatch'
 
@@ -101,6 +102,7 @@ nsxv_resources = {
     constants.BACKUP_EDGES: Resource(constants.BACKUP_EDGES,
                                      [Operations.LIST.value,
                                       Operations.CLEAN.value,
+                                      Operations.CLEAN_ALL.value,
                                       Operations.LIST_MISMATCHES.value,
                                       Operations.FIX_MISMATCH.value,
                                       Operations.NEUTRON_CLEAN.value]),
