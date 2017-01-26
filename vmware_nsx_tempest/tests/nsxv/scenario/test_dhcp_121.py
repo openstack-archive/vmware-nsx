@@ -63,8 +63,9 @@ class TestDHCP121BasicOps(dmgr.TopoDeployScenarioManager):
     @classmethod
     def skip_checks(cls):
         super(TestDHCP121BasicOps, cls).skip_checks()
-        if not (CONF.network.project_networks_reachable
-                or CONF.network.public_network_id):
+        if not ((CONF.network.project_networks_reachable
+                or CONF.network.public_network_id) and
+                CONF.network.public_network_cidr):
             msg = ('Either project_networks_reachable must be "true", or '
                    'public_network_id must be defined.')
             raise cls.skipException(msg)
@@ -162,9 +163,10 @@ class TestDHCP121BasicOps(dmgr.TopoDeployScenarioManager):
         subnet_info = self.subnets_client.show_subnet(subnet_id)
         self.nexthop1 = subnet_info['subnet']['gateway_ip']
         # Update subnet with host routes
+        public_net_cidr = CONF.network.public_network_cidr
         _subnet_data = {'host_routes': [{'destination': '10.20.0.0/32',
                                          'nexthop': '10.100.1.1'}],
-                        'new_host_routes': [{'destination': '10.20.0.0/32',
+                        'new_host_routes': [{'destination': public_net_cidr,
                                              'nexthop': self.nexthop1}]}
         new_host_routes = _subnet_data['new_host_routes']
         kwargs = {'host_routes': new_host_routes}
@@ -481,7 +483,7 @@ class TestDhcpHostRoutesBetweenVms(TestDHCP121BasicOps):
         _subnet_data = {'host_routes': [{'destination': '10.20.0.0/32',
                                          'nexthop': '10.100.1.1'}],
                         'new_host_routes': [{
-                            'destination': CONF.network.project_network_cidr,
+                            'destination': CONF.network.public_network_cidr,
                             'nexthop': port['fixed_ips'][0]['ip_address']}]}
         subnet_client = client_mgr.subnets_client
         subnet_id = subnet['id']
