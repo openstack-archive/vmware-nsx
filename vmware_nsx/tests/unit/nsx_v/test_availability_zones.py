@@ -29,9 +29,11 @@ class NsxvAvailabilityZonesTestCase(base.BaseTestCase):
         self.az_name = 'zone1'
         self.group_name = 'az:%s' % self.az_name
         config.register_nsxv_azs(cfg.CONF, [self.az_name])
+        cfg.CONF.set_override("ha_placement_random", True, group="nsxv")
 
     def _config_az(self, resource_pool_id="respool", datastore_id="datastore",
-                   edge_ha=True, ha_datastore_id="hastore"):
+                   edge_ha=True, ha_datastore_id="hastore",
+                   ha_placement_random=False):
         cfg.CONF.set_override("resource_pool_id", resource_pool_id,
                               group=self.group_name)
         cfg.CONF.set_override("datastore_id", datastore_id,
@@ -41,6 +43,10 @@ class NsxvAvailabilityZonesTestCase(base.BaseTestCase):
                                   group=self.group_name)
         cfg.CONF.set_override("ha_datastore_id", ha_datastore_id,
                               group=self.group_name)
+        if ha_placement_random is not None:
+            cfg.CONF.set_override("ha_placement_random",
+                                  ha_placement_random,
+                                  group=self.group_name)
 
     def test_simple_availability_zone(self):
         self._config_az()
@@ -50,6 +56,7 @@ class NsxvAvailabilityZonesTestCase(base.BaseTestCase):
         self.assertEqual("datastore", az.datastore_id)
         self.assertEqual(True, az.edge_ha)
         self.assertEqual("hastore", az.ha_datastore_id)
+        self.assertEqual(False, az.ha_placement_random)
 
     def test_availability_zone_no_edge_ha(self):
         self._config_az(edge_ha=False)
@@ -59,6 +66,7 @@ class NsxvAvailabilityZonesTestCase(base.BaseTestCase):
         self.assertEqual("datastore", az.datastore_id)
         self.assertEqual(False, az.edge_ha)
         self.assertEqual(None, az.ha_datastore_id)
+        self.assertEqual(False, az.ha_placement_random)
 
     def test_availability_zone_no_ha_datastore(self):
         self._config_az(ha_datastore_id=None)
@@ -68,6 +76,7 @@ class NsxvAvailabilityZonesTestCase(base.BaseTestCase):
         self.assertEqual("datastore", az.datastore_id)
         self.assertEqual(True, az.edge_ha)
         self.assertEqual(None, az.ha_datastore_id)
+        self.assertEqual(False, az.ha_placement_random)
 
     def test_missing_group_section(self):
         self.assertRaises(
@@ -97,6 +106,18 @@ class NsxvAvailabilityZonesTestCase(base.BaseTestCase):
         self.assertEqual("datastore", az.datastore_id)
         self.assertEqual(False, az.edge_ha)
         self.assertEqual(None, az.ha_datastore_id)
+        self.assertEqual(False, az.ha_placement_random)
+
+    def test_availability_zone_missing_edge_placement(self):
+        self._config_az(ha_placement_random=None)
+        az = nsx_az.ConfiguredAvailabilityZone(self.az_name)
+        self.assertEqual(self.az_name, az.name)
+        self.assertEqual("respool", az.resource_pool)
+        self.assertEqual("datastore", az.datastore_id)
+        self.assertEqual(True, az.edge_ha)
+        self.assertEqual("hastore", az.ha_datastore_id)
+        # ha_placement_random should have the global value
+        self.assertEqual(True, az.ha_placement_random)
 
 
 class NsxvAvailabilityZonesOldTestCase(base.BaseTestCase):
@@ -113,6 +134,7 @@ class NsxvAvailabilityZonesOldTestCase(base.BaseTestCase):
         self.assertEqual("datastore", az.datastore_id)
         self.assertEqual(True, az.edge_ha)
         self.assertEqual("hastore", az.ha_datastore_id)
+        self.assertEqual(False, az.ha_placement_random)
 
     def test_availability_zone_without_ha_datastore(self):
         az = nsx_az.ConfiguredAvailabilityZone(

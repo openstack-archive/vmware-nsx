@@ -13,6 +13,7 @@
 #    under the License.
 
 from distutils import version
+import random
 import time
 
 from neutron.plugins.common import constants as plugin_const
@@ -45,6 +46,7 @@ class EdgeApplianceDriver(object):
             'nat': {},
             'route': {},
         }
+        random.seed()
 
     def _assemble_edge(self, name, appliance_size="compact",
                        deployment_container_id=None, datacenter_moid=None,
@@ -95,16 +97,34 @@ class EdgeApplianceDriver(object):
 
         return edge
 
+    def _select_datastores(self, availability_zone):
+        primary_ds = availability_zone.datastore_id
+        secondary_ds = availability_zone.ha_datastore_id
+        if availability_zone.ha_placement_random:
+            # we want to switch primary and secondary datastores
+            # half of the times, to balance it
+            if random.random() > 0.5:
+                primary_ds = availability_zone.ha_datastore_id
+                secondary_ds = availability_zone.datastore_id
+        return primary_ds, secondary_ds
+
     def _assemble_edge_appliances(self, availability_zone):
         appliances = []
-        if availability_zone.datastore_id:
+        if availability_zone.ha_datastore_id and availability_zone.edge_ha:
+            # create appliance with HA
+            primary_ds, secondary_ds = self._select_datastores(
+                availability_zone)
+            appliances.append(self._assemble_edge_appliance(
+                availability_zone.resource_pool,
+                primary_ds))
+            appliances.append(self._assemble_edge_appliance(
+                availability_zone.resource_pool,
+                secondary_ds))
+        elif availability_zone.datastore_id:
+            # Single datastore
             appliances.append(self._assemble_edge_appliance(
                 availability_zone.resource_pool,
                 availability_zone.datastore_id))
-        if availability_zone.ha_datastore_id and availability_zone.edge_ha:
-            appliances.append(self._assemble_edge_appliance(
-                availability_zone.resource_pool,
-                availability_zone.ha_datastore_id))
         return appliances
 
     def _assemble_edge_appliance(self, resource_pool_id, datastore_id):
