@@ -451,9 +451,8 @@ nsxv_opts = [
     cfg.ListOpt('availability_zones',
                 default=[],
                 help=_('Optional parameter defining the availability zones '
-                       'for deploying NSX Edges with the format: <zone name>:'
-                       '<resource pool id]:<datastore id>:<edge_ha True/False>'
-                       '<(optional)HA datastore id>.')),
+                       'names for deploying NSX Edges. The configuration of '
+                       'each zone will be under a group names [az:<name>]')),
     cfg.StrOpt('datastore_id',
                deprecated_group="vcns",
                help=_('Optional parameter identifying the ID of datastore to '
@@ -650,6 +649,22 @@ nsxv_opts = [
                        "be associated with all router interfaces.")),
 ]
 
+# define the configuration of each availability zone.
+# the list of expected zones in under nsxv group: availability_zones
+nsxv_az_opts = [
+    cfg.StrOpt('resource_pool_id',
+               help=_('Identifying the ID of resource to deploy NSX Edges')),
+    cfg.StrOpt('datastore_id',
+               help=_('Identifying the ID of datastore to deploy NSX Edges')),
+    cfg.BoolOpt('edge_ha',
+                default=False,
+                help=_("(Optional) Enable HA for NSX Edges.")),
+    cfg.StrOpt('ha_datastore_id',
+               help=_('Optional parameter identifying the ID of datastore to '
+                      'deploy NSX Edges in addition to data_store_id in case'
+                      'edge_ha is True')),
+]
+
 # Register the configuration options
 cfg.CONF.register_opts(connection_opts)
 cfg.CONF.register_opts(cluster_opts)
@@ -659,9 +674,41 @@ cfg.CONF.register_opts(nsxv_opts, group="nsxv")
 cfg.CONF.register_opts(base_opts, group="NSX")
 cfg.CONF.register_opts(sync_opts, group="NSX_SYNC")
 
-# registser l3_ha config opts. This is due to commit
+# register l3_ha config opts. This is due to commit
 # a7c633dc8e8a67e65e558ecbdf9ea8efc5468251
 cfg.CONF.register_opts(l3_hamode_db.L3_HA_OPTS)
+
+
+# register a group for each nsxv availability zones
+def register_nsxv_azs(conf, availability_zones):
+    # first verify that the availability zones are in the format of a
+    # list of names. The old format was a list of values for each az,
+    # separated with ':'
+    if not availability_zones or len(availability_zones[0].split(':')) > 1:
+        return
+
+    for az in availability_zones:
+        az_group = 'az:%s' % az
+        conf.register_group(cfg.OptGroup(
+            name=az_group,
+            title="Configuration for availability zone %s" % az))
+        conf.register_opts(nsxv_az_opts, group=az_group)
+
+
+register_nsxv_azs(cfg.CONF, cfg.CONF.nsxv.availability_zones)
+
+
+def get_nsxv_az_opts(az):
+    az_info = dict()
+    group = 'az:%s' % az
+    if group not in cfg.CONF:
+        raise nsx_exc.NsxInvalidConfiguration(
+            opt_name=group,
+            opt_value='None',
+            reason=(_("Configuration group \'%s\' must be defined") % group))
+    for opt in nsxv_az_opts:
+        az_info[opt.name] = cfg.CONF[group][opt.name]
+    return az_info
 
 
 def validate_nsxv_config_options():

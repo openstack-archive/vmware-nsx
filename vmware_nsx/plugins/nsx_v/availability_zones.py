@@ -16,6 +16,7 @@
 from oslo_config import cfg
 
 from vmware_nsx._i18n import _
+from vmware_nsx.common import config
 from vmware_nsx.common import exceptions as nsx_exc
 
 DEFAULT_NAME = 'default'
@@ -24,7 +25,9 @@ DEFAULT_NAME = 'default'
 class ConfiguredAvailabilityZone(object):
 
     def __init__(self, config_line):
-        if config_line:
+        if config_line and ':' in config_line:
+            # Older configuration - each line contains all the relevant
+            # values for one availability zones, separated by ':'
             values = config_line.split(':')
             if len(values) < 4 or len(values) > 5:
                 raise nsx_exc.NsxInvalidConfiguration(
@@ -63,6 +66,29 @@ class ConfiguredAvailabilityZone(object):
                              "enabled"))
 
             self.ha_datastore_id = values[4] if len(values) == 5 else None
+        elif config_line:
+            # Newer configuration - the name of the availability zone can be
+            # used to get the rest of the configuration for this AZ
+            self.name = config_line
+            az_info = config.get_nsxv_az_opts(self.name)
+            self.resource_pool = az_info.get('resource_pool_id')
+            if not self.resource_pool:
+                raise nsx_exc.NsxInvalidConfiguration(
+                    opt_name="resource_pool_id",
+                    opt_value='None',
+                    reason=(_("resource_pool_id for availability zone %s "
+                              "must be defined") % self.name))
+            self.datastore_id = az_info.get('datastore_id')
+            if not self.datastore_id:
+                raise nsx_exc.NsxInvalidConfiguration(
+                    opt_name="datastore_id",
+                    opt_value='None',
+                    reason=(_("datastore_id for availability zone %s "
+                              "must be defined") % self.name))
+            self.edge_ha = az_info.get('edge_ha', False)
+            # The HA datastore can be empty
+            self.ha_datastore_id = (az_info.get('ha_datastore_id')
+                                    if self.edge_ha else None)
         else:
             # use the default configuration
             self.name = DEFAULT_NAME

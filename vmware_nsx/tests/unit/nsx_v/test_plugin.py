@@ -54,6 +54,7 @@ import six
 import webob.exc
 
 from vmware_nsx._i18n import _
+from vmware_nsx.common import config
 from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils as c_utils
@@ -86,6 +87,22 @@ from vmware_nsx.tests.unit import test_utils
 PLUGIN_NAME = 'vmware_nsx.plugin.NsxVPlugin'
 
 _uuid = uuidutils.generate_uuid
+
+
+def set_az_in_config(name, resource_pool_id="respool-7",
+                     datastore_id="datastore-7",
+                     edge_ha=False, ha_datastore_id=None):
+    group_name = 'az:%s' % name
+    cfg.CONF.set_override('availability_zones', [name], group="nsxv")
+    config.register_nsxv_azs(cfg.CONF, [name])
+    cfg.CONF.set_override("resource_pool_id", resource_pool_id,
+                          group=group_name)
+    cfg.CONF.set_override("datastore_id", datastore_id,
+                          group=group_name)
+    cfg.CONF.set_override("edge_ha", edge_ha,
+                          group=group_name)
+    cfg.CONF.set_override("ha_datastore_id", ha_datastore_id,
+                          group=group_name)
 
 
 class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
@@ -143,6 +160,7 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
         self.default_res_pool = 'respool-28'
         cfg.CONF.set_override("resource_pool_id", self.default_res_pool,
                               group="nsxv")
+        set_az_in_config('az7')
         if service_plugins is not None:
             # override the service plugins only if specified directly
             super(NsxVPluginV2TestCase, self).setUp(
@@ -646,8 +664,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
 
     def test_create_network_with_az_hint(self):
         az_name = 'az7'
-        az_config = az_name + ':respool-7:datastore-7:False'
-        cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
+        set_az_in_config(az_name)
         p = directory.get_plugin()
         p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
         ctx = context.get_admin_context()
@@ -3158,8 +3175,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
 
     def test_create_router_with_az_hint(self):
         az_name = 'az7'
-        az_config = az_name + ':respool-7:datastore-7:True'
-        cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
+        set_az_in_config(az_name)
         p = directory.get_plugin()
         p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
         p._get_edge_id_by_rtr_id = p.real_get_edge
@@ -3367,9 +3383,7 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
     def setUp(self, plugin=PLUGIN_NAME, ext_mgr=None, service_plugins=None):
         # init the availability zones in the configuration of the plugin
         self.az_name = 'az7'
-        az_config = self.az_name + ':respool-7:datastore-7:False'
-        cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
-
+        set_az_in_config(self.az_name)
         super(TestVdrTestCase, self).setUp(
             plugin=plugin, ext_mgr=ext_mgr, service_plugins=service_plugins)
         self.plugin_instance.nsx_v.is_subnet_in_use = mock.Mock()
@@ -3580,8 +3594,7 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
     def _test_create_rotuer_with_az_hint(self, with_hint):
         # init the availability zones in the plugin
         az_name = 'az7'
-        az_config = az_name + ':respool-7:datastore-7:False'
-        cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
+        set_az_in_config(az_name)
         p = directory.get_plugin()
         p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
 
@@ -4837,8 +4850,7 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
     def _test_create_rotuer_with_az_hint(self, with_hint):
         # init the availability zones in the plugin
         az_name = 'az7'
-        az_config = az_name + ':respool-7:datastore-7:True'
-        cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
+        set_az_in_config(az_name)
         p = directory.get_plugin()
         p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
 
@@ -4911,8 +4923,7 @@ class TestRouterFlavorTestCase(extension.ExtensionTestCase,
 
         # init the availability zones
         self.az_name = 'az7'
-        az_config = self.az_name + ':respool-7:datastore-7:True'
-        cfg.CONF.set_override('availability_zones', [az_config], group="nsxv")
+        set_az_in_config(self.az_name)
         self.plugin._availability_zones_data = (
             nsx_az.ConfiguredAvailabilityZones())
         self._iteration = 1
