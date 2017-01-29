@@ -4889,6 +4889,14 @@ class TestRouterFlavorTestCase(extension.ExtensionTestCase,
 
     FLAVOR_PLUGIN = 'neutron.services.flavors.flavors_plugin.FlavorsPlugin'
 
+    def _mock_add_flavor_id(self, resource_type, router_res, router_db):
+        # this function is a registered callback so we can't mock it
+        # in a regular way.
+        # need to change behavior for this test suite only, since
+        # there is no "unregister_dict_extend_funcs"
+        if router_res['name'] == 'router_with_flavor':
+            router_res['flavor_id'] = 'raspberry'
+
     def setUp(self, plugin=PLUGIN_NAME):
         # init the core plugin and flavors plugin
         service_plugins = {plugin_const.FLAVORS: self.FLAVOR_PLUGIN}
@@ -4898,16 +4906,8 @@ class TestRouterFlavorTestCase(extension.ExtensionTestCase,
         self.plugin._flv_plugin = directory.get_plugin(plugin_const.FLAVORS)
         self.plugin._process_router_flavor_create = mock.Mock()
 
-        def mock_add_flavor_id(self, router_res, router_db):
-            # this function is a registered callback so we can't mock it
-            # in a regular way.
-            # need to change behavior for this test suite only, since
-            # there is no "unregister_dict_extend_funcs"
-            if router_res['name'] == 'router_with_flavor':
-                router_res['flavor_id'] = 'raspberry'
-
         self.plugin.register_dict_extend_funcs(
-                l3.ROUTERS, [mock_add_flavor_id])
+                l3.ROUTERS, [self._mock_add_flavor_id])
 
         # init the availability zones
         self.az_name = 'az7'
