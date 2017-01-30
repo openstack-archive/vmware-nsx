@@ -333,6 +333,12 @@ def delete_edge_dhcp_static_binding(session, edge_id, mac_address):
             edge_id=edge_id, mac_address=mac_address).delete()
 
 
+def delete_edge_dhcp_static_binding_id(session, edge_id, binding_id):
+    with session.begin(subtransactions=True):
+        session.query(nsxv_models.NsxvEdgeDhcpStaticBinding).filter_by(
+            edge_id=edge_id, binding_id=binding_id).delete()
+
+
 def get_nsxv_dhcp_bindings_count_per_edge(session):
     return (
         session.query(
