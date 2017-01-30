@@ -413,15 +413,12 @@ DEFAULT_MAXIMUM_TUNNELS_PER_VNIC = 20
 nsxv_opts = [
     cfg.StrOpt('user',
                default='admin',
-               deprecated_group="vcns",
                help=_('User name for NSXv manager')),
     cfg.StrOpt('password',
                default='default',
-               deprecated_group="vcns",
                secret=True,
                help=_('Password for NSXv manager')),
     cfg.StrOpt('manager_uri',
-               deprecated_group="vcns",
                help=_('URL for NSXv manager')),
     cfg.StrOpt('ca_file',
                help=_('Specify a CA bundle file to use in verifying the NSXv '
@@ -437,15 +434,12 @@ nsxv_opts = [
                 help=_('(Required) Parameter listing the IDs of the clusters '
                        'which are used by OpenStack.')),
     cfg.StrOpt('datacenter_moid',
-               deprecated_group="vcns",
                help=_('Required parameter identifying the ID of datacenter '
                       'to deploy NSX Edges')),
     cfg.StrOpt('deployment_container_id',
-               deprecated_group="vcns",
                help=_('Optional parameter identifying the ID of datastore to '
                       'deploy NSX Edges')),
     cfg.StrOpt('resource_pool_id',
-               deprecated_group="vcns",
                help=_('Optional parameter identifying the ID of resource to '
                       'deploy NSX Edges')),
     cfg.ListOpt('availability_zones',
@@ -455,7 +449,6 @@ nsxv_opts = [
                        '<resource pool id]:<datastore id>:<edge_ha True/False>'
                        '<(optional)HA datastore id>.')),
     cfg.StrOpt('datastore_id',
-               deprecated_group="vcns",
                help=_('Optional parameter identifying the ID of datastore to '
                       'deploy NSX Edges')),
     cfg.StrOpt('ha_datastore_id',
@@ -463,12 +456,10 @@ nsxv_opts = [
                       'deploy NSX Edges in addition to data_store_id in case'
                       'edge_ha is True')),
     cfg.StrOpt('external_network',
-               deprecated_group="vcns",
                help=_('(Required) Network ID for physical network '
                       'connectivity')),
     cfg.IntOpt('task_status_check_interval',
                default=DEFAULT_STATUS_CHECK_INTERVAL,
-               deprecated_group="vcns",
                help=_("(Optional) Asynchronous task status check interval. "
                       "Default is 2000 (millisecond)")),
     cfg.StrOpt('vdn_scope_id',
