@@ -659,6 +659,8 @@ nsxv_opts = [
 
 # define the configuration of each availability zone.
 # the list of expected zones in under nsxv group: availability_zones
+# Note: if any of the optional arguments is missing - the global one will be
+# used instead.
 nsxv_az_opts = [
     cfg.StrOpt('resource_pool_id',
                help=_('Identifying the ID of resource to deploy NSX Edges')),
@@ -677,6 +679,10 @@ nsxv_az_opts = [
                        'active and the other half will be placed in the '
                        'ha_datastore. If this value is not set, the global '
                        'one will be used')),
+    cfg.ListOpt('backup_edge_pool',
+                help=_("(Optional) Defines edge pool's management range for "
+                       "the availability zone. If not defined, the global one "
+                       "will be used")),
 ]
 
 # Register the configuration options
