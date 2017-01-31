@@ -108,7 +108,7 @@ class VcnsApiHelper(object):
         try:
             if self.format == 'xml':
                 error = et.fromstring(content).find('errorCode')
-                errcode = error and int(error.text)
+                errcode = error is not None and int(error.text)
             else:  # json
                 error = jsonutils.loads(content)
                 errcode = int(error.get('errorCode'))
@@ -147,10 +147,10 @@ class VcnsApiHelper(object):
             return response.headers, response.text
 
         nsx_errcode = self._get_nsx_errorcode(response.text)
-        if status in self.errors:
-            cls = self.errors[status]
-        elif nsx_errcode in self.nsx_errors:
+        if nsx_errcode in self.nsx_errors:
             cls = self.nsx_errors[nsx_errcode]
+        elif status in self.errors:
+            cls = self.errors[status]
         else:
             cls = exceptions.VcnsApiException
         raise cls(uri=uri, status=status,
