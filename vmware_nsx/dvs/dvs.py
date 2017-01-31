@@ -448,6 +448,19 @@ class DvsManager(object):
                                                     "config.hardware.device")
         return hardware_devices
 
+    def _get_dvs_moref_from_teaming_data(self, teaming_data):
+        """Get the moref dvs that belongs to the teaming data
+
+        If not found: return the default one
+        """
+        dvs_moref = self._dvs_moref
+        if 'switchObj' in teaming_data:
+            if 'objectId' in teaming_data['switchObj']:
+                dvs_id = teaming_data['switchObj']['objectId']
+                dvs_moref = vim_util.get_moref(
+                    dvs_id, 'VmwareDistributedVirtualSwitch')
+        return dvs_moref
+
     def update_port_group_spec_teaming(self, pg_spec, teaming_data):
         mapping = {'FAILOVER_ORDER': 'failover_explicit',
                    'ETHER_CHANNEL': 'loadbalance_ip',
@@ -457,6 +470,7 @@ class DvsManager(object):
                    'LOADBALANCE_SRCID': 'loadbalance_srcid',
                    'LOADBALANCE_SRCMAC': 'loadbalance_srcmac',
                    'LOADBALANCE_LOADBASED': 'loadbalance_loadbased'}
+        dvs_moref = self._get_dvs_moref_from_teaming_data(teaming_data)
         port_conf = pg_spec.defaultPortConfig
         policy = port_conf.uplinkTeamingPolicy
         policy.inherited = False
@@ -469,7 +483,7 @@ class DvsManager(object):
         uplinks = self._session.invoke_api(vim_util,
                                            "get_object_property",
                                            self._session.vim,
-                                           self._dvs_moref,
+                                           dvs_moref,
                                            "config.uplinkPortPolicy")
         standby = list(set(uplinks.uplinkPortName) - set(ports))
         policy.uplinkPortOrder.standbyUplinkPort = standby
