@@ -86,16 +86,17 @@ class NeutronSecurityGroupDB(utils.NeutronDbClient,
                 self.context.session.delete(sg_mapping)
 
     def get_vnics_in_security_group(self, security_group_id):
-        vnics = []
-        query = self.context.session.query(
-            models_v2.Port.id, models_v2.Port.device_id
-        ).join(sg_models.SecurityGroupPortBinding).filter_by(
-            security_group_id=security_group_id).all()
-        for p in query:
-            vnic_index = plugin._get_port_vnic_index(self.context, p.id)
-            vnic_id = plugin._get_port_vnic_id(vnic_index, p.device_id)
-            vnics.append(vnic_id)
-        return vnics
+        with utils.NsxVPluginWrapper() as plugin:
+            vnics = []
+            query = self.context.session.query(
+                models_v2.Port.id, models_v2.Port.device_id
+            ).join(sg_models.SecurityGroupPortBinding).filter_by(
+                security_group_id=security_group_id).all()
+            for p in query:
+                vnic_index = plugin._get_port_vnic_index(self.context, p.id)
+                vnic_id = plugin._get_port_vnic_id(vnic_index, p.device_id)
+                vnics.append(vnic_id)
+            return vnics
 
 
 class NsxFirewallAPI(object):
@@ -104,6 +105,8 @@ class NsxFirewallAPI(object):
 
     def list_security_groups(self):
         h, secgroups = self.vcns.list_security_groups()
+        if not secgroups:
+            return []
         root = et.fromstring(secgroups)
         secgroups = []
         for sg in root.iter('securitygroup'):
@@ -117,6 +120,8 @@ class NsxFirewallAPI(object):
 
     def list_fw_sections(self):
         h, firewall_config = self.vcns.get_dfw_config()
+        if not firewall_config:
+            return []
         root = et.fromstring(firewall_config)
         sections = []
         for sec in root.iter('section'):
@@ -131,6 +136,10 @@ class NsxFirewallAPI(object):
     def reorder_fw_sections(self):
         # read all the sections
         h, firewall_config = self.vcns.get_dfw_config()
+        if not firewall_config:
+            LOG.info(_LI("No firewall sections were found."))
+            return
+
         root = et.fromstring(firewall_config)
 
         for child in root:
@@ -163,7 +172,6 @@ class NsxFirewallAPI(object):
 
 neutron_sg = NeutronSecurityGroupDB()
 nsxv_firewall = NsxFirewallAPI()
-plugin = utils.NsxVPluginWrapper()
 
 
 def _log_info(resource, data, attrs=['name', 'id']):
@@ -263,29 +271,33 @@ def fix_security_groups(resource, event, trigger, **kwargs):
     context_ = context.get_admin_context()
     sgs_with_missing_section = _find_missing_sections()
     sgs_with_missing_nsx_group = _find_missing_security_groups()
-    plugin = utils.NsxVPluginWrapper()
-    # If only the fw section is missing then create it.
-    for sg_id in (set(sgs_with_missing_section.keys()) -
-                  set(sgs_with_missing_nsx_group.keys())):
-        neutron_sg.delete_security_group_section_mapping(sg_id)
-        secgroup = plugin.get_security_group(context_, sg_id)
-        plugin._create_fw_section_for_security_group(
-            context_, secgroup,
-            sgs_with_missing_section[sg_id]['nsx-securitygroup-id'])
+    if not sgs_with_missing_section and not sgs_with_missing_nsx_group:
+        # no mismatches
+        return
 
-    # If nsx security-group is missing then create both nsx security-group and
-    # a new fw section (remove old one).
-    for sg_id, sg in sgs_with_missing_nsx_group.items():
-        secgroup = plugin.get_security_group(context_, sg_id)
-        if sg_id not in sgs_with_missing_section:
-            plugin._delete_section(sg['section-uri'])
-        neutron_sg.delete_security_group_section_mapping(sg_id)
-        neutron_sg.delete_security_group_backend_mapping(sg_id)
-        plugin._process_security_group_create_backend_resources(context_,
-                                                                secgroup)
-        nsx_id = nsx_db.get_nsx_security_group_id(context_.session, sg_id)
-        for vnic_id in neutron_sg.get_vnics_in_security_group(sg_id):
-            plugin._add_member_to_security_group(nsx_id, vnic_id)
+    with utils.NsxVPluginWrapper() as plugin:
+        # If only the fw section is missing then create it.
+        for sg_id in (set(sgs_with_missing_section.keys()) -
+                      set(sgs_with_missing_nsx_group.keys())):
+            neutron_sg.delete_security_group_section_mapping(sg_id)
+            secgroup = plugin.get_security_group(context_, sg_id)
+            plugin._create_fw_section_for_security_group(
+                context_, secgroup,
+                sgs_with_missing_section[sg_id]['nsx-securitygroup-id'])
+
+        # If nsx security-group is missing then create both nsx security-group
+        # and a new fw section (remove old one).
+        for sg_id, sg in sgs_with_missing_nsx_group.items():
+            secgroup = plugin.get_security_group(context_, sg_id)
+            if sg_id not in sgs_with_missing_section:
+                plugin._delete_section(sg['section-uri'])
+            neutron_sg.delete_security_group_section_mapping(sg_id)
+            neutron_sg.delete_security_group_backend_mapping(sg_id)
+            plugin._process_security_group_create_backend_resources(context_,
+                                                                    secgroup)
+            nsx_id = nsx_db.get_nsx_security_group_id(context_.session, sg_id)
+            for vnic_id in neutron_sg.get_vnics_in_security_group(sg_id):
+                plugin._add_member_to_security_group(nsx_id, vnic_id)
 
 
 @admin_utils.output_header
@@ -309,55 +321,57 @@ def migrate_sg_to_policy(resource, event, trigger, **kwargs):
 
     # validate that the security group exist and contains rules and no policy
     context_ = context.get_admin_context()
-    plugin = utils.NsxVPluginWrapper()
-    try:
-        secgroup = plugin.get_security_group(context_, sg_id)
-    except ext_sg.SecurityGroupNotFound:
-        LOG.error(_LE("Security group %s was not found"), sg_id)
-        return
-    if secgroup.get('policy'):
-        LOG.error(_LE("Security group %s already uses a policy"), sg_id)
-        return
-
-    # validate that the policy exists
-    if not plugin.nsx_v.vcns.validate_inventory(policy_id):
-        LOG.error(_LE("NSX policy %s was not found"), policy_id)
-        return
-
-    # Delete the rules from the security group
-    LOG.info(_LI("Deleting the rules of security group: %s"), sg_id)
-    for rule in secgroup.get('security_group_rules', []):
+    with utils.NsxVPluginWrapper() as plugin:
         try:
-            plugin.delete_security_group_rule(context_, rule['id'])
+            secgroup = plugin.get_security_group(context_, sg_id)
+        except ext_sg.SecurityGroupNotFound:
+            LOG.error(_LE("Security group %s was not found"), sg_id)
+            return
+        if secgroup.get('policy'):
+            LOG.error(_LE("Security group %s already uses a policy"), sg_id)
+            return
+
+        # validate that the policy exists
+        if not plugin.nsx_v.vcns.validate_inventory(policy_id):
+            LOG.error(_LE("NSX policy %s was not found"), policy_id)
+            return
+
+        # Delete the rules from the security group
+        LOG.info(_LI("Deleting the rules of security group: %s"), sg_id)
+        for rule in secgroup.get('security_group_rules', []):
+            try:
+                plugin.delete_security_group_rule(context_, rule['id'])
+            except Exception as e:
+                LOG.warning(_LW("Failed to delete rule %(r)s from security "
+                                "group %(sg)s: %(e)s"),
+                            {'r': rule['id'], 'sg': sg_id, 'e': e})
+                # continue anyway
+
+        # Delete the security group FW section
+        LOG.info(_LI("Deleting the section of security group: %s"), sg_id)
+        try:
+            section_uri = plugin._get_section_uri(context_.session, sg_id)
+            plugin._delete_section(section_uri)
+            nsxv_db.delete_neutron_nsx_section_mapping(
+                context_.session, sg_id)
         except Exception as e:
-            LOG.warning(_LW("Failed to delete rule %(r)s from security group "
-                          "%(sg)s: %(e)s"),
-                      {'r': rule['id'], 'sg': sg_id, 'e': e})
+            LOG.warning(_LW("Failed to delete firewall section of security "
+                            "group %(sg)s: %(e)s"),
+                        {'sg': sg_id, 'e': e})
             # continue anyway
 
-    # Delete the security group FW section
-    LOG.info(_LI("Deleting the section of security group: %s"), sg_id)
-    try:
-        section_uri = plugin._get_section_uri(context_.session, sg_id)
-        plugin._delete_section(section_uri)
-        nsxv_db.delete_neutron_nsx_section_mapping(context_.session, sg_id)
-    except Exception as e:
-        LOG.warning(_LW("Failed to delete firewall section of security group "
-                      "%(sg)s: %(e)s"),
-                  {'sg': sg_id, 'e': e})
-        # continue anyway
+        # bind this security group to the policy in the backend and DB
+        nsx_sg_id = nsx_db.get_nsx_security_group_id(context_.session, sg_id)
+        LOG.info(_LI("Binding the NSX security group %(nsx)s to policy "
+                     "%(pol)s"),
+                 {'nsx': nsx_sg_id, 'pol': policy_id})
+        plugin._update_nsx_security_group_policies(
+            policy_id, None, nsx_sg_id)
+        prop = plugin._get_security_group_properties(context_, sg_id)
+        with context_.session.begin(subtransactions=True):
+            prop.update({sg_policy.POLICY: policy_id})
 
-    # bind this security group to the policy in the backend and DB
-    nsx_sg_id = nsx_db.get_nsx_security_group_id(context_.session, sg_id)
-    LOG.info(_LI("Binding the NSX security group %(nsx)s to policy %(pol)s"),
-             {'nsx': nsx_sg_id, 'pol': policy_id})
-    plugin._update_nsx_security_group_policies(
-        policy_id, None, nsx_sg_id)
-    prop = plugin._get_security_group_properties(context_, sg_id)
-    with context_.session.begin(subtransactions=True):
-        prop.update({sg_policy.POLICY: policy_id})
-
-    LOG.info(_LI("Done."))
+        LOG.info(_LI("Done."))
 
 
 registry.subscribe(migrate_sg_to_policy,

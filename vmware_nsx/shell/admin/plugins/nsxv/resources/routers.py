@@ -76,53 +76,55 @@ def nsx_recreate_router_edge(resource, event, trigger, **kwargs):
     cfg.CONF.set_override('core_plugin',
                           'vmware_nsx.shell.admin.plugins.nsxv.resources'
                           '.utils.NsxVPluginWrapper')
-    plugin = utils.NsxVPluginWrapper()
-    nsxv_manager = vcns_driver.VcnsDriver(edge_utils.NsxVCallbacks(plugin))
-    edge_manager = edge_utils.EdgeManager(nsxv_manager, plugin)
-    context = n_context.get_admin_context()
+    with utils.NsxVPluginWrapper() as plugin:
+        nsxv_manager = vcns_driver.VcnsDriver(
+            edge_utils.NsxVCallbacks(plugin))
+        edge_manager = edge_utils.EdgeManager(nsxv_manager, plugin)
+        context = n_context.get_admin_context()
 
-    # verify that this is a Router edge
-    router_ids = edge_manager.get_routers_on_edge(context, old_edge_id)
-    if not router_ids:
-        LOG.error(_LE("Edge %(edge_id)s is not a router edge"),
-                 {'edge_id': old_edge_id})
-        return
+        # verify that this is a Router edge
+        router_ids = edge_manager.get_routers_on_edge(context, old_edge_id)
+        if not router_ids:
+            LOG.error(_LE("Edge %(edge_id)s is not a router edge"),
+                     {'edge_id': old_edge_id})
+            return
 
-    # all the routers on the same edge have the same type, so it
-    # is ok to check the type once
-    example_router = plugin.get_router(context, router_ids[0])
-    router_driver = plugin._router_managers.get_tenant_router_driver(
-        context, example_router['router_type'])
-    if router_driver.get_type() == "distributed":
-        LOG.error(_LE("Recreating a distributed  driver edge is not "
-                      "supported"))
-        return
+        # all the routers on the same edge have the same type, so it
+        # is ok to check the type once
+        example_router = plugin.get_router(context, router_ids[0])
+        router_driver = plugin._router_managers.get_tenant_router_driver(
+            context, example_router['router_type'])
+        if router_driver.get_type() == "distributed":
+            LOG.error(_LE("Recreating a distributed  driver edge is not "
+                          "supported"))
+            return
 
-    # load all the routers before deleting their binding
-    routers = []
-    for router_id in router_ids:
-        routers.append(plugin.get_router(context, router_id))
+        # load all the routers before deleting their binding
+        routers = []
+        for router_id in router_ids:
+            routers.append(plugin.get_router(context, router_id))
 
-    # delete the backend edge and all the relevant DB entries
-    delete_old_edge(context, old_edge_id)
+        # delete the backend edge and all the relevant DB entries
+        delete_old_edge(context, old_edge_id)
 
-    # Go over all the relevant routers
-    for router in routers:
-        router_id = router['id']
-        # clean up other objects related to this router
-        if plugin.metadata_proxy_handler:
-            plugin.metadata_proxy_handler.cleanup_router_edge(
+        # Go over all the relevant routers
+        for router in routers:
+            router_id = router['id']
+            # clean up other objects related to this router
+            if plugin.metadata_proxy_handler:
+                plugin.metadata_proxy_handler.cleanup_router_edge(
+                    context, router_id)
+
+            # attach the router to a new edge
+            appliance_size = router.get(routersize.ROUTER_SIZE)
+            router_driver.attach_router(context, router_id,
+                                        {'router': router},
+                                        appliance_size=appliance_size)
+            # find out who is the new edge to print it
+            new_edge_id = router_driver._get_edge_id_or_raise(
                 context, router_id)
-
-        # attach the router to a new edge
-        appliance_size = router.get(routersize.ROUTER_SIZE)
-        router_driver.attach_router(context, router_id,
-                                    {'router': router},
-                                    appliance_size=appliance_size)
-        # find out who is the new edge to print it
-        new_edge_id = router_driver._get_edge_id_or_raise(context, router_id)
-        LOG.info(_LI("Router %(router)s was attached to edge %(edge)s"),
-                 {'router': router_id, 'edge': new_edge_id})
+            LOG.info(_LI("Router %(router)s was attached to edge %(edge)s"),
+                     {'router': router_id, 'edge': new_edge_id})
 
 
 registry.subscribe(nsx_recreate_router_edge,

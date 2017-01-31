@@ -118,7 +118,7 @@ class TestNsxvAdminUtils(AbstractTestAdminUtils,
     # This is an example how to test a specific utility with arguments
     def test_with_args(self):
         args = {'property': ["xxx=yyy"]}
-        self._test_resource('networks', 'list', **args)
+        self._test_resource('security-groups', 'fix-mismatch', **args)
 
     def test_bad_args(self):
         args = {'property': ["xxx"]}
