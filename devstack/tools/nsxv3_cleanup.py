@@ -130,7 +130,7 @@ class NSXClient(object):
         headers['Accept'] = accept_type
         # allow admin user to delete entities created
         # under openstack principal identity
-        headers['X-Allow-Overwrite'] = "True"
+        headers['X-Allow-Overwrite'] = 'true'
         self.headers = headers
 
     def get(self, endpoint=None, params=None):

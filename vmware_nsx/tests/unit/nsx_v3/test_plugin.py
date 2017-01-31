@@ -48,6 +48,7 @@ from oslo_utils import uuidutils
 
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils
+from vmware_nsx.plugins.nsx_v3 import cert_utils
 from vmware_nsx.plugins.nsx_v3 import plugin as nsx_plugin
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.extensions import test_metadata
@@ -772,7 +773,7 @@ class NsxV3PluginClientCertTestCase(testlib_api.WebTestCase):
 
     CERTFILE = '/tmp/client_cert.pem'
 
-    def _init_config(self):
+    def _init_config(self, password=None):
         cfg.CONF.set_override('default_overlay_tz', NSX_TZ_NAME, 'nsx_v3')
         cfg.CONF.set_override('native_dhcp_metadata', False, 'nsx_v3')
         cfg.CONF.set_override('dhcp_profile',
@@ -784,22 +785,30 @@ class NsxV3PluginClientCertTestCase(testlib_api.WebTestCase):
         cfg.CONF.set_override('nsx_client_cert_file', self.CERTFILE, 'nsx_v3')
         cfg.CONF.set_override('nsx_client_cert_storage', 'nsx-db', 'nsx_v3')
 
-    def _init_plugin(self):
+        if password:
+            cfg.CONF.set_override('nsx_client_cert_pk_password',
+                                  password, 'nsx_v3')
+
+    def _init_plugin(self, password=None):
+        _mock_nsx_backend_calls()
+
         self._tenant_id = test_plugin.TEST_TENANT_ID
-        self._init_config()
+        self._init_config(password)
         self.setup_coreplugin(PLUGIN_NAME, load_plugins=True)
 
     def test_init_without_cert(self):
+        """Verify init fails if no cert is provided in client cert mode"""
         # certificate not generated - exception should be raised
         self.assertRaises(nsx_exc.ClientCertificateException,
                           self._init_plugin)
 
     def test_init_with_cert(self):
+        """Verify successful certificate load from storage"""
+
         mock.patch(
             "vmware_nsx.db.db.get_certificate",
             return_value=(self.CERT, self.PKEY)).start()
 
-        _mock_nsx_backend_calls()
         self._init_plugin()
 
         # verify cert data was exported to CERTFILE
@@ -811,6 +820,43 @@ class NsxV3PluginClientCertTestCase(testlib_api.WebTestCase):
 
         # delete CERTFILE
         os.remove(self.CERTFILE)
+
+    def test_init_with_cert_encrypted(self):
+        """Verify successful encrypted PK load from storage"""
+
+        password = 'topsecret'
+        secret = cert_utils.generate_secret_from_password(password)
+        encrypted_pkey = cert_utils.symmetric_encrypt(secret, self.PKEY)
+        # db always returns string
+        mock.patch(
+            "vmware_nsx.db.db.get_certificate",
+            return_value=(self.CERT, encrypted_pkey)).start()
+
+        self._init_plugin(password)
+
+        # verify cert data was exported to CERTFILE
+        expected = self.CERT + self.PKEY
+        with open(self.CERTFILE, 'r') as f:
+            actual = f.read()
+
+        self.assertEqual(expected, actual)
+
+        # delete CERTFILE
+        os.remove(self.CERTFILE)
+
+    def test_init_with_cert_decrypt_fails(self):
+        """Verify loading plaintext PK from storage fails in encrypt mode"""
+
+        mock.patch(
+            "vmware_nsx.db.db.get_certificate",
+            return_value=(self.CERT, self.PKEY)).start()
+
+        self._tenant_id = test_plugin.TEST_TENANT_ID
+        self._init_config('topsecret')
+
+        # since PK in DB is not encrypted, we should fail to decrypt it on load
+        self.assertRaises(nsx_exc.ClientCertificateException,
+                          self._init_plugin)
 
     # TODO(annak): add test that verifies bad crypto data raises exception
     # when OPENSSL exception wrapper is available from NSXLIB
