@@ -79,6 +79,7 @@ from vmware_nsx._i18n import _, _LE, _LI, _LW
 from vmware_nsx.api_replay import utils as api_replay_utils
 from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.common import l3_rpc_agent_api
 from vmware_nsx.common import locking
 from vmware_nsx.common import managers
 from vmware_nsx.common import utils
@@ -172,6 +173,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def __init__(self):
         self._extension_manager = managers.ExtensionManager()
         super(NsxV3Plugin, self).__init__()
+        # Bind the dummy L3 notifications
+        self.l3_rpc_notifier = l3_rpc_agent_api.L3NotifyAPI()
         LOG.info(_LI("Starting NsxV3Plugin"))
         self._extension_manager.initialize()
         self.supported_extension_aliases.extend(
