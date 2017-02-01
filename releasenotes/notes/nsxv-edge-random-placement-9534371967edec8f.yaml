@@ -1,0 +1,9 @@
+---
+prelude: >
+    Support randomly selecting which will be the primary datastore and which
+    will be the secondary one when deplying an edge, in order to balance the load.
+    This new option is available globally as well as per availability_zone.
+features:
+  - |
+    Support randomly selecting which will be the primary datastore and which
+    will be the secondary one when deplying an edge, in order to balance the load.

@@ -66,6 +66,8 @@ class ConfiguredAvailabilityZone(object):
                              "enabled"))
 
             self.ha_datastore_id = values[4] if len(values) == 5 else None
+            # Use the global configuration for ha_placement_random
+            self.ha_placement_random = cfg.CONF.nsxv.ha_placement_random
         elif config_line:
             # Newer configuration - the name of the availability zone can be
             # used to get the rest of the configuration for this AZ
@@ -89,6 +91,12 @@ class ConfiguredAvailabilityZone(object):
             # The HA datastore can be empty
             self.ha_datastore_id = (az_info.get('ha_datastore_id')
                                     if self.edge_ha else None)
+
+            # Use the global config for ha_placement_random if not set
+            self.ha_placement_random = az_info.get('ha_placement_random')
+            if self.ha_placement_random is None:
+                self.ha_placement_random = (
+                    cfg.CONF.nsxv.ha_placement_random)
         else:
             # use the default configuration
             self.name = DEFAULT_NAME
@@ -96,6 +104,7 @@ class ConfiguredAvailabilityZone(object):
             self.datastore_id = cfg.CONF.nsxv.datastore_id
             self.edge_ha = cfg.CONF.nsxv.edge_ha
             self.ha_datastore_id = cfg.CONF.nsxv.ha_datastore_id
+            self.ha_placement_random = cfg.CONF.nsxv.ha_placement_random
 
 
 class ConfiguredAvailabilityZones(object):

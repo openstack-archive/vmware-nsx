@@ -454,6 +454,12 @@ nsxv_opts = [
                help=_('Optional parameter identifying the ID of datastore to '
                       'deploy NSX Edges in addition to data_store_id in case'
                       'edge_ha is True')),
+    cfg.BoolOpt('ha_placement_random',
+                default=False,
+                help=_('When True and in case edge_ha is True, half of the '
+                       'edges will be placed in the primary datastore as '
+                       'active and the other half will be placed in the '
+                       'ha_datastore')),
     cfg.StrOpt('external_network',
                help=_('(Required) Network ID for physical network '
                       'connectivity')),
@@ -654,6 +660,12 @@ nsxv_az_opts = [
                help=_('Optional parameter identifying the ID of datastore to '
                       'deploy NSX Edges in addition to data_store_id in case'
                       'edge_ha is True')),
+    cfg.BoolOpt('ha_placement_random',
+                help=_('When True and in case edge_ha is True, half of the '
+                       'edges will be placed in the primary datastore as '
+                       'active and the other half will be placed in the '
+                       'ha_datastore. If this value is not set, the global '
+                       'one will be used')),
 ]
 
 # Register the configuration options
