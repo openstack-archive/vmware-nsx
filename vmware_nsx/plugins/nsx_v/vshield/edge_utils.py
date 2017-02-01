@@ -184,7 +184,6 @@ class EdgeManager(object):
         self._worker_pool_pid = None
         self._worker_pool = None
         self.nsxv_manager = nsxv_manager
-        self.dvs_id = cfg.CONF.nsxv.dvs_id
         self._availability_zones = nsx_az.ConfiguredAvailabilityZones()
         self.edge_pool_dicts = self._parse_backup_edge_pool_opt()
         self.nsxv_plugin = nsxv_manager.callbacks.plugin
@@ -444,10 +443,11 @@ class EdgeManager(object):
                     return router_binding
             backup_router_bindings.remove(router_binding)
 
-    def _get_physical_provider_network(self, context, network_id):
+    def _get_physical_provider_network(self, context, network_id, az_dvs):
         bindings = nsxv_db.get_network_bindings(context.session, network_id)
-        # Set the return value as global DVS-ID of the mgmt/edge cluster
-        phys_net = self.dvs_id
+        # Set the return value as the availability zone DVS-ID of the
+        # mgmt/edge cluster
+        phys_net = az_dvs
         network_type = None
         if bindings:
             binding = bindings[0]
@@ -471,7 +471,9 @@ class EdgeManager(object):
     def _create_sub_interface(self, context, network_id, network_name,
                               tunnel_index, address_groups,
                               port_group_id=None):
-        vcns_network_id = _retrieve_nsx_switch_id(context, network_id)
+        az = self.plugin.get_network_az(context, network_id)
+        vcns_network_id = _retrieve_nsx_switch_id(context, network_id,
+                                                  az.name)
         if port_group_id is None:
             portgroup = {'vlanId': 0,
                          'networkName': network_name,
@@ -479,7 +481,7 @@ class EdgeManager(object):
                          'networkType': 'Isolation'}
             config_spec = {'networkSpec': portgroup}
             dvs_id, network_type = self._get_physical_provider_network(
-                context, network_id)
+                context, network_id, az.dvs_id)
             pg, port_group_id = self.nsxv_manager.vcns.create_port_group(
                 dvs_id, config_spec)
             # Ensure that the portgroup has the correct teaming
@@ -522,10 +524,11 @@ class EdgeManager(object):
                 header, _ = self.nsxv_manager.vcns.delete_interface(edge_id,
                                                                     vnic_index)
                 if port_group_id:
+                    az = self.plugin.get_network_az(context, network_id)
                     dvs_id, net_type = self._get_physical_provider_network(
-                        context, network_id)
+                        context, network_id, az.dvs_id)
                     self.nsxv_manager.delete_port_group(dvs_id,
-                                                       port_group_id)
+                                                        port_group_id)
             else:
                 self.nsxv_manager.vcns.update_interface(edge_id, vnic_config)
         except nsxapi_exc.VcnsApiException:
@@ -546,17 +549,20 @@ class EdgeManager(object):
         """Delete the router binding or clean the edge appliance."""
 
         resource_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
-        bindings = nsxv_db.get_nsxv_router_bindings(context.session)
-        all_dhcp_edges = {binding['router_id']: binding['edge_id'] for
-                          binding in bindings if binding['router_id'].
-                          startswith(vcns_const.DHCP_EDGE_PREFIX)}
-        for router_id in all_dhcp_edges:
-            if (router_id != resource_id and
-                all_dhcp_edges[router_id] == edge_id):
+        bindings = nsxv_db.get_nsxv_router_bindings_by_edge(
+            context.session, edge_id)
+        all_edge_dhcp_entries = [binding['router_id'] for
+                                 binding in bindings if binding['router_id'].
+                                 startswith(vcns_const.DHCP_EDGE_PREFIX)]
+        for router_id in all_edge_dhcp_entries:
+            if (router_id != resource_id):
+                # There are additional networks on this DHCP edge.
+                # just delete the binding one and not the edge itself
                 nsxv_db.delete_nsxv_router_binding(context.session,
                                                    resource_id)
                 return
-        self._free_dhcp_edge_appliance(context, network_id)
+        az_name = bindings[0]['availability_zone'] if bindings else ''
+        self._free_dhcp_edge_appliance(context, network_id, az_name)
 
     def _addr_groups_convert_to_ipset(self, address_groups):
         cidr_list = []
@@ -823,12 +829,13 @@ class EdgeManager(object):
             appliance_size=appliance_size,
             availability_zone=availability_zone)
 
-    def _free_dhcp_edge_appliance(self, context, network_id):
+    def _free_dhcp_edge_appliance(self, context, network_id, az_name):
         router_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
 
         # if there are still metadata ports on this edge - delete them now
-        metadata_proxy_handler = self.plugin.metadata_proxy_handler
-        if metadata_proxy_handler:
+        if self.plugin.metadata_proxy_handler:
+            metadata_proxy_handler = self.plugin.get_metadata_proxy_handler(
+                az_name)
             metadata_proxy_handler.cleanup_router_edge(context, router_id,
                                                        warn=True)
 
@@ -1183,23 +1190,31 @@ class EdgeManager(object):
             appliance_size=app_size,
             availability_zone=availability_zone.name)
         nsxv_db.allocate_edge_vnic_with_tunnel_index(
-            context.session, edge_id, network_id)
+            context.session, edge_id, network_id,
+            availability_zone.name)
 
     def reconfigure_shared_edge_metadata_port(self, context, org_router_id):
         if not self.plugin.metadata_proxy_handler:
             return
 
-        net_list = nsxv_db.get_nsxv_internal_network(
-            context.session,
-            vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE)
-
-        if not net_list:
+        org_binding = nsxv_db.get_nsxv_router_binding(context.session,
+                                                      org_router_id)
+        if not org_binding:
             return
-        internal_net = net_list[0]['network_id']
 
+        az_name = org_binding['availability_zone']
+        int_net = nsxv_db.get_nsxv_internal_network(
+            context.session,
+            vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE,
+            az_name)
+
+        if not int_net:
+            return
+        # Query the ports of this internal network
+        internal_nets = [int_net['network_id']]
         ports = self.nsxv_plugin.get_ports(
             context, filters={'device_id': [org_router_id],
-                              'network_id': [internal_net]})
+                              'network_id': internal_nets})
 
         if not ports:
             LOG.debug('No metadata ports found for %s', org_router_id)
@@ -1208,20 +1223,16 @@ class EdgeManager(object):
             LOG.debug('Expecting one metadata port for %s. Found %d ports',
                       org_router_id, len(ports))
 
-        org_binding = nsxv_db.get_nsxv_router_binding(context.session,
-                                                      org_router_id)
-
-        if org_binding:
-            edge_id = org_binding['edge_id']
-            bindings = nsxv_db.get_nsxv_router_bindings(
-                context.session, filters={'edge_id': [edge_id]})
-            for binding in bindings:
-                if binding['router_id'] != org_router_id:
-                    for port in ports:
-                        self.plugin.update_port(
-                            context, port['id'],
-                            {'port': {'device_id': binding['router_id']}})
-                    return
+        edge_id = org_binding['edge_id']
+        bindings = nsxv_db.get_nsxv_router_bindings(
+            context.session, filters={'edge_id': [edge_id]})
+        for binding in bindings:
+            if binding['router_id'] != org_router_id:
+                for port in ports:
+                    self.plugin.update_port(
+                        context, port['id'],
+                        {'port': {'device_id': binding['router_id']}})
+                return
 
     def allocate_new_dhcp_edge(self, context, network_id, resource_id,
                                availability_zone):
@@ -1231,7 +1242,8 @@ class EdgeManager(object):
             new_edge = nsxv_db.get_nsxv_router_binding(context.session,
                                                        resource_id)
             nsxv_db.allocate_edge_vnic_with_tunnel_index(
-                context.session, new_edge['edge_id'], network_id)
+                context.session, new_edge['edge_id'], network_id,
+                availability_zone.name)
             return new_edge['edge_id']
 
     def create_dhcp_edge_service(self, context, network_id,
@@ -1421,9 +1433,9 @@ class EdgeManager(object):
             # Attach to DHCP Edge
             dhcp_edge_id = self.allocate_new_dhcp_edge(
                 context, network_id, resource_id, availability_zone)
-
-            self.plugin.metadata_proxy_handler.configure_router_edge(
-                context, resource_id)
+            md_proxy = self.plugin.get_metadata_proxy_handler(
+                availability_zone.name)
+            md_proxy.configure_router_edge(context, resource_id)
             with locking.LockManager.get_lock(str(dhcp_edge_id)):
                 self.plugin.setup_dhcp_edge_fw_rules(
                     context, self.plugin, resource_id)
@@ -1659,7 +1671,7 @@ class EdgeManager(object):
         virtual_wire = {"name": lswitch_name,
                         "tenantId": "virtual wire tenant"}
         config_spec = {"virtualWireCreateSpec": virtual_wire}
-        vdn_scope_id = cfg.CONF.nsxv.vdn_scope_id
+        vdn_scope_id = availability_zone.vdn_scope_id
         h, lswitch_id = self.nsxv_manager.vcns.create_virtual_wire(
             vdn_scope_id, config_spec)
 
@@ -1997,6 +2009,83 @@ class EdgeManager(object):
         metainfo = self.plugin.get_flavor_metainfo(context, flavor_id)
         return metainfo.get('syslog')
 
+    def update_external_interface(
+        self, nsxv_manager, context, router_id, ext_net_id,
+        ipaddr, netmask, secondary=None):
+        with locking.LockManager.get_lock(str(router_id)):
+            self._update_external_interface(nsxv_manager, context, router_id,
+                                            ext_net_id, ipaddr, netmask,
+                                            secondary=secondary)
+
+    def _update_external_interface(
+        self, nsxv_manager, context, router_id, ext_net_id,
+        ipaddr, netmask, secondary=None):
+        secondary = secondary or []
+        binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
+
+        # If no binding was found, no interface to update - exit
+        if not binding:
+            LOG.error(_LE('Edge binding not found for router %s'), router_id)
+            return
+
+        net_bindings = nsxv_db.get_network_bindings(
+            context.session, ext_net_id)
+        if not net_bindings:
+            az_name = binding.availability_zone
+            az = self._availability_zones.get_availability_zone(az_name)
+            vcns_network_id = az.external_network
+        else:
+            vcns_network_id = net_bindings[0].phy_uuid
+
+        # reorganize external vnic's address groups
+        if netmask:
+            address_groups = []
+            addr_list = []
+            for str_cidr in netmask:
+                ip_net = netaddr.IPNetwork(str_cidr)
+                address_group = {'primaryAddress': None,
+                                 'subnetPrefixLength': str(ip_net.prefixlen)}
+                if (ipaddr not in addr_list and
+                    _check_ipnet_ip(ip_net, ipaddr)):
+                    address_group['primaryAddress'] = ipaddr
+                    addr_list.append(ipaddr)
+                for sec_ip in secondary:
+                    if (sec_ip not in addr_list and
+                        _check_ipnet_ip(ip_net, sec_ip)):
+                        if not address_group['primaryAddress']:
+                            address_group['primaryAddress'] = sec_ip
+                        else:
+                            if not address_group.get('secondaryAddresses'):
+                                address_group['secondaryAddresses'] = {
+                                    'ipAddress': [sec_ip],
+                                    'type': 'secondary_addresses'}
+                            else:
+                                address_group['secondaryAddresses'][
+                                    'ipAddress'].append(sec_ip)
+                        addr_list.append(sec_ip)
+                if address_group['primaryAddress']:
+                    address_groups.append(address_group)
+            if ipaddr not in addr_list:
+                LOG.error(_LE("primary address %s of ext vnic is not "
+                              "configured"), ipaddr)
+            if secondary:
+                missed_ip_sec = set(secondary) - set(addr_list)
+                if missed_ip_sec:
+                    LOG.error(_LE("secondary address %s of ext vnic are not "
+                              "configured"), str(missed_ip_sec))
+            nsxv_manager.update_interface(router_id, binding['edge_id'],
+                                          vcns_const.EXTERNAL_VNIC_INDEX,
+                                          vcns_network_id,
+                                          address_groups=address_groups)
+
+        else:
+            nsxv_manager.update_interface(router_id, binding['edge_id'],
+                                          vcns_const.EXTERNAL_VNIC_INDEX,
+                                          vcns_network_id,
+                                          address=ipaddr,
+                                          netmask=netmask,
+                                          secondary=secondary)
+
 
 def create_lrouter(nsxv_manager, context, lrouter, lswitch=None, dist=False,
                    availability_zone=None):
@@ -2040,7 +2129,7 @@ def remove_irrelevant_keys_from_edge_request(edge_request):
         edge_request.pop(key, None)
 
 
-def _retrieve_nsx_switch_id(context, network_id):
+def _retrieve_nsx_switch_id(context, network_id, az_name):
     """Helper method to retrieve backend switch ID."""
     bindings = nsxv_db.get_network_bindings(context.session, network_id)
     if bindings:
@@ -2053,8 +2142,10 @@ def _retrieve_nsx_switch_id(context, network_id):
             else:
                 # If network is of type VLAN and multiple dvs associated with
                 # one neutron network, retrieve the logical network id for the
-                # edge/mgmt cluster's DVS.
-                dvs_id = cfg.CONF.nsxv.dvs_id
+                # edge/mgmt cluster's DVS from the networks availability zone.
+                azs = nsx_az.ConfiguredAvailabilityZones()
+                az = azs.get_availability_zone(az_name)
+                dvs_id = az.dvs_id
             return nsx_db.get_nsx_switch_id_for_dvs(
                 context.session, network_id, dvs_id)
     # Get the physical port group /wire id of the network id
@@ -2215,15 +2306,6 @@ def clear_gateway(nsxv_manager, context, router_id):
     return update_gateway(nsxv_manager, context, router_id, None)
 
 
-def update_external_interface(
-    nsxv_manager, context, router_id, ext_net_id,
-    ipaddr, netmask, secondary=None):
-    with locking.LockManager.get_lock(str(router_id)):
-        _update_external_interface(nsxv_manager, context, router_id,
-                                   ext_net_id, ipaddr, netmask,
-                                   secondary=secondary)
-
-
 def _check_ipnet_ip(ipnet, ip_address):
     """Check one ip is valid ip from ipnet."""
     ip = netaddr.IPAddress(ip_address)
@@ -2232,73 +2314,6 @@ def _check_ipnet_ip(ipnet, ip_address):
         ipnet.netmask & ip == ipnet.network):
         return True
     return False
-
-
-def _update_external_interface(
-    nsxv_manager, context, router_id, ext_net_id,
-    ipaddr, netmask, secondary=None):
-    secondary = secondary or []
-    binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
-
-    # If no binding was found, no interface to update - exit
-    if not binding:
-        LOG.error(_LE('Edge binding not found for router %s'), router_id)
-        return
-
-    net_bindings = nsxv_db.get_network_bindings(context.session, ext_net_id)
-    if not net_bindings:
-        vcns_network_id = nsxv_manager.external_network
-    else:
-        vcns_network_id = net_bindings[0].phy_uuid
-
-    # reorganize external vnic's address groups
-    if netmask:
-        address_groups = []
-        addr_list = []
-        for str_cidr in netmask:
-            ip_net = netaddr.IPNetwork(str_cidr)
-            address_group = {'primaryAddress': None,
-                             'subnetPrefixLength': str(ip_net.prefixlen)}
-            if (ipaddr not in addr_list and
-                _check_ipnet_ip(ip_net, ipaddr)):
-                address_group['primaryAddress'] = ipaddr
-                addr_list.append(ipaddr)
-            for sec_ip in secondary:
-                if (sec_ip not in addr_list and
-                    _check_ipnet_ip(ip_net, sec_ip)):
-                    if not address_group['primaryAddress']:
-                        address_group['primaryAddress'] = sec_ip
-                    else:
-                        if not address_group.get('secondaryAddresses'):
-                            address_group['secondaryAddresses'] = {
-                                'ipAddress': [sec_ip],
-                                'type': 'secondary_addresses'}
-                        else:
-                            address_group['secondaryAddresses'][
-                                'ipAddress'].append(sec_ip)
-                    addr_list.append(sec_ip)
-            if address_group['primaryAddress']:
-                address_groups.append(address_group)
-        if ipaddr not in addr_list:
-            LOG.error(_LE("primary address %s of ext vnic is not "
-                          "configured"), ipaddr)
-        if secondary:
-            missed_ip_sec = set(secondary) - set(addr_list)
-            if missed_ip_sec:
-                LOG.error(_LE("secondary address %s of ext vnic are not "
-                          "configured"), str(missed_ip_sec))
-        nsxv_manager.update_interface(router_id, binding['edge_id'],
-                                      vcns_const.EXTERNAL_VNIC_INDEX,
-                                      vcns_network_id,
-                                      address_groups=address_groups)
-
-    else:
-        nsxv_manager.update_interface(router_id, binding['edge_id'],
-                                      vcns_const.EXTERNAL_VNIC_INDEX,
-                                      vcns_network_id,
-                                      address=ipaddr,
-                                      netmask=netmask,
-                                      secondary=secondary)
 
 
 def update_internal_interface(nsxv_manager, context, router_id, int_net_id,
@@ -2311,15 +2326,18 @@ def update_internal_interface(nsxv_manager, context, router_id, int_net_id,
 
 def _update_internal_interface(nsxv_manager, context, router_id, int_net_id,
                                address_groups, is_connected=True):
-    # Get the pg/wire id of the network id
-    vcns_network_id = _retrieve_nsx_switch_id(context, int_net_id)
-    LOG.debug("Network id %(network_id)s corresponding ref is : "
-              "%(net_moref)s", {'network_id': int_net_id,
-                                'net_moref': vcns_network_id})
 
     # Get edge id
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
     edge_id = binding['edge_id']
+
+    # Get the pg/wire id of the network id
+    az_name = binding['availability_zone']
+    vcns_network_id = _retrieve_nsx_switch_id(context, int_net_id, az_name)
+    LOG.debug("Network id %(network_id)s corresponding ref is : "
+              "%(net_moref)s", {'network_id': int_net_id,
+                                'net_moref': vcns_network_id})
+
     edge_vnic_binding = nsxv_db.get_edge_vnic_binding(
         context.session, edge_id, int_net_id)
     # if edge_vnic_binding is None, then first select one available
@@ -2345,14 +2363,17 @@ def add_vdr_internal_interface(nsxv_manager, context, router_id,
 
 def _add_vdr_internal_interface(nsxv_manager, context, router_id,
                                 int_net_id, address_groups, is_connected=True):
-    # Get the pg/wire id of the network id
-    vcns_network_id = _retrieve_nsx_switch_id(context, int_net_id)
-    LOG.debug("Network id %(network_id)s corresponding ref is : "
-              "%(net_moref)s", {'network_id': int_net_id,
-                                'net_moref': vcns_network_id})
     # Get edge id
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
     edge_id = binding['edge_id']
+
+    # Get the pg/wire id of the network id
+    az_name = binding['availability_zone']
+    vcns_network_id = _retrieve_nsx_switch_id(context, int_net_id, az_name)
+    LOG.debug("Network id %(network_id)s corresponding ref is : "
+              "%(net_moref)s", {'network_id': int_net_id,
+                                'net_moref': vcns_network_id})
+
     edge_vnic_binding = nsxv_db.get_edge_vnic_binding(
         context.session, edge_id, int_net_id)
     if not edge_vnic_binding:
@@ -2378,15 +2399,17 @@ def update_vdr_internal_interface(nsxv_manager, context, router_id, int_net_id,
 def _update_vdr_internal_interface(nsxv_manager, context, router_id,
                                    int_net_id, address_groups,
                                    is_connected=True):
+    # Get edge id
+    binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
+    edge_id = binding['edge_id']
+
     # Get the pg/wire id of the network id
-    vcns_network_id = _retrieve_nsx_switch_id(context, int_net_id)
+    az_name = binding['availability_zone']
+    vcns_network_id = _retrieve_nsx_switch_id(context, int_net_id, az_name)
     LOG.debug("Network id %(network_id)s corresponding ref is : "
               "%(net_moref)s", {'network_id': int_net_id,
                                 'net_moref': vcns_network_id})
 
-    # Get edge id
-    binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
-    edge_id = binding['edge_id']
     edge_vnic_binding = nsxv_db.get_edge_vnic_binding(
         context.session, edge_id, int_net_id)
     nsxv_manager.update_vdr_internal_interface(
@@ -2402,12 +2425,6 @@ def delete_interface(nsxv_manager, context, router_id, network_id, dist=False):
 
 def _delete_interface(nsxv_manager, context, router_id, network_id,
                       dist=False):
-    # Get the pg/wire id of the network id
-    vcns_network_id = _retrieve_nsx_switch_id(context, network_id)
-    LOG.debug("Network id %(network_id)s corresponding ref is : "
-              "%(net_moref)s", {'network_id': network_id,
-                                'net_moref': vcns_network_id})
-
     # Get edge id
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
     if not binding:
@@ -2416,6 +2433,14 @@ def _delete_interface(nsxv_manager, context, router_id, network_id,
         return
 
     edge_id = binding['edge_id']
+
+    # Get the pg/wire id of the network id
+    az_name = binding['availability_zone']
+    vcns_network_id = _retrieve_nsx_switch_id(context, network_id, az_name)
+    LOG.debug("Network id %(network_id)s corresponding ref is : "
+              "%(net_moref)s", {'network_id': network_id,
+                                'net_moref': vcns_network_id})
+
     edge_vnic_binding = nsxv_db.get_edge_vnic_binding(
         context.session, edge_id, network_id)
     if not edge_vnic_binding:

@@ -131,6 +131,12 @@ def get_edge_availability_zone(session, edge_id):
         return binding['availability_zone']
 
 
+def get_router_availability_zone(session, router_id):
+    binding = get_nsxv_router_binding(session, router_id)
+    if binding:
+        return binding['availability_zone']
+
+
 def clean_edge_router_binding(session, edge_id):
     with session.begin(subtransactions=True):
         (session.query(nsxv_models.NsxvRouterBinding).
@@ -220,14 +226,16 @@ def allocate_edge_vnic(session, edge_id, network_id):
     raise nsx_exc.NsxPluginException(err_msg=msg)
 
 
-def allocate_edge_vnic_with_tunnel_index(session, edge_id, network_id):
+def allocate_edge_vnic_with_tunnel_index(session, edge_id, network_id,
+                                         availability_zone):
     """Allocate an available edge vnic with tunnel index to network."""
 
     # TODO(berlin): temporary solution to let metadata and dhcp use
     # different vnics
-    net_list = get_nsxv_internal_network(
-        session, constants.InternalEdgePurposes.INTER_EDGE_PURPOSE)
-    metadata_net_id = net_list[0]['network_id'] if net_list else None
+    int_net = get_nsxv_internal_network(
+        session, constants.InternalEdgePurposes.INTER_EDGE_PURPOSE,
+        availability_zone)
+    metadata_net_id = int_net['network_id'] if int_net else None
 
     with session.begin(subtransactions=True):
         query = session.query(nsxv_models.NsxvEdgeVnicBinding)
@@ -353,36 +361,44 @@ def clean_edge_dhcp_static_bindings_by_edge(session, edge_id):
             edge_id=edge_id).delete()
 
 
-def create_nsxv_internal_network(session, network_purpose, network_id):
+def create_nsxv_internal_network(session, network_purpose,
+                                 availability_zone, network_id):
     with session.begin(subtransactions=True):
         try:
             network = nsxv_models.NsxvInternalNetworks(
                 network_purpose=network_purpose,
-                network_id=network_id)
+                network_id=network_id,
+                availability_zone=availability_zone)
             session.add(network)
         except db_exc.DBDuplicateEntry:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Duplicate internal network for purpose %s"),
-                              network_purpose)
+                LOG.exception(_LE("Duplicate internal network for purpose "
+                                  "%(p)s and availabiltiy zone %(az)s"),
+                              {'p': network_purpose,
+                              'az': availability_zone})
 
 
-def get_nsxv_internal_network(session, network_purpose):
+def get_nsxv_internal_network(session, network_purpose, availability_zone):
+    with session.begin(subtransactions=True):
+        net_list = (session.query(nsxv_models.NsxvInternalNetworks).
+                    filter_by(network_purpose=network_purpose,
+                              availability_zone=availability_zone).all())
+        if net_list:
+            # Should have only one results as purpose+az are the keys
+            return net_list[0]
+
+
+def get_nsxv_internal_networks(session, network_purpose):
     with session.begin(subtransactions=True):
         return (session.query(nsxv_models.NsxvInternalNetworks).
                 filter_by(network_purpose=network_purpose).all())
 
 
-def update_nsxv_internal_network(session, network_purpose, network_id):
-    with session.begin(subtransactions=True):
-        nets = get_nsxv_internal_network(session, network_purpose)
-        for net in nets:
-            net['network_id'] = network_id
-
-
-def delete_nsxv_internal_network(session, network_purpose):
+def delete_nsxv_internal_network(session, network_purpose, network_id):
     with session.begin(subtransactions=True):
         return (session.query(nsxv_models.NsxvInternalNetworks).
-                filter_by(network_purpose=network_purpose).delete())
+                filter_by(network_purpose=network_purpose,
+                          network_id=network_id).delete())
 
 
 def create_nsxv_internal_edge(session, ext_ip_address, purpose, router_id):

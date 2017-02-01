@@ -397,11 +397,11 @@ class EdgeApplianceDriver(object):
         if not dist:
             vnic_external = self._assemble_edge_vnic(
                 constants.EXTERNAL_VNIC_NAME, constants.EXTERNAL_VNIC_INDEX,
-                self.external_network, type="uplink")
+                availability_zone.external_network, type="uplink")
             edge['vnics']['vnics'].append(vnic_external)
         else:
             edge['mgmtInterface'] = {
-                'connectedToId': self.external_network,
+                'connectedToId': availability_zone.external_network,
                 'name': "mgmtInterface"}
         if internal_network:
             vnic_inside = self._assemble_edge_vnic(
@@ -470,11 +470,11 @@ class EdgeApplianceDriver(object):
         if not dist:
             vnic_external = self._assemble_edge_vnic(
                 constants.EXTERNAL_VNIC_NAME, constants.EXTERNAL_VNIC_INDEX,
-                self.external_network, type="uplink")
+                availability_zone.external_network, type="uplink")
             edge['vnics']['vnics'].append(vnic_external)
         else:
             edge['mgmtInterface'] = {
-                'connectedToId': self.external_network,
+                'connectedToId': availability_zone.external_network,
                 'name': "mgmtInterface"}
 
         if internal_network:

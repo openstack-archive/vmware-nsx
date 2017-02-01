@@ -71,6 +71,17 @@ class ConfiguredAvailabilityZone(object):
             # using the global ones instead.
             self.ha_placement_random = cfg.CONF.nsxv.ha_placement_random
             self.backup_edge_pool = cfg.CONF.nsxv.backup_edge_pool
+            self.external_network = cfg.CONF.nsxv.external_network
+            self.vdn_scope_id = cfg.CONF.nsxv.vdn_scope_id
+            self.dvs_id = cfg.CONF.nsxv.dvs_id
+
+            # No support for metadata per az
+            self.az_metadata_support = False
+            self.mgt_net_moid = None
+            self.mgt_net_proxy_ips = []
+            self.mgt_net_proxy_netmask = None
+            self.mgt_net_default_gateway = None
+
         elif config_line:
             # Newer configuration - the name of the availability zone can be
             # used to get the rest of the configuration for this AZ
@@ -113,6 +124,57 @@ class ConfiguredAvailabilityZone(object):
             if not self.backup_edge_pool:
                 self.backup_edge_pool = cfg.CONF.nsxv.backup_edge_pool
 
+            self.external_network = az_info.get('external_network')
+            if not self.external_network:
+                self.external_network = cfg.CONF.nsxv.external_network
+
+            self.vdn_scope_id = az_info.get('vdn_scope_id')
+            if not self.vdn_scope_id:
+                self.vdn_scope_id = cfg.CONF.nsxv.vdn_scope_id
+
+            self.dvs_id = az_info.get('dvs_id')
+            if not self.dvs_id:
+                self.dvs_id = cfg.CONF.nsxv.dvs_id
+
+            # Support for metadata per az only if configured, and different
+            # from the global one
+            self.mgt_net_proxy_ips = az_info.get('mgt_net_proxy_ips')
+            if self.mgt_net_proxy_ips:
+                # make sure there are no over lapping ips with the
+                # global configuration
+                if (set(self.mgt_net_proxy_ips) &
+                    set(cfg.CONF.nsxv.mgt_net_proxy_ips)):
+                    raise nsx_exc.NsxInvalidConfiguration(
+                        opt_name="mgt_net_proxy_ips",
+                        opt_value='None',
+                        reason=(_("mgt_net_proxy_ips for availability zone "
+                                  "%s must be different from global one") %
+                                self.name))
+
+                self.az_metadata_support = True
+                self.mgt_net_moid = az_info.get('mgt_net_moid')
+                if not self.mgt_net_moid:
+                    self.mgt_net_moid = cfg.CONF.nsxv.mgt_net_moid
+
+                self.mgt_net_proxy_netmask = az_info.get(
+                    'mgt_net_proxy_netmask')
+                if not self.mgt_net_proxy_netmask:
+                    self.mgt_net_proxy_netmask = (
+                        cfg.CONF.nsxv.mgt_net_proxy_netmask)
+
+                self.mgt_net_default_gateway = az_info.get(
+                    'mgt_net_default_gateway')
+                if not self.mgt_net_default_gateway:
+                    self.mgt_net_default_gateway = (
+                        cfg.CONF.nsxv.mgt_net_default_gateway)
+
+            else:
+                self.az_metadata_support = False
+                self.mgt_net_moid = None
+                self.mgt_net_proxy_ips = []
+                self.mgt_net_proxy_netmask = None
+                self.mgt_net_default_gateway = None
+
         else:
             # use the default configuration
             self.name = DEFAULT_NAME
@@ -122,6 +184,23 @@ class ConfiguredAvailabilityZone(object):
             self.ha_datastore_id = cfg.CONF.nsxv.ha_datastore_id
             self.ha_placement_random = cfg.CONF.nsxv.ha_placement_random
             self.backup_edge_pool = cfg.CONF.nsxv.backup_edge_pool
+            self.az_metadata_support = True
+            self.mgt_net_moid = cfg.CONF.nsxv.mgt_net_moid
+            self.mgt_net_proxy_ips = cfg.CONF.nsxv.mgt_net_proxy_ips
+            self.mgt_net_proxy_netmask = cfg.CONF.nsxv.mgt_net_proxy_netmask
+            self.mgt_net_default_gateway = (
+                cfg.CONF.nsxv.mgt_net_default_gateway)
+            self.external_network = cfg.CONF.nsxv.external_network
+            self.vdn_scope_id = cfg.CONF.nsxv.vdn_scope_id
+            self.dvs_id = cfg.CONF.nsxv.dvs_id
+
+    def is_default(self):
+        return self.name == DEFAULT_NAME
+
+    def supports_metadata(self):
+        # Return True if this az has it's own metadata configuration
+        # If False - it uses the global metadata (if defined)
+        return self.az_metadata_support
 
 
 class ConfiguredAvailabilityZones(object):
@@ -147,6 +226,14 @@ class ConfiguredAvailabilityZones(object):
             resources.append(az.datastore_id)
             if az.ha_datastore_id:
                 resources.append(az.ha_datastore_id)
+            if az.mgt_net_moid:
+                resources.append(az.mgt_net_moid)
+            if az.external_network:
+                resources.append(az.external_network)
+            if az.vdn_scope_id:
+                resources.append(az.vdn_scope_id)
+            if az.mgt_net_moid:
+                resources.append(az.mgt_net_moid)
         return resources
 
     def get_availability_zone(self, name):

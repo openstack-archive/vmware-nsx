@@ -79,7 +79,6 @@ class NsxvEdgeDhcpStaticBinding(model_base.BASEV2, models.TimestampMixin):
 
 class NsxvInternalNetworks(model_base.BASEV2, models.TimestampMixin):
     """Represents internal networks between NSXV plugin elements."""
-
     __tablename__ = 'nsxv_internal_networks'
 
     network_purpose = sa.Column(
@@ -89,11 +88,12 @@ class NsxvInternalNetworks(model_base.BASEV2, models.TimestampMixin):
     network_id = sa.Column(sa.String(36),
                            sa.ForeignKey("networks.id", ondelete="CASCADE"),
                            nullable=True)
+    availability_zone = sa.Column(sa.String(36),
+                                  primary_key=True)
 
 
 class NsxvInternalEdges(model_base.BASEV2, models.TimestampMixin):
     """Represents internal Edge appliances for NSXV plugin operations."""
-
     __tablename__ = 'nsxv_internal_edges'
 
     ext_ip_address = sa.Column(sa.String(64), primary_key=True)

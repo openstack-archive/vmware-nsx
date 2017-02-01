@@ -292,10 +292,26 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             and cfg.CONF.nsxv.mgt_net_proxy_ips
             and cfg.CONF.nsxv.mgt_net_proxy_netmask)
         if has_metadata_cfg:
-            self.metadata_proxy_handler = (
-                nsx_v_md_proxy.NsxVMetadataProxyHandler(self))
+            # Init md_proxy handler per availability zone
+            self.metadata_proxy_handler = {}
+            az_list = self._availability_zones_data.list_availability_zones()
+            for name in az_list:
+                az = self._availability_zones_data.get_availability_zone(name)
+                # create metadata handler only if the az supports it.
+                # if not, the global one will be used
+                if az.supports_metadata():
+                    self.metadata_proxy_handler[name] = (
+                        nsx_v_md_proxy.NsxVMetadataProxyHandler(self, az))
 
         self.init_is_complete = True
+
+    def get_metadata_proxy_handler(self, az_name):
+        if not self.metadata_proxy_handler:
+            return None
+        if az_name in self.metadata_proxy_handler:
+            return self.metadata_proxy_handler[az_name]
+        # fallback to the global handler
+        return self.metadata_proxy_handler[nsx_az.DEFAULT_NAME]
 
     def add_vms_to_service_insertion(self, sg_id):
         def _add_vms_to_service_insertion(*args, **kwargs):
@@ -545,12 +561,26 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if err_msg:
             raise n_exc.InvalidInput(error_message=err_msg)
 
-    def _validate_physical_network(self, physical_network):
-        dvs_ids = self._get_dvs_ids(physical_network)
+    def _validate_physical_network(self, physical_network, default_dvs):
+        dvs_ids = self._get_dvs_ids(physical_network, default_dvs)
         for dvs_id in dvs_ids:
             if not self.nsx_v.vcns.validate_dvs(dvs_id):
                 raise nsx_exc.NsxResourceNotFound(res_name='dvs_id',
                                                   res_id=dvs_id)
+
+    def _get_network_az_from_net_data(self, net_data):
+        if az_ext.AZ_HINTS in net_data and net_data[az_ext.AZ_HINTS]:
+            return self._availability_zones_data.get_availability_zone(
+                net_data[az_ext.AZ_HINTS][0])
+        return self.get_default_az()
+
+    def _get_network_az_dvs_id(self, net_data):
+        az = self._get_network_az_from_net_data(net_data)
+        return az.dvs_id
+
+    def _get_network_vdn_scope_id(self, net_data):
+        az = self._get_network_az_from_net_data(net_data)
+        return az.vdn_scope_id
 
     def _validate_provider_create(self, context, network):
         if not validators.is_attr_set(network.get(mpnet.SEGMENTS)):
@@ -563,6 +593,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             network_type_set = validators.is_attr_set(network_type)
             segmentation_id_set = validators.is_attr_set(segmentation_id)
             physical_network_set = validators.is_attr_set(physical_network)
+            az_dvs = self._get_network_az_dvs_id(network)
 
             err_msg = None
             if not network_type_set:
@@ -572,7 +603,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     err_msg = _("Segmentation ID cannot be specified with "
                                 "flat network type")
                 if physical_network_set:
-                    self._validate_physical_network(physical_network)
+                    self._validate_physical_network(physical_network, az_dvs)
             elif network_type == c_utils.NsxVNetworkTypes.VLAN:
                 if not segmentation_id_set:
                     err_msg = _("Segmentation ID must be specified with "
@@ -589,8 +620,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     bindings = nsxv_db.get_network_bindings_by_vlanid(
                         context.session, segmentation_id)
                     if bindings:
-                        phy_uuid = (physical_network if physical_network_set
-                                    else self.dvs_id)
+                        if physical_network_set:
+                            phy_uuid = physical_network
+                        else:
+                            # use the fvs_id of the availability zone
+                            phy_uuid = az_dvs
                         for binding in bindings:
                             if binding['phy_uuid'] == phy_uuid:
                                 raise n_exc.VlanIdInUse(
@@ -598,7 +632,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                     physical_network=phy_uuid)
                 # Verify whether the DVSes exist in the backend.
                 if physical_network_set:
-                    self._validate_physical_network(physical_network)
+                    self._validate_physical_network(physical_network, az_dvs)
 
             elif network_type == c_utils.NsxVNetworkTypes.VXLAN:
                 # Currently unable to set the segmentation id
@@ -810,7 +844,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._update_network_teaming(dvs_id, net_data['id'], c)
         return c
 
-    def _get_dvs_ids(self, physical_network):
+    def _get_dvs_ids(self, physical_network, default_dvs):
         """Extract DVS-IDs provided in the physical network field.
 
         If physical network attribute is not set, return the pre configured
@@ -818,7 +852,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         to a list of unique DVS-IDs.
         """
         if not validators.is_attr_set(physical_network):
-            return [self.dvs_id]
+            return [default_dvs]
         # Return unique DVS-IDs only and ignore duplicates
         return list(set(
             dvs.strip() for dvs in physical_network.split(',') if dvs))
@@ -946,7 +980,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         return self.get_default_az()
 
     def get_network_az(self, context, network_id):
-        network = self.get_network(context, network_id)
+        try:
+            network = self.get_network(context, network_id)
+        except Exception:
+            return self.get_default_az()
+
         return self.get_network_or_router_az(network)
 
     def get_router_az(self, router):
@@ -995,7 +1033,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 virtual_wire = {"name": net_data['id'],
                                 "tenantId": "virtual wire tenant"}
                 config_spec = {"virtualWireCreateSpec": virtual_wire}
-                vdn_scope_id = self.vdn_scope_id
+                vdn_scope_id = self._get_network_vdn_scope_id(net_data)
                 if provider_type is not None:
                     segment = net_data[mpnet.SEGMENTS][0]
                     if validators.is_attr_set(
@@ -1020,7 +1058,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 # Retrieve the list of dvs-ids from physical network.
                 # If physical_network attr is not set, retrieve a list
                 # consisting of a single dvs-id pre-configured in nsx.ini
-                dvs_ids = self._get_dvs_ids(physical_network)
+                az_dvs = self._get_network_az_dvs_id(net_data)
+                dvs_ids = self._get_dvs_ids(physical_network, az_dvs)
                 dvs_net_ids = []
                 # Save the list of netmorefs from the backend
                 net_morefs = []
@@ -1062,10 +1101,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
                 # update the network with the availability zone hints
                 if az_ext.AZ_HINTS in net_data:
-                    self.validate_availability_zones(context, 'network',
-                                                     net_data[az_ext.AZ_HINTS])
                     az_hints = az_ext.convert_az_list_to_string(
-                                                    net_data[az_ext.AZ_HINTS])
+                        net_data[az_ext.AZ_HINTS])
                     super(NsxVPluginV2, self).update_network(context,
                         new_net['id'],
                         {'network': {az_ext.AZ_HINTS: az_hints}})
@@ -1089,7 +1126,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         physical_net_set = validators.is_attr_set(
                             physical_network)
                         if not physical_net_set:
-                            physical_network = self.dvs_id
+                            # Use the dvs_id of the availability zone
+                            physical_network = self._get_network_az_dvs_id(
+                                net_data)
                         net_bindings.append(nsxv_db.add_network_binding(
                             context.session, new_net['id'],
                             network_type,
@@ -1190,8 +1229,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         context.session, dhcp_edge['edge_id'])
                     if rtr_binding:
                         rtr_id = rtr_binding['router_id']
-                        self.metadata_proxy_handler.cleanup_router_edge(
-                            context, rtr_id)
+                        az_name = rtr_binding['availability_zone']
+                        md_proxy = self.get_metadata_proxy_handler(az_name)
+                        md_proxy.cleanup_router_edge(context, rtr_id)
                 else:
                     self.edge_manager.reconfigure_shared_edge_metadata_port(
                         context, (vcns_const.DHCP_EDGE_PREFIX + net_id)[:36])
@@ -1307,7 +1347,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 [db_utils.resource_fields(network,
                                           fields) for network in networks])
 
-    def _raise_if_updates_provider_attributes(self, original_network, attrs):
+    def _raise_if_updates_provider_attributes(self, original_network, attrs,
+                                              az_dvs):
         """Raise exception if provider attributes are present.
 
         For the NSX-V we want to allow changing the physical network of
@@ -1322,11 +1363,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             and not validators.is_attr_set(
                 attrs.get(providernet.SEGMENTATION_ID))):
             self._validate_physical_network(
-                attrs[providernet.PHYSICAL_NETWORK])
+                attrs[providernet.PHYSICAL_NETWORK], az_dvs)
             return
         providernet._raise_if_updates_provider_attributes(attrs)
 
-    def _update_vlan_network_dvs_ids(self, network, new_physical_network):
+    def _update_vlan_network_dvs_ids(self, network, new_physical_network,
+                                     az_dvs):
         """Update the dvs ids of a vlan provider network
 
         The new values will be added to the current ones.
@@ -1345,9 +1387,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         dvs_pg_mappings = {}
 
         current_dvs_ids = set(self._get_dvs_ids(
-            network[providernet.PHYSICAL_NETWORK]))
+            network[providernet.PHYSICAL_NETWORK], az_dvs))
         new_dvs_ids = set(self._get_dvs_ids(
-            new_physical_network))
+            new_physical_network, az_dvs))
         additinal_dvs_ids = new_dvs_ids - current_dvs_ids
 
         if not additinal_dvs_ids:
@@ -1374,8 +1416,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     def update_network(self, context, id, network):
         net_attrs = network['network']
         orig_net = self.get_network(context, id)
+        az_dvs = self._get_network_az_dvs_id(orig_net)
         self._raise_if_updates_provider_attributes(
-            orig_net, net_attrs)
+            orig_net, net_attrs, az_dvs)
         if net_attrs.get("admin_state_up") is False:
             raise NotImplementedError(_("admin_state_up=False networks "
                                         "are not supported."))
@@ -1402,7 +1445,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             (updated_morefs,
              new_dvs_pg_mappings) = self._update_vlan_network_dvs_ids(
                 orig_net,
-                net_attrs[providernet.PHYSICAL_NETWORK])
+                net_attrs[providernet.PHYSICAL_NETWORK],
+                az_dvs)
             if updated_morefs:
                 new_dvs = list(new_dvs_pg_mappings.values())
                 net_morefs.extend(new_dvs)
@@ -2436,15 +2480,24 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if binding:
             return binding['edge_id']
 
+    def _get_edge_id_and_az_by_rtr_id(self, context, rtr_id):
+        binding = nsxv_db.get_nsxv_router_binding(
+            context.session,
+            rtr_id)
+
+        if binding:
+            return binding['edge_id'], binding['availability_zone']
+
     def _update_dhcp_service_new_edge(self, context, resource_id):
-        edge_id = self._get_edge_id_by_rtr_id(context, resource_id)
+        edge_id, az_name = self._get_edge_id_and_az_by_rtr_id(
+            context, resource_id)
         if edge_id:
             with locking.LockManager.get_lock(str(edge_id)):
                 if self.metadata_proxy_handler:
-                    LOG.debug('Update metadata for resource %s',
-                              resource_id)
-                    self.metadata_proxy_handler.configure_router_edge(
-                        context, resource_id)
+                    LOG.debug('Update metadata for resource %s az=%s',
+                              resource_id, az_name)
+                    md_proxy = self.get_metadata_proxy_handler(az_name)
+                    md_proxy.configure_router_edge(context, resource_id)
 
                 self.setup_dhcp_edge_fw_rules(context, self,
                                               resource_id)
@@ -2839,23 +2892,29 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         return self._get_network_availability_zones(context, net_db)
 
     def _get_network_availability_zones(self, context, net_db):
-        """Return availability zones which a network belongs to."""
+        """Return availability zones which a network belongs to.
+
+        Return only the actual az the dhcp edge is deployed on.
+        If there is no edge - the availability zones list is empty.
+        """
         resource_id = (vcns_const.DHCP_EDGE_PREFIX + net_db["id"])[:36]
         dhcp_edge_binding = nsxv_db.get_nsxv_router_binding(
             context.session, resource_id)
         if dhcp_edge_binding:
-            edge_id = dhcp_edge_binding['edge_id']
-            return [self._get_availability_zone_name_by_edge(
-                context, edge_id)]
+            return [dhcp_edge_binding['availability_zone']]
         return []
 
     def get_router_availability_zones(self, router):
-        """Return availability zones which a router belongs to."""
+        """Return availability zones which a router belongs to.
+
+        Return only the actual az the router edge is deployed on.
+        If there is no edge - the availability zones list is empty.
+        """
         context = n_context.get_admin_context()
-        edge_id = self._get_edge_id_by_rtr_id(context, router["id"])
-        if edge_id:
-            return [self._get_availability_zone_name_by_edge(
-                context, edge_id)]
+        binding = nsxv_db.get_nsxv_router_binding(
+            context.session, router['id'])
+        if binding:
+            return [binding['availability_zone']]
         return []
 
     def _process_router_flavor_create(self, context, router_db, r):
@@ -3192,7 +3251,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         secondary = self._get_floatingips_by_router(context, router['id'])
         if not router_id:
             router_id = router['id']
-        edge_utils.update_external_interface(
+        self.edge_manager.update_external_interface(
             self.nsx_v, context, router_id, ext_net_id,
             addr, mask, secondary)
 

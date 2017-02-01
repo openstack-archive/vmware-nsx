@@ -274,7 +274,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                   'primaryAddress: %s, netmask: %s, nexthop: %s, secondary: '
                   '%s.', ext_net_id, gateway_primary_addr, gateway_mask,
                   gateway_nexthop, secondary)
-        edge_utils.update_external_interface(
+        self.edge_manager.update_external_interface(
             self.nsx_v, context, target_router_id, ext_net_id,
             gateway_primary_addr, gateway_mask, secondary)
 
@@ -552,7 +552,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             ports_qry = context.session.query(models_v2.Port)
             all_gw_ports = ports_qry.filter_by(
                 device_owner=l3_db.DEVICE_OWNER_ROUTER_GW).all()
-            metadata_nets = nsxv_db.get_nsxv_internal_network(
+            metadata_nets = nsxv_db.get_nsxv_internal_networks(
                 context.session,
                 vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE)
             metadata_net_ids = [metadata_net['network_id']
@@ -592,10 +592,10 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                 conflict_router_ids, conflict_network_ids,
                 intf_num, az)
             # configure metadata service on the router.
-            metadata_proxy_handler = self.plugin.metadata_proxy_handler
-            if metadata_proxy_handler and new:
-                metadata_proxy_handler.configure_router_edge(context,
-                                                             router_id)
+            if self.plugin.metadata_proxy_handler and new:
+                md_proxy_handler = self.plugin.get_metadata_proxy_handler(
+                    az.name)
+                md_proxy_handler.configure_router_edge(context, router_id)
             edge_id = edge_utils.get_router_edge_id(context, router_id)
             with locking.LockManager.get_lock(str(edge_id)):
                 # add all internal interfaces of the router on edge
@@ -618,11 +618,13 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                         flavor_id, edge_id)
 
     def _unbind_router_on_edge(self, context, router_id):
+        az = self.get_router_az_by_id(context, router_id)
         self.edge_manager.reconfigure_shared_edge_metadata_port(
             context, router_id)
         self.edge_manager.unbind_router_on_edge(context, router_id)
-        metadata_proxy_handler = self.plugin.metadata_proxy_handler
-        if metadata_proxy_handler:
+        if self.plugin.metadata_proxy_handler:
+            metadata_proxy_handler = self.plugin.get_metadata_proxy_handler(
+                az.name)
             metadata_proxy_handler.cleanup_router_edge(context, router_id)
 
     def _add_router_services_on_available_edge(self, context, router_id):

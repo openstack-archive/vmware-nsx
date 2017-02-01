@@ -22,9 +22,11 @@ from neutron.db import models_v2
 from oslo_config import cfg
 
 from vmware_nsx._i18n import _LE, _LI
+from vmware_nsx.common import config
 from vmware_nsx.common import locking
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_db
+from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v import md_proxy
 from vmware_nsx.plugins.nsx_v.vshield.common import constants as vcns_constants
 from vmware_nsx.plugins.nsx_v.vshield import nsxv_loadbalancer as nsxv_lb
@@ -42,26 +44,48 @@ nsxv = utils.get_nsxv_client()
 @admin_utils.output_header
 def nsx_redo_metadata_cfg(resource, event, trigger, **kwargs):
     edgeapi = utils.NeutronDbClient()
-    net_list = nsxv_db.get_nsxv_internal_network(
+
+    config.register_nsxv_azs(cfg.CONF, cfg.CONF.nsxv.availability_zones)
+    conf_az = nsx_az.ConfiguredAvailabilityZones()
+    az_list = conf_az.list_availability_zones()
+    for name in az_list:
+        az = conf_az.get_availability_zone(name)
+        if az.supports_metadata():
+            nsx_redo_metadata_cfg_for_az(az, edgeapi)
+        else:
+            LOG.info(_LI("Skipping availability zone: %s - no metadata "
+                         "configuration"), az.name)
+
+
+def nsx_redo_metadata_cfg_for_az(az, edgeapi):
+    LOG.info(_LI("Updating MetaData for availability zone: %s"), az.name)
+
+    # Get the list of internal networks for this AZ
+    db_net = nsxv_db.get_nsxv_internal_network(
         edgeapi.context.session,
-        vcns_constants.InternalEdgePurposes.INTER_EDGE_PURPOSE)
+        vcns_constants.InternalEdgePurposes.INTER_EDGE_PURPOSE,
+        az.name)
 
     internal_net = None
     internal_subnet = None
-    if net_list:
-        internal_net = net_list[0]['network_id']
+    if db_net:
+        internal_net = db_net['network_id']
         internal_subnet = edgeapi.context.session.query(
             models_v2.Subnet).filter_by(
             network_id=internal_net).first().get('id')
 
+    # Get the list of internal edges for this AZ
     edge_list = nsxv_db.get_nsxv_internal_edges_by_purpose(
         edgeapi.context.session,
         vcns_constants.InternalEdgePurposes.INTER_EDGE_PURPOSE)
+    edge_az_list = [edge for edge in edge_list if
+        nsxv_db.get_router_availability_zone(
+            edgeapi.context.session, edge['router_id']) == az.name]
 
-    md_rtr_ids = [edge['router_id'] for edge in edge_list]
+    md_rtr_ids = [edge['router_id'] for edge in edge_az_list]
 
     edge_internal_ips = []
-    for edge in edge_list:
+    for edge in edge_az_list:
         edge_internal_port = edgeapi.context.session.query(
             models_v2.Port).filter_by(network_id=internal_net,
                                       device_id=edge['router_id']).first()
@@ -79,7 +103,8 @@ def nsx_redo_metadata_cfg(resource, event, trigger, **kwargs):
 
     router_bindings = nsxv_db.get_nsxv_router_bindings(
         edgeapi.context.session,
-        filters={'edge_type': [nsxv_constants.SERVICE_EDGE]})
+        filters={'edge_type': [nsxv_constants.SERVICE_EDGE],
+                 'availability_zones': az.name})
     edge_ids = list(set([binding['edge_id'] for binding in router_bindings
                          if (binding['router_id'] not in set(md_rtr_ids)
                              and not binding['router_id'].startswith(

@@ -41,8 +41,9 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
             context, lrouter, dist=False, appliance_size=appliance_size,
             availability_zone=availability_zone)
         if allow_metadata:
-            self.plugin.metadata_proxy_handler.configure_router_edge(
-                context, lrouter['id'])
+            self.plugin.get_metadata_proxy_handler(
+                availability_zone.name).configure_router_edge(
+                    context, lrouter['id'])
 
     def update_router(self, context, router_id, router):
         r = router['router']
@@ -78,8 +79,10 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
     def detach_router(self, context, router_id, router):
         LOG.debug("Detach exclusive router id %s", router_id)
         self.edge_manager.unbind_router_on_edge(context, router_id)
-        metadata_proxy_handler = self.plugin.metadata_proxy_handler
-        if metadata_proxy_handler:
+        if self.plugin.metadata_proxy_handler:
+            az = self.get_router_az_by_id(context, router_id)
+            metadata_proxy_handler = self.plugin.get_metadata_proxy_handler(
+                az.name)
             metadata_proxy_handler.cleanup_router_edge(context, router_id)
 
     def _build_router_data_from_db(self, router_db, router):
@@ -130,8 +133,9 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
 
     def delete_router(self, context, router_id):
         if self.plugin.metadata_proxy_handler:
-            self.plugin.metadata_proxy_handler.cleanup_router_edge(
-                context, router_id)
+            az = self.get_router_az_by_id(context, router_id)
+            md_proxy = self.plugin.get_metadata_proxy_handler(az.name)
+            md_proxy.cleanup_router_edge(context, router_id)
         self.edge_manager.delete_lrouter(context, router_id, dist=False)
 
     def update_routes(self, context, router_id, nexthop):
@@ -168,7 +172,7 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
 
             # Update external vnic if addr or mask is changed
             if orgaddr != newaddr or orgmask != newmask or force_update:
-                edge_utils.update_external_interface(
+                self.edge_manager.update_external_interface(
                     self.nsx_v, context, router_id,
                     new_ext_net_id, newaddr, newmask)
 
