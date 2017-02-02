@@ -12,15 +12,20 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import time
 
 from oslo_config import cfg
+from oslo_log import log as logging
 
 from neutron import context as neutron_context
 from neutron.db import common_db_mixin as common_db
 
+from vmware_nsx._i18n import _LW
 from vmware_nsx.common import config
 from vmware_nsx import plugin
 from vmware_nsx.plugins.nsx_v.vshield import vcns
+
+LOG = logging.getLogger(__name__)
 
 
 def get_nsxv_client():
@@ -54,6 +59,43 @@ class NsxVPluginWrapper(plugin.NsxVPlugin):
         self._extend_network_dict_provider(context, net)
         # skip getting the Qos policy ID because get_object calls
         # plugin init again on admin-util environment
+
+    def count_spawn_jobs(self):
+        # check if there are any spawn jobs running
+        return self.edge_manager._get_worker_pool().running()
+
+    # Define enter & exit to be used in with statements
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        """Wait until no more jobs are pending
+
+        We want to wait until all spawn edge creation are done, or else the
+        edges might be in PERNDING_CREATE state in the nsx DB
+        """
+        if not self.count_spawn_jobs():
+            return
+
+        LOG.warning(_LW("Waiting for plugin jobs to finish properly..."))
+        sleep_time = 1
+        print_time = 20
+        max_loop = 600
+        for print_index in range(1, max_loop):
+            n_jobs = self.count_spawn_jobs()
+            if n_jobs > 0:
+                if (print_index % print_time) == 0:
+                    LOG.warning(_LW("Still Waiting on %(jobs)s "
+                                    "job%(plural)s"),
+                                {'jobs': n_jobs,
+                                 'plural': 's' if n_jobs > 1 else ''})
+                time.sleep(sleep_time)
+            else:
+                LOG.warning(_LW("Done."))
+                return
+
+        LOG.warning(_LW("Sorry. Waited for too long. Some jobs are still "
+                        "running."))
 
 
 def get_nsxv_backend_edges():
