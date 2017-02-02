@@ -23,6 +23,7 @@ DHCP_EDGE_PREFIX = 'dhcp-'
 ROUTER_EDGE_PREFIX = 'router-'
 PLR_EDGE_PREFIX = 'plr-'
 BACKUP_ROUTER_PREFIX = 'backup-'
+LB_EDGE_PREFIX = 'lb-'
 EDGE_NAME_LEN = 20
 
 # Interface
@@ -59,7 +60,8 @@ SUFFIX_LENGTH = 8
 #Edge size
 SERVICE_SIZE_MAPPING = {
     'router': nsxv_constants.COMPACT,
-    'dhcp': nsxv_constants.COMPACT
+    'dhcp': nsxv_constants.COMPACT,
+    'lb': nsxv_constants.COMPACT
 }
 ALLOWED_EDGE_SIZES = (nsxv_constants.COMPACT,
                       nsxv_constants.LARGE,

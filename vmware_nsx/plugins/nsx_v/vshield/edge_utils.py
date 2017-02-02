@@ -794,6 +794,15 @@ class EdgeManager(object):
             appliance_size=vcns_const.SERVICE_SIZE_MAPPING['dhcp'],
             availability_zone=availability_zone)
 
+    def allocate_lb_edge_appliance(
+            self, context, resource_id, availability_zone,
+            appliance_size=vcns_const.SERVICE_SIZE_MAPPING['lb']):
+
+        return self._allocate_edge_appliance(
+            context, resource_id, resource_id,
+            appliance_size=appliance_size,
+            availability_zone=availability_zone)
+
     def _free_dhcp_edge_appliance(self, context, network_id):
         router_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
 
@@ -834,6 +843,8 @@ class EdgeManager(object):
         if lrouter.get('flavor_id'):
             self.update_syslog_by_flavor(context,
                     lrouter['id'], lrouter['flavor_id'], edge_id)
+
+        return edge_id
 
     def delete_lrouter(self, context, router_id, dist=False):
         self._free_edge_appliance(context, router_id)

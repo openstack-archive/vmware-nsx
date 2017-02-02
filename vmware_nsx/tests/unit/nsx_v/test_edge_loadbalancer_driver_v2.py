@@ -132,10 +132,8 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
         return 'load_balancer'
 
     def test_create(self):
-        with mock.patch.object(lb_common, 'get_lbaas_edge_id_for_subnet'
+        with mock.patch.object(lb_common, 'get_lbaas_edge_id'
                                ) as mock_get_edge, \
-            mock.patch.object(lb_common, 'add_vip_as_secondary_ip'
-                              ) as mock_vip_sec_ip, \
             mock.patch.object(lb_common, 'add_vip_fw_rule'
                               ) as mock_add_vip_fwr, \
             mock.patch.object(lb_common, 'enable_edge_acceleration'
@@ -151,9 +149,6 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
 
             self.edge_driver.loadbalancer.create(self.context, self.lb)
 
-            mock_vip_sec_ip.assert_called_with(self.edge_driver.vcns,
-                                               LB_EDGE_ID,
-                                               LB_VIP)
             mock_add_vip_fwr.assert_called_with(self.edge_driver.vcns,
                                                 LB_EDGE_ID,
                                                 LB_ID,
@@ -187,9 +182,14 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
             mock.patch.object(lb_common, 'del_vip_as_secondary_ip'
                               ) as mock_vip_sec_ip, \
             mock.patch.object(nsxv_db, 'del_nsxv_lbaas_loadbalancer_binding',
-                              ) as mock_del_binding:
+                              ) as mock_del_binding, \
+            mock.patch.object(self.core_plugin, 'get_ports'
+                              ) as mock_get_ports, \
+            mock.patch.object(nsxv_db, 'get_nsxv_router_binding_by_edge'
+                              ) as mock_get_r_binding:
             mock_get_binding.return_value = LB_BINDING
-
+            mock_get_ports.return_value = []
+            mock_get_r_binding.return_value = {'router_id': 'xxxx'}
             self.edge_driver.loadbalancer.delete(self.context, self.lb)
 
             mock_del_fwr.assert_called_with(self.edge_driver.vcns,
