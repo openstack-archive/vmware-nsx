@@ -64,6 +64,10 @@ Edges
 
     nsxadmin -o nsx-update -r edges -p edge-id=edge-55 --property resource=<cpu|memory> --property limit=<limit> --property reservation=<reservation> --property shares=<shares>
 
+- Update DRS hostgroups for an edge::
+
+    nsxadmin -o nsx-update -r edges -p edge-id=edge-55 --property hostgroup=True|False
+
 Orphaned Edges
 ~~~~~~~~~~~~~~
 

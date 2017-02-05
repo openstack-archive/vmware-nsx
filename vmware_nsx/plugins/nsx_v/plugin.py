@@ -212,6 +212,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 # TODO(rkukura): Replace with new VIF security details
                 pbin.CAP_PORT_FILTER:
                 'security-group' in self.supported_extension_aliases}}
+        # This needs to be set prior to binding callbacks
+        self.dvs_id = cfg.CONF.nsxv.dvs_id
+        if cfg.CONF.nsxv.use_dvs_features:
+            self._dvs = dvs.DvsManager(dvs_id=self.dvs_id)
+        else:
+            self._dvs = None
         # Create the client to interface with the NSX-v
         _nsx_v_callbacks = edge_utils.NsxVCallbacks(self)
         self.nsx_v = vcns_driver.VcnsDriver(_nsx_v_callbacks)
@@ -223,7 +229,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._configure_reservations()
         self.edge_manager = edge_utils.EdgeManager(self.nsx_v, self)
         self.vdn_scope_id = cfg.CONF.nsxv.vdn_scope_id
-        self.dvs_id = cfg.CONF.nsxv.dvs_id
         self.nsx_sg_utils = securitygroup_utils.NsxSecurityGroupUtils(
             self.nsx_v)
         self._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
@@ -248,11 +253,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._process_security_groups_rules_logging()
 
         self._router_managers = managers.RouterTypeManager(self)
-
-        if cfg.CONF.nsxv.use_dvs_features:
-            self._dvs = dvs.DvsManager(dvs_id=self.dvs_id)
-        else:
-            self._dvs = None
 
         if self.edge_manager.is_dhcp_opt_enabled:
             # Only expose the extension if it is supported

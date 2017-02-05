@@ -474,6 +474,12 @@ nsxv_opts = [
                        'edges will be placed in the primary datastore as '
                        'active and the other half will be placed in the '
                        'ha_datastore')),
+    cfg.ListOpt('edge_host_groups',
+                default=[],
+                help=_('(Optional) If edge HA is used then this will ensure '
+                       'that active/backup edges are placed in the listed '
+                       'host groups. 2 predefined host groups need to be '
+                       'configured.')),
     cfg.StrOpt('external_network',
                help=_('(Required) Network ID for physical network '
                       'connectivity')),
@@ -682,6 +688,12 @@ nsxv_az_opts = [
                        'active and the other half will be placed in the '
                        'ha_datastore. If this value is not set, the global '
                        'one will be used')),
+    cfg.ListOpt('edge_host_groups',
+                default=[],
+                help=_('(Optional) If edge HA is used then this will ensure '
+                       'that active/backup edges are placed in the listed '
+                       'host groups. 2 predefined host groups need to be '
+                       'configured.')),
     cfg.ListOpt('backup_edge_pool',
                 help=_("(Optional) Defines edge pool's management range for "
                        "the availability zone. If not defined, the global one "

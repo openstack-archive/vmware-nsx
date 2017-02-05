@@ -487,3 +487,122 @@ class DvsManager(object):
                                            "config.uplinkPortPolicy")
         standby = list(set(uplinks.uplinkPortName) - set(ports))
         policy.uplinkPortOrder.standbyUplinkPort = standby
+
+    def _reconfigure_cluster(self, session, cluster, config_spec):
+        """Reconfigure a cluster in vcenter"""
+        try:
+            reconfig_task = session.invoke_api(
+                session.vim, "ReconfigureComputeResource_Task",
+                cluster, spec=config_spec, modify=True)
+        except Exception as excep:
+            LOG.exception(_LE('Failed to reconfigure cluster %s'), excep)
+        session.wait_for_task(reconfig_task)
+
+    def _create_vm_group_spec(self, client_factory, name, vm_refs):
+        group = client_factory.create('ns0:ClusterVmGroup')
+        group.name = name
+
+        # On vCenter UI, it is not possible to create VM group without
+        # VMs attached to it. But, using APIs, it is possible to create
+        # VM group without VMs attached. Therefore, check for existence
+        # of vm attribute in the group to avoid exceptions
+        if hasattr(group, 'vm'):
+            group.vm += vm_refs
+        else:
+            group.vm = vm_refs
+
+        group_spec = client_factory.create('ns0:ClusterGroupSpec')
+        group_spec.operation = 'add'
+        group_spec.info = group
+        return [group_spec]
+
+    def _delete_vm_group_spec(self, client_factory, name):
+        group_spec = client_factory.create('ns0:ClusterGroupSpec')
+        group = client_factory.create('ns0:ClusterVmGroup')
+        group.name = name
+        group_spec.operation = 'remove'
+        group_spec.removeKey = name
+        group_spec.info = group
+        return [group_spec]
+
+    def _create_cluster_rules_spec(self, client_factory, name, vm_group_name,
+                                   host_group_name):
+        rules_spec = client_factory.create('ns0:ClusterRuleSpec')
+        rules_spec.operation = 'add'
+        policy_class = 'ns0:ClusterVmHostRuleInfo'
+        rules_info = client_factory.create(policy_class)
+        rules_info.enabled = True
+        rules_info.mandatory = True
+        rules_info.name = name
+        rules_info.vmGroupName = vm_group_name
+        rules_info.affineHostGroupName = host_group_name
+        rules_spec.info = rules_info
+        return rules_spec
+
+    def _delete_cluster_rules_spec(self, client_factory, rule):
+        rules_spec = client_factory.create('ns0:ClusterRuleSpec')
+        rules_spec.operation = 'remove'
+        rules_spec.removeKey = int(rule.key)
+        policy_class = 'ns0:ClusterVmHostRuleInfo'
+        rules_info = client_factory.create(policy_class)
+        rules_info.name = rule.name
+        rules_info.vmGroupName = rule.vmGroupName
+        rules_info.affineHostGroupName = rule.affineHostGroupName
+        rules_spec.info = rules_info
+        return rules_spec
+
+    def update_cluster_edge_failover(self, resource_id, vm_moids,
+                                     edge_id, host_group_names):
+        """Updates cluster for vm placement using DRS"""
+        session = self._session
+        resource = vim_util.get_moref(resource_id, 'ResourcePool')
+        # TODO(garyk): cache the cluster details
+        cluster = session.invoke_api(
+            vim_util, "get_object_property", self._session.vim, resource,
+            "owner")
+        vms = [vim_util.get_moref(vm_moid, 'VirtualMachine') for
+               vm_moid in vm_moids]
+        client_factory = session.vim.client.factory
+        config_spec = client_factory.create('ns0:ClusterConfigSpecEx')
+        # Create the VM groups
+        config_spec.groupSpec = [
+            self._create_vm_group_spec(
+                client_factory,
+                'neutron-group-%s-%s' % (edge_id, index),
+                [vm])
+            for index, vm in enumerate(vms, start=1)]
+        config_spec.rulesSpec = [
+            self._create_cluster_rules_spec(
+                client_factory, 'neutron-rule-%s-%s' % (edge_id, index),
+                'neutron-group-%s-%s' % (edge_id, index), host_group_name)
+            for index, host_group_name in enumerate(host_group_names, start=1)]
+        self._reconfigure_cluster(session, cluster, config_spec)
+
+    def cluster_edge_delete(self, resource_id, edge_id):
+        session = self._session
+        resource = vim_util.get_moref(resource_id, 'ResourcePool')
+        # TODO(garyk): cache the cluster details
+        cluster = session.invoke_api(
+            vim_util, "get_object_property", self._session.vim, resource,
+            "owner")
+        client_factory = session.vim.client.factory
+        config_spec = client_factory.create('ns0:ClusterConfigSpecEx')
+        cluster_config = session.invoke_api(
+            vim_util, "get_object_property", self._session.vim, cluster,
+            "configurationEx")
+        groupSpec = []
+        for group in cluster_config.group:
+            if 'neutron-group-%s-' % (edge_id) in group.name:
+                groupSpec.append(self._delete_vm_group_spec(
+                    client_factory, group.name))
+        if groupSpec:
+            config_spec.groupSpec = groupSpec
+        ruleSpec = []
+        for rule in cluster_config.rule:
+            if 'neutron-rule-%s-' % (edge_id) in rule.name:
+                ruleSpec.append(self._delete_cluster_rules_spec(
+                    client_factory, rule))
+        if ruleSpec:
+            config_spec.rulesSpec = ruleSpec
+        if groupSpec or ruleSpec:
+            self._reconfigure_cluster(session, cluster, config_spec)
