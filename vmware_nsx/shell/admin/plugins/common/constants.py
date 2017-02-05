@@ -32,6 +32,7 @@ SECURITY_GROUPS = 'security-groups'
 PORTS = 'ports'
 METADATA_PROXY = 'metadata-proxy'
 ORPHANED_DHCP_SERVERS = 'orphaned-dhcp-servers'
+CERTIFICATE = 'certificate'
 
 # NSXV Resource Constants
 EDGES = 'edges'

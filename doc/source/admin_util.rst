@@ -294,6 +294,21 @@ Orphaned DHCP Servers
 
     nsxadmin -r orphaned-dhcp-servers -o nsx-clean
 
+Client Certificate
+~~~~~~~~~~~~~~~~~~
+
+- Generate new client certificate (this command will delete previous certificate if exists)::
+
+    nsxadmin -r certificate -o generate --property username=<username> --property password=<password>
+
+- Delete client certificate::
+
+    nsxadmin -r certificate -o clean
+
+- Show client certificate details::
+
+    nsxadmin -r certificate -o show
+
 Upgrade Steps (Version 1.0.0 to Version 1.1.0)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

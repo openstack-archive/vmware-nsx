@@ -23,6 +23,10 @@ class NsxPluginException(n_exc.NeutronException):
     message = _("An unexpected error occurred in the NSX Plugin: %(err_msg)s")
 
 
+class ClientCertificateException(NsxPluginException):
+    message = _("Client certificate error: %(err_msg)s")
+
+
 class InvalidVersion(NsxPluginException):
     message = _("Unable to fulfill request with version %(version)s.")
 

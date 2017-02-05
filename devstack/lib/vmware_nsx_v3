@@ -40,6 +40,9 @@ METADATA_PROXY_SHARED_SECRET=${METADATA_PROXY_SHARED_SECRET:-}
 NSX_XTRACE=$(set +o | grep xtrace)
 set +o xtrace
 
+# File to store client certificate and PK
+CLIENT_CERT_FILE=${DEST}/data/neutron/client.pem
+
 source $TOP_DIR/lib/neutron_plugins/ovs_base
 
 
@@ -179,6 +182,11 @@ function neutron_plugin_configure_service {
         _nsxv3_ini_set metadata_proxy $METADATA_PROXY_UUID
         iniset $NEUTRON_CONF DEFAULT dhcp_agent_notification False
     fi
+    if [[ "$NSX_USE_CLIENT_CERT_AUTH" == "True" ]]; then
+        _nsxv3_ini_set nsx_use_client_auth "True"
+        _nsxv3_ini_set nsx_client_cert_file "$CLIENT_CERT_FILE"
+        _nsxv3_ini_set nsx_client_cert_storage "nsx-db"
+    fi
 }
 
 function neutron_plugin_setup_interface_driver {
@@ -202,6 +210,10 @@ function init_vmware_nsx_v3 {
         if is_service_enabled q-dhcp q-meta; then
             die $LINENO "Native support does not require DHCP and Metadata agents!"
         fi
+    fi
+    # Generate client certificate
+    if [[ "$NSX_USE_CLIENT_CERT_AUTH" == "True" ]]; then
+        nsxadmin -o generate -r certificate
     fi
     if ! is_set NSX_GATEWAY_NETWORK_INTERFACE; then
         echo "NSX_GATEWAY_NETWORK_INTERFACE not set not configuring routes"
@@ -257,6 +269,9 @@ function stop_vmware_nsx_v3 {
     for address in $addresses; do
         sudo ip addr add dev $NSX_GATEWAY_NETWORK_INTERFACE $address
     done
+
+    # Clean client certificate if exists
+    nsxadmin -o clean -r certificate
 }
 
 # Restore xtrace
