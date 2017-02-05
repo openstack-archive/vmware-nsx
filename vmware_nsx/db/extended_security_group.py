@@ -332,6 +332,7 @@ class ExtendedSecurityGroupPropertiesMixin(object):
             self._process_port_create_provider_security_group(
                 context, updated_port,
                 updated_port[provider_sg.PROVIDER_SECURITYGROUPS])
+        return provider_sg_changed
 
     def _prevent_non_admin_delete_provider_sg(self, context, sg_id):
         # Only someone who is an admin is allowed to delete this.

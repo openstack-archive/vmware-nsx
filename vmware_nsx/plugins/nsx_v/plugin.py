@@ -1677,9 +1677,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                                    original_port, ret_port)
             # NOTE(roeyc): Should call this method only after
             # update_security_group_on_port was called.
-            self._process_port_update_provider_security_group(context, port,
-                                                              original_port,
-                                                              ret_port)
+            pvd_sg_changed = self._process_port_update_provider_security_group(
+                context, port, original_port, ret_port)
 
             LOG.debug("Updating port: %s", port)
             self._process_portbindings_create_and_update(context,
@@ -1824,7 +1823,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                     "function properly "),
                                 {'id': id,
                                  'device_id': original_port['device_id']})
-                if delete_security_groups or has_security_groups:
+                if (delete_security_groups
+                        or has_security_groups or pvd_sg_changed):
                     # Update security-groups,
                     # calculate differences and update vnic membership
                     # accordingly.
