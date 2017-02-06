@@ -403,7 +403,7 @@ class NsxVMetadataProxyHandler(object):
                     'name': 'metadata_proxy_router',
                     'admin_state_up': True,
                     'router_type': 'exclusive',
-                    'tenant_id': None}}
+                    'tenant_id': nsxv_constants.INTERNAL_TENANT_ID}}
 
             rtr = self.nsxv_plugin.create_router(
                 context,
@@ -432,7 +432,7 @@ class NsxVMetadataProxyHandler(object):
                     'fixed_ips': constants.ATTR_NOT_SPECIFIED,
                     'mac_address': constants.ATTR_NOT_SPECIFIED,
                     'port_security_enabled': False,
-                    'tenant_id': None}}
+                    'tenant_id': nsxv_constants.INTERNAL_TENANT_ID}}
 
             port = self.nsxv_plugin.base_create_port(context, port_data)
 
@@ -660,7 +660,7 @@ class NsxVMetadataProxyHandler(object):
                 'fixed_ips': constants.ATTR_NOT_SPECIFIED,
                 'mac_address': constants.ATTR_NOT_SPECIFIED,
                 'port_security_enabled': False,
-                'tenant_id': None}}
+                'tenant_id': nsxv_constants.INTERNAL_TENANT_ID}}
 
         self.nsxv_plugin.base_create_port(ctx, port_data)
 

@@ -72,6 +72,9 @@ class FakeVcns(object):
         self._spoofguard_policies = []
         self._ipam_pools = {}
 
+    def do_request(self, method, uri, params=None, format='json', **kwargs):
+        pass
+
     def set_fake_nsx_api(self, fake_nsx_api):
         self._fake_nsx_api = fake_nsx_api
 

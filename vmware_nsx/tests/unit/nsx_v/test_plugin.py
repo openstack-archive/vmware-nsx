@@ -177,6 +177,8 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
         plugin_instance._get_edge_id_by_rtr_id = mock.Mock()
         plugin_instance._get_edge_id_by_rtr_id.return_value = False
         plugin_instance.edge_manager.is_dhcp_opt_enabled = True
+        # call init_complete manually. The event is not called in unit tests
+        plugin_instance.init_complete(None, None, {})
 
     def _get_core_plugin_with_dvs(self):
         # enable dvs features to allow policy with QOS
