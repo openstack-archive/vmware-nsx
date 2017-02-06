@@ -69,11 +69,11 @@ class TestProviderSecurityGroup(manager.NetworkScenarioTest):
         self.servers = []
 
     def create_security_provider_group(self, cmgr=None,
-                                       tenant_id=None, provider=False):
+                                       project_id=None, provider=False):
         sg_client_admin = self.cmgr_adm.security_groups_client
         sg_dict = dict(name=data_utils.rand_name('provider-sec-group'))
-        if tenant_id:
-            sg_dict['tenant_id'] = tenant_id
+        if project_id:
+            sg_dict['tenant_id'] = project_id
         if provider:
             sg_dict['provider'] = True
         sg = sg_client_admin.create_security_group(**sg_dict)
@@ -156,14 +156,14 @@ class TestProviderSecurityGroup(manager.NetworkScenarioTest):
                 return address['addr']
 
     def create_security_group_rule(self, security_group_id,
-                                   cmgr=None, tenant_id=None,
+                                   cmgr=None, project_id=None,
                                    protocol=None):
         cmgr = cmgr or self.cmgr_adm
         sgr_client = cmgr.security_group_rules_client
         sgr_dict = dict(security_group_id=security_group_id,
                         direction='ingress', protocol=protocol)
-        if tenant_id:
-            sgr_dict['tenant_id'] = tenant_id
+        if project_id:
+            sgr_dict['tenant_id'] = project_id
         sgr = sgr_client.create_security_group_rule(**sgr_dict)
         return sgr.get('security_group_rule', sgr)
 
@@ -225,13 +225,72 @@ class TestProviderSecurityGroup(manager.NetworkScenarioTest):
                                                          src=floating_ip))
                 raise
 
-    def _test_connectivity_between_default_psg_server(self, network_topo):
+    def _create_vms_without_psg(self, network_topo):
         server_name_default = data_utils.rand_name('server-default-sec-group')
         network = network_topo['network']
         server_default = self._create_server(server_name_default, network)
-        tenant_id = network['tenant_id']
+        server_name_psg = data_utils.rand_name('server-psg-sec-group')
+        server_psg = self._create_server(server_name_psg, network)
+        servers = dict(server_default=server_default, server_psg=server_psg)
+        return servers
+
+    def _test_connectivity_between_vms_after_port_update(self, network_topo,
+                                                         servers):
+        floating_ip_default = self.create_floating_ip(
+            servers['server_default'])
+        floating_ip_psg = self.create_floating_ip(servers['server_psg'])
+        private_ip_address_psg_vm = floating_ip_psg['fixed_ip_address']
+        public_ip_address_psg_vm = \
+            floating_ip_psg['floating_ip_address']
+        private_ip_address_default_vm = floating_ip_default['fixed_ip_address']
+        public_ip_address_default_vm = \
+            floating_ip_default['floating_ip_address']
+        private_key_default_vm = \
+            self._get_server_key(servers['server_default'])
+        private_key_psg_vm = \
+            self._get_server_key(servers['server_psg'])
+        self._check_server_connectivity(public_ip_address_default_vm,
+                                        private_ip_address_psg_vm,
+                                        private_key_default_vm)
+        self._check_server_connectivity(public_ip_address_psg_vm,
+                                        private_ip_address_default_vm,
+                                        private_key_psg_vm)
+        project_id = network_topo['network']['tenant_id']
         sg = self.create_security_provider_group(provider=True,
-                                                 tenant_id=tenant_id)
+                                                 project_id=project_id)
+        sg_id = sg.get('id')
+        self.create_security_group_rule(sg_id, cmgr=self.cmgr_adm,
+                                        protocol='icmp')
+        p_client = self.ports_client
+        kwargs = {"provider_security_groups": ["%s" % sg_id]}
+        port_id_psg = self.get_port_id(network_topo['network']['id'],
+                                       network_topo['subnet']['id'],
+                                       servers['server_psg'])
+        port_id_default = self.get_port_id(network_topo['network']['id'],
+                                           network_topo['subnet']['id'],
+                                           servers['server_default'])
+        p_client.update_port(port_id_psg, **kwargs)
+        p_client.update_port(port_id_default, **kwargs)
+        self._check_server_connectivity(public_ip_address_default_vm,
+                                        private_ip_address_psg_vm,
+                                        private_key_default_vm,
+                                        should_connect=False)
+        self._check_server_connectivity(public_ip_address_psg_vm,
+                                        private_ip_address_default_vm,
+                                        private_key_psg_vm,
+                                        should_connect=False)
+        kwargs = {"provider_security_groups": ''}
+        p_client.update_port(port_id_psg, **kwargs)
+        p_client.update_port(port_id_default, **kwargs)
+
+    def _test_connectivity_between_default_psg_server(self, network_topo):
+        server_name_default = \
+            data_utils.rand_name('server-default-sec-group')
+        network = network_topo['network']
+        server_default = self._create_server(server_name_default, network)
+        project_id = network['tenant_id']
+        sg = self.create_security_provider_group(provider=True,
+                                                 project_id=project_id)
         sg_id = sg.get('id')
         server_name_psg = data_utils.rand_name('server-psg-sec-group')
         server_psg = self._create_server(server_name_psg, network)
@@ -254,9 +313,9 @@ class TestProviderSecurityGroup(manager.NetworkScenarioTest):
         server_name_default = data_utils.rand_name('server-default-sec-group')
         network = network_topo['network']
         server_default = self._create_server(server_name_default, network)
-        tenant_id = network['tenant_id']
+        project_id = network['tenant_id']
         sg = self.create_security_provider_group(provider=True,
-                                                 tenant_id=tenant_id)
+                                                 project_id=project_id)
         sg_id = sg.get('id')
         server_name_psg = data_utils.rand_name('server-psg-sec-group')
         server_psg = self._create_server(server_name_psg, network)
@@ -296,9 +355,9 @@ class TestProviderSecurityGroup(manager.NetworkScenarioTest):
         server_default_1 = self._create_server(server_name_default_1, network)
         server_default_2 = self._create_server(server_name_default_2,
                                                network2)
-        tenant_id = network['tenant_id']
+        project_id = network['tenant_id']
         sg = self.create_security_provider_group(provider=True,
-                                                 tenant_id=tenant_id)
+                                                 project_id=project_id)
         sg_id = sg.get('id')
         server_name_psg_1 = data_utils.rand_name('server-psg-sec-group1')
         server_psg_1 = self._create_server(server_name_psg_1, network)
@@ -343,6 +402,14 @@ class TestProviderSecurityGroup(manager.NetworkScenarioTest):
     def test_connectivity_between_default_psg_server(self):
         self.network_topo = self.create_network_topo()
         self._test_connectivity_between_default_psg_server(self.network_topo)
+
+    @test.attr(type='nsxv3')
+    @test.idempotent_id('a14b5c25-39ce-4641-bd51-f28c25e69440')
+    def test_vm_connectivity_port_update_with_psg(self):
+        self.network_topo = self.create_network_topo()
+        self.servers = self._create_vms_without_psg(self.network_topo)
+        self._test_connectivity_between_vms_after_port_update(
+            self.network_topo, self.servers)
 
     @test.attr(type='nsxv3')
     @test.idempotent_id('4a8eac6a-68ff-4392-bab9-70ea08132acb')
