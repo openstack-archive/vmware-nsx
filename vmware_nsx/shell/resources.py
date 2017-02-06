@@ -98,7 +98,8 @@ nsxv3_resources = {
                                     [Operations.GENERATE.value,
                                      Operations.SHOW.value,
                                      Operations.CLEAN.value,
-                                     Operations.IMPORT.value])
+                                     Operations.IMPORT.value,
+                                     Operations.NSX_LIST.value])
 }
 
 # Add supported NSX-V resources in this dictionary
