@@ -15,11 +15,12 @@
 
 import netaddr
 
+from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import locking
-from vmware_nsx.db import nsxv_db
+from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 
 MEMBER_ID_PFX = 'member-'
 
@@ -28,25 +29,49 @@ def get_member_id(member_id):
     return MEMBER_ID_PFX + member_id
 
 
-def get_lbaas_edge_id_for_subnet(context, plugin, subnet_id, tenant_id):
-    """
-    Grab the id of an Edge appliance that is connected to subnet_id.
-    """
-    subnet = plugin.get_subnet(context, subnet_id)
-    net_id = subnet.get('network_id')
-    filters = {'network_id': [net_id],
-               'device_owner': ['network:router_interface'],
-               'tenant_id': [tenant_id]}
-    attached_routers = plugin.get_ports(context.elevated(),
-                                        filters=filters,
-                                        fields=['device_id'])
+def get_lb_resource_id(lb_id):
+    return ('lbaas-' + lb_id)[:36]
 
-    for attached_router in attached_routers:
-        router = plugin.get_router(context, attached_router['device_id'])
-        if router.get('router_type') == 'exclusive':
-            rtr_bindings = nsxv_db.get_nsxv_router_binding(context.session,
-                                                           router['id'])
-            return rtr_bindings['edge_id']
+
+def get_lbaas_edge_id(context, plugin, lb_id, vip_addr, subnet_id, tenant_id):
+    subnet = plugin.get_subnet(context, subnet_id)
+    network_id = subnet.get('network_id')
+    availability_zone = plugin.get_network_az(context, network_id)
+
+    resource_id = get_lb_resource_id(lb_id)
+
+    edge_id = plugin.edge_manager.allocate_lb_edge_appliance(
+        context, resource_id, availability_zone=availability_zone)
+
+    port_dict = {'name': 'lb_if-' + lb_id,
+                 'admin_state_up': True,
+                 'network_id': network_id,
+                 'tenant_id': tenant_id,
+                 'fixed_ips': [{'subnet_id': subnet['id']}],
+                 'device_owner': constants.DEVICE_OWNER_NEUTRON_PREFIX + 'LB',
+                 'device_id': lb_id,
+                 'mac_address': constants.ATTR_NOT_SPECIFIED
+                 }
+    port = plugin.base_create_port(context, {'port': port_dict})
+    ip_addr = port['fixed_ips'][0]['ip_address']
+    net = netaddr.IPNetwork(subnet['cidr'])
+
+    address_groups = [{'primaryAddress': ip_addr,
+                       'subnetPrefixLength': str(net.prefixlen),
+                       'subnetMask': str(net.netmask),
+                       'secondaryAddresses': {
+                           'type': 'secondary_addresses',
+                           'ipAddress': [vip_addr]}
+                       }]
+    edge_utils.update_internal_interface(
+        plugin.nsx_v, context, resource_id,
+        network_id, address_groups)
+
+    gw_ip = subnet.get('gateway_ip')
+    if gw_ip:
+        plugin.nsx_v.update_routes(edge_id, gw_ip, [])
+
+    return edge_id
 
 
 def find_address_in_same_subnet(ip_addr, address_groups):
