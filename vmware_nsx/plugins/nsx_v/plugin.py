@@ -85,6 +85,7 @@ import vmware_nsx
 from vmware_nsx._i18n import _, _LE, _LI, _LW
 from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.common import l3_rpc_agent_api
 from vmware_nsx.common import locking
 from vmware_nsx.common import managers as nsx_managers
 from vmware_nsx.common import nsx_constants
@@ -190,6 +191,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     def __init__(self):
         self._extension_manager = nsx_managers.ExtensionManager()
         super(NsxVPluginV2, self).__init__()
+        # Bind the dummy L3 notifications
+        self.l3_rpc_notifier = l3_rpc_agent_api.L3NotifyAPI()
         self.init_is_complete = False
         registry.subscribe(self.init_complete,
                            resources.PROCESS,
