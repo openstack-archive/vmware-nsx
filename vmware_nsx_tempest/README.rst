@@ -61,7 +61,7 @@ Installation:
     [tempest.test_plugins]
     vmware-nsx-tempest-plugin = vmware_nsx_tempest.plugin:VMwareNsxTempestPlugin
 
-#. Validate installed vmware_nsx_tempest succesfully do::
+#. Validate installed vmware_nsx_tempest successfully do::
 
     $ cd /opt/devtest/os-tempest
     $ tools/with_venv.sh testr list-tests vmware_nsx_tempest.*l2_gateway
