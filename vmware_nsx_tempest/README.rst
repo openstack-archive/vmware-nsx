@@ -4,7 +4,7 @@ vmware_nsx_tempest is a plugin module to openstack tempest project.
 
 If you are not familiar with tempest, please refer to::
 
-   http://docs.openstack.org/developer/tempest
+   https://docs.openstack.org/developer/tempest
 
 It is implemented with tempest external plugin.
 The official design sepcification is at::

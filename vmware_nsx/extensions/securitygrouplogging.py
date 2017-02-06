@@ -48,7 +48,7 @@ class Securitygrouplogging(extensions.ExtensionDescriptor):
     @classmethod
     def get_namespace(cls):
         # todo
-        return "http://docs.openstack.org/ext/security_group_logging/api/v2.0"
+        return "https://docs.openstack.org/ext/security_group_logging/api/v2.0"
 
     @classmethod
     def get_updated(cls):
