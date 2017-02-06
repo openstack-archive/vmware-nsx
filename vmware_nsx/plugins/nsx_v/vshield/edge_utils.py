@@ -122,9 +122,9 @@ def is_overlapping_reserved_subnets(cidr, reserved_subnets):
     return False
 
 
-def parse_backup_edge_pool_opt():
-    """Parse edge pool opts and returns result."""
-    edge_pool_opts = cfg.CONF.nsxv.backup_edge_pool
+def parse_backup_edge_pool_opt_per_az(az):
+    """Parse edge pool opts per AZ and returns result."""
+    edge_pool_opts = az.backup_edge_pool
     res = []
     for edge_pool_def in edge_pool_opts:
         split = edge_pool_def.split(':')
@@ -132,20 +132,25 @@ def parse_backup_edge_pool_opt():
             (edge_type, edge_size, minimum_pooled_edges,
              maximum_pooled_edges) = split[:4]
         except ValueError:
-            raise n_exc.Invalid(_("Invalid edge pool format"))
+            raise n_exc.Invalid(_("Invalid edge pool format for availability"
+                                  " zone %s") % az.name)
         if edge_type not in vcns_const.ALLOWED_EDGE_TYPES:
             msg = (_("edge type '%(edge_type)s' is not allowed, "
-                     "allowed types: %(allowed)s") %
+                     "allowed types: %(allowed)s for availability zone "
+                     "%(name)s") %
                    {'edge_type': edge_type,
-                    'allowed': vcns_const.ALLOWED_EDGE_TYPES})
+                    'allowed': vcns_const.ALLOWED_EDGE_TYPES,
+                    'name': az.name})
             LOG.error(msg)
             raise n_exc.Invalid(msg)
         edge_size = edge_size or nsxv_constants.COMPACT
         if edge_size not in vcns_const.ALLOWED_EDGE_SIZES:
             msg = (_("edge size '%(edge_size)s' is not allowed, "
-                     "allowed types: %(allowed)s") %
+                     "allowed types: %(allowed)s for availability zone "
+                     "%(name)s") %
                    {'edge_type': edge_size,
-                    'allowed': vcns_const.ALLOWED_EDGE_SIZES})
+                    'allowed': vcns_const.ALLOWED_EDGE_SIZES,
+                    'name': az.name})
             LOG.error(msg)
             raise n_exc.Invalid(msg)
         res.append({'edge_type': edge_type,
@@ -159,7 +164,8 @@ def parse_backup_edge_pool_opt():
     for r in res:
         edge_pool_dict = edge_pool_dicts[r['edge_type']]
         if r['edge_size'] in edge_pool_dict.keys():
-            raise n_exc.Invalid(_("Duplicate edge pool configuration"))
+            raise n_exc.Invalid(_("Duplicate edge pool configuration for "
+                                  "availability zone %s") % az.name)
         else:
             edge_pool_dict[r['edge_size']] = {
                 'minimum_pooled_edges': r['minimum_pooled_edges'],
@@ -179,13 +185,25 @@ class EdgeManager(object):
         self._worker_pool = None
         self.nsxv_manager = nsxv_manager
         self.dvs_id = cfg.CONF.nsxv.dvs_id
-        self.edge_pool_dicts = parse_backup_edge_pool_opt()
+        self._availability_zones = nsx_az.ConfiguredAvailabilityZones()
+        self.edge_pool_dicts = self._parse_backup_edge_pool_opt()
         self.nsxv_plugin = nsxv_manager.callbacks.plugin
         self.plugin = plugin
-        self._availability_zones = nsx_az.ConfiguredAvailabilityZones()
         self.per_interface_rp_filter = self._get_per_edge_rp_filter_state()
         self._check_backup_edge_pools()
         self._validate_new_features()
+
+    def _parse_backup_edge_pool_opt(self):
+        """Parse edge pool opts for all availability zones."""
+        az_list = self._availability_zones.list_availability_zones()
+        az_pools = {}
+        for az_name in az_list:
+            az = self._availability_zones.get_availability_zone(az_name)
+            az_pools[az.name] = parse_backup_edge_pool_opt_per_az(az)
+        return az_pools
+
+    def _get_az_pool(self, az_name):
+        return self.edge_pool_dicts[az_name]
 
     def _get_worker_pool(self):
         if self._worker_pool_pid != os.getpid():
@@ -337,7 +355,7 @@ class EdgeManager(object):
         for az_name in self._availability_zones.list_availability_zones():
             az = self._availability_zones.get_availability_zone(az_name)
             self._clean_all_error_edge_bindings(admin_ctx, az)
-            for edge_type, v in self.edge_pool_dicts.items():
+            for edge_type, v in self._get_az_pool(az.name).items():
                 for edge_size in vcns_const.ALLOWED_EDGE_SIZES:
                     if edge_size in v.keys():
                         edge_pool_range = v[edge_size]
@@ -626,7 +644,8 @@ class EdgeManager(object):
                      nsxv_constants.SERVICE_EDGE)
         lrouter = {'id': resource_id,
                    'name': name}
-        edge_pool_range = self.edge_pool_dicts[edge_type].get(appliance_size)
+        az_pool = self._get_az_pool(availability_zone.name)
+        edge_pool_range = az_pool[edge_type].get(appliance_size)
         if edge_pool_range is None:
             nsxv_db.add_nsxv_router_binding(
                 context.session, resource_id, None, None,
@@ -717,7 +736,8 @@ class EdgeManager(object):
         edge_id = binding['edge_id']
         availability_zone_name = nsxv_db.get_edge_availability_zone(
             context.session, edge_id)
-        edge_pool_range = self.edge_pool_dicts[binding['edge_type']].get(
+        az_pool = self._get_az_pool(availability_zone_name)
+        edge_pool_range = az_pool[binding['edge_type']].get(
             binding['appliance_size'])
 
         nsxv_db.delete_nsxv_router_binding(

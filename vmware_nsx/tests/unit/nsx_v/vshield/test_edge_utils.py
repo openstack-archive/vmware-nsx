@@ -327,18 +327,18 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         self.check = mock.patch.object(self.edge_manager,
                                        'check_edge_active_at_backend').start()
         self.check.side_effect = self.check_edge_active_at_backend
-        self.default_edge_pool_dicts = {
+        self.default_edge_pool_dicts = {'default': {
             nsxv_constants.SERVICE_EDGE: {
                 nsxv_constants.LARGE: {'minimum_pooled_edges': 1,
                                        'maximum_pooled_edges': 3},
                 nsxv_constants.COMPACT: {'minimum_pooled_edges': 1,
                                          'maximum_pooled_edges': 3}},
-            nsxv_constants.VDR_EDGE: {}}
-        self.vdr_edge_pool_dicts = {
+            nsxv_constants.VDR_EDGE: {}}}
+        self.vdr_edge_pool_dicts = {'default': {
             nsxv_constants.SERVICE_EDGE: {},
             nsxv_constants.VDR_EDGE: {
                 nsxv_constants.LARGE: {'minimum_pooled_edges': 1,
-                                       'maximum_pooled_edges': 3}}}
+                                       'maximum_pooled_edges': 3}}}}
 
     def check_edge_active_at_backend(self, edge_id):
         # workaround to let edge_id None pass since we wrapped router binding
@@ -352,12 +352,15 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         cfg.CONF.set_override('backup_edge_pool',
                               ['service:large:1:3', 'service:compact:1:3'],
                               'nsxv')
-        edge_pool_dicts = edge_utils.parse_backup_edge_pool_opt()
-        self.assertEqual(self.default_edge_pool_dicts, edge_pool_dicts)
+        az = nsx_az.ConfiguredAvailabilityZone(None)
+        edge_pool_dicts = edge_utils.parse_backup_edge_pool_opt_per_az(az)
+        self.assertEqual(self.default_edge_pool_dicts['default'],
+                         edge_pool_dicts)
 
     def test_backup_edge_pool_with_empty_conf(self):
         cfg.CONF.set_override('backup_edge_pool', [], 'nsxv')
-        edge_pool_dicts = edge_utils.parse_backup_edge_pool_opt()
+        az = nsx_az.ConfiguredAvailabilityZone(None)
+        edge_pool_dicts = edge_utils.parse_backup_edge_pool_opt_per_az(az)
         expect_edge_pool_dicts = {
             nsxv_constants.SERVICE_EDGE: {},
             nsxv_constants.VDR_EDGE: {}}
@@ -365,15 +368,18 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
 
     def test_backup_edge_pool_with_vdr_conf(self):
         cfg.CONF.set_override('backup_edge_pool', ['vdr:large:1:3'], 'nsxv')
-        edge_pool_dicts = edge_utils.parse_backup_edge_pool_opt()
-        expect_edge_pool_dicts = self.vdr_edge_pool_dicts
+        az = nsx_az.ConfiguredAvailabilityZone(None)
+        edge_pool_dicts = edge_utils.parse_backup_edge_pool_opt_per_az(az)
+        expect_edge_pool_dicts = self.vdr_edge_pool_dicts['default']
         self.assertEqual(expect_edge_pool_dicts, edge_pool_dicts)
 
     def test_backup_edge_pool_with_duplicate_conf(self):
         cfg.CONF.set_override('backup_edge_pool',
                               ['service:compact:1:3', 'service::3:4'],
                               'nsxv')
-        self.assertRaises(n_exc.Invalid, edge_utils.parse_backup_edge_pool_opt)
+        az = nsx_az.ConfiguredAvailabilityZone(None)
+        self.assertRaises(n_exc.Invalid,
+                          edge_utils.parse_backup_edge_pool_opt_per_az, az)
 
     def _create_router_bindings(self, num, status, id_prefix, size,
                                 edge_type, availability_zone):

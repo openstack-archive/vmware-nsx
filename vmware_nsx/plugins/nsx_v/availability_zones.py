@@ -66,12 +66,22 @@ class ConfiguredAvailabilityZone(object):
                              "enabled"))
 
             self.ha_datastore_id = values[4] if len(values) == 5 else None
-            # Use the global configuration for ha_placement_random
+
+            # Some parameters are not supported in this format.
+            # using the global ones instead.
             self.ha_placement_random = cfg.CONF.nsxv.ha_placement_random
+            self.backup_edge_pool = cfg.CONF.nsxv.backup_edge_pool
         elif config_line:
             # Newer configuration - the name of the availability zone can be
             # used to get the rest of the configuration for this AZ
             self.name = config_line
+            # field name size in the DB is 36
+            if len(self.name) > 36:
+                raise nsx_exc.NsxInvalidConfiguration(
+                    opt_name="availability_zones",
+                    opt_value=config_line,
+                    reason=_("Maximum name length is 36"))
+
             az_info = config.get_nsxv_az_opts(self.name)
             self.resource_pool = az_info.get('resource_pool_id')
             if not self.resource_pool:
@@ -92,11 +102,17 @@ class ConfiguredAvailabilityZone(object):
             self.ha_datastore_id = (az_info.get('ha_datastore_id')
                                     if self.edge_ha else None)
 
-            # Use the global config for ha_placement_random if not set
+            # The optional parameters will get the global values if not
+            # defined for this AZ
             self.ha_placement_random = az_info.get('ha_placement_random')
             if self.ha_placement_random is None:
                 self.ha_placement_random = (
                     cfg.CONF.nsxv.ha_placement_random)
+
+            self.backup_edge_pool = az_info.get('backup_edge_pool', [])
+            if not self.backup_edge_pool:
+                self.backup_edge_pool = cfg.CONF.nsxv.backup_edge_pool
+
         else:
             # use the default configuration
             self.name = DEFAULT_NAME
@@ -105,6 +121,7 @@ class ConfiguredAvailabilityZone(object):
             self.edge_ha = cfg.CONF.nsxv.edge_ha
             self.ha_datastore_id = cfg.CONF.nsxv.ha_datastore_id
             self.ha_placement_random = cfg.CONF.nsxv.ha_placement_random
+            self.backup_edge_pool = cfg.CONF.nsxv.backup_edge_pool
 
 
 class ConfiguredAvailabilityZones(object):
