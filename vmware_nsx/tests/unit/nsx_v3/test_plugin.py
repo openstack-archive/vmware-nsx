@@ -341,9 +341,41 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                 data = {'port': {'network_id': network['network']['id'],
                         'tenant_id': self._tenant_id,
                         'qos_policy_id': policy_id}}
-                # Cannot add qos policy to a port on ext network
+                # Cannot add qos policy to a router port
                 self.assertRaises(n_exc.InvalidInput,
                           self.plugin.create_port, self.ctx, data)
+
+    def test_create_router_port_with_qos_fail(self):
+        with self.network() as network:
+            with self.subnet(network=network, cidr='10.0.0.0/24'):
+                policy_id = uuidutils.generate_uuid()
+                data = {'port': {'network_id': network['network']['id'],
+                                 'tenant_id': self._tenant_id,
+                                 'device_owner': 'network:router_interface',
+                                 'qos_policy_id': policy_id}}
+                # Cannot add qos policy to a router interface port
+                self.assertRaises(n_exc.InvalidInput,
+                          self.plugin.create_port, self.ctx, data)
+
+    def test_update_router_port_with_qos_fail(self):
+        with self.network() as network:
+            with self.subnet(network=network, cidr='10.0.0.0/24'):
+                policy_id = uuidutils.generate_uuid()
+                data = {'port': {'network_id': network['network']['id'],
+                                 'tenant_id': self._tenant_id,
+                                 'name': 'qos_port',
+                                 'admin_state_up': True,
+                                 'fixed_ips': [],
+                                 'mac_address': '00:00:00:00:00:01',
+                                 'device_id': 'dummy',
+                                 'device_owner': ''}}
+                port = self.plugin.create_port(self.ctx, data)
+                policy_id = uuidutils.generate_uuid()
+                data['port'] = {'qos_policy_id': policy_id,
+                                'device_owner': 'network:router_interface'}
+                # Cannot add qos policy to a router interface port
+                self.assertRaises(n_exc.InvalidInput,
+                          self.plugin.update_port, self.ctx, port['id'], data)
 
     def test_create_port_with_qos_on_net(self):
         with self.network() as network:
