@@ -45,6 +45,13 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
         edge_id = lb_binding['edge_id']
         edge_pool_id = pool_binding['edge_pool_id']
         with locking.LockManager.get_lock(edge_id):
+            # Verify that Edge appliance is connected to the member's subnet
+            if not lb_common.get_lb_interface(
+                    context, self.core_plugin, lb_id, member.subnet_id):
+                lb_common.create_lb_interface(
+                    context, self.core_plugin, lb_id, member.subnet_id,
+                    member.tenant_id)
+
             edge_pool = self.vcns.get_pool(edge_id, edge_pool_id)[1]
             edge_member = {
                 'ipAddress': member.address,
@@ -132,6 +139,19 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
         edge_pool_id = pool_binding['edge_pool_id']
 
         with locking.LockManager.get_lock(edge_id):
+            # we should remove LB subnet interface if no members are attached
+            # and this is not the LB's VIP interface
+            remove_interface = True
+            if member.subnet_id == member.pool.loadbalancer.vip_subnet_id:
+                remove_interface = False
+            else:
+                for m in member.pool.members:
+                    if m.subnet_id == member.subnet_id and m.id != member.id:
+                        remove_interface = False
+            if remove_interface:
+                lb_common.delete_lb_interface(context, self.core_plugin, lb_id,
+                                              member.subnet_id)
+
             edge_pool = self.vcns.get_pool(edge_id, edge_pool_id)[1]
 
             for i, m in enumerate(edge_pool['member']):

@@ -33,15 +33,20 @@ def get_lb_resource_id(lb_id):
     return ('lbaas-' + lb_id)[:36]
 
 
-def get_lbaas_edge_id(context, plugin, lb_id, vip_addr, subnet_id, tenant_id):
-    subnet = plugin.get_subnet(context, subnet_id)
+def get_lb_interface(context, plugin, lb_id, subnet_id):
+    filters = {'fixed_ips': {'subnet_id': [subnet_id]},
+               'device_id': [lb_id],
+               'device_owner': [constants.DEVICE_OWNER_NEUTRON_PREFIX + 'LB']}
+
+    lb_ports = plugin.get_ports(context.elevated(), filters=filters)
+    return lb_ports
+
+
+def create_lb_interface(context, plugin, lb_id, subnet_id, tenant_id,
+                        vip_addr=None, subnet=None):
+    if not subnet:
+        subnet = plugin.get_subnet(context, subnet_id)
     network_id = subnet.get('network_id')
-    availability_zone = plugin.get_network_az(context, network_id)
-
-    resource_id = get_lb_resource_id(lb_id)
-
-    edge_id = plugin.edge_manager.allocate_lb_edge_appliance(
-        context, resource_id, availability_zone=availability_zone)
 
     port_dict = {'name': 'lb_if-' + lb_id,
                  'admin_state_up': True,
@@ -55,17 +60,45 @@ def get_lbaas_edge_id(context, plugin, lb_id, vip_addr, subnet_id, tenant_id):
     port = plugin.base_create_port(context, {'port': port_dict})
     ip_addr = port['fixed_ips'][0]['ip_address']
     net = netaddr.IPNetwork(subnet['cidr'])
+    resource_id = get_lb_resource_id(lb_id)
 
     address_groups = [{'primaryAddress': ip_addr,
                        'subnetPrefixLength': str(net.prefixlen),
-                       'subnetMask': str(net.netmask),
-                       'secondaryAddresses': {
-                           'type': 'secondary_addresses',
-                           'ipAddress': [vip_addr]}
-                       }]
+                       'subnetMask': str(net.netmask)}]
+
+    if vip_addr:
+        address_groups[0]['secondaryAddresses'] = {
+            'type': 'secondary_addresses', 'ipAddress': [vip_addr]}
+
     edge_utils.update_internal_interface(
         plugin.nsx_v, context, resource_id,
         network_id, address_groups)
+
+
+def delete_lb_interface(context, plugin, lb_id, subnet_id):
+    resource_id = get_lb_resource_id(lb_id)
+    subnet = plugin.get_subnet(context, subnet_id)
+    network_id = subnet.get('network_id')
+    lb_ports = get_lb_interface(context, plugin, lb_id, subnet_id)
+    for lb_port in lb_ports:
+        plugin.delete_port(context, lb_port['id'])
+
+    edge_utils.delete_interface(plugin.nsx_v, context, resource_id, network_id,
+                                dist=False)
+
+
+def get_lbaas_edge_id(context, plugin, lb_id, vip_addr, subnet_id, tenant_id):
+    subnet = plugin.get_subnet(context, subnet_id)
+    network_id = subnet.get('network_id')
+    availability_zone = plugin.get_network_az(context, network_id)
+
+    resource_id = get_lb_resource_id(lb_id)
+
+    edge_id = plugin.edge_manager.allocate_lb_edge_appliance(
+        context, resource_id, availability_zone=availability_zone)
+
+    create_lb_interface(context, plugin, lb_id, subnet_id, tenant_id,
+                        vip_addr=vip_addr, subnet=subnet)
 
     gw_ip = subnet.get('gateway_ip')
     if gw_ip:
