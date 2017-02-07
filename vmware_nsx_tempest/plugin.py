@@ -30,7 +30,7 @@ class VMwareNsxTempestPlugin(plugins.TempestPlugin):
        2. get_opt_lists() to pass config to Tempest
 
        The official plugin is defined at
-       http://docs.openstack.org/developer/tempest/plugin.html
+       https://docs.openstack.org/developer/tempest/plugin.html
     """
 
     def load_tests(self):
