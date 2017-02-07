@@ -1,4 +1,4 @@
-# Copyright 2015 VMware, Inc.
+# Copyright 2017 VMware, Inc.
 # All Rights Reserved
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -18,6 +18,7 @@ import testtools
 from tempest.api.network import base
 from tempest import config
 from tempest.lib.common.utils import data_utils
+from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
 from tempest.lib import exceptions
 from tempest import test
@@ -64,10 +65,12 @@ class BaseQosTest(base.BaseAdminNetworkTest):
             port_list = cls.admin_mgr.ports_client.list_ports(
                 network_id=network['id'])['ports']
             for port in port_list:
-                cls.delete_port(port['id'])
-            cls.delete_network(network['id'])
+                test_utils.call_and_ignore_notfound_exc(
+                    cls.delete_port, port['id'])
+            test_utils.call_and_ignore_notfound_exc(
+                cls.delete_network, network['id'])
         for policy in cls.policies_created:
-            cls._try_delete_resource(
+            test_utils.call_and_ignore_notfound_exc(
                 cls.adm_qos_client.delete_policy, policy['id'])
         super(BaseQosTest, cls).resource_cleanup()
 
@@ -188,6 +191,8 @@ class QosPolicyTest(BaseQosTest):
                                         description='test policy desc1',
                                         shared=False)
 
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         # Test 'show policy'
         retrieved_policy = self.adm_qos_client.show_policy(policy['id'])
         self.assertEqual('test-policy', retrieved_policy['name'])
@@ -205,11 +210,14 @@ class QosPolicyTest(BaseQosTest):
         """qos-policy-list --name=<name>: list policies."""
         name1 = data_utils.rand_name('test-policy')
         name2 = name1 + "0"
-        self.create_qos_policy(name=name1, description='test policy',
-                               shared=False)
-        self.create_qos_policy(name=name2, description='test policy',
-                               shared=False)
-
+        policy_name1 = self.create_qos_policy(
+            name=name1, description='test policy', shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy_name1['id'])
+        policy_name2 = self.create_qos_policy(
+            name=name2, description='test policy', shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy_name2['id'])
         policies = self.adm_qos_client.list_policies(name=name1)
         self.assertEqual(1, len(policies))
 
@@ -222,6 +230,8 @@ class QosPolicyTest(BaseQosTest):
         policy = self.create_qos_policy(name='test-policy',
                                         description='',
                                         shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         self.adm_qos_client.update_policy(policy['id'],
                                           description='test policy desc2',
                                           shared=True)
@@ -237,7 +247,8 @@ class QosPolicyTest(BaseQosTest):
         """qos-policy-delete POLICY_ID."""
         policy = self.create_qos_policy(
             'test-policy', 'desc', True)
-
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         retrieved_policy = self.adm_qos_client.show_policy(policy['id'])
         self.assertEqual('test-policy', retrieved_policy['name'])
 
@@ -245,12 +256,10 @@ class QosPolicyTest(BaseQosTest):
         self.assertRaises(exceptions.NotFound,
                           self.adm_qos_client.show_policy, policy['id'])
 
-    @decorators.idempotent_id('cf776f77-8d3d-49f2-8572-12d6a1557224')
     def _test_list_admin_rule_types(self):
         """qos-available-rule-types: available rule type from admin view."""
         self._test_list_rule_types(self.adm_qos_client)
 
-    @decorators.idempotent_id('49c8ea35-83a9-453a-bd23-239cf3b13929')
     def _test_list_regular_rule_types(self):
         """qos-available-rule-types: available rule type from project view."""
         self._test_list_rule_types(self.pri_qos_client)
@@ -294,13 +303,15 @@ class QosPolicyTest(BaseQosTest):
         policy = self.create_qos_policy(name='test-policy',
                                         description='test policy',
                                         shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         network = self.create_shared_network('test network',
                                              qos_policy_id=policy['id'])
-
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.delete_network, network['id'])
         retrieved_network = self.show_network(network['id'])
         self.assertEqual(
             policy['id'], retrieved_network['qos_policy_id'])
-
         self._disassociate_network(network['id'], self.admin_mgr)
 
     @decorators.idempotent_id('1738de5d-0476-4163-9022-5e1b548c208e')
@@ -309,10 +320,13 @@ class QosPolicyTest(BaseQosTest):
         policy = self.create_qos_policy(name='test-policy',
                                         description='test policy',
                                         shared=True)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         network = self.create_network('test network',
                                       client_mgr=self.primary_mgr,
                                       qos_policy_id=policy['id'])
-
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.delete_network, network['id'])
         retrieved_network = self.show_network(network['id'],
                                               client_mgr=self.primary_mgr)
         self.assertEqual(
@@ -323,25 +337,37 @@ class QosPolicyTest(BaseQosTest):
     @test.attr(type='negative')
     @decorators.idempotent_id('9efe63d0-836f-4cc2-b00c-468e63aa614e')
     def test_policy_association_with_network_nonexistent_policy(self):
-        """Can not create network with nonexist policy."""
-        self.assertRaises(
-            exceptions.NotFound,
-            self.create_network,
+        """Can not attach network to a nonexist policy."""
+        network = self.create_network(
             'test network',
             qos_policy_id='9efe63d0-836f-4cc2-b00c-468e63aa614e')
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.delete_network, network['id'])
+        retrieved_network = self.show_network(network['id'])
+        # check if network is not attached to the policy
+        self.assertIsNone(retrieved_network['qos_policy_id'],
+                          'Error: Network is attached to non-existent policy')
 
     @test.attr(type='negative')
     @decorators.idempotent_id('1aa55a79-324f-47d9-a076-894a8fc2448b')
     def test_policy_association_with_network_non_shared_policy(self):
-        """tenant/project can not create network with not-shared policy."""
+        """tenant/project can not attach network with not-shared policy."""
         policy = self.create_qos_policy(name='test-policy',
                                         description='test policy',
                                         shared=False)
-        self.assertRaises(
-            exceptions.NotFound,
-            self.create_network,
-            'test network', qos_policy_id=policy['id'],
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
+        network = self.create_network(
+            'test network',
+            qos_policy_id=policy['id'],
             client_mgr=self.primary_mgr)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.delete_network, network['id'])
+        retrieved_network = self.show_network(network['id'],
+                                              client_mgr=self.primary_mgr)
+        # check if network is not attached to the policy
+        self.assertIsNone(retrieved_network['qos_policy_id'],
+                          'Error: Network is attached to QoS policy')
 
     @decorators.idempotent_id('10a9392c-1359-4cbb-989f-fb768e5834a8')
     def test_policy_update_association_with_admin_network(self):
@@ -349,7 +375,11 @@ class QosPolicyTest(BaseQosTest):
         policy = self.create_qos_policy(name='test-policy',
                                         description='test policy',
                                         shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         network = self.create_shared_network('test network')
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.delete_network, network['id'])
         retrieved_network = self.show_network(network['id'])
         self.assertIsNone(retrieved_network['qos_policy_id'])
 
@@ -368,16 +398,23 @@ class QosPolicyTest(BaseQosTest):
         updated_port = self.show_port(port_id, client_mgr=client_mgr)
         self.assertIsNone(updated_port['qos_policy_id'])
 
+    @test.attr(type='nsxv3')
+    @test.attr(type='negative')
     @decorators.idempotent_id('98fcd95e-84cf-4746-860e-44692e674f2e')
     def test_policy_association_with_port_shared_policy(self):
         """test port can associate shared policy."""
         policy = self.create_qos_policy(name='test-policy',
                                         description='test policy',
                                         shared=True)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         network = self.create_shared_network('test network')
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.delete_network, network['id'])
         port = self.create_port(network, qos_policy_id=policy['id'],
                                 client_mgr=self.primary_mgr)
-
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.delete_port, port['id'])
         retrieved_port = self.show_port(port['id'],
                                         client_mgr=self.primary_mgr)
         self.assertEqual(
@@ -386,10 +423,13 @@ class QosPolicyTest(BaseQosTest):
         self._disassociate_port(port['id'], client_mgr=self.primary_mgr)
 
     @test.attr(type='negative')
+    @test.attr(type='nsxv3')
     @decorators.idempotent_id('49e02f5a-e1dd-41d5-9855-cfa37f2d195e')
     def test_policy_association_with_port_nonexistent_policy(self):
         """test port cannot be created with nonexist policy."""
         network = self.create_shared_network('test network')
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.delete_network, network['id'])
         self.assertRaises(
             exceptions.NotFound,
             self.create_port,
@@ -397,27 +437,43 @@ class QosPolicyTest(BaseQosTest):
             qos_policy_id='49e02f5a-e1dd-41d5-9855-cfa37f2d195e')
 
     @test.attr(type='negative')
+    @test.attr(type='nsxv3')
     @decorators.idempotent_id('f53d961c-9fe5-4422-8b66-7add972c6031')
     def test_policy_association_with_port_non_shared_policy(self):
         """project/tenant can not associate port with non-shared policy."""
         policy = self.create_qos_policy(name='test-policy',
                                         description='test policy',
                                         shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         network = self.create_shared_network('test network')
-        self.assertRaises(
-            exceptions.NotFound,
-            self.create_port,
-            network, qos_policy_id=policy['id'],
-            client_mgr=self.primary_mgr)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.delete_network, network['id'])
+        port = self.create_port(network, qos_policy_id=policy['id'],
+                                client_mgr=self.primary_mgr)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.delete_port, port['id'])
+        retrieved_port = self.show_port(port['id'],
+                                        client_mgr=self.primary_mgr)
+        # check if port is not attached to the policy
+        self.assertIsNone(retrieved_port['qos_policy_id'],
+                          'Error:Port is attached to qos policy')
 
+    @test.attr(type='nsxv3')
     @decorators.idempotent_id('f8163237-fba9-4db5-9526-bad6d2343c76')
     def test_policy_update_association_with_port_shared_policy(self):
         """project/tenant can update port with shared policy."""
         policy = self.create_qos_policy(name='test-policy',
                                         description='test policy',
                                         shared=True)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         network = self.create_shared_network('test network')
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.delete_network, network['id'])
         port = self.create_port(network, client_mgr=self.primary_mgr)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.delete_port, port['id'])
         retrieved_port = self.show_port(port['id'],
                                         client_mgr=self.primary_mgr)
         self.assertIsNone(retrieved_port['qos_policy_id'])
@@ -438,8 +494,12 @@ class QosPolicyTest(BaseQosTest):
         policy = self.create_qos_policy(name='test-policy',
                                         description='test policy',
                                         shared=True)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         network = self.create_shared_network(
             'test network', qos_policy_id=policy['id'])
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.delete_network, network['id'])
         self.assertRaises(
             exceptions.Conflict,
             self.adm_qos_client.delete_policy, policy['id'])
@@ -448,15 +508,22 @@ class QosPolicyTest(BaseQosTest):
         self.adm_qos_client.delete_policy(policy['id'])
 
     @test.attr(type='negative')
+    @test.attr(type='nsxv3')
     @decorators.idempotent_id('24153230-84a9-4dd5-9525-bad6d2343c75')
     def test_delete_not_allowed_if_policy_in_use_by_port(self):
         """can not delete policy if used by port."""
         policy = self.create_qos_policy(name='test-policy',
                                         description='test policy',
                                         shared=True)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         network = self.create_shared_network('test network')
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.delete_network, network['id'])
         port = self.create_port(network, qos_policy_id=policy['id'],
                                 client_mgr=self.primary_mgr)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.delete_port, port['id'])
         self.assertRaises(
             exceptions.Conflict,
             self.adm_qos_client.delete_policy, policy['id'])
@@ -470,6 +537,8 @@ class QosPolicyTest(BaseQosTest):
         policy = self.create_qos_policy(name='test-policy',
                                         description='test policy',
                                         shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         self.adm_qos_client.create_bandwidth_limit_rule(
             policy['id'], 200, 1337)
 
@@ -489,6 +558,8 @@ class QosBandwidthLimitRuleTest(BaseQosTest):
         policy = self.create_qos_policy(name='test-policy',
                                         description='test policy',
                                         shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         rule = self.create_qos_bandwidth_limit_rule(
             policy_id=policy['id'], max_kbps=200, max_burst_kbps=1337)
 
@@ -519,6 +590,8 @@ class QosBandwidthLimitRuleTest(BaseQosTest):
         policy = self.create_qos_policy(name='test-policy',
                                         description='test policy',
                                         shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         self.create_qos_bandwidth_limit_rule(
             policy_id=policy['id'], max_kbps=200, max_burst_kbps=1337)
 
@@ -536,6 +609,8 @@ class QosBandwidthLimitRuleTest(BaseQosTest):
         policy = self.create_qos_policy(name='test-policy',
                                         description='test policy',
                                         shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         rule = self.create_qos_bandwidth_limit_rule(
             policy_id=policy['id'], max_kbps=1, max_burst_kbps=1)
 
@@ -557,6 +632,8 @@ class QosBandwidthLimitRuleTest(BaseQosTest):
         policy = self.create_qos_policy(name='test-policy',
                                         description='test policy',
                                         shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         rule = self.create_qos_bandwidth_limit_rule(
             policy['id'],
             max_kbps=max_kbps, max_burst_kbps=max_burst_kbps)
@@ -606,12 +683,16 @@ class QosBandwidthLimitRuleTest(BaseQosTest):
         policy1 = self.create_qos_policy(name='test-policy1',
                                          description='test policy1',
                                          shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy1['id'])
         rule1 = self.create_qos_bandwidth_limit_rule(
             policy_id=policy1['id'], max_kbps=200, max_burst_kbps=1337)
 
         policy2 = self.create_qos_policy(name='test-policy2',
                                          description='test policy2',
                                          shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy2['id'])
         rule2 = self.create_qos_bandwidth_limit_rule(
             policy_id=policy2['id'], max_kbps=5000, max_burst_kbps=2523)
 
@@ -635,6 +716,8 @@ class QosDscpMarkingRuleTest(BaseQosTest):
         policy = self.create_qos_policy(name='test-policy',
                                         description='test policy',
                                         shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         rule = self.create_qos_dscp_marking_rule(
             policy['id'], self.VALID_DSCP_MARK1)
 
@@ -664,6 +747,8 @@ class QosDscpMarkingRuleTest(BaseQosTest):
         policy = self.create_qos_policy(name='test-policy',
                                         description='test policy',
                                         shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         self.create_qos_dscp_marking_rule(
             policy['id'], self.VALID_DSCP_MARK1)
 
@@ -679,6 +764,8 @@ class QosDscpMarkingRuleTest(BaseQosTest):
         policy = self.create_qos_policy(name='test-policy',
                                         description='test policy',
                                         shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         rule = self.create_qos_dscp_marking_rule(
             policy['id'], self.VALID_DSCP_MARK1)
 
@@ -696,6 +783,8 @@ class QosDscpMarkingRuleTest(BaseQosTest):
         policy = self.create_qos_policy(name='test-policy',
                                         description='test policy',
                                         shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         rule = self.create_qos_dscp_marking_rule(
             policy['id'], self.VALID_DSCP_MARK1)
 
@@ -734,6 +823,8 @@ class QosDscpMarkingRuleTest(BaseQosTest):
         policy = self.create_qos_policy(name='test-policy',
                                         description='test policy',
                                         shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy['id'])
         self.assertRaises(
             exceptions.BadRequest,
             self.create_qos_dscp_marking_rule,
@@ -745,12 +836,16 @@ class QosDscpMarkingRuleTest(BaseQosTest):
         policy1 = self.create_qos_policy(name='test-policy1',
                                          description='test policy1',
                                          shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy1['id'])
         rule1 = self.create_qos_dscp_marking_rule(
             policy1['id'], self.VALID_DSCP_MARK1)
 
         policy2 = self.create_qos_policy(name='test-policy2',
                                          description='test policy2',
                                          shared=False)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self.adm_qos_client.delete_policy, policy2['id'])
         rule2 = self.create_qos_dscp_marking_rule(
             policy2['id'], self.VALID_DSCP_MARK2)
 
