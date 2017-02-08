@@ -27,12 +27,19 @@ from vmware_nsxlib.v3 import trust_management
 
 from neutron.callbacks import registry
 from neutron import context
+from neutron_lib import exceptions
 from oslo_config import cfg
 
 LOG = logging.getLogger(__name__)
 
-# default certificate validity period in days (10 years)
-DEFAULT_CERT_VALIDITY_PERIOD = 3650
+CERT_DEFAULTS = {'key-size': 2048,
+                 'sig-alg': 'sha256',
+                 'valid-days': 3650,
+                 'country': 'US',
+                 'state': 'California',
+                 'org': 'default org',
+                 'unit': 'default unit',
+                 'host': 'defaulthost.org'}
 
 
 def get_nsx_trust_management(**kwargs):
@@ -73,14 +80,41 @@ def generate_cert(resource, event, trigger, **kwargs):
                      "with storage type 'none'"))
         return
 
+    # update cert defaults based on user input
+    properties = CERT_DEFAULTS.copy()
+    if kwargs.get('property'):
+        properties.update(admin_utils.parse_multi_keyval_opt(
+            kwargs['property']))
+
+    try:
+        prop = 'key-size'
+        key_size = int(properties.get(prop))
+        prop = 'valid-days'
+        valid_for_days = int(properties.get(prop))
+    except ValueError:
+        LOG.info(_LI("%s property must be a number"), prop)
+        return
+
+    signature_alg = properties.get('sig-alg')
+    # TODO(annak): use nsxlib constants when they land
+    subject = {}
+    subject['country'] = properties.get('country')
+    subject['state'] = properties.get('state')
+    subject['organization'] = properties.get('org')
+    subject['unit'] = properties.get('org')
+    subject['hostname'] = properties.get('host')
+
     with get_certificate_manager(**kwargs) as cert:
         if cert.exists():
             LOG.info(_LI("Deleting existing certificate"))
             # Need to delete cert first
             cert.delete()
 
-        cert.generate(subject={},
-                      valid_for_days=DEFAULT_CERT_VALIDITY_PERIOD)
+        try:
+            cert.generate(subject, key_size, valid_for_days, signature_alg)
+        except exceptions.InvalidInput as e:
+            LOG.info(e)
+            return
 
     LOG.info(_LI("Client certificate generated succesfully"))
 

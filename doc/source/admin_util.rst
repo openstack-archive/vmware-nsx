@@ -299,7 +299,7 @@ Client Certificate
 
 - Generate new client certificate (this command will delete previous certificate if exists)::
 
-    nsxadmin -r certificate -o generate --property username=<username> --property password=<password>
+    nsxadmin -r certificate -o generate [--property username=<username> --property password=<password> --property key-size=<size> --property sig-alg=<alg> --property valid-days=<days> --property country=<country> --property state=<state> --property org=<organization> --property unit=<unit> --property host=<hostname>]
 
 - Delete client certificate::
 
