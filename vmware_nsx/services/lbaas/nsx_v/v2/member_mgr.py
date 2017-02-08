@@ -33,10 +33,17 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
         super(EdgeMemberManager, self).__init__(vcns_driver)
         self._fw_section_id = None
 
+    def _get_pool_lb_id(self, member):
+        listener = member.pool.listener
+        if listener:
+            lb_id = listener.loadbalancer_id
+        else:
+            lb_id = member.pool.loadbalancer.id
+        return lb_id
+
     @log_helpers.log_method_call
     def create(self, context, member):
-        listener = member.pool.listener
-        lb_id = listener.loadbalancer_id
+        lb_id = self._get_pool_lb_id(member)
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
         pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
@@ -72,8 +79,7 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def update(self, context, old_member, new_member):
-        listener = new_member.pool.listener
-        lb_id = listener.loadbalancer_id
+        lb_id = self._get_pool_lb_id(new_member)
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
         pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(context.session,
@@ -121,8 +127,7 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def delete(self, context, member):
-        listener = member.pool.listener
-        lb_id = listener.loadbalancer_id
+        lb_id = self._get_pool_lb_id(member)
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
         pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
