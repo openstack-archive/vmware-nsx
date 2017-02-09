@@ -41,6 +41,7 @@ from neutron.callbacks import resources
 from neutron.common import ipv6_utils
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
+from neutron.common import utils as n_utils
 from neutron import context as n_context
 from neutron.db import _utils as db_utils
 from neutron.db import agents_db
@@ -61,6 +62,7 @@ from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
 from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db
+from neutron.db import vlantransparent_db
 from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import availability_zone as az_ext
 from neutron.extensions import external_net as ext_net_extn
@@ -70,6 +72,7 @@ from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
+from neutron.extensions import vlantransparent as ext_vlan
 from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils
 from neutron.quota import resource_registry
@@ -144,7 +147,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                    securitygroups_db.SecurityGroupDbMixin,
                    extended_secgroup.ExtendedSecurityGroupPropertiesMixin,
                    vnic_index_db.VnicIndexDbMixin,
-                   dns_db.DNSDbMixin, nsxpolicy.NsxPolicyPluginBase):
+                   dns_db.DNSDbMixin, nsxpolicy.NsxPolicyPluginBase,
+                   vlantransparent_db.Vlantransparent_db_mixin):
 
     supported_extension_aliases = ["agent",
                                    "allowed-address-pairs",
@@ -243,6 +247,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             self.supported_extension_aliases.append("security-group-policy")
             self.supported_extension_aliases.append("nsx-policy")
 
+        # Support transparent VLANS from 6.3.0 onwards. The feature is only
+        # supported if the global configuration flag vlan_transparent is
+        # True
+        if cfg.CONF.vlan_transparent:
+            if c_utils.is_nsxv_version_6_3(self.nsx_v.vcns.get_version()):
+                self.supported_extension_aliases.append("vlan-transparent")
+            else:
+                raise NotImplementedError(_("Transparent support only from "
+                                            "NSX 6.3 onwards"))
         self.sg_container_id = self._create_security_group_container()
         self.default_section = self._create_cluster_default_fw_section()
         self._process_security_groups_rules_logging()
@@ -981,6 +994,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         backend_network = (not validators.is_attr_set(external) or
                            validators.is_attr_set(external) and not external)
         self._validate_network_qos(net_data, backend_network)
+        # Update the transparent vlan if configured
+        vlt = False
+        if n_utils.is_extension_supported(self, 'vlan-transparent'):
+            vlt = ext_vlan.get_vlan_transparent(net_data)
 
         network_type = None
         if backend_network:
@@ -994,6 +1011,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 network_type == c_utils.NsxVNetworkTypes.VXLAN):
                 virtual_wire = {"name": net_data['id'],
                                 "tenantId": "virtual wire tenant"}
+                if vlt:
+                    virtual_wire["guestVlanAllowed"] = True
                 config_spec = {"virtualWireCreateSpec": virtual_wire}
                 vdn_scope_id = self.vdn_scope_id
                 if provider_type is not None:
@@ -1011,10 +1030,16 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 net_morefs = [c]
                 dvs_net_ids = [net_data['id']]
             elif network_type == c_utils.NsxVNetworkTypes.PORTGROUP:
+                if vlt:
+                    raise NotImplementedError(_("Transparent support only "
+                                                "for VXLANs"))
                 segment = net_data[mpnet.SEGMENTS][0]
                 net_morefs = [segment.get(pnet.PHYSICAL_NETWORK)]
                 dvs_net_ids = [net_data['name']]
             else:
+                if vlt:
+                    raise NotImplementedError(_("Transparent support only "
+                                                "for VXLANs"))
                 segment = net_data[mpnet.SEGMENTS][0]
                 physical_network = segment.get(pnet.PHYSICAL_NETWORK)
                 # Retrieve the list of dvs-ids from physical network.
@@ -1059,6 +1084,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 # Process port security extension
                 self._process_network_port_security_create(
                     context, net_data, new_net)
+
+                if vlt:
+                    super(NsxVPluginV2, self).update_network(context,
+                        new_net['id'],
+                        {'network': {'vlan_transparent': vlt}})
 
                 # update the network with the availability zone hints
                 if az_ext.AZ_HINTS in net_data:
