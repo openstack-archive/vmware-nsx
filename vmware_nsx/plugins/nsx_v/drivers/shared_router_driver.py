@@ -111,7 +111,12 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             self._add_router_services_on_available_edge(context, router_id)
 
     def delete_router(self, context, router_id):
-        pass
+        # make sure that the router binding is cleaned up
+        try:
+            nsxv_db.delete_nsxv_router_binding(context.session, router_id)
+        except Exception as e:
+            LOG.debug('Unable to delete router binding for %s. Error: '
+                      '%s', router_id, e)
 
     def _get_router_routes(self, context, router_id):
         return self.plugin._get_extra_routes_by_router_id(
@@ -194,10 +199,10 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         return all_vnic_indices
 
     def update_nat_rules(self, context, router, router_id):
-        router_ids = self.edge_manager.get_routers_on_same_edge(
-            context, router_id)
         edge_id = edge_utils.get_router_edge_id(context, router_id)
         with locking.LockManager.get_lock(str(edge_id)):
+            router_ids = self.edge_manager.get_routers_on_same_edge(
+                context, router_id)
             self._update_nat_rules_on_routers(context, router_id, router_ids)
 
     def _update_nat_rules_on_routers(self, context,
