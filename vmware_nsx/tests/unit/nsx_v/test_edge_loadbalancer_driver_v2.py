@@ -112,7 +112,8 @@ class BaseTestEdgeLbaasV2(base.BaseTestCase):
                                    None, 'HTTP', 'ROUND_ROBIN',
                                    loadbalancer_id=LB_ID,
                                    listener=self.listener,
-                                   listeners=[self.listener])
+                                   listeners=[self.listener],
+                                   loadbalancer=self.lb)
         self.member = lb_models.Member(MEMBER_ID, LB_TENANT_ID, POOL_ID,
                                        MEMBER_ADDRESS, 80, 1, pool=self.pool)
         self.hm = lb_models.HealthMonitor(HM_ID, LB_TENANT_ID, 'PING', 3, 3,
@@ -510,6 +511,10 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
                               ) as mock_get_pool_binding, \
             mock.patch.object(self.edge_driver.vcns, 'get_pool'
                               ) as mock_get_pool, \
+            mock.patch.object(self.core_plugin, 'get_ports'
+                              ) as mock_get_ports, \
+            mock.patch.object(lb_common, 'delete_lb_interface'
+                              ) as mock_del_lb_iface, \
             mock.patch.object(self.edge_driver.vcns, 'update_pool'
                               ) as mock_update_pool:
             mock_get_lb_binding.return_value = LB_BINDING
@@ -517,12 +522,14 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
             edge_pool_def = EDGE_POOL_DEF.copy()
             edge_pool_def['member'] = [EDGE_MEMBER_DEF]
             mock_get_pool.return_value = (None, edge_pool_def)
-
+            mock_get_ports.return_value = []
             self.edge_driver.member.delete(self.context, self.member)
 
             edge_pool_def['member'] = []
             mock_update_pool.assert_called_with(
                 LB_EDGE_ID, EDGE_POOL_ID, edge_pool_def)
+            mock_del_lb_iface.assert_called_with(
+                self.context, self.core_plugin, LB_ID, None)
             mock_successful_completion = (
                 self.lbv2_driver.member.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
