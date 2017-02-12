@@ -686,6 +686,27 @@ nsxv_az_opts = [
                 help=_("(Optional) Defines edge pool's management range for "
                        "the availability zone. If not defined, the global one "
                        "will be used")),
+    cfg.StrOpt('mgt_net_moid',
+               help=_('(Optional) Portgroup MoRef ID for metadata proxy '
+                      'management network')),
+    cfg.ListOpt('mgt_net_proxy_ips',
+                default=[],
+                help=_('(Optional) Comma separated list of management network '
+                       'IP addresses for metadata proxy.')),
+    cfg.StrOpt('mgt_net_proxy_netmask',
+               help=_("(Optional) Management network netmask for metadata "
+                      "proxy.")),
+    cfg.StrOpt('mgt_net_default_gateway',
+               help=_("(Optional) Management network default gateway for "
+                      "metadata proxy.")),
+    cfg.StrOpt('external_network',
+               help=_('(Optional) Network ID for physical network '
+                      'connectivity')),
+    cfg.StrOpt('vdn_scope_id',
+               help=_('(Optional) Network scope ID for VXLAN virtual wires')),
+    cfg.StrOpt('dvs_id',
+               help=_('(Optional) DVS MoRef ID for DVS connected to '
+                      'Management / Edge cluster')),
 ]
 
 # Register the configuration options

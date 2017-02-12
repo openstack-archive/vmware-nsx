@@ -110,10 +110,11 @@ def nsx_recreate_router_edge(resource, event, trigger, **kwargs):
         # Go over all the relevant routers
         for router in routers:
             router_id = router['id']
+            az_name = router['availability_zone']
             # clean up other objects related to this router
             if plugin.metadata_proxy_handler:
-                plugin.metadata_proxy_handler.cleanup_router_edge(
-                    context, router_id)
+                md_proxy = plugin.get_metadata_proxy_handler(az_name)
+                md_proxy.cleanup_router_edge(context, router_id)
 
             # attach the router to a new edge
             appliance_size = router.get(routersize.ROUTER_SIZE)

@@ -42,7 +42,6 @@ class VcnsDriver(edge_appliance_driver.EdgeApplianceDriver,
         self.insecure = cfg.CONF.nsxv.insecure
         self.datacenter_moid = cfg.CONF.nsxv.datacenter_moid
         self.deployment_container_id = cfg.CONF.nsxv.deployment_container_id
-        self.external_network = cfg.CONF.nsxv.external_network
         self._pid = None
         self._task_manager = None
         self.vcns = vcns.Vcns(self.vcns_uri, self.vcns_user, self.vcns_passwd,

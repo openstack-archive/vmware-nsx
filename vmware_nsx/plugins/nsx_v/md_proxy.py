@@ -92,22 +92,26 @@ def get_router_fw_rules():
     return fw_rules
 
 
-def get_db_internal_edge_ips(context):
+def get_db_internal_edge_ips(context, az_name):
     ip_list = []
     edge_list = nsxv_db.get_nsxv_internal_edges_by_purpose(
         context.session,
         vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE)
 
     if edge_list:
-        ip_list = [edge['ext_ip_address'] for edge in edge_list]
+        # Take only the edges on this availability zone
+        ip_list = [edge['ext_ip_address'] for edge in edge_list
+        if nsxv_db.get_router_availability_zone(
+            context.session, edge['router_id']) == az_name]
     return ip_list
 
 
 class NsxVMetadataProxyHandler(object):
-
-    def __init__(self, nsxv_plugin):
+    """A metadata proxy handler for a specific availability zone"""
+    def __init__(self, nsxv_plugin, availability_zone):
         self.nsxv_plugin = nsxv_plugin
         context = neutron_context.get_admin_context()
+        self.az = availability_zone
 
         # Init cannot run concurrently on multiple nodes
         with locking.LockManager.get_lock('nsx-metadata-init'):
@@ -119,11 +123,14 @@ class NsxVMetadataProxyHandler(object):
     def _create_metadata_internal_network(self, context, cidr):
         # Neutron requires a network to have some tenant_id
         tenant_id = nsxv_constants.INTERNAL_TENANT_ID
-
-        net_data = {'network': {'name': 'inter-edge-net',
+        net_name = 'inter-edge-net'
+        if not self.az.is_default():
+            net_name = '%s-%s' % (net_name, self.az.name)
+        net_data = {'network': {'name': net_name,
                                 'admin_state_up': True,
                                 'port_security_enabled': False,
                                 'shared': False,
+                                'availability_zone_hints': [self.az.name],
                                 'tenant_id': tenant_id}}
         net = self.nsxv_plugin.create_network(context, net_data)
 
@@ -145,17 +152,21 @@ class NsxVMetadataProxyHandler(object):
 
         return net['id'], subnet['id']
 
+    def _get_internal_net_by_az(self, context):
+        # Get the internal network for the current az
+        int_net = nsxv_db.get_nsxv_internal_network(
+            context.session,
+            vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE,
+            self.az.name)
+
+        if int_net:
+            return int_net['network_id']
+
     def _get_internal_network_and_subnet(self, context):
-        internal_net = None
-        internal_subnet = None
 
         # Try to find internal net, internal subnet. If not found, create new
-        net_list = nsxv_db.get_nsxv_internal_network(
-            context.session,
-            vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE)
-
-        if net_list:
-            internal_net = net_list[0]['network_id']
+        internal_net = self._get_internal_net_by_az(context)
+        internal_subnet = None
 
         if internal_net:
             internal_subnet = self.nsxv_plugin.get_subnets(
@@ -173,7 +184,8 @@ class NsxVMetadataProxyHandler(object):
                 except Exception as e:
                     nsxv_db.delete_nsxv_internal_network(
                         context.session,
-                        vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE)
+                        vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE,
+                        internal_net)
 
                     # if network is created, clean up
                     if internal_net:
@@ -188,6 +200,7 @@ class NsxVMetadataProxyHandler(object):
                 nsxv_db.create_nsxv_internal_network(
                     context.session,
                     nsxv_constants.INTER_EDGE_PURPOSE,
+                    self.az.name,
                     internal_net)
             else:
                 error = _('Metadata initialization is incomplete on '
@@ -223,29 +236,30 @@ class NsxVMetadataProxyHandler(object):
     def _get_proxy_edges(self, context):
         proxy_edge_ips = []
 
-        db_edge_ips = get_db_internal_edge_ips(context)
-        if len(db_edge_ips) > len(cfg.CONF.nsxv.mgt_net_proxy_ips):
-            error = _('Number of configured metadata proxy IPs is smaller '
-                      'than number of Edges which are already provisioned')
+        db_edge_ips = get_db_internal_edge_ips(context, self.az.name)
+        if len(db_edge_ips) > len(self.az.mgt_net_proxy_ips):
+            error = (_('Number of configured metadata proxy IPs is smaller '
+                      'than number of Edges which are already provisioned '
+                      'for availability zone %s'), self.az.name)
             raise nsxv_exc.NsxPluginException(err_msg=error)
 
         pool = eventlet.GreenPool(min(MAX_INIT_THREADS,
-                                      len(cfg.CONF.nsxv.mgt_net_proxy_ips)))
+                                      len(self.az.mgt_net_proxy_ips)))
 
         # Edge IPs that exist in both lists have to be validated that their
         # Edge appliance settings are valid
         for edge_inner_ip in pool.imap(
                 self._setup_proxy_edge_route_and_connectivity,
-                list(set(db_edge_ips) & set(cfg.CONF.nsxv.mgt_net_proxy_ips))):
+                list(set(db_edge_ips) & set(self.az.mgt_net_proxy_ips))):
             proxy_edge_ips.append(edge_inner_ip)
 
         # Edges that exist only in the CFG list, should be paired with Edges
         # that exist only in the DB list. The existing Edge from the list will
         # be reconfigured to match the new config
         edge_to_convert_ips = (
-            list(set(db_edge_ips) - set(cfg.CONF.nsxv.mgt_net_proxy_ips)))
+            list(set(db_edge_ips) - set(self.az.mgt_net_proxy_ips)))
         edge_ip_to_set = (
-            list(set(cfg.CONF.nsxv.mgt_net_proxy_ips) - set(db_edge_ips)))
+            list(set(self.az.mgt_net_proxy_ips) - set(db_edge_ips)))
 
         if edge_to_convert_ips:
             if cfg.CONF.nsxv.metadata_initializer:
@@ -283,6 +297,12 @@ class NsxVMetadataProxyHandler(object):
             rtr_id = self._get_edge_rtr_id_by_ext_ip(context, rtr_ext_ip)
         if not edge_id:
             edge_id = self._get_edge_id_by_rtr_id(context, rtr_id)
+        if not rtr_id or not edge_id:
+            # log this error and return without the ip, but don't fail
+            LOG.error(_LE("Failed find edge for router %(rtr_id)s with ip "
+                          "%(rtr_ext_ip)s"),
+                      {'rtr_id': rtr_id, 'rtr_ext_ip': rtr_ext_ip})
+            return
 
         # Read and validate DGW. If different, replace with new value
         try:
@@ -297,11 +317,11 @@ class NsxVMetadataProxyHandler(object):
 
         dgw = routes.get('defaultRoute', {}).get('gatewayAddress')
 
-        if dgw != cfg.CONF.nsxv.mgt_net_default_gateway:
+        if dgw != self.az.mgt_net_default_gateway:
             if cfg.CONF.nsxv.metadata_initializer:
                 self.nsxv_plugin._update_routes(
                     context, rtr_id,
-                    cfg.CONF.nsxv.mgt_net_default_gateway)
+                    self.az.mgt_net_default_gateway)
             else:
                 error = _('Metadata initialization is incomplete on '
                           'initializer node')
@@ -314,16 +334,16 @@ class NsxVMetadataProxyHandler(object):
                              ).get('addressGroups', {}
                                    )[0].get('primaryAddress')
         cur_pgroup = if_data['portgroupId']
-        if (if_data and cur_pgroup != cfg.CONF.nsxv.mgt_net_moid
+        if (if_data and cur_pgroup != self.az.mgt_net_moid
                 or cur_ip != rtr_ext_ip):
             if cfg.CONF.nsxv.metadata_initializer:
                 self.nsxv_plugin.nsx_v.update_interface(
                     rtr_id,
                     edge_id,
                     vcns_const.EXTERNAL_VNIC_INDEX,
-                    cfg.CONF.nsxv.mgt_net_moid,
+                    self.az.mgt_net_moid,
                     address=rtr_ext_ip,
-                    netmask=cfg.CONF.nsxv.mgt_net_proxy_netmask,
+                    netmask=self.az.mgt_net_proxy_netmask,
                     secondary=[])
             else:
                 error = _('Metadata initialization is incomplete on '
@@ -397,12 +417,17 @@ class NsxVMetadataProxyHandler(object):
         context = neutron_context.get_admin_context()
 
         rtr_id = None
+
         try:
+            rtr_name = 'metadata_proxy_router'
+            if not self.az.is_default():
+                rtr_name = '%s-%s' % (rtr_name, self.az.name)
             router_data = {
                 'router': {
-                    'name': 'metadata_proxy_router',
+                    'name': rtr_name,
                     'admin_state_up': True,
                     'router_type': 'exclusive',
+                    'availability_zone_hints': [self.az.name],
                     'tenant_id': nsxv_constants.INTERNAL_TENANT_ID}}
 
             rtr = self.nsxv_plugin.create_router(
@@ -417,9 +442,9 @@ class NsxVMetadataProxyHandler(object):
                 rtr['id'],
                 edge_id,
                 vcns_const.EXTERNAL_VNIC_INDEX,
-                cfg.CONF.nsxv.mgt_net_moid,
+                self.az.mgt_net_moid,
                 address=rtr_ext_ip,
-                netmask=cfg.CONF.nsxv.mgt_net_proxy_netmask,
+                netmask=self.az.mgt_net_proxy_netmask,
                 secondary=[])
 
             port_data = {
@@ -465,10 +490,10 @@ class NsxVMetadataProxyHandler(object):
                 {'firewall_rule_list': firewall_rules},
                 allow_external=False)
 
-            if cfg.CONF.nsxv.mgt_net_default_gateway:
+            if self.az.mgt_net_default_gateway:
                 self.nsxv_plugin._update_routes(
                     context, rtr_id,
-                    cfg.CONF.nsxv.mgt_net_default_gateway)
+                    self.az.mgt_net_default_gateway)
 
             nsxv_db.create_nsxv_internal_edge(
                 context.session, rtr_ext_ip,

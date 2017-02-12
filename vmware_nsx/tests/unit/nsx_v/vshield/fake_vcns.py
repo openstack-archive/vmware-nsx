@@ -249,7 +249,7 @@ class FakeVcns(object):
         response = {
             'label': 'vNic_1',
             'name': 'internal1',
-            'address_groups': {'address_groups': []},
+            'addressGroups': {'addressGroups': []},
             'mtu': 1500,
             'type': 'trunk',
             'subInterfaces': {'subInterfaces': []},

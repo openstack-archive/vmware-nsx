@@ -197,7 +197,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
 
             # Update external vnic if addr or mask is changed
             if orgaddr != newaddr or orgmask != newmask:
-                edge_utils.update_external_interface(
+                self.edge_manager.update_external_interface(
                     self.nsx_v, context, plr_id,
                     new_ext_net_id, newaddr, newmask)
 

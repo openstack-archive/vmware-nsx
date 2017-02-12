@@ -176,6 +176,9 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
         plugin_instance.real_get_edge = plugin_instance._get_edge_id_by_rtr_id
         plugin_instance._get_edge_id_by_rtr_id = mock.Mock()
         plugin_instance._get_edge_id_by_rtr_id.return_value = False
+        plugin_instance._get_edge_id_and_az_by_rtr_id = mock.Mock()
+        plugin_instance._get_edge_id_and_az_by_rtr_id.return_value = (
+            False, False)
         plugin_instance.edge_manager.is_dhcp_opt_enabled = True
         # call init_complete manually. The event is not called in unit tests
         plugin_instance.init_complete(None, None, {})
@@ -505,26 +508,28 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
 
     def test_get_dvs_ids_for_multiple_dvs_vlan_network(self):
         p = directory.get_plugin()
+        default_dvs = 'fake_dvs_id'
         # If no DVS-ID is provided as part of physical network, return
         # global DVS-ID configured in nsx.ini
         physical_network = constants.ATTR_NOT_SPECIFIED
-        self.assertEqual(['fake_dvs_id'], p._get_dvs_ids(physical_network))
+        self.assertEqual(['fake_dvs_id'], p._get_dvs_ids(
+            physical_network, default_dvs))
         # If DVS-IDs are provided as part of physical network as a comma
         # separated string, return them as a list of DVS-IDs.
         physical_network = 'dvs-1,dvs-2, dvs-3'
         expected_dvs_ids = ['dvs-1', 'dvs-2', 'dvs-3']
         self.assertEqual(expected_dvs_ids,
-                         sorted(p._get_dvs_ids(physical_network)))
+                         sorted(p._get_dvs_ids(physical_network, default_dvs)))
         # Ignore extra commas ',' in the physical_network attribute.
         physical_network = ',,,dvs-1,dvs-2,, dvs-3,'
         expected_dvs_ids = ['dvs-1', 'dvs-2', 'dvs-3']
         self.assertEqual(expected_dvs_ids,
-                         sorted(p._get_dvs_ids(physical_network)))
+                         sorted(p._get_dvs_ids(physical_network, default_dvs)))
         # Ignore duplicate DVS-IDs in the physical_network attribute.
         physical_network = ',,,dvs-1,dvs-2,, dvs-2,'
         expected_dvs_ids = ['dvs-1', 'dvs-2']
         self.assertEqual(expected_dvs_ids,
-                         sorted(p._get_dvs_ids(physical_network)))
+                         sorted(p._get_dvs_ids(physical_network, default_dvs)))
 
     def test_create_vxlan_with_tz_provider_network(self):
         name = 'provider_net_vxlan'
@@ -3311,6 +3316,9 @@ class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
         plugin_instance = directory.get_plugin()
         plugin_instance._get_edge_id_by_rtr_id = mock.Mock()
         plugin_instance._get_edge_id_by_rtr_id.return_value = False
+        plugin_instance._get_edge_id_and_az_by_rtr_id = mock.Mock()
+        plugin_instance._get_edge_id_and_az_by_rtr_id.return_value = (
+            False, False)
 
     def test_list_ports_security_group(self):
         with self.network() as n:
