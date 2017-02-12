@@ -52,12 +52,14 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
             raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
 
         try:
-            if not nsxv_db.get_nsxv_lbaas_loadbalancer_binding_by_edge(
-                    context.session, edge_id):
-                lb_common.enable_edge_acceleration(self.vcns, edge_id)
+            lb_common.enable_edge_acceleration(self.vcns, edge_id)
 
             edge_fw_rule_id = lb_common.add_vip_fw_rule(
                 self.vcns, edge_id, lb.id, lb.vip_address)
+
+            # set LB default rule
+            lb_common.set_lb_firewall_default_rule(self.vcns, edge_id,
+                                                   'accept')
 
             nsxv_db.add_nsxv_lbaas_loadbalancer_binding(
                 context.session, lb.id, edge_id, edge_fw_rule_id,
@@ -90,6 +92,9 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
             edge_binding = nsxv_db.get_nsxv_router_binding_by_edge(
                 context.session, binding['edge_id'])
 
+            # set LB default rule
+            lb_common.set_lb_firewall_default_rule(
+                self.vcns, binding['edge_id'], 'deny')
             if edge_binding:
                 if edge_binding['router_id'].startswith('lbaas-'):
                     resource_id = lb_common.get_lb_resource_id(lb.id)

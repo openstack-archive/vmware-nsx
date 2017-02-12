@@ -170,6 +170,8 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
                                ) as mock_get_edge, \
             mock.patch.object(lb_common, 'add_vip_fw_rule'
                               ) as mock_add_vip_fwr, \
+            mock.patch.object(lb_common, 'set_lb_firewall_default_rule'
+                              ) as mock_set_fw_rule, \
             mock.patch.object(lb_common, 'enable_edge_acceleration'
                               ) as mock_enable_edge_acceleration, \
             mock.patch.object(nsxv_db,
@@ -192,6 +194,8 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
                                                LB_EDGE_ID,
                                                LB_VIP_FWR_ID,
                                                LB_VIP)
+            mock_set_fw_rule.assert_called_with(
+                self.edge_driver.vcns, LB_EDGE_ID, 'accept')
             mock_successful_completion = (
                 self.lbv2_driver.load_balancer.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
@@ -215,6 +219,8 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
             mock.patch.object(lb_common, 'del_vip_fw_rule') as mock_del_fwr, \
             mock.patch.object(lb_common, 'del_vip_as_secondary_ip'
                               ) as mock_vip_sec_ip, \
+            mock.patch.object(lb_common, 'set_lb_firewall_default_rule'
+                              ) as mock_set_fw_rule, \
             mock.patch.object(nsxv_db, 'del_nsxv_lbaas_loadbalancer_binding',
                               ) as mock_del_binding, \
             mock.patch.object(self.core_plugin, 'get_ports'
@@ -234,6 +240,8 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
                                                LB_VIP)
             mock_del_binding.assert_called_with(self.context.session,
                                                 LB_ID)
+            mock_set_fw_rule.assert_called_with(
+                self.edge_driver.vcns, LB_EDGE_ID, 'deny')
             mock_successful_completion = (
                 self.lbv2_driver.load_balancer.successful_completion)
             mock_successful_completion.assert_called_with(self.context,

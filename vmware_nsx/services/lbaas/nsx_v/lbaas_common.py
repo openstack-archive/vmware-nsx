@@ -209,6 +209,11 @@ def extract_resource_id(location_uri):
     return uri_elements[-1]
 
 
+def set_lb_firewall_default_rule(vcns, edge_id, action):
+    with locking.LockManager.get_lock(edge_id):
+        vcns.update_firewall_default_policy(edge_id, {'action': action})
+
+
 def add_vip_fw_rule(vcns, edge_id, vip_id, ip_address):
     fw_rule = {
         'firewallRules': [

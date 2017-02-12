@@ -324,6 +324,11 @@ class Vcns(object):
             FIREWALL_RULE_RESOURCE)
         return self.do_request(HTTP_POST, uri, fwr_req)
 
+    def update_firewall_default_policy(self, edge_id, fw_req):
+        uri = self._build_uri_path(
+            edge_id, FIREWALL_SERVICE, 'defaultpolicy')
+        return self.do_request(HTTP_PUT, uri, fw_req)
+
     def get_firewall(self, edge_id):
         uri = self._build_uri_path(edge_id, FIREWALL_SERVICE)
         return self.do_request(HTTP_GET, uri, decode=True)
