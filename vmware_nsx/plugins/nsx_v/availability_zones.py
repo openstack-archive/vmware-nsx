@@ -74,6 +74,7 @@ class ConfiguredAvailabilityZone(object):
             self.external_network = cfg.CONF.nsxv.external_network
             self.vdn_scope_id = cfg.CONF.nsxv.vdn_scope_id
             self.dvs_id = cfg.CONF.nsxv.dvs_id
+            self.edge_host_groups = cfg.CONF.nsxv.edge_host_groups
 
             # No support for metadata per az
             self.az_metadata_support = False
@@ -136,6 +137,10 @@ class ConfiguredAvailabilityZone(object):
             if not self.dvs_id:
                 self.dvs_id = cfg.CONF.nsxv.dvs_id
 
+            self.edge_host_groups = az_info.get('edge_host_groups', [])
+            if not self.edge_host_groups:
+                self.edge_host_groups = cfg.CONF.nsxv.edge_host_groups
+
             # Support for metadata per az only if configured, and different
             # from the global one
             self.mgt_net_proxy_ips = az_info.get('mgt_net_proxy_ips')
@@ -193,6 +198,7 @@ class ConfiguredAvailabilityZone(object):
             self.external_network = cfg.CONF.nsxv.external_network
             self.vdn_scope_id = cfg.CONF.nsxv.vdn_scope_id
             self.dvs_id = cfg.CONF.nsxv.dvs_id
+            self.edge_host_groups = cfg.CONF.nsxv.edge_host_groups
 
     def is_default(self):
         return self.name == DEFAULT_NAME

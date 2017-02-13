@@ -1239,6 +1239,13 @@ class FakeVcns(object):
         response = {}
         return (header, response)
 
+    def get_edge_appliances(self, edge_id):
+        header = {
+            'status': 204
+        }
+        response = {}
+        return (header, response)
+
     def get_routes(self, edge_id):
         header = {
             'status': 204

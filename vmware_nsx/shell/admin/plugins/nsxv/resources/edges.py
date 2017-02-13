@@ -17,6 +17,7 @@ import logging
 import pprint
 import textwrap
 
+from vmware_nsx.dvs import dvs
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
@@ -359,6 +360,18 @@ def change_edge_appliance_reservations(properties):
         LOG.error(_LE("%s"), str(e))
 
 
+def change_edge_hostgroup(properties):
+    edge_id = properties.get('edge-id')
+    dvs_mng = dvs.DvsManager()
+    if properties.get('hostgroup').lower() == "true":
+        az_name, size = _get_edge_az_and_size(edge_id)
+        az = nsx_az.ConfiguredAvailabilityZones().get_availability_zone(
+            az_name)
+        edge_utils.update_edge_host_groups(nsxv, edge_id, dvs_mng, az)
+    else:
+        edge_utils.delete_edge_host_groups(nsxv, edge_id, dvs_mng)
+
+
 @admin_utils.output_header
 def nsx_update_edge(resource, event, trigger, **kwargs):
     """Update edge properties"""
@@ -377,7 +390,9 @@ def nsx_update_edge(resource, event, trigger, **kwargs):
                     "--property resource=cpu|memory and "
                     "(optional) --property limit=<limit> and/or "
                     "(optional) --property shares=<shares> and/or "
-                    "(optional) --property reservation=<reservation>")
+                    "(optional) --property reservation=<reservation> "
+                    "\nFor hostgroup updates, add "
+                    "--property hostgroup=True|False")
     if not kwargs.get('property'):
         LOG.error(usage_msg)
         return
@@ -403,6 +418,8 @@ def nsx_update_edge(resource, event, trigger, **kwargs):
             change_edge_syslog(properties)
     elif properties.get('resource'):
         change_edge_appliance_reservations(properties)
+    elif properties.get('hostgroup'):
+        change_edge_hostgroup(properties)
     elif change_edge_loglevel(properties):
         pass
     else:
