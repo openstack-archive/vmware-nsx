@@ -236,6 +236,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self.nsx_sg_utils = securitygroup_utils.NsxSecurityGroupUtils(
             self.nsx_v)
         self._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
+        # Validate the host_groups for each AZ
+        if cfg.CONF.nsxv.use_dvs_features:
+            azs = self._availability_zones_data.availability_zones.values()
+            for az in azs:
+                if az.edge_host_groups:
+                    self._dvs.validate_host_groups(az.resource_pool,
+                                                   az.edge_host_groups)
         self._validate_config()
 
         self._use_nsx_policies = False
