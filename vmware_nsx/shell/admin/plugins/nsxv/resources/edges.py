@@ -367,9 +367,10 @@ def change_edge_hostgroup(properties):
         az_name, size = _get_edge_az_and_size(edge_id)
         az = nsx_az.ConfiguredAvailabilityZones().get_availability_zone(
             az_name)
-        edge_utils.update_edge_host_groups(nsxv, edge_id, dvs_mng, az)
+        edge_utils.update_edge_host_groups(nsxv, edge_id, dvs_mng, az,
+                                           validate=True)
     else:
-        edge_utils.delete_edge_host_groups(nsxv, edge_id, dvs_mng)
+        LOG.error(_LE('Currently not supported'))
 
 
 @admin_utils.output_header

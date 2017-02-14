@@ -351,9 +351,6 @@ class VcnsDriverTestCase(base.BaseTestCase):
             availability_zone=None):
         pass
 
-    def pre_edge_deletion(self, edge_id, az):
-        pass
-
     def _deploy_edge(self):
         self.edge_id = self.vcns_driver.deploy_edge(
             self.ctx, 'router-id', 'myedge', 'internal-network',

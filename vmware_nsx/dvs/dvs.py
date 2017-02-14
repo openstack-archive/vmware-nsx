@@ -498,9 +498,14 @@ class DvsManager(object):
             LOG.exception(_LE('Failed to reconfigure cluster %s'), excep)
         session.wait_for_task(reconfig_task)
 
-    def _create_vm_group_spec(self, client_factory, name, vm_refs):
-        group = client_factory.create('ns0:ClusterVmGroup')
-        group.name = name
+    def _create_vm_group_spec(self, client_factory, name, vm_refs,
+                              group=None):
+        if group is None:
+            group = client_factory.create('ns0:ClusterVmGroup')
+            group.name = name
+            operation = 'add'
+        else:
+            operation = 'edit'
 
         # On vCenter UI, it is not possible to create VM group without
         # VMs attached to it. But, using APIs, it is possible to create
@@ -512,16 +517,7 @@ class DvsManager(object):
             group.vm = vm_refs
 
         group_spec = client_factory.create('ns0:ClusterGroupSpec')
-        group_spec.operation = 'add'
-        group_spec.info = group
-        return [group_spec]
-
-    def _delete_vm_group_spec(self, client_factory, name):
-        group_spec = client_factory.create('ns0:ClusterGroupSpec')
-        group = client_factory.create('ns0:ClusterVmGroup')
-        group.name = name
-        group_spec.operation = 'remove'
-        group_spec.removeKey = name
+        group_spec.operation = operation
         group_spec.info = group
         return [group_spec]
 
@@ -539,17 +535,28 @@ class DvsManager(object):
         rules_spec.info = rules_info
         return rules_spec
 
-    def _delete_cluster_rules_spec(self, client_factory, rule):
-        rules_spec = client_factory.create('ns0:ClusterRuleSpec')
-        rules_spec.operation = 'remove'
-        rules_spec.removeKey = int(rule.key)
-        policy_class = 'ns0:ClusterVmHostRuleInfo'
-        rules_info = client_factory.create(policy_class)
-        rules_info.name = rule.name
-        rules_info.vmGroupName = rule.vmGroupName
-        rules_info.affineHostGroupName = rule.affineHostGroupName
-        rules_spec.info = rules_info
-        return rules_spec
+    def get_configured_vms(self, resource_id):
+        session = self._session
+        resource = vim_util.get_moref(resource_id, 'ResourcePool')
+        # TODO(garyk): cache the cluster details
+        cluster = session.invoke_api(
+            vim_util, "get_object_property", self._session.vim, resource,
+            "owner")
+        cluster_config = session.invoke_api(
+            vim_util, "get_object_property", self._session.vim, cluster,
+            "configurationEx")
+        configured_vms = []
+        for index in range(2):
+            vm_group = None
+            entry_id = index + 1
+            for group in cluster_config.group:
+                if 'neutron-group-%s' % entry_id in group.name:
+                    vm_group = group
+                    break
+            if vm_group and hasattr(vm_group, 'vm'):
+                for vm in vm_group.vm:
+                    configured_vms.append(vm.value)
+        return configured_vms
 
     def update_cluster_edge_failover(self, resource_id, vm_moids,
                                      edge_id, host_group_names):
@@ -560,28 +567,43 @@ class DvsManager(object):
         cluster = session.invoke_api(
             vim_util, "get_object_property", self._session.vim, resource,
             "owner")
+        cluster_config = session.invoke_api(
+            vim_util, "get_object_property", self._session.vim, cluster,
+            "configurationEx")
         vms = [vim_util.get_moref(vm_moid, 'VirtualMachine') for
                vm_moid in vm_moids]
         client_factory = session.vim.client.factory
         config_spec = client_factory.create('ns0:ClusterConfigSpecEx')
-        # Create the VM groups
-        config_spec.groupSpec = [
-            self._create_vm_group_spec(
-                client_factory,
-                'neutron-group-%s-%s' % (edge_id, index),
-                [vm])
-            for index, vm in enumerate(vms, start=1)]
-        config_spec.rulesSpec = [
-            self._create_cluster_rules_spec(
-                client_factory, 'neutron-rule-%s-%s' % (edge_id, index),
-                'neutron-group-%s-%s' % (edge_id, index), host_group_name)
-            for index, host_group_name in enumerate(host_group_names, start=1)]
+        num_host_groups = len(host_group_names)
+        for index, vm in enumerate(vms, start=1):
+            vmGroup = None
+            for group in cluster_config.group:
+                if 'neutron-group-%s' % index in group.name:
+                    vmGroup = group
+                    break
+            # Create/update the VM group
+            groupSpec = self._create_vm_group_spec(
+                            client_factory,
+                            'neutron-group-%s' % index,
+                            [vm], vmGroup)
+            config_spec.groupSpec.append(groupSpec)
+            config_rule = None
+            # Create the config rule if it does not exist
+            for rule in cluster_config.rule:
+                if 'neutron-rule-%s' % index in rule.name:
+                    config_rule = rule
+                    break
+            if config_rule is None and index <= num_host_groups:
+                ruleSpec = self._create_cluster_rules_spec(
+                    client_factory, 'neutron-rule-%s' % index,
+                    'neutron-group-%s' % index,
+                    host_group_names[index - 1])
+                config_spec.rulesSpec.append(ruleSpec)
         self._reconfigure_cluster(session, cluster, config_spec)
 
-    def cluster_edge_delete(self, resource_id, edge_id):
+    def validate_host_groups(self, resource_id, host_group_names):
         session = self._session
         resource = vim_util.get_moref(resource_id, 'ResourcePool')
-        # TODO(garyk): cache the cluster details
         cluster = session.invoke_api(
             vim_util, "get_object_property", self._session.vim, resource,
             "owner")
@@ -590,19 +612,49 @@ class DvsManager(object):
         cluster_config = session.invoke_api(
             vim_util, "get_object_property", self._session.vim, cluster,
             "configurationEx")
-        groupSpec = []
-        for group in cluster_config.group:
-            if 'neutron-group-%s-' % (edge_id) in group.name:
-                groupSpec.append(self._delete_vm_group_spec(
-                    client_factory, group.name))
-        if groupSpec:
-            config_spec.groupSpec = groupSpec
-        ruleSpec = []
-        for rule in cluster_config.rule:
-            if 'neutron-rule-%s-' % (edge_id) in rule.name:
-                ruleSpec.append(self._delete_cluster_rules_spec(
-                    client_factory, rule))
-        if ruleSpec:
-            config_spec.rulesSpec = ruleSpec
-        if groupSpec or ruleSpec:
-            self._reconfigure_cluster(session, cluster, config_spec)
+        for host_group_name in host_group_names:
+            found = False
+            for group in cluster_config.group:
+                if host_group_name == group.name:
+                    found = True
+                    break
+            if not found:
+                LOG.error(_LE("%s does not exist"), host_group_name)
+                raise exceptions.NotFound()
+        update_cluster = False
+        num_host_groups = len(host_group_names)
+        # Ensure that the VM groups are created
+        for index in range(2):
+            entry_id = index + 1
+            vmGroup = None
+            for group in cluster_config.group:
+                if 'neutron-group-%s' % entry_id in group.name:
+                    vmGroup = group
+                    break
+            if vmGroup is None:
+                groupSpec = self._create_vm_group_spec(
+                                client_factory,
+                                'neutron-group-%s' % entry_id,
+                                [], vmGroup)
+                config_spec.groupSpec.append(groupSpec)
+                update_cluster = True
+
+            config_rule = None
+            # Create the config rule if it does not exist
+            for rule in cluster_config.rule:
+                if 'neutron-rule-%s' % entry_id in rule.name:
+                    config_rule = rule
+                    break
+            if config_rule is None and index < num_host_groups:
+                ruleSpec = self._create_cluster_rules_spec(
+                    client_factory, 'neutron-rule-%s' % entry_id,
+                    'neutron-group-%s' % entry_id,
+                    host_group_names[index - 1])
+                config_spec.rulesSpec.append(ruleSpec)
+                update_cluster = True
+        if update_cluster:
+            try:
+                self._reconfigure_cluster(session, cluster, config_spec)
+            except Exception as e:
+                LOG.error(_LE('Unable to update cluster for host groups %s'),
+                          e)

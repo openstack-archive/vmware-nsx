@@ -28,7 +28,6 @@ from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.common import utils
 from vmware_nsx.db import nsxv_db
-from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v.vshield.common import constants
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
@@ -546,19 +545,6 @@ class EdgeApplianceDriver(object):
             LOG.error(_LE("Failed to resize edge: %s"), e.response)
 
     def delete_edge(self, context, router_id, edge_id, dist=False):
-        binding = None
-        try:
-            binding = nsxv_db.get_nsxv_router_binding_by_edge(context.session,
-                                                              edge_id)
-        except Exception:
-            LOG.debug('Unable to get the binding for edge %s', edge_id)
-        if binding:
-            az_name = binding['availability_zone']
-        else:
-            az_name = nsx_az.DEFAULT_NAME
-        az = nsx_az.ConfiguredAvailabilityZones().get_availability_zone(
-            az_name)
-        self.callbacks.pre_edge_deletion(edge_id, az)
         try:
             nsxv_db.delete_nsxv_router_binding(context.session, router_id)
             if not dist:

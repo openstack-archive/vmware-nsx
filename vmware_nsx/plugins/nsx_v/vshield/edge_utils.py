@@ -45,6 +45,7 @@ from vmware_nsx.common import nsxv_constants
 from vmware_nsx.common import utils as c_utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import nsxv_db
+from vmware_nsx.dvs import dvs
 from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v.vshield.common import (
     constants as vcns_const)
@@ -2579,11 +2580,19 @@ def update_edge_loglevel(vcns, edge_id, module, level):
                                                                 level))
 
 
-def update_edge_host_groups(vcns, edge_id, dvs, availability_zone):
+def update_edge_host_groups(vcns, edge_id, dvs, availability_zone,
+                            validate=False):
     # Update edge DRS host groups
     h, appliances = vcns.get_edge_appliances(edge_id)
     vms = [appliance['vmId']
            for appliance in appliances['appliances']]
+    if validate:
+        configured_vms = dvs.get_configured_vms(
+            availability_zone.resource_pool)
+        for vm in vms:
+            if vm in configured_vms:
+                LOG.info(_LI('Edge %s already configured'), edge_id)
+                return
     # Ensure random distribution of the VMs
     if availability_zone.ha_placement_random:
         random.shuffle(vms)
@@ -2603,27 +2612,16 @@ def update_edge_host_groups(vcns, edge_id, dvs, availability_zone):
                    'e': e})
 
 
-def delete_edge_host_groups(vcns, edge_id, dvs):
-    h, apps = vcns.get_edge_appliances(edge_id)
-    if apps['appliances']:
-        resource_pool_id = apps['appliances'][0]['resourcePoolId']
-        try:
-            LOG.info(_LI('Removing DRS groups for edge %(edge_id)s'),
-                     {'edge_id': edge_id})
-            dvs.cluster_edge_delete(resource_pool_id, edge_id)
-        except Exception as e:
-            LOG.error(_LE('Unable to remove DRS groups for '
-                          'edge %(edge_id)s. Error: %(e)s'),
-                      {'edge_id': edge_id,
-                       'e': e})
-
-
 class NsxVCallbacks(object):
     """Edge callback implementation Callback functions for
     asynchronous tasks.
     """
     def __init__(self, plugin):
         self.plugin = plugin
+        if cfg.CONF.nsxv.use_dvs_features:
+            self._dvs = dvs.DvsManager(dvs_id=cfg.CONF.nsxv.dvs_id)
+        else:
+            self._dvs = None
 
     def complete_edge_creation(
             self, context, edge_id, name, router_id, dist, deploy_successful,
@@ -2647,11 +2645,12 @@ class NsxVCallbacks(object):
                 context.session, router_id,
                 status=plugin_const.ACTIVE)
             if (not dist and
-                self.plugin._dvs and availability_zone and
+                self._dvs and availability_zone and
                 availability_zone.edge_ha and
                 availability_zone.edge_host_groups):
-                update_edge_host_groups(self.plugin.nsx_v.vcns, edge_id,
-                                        self.plugin._dvs, availability_zone)
+                with locking.LockManager.get_lock('nsx-vc-drs-update'):
+                    update_edge_host_groups(self.plugin.nsx_v.vcns, edge_id,
+                                            self._dvs, availability_zone)
         else:
             LOG.error(_LE("Failed to deploy Edge for router %s"), name)
             if router_db:
@@ -2662,12 +2661,6 @@ class NsxVCallbacks(object):
             if not dist and edge_id:
                 nsxv_db.clean_edge_vnic_binding(
                     context.session, edge_id)
-
-    def pre_edge_deletion(self, edge_id, availability_zone):
-        if (self.plugin._dvs and availability_zone and
-            availability_zone.edge_ha and availability_zone.edge_host_groups):
-            delete_edge_host_groups(self.plugin.nsx_v.vcns, edge_id,
-                                    self.plugin._dvs)
 
     def complete_edge_update(
             self, context, edge_id, router_id, successful, set_errors):
