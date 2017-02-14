@@ -2629,9 +2629,9 @@ class NsxVCallbacks(object):
     def __init__(self, plugin):
         self.plugin = plugin
         if cfg.CONF.nsxv.use_dvs_features:
-            self._dvs = dvs.DvsManager(dvs_id=cfg.CONF.nsxv.dvs_id)
+            self._vcm = dvs.VCManager()
         else:
-            self._dvs = None
+            self._vcm = None
 
     def complete_edge_creation(
             self, context, edge_id, name, router_id, dist, deploy_successful,
@@ -2655,12 +2655,12 @@ class NsxVCallbacks(object):
                 context.session, router_id,
                 status=plugin_const.ACTIVE)
             if (not dist and
-                self._dvs and availability_zone and
+                self._vcm and availability_zone and
                 availability_zone.edge_ha and
                 availability_zone.edge_host_groups):
                 with locking.LockManager.get_lock('nsx-vc-drs-update'):
                     update_edge_host_groups(self.plugin.nsx_v.vcns, edge_id,
-                                            self._dvs, availability_zone)
+                                            self._vcm, availability_zone)
         else:
             LOG.error(_LE("Failed to deploy Edge for router %s"), name)
             if router_db:

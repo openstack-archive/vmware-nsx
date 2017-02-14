@@ -23,34 +23,28 @@ from vmware_nsx.dvs import dvs_utils
 
 LOG = logging.getLogger(__name__)
 PORTGROUP_PREFIX = 'dvportgroup'
+API_FIND_ALL_BY_UUID = 'FindAllByUuid'
+
+# QoS related constants
 QOS_IN_DIRECTION = 'incomingPackets'
 QOS_AGENT_NAME = 'dvfilter-generic-vmware'
-API_FIND_ALL_BY_UUID = 'FindAllByUuid'
 DSCP_RULE_DESCRIPTION = 'Openstack Dscp Marking RUle'
 
 
-class DvsManager(object):
-    """Management class for dvs related tasks."""
+class SingleDvsManager(object):
+    """Management class for dvs related tasks for the dvs plugin
 
-    def __init__(self, dvs_id=None):
-        """Initializer.
+    For the globally configured dvs.
+    the moref of the configured DVS will be learnt. This will be used in
+    the operations supported by the manager.
+    """
+    def __init__(self):
+        self._dvs = DvsManager()
+        self._dvs_moref = self._get_dvs_moref_by_name(
+            self._dvs.get_vc_session(),
+            dvs_utils.dvs_name_get())
 
-        A global session with the VC will be established. In addition to this
-        the moref of the configured DVS will be learnt. This will be used in
-        the operations supported by the manager.
-
-        NOTE: the DVS port group name will be the Neutron network UUID.
-        """
-        self._session = dvs_utils.dvs_create_session()
-        # In the future we may decide to support more than one DVS
-        if dvs_id is None:
-            self._dvs_moref = self._get_dvs_moref(self._session,
-                                                  dvs_utils.dvs_name_get())
-        else:
-            self._dvs_moref = vim_util.get_moref(dvs_id,
-                                              'VmwareDistributedVirtualSwitch')
-
-    def _get_dvs_moref(self, session, dvs_name):
+    def _get_dvs_moref_by_name(self, session, dvs_name):
         """Get the moref of the configured DVS."""
         results = session.invoke_api(vim_util,
                                      'get_objects',
@@ -65,6 +59,44 @@ class DvsManager(object):
                         return dvs.obj
             results = vim_util.continue_retrieval(session.vim, results)
         raise nsx_exc.DvsNotFound(dvs=dvs_name)
+
+    def add_port_group(self, net_id, vlan_tag=None):
+        return self._dvs.add_port_group(self._dvs_moref, net_id,
+                                        vlan_tag=vlan_tag)
+
+    def delete_port_group(self, net_id):
+        return self._dvs.delete_port_group(self._dvs_moref, net_id)
+
+    def get_port_group_info(self, net_id):
+        return self._dvs.get_port_group_info(self._dvs_moref, net_id)
+
+    def net_id_to_moref(self, net_id):
+        return self._dvs._net_id_to_moref(self._dvs_moref, net_id)
+
+
+class VCManagerBase(object):
+    """Base class for all VC related classes, to initialize the session"""
+    def __init__(self):
+        """Initializer.
+
+        A global session with the VC will be established.
+
+        NOTE: the DVS port group name will be the Neutron network UUID.
+        """
+        self._session = dvs_utils.dvs_create_session()
+
+    def get_vc_session(self):
+        return self._session
+
+
+class DvsManager(VCManagerBase):
+    """Management class for dvs related tasks
+
+    The dvs-id is not a class member, ince multiple dvs-es can be supported.
+    """
+
+    def _get_dvs_moref_by_id(self, dvs_id):
+        return vim_util.get_moref(dvs_id, 'VmwareDistributedVirtualSwitch')
 
     def _get_port_group_spec(self, net_id, vlan_tag):
         """Gets the port groups spec for net_id and vlan_tag."""
@@ -83,12 +115,12 @@ class DvsManager(object):
         pg_spec.defaultPortConfig = config
         return pg_spec
 
-    def add_port_group(self, net_id, vlan_tag=None):
+    def add_port_group(self, dvs_moref, net_id, vlan_tag=None):
         """Add a new port group to the configured DVS."""
         pg_spec = self._get_port_group_spec(net_id, vlan_tag)
         task = self._session.invoke_api(self._session.vim,
                                         'CreateDVPortgroup_Task',
-                                        self._dvs_moref,
+                                        dvs_moref,
                                         spec=pg_spec)
         try:
             # NOTE(garyk): cache the returned moref
@@ -102,16 +134,17 @@ class DvsManager(object):
         LOG.info(_LI("%(net_id)s with tag %(vlan_tag)s created on %(dvs)s."),
                  {'net_id': net_id,
                   'vlan_tag': vlan_tag,
-                  'dvs': self._dvs_moref.value})
+                  'dvs': dvs_moref.value})
 
-    def _net_id_to_moref(self, net_id):
+    # DEBUG ADIT used only by the DVS plugin
+    def _net_id_to_moref(self, dvs_moref, net_id):
         """Gets the moref for the specific neutron network."""
         # NOTE(garyk): return this from a cache if not found then invoke
         # code below.
         port_groups = self._session.invoke_api(vim_util,
                                                'get_object_properties',
                                                self._session.vim,
-                                               self._dvs_moref,
+                                               dvs_moref,
                                                ['portgroup'])
         if len(port_groups) and hasattr(port_groups[0], 'propSet'):
             for prop in port_groups[0].propSet:
@@ -244,7 +277,7 @@ class DvsManager(object):
 
     # Update the dvs port groups config for a vxlan/vlan network
     # update the spec using a callback and user data
-    def update_port_groups_config(self, net_id, net_moref,
+    def update_port_groups_config(self, dvs_id, net_id, net_moref,
                                   spec_update_calback, spec_update_data):
         is_vlan = self._is_vlan_network_by_moref(net_moref)
         if is_vlan:
@@ -252,7 +285,9 @@ class DvsManager(object):
                                                        spec_update_calback,
                                                        spec_update_data)
         else:
-            return self._update_vxlan_port_groups_config(net_id,
+            dvs_moref = self._get_dvs_moref_by_id(dvs_id)
+            return self._update_vxlan_port_groups_config(dvs_moref,
+                                                         net_id,
                                                          net_moref,
                                                          spec_update_calback,
                                                          spec_update_data)
@@ -261,6 +296,7 @@ class DvsManager(object):
     # Searching the port groups for a partial match to the network id & moref
     # update the spec using a callback and user data
     def _update_vxlan_port_groups_config(self,
+                                         dvs_moref,
                                          net_id,
                                          net_moref,
                                          spec_update_calback,
@@ -268,7 +304,7 @@ class DvsManager(object):
         port_groups = self._session.invoke_api(vim_util,
                                                'get_object_properties',
                                                self._session.vim,
-                                               self._dvs_moref,
+                                               dvs_moref,
                                                ['portgroup'])
         found = False
         if len(port_groups) and hasattr(port_groups[0], 'propSet'):
@@ -303,9 +339,9 @@ class DvsManager(object):
                                      spec_update_calback,
                                      spec_update_data)
 
-    def delete_port_group(self, net_id):
+    def delete_port_group(self, dvs_moref, net_id):
         """Delete a specific port group."""
-        moref = self._net_id_to_moref(net_id)
+        moref = self._net_id_to_moref(dvs_moref, net_id)
         task = self._session.invoke_api(self._session.vim,
                                         'Destroy_Task',
                                         moref)
@@ -318,10 +354,11 @@ class DvsManager(object):
                               net_id)
         LOG.info(_LI("%(net_id)s delete from %(dvs)s."),
                  {'net_id': net_id,
-                  'dvs': self._dvs_moref.value})
+                  'dvs': dvs_moref.value})
 
-    def get_portgroup_info(self, pg_moref):
+    def get_port_group_info(self, dvs_moref, net_id):
         """Get portgroup information."""
+        pg_moref = self._net_id_to_moref(dvs_moref, net_id)
         # Expand the properties to collect on need basis.
         properties = ['name']
         pg_info = self._session.invoke_api(vim_util,
@@ -329,6 +366,45 @@ class DvsManager(object):
                                            self._session.vim,
                                            pg_moref, properties)
         return pg_info
+
+    def _get_dvs_moref_from_teaming_data(self, teaming_data):
+        """Get the moref dvs that belongs to the teaming data"""
+        if 'switchObj' in teaming_data:
+            if 'objectId' in teaming_data['switchObj']:
+                dvs_id = teaming_data['switchObj']['objectId']
+                return vim_util.get_moref(
+                    dvs_id, 'VmwareDistributedVirtualSwitch')
+
+    def update_port_group_spec_teaming(self, pg_spec, teaming_data):
+        mapping = {'FAILOVER_ORDER': 'failover_explicit',
+                   'ETHER_CHANNEL': 'loadbalance_ip',
+                   'LACP_ACTIVE': 'loadbalance_ip',
+                   'LACP_PASSIVE': 'loadbalance_ip',
+                   'LACP_V2': 'loadbalance_ip',
+                   'LOADBALANCE_SRCID': 'loadbalance_srcid',
+                   'LOADBALANCE_SRCMAC': 'loadbalance_srcmac',
+                   'LOADBALANCE_LOADBASED': 'loadbalance_loadbased'}
+        dvs_moref = self._get_dvs_moref_from_teaming_data(teaming_data)
+        port_conf = pg_spec.defaultPortConfig
+        policy = port_conf.uplinkTeamingPolicy
+        policy.inherited = False
+        policy.policy.inherited = False
+        policy.policy.value = mapping[teaming_data['teamingPolicy']]
+        policy.uplinkPortOrder.inherited = False
+        ports = teaming_data['failoverUplinkPortNames']
+        policy.uplinkPortOrder.activeUplinkPort = ports
+        # The standby port will be those not configure as active ones
+        uplinks = self._session.invoke_api(vim_util,
+                                           "get_object_property",
+                                           self._session.vim,
+                                           dvs_moref,
+                                           "config.uplinkPortPolicy")
+        standby = list(set(uplinks.uplinkPortName) - set(ports))
+        policy.uplinkPortOrder.standbyUplinkPort = standby
+
+
+class VMManager(VCManagerBase):
+    """Management class for VMs related VC tasks."""
 
     def get_vm_moref_obj(self, instance_uuid):
         """Get reference to the VM.
@@ -448,45 +524,9 @@ class DvsManager(object):
                                                     "config.hardware.device")
         return hardware_devices
 
-    def _get_dvs_moref_from_teaming_data(self, teaming_data):
-        """Get the moref dvs that belongs to the teaming data
 
-        If not found: return the default one
-        """
-        dvs_moref = self._dvs_moref
-        if 'switchObj' in teaming_data:
-            if 'objectId' in teaming_data['switchObj']:
-                dvs_id = teaming_data['switchObj']['objectId']
-                dvs_moref = vim_util.get_moref(
-                    dvs_id, 'VmwareDistributedVirtualSwitch')
-        return dvs_moref
-
-    def update_port_group_spec_teaming(self, pg_spec, teaming_data):
-        mapping = {'FAILOVER_ORDER': 'failover_explicit',
-                   'ETHER_CHANNEL': 'loadbalance_ip',
-                   'LACP_ACTIVE': 'loadbalance_ip',
-                   'LACP_PASSIVE': 'loadbalance_ip',
-                   'LACP_V2': 'loadbalance_ip',
-                   'LOADBALANCE_SRCID': 'loadbalance_srcid',
-                   'LOADBALANCE_SRCMAC': 'loadbalance_srcmac',
-                   'LOADBALANCE_LOADBASED': 'loadbalance_loadbased'}
-        dvs_moref = self._get_dvs_moref_from_teaming_data(teaming_data)
-        port_conf = pg_spec.defaultPortConfig
-        policy = port_conf.uplinkTeamingPolicy
-        policy.inherited = False
-        policy.policy.inherited = False
-        policy.policy.value = mapping[teaming_data['teamingPolicy']]
-        policy.uplinkPortOrder.inherited = False
-        ports = teaming_data['failoverUplinkPortNames']
-        policy.uplinkPortOrder.activeUplinkPort = ports
-        # The standby port will be those not configure as active ones
-        uplinks = self._session.invoke_api(vim_util,
-                                           "get_object_property",
-                                           self._session.vim,
-                                           dvs_moref,
-                                           "config.uplinkPortPolicy")
-        standby = list(set(uplinks.uplinkPortName) - set(ports))
-        policy.uplinkPortOrder.standbyUplinkPort = standby
+class ClusterManager(VCManagerBase):
+    """Management class for Cluster related VC tasks."""
 
     def _reconfigure_cluster(self, session, cluster, config_spec):
         """Reconfigure a cluster in vcenter"""
@@ -736,3 +776,8 @@ class DvsManager(object):
             config_spec.rulesSpec = ruleSpec
         if groupSpec or ruleSpec:
             self._reconfigure_cluster(session, cluster, config_spec)
+
+
+class VCManager(DvsManager, VMManager, ClusterManager):
+    """Management class for all vc related tasks."""
+    pass

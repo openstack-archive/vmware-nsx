@@ -49,12 +49,12 @@ class DvsTestCase(base.BaseTestCase):
 
     @mock.patch.object(dvs_utils, 'dvs_create_session',
                        return_value=fake_session())
-    @mock.patch.object(dvs.DvsManager, '_get_dvs_moref',
+    @mock.patch.object(dvs.SingleDvsManager, '_get_dvs_moref_by_name',
                        return_value=mock.MagicMock())
     def setUp(self, mock_moref, mock_session):
         super(DvsTestCase, self).setUp()
         cfg.CONF.set_override('dvs_name', 'fake_dvs', group='dvs')
-        self._dvs = dvs.DvsManager()
+        self._dvs = dvs.SingleDvsManager()
         self.assertEqual(mock_moref.return_value, self._dvs._dvs_moref)
         mock_moref.assert_called_once_with(mock_session.return_value,
                                            'fake_dvs')
@@ -63,7 +63,7 @@ class DvsTestCase(base.BaseTestCase):
                        return_value=fake_session())
     def test_dvs_not_found(self, mock_session):
         self.assertRaises(nsx_exc.DvsNotFound,
-                          dvs.DvsManager)
+                          dvs.SingleDvsManager)
 
     @mock.patch.object(dvs.DvsManager, '_get_port_group_spec',
                        return_value='fake-spec')
@@ -75,7 +75,7 @@ class DvsTestCase(base.BaseTestCase):
                        return_value='fake-spec')
     def test_add_port_group_with_exception(self, fake_get_spec):
         with (
-            mock.patch.object(self._dvs._session, 'wait_for_task',
+            mock.patch.object(self._dvs._dvs._session, 'wait_for_task',
                               side_effect=exp.NeutronException())
         ):
             self.assertRaises(exp.NeutronException,
@@ -87,19 +87,19 @@ class DvsTestCase(base.BaseTestCase):
                        return_value='fake-moref')
     def test_delete_port_group(self, fake_get_moref):
         self._dvs.delete_port_group('fake-uuid')
-        fake_get_moref.assert_called_once_with('fake-uuid')
+        fake_get_moref.assert_called_once_with(mock.ANY, 'fake-uuid')
 
     @mock.patch.object(dvs.DvsManager, '_net_id_to_moref',
                        return_value='fake-moref')
     def test_delete_port_group_with_exception(self, fake_get_moref):
         with (
-            mock.patch.object(self._dvs._session, 'wait_for_task',
+            mock.patch.object(self._dvs._dvs._session, 'wait_for_task',
                               side_effect=exp.NeutronException())
         ):
             self.assertRaises(exp.NeutronException,
                               self._dvs.delete_port_group,
                               'fake-uuid')
-            fake_get_moref.assert_called_once_with('fake-uuid')
+            fake_get_moref.assert_called_once_with(mock.ANY, 'fake-uuid')
 
     @mock.patch.object(dvs.DvsManager, '_update_vxlan_port_groups_config')
     @mock.patch.object(dvs.DvsManager, '_get_port_group_spec',
@@ -111,12 +111,9 @@ class DvsTestCase(base.BaseTestCase):
         net_id = 'vxlan-uuid'
         vlan = 7
         self._dvs.add_port_group(net_id, vlan)
-        moref = self._dvs._net_id_to_moref(net_id)
-        fake_get_moref.assert_called_once_with(net_id)
+        self._dvs.net_id_to_moref(net_id)
+        fake_get_moref.assert_called_once_with(mock.ANY, net_id)
         fake_get_spec.assert_called_once_with(net_id, vlan)
-
-        self._dvs.update_port_groups_config(net_id, moref, None, None)
-        fake_update_vxlan.assert_called_once_with(net_id, moref, None, None)
 
     @mock.patch.object(dvs.DvsManager, '_update_net_port_groups_config')
     @mock.patch.object(dvs.DvsManager, '_get_port_group_spec',
@@ -128,19 +125,16 @@ class DvsTestCase(base.BaseTestCase):
         net_id = 'flat-uuid'
         vlan = 7
         self._dvs.add_port_group(net_id, vlan)
-        moref = self._dvs._net_id_to_moref(net_id)
-        fake_get_moref.assert_called_once_with(net_id)
+        self._dvs.net_id_to_moref(net_id)
+        fake_get_moref.assert_called_once_with(mock.ANY, net_id)
         fake_get_spec.assert_called_once_with(net_id, vlan)
-
-        self._dvs.update_port_groups_config(net_id, moref, None, None)
-        fake_update_net.assert_called_once_with(moref, None, None)
 
 
 class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
 
     @mock.patch.object(dvs_utils, 'dvs_create_session',
                        return_value=fake_session())
-    @mock.patch.object(dvs.DvsManager, '_get_dvs_moref',
+    @mock.patch.object(dvs.SingleDvsManager, '_get_dvs_moref_by_name',
                        return_value=mock.MagicMock())
     def setUp(self, mock_moref, mock_session,
               plugin=PLUGIN_NAME,
@@ -197,7 +191,7 @@ class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
     def test_create_and_delete_dvs_network_flat(self):
         self._create_and_delete_dvs_network()
 
-    @mock.patch.object(dvs.DvsManager, 'get_portgroup_info')
+    @mock.patch.object(dvs.DvsManager, 'get_port_group_info')
     @mock.patch.object(dvs.DvsManager, '_net_id_to_moref')
     def test_create_and_delete_dvs_network_portgroup(self, fake_get_moref,
                                                      fake_pg_info):
@@ -206,7 +200,7 @@ class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
         self.assertTrue(fake_get_moref.call_count)
         self.assertTrue(fake_pg_info.call_count)
 
-    @mock.patch.object(dvs.DvsManager, 'get_portgroup_info')
+    @mock.patch.object(dvs.DvsManager, 'get_port_group_info')
     @mock.patch.object(dvs.DvsManager, '_net_id_to_moref')
     def test_create_and_delete_dvs_network_portgroup_vlan(self,
                                                           fake_get_moref,
@@ -303,7 +297,7 @@ class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
                 {'network': {'port_security_enabled': True}})
             self.assertEqual(True, updated_net['port_security_enabled'])
 
-    @mock.patch.object(dvs.DvsManager, 'get_portgroup_info')
+    @mock.patch.object(dvs.DvsManager, 'get_port_group_info')
     @mock.patch.object(dvs.DvsManager, '_net_id_to_moref')
     def test_create_and_delete_portgroup_network_invalid_name(self,
                                                           fake_get_moref,

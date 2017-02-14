@@ -93,7 +93,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         neutron_extensions.append_api_extensions_path(
             [vmware_nsx.NSX_EXT_PATH])
         self.cfg_group = 'dvs'  # group name for dvs section in nsx.ini
-        self._dvs = dvs.DvsManager()
+        self._dvs = dvs.SingleDvsManager()
 
         # Common driver code
         self.base_binding_dict = {
@@ -152,13 +152,13 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         net_id = None
         if net_data.get(pnet.NETWORK_TYPE) == c_utils.NetworkTypes.PORTGROUP:
             net_id = net_data.get(pnet.PHYSICAL_NETWORK)
-            dvpg_moref = self._dvs._net_id_to_moref(net_id)
-            pg_info = self._dvs.get_portgroup_info(dvpg_moref)
+            pg_info = self._dvs.get_port_group_info(net_id)
             if pg_info.get('name') != net_data.get('name'):
                 err_msg = (_("Portgroup name %(dvpg)s must match network "
                             "name %(network)s") % {'dvpg': pg_info.get('name'),
                             'network': net_data.get('name')})
                 raise n_exc.InvalidInput(error_message=err_msg)
+            dvpg_moref = self._dvs.net_id_to_moref(net_id)
             dvs_id = dvpg_moref.value
         else:
             dvs_id = self._dvs_get_id(net_data)

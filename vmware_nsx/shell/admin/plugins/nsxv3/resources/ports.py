@@ -194,12 +194,12 @@ def list_missing_ports(resource, event, trigger, **kwargs):
         LOG.info(_LI("All internal ports verified on the NSX manager"))
 
 
-def get_vm_network_device(dvs_mng, vm_moref, mac_address):
+def get_vm_network_device(vm_mng, vm_moref, mac_address):
     """Return the network device with MAC 'mac_address'.
 
     This code was inspired by Nova vif.get_network_device
     """
-    hardware_devices = dvs_mng.get_vm_interfaces_info(vm_moref)
+    hardware_devices = vm_mng.get_vm_interfaces_info(vm_moref)
     if hardware_devices.__class__.__name__ == "ArrayOfVirtualDevice":
         hardware_devices = hardware_devices.VirtualDevice
     for device in hardware_devices:
@@ -217,7 +217,7 @@ def migrate_compute_ports_vms(resource, event, trigger, **kwargs):
     """
     # Connect to the DVS manager, using the configuration parameters
     try:
-        dvs_mng = dvs.DvsManager()
+        vm_mng = dvs.VMManager()
     except Exception as e:
         LOG.error(_LE("Cannot connect to the DVS: Please update the [dvs] "
                       "section in the nsx.ini file: %s"), e)
@@ -233,8 +233,8 @@ def migrate_compute_ports_vms(resource, event, trigger, **kwargs):
         device_id = port.get('device_id')
 
         # get the vm moref & spec from the DVS
-        vm_moref = dvs_mng.get_vm_moref_obj(device_id)
-        vm_spec = dvs_mng.get_vm_spec(vm_moref)
+        vm_moref = vm_mng.get_vm_moref_obj(device_id)
+        vm_spec = vm_mng.get_vm_spec(vm_moref)
 
         # Go over the VM interfaces and check if it should be updated
         update_spec = False
@@ -250,7 +250,7 @@ def migrate_compute_ports_vms(resource, event, trigger, **kwargs):
             continue
 
         # find the old interface by it's mac and delete it
-        device = get_vm_network_device(dvs_mng, vm_moref, port['mac_address'])
+        device = get_vm_network_device(vm_mng, vm_moref, port['mac_address'])
         if device is None:
             LOG.warning(_LW("No device with MAC address %s exists on the VM"),
                         port['mac_address'])
@@ -258,13 +258,13 @@ def migrate_compute_ports_vms(resource, event, trigger, **kwargs):
         device_type = device.__class__.__name__
 
         LOG.info(_LI("Detaching old interface from VM %s"), device_id)
-        dvs_mng.detach_vm_interface(vm_moref, device)
+        vm_mng.detach_vm_interface(vm_moref, device)
 
         # add the new interface as OpaqueNetwork
         LOG.info(_LI("Attaching new interface to VM %s"), device_id)
         nsx_net_id = get_network_nsx_id(admin_cxt.session, port['network_id'])
-        dvs_mng.attach_vm_interface(vm_moref, port['id'], port['mac_address'],
-                                    nsx_net_id, device_type)
+        vm_mng.attach_vm_interface(vm_moref, port['id'], port['mac_address'],
+                                   nsx_net_id, device_type)
 
 
 registry.subscribe(list_missing_ports,

@@ -209,6 +209,13 @@ def get_nsx_switch_ids(session, neutron_id):
                 neutron_id=neutron_id)]
 
 
+def get_nsx_network_mappings(session, neutron_id):
+    # This function returns a list of NSX switch identifiers because of
+    # the possibility of chained logical switches
+    return session.query(nsx_models.NeutronNsxNetworkMapping).filter_by(
+                neutron_id=neutron_id).all()
+
+
 def get_nsx_switch_id_for_dvs(session, neutron_id, dvs_id):
     """Retrieve the NSX switch ID for a given DVS ID and neutron network."""
     try:
