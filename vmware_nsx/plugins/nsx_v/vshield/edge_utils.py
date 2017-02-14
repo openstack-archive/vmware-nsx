@@ -2646,7 +2646,8 @@ class NsxVCallbacks(object):
             nsxv_db.update_nsxv_router_binding(
                 context.session, router_id,
                 status=plugin_const.ACTIVE)
-            if (self.plugin._dvs and availability_zone and
+            if (not dist and
+                self.plugin._dvs and availability_zone and
                 availability_zone.edge_ha and
                 availability_zone.edge_host_groups):
                 update_edge_host_groups(self.plugin.nsx_v.vcns, edge_id,
