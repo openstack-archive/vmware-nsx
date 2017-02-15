@@ -66,7 +66,12 @@ Edges
 
 - Update DRS hostgroups for an edge::
 
-    nsxadmin -o nsx-update -r edges -p edge-id=edge-55 --property hostgroup=True|False
+    nsxadmin -o nsx-update -r edges -p edge-id=edge-55 --property hostgroup=update|all
+
+- Update DRS hostgroups for all edges::
+
+    nsxadmin -o nsx-update -r edges --property hostgroup=all
+
 
 Orphaned Edges
 ~~~~~~~~~~~~~~
