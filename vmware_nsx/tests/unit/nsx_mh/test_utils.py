@@ -68,7 +68,7 @@ class NsxUtilsTestCase(base.BaseTestCase):
         # The nsxlib and db calls are mocked, therefore the cluster
         # and the neutron_port_id parameters can be set to None
         ls_uuid, lp_uuid = nsx_utils.get_nsx_switch_and_port_id(
-            db_api.get_session(), None, None)
+            db_api.get_reader_session(), None, None)
         self.assertEqual(exp_ls_uuid, ls_uuid)
         self.assertEqual(exp_lp_uuid, lp_uuid)
 
@@ -76,7 +76,7 @@ class NsxUtilsTestCase(base.BaseTestCase):
         # The nsxlib and db calls are mocked, therefore the cluster
         # and the neutron_router_id parameters can be set to None
         ls_uuids = nsx_utils.get_nsx_switch_ids(
-            db_api.get_session(), None, None)
+            db_api.get_reader_session(), None, None)
         for ls_uuid in ls_uuids or []:
             self.assertIn(ls_uuid, exp_ls_uuids)
             exp_ls_uuids.remove(ls_uuid)
@@ -84,7 +84,8 @@ class NsxUtilsTestCase(base.BaseTestCase):
 
     def _verify_get_nsx_router_id(self, exp_lr_uuid):
         neutron_router_id = uuidutils.generate_uuid()
-        lr_uuid = nsx_utils.get_nsx_router_id(db_api.get_session(), None,
+        lr_uuid = nsx_utils.get_nsx_router_id(db_api.get_reader_session(),
+                                              None,
                                               neutron_router_id)
         self.assertEqual(exp_lr_uuid, lr_uuid)
 
@@ -280,7 +281,7 @@ class NsxUtilsTestCase(base.BaseTestCase):
         # The nsxlib and db calls are  mocked, therefore the cluster
         # and the neutron_id parameters can be set to None
         sec_prof_uuid = nsx_utils.get_nsx_security_group_id(
-            db_api.get_session(), None, None)
+            db_api.get_reader_session(), None, None)
         self.assertEqual(exp_sec_prof_uuid, sec_prof_uuid)
 
     def test_get_nsx_sec_profile_id_from_db_mappings(self):

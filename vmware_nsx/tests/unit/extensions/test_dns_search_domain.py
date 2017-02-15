@@ -85,7 +85,7 @@ class DnsSearchDomainDBTestCase(test_db.NeutronDbPluginV2TestCase):
 
     def setUp(self):
         super(DnsSearchDomainDBTestCase, self).setUp()
-        self.session = db.get_session()
+        self.session = db.get_writer_session()
 
     def test_get_nsxv_subnet_ext_attributes_no_dns_search_domain(self):
         with self.subnet() as sub:

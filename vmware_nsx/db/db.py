@@ -44,7 +44,7 @@ def _apply_filters_to_query(query, model, filters, like_filters=None):
 
 
 def get_network_bindings(session, network_id):
-    session = session or db.get_session()
+    session = session or db.get_reader_session()
     return (session.query(nsx_models.TzNetworkBinding).
             filter_by(network_id=network_id).
             all())
@@ -52,7 +52,7 @@ def get_network_bindings(session, network_id):
 
 def get_network_bindings_by_vlanid_and_physical_net(session, vlan_id,
                                                     phy_uuid):
-    session = session or db.get_session()
+    session = session or db.get_reader_session()
     return (session.query(nsx_models.TzNetworkBinding).
             filter_by(vlan_id=vlan_id, phy_uuid=phy_uuid).
             all())
