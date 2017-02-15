@@ -34,6 +34,5 @@ def upgrade():
         sa.Column('nsx_pool_id', sa.String(length=36), nullable=False),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('subnet_id'),
         sa.PrimaryKeyConstraint('nsx_pool_id'),
     )
