@@ -2612,6 +2612,16 @@ def update_edge_host_groups(vcns, edge_id, dvs, availability_zone,
                    'e': e})
 
 
+def clean_host_groups(dvs, availability_zone):
+    try:
+        LOG.info(_LI('Cleaning up host groups for AZ %s'),
+                 availability_zone.name)
+        dvs.cluster_host_group_cleanup(
+            availability_zone.resource_pool)
+    except Exception as e:
+        LOG.error(_LE('Unable to cleanup. Error: %s'), e)
+
+
 class NsxVCallbacks(object):
     """Edge callback implementation Callback functions for
     asynchronous tasks.
