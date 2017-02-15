@@ -72,6 +72,9 @@ Edges
 
     nsxadmin -o nsx-update -r edges --property hostgroup=all
 
+- Clean all DRS hostgroups for all edges::
+
+    nsxadmin -o nsx-update -r edges --property hostgroup=clean
 
 Orphaned Edges
 ~~~~~~~~~~~~~~

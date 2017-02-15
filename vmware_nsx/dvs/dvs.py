@@ -553,7 +553,7 @@ class DvsManager(object):
             if hasattr(cluster_config, 'group'):
                 groups = cluster_config.group
             for group in groups:
-                if 'neutron-group-%s' % entry_id in group.name:
+                if 'neutron-group-%s' % entry_id == group.name:
                     vm_group = group
                     break
             if vm_group and hasattr(vm_group, 'vm'):
@@ -584,7 +584,7 @@ class DvsManager(object):
             if hasattr(cluster_config, 'group'):
                 groups = cluster_config.group
             for group in groups:
-                if 'neutron-group-%s' % index in group.name:
+                if 'neutron-group-%s' % index == group.name:
                     vmGroup = group
                     break
             # Create/update the VM group
@@ -599,7 +599,7 @@ class DvsManager(object):
                 rules = cluster_config.rule
             # Create the config rule if it does not exist
             for rule in rules:
-                if 'neutron-rule-%s' % index in rule.name:
+                if 'neutron-rule-%s' % index == rule.name:
                     config_rule = rule
                     break
             if config_rule is None and index <= num_host_groups:
@@ -643,7 +643,7 @@ class DvsManager(object):
             if hasattr(cluster_config, 'group'):
                 groups = cluster_config.group
             for group in groups:
-                if 'neutron-group-%s' % entry_id in group.name:
+                if 'neutron-group-%s' % entry_id == group.name:
                     vmGroup = group
                     break
             if vmGroup is None:
@@ -660,7 +660,7 @@ class DvsManager(object):
                 rules = cluster_config.rule
             # Create the config rule if it does not exist
             for rule in rules:
-                if 'neutron-rule-%s' % entry_id in rule.name:
+                if 'neutron-rule-%s' % entry_id == rule.name:
                     config_rule = rule
                     break
             if config_rule is None and index < num_host_groups:
@@ -676,3 +676,63 @@ class DvsManager(object):
             except Exception as e:
                 LOG.error(_LE('Unable to update cluster for host groups %s'),
                           e)
+
+    def _delete_vm_group_spec(self, client_factory, name):
+        group_spec = client_factory.create('ns0:ClusterGroupSpec')
+        group = client_factory.create('ns0:ClusterVmGroup')
+        group.name = name
+        group_spec.operation = 'remove'
+        group_spec.removeKey = name
+        group_spec.info = group
+        return [group_spec]
+
+    def _delete_cluster_rules_spec(self, client_factory, rule):
+        rules_spec = client_factory.create('ns0:ClusterRuleSpec')
+        rules_spec.operation = 'remove'
+        rules_spec.removeKey = int(rule.key)
+        policy_class = 'ns0:ClusterVmHostRuleInfo'
+        rules_info = client_factory.create(policy_class)
+        rules_info.name = rule.name
+        rules_info.vmGroupName = rule.vmGroupName
+        rules_info.affineHostGroupName = rule.affineHostGroupName
+        rules_spec.info = rules_info
+        return rules_spec
+
+    def cluster_host_group_cleanup(self, resource_id):
+        session = self._session
+        resource = vim_util.get_moref(resource_id, 'ResourcePool')
+        # TODO(garyk): cache the cluster details
+        cluster = session.invoke_api(
+            vim_util, "get_object_property", self._session.vim, resource,
+            "owner")
+        client_factory = session.vim.client.factory
+        config_spec = client_factory.create('ns0:ClusterConfigSpecEx')
+        cluster_config = session.invoke_api(
+            vim_util, "get_object_property", self._session.vim, cluster,
+            "configurationEx")
+        groupSpec = []
+        ruleSpec = []
+        for index in range(2):
+            entry_id = index + 1
+            groups = []
+            if hasattr(cluster_config, 'group'):
+                groups = cluster_config.group
+            for group in groups:
+                if 'neutron-group-%s' % entry_id == group.name:
+                    groupSpec.append(self._delete_vm_group_spec(
+                        client_factory, group.name))
+            rules = []
+            if hasattr(cluster_config, 'rule'):
+                rules = cluster_config.rule
+            # Create the config rule if it does not exist
+            for rule in rules:
+                if 'neutron-rule-%s' % entry_id == rule.name:
+                    ruleSpec.append(self._delete_cluster_rules_spec(
+                        client_factory, rule))
+
+        if groupSpec:
+            config_spec.groupSpec = groupSpec
+        if ruleSpec:
+            config_spec.rulesSpec = ruleSpec
+        if groupSpec or ruleSpec:
+            self._reconfigure_cluster(session, cluster, config_spec)

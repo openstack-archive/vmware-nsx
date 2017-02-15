@@ -397,6 +397,13 @@ def change_edge_hostgroup(properties):
             edge_id = edge['id']
             _update_host_group_for_edge(nsxv, dvs_mng,
                                         edge_id, edge)
+    elif properties.get('hostgroup').lower() == "clean":
+        azs = nsx_az.ConfiguredAvailabilityZones()
+        for az in azs.availability_zones.values():
+            try:
+                edge_utils.clean_host_groups(dvs_mng, az)
+            except Exception:
+                LOG.error(_LE("Failed to clean AZ %s"), az.name)
     else:
         LOG.error(_LE('Currently not supported'))
 
@@ -427,7 +434,8 @@ def nsx_update_edge(resource, event, trigger, **kwargs):
         return
     properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
     if (not properties.get('edge-id') and
-        not properties.get('hostgroup', '').lower() == "all"):
+        not properties.get('hostgroup', '').lower() == "all" and
+        not properties.get('hostgroup', '').lower() == "clean"):
         LOG.error(_LE("Need to specify edge-id. "
                       "Add --property edge-id=<edge-id>"))
         return
