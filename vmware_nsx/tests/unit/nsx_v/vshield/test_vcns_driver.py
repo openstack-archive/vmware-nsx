@@ -223,7 +223,6 @@ class VcnsDriverTaskManagerTestCase(base.BaseTestCase):
         def _result(task):
             if result_wait:
                 greenthread.sleep(0)
-            pass
 
         manager = ts.TaskManager().start(100)
         manager.stop()
