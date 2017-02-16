@@ -528,7 +528,7 @@ class DvsManager(object):
         policy_class = 'ns0:ClusterVmHostRuleInfo'
         rules_info = client_factory.create(policy_class)
         rules_info.enabled = True
-        rules_info.mandatory = True
+        rules_info.mandatory = False
         rules_info.name = name
         rules_info.vmGroupName = vm_group_name
         rules_info.affineHostGroupName = host_group_name
