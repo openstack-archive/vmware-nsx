@@ -15,6 +15,7 @@ from tempest.common import custom_matchers
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib import decorators
+from tempest.lib import exceptions as ex
 from tempest import test
 
 from vmware_nsx_tempest.common import constants
@@ -72,8 +73,8 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
 
     def _create_mac_learn_enabled_port(self, network):
         # Create Port with required port security/sec groups config
-        test_port = data_utils.rand_name('port-')
-        port = self.create_port(network, name=test_port,
+        test_port_name = data_utils.rand_name('port-')
+        port = self.create_port(network, name=test_port_name,
                                 mac_learning_enabled=True,
                                 port_security_enabled=False,
                                 security_groups=[])
@@ -298,3 +299,21 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
         self._delete_port(updated_port)
         self.assertIsNone(self.nsx.get_logical_port(updated_port['name']),
                           "Logical port %s is not None" % updated_port['name'])
+
+    @test.attr(type='nsxv3')
+    @test.attr(type='negative')
+    @test.idempotent_id('e3465ea8-50fc-4070-88de-f4bd5df8ab86')
+    def test_create_mac_learning_port_enable_port_security_negative(self):
+        """
+        Negative test
+
+        Create port with MAC Learning enabled
+        Update port - enable port security(should fail)
+        Delete port
+        """
+        test_port = self._create_mac_learn_enabled_port(self.network)
+        port_opts = {}
+        port_opts['port_security_enabled'] = True
+        self.assertRaises(ex.BadRequest, self.update_port, test_port,
+                          **port_opts)
+        self._delete_port(test_port)
