@@ -240,7 +240,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if cfg.CONF.nsxv.use_dvs_features:
             azs = self._availability_zones_data.availability_zones.values()
             for az in azs:
-                if az.edge_host_groups:
+                if az.edge_host_groups and az.edge_ha:
                     self._dvs.validate_host_groups(az.resource_pool,
                                                    az.edge_host_groups)
         self._validate_config()
