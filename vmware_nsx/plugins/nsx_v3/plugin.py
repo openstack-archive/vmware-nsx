@@ -588,20 +588,22 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return self.conn.consume_in_threads()
 
     def _ext_extend_network_dict(self, result, netdb):
-        session = db_api.get_session()
-        with session.begin(subtransactions=True):
-            self._extension_manager.extend_network_dict(session, netdb, result)
+        ctx = q_context.get_admin_context()
+        with db_api.context_manager.writer.using(ctx):
+            self._extension_manager.extend_network_dict(
+                ctx.session, netdb, result)
 
     def _ext_extend_port_dict(self, result, portdb):
-        session = db_api.get_session()
-        with session.begin(subtransactions=True):
-            self._extension_manager.extend_port_dict(session, portdb, result)
+        ctx = q_context.get_admin_context()
+        with db_api.context_manager.writer.using(ctx):
+            self._extension_manager.extend_port_dict(
+                ctx.session, portdb, result)
 
     def _ext_extend_subnet_dict(self, result, subnetdb):
-        session = db_api.get_session()
-        with session.begin(subtransactions=True):
+        ctx = q_context.get_admin_context()
+        with db_api.context_manager.writer.using(ctx):
             self._extension_manager.extend_subnet_dict(
-                session, subnetdb, result)
+                ctx.session, subnetdb, result)
 
     def _validate_provider_create(self, context, network_data):
         is_provider_net = any(

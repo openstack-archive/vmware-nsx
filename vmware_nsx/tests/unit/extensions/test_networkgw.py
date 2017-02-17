@@ -583,7 +583,7 @@ class NetworkGatewayDbTestCase(test_db_plugin.NeutronDbPluginV2TestCase):
                 # Nothing to do here - just let the gateway go
                 gw_id = gw[self.gw_resource]['id']
         # Verify nothing left on db
-        session = db_api.get_session()
+        session = db_api.get_reader_session()
         dev_query = session.query(
             nsx_models.NetworkGatewayDevice).filter(
                 nsx_models.NetworkGatewayDevice.id == device_id)
@@ -909,7 +909,7 @@ class NetworkGatewayDbTestCase(test_db_plugin.NeutronDbPluginV2TestCase):
             # Nothing to do here - just note the device id
             dev_id = dev[self.dev_resource]['id']
         # Verify nothing left on db
-        session = db_api.get_session()
+        session = db_api.get_reader_session()
         dev_query = session.query(nsx_models.NetworkGatewayDevice)
         dev_query.filter(nsx_models.NetworkGatewayDevice.id == dev_id)
         self.assertIsNone(dev_query.first())

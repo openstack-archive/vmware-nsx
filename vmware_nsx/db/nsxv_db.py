@@ -102,7 +102,7 @@ def get_nsxv_router_bindings_by_edge(session, edge_id):
 @warn_on_binding_status_error
 def get_nsxv_router_bindings(session, filters=None,
                              like_filters=None):
-    session = db.get_session()
+    session = db.get_reader_session()
     query = session.query(nsxv_models.NsxvRouterBinding)
     return nsx_db._apply_filters_to_query(query, nsxv_models.NsxvRouterBinding,
                                           filters, like_filters).all()
@@ -505,7 +505,7 @@ def get_nsx_vnic_id(session, neutron_id):
 
 
 def get_network_bindings(session, network_id):
-    session = session or db.get_session()
+    session = session or db.get_reader_session()
     return (session.query(nsxv_models.NsxvTzNetworkBinding).
             filter_by(network_id=network_id).
             all())
@@ -513,7 +513,7 @@ def get_network_bindings(session, network_id):
 
 def get_network_bindings_by_vlanid_and_physical_net(session, vlan_id,
                                                     phy_uuid):
-    session = session or db.get_session()
+    session = session or db.get_reader_session()
     return (session.query(nsxv_models.NsxvTzNetworkBinding).
             filter_by(vlan_id=vlan_id, phy_uuid=phy_uuid).
             all())
@@ -533,7 +533,7 @@ def add_network_binding(session, network_id, binding_type, phy_uuid, vlan_id):
 
 
 def get_network_bindings_by_vlanid(session, vlan_id):
-    session = session or db.get_session()
+    session = session or db.get_reader_session()
     return (session.query(nsxv_models.NsxvTzNetworkBinding).
             filter_by(vlan_id=vlan_id).
             all())
@@ -616,7 +616,7 @@ def get_spoofguard_policy_id(session, network_id):
 
 def get_nsxv_spoofguard_policy_network_mappings(session, filters=None,
                                                 like_filters=None):
-    session = db.get_session()
+    session = db.get_reader_session()
     query = session.query(nsxv_models.NsxvSpoofGuardPolicyNetworkMapping)
     return nsx_db._apply_filters_to_query(
                query, nsxv_models.NsxvSpoofGuardPolicyNetworkMapping,
