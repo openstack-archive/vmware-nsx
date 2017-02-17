@@ -549,7 +549,10 @@ class DvsManager(object):
         for index in range(2):
             vm_group = None
             entry_id = index + 1
-            for group in cluster_config.group:
+            groups = []
+            if hasattr(cluster_config, 'group'):
+                groups = cluster_config.group
+            for group in groups:
                 if 'neutron-group-%s' % entry_id in group.name:
                     vm_group = group
                     break
@@ -577,7 +580,10 @@ class DvsManager(object):
         num_host_groups = len(host_group_names)
         for index, vm in enumerate(vms, start=1):
             vmGroup = None
-            for group in cluster_config.group:
+            groups = []
+            if hasattr(cluster_config, 'group'):
+                groups = cluster_config.group
+            for group in groups:
                 if 'neutron-group-%s' % index in group.name:
                     vmGroup = group
                     break
@@ -588,8 +594,11 @@ class DvsManager(object):
                             [vm], vmGroup)
             config_spec.groupSpec.append(groupSpec)
             config_rule = None
+            rules = []
+            if hasattr(cluster_config, 'rule'):
+                rules = cluster_config.rule
             # Create the config rule if it does not exist
-            for rule in cluster_config.rule:
+            for rule in rules:
                 if 'neutron-rule-%s' % index in rule.name:
                     config_rule = rule
                     break
@@ -614,7 +623,10 @@ class DvsManager(object):
             "configurationEx")
         for host_group_name in host_group_names:
             found = False
-            for group in cluster_config.group:
+            groups = []
+            if hasattr(cluster_config, 'group'):
+                groups = cluster_config.group
+            for group in groups:
                 if host_group_name == group.name:
                     found = True
                     break
@@ -627,7 +639,10 @@ class DvsManager(object):
         for index in range(2):
             entry_id = index + 1
             vmGroup = None
-            for group in cluster_config.group:
+            groups = []
+            if hasattr(cluster_config, 'group'):
+                groups = cluster_config.group
+            for group in groups:
                 if 'neutron-group-%s' % entry_id in group.name:
                     vmGroup = group
                     break
@@ -640,8 +655,11 @@ class DvsManager(object):
                 update_cluster = True
 
             config_rule = None
+            rules = []
+            if hasattr(cluster_config, 'rule'):
+                rules = cluster_config.rule
             # Create the config rule if it does not exist
-            for rule in cluster_config.rule:
+            for rule in rules:
                 if 'neutron-rule-%s' % entry_id in rule.name:
                     config_rule = rule
                     break
