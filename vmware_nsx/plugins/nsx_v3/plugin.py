@@ -1770,32 +1770,82 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                           {'binding': binding['id'], 'port': port['id']})
                 self._delete_dhcp_binding_on_server(context, binding)
 
+    def _validate_extra_dhcp_options(self, opts):
+        if not opts or not cfg.CONF.nsx_v3.native_dhcp_metadata:
+            return
+        for opt in opts:
+            opt_name = opt['opt_name']
+            opt_val = opt['opt_value']
+            if opt_name == 'classless-static-route':
+                # separate validation for option121
+                if opt_val is not None:
+                    try:
+                        net, ip = opt_val.split(',')
+                    except Exception:
+                        msg = (_("Bad value %(val)s for DHCP option "
+                                 "%(name)s") % {'name': opt_name,
+                                                'val': opt_val})
+                        raise n_exc.InvalidInput(error_message=msg)
+            elif not self._dhcp_server.get_dhcp_opt_code(opt_name):
+                msg = (_("DHCP option %s is not supported") % opt_name)
+                raise n_exc.InvalidInput(error_message=msg)
+
+    def _get_dhcp_options(self, ip, extra_dhcp_opts):
+        # Always add option121.
+        options = {'option121': {'static_routes': [
+            {'network': '%s' % cfg.CONF.nsx_v3.native_metadata_route,
+             'next_hop': ip}]}}
+        # Adding extra options only if configured on port
+        if extra_dhcp_opts:
+            other_opts = []
+            for opt in extra_dhcp_opts:
+                opt_name = opt['opt_name']
+                if opt['opt_value'] is not None:
+                    # None value means - delete this option. Since we rebuild
+                    # the options from scratch, it can be ignored.
+                    opt_val = opt['opt_value']
+                    if opt_name == 'classless-static-route':
+                        # Add to the option121 static routes
+                        net, ip = opt_val.split(',')
+                        options['option121']['static_routes'].append({
+                            'network': net, 'next_hop': ip})
+                    else:
+                        other_opts.append({
+                            'code': self._dhcp_server.get_dhcp_opt_code(
+                                opt_name),
+                            'values': [opt_val]})
+            if other_opts:
+                options['others'] = other_opts
+        return options
+
     def _add_dhcp_binding_on_server(self, context, dhcp_service_id, subnet_id,
                                     ip, port):
         try:
             hostname = 'host-%s' % ip.replace('.', '-')
             gateway_ip = self.get_subnet(
                 context, subnet_id).get('gateway_ip')
-            options = {'option121': {'static_routes': [
-                {'network': '%s' % cfg.CONF.nsx_v3.native_metadata_route,
-                 'next_hop': ip}]}}
+            options = self._get_dhcp_options(
+                ip, port.get(ext_edo.EXTRADHCPOPTS))
             binding = self._dhcp_server.create_binding(
                 dhcp_service_id, port['mac_address'], ip, hostname,
                 cfg.CONF.nsx_v3.dhcp_lease_time, options, gateway_ip)
             LOG.debug("Created static binding (mac: %(mac)s, ip: %(ip)s, "
-                      "gateway: %(gateway)s) for port %(port)s on "
-                      "logical DHCP server %(server)s",
+                      "gateway: %(gateway)s, options: %(options)s) for port "
+                      "%(port)s on logical DHCP server %(server)s",
                       {'mac': port['mac_address'], 'ip': ip,
-                       'gateway': gateway_ip, 'port': port['id'],
+                       'gateway': gateway_ip, 'options': options,
+                       'port': port['id'],
                        'server': dhcp_service_id})
             return binding
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE("Unable to create static binding (mac: %(mac)s, "
-                              "ip: %(ip)s, gateway: %(gateway)s) for port "
-                              "%(port)s on logical DHCP server %(server)s"),
+                              "ip: %(ip)s, gateway: %(gateway)s, options: "
+                              "%(options)s) for port %(port)s on logical DHCP "
+                              "server %(server)s"),
                           {'mac': port['mac_address'], 'ip': ip,
-                           'gateway': gateway_ip, 'port': port['id'],
+                           'gateway': gateway_ip, 'options': options,
+                           'port': port['id'],
                            'server': dhcp_service_id})
 
     def _delete_dhcp_binding(self, context, port):
@@ -1895,6 +1945,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # Update static DHCP bindings for a compute port.
             bindings = nsx_db.get_nsx_dhcp_bindings(context.session,
                                                     old_port['id'])
+            dhcp_opts = new_port.get(ext_edo.EXTRADHCPOPTS)
+            dhcp_opts_changed = (old_port[ext_edo.EXTRADHCPOPTS] !=
+                                 new_port[ext_edo.EXTRADHCPOPTS])
             if ip_change:
                 # If IP address is changed, update associated DHCP bindings,
                 # metadata route, and default hostname.
@@ -1908,7 +1961,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         if binding:
                             self._update_dhcp_binding_on_server(
                                 context, binding, new_port['mac_address'],
-                                ips_to_add[i][1])
+                                ips_to_add[i][1], dhcp_opts=dhcp_opts)
                 else:
                     for (subnet_id, ip) in ips_to_delete:
                         binding = self._find_dhcp_binding(subnet_id, ip,
@@ -1925,26 +1978,29 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                 self._add_dhcp_binding_on_server(
                                     context, dhcp_service['nsx_service_id'],
                                     subnet_id, ip, new_port)
-            elif old_port['mac_address'] != new_port['mac_address']:
-                # If only Mac address is changed, update the Mac address in
-                # all associated DHCP bindings.
+            elif (old_port['mac_address'] != new_port['mac_address'] or
+                  dhcp_opts_changed):
+                # If only Mac address/dhcp opts is changed,
+                # update it in all associated DHCP bindings.
                 for binding in bindings:
                     self._update_dhcp_binding_on_server(
                         context, binding, new_port['mac_address'],
-                        binding['ip_address'])
+                        binding['ip_address'],
+                        dhcp_opts=dhcp_opts if dhcp_opts_changed else None)
 
     def _update_dhcp_binding_on_server(self, context, binding, mac, ip,
-                                       gateway_ip=False):
+                                       gateway_ip=False, dhcp_opts=None):
         try:
             data = {'mac_address': mac, 'ip_address': ip}
             if ip != binding['ip_address']:
                 data['host_name'] = 'host-%s' % ip.replace('.', '-')
-                data['options'] = {'option121': {'static_routes': [
-                    {'network': '%s' % cfg.CONF.nsx_v3.native_metadata_route,
-                     'next_hop': ip}]}}
+                data['options'] = self._get_dhcp_options(ip, dhcp_opts)
+            elif dhcp_opts is not None:
+                data['options'] = self._get_dhcp_options(ip, dhcp_opts)
             if gateway_ip is not False:
                 # Note that None is valid for gateway_ip, means deleting it.
                 data['gateway_ip'] = gateway_ip
+
             self._dhcp_server.update_binding(
                 binding['nsx_service_id'], binding['nsx_binding_id'], **data)
             LOG.debug("Updated static binding (mac: %(mac)s, ip: %(ip)s, "
@@ -1974,7 +2030,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def create_port(self, context, port, l2gw_port_check=False):
         port_data = port['port']
-        dhcp_opts = port_data.get(ext_edo.EXTRADHCPOPTS, [])
+        dhcp_opts = port_data.get(ext_edo.EXTRADHCPOPTS)
+        self._validate_extra_dhcp_options(dhcp_opts)
 
         # TODO(salv-orlando): Undo logical switch creation on failure
         with context.session.begin(subtransactions=True):
@@ -2346,6 +2403,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self._assert_on_external_net_with_compute(port['port'])
                 self._assert_on_external_net_port_with_qos(port['port'])
 
+            dhcp_opts = port['port'].get(ext_edo.EXTRADHCPOPTS)
+            self._validate_extra_dhcp_options(dhcp_opts)
+
             device_owner = (port['port']['device_owner']
                             if 'device_owner' in port['port']
                             else original_port.get('device_owner'))
@@ -2360,8 +2420,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # they've already been processed
             port['port'].pop('fixed_ips', None)
             updated_port.update(port['port'])
-            self._update_extra_dhcp_opts_on_port(
-                context, id, port, updated_port)
 
             updated_port = self._update_port_preprocess_security(
                 context, port, id, updated_port)
