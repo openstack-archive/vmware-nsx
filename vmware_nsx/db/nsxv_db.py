@@ -18,6 +18,7 @@ import neutron.db.api as db
 from neutron.plugins.common import constants as neutron_const
 
 import decorator
+from neutron_lib.api.definitions import portbindings as pbin
 from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -870,3 +871,26 @@ def update_nsxv_subnet_ext_attributes(session, subnet_id,
         binding[ext_dns_search_domain.DNS_SEARCH_DOMAIN] = dns_search_domain
         binding[ext_dhcp_mtu.DHCP_MTU] = dhcp_mtu
     return binding
+
+
+def add_nsxv_port_ext_attributes(session, port_id,
+                                 vnic_type=pbin.VNIC_NORMAL):
+    with session.begin(subtransactions=True):
+        binding = nsxv_models.NsxvPortExtAttributes(
+            port_id=port_id,
+            vnic_type=vnic_type)
+        session.add(binding)
+    return binding
+
+
+def update_nsxv_port_ext_attributes(session, port_id,
+                                    vnic_type=pbin.VNIC_NORMAL):
+    try:
+        binding = session.query(
+            nsxv_models.NsxvPortExtAttributes).filter_by(
+            port_id=port_id).one()
+        binding['vnic_type'] = vnic_type
+        return binding
+    except exc.NoResultFound:
+        return add_nsxv_port_ext_attributes(
+            session, port_id, vnic_type=vnic_type)

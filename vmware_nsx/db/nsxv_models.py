@@ -20,6 +20,7 @@ from sqlalchemy import orm
 
 from neutron.db import l3_db
 from neutron.db import models_v2
+from neutron.extensions import portbindings
 from oslo_db.sqlalchemy import models
 
 from vmware_nsx.common import nsxv_constants
@@ -360,4 +361,23 @@ class NsxvSubnetExtAttributes(model_base.BASEV2, models.TimestampMixin):
     subnet = orm.relationship(
         models_v2.Subnet,
         backref=orm.backref("nsxv_subnet_attributes", lazy='joined',
+                            uselist=False, cascade='delete'))
+
+
+class NsxvPortExtAttributes(model_base.BASEV2, models.TimestampMixin):
+    """Port attributes managed by NSX plugin extensions."""
+
+    __tablename__ = 'nsxv_port_ext_attributes'
+
+    port_id = sa.Column(sa.String(36),
+                        sa.ForeignKey('ports.id', ondelete="CASCADE"),
+                        primary_key=True)
+    vnic_type = sa.Column(sa.String(64), nullable=False,
+                          default=portbindings.VNIC_NORMAL,
+                          server_default=portbindings.VNIC_NORMAL)
+    # Add a relationship to the port model in order to instruct
+    # SQLAlchemy to eagerly load this association
+    port = orm.relationship(
+        models_v2.Port,
+        backref=orm.backref("nsx_port_attributes", lazy='joined',
                             uselist=False, cascade='delete'))
