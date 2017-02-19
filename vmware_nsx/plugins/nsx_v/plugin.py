@@ -232,7 +232,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Configure edge reservations
         self._configure_reservations()
         self.edge_manager = edge_utils.EdgeManager(self.nsx_v, self)
-        self.vdn_scope_id = cfg.CONF.nsxv.vdn_scope_id
         self.nsx_sg_utils = securitygroup_utils.NsxSecurityGroupUtils(
             self.nsx_v)
         self._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
