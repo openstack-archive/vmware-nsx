@@ -45,19 +45,32 @@ def get_nsxv_backup_edges():
     edgeapi = utils.NeutronDbClient()
     for edge in edges:
         if edge['name'].startswith("backup-"):
+            # Make sure it is really a backup edge
             edge_vnic_binds = nsxv_db.get_edge_vnic_bindings_by_edge(
                 edgeapi.context.session, edge['id'])
             if not edge_vnic_binds:
+                extend_edge_info(edge)
                 backup_edges.append(edge)
     return backup_edges
+
+
+def extend_edge_info(edge):
+    """Add information from the nsxv-db, if available"""
+    edgeapi = utils.NeutronDbClient()
+    rtr_binding = nsxv_db.get_nsxv_router_binding_by_edge(
+            edgeapi.context.session, edge['id'])
+    if rtr_binding:
+        edge['availability_zone'] = rtr_binding['availability_zone']
+        edge['db_status'] = rtr_binding['status']
 
 
 @admin_utils.output_header
 def nsx_list_backup_edges(resource, event, trigger, **kwargs):
     """List backup edges"""
     backup_edges = get_nsxv_backup_edges()
-    LOG.info(formatters.output_formatter(constants.BACKUP_EDGES, backup_edges,
-                                         ['id', 'name', 'size', 'type']))
+    LOG.info(formatters.output_formatter(
+        constants.BACKUP_EDGES, backup_edges,
+        ['id', 'name', 'size', 'type', 'availability_zone', 'db_status']))
 
 
 def _delete_backup_from_neutron_db(edge_id, router_id):

@@ -71,8 +71,9 @@ def get_router_edge_bindings():
 def neutron_list_router_edge_bindings(resource, event, trigger, **kwargs):
     """List NSXv edges from Neutron DB"""
     edges = get_router_edge_bindings()
-    LOG.info(formatters.output_formatter(constants.EDGES, edges,
-                                         ['edge_id', 'router_id']))
+    LOG.info(formatters.output_formatter(
+        constants.EDGES, edges,
+        ['edge_id', 'router_id', 'availability_zone', 'status']))
 
 
 def get_orphaned_edges():
