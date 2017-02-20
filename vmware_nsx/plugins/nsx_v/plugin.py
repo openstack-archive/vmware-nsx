@@ -3125,26 +3125,29 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         sg_data = super(NsxVPluginV2, self).update_security_group(
             context, id, security_group)
 
-        # Reflect security-group name or description changes in the backend,
-        # dfw section name needs to be updated as well.
-        h, c = self.nsx_v.vcns.get_section(section_uri)
-        section = self.nsx_sg_utils.parse_section(c)
-        if set(['name', 'description']) & set(s.keys()):
-            nsx_sg_name = self.nsx_sg_utils.get_nsx_sg_name(sg_data)
-            section_name = self.nsx_sg_utils.get_nsx_section_name(sg_data)
-            self.nsx_v.vcns.update_security_group(
-                nsx_sg_id, nsx_sg_name, sg_data['description'])
-            section.attrib['name'] = section_name
-            section_needs_update = True
-        # Update the dfw section if security-group logging option has changed.
-        log_all_rules = cfg.CONF.nsxv.log_security_groups_allowed_traffic
-        self._process_security_group_properties_update(context, sg_data, s)
-        if not log_all_rules and context.is_admin:
-            section_needs_update |= self.nsx_sg_utils.set_rules_logged_option(
-                section, sg_data[sg_logging.LOGGING])
-        if section_needs_update:
-            self.nsx_v.vcns.update_section(
-                section_uri, self.nsx_sg_utils.to_xml_string(section), h)
+        with locking.LockManager.get_lock('rule-update-%s' % id):
+            # Reflect security-group name or description changes in the
+            # backend, dfw section name needs to be updated as well.
+            h, c = self.nsx_v.vcns.get_section(section_uri)
+            section = self.nsx_sg_utils.parse_section(c)
+            if set(['name', 'description']) & set(s.keys()):
+                nsx_sg_name = self.nsx_sg_utils.get_nsx_sg_name(sg_data)
+                section_name = self.nsx_sg_utils.get_nsx_section_name(sg_data)
+                self.nsx_v.vcns.update_security_group(
+                    nsx_sg_id, nsx_sg_name, sg_data['description'])
+                section.attrib['name'] = section_name
+                section_needs_update = True
+            # Update the dfw section if security-group logging option has
+            # changed.
+            log_all_rules = cfg.CONF.nsxv.log_security_groups_allowed_traffic
+            self._process_security_group_properties_update(context, sg_data, s)
+            if not log_all_rules and context.is_admin:
+                section_needs_update |= (
+                    self.nsx_sg_utils.set_rules_logged_option(
+                        section, sg_data[sg_logging.LOGGING]))
+            if section_needs_update:
+                self.nsx_v.vcns.update_section(
+                    section_uri, self.nsx_sg_utils.to_xml_string(section), h)
         return sg_data
 
     def delete_security_group(self, context, id):
@@ -3275,11 +3278,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                       action='deny' if provider else 'allow')
             )
 
-        _h, _c = self.nsx_v.vcns.get_section(section_uri)
-        section = self.nsx_sg_utils.parse_section(_c)
-        self.nsx_sg_utils.extend_section_with_rules(section, nsx_rules)
-        h, c = self.nsx_v.vcns.update_section(
-            section_uri, self.nsx_sg_utils.to_xml_string(section), _h)
+        with locking.LockManager.get_lock('rule-update-%s' % sg_id):
+            _h, _c = self.nsx_v.vcns.get_section(section_uri)
+            section = self.nsx_sg_utils.parse_section(_c)
+            self.nsx_sg_utils.extend_section_with_rules(section, nsx_rules)
+            h, c = self.nsx_v.vcns.update_section(
+                section_uri, self.nsx_sg_utils.to_xml_string(section), _h)
         rule_pairs = self.nsx_sg_utils.get_rule_id_pair_from_section(c)
 
         try:
