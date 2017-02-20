@@ -42,20 +42,14 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
     def setUp(self, *mocks):
         # init the nsx-v plugin for testing with DVS
         self._init_dvs_config()
+        # Add a dummy notification driver - should be removed in Pike
+        cfg.CONF.set_override("notification_drivers", [], "qos")
         super(TestQosNsxVNotification, self).setUp(plugin=CORE_PLUGIN,
                                                    ext_mgr=None)
         plugin_instance = directory.get_plugin()
         self._core_plugin = plugin_instance
         self._core_plugin.init_is_complete = True
 
-        # Setup the QoS plugin:
-        # Add a dummy notification driver that calls our handler directly
-        # (to skip the message queue)
-        cfg.CONF.set_override(
-            "notification_drivers",
-            ['vmware_nsx.tests.unit.services.qos.fake_nsxv_notifier.'
-             'DummyNsxVNotificationDriver'],
-            "qos")
         self.qos_plugin = qos_plugin.QoSPlugin()
         mock.patch.object(qos_utils.NsxVQosRule,
                           '_get_qos_plugin',

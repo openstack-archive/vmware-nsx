@@ -379,11 +379,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self.conn.create_consumer(self.topic, self.endpoints, fanout=False)
 
         # Add QoS
-        qos_topic = resources_rpc.resource_type_versioned_topic(
-            callbacks_resources.QOS_POLICY)
-        self.conn.create_consumer(
-            qos_topic, [resources_rpc.ResourcesPushRpcCallback()],
-            fanout=False)
+        qos_plugin = directory.get_plugin(plugin_const.QOS)
+        if (qos_plugin and qos_plugin.driver_manager and
+            qos_plugin.driver_manager.rpc_notifications_required):
+            # TODO(asarfaty) this option should be deprecated on Pike
+            qos_topic = resources_rpc.resource_type_versioned_topic(
+                callbacks_resources.QOS_POLICY)
+            self.conn.create_consumer(
+                qos_topic, [resources_rpc.ResourcesPushRpcCallback()],
+                fanout=False)
 
         self.start_rpc_listeners_called = True
         return self.conn.consume_in_threads()

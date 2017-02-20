@@ -26,6 +26,7 @@ from neutron.tests.unit.services.qos import base
 
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
+from vmware_nsx.services.qos.nsx_v3 import driver as qos_driver
 from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin
 
@@ -36,16 +37,13 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                                test_plugin.NsxV3PluginTestCaseMixin):
 
     def setUp(self):
+        # Add a dummy notification driver - should be removed in Pike
+        cfg.CONF.set_override("notification_drivers", [], "qos")
+        # Reset the drive to re-create it
+        qos_driver.DRIVER = None
         super(TestQosNsxV3Notification, self).setUp()
         self.setup_coreplugin(PLUGIN_NAME)
 
-        # Add a dummy notification driver that calls our handler directly
-        # (to skip the message queue)
-        cfg.CONF.set_override(
-            "notification_drivers",
-            ['vmware_nsx.tests.unit.services.qos.fake_notifier.'
-             'DummyNotificationDriver'],
-            "qos")
         self.qos_plugin = qos_plugin.QoSPlugin()
         self.ctxt = context.Context('fake_user', 'fake_tenant')
         mock.patch.object(self.ctxt.session, 'refresh').start()
