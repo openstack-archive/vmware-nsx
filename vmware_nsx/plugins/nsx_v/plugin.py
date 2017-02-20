@@ -3699,26 +3699,29 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 context, sg_data, s)
             return sg_data
 
-        # Get the backend section matching this security group
-        h, c = self.nsx_v.vcns.get_section(section_uri)
-        section = self.nsx_sg_utils.parse_section(c)
+        with locking.LockManager.get_lock('rule-update-%s' % id):
+            # Get the backend section matching this security group
+            h, c = self.nsx_v.vcns.get_section(section_uri)
+            section = self.nsx_sg_utils.parse_section(c)
 
-        # dfw section name needs to be updated if the sg name was modified
-        if 'name' in s.keys():
-            section.attrib['name'] = section_name
-            section_needs_update = True
+            # dfw section name needs to be updated if the sg name was modified
+            if 'name' in s.keys():
+                section.attrib['name'] = section_name
+                section_needs_update = True
 
-        # Update the dfw section if security-group logging option has changed.
-        log_all_rules = cfg.CONF.nsxv.log_security_groups_allowed_traffic
-        self._process_security_group_properties_update(context, sg_data, s)
-        if not log_all_rules and context.is_admin:
-            section_needs_update |= self.nsx_sg_utils.set_rules_logged_option(
-                section, sg_data[sg_logging.LOGGING])
+            # Update the dfw section if security-group logging option has
+            # changed.
+            log_all_rules = cfg.CONF.nsxv.log_security_groups_allowed_traffic
+            self._process_security_group_properties_update(context, sg_data, s)
+            if not log_all_rules and context.is_admin:
+                section_needs_update |= (
+                    self.nsx_sg_utils.set_rules_logged_option(
+                        section, sg_data[sg_logging.LOGGING]))
 
-        if section_needs_update:
-            # update the section with all the modifications
-            self.nsx_v.vcns.update_section(
-                section_uri, self.nsx_sg_utils.to_xml_string(section), h)
+            if section_needs_update:
+                # update the section with all the modifications
+                self.nsx_v.vcns.update_section(
+                    section_uri, self.nsx_sg_utils.to_xml_string(section), h)
 
         return sg_data
 
@@ -3840,31 +3843,32 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                      ' a policy') % sg_id)
             raise n_exc.InvalidInput(error_message=msg)
 
-        # Querying DB for associated dfw section id
-        section_uri = self._get_section_uri(context.session, sg_id)
-        logging = self._is_security_group_logged(context, sg_id)
-        provider = self._is_provider_security_group(context, sg_id)
-        log_all_rules = cfg.CONF.nsxv.log_security_groups_allowed_traffic
+        with locking.LockManager.get_lock('rule-update-%s' % sg_id):
+            # Querying DB for associated dfw section id
+            section_uri = self._get_section_uri(context.session, sg_id)
+            logging = self._is_security_group_logged(context, sg_id)
+            provider = self._is_provider_security_group(context, sg_id)
+            log_all_rules = cfg.CONF.nsxv.log_security_groups_allowed_traffic
 
-        # Translating Neutron rules to Nsx DFW rules
-        for r in sg_rules:
-            rule = r['security_group_rule']
-            if not self._check_local_ip_prefix(context, rule):
-                rule[secgroup_rule_local_ip_prefix.LOCAL_IP_PREFIX] = None
-            rule['id'] = uuidutils.generate_uuid()
-            ruleids.add(rule['id'])
-            nsx_rules.append(
-                self._create_nsx_rule(context, rule,
-                                      logged=log_all_rules or logging,
-                                      action='deny' if provider else 'allow')
-            )
+            # Translating Neutron rules to Nsx DFW rules
+            for r in sg_rules:
+                rule = r['security_group_rule']
+                if not self._check_local_ip_prefix(context, rule):
+                    rule[secgroup_rule_local_ip_prefix.LOCAL_IP_PREFIX] = None
+                rule['id'] = uuidutils.generate_uuid()
+                ruleids.add(rule['id'])
+                nsx_rules.append(
+                    self._create_nsx_rule(context, rule,
+                                        logged=log_all_rules or logging,
+                                        action='deny' if provider else 'allow')
+                )
 
-        _h, _c = self.nsx_v.vcns.get_section(section_uri)
-        section = self.nsx_sg_utils.parse_section(_c)
-        self.nsx_sg_utils.extend_section_with_rules(section, nsx_rules)
-        h, c = self.nsx_v.vcns.update_section(
-            section_uri, self.nsx_sg_utils.to_xml_string(section), _h)
-        rule_pairs = self.nsx_sg_utils.get_rule_id_pair_from_section(c)
+            _h, _c = self.nsx_v.vcns.get_section(section_uri)
+            section = self.nsx_sg_utils.parse_section(_c)
+            self.nsx_sg_utils.extend_section_with_rules(section, nsx_rules)
+            h, c = self.nsx_v.vcns.update_section(
+                section_uri, self.nsx_sg_utils.to_xml_string(section), _h)
+            rule_pairs = self.nsx_sg_utils.get_rule_id_pair_from_section(c)
 
         try:
             # Save new rules in Database, including mappings between Nsx rules
