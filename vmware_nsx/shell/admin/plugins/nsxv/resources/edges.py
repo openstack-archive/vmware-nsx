@@ -351,7 +351,11 @@ def change_edge_appliance_reservations(properties):
         LOG.error(_LE("Please configure resource"))
         return
     edge_id = properties.get('edge-id')
-    h, edge = nsxv.get_edge(edge_id)
+    try:
+        h, edge = nsxv.get_edge(edge_id)
+    except exceptions.NeutronException as e:
+        LOG.error(_LE("%s"), str(e))
+        return
     appliances = edge['appliances']['appliances']
     for appliance in appliances:
         appliance.update(reservations)
@@ -432,7 +436,7 @@ def nsx_update_edge(resource, event, trigger, **kwargs):
                     "(optional) --property shares=<shares> and/or "
                     "(optional) --property reservation=<reservation> "
                     "\nFor hostgroup updates, add "
-                    "--property hostgroup=True|False")
+                    "--property hostgroup=update/all/clean")
     if not kwargs.get('property'):
         LOG.error(usage_msg)
         return
