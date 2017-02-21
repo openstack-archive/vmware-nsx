@@ -19,7 +19,6 @@ from neutron.tests.unit import testlib_api
 from oslo_db import exception as d_exc
 
 from vmware_nsx.db import db as nsx_db
-from vmware_nsx.db import nsx_models
 
 
 class NsxDBTestCase(testlib_api.SqlTestCase):
@@ -39,40 +38,6 @@ class NsxDBTestCase(testlib_api.SqlTestCase):
                                   device_id='',
                                   device_owner='')
             self.ctx.session.add(port)
-
-    def test_add_neutron_nsx_port_mapping_handle_duplicate_constraint(self):
-        neutron_net_id = 'foo_neutron_network_id'
-        neutron_port_id = 'foo_neutron_port_id'
-        nsx_port_id = 'foo_nsx_port_id'
-        nsx_switch_id = 'foo_nsx_switch_id'
-        self._setup_neutron_network_and_port(neutron_net_id, neutron_port_id)
-
-        nsx_db.add_neutron_nsx_port_mapping(
-            self.ctx.session, neutron_port_id, nsx_switch_id, nsx_port_id)
-        # Call the method twice to trigger a db duplicate constraint error
-        nsx_db.add_neutron_nsx_port_mapping(
-            self.ctx.session, neutron_port_id, nsx_switch_id, nsx_port_id)
-        result = (self.ctx.session.query(nsx_models.NeutronNsxPortMapping).
-                  filter_by(neutron_id=neutron_port_id).one())
-        self.assertEqual(nsx_port_id, result.nsx_port_id)
-        self.assertEqual(neutron_port_id, result.neutron_id)
-
-    def test_add_neutron_nsx_port_mapping_raise_on_duplicate_constraint(self):
-        neutron_net_id = 'foo_neutron_network_id'
-        neutron_port_id = 'foo_neutron_port_id'
-        nsx_port_id_1 = 'foo_nsx_port_id_1'
-        nsx_port_id_2 = 'foo_nsx_port_id_2'
-        nsx_switch_id = 'foo_nsx_switch_id'
-        self._setup_neutron_network_and_port(neutron_net_id, neutron_port_id)
-
-        nsx_db.add_neutron_nsx_port_mapping(
-            self.ctx.session, neutron_port_id, nsx_switch_id, nsx_port_id_1)
-        # Call the method twice to trigger a db duplicate constraint error,
-        # this time with a different nsx port id!
-        self.assertRaises(d_exc.DBDuplicateEntry,
-                          nsx_db.add_neutron_nsx_port_mapping,
-                          self.ctx.session, neutron_port_id,
-                          nsx_switch_id, nsx_port_id_2)
 
     def test_add_neutron_nsx_port_mapping_raise_integrity_constraint(self):
         neutron_port_id = 'foo_neutron_port_id'
