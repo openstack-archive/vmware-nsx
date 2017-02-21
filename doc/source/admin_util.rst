@@ -215,7 +215,7 @@ Metadata
 NSXv3
 -----
 
-The following resources are supported: 'security-groups', 'routers', 'networks', 'nsx-security-groups', 'dhcp-binding', 'metadata-proxy', 'orphaned-dhcp-servers', and 'ports'.
+The following resources are supported: 'security-groups', 'routers', 'networks', 'nsx-security-groups', 'dhcp-binding', 'metadata-proxy', 'orphaned-dhcp-servers', 'firewall-sections', 'certificate', and 'ports'.
 
 Networks
 ~~~~~~~~
@@ -242,36 +242,39 @@ Ports
 
     nsxadmin -r ports -o nsx-migrate-v-v3
 
-Security Groups
-~~~~~~~~~~~~~~~
+Security Groups & NSX Security Groups
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - List backed security groups::
 
-    nsx -r security-groups -o nsx-list
+    nsxadmin -r nsx-security-groups -o list
 
-- List neutron DB security groups::
+- List neutron security groups::
 
-    nsx -r security-groups -o neutron-list
+    nsxadmin -r security-groups -o list
 
-- List both backend and neutron security groups::
+- Fix mismatch sections in security group::
 
-    nsx -r security-groups -o list
+    nsxadmin -r security-groups -o fix-mismatch
 
-- Cleanup NSX backend sections and nsgroups::
+- List nsx security groups with mismatch sections::
 
-    nsx -r security-groups -o nsx-clean
-
-- Cleanup Neutron DB security groups::
-
-    nsx -r security-groups -o neutron-clean
-
-- Cleanup both Neutron DB security groups and NSX backend sections and nsgroups::
-
-    nsx -r security-groups -o clean
+    nsxadmin -r nsx-security-groups -o list-mismatches
 
 - Update NSX security groups dynamic criteria for NSXv3 CrossHairs::
 
-    nsx -r nsx-security-groups -o migrate-to-dynamic-criteria
+    nsxadmin -r nsx-security-groups -o migrate-to-dynamic-criteria
+
+Firewall Sections
+~~~~~~~~~~~~~~~~~
+
+- List backed firewall sections::
+
+    nsxadmin -r firewall-sections -o list
+
+- List security groups with missing sections::
+
+    nsxadmin -r firewall-sections -o list-mismatches
 
 Metadata Proxy
 ~~~~~~~~~~~~~~

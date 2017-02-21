@@ -226,8 +226,8 @@ def fix_security_groups(resource, event, trigger, **kwargs):
         # should already have them.
         if not utils.is_nsx_version_1_1_0(plugin._nsx_version):
             members = []
-            for port_id in neutron_db.get_ports_in_security_group(sg_id):
-                lport_id = neutron_db.get_logical_port_id(port_id)
+            for port_id in neutron_sg.get_ports_in_security_group(sg_id):
+                lport_id = neutron_sg.get_logical_port_id(port_id)
                 members.append(lport_id)
             nsxlib.ns_group.add_members(
                 nsgroup['id'], consts.TARGET_TYPE_LOGICAL_PORT, members)
@@ -246,8 +246,6 @@ def fix_security_groups(resource, event, trigger, **kwargs):
             secgroup.get(sg_logging.LOGGING, False), action,
             secgroup['security_group_rules'])
         plugin.save_security_group_rule_mappings(context_, rules['rules'])
-        # Add nsgroup to a nested group
-        plugin.nsgroup_manager.add_nsgroup(nsgroup['id'])
 
 
 def _update_ports_dynamic_criteria_tags():
