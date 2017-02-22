@@ -79,11 +79,11 @@ def policy_to_application_rule(policy):
                                 'val': rule.value})
         elif rule.type == lb_const.L7_RULE_TYPE_PATH:
             # Example: acl <id> path_beg -i /images
-            # Regardless of the compare type, always look at the beginning of
-            # the path.
             # -i for case insensitive path
-            rule_line = ('acl %(rule_id)s path_beg '
+            path_type = 'path' + type_by_comp
+            rule_line = ('acl %(rule_id)s %(path_type)s '
                 '-i %(val)s' % {'rule_id': rule.id,
+                                'path_type': path_type,
                                 'val': rule.value})
         elif rule.type == lb_const.L7_RULE_TYPE_FILE_TYPE:
             # Example: acl <id> path_sub -i .jpg
