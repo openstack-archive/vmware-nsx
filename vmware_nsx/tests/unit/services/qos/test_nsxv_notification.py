@@ -38,7 +38,6 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
                               base.BaseQosTestCase):
 
     @mock.patch.object(dvs_utils, 'dvs_create_session')
-    @mock.patch.object(dvs.DvsManager, '_get_dvs_moref')
     def setUp(self, *mocks):
         # init the nsx-v plugin for testing with DVS
         self._init_dvs_config()

@@ -188,8 +188,7 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
         cfg.CONF.set_default('use_dvs_features', True, 'nsxv')
         plugin = directory.get_plugin()
         with mock.patch.object(dvs_utils, 'dvs_create_session'):
-            with mock.patch.object(dvs.DvsManager, '_get_dvs_moref'):
-                plugin._dvs = dvs.DvsManager()
+            plugin._vcm = dvs.VCManager()
         return plugin
 
     def test_get_vlan_network_name(self):
@@ -3888,7 +3887,7 @@ class TestNSXPortSecurity(test_psec.TestPortSecurity,
         """
         plugin = self._get_core_plugin_with_dvs()
         vm_moref = 'dummy_moref'
-        with mock.patch.object(plugin._dvs, 'get_vm_moref',
+        with mock.patch.object(plugin._vcm, 'get_vm_moref',
                                return_value=vm_moref):
             with mock.patch.object(
                 plugin.nsx_v.vcns,
@@ -3908,7 +3907,7 @@ class TestNSXPortSecurity(test_psec.TestPortSecurity,
         """
         plugin = self._get_core_plugin_with_dvs()
         vm_moref = 'dummy_moref'
-        with mock.patch.object(plugin._dvs, 'get_vm_moref',
+        with mock.patch.object(plugin._vcm, 'get_vm_moref',
                                return_value=vm_moref):
             with mock.patch.object(
                 plugin.nsx_v.vcns,
@@ -3928,7 +3927,7 @@ class TestNSXPortSecurity(test_psec.TestPortSecurity,
         """
         plugin = self._get_core_plugin_with_dvs()
         vm_moref = 'dummy_moref'
-        with mock.patch.object(plugin._dvs, 'get_vm_moref',
+        with mock.patch.object(plugin._vcm, 'get_vm_moref',
                                return_value=vm_moref):
             with mock.patch.object(
                 plugin.nsx_v.vcns,
@@ -4056,7 +4055,7 @@ class TestNSXPortSecurity(test_psec.TestPortSecurity,
         plugin = self._get_core_plugin_with_dvs()
         vm_moref = 'dummy_moref'
         data = {'port': {'port_security_enabled': enable_port_security}}
-        with mock.patch.object(plugin._dvs, 'get_vm_moref',
+        with mock.patch.object(plugin._vcm, 'get_vm_moref',
                                return_value=vm_moref):
             if enable_port_security:
                 with mock.patch.object(

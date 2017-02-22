@@ -217,11 +217,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 pbin.CAP_PORT_FILTER:
                 'security-group' in self.supported_extension_aliases}}
         # This needs to be set prior to binding callbacks
-        self.dvs_id = cfg.CONF.nsxv.dvs_id
         if cfg.CONF.nsxv.use_dvs_features:
-            self._dvs = dvs.DvsManager(dvs_id=self.dvs_id)
+            self._vcm = dvs.VCManager()
         else:
-            self._dvs = None
+            self._vcm = None
         # Create the client to interface with the NSX-v
         _nsx_v_callbacks = edge_utils.NsxVCallbacks(self)
         self.nsx_v = vcns_driver.VcnsDriver(_nsx_v_callbacks)
@@ -810,14 +809,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if validators.is_attr_set(network.get(mpnet.SEGMENTS)):
             return True
 
-    def _delete_backend_network(self, moref):
+    def _delete_backend_network(self, moref, dvs_id=None):
         """Deletes the backend NSX network.
 
         This can either be a VXLAN or a VLAN network. The type is determined
         by the prefix of the moref.
+        The dvs_id is relevant only if it is a vlan network
         """
         if moref.startswith(PORTGROUP_PREFIX):
-            self.nsx_v.delete_port_group(self.dvs_id, moref)
+            self.nsx_v.delete_port_group(dvs_id, moref)
         else:
             self.nsx_v.delete_virtual_wire(moref)
 
@@ -834,12 +834,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                  net_data['id'])
 
     def _update_network_teaming(self, dvs_id, net_id, net_moref):
-        if self._dvs:
+        if self._vcm:
             h, switch = self.nsx_v.vcns.get_vdn_switch(dvs_id)
             try:
-                self._dvs.update_port_groups_config(
-                    net_id, net_moref,
-                    self._dvs.update_port_group_spec_teaming,
+                self._vcm.update_port_groups_config(
+                    dvs_id, net_id, net_moref,
+                    self._vcm.update_port_group_spec_teaming,
                     switch)
             except Exception as e:
                 LOG.error(_LE('Unable to update teaming information for '
@@ -1111,8 +1111,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                             # Delete VLAN networks on other DVSes if it
                             # fails to be created on one DVS and reraise
                             # the original exception.
-                            for net_moref in net_morefs:
-                                self._delete_backend_network(net_moref)
+                            for dvsmoref, netmoref in six.iteritems(
+                                dvs_pg_mappings):
+                                self._delete_backend_network(
+                                    netmoref, dvsmoref)
                     dvs_pg_mappings[dvs_id] = net_moref
                     net_morefs.append(net_moref)
                     dvs_net_ids.append(self._get_vlan_network_name(
@@ -1210,9 +1212,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         not predefined):
                         self.nsx_v.vcns.delete_spoofguard_policy(sg_policy_id)
                     # Ensure that an predefined portgroup will not be deleted
-                    if network_type != c_utils.NsxVNetworkTypes.PORTGROUP:
+                    if network_type == c_utils.NsxVNetworkTypes.VXLAN:
                         for net_moref in net_morefs:
                             self._delete_backend_network(net_moref)
+                    elif network_type != c_utils.NsxVNetworkTypes.PORTGROUP:
+                        for dvsmrf, netmrf in six.iteritems(dvs_pg_mappings):
+                            self._delete_backend_network(netmrf, dvsmrf)
                 LOG.exception(_LE('Failed to create network'))
 
         # If init is incomplete calling _update_qos_network() will result a
@@ -1222,7 +1227,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Therefore we skip this code during init.
         if backend_network and self.init_is_complete:
             # Update the QOS restrictions of the backend network
-            self._update_network_qos(context, net_data, dvs_net_ids, net_moref)
+            self._update_qos_on_created_network(context, net_data)
             new_net[qos_consts.QOS_POLICY_ID] = (
                 qos_com_utils.get_network_policy_id(context, new_net['id']))
 
@@ -1232,25 +1237,36 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._apply_dict_extend_functions('networks', new_net, net_model)
         return new_net
 
-    def _update_network_qos(self, context, net_data, dvs_net_ids, net_moref):
+    def _update_qos_on_created_network(self, context, net_data):
         if validators.is_attr_set(net_data.get(qos_consts.QOS_POLICY_ID)):
-            # Translate the QoS rule data into Nsx values
-            qos_data = qos_utils.NsxVQosRule(
-                context=context,
-                qos_policy_id=net_data[qos_consts.QOS_POLICY_ID])
-
-            # update the qos data on the dvs
-            for dvs_net_id in dvs_net_ids:
-                self._dvs.update_port_groups_config(
-                    dvs_net_id,
-                    net_moref,
-                    self._dvs.update_port_group_spec_qos, qos_data)
-
+            # update the BWM data on the backend
+            qos_policy_id = net_data[qos_consts.QOS_POLICY_ID]
+            self._update_qos_on_backend_network(
+                context, net_data['id'], qos_policy_id)
             # attach the policy to the network in the neutron DB
             qos_com_utils.update_network_policy_binding(
                 context,
                 net_data['id'],
                 net_data[qos_consts.QOS_POLICY_ID])
+
+    def _update_qos_on_backend_network(self, context, net_id, qos_policy_id):
+        # Translate the QoS rule data into Nsx values
+        qos_data = qos_utils.NsxVQosRule(
+            context=context, qos_policy_id=qos_policy_id)
+
+        # default dvs for this network
+        az = self.get_network_az(context, net_id)
+        az_dvs_id = az.dvs_id
+
+        # get the network moref/s from the db
+        net_mappings = nsx_db.get_nsx_network_mappings(
+            context.session, net_id)
+        for mapping in net_mappings:
+            # update the qos restrictions of the network
+            self._vcm.update_port_groups_config(
+                mapping.dvs_id or az_dvs_id,
+                net_id, mapping.nsx_id,
+                self._vcm.update_port_group_spec_qos, qos_data)
 
     def _cleanup_dhcp_edge_before_deletion(self, context, net_id):
         if self.metadata_proxy_handler:
@@ -1301,7 +1317,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         return False
 
     def delete_network(self, context, id):
-        mappings = nsx_db.get_nsx_switch_ids(context.session, id)
+        mappings = nsx_db.get_nsx_network_mappings(context.session, id)
         bindings = nsxv_db.get_network_bindings(context.session, id)
         if cfg.CONF.nsxv.spoofguard_enabled:
             sg_policy_id = nsxv_db.get_spoofguard_policy_id(
@@ -1343,7 +1359,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if (bindings and
             bindings[0].binding_type == c_utils.NsxVNetworkTypes.PORTGROUP):
             if cfg.CONF.nsxv.spoofguard_enabled and sg_policy_id:
-                if self._is_neutron_spoofguard_policy(id, mappings[0],
+                if self._is_neutron_spoofguard_policy(id, mappings[0].nsx_id,
                                                       sg_policy_id):
                     self.nsx_v.vcns.delete_spoofguard_policy(sg_policy_id)
             return
@@ -1356,7 +1372,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self.nsx_v.vcns.delete_spoofguard_policy(sg_policy_id)
             edge_utils.check_network_in_use_at_backend(context, id)
             for mapping in mappings:
-                self._delete_backend_network(mapping)
+                self._delete_backend_network(
+                    mapping.nsx_id, mapping.dvs_id)
 
     def _extend_get_network_dict_provider(self, context, net):
         self._extend_network_dict_provider(context, net)
@@ -1425,7 +1442,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         - dvs_list_changed True/False
         - dvs_pg_mappings - mapping of the new elements dvs->moref
         """
-        net_morefs = []
         dvs_pg_mappings = {}
 
         current_dvs_ids = set(self._get_dvs_ids(
@@ -1449,8 +1465,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     # Delete VLAN networks on other DVSes if it
                     # fails to be created on one DVS and reraise
                     # the original exception.
-                    for net_moref in net_morefs:
-                        self._delete_backend_network(net_moref)
+                    for dvsmoref, netmoref in six.iteritems(dvs_pg_mappings):
+                        self._delete_backend_network(netmoref, dvsmoref)
             dvs_pg_mappings[dvs_id] = net_moref
 
         return True, dvs_pg_mappings
@@ -1548,18 +1564,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             qos_policy_id = (net_attrs[qos_consts.QOS_POLICY_ID]
                 if qos_consts.QOS_POLICY_ID in net_attrs
                 else orig_net.get(qos_consts.QOS_POLICY_ID))
-            qos_data = qos_utils.NsxVQosRule(
-                context=context, qos_policy_id=qos_policy_id)
+            self._update_qos_on_backend_network(context, id, qos_policy_id)
 
-            # get the network moref/s from the db
-            for moref in net_morefs:
-                # update the qos restrictions of the network
-                self._dvs.update_port_groups_config(
-                    id, moref, self._dvs.update_port_group_spec_qos, qos_data)
-
-                # attach the policy to the network in neutron DB
-                qos_com_utils.update_network_policy_binding(
-                    context, id, qos_policy_id)
+            # attach the policy to the network in neutron DB
+            qos_com_utils.update_network_policy_binding(
+                context, id, qos_policy_id)
 
             net_res[qos_consts.QOS_POLICY_ID] = (
                 qos_com_utils.get_network_policy_id(context, id))
@@ -1694,13 +1703,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             and not p[psec.PORTSECURITY]])
 
     def _add_vm_to_exclude_list(self, context, device_id, port_id):
-        if (self._dvs and
+        if (self._vcm and
             cfg.CONF.nsxv.use_exclude_list):
             # first time for this vm (we expect the count to be 1 already
             # because the DB was already updated)
             if (self._count_no_sec_ports_for_device_id(
                     context, device_id) <= 1):
-                vm_moref = self._dvs.get_vm_moref(device_id)
+                vm_moref = self._vcm.get_vm_moref(device_id)
                 if vm_moref is not None:
                     try:
                         LOG.info(_LI("Add VM %(dev)s to exclude list on "
@@ -1721,14 +1730,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _remove_vm_from_exclude_list(self, context, device_id, port_id,
                                      expected_count=0):
-        if (self._dvs and
+        if (self._vcm and
             cfg.CONF.nsxv.use_exclude_list):
             # No ports left in DB (expected count is 0 or 1 depending
             # on whether the DB was already updated),
             # So we can remove it from the backend exclude list
             if (self._count_no_sec_ports_for_device_id(
                     context, device_id) <= expected_count):
-                vm_moref = self._dvs.get_vm_moref(device_id)
+                vm_moref = self._vcm.get_vm_moref(device_id)
                 if vm_moref is not None:
                     try:
                         LOG.info(_LI("Remove VM %(dev)s from exclude list on "
@@ -4038,7 +4047,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _handle_qos_notification(self, context, resource_type,
                                  qos_policys, event_type):
-        qos_utils.handle_qos_notification(qos_policys, event_type, self._dvs)
+        qos_utils.handle_qos_notification(qos_policys, event_type, self)
 
     def get_az_by_hint(self, hint):
         az = self._availability_zones_data.get_availability_zone(hint)

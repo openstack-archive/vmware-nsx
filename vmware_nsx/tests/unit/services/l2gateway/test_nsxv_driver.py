@@ -21,7 +21,6 @@ from networking_l2gw.db.l2gateway import l2gateway_db
 from neutron_lib import exceptions as n_exc
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import nsxv_db
-from vmware_nsx.dvs import dvs
 from vmware_nsx.dvs import dvs_utils
 from vmware_nsx.services.l2gateway.nsx_v import driver as nsx_v_driver
 from vmware_nsx.tests.unit.nsx_v import test_plugin
@@ -180,7 +179,6 @@ class TestL2gatewayDriver(base.BaseTestCase):
 class TestL2GatewayDriverRouter(test_plugin.NsxVPluginV2TestCase):
 
     @mock.patch.object(dvs_utils, 'dvs_create_session')
-    @mock.patch.object(dvs.DvsManager, '_get_dvs_moref')
     def setUp(self, *mocks):
         # init the nsxv plugin, edge manager and fake vcns
         super(TestL2GatewayDriverRouter, self).setUp(plugin=CORE_PLUGIN,
