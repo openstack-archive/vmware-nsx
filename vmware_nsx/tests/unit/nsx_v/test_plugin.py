@@ -230,9 +230,6 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
 
 class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
 
-    def test_create_network_vlan_transparent(self):
-        self.skipTest("Currently no support in plugin for this")
-
     def _test_create_bridge_network(self, vlan_id=0):
         net_type = vlan_id and 'vlan' or 'flat'
         name = 'bridge_net'
