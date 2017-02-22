@@ -1382,7 +1382,7 @@ class TestPortsV2(NsxVPluginV2TestCase,
                             old_ip,
                             new_ip, "255.255.255.0")
 
-    def test_update_port_update_ip_unatached_router(self):
+    def test_update_port_update_ip_unattached_router(self):
         #Test that updating a port IP succeed if the device owner is a router
         #and the shared router is not attached to any edge yet
         owner = constants.DEVICE_OWNER_ROUTER_GW
