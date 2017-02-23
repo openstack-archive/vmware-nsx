@@ -33,7 +33,10 @@ from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
+from vmware_nsx.plugins.nsx_v.vshield.common import (
+    constants as vcns_const)
 import vmware_nsx.plugins.nsx_v.vshield.common.exceptions as nsxv_exceptions
+
 
 LOG = logging.getLogger(__name__)
 nsxv = utils.get_nsxv_client()
@@ -272,9 +275,9 @@ def change_edge_loglevel(properties):
 
 def change_edge_appliance_size(properties):
     size = properties.get('size')
-    if size not in nsxv_constants.ALLOWED_EDGE_SIZES:
+    if size not in vcns_const.ALLOWED_EDGE_SIZES:
         LOG.error(_LE("Edge appliance size not in %(size)s"),
-                  {'size': nsxv_constants.ALLOWED_EDGE_SIZES})
+                  {'size': vcns_const.ALLOWED_EDGE_SIZES})
         return
     try:
         nsxv.change_edge_appliance_size(
