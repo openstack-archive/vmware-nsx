@@ -1648,7 +1648,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 admin_state=port_data['admin_state_up'],
                 address_bindings=address_bindings,
                 attachment_type=attachment_type,
-                parent_vif_id=parent_name, parent_tag=tag,
+                parent_vif_id=parent_name, traffic_tag=tag,
                 switch_profile_ids=profiles)
         except nsx_lib_exc.ManagerError as inst:
             # we may fail if the QoS is not supported for this port
@@ -2296,7 +2296,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 switch_profile_ids=switch_profile_ids,
                 tags_update=tags_update,
                 parent_vif_id=parent_vif_id,
-                parent_tag=tag)
+                traffic_tag=tag)
         except nsx_lib_exc.ManagerError as inst:
             # we may fail if the QoS is not supported for this port
             # (for example - transport zone with KVM)

@@ -100,7 +100,7 @@ class NsxV3TrunkHandler(object):
                 switch_profile_ids=switching_profile_ids,
                 attachment_type=attachment_type,
                 parent_vif_id=parent_port_id,
-                parent_tag=seg_id)
+                traffic_tag=seg_id)
         except nsxlib_exc.ManagerError as e:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE("Unable to update subport for attachment "
