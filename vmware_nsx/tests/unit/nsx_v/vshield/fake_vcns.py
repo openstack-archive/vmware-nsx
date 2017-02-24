@@ -304,6 +304,15 @@ class FakeVcns(object):
         response = ''
         return (header, response)
 
+    def get_dhcp_binding(self, edge_id, binding_id):
+        if binding_id not in self._dhcp_bindings[edge_id]:
+            raise Exception(_("binding %s does not exist") % binding_id)
+        response = self._dhcp_bindings[edge_id][binding_id]
+        header = {
+            'status': 200
+        }
+        return (header, response)
+
     def create_bridge(self, edge_id, request):
         if edge_id not in self._edges:
             raise Exception(_("Edge %s does not exist") % edge_id)

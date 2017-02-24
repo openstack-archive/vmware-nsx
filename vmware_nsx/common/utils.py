@@ -91,6 +91,15 @@ def is_nsxv_version_6_3(nsx_version):
             version.LooseVersion('6.3'))
 
 
+def is_nsxv_dhcp_binding_supported(nsx_version):
+    return ((version.LooseVersion(nsx_version) >=
+             version.LooseVersion('6.3.3')) or
+            (version.LooseVersion(nsx_version) >=
+             version.LooseVersion('6.2.8') and
+             version.LooseVersion(nsx_version) <
+             version.LooseVersion('6.3')))
+
+
 def get_tags(**kwargs):
     tags = ([dict(tag=value, scope=key)
             for key, value in six.iteritems(kwargs)])

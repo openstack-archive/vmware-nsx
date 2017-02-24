@@ -561,6 +561,13 @@ class Vcns(object):
                                    binding_id)
         return self.do_request(HTTP_DELETE, uri, decode=False)
 
+    def get_dhcp_binding(self, edge_id, binding_id):
+        """Get a dhcp static binding from the edge."""
+        uri = self._build_uri_path(edge_id,
+                                   DHCP_SERVICE, DHCP_BINDING_RESOURCE,
+                                   binding_id)
+        return self.do_request(HTTP_GET, uri, decode=False)
+
     def create_security_group(self, request):
         """Creates a security group container in nsx.
 

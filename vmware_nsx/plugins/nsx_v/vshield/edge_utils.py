@@ -2118,12 +2118,31 @@ def get_dhcp_binding_mappings_for_hostname(nsxv_manager, edge_id):
     return bindings_get
 
 
-def get_dhcp_binding_for_binding_id(nsxv_manager, edge_id, binding_id):
+def _get_dhcp_binding_for_binding_id(nsxv_manager, edge_id, binding_id):
     dhcp_config = query_dhcp_service_config(nsxv_manager, edge_id)
     if dhcp_config:
         for binding in dhcp_config['staticBindings']['staticBindings']:
             if binding['bindingId'] == binding_id:
                 return binding
+
+
+def _get_dhcp_binding(nsxv_manager, edge_id, binding_id):
+    try:
+        h, dhcp_binding = nsxv_manager.vcns.get_dhcp_binding(edge_id,
+                                                             binding_id)
+        return dhcp_binding
+    except Exception:
+        return
+
+
+def get_dhcp_binding_for_binding_id(nsxv_manager, edge_id, binding_id):
+    # API for specific binding is supported in NSX 6.2.8 and 6.3.3 onwards
+    ver = nsxv_manager.vcns.get_version()
+    if c_utils.is_nsxv_dhcp_binding_supported(ver):
+        return _get_dhcp_binding(nsxv_manager, edge_id, binding_id)
+    else:
+        return _get_dhcp_binding_for_binding_id(nsxv_manager, edge_id,
+                                                binding_id)
 
 
 def query_dhcp_service_config(nsxv_manager, edge_id):
