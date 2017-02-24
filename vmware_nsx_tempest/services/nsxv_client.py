@@ -235,6 +235,19 @@ class VSMClient(object):
             edges += response.json()['edgePage']['data']
         return edges
 
+    def get_firewall(self):
+        """Get all firewall on NSX-v beckend.
+
+        Return firewalls if found, else return None.
+        """
+        self.__set_api_version('4.0')
+        self.__set_endpoint('/firewall/globalroot-0/config')
+        response = self.get()
+        paging_info = response.json()
+        if len(paging_info) == 0:
+            paging_info = None
+        return paging_info
+
     def get_edge(self, name):
         """Get edge based on the name, which is OpenStack router.
 
