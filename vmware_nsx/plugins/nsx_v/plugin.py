@@ -2572,23 +2572,31 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def setup_dhcp_edge_fw_rules(self, context, plugin, router_id):
         rules = []
-        # It would be best to configure the rule with icmp type 8 (Echo),
-        # but this format is broken on Edge (should be fixed in 6.3.1)
-        # TODO(annak): use icmp type when fix is available
-        # Workaround: use applications, but since application ids can change,
-        # need to look them up by application name
-        try:
-            application_ids = plugin.nsx_v.get_icmp_echo_application_ids()
+        loose_ver = version.LooseVersion(self.nsx_v.vcns.get_version())
+        if loose_ver < version.LooseVersion('6.3.2'):
+            # For these versions the raw icmp rule will not work due to
+            # backend bug. Workaround: use applications, but since
+            # application ids can change, we look them up by application name
+            try:
+                application_ids = plugin.nsx_v.get_icmp_echo_application_ids()
 
+                rules = [{"name": "ICMPPing",
+                          "enabled": True,
+                          "action": "allow",
+                          "application": {
+                              "applicationId": application_ids}}]
+
+            except Exception as e:
+                LOG.error(
+                    _LE('Could not find ICMP Echo application. Exception %s'),
+                    e)
+        else:
+            # For newer versions, we can use the raw icmp rule
             rules = [{"name": "ICMPPing",
-                  "enabled": True,
-                  "action": "allow",
-                  "application": {
-                      "applicationId": application_ids}}]
-
-        except Exception as e:
-            LOG.error(
-                _LE('Could not find ICMP Echo application. Exception %s'), e)
+                      "enabled": True,
+                      "action": "allow",
+                      "protocol": "icmp",
+                      "icmp_type": 8}]
 
         if plugin.metadata_proxy_handler:
             rules += nsx_v_md_proxy.get_router_fw_rules()
