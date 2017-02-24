@@ -1087,9 +1087,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 net_morefs = [segment.get(pnet.PHYSICAL_NETWORK)]
                 dvs_net_ids = [net_data['name']]
             else:
-                if vlt:
-                    raise NotImplementedError(_("Transparent support only "
-                                                "for VXLANs"))
                 segment = net_data[mpnet.SEGMENTS][0]
                 physical_network = segment.get(pnet.PHYSICAL_NETWORK)
                 # Retrieve the list of dvs-ids from physical network.
@@ -1119,6 +1116,21 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     net_morefs.append(net_moref)
                     dvs_net_ids.append(self._get_vlan_network_name(
                         net_data, dvs_id))
+                    if vlt:
+                        try:
+                            self._vcm.update_port_groups_config(
+                                dvs_id, net_data['id'], net_moref,
+                                self._vcm.update_port_group_spec_trunk,
+                                {})
+                        except Exception:
+                            with excutils.save_and_reraise_exception():
+                                # Delete VLAN networks on other DVSes if it
+                                # fails to be created on one DVS and reraise
+                                # the original exception.
+                                for dvsmoref, netmoref in six.iteritems(
+                                    dvs_pg_mappings):
+                                    self._delete_backend_network(
+                                        netmoref, dvsmoref)
         try:
             net_data[psec.PORTSECURITY] = net_data.get(psec.PORTSECURITY, True)
             # Create SpoofGuard policy for network anti-spoofing

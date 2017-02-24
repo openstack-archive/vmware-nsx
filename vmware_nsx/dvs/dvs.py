@@ -428,6 +428,10 @@ class DvsManager(VCManagerBase):
         standby = list(set(uplinks.uplinkPortName) - set(ports))
         policy.uplinkPortOrder.standbyUplinkPort = standby
 
+    def update_port_group_spec_trunk(self, pg_spec, trunk_data):
+        port_conf = pg_spec.defaultPortConfig
+        port_conf.vlan = self._get_trunk_vlan_spec()
+
 
 class VMManager(VCManagerBase):
     """Management class for VMs related VC tasks."""
