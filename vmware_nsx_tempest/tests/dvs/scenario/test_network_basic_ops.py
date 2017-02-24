@@ -91,15 +91,15 @@ class TestDvsNetworkBasicOps(manager.NetworkScenarioTest):
         checking the result of list_[networks,subnets]
         """
 
-        seen_nets = self._list_networks()
-        seen_names = [n['name'] for n in seen_nets]
-        seen_ids = [n['id'] for n in seen_nets]
+        seen_nets = self.admin_manager.networks_client.list_networks()
+        seen_names = [n['name'] for n in seen_nets['networks']]
+        seen_ids = [n['id'] for n in seen_nets['networks']]
         self.assertIn(self.network['name'], seen_names)
         self.assertIn(self.network['id'], seen_ids)
 
-        seen_subnets = self._list_subnets()
-        seen_net_ids = [n['network_id'] for n in seen_subnets]
-        seen_subnet_ids = [n['id'] for n in seen_subnets]
+        seen_subnets = self.admin_manager.subnets_client.list_subnets()
+        seen_net_ids = [n['network_id'] for n in seen_subnets['subnets']]
+        seen_subnet_ids = [n['id'] for n in seen_subnets['subnets']]
         self.assertIn(self.network['id'], seen_net_ids)
         self.assertIn(self.subnet['id'], seen_subnet_ids)
 

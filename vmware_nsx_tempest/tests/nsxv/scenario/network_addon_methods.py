@@ -138,23 +138,23 @@ def check_networks(SELF, t_network, t_subnet=None, t_router=None):
     checking the result of list_[networks,routers,subnets]
     """
 
-    seen_nets = SELF._list_networks()
+    seen_nets = SELF.admin_manager.networks_client.list_networks()['networks']
     seen_names = [n['name'] for n in seen_nets]
     seen_ids = [n['id'] for n in seen_nets]
     SELF.assertIn(t_network['name'], seen_names)
     SELF.assertIn(t_network['id'], seen_ids)
 
     if t_subnet:
-        seen_subnets = SELF._list_subnets()
-        seen_net_ids = [n['network_id'] for n in seen_subnets]
-        seen_subnet_ids = [n['id'] for n in seen_subnets]
+        seen_subnets = SELF.admin_manager.subnets_client.list_subnets()
+        seen_net_ids = [n['network_id'] for n in seen_subnets['subnets']]
+        seen_subnet_ids = [n['id'] for n in seen_subnets['subnets']]
         SELF.assertIn(t_network['id'], seen_net_ids)
         SELF.assertIn(t_subnet['id'], seen_subnet_ids)
 
     if t_router:
-        seen_routers = SELF._list_routers()
-        seen_router_ids = [n['id'] for n in seen_routers]
-        seen_router_names = [n['name'] for n in seen_routers]
+        seen_routers = SELF.admin_manager.routers_client.list_routers()
+        seen_router_ids = [n['id'] for n in seen_routers['routers']]
+        seen_router_names = [n['name'] for n in seen_routers['routers']]
         SELF.assertIn(t_router['name'],
                       seen_router_names)
         SELF.assertIn(t_router['id'],
