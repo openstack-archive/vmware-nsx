@@ -27,13 +27,16 @@ from neutron.common import config as neutron_config
 from neutron.db import servicetype_db  # noqa
 from neutron.quota import resource_registry
 from neutron.tests import base
-from neutron.tests.unit.db import test_db_base_plugin_v2 as test_n_plugin
+from neutron.tests.unit.api import test_extensions
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import config  # noqa
+from vmware_nsx.db import nsxv_db
+from vmware_nsx.dvs import dvs_utils
+import vmware_nsx.shell.admin.plugins.nsxv.resources.utils as utils
 from vmware_nsx.shell import resources
 from vmware_nsx.tests import unit as vmware
-from vmware_nsx.tests.unit.nsx_v.vshield import fake_vcns
+from vmware_nsx.tests.unit.nsx_v import test_plugin as test_v_plugin
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_v3_plugin
 from vmware_nsxlib.v3 import resources as nsx_v3_resources
 
@@ -96,35 +99,116 @@ class AbstractTestAdminUtils(base.BaseTestCase):
             for op in res_dict[res].supported_ops:
                 self._test_resource(res_name, op)
 
+    def _test_resources_with_args(self, res_dict, func_args):
+        for res in res_dict.keys():
+            res_name = res_dict[res].name
+            for op in res_dict[res].supported_ops:
+                args = {'property': func_args}
+                self._test_resource(res_name, op, **args)
+
 
 class TestNsxvAdminUtils(AbstractTestAdminUtils,
-                         test_n_plugin.NeutronDbPluginV2TestCase):
-
-    def _init_mock_plugin(self):
-        mock_vcns = mock.patch(vmware.VCNS_NAME, autospec=True)
-        mock_vcns_instance = mock_vcns.start()
-        self.fc = fake_vcns.FakeVcns()
-        mock_vcns_instance.return_value = self.fc
-
-        self.addCleanup(self.fc.reset_all)
-        super(TestNsxvAdminUtils, self)._init_mock_plugin()
+                         test_v_plugin.NsxVPluginV2TestCase):
 
     def _get_plugin_name(self):
         return 'nsxv'
 
+    def _init_mock_plugin(self, *mocks):
+        super(TestNsxvAdminUtils, self)._init_mock_plugin()
+
+        # support the dvs manager:
+        mock.patch.object(dvs_utils, 'dvs_create_session').start()
+        # override metadata get-object
+        dummy_lb = {
+            'enabled': True,
+            'enableServiceInsertion': True,
+            'accelerationEnabled': True,
+            'virtualServer': [],
+            'applicationProfile': [],
+            'pool': [],
+            'applicationRule': []
+        }
+        mock.patch('vmware_nsx.plugins.nsx_v.vshield.nsxv_edge_cfg_obj.'
+                   'NsxvEdgeCfgObj.get_object',
+                   return_value=dummy_lb).start()
+
+        # Create a router to make sure we have deployed an edge
+        self.create_router()
+        self.edge_id = self.get_edge_id()
+
     def test_nsxv_resources(self):
         self._test_resources(resources.nsxv_resources)
 
-    # This is an example how to test a specific utility with arguments
-    def test_with_args(self):
-        args = {'property': ["xxx=yyy"]}
-        self._test_resource('security-groups', 'fix-mismatch', **args)
+    def _test_edge_nsx_update(self, edge_id, params):
+        args = {'property': ["edge-id=%s" % edge_id]}
+        args['property'].extend(params)
+        self._test_resource('edges', 'nsx-update', **args)
+
+    def create_router(self):
+        # Global configuration to support router creation without messing up
+        # the plugin wrapper
+        cfg.CONF.set_override('track_quota_usage', False,
+                              group='QUOTAS')
+        ext_mgr = test_v_plugin.TestL3ExtensionManager()
+        ext_api = test_extensions.setup_extensions_middleware(ext_mgr)
+
+        # Create an exclusive router (with an edge)
+        tenant_id = uuidutils.generate_uuid()
+        data = {'router': {'tenant_id': tenant_id}}
+        data['router']['name'] = 'dummy'
+        data['router']['admin_state_up'] = True
+        data['router']['router_type'] = 'exclusive'
+        router_req = self.new_create_request('routers', data, self.fmt)
+        res = router_req.get_response(ext_api)
+        r = self.deserialize(self.fmt, res)
+        return r
+
+    def get_edge_id(self):
+        edgeapi = utils.NeutronDbClient()
+        bindings = nsxv_db.get_nsxv_router_bindings(edgeapi.context.session)
+        for binding in bindings:
+            if binding.edge_id:
+                return binding.edge_id
+        # use a dummy edge
+        return "edge-1"
+
+    def test_edge_nsx_updates(self):
+        """Test eges/nsx-update utility with different inputs."""
+        self._test_edge_nsx_update(self.edge_id, ["appliances=true"])
+        self._test_edge_nsx_update(self.edge_id, ["size=compact"])
+        self._test_edge_nsx_update(self.edge_id, ["hostgroup=update"])
+        self._test_edge_nsx_update(self.edge_id, ["hostgroup=all"])
+        self._test_edge_nsx_update(self.edge_id, ["hostgroup=clean"])
+        self._test_edge_nsx_update(self.edge_id, ["highavailability=True"])
+        self._test_edge_nsx_update(self.edge_id, ["resource=cpu", "limit=100"])
+        self._test_edge_nsx_update(self.edge_id, ["syslog-server=1.1.1.1",
+                                                  "syslog-proto=tcp",
+                                                  "log-level=debug"])
 
     def test_bad_args(self):
         args = {'property': ["xxx"]}
         errors = self._test_resource_with_errors(
             'networks', 'nsx-update', **args)
         self.assertEqual(1, len(errors))
+
+    def test_resources_with_common_args(self):
+        """Run all nsxv admin utilities with some common arguments
+
+        Using arguments like edge-id which many apis need
+        This improves the test coverage
+        """
+        args = ["edge-id=%s" % self.edge_id,
+                "router-id=e5b9b249-0034-4729-8ab6-fe4dacaa3a12",
+                "policy-id=1",
+                "network_id=net-1",
+                "net-id=net-1",
+                "security-group-id=sg-1",
+                "dvs-id=dvs-1",
+                "moref=virtualwire-1",
+                "teamingpolicy=LACP_ACTIVE"
+                ]
+        self._test_resources_with_args(
+            resources.nsxv_resources, args)
 
 
 class TestNsxv3AdminUtils(AbstractTestAdminUtils,
@@ -161,3 +245,20 @@ class TestNsxv3AdminUtils(AbstractTestAdminUtils,
 
     def test_nsxv3_resources(self):
         self._test_resources(resources.nsxv3_resources)
+
+    def test_resources_with_common_args(self):
+        """Run all nsxv3 admin utilities with some common arguments
+
+        Using arguments like dhcp_profile_uuid which many apis need
+        This improves the test coverage
+        """
+        args = ["dhcp_profile_uuid=e5b9b249-0034-4729-8ab6-fe4dacaa3a12",
+                "metadata_proxy_uuid=e5b9b249-0034-4729-8ab6-fe4dacaa3a12",
+                ]
+        # Create some neutron objects for the utilities to run on
+        with self._create_l3_ext_network() as network:
+            with self.subnet(network=network) as subnet:
+                with self.port(subnet=subnet):
+                    # Run all utilities with backend objects
+                    self._test_resources_with_args(
+                        resources.nsxv3_resources, args)

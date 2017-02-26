@@ -272,7 +272,9 @@ class FakeVcns(object):
             "featureType": "dhcp_4.0",
             "version": 14,
             "enabled": True,
-            "staticBindings": {"staticBindings": [{}]},
+            "staticBindings": {"staticBindings": [{
+                "macAddress": "fa:16:3e:e6:ad:ce",
+                "bindingId": "binding-1"}]},
             "ipPools": {"ipPools": []}
         }
         return (header, response)
@@ -396,13 +398,15 @@ class FakeVcns(object):
 
     def get_edge(self, edge_id):
         if edge_id not in self._edges:
-            raise Exception(_("Edge %s does not exist!") % edge_id)
+            raise exceptions.VcnsGeneralException(
+                _("Edge %s does not exist!") % edge_id)
         header = {
             'status': 200
         }
         response = {
             'name': 'fake-edge',
-            'id': edge_id
+            'id': edge_id,
+            'appliances': {'appliances': []}
         }
         return (header, response)
 
@@ -422,6 +426,24 @@ class FakeVcns(object):
                 'data': edges
             }
         }
+        return (header, response)
+
+    def get_vdn_switch(self, dvs_id):
+        header = {
+            'status': 200
+        }
+        response = {
+            'name': 'fake-switch',
+            'id': dvs_id,
+            'teamingPolicy': 'ETHER_CHANNEL'
+        }
+        return (header, response)
+
+    def update_vdn_switch(self, switch):
+        header = {
+            'status': 200
+        }
+        response = ''
         return (header, response)
 
     def update_routes(self, edge_id, routes):
@@ -909,7 +931,7 @@ class FakeVcns(object):
     def get_security_group(self, sg_id):
         sg = self._securitygroups.get(sg_id)
         if sg:
-            return ('<securitygroup><objectId>"%s"</objectId><name>"%s"'
+            return ('<securitygroup><objectId>%s</objectId><name>"%s"'
                     '</name></securitygroup>'
                     % (sg_id, sg.get("name")))
 
@@ -919,6 +941,7 @@ class FakeVcns(object):
         for k in self._securitygroups.keys():
             if k not in ('ids', 'names'):
                 response += self.get_security_group(k)
+        response = "<securitygroups>%s</securitygroups>" % response
         return header, response
 
     def create_redirect_section(self, request):
@@ -1029,9 +1052,11 @@ class FakeVcns(object):
 
     def get_dfw_config(self):
         response = ""
-        for sec_id in range(0, self._sections['section_ids']):
-            h, r = self._get_section(str(sec_id))
-            response += r
+        for sec_id in self._sections.keys():
+            if sec_id.isdigit():
+                h, r = self._get_section(str(sec_id))
+                response += r
+        response = "<sections>%s</sections>" % response
         headers = {'status': 200}
         return (headers, response)
 
@@ -1096,7 +1121,11 @@ class FakeVcns(object):
         self._spoofguard_policies[int(policy_id)] = {}
 
     def get_spoofguard_policy(self, policy_id):
-        return None, self._spoofguard_policies[int(policy_id)]
+        try:
+            return None, self._spoofguard_policies[int(policy_id)]
+        except IndexError:
+            raise exceptions.VcnsGeneralException(
+                _("Spoofguard policy not found"))
 
     def get_spoofguard_policies(self):
         return None, {'policies': self._spoofguard_policies}
@@ -1204,6 +1233,9 @@ class FakeVcns(object):
         return (header, response)
 
     def update_edge_syslog(self, edge_id, config):
+        if edge_id not in self._edges:
+            raise exceptions.VcnsGeneralException(
+                _("edge not found"))
         self._edges[edge_id]['syslog'] = config
         header = {
             'status': 204
