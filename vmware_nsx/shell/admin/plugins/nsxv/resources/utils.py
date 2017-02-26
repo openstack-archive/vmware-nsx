@@ -19,6 +19,7 @@ from oslo_log import log as logging
 
 from neutron import context as neutron_context
 from neutron.db import common_db_mixin as common_db
+from neutron_lib.plugins import directory
 
 from vmware_nsx._i18n import _LW
 from vmware_nsx.common import config
@@ -48,6 +49,8 @@ class NsxVPluginWrapper(plugin.NsxVPlugin):
     def __init__(self):
         config.register_nsxv_azs(cfg.CONF, cfg.CONF.nsxv.availability_zones)
         super(NsxVPluginWrapper, self).__init__()
+        # Make this the core plugin
+        directory.add_plugin('CORE', self)
 
     def _start_rpc_listeners(self):
         pass

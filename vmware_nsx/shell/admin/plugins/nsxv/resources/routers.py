@@ -27,6 +27,7 @@ from vmware_nsx._i18n import _LE, _LI, _LW
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.extensions import routersize
+from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 from vmware_nsx.plugins.nsx_v.vshield import vcns_driver
 
@@ -54,6 +55,19 @@ def delete_old_edge(context, old_edge_id):
                         {'id': old_edge_id, 'e': e})
             # Continue the process anyway
             # The edge may have been already deleted at the backend
+
+
+def _get_router_az_from_plugin_router(router):
+    # If the router edge was already deployed the availability_zones will
+    # return the az
+    az_name = router['availability_zones'][0]
+    if not az_name:
+        # If it was not deployed - it may be in the creation hints
+        az_name = router['availability_zones_hints'][0]
+    if not az_name:
+        # If not - the default az was used.
+        az_name = nsx_az.DEFAULT_NAME
+    return az_name
 
 
 @admin_utils.output_header
@@ -109,7 +123,7 @@ def nsx_recreate_router_edge(resource, event, trigger, **kwargs):
         # Go over all the relevant routers
         for router in routers:
             router_id = router['id']
-            az_name = router['availability_zone']
+            az_name = _get_router_az_from_plugin_router(router)
             # clean up other objects related to this router
             if plugin.metadata_proxy_handler:
                 md_proxy = plugin.get_metadata_proxy_handler(az_name)
