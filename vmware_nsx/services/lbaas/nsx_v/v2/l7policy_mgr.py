@@ -177,6 +177,35 @@ class EdgeL7PolicyManager(base_mgr.EdgeLoadbalancerBaseManager):
         # update the backend with the new configuration
         self.vcns.update_vip(edge_id, vse_id, vse)
 
+    def _update_app_rule_possition_in_virtual_server(self, edge_id, vse_id,
+                                                     app_rule_id,
+                                                     policy_position):
+        """Move the new nsx application rule to another position"""
+        # Get the current virtual server configuration
+        vse = self.vcns.get_vip(edge_id, vse_id)[1]
+
+        # delete the policy (= application rule) from the list
+        if app_rule_id in vse['applicationRuleId']:
+            vse['applicationRuleId'].remove(app_rule_id)
+
+        # Add the policy (=application rule) in the correct position
+        # (position begins at 1)
+        if len(vse['applicationRuleId']) < policy_position:
+            vse['applicationRuleId'].append(app_rule_id)
+        else:
+            vse['applicationRuleId'].insert(policy_position - 1, app_rule_id)
+
+        # update the backend with the new configuration
+        self.vcns.update_vip(edge_id, vse_id, vse)
+
+    def _get_vse_id(self, context, pol):
+        lb_id = pol.listener.loadbalancer_id
+        list_id = pol.listener.id
+        listener_binding = nsxv_db.get_nsxv_lbaas_listener_binding(
+            context.session, lb_id, list_id)
+        if listener_binding:
+            return listener_binding['vse_id']
+
     @log_helpers.log_method_call
     def create(self, context, pol):
         # find out the edge to be updated, by the listener of this policy
@@ -198,12 +227,10 @@ class EdgeL7PolicyManager(base_mgr.EdgeLoadbalancerBaseManager):
 
                 # add the nsx application rule (neutron policy) to the nsx
                 # virtual server (neutron listener)
-                listener_binding = nsxv_db.get_nsxv_lbaas_listener_binding(
-                    context.session, lb_id, pol.listener.id)
-                if listener_binding:
+                vse_id = self._get_vse_id(context, pol)
+                if vse_id:
                     self._add_app_rule_to_virtual_server(
-                        edge_id, listener_binding['vse_id'], app_rule_id,
-                        pol.position)
+                        edge_id, vse_id, app_rule_id, pol.position)
         except Exception as e:
             with excutils.save_and_reraise_exception():
                 self.lbv2_driver.l7policy.failed_completion(context, pol)
@@ -234,6 +261,14 @@ class EdgeL7PolicyManager(base_mgr.EdgeLoadbalancerBaseManager):
             with locking.LockManager.get_lock(edge_id):
                 # update the backend application rule for the new policy
                 self.vcns.update_app_rule(edge_id, app_rule_id, app_rule)
+
+                # if the position changed - update it too
+                if old_pol.position != new_pol.position:
+                    vse_id = self._get_vse_id(context, new_pol)
+                    if vse_id:
+                        self._update_app_rule_possition_in_virtual_server(
+                            edge_id, vse_id, app_rule_id, new_pol.position)
+
         except Exception as e:
             with excutils.save_and_reraise_exception():
                 self.lbv2_driver.l7policy.failed_completion(context, new_pol)
@@ -259,11 +294,8 @@ class EdgeL7PolicyManager(base_mgr.EdgeLoadbalancerBaseManager):
         with locking.LockManager.get_lock(edge_id):
             try:
                 # remove the nsx application rule from the virtual server
-                lb_id = pol.listener.loadbalancer_id
-                listener_binding = nsxv_db.get_nsxv_lbaas_listener_binding(
-                    context.session, lb_id, pol.listener.id)
-                if listener_binding:
-                    vse_id = listener_binding['vse_id']
+                vse_id = self._get_vse_id(context, pol)
+                if vse_id:
                     self._del_app_rule_from_virtual_server(
                         edge_id, vse_id, app_rule_id)
 
