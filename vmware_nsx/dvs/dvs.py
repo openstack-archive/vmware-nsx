@@ -60,9 +60,10 @@ class SingleDvsManager(object):
             results = vim_util.continue_retrieval(session.vim, results)
         raise nsx_exc.DvsNotFound(dvs=dvs_name)
 
-    def add_port_group(self, net_id, vlan_tag=None):
+    def add_port_group(self, net_id, vlan_tag=None, trunk_mode=False):
         return self._dvs.add_port_group(self._dvs_moref, net_id,
-                                        vlan_tag=vlan_tag)
+                                        vlan_tag=vlan_tag,
+                                        trunk_mode=trunk_mode)
 
     def delete_port_group(self, net_id):
         return self._dvs.delete_port_group(self._dvs_moref, net_id)
@@ -98,26 +99,51 @@ class DvsManager(VCManagerBase):
     def _get_dvs_moref_by_id(self, dvs_id):
         return vim_util.get_moref(dvs_id, 'VmwareDistributedVirtualSwitch')
 
-    def _get_port_group_spec(self, net_id, vlan_tag):
+    def _get_vlan_spec(self, vlan_tag):
+        """Gets portgroup vlan spec."""
+        # Create the spec for the vlan tag
+        client_factory = self._session.vim.client.factory
+        spec_ns = 'ns0:VmwareDistributedVirtualSwitchVlanIdSpec'
+        vl_spec = client_factory.create(spec_ns)
+        vl_spec.vlanId = vlan_tag
+        vl_spec.inherited = '0'
+        return vl_spec
+
+    def _get_trunk_vlan_spec(self, start=0, end=4094):
+        """Gets portgroup trunk vlan spec."""
+        client_factory = self._session.vim.client.factory
+        spec_ns = 'ns0:VmwareDistributedVirtualSwitchTrunkVlanSpec'
+        range = client_factory.create('ns0:NumericRange')
+        range.start = start
+        range.end = end
+        vlan_tag = range
+        vl_spec = client_factory.create(spec_ns)
+        vl_spec.vlanId = vlan_tag
+        vl_spec.inherited = '0'
+        return vl_spec
+
+    def _get_port_group_spec(self, net_id, vlan_tag, trunk_mode=False,
+                             pg_spec=None):
         """Gets the port groups spec for net_id and vlan_tag."""
         client_factory = self._session.vim.client.factory
-        pg_spec = client_factory.create('ns0:DVPortgroupConfigSpec')
+        if not pg_spec:
+            pg_spec = client_factory.create('ns0:DVPortgroupConfigSpec')
         pg_spec.name = net_id
         pg_spec.type = 'ephemeral'
         config = client_factory.create('ns0:VMwareDVSPortSetting')
-        if vlan_tag:
-            # Create the spec for the vlan tag
-            spec_ns = 'ns0:VmwareDistributedVirtualSwitchVlanIdSpec'
-            vl_spec = client_factory.create(spec_ns)
-            vl_spec.vlanId = vlan_tag
-            vl_spec.inherited = '0'
-            config.vlan = vl_spec
+        if trunk_mode:
+            config.vlan = self._get_trunk_vlan_spec()
+        elif vlan_tag:
+            config.vlan = self._get_vlan_spec(vlan_tag)
+
         pg_spec.defaultPortConfig = config
         return pg_spec
 
-    def add_port_group(self, dvs_moref, net_id, vlan_tag=None):
+    def add_port_group(self, dvs_moref, net_id, vlan_tag=None,
+                       trunk_mode=False):
         """Add a new port group to the configured DVS."""
-        pg_spec = self._get_port_group_spec(net_id, vlan_tag)
+        pg_spec = self._get_port_group_spec(net_id, vlan_tag,
+                                            trunk_mode=trunk_mode)
         task = self._session.invoke_api(self._session.vim,
                                         'CreateDVPortgroup_Task',
                                         dvs_moref,
