@@ -12,12 +12,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import logging
 import netaddr
 
 from neutron.callbacks import registry
 from neutron_lib import constants as const
 from oslo_config import cfg
+from oslo_log import log as logging
 
 from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import utils as nsx_utils

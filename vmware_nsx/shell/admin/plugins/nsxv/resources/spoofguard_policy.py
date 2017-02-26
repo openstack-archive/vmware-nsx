@@ -13,9 +13,6 @@
 #    under the License.
 
 
-import logging
-
-
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 
@@ -28,6 +25,8 @@ from neutron_lib import exceptions
 
 from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.db import nsxv_db
+
+from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 nsxv = utils.get_nsxv_client()

@@ -13,10 +13,10 @@
 #    under the License.
 
 
-import logging
 import pprint
 
 from oslo_config import cfg
+from oslo_log import log as logging
 
 from vmware_nsx.shell.admin.plugins.common import constants
 import vmware_nsx.shell.admin.plugins.common.utils as admin_utils

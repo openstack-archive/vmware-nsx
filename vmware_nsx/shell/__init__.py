@@ -13,14 +13,25 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import logging
 import sys
 
 from neutronclient import shell
+from oslo_config import cfg
+from oslo_log import log as logging
+
 from vmware_nsx.shell import commands as cmd
 
-logging.basicConfig(format='%(message)s', level=logging.INFO)
-logging.getLogger('requests').setLevel(logging.WARNING)
+# Oslo Logging uses INFO as default
+# Use a simple format for the output
+logging_format_string = '%(message)s'
+logging.register_options(cfg.CONF)
+logging.setup(cfg.CONF, "vmware-nsx")
+cfg.CONF.set_override('logging_context_format_string',
+                      logging_format_string)
+cfg.CONF.set_override('logging_default_format_string',
+                      logging_format_string)
+cfg.CONF.set_override('logging_exception_prefix',
+                      '')
 
 
 class NsxManage(shell.NeutronShell):

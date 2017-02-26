@@ -13,7 +13,7 @@
 #    under the License.
 
 
-import logging
+from oslo_log import log as logging
 from oslo_serialization import jsonutils
 import re
 import xml.etree.ElementTree as et
