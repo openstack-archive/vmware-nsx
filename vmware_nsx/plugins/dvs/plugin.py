@@ -19,9 +19,12 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 
 from neutron.api import extensions as neutron_extensions
+from neutron.api.v2 import attributes as attr
+from neutron import context as n_context
 from neutron.db import _utils as db_utils
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
+from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
 from neutron.db import l3_db
@@ -49,6 +52,7 @@ from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils as c_utils
 from vmware_nsx.db import db as nsx_db
+from vmware_nsx.db import nsxv_db
 from vmware_nsx.dhcp_meta import modes as dhcpmeta_modes
 from vmware_nsx.dvs import dvs
 from vmware_nsx.dvs import dvs_utils
@@ -94,16 +98,29 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             [vmware_nsx.NSX_EXT_PATH])
         self.cfg_group = 'dvs'  # group name for dvs section in nsx.ini
         self._dvs = dvs.SingleDvsManager()
-
-        # Common driver code
-        self.base_binding_dict = {
-            pbin.VIF_TYPE: nsx_constants.VIF_TYPE_DVS,
-            pbin.VIF_DETAILS: {
-                # TODO(rkukura): Replace with new VIF security details
-                pbin.CAP_PORT_FILTER:
-                'security-group' in self.supported_extension_aliases}}
-
         self.setup_dhcpmeta_access()
+
+    # Register extend dict methods for port resources.
+    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
+        attr.PORTS, ['_ext_extend_port_dict'])
+
+    def _extend_port_dict_binding(self, portdb, result):
+        result[pbin.VIF_TYPE] = nsx_constants.VIF_TYPE_DVS
+        port_attr = portdb.get('nsx_port_attributes')
+        if port_attr:
+            result[pbin.VNIC_TYPE] = port_attr.vnic_type
+        else:
+            result[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
+        result[pbin.VIF_DETAILS] = {
+            # TODO(rkukura): Replace with new VIF security details
+            pbin.CAP_PORT_FILTER:
+            'security-group' in self.supported_extension_aliases}
+
+    def _ext_extend_port_dict(self, result, portdb):
+        ctx = n_context.get_admin_context()
+        with db_api.context_manager.writer.using(ctx):
+            self._extend_port_dict_binding(portdb,
+                                           result)
 
     def _extend_network_dict_provider(self, context, network,
                                       multiprovider=None, bindings=None):
@@ -295,6 +312,17 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
 
         return net_res
 
+    def _process_vnic_type(self, context, port_data, port_id):
+        vnic_type = port_data.get(pbin.VNIC_TYPE)
+        if validators.is_attr_set(vnic_type):
+            if vnic_type != pbin.VNIC_NORMAL and vnic_type != pbin.VNIC_DIRECT:
+                err_msg = _("Only direct or normal VNIC types supported")
+                raise n_exc.InvalidInput(error_message=err_msg)
+            nsxv_db.update_nsxv_port_ext_attributes(
+                session=context.session,
+                port_id=port_id,
+                vnic_type=vnic_type)
+
     def create_port(self, context, port):
         # If PORTSECURITY is not the default value ATTR_NOT_SPECIFIED
         # then we pass the port to the policy engine. The reason why we don't
@@ -340,12 +368,14 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                 # remove ATTR_NOT_SPECIFIED
                 port_data[addr_pair.ADDRESS_PAIRS] = []
 
-            LOG.debug("create_port completed on NSX for tenant "
-                      "%(tenant_id)s: (%(id)s)", port_data)
-
             self._process_portbindings_create_and_update(context,
                                                          port['port'],
                                                          port_data)
+            self._process_vnic_type(context, port_data, neutron_db['id'])
+
+            LOG.debug("create_port completed on NSX for tenant "
+                      "%(tenant_id)s: (%(id)s)", port_data)
+
         # DB Operation is complete, perform DVS operation
         port_data = port['port']
 
@@ -397,7 +427,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             if psec.PORTSECURITY in port['port']:
                 self._process_port_port_security_update(
                     context, port['port'], ret_port)
-
+            self._process_vnic_type(context, port['port'], id)
             LOG.debug("Updating port: %s", port)
             self._process_portbindings_create_and_update(context,
                                                          port['port'],
