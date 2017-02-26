@@ -711,16 +711,26 @@ class TestEdgeLbaasV2L7Policy(BaseTestEdgeLbaasV2):
                                      action='REDIRECT_TO_URL',
                                      redirect_url=url,
                                      listener=self.listener,
-                                     position=1)
+                                     position=2)
 
         with mock.patch.object(nsxv_db, 'get_nsxv_lbaas_l7policy_binding'
                                ) as mock_get_l7policy_binding, \
             mock.patch.object(nsxv_db, 'get_nsxv_lbaas_loadbalancer_binding'
                               ) as mock_get_lb_binding, \
+            mock.patch.object(nsxv_db, 'get_nsxv_lbaas_listener_binding'
+                              ) as mock_get_listener_binding, \
+            mock.patch.object(self.edge_driver.vcns, 'get_vip'
+                              ) as mock_get_vip, \
+            mock.patch.object(self.edge_driver.vcns, 'update_vip'
+                              ) as mock_upd_vip, \
             mock.patch.object(self.edge_driver.vcns, 'update_app_rule'
                               ) as mock_update_rule:
             mock_get_lb_binding.return_value = LB_BINDING
             mock_get_l7policy_binding.return_value = L7POL_BINDING
+            mock_get_listener_binding.return_value = LISTENER_BINDING
+            edge_vip_def = EDGE_VIP_DEF.copy()
+            edge_vip_def['applicationRuleId'] = [EDGE_RULE_ID]
+            mock_get_vip.return_value = (None, edge_vip_def)
 
             self.edge_driver.l7policy.update(self.context, self.l7policy,
                                              new_pol)
@@ -729,6 +739,7 @@ class TestEdgeLbaasV2L7Policy(BaseTestEdgeLbaasV2):
             edge_rule_def['script'] = "redirect location %s if TRUE" % url
             mock_update_rule.assert_called_with(
                 LB_EDGE_ID, EDGE_RULE_ID, edge_rule_def)
+            mock_upd_vip.assert_called()
             mock_successful_completion = (
                 self.lbv2_driver.l7policy.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
