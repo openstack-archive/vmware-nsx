@@ -381,6 +381,105 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                         cfg.CONF.nsx_v3.dhcp_lease_time, options,
                         subnet['subnet']['gateway_ip'])
 
+    def test_dhcp_binding_with_create_port_with_opts(self):
+        # Test if DHCP binding is added when a compute port is created
+        # with extra options.
+        opt_name = 'interface-mtu'
+        opt_code = 26
+        opt_val = '9000'
+        with mock.patch.object(nsx_resources.LogicalDhcpServer,
+                               'create_binding',
+                               return_value={"id": uuidutils.generate_uuid()}
+                               ) as create_dhcp_binding:
+            with self.subnet(enable_dhcp=True) as subnet:
+                device_owner = constants.DEVICE_OWNER_COMPUTE_PREFIX + 'None'
+                device_id = uuidutils.generate_uuid()
+                extra_dhcp_opts = [{'opt_name': opt_name,
+                                    'opt_value': opt_val}]
+                with self.port(subnet=subnet, device_owner=device_owner,
+                               device_id=device_id,
+                               extra_dhcp_opts=extra_dhcp_opts,
+                               arg_list=('extra_dhcp_opts',)) as port:
+                    dhcp_service = nsx_db.get_nsx_service_binding(
+                        context.get_admin_context().session,
+                        subnet['subnet']['network_id'],
+                        nsx_constants.SERVICE_DHCP)
+                    ip = port['port']['fixed_ips'][0]['ip_address']
+                    hostname = 'host-%s' % ip.replace('.', '-')
+                    options = {'option121': {'static_routes': [
+                        {'network': '%s' %
+                         cfg.CONF.nsx_v3.native_metadata_route,
+                         'next_hop': ip}]},
+                         'others': [{'code': opt_code, 'values': [opt_val]}]}
+                    create_dhcp_binding.assert_called_once_with(
+                        dhcp_service['nsx_service_id'],
+                        port['port']['mac_address'], ip, hostname,
+                        cfg.CONF.nsx_v3.dhcp_lease_time, options,
+                        subnet['subnet']['gateway_ip'])
+
+    def test_dhcp_binding_with_create_port_with_opts121(self):
+        # Test if DHCP binding is added when a compute port is created
+        # with extra option121.
+        with mock.patch.object(nsx_resources.LogicalDhcpServer,
+                               'create_binding',
+                               return_value={"id": uuidutils.generate_uuid()}
+                               ) as create_dhcp_binding:
+            with self.subnet(enable_dhcp=True) as subnet:
+                device_owner = constants.DEVICE_OWNER_COMPUTE_PREFIX + 'None'
+                device_id = uuidutils.generate_uuid()
+                extra_dhcp_opts = [{'opt_name': 'classless-static-route',
+                                    'opt_value': '1.0.0.0/24,1.2.3.4'}]
+                with self.port(subnet=subnet, device_owner=device_owner,
+                               device_id=device_id,
+                               extra_dhcp_opts=extra_dhcp_opts,
+                               arg_list=('extra_dhcp_opts',)) as port:
+                    dhcp_service = nsx_db.get_nsx_service_binding(
+                        context.get_admin_context().session,
+                        subnet['subnet']['network_id'],
+                        nsx_constants.SERVICE_DHCP)
+                    ip = port['port']['fixed_ips'][0]['ip_address']
+                    hostname = 'host-%s' % ip.replace('.', '-')
+                    options = {'option121': {'static_routes': [
+                        {'network': '%s' %
+                         cfg.CONF.nsx_v3.native_metadata_route,
+                         'next_hop': ip},
+                        {'network': '1.0.0.0/24', 'next_hop': '1.2.3.4'}]}}
+                    create_dhcp_binding.assert_called_once_with(
+                        dhcp_service['nsx_service_id'],
+                        port['port']['mac_address'], ip, hostname,
+                        cfg.CONF.nsx_v3.dhcp_lease_time, options,
+                        subnet['subnet']['gateway_ip'])
+
+    def test_dhcp_binding_with_create_port_with_bad_opts(self):
+        with self.subnet(enable_dhcp=True) as subnet:
+            device_owner = constants.DEVICE_OWNER_COMPUTE_PREFIX + 'None'
+            device_id = uuidutils.generate_uuid()
+            ctx = context.get_admin_context()
+
+            # Use illegal opt-name
+            extra_dhcp_opts = [{'opt_name': 'Dummy',
+                                'opt_value': 'Dummy'}]
+            data = {'port': {
+                'name': 'dummy',
+                'network_id': subnet['subnet']['network_id'],
+                'tenant_id': subnet['subnet']['tenant_id'],
+                'device_owner': device_owner,
+                'device_id': device_id,
+                'extra_dhcp_opts': extra_dhcp_opts,
+                'admin_state_up': True,
+                'fixed_ips': [],
+                'mac_address': '00:00:00:00:00:01',
+            }}
+            self.assertRaises(n_exc.InvalidInput,
+                self.plugin.create_port, ctx, data)
+
+            # Use illegal option121 value
+            extra_dhcp_opts = [{'opt_name': 'classless-static-route',
+                                'opt_value': '1.0.0.0/24,5.5.5.5,cc'}]
+            data['port']['extra_dhcp_opts'] = extra_dhcp_opts
+            self.assertRaises(n_exc.InvalidInput,
+                self.plugin.create_port, ctx, data)
+
     def test_dhcp_binding_with_disable_enable_dhcp(self):
         # Test if DHCP binding is preserved after DHCP is disabled and
         # re-enabled on a subnet.
@@ -503,6 +602,84 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                                {'network': '%s' %
                                 cfg.CONF.nsx_v3.native_metadata_route,
                                 'next_hop': new_ip}]}}}
+            self._verify_dhcp_binding(subnet, port_data, update_data,
+                                      assert_data)
+
+    def test_update_port_with_update_dhcp_opt(self):
+        # Test updating extra-dhcp-opts via port update.
+        with self.subnet(cidr='10.0.0.0/24', enable_dhcp=True) as subnet:
+            mac_address = '11:22:33:44:55:66'
+            ip_addr = '10.0.0.3'
+            port_data = {'arg_list': ('extra_dhcp_opts',),
+                         'mac_address': mac_address,
+                         'fixed_ips': [{'subnet_id': subnet['subnet']['id'],
+                                        'ip_address': ip_addr}],
+                         'extra_dhcp_opts': [
+                              {'opt_name': 'interface-mtu',
+                               'opt_value': '9000'}]}
+            update_data = {'port': {'extra_dhcp_opts': [
+                              {'opt_name': 'interface-mtu',
+                               'opt_value': '9002'}]}}
+            assert_data = {'mac_address': mac_address,
+                           'ip_address': ip_addr,
+                           'options': {'option121': {'static_routes': [
+                               {'network': '%s' %
+                                cfg.CONF.nsx_v3.native_metadata_route,
+                                'next_hop': ip_addr}]},
+                                'others': [{'code': 26, 'values': ['9002']}]}}
+            self._verify_dhcp_binding(subnet, port_data, update_data,
+                                      assert_data)
+
+    def test_update_port_with_adding_dhcp_opt(self):
+        # Test adding extra-dhcp-opts via port update.
+        with self.subnet(cidr='10.0.0.0/24', enable_dhcp=True) as subnet:
+            mac_address = '11:22:33:44:55:66'
+            ip_addr = '10.0.0.3'
+            port_data = {'arg_list': ('extra_dhcp_opts',),
+                         'mac_address': mac_address,
+                         'fixed_ips': [{'subnet_id': subnet['subnet']['id'],
+                                        'ip_address': ip_addr}],
+                         'extra_dhcp_opts': [
+                              {'opt_name': 'nis-domain',
+                               'opt_value': 'abc'}]}
+            update_data = {'port': {'extra_dhcp_opts': [
+                              {'opt_name': 'interface-mtu',
+                               'opt_value': '9002'}]}}
+            assert_data = {'mac_address': mac_address,
+                           'ip_address': ip_addr,
+                           'options': {'option121': {'static_routes': [
+                               {'network': '%s' %
+                                cfg.CONF.nsx_v3.native_metadata_route,
+                                'next_hop': ip_addr}]},
+                                'others': [{'code': 26, 'values': ['9002']},
+                                           {'code': 40, 'values': ['abc']}]}}
+            self._verify_dhcp_binding(subnet, port_data, update_data,
+                                      assert_data)
+
+    def test_update_port_with_deleting_dhcp_opt(self):
+        # Test adding extra-dhcp-opts via port update.
+        with self.subnet(cidr='10.0.0.0/24', enable_dhcp=True) as subnet:
+            mac_address = '11:22:33:44:55:66'
+            ip_addr = '10.0.0.3'
+            port_data = {'arg_list': ('extra_dhcp_opts',),
+                         'mac_address': mac_address,
+                         'fixed_ips': [{'subnet_id': subnet['subnet']['id'],
+                                        'ip_address': ip_addr}],
+                         'extra_dhcp_opts': [
+                              {'opt_name': 'nis-domain',
+                               'opt_value': 'abc'},
+                              {'opt_name': 'interface-mtu',
+                               'opt_value': '9002'}]}
+            update_data = {'port': {'extra_dhcp_opts': [
+                              {'opt_name': 'interface-mtu',
+                               'opt_value': None}]}}
+            assert_data = {'mac_address': mac_address,
+                           'ip_address': ip_addr,
+                           'options': {'option121': {'static_routes': [
+                               {'network': '%s' %
+                                cfg.CONF.nsx_v3.native_metadata_route,
+                                'next_hop': ip_addr}]},
+                                'others': [{'code': 40, 'values': ['abc']}]}}
             self._verify_dhcp_binding(subnet, port_data, update_data,
                                       assert_data)
 
