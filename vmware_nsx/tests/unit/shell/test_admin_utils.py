@@ -134,7 +134,6 @@ class TestNsxvAdminUtils(AbstractTestAdminUtils,
 
         # Create a router to make sure we have deployed an edge
         self.create_router()
-        self.edge_id = self.get_edge_id()
 
     def test_nsxv_resources(self):
         self._test_resources(resources.nsxv_resources)
@@ -174,16 +173,17 @@ class TestNsxvAdminUtils(AbstractTestAdminUtils,
 
     def test_edge_nsx_updates(self):
         """Test eges/nsx-update utility with different inputs."""
-        self._test_edge_nsx_update(self.edge_id, ["appliances=true"])
-        self._test_edge_nsx_update(self.edge_id, ["size=compact"])
-        self._test_edge_nsx_update(self.edge_id, ["hostgroup=update"])
-        self._test_edge_nsx_update(self.edge_id, ["hostgroup=all"])
-        self._test_edge_nsx_update(self.edge_id, ["hostgroup=clean"])
-        self._test_edge_nsx_update(self.edge_id, ["highavailability=True"])
-        self._test_edge_nsx_update(self.edge_id, ["resource=cpu", "limit=100"])
-        self._test_edge_nsx_update(self.edge_id, ["syslog-server=1.1.1.1",
-                                                  "syslog-proto=tcp",
-                                                  "log-level=debug"])
+        edge_id = self.get_edge_id()
+        self._test_edge_nsx_update(edge_id, ["appliances=true"])
+        self._test_edge_nsx_update(edge_id, ["size=compact"])
+        self._test_edge_nsx_update(edge_id, ["hostgroup=update"])
+        self._test_edge_nsx_update(edge_id, ["hostgroup=all"])
+        self._test_edge_nsx_update(edge_id, ["hostgroup=clean"])
+        self._test_edge_nsx_update(edge_id, ["highavailability=True"])
+        self._test_edge_nsx_update(edge_id, ["resource=cpu", "limit=100"])
+        self._test_edge_nsx_update(edge_id, ["syslog-server=1.1.1.1",
+                                             "syslog-proto=tcp",
+                                             "log-level=debug"])
 
     def test_bad_args(self):
         args = {'property': ["xxx"]}
@@ -197,7 +197,8 @@ class TestNsxvAdminUtils(AbstractTestAdminUtils,
         Using arguments like edge-id which many apis need
         This improves the test coverage
         """
-        args = ["edge-id=%s" % self.edge_id,
+        edge_id = self.get_edge_id()
+        args = ["edge-id=%s" % edge_id,
                 "router-id=e5b9b249-0034-4729-8ab6-fe4dacaa3a12",
                 "policy-id=1",
                 "network_id=net-1",
@@ -209,6 +210,12 @@ class TestNsxvAdminUtils(AbstractTestAdminUtils,
                 ]
         self._test_resources_with_args(
             resources.nsxv_resources, args)
+
+    def test_router_recreate(self):
+        # Testing router-recreate separately because it may change the edge-id
+        edge_id = self.get_edge_id()
+        args = {'property': ["edge-id=%s" % edge_id]}
+        self._test_resource('routers', 'nsx-recreate', **args)
 
 
 class TestNsxv3AdminUtils(AbstractTestAdminUtils,
