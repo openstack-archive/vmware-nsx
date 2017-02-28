@@ -93,13 +93,11 @@ from vmware_nsx.extensions import advancedserviceproviders as as_providers
 from vmware_nsx.extensions import maclearning as mac_ext
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
-from vmware_nsx.plugins.nsx_v3 import cert_utils
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v3 import driver as qos_driver
 from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
 from vmware_nsx.services.trunk.nsx_v3 import driver as trunk_driver
-from vmware_nsxlib.v3 import client_cert
 from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
 from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
 from vmware_nsxlib.v3 import resources as nsx_resources
@@ -184,9 +182,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self.supported_extension_aliases.extend(
             self._extension_manager.extension_aliases())
 
-        if cfg.CONF.nsx_v3.nsx_use_client_auth:
-            self._init_client_certificate()
-
         self.nsxlib = v3_utils.get_nsxlib_wrapper()
         # reinitialize the cluster upon fork for api workers to ensure each
         # process has its own keepalive loops + state
@@ -250,29 +245,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         attributes.PORTS, ['_ext_extend_port_dict'])
     db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
         attributes.SUBNETS, ['_ext_extend_subnet_dict'])
-
-    def _init_client_certificate(self):
-        """Load certificate data from storage"""
-
-        LOG.info(_LI("NSX authenication will use client certificate "
-                     "with storage type %s"),
-                 cfg.CONF.nsx_v3.nsx_client_cert_storage)
-        if cfg.CONF.nsx_v3.nsx_client_cert_storage.lower() == 'none':
-            # nothing to do - admin is responsible for storing cert file
-            # in the filesystem of each neutron host
-            return
-
-        if cfg.CONF.nsx_v3.nsx_client_cert_storage.lower() == 'nsx-db':
-            context = q_context.get_admin_context()
-            db_storage_driver = cert_utils.DbCertificateStorageDriver(
-                    context)
-            cert_manager = client_cert.ClientCertificateManager(
-                    cert_utils.NSX_OPENSTACK_IDENTITY, None, db_storage_driver)
-            if not cert_manager.exists():
-                msg = _("Unable to load from nsx-db")
-                raise nsx_exc.ClientCertificateException(err_msg=msg)
-            # TODO(annak): add certificate expiration warning if expires soon
-            cert_manager.export_pem(cfg.CONF.nsx_v3.nsx_client_cert_file)
 
     def _init_nsx_profiles(self):
         LOG.debug("Initializing NSX v3 port spoofguard switching profile")

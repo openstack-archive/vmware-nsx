@@ -219,6 +219,16 @@ class NsxAbstractIpamDriver(subnet_alloc.SubnetAllocator, NsxIpamBase):
                                         subnet_id, nsx_pool_id)
 
 
+class NsxIpamSubnetManager(object):
+
+    def __init__(self, neutron_subnet_id):
+        self._neutron_subnet_id = neutron_subnet_id
+
+    @property
+    def neutron_id(self):
+        return self._neutron_subnet_id
+
+
 class NsxAbstractIpamSubnet(ipam_base.Subnet, NsxIpamBase):
     """Manage IP addresses for the NSX IPAM driver."""
 
@@ -227,6 +237,9 @@ class NsxAbstractIpamSubnet(ipam_base.Subnet, NsxIpamBase):
         self._nsx_pool_id = nsx_pool_id
         self._context = ctx
         self._tenant_id = tenant_id
+        #TODO(asarfaty): this subnet_manager is currently required by the
+        #pluggable-ipam-driver
+        self.subnet_manager = NsxIpamSubnetManager(self._subnet_id)
 
     @classmethod
     def load(cls, neutron_subnet_id, nsx_pool_id, ctx, tenant_id=None):
