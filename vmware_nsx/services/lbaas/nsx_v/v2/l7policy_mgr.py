@@ -114,7 +114,8 @@ def policy_to_application_rule(policy):
 
     # prepare the action
     if policy.action == lb_const.L7_POLICY_ACTION_REJECT:
-        action = 'tcp-request content reject'
+        # return HTTP 403 response
+        action = 'http-request deny'
     elif policy.action == lb_const.L7_POLICY_ACTION_REDIRECT_TO_POOL:
         action = 'use_backend pool_%s' % policy.redirect_pool_id
     elif policy.action == lb_const.L7_POLICY_ACTION_REDIRECT_TO_URL:
