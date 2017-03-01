@@ -13,11 +13,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron import context
 
 import mock
 from neutron.tests import base
 from neutron_lbaas.services.loadbalancer import data_models as lb_models
+from neutron_lib import context
 
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield import vcns_driver

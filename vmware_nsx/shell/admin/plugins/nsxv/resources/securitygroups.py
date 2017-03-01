@@ -16,11 +16,11 @@
 import xml.etree.ElementTree as et
 
 from neutron.callbacks import registry
-from neutron import context
 from neutron.db.models import securitygroup as sg_models
 from neutron.db import models_v2
 from neutron.db import securitygroups_db
 from neutron.extensions import securitygroup as ext_sg
+from neutron_lib import context
 from oslo_log import log as logging
 
 from vmware_nsx._i18n import _LE, _LI, _LW

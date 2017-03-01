@@ -14,10 +14,10 @@
 #    under the License.
 import mock
 
+from neutron_lib import context
 from oslo_config import cfg
 from oslo_utils import uuidutils
 
-from neutron import context
 from neutron.objects.qos import policy as policy_object
 from neutron.objects.qos import rule as rule_object
 from neutron.services.qos import qos_consts

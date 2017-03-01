@@ -16,8 +16,8 @@
 from eventlet import greenthread
 import mock
 
-from neutron import context as neutron_context
 from neutron.tests import base
+from neutron_lib import context as neutron_context
 from oslo_config import cfg
 import six
 

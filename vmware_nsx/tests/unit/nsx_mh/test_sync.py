@@ -20,12 +20,12 @@ import time
 
 import mock
 from neutron_lib import constants
+from neutron_lib import context
 from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
 
-from neutron import context
 from neutron.extensions import l3
 from neutron.tests import base
 from neutron.tests.unit.api.v2 import test_base

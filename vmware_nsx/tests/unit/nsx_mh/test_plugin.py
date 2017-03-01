@@ -17,7 +17,6 @@ import uuid
 
 import mock
 from neutron.api.v2 import attributes
-from neutron import context
 from neutron.extensions import dvr
 from neutron.extensions import external_net
 from neutron.extensions import l3
@@ -33,6 +32,7 @@ from neutron.tests.unit import testlib_api
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib import constants
+from neutron_lib import context
 from neutron_lib import exceptions as ntn_exc
 from neutron_lib.plugins import directory
 from oslo_config import cfg

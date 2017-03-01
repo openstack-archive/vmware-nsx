@@ -15,10 +15,10 @@
 
 import mock
 from neutron_lib import constants as n_consts
+from neutron_lib import context
 from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
 
-from neutron import context
 from neutron.tests import base
 from neutron.tests.unit import testlib_api
 

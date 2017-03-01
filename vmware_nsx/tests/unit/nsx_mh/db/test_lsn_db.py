@@ -13,8 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from neutron import context
 from neutron.tests.unit import testlib_api
+from neutron_lib import context
 from sqlalchemy import orm
 
 from vmware_nsx.common import exceptions as p_exc

@@ -13,7 +13,7 @@
 #    under the License.
 
 from neutron.callbacks import registry
-from neutron import context
+from neutron_lib import context
 from oslo_config import cfg
 from oslo_log import log as logging
 

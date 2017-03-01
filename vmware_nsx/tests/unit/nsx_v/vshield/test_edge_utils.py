@@ -14,11 +14,11 @@
 #
 
 import mock
+from neutron_lib import context
 from oslo_config import cfg
 from oslo_utils import uuidutils
 from six import moves
 
-from neutron import context
 from neutron.plugins.common import constants as plugin_const
 from neutron.tests.unit import testlib_api
 from neutron_lib import exceptions as n_exc

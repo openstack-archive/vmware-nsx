@@ -16,10 +16,10 @@
 import contextlib
 
 import mock
+from neutron_lib import context
 from oslo_config import cfg
 import webob.exc
 
-from neutron import context
 from neutron.tests.unit.api import test_extensions
 from vmware_nsx.db import qos_db
 from vmware_nsx.extensions import qos_queue as ext_qos

@@ -29,7 +29,6 @@ from neutron.callbacks import registry
 from neutron.callbacks import resources
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
-from neutron import context as q_context
 from neutron.db import _utils as db_utils
 from neutron.db import agents_db
 from neutron.db import agentschedulers_db
@@ -65,6 +64,7 @@ from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators
 from neutron_lib import constants as const
+from neutron_lib import context as q_context
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
 from neutron_lib.utils import helpers

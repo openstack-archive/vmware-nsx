@@ -17,10 +17,10 @@ from oslo_config import cfg
 import webob.exc
 
 from neutron.api.v2 import attributes as attr
-from neutron import context
 from neutron.tests.unit.api import test_extensions
 from neutron.tests.unit.extensions import test_securitygroup
 from neutron_lib import constants
+from neutron_lib import context
 from neutron_lib import exceptions as n_exc
 
 from vmware_nsx.extensions import nsxpolicy

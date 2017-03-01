@@ -16,10 +16,10 @@ import mock
 import webob.exc
 
 from neutron.api.v2 import attributes as attr
-from neutron import context
 from neutron.db import db_base_plugin_v2
 from neutron.db import securitygroups_db
 from neutron.tests.unit.extensions import test_securitygroup
+from neutron_lib import context
 
 from vmware_nsx.db import extended_security_group
 from vmware_nsx.extensions import providersecuritygroup as provider_sg

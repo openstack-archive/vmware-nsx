@@ -17,6 +17,7 @@ import copy
 import random
 
 from neutron_lib import constants
+from neutron_lib import context
 from neutron_lib import exceptions
 from oslo_log import log
 from oslo_serialization import jsonutils
@@ -24,7 +25,6 @@ from oslo_service import loopingcall
 from oslo_utils import timeutils
 import six
 
-from neutron import context
 from neutron.db.models import external_net as external_net_db
 from neutron.db.models import l3 as l3_db
 from neutron.db import models_v2

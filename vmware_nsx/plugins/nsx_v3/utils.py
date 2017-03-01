@@ -15,8 +15,8 @@
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from neutron import context as q_context
 from neutron import version as n_version
+from neutron_lib import context as q_context
 
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.plugins.nsx_v3 import cert_utils

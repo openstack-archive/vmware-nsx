@@ -13,10 +13,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron_lib import context
 from neutron_lib.plugins import directory
 from oslo_config import cfg
 
-from neutron import context
 from neutron.extensions import dns
 
 from vmware_nsx.extension_drivers import dns_integration

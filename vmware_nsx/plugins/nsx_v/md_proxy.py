@@ -18,8 +18,8 @@ import hashlib
 import hmac
 
 import netaddr
-from neutron import context as neutron_context
 from neutron_lib import constants
+from neutron_lib import context as neutron_context
 from oslo_config import cfg
 from oslo_log import log as logging
 

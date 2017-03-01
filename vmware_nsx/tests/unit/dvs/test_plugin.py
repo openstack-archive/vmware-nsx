@@ -14,10 +14,10 @@
 # limitations under the License.
 
 import mock
+from neutron_lib import context
 from oslo_config import cfg
 from oslo_utils import uuidutils
 
-from neutron import context
 from neutron.tests import base
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
 from neutron_lib.api.definitions import portbindings

@@ -21,7 +21,6 @@ import webtest
 
 from neutron.api import extensions
 from neutron.api.v2 import attributes
-from neutron import context
 from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron import quota
@@ -30,6 +29,7 @@ from neutron.tests.unit.api import test_extensions
 from neutron.tests.unit.api.v2 import test_base
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_db_plugin
 from neutron_lib import constants
+from neutron_lib import context
 from neutron_lib.plugins import directory
 
 from vmware_nsx.api_client import exception as api_exc

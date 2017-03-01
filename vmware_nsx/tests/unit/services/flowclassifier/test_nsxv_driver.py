@@ -22,8 +22,8 @@ from vmware_nsx.tests.unit.nsx_v.vshield import fake_vcns
 
 from neutron.api import extensions as api_ext
 from neutron.common import config
-from neutron import context
 from neutron_lib.api.definitions import portbindings
+from neutron_lib import context
 from neutron_lib.plugins import directory
 
 from networking_sfc.db import flowclassifier_db as fdb

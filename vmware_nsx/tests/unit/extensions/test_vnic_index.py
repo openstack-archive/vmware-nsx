@@ -17,10 +17,10 @@ from oslo_config import cfg
 from oslo_db import exception as d_exc
 from oslo_utils import uuidutils
 
-from neutron import context as neutron_context
 from neutron.db import db_base_plugin_v2
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_db_plugin
 from neutron_lib.api import validators
+from neutron_lib import context as neutron_context
 from neutron_lib.plugins import directory
 
 from vmware_nsx.db import vnic_index_db

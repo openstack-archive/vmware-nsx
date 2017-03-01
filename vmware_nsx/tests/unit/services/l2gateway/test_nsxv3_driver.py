@@ -20,6 +20,7 @@ from networking_l2gw.services.l2gateway.common import constants
 from networking_l2gw.services.l2gateway import exceptions as l2gw_exc
 from networking_l2gw.services.l2gateway import plugin as core_l2gw_plugin
 from networking_l2gw.tests.unit.db import test_l2gw_db
+from neutron_lib import context
 from oslo_config import cfg
 from oslo_utils import importutils
 from oslo_utils import uuidutils
@@ -27,7 +28,6 @@ from oslo_utils import uuidutils
 from neutron.callbacks import events
 from neutron.callbacks import registry
 from neutron.callbacks import resources
-from neutron import context
 from neutron.tests import base
 
 from neutron_lib import exceptions as n_exc

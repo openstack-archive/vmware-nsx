@@ -12,7 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-
+from neutron_lib import context
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 import re
@@ -28,7 +28,6 @@ from vmware_nsx.shell.admin.plugins.nsxv.resources import utils as utils
 from vmware_nsx.shell import resources as shell
 
 from neutron.callbacks import registry
-from neutron import context
 
 LOG = logging.getLogger(__name__)
 nsxv = utils.get_nsxv_client()

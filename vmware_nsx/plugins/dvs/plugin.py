@@ -15,12 +15,12 @@
 
 import uuid
 
+from neutron_lib import context as n_context
 from oslo_log import log as logging
 from oslo_utils import excutils
 
 from neutron.api import extensions as neutron_extensions
 from neutron.api.v2 import attributes as attr
-from neutron import context as n_context
 from neutron.db import _utils as db_utils
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db

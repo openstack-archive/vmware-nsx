@@ -20,6 +20,7 @@ import uuid
 import netaddr
 from neutron_lib.api import validators
 from neutron_lib import constants
+from neutron_lib import context as n_context
 from neutron_lib.db import constants as db_const
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
@@ -42,7 +43,6 @@ from neutron.common import ipv6_utils
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
 from neutron.common import utils as n_utils
-from neutron import context as n_context
 from neutron.db import _utils as db_utils
 from neutron.db import agents_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
@@ -1348,8 +1348,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # if there is only no other existing port besides DHCP port
         filters = {'network_id': [id]}
         ports = self.get_ports(context, filters=filters)
-        auto_del = all(p['device_owner'] in [constants.DEVICE_OWNER_DHCP]
-                       for p in ports)
+        auto_del = [p['id'] for p in ports
+                    if p['device_owner'] in [constants.DEVICE_OWNER_DHCP]]
         is_dhcp_backend_deleted = False
         if auto_del:
             filters = {'network_id': [id], 'enable_dhcp': [True]}
@@ -1362,6 +1362,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 except Exception:
                     with excutils.save_and_reraise_exception():
                         LOG.exception(_LE('Failed to delete network'))
+            for port_id in auto_del:
+                try:
+                    self.delete_port(context.elevated(), port_id,
+                                     force_delete_dhcp=True)
+                except Exception as e:
+                    LOG.warning(_LW('Unable to delete port %(port_id)s. '
+                                    'Reason: %(e)s'),
+                                {'port_id': port_id, 'e': e})
 
         with context.session.begin(subtransactions=True):
             self._process_l3_delete(context, id)
@@ -2090,7 +2098,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         return ret_port
 
     def delete_port(self, context, id, l3_port_check=True,
-                    nw_gw_port_check=True):
+                    nw_gw_port_check=True, force_delete_dhcp=False):
         neutron_db_port = self.get_port(context, id)
         device_id = neutron_db_port['device_id']
         is_compute_port = self._is_compute_port(neutron_db_port)
@@ -2100,13 +2108,16 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             with locking.LockManager.get_lock(
                 'port-device-%s' % device_id):
                 return self._delete_port(context, id, l3_port_check,
-                                         nw_gw_port_check, neutron_db_port)
+                                         nw_gw_port_check, neutron_db_port,
+                                         force_delete_dhcp)
         else:
             return self._delete_port(context, id, l3_port_check,
-                                     nw_gw_port_check, neutron_db_port)
+                                     nw_gw_port_check, neutron_db_port,
+                                     force_delete_dhcp)
 
     def _delete_port(self, context, id, l3_port_check,
-                    nw_gw_port_check, neutron_db_port):
+                     nw_gw_port_check, neutron_db_port,
+                     force_delete_dhcp=False):
         """Deletes a port on a specified Virtual Network.
 
         If the port contains a remote interface attachment, the remote
@@ -2121,7 +2132,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # a l3 router.  If so, we should prevent deletion here
         if l3_port_check:
             self.prevent_l3_port_deletion(context, id)
-        if neutron_db_port['device_owner'] in [constants.DEVICE_OWNER_DHCP]:
+        if (not force_delete_dhcp and
+            neutron_db_port['device_owner'] in [constants.DEVICE_OWNER_DHCP]):
             msg = (_('Can not delete DHCP port %s') % neutron_db_port['id'])
             raise n_exc.BadRequest(resource='port', msg=msg)
         # If this port is attached to a device, remove the corresponding vnic

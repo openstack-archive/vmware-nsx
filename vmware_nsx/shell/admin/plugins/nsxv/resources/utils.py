@@ -17,8 +17,8 @@ import time
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from neutron import context as neutron_context
 from neutron.db import common_db_mixin as common_db
+from neutron_lib import context as neutron_context
 from neutron_lib.plugins import directory
 
 from vmware_nsx._i18n import _LW

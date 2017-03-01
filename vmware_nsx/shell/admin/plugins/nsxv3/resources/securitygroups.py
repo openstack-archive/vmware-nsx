@@ -13,10 +13,10 @@
 #    under the License.
 
 from neutron.callbacks import registry
-from neutron import context as neutron_context
 from neutron.db import common_db_mixin as common_db
 from neutron.db.models import securitygroup
 from neutron.db import securitygroups_db
+from neutron_lib import context as neutron_context
 from oslo_log import log as logging
 
 from vmware_nsx.common import utils

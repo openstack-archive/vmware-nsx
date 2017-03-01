@@ -15,10 +15,10 @@
 #    under the License.
 
 from neutron.api.rpc.callbacks import events as callbacks_events
-from neutron import context as n_context
 from neutron.objects.qos import policy as qos_policy
 from neutron.plugins.common import constants
 from neutron.services.qos import qos_consts
+from neutron_lib import context as n_context
 from neutron_lib.plugins import directory
 
 from oslo_config import cfg

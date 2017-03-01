@@ -24,9 +24,9 @@ from vmware_nsxlib.v3 import exceptions as nsx_exc
 from vmware_nsxlib.v3 import resources as nsx_resources
 
 from neutron.callbacks import registry
-from neutron import context as neutron_context
 from neutron.db import db_base_plugin_v2
 from neutron.db import l3_db
+from neutron_lib import context as neutron_context
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)

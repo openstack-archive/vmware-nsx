@@ -22,7 +22,7 @@ from networking_sfc.services.flowclassifier.drivers import base as fc_driver
 from neutron.callbacks import events
 from neutron.callbacks import registry
 from neutron.callbacks import resources
-from neutron import context as n_context
+from neutron_lib import context as n_context
 from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers

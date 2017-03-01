@@ -15,9 +15,9 @@
 
 import mock
 from neutron.api.v2 import attributes
-from neutron import context
 from neutron.extensions import agent
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_db_plugin
+from neutron_lib import context
 from oslo_config import cfg
 import six
 

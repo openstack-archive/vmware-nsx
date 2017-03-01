@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from neutron import context
 from neutron.db import models_v2
 from neutron.tests.unit import testlib_api
+from neutron_lib import context
 from oslo_db import exception as d_exc
 
 from vmware_nsx.db import db as nsx_db

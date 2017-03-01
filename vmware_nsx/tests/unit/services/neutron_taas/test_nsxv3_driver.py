@@ -14,13 +14,13 @@
 # limitations under the License.
 import mock
 
-from neutron import context
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_plugin
 
 from neutron_taas.extensions import taas
 from neutron_taas.services.taas import taas_plugin
 from neutron_taas.tests.unit.db import test_taas_db
 
+from neutron_lib import context
 from oslo_utils import importutils
 from oslo_utils import uuidutils
 

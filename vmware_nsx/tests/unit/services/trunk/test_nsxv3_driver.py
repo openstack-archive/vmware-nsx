@@ -15,9 +15,9 @@
 
 import mock
 
-from neutron import context
 from neutron.tests import base
 
+from neutron_lib import context
 from oslo_config import cfg
 from oslo_utils import importutils
 

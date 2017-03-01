@@ -13,8 +13,8 @@
 #    under the License.
 
 
-from neutron import context
 from neutron.db import db_base_plugin_v2
+from neutron_lib import context
 
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.plugins.nsx_v3 import plugin

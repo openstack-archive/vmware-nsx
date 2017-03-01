@@ -22,6 +22,7 @@ import six
 from sqlalchemy import exc as db_base_exc
 import time
 
+from neutron_lib import context as q_context
 from oslo_config import cfg
 from oslo_db import exception as db_exc
 from oslo_log import log as logging
@@ -31,7 +32,6 @@ from oslo_utils import timeutils
 from oslo_utils import uuidutils
 from six import moves
 
-from neutron import context as q_context
 from neutron.extensions import l3
 from neutron.plugins.common import constants as plugin_const
 
