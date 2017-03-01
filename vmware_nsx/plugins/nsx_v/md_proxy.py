@@ -695,9 +695,6 @@ class NsxVMetadataProxyHandler(object):
             rtr_id,
             is_proxy=False)
 
-        if context is None:
-            context = self.context
-
         edge_utils.update_internal_interface(
             self.nsxv_plugin.nsx_v,
             context,
