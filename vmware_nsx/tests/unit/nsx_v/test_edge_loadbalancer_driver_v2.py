@@ -77,7 +77,7 @@ EDGE_RULE_ID = 'app-rule-xx'
 L7POL_BINDING = {'policy_id': L7POL_ID,
                  'edge_id': LB_EDGE_ID,
                  'edge_app_rule_id': EDGE_RULE_ID}
-EDGE_L7POL_DEF = {'script': 'tcp-request content reject if TRUE',
+EDGE_L7POL_DEF = {'script': 'http-request deny if TRUE',
                   'name': 'pol_' + L7POL_ID}
 
 L7RULE_ID1 = 'l7rule-111'
@@ -808,7 +808,7 @@ class TestEdgeLbaasV2L7Rule(BaseTestEdgeLbaasV2):
             edge_rule_def = EDGE_L7POL_DEF.copy()
             edge_rule_def['script'] = (
                 "acl %(rule_id)s hdr(key1) -i val1\n"
-                "tcp-request content reject if %(rule_id)s" %
+                "http-request deny if %(rule_id)s" %
                 {'rule_id': L7RULE_ID1})
             mock_update_rule.assert_called_with(
                 LB_EDGE_ID, EDGE_RULE_ID, edge_rule_def)
@@ -826,7 +826,7 @@ class TestEdgeLbaasV2L7Rule(BaseTestEdgeLbaasV2):
             edge_rule_def['script'] = (
                 "acl %(rule_id1)s hdr(key1) -i val1\n"
                 "acl %(rule_id2)s path_beg -i /images\n"
-                "tcp-request content reject if %(rule_id1)s !%(rule_id2)s" %
+                "http-request deny if %(rule_id1)s !%(rule_id2)s" %
                 {'rule_id1': L7RULE_ID1,
                  'rule_id2': L7RULE_ID2})
             mock_update_rule.assert_called_with(
@@ -860,7 +860,7 @@ class TestEdgeLbaasV2L7Rule(BaseTestEdgeLbaasV2):
             edge_rule_def = EDGE_L7POL_DEF.copy()
             edge_rule_def['script'] = (
                 "acl %(rule_id)s hdr(key2) -i val1\n"
-                "tcp-request content reject if %(rule_id)s" %
+                "http-request deny if %(rule_id)s" %
                 {'rule_id': L7RULE_ID1})
             mock_update_rule.assert_called_with(
                 LB_EDGE_ID, EDGE_RULE_ID, edge_rule_def)
@@ -882,7 +882,7 @@ class TestEdgeLbaasV2L7Rule(BaseTestEdgeLbaasV2):
 
             edge_rule_def = EDGE_L7POL_DEF.copy()
             edge_rule_def['script'] = (
-                "tcp-request content reject if TRUE")
+                "http-request deny if TRUE")
             mock_update_rule.assert_called_with(
                 LB_EDGE_ID, EDGE_RULE_ID, edge_rule_def)
 
