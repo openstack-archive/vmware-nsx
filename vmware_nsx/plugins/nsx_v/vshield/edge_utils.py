@@ -27,6 +27,7 @@ from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import excutils
+from oslo_utils import timeutils
 from oslo_utils import uuidutils
 from six import moves
 
@@ -325,11 +326,16 @@ class EdgeManager(object):
                 dist=(binding['edge_type'] == nsxv_constants.VDR_EDGE))
 
     def _clean_all_error_edge_bindings(self, context, availability_zone):
-        filters = {'status': [plugin_const.ERROR],
+        # Find all backup edges in error state &
+        # backup edges which are in pending-create state for too long
+        filters = {'status': [plugin_const.ERROR, plugin_const.PENDING_CREATE],
                    'availability_zone': [availability_zone.name]}
         like_filters = {'router_id': vcns_const.BACKUP_ROUTER_PREFIX + "%"}
-        error_router_bindings = nsxv_db.get_nsxv_router_bindings(
+        router_bindings = nsxv_db.get_nsxv_router_bindings(
             context.session, filters=filters, like_filters=like_filters)
+        error_router_bindings = [binding for binding in router_bindings if
+            binding.status == plugin_const.ERROR or
+            timeutils.is_older_than(binding.created_at, 600)]
         self._delete_backup_edges_on_db(context,
                                         error_router_bindings)
         self._delete_backup_edges_at_backend(context,
