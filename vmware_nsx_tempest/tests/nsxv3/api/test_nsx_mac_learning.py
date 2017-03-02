@@ -14,6 +14,7 @@ from tempest.api.network import base
 from tempest.common import custom_matchers
 from tempest import config
 from tempest.lib.common.utils import data_utils
+from tempest.lib import decorators
 from tempest import test
 
 from vmware_nsx_tempest.common import constants
@@ -135,7 +136,7 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
                                  "OS and NSX mac learn states don't match")
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('d4c533d4-194e-4d72-931d-a120cd3dd3b2')
+    @decorators.idempotent_id('d4c533d4-194e-4d72-931d-a120cd3dd3b2')
     def test_create_mac_learning_port(self):
         """
         Test creation of MAC Learning enabled port
@@ -144,7 +145,7 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
         self._check_mac_learning(port, mac_learn_state=True)
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('d5067c7e-127b-4676-8b33-c421dcc8d6ae')
+    @decorators.idempotent_id('d5067c7e-127b-4676-8b33-c421dcc8d6ae')
     def test_list_mac_learning_port(self):
         """
         Create port with MAC learning enabled. Create vanilla port.
@@ -169,7 +170,7 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
                          'List ports does not match num of created ports')
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('d2eaadb2-52e3-42c1-8225-7380cd70a82c')
+    @decorators.idempotent_id('d2eaadb2-52e3-42c1-8225-7380cd70a82c')
     def test_show_mac_learning_port(self):
         """
         Create port with MAC learning enabled with OS. Test port show api
@@ -195,7 +196,7 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
                                                           'updated_at']))
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('4d5844bb-88d4-4cdc-b545-6cd9160ae351')
+    @decorators.idempotent_id('4d5844bb-88d4-4cdc-b545-6cd9160ae351')
     def test_update_mac_learning_port(self):
         """
         Create a MAC learning-enabled port on network. Update the port's
@@ -219,7 +220,7 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
                          % updated_nsx_port['display_name'])
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('e2295017-b3c4-4cdd-b8e2-daa51aaf7590')
+    @decorators.idempotent_id('e2295017-b3c4-4cdd-b8e2-daa51aaf7590')
     def test_delete_mac_learning_port(self):
         """
         Create MAC learning-enabled port on network. Verify port on
@@ -237,7 +238,7 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
                           "Port %s is not None" % test_port['name'])
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('5105d8b5-5136-4789-9991-7e419d980169')
+    @decorators.idempotent_id('5105d8b5-5136-4789-9991-7e419d980169')
     def test_create_enable_mac_learning_port_delete(self):
         """
         CRUD Workflow 1
@@ -256,7 +257,7 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
                           "Port %s is not None" % updated_os_port['name'])
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('b7ecc93d-6c9b-4958-9a08-bc85d2946c03')
+    @decorators.idempotent_id('b7ecc93d-6c9b-4958-9a08-bc85d2946c03')
     def test_create_toggle_mac_learning_port_delete(self):
         """
         CRUD Workflow 2
@@ -277,7 +278,7 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
                           "Port %s is not None" % ml_on_port['name'])
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('262e844f-a033-4fcd-b5d0-4641d9efeccd')
+    @decorators.idempotent_id('262e844f-a033-4fcd-b5d0-4641d9efeccd')
     def test_create_update_delete_mac_learning_port(self):
         """
         CRUD Workflow 3

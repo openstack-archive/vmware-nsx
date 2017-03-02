@@ -15,6 +15,7 @@
 from tempest.api.network import base_routers as base
 from tempest import config
 from tempest.lib.common.utils import data_utils
+from tempest.lib import decorators
 from tempest import test
 
 from vmware_nsx_tempest.services import nsxv3_client
@@ -48,7 +49,7 @@ class NSXv3RoutersTest(base.BaseRouterTest):
                                            CONF.nsxv3.nsx_password)
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('0e9938bc-d2a3-4a9a-a4f9-7a93ee8bb344')
+    @decorators.idempotent_id('0e9938bc-d2a3-4a9a-a4f9-7a93ee8bb344')
     def test_create_update_nsx_router(self):
         # Create a router
         router_name = data_utils.rand_name('router-')
@@ -71,7 +72,7 @@ class NSXv3RoutersTest(base.BaseRouterTest):
         self.assertIsNotNone(nsx_router)
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('6f49b69c-0800-4c83-b1f8-595ae5bfeea7')
+    @decorators.idempotent_id('6f49b69c-0800-4c83-b1f8-595ae5bfeea7')
     def test_delete_nsx_router(self):
         # Create a router
         router_name = data_utils.rand_name('router-')

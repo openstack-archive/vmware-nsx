@@ -19,6 +19,7 @@ from oslo_log import log as logging
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
+from tempest.lib import decorators
 from tempest.scenario import manager
 from tempest import test
 
@@ -264,7 +265,7 @@ class TestMicroSegmentationOps(manager.NetworkScenarioTest):
                                         should_connect)
 
     @test.attr(type='common')
-    @test.idempotent_id('91e1ee1f-10d9-4b19-8350-804aea7e57b4')
+    @decorators.idempotent_id('91e1ee1f-10d9-4b19-8350-804aea7e57b4')
     def test_micro_segmentation_ops(self):
         """Test micro-segmentation use case
 

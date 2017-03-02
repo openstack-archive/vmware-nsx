@@ -17,6 +17,7 @@ from tempest.api.network import base
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
+from tempest.lib import decorators
 from tempest.lib import exceptions
 from tempest import test
 
@@ -50,7 +51,7 @@ class DnsSearchDoaminsNegativeTest(base.BaseAdminNetworkTest):
         return (network, subnet)
 
     @test.attr(type=['negative'])
-    @test.idempotent_id('11bdc214-10d7-4926-8f49-2da3d8719143')
+    @decorators.idempotent_id('11bdc214-10d7-4926-8f49-2da3d8719143')
     def test_create_dns_search_domain_negative(self):
         self.assertRaises(exceptions.BadRequest,
                           self.create_network_with_bad_dns_search_domain)

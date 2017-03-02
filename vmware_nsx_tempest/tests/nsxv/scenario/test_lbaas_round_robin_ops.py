@@ -17,6 +17,7 @@ from tempest.common import waiters
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
+from tempest.lib import decorators
 from tempest import test
 
 from vmware_nsx_tempest.services.lbaas import health_monitors_client
@@ -383,7 +384,7 @@ class TestLBaasRoundRobinOps(LBaasRoundRobinBaseTest):
        between the two servers.
     """
 
-    @test.idempotent_id('077d2a5c-4938-448f-a80f-8e65f5cc49d7')
+    @decorators.idempotent_id('077d2a5c-4938-448f-a80f-8e65f5cc49d7')
     @test.services('compute', 'network')
     def test_lbaas_round_robin_ops(self):
         self.create_lbaas_networks()

@@ -11,7 +11,7 @@
 # under the License.
 
 from tempest import config
-from tempest import test
+from tempest.lib import decorators
 
 from vmware_nsx_tempest.tests.nsxv.api.lbaas import base
 
@@ -104,7 +104,7 @@ class TestL7Policies(base.BaseTestCase):
         self.assertEqual(policy.get('redirect_pool_id'), self.pool7_id)
         return policy
 
-    @test.idempotent_id('465c9bea-53de-4a1f-ae00-fa2ee52d250b')
+    @decorators.idempotent_id('465c9bea-53de-4a1f-ae00-fa2ee52d250b')
     def test_l7policies_crud_ops(self):
         policy = self.create_to_pool_policy()
         # update
@@ -125,7 +125,7 @@ class TestL7Policies(base.BaseTestCase):
         policy_id_list = [x.get('id') for x in policies]
         self.assertNotIn(policy.get('id'), policy_id_list)
 
-    @test.idempotent_id('726588f4-970a-4f32-8253-95766ddaa7b4')
+    @decorators.idempotent_id('726588f4-970a-4f32-8253-95766ddaa7b4')
     def test_policy_position(self):
         self.remove_all_policies()
         policy1 = self.create_to_pool_policy()

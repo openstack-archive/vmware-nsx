@@ -11,7 +11,7 @@
 # under the License.
 
 from tempest import config
-from tempest import test
+from tempest.lib import decorators
 
 from vmware_nsx_tempest.tests.nsxv.api.lbaas import base
 
@@ -61,7 +61,7 @@ class TestL7Rules(base.BaseTestCase):
     def resource_cleanup(cls):
         super(TestL7Rules, cls).resource_cleanup()
 
-    @test.idempotent_id('27e8a3a1-bd3a-40e5-902d-fe9bc79ebf1f')
+    @decorators.idempotent_id('27e8a3a1-bd3a-40e5-902d-fe9bc79ebf1f')
     def test_l7rules_crud_ops(self):
         rule = self._create_l7rule(self.policy7_id,
                                    type='PATH',

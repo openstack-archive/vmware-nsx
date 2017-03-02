@@ -20,6 +20,7 @@ from oslo_log import log as logging
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
+from tempest.lib import decorators
 from tempest.scenario import manager
 from tempest import test
 
@@ -254,13 +255,13 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
         self._check_nonat_network_connectivity()
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('5e5bfdd4-0962-47d3-a89b-7ce64322b53e')
+    @decorators.idempotent_id('5e5bfdd4-0962-47d3-a89b-7ce64322b53e')
     def test_router_nat_to_nonat_ops(self):
         """Test update router from NATed to NoNAT scenario"""
         self._test_router_nat_update(snat=True)
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('a0274738-d3e7-49db-bf10-a5563610940d')
+    @decorators.idempotent_id('a0274738-d3e7-49db-bf10-a5563610940d')
     def test_router_nonat_to_nat_ops(self):
         """Test update router from NoNAT to NATed scenario"""
         self._test_router_nat_update(snat=False)

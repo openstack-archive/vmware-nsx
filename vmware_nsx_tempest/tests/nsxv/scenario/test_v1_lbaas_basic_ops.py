@@ -24,6 +24,7 @@ from tempest import config
 from tempest import exceptions
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
+from tempest.lib import decorators
 from tempest.scenario import manager
 from tempest import test
 
@@ -410,7 +411,7 @@ class TestLBaaSBasicOps(manager.NetworkScenarioTest):
         for member, counter in six.iteritems(counters):
             self.assertGreater(counter, 0, 'Member %s never balanced' % member)
 
-    @test.idempotent_id('e81b5af1-d854-4e16-9d2d-16187bdf1334')
+    @decorators.idempotent_id('e81b5af1-d854-4e16-9d2d-16187bdf1334')
     @test.services('compute', 'network')
     def test_load_balancer_basic(self):
         self._create_server('server1')

@@ -14,6 +14,7 @@ from oslo_log import log as logging
 from oslo_utils import uuidutils
 
 from tempest import config
+from tempest.lib import decorators
 from tempest.lib import exceptions as ex
 from tempest import test
 
@@ -53,7 +54,7 @@ class TestHealthMonitors(base.BaseAdminTestCase):
         super(TestHealthMonitors, cls).resource_cleanup()
 
     @test.attr(type='smoke')
-    @test.idempotent_id('24cf7da4-b829-4df5-a133-b6cef97ec560')
+    @decorators.idempotent_id('24cf7da4-b829-4df5-a133-b6cef97ec560')
     def test_create_health_monitor_missing_tenant_id_field(self):
         """Test if admin user can
 
@@ -69,7 +70,7 @@ class TestHealthMonitors(base.BaseAdminTestCase):
         self.assertEqual(admin_tenant_id, hm_tenant_id)
 
     @test.attr(type='negative')
-    @test.idempotent_id('acbff982-15d6-43c5-a015-e72b7df30998')
+    @decorators.idempotent_id('acbff982-15d6-43c5-a015-e72b7df30998')
     def test_create_health_monitor_empty_tenant_id_field(self):
         """Test with admin user
 
@@ -83,7 +84,7 @@ class TestHealthMonitors(base.BaseAdminTestCase):
                           tenant_id="")
 
     @test.attr(type='smoke')
-    @test.idempotent_id('a318d351-a72e-46dc-a094-8a751e4fa7aa')
+    @decorators.idempotent_id('a318d351-a72e-46dc-a094-8a751e4fa7aa')
     def test_create_health_monitor_for_another_tenant_id_field(self):
         """Test with admin user
 

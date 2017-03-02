@@ -17,6 +17,7 @@ from tempest.api.network import base
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
+from tempest.lib import decorators
 from tempest import test
 
 from vmware_nsx_tempest.services import nsxv3_client
@@ -49,7 +50,7 @@ class NSXv3NativeDHCPNegative(base.BaseNetworkTest):
 
     @test.attr(type='nsxv3')
     @test.attr(type=['negative'])
-    @test.idempotent_id('d1fb24b9-6ee8-4fb3-b6fe-169fed3cfa7e')
+    @decorators.idempotent_id('d1fb24b9-6ee8-4fb3-b6fe-169fed3cfa7e')
     def test_create_network_without_subnet(self):
         name = data_utils.rand_name('network-')
         network = self.create_network(network_name=name)
@@ -66,7 +67,7 @@ class NSXv3NativeDHCPNegative(base.BaseNetworkTest):
 
     @test.attr(type='nsxv3')
     @test.attr(type=['negative'])
-    @test.idempotent_id('caab60b9-b78c-4127-983f-cfb515b555fe')
+    @decorators.idempotent_id('caab60b9-b78c-4127-983f-cfb515b555fe')
     def test_create_dhcp_disabled_subnet(self):
         name = data_utils.rand_name('network-')
         network = self.create_network(network_name=name)
@@ -84,7 +85,7 @@ class NSXv3NativeDHCPNegative(base.BaseNetworkTest):
 
     @test.attr(type='nsxv3')
     @test.attr(type=['negative'])
-    @test.idempotent_id('bcfd9e1c-456f-43cc-a22a-baceb2188b53')
+    @decorators.idempotent_id('bcfd9e1c-456f-43cc-a22a-baceb2188b53')
     def test_update_dhcp_disabled_subnet(self):
         name = data_utils.rand_name('network-')
         network = self.create_network(network_name=name)

@@ -16,6 +16,7 @@
 
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
+from tempest.lib import decorators
 from tempest.lib import exceptions as lib_exc
 
 from tempest.api.network import base
@@ -49,7 +50,7 @@ class MultipleTransportZonesNegativeTest(base.BaseAdminNetworkTest):
         return network
 
     @test.attr(type=['negative'])
-    @test.idempotent_id('8aff7abc-eacd-409c-8278-4cb7bde6da84')
+    @decorators.idempotent_id('8aff7abc-eacd-409c-8278-4cb7bde6da84')
     def test_create_mtz_networks(self):
         # Multiple Transport Zone use provier network to implement
         # its TZ allocation.

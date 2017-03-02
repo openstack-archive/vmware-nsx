@@ -21,6 +21,7 @@ from oslo_log import log as logging
 from tempest.api.network import base_routers as base
 from tempest import config
 from tempest.lib.common.utils import data_utils
+from tempest.lib import decorators
 from tempest.lib.services import network as net_clients
 from tempest import test
 from vmware_nsx_tempest.services import nsxv_client
@@ -165,40 +166,40 @@ class RouterSizeBaseTest(base.BaseRouterTest):
 
 class CompactRouterTest(RouterSizeBaseTest):
     @test.attr(type='nsxv')
-    @test.idempotent_id('d75fbcd5-c8cb-49ea-a868-ada12fd8c87f')
+    @decorators.idempotent_id('d75fbcd5-c8cb-49ea-a868-ada12fd8c87f')
     def test_create_update_delete_compact_router(self):
         self.do_create_update_delete_router_with_size('compact')
 
 
 class LargeRouterTest(RouterSizeBaseTest):
     @test.attr(type='nsxv')
-    @test.idempotent_id('da00c74f-81e6-4ef9-8aca-8e0345b376e9')
+    @decorators.idempotent_id('da00c74f-81e6-4ef9-8aca-8e0345b376e9')
     def test_create_update_delete_large_router(self):
         self.do_create_update_delete_router_with_size('large', 20.0)
 
 
 class XlargeRouterTest(RouterSizeBaseTest):
     @test.attr(type='nsxv')
-    @test.idempotent_id('091dad07-6044-4ca3-b16c-54a3ef92254b')
+    @decorators.idempotent_id('091dad07-6044-4ca3-b16c-54a3ef92254b')
     def test_create_update_delete_xlarge_router(self):
         self.do_create_update_delete_router_with_size('xlarge', 20.0)
 
 
 class QuadlargeRouterTest(RouterSizeBaseTest):
     @test.attr(type='nsxv')
-    @test.idempotent_id('0f69bf8a-4b06-47ac-a3f7-eedba95fd395')
+    @decorators.idempotent_id('0f69bf8a-4b06-47ac-a3f7-eedba95fd395')
     def test_create_update_delete_quadlarge_router(self):
         self.do_create_update_delete_router_with_size('quadlarge', 30.0)
 
 
 class RouterSizeChangeTest(RouterSizeBaseTest):
-    @test.idempotent_id('3201b0a9-702c-46cf-8512-f166a6ea5109')
+    @decorators.idempotent_id('3201b0a9-702c-46cf-8512-f166a6ea5109')
     def test_router_size_1sizeup_change(self):
         self.do_router_size_change_test(
             'compact',
             ('large', 'xlarge', 'quadlarge'))
 
-    @test.idempotent_id('c7ee9f78-4938-4bdd-b39c-1d736d41a84b')
+    @decorators.idempotent_id('c7ee9f78-4938-4bdd-b39c-1d736d41a84b')
     def test_router_size_outofseq_change(self):
         self.do_router_size_change_test(
             "large",

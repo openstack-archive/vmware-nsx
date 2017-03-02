@@ -20,6 +20,7 @@ from tempest.common.utils.linux import remote_client
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
+from tempest.lib import decorators
 from tempest import test
 
 from vmware_nsx_tempest._i18n import _LI
@@ -174,7 +175,7 @@ class TestSpoofGuardBasicOps(dmgr.TopoDeployScenarioManager):
 
 class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
     @test.attr(type='nsxv')
-    @test.idempotent_id('2804f55d-3221-440a-9fa8-ab16a8932634')
+    @decorators.idempotent_id('2804f55d-3221-440a-9fa8-ab16a8932634')
     def test_exclude_list_with_new_attach_port(self):
         port_client = self.manager.ports_client
         self.green = self.setup_vm_environment(self.manager, 'green', True)
@@ -208,7 +209,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         self.interface_client.delete_interface(vm_id, port_id)
 
     @test.attr(type='nsxv')
-    @test.idempotent_id('a5420350-2658-47e4-9e2b-490b200e9f41')
+    @decorators.idempotent_id('a5420350-2658-47e4-9e2b-490b200e9f41')
     def test_spoofguard_with_ping_between_servers_on_same_network(self):
         username, password = self.get_image_userpass()
         image = self.get_server_image()
@@ -282,7 +283,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         return net_network, net_subnet
 
     @test.attr(type='nsxv')
-    @test.idempotent_id('38c213df-bfc2-4681-9c9c-3a31c05b0e6f')
+    @decorators.idempotent_id('38c213df-bfc2-4681-9c9c-3a31c05b0e6f')
     def test_exclude_with_multiple_vm(self):
         image = self.get_server_image()
         flavor = self.get_server_flavor()
@@ -349,7 +350,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
                 LOG.info(_LI("Vm1 not in exclude list"))
 
     @test.attr(type='nsxv')
-    @test.idempotent_id('f034d3e9-d717-4bcd-8e6e-18e9ada7b81a')
+    @decorators.idempotent_id('f034d3e9-d717-4bcd-8e6e-18e9ada7b81a')
     def test_exclude_list_with_single_vm_port(self):
         port_client = self.manager.ports_client
         self.green = self.setup_vm_environment(self.manager, 'green', True)
@@ -376,7 +377,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         self.interface_client.delete_interface(vm_id, port_id)
 
     @test.attr(type='nsxv')
-    @test.idempotent_id('3ad04e37-2a9f-4465-86e7-94993eecdfa1')
+    @decorators.idempotent_id('3ad04e37-2a9f-4465-86e7-94993eecdfa1')
     def test_disabled_network_port_security(self):
         network_client = self.manager.networks_client
         port_client = self.manager.ports_client
@@ -406,7 +407,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
             LOG.info(_LI("Port security of port is enabled"))
 
     @test.attr(type='nsxv')
-    @test.idempotent_id('c8683cb7-4be5-4670-95c6-344a0aea3667')
+    @decorators.idempotent_id('c8683cb7-4be5-4670-95c6-344a0aea3667')
     def test_exclude_list_with_multiple_ports(self):
         port_client = self.manager.ports_client
         self.green = self.setup_vm_environment(self.manager, 'green', True)

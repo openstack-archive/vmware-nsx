@@ -18,6 +18,7 @@ from oslo_log import log as logging
 from tempest import config
 from tempest import exceptions
 from tempest.lib.common.utils import data_utils
+from tempest.lib import decorators
 from tempest.scenario import manager
 from tempest import test
 
@@ -169,8 +170,8 @@ class TestDvsNetworkBasicOps(manager.NetworkScenarioTest):
                                         should_connect)
 
     @test.attr(type='smoke')
-    @test.idempotent_id('b977dce6-6527-4676-9b66-862b22058f0f')
     @test.services('compute', 'network')
+    @decorators.idempotent_id('b977dce6-6527-4676-9b66-862b22058f0f')
     def test_network_basic_ops(self):
         """
         For a freshly-booted VM with an IP address ("port") on a given

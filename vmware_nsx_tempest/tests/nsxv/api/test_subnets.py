@@ -16,7 +16,6 @@
 import base_provider as base
 from tempest.common import custom_matchers
 from tempest import config
-from tempest import test
 
 import netaddr
 from oslo_log import log as logging
@@ -239,7 +238,7 @@ class SubnetTestJSON(base.BaseAdminNetworkTest):
         self._compare_resource_attrs(subnet, compare_args)
         self._delete_network(net_id)
 
-    @test.idempotent_id('2ecbc3ab-93dd-44bf-a827-95beeb008e9a')
+    @decorators.idempotent_id('2ecbc3ab-93dd-44bf-a827-95beeb008e9a')
     def test_create_update_delete_network_subnet(self):
         # Create a network
         network = self._create_network(_auto_clean_up=True)
@@ -260,7 +259,7 @@ class SubnetTestJSON(base.BaseAdminNetworkTest):
         self.assertEqual(updated_subnet['name'], new_name)
         self._delete_network(net_id)
 
-    @test.idempotent_id('a2cf6398-aece-4256-88a6-0dfe8aa44975')
+    @decorators.idempotent_id('a2cf6398-aece-4256-88a6-0dfe8aa44975')
     def test_show_network(self):
         # Verify the details of a network
         body = self.show_network(self.network['id'])
@@ -268,7 +267,7 @@ class SubnetTestJSON(base.BaseAdminNetworkTest):
         for key in ['id', 'name']:
             self.assertEqual(network[key], self.network[key])
 
-    @test.idempotent_id('5b42067d-4b9d-4f04-bb6a-adb9756ebe0c')
+    @decorators.idempotent_id('5b42067d-4b9d-4f04-bb6a-adb9756ebe0c')
     def test_show_network_fields(self):
         # Verify specific fields of a network
         fields = ['id', 'name']
@@ -278,7 +277,7 @@ class SubnetTestJSON(base.BaseAdminNetworkTest):
         for field_name in fields:
             self.assertEqual(network[field_name], self.network[field_name])
 
-    @test.idempotent_id('324be3c2-457d-4e21-b0b3-5106bbbf1a28')
+    @decorators.idempotent_id('324be3c2-457d-4e21-b0b3-5106bbbf1a28')
     def test_list_networks(self):
         # Verify the network exists in the list of all networks
         body = self.list_networks()
@@ -286,7 +285,7 @@ class SubnetTestJSON(base.BaseAdminNetworkTest):
                     if network['id'] == self.network['id']]
         self.assertNotEmpty(networks, "Created network not found in the list")
 
-    @test.idempotent_id('3a934a8d-6b52-427e-af49-3dfdd224fdeb')
+    @decorators.idempotent_id('3a934a8d-6b52-427e-af49-3dfdd224fdeb')
     def test_list_networks_fields(self):
         # Verify specific fields of the networks
         fields = ['id', 'name']
@@ -296,7 +295,7 @@ class SubnetTestJSON(base.BaseAdminNetworkTest):
         for network in networks:
             self.assertEqual(sorted(network.keys()), sorted(fields))
 
-    @test.idempotent_id('5f6616c4-bfa7-4308-8eab-f45d75c94c6d')
+    @decorators.idempotent_id('5f6616c4-bfa7-4308-8eab-f45d75c94c6d')
     def test_show_subnet(self):
         # Verify the details of a subnet
         body = self.show_subnet(self.subnet['id'])
@@ -306,7 +305,7 @@ class SubnetTestJSON(base.BaseAdminNetworkTest):
             self.assertIn(key, subnet)
             self.assertEqual(subnet[key], self.subnet[key])
 
-    @test.idempotent_id('2f326955-551e-4e9e-a4f6-e5db77c34c8d')
+    @decorators.idempotent_id('2f326955-551e-4e9e-a4f6-e5db77c34c8d')
     def test_show_subnet_fields(self):
         # Verify specific fields of a subnet
         fields = ['id', 'network_id']
@@ -316,7 +315,7 @@ class SubnetTestJSON(base.BaseAdminNetworkTest):
         for field_name in fields:
             self.assertEqual(subnet[field_name], self.subnet[field_name])
 
-    @test.idempotent_id('66631557-2466-4827-bba6-d961b0242be3')
+    @decorators.idempotent_id('66631557-2466-4827-bba6-d961b0242be3')
     def test_list_subnets(self):
         # Verify the subnet exists in the list of all subnets
         body = self.list_subnets()
@@ -324,7 +323,7 @@ class SubnetTestJSON(base.BaseAdminNetworkTest):
                    if subnet['id'] == self.subnet['id']]
         self.assertNotEmpty(subnets, "Created subnet not found in the list")
 
-    @test.idempotent_id('3d5ea69b-f122-43e7-b7f4-c78586629eb8')
+    @decorators.idempotent_id('3d5ea69b-f122-43e7-b7f4-c78586629eb8')
     def test_list_subnets_fields(self):
         # Verify specific fields of subnets
         fields = ['id', 'network_id']
@@ -334,7 +333,7 @@ class SubnetTestJSON(base.BaseAdminNetworkTest):
         for subnet in subnets:
             self.assertEqual(sorted(subnet.keys()), sorted(fields))
 
-    @test.idempotent_id('e966bb2f-402c-49b7-8147-b275cee584c4')
+    @decorators.idempotent_id('e966bb2f-402c-49b7-8147-b275cee584c4')
     def test_delete_network_with_subnet(self):
         # Creates a network
         network = self._create_network(_auto_clean_up=True)
@@ -351,42 +350,42 @@ class SubnetTestJSON(base.BaseAdminNetworkTest):
         self.assertRaises(exceptions.NotFound,
                           self.show_subnet, subnet_id)
 
-    @test.idempotent_id('8aba0e1b-4b70-4181-a8a4-792c08db699d')
+    @decorators.idempotent_id('8aba0e1b-4b70-4181-a8a4-792c08db699d')
     def test_create_delete_subnet_without_gateway(self):
         self._create_verify_delete_subnet()
 
-    @test.idempotent_id('67364a4b-6725-4dbe-84cf-504bdb20ac06')
+    @decorators.idempotent_id('67364a4b-6725-4dbe-84cf-504bdb20ac06')
     def test_create_delete_subnet_with_gw(self):
         self._create_verify_delete_subnet(
             **self.subnet_dict(['gateway']))
 
-    @test.idempotent_id('f8f43e65-5090-4902-b5d2-2b610505cca6')
+    @decorators.idempotent_id('f8f43e65-5090-4902-b5d2-2b610505cca6')
     def test_create_delete_subnet_with_allocation_pools(self):
         self._create_verify_delete_subnet(
             **self.subnet_dict(['allocation_pools']))
 
-    @test.idempotent_id('5b085669-97e6-48e0-b99e-315a9b4d8482')
+    @decorators.idempotent_id('5b085669-97e6-48e0-b99e-315a9b4d8482')
     def test_create_delete_subnet_with_gw_and_allocation_pools(self):
         self._create_verify_delete_subnet(**self.subnet_dict(
             ['gateway', 'allocation_pools']))
 
     @decorators.skip_because(bug="1501827")
-    @test.idempotent_id('3c4c36a1-684b-4e89-8e71-d528f19322a0')
+    @decorators.idempotent_id('3c4c36a1-684b-4e89-8e71-d528f19322a0')
     def test_create_delete_subnet_with_host_routes_and_dns_nameservers(self):
         self._create_verify_delete_subnet(
             **self.subnet_dict(['host_routes', 'dns_nameservers']))
 
-    @test.idempotent_id('df518c87-b817-48b5-9365-bd1daaf68955')
+    @decorators.idempotent_id('df518c87-b817-48b5-9365-bd1daaf68955')
     def test_create_delete_subnet_with_dns_nameservers(self):
         self._create_verify_delete_subnet(
             **self.subnet_dict(['dns_nameservers']))
 
-    @test.idempotent_id('b6822feb-6760-4052-b550-f0fe8bac7451')
+    @decorators.idempotent_id('b6822feb-6760-4052-b550-f0fe8bac7451')
     def test_create_delete_subnet_with_dhcp_enabled(self):
         self._create_verify_delete_subnet(enable_dhcp=True)
 
     @decorators.skip_because(bug="1501827")
-    @test.idempotent_id('3c4c36a1-684a-4e89-8e71-d528f19324a0')
+    @decorators.idempotent_id('3c4c36a1-684a-4e89-8e71-d528f19324a0')
     def test_update_subnet_gw_dns_host_routes_dhcp(self):
         network = self._create_network(_auto_clean_up=True)
         subnet_attrs = ['gateway', 'host_routes',
@@ -417,7 +416,7 @@ class SubnetTestJSON(base.BaseAdminNetworkTest):
         self._compare_resource_attrs(updated_subnet, kwargs)
         self._delete_network(network['id'])
 
-    @test.idempotent_id('a5caa7d9-ab71-4278-a57c-d6631b7474f8')
+    @decorators.idempotent_id('a5caa7d9-ab71-4278-a57c-d6631b7474f8')
     def test_update_subnet_gw_dns_dhcp(self):
         network = self._create_network(_auto_clean_up=True)
         subnet_attrs = ['gateway',
@@ -445,7 +444,7 @@ class SubnetTestJSON(base.BaseAdminNetworkTest):
         self._delete_network(network['id'])
 
     @decorators.skip_because(bug="1501827")
-    @test.idempotent_id('a5caa7d5-ab71-4278-a57c-d6631b7474f8')
+    @decorators.idempotent_id('a5caa7d5-ab71-4278-a57c-d6631b7474f8')
     def test_create_delete_subnet_all_attributes(self):
         self._create_verify_delete_subnet(
             enable_dhcp=True,
@@ -453,21 +452,20 @@ class SubnetTestJSON(base.BaseAdminNetworkTest):
                                 'host_routes',
                                 'dns_nameservers']))
 
-    @test.idempotent_id('969f20b2-7eb5-44f5-98cd-381545b7c7e7')
-    @test.idempotent_id('a5caa7d9-ab71-4278-a57c-d6631b7474c8')
+    @decorators.idempotent_id('a5caa7d9-ab71-4278-a57c-d6631b7474c8')
     def test_create_delete_subnet_with_gw_dns(self):
         self._create_verify_delete_subnet(
             enable_dhcp=True,
             **self.subnet_dict(['gateway',
                                 'dns_nameservers']))
 
-    @test.idempotent_id('3c4c36a1-684b-4e89-8e71-d518f19324a0')
+    @decorators.idempotent_id('3c4c36a1-684b-4e89-8e71-d518f19324a0')
     def test_add_upd_del_multiple_overlapping_networks_subnet(self):
         r0, R1 = 0, 3   # (todo) get from CONF
         return self._add_upd_del_multiple_networks_subnet(
             r0, R1, "ovla-netwk")
 
-    @test.idempotent_id('5267bf9d-de82-4af9-914a-8320e9f4c38c')
+    @decorators.idempotent_id('5267bf9d-de82-4af9-914a-8320e9f4c38c')
     def test_add_upd_del_multiple_nonoverlapping_networks_subnet(self):
         r0, R1 = 1, 4   # (todo) get from CONF
         return self._add_upd_del_multiple_networks_subnet(

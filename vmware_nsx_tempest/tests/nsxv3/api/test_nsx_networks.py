@@ -13,6 +13,7 @@
 from tempest.api.network import base
 from tempest import config
 from tempest.lib.common.utils import data_utils
+from tempest.lib import decorators
 from tempest import test
 
 from vmware_nsx_tempest.services import nsxv3_client
@@ -37,7 +38,7 @@ class NSXv3NetworksTest(base.BaseNetworkTest):
                                            CONF.nsxv3.nsx_password)
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('63085723-23ae-4109-ac86-69f895097957')
+    @decorators.idempotent_id('63085723-23ae-4109-ac86-69f895097957')
     def test_create_update_delete_nsx_network(self):
         # Create a network
         name = data_utils.rand_name('network-')

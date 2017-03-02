@@ -130,7 +130,7 @@ class L2GatewayTest(base.BaseAdminNetworkTest):
                          "l2gw name=%s, id=%s not deleted." %
                          (_name2, _res_new['id']))
 
-    @test.idempotent_id('8b45a9a5-468b-4317-983d-7cceda367074')
+    @decorators.idempotent_id('8b45a9a5-468b-4317-983d-7cceda367074')
     def test_csuld_single_device_interface_without_vlan(self):
         """Single device/interface/vlan
 
@@ -144,7 +144,7 @@ class L2GatewayTest(base.BaseAdminNetworkTest):
         self.pop_segmentation_id(_devices, 0, 0)
         self.do_csuld_single_device_interface_vlan(_name, _devices)
 
-    @test.idempotent_id('af57cf56-a169-4d88-b32e-7f49365ce407')
+    @decorators.idempotent_id('af57cf56-a169-4d88-b32e-7f49365ce407')
     def test_csuld_single_device_interface_vlan(self):
         """Single device/interface/vlan
 
@@ -157,7 +157,7 @@ class L2GatewayTest(base.BaseAdminNetworkTest):
         _devices = base_l2gw.get_l2gw_body(dev_profile)
         self.do_csuld_single_device_interface_vlan(_name, _devices)
 
-    @test.idempotent_id('cb59145e-3d2b-46b7-8f7b-f30f794a4d51')
+    @decorators.idempotent_id('cb59145e-3d2b-46b7-8f7b-f30f794a4d51')
     @decorators.skip_because(bug="1559913")
     def test_csuld_single_device_interface_mvlan(self):
         dev_profile = self.getattr_or_skip_test("device_multiple_vlans")
@@ -166,7 +166,7 @@ class L2GatewayTest(base.BaseAdminNetworkTest):
         self.do_csuld_single_device_interface_vlan(_name, _devices)
 
     @decorators.skip_because(bug="1559913")
-    @test.idempotent_id('5522bdfe-ebe8-4eea-81b4-f4075bb608cf')
+    @decorators.idempotent_id('5522bdfe-ebe8-4eea-81b4-f4075bb608cf')
     def test_csuld_single_device_minterface_mvlan_type1(self):
         # NSX-v does not support multiple interfaces
         dev_profile = self.getattr_or_skip_test(
@@ -176,7 +176,7 @@ class L2GatewayTest(base.BaseAdminNetworkTest):
         self.do_csuld_single_device_interface_vlan(_name, _devices)
 
     @decorators.skip_because(bug="1559913")
-    @test.idempotent_id('5bec26e0-855f-4537-b31b-31663a820ddb')
+    @decorators.idempotent_id('5bec26e0-855f-4537-b31b-31663a820ddb')
     def test_csuld_single_device_minterface_mvlan_type2(self):
         # NSX-v does not support multiple interfaces
         dev_profile = self.getattr_or_skip_test(

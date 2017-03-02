@@ -13,10 +13,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from tempest import test
-
 from oslo_log import log as logging
 from tempest.lib.common.utils import data_utils
+from tempest.lib import decorators
+
 import test_subnets as SNET
 
 LOG = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ class FlatNetworksTestJSON(SNET.SubnetTestJSON):
             self.addCleanup(self._try_delete_network, network['id'])
         return network
 
-    @test.idempotent_id('dc2f2f46-0577-4e2a-b35d-3c8c8bbce5bf')
+    @decorators.idempotent_id('dc2f2f46-0577-4e2a-b35d-3c8c8bbce5bf')
     def test_create_network(self):
         # Create a network as an admin user specifying the
         # flat network type attribute
@@ -57,7 +57,7 @@ class FlatNetworksTestJSON(SNET.SubnetTestJSON):
         self.assertIsNotNone(network['id'])
         self.assertEqual(network.get('provider:network_type'), 'flat')
 
-    @test.idempotent_id('777fc335-b26c-42ea-9759-c71dff2ce1c6')
+    @decorators.idempotent_id('777fc335-b26c-42ea-9759-c71dff2ce1c6')
     def test_update_network(self):
         # Update flat network as an admin user specifying the
         # flat network attribute
@@ -80,7 +80,7 @@ class FlatNetworksTestJSON(SNET.SubnetTestJSON):
         self.assertEqual(updated_network['subnets'], network['subnets'])
         self._delete_network(network['id'])
 
-    @test.idempotent_id('1dfc1c11-e838-464c-85b2-ed5e4c477c64')
+    @decorators.idempotent_id('1dfc1c11-e838-464c-85b2-ed5e4c477c64')
     def test_list_networks(self):
         # Create flat network
         network = self._create_network(shared=True)
@@ -95,7 +95,7 @@ class FlatNetworksTestJSON(SNET.SubnetTestJSON):
         network_list = [net['id'] for net in body['networks']]
         self.assertNotIn(network['id'], network_list)
 
-    @test.idempotent_id('b5649fe2-a214-4105-8053-1825a877c45b')
+    @decorators.idempotent_id('b5649fe2-a214-4105-8053-1825a877c45b')
     def test_show_network_attributes(self):
         # Create flat network
         network = self._create_network(shared=True)

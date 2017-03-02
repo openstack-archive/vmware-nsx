@@ -18,7 +18,7 @@ import time
 from tempest.common import waiters
 from tempest import config
 from tempest.lib.common.utils import test_utils
-from tempest import test
+from tempest.lib import decorators
 
 from vmware_nsx_tempest.tests.nsxv.scenario import (
     manager_topo_deployment as dmgr)
@@ -279,7 +279,7 @@ class TestXnetMultiSubnetsOps(dmgr.TopoDeployScenarioManager):
 
 class TestXnetMultiSubnetsOpsOnSharedRouter(TestXnetMultiSubnetsOps):
 
-    @test.idempotent_id('e25d030f-7fdf-4500-bd55-4ed6f62c0a5c')
+    @decorators.idempotent_id('e25d030f-7fdf-4500-bd55-4ed6f62c0a5c')
     def test_xnet_multiple_subnets_basic_ops_on_shared_router(self):
         return self._test_xnet_multiple_subnets_basic_ops(
             'shared', 'xnet-shared', False)
@@ -287,7 +287,7 @@ class TestXnetMultiSubnetsOpsOnSharedRouter(TestXnetMultiSubnetsOps):
 
 class TestXnetMultiSubnetsOpsOnExclusiveRouter(TestXnetMultiSubnetsOps):
 
-    @test.idempotent_id('5b09351a-0560-4555-99f0-a1f80d54d435')
+    @decorators.idempotent_id('5b09351a-0560-4555-99f0-a1f80d54d435')
     def test_xnet_multiple_subnets_basic_ops_on_exclusive_router(self):
         return self._test_xnet_multiple_subnets_basic_ops(
             'exclusive', 'xnet-exclusive', False)
@@ -295,7 +295,7 @@ class TestXnetMultiSubnetsOpsOnExclusiveRouter(TestXnetMultiSubnetsOps):
 
 class TestXnetMultiSubnetsOpsOnDistributedRouter(TestXnetMultiSubnetsOps):
 
-    @test.idempotent_id('9652d36b-8816-4212-a6e1-3a8b2580deee')
+    @decorators.idempotent_id('9652d36b-8816-4212-a6e1-3a8b2580deee')
     def test_xnet_multiple_subnets_basic_ops_on_distributed_router(self):
         return self._test_xnet_multiple_subnets_basic_ops(
             '', 'xnet-distributed', True)

@@ -20,6 +20,7 @@ from oslo_log import log as logging
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
+from tempest.lib import decorators
 from tempest.scenario import manager
 from tempest import test
 
@@ -193,7 +194,7 @@ class TestMultiNetworksOps(manager.NetworkScenarioTest):
                 raise
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('d35d1301-bfa4-49ea-acdf-f67ba97b1937')
+    @decorators.idempotent_id('d35d1301-bfa4-49ea-acdf-f67ba97b1937')
     def test_multi_networks_ops(self):
         """Test connectivity between VMs on same and cross network
 

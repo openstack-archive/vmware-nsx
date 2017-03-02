@@ -19,6 +19,7 @@ import netaddr
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
+from tempest.lib import decorators
 from tempest import test
 
 from vmware_nsx_tempest._i18n import _LI
@@ -76,7 +77,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
             cls.l2gw_created.pop(l2gw_id)
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("81edfb9e-4722-4565-939c-6593b8405ff4")
+    @decorators.idempotent_id("81edfb9e-4722-4565-939c-6593b8405ff4")
     def test_l2_gateway_connection_create(self):
         """
         Create l2 gateway connection using one vlan. Vlan parameter is
@@ -109,7 +110,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
         self.addCleanup(self.l2gw_cleanup)
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("7db4f6c9-18c5-4a99-93c1-68bc2ecb48a7")
+    @decorators.idempotent_id("7db4f6c9-18c5-4a99-93c1-68bc2ecb48a7")
     def test_l2_gateway_connection_create_with_multiple_vlans(self):
         """
         Create l2 gateway connection using multiple vlans. Vlan parameter is
@@ -142,7 +143,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
         self.addCleanup(self.l2gw_cleanup)
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("de70d6a2-d454-4a09-b06b-8f39be67b635")
+    @decorators.idempotent_id("de70d6a2-d454-4a09-b06b-8f39be67b635")
     def test_l2_gateway_connection_with_seg_id_create(self):
         """
         Create l2 gateway connection using one vlan. Vlan parameter is
@@ -179,7 +180,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
         self.addCleanup(self.l2gw_cleanup)
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("819d9b50-9159-48d0-be2a-493ec686534c")
+    @decorators.idempotent_id("819d9b50-9159-48d0-be2a-493ec686534c")
     def test_l2_gateway_connection_show(self):
         """
         Create l2 gateway connection using one vlan and tes l2 gateway
@@ -224,7 +225,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
         self.addCleanup(self.l2gw_cleanup)
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("4188f8e7-cd65-427e-92b8-2a9e0492ab21")
+    @decorators.idempotent_id("4188f8e7-cd65-427e-92b8-2a9e0492ab21")
     def test_l2_gateway_connection_list(self):
         """
         Create l2 gateway connection using one vlan and test l2 gateway
@@ -278,7 +279,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
         self.addCleanup(self.l2gw_cleanup)
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("4d71111f-3d2b-4557-97c7-2e149a6f41fb")
+    @decorators.idempotent_id("4d71111f-3d2b-4557-97c7-2e149a6f41fb")
     def test_l2_gateway_connection_recreate(self):
         """
         Recreate l2 gateway connection.
@@ -346,7 +347,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
         self.addCleanup(self.l2gw_cleanup)
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("671cacb5-134e-467d-ba41-0d7cdbcf3903")
+    @decorators.idempotent_id("671cacb5-134e-467d-ba41-0d7cdbcf3903")
     def test_l2_gateway_connection_delete(self):
         """
         Delete l2gw will create l2gw and delete recently created l2gw. To

@@ -21,6 +21,7 @@ import time
 from tempest.api.network import base_security_groups as base
 from tempest import config
 from tempest.lib.common.utils import data_utils
+from tempest.lib import decorators
 from tempest import test
 
 from vmware_nsx_tempest._i18n import _LI
@@ -86,7 +87,7 @@ class NSXv3SecGroupTest(base.BaseSecGroupTest):
                              (key, value))
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('904ca2c1-a14d-448b-b723-a7366e613bf1')
+    @decorators.idempotent_id('904ca2c1-a14d-448b-b723-a7366e613bf1')
     def test_create_update_nsx_security_group(self):
         # Create a security group
         group_create_body, name = self._create_security_group()
@@ -125,7 +126,7 @@ class NSXv3SecGroupTest(base.BaseSecGroupTest):
                              "Firewall section %s is not updated!")
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('e637cc59-c5e6-49b5-a539-e517e780656e')
+    @decorators.idempotent_id('e637cc59-c5e6-49b5-a539-e517e780656e')
     def test_delete_nsx_security_group(self):
         # Create a security group
         name = data_utils.rand_name('secgroup-')
@@ -146,7 +147,7 @@ class NSXv3SecGroupTest(base.BaseSecGroupTest):
         self.assertIsNone(nsx_dfw_section)
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('91c298c0-fbbd-4597-b4c6-1a7ecfb8a2de')
+    @decorators.idempotent_id('91c298c0-fbbd-4597-b4c6-1a7ecfb8a2de')
     def test_create_nsx_security_group_rule(self):
         # Create a security group
         create_body, _ = self._create_security_group()
@@ -206,7 +207,7 @@ class NSXv3SecGroupTest(base.BaseSecGroupTest):
                                  "%s does not match." % key)
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('b6c424e5-3553-4b7d-bd95-8b1f0a860fb4')
+    @decorators.idempotent_id('b6c424e5-3553-4b7d-bd95-8b1f0a860fb4')
     def test_delete_nsx_security_group_rule(self):
         # Create a security group
         create_body, _ = self._create_security_group()

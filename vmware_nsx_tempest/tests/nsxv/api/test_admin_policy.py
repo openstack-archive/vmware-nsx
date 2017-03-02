@@ -18,6 +18,7 @@ import testtools
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
+from tempest.lib import decorators
 from tempest.lib import exceptions
 from tempest import test
 
@@ -140,7 +141,7 @@ class AdminPolicyTest(base.BaseAdminNetworkTest):
         sg = sg_client.show_security_group(security_group_id)
         return sg.get('security_group', sg)
 
-    @test.idempotent_id('825d0270-6649-44f2-ac0c-a3b5566d0d2a')
+    @decorators.idempotent_id('825d0270-6649-44f2-ac0c-a3b5566d0d2a')
     def test_admin_can_crud_policy(self):
         sg_desc = "crud security-group-policy"
         sg_client = self.cmgr_adm.security_groups_client
@@ -155,14 +156,14 @@ class AdminPolicyTest(base.BaseAdminNetworkTest):
         sg_list = sg_list.get('security_groups', sg_list)
         self.assertEqual(len(sg_list), 0)
 
-    @test.idempotent_id('809d72be-c2d8-4e32-b538-09a5003630c0')
+    @decorators.idempotent_id('809d72be-c2d8-4e32-b538-09a5003630c0')
     def test_admin_can_create_policy_for_tenant(self):
         tenant_id = self.cmgr_alt.networks_client.tenant_id
         sg = self.create_security_group_policy(self.cmgr_adm,
                                                tenant_id=tenant_id)
         self.assertEqual(self.default_policy_id, sg.get('policy'))
 
-    @test.idempotent_id('1ab540b0-2a56-46cd-bbaa-607a655b4688')
+    @decorators.idempotent_id('1ab540b0-2a56-46cd-bbaa-607a655b4688')
     def test_admin_can_create_provider_policy(self):
         tenant_id = self.cmgr_pri.networks_client.tenant_id
         sg = self.create_security_group_policy(self.cmgr_adm,
@@ -171,14 +172,14 @@ class AdminPolicyTest(base.BaseAdminNetworkTest):
         self.assertEqual(self.default_policy_id, sg.get('policy'))
         self.assertEqual(sg.get('provider'), True)
 
-    @test.idempotent_id('1d31ea7a-37f1-40db-b917-4acfbf565ae2')
+    @decorators.idempotent_id('1d31ea7a-37f1-40db-b917-4acfbf565ae2')
     def test_tenant_has_default_policy(self):
         sg = self.get_default_security_group_policy(self.cmgr_pri)
         self.assertEqual(self.default_policy_id, sg.get('policy'))
 
     @testtools.skipIf(not CONF.nsxv.alt_policy_id.startswith('policy-'),
                       "nsxv.alt_policy_id not defined.")
-    @test.idempotent_id('6784cf25-6b50-4349-b96b-85076111dbf4')
+    @decorators.idempotent_id('6784cf25-6b50-4349-b96b-85076111dbf4')
     def test_admin_change_tenant_policy(self):
         tenant_id = self.cmgr_alt.networks_client.tenant_id
         sg = self.create_security_group_policy(tenant_id=tenant_id)
@@ -189,7 +190,7 @@ class AdminPolicyTest(base.BaseAdminNetworkTest):
 
     @testtools.skipIf(not CONF.nsxv.allow_tenant_rules_with_policy,
                       "skip because tenant is not allowed to create SG.")
-    @test.idempotent_id('4abf29bd-22ae-46b4-846b-e7c28f318159')
+    @decorators.idempotent_id('4abf29bd-22ae-46b4-846b-e7c28f318159')
     def test_tenant_create_security_group_if_allowed(self):
         """test if allow_tenant_rules_with_policy=True"""
         sg_client = self.cmgr_pri.security_groups_client
@@ -198,7 +199,7 @@ class AdminPolicyTest(base.BaseAdminNetworkTest):
         self.assertEqual(sg.get('name'), sg_name)
 
     @test.attr(type=['negative'])
-    @test.idempotent_id('5099604c-637a-4b25-8756-c6fc0929f963')
+    @decorators.idempotent_id('5099604c-637a-4b25-8756-c6fc0929f963')
     def test_add_rules_to_policy_disallowed(self):
         tenant_id = self.cmgr_pri.networks_client.tenant_id
         sg = self.create_security_group_policy(self.cmgr_adm,
@@ -208,14 +209,14 @@ class AdminPolicyTest(base.BaseAdminNetworkTest):
             cmgr=self.cmgr_adm, tenant_id=tenant_id)
 
     @test.attr(type=['negative'])
-    @test.idempotent_id('9a604036-ace6-4ced-92b8-be732eee310f')
+    @decorators.idempotent_id('9a604036-ace6-4ced-92b8-be732eee310f')
     def test_cannot_create_policy_with_invalid_policy_id(self):
         self.assertRaises(exceptions.BadRequest,
                           self.create_security_group_policy,
                           self.cmgr_adm, "invalid-policy-id")
 
     @test.attr(type=['negative'])
-    @test.idempotent_id('4d383d3c-f1e6-47e3-906e-3c171146965a')
+    @decorators.idempotent_id('4d383d3c-f1e6-47e3-906e-3c171146965a')
     def test_tenant_cannot_delete_its_policy(self):
         tenant_cmgr = self.cmgr_alt
         tenant_id = tenant_cmgr.networks_client.tenant_id
@@ -228,7 +229,7 @@ class AdminPolicyTest(base.BaseAdminNetworkTest):
                           tenant_sg_client, sg_id)
 
     @test.attr(type=['negative'])
-    @test.idempotent_id('154985cd-26b2-468d-af6d-b6144ef2d378')
+    @decorators.idempotent_id('154985cd-26b2-468d-af6d-b6144ef2d378')
     def test_tenant_cannot_update_its_policy(self):
         tenant_cmgr = self.cmgr_alt
         tenant_id = tenant_cmgr.networks_client.tenant_id
@@ -240,7 +241,7 @@ class AdminPolicyTest(base.BaseAdminNetworkTest):
                           sg_id, self.alt_policy_id, self.cmgr_alt)
 
     @test.attr(type=['negative'])
-    @test.idempotent_id('d6d8c918-d488-40c4-83dc-8ce1a565e54f')
+    @decorators.idempotent_id('d6d8c918-d488-40c4-83dc-8ce1a565e54f')
     def test_tenant_cannot_create_policy(self):
         self.assertRaises(exceptions.Forbidden,
                           self.create_security_group_policy,
@@ -249,7 +250,7 @@ class AdminPolicyTest(base.BaseAdminNetworkTest):
     @test.attr(type=['negative'])
     @testtools.skipIf(CONF.nsxv.allow_tenant_rules_with_policy,
                       "skip because tenant is allowed to create SG.")
-    @test.idempotent_id('82aa02ee-8008-47a9-90ea-ba7840bfb932')
+    @decorators.idempotent_id('82aa02ee-8008-47a9-90ea-ba7840bfb932')
     def test_tenant_cannot_create_security_group(self):
         """Only valid if allow_tenant_rules_with_policy=True
 

@@ -16,10 +16,10 @@
 import random
 
 from tempest import config
-from tempest import test
 
 from oslo_log import log as logging
 from tempest.lib.common.utils import data_utils
+from tempest.lib import decorators
 import test_subnets as SNET
 
 CONF = config.CONF
@@ -84,7 +84,7 @@ class VlanNetworksTestJSON(SNET.SubnetTestJSON):
             self.addCleanup(self._try_delete_network, network['id'])
         return network
 
-    @test.idempotent_id('c5f98016-dee3-42f1-8c23-b9cd1e625561')
+    @decorators.idempotent_id('c5f98016-dee3-42f1-8c23-b9cd1e625561')
     def test_create_network(self):
         # Create a network as an admin user specifying the
         # vlan network type attribute
@@ -102,7 +102,7 @@ class VlanNetworksTestJSON(SNET.SubnetTestJSON):
         self.assertEqual(network.get('provider:segmentation_id'), 1002)
         self._delete_network(network['id'])
 
-    @test.idempotent_id('714e69eb-bb31-4cfc-9804-8e988f04ca65')
+    @decorators.idempotent_id('714e69eb-bb31-4cfc-9804-8e988f04ca65')
     def test_update_network(self):
         # Update flat network as an admin user specifying the
         # flat network attribute
@@ -127,7 +127,7 @@ class VlanNetworksTestJSON(SNET.SubnetTestJSON):
         self.assertEqual(updated_network['subnets'], network['subnets'])
         self._delete_network(network['id'])
 
-    @test.idempotent_id('8a8b9f2c-37f8-4c53-b8e3-0c9c0910380f')
+    @decorators.idempotent_id('8a8b9f2c-37f8-4c53-b8e3-0c9c0910380f')
     def test_list_networks(self):
         # Create flat network
         net_profile = {'shared': True, '_auto_clean_up': False,
@@ -145,7 +145,7 @@ class VlanNetworksTestJSON(SNET.SubnetTestJSON):
         self.assertNotIn(network['id'], networks_list)
         self._delete_network(network['id'])
 
-    @test.idempotent_id('5807958d-9ee2-48a5-937e-ddde092956a6')
+    @decorators.idempotent_id('5807958d-9ee2-48a5-937e-ddde092956a6')
     def test_show_network_attributes(self):
         # Create flat network
         net_profile = {'shared': True, '_auto_clean_up': False,

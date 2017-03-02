@@ -18,9 +18,9 @@ import re
 import time
 
 from oslo_log import log as logging
-
 from tempest import config
 from tempest.lib.common.utils import data_utils
+from tempest.lib import decorators
 from tempest.scenario import manager
 from tempest import test
 
@@ -319,7 +319,7 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
                                                      src=floating_ip))
                 raise
 
-    @test.idempotent_id('62eb50a8-45f3-4eec-acc4-f01cee10a011')
+    @decorators.idempotent_id('62eb50a8-45f3-4eec-acc4-f01cee10a011')
     @test.services('compute', 'network')
     def test_dvr_network_basic_ops(self):
         """
@@ -376,7 +376,7 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
                                                msg="after re-associate "
                                                    "floating ip")
 
-    @test.idempotent_id('d99b62ec-28ce-44db-a195-edb74037a354')
+    @decorators.idempotent_id('d99b62ec-28ce-44db-a195-edb74037a354')
     @test.services('compute', 'network')
     def test_dvr_connectivity_between_vms_on_different_networks(self):
         """
@@ -423,7 +423,7 @@ class TestDvrBasicOps(manager.NetworkScenarioTest):
         self._check_network_internal_connectivity(network=self.new_net,
                                                   should_connect=True)
 
-    @test.idempotent_id('a73fd605-d55e-4151-b25e-41e7a7ff2258')
+    @decorators.idempotent_id('a73fd605-d55e-4151-b25e-41e7a7ff2258')
     @test.services('compute', 'network')
     def test_dvr_update_router_admin_state(self):
         """

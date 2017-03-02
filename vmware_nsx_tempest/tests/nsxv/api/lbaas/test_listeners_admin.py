@@ -13,6 +13,7 @@
 from oslo_log import log as logging
 
 from tempest import config
+from tempest.lib import decorators
 from tempest.lib import exceptions as ex
 from tempest import test
 
@@ -53,7 +54,7 @@ class ListenersTest(base.BaseAdminTestCase):
         super(ListenersTest, cls).resource_cleanup()
 
     @test.attr(type='negative')
-    @test.idempotent_id('f84bfb35-7f73-4576-b2ca-26193850d2bf')
+    @decorators.idempotent_id('f84bfb35-7f73-4576-b2ca-26193850d2bf')
     def test_create_listener_empty_tenant_id(self):
         """Test create listener with an empty tenant id should fail
 
@@ -70,7 +71,7 @@ class ListenersTest(base.BaseAdminTestCase):
             listener_ids=[self.listener_id])
 
     @test.attr(type='smoke')
-    @test.idempotent_id('71ebb8d6-ff2a-410d-a089-b086f195609d')
+    @decorators.idempotent_id('71ebb8d6-ff2a-410d-a089-b086f195609d')
     def test_create_listener_invalid_tenant_id(self):
         """Test create listener with an invalid tenant id"""
         create_new_listener_kwargs = self.create_listener_kwargs
@@ -87,7 +88,7 @@ class ListenersTest(base.BaseAdminTestCase):
         self.assertEqual(new_listener, listener)
 
     @test.attr(type='smoke')
-    @test.idempotent_id('55eaeab9-a21e-470c-8861-5af1ded9d64a')
+    @decorators.idempotent_id('55eaeab9-a21e-470c-8861-5af1ded9d64a')
     def test_create_listener_missing_tenant_id(self):
         """Test create listener with an missing tenant id.
 
