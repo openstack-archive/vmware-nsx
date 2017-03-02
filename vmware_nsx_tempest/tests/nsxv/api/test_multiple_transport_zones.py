@@ -210,13 +210,13 @@ class MultipleTransportZonesTest(base.BaseAdminNetworkTest):
         router = self.create_router_and_add_interfaces(router_type, nets)
         self.clear_router_gateway_and_interfaces(router, nets)
 
-    @test.idempotent_id('39bc7909-912c-4e16-8246-773ae6a40ba4')
+    @decorators.idempotent_id('39bc7909-912c-4e16-8246-773ae6a40ba4')
     def test_mtz_network_crud_operations(self):
         scope_id_list = self.get_all_scope_id_list(with_default_scope=False)
         s_id = scope_id_list[0]
         self.create_show_update_delete_mtz_network_subnet(s_id)
 
-    @test.idempotent_id('4e1717d6-df39-4539-99da-df23814cfe14')
+    @decorators.idempotent_id('4e1717d6-df39-4539-99da-df23814cfe14')
     def test_mtz_overlay_network(self):
         """overlay subnets with the same TZ"""
         scope_id_list = self.get_all_scope_id_list(with_default_scope=True)
@@ -227,7 +227,7 @@ class MultipleTransportZonesTest(base.BaseAdminNetworkTest):
             nets[net_id] = (s_id, network, subnet)
         self.delete_networks(nets)
 
-    @test.idempotent_id('6ecf67fc-4396-41d9-9d84-9d8c936dcb8f')
+    @decorators.idempotent_id('6ecf67fc-4396-41d9-9d84-9d8c936dcb8f')
     def test_multiple_mtz_overlay_network(self):
         """overlay subnets from multiple TZs."""
         scope_id_list = self.get_all_scope_id_list(with_default_scope=True)
@@ -243,7 +243,7 @@ class MultipleTransportZonesTest(base.BaseAdminNetworkTest):
                 break
         self.delete_networks(nets)
 
-    @test.idempotent_id('e7e0fc6c-41fd-44bc-b9b1-4501ce618738')
+    @decorators.idempotent_id('e7e0fc6c-41fd-44bc-b9b1-4501ce618738')
     def test_mtz_non_overlay_network(self):
         """non-overlay subnets from one TZ."""
         scope_id_list = self.get_all_scope_id_list(with_default_scope=False)
@@ -255,7 +255,7 @@ class MultipleTransportZonesTest(base.BaseAdminNetworkTest):
             nets[net_id] = (s_id, network, subnet)
         self.delete_networks(nets)
 
-    @test.idempotent_id('b1cb5815-6380-421f-beef-ae3cb148cef4')
+    @decorators.idempotent_id('b1cb5815-6380-421f-beef-ae3cb148cef4')
     def test_multiple_mtz_non_overlay_network(self):
         """non-overlay subnets from multiple TZs."""
         scope_id_list = self.get_all_scope_id_list(with_default_scope=True)
@@ -267,39 +267,39 @@ class MultipleTransportZonesTest(base.BaseAdminNetworkTest):
             nets[net_id] = (s_id, network, subnet)
         self.delete_networks(nets)
 
-    @test.idempotent_id('006a1a4b-4b63-4663-8baa-affe5df62b11')
+    @decorators.idempotent_id('006a1a4b-4b63-4663-8baa-affe5df62b11')
     def test_shared_router_with_multiple_mtz_networks(self):
         """shared router attached with multiple TZs."""
         self._test_router_with_multiple_mtz_networks(
             router_type='shared')
 
-    @test.idempotent_id('b160d1dc-0332-4d1a-b2a0-c11f57fe4dd9')
+    @decorators.idempotent_id('b160d1dc-0332-4d1a-b2a0-c11f57fe4dd9')
     def test_exclusive_router_with_multiple_mtz_networks(self):
         """exclusive router attached with multiple TZs."""
         self._test_router_with_multiple_mtz_networks(
             router_type='exclusive')
 
     @decorators.skip_because(bug="1592174")
-    @test.idempotent_id('2c46290c-8a08-4037-aada-f96fd34b3260')
+    @decorators.idempotent_id('2c46290c-8a08-4037-aada-f96fd34b3260')
     def test_distributed_router_with_multiple_mtz_networks(self):
         """exclusive router attached with multiple TZs."""
         self._test_router_with_multiple_mtz_networks(
             router_type='distributed')
 
-    @test.idempotent_id('be8f7320-2246-43f3-a826-768f763c9bd0')
+    @decorators.idempotent_id('be8f7320-2246-43f3-a826-768f763c9bd0')
     def test_shared_router_with_network_and_mtz_networks(self):
         """router attached with multiple TZs and one tenant network."""
         self._test_router_with_network_and_mtz_networks(
             router_type='shared')
 
-    @test.idempotent_id('3cb27410-67e2-4e82-95c7-3dbbe9a8c64b')
+    @decorators.idempotent_id('3cb27410-67e2-4e82-95c7-3dbbe9a8c64b')
     def test_exclusive_router_with_network_and_mtz_networks(self):
         """router attached with multiple TZs and one tenant network."""
         self._test_router_with_network_and_mtz_networks(
             router_type='exclusive')
 
     @decorators.skip_because(bug="1592174")
-    @test.idempotent_id('e7c066d5-c2f1-41e7-bc86-9b6295461903')
+    @decorators.idempotent_id('e7c066d5-c2f1-41e7-bc86-9b6295461903')
     def test_distributed_router_with_network_and_mtz_networks(self):
         """router attached with multiple TZs and one tenant network."""
         self._test_router_with_network_and_mtz_networks(

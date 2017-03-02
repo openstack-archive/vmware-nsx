@@ -18,6 +18,7 @@ from oslo_log import log as logging
 
 from tempest import config
 from tempest.lib.common.utils import data_utils
+from tempest.lib import decorators
 from tempest.scenario import manager
 from tempest import test
 
@@ -152,7 +153,7 @@ class TestMultiHVNetworkOps(manager.NetworkScenarioTest):
                 raise
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('42373fef-cb05-47c9-bb67-32b7a3b48168')
+    @decorators.idempotent_id('42373fef-cb05-47c9-bb67-32b7a3b48168')
     def test_multi_hv_network_l2_ops(self):
         """Test connectivity between ESX VM and KVM VM on same network
 

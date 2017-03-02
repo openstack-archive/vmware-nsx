@@ -14,8 +14,8 @@
 #    under the License.
 
 import base_dvs as base
-
 from tempest.lib.common.utils import data_utils
+from tempest.lib import decorators
 from tempest import test
 
 
@@ -39,7 +39,7 @@ class AdminPortsTestJSON(base.BaseDvsAdminNetworkTest):
         cls.network = cls.create_network(net_name=name)
         cls.port = cls.create_port(cls.network['id'])
 
-    @test.idempotent_id('c3f751d4-e358-44b9-bfd2-3d563c4a2d04')
+    @decorators.idempotent_id('c3f751d4-e358-44b9-bfd2-3d563c4a2d04')
     def test_create_update_delete_port(self):
         # Verify port creation
         network_id = self.network['id']
@@ -56,7 +56,7 @@ class AdminPortsTestJSON(base.BaseDvsAdminNetworkTest):
         self.assertFalse(updated_port['admin_state_up'])
 
     @test.attr(type='smoke')
-    @test.idempotent_id('d3dcd23b-7d5a-4720-8d88-473fb154d609')
+    @decorators.idempotent_id('d3dcd23b-7d5a-4720-8d88-473fb154d609')
     def test_show_port(self):
         # Verify the details of port
         body = self.show_port(self.port['id'])
@@ -76,7 +76,7 @@ class AdminPortsTestJSON(base.BaseDvsAdminNetworkTest):
         self.assertEqual(port['fixed_ips'], [])
 
     @test.attr(type='smoke')
-    @test.idempotent_id('c5f74042-c512-4569-b9b9-bc2bf46e77e1')
+    @decorators.idempotent_id('c5f74042-c512-4569-b9b9-bc2bf46e77e1')
     def test_list_ports(self):
         # Verify the port exists in the list of all ports
         body = self.list_ports()
@@ -84,8 +84,8 @@ class AdminPortsTestJSON(base.BaseDvsAdminNetworkTest):
                  if port['id'] == self.port['id']]
         self.assertNotEmpty(ports, "Created port not found in the list")
 
+    @decorators.idempotent_id('2775f96c-a09b-49e1-a5a4-adb83a3e91c7')
     @test.attr(type='smoke')
-    @test.idempotent_id('2775f96c-a09b-49e1-a5a4-adb83a3e91c7')
     def test_list_ports_fields(self):
         # Verify specific fields of ports
         fields = ['binding:vif_type', 'id', 'mac_address']

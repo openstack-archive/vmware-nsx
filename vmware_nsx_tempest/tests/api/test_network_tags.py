@@ -113,7 +113,7 @@ class NetworkTagAddTest(BaseTagsTest):
         super(NetworkTagAddTest, cls).resource_setup()
         cls.net = cls.create_network()
 
-    @test.idempotent_id('0e37a579-aff3-47ba-9f1f-3ac4482fce16')
+    @decorators.idempotent_id('0e37a579-aff3-47ba-9f1f-3ac4482fce16')
     def test_add_tags(self):
         """neutron tag-add operations."""
         tags = ['a', 'gold', 'T' * MAX_TAG_LEN]
@@ -125,7 +125,7 @@ class NetworkTagAddTest(BaseTagsTest):
         for tag in tags:
             self.assertIn(tag, network['tags'])
 
-    @test.idempotent_id('eb52eac3-5e79-4183-803a-a3d97ceb171d')
+    @decorators.idempotent_id('eb52eac3-5e79-4183-803a-a3d97ceb171d')
     @test.attr(type='negative')
     def test_add_tag_one_char_too_long(self):
         tag_too_long = 'a' * (MAX_TAG_LEN + 1)
@@ -134,7 +134,7 @@ class NetworkTagAddTest(BaseTagsTest):
                           self.network_add_tag,
                           network_id, tag_too_long)
 
-    @test.idempotent_id('d08f3fbe-dc6f-4f3c-b9b2-4d9957884edf')
+    @decorators.idempotent_id('d08f3fbe-dc6f-4f3c-b9b2-4d9957884edf')
     @test.attr(type='negative')
     def test_add_tag_empty_one(self):
         network_id = self.net.get('id')
@@ -152,7 +152,7 @@ class NetworkTagRemoveTest(BaseTagsTest):
         super(NetworkTagRemoveTest, cls).resource_setup()
         cls.net = cls.create_network()
 
-    @test.idempotent_id('178fbd96-900f-4c3d-8cd1-5525f4cf2b81')
+    @decorators.idempotent_id('178fbd96-900f-4c3d-8cd1-5525f4cf2b81')
     def test_remove_tags(self):
         """neutron tag-remove operations."""
         network_id = self.net.get('id')
@@ -160,7 +160,7 @@ class NetworkTagRemoveTest(BaseTagsTest):
         self.network_add_tag(network_id, tag)
         self.network_remove_tag(network_id, tag)
 
-    @test.idempotent_id('1fe5a8b2-ff5d-4250-b930-21b1a3b48055')
+    @decorators.idempotent_id('1fe5a8b2-ff5d-4250-b930-21b1a3b48055')
     @test.attr(type='negative')
     def test_remove_all_tags(self):
         network_id = self.net.get('id')
@@ -171,7 +171,7 @@ class NetworkTagRemoveTest(BaseTagsTest):
         network = self.networks_client.show_network(network_id)['network']
         self.assertEqual(len(network['tags']), 0)
 
-    @test.idempotent_id('591337b0-a2e6-4d72-984c-e5b6a6ec12d2')
+    @decorators.idempotent_id('591337b0-a2e6-4d72-984c-e5b6a6ec12d2')
     @test.attr(type='negative')
     def test_remove_not_exist_tag(self):
         """neutron tag-remove operations."""
@@ -191,7 +191,7 @@ class NetworkTagReplaceTest(BaseTagsTest):
         super(NetworkTagReplaceTest, cls).resource_setup()
         cls.net = cls.create_network()
 
-    @test.idempotent_id('7d4fb288-2f2d-4f47-84af-be3175b057b5')
+    @decorators.idempotent_id('7d4fb288-2f2d-4f47-84af-be3175b057b5')
     def test_replace_tags(self):
         """neutron tag-replace operations."""
         network_id = self.net.get('id')
@@ -203,7 +203,7 @@ class NetworkTagReplaceTest(BaseTagsTest):
         empty_tags = []
         self.network_replace_tags(network_id, empty_tags)
 
-    @test.idempotent_id('20a05e9e-0b25-4085-b89f-fd5f0c57d2fa')
+    @decorators.idempotent_id('20a05e9e-0b25-4085-b89f-fd5f0c57d2fa')
     @test.attr(type='negative')
     def test_replace_tags_one_char_too_long(self):
         tags_too_long = ['aaa', 'z' * (MAX_TAG_LEN + 1)]
@@ -259,7 +259,7 @@ class NetworkTagFilterTest(BaseTagsTest):
         for net in matched_nets:
             self.assertIn(net['id'], m_net_list)
 
-    @test.idempotent_id('9646af99-7e04-4724-ac54-4a938de764f1')
+    @decorators.idempotent_id('9646af99-7e04-4724-ac54-4a938de764f1')
     def test_tags_only_one_network(self):
         """each tag in self.a_b_c only tag one network."""
         for tag in self.a_b_c:
@@ -268,7 +268,7 @@ class NetworkTagFilterTest(BaseTagsTest):
             nets = self.list_networks(**filters)
             self.assertEqual(len(nets), 1)
 
-    @test.idempotent_id('5632b745-651a-444f-922d-6434e060991a')
+    @decorators.idempotent_id('5632b745-651a-444f-922d-6434e060991a')
     def test_tags_any_only_one_network(self):
         """each tag in self.a_b_c only tag one network."""
         for tag in self.a_b_c:
@@ -277,7 +277,7 @@ class NetworkTagFilterTest(BaseTagsTest):
             nets = self.list_networks(**filters)
             self.assertEqual(len(nets), 1)
 
-    @test.idempotent_id('a0d8c21b-1ec0-4c6d-b5d8-72baebabde26')
+    @decorators.idempotent_id('a0d8c21b-1ec0-4c6d-b5d8-72baebabde26')
     def test_tags_not_tagged(self):
         """search with tags for tags not being tagged."""
         for tag in self.not_tagged_tags:
@@ -286,7 +286,7 @@ class NetworkTagFilterTest(BaseTagsTest):
             nets = self.list_networks(**filters)
             self.assertEqual(len(nets), 0)
 
-    @test.idempotent_id('1049eac1-028b-4664-aeb7-c7656240622d')
+    @decorators.idempotent_id('1049eac1-028b-4664-aeb7-c7656240622d')
     def test_tags_any_not_tagged(self):
         """search with tags-any for tags not being tagged."""
         for tag in self.not_tagged_tags:
@@ -295,7 +295,7 @@ class NetworkTagFilterTest(BaseTagsTest):
             nets = self.list_networks(**filters)
             self.assertEqual(len(nets), 0)
 
-    @test.idempotent_id('a9b42503-5dd1-490d-b0c6-673951cc86a1')
+    @decorators.idempotent_id('a9b42503-5dd1-490d-b0c6-673951cc86a1')
     def test_tags(self):
         """find networks having tags (and operation)"""
         tags = ['gold', 'production']
@@ -305,7 +305,7 @@ class NetworkTagFilterTest(BaseTagsTest):
         nets = self.list_networks(**filters)
         self.check_matched_search_list(nets, m_net_list, 'tags')
 
-    @test.idempotent_id('c38e788d-749e-401a-8bbb-26e36a7b573f')
+    @decorators.idempotent_id('c38e788d-749e-401a-8bbb-26e36a7b573f')
     def test_tags_any(self):
         """find networks having tags-any (or operation)"""
         tags = ['gold', 'production']
@@ -315,7 +315,7 @@ class NetworkTagFilterTest(BaseTagsTest):
         nets = self.list_networks(**filters)
         self.check_matched_search_list(nets, m_net_list, 'tags-any')
 
-    @test.idempotent_id('e7bb1cea-3271-418c-bfe2-038fff6187e6')
+    @decorators.idempotent_id('e7bb1cea-3271-418c-bfe2-038fff6187e6')
     def test_not_tags(self):
         """find networks not having not-tags (and operation)"""
         tags = ['gold', 'production']
@@ -325,7 +325,7 @@ class NetworkTagFilterTest(BaseTagsTest):
         nets = self.list_networks(**filters)
         self.check_matched_search_list(nets, m_net_list, 'not-tags')
 
-    @test.idempotent_id('c36a1d00-c131-4297-86c1-a3fc06c61629')
+    @decorators.idempotent_id('c36a1d00-c131-4297-86c1-a3fc06c61629')
     def test_not_tags_any(self):
         """find networks not having not-tags-any (or operation)"""
         tags = ['gold', 'production']
@@ -335,7 +335,7 @@ class NetworkTagFilterTest(BaseTagsTest):
         nets = self.list_networks(**filters)
         self.check_matched_search_list(nets, m_net_list, 'not-tags-any')
 
-    @test.idempotent_id('4345e944-6b2b-4106-a208-ce07cefe764f')
+    @decorators.idempotent_id('4345e944-6b2b-4106-a208-ce07cefe764f')
     def test_tags_any_not_tags(self):
         """find networks having tags-any and not-tags."""
         tags = ['gold', 'production']
@@ -348,7 +348,7 @@ class NetworkTagFilterTest(BaseTagsTest):
         self.check_matched_search_list(nets, m_net_list,
                                        'tags-any & not-tags')
 
-    @test.idempotent_id('0d635ba7-5c94-4a24-b7a8-d3b413d1ec83')
+    @decorators.idempotent_id('0d635ba7-5c94-4a24-b7a8-d3b413d1ec83')
     @decorators.skip_because(bug="1611054")
     def test_tags_tags_any(self):
         """finding networks using tags and tags-any."""
@@ -362,7 +362,7 @@ class NetworkTagFilterTest(BaseTagsTest):
         self.check_matched_search_list(nets, m_net_list,
                                        'tags & tags-any')
 
-    @test.idempotent_id('2067a8fc-2d7b-4085-a6c2-7e454f6f26f3')
+    @decorators.idempotent_id('2067a8fc-2d7b-4085-a6c2-7e454f6f26f3')
     def test_tags_not_tags_any(self):
         """finding networks using tags and not-tags-any."""
         tags = ['gold', 'production']
@@ -375,7 +375,7 @@ class NetworkTagFilterTest(BaseTagsTest):
         self.check_matched_search_list(nets, m_net_list,
                                        'tags & not-tags-any')
 
-    @test.idempotent_id('f2bbf51c-e32e-4664-a0db-59eed493c3d1')
+    @decorators.idempotent_id('f2bbf51c-e32e-4664-a0db-59eed493c3d1')
     def test_tags_not_tags_any2(self):
         """finding networks using tags and not-tags-any."""
         tags = ['gold', 'production']
@@ -388,7 +388,7 @@ class NetworkTagFilterTest(BaseTagsTest):
         self.check_matched_search_list(nets, m_net_list,
                                        'tags & not-tags-any2')
 
-    @test.idempotent_id('7b17dfa8-f7ac-47c2-b814-35c5ed1c325b')
+    @decorators.idempotent_id('7b17dfa8-f7ac-47c2-b814-35c5ed1c325b')
     def test_tags_not_tags(self):
         """finding networks using tags and not-tags."""
         tags = ['gold', 'production']
@@ -401,7 +401,7 @@ class NetworkTagFilterTest(BaseTagsTest):
         self.check_matched_search_list(nets, m_net_list,
                                        'tags & not-tags')
 
-    @test.idempotent_id('f723f717-660b-4d8e-ae9f-014f0a3f812d')
+    @decorators.idempotent_id('f723f717-660b-4d8e-ae9f-014f0a3f812d')
     def test_tags_not_tags_itself(self):
         """"tags and not-tags itself is always an empty set."""
         tags = ['gold', 'production']

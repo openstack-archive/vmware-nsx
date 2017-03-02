@@ -13,6 +13,7 @@
 from oslo_log import log as logging
 
 from tempest import config
+from tempest.lib import decorators
 from tempest.lib import exceptions as ex
 from tempest import test
 
@@ -54,7 +55,7 @@ class MemberTest(base.BaseAdminTestCase):
         super(MemberTest, cls).resource_cleanup()
 
     @test.attr(type='smoke')
-    @test.idempotent_id('03eeec24-78d8-4c2f-8d6c-4a78817f352e')
+    @decorators.idempotent_id('03eeec24-78d8-4c2f-8d6c-4a78817f352e')
     def test_create_member_invalid_tenant_id(self):
         """Test create member with invalid tenant_id"""
         member_opts = {}
@@ -69,7 +70,7 @@ class MemberTest(base.BaseAdminTestCase):
         self.assertEqual(member['tenant_id'], "$232!$pw")
 
     @test.attr(type='negative')
-    @test.idempotent_id('01c9ea0c-bdfe-4108-95d1-69ecdc0a1f26')
+    @decorators.idempotent_id('01c9ea0c-bdfe-4108-95d1-69ecdc0a1f26')
     def test_create_member_empty_tenant_id(self):
         """Test create member with an empty tenant_id should fail
 

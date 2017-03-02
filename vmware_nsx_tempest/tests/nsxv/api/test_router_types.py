@@ -18,6 +18,7 @@ import re
 from tempest.api.network import base_routers as base
 from tempest import config
 from tempest.lib.common.utils import data_utils
+from tempest.lib import decorators
 from tempest import test
 from vmware_nsx_tempest.services import nsxv_client
 
@@ -54,7 +55,7 @@ class ExcRouterTest(base.BaseRouterTest):
             manager_ip, CONF.nsxv.user, CONF.nsxv.password)
 
     @test.attr(type='nsxv')
-    @test.idempotent_id('ac1639a0-2a8d-4c68-bccd-54849fd45f86')
+    @decorators.idempotent_id('ac1639a0-2a8d-4c68-bccd-54849fd45f86')
     def test_create_exc_router(self):
         """
         Test create an exclusive router. After creation, check nsx_v
@@ -74,7 +75,7 @@ class ExcRouterTest(base.BaseRouterTest):
         self.assertEqual(exc_edge['edgeType'], 'gatewayServices')
 
     @test.attr(type='nsxv')
-    @test.idempotent_id('c4b94988-0bc7-11e5-9203-0050568833db')
+    @decorators.idempotent_id('c4b94988-0bc7-11e5-9203-0050568833db')
     def test_update_exc_router(self):
         """
         Test update an exclusive router
@@ -92,7 +93,7 @@ class ExcRouterTest(base.BaseRouterTest):
         self.assertEqual(update_body['router']['name'], updated_name)
 
     @test.attr(type='nsxv')
-    @test.idempotent_id('a0ff5afa-0bcc-11e5-9203-0050568833db')
+    @decorators.idempotent_id('a0ff5afa-0bcc-11e5-9203-0050568833db')
     def test_list_show_exc_router(self):
         """
         Test list and show exclusive router.
@@ -114,7 +115,7 @@ class ExcRouterTest(base.BaseRouterTest):
         self.assertIn(router['router']['id'], routers_list)
 
     @test.attr(type='nsxv')
-    @test.idempotent_id('adef8d1e-0bce-11e5-9203-0050568833db')
+    @decorators.idempotent_id('adef8d1e-0bce-11e5-9203-0050568833db')
     def test_delete_exc_router(self):
         """
         Test create, update, and delete an exclusive router

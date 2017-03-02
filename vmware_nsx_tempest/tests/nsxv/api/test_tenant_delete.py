@@ -21,7 +21,7 @@ import subprocess
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
-from tempest import test
+from tempest.lib import decorators
 
 import base_provider as base
 
@@ -114,7 +114,7 @@ class ProjectDeleteTest(base.BaseAdminNetworkTest):
                 router['id'], subnet_id=subnet['id'])
         return router
 
-    @test.idempotent_id('44e24f6b-9d9e-41a7-9d54-09d79b77dea5')
+    @decorators.idempotent_id('44e24f6b-9d9e-41a7-9d54-09d79b77dea5')
     def test_project_delete_purge_using_non_admin(self):
         nets = {}
         net_id, network, subnet = self.create_network_subnet(cidr_offset=0)
@@ -152,7 +152,7 @@ class ProjectDeleteTest(base.BaseAdminNetworkTest):
                      (local_tenant_id, admin_tenant_id)).read().strip()
         self.assertIn('Purging resources: 100% complete', purge_output)
 
-    @test.idempotent_id('77ec7045-f8f0-4aa1-8e1d-68c0647fda89')
+    @decorators.idempotent_id('77ec7045-f8f0-4aa1-8e1d-68c0647fda89')
     def test_project_delete_no_resource_for_deletion(self):
         name = data_utils.rand_name('tenant-delete-')
         network_client = self.admin_manager.networks_client
@@ -180,7 +180,7 @@ class ProjectDeleteTest(base.BaseAdminNetworkTest):
         self.assertIn(check_output, purge_output)
         LOG.debug("Testcase run completed")
 
-    @test.idempotent_id('38bf4e22-c67a-42db-9e9d-a087369207d4')
+    @decorators.idempotent_id('38bf4e22-c67a-42db-9e9d-a087369207d4')
     def test_project_delete_with_all_resorces_deleted(self):
         name = data_utils.rand_name('tenant-delete-')
         security_client = self.admin_manager.security_groups_client
@@ -223,7 +223,7 @@ class ProjectDeleteTest(base.BaseAdminNetworkTest):
         self.assertNotIn(floatingip['floatingip']['id'], list_of_floatingips)
         LOG.debug("Testcase run completed")
 
-    @test.idempotent_id('d617d637-5b2d-4ac8-93ce-80060d495bb2')
+    @decorators.idempotent_id('d617d637-5b2d-4ac8-93ce-80060d495bb2')
     def test_project_delete_with_some_resources_left(self):
         network_name = data_utils.rand_name('tenant-delete-')
         resp = self.create_network(network_name)

@@ -18,6 +18,7 @@ from oslo_log import log as logging
 from tempest.api.network import base
 from tempest import config
 from tempest.lib.common.utils import data_utils
+from tempest.lib import decorators
 from tempest import test
 
 from vmware_nsx_tempest._i18n import _LI
@@ -123,7 +124,7 @@ class TaaSJsonTest(base.BaseNetworkTest):
             self.tclient.delete_tap_service(tapservice_id)
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('dc5c1ec6-8c18-11e6-ae22-56b6b6499611')
+    @decorators.idempotent_id('dc5c1ec6-8c18-11e6-ae22-56b6b6499611')
     def test_create_tap_service(self):
         """
          Tap service create api is tested , Tap Service is created with
@@ -145,7 +146,7 @@ class TaaSJsonTest(base.BaseNetworkTest):
         self._resource_cleanup(fip, rsp['tap_service']['id'], 'null')
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('dc5c21f0-8c18-11e6-ae22-56b6b6499611')
+    @decorators.idempotent_id('dc5c21f0-8c18-11e6-ae22-56b6b6499611')
     def test_list_tap_service(self):
         """
          Tap Service List api is tested
@@ -170,7 +171,7 @@ class TaaSJsonTest(base.BaseNetworkTest):
         self._resource_cleanup(fip, rsp_create['tap_service']['id'], 'null')
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('dc5c2394-8c18-11e6-ae22-56b6b6499611')
+    @decorators.idempotent_id('dc5c2394-8c18-11e6-ae22-56b6b6499611')
     def test_show_tap_service(self):
         """
          Tap Service Show api is tested
@@ -196,7 +197,7 @@ class TaaSJsonTest(base.BaseNetworkTest):
         self._resource_cleanup(fip, rsp_create['tap_service']['id'], 'null')
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('dc5c2538-8c18-11e6-ae22-56b6b6499611')
+    @decorators.idempotent_id('dc5c2538-8c18-11e6-ae22-56b6b6499611')
     def test_delete_tap_service(self):
         """
          Tap Service Delete api is tested
@@ -224,7 +225,7 @@ class TaaSJsonTest(base.BaseNetworkTest):
         self._resource_cleanup(fip, 'null', 'null')
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('dc5c2a7e-8c18-11e6-ae22-56b6b6499611')
+    @decorators.idempotent_id('dc5c2a7e-8c18-11e6-ae22-56b6b6499611')
     def test_create_tap_flow(self):
         """
          Tap flow create api is tested , Tap Service is created with
@@ -275,7 +276,7 @@ class TaaSJsonTest(base.BaseNetworkTest):
             'id'], rsp_tap_flow['tap_flow']['id'])
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('dc5c2c5e-8c18-11e6-ae22-56b6b6499611')
+    @decorators.idempotent_id('dc5c2c5e-8c18-11e6-ae22-56b6b6499611')
     def test_create_tap_flow_multiple(self):
         """
          Multiple Tap flow's are created in with 'IN' and 'OUT' , Tap Service
@@ -338,7 +339,7 @@ class TaaSJsonTest(base.BaseNetworkTest):
             'id'], rsp_tap_flow2['tap_flow']['id'])
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('dc5c2dda-8c18-11e6-ae22-56b6b6499611')
+    @decorators.idempotent_id('dc5c2dda-8c18-11e6-ae22-56b6b6499611')
     def test_list_tap_flow(self):
         """
          Tap flow list api is tested , Tap Service is created with
@@ -391,7 +392,7 @@ class TaaSJsonTest(base.BaseNetworkTest):
             'id'], rsp_tap_flow['tap_flow']['id'])
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('dc5c2f6a-8c18-11e6-ae22-56b6b6499611')
+    @decorators.idempotent_id('dc5c2f6a-8c18-11e6-ae22-56b6b6499611')
     def test_show_tap_flow(self):
         """
          Tap flow show api is tested , Tap Service is created with
@@ -431,7 +432,7 @@ class TaaSJsonTest(base.BaseNetworkTest):
             'id'], rsp_tap_flow['tap_flow']['id'])
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('dc5c310e-8c18-11e6-ae22-56b6b6499611')
+    @decorators.idempotent_id('dc5c310e-8c18-11e6-ae22-56b6b6499611')
     def test_delete_tap_flow(self):
         """
          Tap flow delete api is tested , Tap Service is created with
@@ -482,7 +483,7 @@ class TaaSJsonTest(base.BaseNetworkTest):
             'tap_service']['id'], 'null')
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('dc5c328a-8c18-11e6-ae22-56b6b6499611')
+    @decorators.idempotent_id('dc5c328a-8c18-11e6-ae22-56b6b6499611')
     def test_create_tap_flow_negative_nofloatingip(self):
         """
          Tap flow create api is tested , Tap Service is created with
@@ -520,7 +521,7 @@ class TaaSJsonTest(base.BaseNetworkTest):
                 'tap_service']['id'], 'null')
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('dc5c3802-8c18-11e6-ae22-56b6b6499611')
+    @decorators.idempotent_id('dc5c3802-8c18-11e6-ae22-56b6b6499611')
     def test_create_tap_flow_negative_nosrcport(self):
         """
          Tap flow create api is tested with non existent src port

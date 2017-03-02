@@ -11,6 +11,7 @@
 #    under the License.
 import time
 
+from tempest.lib import decorators
 from tempest import test
 
 from vmware_nsx_tempest.services.lbaas import l7policies_client
@@ -170,7 +171,7 @@ class TestL7SwitchingOps(lbaas_ops.LBaasRoundRobinBaseTest):
         # URL /api/v1 should be rejected, status=403
         self.check_l7_switching('api/v1', reject_name_list, 6)
 
-    @test.idempotent_id('f11e19e4-16b5-41c7-878d-59b9e943e3ce')
+    @decorators.idempotent_id('f11e19e4-16b5-41c7-878d-59b9e943e3ce')
     @test.services('compute', 'network')
     def test_lbaas_l7_switching_ops(self):
         self.create_lbaas_networks()

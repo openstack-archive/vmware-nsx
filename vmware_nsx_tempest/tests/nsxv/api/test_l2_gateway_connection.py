@@ -186,7 +186,7 @@ class L2GatewayConnectionTest(base.BaseAdminNetworkTest):
         self.assertEmpty(_res_lst,
                          "l2gwc id=%s not deleted." % (_res_new['id']))
 
-    @test.idempotent_id('6628c662-b997-46cd-8266-77f329bda062')
+    @decorators.idempotent_id('6628c662-b997-46cd-8266-77f329bda062')
     def test_csuld_single_device_interface_without_vlan(self):
         """Single device/interface/vlan
 
@@ -205,7 +205,7 @@ class L2GatewayConnectionTest(base.BaseAdminNetworkTest):
         self.assertEqual(_seg_new, str(_seg_id))
         self.do_suld_l2gw_connection(_res_new)
 
-    @test.idempotent_id('222104e3-1260-42c1-bdf6-536c1141387c')
+    @decorators.idempotent_id('222104e3-1260-42c1-bdf6-536c1141387c')
     def test_csuld_single_device_interface_vlan(self):
         """Single device/interface/vlan
 
@@ -224,7 +224,7 @@ class L2GatewayConnectionTest(base.BaseAdminNetworkTest):
         self.do_suld_l2gw_connection(_res_new)
 
     @decorators.skip_because(bug="1559913")
-    @test.idempotent_id('1875eca7-fde9-49ba-be21-47a8cc41f2e5')
+    @decorators.idempotent_id('1875eca7-fde9-49ba-be21-47a8cc41f2e5')
     def test_csuld_single_device_interface_mvlan_type2(self):
         dev_profile = self.getattr_or_skip_test("device_multiple_vlans")
         _name = data_utils.rand_name('l2gwc-2v1')
@@ -238,7 +238,7 @@ class L2GatewayConnectionTest(base.BaseAdminNetworkTest):
         self.do_suld_l2gw_connection(_res_new)
 
     @decorators.skip_because(bug="1559913")
-    @test.idempotent_id('53755cb0-fdca-4ee7-8e43-a9b8a9d6d90a')
+    @decorators.idempotent_id('53755cb0-fdca-4ee7-8e43-a9b8a9d6d90a')
     def test_csuld_single_device_minterface_mvlan_type1(self):
         # NSX-v does not support multiple interfaces
         dev_profile = self.getattr_or_skip_test(
@@ -250,7 +250,7 @@ class L2GatewayConnectionTest(base.BaseAdminNetworkTest):
         self.do_suld_l2gw_connection(_res_new)
 
     @decorators.skip_because(bug="1559913")
-    @test.idempotent_id('723b0b78-35d7-4774-89c1-ec73797a1fe3')
+    @decorators.idempotent_id('723b0b78-35d7-4774-89c1-ec73797a1fe3')
     def test_csuld_single_device_minterface_mvlan_type2(self):
         dev_profile = self.getattr_or_skip_test(
                 "multiple_interfaces_multiple_vlans")

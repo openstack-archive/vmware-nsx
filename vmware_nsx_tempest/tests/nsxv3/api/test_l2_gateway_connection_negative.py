@@ -80,7 +80,7 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
             cls.l2gw_created.pop(l2gw_id)
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("e86bd8e9-b32b-425d-86fa-cd866138d028")
+    @decorators.idempotent_id("e86bd8e9-b32b-425d-86fa-cd866138d028")
     def test_active_l2_gateway_delete(self):
         """
         Delete l2 gateway with active mapping.
@@ -107,7 +107,7 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
         self.addCleanup(self.l2gw_cleanup)
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("488faaae-180a-4c48-8b7a-44c3a243369f")
+    @decorators.idempotent_id("488faaae-180a-4c48-8b7a-44c3a243369f")
     def test_recreate_l2_gateway_connection(self):
         """
         Recreate l2 gateway connection using same parameters.
@@ -133,7 +133,7 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
         self.addCleanup(self.l2gw_cleanup)
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("14606e74-4f65-402e-ae50-a0adcd877a83")
+    @decorators.idempotent_id("14606e74-4f65-402e-ae50-a0adcd877a83")
     def test_create_l2gwc_with_nonexist_l2gw(self):
         """
         Create l2 gateway connection using non exist l2gw uuid.
@@ -155,7 +155,7 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
         self.addCleanup(self.l2gw_cleanup)
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("e6cb8973-fcbc-443e-a3cb-c6a82ae58b63")
+    @decorators.idempotent_id("e6cb8973-fcbc-443e-a3cb-c6a82ae58b63")
     def test_create_l2gwc_with_nonexist_network(self):
         """
         Create l2 gateway connection using non exist l2gw uuid.
@@ -177,7 +177,7 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
         self.addCleanup(self.l2gw_cleanup)
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("27c7c64f-511f-421e-8b62-dfed143fc00b")
+    @decorators.idempotent_id("27c7c64f-511f-421e-8b62-dfed143fc00b")
     def test_create_l2gw_with_invalid_seg_id(self):
         """
         Create l2 gateway connection using invalid seg id.
@@ -196,7 +196,7 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
 
     @decorators.skip_because(bug="1640033")
     @test.attr(type="nsxv3")
-    @test.idempotent_id("000cc597-bcea-4539-af07-bd70357e8d82")
+    @decorators.idempotent_id("000cc597-bcea-4539-af07-bd70357e8d82")
     def test_create_l2gw_with_non_int_seg_id(self):
         """
         Create l2 gateway connection using invalid seg id.

@@ -16,8 +16,8 @@
 from tempest.common import waiters
 from tempest import config
 from tempest.lib.common.utils import data_utils
+from tempest.lib import decorators
 from tempest.lib import exceptions
-from tempest import test
 
 from vmware_nsx_tempest.tests.nsxv.scenario import (
     manager_topo_deployment as dmgr)
@@ -216,14 +216,14 @@ class TestDnsSearchDomainBasicOps(dmgr.TopoDeployScenarioManager):
 
 class TestDnsSearchDomainOpsOverSharedRouter(TestDnsSearchDomainBasicOps):
 
-    @test.idempotent_id('5556cdce-075c-437a-9d9d-f1e4583e9f4c')
+    @decorators.idempotent_id('5556cdce-075c-437a-9d9d-f1e4583e9f4c')
     def test_dns_search_domain_ops_over_shared_router(self):
         return self.run_dns_search_domain_basic_ops('shared')
 
 
 class TestDnsSearchDomainOpsOverExclusiveRouter(TestDnsSearchDomainBasicOps):
 
-    @test.idempotent_id('6878c3cf-88d2-46ef-b366-b2a49bfa1e0a')
+    @decorators.idempotent_id('6878c3cf-88d2-46ef-b366-b2a49bfa1e0a')
     def test_dns_search_domain_ops_over_exclusive_router(self):
         return self.run_dns_search_domain_basic_ops('exclusive')
 
@@ -231,6 +231,6 @@ class TestDnsSearchDomainOpsOverExclusiveRouter(TestDnsSearchDomainBasicOps):
 class TestDnsSearchDomainOpsOverDistributedeRouter(
         TestDnsSearchDomainBasicOps):
 
-    @test.idempotent_id('ad24cb58-532a-4675-9bbc-98ec4c296716')
+    @decorators.idempotent_id('ad24cb58-532a-4675-9bbc-98ec4c296716')
     def test_dns_search_domain_ops_over_distributed_router(self):
         return self.run_dns_search_domain_basic_ops('distributed')

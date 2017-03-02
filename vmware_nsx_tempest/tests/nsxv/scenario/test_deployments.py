@@ -20,6 +20,7 @@ from tempest import test
 
 import manager_topo_deployment as dmgr
 from tempest.lib.common.utils import data_utils
+from tempest.lib import decorators
 
 CONF = config.CONF
 LOG = dmgr.manager.log.getLogger(__name__)
@@ -83,7 +84,7 @@ class TestSimpleFlatNetwork(dmgr.TopoDeployScenarioManager):
         # host_ver = serv_addr['version']
         self.waitfor_host_connected(host_ip)
 
-    @test.idempotent_id('bc081b8d-49eb-4710-9442-c6b225ef16f0')
+    @decorators.idempotent_id('bc081b8d-49eb-4710-9442-c6b225ef16f0')
     @test.services('compute', 'network')
     def test_simple_flat_network(self):
         # provider actions
@@ -126,7 +127,7 @@ class TestTenantConnectivity(dmgr.TopoDeployScenarioManager):
         # do mini teardown if test failed already
         super(TestTenantConnectivity, self).tearDown()
 
-    @test.idempotent_id('3c6cd4fe-de25-47ef-b638-a6bbb312da09')
+    @decorators.idempotent_id('3c6cd4fe-de25-47ef-b638-a6bbb312da09')
     @test.services('compute', 'network')
     def test_tenant_connectivity(self):
         LOG.debug(Z_DEPLOY_TOPO, "tenant connectivity")
@@ -282,7 +283,7 @@ class TestMultiTenantsNetwork(dmgr.TopoDeployScenarioManager):
              (t_id, str(node2), t_id, str(node1))))
         return T
 
-    @test.idempotent_id('19d19cd0-9686-49c9-acea-a9db28f7458c')
+    @decorators.idempotent_id('19d19cd0-9686-49c9-acea-a9db28f7458c')
     @test.services('compute', 'network')
     def test_multi_tenants_network(self):
         LOG.debug(Z_DEPLOY_TOPO, "multi tenant network")
@@ -407,7 +408,7 @@ class TestProviderRouterTenantNetwork(dmgr.TopoDeployScenarioManager):
         tenant.update(serv=t_serv, fip=t_fip)
         return tenant
 
-    @test.idempotent_id('a31712de-33ad-4dc2-9755-1a0631a4f66a')
+    @decorators.idempotent_id('a31712de-33ad-4dc2-9755-1a0631a4f66a')
     @test.services('compute', 'network')
     def test_provider_router_project_network(self):
         # provider router owned by admin_manager

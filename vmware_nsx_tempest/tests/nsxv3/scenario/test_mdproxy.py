@@ -18,6 +18,7 @@ from tempest import config
 from tempest import exceptions
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
+from tempest.lib import decorators
 from tempest.scenario import manager
 from tempest import test
 
@@ -206,7 +207,7 @@ class TestMDProxy(manager.NetworkScenarioTest):
         self.assertNotEqual(0, md_counter, "No logical port found for MD "
                                            "proxy!!!")
 
-    @test.idempotent_id("e9a93161-d852-414d-aa55-36d465ea45df")
+    @decorators.idempotent_id("e9a93161-d852-414d-aa55-36d465ea45df")
     @test.services("compute", "network")
     def test_mdproxy_ping(self):
         router = self._create_router(
@@ -222,7 +223,7 @@ class TestMDProxy(manager.NetworkScenarioTest):
             "latest/meta-data/public-ipv4"
         self._verify_md(md_url=md_url_pubic_ipv4, expected_value=self.fip)
 
-    @test.idempotent_id("743f34a6-58b8-4288-a07f-7bee21c55051")
+    @decorators.idempotent_id("743f34a6-58b8-4288-a07f-7bee21c55051")
     @test.services("compute", "network")
     def test_mdproxy_verify_backend(self):
         router = self._create_router(
@@ -237,7 +238,7 @@ class TestMDProxy(manager.NetworkScenarioTest):
         self.verify_metadata_in_detail(instance=instance)
         self.verify_md_proxy_logical_ports_on_backend()
 
-    @test.idempotent_id("fce2acc8-b850-40fe-bf02-958dd3cd4343")
+    @decorators.idempotent_id("fce2acc8-b850-40fe-bf02-958dd3cd4343")
     @test.services("compute", "network")
     def test_mdproxy_with_server_on_two_ls(self):
         router = self._create_router(
@@ -254,7 +255,7 @@ class TestMDProxy(manager.NetworkScenarioTest):
         self.verify_ssh(keypair=keypair, instance=instance, port_id=port_id)
         self.verify_metadata_in_detail(instance=instance)
 
-    @test.idempotent_id("67332752-1295-42cb-a8c3-99210fb6b00b")
+    @decorators.idempotent_id("67332752-1295-42cb-a8c3-99210fb6b00b")
     @test.services("compute", "network")
     def test_mdproxy_isolated_network(self):
         (network_id, _) = self._create_net_subnet_router_interface()
@@ -262,7 +263,7 @@ class TestMDProxy(manager.NetworkScenarioTest):
         self._create_server_on_networks([networks_ids])
         self.verify_md_proxy_logical_ports_on_backend()
 
-    @test.idempotent_id("cc8d2ab8-0bea-4e32-bf80-c9c46a7612b7")
+    @decorators.idempotent_id("cc8d2ab8-0bea-4e32-bf80-c9c46a7612b7")
     @test.attr(type=["negative"])
     @test.services("compute", "network")
     def test_mdproxy_delete_when_ls_bounded(self):
@@ -274,7 +275,7 @@ class TestMDProxy(manager.NetworkScenarioTest):
         self.assertEqual(str(result["error_code"]),
                          constants.MD_ERROR_CODE_WHEN_LS_BOUNDED)
 
-    @test.idempotent_id("501fc3ea-696b-4e9e-b383-293ab94e2545")
+    @decorators.idempotent_id("501fc3ea-696b-4e9e-b383-293ab94e2545")
     @test.services("compute", "network")
     def test_mdproxy_with_multiple_ports_on_network(self):
         router = self._create_router(
@@ -294,7 +295,7 @@ class TestMDProxy(manager.NetworkScenarioTest):
         self.verify_ssh(keypair=keypair2, instance=instance2, port_id=port_id2)
         self.verify_metadata_in_detail(instance=instance2)
 
-    @test.idempotent_id("eae21afc-50ea-42e5-9c49-2ee38cee9f06")
+    @decorators.idempotent_id("eae21afc-50ea-42e5-9c49-2ee38cee9f06")
     @test.services("compute", "network")
     def test_mdproxy_with_multiple_metadata_ports(self):
         router = self._create_router(
@@ -315,7 +316,7 @@ class TestMDProxy(manager.NetworkScenarioTest):
         self.verify_ssh(keypair=keypair2, instance=instance2, port_id=port_id2)
         self.verify_metadata_in_detail(instance=instance2)
 
-    @test.idempotent_id("29d44d7c-6ea1-4b30-a6c3-a2695c2486fe")
+    @decorators.idempotent_id("29d44d7c-6ea1-4b30-a6c3-a2695c2486fe")
     @test.attr(type=["negative"])
     @test.services("compute", "network")
     def test_mdproxy_with_incorrect_password(self):

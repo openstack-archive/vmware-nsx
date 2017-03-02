@@ -13,11 +13,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
-
-from tempest import config
-from tempest import test
+from tempest.lib import decorators
 
 from vmware_nsx_tempest.tests.nsxv.api import base_provider as base
 
@@ -63,7 +62,7 @@ class DnsSearchDomainTest(base.BaseAdminNetworkTest):
         subnet = resp.get('subnet', resp)
         return (network, subnet)
 
-    @test.idempotent_id('879d620c-535c-467f-9e62-f2bf3178b5b7')
+    @decorators.idempotent_id('879d620c-535c-467f-9e62-f2bf3178b5b7')
     def test_dns_search_domain_crud_operations(self):
         """perform CRUD operation on subnet with dns_search_domain."""
         network_name = data_utils.rand_name('crud-search-domain')
@@ -86,13 +85,13 @@ class DnsSearchDomainTest(base.BaseAdminNetworkTest):
                                         name=new_name)['subnets']
         self.assertEqual(0, len(subnet_list))
 
-    @test.idempotent_id('40facdd9-40c0-48a1-bff1-57ba0ed0dc49')
+    @decorators.idempotent_id('40facdd9-40c0-48a1-bff1-57ba0ed0dc49')
     def test_list_search_domain(self):
         subnet_list = self.list_subnets(client=self.subnets_client,
                                         subnet_id=self.tenant_subnet['id'])
         self.assertEqual(1, len(subnet_list))
 
-    @test.idempotent_id('8d023934-b0c8-4588-b48b-17db047a4d8b')
+    @decorators.idempotent_id('8d023934-b0c8-4588-b48b-17db047a4d8b')
     def test_show_search_domain(self):
         resp = self.show_subnet(self.tenant_subnet['id'],
                                 client=self.subnets_client)
@@ -100,7 +99,7 @@ class DnsSearchDomainTest(base.BaseAdminNetworkTest):
         self.assertEqual(self.dns_search_domain,
                          subnet['dns_search_domain'])
 
-    @test.idempotent_id('2b5990bf-d904-4e18-b197-93f3c061c260')
+    @decorators.idempotent_id('2b5990bf-d904-4e18-b197-93f3c061c260')
     def test_update_subnet_search_domain_field(self):
         """attach 2nd subnet to network and update its dns_search_domain."""
         subnet_name = data_utils.rand_name('upd-search-domain')

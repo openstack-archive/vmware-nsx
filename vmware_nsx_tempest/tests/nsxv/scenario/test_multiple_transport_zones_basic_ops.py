@@ -20,6 +20,7 @@ from tempest.common import waiters
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
+from tempest.lib import decorators
 from tempest import test
 
 from vmware_nsx_tempest.services import nsxv_client
@@ -279,12 +280,12 @@ class TestMultipleTransportZonesBasicOps(dmgr.TopoDeployScenarioManager):
 
 
 class TestMTZBasicOpsOverSharedRouter(TestMultipleTransportZonesBasicOps):
-    @test.idempotent_id('190790fe-4cc4-4bb3-ae3e-4fa2031ca4e2')
+    @decorators.idempotent_id('190790fe-4cc4-4bb3-ae3e-4fa2031ca4e2')
     def test_mtz_basic_ops_over_shared_router(self):
         self.run_mtz_basic_ops(router_type='shared')
 
 
 class TestMTZBasicOpsOverExclusiveRouter(TestMultipleTransportZonesBasicOps):
-    @test.idempotent_id('caf2be55-ea49-4783-87bf-103fcc5783db')
+    @decorators.idempotent_id('caf2be55-ea49-4783-87bf-103fcc5783db')
     def test_mtz_basic_ops_over_exclusive_router(self):
         self.run_mtz_basic_ops(router_type='exclusive')

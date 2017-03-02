@@ -10,6 +10,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from tempest.lib import decorators
 from tempest.lib import exceptions as ex
 from tempest import test
 
@@ -62,7 +63,7 @@ class TestPools(base.BaseAdminTestCase):
         return response
 
     @test.attr(type='negative')
-    @test.idempotent_id('71b9d3e1-3f13-4c84-a905-054c9cd3d4aa')
+    @decorators.idempotent_id('71b9d3e1-3f13-4c84-a905-054c9cd3d4aa')
     def test_create_pool_using_empty_tenant_field(self):
         """Test create pool with empty tenant field should fail
 
@@ -74,7 +75,7 @@ class TestPools(base.BaseAdminTestCase):
                           lb_algorithm='ROUND_ROBIN')
 
     @test.attr(type='smoke')
-    @test.idempotent_id('f782967d-8dca-4d7b-b625-bfd811379b42')
+    @decorators.idempotent_id('f782967d-8dca-4d7b-b625-bfd811379b42')
     def test_create_pool_missing_tenant_id_for_other_tenant(self):
         """Test create pool with a missing tenant id field.
 
@@ -89,7 +90,7 @@ class TestPools(base.BaseAdminTestCase):
         self.assertNotEqual(pool_tenant, self.subnet['tenant_id'])
 
     @test.attr(type='smoke')
-    @test.idempotent_id('140c4c95-3d12-47d7-9b20-cc3c60e24af9')
+    @decorators.idempotent_id('140c4c95-3d12-47d7-9b20-cc3c60e24af9')
     def test_create_pool_missing_tenant_id_for_admin(self):
         """Test create pool with a missing tenant id field.
 
@@ -103,7 +104,7 @@ class TestPools(base.BaseAdminTestCase):
         self.assertEqual(pool_tenant, pool.get('tenant_id'))
 
     @test.attr(type='smoke')
-    @test.idempotent_id('1cf07f5c-7609-4b64-b5b8-f27050860132')
+    @decorators.idempotent_id('1cf07f5c-7609-4b64-b5b8-f27050860132')
     def test_create_pool_for_another_tenant(self):
         """Test create pool for other tenant field"""
         tenant = 'deffb4d7c0584e89a8ec99551565713c'

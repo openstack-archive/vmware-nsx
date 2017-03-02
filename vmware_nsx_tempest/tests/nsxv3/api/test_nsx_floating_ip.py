@@ -18,6 +18,7 @@ from oslo_log import log as logging
 from tempest.api.network import base
 from tempest import config
 from tempest.lib.common.utils import data_utils
+from tempest.lib import decorators
 from tempest import test
 
 from vmware_nsx_tempest.services import nsxv3_client
@@ -56,7 +57,7 @@ class NSXv3FloatingIPTest(base.BaseNetworkTest):
                                            CONF.nsxv3.nsx_password)
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('593e4e51-9ea2-445b-b789-eff2b0b7a503')
+    @decorators.idempotent_id('593e4e51-9ea2-445b-b789-eff2b0b7a503')
     def test_create_floating_ip(self):
         # Create a floating ip
         create_body = self.floating_ips_client.create_floatingip(
@@ -87,7 +88,7 @@ class NSXv3FloatingIPTest(base.BaseNetworkTest):
         self.assertIn((port_ip, fip['floating_ip_address']), dnat_rules)
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('48d8cda8-dfc3-4d84-8f91-4bad6cc7d452')
+    @decorators.idempotent_id('48d8cda8-dfc3-4d84-8f91-4bad6cc7d452')
     def test_update_floating_ip(self):
         # Create a floating ip
         create_body = self.floating_ips_client.create_floatingip(
@@ -128,7 +129,7 @@ class NSXv3FloatingIPTest(base.BaseNetworkTest):
                       dnat_rules)
 
     @test.attr(type='nsxv3')
-    @test.idempotent_id('6e5a87fe-b40e-4c62-94b8-07431493cc3d')
+    @decorators.idempotent_id('6e5a87fe-b40e-4c62-94b8-07431493cc3d')
     def test_delete_floating_ip(self):
         # Create a floating ip
         create_body = self.floating_ips_client.create_floatingip(

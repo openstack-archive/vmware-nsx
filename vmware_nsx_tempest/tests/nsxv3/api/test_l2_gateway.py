@@ -17,6 +17,7 @@
 
 from tempest import config
 from tempest.lib.common.utils import data_utils
+from tempest.lib import decorators
 from tempest import test
 
 from vmware_nsx_tempest._i18n import _LI
@@ -34,7 +35,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
     """
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("e5e3a089-602c-496e-8c17-4ef613266924")
+    @decorators.idempotent_id("e5e3a089-602c-496e-8c17-4ef613266924")
     def test_l2_gateway_create_without_vlan(self):
         """
         Create l2gw based on UUID and bridge cluster name. It creates l2gw.
@@ -59,7 +60,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
         self.resource_cleanup()
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("9968a529-e785-472f-8705-9b394a912e43")
+    @decorators.idempotent_id("9968a529-e785-472f-8705-9b394a912e43")
     def test_l2_gateway_with_single_vlan(self):
         """
         Create l2gw based on UUID and bridge cluster name. It creates l2gw.
@@ -96,7 +97,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
         self.resource_cleanup()
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("3861aab0-4f76-4472-ad0e-a255e6e42193")
+    @decorators.idempotent_id("3861aab0-4f76-4472-ad0e-a255e6e42193")
     def test_l2_gateway_with_multiple_vlans(self):
         """
         Create l2gw based on UUID and bridge cluster name. It creates l2gw.
@@ -133,7 +134,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
         self.resource_cleanup()
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("670cbcb5-134e-467d-ba41-0d7cdbcf3903")
+    @decorators.idempotent_id("670cbcb5-134e-467d-ba41-0d7cdbcf3903")
     def test_l2_gateway_delete(self):
         """
         Delete l2gw will create l2gw and delete recently created l2gw. To
@@ -164,7 +165,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
         self.resource_cleanup()
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("fa76f6e6-8aa7-46d8-9af4-2206d0773dc3")
+    @decorators.idempotent_id("fa76f6e6-8aa7-46d8-9af4-2206d0773dc3")
     def test_l2_gateway_update_l2gw_name(self):
         """
         Update l2gw will update info in already created l2gw. To
@@ -206,7 +207,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
         self.resource_cleanup()
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("c4977df8-8e3a-4b7e-a8d2-5aa757117658")
+    @decorators.idempotent_id("c4977df8-8e3a-4b7e-a8d2-5aa757117658")
     def test_l2_gateway_update_interface(self):
         """
         Update l2gw will update info in already created l2gw. To
@@ -252,7 +253,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
         self.resource_cleanup()
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("5a3cef97-c91c-4e03-92c8-d180f9269f27")
+    @decorators.idempotent_id("5a3cef97-c91c-4e03-92c8-d180f9269f27")
     def test_l2_gateway_show(self):
         """
         show l2gw based on UUID. To see l2gw info we need l2gw id.
@@ -295,7 +296,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
         self.resource_cleanup()
 
     @test.attr(type="nsxv3")
-    @test.idempotent_id("d4a7d3af-e637-45c5-a967-d179153a6e58")
+    @decorators.idempotent_id("d4a7d3af-e637-45c5-a967-d179153a6e58")
     def test_l2_gateway_list(self):
         """
         list created l2gw.
