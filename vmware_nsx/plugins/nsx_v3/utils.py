@@ -81,7 +81,8 @@ def get_client_cert_provider():
     if cfg.CONF.nsx_v3.nsx_client_cert_storage.lower() == 'none':
         # Admin is responsible for providing cert file, the plugin
         # should not touch it
-        return client_cert.CertProvider(cfg.CONF.nsx_v3.nsx_client_cert_file)
+        return client_cert.ClientCertProvider(
+                cfg.CONF.nsx_v3.nsx_client_cert_file)
 
     if cfg.CONF.nsx_v3.nsx_client_cert_storage.lower() == 'nsx-db':
         # Cert data is stored in DB, and written to file system only
