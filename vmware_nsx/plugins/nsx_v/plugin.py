@@ -834,14 +834,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     def _get_vlan_network_name(self, net_data, dvs_id):
         if net_data.get('name') is None:
             net_data['name'] = ''
+        # Maximum name length is 80 characters. 'id' length is 36
+        # maximum prefix for name plus dvs-id is 43
         if net_data['name'] == '':
-            # Include only the first 8 characters from the dvs-id.
-            return '%s-%s' % (dvs_id[:8], net_data['id'])
+            prefix = dvs_id[:43]
         else:
-            # Maximum name length is 80 characters. 'id' length is 36
-            # maximum prefix for name plus dvs-id is 43
-            return '%s-%s-%s' % (dvs_id[:8], net_data['name'][:35],
-                                 net_data['id'])
+            prefix = ('%s-%s' % (dvs_id, net_data['name']))[:43]
+        return '%s-%s' % (prefix, net_data['id'])
 
     def _update_network_teaming(self, dvs_id, net_id, net_moref):
         if self._vcm:
