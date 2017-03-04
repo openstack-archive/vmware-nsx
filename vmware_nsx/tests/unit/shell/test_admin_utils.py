@@ -230,21 +230,20 @@ class TestNsxv3AdminUtils(AbstractTestAdminUtils,
         test_v3_plugin._mock_nsx_backend_calls()
 
         # mock resources
-        self._patch_object(nsx_v3_resources.LogicalPort,
-                           '__init__', return_value=None)
-        self._patch_object(nsx_v3_resources.LogicalDhcpServer,
-                           '__init__', return_value=None)
-        self._patch_object(nsx_v3_resources.LogicalDhcpServer,
-                           'list', return_value={'results': []})
-        self._patch_object(nsx_v3_resources.LogicalRouter,
-                           '__init__', return_value=None)
-        self._patch_object(nsx_v3_resources.SwitchingProfile,
-                           '__init__', return_value=None)
+        for cls in (nsx_v3_resources.LogicalPort,
+                    nsx_v3_resources.LogicalDhcpServer,
+                    nsx_v3_resources.LogicalRouter,
+                    nsx_v3_resources.SwitchingProfile):
+
+            self._patch_object(cls, '__init__', return_value=None)
+            self._patch_object(cls, 'list', return_value={'results': []})
+            self._patch_object(cls, 'get',
+                               return_value={'id': uuidutils.generate_uuid()})
+            self._patch_object(cls, 'update')
+
         self._patch_object(nsx_v3_resources.SwitchingProfile,
                            'find_by_display_name',
                            return_value=[{'id': uuidutils.generate_uuid()}])
-        self._patch_object(nsx_v3_resources.LogicalRouterPort,
-                           '__init__', return_value=None)
         super(TestNsxv3AdminUtils, self)._init_mock_plugin()
 
     def _get_plugin_name(self):
