@@ -31,6 +31,12 @@ if [ $CONSTRAINTS_FILE != "unconstrained" ]; then
     install_cmd="$install_cmd -c$CONSTRAINTS_FILE"
 fi
 
+#Blow this away then a stable version is created
+echo ${PROJ}
+if [ ${PROJ} = "networking-sfc" ]; then
+    BRANCH_NAME=master
+fi
+
 if [ $neutron_installed -eq 0 ]; then
     echo "ALREADY INSTALLED" > /tmp/tox_install-${PROJ}.txt
     echo "${PROJ} already installed; using existing package"
