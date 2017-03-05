@@ -132,6 +132,11 @@ class TestNsxvAdminUtils(AbstractTestAdminUtils,
                    'NsxvEdgeCfgObj.get_object',
                    return_value=dummy_lb).start()
 
+        # Tests shouldn't wait for dummy spawn jobs to finish
+        mock.patch('vmware_nsx.shell.admin.plugins.nsxv.resources.utils.'
+                   'NsxVPluginWrapper.count_spawn_jobs',
+                   return_value=0).start()
+
         # Create a router to make sure we have deployed an edge
         self.create_router()
 
