@@ -55,9 +55,6 @@ class NsxVPluginWrapper(plugin.NsxVPlugin):
     def _start_rpc_listeners(self):
         pass
 
-    def _validate_config(self):
-        pass
-
     def _extend_get_network_dict_provider(self, context, net):
         self._extend_network_dict_provider(context, net)
         # skip getting the Qos policy ID because get_object calls

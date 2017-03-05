@@ -1,0 +1,45 @@
+# Copyright 2017 VMware, Inc.  All rights reserved.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
+from neutron.callbacks import registry
+from oslo_config import cfg
+from oslo_log import log as logging
+
+from vmware_nsx._i18n import _LE, _LI
+from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
+from vmware_nsx.shell.admin.plugins.common import constants
+from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
+from vmware_nsx.shell.admin.plugins.nsxv.resources import utils
+from vmware_nsx.shell import resources as shell
+
+LOG = logging.getLogger(__name__)
+
+
+@admin_utils.output_header
+def validate_configuration(resource, event, trigger, **kwargs):
+    """Validate the nsxv configuration"""
+    try:
+        utils.NsxVPluginWrapper()
+    except exceptions.Forbidden:
+        LOG.error(_LE("Configuration validation failed: wrong VSM credentials "
+                      "for %s"), cfg.CONF.nsxv.manager_uri)
+    except Exception as e:
+        LOG.error(_LE("Configuration validation failed: %s"), e)
+    else:
+        LOG.info(_LI("Configuration validation succeeded"))
+
+
+registry.subscribe(validate_configuration,
+                   constants.CONFIG,
+                   shell.Operations.VALIDATE.value)
