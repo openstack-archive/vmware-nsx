@@ -212,7 +212,7 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
         name = 'X' * 500
         net = {'name': name,
                'id': net_id}
-        expected = '%s-%s-%s' % (dvs_id, name[:35], net_id)
+        expected = '%s-%s-%s' % (dvs_id, name[:36], net_id)
         self.assertEqual(expected,
                          p._get_vlan_network_name(net, dvs_id))
 
