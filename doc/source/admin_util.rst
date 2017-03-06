@@ -326,7 +326,7 @@ Client Certificate
 
 - Import external certificate to NSX::
 
-    nsxadmin -r certificate -o import --property username=<username> --property password=<password>
+    nsxadmin -r certificate -o import [--property username=<username> --property password=<password> --property filename=<cert filename>]
 
 - List certificates associated with openstack principal identity in NSX::
 
