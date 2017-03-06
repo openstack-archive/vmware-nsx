@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-
 import mock
 import six
 from webob import exc
@@ -36,7 +34,6 @@ from neutron.tests.unit.extensions \
     import test_l3_ext_gw_mode as test_ext_gw_mode
 from neutron.tests.unit.scheduler \
     import test_dhcp_agent_scheduler as test_dhcpagent
-from neutron.tests.unit import testlib_api
 
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api.definitions import provider_net as pnet
@@ -46,9 +43,7 @@ from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_utils import uuidutils
 
-from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils
-from vmware_nsx.plugins.nsx_v3 import cert_utils
 from vmware_nsx.plugins.nsx_v3 import plugin as nsx_plugin
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.extensions import test_metadata
@@ -718,145 +713,3 @@ class ExtGwModeTestCase(test_ext_gw_mode.ExtGwModeIntTestCase,
                         L3NatTest):
     def test_router_gateway_set_fail_after_port_create(self):
         self.skipTest("TBD")
-
-
-class NsxV3PluginClientCertTestCase(testlib_api.WebTestCase):
-
-    CERT = "-----BEGIN CERTIFICATE-----\n" \
-        "MIIDJTCCAg0CBFh36j0wDQYJKoZIhvcNAQELBQAwVzELMAkGA1UEBhMCVVMxEzAR\n" \
-        "BgNVBAgMCkNhbGlmb3JuaWExDjAMBgNVBAoMBU15T3JnMQ8wDQYDVQQLDAZNeVVu\n" \
-        "aXQxEjAQBgNVBAMMCW15b3JnLmNvbTAeFw0xNzAxMTIyMDQyMzdaFw0yNzAxMTAy\n" \
-        "MDQyMzdaMFcxCzAJBgNVBAYTAlVTMRMwEQYDVQQIDApDYWxpZm9ybmlhMQ4wDAYD\n" \
-        "VQQKDAVNeU9yZzEPMA0GA1UECwwGTXlVbml0MRIwEAYDVQQDDAlteW9yZy5jb20w\n" \
-        "ggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC/wsYintlWVaSeXwaSrdPa\n" \
-        "+AHtL1ooH7q0uf6tt+6Rwiy10YRjAVJhapj9995gqgJ2402J+3gzNXLCbXjjDR/D\n" \
-        "9xjAzKHu61r0AVNd9/0+8yXQrEDuzlwHSCKz+zjq5ZEZ7RkLIUdreaZJFPTCwry3\n" \
-        "wuTnBfqcE7xWl6WfWR8evooV+ZzIfjQdoSliIyn3YGxNN5pc1P40qt0pxOsNBGXG\n" \
-        "2FIZXpML8TpKw0ga/wE70CJd6tRvSsAADxQXehfKvGtHvlJYS+3cTahC7reQXJnc\n" \
-        "qsjgYkiWyhhR4jdcTD/tDlVcJroM1jFVxpsCg/AU3srWWWeAGyVe42ZhqWVf0Urz\n" \
-        "AgMBAAEwDQYJKoZIhvcNAQELBQADggEBAA/lLfmXe8wPyBhN/VMb5bu5Ey56qz+j\n" \
-        "jCn7tz7FjRvsB9P0fLUDOBKNwyon3yopDNYJ4hnm4yKoHCHURQLZKWHzm0XKzE+4\n" \
-        "cA/M13M8OEg5otnVVHhz1FPQWnJq7bLHh/KXYcc5Rkc7UeHEPj0sDjfUjCPGdepc\n" \
-        "Ghu1ZcgHsL4JCuvcadG+RFGeDTug3yO92Fj2uFy5DlzzWOZSi4otpZRd9JZkAtZ1\n" \
-        "umZRBJ2A504nJx4MplmNqvLNkmxMLKQdvZYNNiYr6icOavDOJA5RhzgoppJZkV2w\n" \
-        "v2oC+8BFarXnZSk37HAWjwcaqzBLbIyPYpClW5IYMr8LiixSBACc+4w=\n" \
-        "-----END CERTIFICATE-----\n"
-
-    PKEY = "-----BEGIN PRIVATE KEY-----\n" \
-        "MIIEwAIBADANBgkqhkiG9w0BAQEFAASCBKowggSmAgEAAoIBAQC/wsYintlWVaSe\n" \
-        "XwaSrdPa+AHtL1ooH7q0uf6tt+6Rwiy10YRjAVJhapj9995gqgJ2402J+3gzNXLC\n" \
-        "bXjjDR/D9xjAzKHu61r0AVNd9/0+8yXQrEDuzlwHSCKz+zjq5ZEZ7RkLIUdreaZJ\n" \
-        "FPTCwry3wuTnBfqcE7xWl6WfWR8evooV+ZzIfjQdoSliIyn3YGxNN5pc1P40qt0p\n" \
-        "xOsNBGXG2FIZXpML8TpKw0ga/wE70CJd6tRvSsAADxQXehfKvGtHvlJYS+3cTahC\n" \
-        "7reQXJncqsjgYkiWyhhR4jdcTD/tDlVcJroM1jFVxpsCg/AU3srWWWeAGyVe42Zh\n" \
-        "qWVf0UrzAgMBAAECggEBAJrGuie9cQy3KZzOdD614RaPMPbhTnKuUYOH0GEk4YFy\n" \
-        "aaYDS0iiC30njf8HLs10y3JsOuyRNU6X6F24AGe68xW3/pm3UUjHXG0wGLry68wA\n" \
-        "c1g/gFV/6FXUSnZc4m7uBjUX4yvRm5TK5oV8TaZZifsEar9xWvrZDx4RXpQEWhL0\n" \
-        "L/TyrOZSfRtBgdWX6Ag4XQVsCfZxJoCi2ZyvaMBsWTH06x9AGo1Io5t1AmA9Hsfb\n" \
-        "6BsSz186nqb0fq4UMfrWrSCz7M/1s03+hBOVICH2TdaRDZLtDVa1b2x4sFpfdp9t\n" \
-        "VVxuSHxcmvzOPMIv3NXwj0VitTYYJDBFKoEfx1mzhNkCgYEA59gYyBfpsuCOevP2\n" \
-        "tn7IeysbtaoKDzHE+ksjs3sAn6Vr2Y0Lbed26NpdIVL6u3HAteJxqrIh0zpkpAtp\n" \
-        "akdqlj86oRaBUqLXxK3QNpUx19f7KN7UsVAbzUJSOm2n1piPg261ktfhtms2rxnQ\n" \
-        "+9yluINu+z1wS4FG9SwrRmwwfsUCgYEA072Ma1sj2MER5tmQw1zLANkzP1PAkUdy\n" \
-        "+oDuJmU9A3/+YSIkm8dGprFglPkLUaf1B15oN6wCJVMpB1lza3PM/YT70rpqc7cq\n" \
-        "PHJXQlZFMBhyVfIkCv3wICTLD5phhgAWlzlwm094f2uAnbG6WUkrVfZajuh0pW53\n" \
-        "1i0OTfxAvlcCgYEAkDB2oSM2JhjApDlMbA2HtAqIbkA1h2OlpSDMMFjEd4WTALdW\n" \
-        "r2CwNHtyRkJsS92gQ750gPvOS6daZifuxLlr0cu7M+piPbmnRdvvzbKWUC40NyP2\n" \
-        "1dwDnnGr4EjIhI9XWh+lb5EyAJjHZrlAnxOIQawEft6kE2FwdxSkSWUJ+B0CgYEA\n" \
-        "n2xYDXzRwKGdmPK2zGFRd5IRw9yLYNcq+vGYXdBb4Aa+wOO0LJYd2+Qxk/jvTMvo\n" \
-        "8WNjlIcuFmxGuAHhpUXLUhaOhFtXS0jdxCVTDd9muI+vhoaKHLyVz53kRhs20m2+\n" \
-        "lJ3q6wUq9MU8UX8/j3pH5rFV/cOIEAbcs6W4337OQIECgYEAoLtQyqXjH45FlCQx\n" \
-        "xK8dY+GuxIP+TIwiq23yhu3e+3LIgXJw8DwBFN5yJyH2HMnhGkD4PurEx2sGHeLO\n" \
-        "EG6L8PNDOxpvSzcgxwmZsUK6j3nAbKycF3PDDXA4kt8WDXBr86OMQsFtpjeO+fGh\n" \
-        "YWJa+OKc2ExdeMewe9gKIDQ5stw=\n" \
-        "-----END PRIVATE KEY-----\n"
-
-    CERTFILE = '/tmp/client_cert.pem'
-
-    def _init_config(self, password=None):
-        cfg.CONF.set_override('default_overlay_tz', NSX_TZ_NAME, 'nsx_v3')
-        cfg.CONF.set_override('native_dhcp_metadata', False, 'nsx_v3')
-        cfg.CONF.set_override('dhcp_profile',
-                              NSX_DHCP_PROFILE_ID, 'nsx_v3')
-        cfg.CONF.set_override('metadata_proxy',
-                              NSX_METADATA_PROXY_ID, 'nsx_v3')
-
-        cfg.CONF.set_override('nsx_use_client_auth', True, 'nsx_v3')
-        cfg.CONF.set_override('nsx_client_cert_file', self.CERTFILE, 'nsx_v3')
-        cfg.CONF.set_override('nsx_client_cert_storage', 'nsx-db', 'nsx_v3')
-
-        if password:
-            cfg.CONF.set_override('nsx_client_cert_pk_password',
-                                  password, 'nsx_v3')
-
-    def _init_plugin(self, password=None):
-        _mock_nsx_backend_calls()
-
-        self._tenant_id = test_plugin.TEST_TENANT_ID
-        self._init_config(password)
-        self.setup_coreplugin(PLUGIN_NAME, load_plugins=True)
-
-    def x_test_init_without_cert(self):
-        """Verify init fails if no cert is provided in client cert mode"""
-        # certificate not generated - exception should be raised
-        self.assertRaises(nsx_exc.ClientCertificateException,
-                          self._init_plugin)
-
-    def x_test_init_with_cert(self):
-        """Verify successful certificate load from storage"""
-
-        mock.patch(
-            "vmware_nsx.db.db.get_certificate",
-            return_value=(self.CERT, self.PKEY)).start()
-
-        self._init_plugin()
-
-        # verify cert data was exported to CERTFILE
-        expected = self.CERT + self.PKEY
-        with open(self.CERTFILE, 'r') as f:
-            actual = f.read()
-
-        self.assertEqual(expected, actual)
-
-        # delete CERTFILE
-        os.remove(self.CERTFILE)
-
-    def x_test_init_with_cert_encrypted(self):
-        """Verify successful encrypted PK load from storage"""
-
-        password = 'topsecret'
-        secret = cert_utils.generate_secret_from_password(password)
-        encrypted_pkey = cert_utils.symmetric_encrypt(secret, self.PKEY)
-        # db always returns string
-        mock.patch(
-            "vmware_nsx.db.db.get_certificate",
-            return_value=(self.CERT, encrypted_pkey)).start()
-
-        self._init_plugin(password)
-
-        # verify cert data was exported to CERTFILE
-        expected = self.CERT + self.PKEY
-        with open(self.CERTFILE, 'r') as f:
-            actual = f.read()
-
-        self.assertEqual(expected, actual)
-
-        # delete CERTFILE
-        os.remove(self.CERTFILE)
-
-    def x_test_init_with_cert_decrypt_fails(self):
-        """Verify loading plaintext PK from storage fails in encrypt mode"""
-
-        mock.patch(
-            "vmware_nsx.db.db.get_certificate",
-            return_value=(self.CERT, self.PKEY)).start()
-
-        self._tenant_id = test_plugin.TEST_TENANT_ID
-        self._init_config('topsecret')
-
-        # since PK in DB is not encrypted, we should fail to decrypt it on load
-        self.assertRaises(nsx_exc.ClientCertificateException,
-                          self._init_plugin)
-
-    # TODO(annak): add test that verifies bad crypto data raises exception
-    # when OPENSSL exception wrapper is available from NSXLIB
