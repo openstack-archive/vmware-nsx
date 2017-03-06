@@ -31,6 +31,11 @@ NSX_OPENSTACK_IDENTITY = "com.vmware.nsx.openstack"
 _SECRET = None
 
 
+def reset_secret():
+    global _SECRET
+    _SECRET = None
+
+
 def generate_secret_from_password(password):
     m = hashlib.md5()
     m.update(password.encode('ascii'))
