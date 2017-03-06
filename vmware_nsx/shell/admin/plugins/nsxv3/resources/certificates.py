@@ -22,7 +22,6 @@ from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils
 from vmware_nsx.shell import resources as shell
 from vmware_nsxlib.v3 import client_cert
-from vmware_nsxlib.v3 import exceptions as nsxlib_exc
 from vmware_nsxlib.v3 import trust_management
 
 from neutron.callbacks import registry
@@ -123,18 +122,21 @@ def generate_cert(resource, event, trigger, **kwargs):
 def delete_cert(resource, event, trigger, **kwargs):
     """Delete client certificate and private key """
 
-    if cfg.CONF.nsx_v3.nsx_client_cert_storage.lower() == "none":
-        LOG.info(_LI("Clean operation is not supported "
-                     "with storage type 'none'"))
-        return
-
     with get_certificate_manager(**kwargs) as cert:
-        if cert.exists():
-            cert.delete()
-            LOG.info(_LI("Client certificate deleted succesfully"))
-            return
+        if cfg.CONF.nsx_v3.nsx_client_cert_storage.lower() == "none":
+            filename = get_cert_filename(**kwargs)
+            if not filename:
+                LOG.info(_LI("Please specify file containing the certificate "
+                         "using filename property"))
+                return
+            cert.delete_pem(filename)
+        else:
+            if not cert.exists():
+                LOG.info(_LI("Nothing to clean"))
+                return
 
-    LOG.info(_LI("Nothing to clean"))
+            cert.delete()
+        LOG.info(_LI("Client certificate deleted succesfully"))
 
 
 @admin_utils.output_header
@@ -170,6 +172,18 @@ def show_cert(resource, event, trigger, **kwargs):
                          "in storage"))
 
 
+def get_cert_filename(**kwargs):
+    filename = cfg.CONF.nsx_v3.nsx_client_cert_file
+    if kwargs.get('property'):
+        properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
+        filename = properties.get('filename', filename)
+
+    if not filename:
+        LOG.info(_LI("Please specify file containing the certificate "
+                     "using filename property"))
+    return filename
+
+
 @admin_utils.output_header
 def import_cert(resource, event, trigger, **kwargs):
     """Import client certificate that was generated externally"""
@@ -179,21 +193,14 @@ def import_cert(resource, event, trigger, **kwargs):
                      "with storage type 'none' only"))
         return
 
-    filename = None
-    if kwargs.get('property'):
-        properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
-        filename = properties.get('filename')
-
-    if not filename:
-        LOG.info(_LI("Please specify file containing the certificate "
-                     "using filename property"))
-        return
-
     with get_certificate_manager(**kwargs) as cert:
         if cert.exists():
             LOG.info(_LI("Deleting existing certificate"))
             cert.delete()
 
+        filename = get_cert_filename(**kwargs)
+        if not filename:
+            return
         cert.import_pem(filename)
 
     LOG.info(_LI("Client certificate imported succesfully"))
@@ -202,26 +209,26 @@ def import_cert(resource, event, trigger, **kwargs):
 @admin_utils.output_header
 def show_nsx_certs(resource, event, trigger, **kwargs):
     """Show client certificates associated with openstack identity in NSX"""
-    # TODO(annak): show multiple certs when backend supports it
+    nsx_trust = get_nsx_trust_management(**kwargs)
 
-    try:
-        nsx_trust = get_nsx_trust_management(**kwargs)
+    ids = nsx_trust.get_identities(cert_utils.NSX_OPENSTACK_IDENTITY)
+    if not ids:
+        LOG.info(_LI("Principal identity %s not found"),
+                 cert_utils.NSX_OPENSTACK_IDENTITY)
+        return
 
-        details = nsx_trust.get_identity_details(
-                cert_utils.NSX_OPENSTACK_IDENTITY)
+    LOG.info(_LI("Certificate(s) associated with principal identity %s\n"),
+             cert_utils.NSX_OPENSTACK_IDENTITY)
 
-        if 'certificate_id' in details:
-            cert = nsx_trust.get_cert(details['certificate_id'])
-
-            LOG.info(_LI("The following certificate is associated with "
-                         "principal identity %s\n"),
-                     cert_utils.NSX_OPENSTACK_IDENTITY)
+    cert = None
+    for identity in ids:
+        if 'certificate_id' in identity:
+            cert = nsx_trust.get_cert(identity['certificate_id'])
 
             LOG.info(cert['pem_encoded'])
 
-    except nsxlib_exc.ResourceNotFound:
-        LOG.info(_LI("No certificates associated with principal identity %s"),
-                 cert_utils.NSX_OPENSTACK_IDENTITY)
+    if not cert:
+        LOG.info(_LI("No certificates found"))
 
 
 registry.subscribe(generate_cert,
