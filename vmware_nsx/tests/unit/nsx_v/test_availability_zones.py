@@ -93,7 +93,7 @@ class NsxvAvailabilityZonesTestCase(base.BaseTestCase):
 
     def test_simple_availability_zone(self):
         self._config_az()
-        az = nsx_az.ConfiguredAvailabilityZone(self.az_name)
+        az = nsx_az.NsxVAvailabilityZone(self.az_name)
         self.assertEqual(self.az_name, az.name)
         self.assertEqual("respool", az.resource_pool)
         self.assertEqual("datastore", az.datastore_id)
@@ -112,7 +112,7 @@ class NsxvAvailabilityZonesTestCase(base.BaseTestCase):
 
     def test_availability_zone_no_edge_ha(self):
         self._config_az(edge_ha=False)
-        az = nsx_az.ConfiguredAvailabilityZone(self.az_name)
+        az = nsx_az.NsxVAvailabilityZone(self.az_name)
         self.assertEqual(self.az_name, az.name)
         self.assertEqual("respool", az.resource_pool)
         self.assertEqual("datastore", az.datastore_id)
@@ -122,7 +122,7 @@ class NsxvAvailabilityZonesTestCase(base.BaseTestCase):
 
     def test_availability_zone_no_ha_datastore(self):
         self._config_az(ha_datastore_id=None)
-        az = nsx_az.ConfiguredAvailabilityZone(self.az_name)
+        az = nsx_az.NsxVAvailabilityZone(self.az_name)
         self.assertEqual(self.az_name, az.name)
         self.assertEqual("respool", az.resource_pool)
         self.assertEqual("datastore", az.datastore_id)
@@ -133,26 +133,26 @@ class NsxvAvailabilityZonesTestCase(base.BaseTestCase):
     def test_missing_group_section(self):
         self.assertRaises(
             nsx_exc.NsxInvalidConfiguration,
-            nsx_az.ConfiguredAvailabilityZone,
+            nsx_az.NsxVAvailabilityZone,
             "doesnt_exist")
 
     def test_availability_zone_missing_respool(self):
         self._config_az(resource_pool_id=None)
         self.assertRaises(
             nsx_exc.NsxInvalidConfiguration,
-            nsx_az.ConfiguredAvailabilityZone,
+            nsx_az.NsxVAvailabilityZone,
             self.az_name)
 
     def test_availability_zone_missing_datastore(self):
         self._config_az(datastore_id=None)
         self.assertRaises(
             nsx_exc.NsxInvalidConfiguration,
-            nsx_az.ConfiguredAvailabilityZone,
+            nsx_az.NsxVAvailabilityZone,
             self.az_name)
 
     def test_availability_zone_missing_edge_ha(self):
         self._config_az(edge_ha=None)
-        az = nsx_az.ConfiguredAvailabilityZone(self.az_name)
+        az = nsx_az.NsxVAvailabilityZone(self.az_name)
         self.assertEqual(self.az_name, az.name)
         self.assertEqual("respool", az.resource_pool)
         self.assertEqual("datastore", az.datastore_id)
@@ -162,7 +162,7 @@ class NsxvAvailabilityZonesTestCase(base.BaseTestCase):
 
     def test_availability_zone_missing_edge_placement(self):
         self._config_az(ha_placement_random=None)
-        az = nsx_az.ConfiguredAvailabilityZone(self.az_name)
+        az = nsx_az.NsxVAvailabilityZone(self.az_name)
         self.assertEqual(self.az_name, az.name)
         self.assertEqual("respool", az.resource_pool)
         self.assertEqual("datastore", az.datastore_id)
@@ -173,14 +173,14 @@ class NsxvAvailabilityZonesTestCase(base.BaseTestCase):
 
     def test_availability_zone_missing_backup_pool(self):
         self._config_az(backup_edge_pool=None)
-        az = nsx_az.ConfiguredAvailabilityZone(self.az_name)
+        az = nsx_az.NsxVAvailabilityZone(self.az_name)
         self.assertEqual(self.az_name, az.name)
         # Should use the global configuration instead
         self.assertEqual(DEF_GLOBAL_POOL, az.backup_edge_pool)
 
     def test_availability_zone_missing_metadata(self):
         self._config_az(mgt_net_proxy_ips=None)
-        az = nsx_az.ConfiguredAvailabilityZone(self.az_name)
+        az = nsx_az.NsxVAvailabilityZone(self.az_name)
         self.assertIsNone(az.mgt_net_moid)
         self.assertEqual([], az.mgt_net_proxy_ips)
         self.assertIsNone(az.mgt_net_proxy_netmask)
@@ -191,13 +191,13 @@ class NsxvAvailabilityZonesTestCase(base.BaseTestCase):
         self._config_az(mgt_net_proxy_ips=["2.2.2.2"])
         self.assertRaises(
             nsx_exc.NsxInvalidConfiguration,
-            nsx_az.ConfiguredAvailabilityZone,
+            nsx_az.NsxVAvailabilityZone,
             self.az_name)
 
         self._config_az(mgt_net_proxy_ips=["2.2.2.2", "3.3.3.3"])
         self.assertRaises(
             nsx_exc.NsxInvalidConfiguration,
-            nsx_az.ConfiguredAvailabilityZone,
+            nsx_az.NsxVAvailabilityZone,
             self.az_name)
 
 
@@ -213,7 +213,7 @@ class NsxvAvailabilityZonesOldTestCase(base.BaseTestCase):
         cfg.CONF.set_override("dvs_id", "dvs-1", group="nsxv")
 
     def test_simple_availability_zone(self):
-        az = nsx_az.ConfiguredAvailabilityZone(
+        az = nsx_az.NsxVAvailabilityZone(
             "name:respool:datastore:true:hastore")
         self.assertEqual("name", az.name)
         self.assertEqual("respool", az.resource_pool)
@@ -234,7 +234,7 @@ class NsxvAvailabilityZonesOldTestCase(base.BaseTestCase):
         self.assertIsNone(az.mgt_net_default_gateway)
 
     def test_availability_zone_without_ha_datastore(self):
-        az = nsx_az.ConfiguredAvailabilityZone(
+        az = nsx_az.NsxVAvailabilityZone(
             "name:respool:datastore:true")
         self.assertEqual("name", az.name)
         self.assertEqual("respool", az.resource_pool)
@@ -243,7 +243,7 @@ class NsxvAvailabilityZonesOldTestCase(base.BaseTestCase):
         self.assertIsNone(az.ha_datastore_id)
 
     def test_availability_zone_without_edge_ha(self):
-        az = nsx_az.ConfiguredAvailabilityZone(
+        az = nsx_az.NsxVAvailabilityZone(
             "name:respool:datastore:FALSE")
         self.assertEqual("name", az.name)
         self.assertEqual("respool", az.resource_pool)
@@ -254,29 +254,29 @@ class NsxvAvailabilityZonesOldTestCase(base.BaseTestCase):
     def test_availability_fail_long_name(self):
         self.assertRaises(
             nsx_exc.NsxInvalidConfiguration,
-            nsx_az.ConfiguredAvailabilityZone,
+            nsx_az.NsxVAvailabilityZone,
             "very-very-very-very-very-longest-name:respool:da:true:ha")
 
     def test_availability_fail_few_args(self):
         self.assertRaises(
             nsx_exc.NsxInvalidConfiguration,
-            nsx_az.ConfiguredAvailabilityZone,
+            nsx_az.NsxVAvailabilityZone,
             "name:respool")
 
     def test_availability_fail_many_args(self):
         self.assertRaises(
             nsx_exc.NsxInvalidConfiguration,
-            nsx_az.ConfiguredAvailabilityZone,
+            nsx_az.NsxVAvailabilityZone,
             "name:1:2:3:4:5:6")
 
     def test_availability_fail_bad_edge_ha(self):
         self.assertRaises(
             nsx_exc.NsxInvalidConfiguration,
-            nsx_az.ConfiguredAvailabilityZone,
+            nsx_az.NsxVAvailabilityZone,
             "name:respool:datastore:truex:hastore")
 
     def test_availability_fail_no_ha_datastore(self):
         self.assertRaises(
             nsx_exc.NsxInvalidConfiguration,
-            nsx_az.ConfiguredAvailabilityZone,
+            nsx_az.NsxVAvailabilityZone,
             "name:respool:datastore:false:hastore")

@@ -58,7 +58,7 @@ class EdgeUtilsTestCaseMixin(testlib_api.SqlTestCase):
         get_ver.return_value = '6.1.4'
         self.ctx = context.get_admin_context()
         self.addCleanup(nsxv_manager_p.stop)
-        self.az = (nsx_az.ConfiguredAvailabilityZones().
+        self.az = (nsx_az.NsxVAvailabilityZones().
                    get_default_availability_zone())
 
     def _create_router(self, name='router1'):
@@ -86,8 +86,8 @@ class EdgeUtilsTestCaseMixin(testlib_api.SqlTestCase):
 
 
 class DummyPlugin(object):
-    def get_network_az(self, context, network_id):
-        return (nsx_az.ConfiguredAvailabilityZones().
+    def get_network_az_by_net_id(self, context, network_id):
+        return (nsx_az.NsxVAvailabilityZones().
                 get_default_availability_zone())
 
 
@@ -352,14 +352,14 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         cfg.CONF.set_override('backup_edge_pool',
                               ['service:large:1:3', 'service:compact:1:3'],
                               'nsxv')
-        az = nsx_az.ConfiguredAvailabilityZone(None)
+        az = nsx_az.NsxVAvailabilityZone(None)
         edge_pool_dicts = edge_utils.parse_backup_edge_pool_opt_per_az(az)
         self.assertEqual(self.default_edge_pool_dicts['default'],
                          edge_pool_dicts)
 
     def test_backup_edge_pool_with_empty_conf(self):
         cfg.CONF.set_override('backup_edge_pool', [], 'nsxv')
-        az = nsx_az.ConfiguredAvailabilityZone(None)
+        az = nsx_az.NsxVAvailabilityZone(None)
         edge_pool_dicts = edge_utils.parse_backup_edge_pool_opt_per_az(az)
         expect_edge_pool_dicts = {
             nsxv_constants.SERVICE_EDGE: {},
@@ -368,7 +368,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
 
     def test_backup_edge_pool_with_vdr_conf(self):
         cfg.CONF.set_override('backup_edge_pool', ['vdr:large:1:3'], 'nsxv')
-        az = nsx_az.ConfiguredAvailabilityZone(None)
+        az = nsx_az.NsxVAvailabilityZone(None)
         edge_pool_dicts = edge_utils.parse_backup_edge_pool_opt_per_az(az)
         expect_edge_pool_dicts = self.vdr_edge_pool_dicts['default']
         self.assertEqual(expect_edge_pool_dicts, edge_pool_dicts)
@@ -377,7 +377,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         cfg.CONF.set_override('backup_edge_pool',
                               ['service:compact:1:3', 'service::3:4'],
                               'nsxv')
-        az = nsx_az.ConfiguredAvailabilityZone(None)
+        az = nsx_az.NsxVAvailabilityZone(None)
         self.assertRaises(n_exc.Invalid,
                           edge_utils.parse_backup_edge_pool_opt_per_az, az)
 

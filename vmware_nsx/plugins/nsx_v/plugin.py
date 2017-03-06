@@ -86,6 +86,7 @@ from vmware_nsx.services.qos.nsx_v import utils as qos_utils
 
 import vmware_nsx
 from vmware_nsx._i18n import _, _LE, _LI, _LW
+from vmware_nsx.common import availability_zones as nsx_com_az
 from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import l3_rpc_agent_api
@@ -148,7 +149,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                    extended_secgroup.ExtendedSecurityGroupPropertiesMixin,
                    vnic_index_db.VnicIndexDbMixin,
                    dns_db.DNSDbMixin, nsxpolicy.NsxPolicyPluginBase,
-                   vlantransparent_db.Vlantransparent_db_mixin):
+                   vlantransparent_db.Vlantransparent_db_mixin,
+                   nsx_com_az.NSXAvailabilityZonesPluginCommon):
 
     supported_extension_aliases = ["agent",
                                    "allowed-address-pairs",
@@ -226,14 +228,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self.edge_manager = edge_utils.EdgeManager(self.nsx_v, self)
         self.nsx_sg_utils = securitygroup_utils.NsxSecurityGroupUtils(
             self.nsx_v)
-        self._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
-        # Validate the host_groups for each AZ
-        if cfg.CONF.nsxv.use_dvs_features:
-            azs = self._availability_zones_data.availability_zones.values()
-            for az in azs:
-                if az.edge_host_groups and az.edge_ha:
-                    self._vcm.validate_host_groups(az.resource_pool,
-                                                   az.edge_host_groups)
+        self.init_availability_zones()
         self._validate_config()
 
         self._use_nsx_policies = False
@@ -305,13 +300,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if has_metadata_cfg:
             # Init md_proxy handler per availability zone
             self.metadata_proxy_handler = {}
-            az_list = self._availability_zones_data.list_availability_zones()
-            for name in az_list:
-                az = self._availability_zones_data.get_availability_zone(name)
+            for az in self.get_azs_list():
                 # create metadata handler only if the az supports it.
                 # if not, the global one will be used
                 if az.supports_metadata():
-                    self.metadata_proxy_handler[name] = (
+                    self.metadata_proxy_handler[az.name] = (
                         nsx_v_md_proxy.NsxVMetadataProxyHandler(self, az))
 
         self.init_is_complete = True
@@ -969,11 +962,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # The vnic-id format which is expected by NSXv
         return '%s.%03d' % (device_id, port_index)
 
+    def init_availability_zones(self):
+        self._availability_zones_data = nsx_az.NsxVAvailabilityZones()
+
     def _list_availability_zones(self, context, filters=None):
         #TODO(asarfaty): We may need to use the filters arg, but now it
         # is here only for overriding the original api
         result = {}
-        for az in self._availability_zones_data.list_availability_zones():
+        for az in self.get_azs_names():
             # Add this availability zone as a router & network resource
             for resource in ('router', 'network'):
                 result[(az, resource)] = True
@@ -990,39 +986,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         """Verify that the availability zones exist, and only 1 hint
         was set.
         """
-        # For now we support only 1 hint per network/router
-        # TODO(asarfaty): support multiple hints
-        if len(availability_zones) > 1:
-            err_msg = _("Can't use multiple availability zone hints")
-            raise n_exc.InvalidInput(error_message=err_msg)
+        return self.validate_obj_azs(availability_zones)
 
-        # check that all hints appear in the predefined list of availability
-        # zones
-        diff = (set(availability_zones) -
-                set(self._availability_zones_data.list_availability_zones()))
-        if diff:
-            raise az_ext.AvailabilityZoneNotFound(
-                availability_zone=diff.pop())
-
-    def get_network_or_router_az(self, object):
-        if az_ext.AZ_HINTS in object:
-            for hint in object[az_ext.AZ_HINTS]:
-                # For now we use only the first hint
-                return self.get_az_by_hint(hint)
-
-        # return the default
-        return self.get_default_az()
-
-    def get_network_az(self, context, network_id):
+    def get_network_az_by_net_id(self, context, network_id):
         try:
             network = self.get_network(context, network_id)
         except Exception:
             return self.get_default_az()
 
-        return self.get_network_or_router_az(network)
-
-    def get_router_az(self, router):
-        return self.get_network_or_router_az(router)
+        return self.get_network_az(network)
 
     def _prepare_spoofguard_policy(self, network_type, net_data, net_morefs):
         # The method will determine if a portgroup is already assigned to a
@@ -1276,7 +1248,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             context=context, qos_policy_id=qos_policy_id)
 
         # default dvs for this network
-        az = self.get_network_az(context, net_id)
+        az = self.get_network_az_by_net_id(context, net_id)
         az_dvs_id = az.dvs_id
 
         # get the network moref/s from the db
@@ -4099,6 +4071,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if version.LooseVersion(ver) < version.LooseVersion('6.2.0'):
             LOG.warning(_LW("Skipping validations. Not supported by version."))
             return
+
+        # Validate the host_groups for each AZ
+        if cfg.CONF.nsxv.use_dvs_features:
+            azs = self.get_azs_list()
+            for az in azs:
+                if az.edge_host_groups and az.edge_ha:
+                    self._dvs.validate_host_groups(az.resource_pool,
+                                                   az.edge_host_groups)
+
         # Validations below only supported by 6.2.0 and above
         inventory = [(cfg.CONF.nsxv.resource_pool_id,
                       'resource_pool_id'),
@@ -4135,15 +4116,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     def _handle_qos_notification(self, context, resource_type,
                                  qos_policys, event_type):
         qos_utils.handle_qos_notification(qos_policys, event_type, self)
-
-    def get_az_by_hint(self, hint):
-        az = self._availability_zones_data.get_availability_zone(hint)
-        if not az:
-            raise az_ext.AvailabilityZoneNotFound(availability_zone=hint)
-        return az
-
-    def get_default_az(self):
-        return self._availability_zones_data.get_default_availability_zone()
 
     def _nsx_policy_is_hidden(self, policy):
         for attrib in policy.get('extendedAttributes', []):

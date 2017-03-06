@@ -90,7 +90,7 @@ def delete_lb_interface(context, plugin, lb_id, subnet_id):
 def get_lbaas_edge_id(context, plugin, lb_id, vip_addr, subnet_id, tenant_id):
     subnet = plugin.get_subnet(context, subnet_id)
     network_id = subnet.get('network_id')
-    availability_zone = plugin.get_network_az(context, network_id)
+    availability_zone = plugin.get_network_az_by_net_id(context, network_id)
 
     resource_id = get_lb_resource_id(lb_id)
 

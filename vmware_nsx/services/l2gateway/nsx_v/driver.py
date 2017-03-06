@@ -108,7 +108,7 @@ class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
         lrouter = {'name': nsxv_constants.L2_GATEWAY_EDGE,
                    'id': uuidutils.generate_uuid()}
         # Create the router on the default availability zone
-        availability_zone = (nsx_az.ConfiguredAvailabilityZones().
+        availability_zone = (nsx_az.NsxVAvailabilityZones().
             get_default_availability_zone())
         self._edge_manager.create_lrouter(context,
                                           lrouter, lswitch=None, dist=True,

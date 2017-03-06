@@ -714,7 +714,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
         az_name = 'az7'
         set_az_in_config(az_name)
         p = directory.get_plugin()
-        p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
+        p._availability_zones_data = nsx_az.NsxVAvailabilityZones()
         ctx = context.get_admin_context()
 
         data = {'network': {
@@ -3305,7 +3305,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
         az_name = 'az7'
         set_az_in_config(az_name)
         p = directory.get_plugin()
-        p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
+        p._availability_zones_data = nsx_az.NsxVAvailabilityZones()
         p._get_edge_id_by_rtr_id = p.real_get_edge
 
         router = {'router': {'admin_state_up': True,
@@ -3727,7 +3727,7 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
         az_name = 'az7'
         set_az_in_config(az_name)
         p = directory.get_plugin()
-        p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
+        p._availability_zones_data = nsx_az.NsxVAvailabilityZones()
 
         # create a router with/without hints
         router = {'router': {'admin_state_up': True,
@@ -4983,7 +4983,7 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
         az_name = 'az7'
         set_az_in_config(az_name)
         p = directory.get_plugin()
-        p._availability_zones_data = nsx_az.ConfiguredAvailabilityZones()
+        p._availability_zones_data = nsx_az.NsxVAvailabilityZones()
 
         # create a router with/without hints
         router = {'router': {'admin_state_up': True,
@@ -5056,7 +5056,7 @@ class TestRouterFlavorTestCase(extension.ExtensionTestCase,
         self.az_name = 'az7'
         set_az_in_config(self.az_name)
         self.plugin._availability_zones_data = (
-            nsx_az.ConfiguredAvailabilityZones())
+            nsx_az.NsxVAvailabilityZones())
         self._iteration = 1
 
     def assertSyslogConfig(self, expected):

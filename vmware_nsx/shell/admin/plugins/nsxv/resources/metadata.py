@@ -46,10 +46,9 @@ def nsx_redo_metadata_cfg(resource, event, trigger, **kwargs):
     edgeapi = utils.NeutronDbClient()
 
     config.register_nsxv_azs(cfg.CONF, cfg.CONF.nsxv.availability_zones)
-    conf_az = nsx_az.ConfiguredAvailabilityZones()
-    az_list = conf_az.list_availability_zones()
-    for name in az_list:
-        az = conf_az.get_availability_zone(name)
+    conf_az = nsx_az.NsxVAvailabilityZones()
+    az_list = conf_az.list_availability_zones_objects()
+    for az in az_list:
         if az.supports_metadata():
             nsx_redo_metadata_cfg_for_az(az, edgeapi)
         else:

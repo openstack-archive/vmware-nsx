@@ -186,7 +186,7 @@ class EdgeManager(object):
         self._worker_pool_pid = None
         self._worker_pool = None
         self.nsxv_manager = nsxv_manager
-        self._availability_zones = nsx_az.ConfiguredAvailabilityZones()
+        self._availability_zones = nsx_az.NsxVAvailabilityZones()
         self.edge_pool_dicts = self._parse_backup_edge_pool_opt()
         self.nsxv_plugin = nsxv_manager.callbacks.plugin
         self.plugin = plugin
@@ -196,10 +196,9 @@ class EdgeManager(object):
 
     def _parse_backup_edge_pool_opt(self):
         """Parse edge pool opts for all availability zones."""
-        az_list = self._availability_zones.list_availability_zones()
+        az_list = self._availability_zones.list_availability_zones_objects()
         az_pools = {}
-        for az_name in az_list:
-            az = self._availability_zones.get_availability_zone(az_name)
+        for az in az_list:
             az_pools[az.name] = parse_backup_edge_pool_opt_per_az(az)
         return az_pools
 
@@ -358,8 +357,7 @@ class EdgeManager(object):
 
     def _check_backup_edge_pools(self):
         admin_ctx = q_context.get_admin_context()
-        for az_name in self._availability_zones.list_availability_zones():
-            az = self._availability_zones.get_availability_zone(az_name)
+        for az in self._availability_zones.list_availability_zones_objects():
             self._clean_all_error_edge_bindings(admin_ctx, az)
             for edge_type, v in self._get_az_pool(az.name).items():
                 for edge_size in vcns_const.ALLOWED_EDGE_SIZES:
@@ -478,7 +476,7 @@ class EdgeManager(object):
     def _create_sub_interface(self, context, network_id, network_name,
                               tunnel_index, address_groups,
                               port_group_id=None):
-        az = self.plugin.get_network_az(context, network_id)
+        az = self.plugin.get_network_az_by_net_id(context, network_id)
         vcns_network_id = _retrieve_nsx_switch_id(context, network_id,
                                                   az.name)
         if port_group_id is None:
@@ -531,7 +529,8 @@ class EdgeManager(object):
                 header, _ = self.nsxv_manager.vcns.delete_interface(edge_id,
                                                                     vnic_index)
                 if port_group_id:
-                    az = self.plugin.get_network_az(context, network_id)
+                    az = self.plugin.get_network_az_by_net_id(
+                        context, network_id)
                     dvs_id, net_type = self._get_physical_provider_network(
                         context, network_id, az.dvs_id)
                     self.nsxv_manager.delete_port_group(dvs_id,
@@ -1261,7 +1260,8 @@ class EdgeManager(object):
 
         If new edge was allocated, return resource_id, else return None
         """
-        availability_zone = self.plugin.get_network_az(context, network_id)
+        availability_zone = self.plugin.get_network_az_by_net_id(
+            context, network_id)
         # Check if the network has one related dhcp edge
         resource_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
         dhcp_edge_binding = nsxv_db.get_nsxv_router_binding(context.session,
@@ -1428,7 +1428,8 @@ class EdgeManager(object):
         # Find DHCP Edge which is associated with this VDR
         vdr_dhcp_binding = nsxv_db.get_vdr_dhcp_binding_by_vdr(
             context.session, vdr_router_id)
-        availability_zone = self.plugin.get_network_az(context, network_id)
+        availability_zone = self.plugin.get_network_az_by_net_id(
+            context, network_id)
         if vdr_dhcp_binding:
             with locking.LockManager.get_lock('nsx-edge-pool'):
                 dhcp_edge_id = vdr_dhcp_binding['dhcp_edge_id']
@@ -2150,7 +2151,7 @@ def _retrieve_nsx_switch_id(context, network_id, az_name):
                 # If network is of type VLAN and multiple dvs associated with
                 # one neutron network, retrieve the logical network id for the
                 # edge/mgmt cluster's DVS from the networks availability zone.
-                azs = nsx_az.ConfiguredAvailabilityZones()
+                azs = nsx_az.NsxVAvailabilityZones()
                 az = azs.get_availability_zone(az_name)
                 dvs_id = az.dvs_id
             return nsx_db.get_nsx_switch_id_for_dvs(

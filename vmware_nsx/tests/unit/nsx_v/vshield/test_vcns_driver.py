@@ -332,7 +332,7 @@ class VcnsDriverTestCase(base.BaseTestCase):
 
         self.vcns_driver = vcns_driver.VcnsDriver(self)
 
-        self.az = (nsx_az.ConfiguredAvailabilityZones().
+        self.az = (nsx_az.NsxVAvailabilityZones().
                    get_default_availability_zone())
         self.edge_id = None
         self.result = None

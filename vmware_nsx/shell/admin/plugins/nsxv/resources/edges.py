@@ -311,7 +311,7 @@ def change_edge_appliance(edge_id):
     """
     # find out what is the current resource pool & size, so we can keep them
     az_name, size = _get_edge_az_and_size(edge_id)
-    az = nsx_az.ConfiguredAvailabilityZones().get_availability_zone(az_name)
+    az = nsx_az.NsxVAvailabilityZones().get_availability_zone(az_name)
     appliances = [{'resourcePoolId': az.resource_pool,
                    'datastoreId': az.datastore_id}]
 
@@ -372,7 +372,7 @@ def _update_host_group_for_edge(nsxv, dvs_mng, edge_id, edge):
     if edge.get('type') == 'gatewayServices':
         try:
             az_name, size = _get_edge_az_and_size(edge_id)
-            zones = nsx_az.ConfiguredAvailabilityZones()
+            zones = nsx_az.NsxVAvailabilityZones()
             az = zones.get_availability_zone(az_name)
             edge_utils.update_edge_host_groups(nsxv, edge_id,
                                                dvs_mng, az,
@@ -406,8 +406,8 @@ def change_edge_hostgroup(properties):
             _update_host_group_for_edge(nsxv, dvs_mng,
                                         edge_id, edge)
     elif properties.get('hostgroup').lower() == "clean":
-        azs = nsx_az.ConfiguredAvailabilityZones()
-        for az in azs.availability_zones.values():
+        azs = nsx_az.NsxVAvailabilityZones()
+        for az in azs.list_availability_zones_objects():
             try:
                 edge_utils.clean_host_groups(dvs_mng, az)
             except Exception:
