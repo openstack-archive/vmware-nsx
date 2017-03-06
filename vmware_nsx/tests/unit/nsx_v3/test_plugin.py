@@ -81,6 +81,9 @@ def _mock_nsx_backend_calls():
     def _return_id(*args, **kwargs):
         return uuidutils.generate_uuid()
 
+    def _return_same(key, *args, **kwargs):
+        return key
+
     mock.patch(
         "vmware_nsxlib.v3.resources.SwitchingProfile.find_by_display_name",
         return_value=[fake_profile]
@@ -120,7 +123,7 @@ def _mock_nsx_backend_calls():
 
     mock.patch(
         "vmware_nsxlib.v3.NsxLibMetadataProxy.get_id_by_name_or_id",
-        return_value=NSX_METADATA_PROXY_ID).start()
+        side_effect=_return_same).start()
 
     mock.patch(
         "vmware_nsxlib.v3.resources.LogicalPort.create",

@@ -153,11 +153,7 @@ class NSXAvailabilityZonesPluginCommon(object):
 
     def get_obj_az_by_hints(self, obj):
         if az_ext.AZ_HINTS in obj:
-            hints = obj[az_ext.AZ_HINTS]
-            # if this is a string and not a list - need to convert it
-            if not isinstance(hints, list):
-                hints = az_ext.convert_az_string_to_list(hints)
-            for hint in hints:
+            for hint in obj[az_ext.AZ_HINTS]:
                 # For now we use only the first hint
                 return self.get_az_by_hint(hint)
 
