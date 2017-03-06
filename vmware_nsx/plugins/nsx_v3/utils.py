@@ -12,19 +12,20 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import os
+
 from oslo_config import cfg
 from oslo_log import log as logging
 
 from neutron import version as n_version
 from neutron_lib import context as q_context
 
+from vmware_nsx._i18n import _LE, _LW
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.plugins.nsx_v3 import cert_utils
 from vmware_nsxlib import v3
 from vmware_nsxlib.v3 import client_cert
 from vmware_nsxlib.v3 import config
-
-import os
 
 NSX_NEUTRON_PLUGIN = 'NSX Neutron plugin'
 OS_NEUTRON_ID_SCOPE = 'os-neutron-id'
@@ -38,37 +39,65 @@ class DbCertProvider(client_cert.ClientCertProvider):
        Since several connections may use same filename simultaneously,
        this class maintains refcount to write/delete the file only once
     """
+    EXPIRATION_ALERT_DAYS = 30          # days prior to expiration
+
     def __init__(self, filename):
         super(DbCertProvider, self).__init__(filename)
         self.refcount = 0
+
+    def _check_expiration(self, expires_in_days):
+        if expires_in_days > self.EXPIRATION_ALERT_DAYS:
+            return
+
+        if expires_in_days < 0:
+            LOG.error(_LE("Client certificate has expired %d days ago."),
+                      expires_in_days * -1)
+        else:
+            LOG.warning(_LW("Client certificate expires in %d days. "
+                            "Once expired, service will become unavailable."),
+                        expires_in_days)
 
     def __enter__(self):
         self.refcount += 1
 
         if self.refcount > 1:
-            return
+            # The file was prepared for another connection
+            # and was not removed yet
+            return self
 
-        context = q_context.get_admin_context()
-        db_storage_driver = cert_utils.DbCertificateStorageDriver(context)
-        cert_manager = client_cert.ClientCertificateManager(
-            cert_utils.NSX_OPENSTACK_IDENTITY, None, db_storage_driver)
-        if not cert_manager.exists():
-            msg = _("Unable to load from nsx-db")
-            raise nsx_exc.ClientCertificateException(err_msg=msg)
+        try:
+            context = q_context.get_admin_context()
+            db_storage_driver = cert_utils.DbCertificateStorageDriver(context)
+            with client_cert.ClientCertificateManager(
+                cert_utils.NSX_OPENSTACK_IDENTITY,
+                None,
+                db_storage_driver) as cert_manager:
+                if not cert_manager.exists():
+                    msg = _("Unable to load from nsx-db")
+                    raise nsx_exc.ClientCertificateException(err_msg=msg)
 
-        if not os.path.exists(os.path.dirname(self._filename)):
-            if len(os.path.dirname(self._filename)) > 0:
-                os.makedirs(os.path.dirname(self._filename))
+                if not os.path.exists(os.path.dirname(self._filename)):
+                    if len(os.path.dirname(self._filename)) > 0:
+                        os.makedirs(os.path.dirname(self._filename))
+                cert_manager.export_pem(self._filename)
 
-        cert_manager.export_pem(self._filename)
+                expires_in_days = cert_manager.expires_in_days()
+                self._check_expiration(expires_in_days)
+        except Exception as e:
+            self._on_exit()
+            raise e
+
         LOG.debug("Prepared client certificate file")
         return self
 
-    def __exit__(self, type, value, traceback):
+    def _on_exit(self):
         self.refcount -= 1
-        if self.refcount == 0:
+        if self.refcount == 0 and os.path.isfile(self._filename):
             os.remove(self._filename)
             LOG.debug("Deleted client certificate file")
+
+    def __exit__(self, type, value, traceback):
+        self._on_exit()
 
     def filename(self):
         return self._filename
