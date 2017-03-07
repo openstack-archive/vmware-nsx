@@ -27,11 +27,11 @@ from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
 from tempest.lib import exceptions
-from tempest.scenario import manager
 from tempest import test
 
 from vmware_nsx_tempest.tests.nsxv.scenario import (
     network_addon_methods as HELO)
+from vmware_nsx_tempest.tests.scenario import manager
 
 CONF = config.CONF
 LOG = manager.log.getLogger(__name__)

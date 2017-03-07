@@ -19,8 +19,9 @@ from tempest import config
 from tempest import exceptions
 from tempest.lib.common.utils import data_utils
 from tempest.lib import decorators
-from tempest.scenario import manager
 from tempest import test
+
+from vmware_nsx_tempest.tests.scenario import manager
 
 CONF = config.CONF
 LOG = logging.getLogger(__name__)

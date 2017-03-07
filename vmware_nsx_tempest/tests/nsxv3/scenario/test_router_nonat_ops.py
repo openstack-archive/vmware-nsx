@@ -22,10 +22,10 @@ from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
 from tempest.lib import exceptions
-from tempest.scenario import manager
 from tempest import test
 
 from vmware_nsx_tempest.services import nsxv3_client
+from vmware_nsx_tempest.tests.scenario import manager
 
 CONF = config.CONF
 

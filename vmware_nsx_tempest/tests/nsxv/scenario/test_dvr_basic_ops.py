@@ -21,11 +21,11 @@ from oslo_log import log as logging
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib import decorators
-from tempest.scenario import manager
 from tempest import test
 
 from vmware_nsx_tempest.tests.nsxv.scenario import (
     network_addon_methods as HELO)
+from vmware_nsx_tempest.tests.scenario import manager
 
 CONF = config.CONF
 FIP_OPS_TIMEOUT = 10
