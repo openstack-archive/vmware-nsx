@@ -349,6 +349,25 @@ class NSXV3Client(object):
         """
         return self.get_logical_resources("/ns-groups")
 
+    def get_neutron_ns_group_id(self):
+        """
+        Retrieve NSGroup Id
+        """
+        nsx_nsgroup = self.get_ns_groups()
+        for group in nsx_nsgroup:
+            if group['display_name'] == 'neutron_excluded_port_nsgroup':
+                nsgroup_id = group['id']
+                return nsgroup_id
+
+    def get_ns_group_port_members(self, ns_group_id):
+        """
+        Retrieve NSGroup port members
+        """
+        endpoint = "/ns-groups/%s/effective-logical-port-members" % ns_group_id
+        response = self.get(endpoint=endpoint)
+        res_json = response.json()
+        return res_json
+
     def get_ns_group(self, os_name, os_uuid):
         """
         Get the NSGroup based on the name provided.
