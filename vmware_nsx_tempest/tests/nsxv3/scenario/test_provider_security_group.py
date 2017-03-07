@@ -122,6 +122,12 @@ class TestProviderSecurityGroup(manager.NetworkScenarioTest):
                         client.delete_subnet, subnet['id'])
         return subnet
 
+    def _list_ports(self, *args, **kwargs):
+        """List ports using admin creds """
+        ports_list = self.admin_manager.ports_client.list_ports(
+            *args, **kwargs)
+        return ports_list['ports']
+
     def get_port_id(self, network_id, subnet_id, instance):
         _, instance_addr = instance["addresses"].items()[0]
         instance_fixed_ip = instance_addr[0]["addr"]

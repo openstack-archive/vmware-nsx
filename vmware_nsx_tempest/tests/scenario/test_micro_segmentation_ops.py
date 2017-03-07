@@ -199,6 +199,12 @@ class TestMicroSegmentationOps(manager.NetworkScenarioTest):
     def _get_server_key(self, server):
         return self.keypairs[server['key_name']]['private_key']
 
+    def _list_ports(self, *args, **kwargs):
+        """List ports using admin creds """
+        ports_list = self.admin_manager.ports_client.list_ports(
+            *args, **kwargs)
+        return ports_list['ports']
+
     def _check_network_internal_connectivity(self, network, fip_tuple,
                                              should_connect=True):
         floating_ip, server = fip_tuple
