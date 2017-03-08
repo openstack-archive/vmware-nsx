@@ -76,8 +76,7 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
         self.servers = []
 
     def _setup_network_topo(self, enable_snat=None):
-        self.security_group = self._create_security_group(
-            tenant_id=self.tenant_id)
+        self.security_group = self._create_security_group()
         self.network = self._create_network()
         self.subnet = self._create_subnet(self.network)
         self.router = self._create_router(
@@ -153,6 +152,12 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
         for address in addresses:
             if address['version'] == CONF.validation.ip_version_for_ssh:
                 return address['addr']
+
+    def _list_ports(self, *args, **kwargs):
+        """List ports using admin creds """
+        ports_list = self.admin_manager.ports_client.list_ports(
+            *args, **kwargs)
+        return ports_list['ports']
 
     def _check_network_internal_connectivity(self, network,
                                              should_connect=True):
