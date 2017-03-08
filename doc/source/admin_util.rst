@@ -212,6 +212,13 @@ Metadata
 
     nsxadmin -r metadata -o status [--property network_id=<net_id>]
 
+Config
+~~~~~~
+
+- Validate the configuration in the nsx.ini and backend connectivity
+
+    nsxadmin -r config -o validate
+
 NSXv3
 -----
 
@@ -331,6 +338,13 @@ Client Certificate
 - List certificates associated with openstack principal identity in NSX::
 
     nsxadmin -r certificate -o nsx-list
+
+Config
+~~~~~~
+
+- Validate the configuration in the nsx.ini and backend connectivity
+
+    nsxadmin -r config -o validate
 
 
 Upgrade Steps (Version 1.0.0 to Version 1.1.0)

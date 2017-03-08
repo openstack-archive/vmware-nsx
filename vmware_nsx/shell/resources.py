@@ -55,6 +55,7 @@ class Operations(enum.Enum):
     GENERATE = 'generate'
     IMPORT = 'import'
     SHOW = 'show'
+    VALIDATE = 'validate'
 
 ops = [op.value for op in Operations]
 
@@ -99,7 +100,9 @@ nsxv3_resources = {
                                      Operations.SHOW.value,
                                      Operations.CLEAN.value,
                                      Operations.IMPORT.value,
-                                     Operations.NSX_LIST.value])
+                                     Operations.NSX_LIST.value]),
+    constants.CONFIG: Resource(constants.CONFIG,
+                               [Operations.VALIDATE.value])
 }
 
 # Add supported NSX-V resources in this dictionary
@@ -153,6 +156,8 @@ nsxv_resources = {
                              Operations.STATUS.value]),
     constants.ROUTERS: Resource(constants.ROUTERS,
                                 [Operations.NSX_RECREATE.value]),
+    constants.CONFIG: Resource(constants.CONFIG,
+                               [Operations.VALIDATE.value])
 }
 
 nsxv3_resources_names = list(nsxv3_resources.keys())

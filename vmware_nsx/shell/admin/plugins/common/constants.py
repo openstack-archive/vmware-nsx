@@ -24,17 +24,18 @@ NSXV_PLUGIN = 'vmware_nsx.plugin.NsxVPlugin'
 NETWORKS = 'networks'
 ROUTERS = 'routers'
 DHCP_BINDING = 'dhcp-binding'
-
-# NSXV3 Resource Constants
 FIREWALL_SECTIONS = 'firewall-sections'
 FIREWALL_NSX_GROUPS = 'nsx-security-groups'
 SECURITY_GROUPS = 'security-groups'
+CONFIG = 'config'
+
+# NSXV3 only Resource Constants
 PORTS = 'ports'
 METADATA_PROXY = 'metadata-proxy'
 ORPHANED_DHCP_SERVERS = 'orphaned-dhcp-servers'
 CERTIFICATE = 'certificate'
 
-# NSXV Resource Constants
+# NSXV only Resource Constants
 EDGES = 'edges'
 SPOOFGUARD_POLICY = 'spoofguard-policy'
 BACKUP_EDGES = 'backup-edges'
