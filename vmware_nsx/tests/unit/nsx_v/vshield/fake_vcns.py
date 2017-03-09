@@ -1305,9 +1305,9 @@ class FakeVcns(object):
                     r = netaddr.IPRange(ip_range['startAddress'],
                                         ip_range['endAddress'])
                     for ip_addr in r:
-                        if ip_addr not in pool['allocated']:
+                        if str(ip_addr) not in pool['allocated']:
                             return self._allocate_ipam_add_ip_and_return(
-                                pool, ip_addr)
+                                pool, str(ip_addr))
                 # if we got here - no ip was found
                 header = {'status': 400}
                 msg = ("Unable to allocate IP from pool %(pool)s. "
@@ -1334,7 +1334,7 @@ class FakeVcns(object):
                 response = self._get_bad_req_response(
                     msg, 120056, 'core-services')
             else:
-                pool.remove(ip_addr)
+                pool['allocated'].remove(ip_addr)
                 response = ''
                 header = {'status': 200}
         else:

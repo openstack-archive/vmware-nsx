@@ -232,6 +232,9 @@ class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
     def test_delete_subnet_ipv6_slaac_port_exists(self):
         self.skipTest('Allocating a specific IP is not supported')
 
+    def test_update_port_with_new_ipv6_slaac_subnet_in_fixed_ips(self):
+        self.skipTest('No DHCP v6 Support yet')
+
 
 class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                   test_bindings.PortBindingsTestCase,

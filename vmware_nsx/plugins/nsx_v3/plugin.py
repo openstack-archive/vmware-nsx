@@ -2005,7 +2005,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         super(NsxV3Plugin, self).delete_port(context, port_id)
 
     def _update_port_preprocess_security(
-            self, context, port, id, updated_port):
+            self, context, port, id, updated_port, validate_port_sec=True):
         delete_addr_pairs = self._check_update_deletes_allowed_address_pairs(
             port)
         has_addr_pairs = self._check_update_has_allowed_address_pairs(port)
@@ -2041,7 +2041,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         # checks if security groups were updated adding/modifying
         # security groups, port security is set and port has ip
-        if not (has_ip and updated_port[psec.PORTSECURITY]):
+        if (validate_port_sec and
+            not (has_ip and updated_port[psec.PORTSECURITY])):
             if has_security_groups:
                 raise psec.PortSecurityAndIPRequiredForSecurityGroups()
             # Update did not have security groups passed in. Check
@@ -2210,6 +2211,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def update_port(self, context, id, port):
         switch_profile_ids = None
 
+        # Need to determine if we skip validations for port security.
+        # This is the edge case when the subnet is deleted.
+        validate_port_sec = True
+        fixed_ips = port['port'].get('fixed_ips', [])
+        for fixed_ip in fixed_ips:
+            if 'delete_subnet' in fixed_ip:
+                validate_port_sec = False
+                break
+
         with context.session.begin(subtransactions=True):
             original_port = super(NsxV3Plugin, self).get_port(context, id)
             nsx_lswitch_id, nsx_lport_id = nsx_db.get_nsx_switch_and_port_id(
@@ -2237,7 +2247,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 context, id, port, updated_port)
 
             updated_port = self._update_port_preprocess_security(
-                context, port, id, updated_port)
+                context, port, id, updated_port, validate_port_sec)
 
             self._update_extra_dhcp_opts_on_port(context, id, port,
                                                  updated_port)
