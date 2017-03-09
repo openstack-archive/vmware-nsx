@@ -21,6 +21,7 @@ cached_extensions = None
 def get_extensions(client_manager):
     """Return a list of all current extensions aliases"""
     # Return previously calculated results
+    global cached_extensions
     if cached_extensions is not None:
         return cached_extensions
     # Get supported extensions from the manager
@@ -31,6 +32,5 @@ def get_extensions(client_manager):
             s, ('Alias',), formatters={})
         extensions.append(prop[0])
     # Save the results in the global cache
-    global cached_extensions
     cached_extensions = extensions
     return extensions
