@@ -2223,8 +2223,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         address_groups = []
         for subnet in subnets:
             address_group = {}
-            net = netaddr.IPNetwork(subnet['cidr'])
-            address_group['subnetPrefixLength'] = str(net.prefixlen)
+            ip_found = False
             for port in ports:
                 fixed_ips = port['fixed_ips']
                 for fip in fixed_ips:
@@ -2232,8 +2231,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     ip_addr = fip['ip_address']
                     if s_id == subnet['id'] and self._is_valid_ip(ip_addr):
                         address_group['primaryAddress'] = ip_addr
+                        ip_found = True
                         break
-            address_groups.append(address_group)
+            if ip_found:
+                net = netaddr.IPNetwork(subnet['cidr'])
+                address_group['subnetPrefixLength'] = str(net.prefixlen)
+                address_groups.append(address_group)
         LOG.debug("Update the DHCP address group to %s", address_groups)
         return address_groups
 
