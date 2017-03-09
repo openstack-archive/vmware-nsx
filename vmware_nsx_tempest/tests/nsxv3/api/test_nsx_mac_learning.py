@@ -14,6 +14,7 @@ from tempest.api.network import base
 from tempest.common import custom_matchers
 from tempest import config
 from tempest.lib.common.utils import data_utils
+from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
 from tempest.lib import exceptions as ex
 from tempest import test
@@ -143,6 +144,8 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
         Test creation of MAC Learning enabled port
          """
         port = self._create_mac_learn_enabled_port(self.network)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self._delete_port, port)
         self._check_mac_learning(port, mac_learn_state=True)
 
     @test.attr(type='nsxv3')
@@ -155,6 +158,10 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
         mac_lrn_port = self._create_mac_learn_enabled_port(self.network)
         vanilla_name = data_utils.rand_name('vanilla_port-')
         vanilla_port = self.create_port(self.network, name=vanilla_name)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self._delete_port, mac_lrn_port)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self._delete_port, vanilla_port)
         self._check_mac_learning(mac_lrn_port, mac_learn_state=True)
         self._check_mac_learning(vanilla_port, mac_learn_state=False)
         body = self.ports_client.list_ports()
@@ -178,6 +185,8 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
         on the MAC enabled port.
         """
         port = self._create_mac_learn_enabled_port(self.network)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self._delete_port, port)
         nsx_port = self.nsx.get_logical_port(port['name'])
         nsxport_mac_learning = self._get_nsx_mac_learning_enabled(port)
         body = self.ports_client.show_port(port['id'])
@@ -204,6 +213,8 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
         name. Check name and MAC learning configuration.
         """
         test_port = self._create_mac_learn_enabled_port(self.network)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self._delete_port, test_port)
         update_port_name = data_utils.rand_name('updated_port-')
         updated_os_port = self.update_port(test_port,
                                            name=update_port_name)
@@ -228,6 +239,8 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
         NSX and OS. Delete port.
         """
         test_port = self._create_mac_learn_enabled_port(self.network)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self._delete_port, test_port)
         nsx_port = self.nsx.get_logical_port(test_port['name'])
         # Check created port name matches name on NSXT and NSXT id exists
         self.assertIsNotNone(nsx_port['id'],
@@ -250,6 +263,8 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
         """
         test_port_name = data_utils.rand_name('port-')
         test_port = self.create_port(self.network, name=test_port_name)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self._delete_port, test_port)
         self._check_mac_learning(test_port, mac_learn_state=False)
         updated_os_port = self._update_port_enable_mac_learning(test_port)
         self._check_mac_learning(updated_os_port, mac_learn_state=True)
@@ -269,6 +284,8 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
         Delete port
         """
         test_port = self._create_mac_learn_enabled_port(self.network)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self._delete_port, test_port)
         self._check_mac_learning(test_port, mac_learn_state=True)
         ml_off_port = self._update_port_disable_mac_learning(test_port)
         self._check_mac_learning(ml_off_port, mac_learn_state=False)
@@ -302,18 +319,18 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
 
     @test.attr(type='nsxv3')
     @test.attr(type='negative')
-    @test.idempotent_id('e3465ea8-50fc-4070-88de-f4bd5df8ab86')
+    @decorators.idempotent_id('e3465ea8-50fc-4070-88de-f4bd5df8ab86')
     def test_create_mac_learning_port_enable_port_security_negative(self):
         """
         Negative test
 
         Create port with MAC Learning enabled
         Update port - enable port security(should fail)
-        Delete port
         """
         test_port = self._create_mac_learn_enabled_port(self.network)
+        self.addCleanup(test_utils.call_and_ignore_notfound_exc,
+                        self._delete_port, test_port)
         port_opts = {}
         port_opts['port_security_enabled'] = True
         self.assertRaises(ex.BadRequest, self.update_port, test_port,
                           **port_opts)
-        self._delete_port(test_port)
