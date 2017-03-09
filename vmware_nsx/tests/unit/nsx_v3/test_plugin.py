@@ -235,9 +235,6 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
 
 class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
 
-    def test_delete_subnet_ipv6_slaac_port_exists(self):
-        self.skipTest('No DHCP v6 Support yet')
-
     def test_create_subnet_with_shared_address_space(self):
         with self.network() as network:
             data = {'subnet': {'network_id': network['network']['id'],
