@@ -173,7 +173,8 @@ class TestDnsSearchDomainBasicOps(dmgr.TopoDeployScenarioManager):
         self.assertEqual(subnet[DNS_SEARCH_DOMAIN],
                          self.dns_search_domain)
         # renew dhcp lease to force dns_search_domain update too
-        sshc.renew_lease(floatingip['fixed_ip_address'])
+        sshc.renew_lease(floatingip['fixed_ip_address'],
+                         dhcp_client=CONF.scenario.dhcp_client)
         sshc.exec_command(ping_cmd)
 
     def _test_host_can_be_resolved(self):
@@ -194,7 +195,8 @@ class TestDnsSearchDomainBasicOps(dmgr.TopoDeployScenarioManager):
         subnet = subnet.get('subnet', subnet)
         self.assertEqual(subnet[DNS_SEARCH_DOMAIN], '')
         # renew dhcp lease to force dns_search_domain update too
-        sshc.renew_lease(floatingip['fixed_ip_address'])
+        sshc.renew_lease(floatingip['fixed_ip_address'],
+                         dhcp_client=CONF.scenario.dhcp_client)
         self.assertRaises(exceptions.SSHExecCommandFailed,
                           sshc.exec_command,
                           ping_cmd)
