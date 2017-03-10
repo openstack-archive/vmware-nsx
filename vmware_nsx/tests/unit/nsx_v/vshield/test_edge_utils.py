@@ -128,12 +128,8 @@ class EdgeDHCPManagerTestCase(EdgeUtilsTestCaseMixin):
             self.edge_manager.create_dhcp_edge_service(self.ctx,
                                                        fake_network['id'],
                                                        fake_subnet)
-        resource_id = (vcns_const.DHCP_EDGE_PREFIX + fake_network['id'])[:36]
-        self.nsxv_manager.update_edge.assert_called_once_with(
-            self.ctx, resource_id, 'edge-1', mock.ANY, None,
-            appliance_size=vcns_const.SERVICE_SIZE_MAPPING['dhcp'],
-            dist=False, set_errors=True,
-            availability_zone=mock.ANY)
+        self.nsxv_manager.rename_edge.assert_called_once_with('edge-1',
+                                                              mock.ANY)
 
     def test_get_random_available_edge(self):
         available_edge_ids = ['edge-1', 'edge-2']
@@ -700,10 +696,8 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
             availability_zone=self.az)
         edge_id = (EDGE_AVAIL + nsxv_constants.LARGE + '-' +
                    nsxv_constants.SERVICE_EDGE + '-edge-' + str(0))
-        self.nsxv_manager.update_edge.assert_has_calls(
-            [mock.call(self.ctx, 'fake_id', edge_id, 'fake_name', None,
-                       set_errors=True, appliance_size=nsxv_constants.LARGE,
-                       dist=False, availability_zone=self.az)])
+        self.nsxv_manager.rename_edge.assert_has_calls(
+            [mock.call(edge_id, 'fake_name')])
 
     def test_allocate_compact_edge_appliance_with_default(self):
         self.edge_manager.edge_pool_dicts = self.default_edge_pool_dicts
@@ -719,10 +713,8 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
             availability_zone=self.az)
         edge_id = (EDGE_AVAIL + nsxv_constants.COMPACT + '-' +
                    nsxv_constants.SERVICE_EDGE + '-edge-' + str(0))
-        self.nsxv_manager.update_edge.assert_has_calls(
-            [mock.call(self.ctx, 'fake_id', edge_id, 'fake_name', None,
-                       set_errors=True, appliance_size=nsxv_constants.COMPACT,
-                       dist=False, availability_zone=self.az)])
+        self.nsxv_manager.rename_edge.assert_has_calls(
+            [mock.call(edge_id, 'fake_name')])
 
     def test_allocate_large_edge_appliance_with_vdr(self):
         self.edge_manager.edge_pool_dicts = self.vdr_edge_pool_dicts
@@ -738,10 +730,8 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
             availability_zone=self.az)
         edge_id = (EDGE_AVAIL + nsxv_constants.LARGE + '-' +
                    nsxv_constants.VDR_EDGE + '-edge-' + str(0))
-        self.nsxv_manager.update_edge.assert_has_calls(
-            [mock.call(self.ctx, 'fake_id', edge_id, 'fake_name', None,
-                       set_errors=True, appliance_size=nsxv_constants.LARGE,
-                       dist=True, availability_zone=self.az)])
+        self.nsxv_manager.rename_edge.assert_has_calls(
+            [mock.call(edge_id, 'fake_name')])
 
     def test_free_edge_appliance_with_empty(self):
         self.edge_manager._clean_all_error_edge_bindings = mock.Mock()

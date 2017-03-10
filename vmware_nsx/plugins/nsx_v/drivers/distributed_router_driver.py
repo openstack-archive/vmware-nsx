@@ -108,8 +108,8 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                                                                 router_id)):
                 self.plugin._update_subnets_and_dnat_firewall(context,
                                                               router_db)
-            md_gw_data = self._get_metadata_gw_data(context, router_id)
-            self._update_routes(context, router_id, nexthop, md_gw_data)
+                md_gw_data = self._get_metadata_gw_data(context, router_id)
+                self._update_routes(context, router_id, nexthop, md_gw_data)
         if 'admin_state_up' in r:
             self.plugin._update_router_admin_state(
                 context, router_id, self.get_type(), r['admin_state_up'])
@@ -176,11 +176,13 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                 context, router))
 
         plr_id = self.edge_manager.get_plr_by_tlr_id(context, router_id)
+        tlr_edge_id = self._get_edge_id(context, router_id)
         if not new_ext_net_id:
             if plr_id:
                 # delete all plr relative conf
-                self.edge_manager.delete_plr_by_tlr_id(
-                    context, plr_id, router_id)
+                with locking.LockManager.get_lock(tlr_edge_id):
+                    self.edge_manager.delete_plr_by_tlr_id(
+                        context, plr_id, router_id)
         else:
             # Connecting plr to the tlr if new_ext_net_id is not None.
             if not plr_id:
@@ -188,18 +190,22 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                 # retrieved by +get_router does not contain this information
                 availability_zone = self.get_router_az_by_id(
                     context, router['id'])
-                plr_id = self.edge_manager.create_plr_with_tlr_id(
-                    context, router_id, router.get('name'), availability_zone)
+                with locking.LockManager.get_lock(tlr_edge_id):
+                    plr_id = self.edge_manager.create_plr_with_tlr_id(
+                        context, router_id, router.get('name'),
+                        availability_zone)
             if new_ext_net_id != org_ext_net_id and orgnexthop:
                 # network changed, so need to remove default gateway
                 # and all static routes before vnic can be configured
-                edge_utils.clear_gateway(self.nsx_v, context, plr_id)
+                with locking.LockManager.get_lock(tlr_edge_id):
+                    edge_utils.clear_gateway(self.nsx_v, context, plr_id)
 
             # Update external vnic if addr or mask is changed
             if orgaddr != newaddr or orgmask != newmask:
-                self.edge_manager.update_external_interface(
-                    self.nsx_v, context, plr_id,
-                    new_ext_net_id, newaddr, newmask)
+                with locking.LockManager.get_lock(tlr_edge_id):
+                    self.edge_manager.update_external_interface(
+                        self.nsx_v, context, plr_id,
+                        new_ext_net_id, newaddr, newmask)
 
             # Update SNAT rules if ext net changed
             # or ext net not changed but snat is changed.
@@ -216,8 +222,9 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                     context, router, router_id=plr_id)
 
         # update static routes in all
-        md_gw_data = self._get_metadata_gw_data(context, router_id)
-        self._update_routes(context, router_id, newnexthop, md_gw_data)
+        with locking.LockManager.get_lock(tlr_edge_id):
+            md_gw_data = self._get_metadata_gw_data(context, router_id)
+            self._update_routes(context, router_id, newnexthop, md_gw_data)
 
     def _validate_multiple_subnets_routers(self, context, router_id,
                                            interface_info):
@@ -473,25 +480,26 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                       router_id)
 
         # Reattach to regular DHCP Edge
-        dhcp_id = self.edge_manager.create_dhcp_edge_service(
-            context, network_id, subnet)
+        with locking.LockManager.get_lock(network_id):
+            dhcp_id = self.edge_manager.create_dhcp_edge_service(
+                context, network_id, subnet)
 
-        address_groups = self.plugin._create_network_dhcp_address_group(
-            context, network_id)
-        self.edge_manager.update_dhcp_edge_service(
-            context, network_id, address_groups=address_groups)
-        if dhcp_id:
-            edge_id = self.plugin._get_edge_id_by_rtr_id(context,
-                                                         dhcp_id)
-            if edge_id:
-                with locking.LockManager.get_lock(str(edge_id)):
-                    md_proxy_handler = (
-                        self.plugin.metadata_proxy_handler)
-                    if md_proxy_handler:
-                        md_proxy_handler.configure_router_edge(
-                            context, dhcp_id)
-                    self.plugin.setup_dhcp_edge_fw_rules(
-                        context, self.plugin, dhcp_id)
+            address_groups = self.plugin._create_network_dhcp_address_group(
+                context, network_id)
+            self.edge_manager.update_dhcp_edge_service(
+                context, network_id, address_groups=address_groups)
+            if dhcp_id:
+                edge_id = self.plugin._get_edge_id_by_rtr_id(context,
+                                                             dhcp_id)
+                if edge_id:
+                    with locking.LockManager.get_lock(str(edge_id)):
+                        md_proxy_handler = (
+                            self.plugin.metadata_proxy_handler)
+                        if md_proxy_handler:
+                            md_proxy_handler.configure_router_edge(
+                                context, dhcp_id)
+                        self.plugin.setup_dhcp_edge_fw_rules(
+                            context, self.plugin, dhcp_id)
 
     def _update_edge_router(self, context, router_id):
         router = self.plugin._get_router(context.elevated(), router_id)

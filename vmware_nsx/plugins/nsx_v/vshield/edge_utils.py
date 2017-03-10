@@ -248,7 +248,7 @@ class EdgeManager(object):
     def _deploy_edge(self, context, lrouter,
                      lswitch=None, appliance_size=nsxv_constants.COMPACT,
                      edge_type=nsxv_constants.SERVICE_EDGE,
-                     availability_zone=None):
+                     availability_zone=None, deploy_metadata=False):
         """Create an edge for logical router support."""
         if context is None:
             context = q_context.get_admin_context()
@@ -257,7 +257,8 @@ class EdgeManager(object):
             lrouter['name'], internal_network=None,
             appliance_size=appliance_size,
             dist=(edge_type == nsxv_constants.VDR_EDGE),
-            availability_zone=availability_zone)
+            availability_zone=availability_zone,
+            deploy_metadata=deploy_metadata)
 
     def _deploy_backup_edges_on_db(self, context, num,
                                    appliance_size=nsxv_constants.COMPACT,
@@ -650,7 +651,8 @@ class EdgeManager(object):
     def _allocate_edge_appliance(self, context, resource_id, name,
                                  appliance_size=nsxv_constants.COMPACT,
                                  dist=False,
-                                 availability_zone=None):
+                                 availability_zone=None,
+                                 deploy_metadata=False):
         """Try to allocate one available edge from pool."""
         edge_type = (nsxv_constants.VDR_EDGE if dist else
                      nsxv_constants.SERVICE_EDGE)
@@ -694,7 +696,8 @@ class EdgeManager(object):
             edge_id = self._deploy_edge(context, lrouter,
                               appliance_size=appliance_size,
                               edge_type=edge_type,
-                              availability_zone=availability_zone)
+                              availability_zone=availability_zone,
+                              deploy_metadata=deploy_metadata)
         else:
             LOG.debug("Select edge: %(edge_id)s from pool for %(name)s",
                       {'edge_id': available_router_binding['edge_id'],
@@ -712,16 +715,20 @@ class EdgeManager(object):
                 edge_type=edge_type,
                 availability_zone=availability_zone.name)
             edge_id = available_router_binding['edge_id']
+            LOG.debug("Select edge: %(edge_id)s from pool for %(name)s",
+                      {'edge_id': edge_id, 'name': name})
             with locking.LockManager.get_lock(str(edge_id)):
                 self.nsxv_manager.callbacks.complete_edge_creation(
                     context, edge_id, lrouter['name'], lrouter['id'], dist,
-                    True)
+                    True, deploy_metadata)
 
-                # change edge's name at backend
-                self.nsxv_manager.update_edge(
-                    context, resource_id, available_router_binding['edge_id'],
-                    name, None, appliance_size=appliance_size, dist=dist,
-                    set_errors=True, availability_zone=availability_zone)
+                try:
+                    self.nsxv_manager.rename_edge(edge_id, name)
+                except nsxapi_exc.VcnsApiException as e:
+                    LOG.error(_LE("Failed to update edge: %s"),
+                              e.response)
+                    self.nsxv_manager.callbacks.complete_edge_update(
+                        context, edge_id, resource_id, False, set_errors=True)
 
         backup_num = len(self._get_backup_edge_bindings(
             context, appliance_size=appliance_size, edge_type=edge_type,
@@ -824,7 +831,8 @@ class EdgeManager(object):
         self._allocate_edge_appliance(
             context, resource_id, resource_name,
             appliance_size=vcns_const.SERVICE_SIZE_MAPPING['dhcp'],
-            availability_zone=availability_zone)
+            availability_zone=availability_zone,
+            deploy_metadata=True)
 
     def allocate_lb_edge_appliance(
             self, context, resource_id, availability_zone,
@@ -2020,14 +2028,7 @@ class EdgeManager(object):
     def update_external_interface(
         self, nsxv_manager, context, router_id, ext_net_id,
         ipaddr, netmask, secondary=None):
-        with locking.LockManager.get_lock(str(router_id)):
-            self._update_external_interface(nsxv_manager, context, router_id,
-                                            ext_net_id, ipaddr, netmask,
-                                            secondary=secondary)
 
-    def _update_external_interface(
-        self, nsxv_manager, context, router_id, ext_net_id,
-        ipaddr, netmask, secondary=None):
         secondary = secondary or []
         binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
 
@@ -2326,14 +2327,6 @@ def _check_ipnet_ip(ipnet, ip_address):
 
 def update_internal_interface(nsxv_manager, context, router_id, int_net_id,
                               address_groups, is_connected=True):
-    with locking.LockManager.get_lock(str(router_id)):
-        _update_internal_interface(nsxv_manager, context, router_id,
-                                   int_net_id, address_groups,
-                                   is_connected=is_connected)
-
-
-def _update_internal_interface(nsxv_manager, context, router_id, int_net_id,
-                               address_groups, is_connected=True):
 
     # Get edge id
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
@@ -2363,14 +2356,6 @@ def _update_internal_interface(nsxv_manager, context, router_id, int_net_id,
 
 def add_vdr_internal_interface(nsxv_manager, context, router_id,
                                int_net_id, address_groups, is_connected=True):
-    with locking.LockManager.get_lock(str(router_id)):
-        _add_vdr_internal_interface(nsxv_manager, context, router_id,
-                                   int_net_id, address_groups,
-                                   is_connected=is_connected)
-
-
-def _add_vdr_internal_interface(nsxv_manager, context, router_id,
-                                int_net_id, address_groups, is_connected=True):
     # Get edge id
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
     edge_id = binding['edge_id']
@@ -2398,15 +2383,6 @@ def _add_vdr_internal_interface(nsxv_manager, context, router_id,
 
 def update_vdr_internal_interface(nsxv_manager, context, router_id, int_net_id,
                                   address_groups, is_connected=True):
-    with locking.LockManager.get_lock(str(router_id)):
-        _update_vdr_internal_interface(nsxv_manager, context, router_id,
-                                       int_net_id, address_groups,
-                                       is_connected=is_connected)
-
-
-def _update_vdr_internal_interface(nsxv_manager, context, router_id,
-                                   int_net_id, address_groups,
-                                   is_connected=True):
     # Get edge id
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
     edge_id = binding['edge_id']
@@ -2426,13 +2402,7 @@ def _update_vdr_internal_interface(nsxv_manager, context, router_id,
 
 
 def delete_interface(nsxv_manager, context, router_id, network_id, dist=False):
-    with locking.LockManager.get_lock(str(router_id)):
-        _delete_interface(nsxv_manager, context, router_id, network_id,
-                          dist=dist)
 
-
-def _delete_interface(nsxv_manager, context, router_id, network_id,
-                      dist=False):
     # Get edge id
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
     if not binding:
@@ -2640,9 +2610,9 @@ class NsxVCallbacks(object):
         else:
             self._vcm = None
 
-    def complete_edge_creation(
-            self, context, edge_id, name, router_id, dist, deploy_successful,
-            availability_zone=None):
+    def complete_edge_creation(self, context, edge_id, name, router_id, dist,
+                               deploy_successful, availability_zone=None,
+                               deploy_metadata=False):
         router_db = None
         if uuidutils.is_uuid_like(router_id):
             try:
@@ -2652,6 +2622,17 @@ class NsxVCallbacks(object):
                 LOG.warning(_LW("Router %s not found"), name)
 
         if deploy_successful:
+            metadata_proxy_handler = self.plugin.get_metadata_proxy_handler(
+                availability_zone)
+            if deploy_metadata and metadata_proxy_handler:
+                LOG.debug('Update metadata for resource %s',
+                          router_id)
+                metadata_proxy_handler.configure_router_edge(
+                    context, router_id)
+
+                self.plugin.setup_dhcp_edge_fw_rules(context, self.plugin,
+                                                     router_id)
+
             LOG.debug("Successfully deployed %(edge_id)s for router %(name)s",
                       {'edge_id': edge_id,
                        'name': name})

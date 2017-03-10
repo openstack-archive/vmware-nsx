@@ -47,7 +47,7 @@ class NsxVPluginWithMdV2TestCase(test_plugin.NsxVPluginV2TestCase):
         mock_alloc_vnic = mock.patch.object(nsxv_db, 'allocate_edge_vnic')
         mock_alloc_vnic_inst = mock_alloc_vnic.start()
         mock_alloc_vnic_inst.return_value = nsxv_models.NsxvEdgeVnicBinding
-        mock.patch.object(edge_utils, "_update_internal_interface").start()
+        mock.patch.object(edge_utils, "update_internal_interface").start()
 
         super(NsxVPluginWithMdV2TestCase, self).setUp(
             plugin=plugin, ext_mgr=ext_mgr,

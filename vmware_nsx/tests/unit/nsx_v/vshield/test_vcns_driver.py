@@ -347,7 +347,7 @@ class VcnsDriverTestCase(base.BaseTestCase):
 
     def complete_edge_creation(
             self, context, edge_id, name, router_id, dist, deploy_successful,
-            availability_zone=None):
+            availability_zone=None, deploy_metadata=False):
         pass
 
     def _deploy_edge(self):
