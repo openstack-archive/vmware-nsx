@@ -81,11 +81,12 @@ class NsxV3iClientCertProviderTestCase(unittest.TestCase):
         cfg.CONF.set_override('nsx_client_cert_storage',
                               storage_type, 'nsx_v3')
 
-        if cert_file:
-            cfg.CONF.set_override('nsx_client_cert_file', cert_file, 'nsx_v3')
-        if password:
-            cfg.CONF.set_override('nsx_client_cert_pk_password',
-                                  password, 'nsx_v3')
+        cfg.CONF.set_override('nsx_client_cert_file', cert_file, 'nsx_v3')
+        cfg.CONF.set_override('nsx_client_cert_pk_password',
+                              password, 'nsx_v3')
+
+        # pk password secret is cached - reset it for each test
+        cert_utils.reset_secret()
 
         self._provider = utils.get_client_cert_provider()
 
@@ -126,7 +127,14 @@ class NsxV3iClientCertProviderTestCase(unittest.TestCase):
         self.assertRaises(nsx_exc.ClientCertificateException,
                           self._provider.__enter__)
 
-    def x_test_db_provider_with_cert(self):
+        # now verify return to normal after failure
+        mock.patch(
+            "vmware_nsx.db.db.get_certificate",
+            return_value=(self.CERT, self.PKEY)).start()
+
+        self.validate_db_provider(self.CERT + self.PKEY)
+
+    def test_db_provider_with_cert(self):
         """Verify successful certificate load from storage"""
 
         self._init_config()
