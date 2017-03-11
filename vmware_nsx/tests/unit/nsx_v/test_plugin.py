@@ -48,6 +48,7 @@ from neutron_lib import context
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
 from neutron_lib.utils import helpers
+from neutron_lib.utils import net
 from oslo_config import cfg
 from oslo_utils import uuidutils
 import six
@@ -773,8 +774,8 @@ class TestPortsV2(NsxVPluginV2TestCase,
         # simulate duplicate mac generation to make sure DBDuplicate is retried
         responses = ['12:34:56:78:00:00', '12:34:56:78:00:00',
                      '12:34:56:78:00:01']
-        with mock.patch('neutron.common.utils.get_random_mac',
-                        side_effect=responses) as grand_mac:
+        with mock.patch.object(net, 'get_random_mac',
+                               side_effect=responses) as grand_mac:
             with self.subnet(enable_dhcp=False) as s:
                 with self.port(subnet=s) as p1, self.port(subnet=s) as p2:
                     self.assertEqual('12:34:56:78:00:00',
