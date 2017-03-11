@@ -149,9 +149,9 @@ def show_cert(resource, event, trigger, **kwargs):
             cert_data = cert.get_subject()
             cert_data['alg'] = cert.get_signature_alg()
             cert_data['key_size'] = cert.get_key_size()
-            if expires_in_days > 0:
+            if expires_in_days >= 0:
                 LOG.info(_LI("Client certificate is valid. "
-                             "Expires on %(date)s (in %(days)d days)."),
+                             "Expires on %(date)s UTC (in %(days)d days)."),
                          {'date': expires_on,
                           'days': expires_in_days})
 
