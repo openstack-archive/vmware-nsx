@@ -720,7 +720,7 @@ class EdgeManager(object):
             with locking.LockManager.get_lock(str(edge_id)):
                 self.nsxv_manager.callbacks.complete_edge_creation(
                     context, edge_id, lrouter['name'], lrouter['id'], dist,
-                    True, deploy_metadata)
+                    True, deploy_metadata=deploy_metadata)
 
                 try:
                     self.nsxv_manager.rename_edge(edge_id, name)
