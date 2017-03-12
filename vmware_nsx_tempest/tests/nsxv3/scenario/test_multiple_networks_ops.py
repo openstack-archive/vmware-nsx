@@ -152,6 +152,12 @@ class TestMultiNetworksOps(manager.NetworkScenarioTest):
     def _get_server_key(self, server):
         return self.keypairs[server['key_name']]['private_key']
 
+    def _list_ports(self, *args, **kwargs):
+        """List ports using admin creds """
+        ports_list = self.admin_manager.ports_client.list_ports(
+            *args, **kwargs)
+        return ports_list['ports']
+
     def _check_network_connectivity(self, network, should_connect=True):
         floating_ip, server = self.floating_ip_tuple
         # test connectivity on the network
