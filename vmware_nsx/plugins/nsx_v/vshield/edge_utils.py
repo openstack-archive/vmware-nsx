@@ -1123,8 +1123,10 @@ class EdgeManager(object):
                 free_number = ((vcns_const.MAX_VNIC_NUM - 1) *
                                vcns_const.MAX_TUNNEL_NUM -
                                len(edge_vnic_bindings))
-                # metadata internal network will use one vnic
-                if free_number <= (vcns_const.MAX_TUNNEL_NUM - 1):
+                # metadata internal network will use one vnic or
+                # exclusive_dhcp_edge is set for the AZ
+                if (free_number <= (vcns_const.MAX_TUNNEL_NUM - 1) or
+                    availability_zone.exclusive_dhcp_edge):
                     conflict_edge_ids.append(dhcp_edge_id)
 
             for net_id in conflicting_nets:

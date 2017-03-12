@@ -65,6 +65,7 @@ class NsxVAvailabilityZone(common_az.ConfiguredAvailabilityZone):
         self.vdn_scope_id = cfg.CONF.nsxv.vdn_scope_id
         self.dvs_id = cfg.CONF.nsxv.dvs_id
         self.edge_host_groups = cfg.CONF.nsxv.edge_host_groups
+        self.exclusive_dhcp_edge = cfg.CONF.nsxv.exclusive_dhcp_edge
 
         # No support for metadata per az
         self.az_metadata_support = False
@@ -120,6 +121,8 @@ class NsxVAvailabilityZone(common_az.ConfiguredAvailabilityZone):
         self.edge_host_groups = az_info.get('edge_host_groups', [])
         if not self.edge_host_groups:
             self.edge_host_groups = cfg.CONF.nsxv.edge_host_groups
+
+        self.exclusive_dhcp_edge = az_info.get('exclusive_dhcp_edge', False)
 
         # Support for metadata per az only if configured, and different
         # from the global one
@@ -178,6 +181,7 @@ class NsxVAvailabilityZone(common_az.ConfiguredAvailabilityZone):
         self.vdn_scope_id = cfg.CONF.nsxv.vdn_scope_id
         self.dvs_id = cfg.CONF.nsxv.dvs_id
         self.edge_host_groups = cfg.CONF.nsxv.edge_host_groups
+        self.exclusive_dhcp_edge = cfg.CONF.nsxv.exclusive_dhcp_edge
 
     def supports_metadata(self):
         # Return True if this az has it's own metadata configuration

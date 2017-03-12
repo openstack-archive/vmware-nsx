@@ -663,6 +663,9 @@ nsxv_opts = [
                        "connectivity between hosts on same network via "
                        "their floating ips. If True, floating ip will "
                        "be associated with all router interfaces.")),
+    cfg.BoolOpt('exclusive_dhcp_edge',
+                default=False,
+                help=_("(Optional) Have exclusive DHCP edge per network.")),
 ]
 
 # define the configuration of each availability zone.
@@ -718,6 +721,9 @@ nsxv_az_opts = [
     cfg.StrOpt('dvs_id',
                help=_('(Optional) DVS MoRef ID for DVS connected to '
                       'Management / Edge cluster')),
+    cfg.BoolOpt('exclusive_dhcp_edge',
+                default=False,
+                help=_("(Optional) Have exclusive DHCP edge per network.")),
 ]
 
 # Register the configuration options
