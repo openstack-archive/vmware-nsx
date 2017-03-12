@@ -444,7 +444,7 @@ class EdgeApplianceDriver(object):
 
             self.callbacks.complete_edge_creation(
                 context, edge_id, name, router_id, dist, True,
-                availability_zone, deploy_metadata)
+                availability_zone, deploy_metadata=deploy_metadata)
 
         except exceptions.VcnsApiException:
             self.callbacks.complete_edge_creation(
