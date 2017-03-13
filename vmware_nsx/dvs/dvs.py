@@ -461,11 +461,12 @@ class VMManager(VCManagerBase):
             return vm_ref.value
 
     def get_vm_spec(self, vm_moref):
-        vm_spec = self._session.invoke_api(vim_util,
-                                           'get_object_properties',
-                                           self._session.vim,
-                                           vm_moref, ['network'])[0]
-        return vm_spec
+        vm_specs = self._session.invoke_api(vim_util,
+                                            'get_object_properties',
+                                            self._session.vim,
+                                            vm_moref, ['network'])
+        if vm_specs:
+            return vm_specs[0]
 
     def _build_vm_spec_attach(self, neutron_port_id, port_mac,
                               nsx_net_id, device_type):
