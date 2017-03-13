@@ -20,6 +20,7 @@ from tempest.common import waiters
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
+from tempest.lib import decorators
 from tempest import test
 
 from vmware_nsx_tempest.tests.nsxv.scenario import (
@@ -576,18 +577,18 @@ class TestAdminPolicyBasicOps(dmgr.TopoDeployScenarioManager):
 
 
 class TestAdminPolicySharedRouter(TestAdminPolicyBasicOps):
-    @test.idempotent_id('78f45717-5f95-4ef5-b2a4-a1b4700ef688')
+    @decorators.idempotent_id('78f45717-5f95-4ef5-b2a4-a1b4700ef688')
     def test_admin_policy_ops_with_shared_router(self):
         self.run_admin_policy_op_scenario('shared')
 
 
 class TestAdminPolicyExclusiveRouter(TestAdminPolicyBasicOps):
-    @test.idempotent_id('68345852-da2e-4f46-816b-0afc59470a45')
+    @decorators.idempotent_id('68345852-da2e-4f46-816b-0afc59470a45')
     def test_admin_policy_ops_with_exclusive_router(self):
         self.run_admin_policy_op_scenario('exclusive')
 
 
 class TestAdminPolicyDistributedRouter(TestAdminPolicyBasicOps):
-    @test.idempotent_id('76adbfbb-a2e5-40fa-8930-84e7ece87bd5')
+    @decorators.idempotent_id('76adbfbb-a2e5-40fa-8930-84e7ece87bd5')
     def test_admin_policy_ops_with_distributed_router(self):
         self.run_admin_policy_op_scenario('distributed')
