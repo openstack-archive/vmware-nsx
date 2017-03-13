@@ -15,6 +15,8 @@
 
 import base64
 import requests
+import six.moves.urllib.parse as urlparse
+
 
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
@@ -95,11 +97,14 @@ class NSXV3Client(object):
         headers['Accept'] = accept_type
         self.headers = headers
 
-    def get(self, endpoint=None, params=None):
+    def get(self, endpoint=None, params=None, cursor=None):
         """
         Basic query method for json API request
         """
         self.__set_url(endpoint=endpoint)
+        if cursor:
+            op = "&" if urlparse.urlparse(self.url).query else "?"
+            self.url += op + "cursor=" + cursor
         response = requests.get(self.url, headers=self.headers,
                                 verify=self.verify, params=params)
         return response
@@ -136,21 +141,18 @@ class NSXV3Client(object):
         """
         Get logical resources based on the endpoint
 
-        The max page_size in NSXv3 is 1000. So if the results are more than
-        1000, we need to loop over multiple pages based on cursor to get
-        all the logical resources.
+        Getting the logical resource based on the end point. Parse the response
+        for the cursor. If cursor is present, query url for multiple pages to
+        get all the logical resources.
         """
         response = self.get(endpoint=endpoint)
         res_json = response.json()
-        cursor = res_json['cursor']
-        res_count = res_json['result_count']
-        pages = res_count / 1000
-        results = res_json['results']
-        for p in range(pages):
-            response = self.get(endpoint=endpoint, params={"cursor": cursor})
-            results += response.json()['results']
-            cursor = response.json()['cursor']
-        return results
+        cursor = res_json.get("cursor")
+        while cursor:
+            page = self.get(endpoint=endpoint, cursor=cursor).json()
+            res_json["results"].extend(page.get("results", []))
+            cursor = page.get("cursor")
+        return res_json["results"]
 
     def get_transport_zones(self):
         """
