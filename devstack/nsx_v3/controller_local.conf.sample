@@ -111,4 +111,7 @@ DEFAULT_EDGE_CLUSTER_UUID=<edge-cluster-uuid>
 DHCP_PROFILE_UUID=<dhcp-profile-uuid>
 METADATA_PROXY_UUID=<metadata-proxy-uuid>
 METADATA_PROXY_SHARED_SECRET=<metadata-proxy-secret>
+METADATA_PROXY_USE_HTTPS=False
+METADATA_PROXY_CERT_FILE=<metadata-proxy-cert-file>
+METADATA_PROXY_PRIV_KEY_FILE=<metadata-proxy-priv-key-file>
 NATIVE_DHCP_METADATA=True
