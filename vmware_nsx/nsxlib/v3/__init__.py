@@ -334,7 +334,7 @@ class NsxLib(dfw_api.DfwApi, security.Security):
         self.client.delete(resource)
 
     def _get_resource_by_name_or_id(self, name_or_id, resource):
-        all_results = self.client.get(resource)['results']
+        all_results = self.client.list(resource)['results']
         matched_results = []
         for rs in all_results:
             if rs.get('id') == name_or_id:
