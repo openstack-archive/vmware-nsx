@@ -15,10 +15,12 @@
 #    under the License.
 
 from neutron_lib.api import validators
+from neutron_lib import context as n_context
 from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_log import log as logging
 
+from neutron.extensions import availability_zone as az_ext
 from neutron.extensions import dns
 from neutron.objects import network as net_obj
 from neutron.objects import ports as port_obj
@@ -26,11 +28,13 @@ from neutron.services.externaldns import driver
 
 from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import driver_api
+from vmware_nsx.plugins.nsx_v3 import availability_zones as nsx_az
 
 LOG = logging.getLogger(__name__)
 DNS_DOMAIN_DEFAULT = 'openstacklocal.'
 
 
+# TODO(asarfaty) use dns-domain/nameserver from network az instead of global
 class DNSExtensionDriver(driver_api.ExtensionDriver):
     _supported_extension_alias = 'dns-integration'
 
@@ -80,7 +84,7 @@ class DNSExtensionDriver(driver_api.ExtensionDriver):
         if not request_data.get(dns.DNSNAME):
             return
         dns_name, is_dns_domain_default = self._get_request_dns_name(
-            request_data)
+            request_data, db_data['network_id'])
         if is_dns_domain_default:
             return
         network = self._get_network(plugin_context, db_data['network_id'])
@@ -143,7 +147,7 @@ class DNSExtensionDriver(driver_api.ExtensionDriver):
             return
         if dns_name is not None:
             dns_name, is_dns_domain_default = self._get_request_dns_name(
-                request_data)
+                request_data, db_data['network_id'])
             if is_dns_domain_default:
                 self._extend_port_dict(plugin_context.session, db_data,
                                        db_data, None)
@@ -198,31 +202,31 @@ class DNSExtensionDriver(driver_api.ExtensionDriver):
             response_data[dns.DNSDOMAIN] = db_data.dns_domain[dns.DNSDOMAIN]
         return response_data
 
-    def _get_dns_domain(self):
+    def _get_dns_domain(self, network_id):
         if not cfg.CONF.dns_domain:
             return ''
         if cfg.CONF.dns_domain.endswith('.'):
             return cfg.CONF.dns_domain
         return '%s.' % cfg.CONF.dns_domain
 
-    def _get_request_dns_name(self, port):
-        dns_domain = self._get_dns_domain()
+    def _get_request_dns_name(self, port, network_id):
+        dns_domain = self._get_dns_domain(network_id)
         if ((dns_domain and dns_domain != DNS_DOMAIN_DEFAULT)):
             return (port.get(dns.DNSNAME, ''), False)
         return ('', True)
 
-    def _get_request_dns_name_and_domain_name(self, dns_data_db):
-        dns_domain = self._get_dns_domain()
+    def _get_request_dns_name_and_domain_name(self, dns_data_db, network_id):
+        dns_domain = self._get_dns_domain(network_id)
         dns_name = ''
         if ((dns_domain and dns_domain != DNS_DOMAIN_DEFAULT)):
             if dns_data_db:
                 dns_name = dns_data_db.dns_name
         return dns_name, dns_domain
 
-    def _get_dns_names_for_port(self, ips, dns_data_db):
+    def _get_dns_names_for_port(self, ips, dns_data_db, network_id):
         dns_assignment = []
         dns_name, dns_domain = self._get_request_dns_name_and_domain_name(
-            dns_data_db)
+            dns_data_db, network_id)
         for ip in ips:
             if dns_name:
                 hostname = dns_name
@@ -242,7 +246,8 @@ class DNSExtensionDriver(driver_api.ExtensionDriver):
 
     def _get_dns_name_for_port_get(self, port, dns_data_db):
         if port['fixed_ips']:
-            return self._get_dns_names_for_port(port['fixed_ips'], dns_data_db)
+            return self._get_dns_names_for_port(
+                port['fixed_ips'], dns_data_db, port['network_id'])
         return []
 
     def _extend_port_dict(self, session, db_data, response_data, dns_data_db):
@@ -281,10 +286,24 @@ class DNSExtensionDriverNSXv(DNSExtensionDriver):
 class DNSExtensionDriverNSXv3(DNSExtensionDriver):
 
     def initialize(self):
+        self._availability_zones = nsx_az.NsxV3AvailabilityZones()
         LOG.info(_LI("DNSExtensionDriverNSXv3 initialization complete"))
 
-    def _get_dns_domain(self):
-        if cfg.CONF.nsx_v3.dns_domain:
+    def _get_network_az(self, network_id):
+        context = n_context.get_admin_context()
+        network = self._get_network(context, network_id)
+        if az_ext.AZ_HINTS in network and network[az_ext.AZ_HINTS]:
+            az_name = network[az_ext.AZ_HINTS][0]
+            return self._availability_zones.get_availability_zone(az_name)
+        return self._availability_zones.get_default_availability_zone()
+
+    def _get_dns_domain(self, network_id):
+        # try to get the dns-domain from the specific availability zone
+        # of this network
+        az = self._get_network_az(network_id)
+        if az.dns_domain:
+            dns_domain = az.dns_domain
+        elif cfg.CONF.nsx_v3.dns_domain:
             dns_domain = cfg.CONF.nsx_v3.dns_domain
         elif cfg.CONF.dns_domain:
             dns_domain = cfg.CONF.dns_domain

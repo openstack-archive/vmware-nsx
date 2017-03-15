@@ -416,6 +416,12 @@ nsx_v3_opts = [
                 default=False,
                 help=_("(Optional) Indicates whether distributed-firewall "
                        "security-groups rules are logged.")),
+    cfg.ListOpt('availability_zones',
+                default=[],
+                help=_('Optional parameter defining the networks availability '
+                       'zones names for the native dhcp configuration. The '
+                       'configuration of each zone will be under a group '
+                       'names [az:<name>]')),
 ]
 
 DEFAULT_STATUS_CHECK_INTERVAL = 2000
@@ -668,8 +674,8 @@ nsxv_opts = [
                 help=_("(Optional) Have exclusive DHCP edge per network.")),
 ]
 
-# define the configuration of each availability zone.
-# the list of expected zones in under nsxv group: availability_zones
+# define the configuration of each NSX-V availability zone.
+# the list of expected zones is under nsxv group: availability_zones
 # Note: if any of the optional arguments is missing - the global one will be
 # used instead.
 nsxv_az_opts = [
@@ -726,6 +732,32 @@ nsxv_az_opts = [
                 help=_("(Optional) Have exclusive DHCP edge per network.")),
 ]
 
+# define the configuration of each NSX-V3 availability zone.
+# the list of expected zones is under nsx_v3 group: availability_zones
+# Note: if any of the optional arguments is missing - the global one will be
+# used instead.
+nsxv3_az_opts = [
+    cfg.StrOpt('metadata_proxy',
+               help=_("The name or UUID of the NSX Metadata Proxy "
+                      "that will be used to enable native metadata service. "
+                      "It needs to be created in NSX before starting Neutron "
+                      "with the NSX plugin.")),
+    cfg.StrOpt('dhcp_profile',
+               help=_("The name or UUID of the NSX DHCP Profile "
+                      "that will be used to enable native DHCP service. It "
+                      "needs to be created in NSX before starting Neutron "
+                      "with the NSX plugin")),
+    cfg.StrOpt('native_metadata_route',
+               help=_("(Optional) The metadata route used for native metadata "
+                      "proxy service.")),
+    cfg.StrOpt('dns_domain',
+               help=_("(Optional) Domain to use for building the hostnames.")),
+    cfg.ListOpt('nameservers',
+                help=_("(Optional) List of nameservers to configure for the "
+                       "DHCP binding entries. These will be used if there are "
+                       "no nameservers defined on the subnet.")),
+]
+
 # Register the configuration options
 cfg.CONF.register_opts(connection_opts)
 cfg.CONF.register_opts(cluster_opts)
@@ -740,8 +772,7 @@ cfg.CONF.register_opts(sync_opts, group="NSX_SYNC")
 cfg.CONF.register_opts(l3_hamode_db.L3_HA_OPTS)
 
 
-# register a group for each nsxv availability zones
-def register_nsxv_azs(conf, availability_zones):
+def _register_nsx_azs(conf, availability_zones, az_opts):
     # first verify that the availability zones are in the format of a
     # list of names. The old format was a list of values for each az,
     # separated with ':'
@@ -753,13 +784,23 @@ def register_nsxv_azs(conf, availability_zones):
         conf.register_group(cfg.OptGroup(
             name=az_group,
             title="Configuration for availability zone %s" % az))
-        conf.register_opts(nsxv_az_opts, group=az_group)
+        conf.register_opts(az_opts, group=az_group)
+
+
+# register a group for each nsxv/v3 availability zones
+def register_nsxv_azs(conf, availability_zones):
+    _register_nsx_azs(conf, availability_zones, nsxv_az_opts)
+
+
+def register_nsxv3_azs(conf, availability_zones):
+    _register_nsx_azs(conf, availability_zones, nsxv3_az_opts)
 
 
 register_nsxv_azs(cfg.CONF, cfg.CONF.nsxv.availability_zones)
+register_nsxv3_azs(cfg.CONF, cfg.CONF.nsx_v3.availability_zones)
 
 
-def get_nsxv_az_opts(az):
+def _get_nsx_az_opts(az, opts):
     az_info = dict()
     group = 'az:%s' % az
     if group not in cfg.CONF:
@@ -767,9 +808,17 @@ def get_nsxv_az_opts(az):
             opt_name=group,
             opt_value='None',
             reason=(_("Configuration group \'%s\' must be defined") % group))
-    for opt in nsxv_az_opts:
+    for opt in opts:
         az_info[opt.name] = cfg.CONF[group][opt.name]
     return az_info
+
+
+def get_nsxv_az_opts(az):
+    return _get_nsx_az_opts(az, nsxv_az_opts)
+
+
+def get_nsxv3_az_opts(az):
+    return _get_nsx_az_opts(az, nsxv3_az_opts)
 
 
 def validate_nsxv_config_options():

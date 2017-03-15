@@ -1,0 +1,9 @@
+---
+prelude: >
+    The NSX-v3 plugin supports availability zones hints on networks
+    creation in order to separate the native dhcp configuration.
+features:
+  - The NSX-v3 plugin supports availability zones hints on networks
+    creation in order to separate the native dhcp configuration.
+    The availability zones configuration includes the metadata_proxy,
+    dhcp_profile, native_metadata_route and dns related parameters.

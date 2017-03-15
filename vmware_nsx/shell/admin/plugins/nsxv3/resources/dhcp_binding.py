@@ -55,6 +55,7 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
         return
 
     dhcp_profile_uuid = None
+    # TODO(asarfaty) Add availability zones support here
     if kwargs.get('property'):
         properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
         dhcp_profile_uuid = properties.get('dhcp_profile_uuid')
@@ -91,6 +92,8 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
                 net_tags = nsxlib.build_v3_tags_payload(
                     network, resource_type='os-neutron-net-id',
                     project_name='admin')
+                # TODO(asarfaty): add default_dns_nameservers & dns_domain
+                # from availability zone
                 server_data = nsxlib.native_dhcp.build_server_config(
                     network, subnet, port, net_tags)
                 server_data['dhcp_profile_id'] = dhcp_profile_uuid

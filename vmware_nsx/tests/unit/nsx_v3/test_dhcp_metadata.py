@@ -16,15 +16,17 @@
 import mock
 import netaddr
 
-from neutron.extensions import securitygroup as secgrp
+from oslo_config import cfg
+from oslo_utils import uuidutils
 
+from neutron.extensions import securitygroup as secgrp
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib import constants
 from neutron_lib import context
 from neutron_lib import exceptions as n_exc
-from oslo_config import cfg
-from oslo_utils import uuidutils
+from neutron_lib.plugins import directory
 
+from vmware_nsx.common import config
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
@@ -32,6 +34,26 @@ from vmware_nsx.extensions import advancedserviceproviders as as_providers
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin
 from vmware_nsxlib.v3 import nsx_constants
 from vmware_nsxlib.v3 import resources as nsx_resources
+
+
+def set_az_in_config(name, metadata_proxy="metadata_proxy1",
+                     dhcp_profile="dhcp_profile1",
+                     native_metadata_route="2.2.2.2",
+                     dns_domain='aaaa',
+                     nameservers=['bbbb']):
+    group_name = 'az:%s' % name
+    cfg.CONF.set_override('availability_zones', [name], group="nsx_v3")
+    config.register_nsxv3_azs(cfg.CONF, [name])
+    cfg.CONF.set_override("metadata_proxy", metadata_proxy,
+                          group=group_name)
+    cfg.CONF.set_override("dhcp_profile", dhcp_profile,
+                          group=group_name)
+    cfg.CONF.set_override("native_metadata_route", native_metadata_route,
+                          group=group_name)
+    cfg.CONF.set_override("dns_domain", dns_domain,
+                          group=group_name)
+    cfg.CONF.set_override("nameservers", nameservers,
+                          group=group_name)
 
 
 class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
@@ -42,11 +64,15 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
         self._orig_native_dhcp_metadata = cfg.CONF.nsx_v3.native_dhcp_metadata
         cfg.CONF.set_override('dhcp_agent_notification', False)
         cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        self._az_name = 'zone1'
+        self.az_metadata_route = '3.3.3.3'
+        set_az_in_config(self._az_name,
+                         native_metadata_route=self.az_metadata_route)
         self._patcher = mock.patch.object(nsx_resources.DhcpProfile, 'get')
         self._patcher.start()
-        # Need to run _translate_configured_names_to_uuids and
-        # _init_dhcp_metadata() manually because plugin was started
-        # before setUp() overrides CONF.nsx_v3.native_dhcp_metadata.
+        # Need to run some plugin init methods manually because plugin was
+        # started before setUp() overrides CONF.nsx_v3.native_dhcp_metadata.
+        self.plugin.init_availability_zones()
         self.plugin._translate_configured_names_to_uuids()
         self.plugin._init_dhcp_metadata()
 
@@ -741,6 +767,96 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                                 port['port']['id'])
                             self.assertEqual(delete_dhcp_binding.call_count, 2)
 
+    def test_create_network_with_bad_az_hint(self):
+        p = directory.get_plugin()
+        ctx = context.get_admin_context()
+        data = {'network': {
+                'name': 'test-az',
+                'tenant_id': self._tenant_id,
+                'port_security_enabled': False,
+                'admin_state_up': True,
+                'shared': False,
+                'availability_zone_hints': ['bad_hint']
+                }}
+        self.assertRaises(n_exc.NeutronException,
+                          p.create_network,
+                          ctx, data)
+
+    def test_create_network_with_az_hint(self):
+        p = directory.get_plugin()
+        ctx = context.get_admin_context()
+
+        data = {'network': {
+                'name': 'test-az',
+                'tenant_id': self._tenant_id,
+                'port_security_enabled': False,
+                'admin_state_up': True,
+                'shared': False,
+                'availability_zone_hints': [self._az_name]
+                }}
+
+        # network creation should succeed
+        net = p.create_network(ctx, data)
+        self.assertEqual([self._az_name],
+                         net['availability_zone_hints'])
+        self.assertEqual([self._az_name],
+                         net['availability_zones'])
+
+    def test_create_network_with_no_az_hint(self):
+        p = directory.get_plugin()
+        ctx = context.get_admin_context()
+
+        data = {'network': {
+                'name': 'test-az',
+                'tenant_id': self._tenant_id,
+                'port_security_enabled': False,
+                'admin_state_up': True,
+                'shared': False
+                }}
+
+        # network creation should succeed
+        net = p.create_network(ctx, data)
+        self.assertEqual([],
+                         net['availability_zone_hints'])
+        self.assertEqual(['default'],
+                         net['availability_zones'])
+
+    def test_dhcp_service_with_create_az_network(self):
+        # Test if DHCP service is disabled on a network when it is created.
+        with self.network(availability_zone_hints=[self._az_name],
+                          arg_list=('availability_zone_hints',)) as network:
+            self._verify_dhcp_service(network['network']['id'],
+                                      network['network']['tenant_id'], False)
+
+    def test_dhcp_binding_with_create_az_port(self):
+        # Test if DHCP binding is added when a compute port is created.
+        with mock.patch.object(nsx_resources.LogicalDhcpServer,
+                               'create_binding',
+                               return_value={"id": uuidutils.generate_uuid()}
+                               ) as create_dhcp_binding:
+            with self.network(
+                availability_zone_hints=[self._az_name],
+                arg_list=('availability_zone_hints',)) as network:
+                with self.subnet(enable_dhcp=True, network=network) as subnet:
+                    device_owner = constants.DEVICE_OWNER_COMPUTE_PREFIX + 'X'
+                    device_id = uuidutils.generate_uuid()
+                    with self.port(subnet=subnet, device_owner=device_owner,
+                                   device_id=device_id) as port:
+                        dhcp_service = nsx_db.get_nsx_service_binding(
+                            context.get_admin_context().session,
+                            subnet['subnet']['network_id'],
+                            nsx_constants.SERVICE_DHCP)
+                        ip = port['port']['fixed_ips'][0]['ip_address']
+                        hostname = 'host-%s' % ip.replace('.', '-')
+                        options = {'option121': {'static_routes': [
+                            {'network': '%s' % self.az_metadata_route,
+                             'next_hop': ip}]}}
+                        create_dhcp_binding.assert_called_once_with(
+                            dhcp_service['nsx_service_id'],
+                            port['port']['mac_address'], ip, hostname,
+                            cfg.CONF.nsx_v3.dhcp_lease_time, options,
+                            subnet['subnet']['gateway_ip'])
+
 
 class NsxNativeMetadataTestCase(test_plugin.NsxV3PluginTestCaseMixin):
 
@@ -750,11 +866,12 @@ class NsxNativeMetadataTestCase(test_plugin.NsxV3PluginTestCaseMixin):
         self._orig_native_dhcp_metadata = cfg.CONF.nsx_v3.native_dhcp_metadata
         cfg.CONF.set_override('dhcp_agent_notification', False)
         cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        self._az_name = 'zone1'
+        self._az_metadata_proxy = 'dummy'
+        set_az_in_config(self._az_name, metadata_proxy=self._az_metadata_proxy)
         self._patcher = mock.patch.object(nsx_resources.MetaDataProxy, 'get')
         self._patcher.start()
-        # Need to run _translate_configured_names_to_uuids and
-        # _init_dhcp_metadata() manually because plugin was started
-        # before setUp() overrides CONF.nsx_v3.native_dhcp_metadata.
+        self.plugin.init_availability_zones()
         self.plugin._translate_configured_names_to_uuids()
         self.plugin._init_dhcp_metadata()
 
@@ -798,6 +915,27 @@ class NsxNativeMetadataTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                                                network['network']['id'])
                 create_logical_port.assert_called_once_with(
                     nsx_net_id, cfg.CONF.nsx_v3.metadata_proxy,
+                    tags=tags, name=name,
+                    attachment_type=nsx_constants.ATTACHMENT_MDPROXY)
+
+    def test_metadata_proxy_with_create_az_network(self):
+        # Test if native metadata proxy is enabled on a network when it is
+        # created.
+        with mock.patch.object(nsx_resources.LogicalPort,
+                               'create') as create_logical_port:
+            with self.network(
+                availability_zone_hints=[self._az_name],
+                arg_list=('availability_zone_hints',)) as network:
+                nsx_net_id = self.plugin._get_network_nsx_id(
+                    context.get_admin_context(), network['network']['id'])
+                tags = self.plugin.nsxlib.build_v3_tags_payload(
+                    network['network'], resource_type='os-neutron-net-id',
+                    project_name=None)
+                name = utils.get_name_and_uuid('%s-%s' % (
+                    'mdproxy', network['network']['name'] or 'network'),
+                                               network['network']['id'])
+                create_logical_port.assert_called_once_with(
+                    nsx_net_id, self._az_metadata_proxy,
                     tags=tags, name=name,
                     attachment_type=nsx_constants.ATTACHMENT_MDPROXY)
 
