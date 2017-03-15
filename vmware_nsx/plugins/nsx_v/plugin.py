@@ -4079,7 +4079,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             azs = self.get_azs_list()
             for az in azs:
                 if az.edge_host_groups and az.edge_ha:
-                    self._dvs.validate_host_groups(az.resource_pool,
+                    self._vcm.validate_host_groups(az.resource_pool,
                                                    az.edge_host_groups)
 
         # Validations below only supported by 6.2.0 and above
