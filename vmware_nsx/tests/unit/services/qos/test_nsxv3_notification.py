@@ -316,12 +316,19 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                     qos_marking='trusted'
                 )
 
-    @mock.patch('neutron.objects.db.api.get_object', return_value=None)
-    def test_policy_delete_profile(self, *mocks):
+    def test_policy_delete_profile(self):
         # test the switch profile deletion when a QoS policy is deleted
+        backend_profile = {
+            'id': self.fake_profile_id,
+            'resource_type': 'QosSwitchingProfile',
+            'tags': [{'scope': 'os-neutron-qos-id', 'tag': self.policy.id}]}
         with mock.patch(
             'vmware_nsxlib.v3.NsxLibQosSwitchingProfile.delete',
             return_value=self.fake_profile
-        ) as delete_profile:
+        ) as delete_profile,\
+            mock.patch(
+            'vmware_nsxlib.v3.NsxLibQosSwitchingProfile.list',
+            return_value={'results': [backend_profile]}
+        ):
             self.qos_plugin.delete_policy(self.ctxt, self.policy.id)
             delete_profile.assert_called_once_with(self.fake_profile_id)

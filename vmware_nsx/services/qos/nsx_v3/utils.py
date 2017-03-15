@@ -115,10 +115,32 @@ class QosNotificationsHandler(object):
                                               policy_id,
                                               profile_id)
 
+    def _find_policy_profile_id(self, policy_id):
+        # Note: In Ocata the policy was already deleted from the DB and from
+        # the mapping table, so as a temporary fix we have to search the
+        # backend profiles by the id.
+        # In Pike the DM model will be different so the mapping entry will not
+        # be deleted.
+        all_profiles = self._nsxlib_qos.list()['results']
+        for profile in all_profiles:
+            # look only at qos profiles
+            if profile.get('resource_type') == 'QosSwitchingProfile':
+                tags = profile.get('tags', [])
+                for tag in tags:
+                    if (tag.get('scope') == 'os-neutron-qos-id' and
+                        tag.get('tag') == policy_id):
+                        return profile.get('id')
+
     def delete_policy(self, context, policy_id):
-        profile_id = nsx_db.get_switch_profile_by_qos_policy(
-            context.session, policy_id)
-        self._nsxlib_qos.delete(profile_id)
+        try:
+            profile_id = self._find_policy_profile_id(policy_id)
+            if profile_id:
+                self._nsxlib_qos.delete(profile_id)
+            else:
+                LOG.warning(_LW("QOS delete_policy failed: Policy %w was not "
+                                "found on backend"), policy_id)
+        except Exception as e:
+            LOG.warning(_LW("QOS delete_policy failed: %s"), e)
 
     def update_policy(self, context, policy_id, policy):
         profile_id = nsx_db.get_switch_profile_by_qos_policy(
