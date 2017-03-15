@@ -374,6 +374,11 @@ def get_switch_profile_by_qos_policy(session, qos_policy_id):
         raise nsx_exc.NsxQosPolicyMappingNotFound(policy=qos_policy_id)
 
 
+def delete_qos_policy_profile_mapping(session, qos_policy_id):
+    return (session.query(nsx_models.QosPolicySwitchProfile).
+            filter_by(qos_policy_id=qos_policy_id).delete())
+
+
 # NSXv3 Port Mirror Sessions DB methods.
 def add_port_mirror_session_mapping(session, tf_id, pm_session_id):
     with session.begin(subtransactions=True):

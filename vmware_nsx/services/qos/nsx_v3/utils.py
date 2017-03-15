@@ -118,7 +118,10 @@ class QosNotificationsHandler(object):
     def delete_policy(self, context, policy_id):
         profile_id = nsx_db.get_switch_profile_by_qos_policy(
             context.session, policy_id)
+        # delete the profile id from the backend and the DB
         self._nsxlib_qos.delete(profile_id)
+        nsx_db.delete_qos_policy_profile_mapping(
+            context.session, policy_id)
 
     def update_policy(self, context, policy_id, policy):
         profile_id = nsx_db.get_switch_profile_by_qos_policy(
