@@ -303,20 +303,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                              'reason': e})
 
     def _translate_configured_names_to_uuids(self):
-        # default VLAN transport zone name / uuid
-        self._default_vlan_tz_uuid = None
-        if cfg.CONF.nsx_v3.default_vlan_tz:
-            tz_id = self.nsxlib.transport_zone.get_id_by_name_or_id(
-                cfg.CONF.nsx_v3.default_vlan_tz)
-            self._default_vlan_tz_uuid = tz_id
-
-        # default overlay transport zone name / uuid
-        self._default_overlay_tz_uuid = None
-        if cfg.CONF.nsx_v3.default_overlay_tz:
-            tz_id = self.nsxlib.transport_zone.get_id_by_name_or_id(
-                cfg.CONF.nsx_v3.default_overlay_tz)
-            self._default_overlay_tz_uuid = tz_id
-
         # default tier0 router
         self._default_tier0_router = None
         if cfg.CONF.nsx_v3.default_tier0_router:
@@ -332,8 +318,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if not cfg.CONF.nsx_v3.metadata_proxy:
                 raise cfg.RequiredOptError("metadata_proxy")
 
-            for az in self.get_azs_list():
-                az.translate_configured_names_to_uuids(self.nsxlib)
+        # Translate all the uuids in each of the availability
+        for az in self.get_azs_list():
+            az.translate_configured_names_to_uuids(self.nsxlib)
 
     def _extend_port_dict_binding(self, context, port_data):
         port_data[pbin.VIF_TYPE] = pbin.VIF_TYPE_OVS
@@ -610,7 +597,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._extension_manager.extend_subnet_dict(
                 ctx.session, subnetdb, result)
 
-    def _validate_provider_create(self, context, network_data):
+    def _validate_provider_create(self, context, network_data, az):
         is_provider_net = any(
             validators.is_attr_set(network_data.get(f))
             for f in (pnet.NETWORK_TYPE,
@@ -637,11 +624,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     # Set VLAN id to 0 for flat networks
                     vlan_id = '0'
                     if physical_net is None:
-                        physical_net = self._default_vlan_tz_uuid
+                        physical_net = az._default_vlan_tz_uuid
             elif net_type == utils.NsxV3NetworkTypes.VLAN:
                 # Use default VLAN transport zone if physical network not given
                 if physical_net is None:
-                    physical_net = self._default_vlan_tz_uuid
+                    physical_net = az._default_vlan_tz_uuid
 
                 # Validate VLAN id
                 if not vlan_id:
@@ -687,7 +674,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         if physical_net is None:
             # Default to transport type overlay
-            physical_net = self._default_overlay_tz_uuid
+            physical_net = az._default_overlay_tz_uuid
 
         return is_provider_net, net_type, physical_net, vlan_id
 
@@ -706,9 +693,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._routerlib.validate_tier0(self.tier0_groups_dict, tier0_uuid)
         return (is_provider_net, utils.NetworkTypes.L3_EXT, tier0_uuid, 0)
 
-    def _create_network_at_the_backend(self, context, net_data):
+    def _create_network_at_the_backend(self, context, net_data, az):
         is_provider_net, net_type, physical_net, vlan_id = (
-            self._validate_provider_create(context, net_data))
+            self._validate_provider_create(context, net_data, az))
         neutron_net_id = net_data.get('id') or uuidutils.generate_uuid()
         # To ensure that the correct tag will be set
         net_data['id'] = neutron_net_id
@@ -784,6 +771,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         is_backend_network = False
         tenant_id = net_data['tenant_id']
 
+        # validate the availability zone, and get the AZ object
+        if az_ext.AZ_HINTS in net_data:
+            self.validate_availability_zones(context, 'network',
+                                             net_data[az_ext.AZ_HINTS])
+        az = self.get_obj_az_by_hints(net_data)
+
         self._ensure_default_security_group(context, tenant_id)
         if validators.is_attr_set(external) and external:
             self._assert_on_external_net_with_qos(net_data)
@@ -791,10 +784,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self._validate_external_net_create(net_data))
         else:
             is_provider_net, net_type, physical_net, vlan_id, nsx_net_id = (
-                self._create_network_at_the_backend(context, net_data))
+                self._create_network_at_the_backend(context, net_data, az))
             is_backend_network = True
         try:
-            az_name = nsx_az.DEFAULT_NAME
             with context.session.begin(subtransactions=True):
                 # Create network in Neutron
                 created_net = super(NsxV3Plugin, self).create_network(context,
@@ -808,12 +800,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self._process_l3_create(context, created_net, net_data)
 
                 if az_ext.AZ_HINTS in net_data:
-                    net_hints = net_data[az_ext.AZ_HINTS]
-                    self.validate_availability_zones(context, 'network',
-                                                     net_hints)
-                    if net_hints:
-                        az_name = net_hints[0]
-                    az_hints = az_ext.convert_az_list_to_string(net_hints)
+                    # Update the AZ hints in the neutron object
+                    az_hints = az_ext.convert_az_list_to_string(
+                        net_data[az_ext.AZ_HINTS])
                     super(NsxV3Plugin, self).update_network(
                         context,
                         created_net['id'],
@@ -836,7 +825,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         nsx_net_id)
 
             if is_backend_network and cfg.CONF.nsx_v3.native_dhcp_metadata:
-                az = self.get_az_by_hint(az_name)
                 # Enable native metadata proxy for this network.
                 tags = self.nsxlib.build_v3_tags_payload(
                     net_data, resource_type='os-neutron-net-id',

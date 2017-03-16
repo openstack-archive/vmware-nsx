@@ -756,6 +756,18 @@ nsxv3_az_opts = [
                 help=_("(Optional) List of nameservers to configure for the "
                        "DHCP binding entries. These will be used if there are "
                        "no nameservers defined on the subnet.")),
+    cfg.StrOpt('default_overlay_tz',
+               help=_("(Optional) This is the name or UUID of the default NSX "
+                      "overlay transport zone that will be used for creating "
+                      "tunneled isolated Neutron networks. It needs to be "
+                      "created in NSX before starting Neutron with the NSX "
+                      "plugin.")),
+    cfg.StrOpt('default_vlan_tz',
+               help=_("(Optional) Only required when creating VLAN or flat "
+                      "provider networks. Name or UUID of default NSX VLAN "
+                      "transport zone that will be used for bridging between "
+                      "Neutron networks, if no physical network has been "
+                      "specified")),
 ]
 
 # Register the configuration options
