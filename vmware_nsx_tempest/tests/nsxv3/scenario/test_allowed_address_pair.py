@@ -184,8 +184,10 @@ class TestAllowedAddressPair(manager.NetworkScenarioTest):
                                                                ip_address))
 
     def _assign_mac_address(self, ssh_source, interface_name, mac_address):
+        ssh_source.exec_command("sudo ifconfig %s down" % interface_name)
         ssh_source.exec_command("sudo ip link set %s address %s" % (
             interface_name, mac_address))
+        ssh_source.exec_command("sudo ifconfig %s up" % interface_name)
 
     def _test_connectivity_between_allowed_adddress_pair_ports(self,
                                                                network_topo):
