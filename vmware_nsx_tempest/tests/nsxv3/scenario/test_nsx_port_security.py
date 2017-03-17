@@ -48,13 +48,6 @@ class TestNSXv3PortSecurityScenario(manager.NetworkScenarioTest):
     """
 
     @classmethod
-    def skip_checks(cls):
-        super(TestNSXv3PortSecurityScenario, cls).skip_checks()
-        if not test.is_extension_enabled('port-security-enabled', 'network'):
-            msg = "Extension provider-security-group is not enabled."
-            raise cls.skipException(msg)
-
-    @classmethod
     def setup_credentials(cls):
         cls.set_network_resources()
         super(TestNSXv3PortSecurityScenario, cls).setup_credentials()
