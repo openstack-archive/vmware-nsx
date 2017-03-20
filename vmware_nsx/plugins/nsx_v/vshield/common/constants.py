@@ -72,6 +72,14 @@ ALLOWED_EDGE_SIZES = (nsxv_constants.COMPACT,
 ALLOWED_EDGE_TYPES = (nsxv_constants.SERVICE_EDGE,
                       nsxv_constants.VDR_EDGE)
 
+SUPPORTED_DHCP_OPTIONS = {
+    'interface-mtu': 'option26',
+    'tftp-server-name': 'option66',
+    'bootfile-name': 'option67',
+    'classless-static-route': 'option121',
+    'tftp-server-address': 'option150',
+}
+
 
 # router status by number
 class RouterStatus(object):

@@ -32,6 +32,7 @@ from oslo_utils import timeutils
 from oslo_utils import uuidutils
 from six import moves
 
+from neutron.extensions import extra_dhcp_opt as ext_edo
 from neutron.extensions import l3
 from neutron.plugins.common import constants as plugin_const
 
@@ -926,6 +927,35 @@ class EdgeManager(object):
         with locking.LockManager.get_lock(str(edge_binding['edge_id'])):
             self.update_dhcp_service_config(context, edge_binding['edge_id'])
 
+    def _add_dhcp_option(self, static_config, opt):
+        if 'dhcpOptions' not in static_config:
+            static_config['dhcpOptions'] = {}
+        opt_name = opt['opt_name']
+        opt_val = opt['opt_value']
+        if opt_name in vcns_const.SUPPORTED_DHCP_OPTIONS:
+            key = vcns_const.SUPPORTED_DHCP_OPTIONS[opt_name]
+            if opt_name == 'classless-static-route':
+                if 'option121' not in static_config['dhcpOptions']:
+                    static_config['dhcpOptions']['option121'] = {
+                        'staticRoutes': []}
+                opt121 = static_config['dhcpOptions']['option121']
+                net, ip = opt_val.split(',')
+                opt121['staticRoutes'].append({'destinationSubnet': net,
+                                               'router': ip})
+            elif opt_name == 'tftp-server-address':
+                if 'option150' not in static_config['dhcpOptions']:
+                    static_config['dhcpOptions']['option150'] = {
+                        'tftpServers': []}
+                opt150 = static_config['dhcpOptions']['option150']
+                opt150['tftpServers'].append(opt_val)
+            else:
+                static_config['dhcpOptions'][key] = opt_val
+        else:
+            if 'other' not in static_config['dhcpOptions']:
+                static_config['dhcpOptions']['others'] = []
+            static_config['dhcpOptions']['others'].append(
+                {'code': opt_name, 'value': opt_val})
+
     def create_static_binding(self, context, port):
         """Create the DHCP Edge static binding configuration
 
@@ -992,6 +1022,11 @@ class EdgeManager(object):
                     [static_config],
                     host_route['destination'],
                     host_route['nexthop'])
+
+            dhcp_opts = port.get(ext_edo.EXTRADHCPOPTS)
+            if dhcp_opts is not None:
+                for opt in dhcp_opts:
+                    self._add_dhcp_option(static_config, opt)
 
             static_bindings.append(static_config)
         return static_bindings

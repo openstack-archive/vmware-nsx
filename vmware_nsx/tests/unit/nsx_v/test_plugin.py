@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import contextlib
+import copy
 from eventlet import greenthread
 import mock
 import netaddr
@@ -23,6 +24,7 @@ from neutron.api.v2 import attributes
 from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import dvr as dist_router
 from neutron.extensions import external_net
+from neutron.extensions import extra_dhcp_opt as edo_ext
 from neutron.extensions import l3
 from neutron.extensions import l3_ext_gw_mode
 from neutron.extensions import l3_flavors
@@ -35,6 +37,7 @@ from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.db.test_allowedaddresspairs_db as test_addr_pair
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
 from neutron.tests.unit.extensions import base as extension
+from neutron.tests.unit.extensions import test_extra_dhcp_opt as test_dhcpopts
 import neutron.tests.unit.extensions.test_l3 as test_l3_plugin
 import neutron.tests.unit.extensions.test_l3_ext_gw_mode as test_ext_gw_mode
 import neutron.tests.unit.extensions.test_portsecurity as test_psec
@@ -5304,3 +5307,183 @@ class TestRouterFlavorTestCase(extension.ExtensionTestCase,
         self._test_router_create_with_flavor_error(
             metainfo, n_exc.BadRequest,
             create_az=['az2'])
+
+
+class DHCPOptsTestCase(test_dhcpopts.TestExtraDhcpOpt,
+                       NsxVPluginV2TestCase):
+
+    def setUp(self, plugin=None):
+        super(test_dhcpopts.ExtraDhcpOptDBTestCase, self).setUp(
+            plugin=PLUGIN_NAME)
+
+    def test_create_port_with_extradhcpopts(self):
+        opt_list = [{'opt_name': 'bootfile-name',
+                     'opt_value': 'pxelinux.0'},
+                    {'opt_name': 'tftp-server-address',
+                     'opt_value': '123.123.123.123'}]
+
+        params = {edo_ext.EXTRADHCPOPTS: opt_list,
+                  'arg_list': (edo_ext.EXTRADHCPOPTS,)}
+
+        with self.port(**params) as port:
+            self._check_opts(opt_list,
+                             port['port'][edo_ext.EXTRADHCPOPTS])
+
+    def test_create_port_with_extradhcpopts_ipv6_opt_version(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_create_port_with_extradhcpopts_ipv4_opt_version(self):
+        opt_list = [{'opt_name': 'bootfile-name',
+                     'opt_value': 'pxelinux.0',
+                     'ip_version': 4},
+                    {'opt_name': 'tftp-server-address',
+                     'opt_value': '123.123.123.123',
+                     'ip_version': 4}]
+
+        params = {edo_ext.EXTRADHCPOPTS: opt_list,
+                  'arg_list': (edo_ext.EXTRADHCPOPTS,)}
+
+        with self.port(**params) as port:
+            self._check_opts(opt_list,
+                             port['port'][edo_ext.EXTRADHCPOPTS])
+
+    def test_update_port_with_extradhcpopts_with_same(self):
+        opt_list = [{'opt_name': 'bootfile-name', 'opt_value': 'pxelinux.0'},
+                    {'opt_name': 'tftp-server-address',
+                     'opt_value': '123.123.123.123'}]
+        upd_opts = [{'opt_name': 'bootfile-name', 'opt_value': 'changeme.0'}]
+        expected_opts = opt_list[:]
+        for i in expected_opts:
+            if i['opt_name'] == upd_opts[0]['opt_name']:
+                i['opt_value'] = upd_opts[0]['opt_value']
+                break
+        self._test_update_port_with_extradhcpopts(opt_list, upd_opts,
+                                                  expected_opts)
+
+    def test_update_port_with_additional_extradhcpopt(self):
+        opt_list = [{'opt_name': 'tftp-server-address',
+                     'opt_value': '123.123.123.123'}]
+        upd_opts = [{'opt_name': 'bootfile-name', 'opt_value': 'changeme.0'}]
+        expected_opts = copy.deepcopy(opt_list)
+        expected_opts.append(upd_opts[0])
+        self._test_update_port_with_extradhcpopts(opt_list, upd_opts,
+                                                  expected_opts)
+
+    def test_update_port_with_extradhcpopts(self):
+        opt_list = [{'opt_name': 'bootfile-name', 'opt_value': 'pxelinux.0'},
+                    {'opt_name': 'tftp-server-address',
+                     'opt_value': '123.123.123.123'}]
+        upd_opts = [{'opt_name': 'bootfile-name', 'opt_value': 'changeme.0'}]
+        expected_opts = copy.deepcopy(opt_list)
+        for i in expected_opts:
+            if i['opt_name'] == upd_opts[0]['opt_name']:
+                i['opt_value'] = upd_opts[0]['opt_value']
+                break
+        self._test_update_port_with_extradhcpopts(opt_list, upd_opts,
+                                                  expected_opts)
+
+    def test_update_port_with_extradhcpopt_delete(self):
+        opt_list = [{'opt_name': 'bootfile-name', 'opt_value': 'pxelinux.0'},
+                    {'opt_name': 'tftp-server-address',
+                     'opt_value': '123.123.123.123'}]
+        upd_opts = [{'opt_name': 'bootfile-name', 'opt_value': None}]
+        expected_opts = []
+
+        expected_opts = [opt for opt in opt_list
+                         if opt['opt_name'] != 'bootfile-name']
+        self._test_update_port_with_extradhcpopts(opt_list, upd_opts,
+                                                  expected_opts)
+
+    def test_update_port_adding_extradhcpopts(self):
+        opt_list = []
+        upd_opts = [{'opt_name': 'bootfile-name', 'opt_value': 'pxelinux.0'},
+                    {'opt_name': 'tftp-server-address',
+                     'opt_value': '123.123.123.123'}]
+        expected_opts = copy.deepcopy(upd_opts)
+        self._test_update_port_with_extradhcpopts(opt_list, upd_opts,
+                                                  expected_opts)
+
+    def test_update_port_with_blank_name_extradhcpopt(self):
+        opt_list = [{'opt_name': 'bootfile-name', 'opt_value': 'pxelinux.0'},
+                    {'opt_name': 'tftp-server-address',
+                     'opt_value': '123.123.123.123'}]
+        upd_opts = [{'opt_name': '     ', 'opt_value': 'pxelinux.0'}]
+
+        params = {edo_ext.EXTRADHCPOPTS: opt_list,
+                  'arg_list': (edo_ext.EXTRADHCPOPTS,)}
+
+        with self.port(**params) as port:
+            update_port = {'port': {edo_ext.EXTRADHCPOPTS: upd_opts}}
+
+            req = self.new_update_request('ports', update_port,
+                                          port['port']['id'])
+            res = req.get_response(self.api)
+            self.assertEqual(webob.exc.HTTPBadRequest.code, res.status_int)
+
+    def test_create_port_with_empty_router_extradhcpopts(self):
+        self.skipTest('No DHCP support option for router')
+
+    def test_update_port_with_blank_router_extradhcpopt(self):
+        self.skipTest('No DHCP support option for router')
+
+    def test_update_port_with_extradhcpopts_ipv6_change_value(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_update_port_with_extradhcpopts_add_another_ver_opt(self):
+        self.skipTest('No DHCP v6 Support yet')
+
+    def test_update_port_with_blank_string_extradhcpopt(self):
+        opt_list = [{'opt_name': 'bootfile-name', 'opt_value': 'pxelinux.0'},
+                    {'opt_name': 'tftp-server-address',
+                     'opt_value': '123.123.123.123'}]
+        upd_opts = [{'opt_name': 'bootfile-name', 'opt_value': '    '}]
+
+        params = {edo_ext.EXTRADHCPOPTS: opt_list,
+                  'arg_list': (edo_ext.EXTRADHCPOPTS,)}
+
+        with self.port(**params) as port:
+            update_port = {'port': {edo_ext.EXTRADHCPOPTS: upd_opts}}
+
+            req = self.new_update_request('ports', update_port,
+                                          port['port']['id'])
+            res = req.get_response(self.api)
+            self.assertEqual(webob.exc.HTTPBadRequest.code, res.status_int)
+
+    def test_create_port_with_none_extradhcpopts(self):
+        opt_list = [{'opt_name': 'bootfile-name',
+                     'opt_value': None},
+                    {'opt_name': 'tftp-server-address',
+                     'opt_value': '123.123.123.123'}]
+        expected = [{'opt_name': 'tftp-server-address',
+                     'opt_value': '123.123.123.123'}]
+
+        params = {edo_ext.EXTRADHCPOPTS: opt_list,
+                  'arg_list': (edo_ext.EXTRADHCPOPTS,)}
+
+        with self.port(**params) as port:
+            self._check_opts(expected,
+                             port['port'][edo_ext.EXTRADHCPOPTS])
+
+    def test_create_port_with_extradhcpopts_codes(self):
+        opt_list = [{'opt_name': '85',
+                     'opt_value': 'cafecafe'}]
+
+        params = {edo_ext.EXTRADHCPOPTS: opt_list,
+                  'arg_list': (edo_ext.EXTRADHCPOPTS,)}
+
+        with self.port(**params) as port:
+            self._check_opts(opt_list,
+                             port['port'][edo_ext.EXTRADHCPOPTS])
+
+    def test_update_port_with_extradhcpopts_codes(self):
+        opt_list = [{'opt_name': '85',
+                     'opt_value': 'cafecafe'}]
+        upd_opts = [{'opt_name': '85',
+                     'opt_value': '01010101'}]
+        expected_opts = copy.deepcopy(opt_list)
+        for i in expected_opts:
+            if i['opt_name'] == upd_opts[0]['opt_name']:
+                i['opt_value'] = upd_opts[0]['opt_value']
+                break
+        self._test_update_port_with_extradhcpopts(opt_list, upd_opts,
+                                                  expected_opts)
