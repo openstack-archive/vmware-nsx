@@ -25,9 +25,11 @@ LOG = logging.getLogger(__name__)
 
 VSE_FWAAS_ALLOW = "accept"
 VSE_FWAAS_DENY = "deny"
+VSE_FWAAS_REJECT = "reject"
 
 FWAAS_ALLOW = "allow"
 FWAAS_DENY = "deny"
+FWAAS_REJECT = "reject"
 
 
 class EdgeFirewallDriver(object):
@@ -43,6 +45,8 @@ class EdgeFirewallDriver(object):
             return VSE_FWAAS_ALLOW
         elif action == FWAAS_DENY:
             return VSE_FWAAS_DENY
+        elif action == FWAAS_REJECT:
+            return VSE_FWAAS_REJECT
         else:
             msg = _("Invalid action value %s in a firewall rule") % action
             raise vcns_exc.VcnsBadRequest(resource='firewall_rule', msg=msg)
@@ -52,12 +56,14 @@ class EdgeFirewallDriver(object):
             return FWAAS_ALLOW
         elif action == VSE_FWAAS_DENY:
             return FWAAS_DENY
+        elif action == VSE_FWAAS_REJECT:
+            return FWAAS_REJECT
         else:
             msg = (_("Invalid action value %s in "
                      "a vshield firewall rule") % action)
             raise vcns_exc.VcnsBadRequest(resource='firewall_rule', msg=msg)
 
-    def _get_port_range_from_min_max_ports(self, min_port, max_port):
+    def _get_port_range(self, min_port, max_port):
         if not min_port:
             return None
         if min_port == max_port:
@@ -74,7 +80,7 @@ class EdgeFirewallDriver(object):
         "num1:num2" - a range
         "num1,num2,num3" - a list
         """
-        if not port_str:
+        if not port_str or port_str == 'any':
             return []
         if ':' in port_str:
             min_port, sep, max_port = port_str.partition(":")
@@ -91,7 +97,7 @@ class EdgeFirewallDriver(object):
         else:
             return [int(port_str.strip())]
 
-    def _convert_firewall_rule(self, context, rule, index=None):
+    def _convert_firewall_rule(self, rule, index=None):
         vcns_rule = {
             "action": self._convert_firewall_action(rule['action']),
             "enabled": rule.get('enabled', True)}
@@ -141,47 +147,59 @@ class EdgeFirewallDriver(object):
             vcns_rule['ruleTag'] = index
         return vcns_rule
 
-    def _restore_firewall_rule(self, context, edge_id, response):
-        rule = response
-        rule_binding = nsxv_db.get_nsxv_edge_firewallrule_binding_by_vseid(
-            context.session, edge_id, rule['ruleId'])
-        service = rule['application']['service'][0]
-        src_port_range = self._get_port_range_from_min_max_ports(
-            service['sourcePort'][0], service['sourcePort'][-1])
-        dst_port_range = self._get_port_range_from_min_max_ports(
-            service['port'][0], service['port'][-1])
-        fw_rule = {
-            'firewall_rule': {
-                'id': rule_binding['rule_id'],
-                'source_ip_address': rule['source']['ipAddress'],
-                'destination_ip_address': rule['destination']['ipAddress'],
-                'protocol': service['protocol'],
-                'destination_port': dst_port_range,
-                'source_port': src_port_range,
-                'action': self._restore_firewall_action(rule['action']),
-                'enabled': rule['enabled']}}
+    def _restore_firewall_rule(self, context, edge_id, rule):
+        fw_rule = {}
+        try:
+            rule_binding = (
+                nsxv_db.get_nsxv_edge_firewallrule_binding_by_vseid(
+                    context.session, edge_id, rule['ruleId']))
+        except nsx_exc.NsxPluginException:
+            rule_binding = None
+        fw_rule['id'] = (rule_binding['rule_id']
+                         if rule_binding else rule['ruleId'])
+        fw_rule['ruleId'] = rule['ruleId']
+        if rule.get('source'):
+            src = rule['source']
+            fw_rule['source_ip_address'] = src['ipAddress']
+            fw_rule['source_vnic_groups'] = src['vnicGroupId']
+
+        if rule.get('destination'):
+            dest = rule['destination']
+            fw_rule['destination_ip_address'] = dest['ipAddress']
+            fw_rule['destination_vnic_groups'] = dest['vnicGroupId']
+
+        if 'application' in rule and 'service' in rule['application']:
+            service = rule['application']['service'][0]
+            fw_rule['protocol'] = service['protocol']
+            fw_rule['source_port'] = self._get_port_range(
+                service['sourcePort'][0], service['sourcePort'][-1])
+            fw_rule['destination_port'] = self._get_port_range(
+                service['port'][0], service['port'][-1])
+
+        fw_rule['action'] = self._restore_firewall_action(rule['action'])
+        fw_rule['enabled'] = rule['enabled']
         if rule.get('name'):
-            fw_rule['firewall_rule']['name'] = rule['name']
+            fw_rule['name'] = rule['name']
         if rule.get('description'):
-            fw_rule['firewall_rule']['description'] = rule['description']
+            fw_rule['description'] = rule['description']
         return fw_rule
 
-    def _convert_firewall(self, context, firewall, allow_external=False):
+    def _convert_firewall(self, firewall, allow_external=False):
         #bulk configuration on firewall and rescheduling the rule binding
         ruleTag = 1
         vcns_rules = []
-        for rule in firewall['firewall_rule_list']:
-            tag = rule.get('ruleTag', ruleTag)
-            vcns_rule = self._convert_firewall_rule(context, rule, tag)
-            vcns_rules.append(vcns_rule)
-            if not rule.get('ruleTag'):
-                ruleTag += 1
         if allow_external:
             vcns_rules.append(
                 {'action': "accept",
                  'enabled': True,
                  'destination': {'vnicGroupId': ["external"]},
                  'ruleTag': ruleTag})
+        for rule in firewall['firewall_rule_list']:
+            tag = rule.get('ruleTag', ruleTag)
+            vcns_rule = self._convert_firewall_rule(rule, tag)
+            vcns_rules.append(vcns_rule)
+            if not rule.get('ruleTag'):
+                ruleTag += 1
         return {
             'featureType': "firewall_4.0",
             'globalConfig': {'tcpTimeoutEstablished': 7200},
@@ -192,32 +210,10 @@ class EdgeFirewallDriver(object):
         res = {}
         res['firewall_rule_list'] = []
         for rule in response['firewallRules']['firewallRules']:
-            rule_binding = (
-                nsxv_db.get_nsxv_edge_firewallrule_binding_by_vseid(
-                    context.session, edge_id, rule['ruleId']))
-            if rule_binding is None:
+            if rule.get('ruleType') == 'default_policy':
                 continue
-            service = rule['application']['service'][0]
-            src_port_range = self._get_port_range_from_min_max_ports(
-                service['sourcePort'][0], service['sourcePort'][-1])
-            dst_port_range = self._get_port_range_from_min_max_ports(
-                service['port'][0], service['port'][-1])
-            item = {
-                'firewall_rule': {
-                    'id': rule_binding['rule_id'],
-                    'source_ip_address': rule['source']['ipAddress'],
-                    'destination_ip_address': rule[
-                        'destination']['ipAddress'],
-                    'protocol': service['protocol'],
-                    'destination_port': dst_port_range,
-                    'source_port': src_port_range,
-                    'action': self._restore_firewall_action(rule['action']),
-                    'enabled': rule['enabled']}}
-            if rule.get('name'):
-                item['firewall_rule']['name'] = rule['name']
-            if rule.get('description'):
-                item['firewall_rule']['description'] = rule['description']
-            res['firewall_rule_list'].append(item)
+            firewall_rule = self._restore_firewall_rule(context, edge_id, rule)
+            res['firewall_rule_list'].append({'firewall_rule': firewall_rule})
         return res
 
     def _get_firewall(self, edge_id):
@@ -277,7 +273,7 @@ class EdgeFirewallDriver(object):
         rule_map = nsxv_db.get_nsxv_edge_firewallrule_binding(
             context.session, id, edge_id)
         vcns_rule_id = rule_map.rule_vseid
-        fwr_req = self._convert_firewall_rule(context, firewall_rule)
+        fwr_req = self._convert_firewall_rule(firewall_rule)
         try:
             self.vcns.update_firewall_rule(edge_id, vcns_rule_id, fwr_req)
         except vcns_exc.VcnsApiException:
@@ -308,7 +304,7 @@ class EdgeFirewallDriver(object):
         rule_map = nsxv_db.get_nsxv_edge_firewallrule_binding(
             context.session, ref_rule_id, edge_id)
         ref_vcns_rule_id = rule_map.rule_vseid
-        fwr_req = self._convert_firewall_rule(context, firewall_rule)
+        fwr_req = self._convert_firewall_rule(firewall_rule)
         try:
             header = self.vcns.add_firewall_rule_above(
                 edge_id, ref_vcns_rule_id, fwr_req)[0]
@@ -334,7 +330,7 @@ class EdgeFirewallDriver(object):
         ref_vcns_rule_id = rule_map.rule_vseid
         fwr_vse_next = self._get_firewall_rule_next(
             context, edge_id, ref_vcns_rule_id)
-        fwr_req = self._convert_firewall_rule(context, firewall_rule)
+        fwr_req = self._convert_firewall_rule(firewall_rule)
         if fwr_vse_next:
             ref_vcns_rule_id = fwr_vse_next['ruleId']
             try:
@@ -379,7 +375,7 @@ class EdgeFirewallDriver(object):
             raise vcns_exc.VcnsBadRequest(resource='firewall_rule', msg=msg)
 
     def update_firewall(self, edge_id, firewall, context, allow_external=True):
-        config = self._convert_firewall(None, firewall,
+        config = self._convert_firewall(firewall,
                                         allow_external=allow_external)
 
         try:

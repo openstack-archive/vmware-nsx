@@ -86,10 +86,15 @@ TAAS_TABLES = {
     'tap_id_associations',
 }
 
+FWAAS_TABLES = {
+    'firewall_router_associations',
+    'cisco_firewall_associations',
+}
+
 # EXTERNAL_TABLES should contain all names of tables that are not related to
 # current repo.
 EXTERNAL_TABLES = (set(external.TABLES) | LBAAS_TABLES |
-                   L2GW_TABLES | SFC_TABLES | TAAS_TABLES)
+                   L2GW_TABLES | SFC_TABLES | TAAS_TABLES | FWAAS_TABLES)
 
 
 class _TestModelsMigrationsFoo(test_migrations._TestModelsMigrations):

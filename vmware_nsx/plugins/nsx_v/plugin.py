@@ -127,6 +127,7 @@ from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 from vmware_nsx.plugins.nsx_v.vshield import securitygroup_utils
 from vmware_nsx.plugins.nsx_v.vshield import vcns_driver
 from vmware_nsx.services.flowclassifier.nsx_v import utils as fc_utils
+from vmware_nsx.services.fwaas.nsx_v import fwaas_callbacks
 
 LOG = logging.getLogger(__name__)
 PORTGROUP_PREFIX = 'dvportgroup'
@@ -272,6 +273,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # will happen only once
         self.start_rpc_listeners_called = False
 
+        # Init the FWaaS support
+        self._init_fwaas()
+
         # Service insertion driver register
         self._si_handler = fc_utils.NsxvServiceInsertionHandler(self)
         registry.subscribe(self.add_vms_to_service_insertion,
@@ -376,6 +380,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         self.start_rpc_listeners_called = True
         return self.conn.consume_in_threads()
+
+    def _init_fwaas(self):
+        # Bind FWaaS callbacks to the driver
+        self.fwaas_callbacks = fwaas_callbacks.NsxvFwaasCallbacks()
 
     def _ext_extend_network_dict(self, result, netdb):
         ctx = n_context.get_admin_context()
@@ -3459,7 +3467,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _update_subnets_and_dnat_firewall(self, context, router,
                                           router_id=None, allow_external=True):
-        fake_fw_rules = []
+        fw_rules = []
         if not router_id:
             router_id = router['id']
         subnet_cidrs = self._find_router_subnets_cidrs(context, router['id'])
@@ -3473,12 +3481,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 'enabled': True,
                 'source_ip_address': subnet_cidrs,
                 'destination_ip_address': subnet_cidrs}
-            fake_fw_rules.append(fake_subnet_fw_rule)
+            fw_rules.append(fake_subnet_fw_rule)
         _, dnat_rules = self._get_nat_rules(context, router)
 
         # If metadata service is enabled, block access to inter-edge network
         if self.metadata_proxy_handler:
-            fake_fw_rules += nsx_v_md_proxy.get_router_fw_rules()
+            fw_rules += nsx_v_md_proxy.get_router_fw_rules()
 
         dnat_cidrs = [rule['dst'] for rule in dnat_rules]
         if dnat_cidrs:
@@ -3487,10 +3495,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 'action': 'allow',
                 'enabled': True,
                 'destination_ip_address': dnat_cidrs}
-            fake_fw_rules.append(fake_dnat_fw_rule)
+            fw_rules.append(fake_dnat_fw_rule)
         nosnat_fw_rules = self._get_nosnat_subnets_fw_rules(
             context, router)
-        fake_fw_rules.extend(nosnat_fw_rules)
+        fw_rules.extend(nosnat_fw_rules)
 
         # Get the load balancer rules in case they are refreshed
         edge_id = self._get_edge_id_by_rtr_id(context, router_id)
@@ -3506,10 +3514,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 'name': vsm_rule['name'],
                 'ruleId': vsm_rule['ruleId']
             }
-            fake_fw_rules.append(lb_fw_rule)
+            fw_rules.append(lb_fw_rule)
 
-        # TODO(berlin): Add fw rules if fw service is supported
-        fake_fw = {'firewall_rule_list': fake_fw_rules}
+        # Add fw rules if FWaaS is enabled
+        fw_rules.extend(self.fwaas_callbacks.get_fwaas_rules_for_router(
+            context, router, router_id))
+
+        fake_fw = {'firewall_rule_list': fw_rules}
         try:
             edge_utils.update_firewall(self.nsx_v, context, router_id, fake_fw,
                                        allow_external=allow_external)

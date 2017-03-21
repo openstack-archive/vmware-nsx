@@ -317,7 +317,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             fake_fw_rules += (
                 nsx_v_md_proxy.get_router_fw_rules())
 
-        # TODO(berlin): Add fw rules if fw service is supported
+        # TODO(asarfaty): Add fwaas rules when fwaas supports shared routers
         fake_fw = {'firewall_rule_list': fake_fw_rules}
         edge_utils.update_firewall(self.nsx_v, context, target_router_id,
                                    fake_fw, allow_external=allow_external)
