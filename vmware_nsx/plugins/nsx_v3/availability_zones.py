@@ -66,6 +66,14 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
         if self.nameservers is None:
             self.nameservers = cfg.CONF.nsx_v3.nameservers
 
+        self.default_overlay_tz = az_info.get('default_overlay_tz')
+        if self.default_overlay_tz is None:
+            self.default_overlay_tz = cfg.CONF.nsx_v3.default_overlay_tz
+
+        self.default_vlan_tz = az_info.get('default_vlan_tz')
+        if self.default_vlan_tz is None:
+            self.default_vlan_tz = cfg.CONF.nsx_v3.default_vlan_tz
+
     def init_default_az(self):
         # use the default configuration
         self.metadata_proxy = cfg.CONF.nsx_v3.metadata_proxy
@@ -73,8 +81,11 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
         self.native_metadata_route = cfg.CONF.nsx_v3.native_metadata_route
         self.dns_domain = cfg.CONF.nsx_v3.dns_domain
         self.nameservers = cfg.CONF.nsx_v3.nameservers
+        self.default_overlay_tz = cfg.CONF.nsx_v3.default_overlay_tz
+        self.default_vlan_tz = cfg.CONF.nsx_v3.default_vlan_tz
 
     def translate_configured_names_to_uuids(self, nsxlib):
+        # Mandatory configurations (in AZ or inherited from global values)
         dhcp_id = nsxlib.native_dhcp_profile.get_id_by_name_or_id(
             self.dhcp_profile)
         self._native_dhcp_profile_uuid = dhcp_id
@@ -82,6 +93,18 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
         proxy_id = nsxlib.native_md_proxy.get_id_by_name_or_id(
             self.metadata_proxy)
         self._native_md_proxy_uuid = proxy_id
+
+        tz_id = nsxlib.transport_zone.get_id_by_name_or_id(
+            self.default_overlay_tz)
+        self._default_overlay_tz_uuid = tz_id
+
+        # Optional configurations (may be None)
+        if self.default_vlan_tz:
+            tz_id = nsxlib.transport_zone.get_id_by_name_or_id(
+                self.default_vlan_tz)
+            self._default_vlan_tz_uuid = tz_id
+        else:
+            self._default_vlan_tz_uuid = None
 
 
 class NsxV3AvailabilityZones(common_az.ConfiguredAvailabilityZones):

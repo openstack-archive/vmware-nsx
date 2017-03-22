@@ -46,7 +46,9 @@ class Nsxv3AvailabilityZonesTestCase(base.BaseTestCase):
                    dhcp_profile="dhcp_profile1",
                    native_metadata_route="2.2.2.2",
                    dns_domain="aaa.com",
-                   nameservers=["20.1.1.1"]):
+                   nameservers=["20.1.1.1"],
+                   default_overlay_tz='otz',
+                   default_vlan_tz='vtz'):
         if metadata_proxy is not None:
             cfg.CONF.set_override("metadata_proxy", metadata_proxy,
                                   group=self.group_name)
@@ -63,6 +65,12 @@ class Nsxv3AvailabilityZonesTestCase(base.BaseTestCase):
         if nameservers is not None:
             cfg.CONF.set_override("nameservers", nameservers,
                                   group=self.group_name)
+        if default_overlay_tz is not None:
+            cfg.CONF.set_override("default_overlay_tz", default_overlay_tz,
+                                  group=self.group_name)
+        if default_vlan_tz is not None:
+            cfg.CONF.set_override("default_vlan_tz", default_vlan_tz,
+                                  group=self.group_name)
 
     def test_simple_availability_zone(self):
         self._config_az()
@@ -73,6 +81,8 @@ class Nsxv3AvailabilityZonesTestCase(base.BaseTestCase):
         self.assertEqual("2.2.2.2", az.native_metadata_route)
         self.assertEqual("aaa.com", az.dns_domain)
         self.assertEqual(["20.1.1.1"], az.nameservers)
+        self.assertEqual("otz", az.default_overlay_tz)
+        self.assertEqual("vtz", az.default_vlan_tz)
 
     def test_missing_group_section(self):
         self.assertRaises(
