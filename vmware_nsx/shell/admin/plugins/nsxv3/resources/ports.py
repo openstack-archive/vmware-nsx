@@ -234,6 +234,9 @@ def migrate_compute_ports_vms(resource, event, trigger, **kwargs):
         # get the vm moref & spec from the DVS
         vm_moref = vm_mng.get_vm_moref_obj(device_id)
         vm_spec = vm_mng.get_vm_spec(vm_moref)
+        if not vm_spec:
+            LOG.error(_LE("Failed to get the spec of vm %s"), device_id)
+            continue
 
         # Go over the VM interfaces and check if it should be updated
         update_spec = False
