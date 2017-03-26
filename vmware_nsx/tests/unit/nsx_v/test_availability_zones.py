@@ -44,6 +44,7 @@ class NsxvAvailabilityZonesTestCase(base.BaseTestCase):
                    ha_datastore_id="hastore",
                    backup_edge_pool=DEF_AZ_POOL,
                    ha_placement_random=False,
+                   datacenter_moid="datacenter",
                    mgt_net_moid="portgroup-407",
                    mgt_net_proxy_ips=["1.1.1.1"],
                    mgt_net_proxy_netmask="255.255.255.0",
@@ -63,6 +64,10 @@ class NsxvAvailabilityZonesTestCase(base.BaseTestCase):
         if ha_placement_random is not None:
             cfg.CONF.set_override("ha_placement_random",
                                   ha_placement_random,
+                                  group=self.group_name)
+        if datacenter_moid is not None:
+            cfg.CONF.set_override("datacenter_moid",
+                                  datacenter_moid,
                                   group=self.group_name)
         if backup_edge_pool is not None:
             cfg.CONF.set_override("backup_edge_pool", backup_edge_pool,
@@ -100,6 +105,7 @@ class NsxvAvailabilityZonesTestCase(base.BaseTestCase):
         self.assertTrue(az.edge_ha)
         self.assertEqual("hastore", az.ha_datastore_id)
         self.assertFalse(az.ha_placement_random)
+        self.assertEqual("datacenter", az.datacenter_moid)
         self.assertEqual(DEF_AZ_POOL, az.backup_edge_pool)
         self.assertEqual("portgroup-407", az.mgt_net_moid)
         self.assertEqual(["1.1.1.1"], az.mgt_net_proxy_ips)

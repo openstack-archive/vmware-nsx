@@ -702,6 +702,9 @@ nsxv_az_opts = [
                        'that active/backup edges are placed in the listed '
                        'host groups. 2 predefined host groups need to be '
                        'configured.')),
+    cfg.StrOpt('datacenter_moid',
+               help=_('(Optional) Identifying the ID of datacenter to deploy '
+                      'NSX Edges')),
     cfg.ListOpt('backup_edge_pool',
                 help=_("(Optional) Defines edge pool's management range for "
                        "the availability zone. If not defined, the global one "

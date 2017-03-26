@@ -40,7 +40,6 @@ class VcnsDriver(edge_appliance_driver.EdgeApplianceDriver,
         self.vcns_passwd = cfg.CONF.nsxv.password
         self.ca_file = cfg.CONF.nsxv.ca_file
         self.insecure = cfg.CONF.nsxv.insecure
-        self.datacenter_moid = cfg.CONF.nsxv.datacenter_moid
         self.deployment_container_id = cfg.CONF.nsxv.deployment_container_id
         self._pid = None
         self._task_manager = None

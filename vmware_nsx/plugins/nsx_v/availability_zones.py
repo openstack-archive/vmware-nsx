@@ -60,6 +60,7 @@ class NsxVAvailabilityZone(common_az.ConfiguredAvailabilityZone):
         # Some parameters are not supported in this format.
         # using the global ones instead.
         self.ha_placement_random = cfg.CONF.nsxv.ha_placement_random
+        self.datacenter_moid = cfg.CONF.nsxv.datacenter_moid
         self.backup_edge_pool = cfg.CONF.nsxv.backup_edge_pool
         self.external_network = cfg.CONF.nsxv.external_network
         self.vdn_scope_id = cfg.CONF.nsxv.vdn_scope_id
@@ -101,6 +102,10 @@ class NsxVAvailabilityZone(common_az.ConfiguredAvailabilityZone):
         if self.ha_placement_random is None:
             self.ha_placement_random = (
                 cfg.CONF.nsxv.ha_placement_random)
+
+        self.datacenter_moid = az_info.get('datacenter_moid')
+        if not self.datacenter_moid:
+            self.datacenter_moid = cfg.CONF.nsxv.datacenter_moid
 
         self.backup_edge_pool = az_info.get('backup_edge_pool', [])
         if not self.backup_edge_pool:
@@ -170,6 +175,7 @@ class NsxVAvailabilityZone(common_az.ConfiguredAvailabilityZone):
         self.edge_ha = cfg.CONF.nsxv.edge_ha
         self.ha_datastore_id = cfg.CONF.nsxv.ha_datastore_id
         self.ha_placement_random = cfg.CONF.nsxv.ha_placement_random
+        self.datacenter_moid = cfg.CONF.nsxv.datacenter_moid
         self.backup_edge_pool = cfg.CONF.nsxv.backup_edge_pool
         self.az_metadata_support = True
         self.mgt_net_moid = cfg.CONF.nsxv.mgt_net_moid
@@ -213,4 +219,6 @@ class NsxVAvailabilityZones(common_az.ConfiguredAvailabilityZones):
                 resources.append(az.vdn_scope_id)
             if az.mgt_net_moid:
                 resources.append(az.mgt_net_moid)
+            if az.datacenter_moid:
+                resources.append(az.datacenter_moid)
         return resources

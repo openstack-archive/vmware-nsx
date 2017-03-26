@@ -386,7 +386,7 @@ class EdgeApplianceDriver(object):
 
         edge_name = name
         edge = self._assemble_edge(
-            edge_name, datacenter_moid=self.datacenter_moid,
+            edge_name, datacenter_moid=availability_zone.datacenter_moid,
             deployment_container_id=self.deployment_container_id,
             appliance_size=appliance_size, remote_access=False, dist=dist,
             edge_ha=availability_zone.edge_ha)
@@ -459,7 +459,7 @@ class EdgeApplianceDriver(object):
                     set_errors=False, availability_zone=None):
         """Update edge name."""
         edge = self._assemble_edge(
-            name, datacenter_moid=self.datacenter_moid,
+            name, datacenter_moid=availability_zone.datacenter_moid,
             deployment_container_id=self.deployment_container_id,
             appliance_size=appliance_size, remote_access=False, dist=dist,
             edge_ha=availability_zone.edge_ha)
