@@ -18,8 +18,6 @@ from oslo_serialization import jsonutils
 
 import prettytable
 
-from vmware_nsx._i18n import _LI
-
 LOG = logging.getLogger(__name__)
 
 
@@ -29,9 +27,9 @@ def output_formatter(resource_name, resources_list, attrs):
     Depending on the --fmt cli option we format the output as
     JSON or as a table.
     """
-    LOG.info(_LI('%(resource_name)s'), {'resource_name': resource_name})
+    LOG.info('%(resource_name)s', {'resource_name': resource_name})
     if not resources_list:
-        LOG.info(_LI('No resources found'))
+        LOG.info('No resources found')
         return ''
 
     fmt = cfg.CONF.fmt

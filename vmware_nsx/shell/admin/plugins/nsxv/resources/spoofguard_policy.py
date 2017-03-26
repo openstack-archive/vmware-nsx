@@ -23,7 +23,6 @@ import vmware_nsx.shell.resources as shell
 from neutron.callbacks import registry
 from neutron_lib import exceptions
 
-from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.db import nsxv_db
 
 from oslo_log import log as logging
@@ -85,15 +84,15 @@ def nsx_list_missing_spoofguard_policies(resource, event, trigger,
     props = kwargs.get('property')
     reverse = True if props and props[0] == 'reverse' else False
     if reverse:
-        LOG.info(_LI("Spoofguard policies on NSXv but not present in "
-                     "Neutron Db"))
+        LOG.info("Spoofguard policies on NSXv but not present in "
+                 "Neutron Db")
     else:
-        LOG.info(_LI("Spoofguard policies in Neutron Db but not present "
-                     "on NSXv"))
+        LOG.info("Spoofguard policies in Neutron Db but not present "
+                 "on NSXv")
     missing_policies = get_missing_spoofguard_policy_mappings(reverse)
     if not missing_policies:
-        LOG.info(_LI("\nNo missing spoofguard policies found."
-                     "\nNeutron DB and NSXv backend are in sync\n"))
+        LOG.info("\nNo missing spoofguard policies found."
+                 "\nNeutron DB and NSXv backend are in sync\n")
     else:
         LOG.info(missing_policies)
         missing_policies = [{'policy_id': pid} for pid in missing_policies]
@@ -106,33 +105,33 @@ def nsx_clean_spoofguard_policy(resource, event, trigger, **kwargs):
     errmsg = ("Need to specify policy-id. Add --property "
               "policy-id=<policy-id>")
     if not kwargs.get('property'):
-        LOG.error(_LE("%s"), errmsg)
+        LOG.error("%s", errmsg)
         return
     properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
     policy_id = properties.get('policy-id')
     if not policy_id:
-        LOG.error(_LE("%s"), errmsg)
+        LOG.error("%s", errmsg)
         return
     try:
         h, c = nsxv.get_spoofguard_policy(policy_id)
     except exceptions.NeutronException as e:
-        LOG.error(_LE("Unable to retrieve policy %(p)s: %(e)s"),
+        LOG.error("Unable to retrieve policy %(p)s: %(e)s",
                   {'p': policy_id, 'e': str(e)})
     else:
         if not c['spoofguardList']:
-            LOG.error(_LE("Policy %s does not exist"), policy_id)
+            LOG.error("Policy %s does not exist", policy_id)
             return
         confirm = admin_utils.query_yes_no(
             "Do you want to delete spoofguard-policy: %s" % policy_id,
             default="no")
         if not confirm:
-            LOG.info(_LI("spoofguard-policy deletion aborted by user"))
+            LOG.info("spoofguard-policy deletion aborted by user")
             return
         try:
             nsxv.delete_spoofguard_policy(policy_id)
         except Exception as e:
-            LOG.error(_LE("%s"), str(e))
-        LOG.info(_LI('spoofguard-policy successfully deleted.'))
+            LOG.error("%s", str(e))
+        LOG.info('spoofguard-policy successfully deleted.')
 
 
 registry.subscribe(neutron_list_spoofguard_policy_mappings,

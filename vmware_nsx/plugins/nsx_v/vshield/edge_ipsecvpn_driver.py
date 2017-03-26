@@ -15,7 +15,7 @@
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from vmware_nsx._i18n import _, _LE, _LW
+from vmware_nsx._i18n import _
 from vmware_nsx.plugins.nsx_v.vshield.common import (
     exceptions as vcns_exc)
 
@@ -63,9 +63,9 @@ class EdgeIPsecVpnDriver(object):
             ikepolicy['encryption_algorithm'] != ipsecpolicy[
                 'encryption_algorithm'] or
             ikepolicy['pfs'] != ipsecpolicy['pfs']):
-            LOG.warning(_LW(
+            LOG.warning(
                 "IKEPolicy and IPsecPolicy should have consistent "
-                "auth_algorithm, encryption_algorithm and pfs for VSE!"))
+                "auth_algorithm, encryption_algorithm and pfs for VSE!")
 
         # Check whether encryption_algorithm is allowed.
         encryption_algorithm = ENCRYPTION_ALGORITHM_MAP.get(
@@ -135,19 +135,19 @@ class EdgeIPsecVpnDriver(object):
             self.vcns.update_ipsec_config(edge_id, ipsec_config)
         except vcns_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to update ipsec vpn "
-                                  "configuration with edge_id: %s"),
+                LOG.exception("Failed to update ipsec vpn "
+                              "configuration with edge_id: %s",
                               edge_id)
 
     def delete_ipsec_config(self, edge_id):
         try:
             self.vcns.delete_ipsec_config(edge_id)
         except vcns_exc.ResourceNotFound:
-            LOG.warning(_LW("IPsec config not found on edge: %s"), edge_id)
+            LOG.warning("IPsec config not found on edge: %s", edge_id)
         except vcns_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to delete ipsec vpn configuration "
-                                  "with edge_id: %s"), edge_id)
+                LOG.exception("Failed to delete ipsec vpn configuration "
+                              "with edge_id: %s", edge_id)
 
     def get_ipsec_config(self, edge_id):
         return self.vcns.get_ipsec_config(edge_id)

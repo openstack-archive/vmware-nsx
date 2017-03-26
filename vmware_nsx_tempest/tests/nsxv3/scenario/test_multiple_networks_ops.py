@@ -24,8 +24,6 @@ from tempest.lib import decorators
 from tempest.scenario import manager
 from tempest import test
 
-from vmware_nsx_tempest._i18n import _LE
-
 CONF = config.CONF
 
 LOG = logging.getLogger(__name__)
@@ -194,8 +192,8 @@ class TestMultiNetworksOps(manager.NetworkScenarioTest):
                                 (ssh_source, remote_ip, should_connect),
                                 msg)
             except Exception:
-                LOG.exception(_LE("Unable to access %{dest}s via ssh to "
-                                  "floating-ip %{src}s"),
+                LOG.exception("Unable to access %{dest}s via ssh to "
+                              "floating-ip %{src}s",
                               {'dest': remote_ip, 'src': floating_ip})
                 raise
 

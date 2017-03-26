@@ -17,7 +17,6 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from sqlalchemy.orm import exc
 
-from vmware_nsx._i18n import _LE, _LI, _LW
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import nsx_models
 from vmware_nsx.dvs import dvs
@@ -90,7 +89,7 @@ def get_dhcp_profile_id(profile_client):
         plugin.NSX_V3_DHCP_PROFILE_NAME)
     if profiles and len(profiles) == 1:
         return profiles[0]['id']
-    LOG.warning(_LW("Could not find DHCP profile on backend"))
+    LOG.warning("Could not find DHCP profile on backend")
 
 
 def get_spoofguard_profile_id(profile_client):
@@ -98,12 +97,12 @@ def get_spoofguard_profile_id(profile_client):
         plugin.NSX_V3_PSEC_PROFILE_NAME)
     if profiles and len(profiles) == 1:
         return profiles[0]['id']
-    LOG.warning(_LW("Could not find Spoof Guard profile on backend"))
+    LOG.warning("Could not find Spoof Guard profile on backend")
 
 
 def add_profile_mismatch(problems, neutron_id, nsx_id, prf_id, title):
-    msg = (_LI('Wrong %(title)s profile %(prf_id)s') % {'title': title,
-                                                        'prf_id': prf_id})
+    msg = ('Wrong %(title)s profile %(prf_id)s') % {'title': title,
+                                                    'prf_id': prf_id}
     problems.append({'neutron_id': neutron_id,
                      'nsx_id': nsx_id,
                      'error': msg})
@@ -141,7 +140,7 @@ def list_missing_ports(resource, event, trigger, **kwargs):
                 except nsx_exc.ResourceNotFound:
                     problems.append({'neutron_id': neutron_id,
                                      'nsx_id': nsx_id,
-                                     'error': _LI('Missing from backend')})
+                                     'error': 'Missing from backend'})
                     continue
 
                 # Port found on backend!
@@ -184,13 +183,13 @@ def list_missing_ports(resource, event, trigger, **kwargs):
                                              prf_id, "Spoof Guard")
 
     if len(problems) > 0:
-        title = _LI("Found internal ports misconfiguration on the "
-                    "NSX manager:")
+        title = ("Found internal ports misconfiguration on the "
+                 "NSX manager:")
         LOG.info(formatters.output_formatter(
             title, problems,
             ['neutron_id', 'nsx_id', 'error']))
     else:
-        LOG.info(_LI("All internal ports verified on the NSX manager"))
+        LOG.info("All internal ports verified on the NSX manager")
 
 
 def get_vm_network_device(vm_mng, vm_moref, mac_address):
@@ -218,8 +217,8 @@ def migrate_compute_ports_vms(resource, event, trigger, **kwargs):
     try:
         vm_mng = dvs.VMManager()
     except Exception as e:
-        LOG.error(_LE("Cannot connect to the DVS: Please update the [dvs] "
-                      "section in the nsx.ini file: %s"), e)
+        LOG.error("Cannot connect to the DVS: Please update the [dvs] "
+                  "section in the nsx.ini file: %s", e)
         return
 
     # Go over all the compute ports from the plugin
@@ -235,7 +234,7 @@ def migrate_compute_ports_vms(resource, event, trigger, **kwargs):
         vm_moref = vm_mng.get_vm_moref_obj(device_id)
         vm_spec = vm_mng.get_vm_spec(vm_moref)
         if not vm_spec:
-            LOG.error(_LE("Failed to get the spec of vm %s"), device_id)
+            LOG.error("Failed to get the spec of vm %s", device_id)
             continue
 
         # Go over the VM interfaces and check if it should be updated
@@ -248,22 +247,22 @@ def migrate_compute_ports_vms(resource, event, trigger, **kwargs):
                         update_spec = True
 
         if not update_spec:
-            LOG.info(_LI("No need to update the spec of vm %s"), device_id)
+            LOG.info("No need to update the spec of vm %s", device_id)
             continue
 
         # find the old interface by it's mac and delete it
         device = get_vm_network_device(vm_mng, vm_moref, port['mac_address'])
         if device is None:
-            LOG.warning(_LW("No device with MAC address %s exists on the VM"),
+            LOG.warning("No device with MAC address %s exists on the VM",
                         port['mac_address'])
             continue
         device_type = device.__class__.__name__
 
-        LOG.info(_LI("Detaching old interface from VM %s"), device_id)
+        LOG.info("Detaching old interface from VM %s", device_id)
         vm_mng.detach_vm_interface(vm_moref, device)
 
         # add the new interface as OpaqueNetwork
-        LOG.info(_LI("Attaching new interface to VM %s"), device_id)
+        LOG.info("Attaching new interface to VM %s", device_id)
         nsx_net_id = get_network_nsx_id(admin_cxt.session, port['network_id'])
         vm_mng.attach_vm_interface(vm_moref, port['id'], port['mac_address'],
                                    nsx_net_id, device_type)

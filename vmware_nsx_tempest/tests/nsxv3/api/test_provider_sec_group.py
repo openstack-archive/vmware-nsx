@@ -22,7 +22,6 @@ from tempest.lib import decorators
 from tempest.lib import exceptions
 
 from tempest import test
-from vmware_nsx_tempest._i18n import _LI
 from vmware_nsx_tempest.common import constants
 from vmware_nsx_tempest.services import nsxv3_client
 
@@ -298,8 +297,8 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
             if (provider_sg_name in sec_name['display_name'] and
                     sg_name not in sec_name['display_name']):
                 if count == 0:
-                    LOG.info(_LI("Provider group has high priority over"
-                                 "default sec group"))
+                    LOG.info("Provider group has high priority over "
+                             "default sec group")
                     break
             count += count
         self.assertIn(provider_sg_name, sec_name['display_name'])
@@ -316,8 +315,8 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
         try:
             self.delete_security_group(sg_client, sg_id)
         except Exception:
-            LOG.info(_LI("Non Admin tenant can't see admin"
-                         "provider security group"))
+            LOG.info("Non Admin tenant can't see admin "
+                     "provider security group")
             pass
 
     @test.attr(type='nsxv3')
@@ -328,7 +327,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
                           self.create_security_provider_group,
                           self.cmgr_alt, project_id=project_id,
                           provider=True)
-        LOG.info(_LI("Non-Admin Tenant cannot create provider sec group"))
+        LOG.info("Non-Admin Tenant cannot create provider sec group")
 
     @test.attr(type='nsxv3')
     @decorators.idempotent_id('0d021bb2-9e21-422c-a509-6ac27803b2a2')

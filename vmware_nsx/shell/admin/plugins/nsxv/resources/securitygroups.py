@@ -23,7 +23,6 @@ from neutron.extensions import securitygroup as ext_sg
 from neutron_lib import context
 from oslo_log import log as logging
 
-from vmware_nsx._i18n import _LE, _LI, _LW
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import nsx_models
 from vmware_nsx.db import nsxv_db
@@ -137,7 +136,7 @@ class NsxFirewallAPI(object):
         # read all the sections
         h, firewall_config = self.vcns.get_dfw_config()
         if not firewall_config:
-            LOG.info(_LI("No firewall sections were found."))
+            LOG.info("No firewall sections were found.")
             return
 
         root = et.fromstring(firewall_config)
@@ -158,7 +157,7 @@ class NsxFirewallAPI(object):
                     child.remove(sec)
 
                 if not policy_sections:
-                    LOG.info(_LI("No need to reorder the firewall sections."))
+                    LOG.info("No need to reorder the firewall sections.")
                     return
 
                 # reorder the sections to have the policy sections first
@@ -167,7 +166,7 @@ class NsxFirewallAPI(object):
 
                 # update the new order of sections in the backend
                 self.vcns.update_dfw_config(et.tostring(root), h)
-                LOG.info(_LI("L3 Firewall sections were reordered."))
+                LOG.info("L3 Firewall sections were reordered.")
 
 
 neutron_sg = NeutronSecurityGroupDB()
@@ -304,19 +303,19 @@ def fix_security_groups(resource, event, trigger, **kwargs):
 def migrate_sg_to_policy(resource, event, trigger, **kwargs):
     """Change the mode of a security group from rules to NSX policy"""
     if not kwargs.get('property'):
-        LOG.error(_LE("Need to specify security-group-id and policy-id "
-                    "parameters"))
+        LOG.error("Need to specify security-group-id and policy-id "
+                  "parameters")
         return
 
     # input validation
     properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
     sg_id = properties.get('security-group-id')
     if not sg_id:
-        LOG.error(_LE("Need to specify security-group-id parameter"))
+        LOG.error("Need to specify security-group-id parameter")
         return
     policy_id = properties.get('policy-id')
     if not policy_id:
-        LOG.error(_LE("Need to specify policy-id parameter"))
+        LOG.error("Need to specify policy-id parameter")
         return
 
     # validate that the security group exist and contains rules and no policy
@@ -325,45 +324,45 @@ def migrate_sg_to_policy(resource, event, trigger, **kwargs):
         try:
             secgroup = plugin.get_security_group(context_, sg_id)
         except ext_sg.SecurityGroupNotFound:
-            LOG.error(_LE("Security group %s was not found"), sg_id)
+            LOG.error("Security group %s was not found", sg_id)
             return
         if secgroup.get('policy'):
-            LOG.error(_LE("Security group %s already uses a policy"), sg_id)
+            LOG.error("Security group %s already uses a policy", sg_id)
             return
 
         # validate that the policy exists
         if not plugin.nsx_v.vcns.validate_inventory(policy_id):
-            LOG.error(_LE("NSX policy %s was not found"), policy_id)
+            LOG.error("NSX policy %s was not found", policy_id)
             return
 
         # Delete the rules from the security group
-        LOG.info(_LI("Deleting the rules of security group: %s"), sg_id)
+        LOG.info("Deleting the rules of security group: %s", sg_id)
         for rule in secgroup.get('security_group_rules', []):
             try:
                 plugin.delete_security_group_rule(context_, rule['id'])
             except Exception as e:
-                LOG.warning(_LW("Failed to delete rule %(r)s from security "
-                                "group %(sg)s: %(e)s"),
+                LOG.warning("Failed to delete rule %(r)s from security "
+                            "group %(sg)s: %(e)s",
                             {'r': rule['id'], 'sg': sg_id, 'e': e})
                 # continue anyway
 
         # Delete the security group FW section
-        LOG.info(_LI("Deleting the section of security group: %s"), sg_id)
+        LOG.info("Deleting the section of security group: %s", sg_id)
         try:
             section_uri = plugin._get_section_uri(context_.session, sg_id)
             plugin._delete_section(section_uri)
             nsxv_db.delete_neutron_nsx_section_mapping(
                 context_.session, sg_id)
         except Exception as e:
-            LOG.warning(_LW("Failed to delete firewall section of security "
-                            "group %(sg)s: %(e)s"),
+            LOG.warning("Failed to delete firewall section of security "
+                        "group %(sg)s: %(e)s",
                         {'sg': sg_id, 'e': e})
             # continue anyway
 
         # bind this security group to the policy in the backend and DB
         nsx_sg_id = nsx_db.get_nsx_security_group_id(context_.session, sg_id)
-        LOG.info(_LI("Binding the NSX security group %(nsx)s to policy "
-                     "%(pol)s"),
+        LOG.info("Binding the NSX security group %(nsx)s to policy "
+                 "%(pol)s",
                  {'nsx': nsx_sg_id, 'pol': policy_id})
         plugin._update_nsx_security_group_policies(
             policy_id, None, nsx_sg_id)
@@ -371,7 +370,7 @@ def migrate_sg_to_policy(resource, event, trigger, **kwargs):
         with context_.session.begin(subtransactions=True):
             prop.update({sg_policy.POLICY: policy_id})
 
-        LOG.info(_LI("Done."))
+        LOG.info("Done.")
 
 
 registry.subscribe(migrate_sg_to_policy,

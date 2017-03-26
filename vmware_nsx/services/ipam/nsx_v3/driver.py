@@ -21,7 +21,7 @@ from oslo_log import log as logging
 from neutron.ipam import exceptions as ipam_exc
 from neutron.ipam import requests as ipam_req
 
-from vmware_nsx._i18n import _, _LE, _LI, _LW
+from vmware_nsx._i18n import _
 from vmware_nsx.services.ipam.common import driver as common
 from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
 from vmware_nsxlib.v3 import nsx_constants as error
@@ -92,13 +92,13 @@ class Nsxv3IpamDriver(common.NsxAbstractIpamDriver):
                 try:
                     self.nsxlib_ipam.release(nsx_pool_id, ip_addr)
                 except Exception as e:
-                    LOG.warning(_LW("Failed to release ip %(ip)s from pool "
-                                    "%(pool)s: %(e)s"),
+                    LOG.warning("Failed to release ip %(ip)s from pool "
+                                "%(pool)s: %(e)s",
                                 {'ip': ip_addr, 'pool': nsx_pool_id, 'e': e})
         try:
             self.nsxlib_ipam.delete(nsx_pool_id)
         except Exception as e:
-            LOG.error(_LE("Failed to delete IPAM from backend: %s"), e)
+            LOG.error("Failed to delete IPAM from backend: %s", e)
             # Continue anyway, since this subnet was already removed
 
     def update_backend_pool(self, nsx_pool_id, subnet_request):
@@ -110,8 +110,8 @@ class Nsxv3IpamDriver(common.NsxAbstractIpamDriver):
             self.nsxlib_ipam.update(
                 nsx_pool_id, **update_args)
         except nsx_lib_exc.ManagerError as e:
-            LOG.error(_LE("NSX IPAM failed to update pool %(id)s: "
-                          " %(e)s; code %(code)s"),
+            LOG.error("NSX IPAM failed to update pool %(id)s: "
+                      " %(e)s; code %(code)s",
                       {'e': e,
                        'id': nsx_pool_id,
                        'code': e.error_code})
@@ -147,7 +147,7 @@ class Nsxv3IpamSubnet(common.NsxAbstractIpamSubnet):
                 # If this is the subnet gateway IP - no need to allocate it
                 subnet = self.get_details()
                 if str(subnet.gateway_ip) == ip_address:
-                    LOG.info(_LI("Skip allocation of gateway-ip for pool %s"),
+                    LOG.info("Skip allocation of gateway-ip for pool %s",
                              self._nsx_pool_id)
                     return ip_address
             else:
@@ -157,9 +157,8 @@ class Nsxv3IpamSubnet(common.NsxAbstractIpamSubnet):
                                                  ip_addr=ip_address)
             ip_address = response['allocation_id']
         except nsx_lib_exc.ManagerError as e:
-            LOG.error(_LE("NSX IPAM failed to allocate ip %(ip)s of subnet "
-                          "%(id)s:"
-                          " %(e)s; code %(code)s"),
+            LOG.error("NSX IPAM failed to allocate ip %(ip)s of subnet "
+                      "%(id)s: %(e)s; code %(code)s",
                       {'e': e,
                        'ip': ip_address,
                        'id': self._subnet_id,
@@ -182,9 +181,8 @@ class Nsxv3IpamSubnet(common.NsxAbstractIpamSubnet):
                 # another backend error
                 raise ipam_exc.IPAllocationFailed()
         except Exception as e:
-            LOG.error(_LE("NSX IPAM failed to allocate ip %(ip)s of subnet "
-                          "%(id)s:"
-                          " %(e)s"),
+            LOG.error("NSX IPAM failed to allocate ip %(ip)s of subnet "
+                      "%(id)s: %(e)s",
                       {'e': e,
                        'ip': ip_address,
                        'id': self._subnet_id})
@@ -197,9 +195,8 @@ class Nsxv3IpamSubnet(common.NsxAbstractIpamSubnet):
             self.nsxlib_ipam.release(self._nsx_pool_id, ip_addr=address)
         except nsx_lib_exc.ManagerError as e:
             # fail silently
-            LOG.error(_LE("NSX IPAM failed to free ip %(ip)s of subnet "
-                          "%(id)s:"
-                          " %(e)s; code %(code)s"),
+            LOG.error("NSX IPAM failed to free ip %(ip)s of subnet "
+                      "%(id)s: %(e)s; code %(code)s",
                       {'e': e,
                        'ip': address,
                        'id': self._subnet_id,

@@ -24,7 +24,6 @@ from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
 from tempest.lib import exceptions as lib_exc
 
-from vmware_nsx_tempest._i18n import _LI
 from vmware_nsx_tempest.common import constants
 from vmware_nsx_tempest.services import base_l2gw
 
@@ -85,7 +84,7 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
         """
         Delete l2 gateway with active mapping.
         """
-        LOG.info(_LI("Testing test_l2_gateway_create api"))
+        LOG.info("Testing test_l2_gateway_create api")
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]
         l2gw_name = data_utils.rand_name(constants.L2GW)
@@ -112,7 +111,7 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
         """
         Recreate l2 gateway connection using same parameters.
         """
-        LOG.info(_LI("Testing test_l2_gateway_connection_create api"))
+        LOG.info("Testing test_l2_gateway_connection_create api")
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]
         l2gw_name = data_utils.rand_name(constants.L2GW)
@@ -138,7 +137,7 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
         """
         Create l2 gateway connection using non exist l2gw uuid.
         """
-        LOG.info(_LI("Testing test_l2_gateway_connection_create api"))
+        LOG.info("Testing test_l2_gateway_connection_create api")
         non_exist_l2gw_uuid = NON_EXIST_UUID
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]
@@ -160,7 +159,7 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
         """
         Create l2 gateway connection using non exist l2gw uuid.
         """
-        LOG.info(_LI("Testing test_l2_gateway_connection_create api"))
+        LOG.info("Testing test_l2_gateway_connection_create api")
         non_exist_network_uuid = NON_EXIST_UUID
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]
@@ -182,7 +181,7 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
         """
         Create l2 gateway connection using invalid seg id.
         """
-        LOG.info(_LI("Testing l2_gateway_create api with segmentation ID"))
+        LOG.info("Testing l2_gateway_create api with segmentation ID")
         invalid_seg_id = 20000
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]
@@ -201,7 +200,7 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
         """
         Create l2 gateway connection using invalid seg id.
         """
-        LOG.info(_LI("Testing l2_gateway_create api with segmentation ID"))
+        LOG.info("Testing l2_gateway_create api with segmentation ID")
         invalid_seg_id = 2.45
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]

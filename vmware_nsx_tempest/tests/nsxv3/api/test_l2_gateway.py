@@ -20,7 +20,6 @@ from tempest.lib.common.utils import data_utils
 from tempest.lib import decorators
 from tempest import test
 
-from vmware_nsx_tempest._i18n import _LI
 from vmware_nsx_tempest.common import constants
 from vmware_nsx_tempest.services import base_l2gw
 
@@ -42,7 +41,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
         To create l2gw we need bridge cluster name (interface name) and
         bridge cluster UUID (device name) from NSX manager.
         """
-        LOG.info(_LI("Testing l2_gateway_create api"))
+        LOG.info("Testing l2_gateway_create api")
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]
         l2gw_name = data_utils.rand_name(constants.L2GW)
@@ -67,7 +66,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
         To create l2gw we need bridge cluster name (interface name) and
         bridge cluster UUID (device name) from NSX manager and vlan id.
         """
-        LOG.info(_LI("Testing l2_gateway_create api with segmentation ID"))
+        LOG.info("Testing l2_gateway_create api with segmentation ID")
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]
         l2gw_name = data_utils.rand_name(constants.L2GW)
@@ -104,7 +103,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
         To create l2gw we need bridge cluster name (interface name) and
         bridge cluster UUID (device name) from NSX manager and vlan id.
         """
-        LOG.info(_LI("Testing l2_gateway_create api with segmentation ID"))
+        LOG.info("Testing l2_gateway_create api with segmentation ID")
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]
         l2gw_name = data_utils.rand_name(constants.L2GW)
@@ -140,7 +139,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
         Delete l2gw will create l2gw and delete recently created l2gw. To
         delete l2gw we need l2gw id.
         """
-        LOG.info(_LI("Testing l2_gateway_delete api"))
+        LOG.info("Testing l2_gateway_delete api")
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]
         l2gw_name = data_utils.rand_name(constants.L2GW)
@@ -171,7 +170,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
         Update l2gw will update info in already created l2gw. To
         update l2gw we need l2gw id and payload to update.
         """
-        LOG.info(_LI("Testing l2_gateway_update api"))
+        LOG.info("Testing l2_gateway_update api")
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]
         l2gw_name = data_utils.rand_name(constants.L2GW)
@@ -198,7 +197,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
                              "code":
                                  constants.EXPECTED_HTTP_RESPONSE_200})
         rsp_l2gw = update_rsp[constants.L2GW]
-        LOG.info(_LI("response : %(rsp_l2gw)s") % {"rsp_l2gw": rsp_l2gw})
+        LOG.info("response : %(rsp_l2gw)s", {"rsp_l2gw": rsp_l2gw})
         # Assert if name is not updated.
         self.assertEqual(l2gw_new_name, rsp_l2gw["name"],
                          "l2gw name=%(rsp_name)s is not the same as "
@@ -213,7 +212,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
         Update l2gw will update info in already created l2gw. To
         update l2gw we need l2gw id and payload to update.
         """
-        LOG.info(_LI("Testing l2_gateway_update api"))
+        LOG.info("Testing l2_gateway_update api")
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]
         l2gw_name = data_utils.rand_name(constants.L2GW)
@@ -243,7 +242,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
                                  constants.EXPECTED_HTTP_RESPONSE_200})
         rsp_l2gw = update_rsp[constants.L2GW]
         self.l2gw_created[rsp_l2gw["id"]] = rsp_l2gw
-        LOG.info(_LI("response : %(rsp_l2gw)s") % {"rsp_l2gw": rsp_l2gw})
+        LOG.info("response : %(rsp_l2gw)s", {"rsp_l2gw": rsp_l2gw})
         if "segmentation_id" in devices["devices"][0]["interfaces"][0]:
             self.assertEqual(devices["devices"][0]["interfaces"][0][
                                  "segmentation_id"][0],
@@ -258,7 +257,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
         """
         show l2gw based on UUID. To see l2gw info we need l2gw id.
         """
-        LOG.info(_LI("Testing l2_gateway_show api"))
+        LOG.info("Testing l2_gateway_show api")
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]
         l2gw_name = data_utils.rand_name(constants.L2GW)
@@ -301,7 +300,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
         """
         list created l2gw.
         """
-        LOG.info(_LI("Testing l2_gateway_list api"))
+        LOG.info("Testing l2_gateway_list api")
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]
         l2gw_name = data_utils.rand_name(constants.L2GW)

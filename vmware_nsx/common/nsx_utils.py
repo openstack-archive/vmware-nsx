@@ -21,7 +21,6 @@ from neutron_lib import exceptions as n_exc
 from oslo_log import log
 import six
 
-from vmware_nsx._i18n import _LW
 from vmware_nsx.api_client import client
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import utils as vmw_utils
@@ -68,8 +67,8 @@ def get_nsx_switch_ids(session, cluster, neutron_network_id):
         # more than once for each network in Neutron's lifetime
         nsx_switches = switchlib.get_lswitches(cluster, neutron_network_id)
         if not nsx_switches:
-            LOG.warning(_LW("Unable to find NSX switches for Neutron network "
-                            "%s"), neutron_network_id)
+            LOG.warning("Unable to find NSX switches for Neutron network "
+                        "%s", neutron_network_id)
             return
         nsx_switch_ids = []
         with session.begin(subtransactions=True):
@@ -115,7 +114,7 @@ def get_nsx_switch_and_port_id(session, cluster, neutron_port_id):
         # NOTE(salv-orlando): Not handling the case where more than one
         # port is found with the same neutron port tag
         if not nsx_ports:
-            LOG.warning(_LW("Unable to find NSX port for Neutron port %s"),
+            LOG.warning("Unable to find NSX port for Neutron port %s",
                         neutron_port_id)
             # This method is supposed to return a tuple
             return None, None
@@ -155,12 +154,12 @@ def get_nsx_security_group_id(session, cluster, neutron_id):
         # NOTE(salv-orlando): Not handling the case where more than one
         # security profile is found with the same neutron port tag
         if not nsx_sec_profiles:
-            LOG.warning(_LW("Unable to find NSX security profile for Neutron "
-                            "security group %s"), neutron_id)
+            LOG.warning("Unable to find NSX security profile for Neutron "
+                        "security group %s", neutron_id)
             return
         elif len(nsx_sec_profiles) > 1:
-            LOG.warning(_LW("Multiple NSX security profiles found for Neutron "
-                            "security group %s"), neutron_id)
+            LOG.warning("Multiple NSX security profiles found for Neutron "
+                        "security group %s", neutron_id)
         nsx_sec_profile = nsx_sec_profiles[0]
         nsx_id = nsx_sec_profile['uuid']
         with session.begin(subtransactions=True):
@@ -192,7 +191,7 @@ def get_nsx_router_id(session, cluster, neutron_router_id):
         # NOTE(salv-orlando): Not handling the case where more than one
         # port is found with the same neutron port tag
         if not nsx_routers:
-            LOG.warning(_LW("Unable to find NSX router for Neutron router %s"),
+            LOG.warning("Unable to find NSX router for Neutron router %s",
                         neutron_router_id)
             return
         nsx_router = nsx_routers[0]
@@ -249,12 +248,12 @@ def get_nsx_device_statuses(cluster, tenant_id):
     except api_exc.NsxApiException:
         # Do not make a NSX API exception fatal
         if tenant_id:
-            LOG.warning(_LW("Unable to retrieve operational status for "
-                            "gateway devices belonging to tenant: %s"),
+            LOG.warning("Unable to retrieve operational status for "
+                        "gateway devices belonging to tenant: %s",
                         tenant_id)
         else:
-            LOG.warning(_LW("Unable to retrieve operational status for "
-                            "gateway devices"))
+            LOG.warning("Unable to retrieve operational status for "
+                        "gateway devices")
 
 
 def _convert_bindings_to_nsx_transport_zones(bindings):

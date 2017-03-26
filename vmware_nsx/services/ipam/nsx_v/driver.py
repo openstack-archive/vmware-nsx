@@ -26,7 +26,7 @@ from neutron.ipam import requests as ipam_req
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators
 
-from vmware_nsx._i18n import _, _LE
+from vmware_nsx._i18n import _
 from vmware_nsx.plugins.nsx_v.vshield.common import constants
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as vc_exc
 from vmware_nsx.services.ipam.common import driver as common
@@ -113,7 +113,7 @@ class NsxvIpamDriver(common.NsxAbstractIpamDriver, NsxVIpamBase):
         try:
             self._vcns.delete_ipam_ip_pool(nsx_pool_id)
         except vc_exc.VcnsApiException as e:
-            LOG.error(_LE("Failed to delete IPAM from backend: %s"), e)
+            LOG.error("Failed to delete IPAM from backend: %s", e)
             # Continue anyway, since this subnet was already removed
 
     def update_backend_pool(self, subnet_request):
@@ -132,7 +132,7 @@ class NsxvIpamSubnet(common.NsxAbstractIpamSubnet, NsxVIpamBase):
             desc = et.fromstring(e.response)
             return int(desc.find('errorCode').text)
         except Exception:
-            LOG.error(_LE('IPAM pool: Error code not present. %s'),
+            LOG.error('IPAM pool: Error code not present. %s',
                 e.response)
 
     def backend_allocate(self, address_request):
@@ -169,8 +169,8 @@ class NsxvIpamSubnet(common.NsxAbstractIpamSubnet, NsxVIpamBase):
         try:
             self._vcns.release_ipam_ip_to_pool(self._nsx_pool_id, address)
         except vc_exc.VcnsApiException as e:
-            LOG.error(_LE("NSX IPAM failed to free ip %(ip)s of subnet %(id)s:"
-                          " %(e)s"),
+            LOG.error("NSX IPAM failed to free ip %(ip)s of subnet %(id)s:"
+                      " %(e)s",
                       {'e': e.response,
                        'ip': address,
                        'id': self._subnet_id})

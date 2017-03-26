@@ -34,7 +34,6 @@ from neutron_lib import constants as n_constants
 from neutron_lib.db import model_base
 from neutron_lib.utils import helpers
 
-from vmware_nsx._i18n import _LW
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
 from vmware_nsx.extensions import securitygrouppolicy as sg_policy
@@ -204,8 +203,8 @@ class ExtendedSecurityGroupPropertiesMixin(object):
                 if self._is_provider_security_group(context, sg):
                     if only_warn:
                         LOG.warning(
-                            _LW("Ignored provider security group %(sg)s in "
-                                "security groups list for port %(id)s"),
+                            "Ignored provider security group %(sg)s in "
+                            "security groups list for port %(id)s",
                             {'sg': sg, 'id': port['id']})
                     else:
                         raise provider_sg.SecurityGroupIsProvider(id=sg)

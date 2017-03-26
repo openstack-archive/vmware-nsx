@@ -24,7 +24,6 @@ from neutron.services.trunk import constants as trunk_consts
 from neutron.services.trunk.drivers import base
 from neutron_lib.api.definitions import portbindings
 
-from vmware_nsx._i18n import _LE
 from vmware_nsx.common import nsx_constants as nsx_consts
 from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.db import db as nsx_db
@@ -69,8 +68,8 @@ class NsxV3TrunkHandler(object):
                 nsx_child_port_id)
         except nsxlib_exc.ResourceNotFound:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Child port %s not found on the backend. "
-                              "Setting trunk status to ERROR."),
+                LOG.error("Child port %s not found on the backend. "
+                          "Setting trunk status to ERROR.",
                           nsx_child_port_id)
         # Build address bindings and switch profiles otherwise backend will
         # clear that information during port update
@@ -103,9 +102,9 @@ class NsxV3TrunkHandler(object):
                 traffic_tag=seg_id)
         except nsxlib_exc.ManagerError as e:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Unable to update subport for attachment "
-                              "type. Setting trunk status to ERROR. "
-                              "Exception is %s"), e)
+                LOG.error("Unable to update subport for attachment "
+                          "type. Setting trunk status to ERROR. "
+                          "Exception is %s", e)
 
     def _set_subports(self, context, parent_port_id, subports):
         for subport in subports:

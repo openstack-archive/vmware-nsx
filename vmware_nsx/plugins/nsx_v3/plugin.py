@@ -76,7 +76,7 @@ from oslo_utils import importutils
 from oslo_utils import uuidutils
 from sqlalchemy import exc as sql_exc
 
-from vmware_nsx._i18n import _, _LE, _LI, _LW
+from vmware_nsx._i18n import _
 from vmware_nsx.api_replay import utils as api_replay_utils
 from vmware_nsx.common import availability_zones as nsx_com_az
 from vmware_nsx.common import config  # noqa
@@ -180,7 +180,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         super(NsxV3Plugin, self).__init__()
         # Bind the dummy L3 notifications
         self.l3_rpc_notifier = l3_rpc_agent_api.L3NotifyAPI()
-        LOG.info(_LI("Starting NsxV3Plugin"))
+        LOG.info("Starting NsxV3Plugin")
         self._extension_manager.initialize()
         self.supported_extension_aliases.extend(
             self._extension_manager.extension_aliases())
@@ -193,7 +193,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             resources.PROCESS, events.AFTER_INIT)
 
         self._nsx_version = self.nsxlib.get_version()
-        LOG.info(_LI("NSX Version: %s"), self._nsx_version)
+        LOG.info("NSX Version: %s", self._nsx_version)
         self._nsx_client = self.nsxlib.client
 
         self.cfg_group = 'nsx_v3'  # group name for nsx_v3 section in nsx.ini
@@ -297,8 +297,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 # Only expose the extension if it is supported
                 self.supported_extension_aliases.append('mac-learning')
             except Exception as e:
-                LOG.warning(_LW("Unable to initialize NSX v3 MAC Learning "
-                                "profile: %(name)s. Reason: %(reason)s"),
+                LOG.warning("Unable to initialize NSX v3 MAC Learning "
+                            "profile: %(name)s. Reason: %(reason)s",
                             {'name': NSX_V3_MAC_LEARNING_PROFILE_NAME,
                              'reason': e})
 
@@ -474,8 +474,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         section_id, logging=log_all_rules)
                 except nsx_lib_exc.ManagerError:
                     with excutils.save_and_reraise_exception():
-                        LOG.error(_LE("Failed to update firewall rule logging "
-                                      "for rule in section %s"), section_id)
+                        LOG.error("Failed to update firewall rule logging "
+                                  "for rule in section %s", section_id)
 
         utils.spawn_n(process_security_group_logging)
 
@@ -523,8 +523,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self._nsx_client)
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Unable to retrieve DHCP Profile %s, "
-                              "native DHCP service is not supported"),
+                LOG.error("Unable to retrieve DHCP Profile %s, "
+                          "native DHCP service is not supported",
                           az._native_dhcp_profile_uuid)
 
     def _init_native_metadata(self):
@@ -534,8 +534,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     az._native_md_proxy_uuid)
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Unable to retrieve Metadata Proxy %s, "
-                              "native metadata service is not supported"),
+                LOG.error("Unable to retrieve Metadata Proxy %s, "
+                          "native metadata service is not supported",
                           az._native_md_proxy_uuid)
 
     def _setup_rpc(self):
@@ -843,7 +843,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         except Exception:
             with excutils.save_and_reraise_exception():
                 # Undo creation on the backend
-                LOG.exception(_LE('Failed to create network %s'),
+                LOG.exception('Failed to create network %s',
                               created_net['id'])
                 if net_type != utils.NetworkTypes.L3_EXT:
                     self.nsxlib.logical_switch.delete(created_net['id'])
@@ -978,8 +978,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 # the switch when the switch's admin state changes. Do not
                 # update the admin state of the ports in neutron either.
             except nsx_lib_exc.ManagerError:
-                LOG.exception(_LE("Unable to update NSX backend, rolling "
-                                  "back changes on neutron"))
+                LOG.exception("Unable to update NSX backend, rolling "
+                              "back changes on neutron")
                 with excutils.save_and_reraise_exception():
                     super(NsxV3Plugin, self).update_network(
                         context, id, {'network': original_net})
@@ -1067,8 +1067,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                       {'port': nsx_port['id'], 'network': network['id']})
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Unable to create logical DHCP server for "
-                              "network %s"), network['id'])
+                LOG.error("Unable to create logical DHCP server for "
+                          "network %s", network['id'])
                 if dhcp_server:
                     self._dhcp_server.delete(dhcp_server['id'])
                 super(NsxV3Plugin, self).delete_port(
@@ -1085,8 +1085,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 nsxlib_consts.SERVICE_DHCP, dhcp_server['id'])
         except (db_exc.DBError, sql_exc.TimeoutError):
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Failed to create mapping for DHCP port %s,"
-                              "deleting port and logical DHCP server"),
+                LOG.error("Failed to create mapping for DHCP port %s,"
+                          "deleting port and logical DHCP server",
                           neutron_port['id'])
                 self._dhcp_server.delete(dhcp_server['id'])
                 self._cleanup_port(context, neutron_port['id'], nsx_port['id'])
@@ -1096,8 +1096,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             for port_data in existing_ports:
                 self._add_dhcp_binding(context, port_data)
         except Exception:
-            LOG.error(_LE('Unable to create DHCP bindings for existing ports '
-                          'on subnet %s'), subnet['id'])
+            LOG.error('Unable to create DHCP bindings for existing ports '
+                      'on subnet %s', subnet['id'])
 
     def _disable_native_dhcp(self, context, network_id):
         # Disable native DHCP service on the backend for this network.
@@ -1113,12 +1113,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self.delete_port(context, dhcp_service['port_id'])
             except Exception:
                 # This could happen when the port has been manually deleted.
-                LOG.error(_LE("Failed to delete DHCP port %(port)s for "
-                              "network %(network)s"),
+                LOG.error("Failed to delete DHCP port %(port)s for "
+                          "network %(network)s",
                           {'port': dhcp_service['port_id'],
                            'network': network_id})
         else:
-            LOG.error(_LE("DHCP port is not configured for network %s"),
+            LOG.error("DHCP port is not configured for network %s",
                       network_id)
 
         try:
@@ -1129,8 +1129,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                        'network': network_id})
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Unable to delete logical DHCP server %(server)s"
-                              "for network %(network)s"),
+                LOG.error("Unable to delete logical DHCP server %(server)s "
+                          "for network %(network)s",
                           {'server': dhcp_service['nsx_service_id'],
                            'network': network_id})
         try:
@@ -1142,8 +1142,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 context.session, dhcp_service['nsx_service_id'])
         except db_exc.DBError:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Unable to delete DHCP server mapping for "
-                              "network %s"), network_id)
+                LOG.error("Unable to delete DHCP server mapping for "
+                          "network %s", network_id)
 
     def _validate_address_space(self, subnet):
         cidr = subnet.get('cidr')
@@ -1199,8 +1199,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # is already empty.
             context.session.rollback()
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("An exception occurred while creating "
-                              "the %(resource)s:%(item)s"),
+                LOG.error("An exception occurred while creating "
+                          "the %(resource)s:%(item)s",
                           {'resource': resource, 'item': item})
         return objects
 
@@ -1222,14 +1222,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             try:
                 self._port_client.delete(dhcp_info['nsx_port_id'])
             except Exception as e:
-                LOG.error(_LE("Failed to delete logical port %(id)s "
-                              "during rollback. Exception: %(e)s"),
+                LOG.error("Failed to delete logical port %(id)s "
+                          "during rollback. Exception: %(e)s",
                           {'id': dhcp_info['nsx_port_id'], 'e': e})
             try:
                 self._dhcp_server.delete(dhcp_info['nsx_service_id'])
             except Exception as e:
-                LOG.error(_LE("Failed to delete logical DHCP server %(id)s "
-                              "during rollback. Exception: %(e)s"),
+                LOG.error("Failed to delete logical DHCP server %(id)s "
+                          "during rollback. Exception: %(e)s",
                           {'id': dhcp_info['nsx_service_id'], 'e': e})
 
     def create_subnet_bulk(self, context, subnets):
@@ -1303,8 +1303,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         try:
                             self._disable_native_dhcp(context, network['id'])
                         except Exception as e:
-                            LOG.error(_LE("Failed to disable native DHCP for"
-                                          "network %(id)s. Exception: %(e)s"),
+                            LOG.error("Failed to disable native DHCP for"
+                                      "network %(id)s. Exception: %(e)s",
                                       {'id': network['id'], 'e': e})
                         super(NsxV3Plugin, self).delete_subnet(
                             context, subnet_id)
@@ -1381,8 +1381,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     except nsx_lib_exc.ManagerError:
                         with excutils.save_and_reraise_exception():
                             LOG.error(
-                                _LE("Unable to update logical DHCP server "
-                                    "%(server)s for network %(network)s"),
+                                "Unable to update logical DHCP server "
+                                "%(server)s for network %(network)s",
                                 {'server': dhcp_service['nsx_service_id'],
                                  'network': orig_subnet['network_id']})
                     if 'gateway_ip' in kwargs:
@@ -1637,7 +1637,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         except nsx_lib_exc.ManagerError as inst:
             # we may fail if the QoS is not supported for this port
             # (for example - transport zone with KVM)
-            LOG.exception(_LE("Unable to create port on the backend: %s"),
+            LOG.exception("Unable to create port on the backend: %s",
                           inst)
             msg = _("Unable to create port on the backend")
             raise nsx_exc.NsxPluginException(err_msg=msg)
@@ -1748,9 +1748,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     fixed_ip['ip_address'], dhcp_service['nsx_service_id'],
                     binding['id'])
             except (db_exc.DBError, sql_exc.TimeoutError):
-                LOG.error(_LE("Failed to add mapping of DHCP binding "
-                              "%(binding)s for port %(port)s, deleting"
-                              "DHCP binding on server"),
+                LOG.error("Failed to add mapping of DHCP binding "
+                          "%(binding)s for port %(port)s, deleting"
+                          "DHCP binding on server",
                           {'binding': binding['id'], 'port': port['id']})
                 self._delete_dhcp_binding_on_server(context, binding)
 
@@ -1825,10 +1825,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             return binding
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Unable to create static binding (mac: %(mac)s, "
-                              "ip: %(ip)s, gateway: %(gateway)s, options: "
-                              "%(options)s) for port %(port)s on logical DHCP "
-                              "server %(server)s"),
+                LOG.error("Unable to create static binding (mac: %(mac)s, "
+                          "ip: %(ip)s, gateway: %(gateway)s, options: "
+                          "%(options)s) for port %(port)s on logical DHCP "
+                          "server %(server)s",
                           {'mac': port['mac_address'], 'ip': ip,
                            'gateway': gateway_ip, 'options': options,
                            'port': port['id'],
@@ -1845,8 +1845,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     context.session, binding['port_id'],
                     binding['nsx_binding_id'])
             except db_exc.DBError:
-                LOG.error(_LE("Unable to delete mapping of DHCP binding "
-                              "%(binding)s for port %(port)s"),
+                LOG.error("Unable to delete mapping of DHCP binding "
+                          "%(binding)s for port %(port)s",
                           {'binding': binding['nsx_binding_id'],
                            'port': binding['port_id']})
 
@@ -1860,8 +1860,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                        'server': binding['nsx_service_id']})
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Unable to delete static binding for port "
-                              "%(port)s) on logical DHCP server %(server)s"),
+                LOG.error("Unable to delete static binding for port "
+                          "%(port)s) on logical DHCP server %(server)s",
                           {'port': binding['port_id'],
                            'server': binding['nsx_service_id']})
 
@@ -1923,8 +1923,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                'server': dhcp_service['nsx_service_id']})
                 except nsx_lib_exc.ManagerError:
                     with excutils.save_and_reraise_exception():
-                        LOG.error(_LE("Unable to update IP %(ip)s for logical "
-                                      "DHCP server %(server)s"),
+                        LOG.error("Unable to update IP %(ip)s for logical "
+                                  "DHCP server %(server)s",
                                   {'ip': new_ip,
                                    'server': dhcp_service['nsx_service_id']})
         elif utils.is_port_dhcp_configurable(old_port):
@@ -2001,9 +2001,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                        'server': binding['nsx_service_id']})
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Unable to update static binding (mac: %(mac)s, "
-                              "ip: %(ip)s, gateway: %(gateway)s) for port "
-                              "%(port)s on logical DHCP server %(server)s"),
+                LOG.error("Unable to update static binding (mac: %(mac)s, "
+                          "ip: %(ip)s, gateway: %(gateway)s) for port "
+                          "%(port)s on logical DHCP server %(server)s",
                           {'mac': mac, 'ip': ip, 'gateway': gateway_ip,
                            'port': binding['port_id'],
                            'server': binding['nsx_service_id']})
@@ -2079,8 +2079,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     context, port_data, l2gw_port_check, is_psec_on)
             except Exception as e:
                 with excutils.save_and_reraise_exception():
-                    LOG.error(_LE('Failed to create port %(id)s on NSX '
-                                  'backend. Exception: %(e)s'),
+                    LOG.error('Failed to create port %(id)s on NSX '
+                              'backend. Exception: %(e)s',
                               {'id': neutron_db['id'], 'e': e})
                     self._cleanup_port(context, neutron_db['id'], None)
 
@@ -2348,7 +2348,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         except nsx_lib_exc.ManagerError as inst:
             # we may fail if the QoS is not supported for this port
             # (for example - transport zone with KVM)
-            LOG.exception(_LE("Unable to update port on the backend: %s"),
+            LOG.exception("Unable to update port on the backend: %s",
                           inst)
             msg = _("Unable to update port on the backend")
             raise nsx_exc.NsxPluginException(err_msg=msg)
@@ -2466,8 +2466,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     nsx_lib_exc.SecurityGroupMaximumCapacityReached) as e:
                 # In case if there is a failure on NSX-v3 backend, rollback the
                 # previous update operation on neutron side.
-                LOG.exception(_LE("Unable to update NSX backend, rolling back "
-                                  "changes on neutron"))
+                LOG.exception("Unable to update NSX backend, rolling back "
+                              "changes on neutron")
                 with excutils.save_and_reraise_exception(reraise=False):
                     with context.session.begin(subtransactions=True):
                         super(NsxV3Plugin, self).update_port(
@@ -2718,8 +2718,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 tags=tags)
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Unable to create logical router for "
-                              "neutron router %s"), router['id'])
+                LOG.error("Unable to create logical router for "
+                          "neutron router %s", router['id'])
                 self.delete_router(context, router['id'])
 
         try:
@@ -2727,8 +2727,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 context.session, router['id'], result['id'])
         except db_exc.DBError:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Unable to create router mapping for "
-                              "router %s"), router['id'])
+                LOG.error("Unable to create router mapping for "
+                          "router %s", router['id'])
                 self.delete_router(context, router['id'])
 
         if gw_info and gw_info != const.ATTR_NOT_SPECIFIED:
@@ -2736,13 +2736,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self._update_router_gw_info(context, router['id'], gw_info)
             except (db_exc.DBError, nsx_lib_exc.ManagerError):
                 with excutils.save_and_reraise_exception():
-                    LOG.error(_LE("Failed to set gateway info for router "
-                                  "being created: %s - removing router"),
+                    LOG.error("Failed to set gateway info for router "
+                              "being created: %s - removing router",
                               router['id'])
                     self.delete_router(context, router['id'])
-                    LOG.info(_LI("Create router failed while setting external "
-                                 "gateway. Router:%s has been removed from "
-                                 "DB and backend"),
+                    LOG.info("Create router failed while setting external "
+                             "gateway. Router:%s has been removed from "
+                             "DB and backend",
                              router['id'])
         return self.get_router(context, router['id'])
 
@@ -2773,9 +2773,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # removed from the neutron DB. Take corrective steps to ensure the
             # resulting zombie object does not forward any traffic and is
             # eventually removed.
-            LOG.warning(_LW("Backend router deletion for neutron router %s "
-                            "failed. The object was however removed from the "
-                            "Neutron database"), router_id)
+            LOG.warning("Backend router deletion for neutron router %s "
+                        "failed. The object was however removed from the "
+                        "Neutron database", router_id)
 
         return ret_val
 
@@ -2861,8 +2861,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                             self._port_client.update(nsx_port_id, None,
                                                      name=name)
                         except Exception as e:
-                            LOG.error(_LE("Unable to update port %(port_id)s. "
-                                          "Reason: %(e)s"),
+                            LOG.error("Unable to update port %(port_id)s. "
+                                      "Reason: %(e)s",
                                       {'port_id': nsx_port_id,
                                        'e': e})
             if 'description' in router_data:
@@ -3019,8 +3019,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                                       interface=info)
         except Exception:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Neutron failed to add_router_interface on "
-                              "router %s, and would try to rollback."),
+                LOG.error("Neutron failed to add_router_interface on "
+                          "router %s, and would try to rollback.",
                           router_id)
                 self.remove_router_interface(
                     context, router_id, interface_info)
@@ -3087,8 +3087,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             else:
                 self._router_port_client.delete_by_lswitch_id(nsx_net_id)
         except nsx_lib_exc.ResourceNotFound:
-            LOG.error(_LE("router port on router %(router_id)s for net "
-                          "%(net_id)s not found at the backend"),
+            LOG.error("router port on router %(router_id)s for net "
+                      "%(net_id)s not found at the backend",
                       {'router_id': router_id,
                        'net_id': subnet['network_id']})
         info = super(NsxV3Plugin, self).remove_router_interface(
@@ -3146,9 +3146,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     nsx_router_id, fip['floating_ip_address'],
                     fip['fixed_ip_address'])
             except nsx_lib_exc.ResourceNotFound:
-                LOG.warning(_LW("Backend NAT rules for fip: %(fip_id)s "
-                                "(ext_ip: %(ext_ip)s int_ip: %(int_ip)s) "
-                                "not found"),
+                LOG.warning("Backend NAT rules for fip: %(fip_id)s "
+                            "(ext_ip: %(ext_ip)s int_ip: %(int_ip)s) "
+                            "not found",
                             {'fip_id': fip_id,
                              'ext_ip': fip['floating_ip_address'],
                              'int_ip': fip['fixed_ip_address']})
@@ -3186,9 +3186,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         old_nsx_router_id, old_fip['floating_ip_address'],
                         old_fip['fixed_ip_address'])
                 except nsx_lib_exc.ResourceNotFound:
-                    LOG.warning(_LW("Backend NAT rules for fip: %(fip_id)s "
-                                    "(ext_ip: %(ext_ip)s int_ip: %(int_ip)s) "
-                                    "not found"),
+                    LOG.warning("Backend NAT rules for fip: %(fip_id)s "
+                                "(ext_ip: %(ext_ip)s int_ip: %(int_ip)s) "
+                                "not found",
                                 {'fip_id': old_fip['id'],
                                  'ext_ip': old_fip['floating_ip_address'],
                                  'int_ip': old_fip['fixed_ip_address']})
@@ -3229,9 +3229,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     nsx_router_id, fip_db.floating_ip_address,
                     fip_db.fixed_ip_address)
             except nsx_lib_exc.ResourceNotFound:
-                LOG.warning(_LW("Backend NAT rules for fip: %(fip_id)s "
-                                "(ext_ip: %(ext_ip)s int_ip: %(int_ip)s) "
-                                "not found"),
+                LOG.warning("Backend NAT rules for fip: %(fip_id)s "
+                            "(ext_ip: %(ext_ip)s int_ip: %(int_ip)s) "
+                            "not found",
                             {'fip_id': fip_db.id,
                              'ext_ip': fip_db.floating_ip_address,
                              'int_ip': fip_db.fixed_ip_address})
@@ -3353,8 +3353,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                                                default_sg)
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Unable to create security-group on the "
-                                  "backend."))
+                LOG.exception("Unable to create security-group on the "
+                              "backend.")
                 if ns_group:
                     self.nsxlib.ns_group.delete(ns_group['id'])
         except Exception:
@@ -3385,9 +3385,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self.save_security_group_rule_mappings(context, rules['rules'])
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to create backend firewall rules "
-                                  "for security-group %(name)s (%(id)s), "
-                                  "rolling back changes."), secgroup_db)
+                LOG.exception("Failed to create backend firewall rules "
+                              "for security-group %(name)s (%(id)s), "
+                              "rolling back changes.", secgroup_db)
                 # default security group deletion requires admin context
                 if default_sg:
                     context = context.elevated()
@@ -3415,9 +3415,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 cfg.CONF.nsx_v3.log_security_groups_allowed_traffic)
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to update security-group %(name)s "
-                                  "(%(id)s), rolling back changes in "
-                                  "Neutron."), orig_secgroup)
+                LOG.exception("Failed to update security-group %(name)s "
+                              "(%(id)s), rolling back changes in "
+                              "Neutron.", orig_secgroup)
                 super(NsxV3Plugin, self).update_security_group(
                     context, id, {'security_group': orig_secgroup})
 

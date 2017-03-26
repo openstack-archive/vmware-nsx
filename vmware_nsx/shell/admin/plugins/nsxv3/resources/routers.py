@@ -13,7 +13,6 @@
 #    under the License.
 
 
-from vmware_nsx._i18n import _LI
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
@@ -68,13 +67,13 @@ def list_missing_routers(resource, event, trigger, **kwargs):
                               'neutron_id': neutron_id,
                               'nsx_id': nsx_id})
     if len(routers) > 0:
-        title = _LI("Found %d routers missing from the NSX "
-                    "manager:") % len(routers)
+        title = ("Found %d routers missing from the NSX "
+                 "manager:") % len(routers)
         LOG.info(formatters.output_formatter(
             title, routers,
             ['name', 'neutron_id', 'nsx_id']))
     else:
-        LOG.info(_LI("All routers exist on the NSX manager"))
+        LOG.info("All routers exist on the NSX manager")
 
 
 registry.subscribe(list_missing_routers,

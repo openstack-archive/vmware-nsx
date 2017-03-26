@@ -21,7 +21,6 @@ from neutron.tests import base
 from oslo_log import log as logging
 from six.moves import http_client as httplib
 
-from vmware_nsx._i18n import _LI
 from vmware_nsx.api_client import (
     eventlet_client as client)
 from vmware_nsx.api_client import (
@@ -60,7 +59,7 @@ class ApiRequestEventletTest(base.BaseTestCase):
     def test_apirequest_spawn(self):
         def x(id):
             eventlet.greenthread.sleep(random.random())
-            LOG.info(_LI('spawned: %d'), id)
+            LOG.info('spawned: %d', id)
 
         for i in range(10):
             request.EventletApiRequest._spawn(x, i)
@@ -72,7 +71,7 @@ class ApiRequestEventletTest(base.BaseTestCase):
             a._handle_request = mock.Mock()
             a.start()
             eventlet.greenthread.sleep(0.1)
-            LOG.info(_LI('_handle_request called: %s'),
+            LOG.info('_handle_request called: %s',
                      a._handle_request.called)
         request.EventletApiRequest.joinall()
 
@@ -107,8 +106,8 @@ class ApiRequestEventletTest(base.BaseTestCase):
 
     def test_run_and_timeout(self):
         def my_handle_request():
-            LOG.info(_LI('my_handle_request() self: %s'), self.req)
-            LOG.info(_LI('my_handle_request() dir(self): %s'), dir(self.req))
+            LOG.info('my_handle_request() self: %s', self.req)
+            LOG.info('my_handle_request() dir(self): %s', dir(self.req))
             eventlet.greenthread.sleep(REQUEST_TIMEOUT * 2)
 
         with mock.patch.object(
@@ -330,5 +329,5 @@ class ApiRequestEventletTest(base.BaseTestCase):
               { "role": "api_provider",
                 "listen_addr": "pssl:1.1.1.1:1" }]}]}"""
         r.successful = mock.Mock(return_value=True)
-        LOG.info(_LI('%s'), r.api_providers())
+        LOG.info('%s', r.api_providers())
         self.assertIsNotNone(r.api_providers())

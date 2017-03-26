@@ -23,7 +23,6 @@ from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
 from tempest import test
 
-from vmware_nsx_tempest._i18n import _LI
 from vmware_nsx_tempest.services import nsxv_client
 from vmware_nsx_tempest.tests.nsxv.scenario import (
     manager_topo_deployment as dmgr)
@@ -195,7 +194,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         exclude_list = [item.encode('utf-8') for item in items]
         for exclude_vm in exclude_list:
             if vm_id in exclude_vm:
-                LOG.info(_LI("Vm in exclude list"))
+                LOG.info("Vm in exclude list")
         # Update Port security to disabled
         port_client.update_port(
             port_id=port_id,
@@ -204,7 +203,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         exclude_list = [item.encode('utf-8') for item in items]
         if exclude_vm in exclude_list:
             if vm_id not in exclude_vm:
-                LOG.info(_LI("Vm not in exclude list"))
+                LOG.info("Vm not in exclude list")
         # Detach interface from vm
         self.interface_client.delete_interface(vm_id, port_id)
 
@@ -315,7 +314,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         exclude_list = [item.encode('utf-8') for item in items]
         for exclude_vm in exclude_list:
             if vm_id in exclude_vm:
-                LOG.info(_LI("Vm1 in exclude list"))
+                LOG.info("Vm1 in exclude list")
         vm2_id = t_serv2['id']
         # Update vm2 port to disable port security
         port_client.update_port(
@@ -326,7 +325,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         # Check vm2 in exclude list or not
         for exclude_vm in exclude_list:
             if vm2_id in exclude_vm:
-                LOG.info(_LI("Vm2 in exclude list"))
+                LOG.info("Vm2 in exclude list")
         vm3_id = t_serv3['id']
         # Update vm3 port to enable port security
         port_client.update_port(
@@ -337,7 +336,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         # Check vm3 in exclude list or not
         for exclude_vm in exclude_list:
             if vm3_id in exclude_vm:
-                LOG.info(_LI("Vm3 in exclude list"))
+                LOG.info("Vm3 in exclude list")
         # Update vm1 port to enable port security
         port_client.update_port(
             port_id=port1_id,
@@ -347,7 +346,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         # Check vm should not be in exclude list
         for exclude_vm in exclude_list:
             if vm_id not in exclude_vm:
-                LOG.info(_LI("Vm1 not in exclude list"))
+                LOG.info("Vm1 not in exclude list")
 
     @test.attr(type='nsxv')
     @decorators.idempotent_id('f034d3e9-d717-4bcd-8e6e-18e9ada7b81a')
@@ -365,7 +364,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         exclude_list = [item.encode('utf-8') for item in items]
         for exclude_vm in exclude_list:
             if vm_id in exclude_vm:
-                LOG.info(_LI("Vm in exclude list"))
+                LOG.info("Vm in exclude list")
         port_client.update_port(
             port_id=port_id,
             port_security_enabled='true')
@@ -373,7 +372,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         exclude_list = [item.encode('utf-8') for item in items]
         if exclude_vm in exclude_list:
             if vm_id not in exclude_vm:
-                LOG.info(_LI("Vm not in exclude list"))
+                LOG.info("Vm not in exclude list")
         self.interface_client.delete_interface(vm_id, port_id)
 
     @test.attr(type='nsxv')
@@ -394,7 +393,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         # Check port security of created port
         port_details = port_client.show_port(port_id=port_id)
         if (port_details['port']['port_security_enabled'] == 'false'):
-            LOG.info(_LI("Port security of port is disabled"))
+            LOG.info("Port security of port is disabled")
         kwargs = {'port_security_enabled': 'true'}
         # Update port security of network to enabled
         network_client.update_network(network_id=net_id, **kwargs)
@@ -404,7 +403,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         port_id = port['id']
         port_details = port_client.show_port(port_id=port_id)
         if (port_details['port']['port_security_enabled'] == 'true'):
-            LOG.info(_LI("Port security of port is enabled"))
+            LOG.info("Port security of port is enabled")
 
     @test.attr(type='nsxv')
     @decorators.idempotent_id('c8683cb7-4be5-4670-95c6-344a0aea3667')
@@ -425,7 +424,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         exclude_list = [item.encode('utf-8') for item in items]
         for exclude_vm in exclude_list:
             if vm_id in exclude_vm:
-                LOG.info(_LI("Vm in exclude list"))
+                LOG.info("Vm in exclude list")
         name = 'disabled-port-security-port2'
         kwargs = {'name': name, 'network_id': net_id,
                   'port_security_enabled': 'false'}
@@ -436,7 +435,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         exclude_list = [item.encode('utf-8') for item in items]
         for exclude_vm in exclude_list:
             if vm_id in exclude_vm:
-                LOG.info(_LI("Vm in exclude list"))
+                LOG.info("Vm in exclude list")
         port_client.update_port(
             port_id=port2_id,
             port_security_enabled='true')
@@ -444,7 +443,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         exclude_list = [item.encode('utf-8') for item in items]
         for exclude_vm in exclude_list:
             if vm_id in exclude_vm:
-                LOG.info(_LI("Vm in exclude list"))
+                LOG.info("Vm in exclude list")
         port_client.update_port(
             port_id=port1_id,
             port_security_enabled='true')
@@ -452,6 +451,6 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         exclude_list = [item.encode('utf-8') for item in items]
         if exclude_vm in exclude_list:
             if vm_id not in exclude_vm:
-                LOG.info(_LI("Vm not in exclude list"))
+                LOG.info("Vm not in exclude list")
         self.interface_client.delete_interface(vm_id, port1_id)
         self.interface_client.delete_interface(vm_id, port2_id)

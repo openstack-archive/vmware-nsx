@@ -31,7 +31,6 @@ from neutron.callbacks import registry
 from neutron.common import config as neutron_config
 from neutron.conf import common as neutron_common_config
 
-from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import config  # noqa
 
 from oslo_config import cfg
@@ -74,11 +73,11 @@ def _init_cfg():
 
 def _validate_resource_choice(resource, nsx_plugin):
     if nsx_plugin == 'nsxv' and resource not in resources.nsxv_resources:
-        LOG.error(_LE('Supported list of NSX-V resources: %s'),
+        LOG.error('Supported list of NSX-V resources: %s',
                   resources.nsxv_resources_names)
         sys.exit(1)
     elif nsx_plugin == 'nsxv3'and resource not in resources.nsxv3_resources:
-        LOG.error(_LE('Supported list of NSX-V3 resources: %s'),
+        LOG.error('Supported list of NSX-V3 resources: %s',
                   resources.nsxv3_resources_names)
         sys.exit(1)
 
@@ -88,16 +87,16 @@ def _validate_op_choice(choice, nsx_plugin):
         supported_resource_ops = \
             resources.nsxv_resources[cfg.CONF.resource].supported_ops
         if choice not in supported_resource_ops:
-            LOG.error(_LE('Supported list of operations for the NSX-V '
-                          'resource %s'), supported_resource_ops)
+            LOG.error('Supported list of operations for the NSX-V '
+                      'resource %s', supported_resource_ops)
             sys.exit(1)
 
     elif nsx_plugin == 'nsxv3':
         supported_resource_ops = \
             resources.nsxv3_resources[cfg.CONF.resource].supported_ops
         if choice not in supported_resource_ops:
-            LOG.error(_LE('Supported list of operations for the NSX-V3 '
-                          'resource %s'), supported_resource_ops)
+            LOG.error('Supported list of operations for the NSX-V3 '
+                      'resource %s', supported_resource_ops)
             sys.exit(1)
 
 
@@ -107,7 +106,7 @@ def main(argv=sys.argv[1:]):
     resources.init_resource_plugin(
         nsx_plugin_in_use,
         resources.get_plugin_dir(nsx_plugin_in_use))
-    LOG.info(_LI('NSX Plugin in use: %s'), nsx_plugin_in_use)
+    LOG.info('NSX Plugin in use: %s', nsx_plugin_in_use)
 
     _validate_resource_choice(cfg.CONF.resource, nsx_plugin_in_use)
     _validate_op_choice(cfg.CONF.operation, nsx_plugin_in_use)

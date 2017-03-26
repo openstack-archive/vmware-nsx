@@ -23,7 +23,6 @@ from neutron_lib import context as n_context
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from vmware_nsx._i18n import _LE, _LI, _LW
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.extensions import routersize
@@ -35,7 +34,7 @@ LOG = logging.getLogger(__name__)
 
 
 def delete_old_edge(context, old_edge_id):
-    LOG.info(_LI("Deleting the old edge: %s"), old_edge_id)
+    LOG.info("Deleting the old edge: %s", old_edge_id)
 
     # clean it up from the DB
     nsxv_db.clean_edge_router_binding(context.session, old_edge_id)
@@ -51,7 +50,7 @@ def delete_old_edge(context, old_edge_id):
             nsxv = utils.get_nsxv_client()
             nsxv.delete_edge(old_edge_id)
         except Exception as e:
-            LOG.warning(_LW("Failed to delete the old edge %(id)s: %(e)s"),
+            LOG.warning("Failed to delete the old edge %(id)s: %(e)s",
                         {'id': old_edge_id, 'e': e})
             # Continue the process anyway
             # The edge may have been already deleted at the backend
@@ -74,16 +73,16 @@ def _get_router_az_from_plugin_router(router):
 def nsx_recreate_router_edge(resource, event, trigger, **kwargs):
     """Recreate a router edge with all the data on a new NSXv edge"""
     if not kwargs.get('property'):
-        LOG.error(_LE("Need to specify edge-id parameter"))
+        LOG.error("Need to specify edge-id parameter")
         return
 
     # input validation
     properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
     old_edge_id = properties.get('edge-id')
     if not old_edge_id:
-        LOG.error(_LE("Need to specify edge-id parameter"))
+        LOG.error("Need to specify edge-id parameter")
         return
-    LOG.info(_LI("ReCreating NSXv Router Edge: %s"), old_edge_id)
+    LOG.info("ReCreating NSXv Router Edge: %s", old_edge_id)
 
     # init the plugin and edge manager
     cfg.CONF.set_override('core_plugin',
@@ -98,7 +97,7 @@ def nsx_recreate_router_edge(resource, event, trigger, **kwargs):
         # verify that this is a Router edge
         router_ids = edge_manager.get_routers_on_edge(context, old_edge_id)
         if not router_ids:
-            LOG.error(_LE("Edge %(edge_id)s is not a router edge"),
+            LOG.error("Edge %(edge_id)s is not a router edge",
                      {'edge_id': old_edge_id})
             return
 
@@ -108,8 +107,8 @@ def nsx_recreate_router_edge(resource, event, trigger, **kwargs):
         router_driver = plugin._router_managers.get_tenant_router_driver(
             context, example_router['router_type'])
         if router_driver.get_type() == "distributed":
-            LOG.error(_LE("Recreating a distributed  driver edge is not "
-                          "supported"))
+            LOG.error("Recreating a distributed  driver edge is not "
+                      "supported")
             return
 
         # load all the routers before deleting their binding
@@ -137,7 +136,7 @@ def nsx_recreate_router_edge(resource, event, trigger, **kwargs):
             # find out who is the new edge to print it
             new_edge_id = router_driver._get_edge_id_or_raise(
                 context, router_id)
-            LOG.info(_LI("Router %(router)s was attached to edge %(edge)s"),
+            LOG.info("Router %(router)s was attached to edge %(edge)s",
                      {'router': router_id, 'edge': new_edge_id})
 
 

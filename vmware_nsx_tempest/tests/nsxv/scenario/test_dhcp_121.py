@@ -28,7 +28,6 @@ from tempest.lib import decorators
 from tempest.lib import exceptions
 from tempest import test
 
-from vmware_nsx_tempest._i18n import _LI
 from vmware_nsx_tempest.services import nsxv_client
 from vmware_nsx_tempest.tests.nsxv.scenario import (
     manager_topo_deployment as dmgr)
@@ -125,14 +124,14 @@ class TestDHCP121BasicOps(dmgr.TopoDeployScenarioManager):
         cmd = ('/sbin/route -n')
         out_data = client.exec_command(cmd)
         self.assertIn(Metadataserver_ip, out_data)
-        LOG.info(_LI("Metadata routes available on vm"))
+        LOG.info("Metadata routes available on vm")
         cmd = ('wget  http://169.254.169.254 -O sample.txt')
         client.exec_command(cmd)
         cmd = ('cat sample.txt')
         out_data = client.exec_command(cmd)
         # Check metadata server inforamtion available or not
         self.assertIn('latest', out_data)
-        LOG.info(_LI("metadata server is acessible"))
+        LOG.info("metadata server is acessible")
         # Fetch dhcp edge infor from nsx-v
         exc_edge = self.vsm.get_dhcp_edge_info()
         self.assertIsNotNone(exc_edge)
@@ -186,7 +185,7 @@ class TestDHCP121BasicOps(dmgr.TopoDeployScenarioManager):
         self.assertIn(
             _subnet_data['new_host_routes'][0]['nexthop'], out_data)
         self.assertIn(self.nexthop_host_route, out_data)
-        LOG.info(_LI("Host routes available on vm"))
+        LOG.info("Host routes available on vm")
         # Check Host route info at beckend
         exc_edge = self.vsm.get_dhcp_edge_info()
         self.assertIsNotNone(exc_edge)
@@ -200,7 +199,7 @@ class TestDHCP121BasicOps(dmgr.TopoDeployScenarioManager):
             dest_subnet = destination_net['destinationSubnet']
             dest_router = destination_net['router']
             if (dest in dest_subnet and self.nexthop1 in dest_router):
-                LOG.info(_LI("Host routes available on nsxv"))
+                LOG.info("Host routes available on nsxv")
         # Update subnet with no host-routes
         _subnet_data1 = {'new_host_routes': []}
         new_host_routes = _subnet_data1['new_host_routes']
@@ -227,7 +226,7 @@ class TestDHCP121BasicOps(dmgr.TopoDeployScenarioManager):
         for destination_net in dhcp_options_info:
             if (_subnet_data['new_host_routes'][0]['destination']
                     not in destination_net['destinationSubnet']):
-                LOG.info(_LI("Host routes not available on nsxv"))
+                LOG.info("Host routes not available on nsxv")
         project_dict = dict(security_group=vm_env['security_group'],
                             network=vm_env['network'], subnet=vm_env['subnet'],
                             router=vm_env['router'],
@@ -297,30 +296,30 @@ class TestDhcpMetadata(TestDHCP121BasicOps):
     @test.attr(type='nsxv')
     @decorators.idempotent_id('95d06aba-895f-47f8-b47d-ae48c6853a85')
     def test_dhcp_121_metadata_check_on_vm_nsxv(self):
-        LOG.info(_LI("Testcase DHCP-121 option metadata check on vm and \
-            on nsx deploying"))
+        LOG.info("Testcase DHCP-121 option metadata check on vm and "
+                 "on nsx deploying")
         self.vm_env = self.setup_vm_enviornment(self.manager, 'green', True)
         self.green = self.dhcp_121_metadata_hostroutes_check_on_vm_nsxv(
             self.vm_env)
-        LOG.info(_LI("Testcase DHCP-121 option metadata check on vm and on \
-            nsx completed"))
+        LOG.info("Testcase DHCP-121 option metadata check on vm and on "
+                 "nsx completed")
 
 
 class TestDhcpHostroutesClear(TestDHCP121BasicOps):
     @test.attr(type='nsxv')
     @decorators.idempotent_id('6bec6eb4-8632-493d-a895-a3ee87cb3002')
     def test_dhcp_121_hostroutes_clear(self):
-        LOG.info(_LI("Testcase DHCP-121 option host routes clear deploying"))
+        LOG.info("Testcase DHCP-121 option host routes clear deploying")
         self.vm_env = self.setup_vm_enviornment(self.manager, 'green', True)
         self.green = self.dhcp_121_hostroutes_clear(self.vm_env)
-        LOG.info(_LI("Testcase DHCP-121 option host routes clear completed"))
+        LOG.info("Testcase DHCP-121 option host routes clear completed")
 
 
 class TestDhcpNegative(TestDHCP121BasicOps):
     @test.attr(type='nsxv')
     @decorators.idempotent_id('a58dc6c5-9f28-4184-baf7-37ded52593c4')
     def test_dhcp121_negative_test(self):
-        LOG.info(_LI("Testcase DHCP-121 option negative test deploying"))
+        LOG.info("Testcase DHCP-121 option negative test deploying")
         t_net_id, t_network, t_subnet =\
             self.create_project_network_subnet('admin')
         subnet_id = t_subnet['id']
@@ -349,9 +348,9 @@ class TestDhcpNegative(TestDHCP121BasicOps):
         except exceptions.BadRequest:
             e = sys.exc_info()[0].__dict__['message']
             if (e == "Bad request"):
-                LOG.info(_LI("Invalid input for operation:\
-                              Host routes can only be supported when\
-                              DHCP is enabled"))
+                LOG.info("Invalid input for operation: "
+                         "Host routes can only be supported when "
+                         "DHCP is enabled")
             pass
         subnet_id = t_subnet['id']
         kwargs = {'enable_dhcp': 'true'}
@@ -379,16 +378,16 @@ class TestDhcpNegative(TestDHCP121BasicOps):
         except exceptions.BadRequest:
             e = sys.exc_info()[0].__dict__['message']
             if (e == "Bad request"):
-                LOG.info(_LI("Can't disable DHCP while using host routes"))
+                LOG.info("Can't disable DHCP while using host routes")
             pass
-        LOG.info(_LI("Testcase DHCP-121 option negative test completed"))
+        LOG.info("Testcase DHCP-121 option negative test completed")
 
 
 class TestDhcpMultiHostRoute(TestDHCP121BasicOps):
     @test.attr(type='nsxv')
     @decorators.idempotent_id('c3ca96d7-b704-4d94-b42d-e7bae94b82cd')
     def test_dhcp121_multi_host_route(self):
-        LOG.info(_LI("Testcase DHCP-121 option multi host routes deploying"))
+        LOG.info("Testcase DHCP-121 option multi host routes deploying")
         t_net_id, t_network, t_subnet =\
             self.create_project_network_subnet('admin')
         # Fetch next hop information from tempest.conf
@@ -448,8 +447,8 @@ class TestDhcpMultiHostRoute(TestDHCP121BasicOps):
         subnet host_routes equal to 19 or not
         '''
         if (len(subnet['subnet']['host_routes']) == 19):
-            LOG.info(_LI("Multiple entries for host routes available"))
-        LOG.info(_LI("Testcase DHCP-121 option multi host routes completed"))
+            LOG.info("Multiple entries for host routes available")
+        LOG.info("Testcase DHCP-121 option multi host routes completed")
 
 
 class TestDhcpHostRoutesBetweenVms(TestDHCP121BasicOps):

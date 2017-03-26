@@ -18,7 +18,6 @@ from oslo_serialization import jsonutils
 import re
 import xml.etree.ElementTree as et
 
-from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
 from vmware_nsx.shell.admin.plugins.common import constants
@@ -76,20 +75,20 @@ def neutron_list_networks(resource, event, trigger,
 def nsx_update_switch(resource, event, trigger, **kwargs):
     nsxv = utils.get_nsxv_client()
     if not kwargs.get('property'):
-        LOG.error(_LE("Need to specify dvs-id parameter and "
-                      "attribute to update. Add --property dvs-id=<dvs-id> "
-                      "--property teamingpolicy=<policy>"))
+        LOG.error("Need to specify dvs-id parameter and "
+                  "attribute to update. Add --property dvs-id=<dvs-id> "
+                  "--property teamingpolicy=<policy>")
         return
     properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
     dvs_id = properties.get('dvs-id')
     if not dvs_id:
-        LOG.error(_LE("Need to specify dvs-id. "
-                      "Add --property dvs-id=<dvs-id>"))
+        LOG.error("Need to specify dvs-id. "
+                  "Add --property dvs-id=<dvs-id>")
         return
     try:
         h, switch = nsxv.get_vdn_switch(dvs_id)
     except exceptions.ResourceNotFound:
-        LOG.error(_LE("DVS %s not found"), dvs_id)
+        LOG.error("DVS %s not found", dvs_id)
         return
     supported_policies = ['ETHER_CHANNEL', 'LOADBALANCE_LOADBASED',
                           'LOADBALANCE_SRCID', 'LOADBALANCE_SRCMAC',
@@ -98,10 +97,10 @@ def nsx_update_switch(resource, event, trigger, **kwargs):
     policy = properties.get('teamingpolicy')
     if policy in supported_policies:
         if switch['teamingPolicy'] == policy:
-            LOG.info(_LI("Policy already set!"))
+            LOG.info("Policy already set!")
             return
-        LOG.info(_LI("Updating NSXv switch %(dvs)s teaming policy to "
-                     "%(policy)s"), {'dvs': dvs_id, 'policy': policy})
+        LOG.info("Updating NSXv switch %(dvs)s teaming policy to "
+                 "%(policy)s", {'dvs': dvs_id, 'policy': policy})
         switch['teamingPolicy'] = policy
         try:
             switch = nsxv.update_vdn_switch(switch)
@@ -109,17 +108,17 @@ def nsx_update_switch(resource, event, trigger, **kwargs):
             desc = jsonutils.loads(e.response)
             details = desc.get('details')
             if details.startswith("No enum constant"):
-                LOG.error(_LE("Unknown teaming policy %s"), policy)
+                LOG.error("Unknown teaming policy %s", policy)
             else:
-                LOG.error(_LE("Unexpected error occurred: %s"), details)
+                LOG.error("Unexpected error occurred: %s", details)
             return
 
-        LOG.info(_LI("Switch value after update: %s"), switch)
+        LOG.info("Switch value after update: %s", switch)
     else:
-        LOG.info(_LI("Current switch value is: %s"), switch)
-        LOG.error(_LE("Invalid teaming policy. "
-                      "Add --property teamingpolicy=<policy>"))
-        LOG.error(_LE("Possible values: %s"), ', '.join(supported_policies))
+        LOG.info("Current switch value is: %s", switch)
+        LOG.error("Invalid teaming policy. "
+                  "Add --property teamingpolicy=<policy>")
+        LOG.error("Possible values: %s", ', '.join(supported_policies))
 
 
 @admin_utils.output_header
@@ -202,17 +201,17 @@ def delete_backend_network(resource, event, trigger, **kwargs):
     """
     errmsg = ("Need to specify moref property. Add --property moref=<moref>")
     if not kwargs.get('property'):
-        LOG.error(_LE("%s"), errmsg)
+        LOG.error("%s", errmsg)
         return
     properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
     moref = properties.get('moref')
     if not moref:
-        LOG.error(_LE("%s"), errmsg)
+        LOG.error("%s", errmsg)
         return
 
     backend_name = get_networks_name_map().get(moref)
     if not backend_name:
-        LOG.error(_LE("Failed to find the backend network %(moref)s"),
+        LOG.error("Failed to find the backend network %(moref)s",
                   {'moref': moref})
         return
 
@@ -224,26 +223,26 @@ def delete_backend_network(resource, event, trigger, **kwargs):
         # get the dvs id from the backend name:
         dvs_id = get_dvs_id_from_backend_name(backend_name)
         if not dvs_id:
-            LOG.error(_LE("Failed to find the DVS id of backend network "
-                          "%(moref)s"), {'moref': moref})
+            LOG.error("Failed to find the DVS id of backend network "
+                      "%(moref)s", {'moref': moref})
         else:
             try:
                 nsxv.delete_port_group(dvs_id, moref)
             except Exception as e:
-                LOG.error(_LE("Failed to delete backend network %(moref)s : "
-                              "%(e)s"), {'moref': moref, 'e': e})
+                LOG.error("Failed to delete backend network %(moref)s : "
+                          "%(e)s", {'moref': moref, 'e': e})
             else:
-                LOG.info(_LI("Backend network %(moref)s was deleted"),
+                LOG.info("Backend network %(moref)s was deleted",
                          {'moref': moref})
     else:
         # Virtual wire
         try:
             nsxv.delete_virtual_wire(moref)
         except Exception as e:
-            LOG.error(_LE("Failed to delete backend network %(moref)s : "
-                          "%(e)s"), {'moref': moref, 'e': e})
+            LOG.error("Failed to delete backend network %(moref)s : "
+                      "%(e)s", {'moref': moref, 'e': e})
         else:
-            LOG.info(_LI("Backend network %(moref)s was deleted"),
+            LOG.info("Backend network %(moref)s was deleted",
                      {'moref': moref})
 
 

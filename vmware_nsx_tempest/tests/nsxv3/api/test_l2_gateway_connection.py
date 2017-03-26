@@ -22,7 +22,6 @@ from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
 from tempest import test
 
-from vmware_nsx_tempest._i18n import _LI
 from vmware_nsx_tempest.common import constants
 from vmware_nsx_tempest.services import base_l2gw
 
@@ -83,7 +82,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
         Create l2 gateway connection using one vlan. Vlan parameter is
         passed into L2GW create.
         """
-        LOG.info(_LI("Testing test_l2_gateway_connection_create api"))
+        LOG.info("Testing test_l2_gateway_connection_create api")
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]
         l2gw_name = data_utils.rand_name(constants.L2GW)
@@ -116,7 +115,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
         Create l2 gateway connection using multiple vlans. Vlan parameter is
         passed into L2GW create.
         """
-        LOG.info(_LI("Testing test_l2_gateway_connection_create api"))
+        LOG.info("Testing test_l2_gateway_connection_create api")
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]
         l2gw_name = data_utils.rand_name(constants.L2GW)
@@ -149,7 +148,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
         Create l2 gateway connection using one vlan. Vlan parameter is
         passed into L2GW connection create.
         """
-        LOG.info(_LI("Testing test_l2_gateway_connection_create api"))
+        LOG.info("Testing test_l2_gateway_connection_create api")
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]
         l2gw_name = data_utils.rand_name(constants.L2GW)
@@ -186,7 +185,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
         Create l2 gateway connection using one vlan and tes l2 gateway
         connection show api
         """
-        LOG.info(_LI("Testing test_l2_gateway_connection_create api"))
+        LOG.info("Testing test_l2_gateway_connection_create api")
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]
         l2gw_name = data_utils.rand_name(constants.L2GW)
@@ -231,7 +230,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
         Create l2 gateway connection using one vlan and test l2 gateway
         connection list api.
         """
-        LOG.info(_LI("Testing test_l2_gateway_connection_create api"))
+        LOG.info("Testing test_l2_gateway_connection_create api")
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]
         l2gw_name = data_utils.rand_name(constants.L2GW)
@@ -250,7 +249,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
                          "Response code is not %(code)s" % {
                              "code": constants.EXPECTED_HTTP_RESPONSE_201})
         list_rsp = self.l2gwc_client.list_l2_gateway_connections()
-        LOG.info(_LI("l2gw connection list response: %s") % list_rsp)
+        LOG.info("l2gw connection list response: %s", list_rsp)
         # Assert in case of failure.
         self.assertEqual(constants.EXPECTED_HTTP_RESPONSE_200,
                          list_rsp.response["status"],
@@ -289,10 +288,10 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
         - Recreate l2gw connection
         - verify with l2gw connection list API.
         """
-        LOG.info(_LI("Testing test_l2_gateway_connection_create api"))
+        LOG.info("Testing test_l2_gateway_connection_create api")
         # List all the L2GW connection.
         list_rsp = self.l2gwc_client.list_l2_gateway_connections()
-        LOG.info(_LI("l2gw connection list response: %s") % list_rsp)
+        LOG.info("l2gw connection list response: %s", list_rsp)
         # Assert in case of failure.
         self.assertEqual(constants.EXPECTED_HTTP_RESPONSE_200,
                          list_rsp.response["status"],
@@ -333,7 +332,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
                              "code": constants.EXPECTED_HTTP_RESPONSE_201})
         # List all the L2GW connection.
         list_rsp = self.l2gwc_client.list_l2_gateway_connections()
-        LOG.info(_LI("l2gw connection list response: %s") % list_rsp)
+        LOG.info("l2gw connection list response: %s", list_rsp)
         # Assert in case of failure.
         self.assertEqual(constants.EXPECTED_HTTP_RESPONSE_200,
                          list_rsp.response["status"],
@@ -353,7 +352,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
         Delete l2gw will create l2gw and delete recently created l2gw. To
         delete l2gw we need l2gw id.
         """
-        LOG.info(_LI("Testing l2_gateway_connection_delete api"))
+        LOG.info("Testing l2_gateway_connection_delete api")
         cluster_info = self.nsx_bridge_cluster_info()
         device_name, interface_name = cluster_info[0][0], cluster_info[0][1]
         l2gw_name = data_utils.rand_name(constants.L2GW)

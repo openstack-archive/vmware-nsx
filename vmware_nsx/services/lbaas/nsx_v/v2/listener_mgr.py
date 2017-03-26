@@ -17,7 +17,7 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from vmware_nsx._i18n import _, _LE
+from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
@@ -167,7 +167,7 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
         except vcns_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
                 self.lbv2_driver.listener.failed_completion(context, listener)
-                LOG.error(_LE('Failed to create app profile on edge: %s'),
+                LOG.error('Failed to create app profile on edge: %s',
                           lb_binding['edge_id'])
 
         vse = listener_to_edge_vse(context, listener,
@@ -190,7 +190,7 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
         except vcns_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
                 self.lbv2_driver.listener.failed_completion(context, listener)
-                LOG.error(_LE('Failed to create vip on Edge: %s'), edge_id)
+                LOG.error('Failed to create vip on Edge: %s', edge_id)
                 self.vcns.delete_app_profile(edge_id, app_profile_id)
 
     @log_helpers.log_method_call
@@ -204,7 +204,7 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
             if pool_binding:
                 default_pool = pool_binding['edge_pool_id']
             else:
-                LOG.error(_LE("Couldn't find pool binding for pool %s"),
+                LOG.error("Couldn't find pool binding for pool %s",
                           new_listener.default_pool.id)
 
         lb_id = new_listener.loadbalancer_id
@@ -255,7 +255,7 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
             with excutils.save_and_reraise_exception():
                 self.lbv2_driver.listener.failed_completion(context,
                                                           new_listener)
-                LOG.error(_LE('Failed to update app profile on edge: %s'),
+                LOG.error('Failed to update app profile on edge: %s',
                           edge_id)
 
     @log_helpers.log_method_call
@@ -276,25 +276,24 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
                     self.vcns.delete_vip(edge_id, edge_vse_id)
 
             except vcns_exc.ResourceNotFound:
-                LOG.error(_LE('vip not found on edge: %s'), edge_id)
+                LOG.error('vip not found on edge: %s', edge_id)
             except vcns_exc.VcnsApiException:
                 with excutils.save_and_reraise_exception():
                     self.lbv2_driver.listener.failed_completion(context,
                                                                 listener)
-                    LOG.error(
-                        _LE('Failed to delete vip on edge: %s'), edge_id)
+                    LOG.error('Failed to delete vip on edge: %s', edge_id)
 
             try:
                 with locking.LockManager.get_lock(edge_id):
                     self.vcns.delete_app_profile(edge_id, app_profile_id)
             except vcns_exc.ResourceNotFound:
-                LOG.error(_LE('app profile not found on edge: %s'), edge_id)
+                LOG.error('app profile not found on edge: %s', edge_id)
             except vcns_exc.VcnsApiException:
                 with excutils.save_and_reraise_exception():
                     self.lbv2_driver.listener.failed_completion(context,
                                                                 listener)
                     LOG.error(
-                        _LE('Failed to delete app profile on Edge: %s'),
+                        'Failed to delete app profile on Edge: %s',
                         edge_id)
 
             nsxv_db.del_nsxv_lbaas_listener_binding(context.session, lb_id,

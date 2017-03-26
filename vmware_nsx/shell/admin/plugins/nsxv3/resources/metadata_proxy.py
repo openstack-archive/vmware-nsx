@@ -17,7 +17,6 @@ from neutron_lib import constants as const
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.dhcp_meta import rpc as nsx_rpc
 from vmware_nsx.shell.admin.plugins.common import constants
@@ -60,7 +59,7 @@ def nsx_update_metadata_proxy(resource, event, trigger, **kwargs):
 
     nsx_version = nsxlib.get_version()
     if not nsx_utils.is_nsx_version_1_1_0(nsx_version):
-        LOG.error(_LE("This utility is not available for NSX version %s"),
+        LOG.error("This utility is not available for NSX version %s",
                   nsx_version)
         return
 
@@ -69,7 +68,7 @@ def nsx_update_metadata_proxy(resource, event, trigger, **kwargs):
         properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
         metadata_proxy_uuid = properties.get('metadata_proxy_uuid')
     if not metadata_proxy_uuid:
-        LOG.error(_LE("metadata_proxy_uuid is not defined"))
+        LOG.error("metadata_proxy_uuid is not defined")
         return
 
     cfg.CONF.set_override('dhcp_agent_notification', False)
@@ -97,9 +96,9 @@ def nsx_update_metadata_proxy(resource, event, trigger, **kwargs):
             router_id = ports[0]['device_id']
             interface = {'subnet_id': network['subnets'][0]}
             plugin.remove_router_interface(router_id, interface)
-            LOG.info(_LI("Removed metadata interface on router %s"), router_id)
+            LOG.info("Removed metadata interface on router %s", router_id)
             plugin.delete_network(network['id'])
-            LOG.info(_LI("Removed metadata network %s"), network['id'])
+            LOG.info("Removed metadata network %s", network['id'])
         else:
             lswitch_id = neutron_client.net_id_to_lswitch_id(network['id'])
             if not lswitch_id:
@@ -112,7 +111,7 @@ def nsx_update_metadata_proxy(resource, event, trigger, **kwargs):
             port_resource.create(
                 lswitch_id, metadata_proxy_uuid, tags=tags, name=name,
                 attachment_type=nsx_constants.ATTACHMENT_MDPROXY)
-            LOG.info(_LI("Enabled native metadata proxy for network %s"),
+            LOG.info("Enabled native metadata proxy for network %s",
                      network['id'])
 
 

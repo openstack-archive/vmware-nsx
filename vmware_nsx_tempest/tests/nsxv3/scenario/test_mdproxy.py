@@ -22,7 +22,6 @@ from tempest.lib import decorators
 from tempest.scenario import manager
 from tempest import test
 
-from vmware_nsx_tempest._i18n import _LI
 from vmware_nsx_tempest.common import constants
 from vmware_nsx_tempest.services import nsxv3_client
 
@@ -150,7 +149,7 @@ class TestMDProxy(manager.NetworkScenarioTest):
                     break
                     exec_cmd_retried += 1
                 time.sleep(constants.INTERVAL_BETWEEN_EXEC_RETRY_ON_SSH)
-                LOG.info(_LI("Tried %s times!!!") % exec_cmd_retried)
+                LOG.info("Tried %s times!!!", exec_cmd_retried)
             if check_exist_only:
                 return "Verification is successful!"
             msg = ("Failed while verifying metadata on server. Result "

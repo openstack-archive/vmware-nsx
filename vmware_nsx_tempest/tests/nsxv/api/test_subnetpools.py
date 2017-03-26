@@ -21,8 +21,6 @@ from tempest.lib import decorators
 from tempest.lib import exceptions as lib_exc
 from tempest import test
 
-from vmware_nsx_tempest._i18n import _LI
-
 LOG = logging.getLogger(__name__)
 
 CONF = config.CONF
@@ -261,5 +259,5 @@ class SubnetPoolsTestJSON(base.BaseNetworkTest):
                 self.clean_subnet(subnet_client, subnet['subnet']['id'])
             except lib_exc.ServerFault:
                 pass
-                LOG.info(_LI("Failed to allocate subnet: Insufficient "
-                             "prefix space to allocate subnet size"))
+                LOG.info("Failed to allocate subnet: Insufficient "
+                         "prefix space to allocate subnet size")

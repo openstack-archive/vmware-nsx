@@ -19,7 +19,6 @@ from oslo_utils import excutils
 
 from neutron_lib import exceptions as n_exc
 
-from vmware_nsx._i18n import _LE
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as nsxv_exc
@@ -83,7 +82,7 @@ class EdgePoolManager(base_mgr.EdgeLoadbalancerBaseManager):
         except nsxv_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
                 self.lbv2_driver.pool.failed_completion(context, pool)
-                LOG.error(_LE('Failed to create pool %s'), pool.id)
+                LOG.error('Failed to create pool %s', pool.id)
 
     @log_helpers.log_method_call
     def update(self, context, old_pool, new_pool):
@@ -119,7 +118,7 @@ class EdgePoolManager(base_mgr.EdgeLoadbalancerBaseManager):
         except nsxv_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
                 self.lbv2_driver.pool.failed_completion(context, new_pool)
-                LOG.error(_LE('Failed to update pool %s'), new_pool.id)
+                LOG.error('Failed to update pool %s', new_pool.id)
 
     @log_helpers.log_method_call
     def delete(self, context, pool):
@@ -154,4 +153,4 @@ class EdgePoolManager(base_mgr.EdgeLoadbalancerBaseManager):
                 context.session, lb_id, pool.id)
         except nsxv_exc.VcnsApiException:
             self.lbv2_driver.pool.failed_completion(context, pool)
-            LOG.error(_LE('Failed to delete pool %s'), pool.id)
+            LOG.error('Failed to delete pool %s', pool.id)

@@ -20,7 +20,6 @@ from neutron.db import l3_db
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 
-from vmware_nsx._i18n import _LE, _LW
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.drivers import (
@@ -127,8 +126,8 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
 
         # This should address cases where the binding remains due to breakage
         if nsxv_db.get_vdr_dhcp_binding_by_vdr(context.session, router_id):
-            LOG.warning(_LW("DHCP bind wasn't cleaned for router %s. "
-                            "Cleaning up entry"), router_id)
+            LOG.warning("DHCP bind wasn't cleaned for router %s. "
+                        "Cleaning up entry", router_id)
             nsxv_db.delete_vdr_dhcp_binding(context.session, router_id)
 
     def update_routes(self, context, router_id, newnexthop,
@@ -476,7 +475,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                 self.edge_manager.remove_network_from_dhcp_edge(
                     context, network_id, vdr_dhcp_binding['dhcp_edge_id'])
         else:
-            LOG.error(_LE('VDR DHCP binding is missing for %s'),
+            LOG.error('VDR DHCP binding is missing for %s',
                       router_id)
 
         # Reattach to regular DHCP Edge

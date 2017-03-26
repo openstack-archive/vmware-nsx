@@ -23,7 +23,7 @@ from oslo_serialization import jsonutils
 from oslo_utils import excutils
 from sqlalchemy.orm import exc as sa_exc
 
-from vmware_nsx._i18n import _, _LE, _LI, _LW
+from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.common import utils
@@ -248,8 +248,8 @@ class EdgeApplianceDriver(object):
             status_level = self._edge_status_to_level(
                 response['edgeStatus'])
         except exceptions.VcnsApiException as e:
-            LOG.error(_LE("VCNS: Failed to get edge %(edge_id)s status: "
-                          "Reason: %(reason)s"),
+            LOG.error("VCNS: Failed to get edge %(edge_id)s status: "
+                      "Reason: %(reason)s",
                       {'edge_id': edge_id, 'reason': e.response})
             status_level = constants.RouterStatus.ROUTER_STATUS_ERROR
             try:
@@ -258,7 +258,7 @@ class EdgeApplianceDriver(object):
                     constants.VCNS_ERROR_CODE_EDGE_NOT_RUNNING):
                     status_level = constants.RouterStatus.ROUTER_STATUS_DOWN
             except ValueError:
-                LOG.error(_LE('Error code not present. %s'), e.response)
+                LOG.error('Error code not present. %s', e.response)
 
         return status_level
 
@@ -278,7 +278,7 @@ class EdgeApplianceDriver(object):
             return self.vcns.query_interface(edge_id, vnic_index)
         except exceptions.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("NSXv: Failed to query vnic %s"), vnic_index)
+                LOG.exception("NSXv: Failed to query vnic %s", vnic_index)
 
     def update_interface(self, router_id, edge_id, index, network,
                          tunnel_index=-1, address=None, netmask=None,
@@ -338,8 +338,8 @@ class EdgeApplianceDriver(object):
                 edge_id, index, interface_req)
         except exceptions.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to update vdr interface on edge: "
-                                  "%s"), edge_id)
+                LOG.exception("Failed to update vdr interface on edge: "
+                              "%s", edge_id)
 
     def delete_vdr_internal_interface(self, edge_id, interface_index):
         LOG.debug("Delete VDR interface on edge: %s", edge_id)
@@ -348,8 +348,8 @@ class EdgeApplianceDriver(object):
                 edge_id, interface_index)
         except exceptions.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to delete vdr interface on edge: "
-                                  "%s"),
+                LOG.exception("Failed to delete vdr interface on edge: "
+                              "%s",
                               edge_id)
 
     def delete_interface(self, router_id, edge_id, index):
@@ -358,14 +358,14 @@ class EdgeApplianceDriver(object):
         try:
             self.vcns.delete_interface(edge_id, index)
         except exceptions.ResourceNotFound:
-            LOG.error(_LE('Failed to delete vnic %(vnic_index)s on edge '
-                          '%(edge_id)s: edge was not found'),
+            LOG.error('Failed to delete vnic %(vnic_index)s on edge '
+                      '%(edge_id)s: edge was not found',
                       {'vnic_index': index,
                        'edge_id': edge_id})
         except exceptions.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to delete vnic %(vnic_index)s: "
-                                  "on edge %(edge_id)s"),
+                LOG.exception("Failed to delete vnic %(vnic_index)s: "
+                              "on edge %(edge_id)s",
                               {'vnic_index': index,
                                'edge_id': edge_id})
 
@@ -376,7 +376,7 @@ class EdgeApplianceDriver(object):
         try:
             return self.vcns.get_edges()[1]
         except exceptions.VcnsApiException as e:
-            LOG.exception(_LE("VCNS: Failed to get edges:\n%s"), e.response)
+            LOG.exception("VCNS: Failed to get edges:\n%s", e.response)
             raise e
 
     def deploy_edge(self, context, router_id, name, internal_network,
@@ -450,7 +450,7 @@ class EdgeApplianceDriver(object):
             self.callbacks.complete_edge_creation(
                 context, edge_id, name, router_id, dist, False)
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("NSXv: deploy edge failed."))
+                LOG.exception("NSXv: deploy edge failed.")
         return edge_id
 
     def update_edge(self, context, router_id, edge_id, name, internal_network,
@@ -494,7 +494,7 @@ class EdgeApplianceDriver(object):
             self.callbacks.complete_edge_update(
                 context, edge_id, router_id, True, set_errors)
         except exceptions.VcnsApiException as e:
-            LOG.error(_LE("Failed to update edge: %s"),
+            LOG.error("Failed to update edge: %s",
                       e.response)
             self.callbacks.complete_edge_update(
                 context, edge_id, router_id, False, set_errors)
@@ -518,7 +518,7 @@ class EdgeApplianceDriver(object):
             # update the edge
             self.vcns.update_edge(edge_id, edge)
         except exceptions.VcnsApiException as e:
-            LOG.error(_LE("Failed to rename edge: %s"),
+            LOG.error("Failed to rename edge: %s",
                       e.response)
 
     def resize_edge(self, edge_id, size):
@@ -542,7 +542,7 @@ class EdgeApplianceDriver(object):
             # update the edge
             self.vcns.update_edge(edge_id, edge)
         except exceptions.VcnsApiException as e:
-            LOG.error(_LE("Failed to resize edge: %s"), e.response)
+            LOG.error("Failed to resize edge: %s", e.response)
 
     def delete_edge(self, context, router_id, edge_id, dist=False):
         try:
@@ -550,7 +550,7 @@ class EdgeApplianceDriver(object):
             if not dist:
                 nsxv_db.clean_edge_vnic_binding(context.session, edge_id)
         except sa_exc.NoResultFound:
-            LOG.warning(_LW("Router Binding for %s not found"), router_id)
+            LOG.warning("Router Binding for %s not found", router_id)
 
         if edge_id:
             try:
@@ -559,12 +559,12 @@ class EdgeApplianceDriver(object):
             except exceptions.ResourceNotFound:
                 return True
             except exceptions.VcnsApiException as e:
-                LOG.exception(_LE("VCNS: Failed to delete %(edge_id)s:\n"
-                                  "%(response)s"),
+                LOG.exception("VCNS: Failed to delete %(edge_id)s:\n"
+                              "%(response)s",
                               {'edge_id': edge_id, 'response': e.response})
                 return False
             except Exception:
-                LOG.exception(_LE("VCNS: Failed to delete %s"), edge_id)
+                LOG.exception("VCNS: Failed to delete %s", edge_id)
                 return False
 
     def _assemble_nat_rule(self, action, original_address,
@@ -591,7 +591,7 @@ class EdgeApplianceDriver(object):
         try:
             return self.vcns.get_nat_config(edge_id)[1]
         except exceptions.VcnsApiException as e:
-            LOG.exception(_LE("VCNS: Failed to get nat config:\n%s"),
+            LOG.exception("VCNS: Failed to get nat config:\n%s",
                           e.response)
             raise e
 
@@ -658,7 +658,7 @@ class EdgeApplianceDriver(object):
             self.vcns.update_nat_config(edge_id, nat)
             return True
         except exceptions.VcnsApiException as e:
-            LOG.exception(_LE("VCNS: Failed to create snat rule:\n%s"),
+            LOG.exception("VCNS: Failed to create snat rule:\n%s",
                           e.response)
             return False
 
@@ -696,7 +696,7 @@ class EdgeApplianceDriver(object):
             self.vcns.update_routes(edge_id, request)
             return True
         except exceptions.VcnsApiException as e:
-            LOG.exception(_LE("VCNS: Failed to update routes:\n%s"),
+            LOG.exception("VCNS: Failed to update routes:\n%s",
                           e.response)
             return False
 
@@ -726,7 +726,7 @@ class EdgeApplianceDriver(object):
                 edge_id)
         except exceptions.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to get service config"))
+                LOG.exception("Failed to get service config")
         return response
 
     def enable_service_loadbalancer(self, edge_id):
@@ -738,8 +738,8 @@ class EdgeApplianceDriver(object):
             self.vcns.enable_service_loadbalancer(edge_id, config)
         except exceptions.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to enable loadbalancer "
-                                  "service config"))
+                LOG.exception("Failed to enable loadbalancer "
+                              "service config")
 
     def _delete_port_group(self, task):
         try:
@@ -747,7 +747,7 @@ class EdgeApplianceDriver(object):
                 task.userdata['dvs_id'],
                 task.userdata['port_group_id'])
         except Exception as e:
-            LOG.error(_LE('Unable to delete %(pg)s exception %(ex)s'),
+            LOG.error('Unable to delete %(pg)s exception %(ex)s',
                       {'pg': task.userdata['port_group_id'],
                        'ex': e})
             return task_constants.TaskStatus.ERROR
@@ -770,14 +770,14 @@ class EdgeApplianceDriver(object):
             retry_number += 1
             if retry_number > max_retries:
                 with excutils.save_and_reraise_exception():
-                    LOG.exception(_LE("Failed to %s"), task.name)
+                    LOG.exception("Failed to %s", task.name)
             else:
                 task.userdata['retry_number'] = retry_number
                 # Sleep twice as long as the previous retry
                 tts = (2 ** (retry_number - 1)) * delay
                 time.sleep(min(tts, 60))
                 return task_constants.TaskStatus.PENDING
-        LOG.info(_LI("Task %(name)s completed."), {'name': task.name})
+        LOG.info("Task %(name)s completed.", {'name': task.name})
         return task_constants.TaskStatus.COMPLETED
 
     def delete_port_group(self, dvs_id, port_group_id):
@@ -807,14 +807,14 @@ class EdgeApplianceDriver(object):
             self.vcns.create_bridge(device_name, bridge)
         except exceptions.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to create bridge in the %s"),
+                LOG.exception("Failed to create bridge in the %s",
                               device_name)
 
     def delete_bridge(self, device_name):
         try:
             self.vcns.delete_bridge(device_name)
         except exceptions.VcnsApiException:
-            LOG.exception(_LE("Failed to delete bridge in the %s"),
+            LOG.exception("Failed to delete bridge in the %s",
                           device_name)
 
     def update_edge_ha(self, edge_id):
@@ -825,19 +825,19 @@ class EdgeApplianceDriver(object):
 
     def update_edge_syslog(self, edge_id, syslog_config, router_id):
         if 'server_ip' not in syslog_config:
-            LOG.warning(_LW("Server IP missing in syslog config for %s"),
+            LOG.warning("Server IP missing in syslog config for %s",
                         router_id)
             return
 
         protocol = syslog_config.get('protocol', 'tcp')
         if protocol not in ['tcp', 'udp']:
-            LOG.warning(_LW("Invalid protocol in syslog config for %s"),
+            LOG.warning("Invalid protocol in syslog config for %s",
                         router_id)
             return
 
         loglevel = syslog_config.get('log_level')
         if loglevel and loglevel not in edge_utils.SUPPORTED_EDGE_LOG_LEVELS:
-            LOG.warning(_LW("Invalid loglevel in syslog config for %s"),
+            LOG.warning("Invalid loglevel in syslog config for %s",
                         router_id)
             return
 

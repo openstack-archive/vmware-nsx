@@ -21,7 +21,6 @@ from neutron.db import common_db_mixin as common_db
 from neutron_lib import context as neutron_context
 from neutron_lib.plugins import directory
 
-from vmware_nsx._i18n import _LW
 from vmware_nsx.common import config
 from vmware_nsx import plugin
 from vmware_nsx.plugins.nsx_v.vshield import vcns
@@ -77,7 +76,7 @@ class NsxVPluginWrapper(plugin.NsxVPlugin):
         if not self.count_spawn_jobs():
             return
 
-        LOG.warning(_LW("Waiting for plugin jobs to finish properly..."))
+        LOG.warning("Waiting for plugin jobs to finish properly...")
         sleep_time = 1
         print_time = 20
         max_loop = 600
@@ -85,17 +84,17 @@ class NsxVPluginWrapper(plugin.NsxVPlugin):
             n_jobs = self.count_spawn_jobs()
             if n_jobs > 0:
                 if (print_index % print_time) == 0:
-                    LOG.warning(_LW("Still Waiting on %(jobs)s "
-                                    "job%(plural)s"),
+                    LOG.warning("Still Waiting on %(jobs)s "
+                                "job%(plural)s",
                                 {'jobs': n_jobs,
                                  'plural': 's' if n_jobs > 1 else ''})
                 time.sleep(sleep_time)
             else:
-                LOG.warning(_LW("Done."))
+                LOG.warning("Done.")
                 return
 
-        LOG.warning(_LW("Sorry. Waited for too long. Some jobs are still "
-                        "running."))
+        LOG.warning("Sorry. Waited for too long. Some jobs are still "
+                    "running.")
 
 
 def get_nsxv_backend_edges():

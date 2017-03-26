@@ -20,7 +20,7 @@ from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
 
-from vmware_nsx._i18n import _, _LE, _LI, _LW
+from vmware_nsx._i18n import _
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils
@@ -148,7 +148,7 @@ def update_lswitch(cluster, lswitch_id, display_name,
         return nsxlib.do_request(HTTP_PUT, uri, jsonutils.dumps(lswitch_obj),
                                  cluster=cluster)
     except exception.NotFound as e:
-        LOG.error(_LE("Network not found, Error: %s"), str(e))
+        LOG.error("Network not found, Error: %s", str(e))
         raise exception.NetworkNotFound(net_id=lswitch_id)
 
 
@@ -163,7 +163,7 @@ def delete_networks(cluster, net_id, lswitch_ids):
         try:
             nsxlib.do_request(HTTP_DELETE, path, cluster=cluster)
         except exception.NotFound as e:
-            LOG.error(_LE("Network not found, Error: %s"), str(e))
+            LOG.error("Network not found, Error: %s", str(e))
             raise exception.NetworkNotFound(net_id=ls_id)
 
 
@@ -186,7 +186,7 @@ def delete_port(cluster, switch, port):
     try:
         nsxlib.do_request(HTTP_DELETE, uri, cluster=cluster)
     except exception.NotFound as e:
-        LOG.error(_LE("Port or Network not found, Error: %s"), str(e))
+        LOG.error("Port or Network not found, Error: %s", str(e))
         raise exception.PortNotFoundOnNetwork(
             net_id=switch, port_id=port)
     except api_exc.NsxApiException:
@@ -245,7 +245,7 @@ def get_ports(cluster, networks=None, devices=None, tenants=None):
             if not ports:
                 ports = nsxlib.get_all_query_pages(lport_query_path, cluster)
         except exception.NotFound:
-            LOG.warning(_LW("Lswitch %s not found in NSX"), lswitch)
+            LOG.warning("Lswitch %s not found in NSX", lswitch)
             ports = None
 
         if ports:
@@ -279,16 +279,16 @@ def get_port_by_neutron_tag(cluster, lswitch_uuid, neutron_port_id):
     num_results = len(res["results"])
     if num_results >= 1:
         if num_results > 1:
-            LOG.warning(_LW("Found '%(num_ports)d' ports with "
-                            "q_port_id tag: '%(neutron_port_id)s'. "
-                            "Only 1 was expected."),
+            LOG.warning("Found '%(num_ports)d' ports with "
+                        "q_port_id tag: '%(neutron_port_id)s'. "
+                        "Only 1 was expected.",
                         {'num_ports': num_results,
                          'neutron_port_id': neutron_port_id})
         return res["results"][0]
 
 
 def get_port(cluster, network, port, relations=None):
-    LOG.info(_LI("get_port() %(network)s %(port)s"),
+    LOG.info("get_port() %(network)s %(port)s",
              {'network': network, 'port': port})
     uri = "/ws.v1/lswitch/" + network + "/lport/" + port + "?"
     if relations:
@@ -296,7 +296,7 @@ def get_port(cluster, network, port, relations=None):
     try:
         return nsxlib.do_request(HTTP_GET, uri, cluster=cluster)
     except exception.NotFound as e:
-        LOG.error(_LE("Port or Network not found, Error: %s"), str(e))
+        LOG.error("Port or Network not found, Error: %s", str(e))
         raise exception.PortNotFoundOnNetwork(
             port_id=port, net_id=network)
 
@@ -327,7 +327,7 @@ def update_port(cluster, lswitch_uuid, lport_uuid, neutron_port_id, tenant_id,
                   {'result': result['uuid'], 'uuid': lswitch_uuid})
         return result
     except exception.NotFound as e:
-        LOG.error(_LE("Port or Network not found, Error: %s"), str(e))
+        LOG.error("Port or Network not found, Error: %s", str(e))
         raise exception.PortNotFoundOnNetwork(
             port_id=lport_uuid, net_id=lswitch_uuid)
 
@@ -369,7 +369,7 @@ def get_port_status(cluster, lswitch_id, port_id):
                               "/ws.v1/lswitch/%s/lport/%s/status" %
                               (lswitch_id, port_id), cluster=cluster)
     except exception.NotFound as e:
-        LOG.error(_LE("Port not found, Error: %s"), str(e))
+        LOG.error("Port not found, Error: %s", str(e))
         raise exception.PortNotFoundOnNetwork(
             port_id=port_id, net_id=lswitch_id)
     if r['link_status_up'] is True:

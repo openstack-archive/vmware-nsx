@@ -24,7 +24,6 @@ from tempest.lib.common.utils import data_utils
 from tempest.lib import decorators
 from tempest import test
 
-from vmware_nsx_tempest._i18n import _LI
 from vmware_nsx_tempest.services import nsxv3_client
 
 LOG = logging.getLogger(__name__)
@@ -93,7 +92,7 @@ class NSXv3SecGroupTest(base.BaseSecGroupTest):
         group_create_body, name = self._create_security_group()
         secgroup = group_create_body['security_group']
         time.sleep(NSX_FIREWALL_REALIZED_DELAY)
-        LOG.info(_LI("Create security group with name %(name)s and id %(id)s"),
+        LOG.info("Create security group with name %(name)s and id %(id)s",
                  {'name': secgroup['name'], 'id': secgroup['id']})
         # List security groups and verify if created group is there in response
         list_body = self.security_groups_client.list_security_groups()

@@ -28,8 +28,6 @@ from neutron_lib import constants
 from oslo_context import context as common_context
 from oslo_log import log
 
-from vmware_nsx._i18n import _LE
-
 LOG = log.getLogger(__name__)
 
 MAX_DISPLAY_NAME_LEN = 40
@@ -162,8 +160,8 @@ def read_file(path):
         with open(path) as file:
             return file.read().strip()
     except IOError as e:
-        LOG.error(_LE("Error while opening file "
-                      "%(path)s: %(err)s"), {'path': path, 'err': str(e)})
+        LOG.error("Error while opening file "
+                  "%(path)s: %(err)s", {'path': path, 'err': str(e)})
 
 
 def get_name_and_uuid(name, uuid, tag=None, maxlen=80):

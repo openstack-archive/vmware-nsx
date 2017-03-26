@@ -19,7 +19,6 @@ from oslo_log import log
 from oslo_serialization import jsonutils
 from oslo_utils import excutils
 
-from vmware_nsx._i18n import _LW
 from vmware_nsx.common import utils
 from vmware_nsx.nsxlib import mh as nsxlib
 
@@ -141,8 +140,8 @@ def delete_security_profile(cluster, spid):
     except exceptions.NotFound:
         with excutils.save_and_reraise_exception():
             # This is not necessarily an error condition
-            LOG.warning(_LW("Unable to find security profile %s on NSX "
-                            "backend"), spid)
+            LOG.warning("Unable to find security profile %s on NSX "
+                        "backend", spid)
 
 
 def summarize_security_group_rules(logical_port_rules):

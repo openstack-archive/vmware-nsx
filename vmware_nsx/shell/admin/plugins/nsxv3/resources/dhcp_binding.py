@@ -19,7 +19,6 @@ from neutron_lib import constants as const
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
@@ -50,7 +49,7 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
 
     nsx_version = nsxlib.get_version()
     if not nsx_utils.is_nsx_version_1_1_0(nsx_version):
-        LOG.error(_LE("This utility is not available for NSX version %s"),
+        LOG.error("This utility is not available for NSX version %s",
                   nsx_version)
         return
 
@@ -60,7 +59,7 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
         properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
         dhcp_profile_uuid = properties.get('dhcp_profile_uuid')
     if not dhcp_profile_uuid:
-        LOG.error(_LE("dhcp_profile_uuid is not defined"))
+        LOG.error("dhcp_profile_uuid is not defined")
         return
 
     cfg.CONF.set_override('dhcp_agent_notification', False)
@@ -98,8 +97,8 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
                     network, subnet, port, net_tags)
                 server_data['dhcp_profile_id'] = dhcp_profile_uuid
                 dhcp_server = dhcp_server_resource.create(**server_data)
-                LOG.info(_LI("Created logical DHCP server %(server)s for "
-                             "network %(network)s"),
+                LOG.info("Created logical DHCP server %(server)s for "
+                         "network %(network)s",
                          {'server': dhcp_server['id'],
                           'network': port['network_id']})
                 # Add DHCP service binding in neutron DB.
@@ -112,8 +111,8 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
                     lport_id, dhcp_server['id'],
                     attachment_type=nsx_constants.ATTACHMENT_DHCP)
                 server_bindings[lswitch_id] = dhcp_server['id']
-                LOG.info(_LI("Updated DHCP logical port %(port)s for "
-                             "network %(network)s"),
+                LOG.info("Updated DHCP logical port %(port)s for "
+                         "network %(network)s",
                          {'port': lport_id, 'network': port['network_id']})
             elif subnet['enable_dhcp']:
                 # Store (mac, ip) binding of each compute port in a
@@ -144,8 +143,8 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
             # Add DHCP static binding in neutron DB.
             neutron_client.add_dhcp_static_binding(
                 port_id, subnet_id, ip, dhcp_server_id, binding['id'])
-            LOG.info(_LI("Added DHCP binding (mac: %(mac)s, ip: %(ip)s) "
-                         "for neutron port %(port)s"),
+            LOG.info("Added DHCP binding (mac: %(mac)s, ip: %(ip)s) "
+                     "for neutron port %(port)s",
                      {'mac': mac, 'ip': ip, 'port': port_id})
 
 

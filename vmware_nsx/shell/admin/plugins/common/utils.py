@@ -15,11 +15,12 @@
 import six
 import sys
 
-from vmware_nsx._i18n import _LI, _
+from vmware_nsx._i18n import _
+from vmware_nsx.shell import resources as nsxadmin
+
 from neutron.callbacks import registry
 from neutron.common import profiler  # noqa
 from oslo_log import log as logging
-from vmware_nsx.shell import resources as nsxadmin
 
 LOG = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ def output_header(func):
     def func_desc(*args, **kwargs):
         component = '[%s]' % func.__name__.split('_')[0].upper()
         op_desc = [n.capitalize() for n in func.__name__.split('_')[1:]]
-        LOG.info(_LI('==== %(component)s %(operation)s ===='),
+        LOG.info('==== %(component)s %(operation)s ====',
                  {'component': component, 'operation': ' '.join(op_desc)})
         return func(*args, **kwargs)
     func_desc.__name__ = func.__name__

@@ -20,7 +20,6 @@ from oslo_log import log as logging
 from neutron import version as n_version
 from neutron_lib import context as q_context
 
-from vmware_nsx._i18n import _LE, _LW
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.plugins.nsx_v3 import cert_utils
 from vmware_nsxlib import v3
@@ -50,11 +49,11 @@ class DbCertProvider(client_cert.ClientCertProvider):
             return
 
         if expires_in_days < 0:
-            LOG.error(_LE("Client certificate has expired %d days ago."),
+            LOG.error("Client certificate has expired %d days ago.",
                       expires_in_days * -1)
         else:
-            LOG.warning(_LW("Client certificate expires in %d days. "
-                            "Once expired, service will become unavailable."),
+            LOG.warning("Client certificate expires in %d days. "
+                        "Once expired, service will become unavailable.",
                         expires_in_days)
 
     def __enter__(self):

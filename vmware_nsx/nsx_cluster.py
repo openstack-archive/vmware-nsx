@@ -17,7 +17,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 import six
 
-from vmware_nsx._i18n import _, _LI
+from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions
 
 LOG = logging.getLogger(__name__)
@@ -60,8 +60,8 @@ class NSXCluster(object):
             raise exceptions.InvalidClusterConfiguration(
                 invalid_attrs=self._required_attributes)
         if self._important_attributes:
-            LOG.info(_LI("The following cluster attributes were "
-                         "not specified: %s'"), self._important_attributes)
+            LOG.info("The following cluster attributes were "
+                     "not specified: %s'", self._important_attributes)
         # The API client will be explicitly created by users of this class
         self.api_client = None
 

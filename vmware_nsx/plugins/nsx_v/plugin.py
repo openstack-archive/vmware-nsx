@@ -85,7 +85,7 @@ from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v import utils as qos_utils
 
 import vmware_nsx
-from vmware_nsx._i18n import _, _LE, _LI, _LW
+from vmware_nsx._i18n import _
 from vmware_nsx.common import availability_zones as nsx_com_az
 from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import exceptions as nsx_exc
@@ -341,9 +341,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         vnic_id = self._get_port_vnic_id(vnic_idx, device_id)
                         self._add_member_to_security_group(sg_id, vnic_id)
                     except Exception as e:
-                        LOG.info(_LI('Could not add port %(port)s to service '
-                                     'insertion security group. Exception '
-                                     '%(err)s'),
+                        LOG.info('Could not add port %(port)s to service '
+                                 'insertion security group. Exception '
+                                 '%(err)s',
                                  {'port': port['id'], 'err': e})
 
         # Doing this in a separate thread to not slow down the init process
@@ -355,7 +355,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # If called more than once - we should not create it again
             return self.conn.consume_in_threads()
 
-        LOG.info(_LI("NSXV plugin: starting RPC listeners"))
+        LOG.info("NSXV plugin: starting RPC listeners")
 
         self.endpoints = [agents_db.AgentExtRpcCallback()]
         self.topic = topics.PLUGIN
@@ -533,8 +533,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                 section_uri,
                                 self.nsx_sg_utils.to_xml_string(section), h)
                     except Exception as exc:
-                        LOG.error(_LE('Unable to update security group %(sg)s '
-                                      'section for logging. %(e)s'),
+                        LOG.error('Unable to update security group %(sg)s '
+                                  'section for logging. %(e)s',
                                   {'e': exc, 'sg': sg['id']})
 
         c_utils.spawn_n(process_security_groups_rules_logging)
@@ -557,8 +557,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 context, neutron_port_db['id'], network_id,
                 neutron_port_db['mac_address'])
         except Exception as e:
-            LOG.error(_LE('Unable to delete static bindings for %(id)s. '
-                          'Error: %(e)s'),
+            LOG.error('Unable to delete static bindings for %(id)s. '
+                      'Error: %(e)s',
                       {'id': neutron_port_db['id'], 'e': e})
 
     def _validate_network_qos(self, network, backend_network):
@@ -844,8 +844,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     self._vcm.update_port_group_spec_teaming,
                     switch)
             except Exception as e:
-                LOG.error(_LE('Unable to update teaming information for '
-                              'net %(net_id)s. Error: %(e)s'),
+                LOG.error('Unable to update teaming information for '
+                          'net %(net_id)s. Error: %(e)s',
                           {'net_id': net_id, 'e': e})
 
     def _create_vlan_network_at_backend(self, net_data, dvs_id):
@@ -889,13 +889,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             try:
                 self.nsx_v.vcns.add_member_to_security_group(
                     sg_id, vnic_id)
-                LOG.info(_LI("Added %(sg_id)s member to NSX security "
-                             "group %(vnic_id)s"),
+                LOG.info("Added %(sg_id)s member to NSX security "
+                         "group %(vnic_id)s",
                          {'sg_id': sg_id, 'vnic_id': vnic_id})
             except Exception:
                 with excutils.save_and_reraise_exception():
-                    LOG.error(_LE("NSX security group %(sg_id)s member add "
-                                  "failed %(vnic_id)s."),
+                    LOG.error("NSX security group %(sg_id)s member add "
+                              "failed %(vnic_id)s.",
                               {'sg_id': sg_id,
                                'vnic_id': vnic_id})
 
@@ -906,7 +906,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         for add_sg in added_sgids:
             nsx_sg_id = nsx_db.get_nsx_security_group_id(session, add_sg)
             if nsx_sg_id is None:
-                LOG.warning(_LW("NSX security group not found for %s"), add_sg)
+                LOG.warning("NSX security group not found for %s", add_sg)
             else:
                 self._add_member_to_security_group(nsx_sg_id, vnic_id)
 
@@ -929,7 +929,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         for del_sg in deleted_sgids:
             nsx_sg_id = nsx_db.get_nsx_security_group_id(session, del_sg)
             if nsx_sg_id is None:
-                LOG.warning(_LW("NSX security group not found for %s"), del_sg)
+                LOG.warning("NSX security group not found for %s", del_sg)
             else:
                 self._remove_member_from_security_group(nsx_sg_id, vnic_id)
 
@@ -1211,7 +1211,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     elif network_type != c_utils.NsxVNetworkTypes.PORTGROUP:
                         for dvsmrf, netmrf in six.iteritems(dvs_pg_mappings):
                             self._delete_backend_network(netmrf, dvsmrf)
-                LOG.exception(_LE('Failed to create network'))
+                LOG.exception('Failed to create network')
 
         # If init is incomplete calling _update_qos_network() will result a
         # deadlock.
@@ -1300,7 +1300,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         try:
             policy = self.nsx_v.vcns.get_spoofguard_policy(policy_id)[1]
         except Exception:
-            LOG.error(_LE("Policy does not exists for %s"), policy_id)
+            LOG.error("Policy does not exists for %s", policy_id)
             # We will not attempt to delete a policy that does not exist
             return False
         if policy:
@@ -1333,14 +1333,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     is_dhcp_backend_deleted = True
                 except Exception:
                     with excutils.save_and_reraise_exception():
-                        LOG.exception(_LE('Failed to delete network'))
+                        LOG.exception('Failed to delete network')
             for port_id in auto_del:
                 try:
                     self.delete_port(context.elevated(), port_id,
                                      force_delete_dhcp=True)
                 except Exception as e:
-                    LOG.warning(_LW('Unable to delete port %(port_id)s. '
-                                    'Reason: %(e)s'),
+                    LOG.warning('Unable to delete port %(port_id)s. '
+                                'Reason: %(e)s',
                                 {'port_id': port_id, 'e': e})
 
         with context.session.begin(subtransactions=True):
@@ -1491,10 +1491,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                        orig_net[psec.PORTSECURITY] !=
                        net_attrs[psec.PORTSECURITY])
         if psec_update and not net_attrs[psec.PORTSECURITY]:
-            LOG.warning(_LW("Disabling port-security on network %s would "
-                            "require instance in the network to have VM tools "
-                            "installed in order for security-groups to "
-                            "function properly."))
+            LOG.warning("Disabling port-security on network %s would "
+                        "require instance in the network to have VM tools "
+                        "installed in order for security-groups to "
+                        "function properly.")
 
         # Check if the physical network of a vlan provider network was updated
         updated_morefs = False
@@ -1701,7 +1701,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             self._create_dhcp_static_binding(context, neutron_db)
         except Exception:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Failed to create port'))
+                LOG.exception('Failed to create port')
                 # Revert what we have created and raise the exception
                 self.delete_port(context, port_data['id'])
 
@@ -1744,20 +1744,20 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 vm_moref = self._vcm.get_vm_moref(device_id)
                 if vm_moref is not None:
                     try:
-                        LOG.info(_LI("Add VM %(dev)s to exclude list on "
-                                     "behalf of port %(port)s: added to "
-                                     "list"),
+                        LOG.info("Add VM %(dev)s to exclude list on "
+                                 "behalf of port %(port)s: added to "
+                                 "list",
                                  {"dev": device_id, "port": port_id})
                         self.nsx_v.vcns.add_vm_to_exclude_list(vm_moref)
                     except vsh_exc.RequestBad as e:
-                        LOG.error(_LE("Failed to add vm %(device)s "
-                                      "moref %(moref)s to exclude list: "
-                                      "%(err)s"),
+                        LOG.error("Failed to add vm %(device)s "
+                                  "moref %(moref)s to exclude list: "
+                                  "%(err)s",
                                   {'device': device_id, 'moref': vm_moref,
                                    'err': e})
             else:
-                LOG.info(_LI("Add VM %(dev)s to exclude list on behalf of "
-                             "port %(port)s: already in list"),
+                LOG.info("Add VM %(dev)s to exclude list on behalf of "
+                         "port %(port)s: already in list",
                          {"dev": device_id, "port": port_id})
 
     def _remove_vm_from_exclude_list(self, context, device_id, port_id,
@@ -1772,20 +1772,20 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 vm_moref = self._vcm.get_vm_moref(device_id)
                 if vm_moref is not None:
                     try:
-                        LOG.info(_LI("Remove VM %(dev)s from exclude list on "
-                                     "behalf of port %(port)s: removed from "
-                                     "list"),
+                        LOG.info("Remove VM %(dev)s from exclude list on "
+                                 "behalf of port %(port)s: removed from "
+                                 "list",
                                  {"dev": device_id, "port": port_id})
                         self.nsx_v.vcns.delete_vm_from_exclude_list(vm_moref)
                     except vsh_exc.RequestBad as e:
-                        LOG.error(_LE("Failed to delete vm %(device)s "
-                                      "moref %(moref)s from exclude list: "
-                                      "%(err)s"),
+                        LOG.error("Failed to delete vm %(device)s "
+                                  "moref %(moref)s from exclude list: "
+                                  "%(err)s",
                                   {'device': device_id, 'moref': vm_moref,
                                    'err': e})
             else:
-                LOG.info(_LI("Remove VM %(dev)s from exclude list on behalf "
-                             "of port %(port)s: other ports still in list"),
+                LOG.info("Remove VM %(dev)s from exclude list on behalf "
+                         "of port %(port)s: other ports still in list",
                          {"dev": device_id, "port": port_id})
 
     def update_port(self, context, id, port):
@@ -1961,8 +1961,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                             ret_port['network_id'],
                             old_ip, new_ip, sub_mask)
             else:
-                LOG.info(_LI('Not updating fixed IP on backend for '
-                             'device owner [%(dev_own)s] and port %(pid)s'),
+                LOG.info('Not updating fixed IP on backend for '
+                         'device owner [%(dev_own)s] and port %(pid)s',
                          {'dev_own': owner, 'pid': original_port['id']})
 
         # update port security in DB if changed
@@ -1990,8 +1990,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                 original_port['network_id'],
                                 vnic_id)
                         except Exception as e:
-                            LOG.error(_LE('Could not delete the spoofguard '
-                                          'policy. Exception %s'), e)
+                            LOG.error('Could not delete the spoofguard '
+                                      'policy. Exception %s', e)
                     # remove vm from the exclusion list when it is detached
                     # from the device if it has no port security
                     if not original_port[psec.PORTSECURITY]:
@@ -2030,8 +2030,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                 context.session, original_port['network_id'],
                                 vnic_id)
                         except Exception as e:
-                            LOG.error(_LE('Could not delete the spoofguard '
-                                          'policy. Exception %s'), e)
+                            LOG.error('Could not delete the spoofguard '
+                                      'policy. Exception %s', e)
                         # Add vm to the exclusion list, since it has no port
                         # security now
                         self._add_vm_to_exclude_list(context, device_id, id)
@@ -2049,11 +2049,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     self._update_vnic_assigned_addresses(
                         context.session, ret_port, vnic_id)
                 if not has_port_security and has_security_groups:
-                    LOG.warning(_LW("port-security is disabled on "
-                                    "port %(id)s, "
-                                    "VM tools must be installed on instance "
-                                    "%(device_id)s for security-groups to "
-                                    "function properly "),
+                    LOG.warning("port-security is disabled on "
+                                "port %(id)s, "
+                                "VM tools must be installed on instance "
+                                "%(device_id)s for security-groups to "
+                                "function properly ",
                                 {'id': id,
                                  'device_id': original_port['device_id']})
                 if (delete_security_groups
@@ -2131,8 +2131,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         context.session, neutron_db_port['network_id'],
                         vnic_id)
                 except Exception as e:
-                    LOG.error(_LE('Could not delete the spoofguard policy. '
-                                  'Exception %s'), e)
+                    LOG.error('Could not delete the spoofguard policy. '
+                              'Exception %s', e)
 
             if (cfg.CONF.nsxv.spoofguard_enabled and
                 not neutron_db_port[psec.PORTSECURITY] and
@@ -2270,15 +2270,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 s = self.create_subnet(context, item)
                 new_subnets.append(s)
             except Exception as e:
-                LOG.error(_LE('Unable to create bulk subnets. Failed to '
-                              'create item %(item)s. Rolling back. '
-                              'Error: %(e)s'), {'item': item, 'e': e})
+                LOG.error('Unable to create bulk subnets. Failed to '
+                          'create item %(item)s. Rolling back. '
+                          'Error: %(e)s', {'item': item, 'e': e})
                 for subnet in new_subnets:
                     s_id = subnet['id']
                     try:
                         self.delete_subnet(context, s_id)
                     except Exception:
-                        LOG.error(_LE('Unable to delete subnet %s'), s_id)
+                        LOG.error('Unable to delete subnet %s', s_id)
                 raise
         return new_subnets
 
@@ -2455,7 +2455,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if vdr_dhcp_binding:
                 pass
             else:
-                LOG.error(_LE('VDR DHCP binding not found for router %s'),
+                LOG.error('VDR DHCP binding not found for router %s',
                           vdr_id)
             sids = self.get_subnets(context,
                                     filters={'network_id': [network_id],
@@ -2629,7 +2629,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         except Exception:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to update DHCP for subnet %s"),
+                LOG.exception("Failed to update DHCP for subnet %s",
                               subnet['id'])
 
     def setup_dhcp_edge_fw_rules(self, context, plugin, router_id):
@@ -2650,7 +2650,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
             except Exception as e:
                 LOG.error(
-                    _LE('Could not find ICMP Echo application. Exception %s'),
+                    'Could not find ICMP Echo application. Exception %s',
                     e)
         else:
             # For newer versions, we can use the raw icmp rule
@@ -2671,7 +2671,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # On failure, log that we couldn't configure the firewall on the
             # Edge appliance. This won't break the DHCP functionality
             LOG.error(
-                _LE('Could not set up DHCP Edge firewall. Exception %s'), e)
+                'Could not set up DHCP Edge firewall. Exception %s', e)
 
     def _create_network_dhcp_address_group(self, context, network_id):
         """Create dhcp address group for subnets attached to the network."""
@@ -2778,14 +2778,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         try:
             metainfo = jsonutils.loads(metainfo_string)
             if not isinstance(metainfo, dict):
-                LOG.warning(_LW("Skipping router flavor %(flavor)s metainfo "
-                                "[%(metainfo)s]: expected a dictionary"),
+                LOG.warning("Skipping router flavor %(flavor)s metainfo "
+                            "[%(metainfo)s]: expected a dictionary",
                             {'flavor': flavor_id,
                              'metainfo': metainfo_string})
                 metainfo = {}
         except ValueError as e:
-            LOG.warning(_LW("Error reading router flavor %(flavor)s metainfo "
-                            "[%(metainfo)s]: %(error)s"),
+            LOG.warning("Error reading router flavor %(flavor)s metainfo "
+                        "[%(metainfo)s]: %(error)s",
                         {'flavor': flavor_id,
                          'metainfo': metainfo_string,
                          'error': e})
@@ -2836,8 +2836,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             elif k in future_use_keys:
                 pass
             else:
-                LOG.warning(_LW("Skipping router flavor metainfo [%(k)s:%(v)s]"
-                                ":unsupported field"),
+                LOG.warning("Skipping router flavor metainfo [%(k)s:%(v)s]"
+                            ":unsupported field",
                             {'k': k, 'v': v})
 
     def _process_extra_attr_router_create(self, context, router_db, r):
@@ -3049,7 +3049,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if binding:
                 router[ROUTER_SIZE] = binding.get("appliance_size")
             else:
-                LOG.error(_LE("No binding for router %s"), id)
+                LOG.error("No binding for router %s", id)
         return router
 
     def _get_external_attachment_info(self, context, router):
@@ -3157,16 +3157,16 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                     is_routes_update=is_routes_update)
                             except n_exc.IpAddressGenerationFailure:
                                 del info['external_fixed_ips']
-                        LOG.warning(_LW("Cannot get one subnet with gateway "
-                                        "to allocate one available gw ip"))
+                        LOG.warning("Cannot get one subnet with gateway "
+                                    "to allocate one available gw ip")
                 router_driver._update_router_gw_info(
                     context, router_id, info,
                     is_routes_update=is_routes_update,
                     force_update=force_update)
             except vsh_exc.VcnsApiException:
                 with excutils.save_and_reraise_exception():
-                    LOG.error(_LE("Failed to update gw_info %(info)s on "
-                                  "router %(router_id)s"),
+                    LOG.error("Failed to update gw_info %(info)s on "
+                              "router %(router_id)s",
                               {'info': str(info),
                                'router_id': router_id})
                     router_driver._update_router_gw_info(
@@ -3338,8 +3338,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 context, router_id, interface_info)
         except vsh_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Failed to add interface_info %(info)s on "
-                              "router %(router_id)s"),
+                LOG.error("Failed to add interface_info %(info)s on "
+                          "router %(router_id)s",
                           {'info': str(interface_info),
                            'router_id': router_id})
                 router_driver.remove_router_interface(
@@ -3389,7 +3389,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._update_edge_router(context, router_id)
             except Exception:
                 with excutils.save_and_reraise_exception():
-                    LOG.exception(_LE("Failed to update edge router"))
+                    LOG.exception("Failed to update edge router")
                     super(NsxVPluginV2, self).delete_floatingip(context,
                                                                 fip_db['id'])
         self._set_floatingip_status(context, fip_db)
@@ -3411,7 +3411,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._update_edge_router(context, router_id)
         except Exception:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to update edge router"))
+                LOG.exception("Failed to update edge router")
                 super(NsxVPluginV2, self).update_floatingip(
                     context, id, {'floatingip': {'port_id': old_port_id}})
         self._set_floatingip_status(context, fip_db)
@@ -3498,7 +3498,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             edge_utils.update_firewall(self.nsx_v, context, router_id, fake_fw,
                                        allow_external=allow_external)
         except vsh_exc.ResourceNotFound:
-            LOG.error(_LE("Failed to update firewall for router %s"),
+            LOG.error("Failed to update firewall for router %s",
                       router_id)
 
     def _delete_nsx_security_group(self, nsx_sg_id, nsx_policy):
@@ -3513,8 +3513,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         self.nsx_sg_utils.del_nsx_security_group_from_policy(
                             nsx_policy, nsx_sg_id)
                 except Exception as e:
-                    LOG.warning(_LW("Failed to remove nsx security group "
-                                    "%(id)s from policy %(pol)s : %(e)s"),
+                    LOG.warning("Failed to remove nsx security group "
+                                "%(id)s from policy %(pol)s : %(e)s",
                                 {'id': nsx_sg_id, 'pol': nsx_policy, 'e': e})
 
             self.nsx_v.vcns.delete_security_group(nsx_sg_id)
@@ -3699,7 +3699,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 if default_sg:
                     context = context.elevated()
                 super(NsxVPluginV2, self).delete_security_group(context, sg_id)
-                LOG.exception(_LE('Failed to create security group'))
+                LOG.exception('Failed to create security group')
 
         return new_sg
 
@@ -3818,7 +3818,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         except Exception:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to delete security group"))
+                LOG.exception("Failed to delete security group")
 
     def _create_nsx_rule(self, context, rule,
                          nsx_sg_id=None, logged=False, action='allow'):
@@ -3962,7 +3962,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                     if p['neutron_id'] in ruleids]:
                     self.nsx_v.vcns.remove_rule_from_section(
                         section_uri, nsx_rule_id)
-                LOG.exception(_LE("Failed to create security group rule"))
+                LOG.exception("Failed to create security group rule")
         return new_rule_list
 
     def delete_security_group_rule(self, context, id):
@@ -4019,13 +4019,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         try:
             self.nsx_v.vcns.edges_lock_operation()
         except Exception:
-            LOG.info(_LI("Unable to set manager lock operation"))
+            LOG.info("Unable to set manager lock operation")
 
     def _aggregate_publishing(self):
         try:
             self.nsx_v.vcns.configure_aggregate_publishing()
         except Exception:
-            LOG.info(_LI("Unable to configure aggregate publishing"))
+            LOG.info("Unable to configure aggregate publishing")
 
     def _configure_reservations(self):
         ver = self.nsx_v.vcns.get_version()
@@ -4036,7 +4036,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         try:
             self.nsx_v.vcns.configure_reservations()
         except Exception:
-            LOG.info(_LI("Unable to configure edge reservations"))
+            LOG.info("Unable to configure edge reservations")
 
     def _validate_config(self):
         if (cfg.CONF.nsxv.dvs_id and
@@ -4071,7 +4071,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         ver = self.nsx_v.vcns.get_version()
         if version.LooseVersion(ver) < version.LooseVersion('6.2.0'):
-            LOG.warning(_LW("Skipping validations. Not supported by version."))
+            LOG.warning("Skipping validations. Not supported by version.")
             return
 
         # Validate the host_groups for each AZ

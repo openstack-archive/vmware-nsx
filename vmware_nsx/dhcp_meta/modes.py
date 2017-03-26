@@ -28,7 +28,7 @@ from neutron.common import rpc as n_rpc
 from neutron.common import topics
 from neutron.db import agents_db
 
-from vmware_nsx._i18n import _, _LW
+from vmware_nsx._i18n import _
 from vmware_nsx.common import config
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.dhcp_meta import combined
@@ -121,7 +121,7 @@ class DhcpMetadataAccess(object):
             # This becomes ineffective, as all new networks creations
             # are handled by Logical Services Nodes in NSX
             cfg.CONF.set_override('network_auto_schedule', False)
-            LOG.warning(_LW('network_auto_schedule has been disabled'))
+            LOG.warning('network_auto_schedule has been disabled')
             notifier = combined.DhcpAgentNotifyAPI(self.safe_reference,
                                                    lsn_manager)
             self.supported_extension_aliases.append(lsn.EXT_ALIAS)

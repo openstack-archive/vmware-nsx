@@ -24,7 +24,6 @@ from neutron_lib import exceptions as n_exc
 from oslo_log import log as logging
 
 from vmware_nsx._i18n import _
-from vmware_nsx._i18n import _LE
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
@@ -398,7 +397,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                         router_dict['gateway'] = (
                             gwp['fixed_ips'][0]['subnet_id'])
                     except IndexError:
-                        LOG.error(_LE("Skipping GW port %s with no fixed IP"),
+                        LOG.error("Skipping GW port %s with no fixed IP",
                                   gwp['id'])
             subnet_ids = [p['fixed_ips'][0]['subnet_id'] for p in
                           intf_ports if p['device_id'] == r['id']]

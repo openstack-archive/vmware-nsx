@@ -22,7 +22,7 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from vmware_nsx._i18n import _, _LE
+from vmware_nsx._i18n import _
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as nsxv_exc
 from vmware_nsx.services.lbaas.nsx_v import lbaas_common as lb_common
@@ -69,7 +69,7 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
         except nsxv_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
                 self.lbv2_driver.load_balancer.failed_completion(context, lb)
-                LOG.error(_LE('Failed to create pool %s'), lb.id)
+                LOG.error('Failed to create pool %s', lb.id)
 
     @log_helpers.log_method_call
     def update(self, context, old_lb, new_lb):
@@ -107,16 +107,16 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
                             self.vcns, binding['edge_id'],
                             binding['edge_fw_rule_id'])
                     except nsxv_exc.VcnsApiException as e:
-                        LOG.error(_LE('Failed to delete loadbalancer %(lb)s '
-                                      'FW rule. exception is %(exc)s'),
+                        LOG.error('Failed to delete loadbalancer %(lb)s '
+                                  'FW rule. exception is %(exc)s',
                                   {'lb': lb.id, 'exc': e})
                     try:
                         lb_common.del_vip_as_secondary_ip(self.vcns,
                                                           binding['edge_id'],
                                                           lb.vip_address)
                     except Exception as e:
-                        LOG.error(_LE('Failed to delete loadbalancer %(lb)s '
-                                      'interface IP. exception is %(exc)s'),
+                        LOG.error('Failed to delete loadbalancer %(lb)s '
+                                  'interface IP. exception is %(exc)s',
                                   {'lb': lb.id, 'exc': e})
 
             nsxv_db.del_nsxv_lbaas_loadbalancer_binding(context.session, lb.id)

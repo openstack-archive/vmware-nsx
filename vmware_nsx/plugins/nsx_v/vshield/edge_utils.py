@@ -38,7 +38,7 @@ from neutron.plugins.common import constants as plugin_const
 from neutron_lib.api import validators
 from neutron_lib import exceptions as n_exc
 
-from vmware_nsx._i18n import _, _LE, _LI, _LW
+from vmware_nsx._i18n import _
 from vmware_nsx.common import config as conf
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import locking
@@ -218,9 +218,9 @@ class EdgeManager(object):
         if version.LooseVersion(ver) >= version.LooseVersion('6.2.3'):
             self.is_dhcp_opt_enabled = True
         elif cfg.CONF.nsxv.dhcp_force_metadata:
-            LOG.warning(_LW("Skipping dhcp_force_metadata param since dhcp "
-                            "option feature can only be supported at version "
-                            "6.2.3 or higher"))
+            LOG.warning("Skipping dhcp_force_metadata param since dhcp "
+                        "option feature can only be supported at version "
+                        "6.2.3 or higher")
             self.is_dhcp_opt_enabled = False
 
     def _get_per_edge_rp_filter_state(self):
@@ -235,9 +235,9 @@ class EdgeManager(object):
             context.session, edge_id):
             if binding['status'] == plugin_const.ERROR:
                 continue
-            LOG.error(_LE('Mark router binding ERROR for resource '
-                          '%(res_id)s on edge %(edge_id)s due to '
-                          '%(reason)s'),
+            LOG.error('Mark router binding ERROR for resource '
+                      '%(res_id)s on edge %(edge_id)s due to '
+                      '%(reason)s',
                       {'res_id': binding['router_id'],
                        'edge_id': edge_id,
                        'reason': error_reason})
@@ -297,8 +297,8 @@ class EdgeManager(object):
 
     def _delete_edge(self, context, router_binding):
         if router_binding['status'] == plugin_const.ERROR:
-            LOG.warning(_LW("Start deleting %(router_id)s  corresponding"
-                            "edge: %(edge_id)s due to status error"),
+            LOG.warning("Start deleting %(router_id)s  corresponding "
+                        "edge: %(edge_id)s due to status error",
                         {'router_id': router_binding['router_id'],
                          'edge_id': router_binding['edge_id']})
         nsxv_db.update_nsxv_router_binding(
@@ -539,9 +539,9 @@ class EdgeManager(object):
             else:
                 self.nsxv_manager.vcns.update_interface(edge_id, vnic_config)
         except nsxapi_exc.VcnsApiException:
-            LOG.exception(_LE('Failed to delete vnic %(vnic_index)d '
-                              'tunnel %(tunnel_index)d on edge %(edge_id)s '
-                              'for network %(net_id)s'),
+            LOG.exception('Failed to delete vnic %(vnic_index)d '
+                          'tunnel %(tunnel_index)d on edge %(edge_id)s '
+                          'for network %(net_id)s',
                           {'vnic_index': vnic_index,
                            'tunnel_index': tunnel_index,
                            'net_id': network_id,
@@ -610,8 +610,8 @@ class EdgeManager(object):
                         net_ids = nsx_db.get_net_ids(context.session, ls_id)
                         if net_ids:
                             # Here should never happen, else one bug occurs
-                            LOG.error(_LE("net %(id)s on edge %(edge_id)s "
-                                          "overlaps with new net %(net_id)s"),
+                            LOG.error("net %(id)s on edge %(edge_id)s "
+                                      "overlaps with new net %(net_id)s",
                                       {'id': net_ids[0],
                                        'edge_id': edge_id,
                                        'net_id': network_id})
@@ -621,10 +621,10 @@ class EdgeManager(object):
                         else:
                             # Occurs when there are DB inconsistency
                             sb["is_overlapped"] = True
-                            LOG.error(_LE("unexpected sub intf %(id)s on edge "
-                                          "%(edge_id)s overlaps with new net "
-                                          "%(net_id)s. we would update with "
-                                          "deleting it for DB consistency"),
+                            LOG.error("unexpected sub intf %(id)s on edge "
+                                      "%(edge_id)s overlaps with new net "
+                                      "%(net_id)s. we would update with "
+                                      "deleting it for DB consistency",
                                       {'id': ls_id,
                                        'edge_id': edge_id,
                                        'net_id': network_id})
@@ -725,7 +725,7 @@ class EdgeManager(object):
                 try:
                     self.nsxv_manager.rename_edge(edge_id, name)
                 except nsxapi_exc.VcnsApiException as e:
-                    LOG.error(_LE("Failed to update edge: %s"),
+                    LOG.error("Failed to update edge: %s",
                               e.response)
                     self.nsxv_manager.callbacks.complete_edge_update(
                         context, edge_id, resource_id, False, set_errors=True)
@@ -748,8 +748,8 @@ class EdgeManager(object):
         """Try to collect one edge to pool."""
         binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
         if not binding:
-            LOG.warning(_LW("router binding for router: %s "
-                            "not found"), router_id)
+            LOG.warning("router binding for router: %s "
+                        "not found", router_id)
             return
         dist = (binding['edge_type'] == nsxv_constants.VDR_EDGE)
         edge_id = binding['edge_id']
@@ -893,8 +893,8 @@ class EdgeManager(object):
     def rename_lrouter(self, context, router_id, new_name):
         binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
         if not binding or not binding['edge_id']:
-            LOG.warning(_LW("router binding for router: %s "
-                            "not found"), router_id)
+            LOG.warning("router binding for router: %s "
+                        "not found", router_id)
             return
         edge_id = binding['edge_id']
         with locking.LockManager.get_lock(str(edge_id)):
@@ -905,8 +905,8 @@ class EdgeManager(object):
         # get the router edge-id
         binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
         if not binding or not binding['edge_id']:
-            LOG.warning(_LW("router binding for router: %s "
-                            "not found"), router_id)
+            LOG.warning("router binding for router: %s "
+                        "not found", router_id)
             return
         edge_id = binding['edge_id']
         with locking.LockManager.get_lock(str(edge_id)):
@@ -1041,8 +1041,8 @@ class EdgeManager(object):
                     '169.254.169.254/32',
                     dhcp_ip)
             else:
-                LOG.error(_LE("Failed to find the dhcp port on subnet "
-                              "%s to do metadata host route insertion"),
+                LOG.error("Failed to find the dhcp port on subnet "
+                          "%s to do metadata host route insertion",
                           subnet_id)
 
     def update_dhcp_service_config(self, context, edge_id):
@@ -1096,8 +1096,8 @@ class EdgeManager(object):
             if not self.check_edge_active_at_backend(new_id):
                 # Remove edge_id from available edges pool.
                 available_edge_ids.remove(new_id)
-                LOG.warning(_LW("Skipping edge: %s due to inactive status on "
-                                "the backend."), new_id)
+                LOG.warning("Skipping edge: %s due to inactive status on "
+                            "the backend.", new_id)
             else:
                 return new_id
 
@@ -1159,8 +1159,8 @@ class EdgeManager(object):
         old_binding = nsxv_db.get_edge_vnic_binding(
             context.session, edge_id, network_id)
         if not old_binding:
-            LOG.error(_LE("Remove network %(id)s failed since no binding "
-                          "found on edge %(edge_id)s"),
+            LOG.error("Remove network %(id)s failed since no binding "
+                      "found on edge %(edge_id)s",
                       {'id': network_id,
                        'edge_id': edge_id})
             self._delete_dhcp_router_binding(context, network_id, edge_id)
@@ -1176,8 +1176,8 @@ class EdgeManager(object):
             self.update_dhcp_service_config(context, edge_id)
 
         except nsxapi_exc.VcnsApiException:
-            LOG.exception(_LE('Failed to delete vnic %(vnic_index)d '
-                              'tunnel %(tunnel_index)d on edge %(edge_id)s'),
+            LOG.exception('Failed to delete vnic %(vnic_index)d '
+                          'tunnel %(tunnel_index)d on edge %(edge_id)s',
                           {'vnic_index': old_vnic_index,
                            'tunnel_index': old_tunnel_index,
                            'edge_id': edge_id})
@@ -1185,8 +1185,8 @@ class EdgeManager(object):
                 context, edge_id,
                 error_reason="remove network from dhcp edge failure")
         except Exception:
-            LOG.exception(_LE('Failed to delete vnic %(vnic_index)d '
-                              'tunnel %(tunnel_index)d on edge %(edge_id)s'),
+            LOG.exception('Failed to delete vnic %(vnic_index)d '
+                          'tunnel %(tunnel_index)d on edge %(edge_id)s',
                           {'vnic_index': old_vnic_index,
                            'tunnel_index': old_tunnel_index,
                            'edge_id': edge_id})
@@ -1339,7 +1339,7 @@ class EdgeManager(object):
         edge_binding = nsxv_db.get_nsxv_router_binding(context.session,
                                                        resource_id)
         if not edge_binding:
-            LOG.warning(_LW('Edge binding does not exist for network %s'),
+            LOG.warning('Edge binding does not exist for network %s',
                         network_id)
             return
         dhcp_binding = nsxv_db.get_edge_vnic_binding(context.session,
@@ -1368,9 +1368,9 @@ class EdgeManager(object):
                 except nsxapi_exc.VcnsApiException:
                     with excutils.save_and_reraise_exception():
                         LOG.exception(
-                            _LE('Failed to update the dhcp service for '
-                                '%(edge_id)s  on vnic  %(vnic_index)d '
-                                'tunnel %(tunnel_index)d'),
+                            'Failed to update the dhcp service for '
+                            '%(edge_id)s  on vnic  %(vnic_index)d '
+                            'tunnel %(tunnel_index)d',
                             {'edge_id': edge_id,
                              'vnic_index': vnic_index,
                              'tunnel_index': tunnel_index})
@@ -1380,9 +1380,9 @@ class EdgeManager(object):
                 except Exception:
                     with excutils.save_and_reraise_exception():
                         LOG.exception(
-                            _LE('Failed to update the dhcp service for '
-                                '%(edge_id)s  on vnic  %(vnic_index)d '
-                                'tunnel %(tunnel_index)d'),
+                            'Failed to update the dhcp service for '
+                            '%(edge_id)s  on vnic  %(vnic_index)d '
+                            'tunnel %(tunnel_index)d',
                             {'edge_id': edge_id,
                              'vnic_index': vnic_index,
                              'tunnel_index': tunnel_index})
@@ -1413,10 +1413,10 @@ class EdgeManager(object):
                                                              network_id)
                 except Exception:
                     with excutils.save_and_reraise_exception():
-                        LOG.exception(_LE('Failed to delete the tunnel '
-                                          '%(tunnel_index)d on vnic '
-                                          '%(vnic_index)d'
-                                          'from DHCP Edge %(edge_id)s'),
+                        LOG.exception('Failed to delete the tunnel '
+                                      '%(tunnel_index)d on vnic '
+                                      '%(vnic_index)d'
+                                      'from DHCP Edge %(edge_id)s',
                                       {'tunnel_index': tunnel_index,
                                        'vnic_index': vnic_index,
                                        'edge_id': edge_id})
@@ -1470,13 +1470,13 @@ class EdgeManager(object):
             except db_exc.DBDuplicateEntry as e:
                 # Could have garbage binding in the DB - warn and overwrite
                 if 'PRIMARY' in e.columns:
-                    LOG.warning(_LW('Conflict found in VDR DHCP bindings - '
-                                    'router %s was already bound'),
+                    LOG.warning('Conflict found in VDR DHCP bindings - '
+                                'router %s was already bound',
                                 vdr_router_id)
                     del_vdr = vdr_router_id
                 else:
-                    LOG.warning(_LW('Conflict found in VDR DHCP bindings - '
-                                    'DHCP edge %s was already bound'),
+                    LOG.warning('Conflict found in VDR DHCP bindings - '
+                                'DHCP edge %s was already bound',
                                 dhcp_edge_id)
                     bind = nsxv_db.get_vdr_dhcp_binding_by_edge(
                         context.session, dhcp_edge_id)
@@ -1491,8 +1491,8 @@ class EdgeManager(object):
                     nsxv_db.add_vdr_dhcp_binding(context.session,
                                                  vdr_router_id, dhcp_edge_id)
                 else:
-                    LOG.error(_LE('Database conflict could not be recovered '
-                                  'for VDR %(vdr)s DHCP edge %(dhcp)s'),
+                    LOG.error('Database conflict could not be recovered '
+                              'for VDR %(vdr)s DHCP edge %(dhcp)s',
                               {'vdr': vdr_router_id, 'dhcp': dhcp_edge_id})
 
         address_groups = self.plugin._create_network_dhcp_address_group(
@@ -1735,14 +1735,14 @@ class EdgeManager(object):
             context.session, plr_id)
 
         if router_binding is None:
-            LOG.error(_LE("Router binding not found for router: %s"),
+            LOG.error("Router binding not found for router: %s",
                       router_id)
         else:
             plr_edge_id = router_binding.edge_id
             vnic_binding = nsxv_db.get_edge_vnic_binding(
                     context.session, plr_edge_id, lswitch_id)
             if vnic_binding is None:
-                LOG.error(_LE("Vnic binding not found for router: %s"),
+                LOG.error("Vnic binding not found for router: %s",
                           router_id)
             else:
                 # Clear static routes before delete internal vnic
@@ -1764,7 +1764,7 @@ class EdgeManager(object):
         tlr_vnic_binding = nsxv_db.get_edge_vnic_binding(
                 context.session, tlr_edge_id, lswitch_id)
         if tlr_vnic_binding is None:
-            LOG.error(_LE("Vnic binding not found for router: %s"), router_id)
+            LOG.error("Vnic binding not found for router: %s", router_id)
         else:
             self.nsxv_manager.delete_vdr_internal_interface(
                 tlr_edge_id, tlr_vnic_binding.vnic_index)
@@ -1775,7 +1775,7 @@ class EdgeManager(object):
             # Then delete the internal lswitch
             self.nsxv_manager.delete_virtual_wire(lswitch_id)
         except Exception:
-            LOG.warning(_LW("Failed to delete virtual wire: %s"), lswitch_id)
+            LOG.warning("Failed to delete virtual wire: %s", lswitch_id)
 
     def get_routers_on_edge(self, context, edge_id):
         router_ids = []
@@ -1793,8 +1793,8 @@ class EdgeManager(object):
             valid_router_ids = [ele['id'] for ele in valid_router_ids]
 
             if set(valid_router_ids) != set(router_ids):
-                LOG.error(_LE("Get invalid router bindings with "
-                              "router ids: %s"),
+                LOG.error("Get invalid router bindings with "
+                          "router ids: %s",
                           str(set(router_ids) - set(valid_router_ids)))
         return valid_router_ids
 
@@ -1849,7 +1849,7 @@ class EdgeManager(object):
                     else:
                         # TODO(yangyu): Remove conflict_network_ids
                         LOG.warning(
-                            _LW("Failed to query conflict_router_ids"))
+                            "Failed to query conflict_router_ids")
             if available_edge_id:
                 edge_binding = nsxv_db.get_nsxv_router_bindings_by_edge(
                     context.session, available_edge_id)[0]
@@ -1923,23 +1923,23 @@ class EdgeManager(object):
                         self.nsxv_manager.vcns.delete_dhcp_binding(
                             edge_id, dhcp_binding.binding_id)
                     else:
-                        LOG.warning(_LW("Failed to find binding on edge "
-                                        "%(edge_id)s for port "
-                                        "%(port_id)s with %(binding_id)s"),
+                        LOG.warning("Failed to find binding on edge "
+                                    "%(edge_id)s for port "
+                                    "%(port_id)s with %(binding_id)s",
                                     {'edge_id': edge_id,
                                      'port_id': port_id,
                                      'binding_id': dhcp_binding.binding_id})
                     nsxv_db.delete_edge_dhcp_static_binding(
                         context.session, edge_id, mac_address)
             else:
-                LOG.warning(_LW("Failed to find dhcp binding on edge "
-                                "%(edge_id)s to DELETE for port "
-                                "%(port_id)s"),
+                LOG.warning("Failed to find dhcp binding on edge "
+                            "%(edge_id)s to DELETE for port "
+                            "%(port_id)s",
                             {'edge_id': edge_id,
                              'port_id': port_id})
         else:
-            LOG.warning(_LW("Failed to find edge_id to delete dhcp "
-                            "binding for port %(port_id)s"),
+            LOG.warning("Failed to find edge_id to delete dhcp "
+                        "binding for port %(port_id)s",
                         {'port_id': port_id})
 
     @vcns.retry_upon_exception(nsxapi_exc.VcnsApiException, max_delay=10)
@@ -1993,8 +1993,8 @@ class EdgeManager(object):
                 self.plugin.get_port(context, port_id)
             except n_exc.PortNotFound:
                 LOG.warning(
-                    _LW("port %(port_id)s is deleted, so we would pass "
-                        "creating dhcp binding on edge %(edge_id)s"),
+                    "port %(port_id)s is deleted, so we would pass "
+                    "creating dhcp binding on edge %(edge_id)s",
                     {'port_id': port_id,
                      'edge_id': edge_id})
                 return
@@ -2016,8 +2016,8 @@ class EdgeManager(object):
                             nsxv_db.delete_edge_dhcp_static_binding(
                                 context.session, edge_id, mac_address)
         else:
-            LOG.warning(_LW("Failed to create dhcp bindings since dhcp edge "
-                            "for net %s not found at the backend"),
+            LOG.warning("Failed to create dhcp bindings since dhcp edge "
+                        "for net %s not found at the backend",
                         network_id)
 
     def _get_syslog_config_from_flavor(self, context, router_id, flavor_id):
@@ -2036,7 +2036,7 @@ class EdgeManager(object):
 
         # If no binding was found, no interface to update - exit
         if not binding:
-            LOG.error(_LE('Edge binding not found for router %s'), router_id)
+            LOG.error('Edge binding not found for router %s', router_id)
             return
 
         net_bindings = nsxv_db.get_network_bindings(
@@ -2077,13 +2077,13 @@ class EdgeManager(object):
                 if address_group['primaryAddress']:
                     address_groups.append(address_group)
             if ipaddr not in addr_list:
-                LOG.error(_LE("primary address %s of ext vnic is not "
-                              "configured"), ipaddr)
+                LOG.error("primary address %s of ext vnic is not "
+                          "configured", ipaddr)
             if secondary:
                 missed_ip_sec = set(secondary) - set(addr_list)
                 if missed_ip_sec:
-                    LOG.error(_LE("secondary address %s of ext vnic are not "
-                              "configured"), str(missed_ip_sec))
+                    LOG.error("secondary address %s of ext vnic are not "
+                              "configured", str(missed_ip_sec))
             nsxv_manager.update_interface(router_id, binding['edge_id'],
                                           vcns_const.EXTERNAL_VNIC_INDEX,
                                           vcns_network_id,
@@ -2127,7 +2127,7 @@ def delete_lrouter(nsxv_manager, context, router_id, dist=False):
         # delete edge
         nsxv_manager.delete_edge(context, router_id, edge_id, dist=dist)
     else:
-        LOG.warning(_LW("router binding for router: %s not found"), router_id)
+        LOG.warning("router binding for router: %s not found", router_id)
 
 
 def remove_irrelevant_keys_from_edge_request(edge_request):
@@ -2237,7 +2237,7 @@ def get_routes(edge_manager, context, router_id):
 
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
     if not binding:
-        LOG.error(_LE('Router binding not found for router %s'), router_id)
+        LOG.error('Router binding not found for router %s', router_id)
         return []
 
     edge_id = binding['edge_id']
@@ -2245,7 +2245,7 @@ def get_routes(edge_manager, context, router_id):
     vnic_bindings = nsxv_db.get_edge_vnic_bindings_by_edge(context.session,
                                                            edge_id)
     if not vnic_bindings:
-        LOG.error(_LE('vNic binding not found for edge %s'), edge_id)
+        LOG.error('vNic binding not found for edge %s', edge_id)
         return []
 
     h, routes = edge_manager.vcns.get_routes(edge_id)
@@ -2265,15 +2265,15 @@ def get_routes(edge_manager, context, router_id):
 def update_routes(edge_manager, context, router_id, routes, nexthop=None):
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
     if not binding:
-        LOG.error(_LE('Router binding not found for router %s'), router_id)
+        LOG.error('Router binding not found for router %s', router_id)
         return
 
     edge_id = binding['edge_id']
     edge_routes = []
     for route in routes:
         if not route.get('network_id'):
-            LOG.warning(_LW("There is no network info for the route %s, so "
-                            "the route entry would not be executed!"), route)
+            LOG.warning("There is no network info for the route %s, so "
+                        "the route entry would not be executed!", route)
             continue
         if route.get('external'):
             edge_routes.append({
@@ -2289,10 +2289,10 @@ def update_routes(edge_manager, context, router_id, routes, nexthop=None):
                     'cidr': route['destination'],
                     'nexthop': route['nexthop']})
             else:
-                LOG.error(_LE("vnic binding on edge %(edge_id)s for network "
-                              "%(net_id)s not found, so route: destination: "
-                              "%(dest)s, nexthop: %(nexthop)s can't be "
-                              "applied!"),
+                LOG.error("vnic binding on edge %(edge_id)s for network "
+                          "%(net_id)s not found, so route: destination: "
+                          "%(dest)s, nexthop: %(nexthop)s can't be "
+                          "applied!",
                           {'edge_id': edge_id,
                            'net_id': route['network_id'],
                            'dest': route['destination'],
@@ -2408,7 +2408,7 @@ def delete_interface(nsxv_manager, context, router_id, network_id, dist=False):
     # Get edge id
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
     if not binding:
-        LOG.warning(_LW("Failed to find the router binding for router %s"),
+        LOG.warning("Failed to find the router binding for router %s",
                     router_id)
         return
 
@@ -2424,8 +2424,8 @@ def delete_interface(nsxv_manager, context, router_id, network_id, dist=False):
     edge_vnic_binding = nsxv_db.get_edge_vnic_binding(
         context.session, edge_id, network_id)
     if not edge_vnic_binding:
-        LOG.warning(_LW("Failed to find the network %(net_id)s "
-                        "corresponding vnic index on edge %(edge_id)s"),
+        LOG.warning("Failed to find the network %(net_id)s "
+                    "corresponding vnic index on edge %(edge_id)s",
                     {'net_id': network_id,
                      'edge_id': edge_id})
         return
@@ -2468,7 +2468,7 @@ def update_nat_rules(nsxv_manager, context, router_id, snat, dnat):
 
         nsxv_manager.update_nat_rules(binding['edge_id'], snat, dnat, indices)
     else:
-        LOG.warning(_LW("Bindings do not exists for %s"), router_id)
+        LOG.warning("Bindings do not exists for %s", router_id)
 
 
 def clear_nat_rules(nsxv_manager, context, router_id):
@@ -2484,7 +2484,7 @@ def update_firewall(nsxv_manager, context, router_id, firewall,
         nsxv_manager.update_firewall(edge_id, firewall, context,
                                      allow_external=allow_external)
     else:
-        LOG.warning(_LW("Bindings do not exists for %s"), router_id)
+        LOG.warning("Bindings do not exists for %s", router_id)
 
 
 def check_network_in_use_at_backend(context, network_id):
@@ -2498,15 +2498,15 @@ def check_network_in_use_at_backend(context, network_id):
             context.session, network_id)
         if not edge_vnic_bindings:
             return
-        LOG.warning(_LW('NSXv: network is still in use at the backend'))
-    LOG.error(_LE('NSXv: network is still in use at the backend'))
+        LOG.warning('NSXv: network is still in use at the backend')
+    LOG.error('NSXv: network is still in use at the backend')
 
 
 def default_loglevel_modifier(config, level):
     """Modify log level settings in edge config bulk (standard syntax)"""
 
     if 'logging' not in config:
-        LOG.error(_LE("Logging section missing in configuration"))
+        LOG.error("Logging section missing in configuration")
         return False
 
     enable = True
@@ -2523,7 +2523,7 @@ def routing_loglevel_modifier(config, level):
     """Modify log level in routing global settings"""
 
     if 'routingGlobalConfig' not in config:
-        LOG.error(_LE("routingGlobalConfig section missing in config"))
+        LOG.error("routingGlobalConfig section missing in config")
         return False
 
     return default_loglevel_modifier(config['routingGlobalConfig'],
@@ -2547,11 +2547,11 @@ def get_loglevel_modifier(module, level):
 def update_edge_loglevel(vcns, edge_id, module, level):
     """Update loglevel on edge for specified module"""
     if module not in SUPPORTED_EDGE_LOG_MODULES:
-        LOG.error(_LE("Unrecognized logging module %s - ignored"), module)
+        LOG.error("Unrecognized logging module %s - ignored", module)
         return
 
     if level not in SUPPORTED_EDGE_LOG_LEVELS:
-        LOG.error(_LE("Unrecognized log level %s - ignored"), level)
+        LOG.error("Unrecognized log level %s - ignored", level)
         return
 
     vcns.update_edge_config_with_modifier(edge_id, module,
@@ -2570,22 +2570,22 @@ def update_edge_host_groups(vcns, edge_id, dvs, availability_zone,
             availability_zone.resource_pool)
         for vm in vms:
             if vm in configured_vms:
-                LOG.info(_LI('Edge %s already configured'), edge_id)
+                LOG.info('Edge %s already configured', edge_id)
                 return
     # Ensure random distribution of the VMs
     if availability_zone.ha_placement_random:
         random.shuffle(vms)
     try:
-        LOG.info(_LI('Create DRS groups for '
-                     '%(vms)s on edge %(edge_id)s'),
+        LOG.info('Create DRS groups for '
+                 '%(vms)s on edge %(edge_id)s',
                  {'vms': vms,
                   'edge_id': edge_id})
         dvs.update_cluster_edge_failover(
             availability_zone.resource_pool,
             vms, edge_id, availability_zone.edge_host_groups)
     except Exception as e:
-        LOG.error(_LE('Unable to create DRS groups for '
-                      '%(vms)s on edge %(edge_id)s. Error: %(e)s'),
+        LOG.error('Unable to create DRS groups for '
+                  '%(vms)s on edge %(edge_id)s. Error: %(e)s',
                   {'vms': vms,
                    'edge_id': edge_id,
                    'e': e})
@@ -2593,12 +2593,12 @@ def update_edge_host_groups(vcns, edge_id, dvs, availability_zone,
 
 def clean_host_groups(dvs, availability_zone):
     try:
-        LOG.info(_LI('Cleaning up host groups for AZ %s'),
+        LOG.info('Cleaning up host groups for AZ %s',
                  availability_zone.name)
         dvs.cluster_host_group_cleanup(
             availability_zone.resource_pool)
     except Exception as e:
-        LOG.error(_LE('Unable to cleanup. Error: %s'), e)
+        LOG.error('Unable to cleanup. Error: %s', e)
 
 
 class NsxVCallbacks(object):
@@ -2621,7 +2621,7 @@ class NsxVCallbacks(object):
                 router_db = self.plugin._get_router(context, router_id)
             except l3.RouterNotFound:
                 # Router might have been deleted before deploy finished
-                LOG.warning(_LW("Router %s not found"), name)
+                LOG.warning("Router %s not found", name)
 
         if deploy_successful:
             metadata_proxy_handler = self.plugin.get_metadata_proxy_handler(
@@ -2652,7 +2652,7 @@ class NsxVCallbacks(object):
                     update_edge_host_groups(self.plugin.nsx_v.vcns, edge_id,
                                             self._vcm, availability_zone)
         else:
-            LOG.error(_LE("Failed to deploy Edge for router %s"), name)
+            LOG.error("Failed to deploy Edge for router %s", name)
             if router_db:
                 router_db['status'] = plugin_const.ERROR
             nsxv_db.update_nsxv_router_binding(
@@ -2670,8 +2670,8 @@ class NsxVCallbacks(object):
                       {'edge_id': edge_id,
                        'router_id': router_id})
         else:
-            LOG.error(_LE("Failed to update %(edge_id)s for router "
-                          "%(router_id)s"),
+            LOG.error("Failed to update %(edge_id)s for router "
+                      "%(router_id)s",
                       {'edge_id': edge_id,
                        'router_id': router_id})
             admin_ctx = q_context.get_admin_context()
@@ -2686,7 +2686,7 @@ class NsxVCallbacks(object):
                     router_db['status'] = plugin_const.ERROR
                 except l3.RouterNotFound:
                     # Router might have been deleted before deploy finished
-                    LOG.warning(_LW("Router %s not found"), router_id)
+                    LOG.warning("Router %s not found", router_id)
 
     def interface_update_result(self, task):
         LOG.debug("interface_update_result %d", task.status)

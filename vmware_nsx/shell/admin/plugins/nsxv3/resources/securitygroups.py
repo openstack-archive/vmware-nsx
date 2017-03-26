@@ -30,7 +30,6 @@ from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import ports
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils as v3_utils
 from vmware_nsx.shell import resources as shell
-from vmware_nsx._i18n import _LE, _LW
 from vmware_nsxlib.v3 import nsx_constants as consts
 from vmware_nsxlib.v3 import security
 
@@ -271,17 +270,17 @@ def _update_security_group_dynamic_criteria():
                                    membership_criteria=membership_criteria,
                                    members=[])
         except Exception as e:
-            LOG.warning(_LW("Failed to update membership criteria for nsgroup "
-                            "%(nsgroup_id)s, request to backend returned "
-                            "with error: %(error)s"),
+            LOG.warning("Failed to update membership criteria for nsgroup "
+                        "%(nsgroup_id)s, request to backend returned "
+                        "with error: %(error)s",
                         {'nsgroup_id': nsgroup_id, 'error': str(e)})
 
 
 @admin_utils.output_header
 def migrate_nsgroups_to_dynamic_criteria(resource, event, trigger, **kwargs):
     if not utils.is_nsx_version_1_1_0(nsxlib.get_version()):
-        LOG.error(_LE("Dynamic criteria grouping feature isn't supported by "
-                      "this NSX version."))
+        LOG.error("Dynamic criteria grouping feature isn't supported by "
+                  "this NSX version.")
         return
     # First, we add the criteria tags for all ports.
     _update_ports_dynamic_criteria_tags()

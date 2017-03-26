@@ -30,7 +30,7 @@ from neutron.db.models import l3 as l3_db
 from neutron.db import models_v2
 from neutron.extensions import l3
 
-from vmware_nsx._i18n import _, _LE, _LI, _LW
+from vmware_nsx._i18n import _
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsx_utils
@@ -273,8 +273,8 @@ class NsxSynchronizer(object):
                 # TODO(salv-orlando): We should be catching
                 # api_exc.ResourceNotFound here
                 # The logical switch was not found
-                LOG.warning(_LW("Logical switch for neutron network %s not "
-                                "found on NSX."), neutron_network_data['id'])
+                LOG.warning("Logical switch for neutron network %s not "
+                            "found on NSX.", neutron_network_data['id'])
                 lswitches = []
             else:
                 for lswitch in lswitches:
@@ -360,8 +360,8 @@ class NsxSynchronizer(object):
                 # NOTE(salv-orlando): We should be catching
                 # api_exc.ResourceNotFound here
                 # The logical router was not found
-                LOG.warning(_LW("Logical router for neutron router %s not "
-                                "found on NSX."), neutron_router_data['id'])
+                LOG.warning("Logical router for neutron router %s not "
+                            "found on NSX.", neutron_router_data['id'])
             if lrouter:
                 # Update the cache
                 self._nsx_cache.update_lrouter(lrouter)
@@ -410,8 +410,8 @@ class NsxSynchronizer(object):
                 neutron_router_mappings[neutron_router_id] = (
                     self._nsx_cache[lr_uuid])
             else:
-                LOG.warning(_LW("Unable to find Neutron router id for "
-                                "NSX logical router: %s"), lr_uuid)
+                LOG.warning("Unable to find Neutron router id for "
+                            "NSX logical router: %s", lr_uuid)
         # Fetch neutron routers from database
         filters = ({} if scan_missing else
                    {'id': neutron_router_mappings.keys()})
@@ -452,8 +452,8 @@ class NsxSynchronizer(object):
                 # api_exc.ResourceNotFound here instead
                 # of PortNotFoundOnNetwork when the id exists but
                 # the logical switch port was not found
-                LOG.warning(_LW("Logical switch port for neutron port %s "
-                                "not found on NSX."), neutron_port_data['id'])
+                LOG.warning("Logical switch port for neutron port %s "
+                            "not found on NSX.", neutron_port_data['id'])
                 lswitchport = None
             else:
                 # If lswitchport is not None, update the cache.
@@ -545,11 +545,11 @@ class NsxSynchronizer(object):
             # be emitted.
             num_requests = page_size // (MAX_PAGE_SIZE + 1) + 1
             if num_requests > 1:
-                LOG.warning(_LW("Requested page size is %(cur_chunk_size)d. "
-                                "It might be necessary to do %(num_requests)d "
-                                "round-trips to NSX for fetching data. Please "
-                                "tune sync parameters to ensure chunk size "
-                                "is less than %(max_page_size)d"),
+                LOG.warning("Requested page size is %(cur_chunk_size)d. "
+                            "It might be necessary to do %(num_requests)d "
+                            "round-trips to NSX for fetching data. Please "
+                            "tune sync parameters to ensure chunk size "
+                            "is less than %(max_page_size)d",
                             {'cur_chunk_size': page_size,
                              'num_requests': num_requests,
                              'max_page_size': MAX_PAGE_SIZE})
@@ -578,8 +578,8 @@ class NsxSynchronizer(object):
     def _fetch_nsx_data_chunk(self, sp):
         base_chunk_size = sp.chunk_size
         chunk_size = base_chunk_size + sp.extra_chunk_size
-        LOG.info(_LI("Fetching up to %s resources "
-                     "from NSX backend"), chunk_size)
+        LOG.info("Fetching up to %s resources "
+                 "from NSX backend", chunk_size)
         fetched = ls_count = lr_count = lp_count = 0
         lswitches = lrouters = lswitchports = []
         if sp.ls_cursor or sp.ls_cursor == 'start':
@@ -618,7 +618,7 @@ class NsxSynchronizer(object):
         # Reset page cursor variables if necessary
         if sp.current_chunk == 0:
             sp.ls_cursor = sp.lr_cursor = sp.lp_cursor = 'start'
-        LOG.info(_LI("Running state synchronization task. Chunk: %s"),
+        LOG.info("Running state synchronization task. Chunk: %s",
                  sp.current_chunk)
         # Fetch chunk_size data from NSX
         try:
@@ -628,9 +628,9 @@ class NsxSynchronizer(object):
             sleep_interval = self._sync_backoff
             # Cap max back off to 64 seconds
             self._sync_backoff = min(self._sync_backoff * 2, 64)
-            LOG.exception(_LE("An error occurred while communicating with "
-                              "NSX backend. Will retry synchronization "
-                              "in %d seconds"), sleep_interval)
+            LOG.exception("An error occurred while communicating with "
+                          "NSX backend. Will retry synchronization "
+                          "in %d seconds", sleep_interval)
             return sleep_interval
         LOG.debug("Time elapsed querying NSX: %s",
                   timeutils.utcnow() - start)
@@ -669,8 +669,8 @@ class NsxSynchronizer(object):
         self._synchronize_lswitchports(ctx, lp_uuids,
                                        scan_missing=scan_missing)
         # Increase chunk counter
-        LOG.info(_LI("Synchronization for chunk %(chunk_num)d of "
-                     "%(total_chunks)d performed"),
+        LOG.info("Synchronization for chunk %(chunk_num)d of "
+                 "%(total_chunks)d performed",
                  {'chunk_num': sp.current_chunk + 1,
                   'total_chunks': num_chunks})
         sp.current_chunk = (sp.current_chunk + 1) % num_chunks

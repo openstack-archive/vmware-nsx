@@ -17,7 +17,6 @@
 from oslo_log import log
 from oslo_serialization import jsonutils
 
-from vmware_nsx._i18n import _LE
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils
@@ -127,7 +126,7 @@ def _build_gateway_device_body(tenant_id, display_name, neutron_id,
         'ipsec_%s' % utils.NetworkTypes.GRE: "IPsecGRE"}
     nsx_connector_type = connector_type_mappings.get(connector_type)
     if connector_type and not nsx_connector_type:
-        LOG.error(_LE("There is no NSX mapping for connector type %s"),
+        LOG.error("There is no NSX mapping for connector type %s",
                   connector_type)
         raise nsx_exc.InvalidTransportType(transport_type=connector_type)
 

@@ -33,7 +33,7 @@ from neutron_lib import context
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
 
-from vmware_nsx._i18n import _, _LE, _LI
+from vmware_nsx._i18n import _
 from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsxlib.v3 import exceptions as nsxlib_exc
@@ -78,8 +78,8 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         def_l2gw_name = cfg.CONF.nsx_v3.default_bridge_cluster
         # Return if no default_bridge_cluster set in config
         if not def_l2gw_name:
-            LOG.info(_LI("NSX: Default bridge cluster not configured "
-                         "in nsx.ini. No default L2 gateway created."))
+            LOG.info("NSX: Default bridge cluster not configured "
+                     "in nsx.ini. No default L2 gateway created.")
             return
         admin_ctx = context.get_admin_context()
 
@@ -104,7 +104,7 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
             # the first device in the list.
             if l2gateway['devices'][0]['device_name'] == def_l2gw_uuid:
                 if def_l2gw_exists:
-                    LOG.info(_LI("Default L2 gateway is already created."))
+                    LOG.info("Default L2 gateway is already created.")
                     try:
                         # Try deleting this duplicate default L2 gateway
                         self.validate_l2_gateway_for_delete(
@@ -227,8 +227,8 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
                 seg_id=seg_id,
                 tags=tags)
         except nsxlib_exc.ManagerError as e:
-            LOG.exception(_LE("Unable to create bridge endpoint, rolling back "
-                              "changes on neutron. Exception is %s"), e)
+            LOG.exception("Unable to create bridge endpoint, rolling back "
+                          "changes on neutron. Exception is %s", e)
             raise l2gw_exc.L2GatewayServiceDriverError(
                 method='create_l2_gateway_connection_postcommit')
         #TODO(abhiraut): Consider specifying the name of the port
@@ -255,8 +255,8 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
             LOG.debug("IP addresses deallocated on port %s", port['id'])
         except (nsxlib_exc.ManagerError,
                 n_exc.NeutronException):
-            LOG.exception(_LE("Unable to create L2 gateway port, "
-                              "rolling back changes on neutron"))
+            LOG.exception("Unable to create L2 gateway port, "
+                          "rolling back changes on neutron")
             self._core_plugin.nsxlib.bridge_endpoint.delete(
                 bridge_endpoint['id'])
             raise l2gw_exc.L2GatewayServiceDriverError(
@@ -270,8 +270,8 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
                 port_id=port['id'])
         except db_exc.DBError:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Unable to add L2 gateway connection "
-                                  "mappings, rolling back changes on neutron"))
+                LOG.exception("Unable to add L2 gateway connection "
+                              "mappings, rolling back changes on neutron")
                 self._core_plugin.nsxlib.bridge_endpoint.delete(
                     bridge_endpoint['id'])
                 super(NsxV3Driver,
@@ -299,8 +299,8 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         try:
             self._core_plugin.nsxlib.bridge_endpoint.delete(bridge_endpoint_id)
         except nsxlib_exc.ManagerError as e:
-            LOG.exception(_LE("Unable to delete bridge endpoint %(id)s on the "
-                              "backend due to exc: %(exc)s"),
+            LOG.exception("Unable to delete bridge endpoint %(id)s on the "
+                          "backend due to exc: %(exc)s",
                           {'id': bridge_endpoint_id, 'exc': e})
             raise l2gw_exc.L2GatewayServiceDriverError(
                 method='delete_l2_gateway_connection_postcommit')

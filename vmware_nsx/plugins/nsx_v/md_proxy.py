@@ -23,7 +23,7 @@ from neutron_lib import context as neutron_context
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from vmware_nsx._i18n import _, _LE, _LW
+from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import locking
 from vmware_nsx.common import nsxv_constants
@@ -192,8 +192,8 @@ class NsxVMetadataProxyHandler(object):
                         self.nsxv_plugin.delete_network(context,
                                                         internal_net)
 
-                    LOG.exception(_LE("Exception %s while creating internal "
-                                      "network for metadata service"), e)
+                    LOG.exception("Exception %s while creating internal "
+                                  "network for metadata service", e)
                     return
 
                 # Update the new network_id in DB
@@ -217,7 +217,7 @@ class NsxVMetadataProxyHandler(object):
         if ports:
             return ports[0]['fixed_ips'][0]['ip_address']
         else:
-            LOG.error(_LE("No port found for metadata for %s"), rtr_id)
+            LOG.error("No port found for metadata for %s", rtr_id)
 
     def _get_edge_rtr_id_by_ext_ip(self, context, edge_ip):
         rtr_list = nsxv_db.get_nsxv_internal_edge(
@@ -299,8 +299,8 @@ class NsxVMetadataProxyHandler(object):
             edge_id = self._get_edge_id_by_rtr_id(context, rtr_id)
         if not rtr_id or not edge_id:
             # log this error and return without the ip, but don't fail
-            LOG.error(_LE("Failed find edge for router %(rtr_id)s with ip "
-                          "%(rtr_ext_ip)s"),
+            LOG.error("Failed find edge for router %(rtr_id)s with ip "
+                      "%(rtr_ext_ip)s",
                       {'rtr_id': rtr_id, 'rtr_ext_ip': rtr_ext_ip})
             return
 
@@ -310,8 +310,8 @@ class NsxVMetadataProxyHandler(object):
             h, routes = self.nsxv_plugin.nsx_v.vcns.get_routes(edge_id)
         except exceptions.ResourceNotFound as e:
             # log this error and return without the ip, but don't fail
-            LOG.error(_LE("Failed to get routes for metadata proxy edge "
-                          "%(edge)s: %(err)s"),
+            LOG.error("Failed to get routes for metadata proxy edge "
+                      "%(edge)s: %(err)s",
                       {'edge': edge_id, 'err': e})
             return
 
@@ -381,8 +381,8 @@ class NsxVMetadataProxyHandler(object):
                 lb_obj.submit_to_backend(self.nsxv_plugin.nsx_v.vcns, edge_id)
             except exceptions.RequestBad as e:
                 # log the error and continue
-                LOG.error(_LE("Failed to update load balancer on metadata "
-                              "proxy edge %(edge)s: %(err)s"),
+                LOG.error("Failed to update load balancer on metadata "
+                          "proxy edge %(edge)s: %(err)s",
                           {'edge': edge_id, 'err': e})
 
         edge_ip = self._get_edge_internal_ip(context, rtr_id)
@@ -504,8 +504,8 @@ class NsxVMetadataProxyHandler(object):
             return edge_ip
 
         except Exception as e:
-            LOG.exception(_LE("Exception %s while creating internal edge "
-                              "for metadata service"), e)
+            LOG.exception("Exception %s while creating internal edge "
+                          "for metadata service", e)
 
             ports = self.nsxv_plugin.get_ports(
                 context, filters={'device_id': [rtr_id]})
@@ -721,13 +721,13 @@ class NsxVMetadataProxyHandler(object):
 
         if ports:
             if warn:
-                LOG.warning(_LW("cleanup_router_edge found port %(port)s for "
-                                "router %(router)s - deleting it now."),
+                LOG.warning("cleanup_router_edge found port %(port)s for "
+                            "router %(router)s - deleting it now.",
                             {'port': ports[0]['id'], 'router': rtr_id})
             try:
                 self.nsxv_plugin.delete_port(
                     ctx, ports[0]['id'],
                     l3_port_check=False)
             except Exception as e:
-                LOG.error(_LE("Failed to delete md_proxy port %(port)s: "
-                              "%(e)s"), {'port': ports[0]['id'], 'e': e})
+                LOG.error("Failed to delete md_proxy port %(port)s: "
+                          "%(e)s", {'port': ports[0]['id'], 'e': e})

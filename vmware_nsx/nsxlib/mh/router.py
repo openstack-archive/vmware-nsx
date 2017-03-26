@@ -20,7 +20,7 @@ from oslo_serialization import jsonutils
 from oslo_utils import excutils
 import six
 
-from vmware_nsx._i18n import _, _LE, _LI, _LW
+from vmware_nsx._i18n import _
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils
@@ -255,8 +255,8 @@ def update_explicit_routes_lrouter(cluster, router_id, routes):
                                                      router_id, route)
                 added_routes.append(uuid)
     except api_exc.NsxApiException:
-        LOG.exception(_LE('Cannot update NSX routes %(routes)s for '
-                          'router %(router_id)s'),
+        LOG.exception('Cannot update NSX routes %(routes)s for '
+                      'router %(router_id)s',
                       {'routes': routes, 'router_id': router_id})
         # Roll back to keep NSX in consistent state
         with excutils.save_and_reraise_exception():
@@ -473,13 +473,13 @@ def _build_snat_rule_obj(min_src_ip, max_src_ip, nat_match_obj):
 
 
 def create_lrouter_nosnat_rule_v2(cluster, _router_id, _match_criteria=None):
-    LOG.info(_LI("No SNAT rules cannot be applied as they are not available "
-                 "in this version of the NSX platform"))
+    LOG.info("No SNAT rules cannot be applied as they are not available "
+             "in this version of the NSX platform")
 
 
 def create_lrouter_nodnat_rule_v2(cluster, _router_id, _match_criteria=None):
-    LOG.info(_LI("No DNAT rules cannot be applied as they are not available "
-                 "in this version of the NSX platform"))
+    LOG.info("No DNAT rules cannot be applied as they are not available "
+             "in this version of the NSX platform")
 
 
 def create_lrouter_snat_rule_v2(cluster, router_id,
@@ -579,9 +579,9 @@ def delete_nat_rules_by_match(cluster, router_id, rule_type,
                                           min_rules=min_num_expected,
                                           max_rules=max_num_expected)
         else:
-            LOG.warning(_LW("Found %(actual_rule_num)d matching NAT rules, "
-                            "which is not in the expected range "
-                            "(%(min_exp_rule_num)d,%(max_exp_rule_num)d)"),
+            LOG.warning("Found %(actual_rule_num)d matching NAT rules, "
+                        "which is not in the expected range "
+                        "(%(min_exp_rule_num)d,%(max_exp_rule_num)d)",
                         {'actual_rule_num': num_rules_to_delete,
                          'min_exp_rule_num': min_num_expected,
                          'max_exp_rule_num': max_num_expected})

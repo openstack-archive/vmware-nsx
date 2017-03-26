@@ -20,7 +20,7 @@ from oslo_utils import excutils
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 
-from vmware_nsx._i18n import _, _LE, _LW
+from vmware_nsx._i18n import _
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.services.lbaas.nsx_v import lbaas_common as lb_common
@@ -49,9 +49,9 @@ def policy_to_application_rule(policy):
         type_by_comp = type_by_compare_type.get(rule.compare_type)
         if type_by_comp is None:
             type_by_comp = ''
-            LOG.warnning(_LW('Unsupported compare type %(type)s is used in '
-                             'policy %(id)s'), {'type': rule.compare_type,
-                                                'id': policy.id})
+            LOG.warnning('Unsupported compare type %(type)s is used in '
+                         'policy %(id)s', {'type': rule.compare_type,
+                                           'id': policy.id})
 
         if rule.type == lb_const.L7_RULE_TYPE_COOKIE:
             # Example: acl <id> hdr_sub(cookie) SEEN=1
@@ -235,8 +235,8 @@ class EdgeL7PolicyManager(base_mgr.EdgeLoadbalancerBaseManager):
         except Exception as e:
             with excutils.save_and_reraise_exception():
                 self.lbv2_driver.l7policy.failed_completion(context, pol)
-                LOG.error(_LE('Failed to create L7policy on edge %(edge)s: '
-                              '%(err)s'),
+                LOG.error('Failed to create L7policy on edge %(edge)s: '
+                          '%(err)s',
                           {'edge': edge_id, 'err': e})
                 if app_rule_id:
                     # Failed to add the rule to the vip: delete the rule
@@ -273,8 +273,8 @@ class EdgeL7PolicyManager(base_mgr.EdgeLoadbalancerBaseManager):
         except Exception as e:
             with excutils.save_and_reraise_exception():
                 self.lbv2_driver.l7policy.failed_completion(context, new_pol)
-                LOG.error(_LE('Failed to update L7policy on edge %(edge)s: '
-                              '%(err)s'),
+                LOG.error('Failed to update L7policy on edge %(edge)s: '
+                          '%(err)s',
                           {'edge': edge_id, 'err': e})
 
         # complete the transaction
@@ -305,8 +305,8 @@ class EdgeL7PolicyManager(base_mgr.EdgeLoadbalancerBaseManager):
             except Exception as e:
                 with excutils.save_and_reraise_exception():
                     self.lbv2_driver.l7policy.failed_completion(context, pol)
-                    LOG.error(_LE('Failed to delete L7policy on edge '
-                                  '%(edge)s: %(err)s'),
+                    LOG.error('Failed to delete L7policy on edge '
+                              '%(edge)s: %(err)s',
                               {'edge': edge_id, 'err': e})
 
         # delete the nsxv db entry

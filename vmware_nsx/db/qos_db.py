@@ -23,7 +23,6 @@ from neutron.db import models_v2
 from oslo_log import log
 from oslo_utils import uuidutils
 
-from vmware_nsx._i18n import _LI
 from vmware_nsx.db import nsx_models
 from vmware_nsx.extensions import qos_queue as qos
 
@@ -254,8 +253,8 @@ class QoSDbMixin(qos.QueuePluginBase):
             if dscp:
                 # must raise because a non-zero dscp was provided
                 raise qos.QueueInvalidMarking()
-            LOG.info(_LI("DSCP value (%s) will be ignored with 'trusted' "
-                         "marking"), dscp)
+            LOG.info("DSCP value (%s) will be ignored with 'trusted' "
+                     "marking", dscp)
         max = qos_queue.get('max')
         min = qos_queue.get('min')
         # Max can be None

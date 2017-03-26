@@ -27,7 +27,6 @@ import vmware_nsx.shell.resources as shell
 from neutron.callbacks import registry
 from neutron.db import l3_db
 
-from vmware_nsx._i18n import _LE, _LI, _LW
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield.common import (
@@ -48,7 +47,7 @@ def nsx_get_static_bindings_by_edge(edge_id):
     try:
         nsx_dhcp_bindings = nsxv.query_dhcp_configuration(edge_id)
     except exceptions.ResourceNotFound:
-        LOG.error(_LE("Edge %s was not found"), edge_id)
+        LOG.error("Edge %s was not found", edge_id)
         return
 
     # nsx_dhcp_bindings[0] contains response headers;
@@ -83,39 +82,39 @@ def list_missing_dhcp_bindings(resource, event, trigger, **kwargs):
     """
     for (edge_id, count) in nsxv_db.get_nsxv_dhcp_bindings_count_per_edge(
             neutron_db.context.session):
-        LOG.info(_LI("%s"), "=" * 60)
-        LOG.info(_LI("For edge: %s"), edge_id)
+        LOG.info("%s", "=" * 60)
+        LOG.info("For edge: %s", edge_id)
         nsx_dhcp_static_bindings = nsx_get_static_bindings_by_edge(edge_id)
         if nsx_dhcp_static_bindings is None:
             continue
         neutron_dhcp_static_bindings = \
             neutron_get_static_bindings_by_edge(edge_id)
-        LOG.info(_LI("# of DHCP bindings in Neutron DB: %s"),
+        LOG.info("# of DHCP bindings in Neutron DB: %s",
                  len(neutron_dhcp_static_bindings))
-        LOG.info(_LI("# of DHCP bindings on NSXv backend: %s"),
+        LOG.info("# of DHCP bindings on NSXv backend: %s",
                  len(nsx_dhcp_static_bindings))
         missing = neutron_dhcp_static_bindings - nsx_dhcp_static_bindings
         if not missing:
-            LOG.info(_LI("No missing DHCP bindings found."))
-            LOG.info(_LI("Neutron DB and NSXv backend are in sync"))
+            LOG.info("No missing DHCP bindings found.")
+            LOG.info("Neutron DB and NSXv backend are in sync")
         else:
-            LOG.info(_LI("Missing DHCP bindings:"))
-            LOG.info(_LI("%s"), pprint.pformat(missing))
+            LOG.info("Missing DHCP bindings:")
+            LOG.info("%s", pprint.pformat(missing))
 
 
 @admin_utils.output_header
 def nsx_update_dhcp_edge_binding(resource, event, trigger, **kwargs):
     """Resync DHCP bindings on NSXv Edge"""
     if not kwargs.get('property'):
-        LOG.error(_LE("Need to specify edge-id parameter"))
+        LOG.error("Need to specify edge-id parameter")
         return
     else:
         properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
         edge_id = properties.get('edge-id')
         if not edge_id:
-            LOG.error(_LE("Need to specify edge-id parameter"))
+            LOG.error("Need to specify edge-id parameter")
             return
-        LOG.info(_LI("Updating NSXv Edge: %s"), edge_id)
+        LOG.info("Updating NSXv Edge: %s", edge_id)
         # Need to create a plugin object; so that we are able to
         # do neutron list-ports.
         with utils.NsxVPluginWrapper() as plugin:
@@ -126,11 +125,11 @@ def nsx_update_dhcp_edge_binding(resource, event, trigger, **kwargs):
                 edge_manager.update_dhcp_service_config(
                     neutron_db.context, edge_id)
             except exceptions.ResourceNotFound:
-                LOG.error(_LE("Edge %s not found"), edge_id)
+                LOG.error("Edge %s not found", edge_id)
 
 
 def delete_old_dhcp_edge(context, old_edge_id, bindings):
-    LOG.info(_LI("Deleting the old DHCP edge: %s"), old_edge_id)
+    LOG.info("Deleting the old DHCP edge: %s", old_edge_id)
     # using one of the router-ids in the bindings for the deleting
     dhcp_names = [binding['router_id'] for binding in bindings]
     dhcp_name = dhcp_names[0]
@@ -142,7 +141,7 @@ def delete_old_dhcp_edge(context, old_edge_id, bindings):
         try:
             nsxv.delete_edge(old_edge_id)
         except Exception as e:
-            LOG.warning(_LW("Failed to delete the old edge %(id)s: %(e)s"),
+            LOG.warning("Failed to delete the old edge %(id)s: %(e)s",
                         {'id': old_edge_id, 'e': e})
             # Continue the process anyway
             # The edge may have been already deleted at the backend
@@ -152,8 +151,8 @@ def delete_old_dhcp_edge(context, old_edge_id, bindings):
             nsxv_db.delete_nsxv_router_binding(context.session, dhcp_name)
             nsxv_db.clean_edge_vnic_binding(context.session, old_edge_id)
         except Exception as e:
-            LOG.warning(_LW("Failed to delete the old edge %(id)s from the "
-                            "DB : %(e)s"), {'id': old_edge_id, 'e': e})
+            LOG.warning("Failed to delete the old edge %(id)s from the "
+                        "DB : %(e)s", {'id': old_edge_id, 'e': e})
 
 
 def recreate_vdr_dhcp_edge(context, plugin, edge_manager,
@@ -184,18 +183,18 @@ def recreate_vdr_dhcp_edge(context, plugin, edge_manager,
     new_binding = nsxv_db.get_vdr_dhcp_binding_by_vdr(
         context.session, vdr_router_id)
     if new_binding:
-        LOG.info(_LI("VDR router %(vdr_id)s was moved to edge %(edge_id)s"),
+        LOG.info("VDR router %(vdr_id)s was moved to edge %(edge_id)s",
                  {'vdr_id': vdr_router_id,
                   'edge_id': new_binding['dhcp_edge_id']})
     else:
-        LOG.error(_LE("VDR router %(vdr_id)s was not moved to a new edge"),
+        LOG.error("VDR router %(vdr_id)s was not moved to a new edge",
                  {'vdr_id': vdr_router_id})
 
 
 def recreate_network_dhcp(context, plugin, edge_manager, old_edge_id, net_id):
     """Handle the DHCP edge recreation of a network
     """
-    LOG.info(_LI("Moving network %s to a new edge"), net_id)
+    LOG.info("Moving network %s to a new edge", net_id)
     # delete the old binding
     resource_id = (nsxv_constants.DHCP_EDGE_PREFIX + net_id)[:36]
     nsxv_db.delete_nsxv_router_binding(context.session, resource_id)
@@ -214,7 +213,7 @@ def recreate_network_dhcp(context, plugin, edge_manager, old_edge_id, net_id):
     net_filters = {'network_id': [net_id], 'enable_dhcp': [True]}
     subnets = plugin.get_subnets(context, filters=net_filters)
     for subnet in subnets:
-        LOG.info(_LI("Moving subnet %s to a new edge"), subnet['id'])
+        LOG.info("Moving subnet %s to a new edge", subnet['id'])
         # allocate / reuse the new dhcp edge
         new_resource_id = edge_manager.create_dhcp_edge_service(
             context, net_id, subnet)
@@ -223,7 +222,7 @@ def recreate_network_dhcp(context, plugin, edge_manager, old_edge_id, net_id):
             plugin._update_dhcp_service_new_edge(context, resource_id)
 
     # Update the ip of the dhcp port
-    LOG.info(_LI("Creating network %s DHCP address group"), net_id)
+    LOG.info("Creating network %s DHCP address group", net_id)
     address_groups = plugin._create_network_dhcp_address_group(
         context, net_id)
     plugin._update_dhcp_edge_service(context, net_id, address_groups)
@@ -232,17 +231,17 @@ def recreate_network_dhcp(context, plugin, edge_manager, old_edge_id, net_id):
     new_binding = nsxv_db.get_nsxv_router_binding(
         context.session, resource_id)
     if new_binding:
-        LOG.info(_LI("Network %(net_id)s was moved to edge %(edge_id)s"),
+        LOG.info("Network %(net_id)s was moved to edge %(edge_id)s",
                  {'net_id': net_id, 'edge_id': new_binding['edge_id']})
     else:
-        LOG.error(_LE("Network %(net_id)s was not moved to a new edge"),
+        LOG.error("Network %(net_id)s was not moved to a new edge",
                  {'net_id': net_id})
 
 
 @admin_utils.output_header
 def nsx_recreate_dhcp_edge(resource, event, trigger, **kwargs):
     """Recreate a dhcp edge with all the networks n a new NSXv edge"""
-    usage_msg = _LE("Need to specify edge-id or net-id parameter")
+    usage_msg = ("Need to specify edge-id or net-id parameter")
     if not kwargs.get('property'):
         LOG.error(usage_msg)
         return
@@ -258,7 +257,7 @@ def nsx_recreate_dhcp_edge(resource, event, trigger, **kwargs):
             return
         LOG.error(usage_msg)
         return
-    LOG.info(_LI("ReCreating NSXv Edge: %s"), old_edge_id)
+    LOG.info("ReCreating NSXv Edge: %s", old_edge_id)
 
     context = n_context.get_admin_context()
 
@@ -268,7 +267,7 @@ def nsx_recreate_dhcp_edge(resource, event, trigger, **kwargs):
     if (not bindings or
         not bindings[0]['router_id'].startswith(
             nsxv_constants.DHCP_EDGE_PREFIX)):
-        LOG.error(_LE("Edge %(edge_id)s is not a DHCP edge"),
+        LOG.error("Edge %(edge_id)s is not a DHCP edge",
                  {'edge_id': old_edge_id})
         return
 
@@ -322,7 +321,7 @@ def _get_net_vdr_router_id(plugin, context, net_id):
 
 def nsx_recreate_dhcp_edge_by_net_id(net_id):
     """Recreate a dhcp edge for a specific network without an edge"""
-    LOG.info(_LI("ReCreating NSXv Edge for network: %s"), net_id)
+    LOG.info("ReCreating NSXv Edge for network: %s", net_id)
 
     context = n_context.get_admin_context()
 
@@ -333,8 +332,8 @@ def nsx_recreate_dhcp_edge_by_net_id(net_id):
     if router_binding:
         # make sure there is no edge
         if router_binding['edge_id']:
-            LOG.warning(_LW("Network %(net_id)s already has a dhcp edge: "
-                          "%(egde_id)s"),
+            LOG.warning("Network %(net_id)s already has a dhcp edge: "
+                        "%(egde_id)s",
                       {'edge_id': router_binding['edge_id'],
                        'net_id': net_id})
             return

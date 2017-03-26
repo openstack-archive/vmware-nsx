@@ -17,7 +17,6 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from vmware_nsx._i18n import _LE
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as nsxv_exc
@@ -86,8 +85,8 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
                 with excutils.save_and_reraise_exception():
                     self.lbv2_driver.health_monitor.failed_completion(
                         context, hm)
-                    LOG.error(_LE('Failed to create health monitor on edge: %s'
-                                  ), edge_id)
+                    LOG.error('Failed to create health monitor on edge: %s',
+                              edge_id)
 
         try:
             # Associate monitor with Edge pool
@@ -104,7 +103,7 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
             with excutils.save_and_reraise_exception():
                 self.lbv2_driver.health_monitor.failed_completion(context, hm)
                 LOG.error(
-                    _LE('Failed to create health monitor on edge: %s'),
+                    'Failed to create health monitor on edge: %s',
                     edge_id)
 
         self.lbv2_driver.health_monitor.successful_completion(context, hm)
@@ -132,8 +131,7 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
             with excutils.save_and_reraise_exception():
                 self.lbv2_driver.health_monitor.failed_completion(context,
                                                                 new_hm)
-                LOG.error(
-                    _LE('Failed to update monitor on edge: %s'), edge_id)
+                LOG.error('Failed to update monitor on edge: %s', edge_id)
 
         self.lbv2_driver.health_monitor.successful_completion(context, new_hm)
 
@@ -160,9 +158,8 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
         except nsxv_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
                 self.lbv2_driver.health_monitor.failed_completion(context, hm)
-                LOG.error(
-                    _LE('Failed to delete monitor mapping on edge: %s'),
-                    edge_id)
+                LOG.error('Failed to delete monitor mapping on edge: %s',
+                          edge_id)
 
         # If this monitor is not used on this edge anymore, delete it
         if not edge_pool['monitorId']:
@@ -174,8 +171,7 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
                 with excutils.save_and_reraise_exception():
                     self.lbv2_driver.health_monitor.failed_completion(context,
                                                                     hm)
-                    LOG.error(
-                        _LE('Failed to delete monitor on edge: %s'), edge_id)
+                    LOG.error('Failed to delete monitor on edge: %s', edge_id)
 
         nsxv_db.del_nsxv_lbaas_monitor_binding(
             context.session, lb_id, hm.pool.id, hm.id, edge_id)

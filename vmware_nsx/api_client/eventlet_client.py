@@ -21,7 +21,6 @@ import eventlet
 eventlet.monkey_patch()
 from oslo_log import log as logging
 
-from vmware_nsx._i18n import _LE
 from vmware_nsx.api_client import base
 from vmware_nsx.api_client import eventlet_request
 
@@ -143,7 +142,7 @@ class EventletApiClient(base.ApiClientBase):
         ret = g.join()
         if ret:
             if isinstance(ret, Exception):
-                LOG.error(_LE('Login error "%s"'), ret)
+                LOG.error('Login error "%s"', ret)
                 raise ret
 
             cookie = ret.getheader("Set-Cookie")

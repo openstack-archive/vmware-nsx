@@ -49,7 +49,7 @@ from neutron_lib.api import validators
 from neutron_lib import exceptions as n_exc
 
 import vmware_nsx
-from vmware_nsx._i18n import _, _LE, _LW
+from vmware_nsx._i18n import _
 from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils as c_utils
@@ -162,9 +162,9 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
     def _dvs_create_network(self, context, network):
         net_data = network['network']
         if net_data['admin_state_up'] is False:
-            LOG.warning(_LW("Network with admin_state_up=False are not yet "
-                            "supported by this plugin. Ignoring setting for "
-                            "network %s"), net_data.get('name', '<unknown>'))
+            LOG.warning("Network with admin_state_up=False are not yet "
+                        "supported by this plugin. Ignoring setting for "
+                        "network %s", net_data.get('name', '<unknown>'))
         net_data['id'] = str(uuid.uuid4())
         vlan_tag = 0
         if net_data.get(pnet.NETWORK_TYPE) == c_utils.NetworkTypes.VLAN:
@@ -211,7 +211,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                     vlan_tag)
         except Exception:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Failed to create network'))
+                LOG.exception('Failed to create network')
                 if (net_data.get(pnet.NETWORK_TYPE) !=
                         c_utils.NetworkTypes.PORTGROUP):
                     self._dvs.delete_port_group(dvs_id)
@@ -278,7 +278,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                 bindings[0].binding_type != c_utils.NetworkTypes.PORTGROUP):
                 self._dvs.delete_port_group(dvs_id)
         except Exception:
-            LOG.exception(_LE('Unable to delete DVS port group %s'), id)
+            LOG.exception('Unable to delete DVS port group %s', id)
         self.handle_network_dhcp_access(context, id, action='delete_network')
 
     def delete_network(self, context, id):

@@ -17,7 +17,6 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from vmware_nsx._i18n import _LE
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as nsxv_exc
@@ -81,7 +80,7 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
             except nsxv_exc.VcnsApiException:
                 with excutils.save_and_reraise_exception():
                     self.lbv2_driver.member.failed_completion(context, member)
-                    LOG.error(_LE('Failed to create member on edge: %s'),
+                    LOG.error('Failed to create member on edge: %s',
                               edge_id)
 
     @log_helpers.log_method_call
@@ -124,13 +123,13 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
                     with excutils.save_and_reraise_exception():
                         self.lbv2_driver.member.failed_completion(
                             context, new_member)
-                        LOG.error(_LE('Failed to update member on edge: %s'),
+                        LOG.error('Failed to update member on edge: %s',
                                   edge_id)
             else:
-                LOG.error(_LE('Pool %(pool_id)s on Edge %(edge_id)s has no '
-                              'members to update')
-                          % {'pool_id': new_member.pool.id,
-                             'edge_id': edge_id})
+                LOG.error('Pool %(pool_id)s on Edge %(edge_id)s has no '
+                          'members to update',
+                          {'pool_id': new_member.pool.id,
+                           'edge_id': edge_id})
 
     @log_helpers.log_method_call
     def delete(self, context, member):
@@ -173,5 +172,5 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
             except nsxv_exc.VcnsApiException:
                 with excutils.save_and_reraise_exception():
                     self.lbv2_driver.member.failed_completion(context, member)
-                    LOG.error(_LE('Failed to delete member on edge: %s'),
+                    LOG.error('Failed to delete member on edge: %s',
                               edge_id)

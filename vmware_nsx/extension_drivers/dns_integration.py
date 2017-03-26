@@ -26,7 +26,6 @@ from neutron.objects import network as net_obj
 from neutron.objects import ports as port_obj
 from neutron.services.externaldns import driver
 
-from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import driver_api
 from vmware_nsx.plugins.nsx_v3 import availability_zones as nsx_az
 
@@ -272,7 +271,7 @@ class DNSExtensionDriver(driver_api.ExtensionDriver):
 class DNSExtensionDriverNSXv(DNSExtensionDriver):
 
     def initialize(self):
-        LOG.info(_LI("DNSExtensionDriverNSXv initialization complete"))
+        LOG.info("DNSExtensionDriverNSXv initialization complete")
 
     def external_dns_not_needed(self, context, network):
         dns_driver = _get_dns_driver()
@@ -287,7 +286,7 @@ class DNSExtensionDriverNSXv3(DNSExtensionDriver):
 
     def initialize(self):
         self._availability_zones = nsx_az.NsxV3AvailabilityZones()
-        LOG.info(_LI("DNSExtensionDriverNSXv3 initialization complete"))
+        LOG.info("DNSExtensionDriverNSXv3 initialization complete")
 
     def _get_network_az(self, network_id):
         context = n_context.get_admin_context()
@@ -337,7 +336,7 @@ def _get_dns_driver():
                   cfg.CONF.external_dns_driver)
         return DNS_DRIVER
     except ImportError:
-        LOG.exception(_LE("ImportError exception occurred while loading "
-                          "the external DNS service driver"))
+        LOG.exception("ImportError exception occurred while loading "
+                      "the external DNS service driver")
         raise dns.ExternalDNSDriverNotFound(
             driver=cfg.CONF.external_dns_driver)

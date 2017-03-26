@@ -24,7 +24,6 @@ from tempest.lib import decorators
 from tempest.scenario import manager
 from tempest import test
 
-from vmware_nsx_tempest._i18n import _LE
 from vmware_nsx_tempest.services import nsxv3_client
 
 CONF = config.CONF
@@ -213,8 +212,8 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
                                 (ssh_source, remote_ip, should_connect),
                                 msg)
             except Exception:
-                LOG.exception(_LE("Unable to access %{dest}s via ssh to "
-                                  "floating-ip %{src}s"),
+                LOG.exception("Unable to access %{dest}s via ssh to "
+                              "floating-ip %{src}s",
                               {'dest': remote_ip, 'src': floating_ip})
                 raise
 

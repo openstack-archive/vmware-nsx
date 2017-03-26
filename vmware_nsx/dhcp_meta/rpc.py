@@ -24,7 +24,6 @@ from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
 from neutron.db import db_base_plugin_v2
 from neutron.db import models_v2
 
-from vmware_nsx._i18n import _LE, _LI, _LW
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import config
 from vmware_nsx.common import exceptions as nsx_exc
@@ -55,7 +54,7 @@ def handle_port_metadata_access(plugin, context, port, is_delete=False):
         if not port.get('fixed_ips'):
             # If port does not have an IP, the associated subnet is in
             # deleting state.
-            LOG.info(_LI('Port %s has no IP due to subnet in deleting state'),
+            LOG.info('Port %s has no IP due to subnet in deleting state',
                      port['id'])
             return
         fixed_ip = port['fixed_ips'][0]
@@ -66,8 +65,8 @@ def handle_port_metadata_access(plugin, context, port, is_delete=False):
         # route. This is done via the enable_isolated_metadata
         # option if desired.
         if not subnet.get('gateway_ip'):
-            LOG.info(_LI('Subnet %s does not have a gateway, the '
-                         'metadata route will not be created'),
+            LOG.info('Subnet %s does not have a gateway, the '
+                     'metadata route will not be created',
                      subnet['id'])
             return
         metadata_routes = [r for r in subnet.routes
@@ -99,8 +98,8 @@ def handle_router_metadata_access(plugin, context, router_id, interface=None):
         LOG.debug("Metadata access network is disabled")
         return
     if not cfg.CONF.allow_overlapping_ips:
-        LOG.warning(_LW("Overlapping IPs must be enabled in order to setup "
-                        "the metadata access network"))
+        LOG.warning("Overlapping IPs must be enabled in order to setup "
+                    "the metadata access network")
         return
     ctx_elevated = context.elevated()
     on_demand = getattr(plugin_cfg, 'metadata_on_demand', False)
@@ -138,8 +137,8 @@ def handle_router_metadata_access(plugin, context, router_id, interface=None):
     except (ntn_exc.NeutronException, nsx_exc.NsxPluginException,
             api_exc.NsxApiException):
         # Any exception here should be regarded as non-fatal
-        LOG.exception(_LE("An error occurred while operating on the "
-                          "metadata access network for router:'%s'"),
+        LOG.exception("An error occurred while operating on the "
+                      "metadata access network for router:'%s'",
                       router_id)
 
 

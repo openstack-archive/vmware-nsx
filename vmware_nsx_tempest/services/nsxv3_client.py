@@ -21,10 +21,6 @@ import six.moves.urllib.parse as urlparse
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
-from vmware_nsx_tempest._i18n import _LE
-from vmware_nsx_tempest._i18n import _LI
-from vmware_nsx_tempest._i18n import _LW
-
 requests.packages.urllib3.disable_warnings()
 
 LOG = logging.getLogger(__name__)
@@ -173,8 +169,8 @@ class NSXV3Client(object):
         Return the logical port if found, otherwise return None.
         """
         if not os_name:
-            LOG.error(_LE("Name of OS port should be present "
-                          "in order to query backend logical port created"))
+            LOG.error("Name of OS port should be present "
+                      "in order to query backend logical port created")
             return None
         lports = self.get_logical_ports()
         return self.get_nsx_resource_by_name(lports, os_name)
@@ -217,7 +213,7 @@ class NSXV3Client(object):
             endpoint = "/logical-ports/%s" % p['id']
             response = self.put(endpoint=endpoint, body=p)
             if response.status_code != requests.codes.ok:
-                LOG.error(_LE("Failed to update lport %s"), p['id'])
+                LOG.error("Failed to update lport %s", p['id'])
 
     def cleanup_os_logical_ports(self):
         """
@@ -225,7 +221,7 @@ class NSXV3Client(object):
         """
         lports = self.get_logical_ports()
         os_lports = self.get_os_resources(lports)
-        LOG.info(_LI("Number of OS Logical Ports to be deleted: %s"),
+        LOG.info("Number of OS Logical Ports to be deleted: %s",
                  len(os_lports))
         # logical port vif detachment
         self.update_logical_port_attachment(os_lports)
@@ -233,10 +229,10 @@ class NSXV3Client(object):
             endpoint = '/logical-ports/%s' % p['id']
             response = self.delete(endpoint=endpoint)
             if response.status_code == requests.codes.ok:
-                LOG.info(_LI("Successfully deleted logical port %s"), p['id'])
+                LOG.info("Successfully deleted logical port %s", p['id'])
             else:
-                LOG.error(_LE("Failed to delete lport %(port_id)s, response "
-                              "code %(code)s"),
+                LOG.error("Failed to delete lport %(port_id)s, response "
+                          "code %(code)s",
                           {'port_id': p['id'], 'code': response.status_code})
 
     def get_os_resources(self, resources):
@@ -258,14 +254,14 @@ class NSXV3Client(object):
         nsx_resource = [n for n in nsx_resources if
                         n['display_name'] == nsx_name]
         if len(nsx_resource) == 0:
-            LOG.warning(_LW("Backend nsx resource %s NOT found!"), nsx_name)
+            LOG.warning("Backend nsx resource %s NOT found!", nsx_name)
             return None
         if len(nsx_resource) > 1:
-            LOG.error(_LE("More than 1 nsx resources found: %s!"),
+            LOG.error("More than 1 nsx resources found: %s!",
                       nsx_resource)
             return None
         else:
-            LOG.info(_LI("Found nsgroup: %s"), nsx_resource[0])
+            LOG.info("Found nsgroup: %s", nsx_resource[0])
             return nsx_resource[0]
 
     def get_logical_switches(self):
@@ -297,8 +293,8 @@ class NSXV3Client(object):
         Return logical switch if found, otherwise return None
         """
         if not os_name or not os_uuid:
-            LOG.error(_LE("Name and uuid of OpenStack L2 network need to be "
-                          "present in order to query backend logical switch!"))
+            LOG.error("Name and uuid of OpenStack L2 network need to be "
+                      "present in order to query backend logical switch!")
             return None
         nsx_name = os_name + "_" + os_uuid[:5] + "..." + os_uuid[-5:]
         lswitches = self.get_logical_switches()
@@ -322,9 +318,9 @@ class NSXV3Client(object):
         Get the firewall section by os_name and os_uuid
         """
         if not os_name or not os_uuid:
-            LOG.error(_LE("Name and uuid of OS security group should be "
-                          "present in order to query backend FW section "
-                          "created"))
+            LOG.error("Name and uuid of OS security group should be "
+                      "present in order to query backend FW section "
+                      "created")
             return None
         nsx_name = os_name + " - " + os_uuid
         fw_sections = self.get_firewall_sections()
@@ -378,8 +374,8 @@ class NSXV3Client(object):
         Return nsgroup if found, otherwise return None
         """
         if not os_name or not os_uuid:
-            LOG.error(_LE("Name and uuid of OS security group should be "
-                          "present in order to query backend nsgroup created"))
+            LOG.error("Name and uuid of OS security group should be "
+                      "present in order to query backend nsgroup created")
             return None
         nsx_name = os_name + " - " + os_uuid
         nsgroups = self.get_ns_groups()
@@ -404,8 +400,8 @@ class NSXV3Client(object):
         Return the logical router if found, otherwise return None.
         """
         if not os_name or not os_uuid:
-            LOG.error(_LE("Name and uuid of OS router should be present "
-                          "in order to query backend logical router created"))
+            LOG.error("Name and uuid of OS router should be present "
+                      "in order to query backend logical router created")
             return None
         nsx_name = os_name + "_" + os_uuid[:5] + "..." + os_uuid[-5:]
         lrouters = self.get_logical_routers()
@@ -423,8 +419,8 @@ class NSXV3Client(object):
         Get all user defined NAT rules of the specific logical router
         """
         if not lrouter:
-            LOG.error(_LE("Logical router needs to be present in order "
-                          "to get the NAT rules"))
+            LOG.error("Logical router needs to be present in order "
+                      "to get the NAT rules")
             return None
         endpoint = "/logical-routers/%s/nat/rules" % lrouter['id']
         return self.get_logical_resources(endpoint)
@@ -432,8 +428,8 @@ class NSXV3Client(object):
     def get_logical_router_advertisement(self, lrouter):
         """Get logical router advertisement"""
         if not lrouter:
-            LOG.error(_LE("Logical router needs to be present in order "
-                          "to get router advertisement!"))
+            LOG.error("Logical router needs to be present in order "
+                      "to get router advertisement!")
             return None
         endpoint = "/logical-routers/%s/routing/advertisement" % lrouter['id']
         response = self.get(endpoint)
@@ -454,9 +450,9 @@ class NSXV3Client(object):
         Return logical dhcp server if found, otherwise return None
         """
         if not os_name or not os_uuid:
-            LOG.error(_LE("Name and uuid of OpenStack L2 network need to be "
-                          "present in order to query backend logical dhcp "
-                          "server!"))
+            LOG.error("Name and uuid of OpenStack L2 network need to be "
+                      "present in order to query backend logical dhcp "
+                      "server!")
             return None
         nsx_name = os_name + "_" + os_uuid[:5] + "..." + os_uuid[-5:]
         dhcp_servers = self.get_logical_dhcp_servers()

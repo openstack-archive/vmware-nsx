@@ -17,7 +17,6 @@ from neutron_lib import context
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.shell.admin.plugins.common import constants
@@ -98,13 +97,13 @@ def nsx_list_orphaned_dhcp_servers(resource, event, trigger, **kwargs):
 
     nsx_version = nsxlib.get_version()
     if not nsx_utils.is_nsx_version_1_1_0(nsx_version):
-        LOG.error(_LE("This utility is not available for NSX version %s"),
+        LOG.error("This utility is not available for NSX version %s",
                   nsx_version)
         return
 
     dhcp_profile_uuid = _get_dhcp_profile_uuid(**kwargs)
     if not dhcp_profile_uuid:
-        LOG.error(_LE("dhcp_profile_uuid is not defined"))
+        LOG.error("dhcp_profile_uuid is not defined")
         return
 
     orphaned_servers = _get_orphaned_dhcp_servers(dhcp_profile_uuid)
@@ -124,13 +123,13 @@ def nsx_clean_orphaned_dhcp_servers(resource, event, trigger, **kwargs):
 
     nsx_version = nsxlib.get_version()
     if not nsx_utils.is_nsx_version_1_1_0(nsx_version):
-        LOG.error(_LE("This utility is not available for NSX version %s"),
+        LOG.error("This utility is not available for NSX version %s",
                   nsx_version)
         return
 
     dhcp_profile_uuid = _get_dhcp_profile_uuid(**kwargs)
     if not dhcp_profile_uuid:
-        LOG.error(_LE("dhcp_profile_uuid is not defined"))
+        LOG.error("dhcp_profile_uuid is not defined")
         return
 
     cfg.CONF.set_override('dhcp_agent_notification', False)
@@ -153,10 +152,10 @@ def nsx_clean_orphaned_dhcp_servers(resource, event, trigger, **kwargs):
                 nsx_db.delete_neutron_nsx_service_binding(
                     context.get_admin_context().session, net_id,
                     nsx_constants.SERVICE_DHCP)
-            LOG.info(_LI("Removed orphaned DHCP server %s"), server['id'])
+            LOG.info("Removed orphaned DHCP server %s", server['id'])
         except Exception as e:
-            LOG.error(_LE("Failed to clean orphaned DHCP server %(id)s. "
-                          "Exception: %(e)s"), {'id': server['id'], 'e': e})
+            LOG.error("Failed to clean orphaned DHCP server %(id)s. "
+                      "Exception: %(e)s", {'id': server['id'], 'e': e})
 
 
 registry.subscribe(nsx_list_orphaned_dhcp_servers,

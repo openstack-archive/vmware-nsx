@@ -16,7 +16,6 @@ from neutron.callbacks import registry
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
@@ -32,12 +31,12 @@ def validate_configuration(resource, event, trigger, **kwargs):
     try:
         utils.NsxVPluginWrapper()
     except exceptions.Forbidden:
-        LOG.error(_LE("Configuration validation failed: wrong VSM credentials "
-                      "for %s"), cfg.CONF.nsxv.manager_uri)
+        LOG.error("Configuration validation failed: wrong VSM credentials "
+                  "for %s", cfg.CONF.nsxv.manager_uri)
     except Exception as e:
-        LOG.error(_LE("Configuration validation failed: %s"), e)
+        LOG.error("Configuration validation failed: %s", e)
     else:
-        LOG.info(_LI("Configuration validation succeeded"))
+        LOG.info("Configuration validation succeeded")
 
 
 registry.subscribe(validate_configuration,

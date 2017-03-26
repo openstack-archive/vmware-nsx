@@ -22,7 +22,7 @@ from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from vmware_nsx._i18n import _, _LW
+from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import db as nsx_db
 
@@ -143,16 +143,16 @@ class QosNotificationsHandler(object):
         # Validate the max bandwidth value minimum value
         # (max value is above what neutron allows so no need to check it)
         if (bw_rule.max_kbps < MAX_KBPS_MIN_VALUE):
-            LOG.warning(_LW("Invalid input for max_kbps. "
-                            "The minimal legal value is %s"),
+            LOG.warning("Invalid input for max_kbps. "
+                        "The minimal legal value is %s",
                         MAX_KBPS_MIN_VALUE)
             bw_rule.max_kbps = MAX_KBPS_MIN_VALUE
 
         # validate the burst size value max value
         # (max value is 0, and neutron already validates this)
         if (bw_rule.max_burst_kbps > MAX_BURST_MAX_VALUE):
-            LOG.warning(_LW("Invalid input for burst_size. "
-                            "The maximal legal value is %s"),
+            LOG.warning("Invalid input for burst_size. "
+                        "The maximal legal value is %s",
                         MAX_BURST_MAX_VALUE)
             bw_rule.max_burst_kbps = MAX_BURST_MAX_VALUE
 

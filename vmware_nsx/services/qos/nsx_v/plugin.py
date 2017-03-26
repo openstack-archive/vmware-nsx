@@ -19,7 +19,7 @@ from neutron.services.qos import qos_plugin
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from vmware_nsx._i18n import _, _LI
+from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
 
 LOG = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ class NsxVQosPlugin(qos_plugin.QoSPlugin):
     supported_extension_aliases = ["qos"]
 
     def __init__(self):
-        LOG.info(_LI("Loading VMware NSX-V Qos Service Plugin"))
+        LOG.info("Loading VMware NSX-V Qos Service Plugin")
         super(NsxVQosPlugin, self).__init__()
 
         if not cfg.CONF.nsxv.use_dvs_features:

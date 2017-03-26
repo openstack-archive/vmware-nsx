@@ -21,7 +21,6 @@ from neutron.db import models_v2
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import config
 from vmware_nsx.common import locking
 from vmware_nsx.common import nsxv_constants
@@ -52,12 +51,12 @@ def nsx_redo_metadata_cfg(resource, event, trigger, **kwargs):
         if az.supports_metadata():
             nsx_redo_metadata_cfg_for_az(az, edgeapi)
         else:
-            LOG.info(_LI("Skipping availability zone: %s - no metadata "
-                         "configuration"), az.name)
+            LOG.info("Skipping availability zone: %s - no metadata "
+                     "configuration", az.name)
 
 
 def nsx_redo_metadata_cfg_for_az(az, edgeapi):
-    LOG.info(_LI("Updating MetaData for availability zone: %s"), az.name)
+    LOG.info("Updating MetaData for availability zone: %s", az.name)
 
     # Get the list of internal networks for this AZ
     db_net = nsxv_db.get_nsxv_internal_network(
@@ -95,9 +94,9 @@ def nsx_redo_metadata_cfg_for_az(az, edgeapi):
             edge_internal_ips.append(edge_internal_ip['ip_address'])
 
     if not internal_net or not internal_subnet or not edge_internal_ips:
-        LOG.error(_LE("Metadata infrastructure is missing or broken. "
-                      "It is recommended to restart neutron service before "
-                      "proceeding with configuration restoration"))
+        LOG.error("Metadata infrastructure is missing or broken. "
+                  "It is recommended to restart neutron service before "
+                  "proceeding with configuration restoration")
         return
 
     router_bindings = nsxv_db.get_nsxv_router_bindings(
@@ -210,10 +209,10 @@ def get_metadata_status(resource, event, trigger, **kwargs):
             edgeapi.context.session, net_id)
         providers = [asp['edge_id'] for asp in as_provider_data]
         if providers:
-            LOG.info(_LI('Metadata providers for network %s'), net_id)
+            LOG.info('Metadata providers for network %s', net_id)
             _md_member_status('Edge  %s', providers)
         else:
-            LOG.info(_LI('No providers found for network %s'), net_id)
+            LOG.info('No providers found for network %s', net_id)
 
 
 registry.subscribe(nsx_redo_metadata_cfg,

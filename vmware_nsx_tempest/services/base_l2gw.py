@@ -21,8 +21,6 @@ from tempest import config
 from tempest import test
 
 from vmware_nsx_tempest._i18n import _
-from vmware_nsx_tempest._i18n import _LI
-from vmware_nsx_tempest._i18n import _LW
 from vmware_nsx_tempest.common import constants
 from vmware_nsx_tempest.services import l2_gateway_client
 from vmware_nsx_tempest.services import l2_gateway_connection_client
@@ -140,7 +138,7 @@ class BaseL2GatewayTest(base.BaseAdminNetworkTest):
             _params = manager.default_params_withy_timeout_values.copy()
         except AttributeError as attribute_err:
             LOG.warning(
-                _LW("Failed to locate the attribute, Error: %(err_msg)s") %
+                "Failed to locate the attribute, Error: %(err_msg)s",
                 {"err_msg": attribute_err.__str__()})
             _params = {}
         cls.l2gw_client = l2_gateway_client.L2GatewayClient(
@@ -191,7 +189,7 @@ class BaseL2GatewayTest(base.BaseAdminNetworkTest):
 
         :return: response of L2GW create API
         """
-        LOG.info(_LI("l2gw name: %(name)s, l2gw_param: %(devices)s ") %
+        LOG.info("l2gw name: %(name)s, l2gw_param: %(devices)s ",
                  {"name": l2gw_name, "devices": l2gw_param})
         devices = []
         for device_dict in l2gw_param:
@@ -203,10 +201,10 @@ class BaseL2GatewayTest(base.BaseAdminNetworkTest):
                       "interfaces": interface}
             devices.append(device)
         l2gw_request_body = {"devices": devices}
-        LOG.info(_LI(" l2gw_request_body: %s") % l2gw_request_body)
+        LOG.info(" l2gw_request_body: %s", l2gw_request_body)
         rsp = self.l2gw_client.create_l2_gateway(
             name=l2gw_name, **l2gw_request_body)
-        LOG.info(_LI(" l2gw response: %s") % rsp)
+        LOG.info(" l2gw response: %s", rsp)
         self.l2gw_created[rsp[constants.L2GW]["id"]] = rsp[constants.L2GW]
         return rsp, devices
 
@@ -218,9 +216,9 @@ class BaseL2GatewayTest(base.BaseAdminNetworkTest):
 
         :return: response of the l2gw delete API.
         """
-        LOG.info(_LI("L2GW id: %(id)s to be deleted.") % {"id": l2gw_id})
+        LOG.info("L2GW id: %(id)s to be deleted.", {"id": l2gw_id})
         rsp = self.l2gw_client.delete_l2_gateway(l2gw_id)
-        LOG.info(_LI("response : %(rsp)s") % {"rsp": rsp})
+        LOG.info("response : %(rsp)s", {"rsp": rsp})
         return rsp
 
     def update_l2gw(self, l2gw_id, l2gw_new_name, devices):
@@ -256,16 +254,16 @@ class BaseL2GatewayTest(base.BaseAdminNetworkTest):
 
         :return: response of L2GWC create API.
         """
-        LOG.info(_LI("l2gwc param: %(param)s ") % {"param": l2gwc_param})
+        LOG.info("l2gwc param: %(param)s ", {"param": l2gwc_param})
         l2gwc_request_body = {"l2_gateway_id": l2gwc_param["l2_gateway_id"],
                               "network_id": l2gwc_param["network_id"]}
         if "segmentation_id" in l2gwc_param:
             l2gwc_request_body["segmentation_id"] = l2gwc_param[
                 "segmentation_id"]
-        LOG.info(_LI("l2gwc_request_body: %s") % l2gwc_request_body)
+        LOG.info("l2gwc_request_body: %s", l2gwc_request_body)
         rsp = self.l2gwc_client.create_l2_gateway_connection(
             **l2gwc_request_body)
-        LOG.info(_LI("l2gwc response: %s") % rsp)
+        LOG.info("l2gwc response: %s", rsp)
         self.l2gwc_created[rsp[constants.L2GWC]["id"]] = rsp[constants.L2GWC]
         return rsp
 
@@ -277,8 +275,8 @@ class BaseL2GatewayTest(base.BaseAdminNetworkTest):
 
         :return: response of the l2gwc delete API.
         """
-        LOG.info(_LI("L2GW connection id: %(id)s to be deleted")
-                 % {"id": l2gwc_id})
+        LOG.info("L2GW connection id: %(id)s to be deleted",
+                 {"id": l2gwc_id})
         rsp = self.l2gwc_client.delete_l2_gateway_connection(l2gwc_id)
-        LOG.info(_LI("response : %(rsp)s") % {"rsp": rsp})
+        LOG.info("response : %(rsp)s", {"rsp": rsp})
         return rsp

@@ -22,7 +22,6 @@ from oslo_log import log as logging
 import six
 from six.moves import http_client as httplib
 
-from vmware_nsx._i18n import _LE, _LI, _LW
 from vmware_nsx import api_client
 
 LOG = logging.getLogger(__name__)
@@ -101,15 +100,15 @@ class ApiClientBase(object):
                  api_providers are configured.
         '''
         if not self._api_providers:
-            LOG.warning(_LW("[%d] no API providers currently available."), rid)
+            LOG.warning("[%d] no API providers currently available.", rid)
             return None
         if self._conn_pool.empty():
             LOG.debug("[%d] Waiting to acquire API client connection.", rid)
         priority, conn = self._conn_pool.get()
         now = time.time()
         if getattr(conn, 'last_used', now) < now - cfg.CONF.conn_idle_timeout:
-            LOG.info(_LI("[%(rid)d] Connection %(conn)s idle for %(sec)0.2f "
-                         "seconds; reconnecting."),
+            LOG.info("[%(rid)d] Connection %(conn)s idle for %(sec)0.2f "
+                     "seconds; reconnecting.",
                      {'rid': rid, 'conn': api_client.ctrl_conn_to_str(conn),
                       'sec': now - conn.last_used})
             conn = self._create_connection(*self._conn_params(conn))
@@ -149,8 +148,8 @@ class ApiClientBase(object):
         priority = http_conn.priority
         if bad_state:
             # Reconnect to provider.
-            LOG.warning(_LW("[%(rid)d] Connection returned in bad state, "
-                            "reconnecting to %(conn)s"),
+            LOG.warning("[%(rid)d] Connection returned in bad state, "
+                        "reconnecting to %(conn)s",
                         {'rid': rid,
                          'conn': api_client.ctrl_conn_to_str(http_conn)})
             http_conn = self._create_connection(*self._conn_params(http_conn))
@@ -181,7 +180,7 @@ class ApiClientBase(object):
 
         data = self._get_provider_data(conn)
         if data is None:
-            LOG.error(_LE("Login request for an invalid connection: '%s'"),
+            LOG.error("Login request for an invalid connection: '%s'",
                       api_client.ctrl_conn_to_str(conn))
             return
         provider_sem = data[0]

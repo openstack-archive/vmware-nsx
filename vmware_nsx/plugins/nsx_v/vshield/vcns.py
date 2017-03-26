@@ -20,7 +20,6 @@ from oslo_serialization import jsonutils
 import six
 import xml.etree.ElementTree as et
 
-from vmware_nsx._i18n import _LE
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.common import utils
 from vmware_nsx.plugins.nsx_v.vshield.common import constants
@@ -911,7 +910,7 @@ class Vcns(object):
                 self._nsx_version = self._get_version()
             except Exception as e:
                 # Versions prior to 6.2.0 do not support the above API
-                LOG.error(_LE("Unable to get NSX version. Exception: %s"), e)
+                LOG.error("Unable to get NSX version. Exception: %s", e)
                 # Minimum supported version is 6.1
                 self._nsx_version = '6.1'
         return self._nsx_version

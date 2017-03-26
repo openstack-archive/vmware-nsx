@@ -13,7 +13,6 @@
 #    under the License.
 
 
-from vmware_nsx._i18n import _LI
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
@@ -60,13 +59,13 @@ def list_missing_networks(resource, event, trigger, **kwargs):
                                  'neutron_id': neutron_id,
                                  'nsx_id': nsx_id})
     if len(networks) > 0:
-        title = _LI("Found %d internal networks missing from the NSX "
-                    "manager:") % len(networks)
+        title = ("Found %d internal networks missing from the NSX "
+                 "manager:") % len(networks)
         LOG.info(formatters.output_formatter(
             title, networks,
             ['name', 'neutron_id', 'nsx_id']))
     else:
-        LOG.info(_LI("All internal networks exist on the NSX manager"))
+        LOG.info("All internal networks exist on the NSX manager")
 
 
 registry.subscribe(list_missing_networks,

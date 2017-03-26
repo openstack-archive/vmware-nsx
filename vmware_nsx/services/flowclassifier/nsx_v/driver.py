@@ -28,7 +28,7 @@ from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
-from vmware_nsx._i18n import _, _LE
+from vmware_nsx._i18n import _
 from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import locking
@@ -332,8 +332,8 @@ class NsxvFlowClassifierDriver(fc_driver.FlowClassifierDriverBase):
                     break
 
             if redirect_rule is None:
-                LOG.error(_LE("Failed to delete redirect rule %s: "
-                              "Could not find rule on backed"),
+                LOG.error("Failed to delete redirect rule %s: "
+                          "Could not find rule on backed",
                           flow_classifier_id)
                 # should not fail the deletion
             else:

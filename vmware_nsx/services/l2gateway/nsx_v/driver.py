@@ -22,7 +22,7 @@ from neutron_lib.plugins import directory
 from oslo_log import log as logging
 from oslo_utils import uuidutils
 
-from vmware_nsx._i18n import _, _LE
+from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import db as nsx_db
@@ -89,8 +89,8 @@ class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
         try:
             edge_id = self._create_l2_gateway_edge(context)
         except nsx_exc.NsxL2GWDeviceNotFound:
-            LOG.exception(_LE("Failed to create backend device "
-                              "for L2 gateway"))
+            LOG.exception("Failed to create backend device "
+                          "for L2 gateway")
             raise
 
         devices[0]['device_name'] = edge_id
@@ -151,8 +151,8 @@ class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
         try:
             self._nsxv.create_bridge(device_name, bridge_dict)
         except exceptions.VcnsApiException:
-            LOG.exception(_LE("Failed to update NSX, "
-                              "rolling back changes on neutron."))
+            LOG.exception("Failed to update NSX, "
+                          "rolling back changes on neutron.")
             raise l2gw_exc.L2GatewayServiceDriverError(
                 method='create_l2_gateway_connection_postcommit')
         return

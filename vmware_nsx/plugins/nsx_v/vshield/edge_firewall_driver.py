@@ -15,7 +15,7 @@
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from vmware_nsx._i18n import _, _LE
+from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield.common import (
@@ -224,8 +224,8 @@ class EdgeFirewallDriver(object):
         try:
             return self.vcns.get_firewall(edge_id)[1]
         except vcns_exc.VcnsApiException as e:
-            LOG.exception(_LE("Failed to get firewall with edge "
-                              "id: %s"), edge_id)
+            LOG.exception("Failed to get firewall with edge "
+                          "id: %s", edge_id)
             raise e
 
     def _get_firewall_rule_next(self, context, edge_id, rule_vseid):
@@ -252,8 +252,8 @@ class EdgeFirewallDriver(object):
             response = self.vcns.get_firewall_rule(
                 edge_id, vcns_rule_id)[1]
         except vcns_exc.VcnsApiException as e:
-            LOG.exception(_LE("Failed to get firewall rule: %(rule_id)s "
-                              "with edge_id: %(edge_id)s"), {
+            LOG.exception("Failed to get firewall rule: %(rule_id)s "
+                          "with edge_id: %(edge_id)s", {
                                 'rule_id': id,
                                 'edge_id': edge_id})
             raise e
@@ -267,8 +267,8 @@ class EdgeFirewallDriver(object):
         try:
             self.vcns.delete_firewall(edge_id)
         except vcns_exc.VcnsApiException as e:
-            LOG.exception(_LE("Failed to delete firewall "
-                              "with edge_id:%s"), edge_id)
+            LOG.exception("Failed to delete firewall "
+                          "with edge_id:%s", edge_id)
             raise e
         nsxv_db.cleanup_nsxv_edge_firewallrule_binding(
             context.session, edge_id)
@@ -282,9 +282,9 @@ class EdgeFirewallDriver(object):
             self.vcns.update_firewall_rule(edge_id, vcns_rule_id, fwr_req)
         except vcns_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to update firewall rule: "
-                                  "%(rule_id)s "
-                                  "with edge_id: %(edge_id)s"),
+                LOG.exception("Failed to update firewall rule: "
+                              "%(rule_id)s "
+                              "with edge_id: %(edge_id)s",
                               {'rule_id': id,
                                'edge_id': edge_id})
 
@@ -296,9 +296,9 @@ class EdgeFirewallDriver(object):
             self.vcns.delete_firewall_rule(edge_id, vcns_rule_id)
         except vcns_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to delete firewall rule: "
-                                  "%(rule_id)s "
-                                  "with edge_id: %(edge_id)s"),
+                LOG.exception("Failed to delete firewall rule: "
+                              "%(rule_id)s "
+                              "with edge_id: %(edge_id)s",
                               {'rule_id': id,
                                'edge_id': edge_id})
         nsxv_db.delete_nsxv_edge_firewallrule_binding(
@@ -314,8 +314,8 @@ class EdgeFirewallDriver(object):
                 edge_id, ref_vcns_rule_id, fwr_req)[0]
         except vcns_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to add firewall rule above: "
-                                  "%(rule_id)s with edge_id: %(edge_id)s"),
+                LOG.exception("Failed to add firewall rule above: "
+                              "%(rule_id)s with edge_id: %(edge_id)s",
                               {'rule_id': ref_vcns_rule_id,
                                'edge_id': edge_id})
 
@@ -342,8 +342,8 @@ class EdgeFirewallDriver(object):
                     edge_id, int(ref_vcns_rule_id), fwr_req)[0]
             except vcns_exc.VcnsApiException:
                 with excutils.save_and_reraise_exception():
-                    LOG.exception(_LE("Failed to add firewall rule above: "
-                                      "%(rule_id)s with edge_id: %(edge_id)s"),
+                    LOG.exception("Failed to add firewall rule above: "
+                                  "%(rule_id)s with edge_id: %(edge_id)s",
                                   {'rule_id': ref_vcns_rule_id,
                                    'edge_id': edge_id})
         else:
@@ -353,8 +353,8 @@ class EdgeFirewallDriver(object):
                     edge_id, fwr_req)[0]
             except vcns_exc.VcnsApiException:
                 with excutils.save_and_reraise_exception():
-                    LOG.exception(_LE("Failed to append a firewall rule"
-                                      "with edge_id: %s"), edge_id)
+                    LOG.exception("Failed to append a firewall rule"
+                                  "with edge_id: %s", edge_id)
 
         objuri = header['location']
         fwr_vseid = objuri[objuri.rfind("/") + 1:]
@@ -386,8 +386,8 @@ class EdgeFirewallDriver(object):
             self.vcns.update_firewall(edge_id, config)
         except vcns_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Failed to update firewall "
-                                  "with edge_id: %s"), edge_id)
+                LOG.exception("Failed to update firewall "
+                              "with edge_id: %s", edge_id)
         vcns_fw_config = self._get_firewall(edge_id)
 
         nsxv_db.cleanup_nsxv_edge_firewallrule_binding(

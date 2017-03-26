@@ -15,7 +15,6 @@
 from neutron.callbacks import registry
 from oslo_log import log as logging
 
-from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils
@@ -30,9 +29,9 @@ def validate_configuration(resource, event, trigger, **kwargs):
     try:
         utils.NsxV3PluginWrapper()
     except Exception as e:
-        LOG.error(_LE("Configuration validation failed: %s"), e)
+        LOG.error("Configuration validation failed: %s", e)
     else:
-        LOG.info(_LI("Configuration validation succeeded"))
+        LOG.info("Configuration validation succeeded")
 
 
 registry.subscribe(validate_configuration,

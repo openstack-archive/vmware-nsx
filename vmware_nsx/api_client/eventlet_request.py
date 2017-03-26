@@ -21,7 +21,7 @@ from oslo_serialization import jsonutils
 from six.moves import http_client as httplib
 from six.moves.urllib import parse
 
-from vmware_nsx._i18n import _, _LI, _LW
+from vmware_nsx._i18n import _
 from vmware_nsx.api_client import request
 
 LOG = logging.getLogger(__name__)
@@ -119,7 +119,7 @@ class EventletApiRequest(request.ApiRequest):
             with eventlet.timeout.Timeout(self._request_timeout, False):
                 return self._handle_request()
 
-            LOG.info(_LI('[%d] Request timeout.'), self._rid())
+            LOG.info('[%d] Request timeout.', self._rid())
             self._request_error = Exception(_('Request timeout'))
             return None
         else:
@@ -153,8 +153,8 @@ class EventletApiRequest(request.ApiRequest):
                 self._request_error = None
                 response = req
             else:
-                LOG.info(_LI('[%(rid)d] Error while handling request: '
-                             '%(req)s'),
+                LOG.info('[%(rid)d] Error while handling request: '
+                         '%(req)s',
                          {'rid': self._rid(), 'req': req})
                 self._request_error = req
                 response = None
@@ -210,7 +210,7 @@ class GetApiProvidersRequestEventlet(EventletApiRequest):
                                 ret.append(_provider_from_listen_addr(addr))
                 return ret
         except Exception as e:
-            LOG.warning(_LW("[%(rid)d] Failed to parse API provider: %(e)s"),
+            LOG.warning("[%(rid)d] Failed to parse API provider: %(e)s",
                         {'rid': self._rid(), 'e': e})
             # intentionally fall through
         return None

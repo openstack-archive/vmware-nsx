@@ -19,7 +19,6 @@
 from oslo_log import log as logging
 from six.moves import http_client as httplib
 
-from vmware_nsx._i18n import _LE
 from vmware_nsx.api_client import base
 from vmware_nsx.api_client import eventlet_client
 from vmware_nsx.api_client import eventlet_request
@@ -101,7 +100,7 @@ class NsxApiClient(eventlet_client.EventletApiClient):
 
         if response is None:
             # Timeout.
-            LOG.error(_LE('Request timed out: %(method)s to %(url)s'),
+            LOG.error('Request timed out: %(method)s to %(url)s',
                       {'method': method, 'url': url})
             raise exception.RequestTimeout()
 
@@ -112,15 +111,15 @@ class NsxApiClient(eventlet_client.EventletApiClient):
         # Fail-fast: Check for exception conditions and raise the
         # appropriate exceptions for known error codes.
         if status in exception.ERROR_MAPPINGS:
-            LOG.error(_LE("Received error code: %s"), status)
-            LOG.error(_LE("Server Error Message: %s"), response.body)
+            LOG.error("Received error code: %s", status)
+            LOG.error("Server Error Message: %s", response.body)
             exception.ERROR_MAPPINGS[status](response)
 
         # Continue processing for non-error condition.
         if (status != httplib.OK and status != httplib.CREATED
                 and status != httplib.NO_CONTENT):
-            LOG.error(_LE("%(method)s to %(url)s, unexpected response code: "
-                          "%(status)d (content = '%(body)s')"),
+            LOG.error("%(method)s to %(url)s, unexpected response code: "
+                      "%(status)d (content = '%(body)s')",
                       {'method': method, 'url': url,
                        'status': response.status, 'body': response.body})
             return None
@@ -136,6 +135,6 @@ class NsxApiClient(eventlet_client.EventletApiClient):
             # one of the server that responds.
             self.request('GET', '/ws.v1/control-cluster/node')
             if not self._version:
-                LOG.error(_LE('Unable to determine NSX version. '
-                              'Plugin might not work as expected.'))
+                LOG.error('Unable to determine NSX version. '
+                          'Plugin might not work as expected.')
         return self._version

@@ -15,7 +15,6 @@
 
 import logging
 
-from vmware_nsx._i18n import _LI
 from vmware_nsx.plugins.nsx_v3 import cert_utils
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
@@ -55,7 +54,7 @@ def get_nsx_trust_management(**kwargs):
 
 def get_certificate_manager(**kwargs):
     storage_driver_type = cfg.CONF.nsx_v3.nsx_client_cert_storage.lower()
-    LOG.info(_LI("Certificate storage is %s"), storage_driver_type)
+    LOG.info("Certificate storage is %s", storage_driver_type)
     if storage_driver_type == 'nsx-db':
         storage_driver = cert_utils.DbCertificateStorageDriver(
             context.get_admin_context())
@@ -75,8 +74,8 @@ def generate_cert(resource, event, trigger, **kwargs):
     """
 
     if cfg.CONF.nsx_v3.nsx_client_cert_storage.lower() == "none":
-        LOG.info(_LI("Generate operation is not supported "
-                     "with storage type 'none'"))
+        LOG.info("Generate operation is not supported "
+                 "with storage type 'none'")
         return
 
     # update cert defaults based on user input
@@ -91,7 +90,7 @@ def generate_cert(resource, event, trigger, **kwargs):
         prop = 'valid-days'
         valid_for_days = int(properties.get(prop))
     except ValueError:
-        LOG.info(_LI("%s property must be a number"), prop)
+        LOG.info("%s property must be a number", prop)
         return
 
     signature_alg = properties.get('sig-alg')
@@ -105,7 +104,7 @@ def generate_cert(resource, event, trigger, **kwargs):
 
     with get_certificate_manager(**kwargs) as cert:
         if cert.exists():
-            LOG.info(_LI("Deleting existing certificate"))
+            LOG.info("Deleting existing certificate")
             # Need to delete cert first
             cert.delete()
 
@@ -115,7 +114,7 @@ def generate_cert(resource, event, trigger, **kwargs):
             LOG.info(e)
             return
 
-    LOG.info(_LI("Client certificate generated succesfully"))
+    LOG.info("Client certificate generated succesfully")
 
 
 @admin_utils.output_header
@@ -126,17 +125,17 @@ def delete_cert(resource, event, trigger, **kwargs):
         if cfg.CONF.nsx_v3.nsx_client_cert_storage.lower() == "none":
             filename = get_cert_filename(**kwargs)
             if not filename:
-                LOG.info(_LI("Please specify file containing the certificate "
-                         "using filename property"))
+                LOG.info("Please specify file containing the certificate "
+                         "using filename property")
                 return
             cert.delete_pem(filename)
         else:
             if not cert.exists():
-                LOG.info(_LI("Nothing to clean"))
+                LOG.info("Nothing to clean")
                 return
 
             cert.delete()
-        LOG.info(_LI("Client certificate deleted succesfully"))
+        LOG.info("Client certificate deleted succesfully")
 
 
 @admin_utils.output_header
@@ -152,24 +151,24 @@ def show_cert(resource, event, trigger, **kwargs):
             cert_data['alg'] = cert.get_signature_alg()
             cert_data['key_size'] = cert.get_key_size()
             if expires_in_days >= 0:
-                LOG.info(_LI("Client certificate is valid. "
-                             "Expires on %(date)s UTC (in %(days)d days)."),
+                LOG.info("Client certificate is valid. "
+                         "Expires on %(date)s UTC (in %(days)d days).",
                          {'date': expires_on,
                           'days': expires_in_days})
 
             else:
-                LOG.info(_LI("Client certificate expired on %s."), expires_on)
+                LOG.info("Client certificate expired on %s.", expires_on)
 
-            LOG.info(_LI("Key Size %(key_size)s, "
-                         "Signature Algorithm %(alg)s\n"
-                         "Subject: Country %(country)s, State %(state)s, "
-                         "Organization %(organization)s, Unit %(unit)s, "
-                         "Common Name %(hostname)s"), cert_data)
+            LOG.info("Key Size %(key_size)s, "
+                     "Signature Algorithm %(alg)s\n"
+                     "Subject: Country %(country)s, State %(state)s, "
+                     "Organization %(organization)s, Unit %(unit)s, "
+                     "Common Name %(hostname)s", cert_data)
 
             LOG.info(cert_pem)
         else:
-            LOG.info(_LI("Client certificate is not registered "
-                         "in storage"))
+            LOG.info("Client certificate is not registered "
+                     "in storage")
 
 
 def get_cert_filename(**kwargs):
@@ -179,8 +178,8 @@ def get_cert_filename(**kwargs):
         filename = properties.get('filename', filename)
 
     if not filename:
-        LOG.info(_LI("Please specify file containing the certificate "
-                     "using filename property"))
+        LOG.info("Please specify file containing the certificate "
+                 "using filename property")
     return filename
 
 
@@ -189,13 +188,13 @@ def import_cert(resource, event, trigger, **kwargs):
     """Import client certificate that was generated externally"""
 
     if cfg.CONF.nsx_v3.nsx_client_cert_storage.lower() != "none":
-        LOG.info(_LI("Import operation is supported "
-                     "with storage type 'none' only"))
+        LOG.info("Import operation is supported "
+                 "with storage type 'none' only")
         return
 
     with get_certificate_manager(**kwargs) as cert:
         if cert.exists():
-            LOG.info(_LI("Deleting existing certificate"))
+            LOG.info("Deleting existing certificate")
             cert.delete()
 
         filename = get_cert_filename(**kwargs)
@@ -203,7 +202,7 @@ def import_cert(resource, event, trigger, **kwargs):
             return
         cert.import_pem(filename)
 
-    LOG.info(_LI("Client certificate imported succesfully"))
+    LOG.info("Client certificate imported succesfully")
 
 
 @admin_utils.output_header
@@ -213,11 +212,11 @@ def show_nsx_certs(resource, event, trigger, **kwargs):
 
     ids = nsx_trust.get_identities(cert_utils.NSX_OPENSTACK_IDENTITY)
     if not ids:
-        LOG.info(_LI("Principal identity %s not found"),
+        LOG.info("Principal identity %s not found",
                  cert_utils.NSX_OPENSTACK_IDENTITY)
         return
 
-    LOG.info(_LI("Certificate(s) associated with principal identity %s\n"),
+    LOG.info("Certificate(s) associated with principal identity %s\n",
              cert_utils.NSX_OPENSTACK_IDENTITY)
 
     cert = None
@@ -228,7 +227,7 @@ def show_nsx_certs(resource, event, trigger, **kwargs):
             LOG.info(cert['pem_encoded'])
 
     if not cert:
-        LOG.info(_LI("No certificates found"))
+        LOG.info("No certificates found")
 
 
 registry.subscribe(generate_cert,

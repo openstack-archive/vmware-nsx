@@ -24,7 +24,7 @@ from oslo_log import log as logging
 from oslo_service import loopingcall
 import six
 
-from vmware_nsx._i18n import _, _LE, _LI
+from vmware_nsx._i18n import _
 from vmware_nsx.plugins.nsx_v.vshield.tasks import constants
 
 DEFAULT_INTERVAL = 1000
@@ -96,8 +96,8 @@ class Task(object):
             try:
                 func(self)
             except Exception:
-                LOG.exception(_LE("Task %(task)s encountered exception in "
-                                  "%(func)s at state %(state)s"),
+                LOG.exception("Task %(task)s encountered exception in "
+                              "%(func)s at state %(state)s",
                               {'task': str(self),
                                'func': str(func),
                                'state': state})
@@ -188,8 +188,8 @@ class TaskManager(object):
         try:
             status = task._execute_callback(task)
         except Exception:
-            LOG.exception(_LE("Task %(task)s encountered exception in "
-                              "%(cb)s"),
+            LOG.exception("Task %(task)s encountered exception in "
+                          "%(cb)s",
                           {'task': str(task),
                            'cb': str(task._execute_callback)})
             status = constants.TaskStatus.ERROR
@@ -207,8 +207,8 @@ class TaskManager(object):
         try:
             task._result_callback(task)
         except Exception:
-            LOG.exception(_LE("Task %(task)s encountered exception in "
-                              "%(cb)s"),
+            LOG.exception("Task %(task)s encountered exception in "
+                          "%(cb)s",
                           {'task': str(task),
                            'cb': str(task._result_callback)})
         LOG.debug("Task %(task)s return %(status)s",
@@ -229,8 +229,8 @@ class TaskManager(object):
             try:
                 status = task._status_callback(task)
             except Exception:
-                LOG.exception(_LE("Task %(task)s encountered exception in "
-                                  "%(cb)s"),
+                LOG.exception("Task %(task)s encountered exception in "
+                              "%(cb)s",
                               {'task': str(task),
                                'cb': str(task._status_callback)})
                 status = constants.TaskStatus.ERROR
@@ -295,7 +295,7 @@ class TaskManager(object):
                 if self._stopped:
                     # Gracefully terminate this thread if the _stopped
                     # attribute was set to true
-                    LOG.info(_LI("Stopping TaskManager"))
+                    LOG.info("Stopping TaskManager")
                     break
 
                 # get a task from queue, or timeout for periodic status check
@@ -320,8 +320,8 @@ class TaskManager(object):
                     else:
                         self._enqueue(task)
             except Exception:
-                LOG.exception(_LE("TaskManager terminating because "
-                                  "of an exception"))
+                LOG.exception("TaskManager terminating because "
+                              "of an exception")
                 break
 
     def add(self, task):
@@ -342,7 +342,7 @@ class TaskManager(object):
         if self._monitor_busy:
             self._monitor.wait()
         self._abort()
-        LOG.info(_LI("TaskManager terminated"))
+        LOG.info("TaskManager terminated")
 
     def has_pending_task(self):
         if self._tasks_queue or self._tasks or self._main_thread_exec_task:
@@ -374,7 +374,7 @@ class TaskManager(object):
             try:
                 self._check_pending_tasks()
             except Exception:
-                LOG.exception(_LE("Exception in _check_pending_tasks"))
+                LOG.exception("Exception in _check_pending_tasks")
             self._monitor_busy = False
 
         if self._thread is not None:

@@ -19,7 +19,6 @@ from neutron_lib import exceptions
 from oslo_log import log as logging
 from oslo_utils import uuidutils
 
-from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import locking
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_db
@@ -90,7 +89,7 @@ def _delete_edge_from_nsx_and_neutron(edge_id, router_id):
             _delete_backup_from_neutron_db(edge_id, router_id)
             return True
     except Exception as expt:
-        LOG.error(_LE("%s"), str(expt))
+        LOG.error("%s", str(expt))
         return False
 
 
@@ -99,7 +98,7 @@ def _nsx_delete_backup_edge(edge_id, all_backup_edges):
     try:
         edge_result = nsxv.get_edge(edge_id)
     except exceptions.NeutronException as x:
-        LOG.error(_LE("%s"), str(x))
+        LOG.error("%s", str(x))
     else:
         # edge_result[0] is response status code
         # edge_result[1] is response body
@@ -108,7 +107,7 @@ def _nsx_delete_backup_edge(edge_id, all_backup_edges):
         if (not edge['name'].startswith('backup-')
             or edge['id'] not in backup_edges):
             LOG.error(
-                _LE('Edge: %s is not a backup edge; aborting delete'),
+                'Edge: %s is not a backup edge; aborting delete',
                 edge_id)
         else:
             return _delete_edge_from_nsx_and_neutron(edge_id, edge['name'])
@@ -119,18 +118,18 @@ def nsx_clean_backup_edge(resource, event, trigger, **kwargs):
     errmsg = ("Need to specify edge-id property. Add --property "
               "edge-id=<edge-id>")
     if not kwargs.get('property'):
-        LOG.error(_LE("%s"), errmsg)
+        LOG.error("%s", errmsg)
         return
     properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
     edge_id = properties.get('edge-id')
     if not edge_id:
-        LOG.error(_LE("%s"), errmsg)
+        LOG.error("%s", errmsg)
         return
     #ask for the user confirmation
     confirm = admin_utils.query_yes_no(
         "Do you want to delete edge: %s" % edge_id, default="no")
     if not confirm:
-        LOG.info(_LI("Backup edge deletion aborted by user"))
+        LOG.info("Backup edge deletion aborted by user")
         return
     # delete the backup edge
     _nsx_delete_backup_edge(edge_id, get_nsxv_backup_edges())
@@ -145,7 +144,7 @@ def nsx_clean_all_backup_edges(resource, event, trigger, **kwargs):
         "Do you want to delete %s backup edges?" % len(backup_edges),
         default="no")
     if not confirm:
-        LOG.info(_LI("Backup edges deletion aborted by user"))
+        LOG.info("Backup edges deletion aborted by user")
         return
 
     deleted_cnt = 0
@@ -154,7 +153,7 @@ def nsx_clean_all_backup_edges(resource, event, trigger, **kwargs):
         if _nsx_delete_backup_edge(edge['id'], backup_edges):
             deleted_cnt = deleted_cnt + 1
 
-    LOG.info(_LI('Done Deleting %s backup edges'), deleted_cnt)
+    LOG.info('Done Deleting %s backup edges', deleted_cnt)
 
 
 @admin_utils.output_header
@@ -167,12 +166,12 @@ def neutron_clean_backup_edge(resource, event, trigger, **kwargs):
     errmsg = ("Need to specify router-id property. Add --property "
               "router-id=<router-id>")
     if not kwargs.get('property'):
-        LOG.error(_LE("%s"), errmsg)
+        LOG.error("%s", errmsg)
         return
     properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
     router_id = properties.get('router-id')
     if not router_id:
-        LOG.error(_LE("%s"), errmsg)
+        LOG.error("%s", errmsg)
         return
 
     # look for the router-binding entry
@@ -180,7 +179,7 @@ def neutron_clean_backup_edge(resource, event, trigger, **kwargs):
     rtr_binding = nsxv_db.get_nsxv_router_binding(
             edgeapi.context.session, router_id)
     if not rtr_binding:
-        LOG.error(_LE('Backup %s was not found in DB'), router_id)
+        LOG.error('Backup %s was not found in DB', router_id)
         return
 
     edge_id = rtr_binding['edge_id']
@@ -240,20 +239,20 @@ def nsx_fix_name_mismatch(resource, event, trigger, **kwargs):
     errmsg = ("Need to specify edge-id property. Add --property "
               "edge-id=<edge-id>")
     if not kwargs.get('property'):
-        LOG.error(_LE("%s"), errmsg)
+        LOG.error("%s", errmsg)
         return
     properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
     edgeapi = utils.NeutronDbClient()
     edge_id = properties.get('edge-id')
     if not edge_id:
-        LOG.error(_LE("%s"), errmsg)
+        LOG.error("%s", errmsg)
         return
     try:
         # edge[0] is response status code
         # edge[1] is response body
         edge = nsxv.get_edge(edge_id)[1]
     except exceptions.NeutronException as e:
-        LOG.error(_LE("%s"), str(e))
+        LOG.error("%s", str(e))
     else:
         if edge['name'].startswith('backup-'):
 
@@ -261,8 +260,7 @@ def nsx_fix_name_mismatch(resource, event, trigger, **kwargs):
                     edgeapi.context.session, edge['id'])
 
             if rtr_binding['router_id'] == edge['name']:
-                LOG.error(
-                    _LE('Edge %s no mismatch with NSX'), edge_id)
+                LOG.error('Edge %s no mismatch with NSX', edge_id)
                 return
 
             try:
@@ -292,13 +290,13 @@ def nsx_fix_name_mismatch(resource, event, trigger, **kwargs):
                                     '-' + rtr_db['id'])
                             else:
                                 LOG.error(
-                                    _LE('No database entry for router id %s'),
+                                    'No database entry for router id %s',
                                     rtr_binding['router_id'])
 
                         else:
                             LOG.error(
-                                _LE('Could not determine the name for '
-                                    'Edge %s'), edge_id)
+                                'Could not determine the name for '
+                                'Edge %s', edge_id)
                             return
 
                     confirm = admin_utils.query_yes_no(
@@ -307,21 +305,21 @@ def nsx_fix_name_mismatch(resource, event, trigger, **kwargs):
                         default="no")
 
                     if not confirm:
-                        LOG.info(_LI("Edge rename aborted by user"))
+                        LOG.info("Edge rename aborted by user")
                         return
-                    LOG.info(_LI("Edge rename started"))
+                    LOG.info("Edge rename started")
                     # remove some keys that will fail the NSX transaction
                     edge_utils.remove_irrelevant_keys_from_edge_request(edge)
                     try:
-                        LOG.error(_LE("Update edge..."))
+                        LOG.error("Update edge...")
                         nsxv.update_edge(edge_id, edge)
                     except Exception as e:
-                        LOG.error(_LE("Update failed - %s"), (e))
+                        LOG.error("Update failed - %s", (e))
             except Exception as e:
-                LOG.error(_LE("%s"), str(e))
+                LOG.error("%s", str(e))
         else:
             LOG.error(
-                _LE('Edge %s has no backup prefix on NSX'), edge_id)
+                'Edge %s has no backup prefix on NSX', edge_id)
             return
 
 registry.subscribe(nsx_list_backup_edges,

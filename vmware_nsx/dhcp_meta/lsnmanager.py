@@ -21,7 +21,7 @@ from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from vmware_nsx._i18n import _, _LE, _LW
+from vmware_nsx._i18n import _
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import exceptions as p_exc
 from vmware_nsx.common import nsx_utils
@@ -69,14 +69,14 @@ class LsnManager(object):
             return lsn_api.lsn_for_network_get(self.cluster, network_id)
         except (n_exc.NotFound, api_exc.NsxApiException):
             if raise_on_err:
-                LOG.error(_LE('Unable to find Logical Service Node for '
-                              'network %s.'),
+                LOG.error('Unable to find Logical Service Node for '
+                          'network %s.',
                           network_id)
                 raise p_exc.LsnNotFound(entity='network',
                                         entity_id=network_id)
             else:
-                LOG.warning(_LW('Unable to find Logical Service Node for '
-                                'the requested network %s.'),
+                LOG.warning('Unable to find Logical Service Node for '
+                            'the requested network %s.',
                             network_id)
 
     def lsn_create(self, context, network_id):
@@ -92,7 +92,7 @@ class LsnManager(object):
         try:
             lsn_api.lsn_delete(self.cluster, lsn_id)
         except (n_exc.NotFound, api_exc.NsxApiException):
-            LOG.warning(_LW('Unable to delete Logical Service Node %s'),
+            LOG.warning('Unable to delete Logical Service Node %s',
                         lsn_id)
 
     def lsn_delete_by_network(self, context, network_id):
@@ -110,17 +110,17 @@ class LsnManager(object):
                     self.cluster, lsn_id, subnet_id)
             except (n_exc.NotFound, api_exc.NsxApiException):
                 if raise_on_err:
-                    LOG.error(_LE('Unable to find Logical Service Node Port '
-                                  'for LSN %(lsn_id)s and subnet '
-                                  '%(subnet_id)s'),
+                    LOG.error('Unable to find Logical Service Node Port '
+                              'for LSN %(lsn_id)s and subnet '
+                              '%(subnet_id)s',
                               {'lsn_id': lsn_id, 'subnet_id': subnet_id})
                     raise p_exc.LsnPortNotFound(lsn_id=lsn_id,
                                                 entity='subnet',
                                                 entity_id=subnet_id)
                 else:
-                    LOG.warning(_LW('Unable to find Logical Service Node Port '
-                                    'for LSN %(lsn_id)s and subnet '
-                                    '%(subnet_id)s'),
+                    LOG.warning('Unable to find Logical Service Node Port '
+                                'for LSN %(lsn_id)s and subnet '
+                                '%(subnet_id)s',
                                 {'lsn_id': lsn_id, 'subnet_id': subnet_id})
                 return (lsn_id, None)
             else:
@@ -137,17 +137,17 @@ class LsnManager(object):
                     self.cluster, lsn_id, mac)
             except (n_exc.NotFound, api_exc.NsxApiException):
                 if raise_on_err:
-                    LOG.error(_LE('Unable to find Logical Service Node Port '
-                                  'for LSN %(lsn_id)s and mac address '
-                                  '%(mac)s'),
+                    LOG.error('Unable to find Logical Service Node Port '
+                              'for LSN %(lsn_id)s and mac address '
+                              '%(mac)s',
                               {'lsn_id': lsn_id, 'mac': mac})
                     raise p_exc.LsnPortNotFound(lsn_id=lsn_id,
                                                 entity='MAC',
                                                 entity_id=mac)
                 else:
-                    LOG.warning(_LW('Unable to find Logical Service Node '
-                                    'Port for LSN %(lsn_id)s and mac address '
-                                    '%(mac)s'),
+                    LOG.warning('Unable to find Logical Service Node '
+                                'Port for LSN %(lsn_id)s and mac address '
+                                '%(mac)s',
                                 {'lsn_id': lsn_id, 'mac': mac})
                 return (lsn_id, None)
             else:
@@ -170,7 +170,7 @@ class LsnManager(object):
         try:
             lsn_api.lsn_port_delete(self.cluster, lsn_id, lsn_port_id)
         except (n_exc.NotFound, api_exc.NsxApiException):
-            LOG.warning(_LW('Unable to delete LSN Port %s'), lsn_port_id)
+            LOG.warning('Unable to delete LSN Port %s', lsn_port_id)
 
     def lsn_port_dispose(self, context, network_id, mac_address):
         """Delete a LSN port given the network and the mac address."""
@@ -187,12 +187,12 @@ class LsnManager(object):
                         self.cluster, network_id, lswitch_port_id)
                 except (n_exc.PortNotFoundOnNetwork,
                         api_exc.NsxApiException):
-                    LOG.warning(_LW("Metadata port not found while attempting "
-                                    "to delete it from network %s"),
+                    LOG.warning("Metadata port not found while attempting "
+                                "to delete it from network %s",
                                 network_id)
         else:
-            LOG.warning(_LW("Unable to find Logical Services Node "
-                            "Port with MAC %s"), mac_address)
+            LOG.warning("Unable to find Logical Services Node "
+                        "Port with MAC %s", mac_address)
 
     def lsn_port_dhcp_setup(
         self, context, network_id, port_id, port_data, subnet_config=None):
@@ -319,8 +319,8 @@ class LsnManager(object):
             if lsn_id and lsn_port_id:
                 hdlr(self.cluster, lsn_id, lsn_port_id, data)
         except (n_exc.NotFound, api_exc.NsxApiException):
-            LOG.error(_LE('Error while configuring LSN '
-                          'port %s'), lsn_port_id)
+            LOG.error('Error while configuring LSN '
+                      'port %s', lsn_port_id)
             raise p_exc.PortConfigurationError(
                 net_id=network_id, lsn_id=lsn_id, port_id=lsn_port_id)
 

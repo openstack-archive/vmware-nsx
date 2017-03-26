@@ -27,7 +27,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import exc
 from sqlalchemy.sql import expression as expr
 
-from vmware_nsx._i18n import _, _LE, _LW
+from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import db as nsx_db
@@ -70,10 +70,10 @@ def warn_on_binding_status_error(f, *args, **kwargs):
 
     for binding in bindings:
         if binding and binding['status'] == neutron_const.ERROR:
-            LOG.warning(_LW("Found NSXV router binding entry with status "
-                            "%(status)s: router %(router)s, "
-                            "edge %(edge)s, lswitch %(lswitch)s, "
-                            "status description: %(desc)s "),
+            LOG.warning("Found NSXV router binding entry with status "
+                        "%(status)s: router %(router)s, "
+                        "edge %(edge)s, lswitch %(lswitch)s, "
+                        "status description: %(desc)s ",
                         {'status': binding['status'],
                          'router': binding['router_id'],
                          'edge': binding['edge_id'],
@@ -318,8 +318,8 @@ def create_edge_dhcp_static_binding(session, edge_id, mac_address, binding_id):
         return _create_edge_dhcp_static_binding(session, edge_id, mac_address,
                                                 binding_id)
     except db_exc.DBDuplicateEntry:
-        LOG.warning(_LW('Conflicting DHCP binding entry for '
-                        '%(edge_id)s:%(mac_address)s. Overwriting!'),
+        LOG.warning('Conflicting DHCP binding entry for '
+                    '%(edge_id)s:%(mac_address)s. Overwriting!',
                     {'edge_id': edge_id, 'mac_address': mac_address})
         delete_edge_dhcp_static_binding(session, edge_id, mac_address)
         return _create_edge_dhcp_static_binding(session, edge_id, mac_address,
@@ -373,8 +373,8 @@ def create_nsxv_internal_network(session, network_purpose,
             session.add(network)
         except db_exc.DBDuplicateEntry:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Duplicate internal network for purpose "
-                                  "%(p)s and availabiltiy zone %(az)s"),
+                LOG.exception("Duplicate internal network for purpose "
+                              "%(p)s and availabiltiy zone %(az)s",
                               {'p': network_purpose,
                               'az': availability_zone})
 
@@ -412,7 +412,7 @@ def create_nsxv_internal_edge(session, ext_ip_address, purpose, router_id):
             session.add(internal_edge)
         except db_exc.DBDuplicateEntry:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE("Duplicate internal Edge IP %s"),
+                LOG.exception("Duplicate internal Edge IP %s",
                               ext_ip_address)
 
 

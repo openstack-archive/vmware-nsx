@@ -17,7 +17,6 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_vmware import vim_util
 
-from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.dvs import dvs_utils
 
@@ -154,10 +153,10 @@ class DvsManager(VCManagerBase):
         except Exception:
             # NOTE(garyk): handle more specific exceptions
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Failed to create port group for '
-                                  '%(net_id)s with tag %(tag)s.'),
+                LOG.exception('Failed to create port group for '
+                              '%(net_id)s with tag %(tag)s.',
                               {'net_id': net_id, 'tag': vlan_tag})
-        LOG.info(_LI("%(net_id)s with tag %(vlan_tag)s created on %(dvs)s."),
+        LOG.info("%(net_id)s with tag %(vlan_tag)s created on %(dvs)s.",
                  {'net_id': net_id,
                   'vlan_tag': vlan_tag,
                   'dvs': dvs_moref.value})
@@ -282,7 +281,7 @@ class DvsManager(VCManagerBase):
                                            self._session.vim,
                                            pg_moref, ['config'])
         if len(pg_spec) == 0 or len(pg_spec[0].propSet[0]) == 0:
-            LOG.error(_LE('Failed to get object properties of %s'), pg_moref)
+            LOG.error('Failed to get object properties of %s', pg_moref)
             raise nsx_exc.DvsNotFound(dvs=pg_moref)
 
         # Convert the extracted config to DVPortgroupConfigSpec
@@ -298,7 +297,7 @@ class DvsManager(VCManagerBase):
         try:
             self._session.wait_for_task(task)
         except Exception:
-            LOG.error(_LE('Failed to reconfigure DVPortGroup %s'), pg_moref)
+            LOG.error('Failed to reconfigure DVPortGroup %s', pg_moref)
             raise nsx_exc.DvsNotFound(dvs=pg_moref)
 
     # Update the dvs port groups config for a vxlan/vlan network
@@ -376,9 +375,9 @@ class DvsManager(VCManagerBase):
         except Exception:
             # NOTE(garyk): handle more specific exceptions
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Failed to delete port group for %s.'),
+                LOG.exception('Failed to delete port group for %s.',
                               net_id)
-        LOG.info(_LI("%(net_id)s delete from %(dvs)s."),
+        LOG.info("%(net_id)s delete from %(dvs)s.",
                  {'net_id': net_id,
                   'dvs': dvs_moref.value})
 
@@ -514,11 +513,11 @@ class VMManager(VCManagerBase):
                                         spec=new_spec)
         try:
             self._session.wait_for_task(task)
-            LOG.info(_LI("Updated VM moref %(moref)s spec - "
-                         "attached an interface"),
+            LOG.info("Updated VM moref %(moref)s spec - "
+                     "attached an interface",
                      {'moref': vm_moref.value})
         except Exception as e:
-            LOG.error(_LE("Failed to reconfigure VM %(moref)s spec: %(e)s"),
+            LOG.error("Failed to reconfigure VM %(moref)s spec: %(e)s",
                       {'moref': vm_moref.value, 'e': e})
 
     def _build_vm_spec_detach(self, device):
@@ -541,10 +540,10 @@ class VMManager(VCManagerBase):
                                         spec=new_spec)
         try:
             self._session.wait_for_task(task)
-            LOG.info(_LI("Updated VM %(moref)s spec - detached an interface"),
+            LOG.info("Updated VM %(moref)s spec - detached an interface",
                      {'moref': vm_moref.value})
         except Exception as e:
-            LOG.error(_LE("Failed to reconfigure vm moref %(moref)s: %(e)s"),
+            LOG.error("Failed to reconfigure vm moref %(moref)s: %(e)s",
                       {'moref': vm_moref.value, 'e': e})
 
     def get_vm_interfaces_info(self, vm_moref):
@@ -566,7 +565,7 @@ class ClusterManager(VCManagerBase):
                 session.vim, "ReconfigureComputeResource_Task",
                 cluster, spec=config_spec, modify=True)
         except Exception as excep:
-            LOG.exception(_LE('Failed to reconfigure cluster %s'), excep)
+            LOG.exception('Failed to reconfigure cluster %s', excep)
         session.wait_for_task(reconfig_task)
 
     def _create_vm_group_spec(self, client_factory, name, vm_refs,
@@ -702,7 +701,7 @@ class ClusterManager(VCManagerBase):
                     found = True
                     break
             if not found:
-                LOG.error(_LE("%s does not exist"), host_group_name)
+                LOG.error("%s does not exist", host_group_name)
                 raise exceptions.NotFound()
         update_cluster = False
         num_host_groups = len(host_group_names)
@@ -745,7 +744,7 @@ class ClusterManager(VCManagerBase):
             try:
                 self._reconfigure_cluster(session, cluster, config_spec)
             except Exception as e:
-                LOG.error(_LE('Unable to update cluster for host groups %s'),
+                LOG.error('Unable to update cluster for host groups %s',
                           e)
 
     def _delete_vm_group_spec(self, client_factory, name):

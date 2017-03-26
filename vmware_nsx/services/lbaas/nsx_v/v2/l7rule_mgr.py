@@ -17,7 +17,6 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from vmware_nsx._i18n import _LE
 from vmware_nsx.common import locking
 from vmware_nsx.services.lbaas.nsx_v.v2 import base_mgr
 from vmware_nsx.services.lbaas.nsx_v.v2 import l7policy_mgr
@@ -46,8 +45,8 @@ class EdgeL7RuleManager(base_mgr.EdgeLoadbalancerBaseManager):
         except Exception as e:
             with excutils.save_and_reraise_exception():
                 self.lbv2_driver.l7rule.failed_completion(context, rule)
-                LOG.error(_LE('Failed to update L7rules on edge %(edge)s: '
-                              '%(err)s'),
+                LOG.error('Failed to update L7rules on edge %(edge)s: '
+                          '%(err)s',
                           {'edge': edge_id, 'err': e})
 
         # complete the transaction

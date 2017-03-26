@@ -20,7 +20,6 @@ import logging
 
 from oslo_config import cfg
 
-from vmware_nsx._i18n import _LE
 from vmware_nsx.db import db as nsx_db
 
 LOG = logging.getLogger(__name__)
@@ -82,9 +81,9 @@ class DbCertificateStorageDriver(object):
             except fernet.InvalidToken:
                 # unable to decrypt - probably due to change of password
                 # cert and PK are useless, need to delete them
-                LOG.error(_LE("Unable to decrypt private key, possibly due "
-                              "to change of password. Certificate needs to be "
-                              "regenerated"))
+                LOG.error("Unable to decrypt private key, possibly due "
+                          "to change of password. Certificate needs to be "
+                          "regenerated")
                 self.delete_cert(purpose)
                 return None, None
 

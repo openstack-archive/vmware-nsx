@@ -18,7 +18,7 @@ from oslo_log import log as logging
 
 from neutron.db import l3_hamode_db
 
-from vmware_nsx._i18n import _, _LW
+from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.dvs import dvs_utils
 from vmware_nsx.extensions import routersize
@@ -843,9 +843,9 @@ def validate_nsxv_config_options():
         error = _("manager_uri, user, and password must be configured!")
         raise nsx_exc.NsxPluginException(err_msg=error)
     if cfg.CONF.nsxv.dvs_id is None:
-        LOG.warning(_LW("dvs_id must be configured to support VLANs!"))
+        LOG.warning("dvs_id must be configured to support VLANs!")
     if cfg.CONF.nsxv.vdn_scope_id is None:
-        LOG.warning(_LW("vdn_scope_id must be configured to support VXLANs!"))
+        LOG.warning("vdn_scope_id must be configured to support VXLANs!")
     if cfg.CONF.nsxv.use_dvs_features and not dvs_utils.dvs_is_enabled(
                                                  dvs_id=cfg.CONF.nsxv.dvs_id):
         error = _("dvs host/vcenter credentials must be defined to use "

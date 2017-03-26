@@ -29,7 +29,6 @@ from neutron.callbacks import registry
 from neutron_lib import exceptions
 from oslo_log import log as logging
 
-from vmware_nsx._i18n import _LE, _LI
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
@@ -98,12 +97,12 @@ def nsx_list_orphaned_edges(resource, event, trigger, **kwargs):
     Orphaned edges are NSXv edges that exist on NSXv backend but
     don't have a corresponding binding in Neutron DB
     """
-    LOG.info(_LI("NSXv edges present on NSXv backend but not present "
-                 "in Neutron DB\n"))
+    LOG.info("NSXv edges present on NSXv backend but not present "
+             "in Neutron DB\n")
     orphaned_edges = get_orphaned_edges()
     if not orphaned_edges:
-        LOG.info(_LI("\nNo orphaned edges found."
-                     "\nNeutron DB and NSXv backend are in sync\n"))
+        LOG.info("\nNo orphaned edges found."
+                 "\nNeutron DB and NSXv backend are in sync\n")
     else:
         LOG.info(constants.ORPHANED_EDGES)
         data = [('edge_id',)]
@@ -116,7 +115,7 @@ def nsx_list_orphaned_edges(resource, event, trigger, **kwargs):
 def nsx_delete_orphaned_edges(resource, event, trigger, **kwargs):
     """Delete orphaned edges from NSXv backend"""
     orphaned_edges = get_orphaned_edges()
-    LOG.info(_LI("Before delete; Orphaned Edges: %s"), orphaned_edges)
+    LOG.info("Before delete; Orphaned Edges: %s", orphaned_edges)
 
     if not kwargs.get('force'):
         if len(orphaned_edges):
@@ -124,15 +123,15 @@ def nsx_delete_orphaned_edges(resource, event, trigger, **kwargs):
                                                     "orphaned edges",
                                                     default="no")
             if not user_confirm:
-                LOG.info(_LI("NSXv Edge deletion aborted by user"))
+                LOG.info("NSXv Edge deletion aborted by user")
                 return
 
     nsxv = utils.get_nsxv_client()
     for edge in orphaned_edges:
-        LOG.info(_LI("Deleting edge: %s"), edge)
+        LOG.info("Deleting edge: %s", edge)
         nsxv.delete_edge(edge)
 
-    LOG.info(_LI("After delete; Orphaned Edges: \n%s"),
+    LOG.info("After delete; Orphaned Edges: \n%s",
         pprint.pformat(get_orphaned_edges()))
 
 
@@ -161,12 +160,12 @@ def nsx_list_missing_edges(resource, event, trigger, **kwargs):
     Missing edges are NSXv edges that have a binding in Neutron DB
     but are currently missing from the NSXv backend.
     """
-    LOG.info(_LI("NSXv edges present in Neutron DB but not present "
-                 "on the NSXv backend\n"))
+    LOG.info("NSXv edges present in Neutron DB but not present "
+             "on the NSXv backend\n")
     missing_edges = get_missing_edges()
     if not missing_edges:
-        LOG.info(_LI("\nNo edges are missing."
-                     "\nNeutron DB and NSXv backend are in sync\n"))
+        LOG.info("\nNo edges are missing."
+                 "\nNeutron DB and NSXv backend are in sync\n")
     else:
         data = [('edge_id', 'network_id')]
         for edge in missing_edges:
@@ -188,9 +187,9 @@ def change_edge_ha(ha, edge_id):
     try:
         nsxv.enable_ha(edge_id, request)
     except nsxv_exceptions.ResourceNotFound as e:
-        LOG.error(_LE("Edge %s not found"), edge_id)
+        LOG.error("Edge %s not found", edge_id)
     except exceptions.NeutronException as e:
-        LOG.error(_LE("%s"), str(e))
+        LOG.error("%s", str(e))
 
 
 def change_edge_syslog(properties):
@@ -200,7 +199,7 @@ def change_edge_syslog(properties):
 
     request['protocol'] = properties.get('syslog-proto', 'tcp')
     if request['protocol'] not in ['tcp', 'udp']:
-        LOG.error(_LE("Property value error: syslog-proto must be tcp/udp"))
+        LOG.error("Property value error: syslog-proto must be tcp/udp")
         return
 
     if properties.get('syslog-server'):
@@ -214,18 +213,18 @@ def change_edge_syslog(properties):
     try:
         nsxv.update_edge_syslog(edge_id, request)
     except nsxv_exceptions.ResourceNotFound as e:
-        LOG.error(_LE("Edge %s not found"), edge_id)
+        LOG.error("Edge %s not found", edge_id)
     except exceptions.NeutronException as e:
-        LOG.error(_LE("%s"), str(e))
+        LOG.error("%s", str(e))
 
 
 def delete_edge_syslog(edge_id):
     try:
         nsxv.delete_edge_syslog(edge_id)
     except nsxv_exceptions.ResourceNotFound as e:
-        LOG.error(_LE("Edge %s not found"), edge_id)
+        LOG.error("Edge %s not found", edge_id)
     except exceptions.NeutronException as e:
-        LOG.error(_LE("%s"), str(e))
+        LOG.error("%s", str(e))
 
 
 def change_edge_loglevel(properties):
@@ -257,17 +256,17 @@ def change_edge_loglevel(properties):
 
     for module, level in modules.items():
         if level == 'none':
-            LOG.info(_LI("Disabling logging for %s"), module)
+            LOG.info("Disabling logging for %s", module)
         else:
-            LOG.info(_LI("Enabling logging for %(m)s with level %(l)s"),
+            LOG.info("Enabling logging for %(m)s with level %(l)s",
                     {'m': module, 'l': level})
         try:
             edge_utils.update_edge_loglevel(nsxv, edge_id, module, level)
 
         except nsxv_exceptions.ResourceNotFound as e:
-            LOG.error(_LE("Edge %s not found"), edge_id)
+            LOG.error("Edge %s not found", edge_id)
         except exceptions.NeutronException as e:
-            LOG.error(_LE("%s"), str(e))
+            LOG.error("%s", str(e))
 
     # take ownership for properties
     return True
@@ -276,16 +275,16 @@ def change_edge_loglevel(properties):
 def change_edge_appliance_size(properties):
     size = properties.get('size')
     if size not in vcns_const.ALLOWED_EDGE_SIZES:
-        LOG.error(_LE("Edge appliance size not in %(size)s"),
+        LOG.error("Edge appliance size not in %(size)s",
                   {'size': vcns_const.ALLOWED_EDGE_SIZES})
         return
     try:
         nsxv.change_edge_appliance_size(
             properties.get('edge-id'), size)
     except nsxv_exceptions.ResourceNotFound as e:
-        LOG.error(_LE("Edge %s not found"), properties.get('edge-id'))
+        LOG.error("Edge %s not found", properties.get('edge-id'))
     except exceptions.NeutronException as e:
-        LOG.error(_LE("%s"), str(e))
+        LOG.error("%s", str(e))
 
 
 def _get_edge_az_and_size(edge_id):
@@ -322,9 +321,9 @@ def change_edge_appliance(edge_id):
     try:
         nsxv.change_edge_appliance(edge_id, request)
     except nsxv_exceptions.ResourceNotFound as e:
-        LOG.error(_LE("Edge %s not found"), edge_id)
+        LOG.error("Edge %s not found", edge_id)
     except exceptions.NeutronException as e:
-        LOG.error(_LE("%s"), str(e))
+        LOG.error("%s", str(e))
     else:
         # also update the edge_ha of the edge
         change_edge_ha(az.edge_ha, edge_id)
@@ -341,20 +340,20 @@ def change_edge_appliance_reservations(properties):
         res['shares'] = properties.get('shares')
     resource = properties.get('resource')
     if not res:
-        LOG.error(_LE("Please configure reservations"))
+        LOG.error("Please configure reservations")
         return
     if resource == 'cpu':
         reservations['cpuReservation'] = res
     elif resource == 'memory':
         reservations['memoryReservation'] = res
     else:
-        LOG.error(_LE("Please configure resource"))
+        LOG.error("Please configure resource")
         return
     edge_id = properties.get('edge-id')
     try:
         h, edge = nsxv.get_edge(edge_id)
     except exceptions.NeutronException as e:
-        LOG.error(_LE("%s"), str(e))
+        LOG.error("%s", str(e))
         return
     appliances = edge['appliances']['appliances']
     for appliance in appliances:
@@ -363,9 +362,9 @@ def change_edge_appliance_reservations(properties):
     try:
         nsxv.change_edge_appliance(edge_id, request)
     except nsxv_exceptions.ResourceNotFound as e:
-        LOG.error(_LE("Edge %s not found"), edge_id)
+        LOG.error("Edge %s not found", edge_id)
     except exceptions.NeutronException as e:
-        LOG.error(_LE("%s"), str(e))
+        LOG.error("%s", str(e))
 
 
 def _update_host_group_for_edge(nsxv, dvs_mng, edge_id, edge):
@@ -378,11 +377,11 @@ def _update_host_group_for_edge(nsxv, dvs_mng, edge_id, edge):
                                                dvs_mng, az,
                                                validate=True)
         except Exception as e:
-            LOG.error(_LE("Failed to update edge %(id)s - %(e)s"),
+            LOG.error("Failed to update edge %(id)s - %(e)s",
                       {'id': edge['id'],
                        'e': e})
     else:
-        LOG.error(_LE("%s is not a gateway services"), edge_id)
+        LOG.error("%s is not a gateway services", edge_id)
 
 
 def change_edge_hostgroup(properties):
@@ -392,7 +391,7 @@ def change_edge_hostgroup(properties):
         try:
             edge_result = nsxv.get_edge(edge_id)
         except exceptions.NeutronException as x:
-            LOG.error(_LE("%s"), str(x))
+            LOG.error("%s", str(x))
         else:
             # edge_result[0] is response status code
             # edge_result[1] is response body
@@ -411,32 +410,32 @@ def change_edge_hostgroup(properties):
             try:
                 edge_utils.clean_host_groups(dvs_mng, az)
             except Exception:
-                LOG.error(_LE("Failed to clean AZ %s"), az.name)
+                LOG.error("Failed to clean AZ %s", az.name)
     else:
-        LOG.error(_LE('Currently not supported'))
+        LOG.error('Currently not supported')
 
 
 @admin_utils.output_header
 def nsx_update_edge(resource, event, trigger, **kwargs):
     """Update edge properties"""
-    usage_msg = _LE("Need to specify edge-id parameter and "
-                    "attribute to update. Add --property edge-id=<edge-id> "
-                    "and --property highavailability=<True/False> or "
-                    "--property size=<size> or --property appliances=True. "
-                    "\nFor syslog, add --property syslog-server=<ip>|none and "
-                    "(optional) --property syslog-server2=<ip> and/or "
-                    "(optional) --property syslog-proto=[tcp/udp] "
-                    "\nFor log levels, add --property [routing|dhcp|dns|"
-                    "highavailability|loadbalancer]-log-level="
-                    "[debug|info|warning|error]. To set log level for all "
-                    "modules, add --property log-level=<level> "
-                    "\nFor edge reservations, add "
-                    "--property resource=cpu|memory and "
-                    "(optional) --property limit=<limit> and/or "
-                    "(optional) --property shares=<shares> and/or "
-                    "(optional) --property reservation=<reservation> "
-                    "\nFor hostgroup updates, add "
-                    "--property hostgroup=update/all/clean")
+    usage_msg = ("Need to specify edge-id parameter and "
+                 "attribute to update. Add --property edge-id=<edge-id> "
+                 "and --property highavailability=<True/False> or "
+                 "--property size=<size> or --property appliances=True. "
+                 "\nFor syslog, add --property syslog-server=<ip>|none and "
+                 "(optional) --property syslog-server2=<ip> and/or "
+                 "(optional) --property syslog-proto=[tcp/udp] "
+                 "\nFor log levels, add --property [routing|dhcp|dns|"
+                 "highavailability|loadbalancer]-log-level="
+                 "[debug|info|warning|error]. To set log level for all "
+                 "modules, add --property log-level=<level> "
+                 "\nFor edge reservations, add "
+                 "--property resource=cpu|memory and "
+                 "(optional) --property limit=<limit> and/or "
+                 "(optional) --property shares=<shares> and/or "
+                 "(optional) --property reservation=<reservation> "
+                 "\nFor hostgroup updates, add "
+                 "--property hostgroup=update/all/clean")
     if not kwargs.get('property'):
         LOG.error(usage_msg)
         return
@@ -444,10 +443,10 @@ def nsx_update_edge(resource, event, trigger, **kwargs):
     if (not properties.get('edge-id') and
         not properties.get('hostgroup', '').lower() == "all" and
         not properties.get('hostgroup', '').lower() == "clean"):
-        LOG.error(_LE("Need to specify edge-id. "
-                      "Add --property edge-id=<edge-id>"))
+        LOG.error("Need to specify edge-id. "
+                  "Add --property edge-id=<edge-id>")
         return
-    LOG.info(_LI("Updating NSXv edge: %(edge)s with properties\n%(prop)s"),
+    LOG.info("Updating NSXv edge: %(edge)s with properties\n%(prop)s",
              {'edge': properties.get('edge-id'), 'prop': properties})
     if properties.get('highavailability'):
         change_edge_ha(properties['highavailability'].lower() == "true",
@@ -477,8 +476,8 @@ def nsx_update_edge(resource, event, trigger, **kwargs):
 def nsx_update_edges(resource, event, trigger, **kwargs):
     """Update all edges with the given property"""
     if not kwargs.get('property'):
-        usage_msg = _LE("Need to specify a property to update all edges. "
-                        "Add --property appliances=<True/False>")
+        usage_msg = ("Need to specify a property to update all edges. "
+                     "Add --property appliances=<True/False>")
         LOG.error(usage_msg)
         return
 
@@ -491,14 +490,13 @@ def nsx_update_edges(resource, event, trigger, **kwargs):
                 change_edge_appliance(edge.get('edge-id'))
             except Exception as e:
                 result += 1
-                LOG.error(_LE("Failed to update edge %(edge)s. Exception: "
-                              "%(e)s"), {'edge': edge.get('edge-id'),
-                                         'e': str(e)})
+                LOG.error("Failed to update edge %(edge)s. Exception: "
+                          "%(e)s", {'edge': edge.get('edge-id'),
+                                    'e': str(e)})
     if result > 0:
         total = len(edges)
-        msg = (_LE("%(result)s of %(total)s edges failed "
-                   "to update.") % {'result': result, 'total': total})
-        LOG.error(msg)
+        LOG.error("%(result)s of %(total)s edges failed "
+                  "to update.", {'result': result, 'total': total})
 
 
 registry.subscribe(nsx_list_edges,
