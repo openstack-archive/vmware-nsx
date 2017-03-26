@@ -482,6 +482,11 @@ class FakeVcns(object):
         response = ''
         return (header, response)
 
+    def sync_firewall(self):
+        header = {'status': 204}
+        response = ""
+        return self.return_helper(header, response)
+
     def update_firewall(self, edge_id, fw_req):
         self.fake_firewall_dict[edge_id] = fw_req
         rules = self.fake_firewall_dict[edge_id][

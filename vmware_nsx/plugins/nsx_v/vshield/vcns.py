@@ -286,6 +286,11 @@ class Vcns(object):
         uri = self._build_uri_path(edge_id, LOADBALANCER_SERVICE)
         return self.do_request(HTTP_PUT, uri, config)
 
+    def sync_firewall(self):
+        for cluster_id in cfg.CONF.nsxv.cluster_moid:
+            uri = '/api/4.0/firewall/forceSync/%s' % cluster_id
+            self.do_request(HTTP_POST, uri)
+
     def update_firewall(self, edge_id, fw_req):
         uri = self._build_uri_path(
             edge_id, FIREWALL_SERVICE)
