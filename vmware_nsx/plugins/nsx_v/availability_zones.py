@@ -202,23 +202,44 @@ class NsxVAvailabilityZones(common_az.ConfiguredAvailabilityZones):
             cfg.CONF.nsxv.availability_zones,
             NsxVAvailabilityZone)
 
-    def get_resources(self):
-        """Return a list of all the resources in all the availability zones
+    def get_inventory(self):
+        """Return a set of relevant resources in all the availability zones
         """
-        resources = []
+        resources = set()
         for az in self.list_availability_zones_objects():
-            resources.append(az.resource_pool)
-            resources.append(az.datastore_id)
+            resources.add(az.resource_pool)
+            resources.add(az.datastore_id)
             if az.ha_datastore_id:
-                resources.append(az.ha_datastore_id)
-            if az.mgt_net_moid:
-                resources.append(az.mgt_net_moid)
-            if az.external_network:
-                resources.append(az.external_network)
-            if az.vdn_scope_id:
-                resources.append(az.vdn_scope_id)
-            if az.mgt_net_moid:
-                resources.append(az.mgt_net_moid)
-            if az.datacenter_moid:
-                resources.append(az.datacenter_moid)
+                resources.add(az.ha_datastore_id)
+
         return resources
+
+    def get_unique_non_default_param(self, param_name):
+        """Return a set of all configured values of one of az params
+
+        Ignore the value of the default AZ
+        """
+        resources = set()
+        default_val = None
+        for az in self.list_availability_zones_objects():
+            az_val = getattr(az, param_name)
+            if az.is_default():
+                default_val = az_val
+            elif az_val:
+                resources.add(az_val)
+        # remove the default value
+        if default_val:
+            resources.discard(default_val)
+        return resources
+
+    def get_additional_vdn_scope(self):
+        return self.get_unique_non_default_param("vdn_scope_id")
+
+    def get_additional_mgt_net(self):
+        return self.get_unique_non_default_param("mgt_net_moid")
+
+    def get_additional_ext_net(self):
+        return self.get_unique_non_default_param("external_network")
+
+    def get_additional_datacenter(self):
+        return self.get_unique_non_default_param("datacenter_moid")
