@@ -151,7 +151,7 @@ class NSXClient(object):
                                 verify=self.verify, params=params).json()
         results = response['results']
         missing = response['result_count'] - len(results)
-        cursor = response['cursor']
+        cursor = response.get('cursor', self.NULL_CURSOR_PREFIX)
 
         op = '&' if urlparse.urlparse(self.url).query else '?'
         url = self.url + op + 'cursor='
@@ -316,29 +316,6 @@ class NSXClient(object):
                            if fws['id'] in db_sections]
         return fw_sections
 
-    def get_firewall_section_rules(self, fw_section):
-        """
-        Retrieve all fw rules for a given fw section
-        """
-        endpoint = "/firewall/sections/%s/rules" % fw_section['id']
-        return self.get_list_results(endpoint=endpoint)
-
-    def cleanup_firewall_section_rules(self, fw_section):
-        """
-        Cleanup all firewall rules for a given fw section
-        """
-        fw_rules = self.get_firewall_section_rules(fw_section)
-        for rule in fw_rules:
-            endpoint = "/firewall/sections/%s/rules/%s" % (fw_section['id'],
-                                                           rule['id'])
-            response = self.delete(endpoint=endpoint)
-            if response.status_code == requests.codes.ok:
-                print("Successfully deleted fw rule %s in fw section %s" %
-                      (rule['display_name'], fw_section['display_name']))
-            else:
-                print("Failed to delete fw rule %s in fw section %s" %
-                      (rule['display_name'], fw_section['display_name']))
-
     def cleanup_os_firewall_sections(self):
         """
         Cleanup all firewall sections created from OpenStack
@@ -347,8 +324,7 @@ class NSXClient(object):
         print("Number of OS Firewall Sections to be deleted: %s" %
               len(fw_sections))
         for fw in fw_sections:
-            self.cleanup_firewall_section_rules(fw)
-            endpoint = "/firewall/sections/%s" % fw['id']
+            endpoint = "/firewall/sections/%s?cascade=true" % fw['id']
             response = self.delete(endpoint=endpoint)
             if response.status_code == requests.codes.ok:
                 print("Successfully deleted firewall section %s" %
