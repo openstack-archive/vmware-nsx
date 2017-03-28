@@ -89,19 +89,4 @@ Modules within vmware_nsx_tempest can not see resources defined
 by vmware_nsx. Commands like following are not acceptable, unless
 vmware_nsx is installed in your tempest environment::
 
-    from vmware_nsx._i18n import _LE
     import vmware_nsx.shell.admin.plugins.common.utils as admin_utils
-
-TechNote on logging:
---------------------
-tempest repo itself does not enforce LOG complying to _i18n.
-So for tempest tests for vmware-nsx, that is vmware_nsx_tempest,
-use LOG.debug() command.
-
-However, if you need to log other than debug level, please do::
-
-    from vmware_nsx_tempest._i18n import _LI
-    from vmware_nsx_tempest._i18n import _LE
-    from vmware_nsx_tempest._i18n import _LW
-
-Customize it depending on the log level your scripts will use.
