@@ -158,6 +158,17 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
         mock_delete_dhcp_service = mock.patch("%s.%s" % (
             vmware.EDGE_MANAGE_NAME, 'delete_dhcp_edge_service'))
         mock_delete_dhcp_service.start()
+        mock_check_backup_edge_pools = mock.patch("%s.%s" % (
+            vmware.EDGE_MANAGE_NAME, '_check_backup_edge_pools'))
+        mock_check_backup_edge_pools.start()
+        mock_deploy_backup_edges_at_backend = mock.patch("%s.%s" % (
+            vmware.EDGE_MANAGE_NAME, '_deploy_backup_edges_at_backend'))
+        mock_deploy_backup_edges_at_backend.start()
+        mock_process_security_group_logging = mock.patch(
+            'vmware_nsx.plugin.NsxVPlugin.'
+            '_process_security_groups_rules_logging')
+        mock_process_security_group_logging.start()
+
         self.default_res_pool = 'respool-28'
         cfg.CONF.set_override("resource_pool_id", self.default_res_pool,
                               group="nsxv")
@@ -3372,6 +3383,14 @@ class NsxVSecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
         mock_delete_dhcp_service = mock.patch("%s.%s" % (
             vmware.EDGE_MANAGE_NAME, 'delete_dhcp_edge_service'))
         mock_delete_dhcp_service.start()
+        mock_check_backup_edge_pools = mock.patch("%s.%s" % (
+            vmware.EDGE_MANAGE_NAME, '_check_backup_edge_pools'))
+        mock_check_backup_edge_pools.start()
+        mock_process_security_group_logging = mock.patch(
+            'vmware_nsx.plugin.NsxVPlugin.'
+            '_process_security_groups_rules_logging')
+        mock_process_security_group_logging.start()
+
         c_utils.spawn_n = mock.Mock(side_effect=lambda f: f())
         super(NsxVSecurityGroupsTestCase, self).setUp(plugin=plugin,
                                                       ext_mgr=ext_mgr)
