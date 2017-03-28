@@ -252,6 +252,9 @@ function init_vmware_nsx_v3 {
 }
 
 function stop_vmware_nsx_v3 {
+    # Clean client certificate if exists
+    nsxadmin -o clean -r certificate
+
     if ! is_set NSX_GATEWAY_NETWORK_INTERFACE; then
         echo "NSX_GATEWAY_NETWORK_INTERFACE was not configured."
         return
@@ -272,9 +275,6 @@ function stop_vmware_nsx_v3 {
     for address in $addresses; do
         sudo ip addr add dev $NSX_GATEWAY_NETWORK_INTERFACE $address
     done
-
-    # Clean client certificate if exists
-    nsxadmin -o clean -r certificate
 }
 
 # Restore xtrace
