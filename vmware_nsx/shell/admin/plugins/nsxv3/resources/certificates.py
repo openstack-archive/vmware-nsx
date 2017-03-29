@@ -13,7 +13,7 @@
 #    under the License.
 
 
-import logging
+from oslo_log import log as logging
 
 from vmware_nsx.plugins.nsx_v3 import cert_utils
 from vmware_nsx.shell.admin.plugins.common import constants
