@@ -150,6 +150,11 @@ class NsxResourceNotFound(n_exc.NotFound):
     message = _("%(res_name)s %(res_id)s not found on the backend.")
 
 
+class NsxAZResourceNotFound(NsxResourceNotFound):
+    message = _("Availability zone %(res_name)s %(res_id)s not found on the "
+                "backend.")
+
+
 class NsxQosPolicyMappingNotFound(n_exc.NotFound):
     message = _('Unable to find mapping for QoS policy: %(policy)s')
 

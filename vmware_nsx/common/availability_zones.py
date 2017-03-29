@@ -83,12 +83,6 @@ class ConfiguredAvailabilityZones(object):
         obj = az_class(None)
         self.availability_zones[obj.name] = obj
 
-    @abc.abstractmethod
-    def get_resources(self):
-        """Return a list of all the resources in all the availability zones
-        """
-        pass
-
     def get_availability_zone(self, name):
         """Return an availability zone object by its name
         """

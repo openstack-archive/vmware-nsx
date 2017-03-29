@@ -4045,29 +4045,49 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                 res_name='dvs_id',
                                 res_id=cfg.CONF.nsxv.dvs_id)
 
+        # Validate the global & per-AZ validate_datacenter_moid
         if not self.nsx_v.vcns.validate_datacenter_moid(
                 cfg.CONF.nsxv.datacenter_moid):
             raise nsx_exc.NsxResourceNotFound(
                                 res_name='datacenter_moid',
                                 res_id=cfg.CONF.nsxv.datacenter_moid)
+        for dc in self._availability_zones_data.get_additional_datacenter():
+            if not self.nsx_v.vcns.validate_datacenter_moid(dc):
+                raise nsx_exc.NsxAZResourceNotFound(
+                    res_name='datacenter_moid', res_id=dc)
 
+        # Validate the global & per-AZ external_network
         if not self.nsx_v.vcns.validate_network(
                 cfg.CONF.nsxv.external_network):
             raise nsx_exc.NsxResourceNotFound(
                                 res_name='external_network',
                                 res_id=cfg.CONF.nsxv.external_network)
+        for ext_net in self._availability_zones_data.get_additional_ext_net():
+            if not self.nsx_v.vcns.validate_network(ext_net):
+                raise nsx_exc.NsxAZResourceNotFound(
+                    res_name='external_network', res_id=ext_net)
 
+        # Validate the global & per-AZ vdn_scope_id
         if not self.nsx_v.vcns.validate_vdn_scope(cfg.CONF.nsxv.vdn_scope_id):
             raise nsx_exc.NsxResourceNotFound(
                                 res_name='vdn_scope_id',
                                 res_id=cfg.CONF.nsxv.vdn_scope_id)
+        for vdns in self._availability_zones_data.get_additional_vdn_scope():
+            if not self.nsx_v.vcns.validate_vdn_scope(vdns):
+                raise nsx_exc.NsxAZResourceNotFound(
+                    res_name='vdn_scope_id', res_id=vdns)
 
+        # Validate the global & per-AZ mgt_net_moid
         if (cfg.CONF.nsxv.mgt_net_moid
             and not self.nsx_v.vcns.validate_network(
                 cfg.CONF.nsxv.mgt_net_moid)):
             raise nsx_exc.NsxResourceNotFound(
                                 res_name='mgt_net_moid',
                                 res_id=cfg.CONF.nsxv.mgt_net_moid)
+        for mgmt_net in self._availability_zones_data.get_additional_mgt_net():
+            if not self.nsx_v.vcns.validate_network(mgmt_net):
+                raise nsx_exc.NsxAZResourceNotFound(
+                    res_name='mgt_net_moid', res_id=mgmt_net)
 
         ver = self.nsx_v.vcns.get_version()
         if version.LooseVersion(ver) < version.LooseVersion('6.2.0'):
@@ -4095,7 +4115,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             inventory.append((cluster, 'cluster_moid'))
 
         # Add the availability zones resources
-        az_resources = self._availability_zones_data.get_resources()
+        az_resources = self._availability_zones_data.get_inventory()
         for res in az_resources:
             inventory.append((res, 'availability_zones'))
 
