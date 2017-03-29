@@ -124,13 +124,15 @@ class TestMDProxy(manager.NetworkScenarioTest):
         return ports_list['ports']
 
     def _get_port_id(self, network_id, subnet_id, instance):
-        _, instance_addr = instance["addresses"].items()[0]
-        instance_fixed_ip = instance_addr[0]["addr"]
+        instance_addrs = instance["addresses"].items()
+        instance_fixed_ips = []
+        for addr in instance_addrs:
+            instance_fixed_ips.append(addr[1][0]["addr"])
         for port in self._list_ports(device_id=instance['id']):
             port_fixed_ip = port["fixed_ips"][0]["ip_address"]
             if port["network_id"] == network_id and port["fixed_ips"][0][
                     "subnet_id"] == subnet_id and "compute:" in port[
-                    "device_owner"] and port_fixed_ip == instance_fixed_ip:
+                    "device_owner"] and port_fixed_ip in instance_fixed_ips:
                 port_id = port["id"]
         self.assertIsNotNone(port_id, "Failed to find Instance's port id!!!")
         return port_id
