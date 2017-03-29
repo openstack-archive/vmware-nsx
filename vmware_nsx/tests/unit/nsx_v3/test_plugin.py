@@ -160,6 +160,12 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
             'network_scheduler_driver',
             'neutron.scheduler.dhcp_agent_scheduler.AZAwareWeightScheduler')
 
+    def mock_plugin_methods(self):
+        # mock unnecessary call which causes spawn
+        mock_process_security_group_logging = mock.patch.object(
+            nsx_plugin.NsxV3Plugin, '_process_security_group_logging')
+        mock_process_security_group_logging.start()
+
     def setUp(self, plugin=PLUGIN_NAME,
               ext_mgr=None,
               service_plugins=None):
@@ -168,7 +174,7 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
 
         _mock_nsx_backend_calls()
         self.setup_conf_overrides()
-
+        self.mock_plugin_methods()
         super(NsxV3PluginTestCaseMixin, self).setUp(plugin=plugin,
                                                     ext_mgr=ext_mgr)
 
