@@ -120,7 +120,7 @@ class TestDvsNetworkBasicOps(manager.NetworkScenarioTest):
         return self.keypairs[server['key_name']]['private_key']
 
     def _check_tenant_network_connectivity(self):
-        ssh_login = CONF.compute.image_ssh_user
+        ssh_login = CONF.validation.image_ssh_user
         for server in self.servers:
             # call the common method in the parent class
             (super(TestDvsNetworkBasicOps, self).
