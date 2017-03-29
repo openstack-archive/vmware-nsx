@@ -16,9 +16,9 @@
 import base64
 from cryptography import fernet
 import hashlib
-import logging
 
 from oslo_config import cfg
+from oslo_log import log as logging
 
 from vmware_nsx.db import db as nsx_db
 
