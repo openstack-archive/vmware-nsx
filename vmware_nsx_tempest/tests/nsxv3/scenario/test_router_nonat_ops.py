@@ -1,4 +1,4 @@
-# Copyright 2016 VMware Inc
+# Copyright 2017 VMware Inc
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -43,9 +43,10 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
         - Create a NATed topology and check end to end traffic.
           Update the router to NoNAT and check end to end traffic.
 
-    Note: For NoNAT use case, we need to add the static route on external
-    VM in order for NSX connected network to be reachable from external.
-        $ route add -net 192.168.1.0 netmask 255.255.255.0 gw 172.20.1.60 eth1
+    Note: For NoNAT use case, Enable CONF.network.project_networks_reachable
+    and add the static route on external VM in order for NSX connected
+    network to be reachable from external.
+    route add -net 192.168.1.0 netmask 255.255.255.0 gw 172.20.1.60 eth1
     """
 
     @classmethod
@@ -88,9 +89,10 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
                         self.router['id'], subnet_id=self.subnet['id'])
         server_name = data_utils.rand_name('server-smoke')
         self.server = self._create_server(server_name, self.network)
-        floating_ip = self.create_floating_ip(self.server)
-        self.floating_ip_tuple = Floating_IP_tuple(floating_ip,
-                                                   self.server)
+        if enable_snat:
+            floating_ip = self.create_floating_ip(self.server)
+            self.floating_ip_tuple = Floating_IP_tuple(floating_ip,
+                                                       self.server)
 
     def _cleanup_router(self, router):
         self._delete_router(router)
@@ -162,10 +164,10 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
                                              should_connect=True):
         floating_ip, server = self.floating_ip_tuple
         # test internal connectivity to the network ports on the network
-        network_ips = (p['fixed_ips'][0]['ip_address'] for p in
+        network_ips = [p['fixed_ips'][0]['ip_address'] for p in
                        self._list_ports(tenant_id=server['tenant_id'],
                                         network_id=network['id'])
-                       if p['device_owner'].startswith('network'))
+                       if p['device_owner'].startswith('network')]
         self._check_server_connectivity(floating_ip,
                                         network_ips,
                                         should_connect)
@@ -174,30 +176,34 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
                                        should_connect=True):
         floating_ip, server = self.floating_ip_tuple
         # test internal connectivity to the other VM on the same network
-        compute_ips = (p['fixed_ips'][0]['ip_address'] for p in
+        compute_ips = [p['fixed_ips'][0]['ip_address'] for p in
                        self._list_ports(tenant_id=server['tenant_id'],
                                         network_id=network['id'])
-                       if p['device_owner'].startswith('compute'))
+                       if p['device_owner'].startswith('compute')]
         self._check_server_connectivity(floating_ip,
                                         compute_ips,
                                         should_connect)
 
-    def _check_nonat_network_connectivity(self):
-        server_ip = self._get_server_ip(self.server)
+    def _check_nonat_network_connectivity(self, should_connect=True):
         # test internal connectivity to the network ports on the network
-        network_ips = (p['fixed_ips'][0]['ip_address'] for p in
+        network_ips = [p['fixed_ips'][0]['ip_address'] for p in
                        self._list_ports(tenant_id=self.server['tenant_id'],
                                         network_id=self.network['id'])
-                       if p['device_owner'].startswith('network'))
-        self._check_server_connectivity(server_ip,
-                                        network_ips,
-                                        should_connect=True,
-                                        enable_snat=False)
+                       if p['device_owner'].startswith('network')]
+        network_ips.append(self._get_server_ip(self.server))
+        self._check_fixed_ip_connectivity_from_ext_vm(
+            network_ips, should_connect=should_connect)
+
+    def _check_fixed_ip_connectivity_from_ext_vm(self, fixed_ips,
+                                                 should_connect=True):
+        if not CONF.network.project_networks_reachable and should_connect:
+            return
+        for ip in fixed_ips:
+            self.ping_ip_address(ip, should_succeed=should_connect)
 
     def _check_server_connectivity(self, floating_ip, address_list,
-                                   should_connect=True, enable_snat=True):
-        ip_address = floating_ip['floating_ip_address'] if enable_snat \
-            else floating_ip
+                                   should_connect=True):
+        ip_address = floating_ip['floating_ip_address']
         private_key = self._get_server_key(self.server)
         ssh_source = self.get_remote_client(ip_address,
                                             private_key=private_key)
@@ -217,8 +223,9 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
                               {'dest': remote_ip, 'src': floating_ip})
                 raise
 
-    def _test_router_nat_update(self, snat=True):
+    def _test_router_nat_update_when_snat(self):
         """Test update router from NATed to NoNAT scenario"""
+        snat = True
         self._setup_network_topo(enable_snat=snat)
         nsx_router = self.nsx.get_logical_router(
             self.router['name'], self.router['id'])
@@ -226,46 +233,85 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
         self.assertEqual(nsx_router['router_type'], 'TIER1')
         # Check nat rules created correctly
         nat_rules = self.nsx.get_logical_router_nat_rules(nsx_router)
-        self.assertTrue((len(nat_rules) == 3) == snat)
         # Check router advertisement is correctly set
         router_adv = self.nsx.get_logical_router_advertisement(nsx_router)
-        adv_msg = "Tier1 router's advertise_nsx_connected_routes is not %s"
-        nat_msg = "Tier1 router's advertise_nat_routes is not %s"
-        self.assertTrue(router_adv['advertise_nat_routes'], adv_msg % True)
-        self.assertFalse(router_adv['advertise_nsx_connected_routes'],
-                         adv_msg % (not snat))
+        adv_msg = "Tier1 router's advertise_nsx_connected_routes is not True"
+        nat_msg = "Tier1 router's advertise_nat_routes is not False"
+        self.assertTrue(len(nat_rules) == 3)
+        self.assertTrue(router_adv['advertise_nat_routes'], nat_msg)
+        self.assertFalse(router_adv['advertise_nsx_connected_routes'], adv_msg)
         self._check_network_internal_connectivity(network=self.network)
         self._check_network_vm_connectivity(network=self.network)
-
-        # Update router to disable snat
+        self._check_nonat_network_connectivity(should_connect=False)
+        # Update router to disable snat and disassociate floating ip
         self.routers_client.update_router(
             self.router['id'],
             external_gateway_info={
                 'network_id': CONF.network.public_network_id,
                 'enable_snat': (not snat)})
+        floating_ip, server = self.floating_ip_tuple
+        self._disassociate_floating_ip(floating_ip)
         nsx_router = self.nsx.get_logical_router(
             self.router['name'], self.router['id'])
         self.assertNotEqual(nsx_router, None)
         self.assertEqual(nsx_router['router_type'], 'TIER1')
         # Check nat rules created correctly
         nat_rules = self.nsx.get_logical_router_nat_rules(nsx_router)
-        self.assertTrue((len(nat_rules) == 2) == snat)
         # Check router advertisement is correctly set
         router_adv = self.nsx.get_logical_router_advertisement(nsx_router)
-        self.assertTrue(router_adv['advertise_nat_routes'],
-                        nat_msg % True)
-        self.assertTrue(router_adv['advertise_nsx_connected_routes'],
-                        adv_msg % snat)
+        self.assertTrue(len(nat_rules) == 0)
+        self.assertFalse(router_adv['advertise_nat_routes'], nat_msg)
+        self.assertTrue(router_adv['advertise_nsx_connected_routes'], adv_msg)
         self._check_nonat_network_connectivity()
+
+    def _test_router_nat_update_when_no_snat(self):
+        """Test update router from NATed to NoNAT scenario"""
+        snat = False
+        self._setup_network_topo(enable_snat=snat)
+        nsx_router = self.nsx.get_logical_router(
+            self.router['name'], self.router['id'])
+        self.assertNotEqual(nsx_router, None)
+        self.assertEqual(nsx_router['router_type'], 'TIER1')
+        # Check nat rules created correctly
+        nat_rules = self.nsx.get_logical_router_nat_rules(nsx_router)
+        # Check router advertisement is correctly set
+        router_adv = self.nsx.get_logical_router_advertisement(nsx_router)
+        adv_msg = "Tier1 router's advertise_nsx_connected_routes is not True"
+        nat_msg = "Tier1 router's advertise_nat_routes is not False"
+        self.assertTrue(len(nat_rules) == 0)
+        self.assertFalse(router_adv['advertise_nat_routes'], nat_msg)
+        self.assertTrue(router_adv['advertise_nsx_connected_routes'], adv_msg)
+        self._check_nonat_network_connectivity()
+        # Update router to Enable snat and associate floating ip
+        self.routers_client.update_router(
+            self.router['id'],
+            external_gateway_info={
+                'network_id': CONF.network.public_network_id,
+                'enable_snat': (not snat)})
+        floating_ip = self.create_floating_ip(self.server)
+        self.floating_ip_tuple = Floating_IP_tuple(floating_ip, self.server)
+        nsx_router = self.nsx.get_logical_router(
+            self.router['name'], self.router['id'])
+        self.assertNotEqual(nsx_router, None)
+        self.assertEqual(nsx_router['router_type'], 'TIER1')
+        # Check nat rules created correctly
+        nat_rules = self.nsx.get_logical_router_nat_rules(nsx_router)
+        # Check router advertisement is correctly set
+        router_adv = self.nsx.get_logical_router_advertisement(nsx_router)
+        self.assertTrue(len(nat_rules) == 3)
+        self.assertTrue(router_adv['advertise_nat_routes'], nat_msg)
+        self.assertFalse(router_adv['advertise_nsx_connected_routes'], adv_msg)
+        self._check_network_internal_connectivity(network=self.network)
+        self._check_network_vm_connectivity(network=self.network)
 
     @test.attr(type='nsxv3')
     @decorators.idempotent_id('5e5bfdd4-0962-47d3-a89b-7ce64322b53e')
     def test_router_nat_to_nonat_ops(self):
         """Test update router from NATed to NoNAT scenario"""
-        self._test_router_nat_update(snat=True)
+        self._test_router_nat_update_when_snat()
 
     @test.attr(type='nsxv3')
     @decorators.idempotent_id('a0274738-d3e7-49db-bf10-a5563610940d')
     def test_router_nonat_to_nat_ops(self):
         """Test update router from NoNAT to NATed scenario"""
-        self._test_router_nat_update(snat=False)
+        self._test_router_nat_update_when_no_snat()
