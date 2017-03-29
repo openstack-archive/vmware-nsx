@@ -437,6 +437,11 @@ class NsxVMetadataProxyHandler(object):
 
             rtr_id = rtr['id']
             edge_id = self._get_edge_id_by_rtr_id(context, rtr_id)
+            if not edge_id:
+                LOG.error('No edge create for router - %s', rtr_id)
+                if rtr_id:
+                    self.nsxv_plugin.delete_router(context, rtr_id)
+                return
 
             self.nsxv_plugin.nsx_v.update_interface(
                 rtr['id'],
