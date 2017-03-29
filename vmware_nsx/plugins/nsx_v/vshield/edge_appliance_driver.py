@@ -262,16 +262,6 @@ class EdgeApplianceDriver(object):
 
         return status_level
 
-    def get_edges_statuses(self):
-        edges_status_level = {}
-        edges = self._get_edges()
-        for edge in edges['edgePage'].get('data', []):
-            edge_id = edge['id']
-            status = edge['edgeStatus']
-            edges_status_level[edge_id] = self._edge_status_to_level(status)
-
-        return edges_status_level
-
     def get_interface(self, edge_id, vnic_index):
         # get vnic interface address groups
         try:
@@ -371,13 +361,6 @@ class EdgeApplianceDriver(object):
 
         LOG.debug("Deletion complete vnic %(vnic_index)s: on edge %(edge_id)s",
                   {'vnic_index': index, 'edge_id': edge_id})
-
-    def _get_edges(self):
-        try:
-            return self.vcns.get_edges()[1]
-        except exceptions.VcnsApiException as e:
-            LOG.exception("VCNS: Failed to get edges:\n%s", e.response)
-            raise e
 
     def deploy_edge(self, context, router_id, name, internal_network,
                     dist=False, loadbalancer_enable=True,

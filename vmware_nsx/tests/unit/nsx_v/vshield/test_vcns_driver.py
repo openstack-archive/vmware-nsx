@@ -380,16 +380,6 @@ class VcnsDriverTestCase(base.BaseTestCase):
         status = self.vcns_driver.get_edge_status(self.edge_id)
         self.assertEqual(vcns_const.RouterStatus.ROUTER_STATUS_ACTIVE, status)
 
-    def test_get_edges(self):
-        self._deploy_edge()
-        edges = self.vcns_driver.get_edges_statuses()
-        found = False
-        for edge_id, status in six.iteritems(edges):
-            if edge_id == self.edge_id:
-                found = True
-                break
-        self.assertTrue(found)
-
     def test_update_nat_rules(self):
         self._deploy_edge()
         snats = [{

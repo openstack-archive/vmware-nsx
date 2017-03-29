@@ -411,9 +411,6 @@ class FakeVcns(object):
         return (header, response)
 
     def get_edges(self):
-        header = {
-            'status': 200
-        }
         edges = []
         for edge_id in self._edges:
             edges.append({
@@ -421,12 +418,7 @@ class FakeVcns(object):
                 'edgeStatus': 'GREEN',
                 'name': self._edges[edge_id]['name']
             })
-        response = {
-            'edgePage': {
-                'data': edges
-            }
-        }
-        return (header, response)
+        return edges
 
     def get_vdn_switch(self, dvs_id):
         header = {
