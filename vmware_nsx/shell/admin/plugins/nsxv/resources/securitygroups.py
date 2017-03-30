@@ -24,7 +24,9 @@ from neutron.db import securitygroups_db
 from neutron.extensions import securitygroup as ext_sg
 
 from vmware_nsx._i18n import _LE, _LI, _LW
+from vmware_nsx.common import utils as com_utils
 from vmware_nsx.db import db as nsx_db
+from vmware_nsx.db import extended_security_group as extended_secgroup
 from vmware_nsx.db import nsx_models
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.db import nsxv_models
@@ -39,8 +41,11 @@ from vmware_nsx.shell import resources as shell
 LOG = logging.getLogger(__name__)
 
 
-class NeutronSecurityGroupDB(utils.NeutronDbClient,
-                             securitygroups_db.SecurityGroupDbMixin):
+class NeutronSecurityGroupDB(
+    utils.NeutronDbClient,
+    securitygroups_db.SecurityGroupDbMixin,
+    extended_secgroup.ExtendedSecurityGroupPropertiesMixin):
+
     def __init__(self):
         super(NeutronSecurityGroupDB, self)
         # FIXME(roeyc): context is already defined in NeutrondDbClient
@@ -68,6 +73,23 @@ class NeutronSecurityGroupDB(utils.NeutronDbClient,
     def get_security_groups(self):
         return super(NeutronSecurityGroupDB,
                      self).get_security_groups(self.context)
+
+    def get_security_group_id_by_section_id(self, section_id):
+        section_url = ("/api/4.0/firewall/globalroot-0/config/layer3sections"
+                       "/%s" % section_id)
+        q = self.context.session.query(
+            nsxv_models.NsxvSecurityGroupSectionMapping).filter_by(
+            ip_section_id=section_url).all()
+        if q:
+            return q[0].neutron_id
+
+    def _is_provider_section(self, section_id):
+        # look for this section id in the nsx_db, and get the security group
+        sg_id = self.get_security_group_id_by_section_id(section_id)
+        if sg_id:
+            # Check in the DB if this is a provider SG
+            return self._is_provider_security_group(self.context, sg_id)
+        return False
 
     def delete_security_group_section_mapping(self, sg_id):
         fw_mapping = self.context.session.query(
@@ -122,7 +144,7 @@ class NsxFirewallAPI(object):
         h, firewall_config = self.vcns.get_dfw_config()
         if not firewall_config:
             return []
-        root = et.fromstring(firewall_config)
+        root = com_utils.normalize_xml(firewall_config)
         sections = []
         for sec in root.iter('section'):
             sec_id = sec.attrib['id']
@@ -140,13 +162,17 @@ class NsxFirewallAPI(object):
             LOG.info(_LI("No firewall sections were found."))
             return
 
-        root = et.fromstring(firewall_config)
+        root = com_utils.normalize_xml(firewall_config)
 
         for child in root:
             if str(child.tag) == 'layer3Sections':
                 # go over the L3 sections and reorder them.
-                # policy sections should come first
+                # The correct order should be:
+                # 1. OS provider security groups
+                # 2. service composer policies
+                # 3. regular OS security groups
                 sections = list(child.iter('section'))
+                provider_sections = []
                 regular_sections = []
                 policy_sections = []
 
@@ -154,15 +180,21 @@ class NsxFirewallAPI(object):
                     if sec.attrib.get('managedBy') == 'NSX Service Composer':
                         policy_sections.append(sec)
                     else:
-                        regular_sections.append(sec)
+                        if neutron_sg._is_provider_section(
+                            sec.attrib.get('id')):
+                            provider_sections.append(sec)
+                        else:
+                            regular_sections.append(sec)
                     child.remove(sec)
 
-                if not policy_sections:
+                if not policy_sections and not provider_sections:
                     LOG.info(_LI("No need to reorder the firewall sections."))
                     return
 
-                # reorder the sections to have the policy sections first
-                reordered_sections = policy_sections + regular_sections
+                # reorder the sections
+                reordered_sections = (provider_sections +
+                                      policy_sections +
+                                      regular_sections)
                 child.extend(reordered_sections)
 
                 # update the new order of sections in the backend
