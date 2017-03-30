@@ -18,6 +18,7 @@ import six
 import uuid
 
 import netaddr
+from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib import context as n_context
@@ -79,7 +80,6 @@ from neutron.quota import resource_registry
 from neutron.services.flavors import flavors_plugin
 from neutron.services.qos import qos_consts
 from neutron_lib.api.definitions import portbindings as pbin
-from neutron_lib.api.definitions import provider_net as pnet
 from vmware_nsx.dvs import dvs
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v import utils as qos_utils
@@ -1414,16 +1414,16 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         For the NSX-V we want to allow changing the physical network of
         vlan type networks.
         """
-        if (original_network.get(providernet.NETWORK_TYPE) ==
+        if (original_network.get(pnet.NETWORK_TYPE) ==
             c_utils.NsxVNetworkTypes.VLAN
             and validators.is_attr_set(
-                attrs.get(providernet.PHYSICAL_NETWORK))
+                attrs.get(pnet.PHYSICAL_NETWORK))
             and not validators.is_attr_set(
-                attrs.get(providernet.NETWORK_TYPE))
+                attrs.get(pnet.NETWORK_TYPE))
             and not validators.is_attr_set(
-                attrs.get(providernet.SEGMENTATION_ID))):
+                attrs.get(pnet.SEGMENTATION_ID))):
             self._validate_physical_network(
-                attrs[providernet.PHYSICAL_NETWORK], az_dvs)
+                attrs[pnet.PHYSICAL_NETWORK], az_dvs)
             return
         providernet._raise_if_updates_provider_attributes(attrs)
 
@@ -1446,7 +1446,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         dvs_pg_mappings = {}
 
         current_dvs_ids = set(self._get_dvs_ids(
-            network[providernet.PHYSICAL_NETWORK], az_dvs))
+            network[pnet.PHYSICAL_NETWORK], az_dvs))
         new_dvs_ids = set(self._get_dvs_ids(
             new_physical_network, az_dvs))
         additinal_dvs_ids = new_dvs_ids - current_dvs_ids
@@ -1498,13 +1498,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         # Check if the physical network of a vlan provider network was updated
         updated_morefs = False
-        if (net_attrs.get(providernet.PHYSICAL_NETWORK) and
-            orig_net.get(providernet.NETWORK_TYPE) ==
+        if (net_attrs.get(pnet.PHYSICAL_NETWORK) and
+            orig_net.get(pnet.NETWORK_TYPE) ==
             c_utils.NsxVNetworkTypes.VLAN):
             (updated_morefs,
              new_dvs_pg_mappings) = self._update_vlan_network_dvs_ids(
                 orig_net,
-                net_attrs[providernet.PHYSICAL_NETWORK],
+                net_attrs[pnet.PHYSICAL_NETWORK],
                 az_dvs)
             if updated_morefs:
                 new_dvs = list(new_dvs_pg_mappings.values())
@@ -1522,7 +1522,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if updated_morefs:
                 # Save netmoref to dvs id mappings for VLAN network
                 # type for future access.
-                all_dvs = net_res.get(providernet.PHYSICAL_NETWORK)
+                all_dvs = net_res.get(pnet.PHYSICAL_NETWORK)
                 for dvs_id, netmoref in six.iteritems(new_dvs_pg_mappings):
                     nsx_db.add_neutron_nsx_network_mapping(
                         session=context.session,
@@ -1530,11 +1530,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         nsx_switch_id=netmoref,
                         dvs_id=dvs_id)
                     all_dvs = '%s, %s' % (all_dvs, dvs_id)
-                net_res[providernet.PHYSICAL_NETWORK] = all_dvs
-                vlan_id = net_res.get(providernet.SEGMENTATION_ID)
+                net_res[pnet.PHYSICAL_NETWORK] = all_dvs
+                vlan_id = net_res.get(pnet.SEGMENTATION_ID)
                 nsxv_db.update_network_binding_phy_uuid(
                     context.session, id,
-                    net_res.get(providernet.NETWORK_TYPE),
+                    net_res.get(pnet.NETWORK_TYPE),
                     vlan_id, all_dvs)
 
         # Updating SpoofGuard policy if exists, on failure revert to network

@@ -14,13 +14,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron_lib.api.definitions import portbindings
 from neutron_lib.db import model_base
 import sqlalchemy as sa
 from sqlalchemy import orm
 
 from neutron.db.models import l3 as l3_db
 from neutron.db import models_v2
-from neutron.extensions import portbindings
 from oslo_db.sqlalchemy import models
 
 from vmware_nsx.common import nsxv_constants
