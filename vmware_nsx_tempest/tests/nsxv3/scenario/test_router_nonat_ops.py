@@ -74,6 +74,7 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
         super(TestRouterNoNATOps, self).setUp()
         self.keypairs = {}
         self.servers = []
+        self.config_drive = CONF.compute_feature_enabled.config_drive
 
     def _setup_network_topo(self, enable_snat=None):
         self.security_group = self._create_security_group()
@@ -139,6 +140,7 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
         network = {'uuid': network['id']}
         server = self.create_server(name=name, networks=[network],
                                     key_name=keypair['name'],
+                                    config_drive=self.config_drive,
                                     security_groups=security_groups,
                                     image_id=image_id,
                                     wait_until='ACTIVE')

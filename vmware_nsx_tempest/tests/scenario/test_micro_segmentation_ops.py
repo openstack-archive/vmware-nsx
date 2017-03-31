@@ -67,6 +67,7 @@ class TestMicroSegmentationOps(manager.NetworkScenarioTest):
     def setUp(self):
         super(TestMicroSegmentationOps, self).setUp()
         self.keypairs = {}
+        self.config_drive = CONF.compute_feature_enabled.config_drive
 
     def _create_security_groups(self):
         web_sg = self._create_empty_security_group(namestart="secgroup-web")
@@ -187,6 +188,7 @@ class TestMicroSegmentationOps(manager.NetworkScenarioTest):
         network = {'uuid': network['id']}
         server = self.create_server(name=name, networks=[network],
                                     key_name=keypair['name'],
+                                    config_drive=self.config_drive,
                                     security_groups=security_groups,
                                     image_id=image_id,
                                     wait_until='ACTIVE')

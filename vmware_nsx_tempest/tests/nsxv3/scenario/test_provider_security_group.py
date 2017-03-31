@@ -68,6 +68,7 @@ class TestProviderSecurityGroup(manager.NetworkScenarioTest):
         self.cmgr_adm = self.get_client_manager('admin')
         self.keypairs = {}
         self.servers = []
+        self.config_drive = CONF.compute_feature_enabled.config_drive
 
     def create_security_provider_group(self, cmgr=None,
                                        project_id=None, provider=False):
@@ -147,6 +148,7 @@ class TestProviderSecurityGroup(manager.NetworkScenarioTest):
         network = {'uuid': network['id']}
         server = self.create_server(name=name, networks=[network],
                                     key_name=keypair['name'],
+                                    config_drive=self.config_drive,
                                     security_groups=security_groups,
                                     image_id=image_id,
                                     wait_until='ACTIVE')
