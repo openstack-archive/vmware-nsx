@@ -1,0 +1,9 @@
+---
+prelude: >
+    Starting Newton release we added support for native DHCP and metadata
+    provided by NSXv3 backend.
+features:
+  - Since now most of the NSXv3 deployment are using native DHCP/Metadata,
+    default this option native_dhcp_metadata to True. By default, it will
+    use NSXv3 native DHCP and Metadata unless this has been explicitly
+    set to False.
