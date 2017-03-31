@@ -73,6 +73,7 @@ class TestMultiHVNetworkOps(manager.NetworkScenarioTest):
         self.servers = []
         self.esx_image = CONF.compute.image_ref
         self.kvm_image = CONF.compute.image_ref_alt
+        self.config_drive = CONF.compute_feature_enabled.config_drive
 
     def _setup_l2_topo(self, **kwargs):
         self.security_group = self._create_security_group()
@@ -95,6 +96,7 @@ class TestMultiHVNetworkOps(manager.NetworkScenarioTest):
         network = {'uuid': network['id']}
         server = self.create_server(name=name, networks=[network],
                                     key_name=keypair['name'],
+                                    config_drive=self.config_drive,
                                     security_groups=security_groups,
                                     image_id=image_id,
                                     wait_until='ACTIVE')

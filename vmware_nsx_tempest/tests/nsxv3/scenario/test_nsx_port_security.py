@@ -62,6 +62,7 @@ class TestNSXv3PortSecurityScenario(manager.NetworkScenarioTest):
         self.cmgr_adm = self.get_client_manager('admin')
         self.keypairs = {}
         self.servers = []
+        self.config_drive = CONF.compute_feature_enabled.config_drive
 
     def _delete_router(self, router):
         body = self.ports_client.list_ports(device_id=router['id'])
@@ -125,6 +126,7 @@ class TestNSXv3PortSecurityScenario(manager.NetworkScenarioTest):
             network['port'] = port_id
         server = self.create_server(name=name, networks=[network],
                                     key_name=keypair['name'],
+                                    config_drive=self.config_drive,
                                     security_groups=security_groups,
                                     image_id=image_id,
                                     wait_until='ACTIVE')

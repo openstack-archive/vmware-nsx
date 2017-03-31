@@ -72,6 +72,7 @@ class TestMultiNetworksOps(manager.NetworkScenarioTest):
         super(TestMultiNetworksOps, self).setUp()
         self.keypairs = {}
         self.servers = []
+        self.config_drive = CONF.compute_feature_enabled.config_drive
 
     def _setup_networks_and_servers(self, **kwargs):
         boot_with_port = kwargs.pop('boot_with_port', False)
@@ -141,6 +142,7 @@ class TestMultiNetworksOps(manager.NetworkScenarioTest):
             network['port'] = port_id
         server = self.create_server(name=name, networks=[network],
                                     key_name=keypair['name'],
+                                    config_drive=self.config_drive,
                                     security_groups=security_groups,
                                     image_id=image_id,
                                     wait_until='ACTIVE')
