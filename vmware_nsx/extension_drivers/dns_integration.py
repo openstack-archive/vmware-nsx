@@ -83,7 +83,7 @@ class DNSExtensionDriver(driver_api.ExtensionDriver):
         if not request_data.get(dns.DNSNAME):
             return
         dns_name, is_dns_domain_default = self._get_request_dns_name(
-            request_data, db_data['network_id'])
+            request_data, db_data['network_id'], plugin_context)
         if is_dns_domain_default:
             return
         network = self._get_network(plugin_context, db_data['network_id'])
@@ -145,10 +145,9 @@ class DNSExtensionDriver(driver_api.ExtensionDriver):
             return
         if dns_name is not None:
             dns_name, is_dns_domain_default = self._get_request_dns_name(
-                request_data, db_data['network_id'])
+                request_data, db_data['network_id'], plugin_context)
             if is_dns_domain_default:
-                self._extend_port_dict(plugin_context.session, db_data,
-                                       db_data, None)
+                self._extend_port_dict(db_data, db_data, None, plugin_context)
                 return
         network = self._get_network(plugin_context, db_data['network_id'])
         dns_domain = network[dns.DNSDOMAIN]
@@ -163,8 +162,7 @@ class DNSExtensionDriver(driver_api.ExtensionDriver):
         else:
             dns_data_db = self._update_dns_db(dns_name, dns_domain, db_data,
                                               plugin_context, has_fixed_ips)
-        self._extend_port_dict(plugin_context.session, db_data, db_data,
-                               dns_data_db)
+        self._extend_port_dict(db_data, db_data, dns_data_db, plugin_context)
 
     def _process_only_dns_name_update(self, plugin_context, db_data, dns_name):
         dns_data_db = port_obj.PortDNS.get_object(
@@ -200,31 +198,32 @@ class DNSExtensionDriver(driver_api.ExtensionDriver):
             response_data[dns.DNSDOMAIN] = db_data.dns_domain[dns.DNSDOMAIN]
         return response_data
 
-    def _get_dns_domain(self, network_id):
+    def _get_dns_domain(self, network_id, context=None):
         if not cfg.CONF.dns_domain:
             return ''
         if cfg.CONF.dns_domain.endswith('.'):
             return cfg.CONF.dns_domain
         return '%s.' % cfg.CONF.dns_domain
 
-    def _get_request_dns_name(self, port, network_id):
-        dns_domain = self._get_dns_domain(network_id)
+    def _get_request_dns_name(self, port, network_id, context):
+        dns_domain = self._get_dns_domain(network_id, context)
         if ((dns_domain and dns_domain != DNS_DOMAIN_DEFAULT)):
             return (port.get(dns.DNSNAME, ''), False)
         return ('', True)
 
-    def _get_request_dns_name_and_domain_name(self, dns_data_db, network_id):
-        dns_domain = self._get_dns_domain(network_id)
+    def _get_request_dns_name_and_domain_name(self, dns_data_db,
+                                              network_id, context):
+        dns_domain = self._get_dns_domain(network_id, context)
         dns_name = ''
         if ((dns_domain and dns_domain != DNS_DOMAIN_DEFAULT)):
             if dns_data_db:
                 dns_name = dns_data_db.dns_name
         return dns_name, dns_domain
 
-    def _get_dns_names_for_port(self, ips, dns_data_db, network_id):
+    def _get_dns_names_for_port(self, ips, dns_data_db, network_id, context):
         dns_assignment = []
         dns_name, dns_domain = self._get_request_dns_name_and_domain_name(
-            dns_data_db, network_id)
+            dns_data_db, network_id, context)
         for ip in ips:
             if dns_name:
                 hostname = dns_name
@@ -242,25 +241,26 @@ class DNSExtensionDriver(driver_api.ExtensionDriver):
                                    'fqdn': fqdn})
         return dns_assignment
 
-    def _get_dns_name_for_port_get(self, port, dns_data_db):
+    def _get_dns_name_for_port_get(self, port, dns_data_db, context):
         if port['fixed_ips']:
             return self._get_dns_names_for_port(
-                port['fixed_ips'], dns_data_db, port['network_id'])
+                port['fixed_ips'], dns_data_db,
+                port['network_id'], context)
         return []
 
-    def _extend_port_dict(self, session, db_data, response_data, dns_data_db):
+    def _extend_port_dict(self, db_data, response_data,
+                          dns_data_db, context=None):
         if not dns_data_db:
             response_data[dns.DNSNAME] = ''
         else:
             response_data[dns.DNSNAME] = dns_data_db[dns.DNSNAME]
         response_data['dns_assignment'] = self._get_dns_name_for_port_get(
-            db_data, dns_data_db)
+            db_data, dns_data_db, context)
         return response_data
 
     def extend_port_dict(self, session, db_data, response_data):
         dns_data_db = db_data.dns
-        return self._extend_port_dict(session, db_data, response_data,
-                                      dns_data_db)
+        return self._extend_port_dict(db_data, response_data, dns_data_db)
 
     def _get_network(self, context, network_id):
         plugin = directory.get_plugin()
@@ -287,18 +287,19 @@ class DNSExtensionDriverNSXv3(DNSExtensionDriver):
         self._availability_zones = nsx_az.NsxV3AvailabilityZones()
         LOG.info("DNSExtensionDriverNSXv3 initialization complete")
 
-    def _get_network_az(self, network_id):
-        context = n_context.get_admin_context()
+    def _get_network_az(self, network_id, context):
+        if not context:
+            context = n_context.get_admin_context()
         network = self._get_network(context, network_id)
         if az_ext.AZ_HINTS in network and network[az_ext.AZ_HINTS]:
             az_name = network[az_ext.AZ_HINTS][0]
             return self._availability_zones.get_availability_zone(az_name)
         return self._availability_zones.get_default_availability_zone()
 
-    def _get_dns_domain(self, network_id):
+    def _get_dns_domain(self, network_id, context=None):
         # try to get the dns-domain from the specific availability zone
         # of this network
-        az = self._get_network_az(network_id)
+        az = self._get_network_az(network_id, context)
         if az.dns_domain:
             dns_domain = az.dns_domain
         elif cfg.CONF.nsx_v3.dns_domain:

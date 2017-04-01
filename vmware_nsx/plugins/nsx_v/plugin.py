@@ -1359,16 +1359,17 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                 'Reason: %(e)s',
                                 {'port_id': port_id, 'e': e})
 
-        self._process_l3_delete(context, id)
-        # We would first delete subnet db if the backend dhcp service is
-        # deleted in case of entering delete_subnet logic and retrying
-        # to delete backend dhcp service again.
-        if is_dhcp_backend_deleted:
-            subnets = self._get_subnets_by_network(context, id)
-            for subnet in subnets:
-                super(NsxVPluginV2, self).delete_subnet(
-                    context, subnet['id'])
-        super(NsxVPluginV2, self).delete_network(context, id)
+        with db_api.context_manager.writer.using(context):
+            self._process_l3_delete(context, id)
+            # We would first delete subnet db if the backend dhcp service is
+            # deleted in case of entering delete_subnet logic and retrying
+            # to delete backend dhcp service again.
+            if is_dhcp_backend_deleted:
+                subnets = self._get_subnets_by_network(context, id)
+                for subnet in subnets:
+                    super(NsxVPluginV2, self).delete_subnet(
+                        context, subnet['id'])
+            super(NsxVPluginV2, self).delete_network(context, id)
 
         # Do not delete a predefined port group that was attached to
         # an external network
@@ -1679,6 +1680,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         with db_api.context_manager.writer.using(context):
             # First we allocate port in neutron database
             neutron_db = super(NsxVPluginV2, self).create_port(context, port)
+            self._extension_manager.process_create_port(
+                context, port_data, neutron_db)
             # Port port-security is decided by the port-security state on the
             # network it belongs to, unless specifically specified here
             if validators.is_attr_set(port_data.get(psec.PORTSECURITY)):
@@ -1738,20 +1741,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                     port_security)
             self._process_port_create_extra_dhcp_opts(
                 context, port_data, dhcp_opts)
-
-        # Invoking the manager callback under transaction fails so here
-        # we do it outside. If this fails we will blow away the port
-        try:
-            with db_api.context_manager.writer.using(context):
-                self._extension_manager.process_create_port(
-                    context, port_data, neutron_db)
-        except Exception as e:
-            with excutils.save_and_reraise_exception():
-                LOG.error('Failed to create port %(id)s. '
-                          'Exception: %(e)s',
-                          {'id': neutron_db['id'], 'e': e})
-                # Revert what we have created and raise the exception
-                self.delete_port(context, port_data['id'])
 
         try:
             # Configure NSX - this should not be done in the DB transaction

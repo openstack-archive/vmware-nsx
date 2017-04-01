@@ -884,9 +884,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         first_try = True
         while True:
             try:
-                self._process_l3_delete(context, network_id)
-                return super(NsxV3Plugin, self).delete_network(
-                    context, network_id)
+                with db_api.context_manager.writer.using(context):
+                    self._process_l3_delete(context, network_id)
+                    return super(NsxV3Plugin, self).delete_network(
+                        context, network_id)
             except n_exc.NetworkInUse:
                 # There is a race condition in delete_network() that we need
                 # to work around here.  delete_network() issues a query to
@@ -2035,6 +2036,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 port_data, port_data.get('device_owner'))
 
             neutron_db = super(NsxV3Plugin, self).create_port(context, port)
+            self._extension_manager.process_create_port(
+                context, port_data, neutron_db)
             port["port"].update(neutron_db)
 
             (is_psec_on, has_ip) = self._create_port_preprocess_security(
@@ -2067,19 +2070,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 # This is due to the fact that the default is
                 # ATTR_NOT_SPECIFIED
                 port_data.pop(mac_ext.MAC_LEARNING)
-
-        # Invoking the manager callback under transaction fails so here
-        # we do it outside. If this fails we will blow away the port
-        try:
-            with db_api.context_manager.writer.using(context):
-                self._extension_manager.process_create_port(
-                        context, port_data, neutron_db)
-        except Exception as e:
-            with excutils.save_and_reraise_exception():
-                LOG.error('Failed to create port %(id)s. '
-                          'Exception: %(e)s',
-                          {'id': neutron_db['id'], 'e': e})
-                self._cleanup_port(context, neutron_db['id'], None)
 
         # Operations to backend should be done outside of DB transaction.
         # NOTE(arosen): ports on external networks are nat rules and do
