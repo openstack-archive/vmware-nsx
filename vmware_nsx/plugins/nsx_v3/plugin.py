@@ -1164,17 +1164,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         objects = []
         collection = "%ss" % resource
         items = request_items[collection]
-        context.session.begin(subtransactions=True)
         try:
-            for item in items:
-                obj_creator = getattr(self, 'create_%s' % resource)
-                obj = obj_creator(context, item)
-                objects.append(obj)
-                if post_create_func:
-                    # The user-provided post_create function is called
-                    # after a new object is created.
-                    post_create_func(obj)
-            context.session.commit()
+            with db_api.context_manager.writer.using(context):
+                for item in items:
+                    obj_creator = getattr(self, 'create_%s' % resource)
+                    obj = obj_creator(context, item)
+                    objects.append(obj)
+                    if post_create_func:
+                        # The user-provided post_create function is called
+                        # after a new object is created.
+                        post_create_func(obj)
         except Exception:
             if rollback_func:
                 # The user-provided rollback function is called when an
@@ -1725,7 +1724,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         for fixed_ip in fixed_ips:
             if netaddr.IPNetwork(fixed_ip['ip_address']).version != 4:
                 continue
-            subnet = self.get_subnet(context, fixed_ip['subnet_id'])
+            with db_api.context_manager.reader.using(context):
+                subnet = self.get_subnet(context, fixed_ip['subnet_id'])
             if subnet['enable_dhcp']:
                 ips.append(fixed_ip)
         return ips
