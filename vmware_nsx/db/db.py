@@ -402,14 +402,14 @@ def delete_port_mirror_session_mapping(session, tf_id):
             filter_by(tap_flow_id=tf_id).delete())
 
 
-def save_sg_mappings(session, sg_id, nsgroup_id, section_id):
-    with session.begin(subtransactions=True):
-        session.add(
-            nsx_models.NeutronNsxFirewallSectionMapping(neutron_id=sg_id,
-                                                        nsx_id=section_id))
-        session.add(
-            nsx_models.NeutronNsxSecurityGroupMapping(neutron_id=sg_id,
-                                                      nsx_id=nsgroup_id))
+@db.context_manager.writer
+def save_sg_mappings(context, sg_id, nsgroup_id, section_id):
+    context.session.add(
+        nsx_models.NeutronNsxFirewallSectionMapping(neutron_id=sg_id,
+                                                    nsx_id=section_id))
+    context.session.add(
+        nsx_models.NeutronNsxSecurityGroupMapping(neutron_id=sg_id,
+                                                  nsx_id=nsgroup_id))
 
 
 def get_sg_mappings(session, sg_id):

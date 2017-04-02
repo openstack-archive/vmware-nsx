@@ -28,6 +28,7 @@ from neutron_lib.plugins import directory
 from vmware_nsx.dvs import dvs
 from vmware_nsx.dvs import dvs_utils
 from vmware_nsx.services.qos.common import utils as qos_com_utils
+from vmware_nsx.services.qos.nsx_v import driver as qos_driver
 from vmware_nsx.services.qos.nsx_v import utils as qos_utils
 from vmware_nsx.tests.unit.nsx_v import test_plugin
 
@@ -41,16 +42,12 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
     def setUp(self, *mocks):
         # init the nsx-v plugin for testing with DVS
         self._init_dvs_config()
-
-        # Add a dummy notification driver
-        # TODO(asarfaty) should be removed in Pike
-        cfg.CONF.set_override(
-            'notification_drivers',
-            ['vmware_nsx.tests.unit.services.qos.fake_nsxv_notifier.'
-             'DummyNsxVNotificationDriver'],
-            'qos')
+        # Reset the drive to re-create it
+        qos_driver.DRIVER = None
         super(TestQosNsxVNotification, self).setUp(plugin=CORE_PLUGIN,
                                                    ext_mgr=None)
+        self.setup_coreplugin(CORE_PLUGIN)
+
         plugin_instance = directory.get_plugin()
         self._core_plugin = plugin_instance
         self._core_plugin.init_is_complete = True
@@ -144,50 +141,54 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
             # make sure the dvs was updated
             self.assertTrue(dvs_update_mock.called)
 
-    def _test_rule_action_notification(self, action):
-        with mock.patch.object(qos_com_utils, 'update_network_policy_binding'),\
-             mock.patch.object(dvs.DvsManager,
-                               'update_port_groups_config') as dvs_mock:
+    @mock.patch.object(qos_com_utils, 'update_network_policy_binding')
+    @mock.patch.object(dvs.DvsManager, 'update_port_groups_config')
+    def _test_rule_action_notification(self, action,
+                                       dvs_update_mock,
+                                       update_bindings_mock):
+        # Create a policy with a rule
+        _policy = policy_object.QosPolicy(
+            self.ctxt, **self.policy_data['policy'])
 
-            # Create a policy with a rule
-            _policy = policy_object.QosPolicy(
-                self.ctxt, **self.policy_data['policy'])
+        # set the rule in the policy data
+        if action != 'create':
+            setattr(_policy, "rules", [self.rule])
 
-            # set the rule in the policy data
-            if action != 'create':
-                setattr(_policy, "rules", [self.rule])
+        with mock.patch('neutron.services.qos.qos_plugin.QoSPlugin.'
+                        'get_policy',
+                        return_value=_policy) as get_rules_mock,\
+            mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
+                       return_value=_policy):
+            # create the network to use this policy
+            net = self._create_net()
+            dvs_update_mock.called = False
+            get_rules_mock.called = False
 
-            with mock.patch('neutron.services.qos.qos_plugin.QoSPlugin.'
-                            'get_policy',
-                            return_value=_policy) as get_rules_mock,\
-                mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
-                           return_value=_policy):
-                # create the network to use this policy
-                self._create_net()
+            with mock.patch('neutron.objects.db.api.create_object',
+                    return_value=self.rule_data),\
+                mock.patch('neutron.objects.db.api.update_object',
+                   return_value=self.rule_data),\
+                mock.patch('neutron.objects.db.api.delete_object'),\
+                mock.patch.object(_policy, 'get_bound_networks',
+                    return_value=[net['id']]),\
+                mock.patch.object(self.ctxt.session, 'expunge'):
 
-                with mock.patch('neutron.objects.db.api.create_object',
-                        return_value=self.rule_data),\
-                    mock.patch('neutron.objects.db.api.update_object',
-                       return_value=self.rule_data),\
-                    mock.patch('neutron.objects.db.api.delete_object'),\
-                    mock.patch.object(self.ctxt.session, 'expunge'):
+                # create/update/delete the rule
+                if action == 'create':
+                    self.qos_plugin.create_policy_bandwidth_limit_rule(
+                        self.ctxt, self.policy.id, self.rule_data)
+                elif action == 'update':
+                    self.qos_plugin.update_policy_bandwidth_limit_rule(
+                        self.ctxt, self.rule.id,
+                        self.policy.id, self.rule_data)
+                else:
+                    self.qos_plugin.delete_policy_bandwidth_limit_rule(
+                        self.ctxt, self.rule.id, self.policy.id)
 
-                    # create/update/delete the rule
-                    if action == 'create':
-                        self.qos_plugin.create_policy_bandwidth_limit_rule(
-                            self.ctxt, self.policy.id, self.rule_data)
-                    elif action == 'update':
-                        self.qos_plugin.update_policy_bandwidth_limit_rule(
-                            self.ctxt, self.rule.id,
-                            self.policy.id, self.rule_data)
-                    else:
-                        self.qos_plugin.delete_policy_bandwidth_limit_rule(
-                            self.ctxt, self.rule.id, self.policy.id)
-
-                    # make sure the qos rule was found
-                    self.assertTrue(get_rules_mock.called)
-                    # make sure the dvs was updated
-                    self.assertTrue(dvs_mock.called)
+                # make sure the qos rule was found
+                self.assertTrue(get_rules_mock.called)
+                # make sure the dvs was updated
+                self.assertTrue(dvs_update_mock.called)
 
     def test_create_rule_notification(self):
         """Test the DVS update when a QoS rule, attached to a network,
@@ -207,56 +208,63 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
         """
         self._test_rule_action_notification('delete')
 
-    def _test_dscp_rule_action_notification(self, action):
-        with mock.patch.object(qos_com_utils,
-                               'update_network_policy_binding'),\
-            mock.patch.object(dvs.DvsManager,
-                              'update_port_groups_config') as dvs_mock:
-            # Create a policy with a rule
-            _policy = policy_object.QosPolicy(
-                self.ctxt, **self.policy_data['policy'])
+    @mock.patch.object(qos_com_utils, 'update_network_policy_binding')
+    @mock.patch.object(dvs.DvsManager, 'update_port_groups_config')
+    def _test_dscp_rule_action_notification(self, action,
+                                            dvs_update_mock,
+                                            update_bindings_mock):
+        # Create a policy with a rule
+        _policy = policy_object.QosPolicy(
+            self.ctxt, **self.policy_data['policy'])
 
-            # set the rule in the policy data
-            if action != 'create':
-                setattr(_policy, "rules", [self.dscp_rule])
-            plugin = self.qos_plugin
-            with mock.patch('neutron.services.qos.qos_plugin.QoSPlugin.'
-                            'get_policy',
-                            return_value=_policy) as rules_mock,\
-                mock.patch('neutron.objects.qos.policy.'
-                           'QosPolicy.get_object',
-                           return_value=_policy),\
+        # set the rule in the policy data
+        if action != 'create':
+            setattr(_policy, "rules", [self.dscp_rule])
+        plugin = self.qos_plugin
+        with mock.patch('neutron.services.qos.qos_plugin.QoSPlugin.'
+                        'get_policy',
+                        return_value=_policy) as rules_mock,\
+            mock.patch('neutron.objects.qos.policy.'
+                       'QosPolicy.get_object',
+                       return_value=_policy),\
+            mock.patch.object(self.ctxt.session, 'expunge'):
+            # create the network to use this policy
+            net = self._create_net()
+            dvs_update_mock.called = False
+            rules_mock.called = False
+
+            with mock.patch('neutron.objects.db.api.create_object',
+                    return_value=self.dscp_rule_data),\
+                mock.patch('neutron.objects.db.api.update_object',
+                   return_value=self.dscp_rule_data),\
+                mock.patch('neutron.objects.db.api.delete_object'),\
+                mock.patch.object(_policy, 'get_bound_networks',
+                    return_value=[net['id']]),\
                 mock.patch.object(self.ctxt.session, 'expunge'):
-                # create the network to use this policy
-                self._create_net()
+
                 # create/update/delete the rule
                 if action == 'create':
-                    with mock.patch('neutron.objects.db.api.create_object',
-                                    return_value=self.dscp_rule_data):
-                        plugin.create_policy_dscp_marking_rule(
-                            self.ctxt,
-                            self.policy.id,
-                            self.dscp_rule_data)
+                    plugin.create_policy_dscp_marking_rule(
+                        self.ctxt,
+                        self.policy.id,
+                        self.dscp_rule_data)
                 elif action == 'update':
-                    with mock.patch('neutron.objects.db.api.update_object',
-                                    return_value=self.dscp_rule_data):
-                        plugin.update_policy_dscp_marking_rule(
-                            self.ctxt,
-                            self.dscp_rule.id,
-                            self.policy.id,
-                            self.dscp_rule_data)
+                    plugin.update_policy_dscp_marking_rule(
+                        self.ctxt,
+                        self.dscp_rule.id,
+                        self.policy.id,
+                        self.dscp_rule_data)
                 else:
-                    with mock.patch('neutron.objects.db.api.delete_object'):
-                        plugin.delete_policy_dscp_marking_rule(
-                            self.ctxt,
-                            self.dscp_rule.id,
-                            self.policy.id)
+                    plugin.delete_policy_dscp_marking_rule(
+                        self.ctxt,
+                        self.dscp_rule.id,
+                        self.policy.id)
 
                 # make sure the qos rule was found
                 self.assertTrue(rules_mock.called)
 
                 # make sure the dvs was updated
-                self.assertTrue(dvs_mock.called)
+                self.assertTrue(dvs_update_mock.called)
 
     def test_create_dscp_rule_notification(self):
         """Test the DVS update when a QoS DSCP rule, attached to a network,

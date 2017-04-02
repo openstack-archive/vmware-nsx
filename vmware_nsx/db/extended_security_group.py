@@ -120,7 +120,7 @@ class ExtendedSecurityGroupPropertiesMixin(object):
                                                   default_sg=False):
         self._validate_security_group_properties_create(
             context, sg_req, default_sg)
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.writer.using(context):
             properties = NsxExtendedSecurityGroupProperties(
                 security_group_id=sg_res['id'],
                 logging=sg_req.get(sg_logging.LOGGING, False),
@@ -132,7 +132,7 @@ class ExtendedSecurityGroupPropertiesMixin(object):
         sg_res[sg_policy.POLICY] = sg_req.get(sg_policy.POLICY)
 
     def _get_security_group_properties(self, context, security_group_id):
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.reader.using(context):
             try:
                 prop = context.session.query(
                     NsxExtendedSecurityGroupProperties).filter_by(
@@ -150,7 +150,7 @@ class ExtendedSecurityGroupPropertiesMixin(object):
                 and (sg_req[sg_policy.POLICY] !=
                      sg_res.get(sg_policy.POLICY)))):
             prop = self._get_security_group_properties(context, sg_res['id'])
-            with context.session.begin(subtransactions=True):
+            with db_api.context_manager.writer.using(context):
                 prop.update({
                     sg_logging.LOGGING: sg_req.get(sg_logging.LOGGING, False),
                     sg_policy.POLICY: sg_req.get(sg_policy.POLICY)})

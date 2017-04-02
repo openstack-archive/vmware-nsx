@@ -13,6 +13,7 @@
 #    under the License.
 
 from neutron.callbacks import registry
+from neutron.db import api as db_api
 from neutron.db import common_db_mixin as common_db
 from neutron.db.models import securitygroup
 from neutron.db import securitygroups_db
@@ -65,19 +66,19 @@ class NeutronSecurityGroupApi(securitygroups_db.SecurityGroupDbMixin,
         return [b['port_id'] for b in secgroups_bindings]
 
     def delete_security_group_section_mapping(self, sg_id):
-        fw_mapping = self.context.session.query(
-            nsx_models.NeutronNsxFirewallSectionMapping).filter_by(
-                neutron_id=sg_id).one_or_none()
-        if fw_mapping:
-            with self.context.session.begin(subtransactions=True):
+        with db_api.context_manager.writer.using(self.context):
+            fw_mapping = self.context.session.query(
+                nsx_models.NeutronNsxFirewallSectionMapping).filter_by(
+                    neutron_id=sg_id).one_or_none()
+            if fw_mapping:
                 self.context.session.delete(fw_mapping)
 
     def delete_security_group_backend_mapping(self, sg_id):
-        sg_mapping = self.context.session.query(
-            nsx_models.NeutronNsxSecurityGroupMapping).filter_by(
-                neutron_id=sg_id).one_or_none()
-        if sg_mapping:
-            with self.context.session.begin(subtransactions=True):
+        with db_api.context_manager.writer.using(self.context):
+            sg_mapping = self.context.session.query(
+                nsx_models.NeutronNsxSecurityGroupMapping).filter_by(
+                    neutron_id=sg_id).one_or_none()
+            if sg_mapping:
                 self.context.session.delete(sg_mapping)
 
     def get_security_groups_mappings(self):
@@ -217,7 +218,7 @@ def fix_security_groups(resource, event, trigger, **kwargs):
         nsgroup, fw_section = (
             plugin._create_security_group_backend_resources(secgroup))
         nsx_db.save_sg_mappings(
-            context_.session, sg_id, nsgroup['id'], fw_section['id'])
+            context_, sg_id, nsgroup['id'], fw_section['id'])
         # If version > 1.1 then we use dynamic criteria tags, and the port
         # should already have them.
         if not utils.is_nsx_version_1_1_0(plugin._nsx_version):

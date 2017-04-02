@@ -37,8 +37,6 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                                test_plugin.NsxV3PluginTestCaseMixin):
 
     def setUp(self):
-        # Add a dummy notification driver - should be removed in Pike
-        cfg.CONF.set_override("notification_drivers", [], "qos")
         # Reset the drive to re-create it
         qos_driver.DRIVER = None
         super(TestQosNsxV3Notification, self).setUp()

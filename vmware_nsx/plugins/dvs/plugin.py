@@ -346,7 +346,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         # shared network that is not owned by the tenant.
         port_data = port['port']
 
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.writer.using(context):
             # First we allocate port in neutron database
             neutron_db = super(NsxDvsV2, self).create_port(context, port)
             port_security = self._get_network_security_binding(
@@ -407,7 +407,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             port)
         has_addr_pairs = self._check_update_has_allowed_address_pairs(port)
 
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.writer.using(context):
             ret_port = super(NsxDvsV2, self).update_port(
                 context, id, port)
             # Save current mac learning state to check whether it's
@@ -463,7 +463,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         """
         neutron_db_port = self.get_port(context, id)
 
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.writer.using(context):
             # metadata_dhcp_host_route
             self.handle_port_metadata_access(
                 context, neutron_db_port, is_delete=True)

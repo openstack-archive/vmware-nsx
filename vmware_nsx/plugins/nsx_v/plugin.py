@@ -33,9 +33,6 @@ from oslo_utils import uuidutils
 from sqlalchemy.orm import exc as sa_exc
 
 from neutron.api import extensions as neutron_extensions
-from neutron.api.rpc.callbacks.consumer import registry as callbacks_registry
-from neutron.api.rpc.callbacks import resources as callbacks_resources
-from neutron.api.rpc.handlers import resources_rpc
 from neutron.api.v2 import attributes as attr
 from neutron.callbacks import events
 from neutron.callbacks import registry
@@ -85,6 +82,7 @@ from neutron.services.qos import qos_consts
 from neutron_lib.api.definitions import portbindings as pbin
 from vmware_nsx.dvs import dvs
 from vmware_nsx.services.qos.common import utils as qos_com_utils
+from vmware_nsx.services.qos.nsx_v import driver as qos_driver
 from vmware_nsx.services.qos.nsx_v import utils as qos_utils
 
 import vmware_nsx
@@ -272,10 +270,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # Only expose the extension if it is supported
             self.supported_extension_aliases.append("dhcp-mtu")
 
-        # Bind QoS notifications
-        callbacks_registry.register(self._handle_qos_notification,
-                                    callbacks_resources.QOS_POLICY)
-
         # Make sure starting rpc listeners (for QoS and other agents)
         # will happen only once
         self.start_rpc_listeners_called = False
@@ -291,6 +285,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         if c_utils.is_nsxv_version_6_2(self.nsx_v.vcns.get_version()):
             self.supported_extension_aliases.append("provider-security-group")
+
+        # Bind QoS notifications
+        qos_driver.register(self)
 
     # Register extend dict methods for network and port resources.
     # Each extension driver that supports extend attribute for the resources
@@ -373,17 +370,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         self.conn = n_rpc.create_connection()
         self.conn.create_consumer(self.topic, self.endpoints, fanout=False)
-
-        # Add QoS
-        qos_plugin = directory.get_plugin(plugin_const.QOS)
-        if (qos_plugin and qos_plugin.driver_manager and
-            qos_plugin.driver_manager.rpc_notifications_required):
-            # TODO(asarfaty) this option should be deprecated on Pike
-            qos_topic = resources_rpc.resource_type_versioned_topic(
-                callbacks_resources.QOS_POLICY)
-            self.conn.create_consumer(
-                qos_topic, [resources_rpc.ResourcesPushRpcCallback()],
-                fanout=False)
 
         self.start_rpc_listeners_called = True
         return self.conn.consume_in_threads()
@@ -2808,7 +2794,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Will raise FlavorNotFound if doesn't exist
         fl_db = flavors_plugin.FlavorsPlugin.get_flavor(
             flv_plugin, context, flavor_id)
-
         if fl_db['service_type'] != constants.L3:
             raise flavors.InvalidFlavorServiceType(
                 service_type=fl_db['service_type'])
@@ -2914,14 +2899,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         gw_info = self._extract_external_gw(context, router)
         lrouter = super(NsxVPluginV2, self).create_router(context, router)
 
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.writer.using(context):
             router_db = self._get_router(context, lrouter['id'])
             self._process_extra_attr_router_create(context, router_db, r)
             self._process_nsx_router_create(context, router_db, r)
             self._process_router_flavor_create(context, router_db, r)
 
-        lrouter = super(NsxVPluginV2, self).get_router(context,
-                                                       lrouter['id'])
+        with db_api.context_manager.reader.using(context):
+            lrouter = super(NsxVPluginV2, self).get_router(context,
+                                                           lrouter['id'])
         try:
             router_driver = self._get_router_driver(context, router_db)
             if router_driver.get_type() == nsxv_constants.EXCLUSIVE:
@@ -2941,7 +2927,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         except Exception:
             with excutils.save_and_reraise_exception():
                 self.delete_router(context, lrouter['id'])
-        return self.get_router(context, lrouter['id'])
+
+        # re-read the router with the updated data, and return it
+        with db_api.context_manager.reader.using(context):
+            return self.get_router(context, lrouter['id'])
 
     def _validate_router_migration(self, context, router_id,
                                    new_router_type, router):
@@ -2988,7 +2977,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     old_router_driver.detach_router(context, router_id, router)
 
                     # update the router-type
-                    with context.session.begin(subtransactions=True):
+                    with db_api.context_manager.writer.using(context):
                         router_db = self._get_router(context, router_id)
                         self._process_nsx_router_create(
                             context, router_db, router['router'])
@@ -3011,7 +3000,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         return router_driver.update_router(context, router_id, router)
 
     def _check_router_in_use(self, context, router_id):
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.reader.using(context):
             # Ensure that the router is not used
             router_filter = {'router_id': [router_id]}
             fips = self.get_floatingips_count(context.elevated(),
@@ -3734,7 +3723,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         sg_id = sg_data["id"] = str(uuid.uuid4())
         self._validate_security_group(context, sg_data, default_sg)
 
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.writer.using(context):
             is_provider = True if sg_data.get(provider_sg.PROVIDER) else False
             is_policy = True if sg_data.get(sg_policy.POLICY) else False
             if is_provider or is_policy:
@@ -4001,7 +3990,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         try:
             # Save new rules in Database, including mappings between Nsx rules
             # and Neutron security-groups rules
-            with context.session.begin(subtransactions=True):
+            with db_api.context_manager.writer.using(context):
                 new_rule_list = super(
                     NsxVPluginV2, self).create_security_group_rule_bulk_native(
                         context, security_group_rules)
@@ -4042,7 +4031,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                       "nsx-rule %(nsx_rule_id)s doesn't exist.",
                       {'id': id, 'nsx_rule_id': nsx_rule_id})
 
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.writer.using(context):
+            rule_db = self._get_security_group_rule(context, id)
             context.session.delete(rule_db)
 
     def _remove_vnic_from_spoofguard_policy(self, session, net_id, vnic_id):
@@ -4192,10 +4182,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         if cfg.CONF.nsxv.vdr_transit_network:
             edge_utils.validate_vdr_transit_network()
-
-    def _handle_qos_notification(self, context, resource_type,
-                                 qos_policys, event_type):
-        qos_utils.handle_qos_notification(qos_policys, event_type, self)
 
     def _nsx_policy_is_hidden(self, policy):
         for attrib in policy.get('extendedAttributes', []):

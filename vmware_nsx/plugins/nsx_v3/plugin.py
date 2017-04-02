@@ -17,7 +17,6 @@ import netaddr
 import six
 
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
-from neutron.api.rpc.callbacks.consumer import registry as callbacks_registry
 from neutron.api.rpc.callbacks import resources as callbacks_resources
 from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
@@ -67,7 +66,6 @@ from neutron_lib.api import validators
 from neutron_lib import constants as const
 from neutron_lib import context as q_context
 from neutron_lib import exceptions as n_exc
-from neutron_lib.plugins import directory
 from neutron_lib.utils import helpers
 from oslo_config import cfg
 from oslo_db import exception as db_exc
@@ -99,7 +97,6 @@ from vmware_nsx.plugins.nsx_v3 import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v3 import driver as qos_driver
-from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
 from vmware_nsx.services.trunk.nsx_v3 import driver as trunk_driver
 from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
 from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
@@ -236,7 +233,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     ) % NSX_V3_EXCLUDED_PORT_NSGROUP_NAME
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
-        self._init_qos_callbacks()
+        qos_driver.register()
 
         self.start_rpc_listeners_called = False
 
@@ -368,9 +365,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # callback is unsubscribed here since l3 APIs are handled by
         # core_plugin instead of an advanced service, in case of NSXv3 plugin,
         # and the prevention logic is handled by NSXv3 plugin itself.
-        registry.unsubscribe(l3_db._prevent_l3_port_delete_callback,
-                             resources.PORT,
-                             events.BEFORE_DELETE)
+        registry.unsubscribe(
+            l3_db.L3_NAT_dbonly_mixin._prevent_l3_port_delete_callback,
+            resources.PORT,
+            events.BEFORE_DELETE)
 
     def _validate_dhcp_profile(self, dhcp_profile_uuid):
         dhcp_profile = self._switching_profiles.get(dhcp_profile_uuid)
@@ -490,20 +488,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 NSX_V3_FW_DEFAULT_SECTION, section_description, [],
                 cfg.CONF.nsx_v3.log_security_groups_blocked_traffic)
             return section_id
-
-    def _init_qos_callbacks(self):
-        # Bind QoS notifications. the RPC option will be deprecated soon,
-        # but for now we need to support both options
-        qos_plugin = directory.get_plugin(plugin_const.QOS)
-        if (qos_plugin and qos_plugin.driver_manager and
-            qos_plugin.driver_manager.rpc_notifications_required):
-            # TODO(asarfaty) this option should be deprecated on Pike
-            self.qos_use_rpc = True
-            callbacks_registry.register(qos_utils.handle_qos_notification,
-                                        callbacks_resources.QOS_POLICY)
-        else:
-            self.qos_use_rpc = False
-            qos_driver.register()
 
     def _init_dhcp_metadata(self):
         if cfg.CONF.nsx_v3.native_dhcp_metadata:
@@ -2705,7 +2689,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             r, resource_type='os-neutron-router-id',
             project_name=context.tenant_name)
         router = super(NsxV3Plugin, self).create_router(context, router)
-        with context.session.begin():
+        with db_api.context_manager.writer.using(context):
             router_db = self._get_router(context, r['id'])
             self._process_extra_attr_router_create(context, router_db, r)
         # Create backend entries here in case neutron DB exception
@@ -2829,9 +2813,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self._validate_ext_routes(context, router_id, gw_info,
                                           new_routes)
                 self._validate_routes(context, router_id, new_routes)
-                old_routes, routes_dict = (
-                    self._get_extra_routes_dict_by_router_id(
-                        context, router_id))
+                old_routes = self._get_extra_routes_by_router_id(
+                    context, router_id)
                 routes_added, routes_removed = helpers.diff_list_of_dict(
                     old_routes, new_routes)
                 nsx_router_id = nsx_db.get_nsx_router_id(context.session,
@@ -3343,7 +3326,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         super(NsxV3Plugin, self).create_security_group(
                             context, security_group, default_sg))
 
-                nsx_db.save_sg_mappings(context.session,
+                nsx_db.save_sg_mappings(context,
                                         secgroup_db['id'],
                                         ns_group['id'],
                                         firewall_section['id'])

@@ -17,6 +17,7 @@ from neutron_lib.db import model_base
 import sqlalchemy as sa
 from sqlalchemy import orm
 
+from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron.db.models import securitygroup
 from neutron.extensions import securitygroup as ext_sg
@@ -72,7 +73,7 @@ class ExtendedSecurityGroupRuleMixin(object):
             rule_req.get(ext_local_ip.LOCAL_IP_PREFIX)):
             return
 
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.writer.using(context):
             properties = NsxExtendedSecurityGroupRuleProperties(
                 rule_id=rule_res['id'],
                 local_ip_prefix=rule_req[ext_local_ip.LOCAL_IP_PREFIX])

@@ -19,6 +19,7 @@ import webob.exc
 from oslo_utils import uuidutils
 
 from neutron.api.v2 import attributes
+from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron.db import securitygroups_db
 from neutron.tests.unit.extensions import test_securitygroup
@@ -48,7 +49,7 @@ class ExtendedRuleTestPlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def create_security_group_rule(self, context, security_group_rule):
         rule = security_group_rule['security_group_rule']
         self._check_local_ip_prefix(context, rule)
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.writer.using(context):
             res = super(ExtendedRuleTestPlugin,
                         self).create_security_group_rule(
                             context, security_group_rule)

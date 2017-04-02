@@ -18,8 +18,7 @@ import copy
 from eventlet import greenthread
 import mock
 import netaddr
-from neutron.api.rpc.callbacks import events as callbacks_events
-from neutron.api.rpc.callbacks import resources as callbacks_resources
+
 from neutron.api.v2 import attributes
 from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import dvr as dist_router
@@ -30,7 +29,6 @@ from neutron.extensions import l3_ext_gw_mode
 from neutron.extensions import l3_flavors
 from neutron.extensions import router_availability_zone
 from neutron.extensions import securitygroup as secgrp
-from neutron.objects.qos import policy as qos_pol
 from neutron.plugins.common import constants as plugin_const
 from neutron.services.qos import qos_consts
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
@@ -666,49 +664,6 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
             # Get network should also return the qos policy id
             net2 = plugin.get_network(ctx, net['id'])
             self.assertEqual(policy_id, net2[qos_consts.QOS_POLICY_ID])
-
-    @mock.patch.object(dvs.DvsManager, 'update_port_groups_config')
-    @mock.patch.object(qos_utils.NsxVQosRule, '_init_from_policy_id')
-    def test_network_with_updated_qos_policy(self,
-                                             fake_init_from_policy,
-                                             fake_dvs_update):
-        # enable dvs features to allow policy with QOS
-        plugin = self._get_core_plugin_with_dvs()
-
-        ctx = context.get_admin_context()
-
-        # create the network with qos policy
-        policy_id = _uuid()
-        data = {'network': {
-                'name': 'test-qos',
-                'tenant_id': self._tenant_id,
-                'qos_policy_id': policy_id,
-                'port_security_enabled': False,
-                'admin_state_up': True,
-                'shared': False
-                }}
-        net = plugin.create_network(ctx, data)
-
-        # reset fake methods called flag
-        fake_init_from_policy.called = False
-        fake_dvs_update.called = False
-
-        # fake QoS policy obj:
-        fake_policy = qos_pol.QosPolicy()
-        fake_policy.id = policy_id
-        fake_policy.rules = []
-
-        # call the plugin notification callback as if the network was updated
-        with mock.patch.object(qos_pol.QosPolicy, "get_object",
-                               return_value=fake_policy):
-            with mock.patch.object(qos_pol.QosPolicy, "get_bound_networks",
-                                   return_value=[net["id"]]):
-                plugin._handle_qos_notification(
-                    ctx, callbacks_resources.QOS_POLICY,
-                    [fake_policy], callbacks_events.UPDATED)
-                # make sure the policy data was read, and the dvs was updated
-                self.assertTrue(fake_init_from_policy.called)
-                self.assertTrue(fake_dvs_update.called)
 
     def test_create_network_with_bad_az_hint(self):
         p = directory.get_plugin()
@@ -2648,6 +2603,9 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
     def test_floatingip_via_router_interface_returns_404(self):
         self.skipTest('not supported')
 
+    def test_floatingip_update_subnet_gateway_disabled(self):
+        self.skipTest('not supported')
+
 
 class IPv6ExpectedFailuresTestMixin(object):
 
@@ -2720,7 +2678,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                side_effect=[n_exc.NeutronException]):
             router = {'router': {'admin_state_up': True,
                       'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
-                      'tenant_id': context.get_admin_context().tenant_id,
+                      'tenant_id': 'fake_tenant',
                       'router_type': 'exclusive'}}
             self.assertRaises(n_exc.NeutronException,
                               p.create_router,
@@ -3292,7 +3250,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                 side_effect=self._fake_rename_edge):
                 router = {'router': {'admin_state_up': True,
                           'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
-                          'tenant_id': context.get_admin_context().tenant_id,
+                          'tenant_id': 'fake_tenant',
                           'router_type': 'exclusive'}}
                 # router creation should succeed
                 returned_router = p.create_router(context.get_admin_context(),
@@ -3309,7 +3267,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
         p = directory.get_plugin()
         router = {'router': {'admin_state_up': True,
                   'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
-                  'tenant_id': context.get_admin_context().tenant_id,
+                  'tenant_id': 'fake_tenant',
                   'router_type': 'exclusive',
                   'availability_zone_hints': ['bad_hint']}}
         self.assertRaises(n_exc.NeutronException,
@@ -3326,7 +3284,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
 
         router = {'router': {'admin_state_up': True,
                   'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
-                  'tenant_id': context.get_admin_context().tenant_id,
+                  'tenant_id': 'fake_tenant',
                   'router_type': 'exclusive',
                   'availability_zone_hints': [az_name]}}
 
@@ -3576,7 +3534,7 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                                side_effect=[n_exc.NeutronException]):
             router = {'router': {'admin_state_up': True,
                       'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
-                      'tenant_id': context.get_admin_context().tenant_id,
+                      'tenant_id': 'fake_tenant',
                       'distributed': True}}
             self.assertRaises(n_exc.NeutronException,
                               p.create_router,
@@ -3746,7 +3704,7 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
     def test_router_create_distributed_unspecified(self):
         self._test_router_create_with_distributed(None, False)
 
-    def _test_create_rotuer_with_az_hint(self, with_hint):
+    def _test_create_router_with_az_hint(self, with_hint):
         # init the availability zones in the plugin
         az_name = 'az7'
         set_az_in_config(az_name)
@@ -3756,7 +3714,7 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
         # create a router with/without hints
         router = {'router': {'admin_state_up': True,
                   'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
-                  'tenant_id': context.get_admin_context().tenant_id,
+                  'tenant_id': 'FAKE_TENANT',
                   'distributed': True}}
         if with_hint:
             router['router']['availability_zone_hints'] = [az_name]
@@ -3777,11 +3735,11 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
         expected_az = az_name if with_hint else 'default'
         self.assertEqual(expected_az, res_az)
 
-    def test_create_rotuer_with_az_hint(self):
-        self._test_create_rotuer_with_az_hint(True)
+    def test_create_router_with_az_hint(self):
+        self._test_create_router_with_az_hint(True)
 
-    def test_create_rotuer_without_az_hint(self):
-        self._test_create_rotuer_with_az_hint(False)
+    def test_create_router_without_az_hint(self):
+        self._test_create_router_with_az_hint(False)
 
     def test_floatingip_with_assoc_fails(self):
         self._test_floatingip_with_assoc_fails(
@@ -5002,7 +4960,7 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
             body = self._show('routers', router_id)
             self.assertEqual('exclusive', body['router']['router_type'])
 
-    def _test_create_rotuer_with_az_hint(self, with_hint):
+    def _test_create_router_with_az_hint(self, with_hint):
         # init the availability zones in the plugin
         az_name = 'az7'
         set_az_in_config(az_name)
@@ -5012,7 +4970,7 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
         # create a router with/without hints
         router = {'router': {'admin_state_up': True,
                   'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
-                  'tenant_id': context.get_admin_context().tenant_id,
+                  'tenant_id': 'FAKE_TENANT',
                   'router_type': 'shared'}}
         if with_hint:
             router['router']['availability_zone_hints'] = [az_name]
@@ -5042,11 +5000,11 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
             expected_az = az_name if with_hint else 'default'
             self.assertEqual(expected_az, res_az)
 
-    def test_create_rotuer_with_az_hint(self):
-        self._test_create_rotuer_with_az_hint(True)
+    def test_create_router_with_az_hint(self):
+        self._test_create_router_with_az_hint(True)
 
-    def test_create_rotuer_without_az_hint(self):
-        self._test_create_rotuer_with_az_hint(False)
+    def test_create_router_without_az_hint(self):
+        self._test_create_router_with_az_hint(False)
 
 
 class TestRouterFlavorTestCase(extension.ExtensionTestCase,

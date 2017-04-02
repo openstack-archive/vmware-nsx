@@ -135,9 +135,6 @@ Enable the qos in ``local.conf``::
     [DEFAULT]
     service_plugins = neutron.services.qos.qos_plugin.QoSPlugin
 
-    [qos]
-    notification_drivers =
-
 Optional: Update the nsx qos_peak_bw_multiplier in nsx.ini (default value is 2.0)::
 
     [NSX]

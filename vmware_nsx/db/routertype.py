@@ -14,6 +14,7 @@
 #    under the License.
 #
 
+from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import (
     distributedrouter as dist_rtr)
 from vmware_nsx.extensions import routertype as rt_rtr
@@ -25,5 +26,5 @@ class RouterType_mixin(dist_rtr.DistributedRouter_mixin):
     nsx_attributes = (
         dist_rtr.DistributedRouter_mixin.nsx_attributes + [{
             'name': rt_rtr.ROUTER_TYPE,
-            'default': False
+            'default': nsxv_constants.SHARED
         }])

@@ -14,11 +14,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.api.rpc.callbacks import events as callbacks_events
-from neutron.objects.qos import policy as qos_policy
 from neutron.plugins.common import constants
 from neutron.services.qos import qos_consts
-from neutron_lib import context as n_context
 from neutron_lib.plugins import directory
 
 from oslo_config import cfg
@@ -85,27 +82,3 @@ class NsxVQosRule(object):
                         self.dscpMarkValue = rule_obj['dscp_mark']
 
         return self
-
-
-def handle_qos_notification(policies_list, event_type, core_plugin):
-    # Check if QoS policy rule was created/deleted/updated
-    # Only if the policy rule was updated, we need to update the dvs
-    if event_type != callbacks_events.UPDATED:
-        return
-
-    for policy_obj in policies_list:
-        if hasattr(policy_obj, "rules"):
-            handle_qos_policy_notification(policy_obj, core_plugin)
-
-
-def handle_qos_policy_notification(policy_obj, core_plugin):
-    # Reload the policy as admin so we will have a context
-    context = n_context.get_admin_context()
-    admin_policy = qos_policy.QosPolicy.get_object(
-        context, id=policy_obj.id)
-    # get all the bound networks of this policy
-    networks = admin_policy.get_bound_networks()
-    for net_id in networks:
-        # update the new bw limitations for this network
-        core_plugin._update_qos_on_backend_network(
-            context, net_id, policy_obj.id)

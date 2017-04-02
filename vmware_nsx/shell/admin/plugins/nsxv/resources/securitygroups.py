@@ -16,11 +16,12 @@
 import xml.etree.ElementTree as et
 
 from neutron.callbacks import registry
+from neutron.db import api as db_api
 from neutron.db.models import securitygroup as sg_models
 from neutron.db import models_v2
 from neutron.db import securitygroups_db
 from neutron.extensions import securitygroup as ext_sg
-from neutron_lib import context
+from neutron_lib import context as n_context
 from oslo_log import log as logging
 
 from vmware_nsx.common import utils as com_utils
@@ -48,7 +49,7 @@ class NeutronSecurityGroupDB(
     def __init__(self):
         super(NeutronSecurityGroupDB, self)
         # FIXME(roeyc): context is already defined in NeutrondDbClient
-        self.context = context.get_admin_context()
+        self.context = n_context.get_admin_context()
 
     def get_security_groups_mappings(self):
         q = self.context.session.query(
@@ -91,19 +92,19 @@ class NeutronSecurityGroupDB(
         return False
 
     def delete_security_group_section_mapping(self, sg_id):
-        fw_mapping = self.context.session.query(
-            nsxv_models.NsxvSecurityGroupSectionMapping).filter_by(
-                neutron_id=sg_id).one_or_none()
-        if fw_mapping:
-            with self.context.session.begin(subtransactions=True):
+        with self.db_api.context_manager.writer.using(self.context):
+            fw_mapping = self.context.session.query(
+                nsxv_models.NsxvSecurityGroupSectionMapping).filter_by(
+                    neutron_id=sg_id).one_or_none()
+            if fw_mapping:
                 self.context.session.delete(fw_mapping)
 
     def delete_security_group_backend_mapping(self, sg_id):
-        sg_mapping = self.context.session.query(
-            nsx_models.NeutronNsxSecurityGroupMapping).filter_by(
-                neutron_id=sg_id).one_or_none()
-        if sg_mapping:
-            with self.context.session.begin(subtransactions=True):
+        with db_api.context_manager.writer.using(self.context):
+            sg_mapping = self.context.session.query(
+                nsx_models.NeutronNsxSecurityGroupMapping).filter_by(
+                    neutron_id=sg_id).one_or_none()
+            if sg_mapping:
                 self.context.session.delete(sg_mapping)
 
     def get_vnics_in_security_group(self, security_group_id):
@@ -299,7 +300,7 @@ def reorder_firewall_sections(resource, event, trigger, **kwargs):
 @admin_utils.fix_mismatches_handler(constants.SECURITY_GROUPS)
 @admin_utils.output_header
 def fix_security_groups(resource, event, trigger, **kwargs):
-    context_ = context.get_admin_context()
+    context_ = n_context.get_admin_context()
     sgs_with_missing_section = _find_missing_sections()
     sgs_with_missing_nsx_group = _find_missing_security_groups()
     if not sgs_with_missing_section and not sgs_with_missing_nsx_group:
@@ -351,7 +352,7 @@ def migrate_sg_to_policy(resource, event, trigger, **kwargs):
         return
 
     # validate that the security group exist and contains rules and no policy
-    context_ = context.get_admin_context()
+    context_ = n_context.get_admin_context()
     with utils.NsxVPluginWrapper() as plugin:
         try:
             secgroup = plugin.get_security_group(context_, sg_id)

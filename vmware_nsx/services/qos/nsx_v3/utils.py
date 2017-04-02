@@ -14,13 +14,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.api.rpc.callbacks import events as callbacks_events
-from neutron.objects.qos import policy as qos_policy
-from neutron.services.qos import qos_consts
-from neutron_lib.api import validators
-from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_log import log as logging
+
+from neutron_lib.api import validators
+from neutron_lib.plugins import directory
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
@@ -32,52 +30,6 @@ MAX_KBPS_MIN_VALUE = 1024
 # The max limit is calculated so that the value sent to the backed will
 # be smaller than 2**31
 MAX_BURST_MAX_VALUE = int((2 ** 31 - 1) / 128)
-
-
-#TODO(asarfaty): QoS usage of RPC will be deprecated on Pike, and the driver
-# code will be used instead. For now - we need to support both.
-def handle_qos_notification(context, resource_type, policies_list,
-                            event_type):
-    for policy_obj in policies_list:
-        handle_qos_policy_notification(context, policy_obj, event_type)
-
-
-def handle_qos_policy_notification(context, policy_obj, event_type):
-    handler = QosNotificationsHandler()
-
-    # Reload the policy as admin so we will have a context
-    if (event_type != callbacks_events.DELETED):
-        policy = qos_policy.QosPolicy.get_object(context.elevated(),
-                                                 id=policy_obj.id)
-
-    # Check if QoS policy rule was created/deleted/updated
-    if (event_type == callbacks_events.CREATED):
-        handler.create_policy(context, policy)
-
-    elif (event_type == callbacks_events.UPDATED):
-        if (hasattr(policy_obj, "rules")):
-            # Rebuild the QoS data of this policy
-            # we may have up to 1 rule of each type
-            bw_rule = None
-            dscp_rule = None
-            for rule in policy_obj["rules"]:
-                if rule.rule_type == qos_consts.RULE_TYPE_BANDWIDTH_LIMIT:
-                    bw_rule = rule
-                else:
-                    dscp_rule = rule
-
-            handler.update_policy_rules(
-                context, policy_obj.id, bw_rule, dscp_rule)
-
-        # May also need to update name / description
-        handler.update_policy(context, policy_obj.id, policy)
-
-    elif (event_type == callbacks_events.DELETED):
-        handler.delete_policy(context, policy_obj.id)
-
-    else:
-        msg = _("Unknown QoS notification event %s") % event_type
-        raise nsx_exc.NsxPluginException(err_msg=msg)
 
 
 class QosNotificationsHandler(object):

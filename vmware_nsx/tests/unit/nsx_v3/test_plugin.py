@@ -597,6 +597,9 @@ class TestL3NatTestCase(L3NatTest,
     def test_route_update_with_external_route(self):
         self.skipTest('not supported')
 
+    def test_floatingip_update_subnet_gateway_disabled(self):
+        self.skipTest('not supported')
+
     def test_multiple_subnets_on_different_routers(self):
         with self.network() as network:
             with self.subnet(network=network) as s1,\

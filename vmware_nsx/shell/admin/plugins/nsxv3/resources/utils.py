@@ -94,9 +94,6 @@ class NsxV3PluginWrapper(plugin.NsxV3Plugin):
         super(NsxV3PluginWrapper, self).__init__()
         self.context = context.get_admin_context()
 
-    def _init_qos_callbacks(self):
-        self.qos_use_rpc = False
-
     def _init_dhcp_metadata(self):
         pass
 

@@ -395,7 +395,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                 for port in vdr_ports:
                     subnet_id = port['fixed_ips'][0]['subnet_id']
                     port_subnet = self.plugin.get_subnet(
-                        context, subnet_id)
+                        context.elevated(), subnet_id)
                     if (port_subnet['id'] != subnet['id']
                         and port_subnet['enable_dhcp']):
                         # We already have a subnet which is connected to
