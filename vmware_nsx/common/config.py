@@ -280,6 +280,7 @@ nsx_v3_opts = [
                help=_("File to contain client certificate and private key")),
     cfg.StrOpt('nsx_client_cert_pk_password',
                default="",
+               secret=True,
                help=_("password for private key encryption")),
     cfg.StrOpt('nsx_client_cert_storage',
                default='nsx-db',
