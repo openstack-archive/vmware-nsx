@@ -787,7 +787,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self._create_network_at_the_backend(context, net_data, az))
             is_backend_network = True
         try:
-            with context.session.begin(subtransactions=True):
+            with db_api.context_manager.writer.using(context):
                 # Create network in Neutron
                 created_net = super(NsxV3Plugin, self).create_network(context,
                                                                       network)
@@ -881,11 +881,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         first_try = True
         while True:
             try:
-                with context.session.begin(subtransactions=True):
-                    self._process_l3_delete(context, network_id)
-                    return super(NsxV3Plugin, self).delete_network(
-                        context, network_id)
-                break
+                self._process_l3_delete(context, network_id)
+                return super(NsxV3Plugin, self).delete_network(
+                    context, network_id)
             except n_exc.NetworkInUse:
                 # There is a race condition in delete_network() that we need
                 # to work around here.  delete_network() issues a query to
@@ -1433,7 +1431,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             get_network_policy_id(context, network['id']))
 
     def get_network(self, context, id, fields=None):
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.reader.using(context):
             # Get network from Neutron database
             network = self._get_network(context, id)
             # Don't do field selection here otherwise we won't be able to add
@@ -1447,7 +1445,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                      page_reverse=False):
         # Get networks from Neutron database
         filters = filters or {}
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.reader.using(context):
             networks = (
                 super(NsxV3Plugin, self).get_networks(
                     context, filters, fields, sorts,
@@ -2024,19 +2022,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._validate_extra_dhcp_options(dhcp_opts)
 
         # TODO(salv-orlando): Undo logical switch creation on failure
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.writer.using(context):
             is_external_net = self._network_is_external(
                 context, port_data['network_id'])
             if is_external_net:
                 self._assert_on_external_net_with_compute(port_data)
                 self._assert_on_external_net_port_with_qos(port_data)
-
             self._assert_on_router_port_with_qos(
                 port_data, port_data.get('device_owner'))
 
             neutron_db = super(NsxV3Plugin, self).create_port(context, port)
-            self._extension_manager.process_create_port(
-                context, port_data, neutron_db)
             port["port"].update(neutron_db)
 
             (is_psec_on, has_ip) = self._create_port_preprocess_security(
@@ -2069,6 +2064,19 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 # This is due to the fact that the default is
                 # ATTR_NOT_SPECIFIED
                 port_data.pop(mac_ext.MAC_LEARNING)
+
+        # Invoking the manager callback under transaction fails so here
+        # we do it outside. If this fails we will blow away the port
+        try:
+            with db_api.context_manager.writer.using(context):
+                self._extension_manager.process_create_port(
+                        context, port_data, neutron_db)
+        except Exception as e:
+            with excutils.save_and_reraise_exception():
+                LOG.error('Failed to create port %(id)s. '
+                          'Exception: %(e)s',
+                          {'id': neutron_db['id'], 'e': e})
+                self._cleanup_port(context, neutron_db['id'], None)
 
         # Operations to backend should be done outside of DB transaction.
         # NOTE(arosen): ports on external networks are nat rules and do
@@ -2393,7 +2401,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 validate_port_sec = False
                 break
 
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.writer.using(context):
             original_port = super(NsxV3Plugin, self).get_port(context, id)
             nsx_lswitch_id, nsx_lport_id = nsx_db.get_nsx_switch_and_port_id(
                 context.session, id)
@@ -2469,7 +2477,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 LOG.exception("Unable to update NSX backend, rolling back "
                               "changes on neutron")
                 with excutils.save_and_reraise_exception(reraise=False):
-                    with context.session.begin(subtransactions=True):
+                    with db_api.context_manager.writer.using(context):
                         super(NsxV3Plugin, self).update_port(
                             context, id, {'port': original_port})
 
@@ -2523,7 +2531,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   sorts=None, limit=None, marker=None,
                   page_reverse=False):
         filters = filters or {}
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.reader.using(context):
             ports = (
                 super(NsxV3Plugin, self).get_ports(
                     context, filters, fields, sorts,
@@ -2874,7 +2882,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
             return self._update_router_wrapper(context, router_id, router)
         except nsx_lib_exc.ResourceNotFound:
-            with context.session.begin(subtransactions=True):
+            with db_api.context_manager.writer.using(context):
                 router_db = self._get_router(context, router_id)
                 router_db['status'] = const.NET_STATUS_ERROR
             raise nsx_exc.NsxPluginException(
@@ -3330,7 +3338,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # REVISIT(roeyc): Ideally, at this point we need not be under an
             # open db transactions, however, unittests fail if omitting
             # subtransactions=True.
-            with context.session.begin(subtransactions=True):
+            with db_api.context_manager.writer.using(context):
                 # NOTE(arosen): a neutron security group be default adds rules
                 # that allow egress traffic. We do not want this behavior for
                 # provider security_groups
@@ -3401,7 +3409,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def update_security_group(self, context, id, security_group):
         orig_secgroup = self.get_security_group(
             context, id, fields=['id', 'name', 'description'])
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.writer.using(context):
             secgroup_res = (
                 super(NsxV3Plugin, self).update_security_group(context, id,
                                                                security_group))
@@ -3446,7 +3454,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 r['security_group_rule'].get('id') or
                 uuidutils.generate_uuid())
 
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.writer.using(context):
 
             rules_db = (super(NsxV3Plugin,
                               self).create_security_group_rule_bulk_native(

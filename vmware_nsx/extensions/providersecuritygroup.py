@@ -12,8 +12,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.extensions import securitygroup
-
 from neutron_lib.api import converters
 from neutron_lib.api import extensions
 from neutron_lib import constants
@@ -39,7 +37,8 @@ EXTENDED_ATTRIBUTES_2_0 = {
         'allow_post': True,
         'allow_put': True,
         'is_visible': True,
-        'convert_to': securitygroup.convert_to_uuid_list_or_none,
+        'convert_to': converters.convert_none_to_empty_list,
+        'validate': {'type:uuid_list': None},
         'default': constants.ATTR_NOT_SPECIFIED}
     }
 }
