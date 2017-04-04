@@ -229,6 +229,9 @@ class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
                               self.plugin.create_subnet,
                               context.get_admin_context(), data)
 
+    def test_delete_subnet_ipv6_slaac_port_exists(self):
+        self.skipTest('Allocating a specific IP is not supported')
+
 
 class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                   test_bindings.PortBindingsTestCase,

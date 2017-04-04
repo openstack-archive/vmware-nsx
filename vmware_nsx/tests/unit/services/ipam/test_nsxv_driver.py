@@ -104,6 +104,12 @@ class TestNsxvIpamSubnets(test_plugin.TestSubnetsV2):
                 self.assertTrue(('already allocated in subnet' in
                                  port['NeutronError']['message']))
 
+    def test_create_subnet_with_different_dhcp_by_flat_net(self):
+        self.skipTest('Addressed in O')
+
+    def test_create_subnet_with_different_dhcp_server(self):
+        self.skipTest('Addressed in O')
+
 
 class TestNsxvIpamPorts(test_plugin.TestPortsV2):
     """Run the nsxv plugin ports tests with the ipam driver"""
