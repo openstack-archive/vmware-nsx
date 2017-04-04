@@ -162,6 +162,9 @@ class TestNsxv3IpamPorts(test_plugin.TestPortsV2, MockIPPools):
     def test_create_port_with_ipv6_slaac_subnet_in_fixed_ips(self):
         self.skipTest('Allocating a specific IP is not supported')
 
+    def test_update_port_with_new_ipv6_slaac_subnet_in_fixed_ips(self):
+        self.skipTest('Allocating a specific IP is not supported')
+
     def test_create_port_with_ipv6_pd_subnet_in_fixed_ips(self):
         self.skipTest('Allocating a specific IP is not supported')
 
