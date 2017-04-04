@@ -87,7 +87,7 @@ class BaseTestCase(base.BaseNetworkTest):
         cls.tenant_id = cls.subnet.get('tenant_id')
         cls.subnet_id = cls.subnet.get('id')
         # NSX-v: load-balancer's subnet need to attach to exclusive-router
-        if CONF.nsxv3:
+        if not CONF.nsxv.manager_uri:
             router_cfg = dict(router_name=router_name)
         else:
             router_cfg = dict(router_name=router_name, router_type='exclusive')
