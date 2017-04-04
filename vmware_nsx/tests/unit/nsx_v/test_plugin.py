@@ -3097,8 +3097,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
 
             # Also test the md_srvip conversion:
             drv = edge_firewall_driver.EdgeFirewallDriver()
-            rule = drv._convert_firewall_rule(
-                context.get_admin_context(), md_srvip)
+            rule = drv._convert_firewall_rule(md_srvip)
             exp_service = {'service': [{'port': [80, 443, 8775],
                                         'protocol': 'tcp'}]}
             exp_rule = {'action': 'accept',
@@ -3156,8 +3155,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
             # Also test the rule conversion
             # Ports should be sorted & unique, and ignore non numeric values
             drv = edge_firewall_driver.EdgeFirewallDriver()
-            rule = drv._convert_firewall_rule(
-                context.get_admin_context(), md_srvip)
+            rule = drv._convert_firewall_rule(md_srvip)
             exp_service = {'service': [{'port': [55, 66, 80, 443, 8775],
                                         'protocol': 'tcp'}]}
             exp_rule = {'action': 'accept',

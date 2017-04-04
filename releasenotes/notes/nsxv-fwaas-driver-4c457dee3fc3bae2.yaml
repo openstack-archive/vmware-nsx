@@ -1,0 +1,6 @@
+---
+prelude: >
+    The NSX-V plugin can suppport FWaaS-V1 for setting router edges firewall rules.
+features:
+  - |
+    The NSX-V plugin can suppport FWaaS-V1 for setting router edges firewall rules.
