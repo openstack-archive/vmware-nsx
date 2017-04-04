@@ -2769,7 +2769,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # It is safe to do now as db-level checks for resource deletion were
         # passed (and indeed the resource was removed from the Neutron DB
         try:
-            self._router_client.delete(nsx_router_id)
+            self._router_client.delete(nsx_router_id, force=True)
         except nsx_lib_exc.ResourceNotFound:
             # If the logical router was not found on the backend do not worry
             # about it. The conditions has already been logged, so there is no
