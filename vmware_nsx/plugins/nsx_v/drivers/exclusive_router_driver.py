@@ -192,6 +192,8 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
 
             # Update static routes in all.
             self.plugin._update_routes(context, router_id, newnexthop)
+        if new_ext_net_id:
+            self._notify_after_router_edge_association(context, router)
 
     def add_router_interface(self, context, router_id, interface_info):
         self.plugin._check_intf_number_of_router(context, router_id)
