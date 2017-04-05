@@ -381,3 +381,28 @@ class NsxvPortExtAttributes(model_base.BASEV2, models.TimestampMixin):
         models_v2.Port,
         backref=orm.backref("nsx_port_attributes", lazy='joined',
                             uselist=False, cascade='delete'))
+
+
+class NsxvBgpSpeakerBinding(model_base.BASEV2, models.TimestampMixin):
+    # Maps bgp_speaker_id to NSXv edge id
+    __tablename__ = 'nsxv_bgp_speaker_bindings'
+
+    edge_id = sa.Column(sa.String(36), primary_key=True)
+    bgp_speaker_id = sa.Column(sa.String(36),
+                               sa.ForeignKey('bgp_speakers.id',
+                                             ondelete='CASCADE'),
+                               nullable=False)
+    # A given BGP speaker sets the value of its BGP Identifier to an IP address
+    # that is assigned to that BGP speaker.
+    bgp_identifier = sa.Column(sa.String(64), nullable=False)
+
+
+class NsxvBgpPeerEdgeBinding(model_base.BASEV2, models.TimestampMixin):
+    # Maps between bgp-peer and edges service gateway.
+    __tablename__ = 'nsxv_bgp_peer_edge_bindings'
+    peer_id = sa.Column(sa.String(36),
+                        sa.ForeignKey('bgp_peers.id',
+                                      ondelete='CASCADE'),
+                        primary_key=True,
+                        nullable=False)
+    edge_id = sa.Column(sa.String(36), nullable=False)
