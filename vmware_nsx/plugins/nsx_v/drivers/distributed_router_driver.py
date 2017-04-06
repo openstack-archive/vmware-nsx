@@ -489,12 +489,12 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
             self.edge_manager.update_dhcp_edge_service(
                 context, network_id, address_groups=address_groups)
             if dhcp_id:
-                edge_id = self.plugin._get_edge_id_by_rtr_id(context,
-                                                             dhcp_id)
+                edge_id, az_name = self.plugin._get_edge_id_and_az_by_rtr_id(
+                    context, dhcp_id)
                 if edge_id:
                     with locking.LockManager.get_lock(str(edge_id)):
                         md_proxy_handler = (
-                            self.plugin.metadata_proxy_handler)
+                            self.plugin.get_metadata_proxy_handler(az_name))
                         if md_proxy_handler:
                             md_proxy_handler.configure_router_edge(
                                 context, dhcp_id)

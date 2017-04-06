@@ -2530,6 +2530,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         if binding:
             return binding['edge_id'], binding['availability_zone']
+        return None, None
 
     def _update_dhcp_service_new_edge(self, context, resource_id):
         edge_id, az_name = self._get_edge_id_and_az_by_rtr_id(
