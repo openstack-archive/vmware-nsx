@@ -44,6 +44,7 @@ from neutron.common import topics
 from neutron.common import utils as n_utils
 from neutron import context as n_context
 from neutron.db import _utils as db_utils
+from neutron.db import address_scope_db
 from neutron.db import agents_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import api as db_api
@@ -148,10 +149,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                    extended_secgroup.ExtendedSecurityGroupPropertiesMixin,
                    vnic_index_db.VnicIndexDbMixin,
                    dns_db.DNSDbMixin, nsxpolicy.NsxPolicyPluginBase,
-                   vlantransparent_db.Vlantransparent_db_mixin):
+                   vlantransparent_db.Vlantransparent_db_mixin,
+                   address_scope_db.AddressScopeDbMixin):
 
     supported_extension_aliases = ["agent",
                                    "allowed-address-pairs",
+                                   "address-scope",
                                    "binding",
                                    "dns-search-domain",
                                    "dvr",

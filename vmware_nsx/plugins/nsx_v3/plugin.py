@@ -31,6 +31,7 @@ from neutron.common import rpc as n_rpc
 from neutron.common import topics
 from neutron import context as q_context
 from neutron.db import _utils as db_utils
+from neutron.db import address_scope_db
 from neutron.db import agents_db
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
@@ -134,13 +135,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   portsecurity_db.PortSecurityDbMixin,
                   extradhcpopt_db.ExtraDhcpOptMixin,
                   dns_db.DNSDbMixin,
-                  mac_db.MacLearningDbMixin):
+                  mac_db.MacLearningDbMixin,
+                  address_scope_db.AddressScopeDbMixin):
 
     __native_bulk_support = True
     __native_pagination_support = True
     __native_sorting_support = True
 
     supported_extension_aliases = ["allowed-address-pairs",
+                                   "address-scope",
                                    "quotas",
                                    "binding",
                                    "extra_dhcp_opt",
