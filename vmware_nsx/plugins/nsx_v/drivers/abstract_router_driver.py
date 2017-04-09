@@ -16,10 +16,13 @@ import abc
 
 import six
 
+from neutron.callbacks import events
+from neutron.callbacks import registry
 from neutron.db import l3_db
 from neutron.db import models_v2
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsxv_exc
+from vmware_nsx.common import nsxv_constants
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 
 
@@ -72,6 +75,15 @@ class RouterBaseDriver(RouterAbstractDriver):
         self.nsx_v = plugin.nsx_v
         self.edge_manager = plugin.edge_manager
         self.vcns = self.nsx_v.vcns
+
+    def _notify_after_router_edge_association(self, context, router):
+        registry.notify(nsxv_constants.SERVICE_EDGE, events.AFTER_CREATE,
+                        self, context=context, router=router)
+
+    def _notify_before_router_edge_association(self, context, router,
+                                               edge_id=None):
+        registry.notify(nsxv_constants.SERVICE_EDGE, events.BEFORE_DELETE,
+                        self, context=context, router=router, edge_id=edge_id)
 
     def _get_external_network_id_by_router(self, context, router_id):
         """Get router's external network id if it has."""

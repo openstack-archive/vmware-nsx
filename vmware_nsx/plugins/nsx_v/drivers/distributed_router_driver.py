@@ -225,6 +225,9 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
             md_gw_data = self._get_metadata_gw_data(context, router_id)
             self._update_routes(context, router_id, newnexthop, md_gw_data)
 
+        if new_ext_net_id:
+            self._notify_after_router_edge_association(context, router)
+
     def _validate_multiple_subnets_routers(self, context, router_id,
                                            interface_info):
         _nsxv_plugin = self.plugin
@@ -262,60 +265,67 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         network_id = subnet['network_id']
         address_groups = self.plugin._get_address_groups(
             context, router_id, network_id)
-        with locking.LockManager.get_lock(self._get_edge_id(context,
-                                                            router_id)):
-            port = self.plugin.get_port(context, info['port_id'])
-            try:
+        edge_id = self._get_edge_id(context, router_id)
+        interface_created = False
+        port = self.plugin.get_port(context, info['port_id'])
+        try:
+            with locking.LockManager.get_lock(str(edge_id)):
                 edge_utils.add_vdr_internal_interface(self.nsx_v, context,
                                                       router_id, network_id,
                                                       address_groups,
                                                       router_db.admin_state_up)
-            except Exception:
-                with excutils.save_and_reraise_exception():
-                    super(nsx_v.NsxVPluginV2, self.plugin
-                          ).remove_router_interface(context,
-                                                    router_id,
-                                                    interface_info)
-            # Update edge's firewall rules to accept subnets flows.
-            self.plugin._update_subnets_and_dnat_firewall(context, router_db)
+                interface_created = True
+                # Update edge's firewall rules to accept subnets flows.
+                self.plugin._update_subnets_and_dnat_firewall(context,
+                                                              router_db)
 
-            sids = self.plugin.get_subnets(context,
-                                           filters={'network_id': [network_id],
-                                                    'enable_dhcp': [True]},
-                                           fields=['id'])
-            is_dhcp_network = len(sids) > 0
-            do_metadata = False
-            if self.plugin.metadata_proxy_handler and is_dhcp_network:
-                for fixed_ip in port.get("fixed_ips", []):
-                    if fixed_ip['ip_address'] == subnet['gateway_ip']:
-                        do_metadata = True
+                filters = {'network_id': [network_id],
+                           'enable_dhcp': [True]}
+                sids = self.plugin.get_subnets(context, filters=filters,
+                                               fields=['id'])
+                is_dhcp_network = len(sids) > 0
+                do_metadata = False
+                if self.plugin.metadata_proxy_handler and is_dhcp_network:
+                    for fixed_ip in port.get("fixed_ips", []):
+                        if fixed_ip['ip_address'] == subnet['gateway_ip']:
+                            do_metadata = True
 
-                if do_metadata:
-                    self.edge_manager.configure_dhcp_for_vdr_network(
-                        context, network_id, router_id)
+                    if do_metadata:
+                        self.edge_manager.configure_dhcp_for_vdr_network(
+                            context, network_id, router_id)
 
-            if router_db.gw_port:
-                plr_id = self.edge_manager.get_plr_by_tlr_id(context,
-                                                             router_id)
-                if router_db.enable_snat:
-                    self.plugin._update_nat_rules(context, router_db, plr_id)
+                if router_db.gw_port:
+                    plr_id = self.edge_manager.get_plr_by_tlr_id(context,
+                                                                 router_id)
+                    if router_db.enable_snat:
+                        self.plugin._update_nat_rules(context,
+                                                      router_db, plr_id)
 
-                # Open firewall flows on plr
-                self.plugin._update_subnets_and_dnat_firewall(
-                    context, router_db, router_id=plr_id)
-                # Update static routes of plr
-                nexthop = self.plugin._get_external_attachment_info(
-                    context, router_db)[2]
-                if do_metadata:
-                    md_gw_data = self._get_metadata_gw_data(context, router_id)
-                else:
-                    md_gw_data = None
-                self._update_routes(context, router_id, nexthop, md_gw_data)
+                    # Open firewall flows on plr
+                    self.plugin._update_subnets_and_dnat_firewall(
+                        context, router_db, router_id=plr_id)
+                    # Update static routes of plr
+                    nexthop = self.plugin._get_external_attachment_info(
+                        context, router_db)[2]
+                    if do_metadata:
+                        md_gw_data = self._get_metadata_gw_data(context,
+                                                                router_id)
+                    else:
+                        md_gw_data = None
+                    self._update_routes(context, router_id,
+                                        nexthop, md_gw_data)
 
-            elif do_metadata and self._metadata_cfg_required_after_port_add(
-                    context, router_id, subnet):
-                self._metadata_route_update(context, router_id)
+                elif do_metadata and (
+                    self._metadata_cfg_required_after_port_add(
+                        context, router_id, subnet)):
+                    self._metadata_route_update(context, router_id)
 
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                if not interface_created:
+                    super(nsx_v.NsxVPluginV2,
+                          self.plugin).remove_router_interface(
+                              context, router_id, interface_info)
         return info
 
     def _metadata_route_update(self, context, router_id):
