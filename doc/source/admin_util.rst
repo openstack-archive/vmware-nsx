@@ -197,6 +197,10 @@ Security Groups, Firewall and Spoofguard
 
     nsxadmin -r firewall-sections -o nsx-reorder
 
+- Update the default cluster section
+
+    nsxadmin -r firewall-sections -o nsx-update
+
 Metadata
 ~~~~~~~~
 

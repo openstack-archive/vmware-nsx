@@ -150,6 +150,10 @@ nsxv_resources = {
     constants.FIREWALL_NSX_GROUPS: Resource(
         constants.FIREWALL_NSX_GROUPS, [Operations.LIST.value,
                                         Operations.LIST_MISMATCHES.value]),
+    constants.FIREWALL_SECTIONS: Resource(constants.FIREWALL_SECTIONS,
+                                          [Operations.LIST.value,
+                                           Operations.LIST_MISMATCHES.value,
+                                           Operations.NSX_UPDATE.value]),
     constants.METADATA: Resource(
         constants.METADATA, [Operations.NSX_UPDATE.value,
                              Operations.NSX_UPDATE_SECRET.value,

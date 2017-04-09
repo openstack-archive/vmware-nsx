@@ -406,6 +406,14 @@ def migrate_sg_to_policy(resource, event, trigger, **kwargs):
         LOG.info("Done.")
 
 
+@admin_utils.output_header
+def firewall_update_cluster_default_fw_section(resource, event, trigger,
+                                               **kwargs):
+    with utils.NsxVPluginWrapper() as plugin:
+        plugin._create_cluster_default_fw_section()
+        LOG.info("Cluster default FW section updated.")
+
+
 registry.subscribe(migrate_sg_to_policy,
                    constants.SECURITY_GROUPS,
                    shell.Operations.MIGRATE_TO_POLICY.value)
@@ -413,3 +421,7 @@ registry.subscribe(migrate_sg_to_policy,
 registry.subscribe(reorder_firewall_sections,
                    constants.FIREWALL_SECTIONS,
                    shell.Operations.NSX_REORDER.value)
+
+registry.subscribe(firewall_update_cluster_default_fw_section,
+                   constants.FIREWALL_SECTIONS,
+                   shell.Operations.NSX_UPDATE.value)
