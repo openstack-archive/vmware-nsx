@@ -3697,6 +3697,9 @@ class TestNSXvAllowedAddressPairs(NsxVPluginV2TestCase,
     def test_get_vlan_network_name(self):
         pass
 
+    def test_update_with_none_and_own_mac_for_duplicate_ip(self):
+        pass
+
     def test_create_port_with_cidr_address_pair(self):
         with self.network() as net:
             address_pairs = [{'mac_address': '00:00:00:00:00:01',
