@@ -347,7 +347,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     tags=self.nsxlib.build_v3_api_version_tag(),
                     membership_criteria=membership_criteria)
                 # Add this NSGroup to NSX Exclusion List.
-                self.nsxlib.add_member_to_fw_exclude_list(
+                self.nsxlib.firewall_section.add_member_to_fw_exclude_list(
                     nsgroup['id'], nsxlib_consts.NSGROUP)
             return self._get_excluded_port_nsgroup()
 
