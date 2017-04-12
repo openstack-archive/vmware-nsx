@@ -64,7 +64,7 @@ class EdgeFirewallDriver(object):
             raise vcns_exc.VcnsBadRequest(resource='firewall_rule', msg=msg)
 
     def _get_port_range(self, min_port, max_port):
-        if not min_port:
+        if not min_port or min_port == 'any':
             return None
         if min_port == max_port:
             return str(min_port)
@@ -171,10 +171,12 @@ class EdgeFirewallDriver(object):
         if 'application' in rule and 'service' in rule['application']:
             service = rule['application']['service'][0]
             fw_rule['protocol'] = service['protocol']
-            fw_rule['source_port'] = self._get_port_range(
-                service['sourcePort'][0], service['sourcePort'][-1])
-            fw_rule['destination_port'] = self._get_port_range(
-                service['port'][0], service['port'][-1])
+            if service.get('sourcePort'):
+                fw_rule['source_port'] = self._get_port_range(
+                    service['sourcePort'][0], service['sourcePort'][-1])
+            if service.get('destination_port'):
+                fw_rule['destination_port'] = self._get_port_range(
+                    service['port'][0], service['port'][-1])
 
         fw_rule['action'] = self._restore_firewall_action(rule['action'])
         fw_rule['enabled'] = rule['enabled']
