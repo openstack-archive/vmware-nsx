@@ -134,8 +134,11 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
 
     def delete_router(self, context, router_id):
         if self.plugin.metadata_proxy_handler:
-            az = self.get_router_az_by_id(context, router_id)
-            md_proxy = self.plugin.get_metadata_proxy_handler(az.name)
+            # The neutron router was already deleted, so we cannot get the AZ
+            # from it. Get it from the router-bindings DB
+            edge_id, az_name = self.plugin._get_edge_id_and_az_by_rtr_id(
+                context, router_id)
+            md_proxy = self.plugin.get_metadata_proxy_handler(az_name)
             md_proxy.cleanup_router_edge(context, router_id)
         self.edge_manager.delete_lrouter(context, router_id, dist=False)
 
