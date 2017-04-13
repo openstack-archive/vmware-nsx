@@ -1512,6 +1512,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         LOG.error(err_msg)
         raise n_exc.InvalidInput(error_message=err_msg)
 
+    def _is_excluded_port(self, device_owner, port_security):
+        if device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF:
+            return False
+        if device_owner == const.DEVICE_OWNER_DHCP:
+            if not cfg.CONF.nsx_v3.native_dhcp_metadata:
+                return True
+        elif not port_security:
+            return True
+        return False
+
     def _create_port_at_the_backend(self, context, port_data,
                                     l2gw_port_check, psec_is_on):
         device_owner = port_data.get('device_owner')
@@ -1531,16 +1541,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             tags = nsxlib_utils.add_v3_tag(tags, resource_type, device_id)
 
         add_to_exclude_list = False
-        if device_owner != l3_db.DEVICE_OWNER_ROUTER_INTF:
-            if ((device_owner == const.DEVICE_OWNER_DHCP and
-                 not cfg.CONF.nsx_v3.native_dhcp_metadata) or
-                (device_owner != const.DEVICE_OWNER_DHCP and
-                 not psec_is_on)):
-                    if utils.is_nsx_version_2_0_0(self._nsx_version):
-                        tags.append({'scope': security.PORT_SG_SCOPE,
-                                     'tag': nsxlib_consts.EXCLUDE_PORT})
-                    else:
-                        add_to_exclude_list = True
+        if self._is_excluded_port(device_owner, psec_is_on):
+            if utils.is_nsx_version_2_0_0(self._nsx_version):
+                tags.append({'scope': security.PORT_SG_SCOPE,
+                             'tag': nsxlib_consts.EXCLUDE_PORT})
+            else:
+                add_to_exclude_list = True
 
         if utils.is_nsx_version_1_1_0(self._nsx_version):
             # If port has no security-groups then we don't need to add any
@@ -1632,10 +1638,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             qos_com_utils.update_port_policy_binding(context,
                                                      port_data['id'],
                                                      qos_policy_id)
-        # Add the port to the exclude list if necessary
+
+        # Add the port to the exclude list if necessary - this is if
+        # the version is below 2.0.0
         if add_to_exclude_list:
             self.nsxlib.firewall_section.add_member_to_fw_exclude_list(
                 result['id'], nsxlib_consts.TARGET_TYPE_LOGICAL_PORT)
+
         return result
 
     def _validate_address_pairs(self, address_pairs):
@@ -2156,7 +2165,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     context, nsx_port_id,
                     port.get(ext_sg.SECURITYGROUPS, []), [])
             if (not utils.is_nsx_version_2_0_0(self._nsx_version) and
-                not port.get('port_security_enabled')):
+                self._is_excluded_port(port.get('device_owner'),
+                                       port.get('port_security_enabled'))):
                 fs = self.nsxlib.firewall_section
                 fs.remove_member_from_fw_exclude_list(
                     nsx_port_id, nsxlib_consts.TARGET_TYPE_LOGICAL_PORT)
@@ -2285,16 +2295,24 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         name = self._get_port_name(context, updated_port)
 
+        # Update exlude list if necessary
         updated_ps = updated_port.get('port_security_enabled')
-        if utils.is_nsx_version_2_0_0(self._nsx_version):
-            if not updated_ps:
-                tags_update.append({'scope': security.PORT_SG_SCOPE,
-                                    'tag': nsxlib_consts.EXCLUDE_PORT})
-        else:
-            original_ps = original_port.get('port_security_enabled')
-            if updated_ps != original_ps:
+        updated_excluded = self._is_excluded_port(updated_device_owner,
+                                                  updated_ps)
+        original_ps = original_port.get('port_security_enabled')
+        original_excluded = self._is_excluded_port(original_device_owner,
+                                                   original_ps)
+        if updated_excluded != original_excluded:
+            if utils.is_nsx_version_2_0_0(self._nsx_version):
+                if updated_excluded:
+                    tags_update.append({'scope': security.PORT_SG_SCOPE,
+                                        'tag': nsxlib_consts.EXCLUDE_PORT})
+                else:
+                    tags_update.append({'scope': security.PORT_SG_SCOPE,
+                                        'tag': None})
+            else:
                 fs = self.nsxlib.firewall_section
-                if not updated_ps:
+                if updated_excluded:
                     fs.add_member_to_fw_exclude_list(
                         lport_id, nsxlib_consts.TARGET_TYPE_LOGICAL_PORT)
                 else:
