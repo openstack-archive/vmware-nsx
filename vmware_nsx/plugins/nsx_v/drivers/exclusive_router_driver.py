@@ -78,6 +78,8 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
 
     def detach_router(self, context, router_id, router):
         LOG.debug("Detach exclusive router id %s", router_id)
+        router_db = self.plugin._get_router(context, router_id)
+        self._notify_before_router_edge_association(context, router_db)
         self.edge_manager.unbind_router_on_edge(context, router_id)
         if self.plugin.metadata_proxy_handler:
             az = self.get_router_az_by_id(context, router_id)
@@ -195,7 +197,7 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
 
             # Update static routes in all.
             self.plugin._update_routes(context, router_id, newnexthop)
-        if new_ext_net_id:
+        if new_ext_net_id or force_update:
             self._notify_after_router_edge_association(context, router)
 
     def add_router_interface(self, context, router_id, interface_info):

@@ -95,6 +95,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         if not edge_id:
             return
 
+        router_db = self.plugin._get_router(context, router_id)
+        self._notify_before_router_edge_association(context, router_db)
         with locking.LockManager.get_lock(str(edge_id)):
             self._remove_router_services_on_edge(context, router_id)
             self._unbind_router_on_edge(context, router_id)
@@ -108,6 +110,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         LOG.debug("Shared router %s attached to edge %s", router_id, edge_id)
         with locking.LockManager.get_lock(str(edge_id)):
             self._add_router_services_on_available_edge(context, router_id)
+        self._notify_after_router_edge_association(context, router_db)
 
     def delete_router(self, context, router_id):
         # make sure that the router binding is cleaned up
@@ -850,23 +853,25 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         return info
 
     def remove_router_interface(self, context, router_id, interface_info):
-        detach = False
         edge_id = edge_utils.get_router_edge_id(context, router_id)
         with locking.LockManager.get_lock('nsx-shared-router-pool'):
             info = super(
                 nsx_v.NsxVPluginV2, self.plugin).remove_router_interface(
                     context, router_id, interface_info)
+            subnet = self.plugin.get_subnet(context, info['subnet_id'])
+            network_id = subnet['network_id']
+            ports = self.plugin._get_router_interface_ports_by_network(
+                context, router_id, network_id)
+            if not ports:
+                router = self.plugin._get_router(context, router_id)
+                self._notify_before_router_edge_association(context, router)
             with locking.LockManager.get_lock(str(edge_id)):
-                subnet = self.plugin.get_subnet(context, info['subnet_id'])
-                network_id = subnet['network_id']
                 router_ids = self.edge_manager.get_routers_on_same_edge(
                     context, router_id)
                 self._update_nat_rules_on_routers(context, router_id,
                                                   router_ids)
                 self._update_subnets_and_dnat_firewall_on_routers(
                     context, router_id, router_ids, allow_external=True)
-                ports = self.plugin._get_router_interface_ports_by_network(
-                    context, router_id, network_id)
                 if not ports:
                     edge_utils.delete_interface(self.nsx_v, context,
                                                 router_id, network_id)
@@ -874,7 +879,9 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                     # router
                     if not self.plugin._get_internal_network_ids_by_router(
                             context, router_id):
-                        detach = True
+                        self._remove_router_services_on_edge(context,
+                                                             router_id)
+                        self._unbind_router_on_edge(context, router_id)
                 else:
                     address_groups = self.plugin._get_address_groups(
                         context, router_id, network_id)
@@ -882,12 +889,6 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                                                          router_id,
                                                          network_id,
                                                          address_groups)
-            if detach:
-                router = self.plugin._get_router(context, router_id)
-                self._notify_before_router_edge_association(context, router)
-                with locking.LockManager.get_lock(str(edge_id)):
-                    self._remove_router_services_on_edge(context, router_id)
-                    self._unbind_router_on_edge(context, router_id)
         return info
 
     def _update_edge_router(self, context, router_id):
