@@ -107,6 +107,19 @@ Add neutron-fwaas repo as an external repository and configure following flags i
     driver = vmware_nsx.services.fwaas.nsx_v.edge_fwaas_driver.EdgeFwaasDriver
 
 
+Neutron dynamic routing plugin (bgp)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Add neutron-dynamic-routing repo as an external repository and configure following flags in ``local.conf``::
+
+    [[local|localrc]]
+    enable_plugin neutron-dynamic-routing https://git.openstack.org/openstack/neutron-dynamic-routing
+    DR_MODE=dr_plugin
+
+    [[post-config|$NEUTRON_CONF]]
+    [DEFAULT]
+    api_extensions_path = $DEST/neutron-dynamic-routing/neutron_dynamic_routing/extensions
+
+
 NSXv3
 -----
 

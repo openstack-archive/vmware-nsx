@@ -894,3 +894,56 @@ def update_nsxv_port_ext_attributes(session, port_id,
     except exc.NoResultFound:
         return add_nsxv_port_ext_attributes(
             session, port_id, vnic_type=vnic_type)
+
+
+def add_nsxv_bgp_speaker_binding(session, edge_id, speaker_id,
+                                 bgp_identifier):
+    with session.begin(subtransactions=True):
+        binding = nsxv_models.NsxvBgpSpeakerBinding(
+            edge_id=edge_id,
+            bgp_speaker_id=speaker_id,
+            bgp_identifier=bgp_identifier)
+        session.add(binding)
+        return binding
+
+
+def get_nsxv_bgp_speaker_binding(session, edge_id):
+    try:
+        binding = (session.query(nsxv_models.NsxvBgpSpeakerBinding).
+                   filter_by(edge_id=edge_id).
+                   one())
+        return binding
+    except exc.NoResultFound:
+        LOG.debug("No dynamic routing enabled on edge %s.", edge_id)
+
+
+def get_nsxv_bgp_speaker_bindings(session, speaker_id):
+    try:
+        return (session.query(nsxv_models.NsxvBgpSpeakerBinding).
+                filter_by(bgp_speaker_id=speaker_id).all())
+    except exc.NoResultFound:
+        return []
+
+
+def delete_nsxv_bgp_speaker_binding(session, edge_id):
+    binding = session.query(
+        nsxv_models.NsxvBgpSpeakerBinding).filter_by(edge_id=edge_id)
+    if binding:
+        binding.delete()
+
+
+def add_nsxv_bgp_peer_edge_binding(session, peer_id, edge_id):
+    with session.begin(subtransactions=True):
+        binding = nsxv_models.NsxvBgpPeerEdgeBinding(edge_id=edge_id,
+                                                     peer_id=peer_id)
+        session.add(binding)
+        return binding
+
+
+def get_nsxv_bgp_peer_edge_binding(session, peer_id):
+    try:
+        binding = (session.query(nsxv_models.NsxvBgpPeerEdgeBinding).
+                   filter_by(peer_id=peer_id).one())
+        return binding
+    except exc.NoResultFound:
+        pass

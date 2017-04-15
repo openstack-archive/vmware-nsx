@@ -1474,3 +1474,128 @@ class FakeVcns(object):
                             'objectID': 'application-1001'}]
 
         return applications
+
+    def update_dynamic_routing_service(self, edge_id, request_config):
+        header = {'status': 201}
+        response = {
+            'routerId': '172.24.4.12',
+            'ipPrefixes': {
+                'ipPrefixes': [
+                    {'ipAddress': '10.0.0.0/24',
+                     'name': 'prefix-name'}
+                ]
+            }
+        }
+        return self.return_helper(header, response)
+
+    def get_dynamic_routing_service(self, edge_id):
+        header = {'status': 200}
+        response = {
+            'routerId': '172.24.4.12',
+            'ipPrefixes': {
+                'ipPrefixes': [
+                    {'ipAddress': '10.0.0.0/24',
+                     'name': 'prefix-name'}
+                ]
+            },
+            'logging': {
+                'logLevel': 'info',
+                'enable': False
+            },
+            'ecmp': False
+        }
+        return self.return_helper(header, response)
+
+    def update_bgp_dynamic_routing(self, edge_id, bgp_request):
+        header = {"status": 201}
+        response = {
+            "localAS": 65000,
+            "enabled": True,
+            "bgpNeighbours": {
+                "bgpNeighbours": [
+                    {
+                        "bgpFilters": {
+                            "bgpFilters": [
+                                {
+                                    "action": "deny",
+                                    "direction": "in"
+                                }
+                            ]
+                        },
+                        "password": None,
+                        "ipAddress": "172.24.4.253",
+                        "remoteAS": 65000
+                    }
+                ]
+            },
+            "redistribution": {
+                "rules": {
+                    "rules": [
+                        {
+                            "action": "deny",
+                            "from": {
+                                "bgp": False,
+                                "connected": False,
+                                "static": False,
+                                "ospf": False
+                            },
+                            "id": 0
+                        },
+                        {
+                            "action": "permit",
+                            "from": {
+                                "bgp": False,
+                                "connected": True,
+                                "static": True,
+                                "ospf": False
+                            },
+                            "id": 1,
+                            "prefixName": "eee4eb79-359e-4416"
+                        }
+                    ]
+                },
+                "enabled": True
+            }
+        }
+        return self.return_helper(header, response)
+
+    def get_bgp_routing_config(self, edge_id):
+        header = {'status': 200}
+        response = {
+            "localAS": 65000,
+            "enabled": True,
+            "redistribution": {
+                "rules": {
+                    "rules": [
+                        {
+                            "action": "deny",
+                            "from": {
+                                "bgp": False,
+                                "connected": False,
+                                "static": False,
+                                "ospf": False
+                            },
+                            "id": 0
+                        },
+                        {
+                            "action": "permit",
+                            "from": {
+                                "bgp": False,
+                                "connected": True,
+                                "static": True,
+                                "ospf": False
+                            },
+                            "id": 1,
+                            "prefixName": "eee4eb79-359e-4416"
+                        }
+                    ]
+                },
+                "enabled": True
+            }
+        }
+        return self.return_helper(header, response)
+
+    def delete_bgp_routing_config(self, edge_id):
+        header = {'status': 200}
+        response = ''
+        return header, response
