@@ -14,8 +14,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo_log import log as logging
-
 from neutron.callbacks import events
 from neutron.callbacks import registry
 from neutron.callbacks import resources
@@ -31,7 +29,6 @@ from vmware_nsx.extensions import edge_service_gateway_bgp_peer as ext_esg
 from vmware_nsx.services.dynamic_routing.nsx_v import driver as nsxv_driver
 
 PLUGIN_NAME = bgp_ext.BGP_EXT_ALIAS + '_nsx_svc_plugin'
-LOG = logging.getLogger(__name__)
 
 
 class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
