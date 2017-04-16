@@ -26,44 +26,7 @@ class EdgeDynamicRoutingDriver(object):
         # it will be initialized at subclass
         self.vcns = None
 
-    def _get_routing_global_config(self, edge_id):
-        h, config = self.vcns.get_dynamic_routing_service(edge_id)
-        global_config = config if config else {}
-        global_config.setdefault('ipPrefixes', {'ipPrefixes': []})
-        curr_prefixes = [{'ipPrefix': prx}
-                         for prx in global_config['ipPrefixes']['ipPrefixes']]
-        global_config['ipPrefixes'] = curr_prefixes
-        return {'routingGlobalConfig': global_config}
-
-    def _update_global_routing_config(self, edge_id, **kwargs):
-        global_config = self._get_routing_global_config(edge_id)
-        current_prefixes = global_config['routingGlobalConfig']['ipPrefixes']
-
-        global_config['routingGlobalConfig']['ecmp'] = True
-
-        if 'router_id' in kwargs:
-            global_config['routingGlobalConfig']['routerId'] = (
-                kwargs['router_id'])
-
-        current_prefixes[:] = [p for p in current_prefixes
-                               if p['ipPrefix']['name'] not in
-                               kwargs.get('prefixes_to_remove', [])]
-        # Avoid adding duplicate rules when shared router relocation
-        current_prefixes.extend([p for p in kwargs.get('prefixes_to_add', [])
-                                 if p not in current_prefixes])
-
-        self.vcns.update_dynamic_routing_service(edge_id, global_config)
-
-    def _reset_routing_global_config(self, edge_id):
-        global_config = self._get_routing_global_config(edge_id)
-        global_config['routingGlobalConfig']['ecmp'] = False
-        global_config['routingGlobalConfig'].pop('routerId', None)
-        global_config['routingGlobalConfig'].pop('ipPrefixes', None)
-        self.vcns.update_dynamic_routing_service(edge_id, global_config)
-
-    def get_routing_bgp_config(self, edge_id):
-        h, config = self.vcns.get_bgp_routing_config(edge_id)
-        bgp_config = config if config else {}
+    def _prepare_bgp_config(self, bgp_config):
         bgp_config.setdefault('enabled', False)
         bgp_config.setdefault('bgpNeighbours', {'bgpNeighbours': []})
         bgp_config.setdefault('redistribution', {'rules': {'rules': []}})
@@ -78,6 +41,60 @@ class EdgeDynamicRoutingDriver(object):
         redistribution_rules = [{'rule': rule} for rule in
                                 bgp_config['redistribution']['rules']['rules']]
         bgp_config['redistribution']['rules'] = redistribution_rules
+
+    def _get_routing_config(self, edge_id):
+        h, config = self.vcns.get_edge_routing_config(edge_id)
+        # Backend complains when adding this in the request.
+        config.pop('featureType')
+        config.pop('ospf')
+        global_config = config['routingGlobalConfig']
+        bgp_config = config.get('bgp', {})
+
+        self._prepare_bgp_config(bgp_config)
+
+        global_config.setdefault('ipPrefixes', {'ipPrefixes': []})
+        curr_prefixes = [{'ipPrefix': prx}
+                         for prx in global_config['ipPrefixes']['ipPrefixes']]
+        global_config['ipPrefixes'] = curr_prefixes
+
+        static_routing = config.get('staticRouting', {})
+        static_routes = static_routing.get('staticRoutes', {})
+        current_routes = [{'route': route}
+                          for route in static_routes.get('staticRoutes', [])]
+        static_routing['staticRoutes'] = current_routes
+        return {'routing': config}
+
+    def _update_routing_config(self, edge_id, **kwargs):
+        routing_config = self._get_routing_config(edge_id)
+        global_config = routing_config['routing']['routingGlobalConfig']
+        current_prefixes = global_config['ipPrefixes']
+
+        global_config['ecmp'] = True
+
+        if 'router_id' in kwargs:
+            global_config['routerId'] = kwargs['router_id']
+
+        current_prefixes[:] = [p for p in current_prefixes
+                               if p['ipPrefix']['name'] not in
+                               kwargs.get('prefixes_to_remove', [])]
+        # Avoid adding duplicate rules when shared router relocation
+        current_prefixes.extend([p for p in kwargs.get('prefixes_to_add', [])
+                                 if p not in current_prefixes])
+
+        self.vcns.update_edge_routing_config(edge_id, routing_config)
+
+    def _reset_routing_global_config(self, edge_id):
+        routing_config = self._get_routing_config(edge_id)
+        global_config = routing_config['routing']['routingGlobalConfig']
+        global_config['ecmp'] = False
+        global_config.pop('routerId')
+        global_config.pop('ipPrefixes')
+        self.vcns.update_edge_routing_config(edge_id, routing_config)
+
+    def get_routing_bgp_config(self, edge_id):
+        h, config = self.vcns.get_bgp_routing_config(edge_id)
+        bgp_config = config if config else {}
+        self._prepare_bgp_config(bgp_config)
         return {'bgp': bgp_config}
 
     def _update_bgp_routing_config(self, edge_id, **kwargs):
@@ -136,9 +153,9 @@ class EdgeDynamicRoutingDriver(object):
                                enabled, default_routes, bgp_neighbours,
                                prefixes, redistribution_rules):
         with locking.LockManager.get_lock(str(edge_id)):
-            self._update_global_routing_config(edge_id,
-                                               router_id=prot_router_id,
-                                               prefixes_to_add=prefixes)
+            self._update_routing_config(edge_id,
+                                        router_id=prot_router_id,
+                                        prefixes_to_add=prefixes)
             self._update_bgp_routing_config(edge_id, enabled=enabled,
                                             local_as=local_as,
                                             neighbours_to_add=bgp_neighbours,
@@ -169,12 +186,13 @@ class EdgeDynamicRoutingDriver(object):
             if default_routes:
                 self._remove_default_static_routes(edge_id, default_routes)
 
-    def update_bgp_neighbour(self, edge_id, bgp_neighbour):
+    def update_bgp_neighbours(self, edge_id, neighbours_to_add=None,
+                              neighbours_to_remove=None):
         with locking.LockManager.get_lock(str(edge_id)):
             self._update_bgp_routing_config(
                 edge_id,
-                neighbours_to_remove=[bgp_neighbour],
-                neighbours_to_add=[bgp_neighbour])
+                neighbours_to_add=neighbours_to_add,
+                neighbours_to_remove=neighbours_to_remove)
 
     def update_routing_redistribution(self, edge_id, enabled):
         with locking.LockManager.get_lock(str(edge_id)):
@@ -182,19 +200,17 @@ class EdgeDynamicRoutingDriver(object):
 
     def add_bgp_redistribution_rules(self, edge_id, prefixes, rules):
         with locking.LockManager.get_lock(str(edge_id)):
-            self._update_global_routing_config(edge_id,
-                                               prefixes_to_add=prefixes)
+            self._update_routing_config(edge_id, prefixes_to_add=prefixes)
             self._update_bgp_routing_config(edge_id, rules_to_add=rules)
         LOG.debug("Added redistribution rules %s on edge %s", rules, edge_id)
 
     def remove_bgp_redistribution_rules(self, edge_id, prefixes):
         with locking.LockManager.get_lock(str(edge_id)):
             self._update_bgp_routing_config(edge_id, rules_to_remove=prefixes)
-            self._update_global_routing_config(edge_id,
-                                               prefixes_to_remove=prefixes)
+            self._update_routing_config(edge_id, prefixes_to_remove=prefixes)
         LOG.debug("Removed redistribution rules for prefixes %s on edge %s",
                   prefixes, edge_id)
 
     def update_router_id(self, edge_id, router_id):
         with locking.LockManager.get_lock(str(edge_id)):
-            self._update_global_routing_config(edge_id, router_id=router_id)
+            self._update_routing_config(edge_id, router_id=router_id)

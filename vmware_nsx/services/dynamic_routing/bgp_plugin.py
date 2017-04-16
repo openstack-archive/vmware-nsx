@@ -61,7 +61,7 @@ class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
                            events.AFTER_DELETE)
         registry.subscribe(self.router_gateway_callback,
                            resources.ROUTER_GATEWAY,
-                           events.AFTER_CREATE)
+                           events.AFTER_UPDATE)
         registry.subscribe(self.router_gateway_callback,
                            resources.ROUTER_GATEWAY,
                            events.AFTER_DELETE)
@@ -80,7 +80,7 @@ class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
     def update_bgp_speaker(self, context, bgp_speaker_id, bgp_speaker):
         with locking.LockManager.get_lock(str(bgp_speaker_id)):
             self.nsxv_driver.update_bgp_speaker(context, bgp_speaker_id,
-                                               bgp_speaker)
+                                                bgp_speaker)
             # TBD(roeyc): rolling back changes on edges base class call failed.
             return super(NSXvBgpPlugin, self).update_bgp_speaker(
                 context, bgp_speaker_id, bgp_speaker)
@@ -124,9 +124,9 @@ class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
         return peer
 
     def update_bgp_peer(self, context, bgp_peer_id, bgp_peer):
+        self.nsxv_driver.update_bgp_peer(context, bgp_peer_id, bgp_peer)
         super(NSXvBgpPlugin, self).update_bgp_peer(context,
                                                    bgp_peer_id, bgp_peer)
-        self.nsxv_driver.update_bgp_peer(context, bgp_peer_id, bgp_peer)
         return self.get_bgp_peer(context, bgp_peer_id)
 
     def delete_bgp_peer(self, context, bgp_peer_id):
@@ -140,7 +140,7 @@ class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
     def add_bgp_peer(self, context, bgp_speaker_id, bgp_peer_info):
         with locking.LockManager.get_lock(str(bgp_speaker_id)):
             self.nsxv_driver.add_bgp_peer(context,
-                                         bgp_speaker_id, bgp_peer_info)
+                                          bgp_speaker_id, bgp_peer_info)
             return super(NSXvBgpPlugin, self).add_bgp_peer(context,
                                                            bgp_speaker_id,
                                                            bgp_peer_info)
@@ -151,15 +151,15 @@ class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
             if bgp_peer_info['bgp_peer_id'] not in speaker['peers']:
                 return
             self.nsxv_driver.remove_bgp_peer(context,
-                                            bgp_speaker_id, bgp_peer_info)
+                                             bgp_speaker_id, bgp_peer_info)
             return super(NSXvBgpPlugin, self).remove_bgp_peer(
                 context, bgp_speaker_id, bgp_peer_info)
 
     def add_gateway_network(self, context, bgp_speaker_id, network_info):
         with locking.LockManager.get_lock(str(bgp_speaker_id)):
             self.nsxv_driver.add_gateway_network(context,
-                                                bgp_speaker_id,
-                                                network_info)
+                                                 bgp_speaker_id,
+                                                 network_info)
             return super(NSXvBgpPlugin, self).add_gateway_network(
                 context, bgp_speaker_id, network_info)
 
@@ -168,8 +168,8 @@ class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
             super(NSXvBgpPlugin, self).remove_gateway_network(
                 context, bgp_speaker_id, network_info)
             self.nsxv_driver.remove_gateway_network(context,
-                                                   bgp_speaker_id,
-                                                   network_info)
+                                                    bgp_speaker_id,
+                                                    network_info)
 
     def get_advertised_routes(self, context, bgp_speaker_id):
         return super(NSXvBgpPlugin, self).get_advertised_routes(
@@ -196,11 +196,11 @@ class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
                     continue
                 if event == events.AFTER_CREATE:
                     self.nsxv_driver.advertise_subnet(context, speaker_id,
-                                                     router_id, subnets[0])
+                                                      router_id, subnets[0])
                 if event == events.AFTER_DELETE:
                     subnet_id = port['fixed_ips'][0]['subnet_id']
                     self.nsxv_driver.withdraw_subnet(context, speaker_id,
-                                                    router_id, subnet_id)
+                                                     router_id, subnet_id)
 
     def router_gateway_callback(self, resource, event, trigger, **kwargs):
         context = kwargs.get('context') or n_context.get_admin_context()
@@ -217,9 +217,14 @@ class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
                 if event == events.AFTER_DELETE:
                     gw_ips = kwargs['gateway_ips']
                     self.nsxv_driver.disable_bgp_on_router(context,
-                                                          speaker,
-                                                          router_id,
-                                                          gw_ips[0])
+                                                           speaker,
+                                                           router_id,
+                                                           gw_ips[0])
+                if event == events.AFTER_UPDATE:
+                    updated_port = kwargs['updated_port']
+                    router = kwargs['router']
+                    self.nsxv_driver.process_router_gw_port_update(
+                        context, speaker, router, updated_port)
 
     def _before_service_edge_delete_callback(self, resource, event,
                                              trigger, **kwargs):
