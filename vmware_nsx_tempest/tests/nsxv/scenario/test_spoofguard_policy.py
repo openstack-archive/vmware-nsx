@@ -15,6 +15,7 @@
 #    under the License.
 
 import re
+import time
 
 from tempest.common.utils.linux import remote_client
 from tempest import config
@@ -23,6 +24,7 @@ from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
 from tempest import test
 
+from vmware_nsx_tempest.common import constants
 from vmware_nsx_tempest.services import nsxv_client
 from vmware_nsx_tempest.tests.nsxv.scenario import (
     manager_topo_deployment as dmgr)
@@ -254,8 +256,10 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         port_client.update_port(
             port_id=port1_id,
             port_security_enabled='false')
+        time.sleep(constants.NSX_BACKEND_TIME_INTERVAL)
         self.compute_security_group_rules_client.\
             delete_security_group_rule(self.green['rule_id'])
+        time.sleep(constants.NSX_BACKEND_TIME_INTERVAL)
         self.assertEqual(False, dmgr.is_reachable(client1, private_ip_vm_2),
                          "Destination is not reachable")
         self.assertEqual(True, dmgr.is_reachable(client2, private_ip_vm_1),
