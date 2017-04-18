@@ -53,14 +53,16 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
             lookup_id = None
             router_id = router_info.router_id
             if router_info.router.get('distributed'):
+                # Distributed router
                 # we need the plr edge id
                 lookup_id = edge_manager.get_plr_by_tlr_id(
                     context, router_id)
-            if router_info.router.get('router_type') == 'shared':
+            elif router_info.router.get('router_type') == 'shared':
+                # Shared router (currently not supported)
                 LOG.info("Cannot apply firewall to shared router %s",
                          router_id)
             else:
-                # exclusive router
+                # Exclusive router
                 lookup_id = router_id
             if lookup_id:
                 # look for the edge id in the DB
