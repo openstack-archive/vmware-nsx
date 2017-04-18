@@ -18,7 +18,7 @@ import time
 
 from oslo_log import log as logging
 
-from tempest.api.network import base_routers as base
+from tempest.api.network import base
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib import decorators
@@ -31,7 +31,7 @@ LOG = logging.getLogger(__name__)
 ROUTER_SIZE = ('compact', 'large', 'xlarge', 'quadlarge')
 
 
-class RouterSizeBaseTest(base.BaseRouterTest):
+class RouterSizeBaseTest(base.BaseAdminNetworkTest):
     """Base class to test creating routers with different router sizes:
 
     NSX-v allows exclusive router to be created with one of ROUTER_SIZE.

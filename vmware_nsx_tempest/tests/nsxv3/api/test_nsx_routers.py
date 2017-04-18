@@ -12,7 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from tempest.api.network import base_routers as base
+from tempest.api.network import base
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib import decorators
@@ -23,7 +23,7 @@ from vmware_nsx_tempest.services import nsxv3_client
 CONF = config.CONF
 
 
-class NSXv3RoutersTest(base.BaseRouterTest):
+class NSXv3RoutersTest(base.BaseAdminNetworkTest):
     """Test L3 Router and realization on NSX backend
 
     When test L3 Router feature, we need to test both REST API

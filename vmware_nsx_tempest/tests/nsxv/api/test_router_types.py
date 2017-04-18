@@ -15,7 +15,7 @@
 
 import re
 
-from tempest.api.network import base_routers as base
+from tempest.api.network import base
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
@@ -26,7 +26,7 @@ from vmware_nsx_tempest.services import nsxv_client
 CONF = config.CONF
 
 
-class ExcRouterTest(base.BaseRouterTest):
+class ExcRouterTest(base.BaseAdminNetworkTest):
     """
     Test class for exclusive router type, which is 1:1 mapping of
     NSX-v service edge. Tests will skipped if the router-type
