@@ -24,6 +24,7 @@ from neutron_fwaas.services.firewall.drivers import fwaas_base
 from vmware_nsx.common import locking
 from vmware_nsx.plugins.nsx_v.vshield.common import (
     exceptions as vcns_exc)
+from vmware_nsx.plugins.nsx_v.vshield import edge_firewall_driver
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 from vmware_nsx.plugins.nsx_v.vshield import vcns_driver
 
@@ -44,12 +45,35 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
         super(EdgeFwaasDriver, self).__init__()
         self._nsxv = vcns_driver.VcnsDriver(None)
 
+    def should_apply_firewall_to_router(self, router_data):
+        """Return True if the firewall rules should be added the router
+
+        Return False in those cases:
+        - shared router (not supported)
+        - router without an external gateway
+        """
+        if not router_data.get('external_gateway_info'):
+            LOG.info("Cannot apply firewall to router %s with no gateway",
+                     router_data['id'])
+            return False
+        if (not router_data.get('distributed') and
+            router_data.get('router_type') == 'shared'):
+            LOG.info("Cannot apply firewall to shared router %s",
+                     router_data['id'])
+            return False
+        return True
+
     def _get_routers_edges(self, context, apply_list):
         # Get edges for all the routers in the apply list.
         # note that shared routers are currently not supported
         edge_manager = self.edge_manager
         edges = []
         for router_info in apply_list:
+
+            # No FWaaS rules needed if there is no external gateway
+            if not self.should_apply_firewall_to_router(router_info.router):
+                continue
+
             lookup_id = None
             router_id = router_info.router_id
             if router_info.router.get('distributed'):
@@ -57,10 +81,6 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
                 # we need the plr edge id
                 lookup_id = edge_manager.get_plr_by_tlr_id(
                     context, router_id)
-            elif router_info.router.get('router_type') == 'shared':
-                # Shared router (currently not supported)
-                LOG.info("Cannot apply firewall to shared router %s",
-                         router_id)
             else:
                 # Exclusive router
                 lookup_id = router_id
@@ -94,6 +114,18 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
 
         return translated_rules
 
+    def _is_allow_external_rule(self, rule):
+        rule_name = rule.get('name', '')
+        if rule_name == edge_firewall_driver.FWAAS_ALLOW_EXT_RULE_NAME:
+            return True
+        # For older routers, the allow-external rule didn't have a name
+        # TODO(asarfaty): delete this in the future
+        if (not rule_name and
+            rule.get('action') == edge_firewall_driver.FWAAS_ALLOW and
+            rule.get('destination_vnic_groups', []) == ['external']):
+            return True
+        return False
+
     def _get_other_backend_rules(self, context, edge_id):
         """Get a list of current backend rules from other applications
 
@@ -107,36 +139,42 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
             # Need to create a new one
             backend_rules = []
 
-        # remove old FWaaS rules from the rules list
-        relevant_rules = []
+        # remove old FWaaS rules from the rules list.
+        # also delete the allow-external rule, if it is there.
+        # If necessary - we will add it again later
+        other_rules = []
         for rule_item in backend_rules:
             rule = rule_item['firewall_rule']
-            if not rule.get('name', '').startswith(RULE_NAME_PREFIX):
-                relevant_rules.append(rule)
+            rule_name = rule.get('name', '')
+            if (not rule_name.startswith(RULE_NAME_PREFIX) and
+                not self._is_allow_external_rule(rule)):
+                other_rules.append(rule)
 
-        return relevant_rules
+        return other_rules
 
-    def _set_rules_on_edge(self, context, edge_id, fw_id, translated_rules):
+    def _set_rules_on_edge(self, context, edge_id, fw_id, translated_rules,
+                           allow_external=False):
         """delete old FWaaS rules from the Edge, and add new ones
 
         Note that the edge might have other FW rules like NAT or LBaas
         that should remain there.
+
+        allow_external is usually False because it shouldn't exist with a
+        firewall. It should only be True when the firewall is being deleted.
         """
         # Get the existing backend rules which do not belong to FWaaS
         backend_rules = self._get_other_backend_rules(context, edge_id)
 
         # add new FWaaS rules at the end by their original order
         backend_rules.extend(translated_rules)
-
         # update the backend
-        # allow_external is False because it was already added
         try:
             with locking.LockManager.get_lock(str(edge_id)):
                 self._nsxv.update_firewall(
                     edge_id,
                     {'firewall_rule_list': backend_rules},
                     context,
-                    allow_external=False)
+                    allow_external=allow_external)
         except Exception as e:
             # catch known library exceptions and raise Fwaas generic exception
             LOG.error("Failed to update backend firewall %(fw)s: "
@@ -174,29 +212,34 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
         """Remove previous policy and apply the new policy."""
         self._create_or_update_firewall(agent_mode, apply_list, firewall)
 
-    def _delete_firewall_or_set_default_policy(self, apply_list, firewall):
+    def _delete_firewall_or_set_default_policy(self, apply_list, firewall,
+                                               allow_external):
         context = n_context.get_admin_context()
         router_edges = self._get_routers_edges(context, apply_list)
         if router_edges:
             for edge_id in router_edges:
-                self._set_rules_on_edge(context, edge_id, firewall['id'], [])
+                self._set_rules_on_edge(context, edge_id, firewall['id'], [],
+                                        allow_external=allow_external)
 
     @log_helpers.log_method_call
     def delete_firewall(self, agent_mode, apply_list, firewall):
         """Delete firewall.
 
-        Removes rules created by this instance from the backend firewall.
+        Removes rules created by this instance from the backend firewall
+        And add the default allow-external rule.
         """
-        self._delete_firewall_or_set_default_policy(apply_list, firewall)
+        self._delete_firewall_or_set_default_policy(apply_list, firewall,
+                                                    allow_external=True)
 
     @log_helpers.log_method_call
     def apply_default_policy(self, agent_mode, apply_list, firewall):
         """Apply the default policy (deny all).
 
-        The backend firewall always has this policy as default, so we only
-        need to delete the current rules.
+        The backend firewall always has this policy (=deny all) as default,
+        so we only need to delete the current rules.
         """
-        self._delete_firewall_or_set_default_policy(apply_list, firewall)
+        self._delete_firewall_or_set_default_policy(apply_list, firewall,
+                                                    allow_external=False)
 
     def get_firewall_translated_rules(self, firewall):
         if firewall['admin_state_up']:

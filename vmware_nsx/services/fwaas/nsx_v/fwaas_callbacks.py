@@ -14,6 +14,7 @@
 #    under the License.
 
 from oslo_config import cfg
+from oslo_log import log as logging
 
 from neutron.agent.l3 import router_info
 from neutron.common import config as neutron_config  # noqa
@@ -24,6 +25,8 @@ from neutron_fwaas.services.firewall.agents.l3reference \
     import firewall_l3_agent
 from neutron_lib import context as n_context
 from neutron_lib.plugins import directory
+
+LOG = logging.getLogger(__name__)
 
 
 class NsxvFwaasCallbacks(firewall_l3_agent.L3WithFWaaS):
@@ -70,31 +73,37 @@ class NsxvFwaasCallbacks(firewall_l3_agent.L3WithFWaaS):
         return [self._router_dict_to_obj(ri) for ri in tenant_routers
                 if ri['id'] in router_ids]
 
-    def get_fwaas_rules_for_router(self, context, router, router_id):
-        """Return the list of (translated) fwaas rules for this router."""
+    def should_apply_firewall_to_router(self, context, router, router_id):
+        """Return True if the FWaaS rules should be added to this router."""
         if not self.fwaas_enabled:
-            return []
-
-        ctx_elevated = context.elevated()
+            return False
 
         # get all the relevant router info
         # ("router" does not have all the fields)
+        ctx_elevated = context.elevated()
         router_data = self.core_plugin.get_router(ctx_elevated, router['id'])
         if not router_data:
-            return []
+            LOG.error("Couldn't read router %s data", router['id'])
+            return False
+
+        # Check if the FWaaS driver supports this router
+        if not self.fwaas_driver.should_apply_firewall_to_router(router_data):
+            return False
+
         if router_data.get('distributed'):
-            # in case of distributed router router['id'] is the id of the
-            # neutron router
+            # in case of a distributed-router:
+            # router['id'] is the id of the neutron router (=tlr)
             # and router_id is the plr/tlr (the one that is being updated)
             if router_id == router['id']:
                 # Do not add firewall rules on the tlr router.
-                return []
-        if router_data.get('router_type') == 'shared':
-            # Currently there is no FWaaS support for shared routers
-            return []
+                return False
 
-        # Exclusive router or PLR
-        fw_id = self._get_router_firewall_id(ctx_elevated, router['id'])
+        return True
+
+    def get_fwaas_rules_for_router(self, context, router_id):
+        """Return the list of (translated) FWaaS rules for this router."""
+        ctx_elevated = context.elevated()
+        fw_id = self._get_router_firewall_id(ctx_elevated, router_id)
         if fw_id:
             return self._get_fw_applicable_rules(ctx_elevated, fw_id)
         return []

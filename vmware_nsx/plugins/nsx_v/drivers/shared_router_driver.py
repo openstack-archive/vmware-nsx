@@ -297,6 +297,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                 # Fake fw rule to open subnets firewall flows and static routes
                 # relative flows
                 fake_subnet_fw_rule = {
+                    'name': 'Subnet Rule',
                     'action': 'allow',
                     'enabled': True,
                     'source_ip_address': subnet_cidrs,
@@ -307,6 +308,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             if dnat_cidrs:
                 # Fake fw rule to open dnat firewall flows
                 fake_dnat_fw_rule = {
+                    'name': 'DNAT Rule',
                     'action': 'allow',
                     'enabled': True,
                     'destination_ip_address': dnat_cidrs}

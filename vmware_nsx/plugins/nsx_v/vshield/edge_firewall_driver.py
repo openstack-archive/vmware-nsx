@@ -30,6 +30,7 @@ VSE_FWAAS_REJECT = "reject"
 FWAAS_ALLOW = "allow"
 FWAAS_DENY = "deny"
 FWAAS_REJECT = "reject"
+FWAAS_ALLOW_EXT_RULE_NAME = 'Allow To External'
 
 
 class EdgeFirewallDriver(object):
@@ -191,11 +192,12 @@ class EdgeFirewallDriver(object):
         ruleTag = 1
         vcns_rules = []
         if allow_external:
-            vcns_rules.append(
-                {'action': "accept",
-                 'enabled': True,
-                 'destination': {'vnicGroupId': ["external"]},
-                 'ruleTag': ruleTag})
+            vcns_rules.append({'name': FWAAS_ALLOW_EXT_RULE_NAME,
+                               'action': "accept",
+                               'enabled': True,
+                               'destination': {'vnicGroupId': ["external"]},
+                               'ruleTag': ruleTag})
+            ruleTag += 1
         for rule in firewall['firewall_rule_list']:
             tag = rule.get('ruleTag', ruleTag)
             vcns_rule = self._convert_firewall_rule(rule, tag)
@@ -387,7 +389,6 @@ class EdgeFirewallDriver(object):
                 LOG.exception("Failed to update firewall "
                               "with edge_id: %s", edge_id)
         vcns_fw_config = self._get_firewall(edge_id)
-
         nsxv_db.cleanup_nsxv_edge_firewallrule_binding(
             context.session, edge_id)
 

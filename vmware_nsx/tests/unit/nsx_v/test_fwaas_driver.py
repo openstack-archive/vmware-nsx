@@ -99,6 +99,8 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
             self.assertEqual(router_count, update_fw.call_count)
             bakend_rules = update_fw.call_args[0][1]['firewall_rule_list']
             self.assertEqual(len(rule_list), len(bakend_rules))
+            allow_ext = update_fw.call_args[1]['allow_external']
+            self.assertEqual(False, allow_ext)
 
     def test_create_firewall_no_rules(self):
         apply_list = self._fake_apply_list()
@@ -109,6 +111,8 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
             self.assertEqual(1, update_fw.call_count)
             bakend_rules = update_fw.call_args[0][1]['firewall_rule_list']
             self.assertEqual(0, len(bakend_rules))
+            allow_ext = update_fw.call_args[1]['allow_external']
+            self.assertEqual(False, allow_ext)
 
     def test_create_firewall_with_rules(self):
         self._setup_firewall_with_rules(self.firewall.create_firewall)
@@ -129,6 +133,8 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
             self.assertEqual(1, update_fw.call_count)
             bakend_rules = update_fw.call_args[0][1]['firewall_rule_list']
             self.assertEqual(0, len(bakend_rules))
+            allow_ext = update_fw.call_args[1]['allow_external']
+            self.assertEqual(True, allow_ext)
 
     def test_create_firewall_with_admin_down(self):
         apply_list = self._fake_apply_list()
@@ -140,3 +146,27 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
             self.assertEqual(1, update_fw.call_count)
             bakend_rules = update_fw.call_args[0][1]['firewall_rule_list']
             self.assertEqual(0, len(bakend_rules))
+            allow_ext = update_fw.call_args[1]['allow_external']
+            self.assertEqual(False, allow_ext)
+
+    def test_should_apply_firewall_to_router(self):
+        router = {'id': 'fake_id',
+                  'external_gateway_info': 'fake_data',
+                  'router_type': 'exclusive',
+                  'distributed': False}
+        self.assertTrue(self.firewall.should_apply_firewall_to_router(router))
+
+        # no external gateway:
+        router['external_gateway_info'] = None
+        self.assertFalse(self.firewall.should_apply_firewall_to_router(router))
+        router['external_gateway_info'] = 'Dummy'
+
+        # not for shared router:
+        router['router_type'] = 'shared'
+        router['distributed'] = False
+        self.assertFalse(self.firewall.should_apply_firewall_to_router(router))
+
+        # should work for distributed router
+        router['router_type'] = 'exclusive'
+        router['distributed'] = True
+        self.assertTrue(self.firewall.should_apply_firewall_to_router(router))
