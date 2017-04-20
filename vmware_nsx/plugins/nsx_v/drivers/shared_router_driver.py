@@ -807,16 +807,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                             self.edge_manager.is_router_conflict_on_edge(
                                 context, router_id, conflict_router_ids,
                                 conflict_network_ids, 1))
-                    if is_conflict:
-                        if len(interface_ports) > 1:
-                            self._remove_router_services_on_edge(
-                                context, router_id)
-                        else:
-                            self._remove_router_services_on_edge(
-                                context, router_id, network_id)
-                        self._unbind_router_on_edge(context, router_id)
-                        is_migrated = True
-                    else:
+                    if not is_conflict:
+
                         address_groups = self.plugin._get_address_groups(
                             context, router_id, network_id)
                         edge_utils.update_internal_interface(
@@ -829,9 +821,19 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                         self._update_subnets_and_dnat_firewall_on_routers(
                             context, router_id, router_ids,
                             allow_external=True)
+                if is_conflict:
+                    self._notify_before_router_edge_association(
+                        context, router_db, edge_id)
+                    with locking.LockManager.get_lock(str(edge_id)):
+                        if len(interface_ports) > 1:
+                            self._remove_router_services_on_edge(
+                                context, router_id)
+                        else:
+                            self._remove_router_services_on_edge(
+                                context, router_id, network_id)
+                        self._unbind_router_on_edge(context, router_id)
+                    is_migrated = True
             if is_migrated:
-                self._notify_before_router_edge_association(context,
-                                                            router_db, edge_id)
                 self._bind_router_on_available_edge(
                     context, router_id, router_db.admin_state_up)
                 edge_id = edge_utils.get_router_edge_id(context, router_id)
