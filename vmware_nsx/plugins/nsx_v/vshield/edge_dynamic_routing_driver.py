@@ -57,6 +57,7 @@ class EdgeDynamicRoutingDriver(object):
                          for prx in global_config['ipPrefixes']['ipPrefixes']]
         global_config['ipPrefixes'] = curr_prefixes
 
+        # Don't change any static routes.
         static_routing = config.get('staticRouting', {})
         static_routes = static_routing.get('staticRoutes', {})
         current_routes = [{'route': route}
@@ -128,29 +129,8 @@ class EdgeDynamicRoutingDriver(object):
 
         self.vcns.update_bgp_dynamic_routing(edge_id, bgp_config)
 
-    def _get_edge_static_routes(self, edge_id):
-        h, routes = self.vcns.get_routes(edge_id)
-        static_routes = routes if routes else {}
-        static_routes.setdefault('staticRoutes', {'staticRoutes': []})
-        return static_routes
-
-    def _remove_default_static_routes(self, edge_id, droutes=None):
-        routes = self._get_edge_static_routes(edge_id)
-        # if droutes is empty or None, then remove all default static routes
-        droutes = droutes or routes['staticRoutes']['staticRoutes']
-        droutes = [r['nextHop'] for r in droutes]
-        routes['staticRoutes']['staticRoutes'] = [
-            r for r in routes['staticRoutes']['staticRoutes']
-            if r['network'] != '0.0.0.0/0' or r['nextHop'] not in droutes]
-        self.vcns.update_routes(edge_id, routes)
-
-    def _add_default_static_routes(self, edge_id, default_routes):
-        routes = self._get_edge_static_routes(edge_id)
-        routes['staticRoutes']['staticRoutes'].extend(default_routes)
-        self.vcns.update_routes(edge_id, routes)
-
     def add_bgp_speaker_config(self, edge_id, prot_router_id, local_as,
-                               enabled, default_routes, bgp_neighbours,
+                               enabled, bgp_neighbours,
                                prefixes, redistribution_rules):
         with locking.LockManager.get_lock(str(edge_id)):
             self._update_routing_config(edge_id,
@@ -161,30 +141,22 @@ class EdgeDynamicRoutingDriver(object):
                                             neighbours_to_add=bgp_neighbours,
                                             prefixes_to_add=prefixes,
                                             rules_to_add=redistribution_rules)
-            self._add_default_static_routes(edge_id, default_routes)
 
     def delete_bgp_speaker_config(self, edge_id):
         with locking.LockManager.get_lock(str(edge_id)):
             self.vcns.delete_bgp_routing_config(edge_id)
-            self._remove_default_static_routes(edge_id)
             self._reset_routing_global_config(edge_id)
 
-    def add_bgp_neighbours(self, edge_id, bgp_neighbours,
-                           default_routes=None):
+    def add_bgp_neighbours(self, edge_id, bgp_neighbours):
         # Query the bgp config first and update the bgpNeighbour
         with locking.LockManager.get_lock(str(edge_id)):
             self._update_bgp_routing_config(edge_id,
                                             neighbours_to_add=bgp_neighbours)
-            if default_routes:
-                self._add_default_static_routes(edge_id, default_routes)
 
-    def remove_bgp_neighbours(self, edge_id, bgp_neighbours,
-                              default_routes=None):
+    def remove_bgp_neighbours(self, edge_id, bgp_neighbours):
         with locking.LockManager.get_lock(str(edge_id)):
             self._update_bgp_routing_config(
                 edge_id, neighbours_to_remove=bgp_neighbours)
-            if default_routes:
-                self._remove_default_static_routes(edge_id, default_routes)
 
     def update_bgp_neighbours(self, edge_id, neighbours_to_add=None,
                               neighbours_to_remove=None):

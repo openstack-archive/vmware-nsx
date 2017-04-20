@@ -56,7 +56,9 @@ def bgp_neighbour(bgp_peer):
         'ipAddress': bgp_peer['peer_ip'],
         'remoteAS': bgp_peer['remote_as'],
         'bgpFilters': bgp_filter,
-        'password': bgp_peer['password']
+        'password': bgp_peer['password'],
+        'holdDownTimer': cfg.CONF.nsxv.bgp_neighbour_hold_down_timer,
+        'keepAliveTimer': cfg.CONF.nsxv.bgp_neighbour_keep_alive_timer
     }
     return {'bgpNeighbour': nbr}
 
@@ -67,14 +69,11 @@ def gw_bgp_neighbour(ip_address, remote_as, password):
         'ipAddress': ip_address,
         'remoteAS': remote_as,
         'bgpFilters': bgp_filter,
-        'password': password
+        'password': password,
+        'holdDownTimer': cfg.CONF.nsxv.bgp_neighbour_hold_down_timer,
+        'keepAliveTimer': cfg.CONF.nsxv.bgp_neighbour_keep_alive_timer
     }
     return {'bgpNeighbour': nbr}
-
-
-def default_route(nexthop):
-    return {'network': '0.0.0.0/0',
-            'nextHop': nexthop}
 
 
 class NSXvBgpDriver(object):
@@ -274,19 +273,17 @@ class NSXvBgpDriver(object):
         # list of tenant edge routers to be removed as bgp-neighbours to this
         # peer if it's associated with specific ESG.
         neighbours = []
-        droute = default_route(nbr['bgpNeighbour']['ipAddress'])
         for binding in bgp_bindings:
             try:
-                self._nsxv.add_bgp_neighbours(binding['edge_id'], [nbr],
-                                              default_routes=[droute])
+                self._nsxv.add_bgp_neighbours(binding['edge_id'], [nbr])
             except vcns_exc.VcnsApiException:
                 LOG.error("Failed to add BGP neighbour on '%s'",
                           binding['edge_id'])
             else:
-                nbr = gw_bgp_neighbour(binding['bgp_identifier'],
-                                       speaker['local_as'],
-                                       self._edge_password)
-                neighbours.append(nbr)
+                gw_nbr = gw_bgp_neighbour(binding['bgp_identifier'],
+                                          speaker['local_as'],
+                                          self._edge_password)
+                neighbours.append(gw_nbr)
                 LOG.debug("Succesfully added BGP neighbor '%s' on '%s'",
                           bgp_peer_obj['peer_ip'], binding['edge_id'])
 
@@ -309,19 +306,17 @@ class NSXvBgpDriver(object):
         # list of tenant edge routers to be removed as bgp-neighbours to this
         # peer if it's associated with specific ESG.
         neighbours = []
-        droute = default_route(nbr['bgpNeighbour']['ipAddress'])
         for binding in bgp_bindings:
             try:
-                self._nsxv.remove_bgp_neighbours(binding['edge_id'], [nbr],
-                                                 default_routes=[droute])
+                self._nsxv.remove_bgp_neighbours(binding['edge_id'], [nbr])
             except vcns_exc.VcnsApiException:
                 LOG.error("Failed to remove BGP neighbour on '%s'",
                           binding['edge_id'])
             else:
-                nbr = gw_bgp_neighbour(binding['bgp_identifier'],
-                                       speaker['local_as'],
-                                       self._edge_password)
-                neighbours.append(nbr)
+                gw_nbr = gw_bgp_neighbour(binding['bgp_identifier'],
+                                          speaker['local_as'],
+                                          self._edge_password)
+                neighbours.append(gw_nbr)
                 LOG.debug("Succesfully removed BGP neighbor '%s' on '%s'",
                           bgp_peer_obj['peer_ip'], binding['edge_id'])
 
@@ -390,11 +385,9 @@ class NSXvBgpDriver(object):
             subnets, advertise_static_routes)
 
         bgp_neighbours = [bgp_neighbour(bgp_peer) for bgp_peer in bgp_peers]
-        default_routes = [default_route(peer['peer_ip']) for peer in bgp_peers]
         try:
             self._nsxv.add_bgp_speaker_config(edge_id, bgp_identifier,
                                               local_as, enabled_state,
-                                              default_routes,
                                               bgp_neighbours, prefixes,
                                               redis_rules)
         except vcns_exc.VcnsApiException:
