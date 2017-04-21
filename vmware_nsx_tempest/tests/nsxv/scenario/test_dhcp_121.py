@@ -26,7 +26,6 @@ from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib import decorators
 from tempest.lib import exceptions
-from tempest import test
 
 from vmware_nsx_tempest.services import nsxv_client
 from vmware_nsx_tempest.tests.nsxv.scenario import (
@@ -293,7 +292,7 @@ class TestDHCP121BasicOps(dmgr.TopoDeployScenarioManager):
 
 
 class TestDhcpMetadata(TestDHCP121BasicOps):
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('95d06aba-895f-47f8-b47d-ae48c6853a85')
     def test_dhcp_121_metadata_check_on_vm_nsxv(self):
         LOG.info("Testcase DHCP-121 option metadata check on vm and "
@@ -306,7 +305,7 @@ class TestDhcpMetadata(TestDHCP121BasicOps):
 
 
 class TestDhcpHostroutesClear(TestDHCP121BasicOps):
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('6bec6eb4-8632-493d-a895-a3ee87cb3002')
     def test_dhcp_121_hostroutes_clear(self):
         LOG.info("Testcase DHCP-121 option host routes clear deploying")
@@ -316,7 +315,7 @@ class TestDhcpHostroutesClear(TestDHCP121BasicOps):
 
 
 class TestDhcpNegative(TestDHCP121BasicOps):
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('a58dc6c5-9f28-4184-baf7-37ded52593c4')
     def test_dhcp121_negative_test(self):
         LOG.info("Testcase DHCP-121 option negative test deploying")
@@ -384,7 +383,7 @@ class TestDhcpNegative(TestDHCP121BasicOps):
 
 
 class TestDhcpMultiHostRoute(TestDHCP121BasicOps):
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('c3ca96d7-b704-4d94-b42d-e7bae94b82cd')
     def test_dhcp121_multi_host_route(self):
         LOG.info("Testcase DHCP-121 option multi host routes deploying")
@@ -452,7 +451,7 @@ class TestDhcpMultiHostRoute(TestDHCP121BasicOps):
 
 
 class TestDhcpHostRoutesBetweenVms(TestDHCP121BasicOps):
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('34e6d23f-db00-446e-8299-57ff2c0911b2')
     def test_host_routes_between_vms(self):
         client_mgr = self.manager

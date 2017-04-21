@@ -136,7 +136,7 @@ class NSXv3PortSecurity(base.BaseAdminNetworkTest):
         secgroup_id = secgroup['id']
         return secgroup_id
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('50203701-1cda-4f31-806d-7a51514b9664')
     def test_create_port_with_security_enabled_check_in_neutron_database(self):
         secgroup_id = self._create_security_group_and_return_id(self.cmgr_adm)
@@ -153,7 +153,7 @@ class NSXv3PortSecurity(base.BaseAdminNetworkTest):
         port_detail = port_client.show_port(port_id)
         self.assertEqual(True, port_detail['port']["port_security_enabled"])
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('4b765fa2-345f-4d2c-928f-ad4b347936fd')
     def test_create_port_with_security_enabled_check_at_beckend(self):
         net_client = self.cmgr_adm.networks_client
@@ -191,7 +191,7 @@ class NSXv3PortSecurity(base.BaseAdminNetworkTest):
                                                     corresponding_port_id)
         self.assertEqual(True, status)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('bcafeb10-fbf1-4c97-9e4f-50e56d32bdcf')
     def test_non_admin_cannot_update_admin_port_with_security(self):
         network_topo = self._create_network_topo(self.cmgr_adm)
@@ -202,7 +202,7 @@ class NSXv3PortSecurity(base.BaseAdminNetworkTest):
                           network_topo['port']['port']['id'],
                           **kwargs)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('cf4b8d28-13c4-4339-993f-66070708e914')
     def test_non_admin_cannot_delete_tenant_port_with_port_security(self):
         network_topo = self._create_network_topo(self.cmgr_pri)
@@ -211,7 +211,7 @@ class NSXv3PortSecurity(base.BaseAdminNetworkTest):
                           tenant_port_client.delete_port,
                           network_topo['port']['port']['id'])
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('ee6213ac-dfcd-401b-bbc6-03afd26f203a')
     def test_tenant_port_security_at_beckend_after_enable_disable(self):
         secgroup_id = self._create_security_group_and_return_id(self.cmgr_alt)
@@ -243,7 +243,7 @@ class NSXv3PortSecurity(base.BaseAdminNetworkTest):
                                                         corresponding_port_id)
         self.assertEqual(False, status)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('c6f4c2f2-3fc9-4983-a05a-bb3a3dc35ad8')
     def test_admin_port_security_at_beckend_after_enable_disable(self):
         secgroup_id = self._create_security_group_and_return_id(self.cmgr_adm)

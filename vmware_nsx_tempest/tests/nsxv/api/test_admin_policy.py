@@ -198,7 +198,7 @@ class AdminPolicyTest(base.BaseAdminNetworkTest):
         sg = self.create_security_group(sg_client, sg_name)
         self.assertEqual(sg.get('name'), sg_name)
 
-    @test.attr(type=['negative'])
+    @decorators.attr(type=['negative'])
     @decorators.idempotent_id('5099604c-637a-4b25-8756-c6fc0929f963')
     def test_add_rules_to_policy_disallowed(self):
         tenant_id = self.cmgr_pri.networks_client.tenant_id
@@ -208,14 +208,14 @@ class AdminPolicyTest(base.BaseAdminNetworkTest):
             self.create_security_group_rule, sg.get('id'),
             cmgr=self.cmgr_adm, tenant_id=tenant_id)
 
-    @test.attr(type=['negative'])
+    @decorators.attr(type=['negative'])
     @decorators.idempotent_id('9a604036-ace6-4ced-92b8-be732eee310f')
     def test_cannot_create_policy_with_invalid_policy_id(self):
         self.assertRaises(exceptions.BadRequest,
                           self.create_security_group_policy,
                           self.cmgr_adm, "invalid-policy-id")
 
-    @test.attr(type=['negative'])
+    @decorators.attr(type=['negative'])
     @decorators.idempotent_id('4d383d3c-f1e6-47e3-906e-3c171146965a')
     def test_tenant_cannot_delete_its_policy(self):
         tenant_cmgr = self.cmgr_alt
@@ -228,7 +228,7 @@ class AdminPolicyTest(base.BaseAdminNetworkTest):
                           self.delete_security_group,
                           tenant_sg_client, sg_id)
 
-    @test.attr(type=['negative'])
+    @decorators.attr(type=['negative'])
     @decorators.idempotent_id('154985cd-26b2-468d-af6d-b6144ef2d378')
     def test_tenant_cannot_update_its_policy(self):
         tenant_cmgr = self.cmgr_alt
@@ -240,14 +240,14 @@ class AdminPolicyTest(base.BaseAdminNetworkTest):
                           self.update_security_group_policy,
                           sg_id, self.alt_policy_id, self.cmgr_alt)
 
-    @test.attr(type=['negative'])
+    @decorators.attr(type=['negative'])
     @decorators.idempotent_id('d6d8c918-d488-40c4-83dc-8ce1a565e54f')
     def test_tenant_cannot_create_policy(self):
         self.assertRaises(exceptions.Forbidden,
                           self.create_security_group_policy,
                           self.cmgr_pri)
 
-    @test.attr(type=['negative'])
+    @decorators.attr(type=['negative'])
     @testtools.skipIf(CONF.nsxv.allow_tenant_rules_with_policy,
                       "skip because tenant is allowed to create SG.")
     @decorators.idempotent_id('82aa02ee-8008-47a9-90ea-ba7840bfb932')

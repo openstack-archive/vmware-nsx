@@ -199,7 +199,7 @@ class TestMultiNetworksOps(manager.NetworkScenarioTest):
                               {'dest': remote_ip, 'src': floating_ip})
                 raise
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('d35d1301-bfa4-49ea-acdf-f67ba97b1937')
     def test_multi_networks_ops(self):
         """Test connectivity between VMs on same and cross network

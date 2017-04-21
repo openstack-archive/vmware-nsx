@@ -270,7 +270,7 @@ class TestMicroSegmentationOps(manager.NetworkScenarioTest):
                                         remote_ips,
                                         should_connect)
 
-    @test.attr(type='common')
+    @decorators.attr(type='common')
     @decorators.idempotent_id('91e1ee1f-10d9-4b19-8350-804aea7e57b4')
     def test_micro_segmentation_ops(self):
         """Test micro-segmentation use case

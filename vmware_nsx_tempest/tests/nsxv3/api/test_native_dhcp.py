@@ -18,7 +18,6 @@ from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
-from tempest import test
 
 from vmware_nsx_tempest.services import nsxv3_client
 
@@ -97,7 +96,7 @@ class NSXv3NativeDHCPTest(base.BaseNetworkTest):
                      self._subnet_data['host_routes'][0]['destination']}
             self.assertIn(route, host_routes)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('698f5503-a17a-43c2-b83b-353d3e28588b')
     def test_create_dhcp_enabled_subnet(self):
         name = data_utils.rand_name("network-")
@@ -114,7 +113,7 @@ class NSXv3NativeDHCPTest(base.BaseNetworkTest):
                                                        network['id'])
         self.assertIsNotNone(dhcp_server)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('cc970d9b-786a-49c3-8bfb-2f8bc5580ead')
     def test_overlapping_dhcp_enabled_subnet(self):
         """Create two overlapping subnets"""
@@ -138,25 +137,25 @@ class NSXv3NativeDHCPTest(base.BaseNetworkTest):
             self.assertEqual(dhcp_server['gateway_ip'],
                              self._subnet_data['gateway'])
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('acee6ccb-92bb-48d8-ae6b-b10783b3791a')
     def test_create_subnet_with_allocation_pool(self):
         self._test_create_subnet_with_kwargs(
             allocation_pools=self._subnet_data['allocation_pools'])
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('1b7d38c1-0674-43a7-8df1-0b9da531ad77')
     def test_create_subnet_with_dns_nameservers(self):
         self._test_create_subnet_with_kwargs(
             dns_nameservers=self._subnet_data['dns_nameservers'])
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('3159111b-e332-4a41-a713-164a0ccfc2ad')
     def test_create_subnet_with_host_routes(self):
         self._test_create_subnet_with_kwargs(
             host_routes=self._subnet_data['host_routes'])
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('addb0f46-3fa7-421b-aae7-820e798c096e')
     def test_create_subnet_with_gateway_ip(self):
         self._test_create_subnet_with_kwargs(

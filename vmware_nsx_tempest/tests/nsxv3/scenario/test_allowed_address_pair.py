@@ -22,7 +22,6 @@ from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
 from tempest.scenario import manager
-from tempest import test
 
 from vmware_nsx_tempest.services import nsxv3_client
 
@@ -485,35 +484,35 @@ class TestAllowedAddressPair(manager.NetworkScenarioTest):
         cmd_out = ssh_source.exec_command("sudo ifconfig eth0:1")
         self.assertIn(ip_address_vm1, cmd_out)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('c0f0f446-65f5-40fa-8b05-b5798e8dd676')
     def test_allowed_adddress_pair_on_vms_with_single_ip(self):
         self.network_topo = self.create_network_topo()
         self._test_connectivity_between_allowed_adddress_pair_ports(
             self.network_topo)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('92bba9d2-c7d1-42f8-a8a2-63b1c842112d')
     def test_allowed_adddress_pair_ports_attach_as_interface_on_vms(self):
         self.network_topo = self.create_network_topo()
         self._test_allowed_adddress_pair_ports_attach_as_interface_on_vms(
             self.network_topo)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('ceb8a0db-8b5a-46de-a328-bf6093ea2102')
     def test_allowed_adddress_with_ip_mac_attach_as_interface_on_vms(self):
         self.network_topo = self.create_network_topo()
         self._test_allowed_adddress_with_ip_mac_attach_as_interface_on_vms(
             self.network_topo)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('735b9afb-2cb8-4e37-9603-2b918906a4df')
     def test_allowed_address_pair_on_vms_with_multiple_ips(self):
         self.network_topo = self.create_network_topo()
         self._test_allowed_address_pair_on_vms_with_multiple_ips(
             self.network_topo)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('4a0fb0e0-c801-4aed-94fe-6c57ff41c6f6')
     def test_vm_accessible_using_allowed_adddress_pair_port_fip(self):
         self.network_topo = self.create_network_topo()

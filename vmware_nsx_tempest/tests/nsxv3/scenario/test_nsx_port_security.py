@@ -22,7 +22,6 @@ from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
 from tempest.scenario import manager
-from tempest import test
 
 from vmware_nsx_tempest.common import constants
 from vmware_nsx_tempest.services import nsxv3_client
@@ -467,7 +466,7 @@ class TestNSXv3PortSecurityScenario(manager.NetworkScenarioTest):
                                         private_address_server_1,
                                         private_key_server_2)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('f1c1d9b8-2fbd-4e7c-9ba7-a1d85d8d77d3')
     def test_create_server_with_port_security_and_check_backend(self):
         self.network_topo = self.create_network_topo()
@@ -476,14 +475,14 @@ class TestNSXv3PortSecurityScenario(manager.NetworkScenarioTest):
         self.assertEqual('True', status[0])
         self.assertEqual('False', status[1])
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('6853b492-8acd-4e2b-b3a0-75112cef7066')
     def test_create_servers_with_port_security_and_check_traffic(self):
         self.network_topo = self.create_network_topo()
         self._test_create_servers_with_port_security_and_check_traffic(
             self.network_topo)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('f5be118c-d9cd-4401-b559-de9ee6d0fdad')
     def test_server_at_beckend_with_port_security(self):
         self.network_topo = self.create_network_topo()
@@ -492,20 +491,20 @@ class TestNSXv3PortSecurityScenario(manager.NetworkScenarioTest):
         self.assertEqual('True', status[0])
         self.assertEqual('False', status[1])
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('a64da313-e5d7-4f57-98b6-9906c35332e7')
     def test_connectivity_bw_port_sec_enable_port_sec_disable_server(self):
         self.network_topo = self.create_network_topo()
         self._test_connectivity_bw_port_sec_enable_port_sec_disable_server(
             self.network_topo)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('520e7847-8103-41d0-90c8-6ba52306921d')
     def test_connectivity_between_servers_with_router_on_same_network(self):
         self.network_topo = self.create_multi_network_topo()
         self._test_connectivity_between_servers_with_router(self.network_topo)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('f621bbd9-c889-4c78-9ca1-7217e0df4e95')
     def test_connectivity_between_servers_with_router_on_diff_networks(self):
         self.network_topo = self.create_network_topo()

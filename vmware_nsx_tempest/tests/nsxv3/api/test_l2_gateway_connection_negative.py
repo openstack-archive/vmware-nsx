@@ -17,7 +17,6 @@
 import netaddr
 
 from tempest import config
-from tempest import test
 
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
@@ -78,7 +77,7 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
             cls.l2gw_client.delete_l2_gateway(l2gw_id)
             cls.l2gw_created.pop(l2gw_id)
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("e86bd8e9-b32b-425d-86fa-cd866138d028")
     def test_active_l2_gateway_delete(self):
         """
@@ -105,7 +104,7 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
         self.assertRaises(lib_exc.Conflict, self.delete_l2gw, l2gw_id)
         self.addCleanup(self.l2gw_cleanup)
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("488faaae-180a-4c48-8b7a-44c3a243369f")
     def test_recreate_l2_gateway_connection(self):
         """
@@ -131,7 +130,7 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
                           l2gwc_param)
         self.addCleanup(self.l2gw_cleanup)
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("14606e74-4f65-402e-ae50-a0adcd877a83")
     def test_create_l2gwc_with_nonexist_l2gw(self):
         """
@@ -153,7 +152,7 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
                           l2gwc_param)
         self.addCleanup(self.l2gw_cleanup)
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("e6cb8973-fcbc-443e-a3cb-c6a82ae58b63")
     def test_create_l2gwc_with_nonexist_network(self):
         """
@@ -175,7 +174,7 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
                           l2gwc_param)
         self.addCleanup(self.l2gw_cleanup)
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("27c7c64f-511f-421e-8b62-dfed143fc00b")
     def test_create_l2gw_with_invalid_seg_id(self):
         """
@@ -194,7 +193,7 @@ class L2GatewayConnectionNegative(base_l2gw.BaseL2GatewayTest):
         self.addCleanup(self.l2gw_cleanup)
 
     @decorators.skip_because(bug="1640033")
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("000cc597-bcea-4539-af07-bd70357e8d82")
     def test_create_l2gw_with_non_int_seg_id(self):
         """

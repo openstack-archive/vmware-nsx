@@ -16,7 +16,6 @@ import testtools
 from tempest import config
 from tempest.lib import decorators
 from tempest.lib import exceptions as ex
-from tempest import test
 
 from vmware_nsx_tempest.tests.nsxv.api.lbaas import base
 
@@ -47,7 +46,7 @@ class LoadBalancersTest(base.BaseAdminTestCase):
             cls._create_active_load_balancer(**cls.create_lb_kwargs)
         cls.load_balancer_id = cls.load_balancer['id']
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @testtools.skipIf('1641902' in CONF.nsxv.bugs_to_resolve,
                       "skip_because bug=1641902")
     @decorators.idempotent_id('0008ae1e-77a2-45d9-b81e-0e3119b5a26d')
@@ -67,7 +66,7 @@ class LoadBalancersTest(base.BaseAdminTestCase):
                          admin_lb.get('tenant_id'))
         self._wait_for_load_balancer_status(load_balancer['id'])
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @testtools.skipIf('1715126' in CONF.nsxv.bugs_to_resolve,
                       "skip_because bug=1715126")
     @decorators.idempotent_id('37620941-47c1-40b2-84d8-db17ff823ebc')
@@ -85,7 +84,7 @@ class LoadBalancersTest(base.BaseAdminTestCase):
                             self.subnet['tenant_id'])
         self._wait_for_load_balancer_status(load_balancer['id'])
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('5bf483f5-ae28-47f5-8805-642da0ffcb40')
     # Empty tenant_id causing ServerFault
     def test_create_load_balancer_empty_tenant_id_field(self):
@@ -99,7 +98,7 @@ class LoadBalancersTest(base.BaseAdminTestCase):
                           wait=False,
                           tenant_id="")
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('19fc8a44-1280-49f3-be5b-0d30e6e43363')
     # NSX-v: 2nd tenant_id at the same subnet not supported; got serverFault
     def test_create_load_balancer_for_another_tenant(self):

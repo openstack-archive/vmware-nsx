@@ -166,7 +166,7 @@ class TestDvsNetworkBasicOps(manager.NetworkScenarioTest):
         self._check_server_connectivity(internal_ips,
                                         should_connect)
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @test.services('compute', 'network')
     @decorators.idempotent_id('b977dce6-6527-4676-9b66-862b22058f0f')
     def test_network_basic_ops(self):

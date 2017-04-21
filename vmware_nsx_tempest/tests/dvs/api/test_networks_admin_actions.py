@@ -17,7 +17,6 @@ import base_dvs as base
 
 from tempest.lib.common.utils import data_utils
 from tempest.lib import decorators
-from tempest import test
 
 
 class AdminNetworksTestJSON(base.BaseDvsAdminNetworkTest):
@@ -40,7 +39,7 @@ class AdminNetworksTestJSON(base.BaseDvsAdminNetworkTest):
         cls.subnet = cls.create_subnet(cls.network)
         cls.cidr = cls.subnet['cidr']
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('1dcead1d-d773-4da1-9534-0b984ca684b3')
     def test_create_update_delete_flat_network_subnet(self):
         # Create an admin network
@@ -65,7 +64,7 @@ class AdminNetworksTestJSON(base.BaseDvsAdminNetworkTest):
         body = self.delete_network(net_id)
         self.networks.pop()
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('15d3d53c-3328-401f-b8f5-3a29aee2ea3a')
     def test_create_update_delete_vlan_network_subnet(self):
         # Create an admin network
@@ -92,7 +91,7 @@ class AdminNetworksTestJSON(base.BaseDvsAdminNetworkTest):
         body = self.delete_network(net_id)
         self.networks.pop()
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('838aee5f-92f2-47b9-86c6-629a04aa6269')
     def test_show_network(self):
         # Verify the details of a network
@@ -102,7 +101,7 @@ class AdminNetworksTestJSON(base.BaseDvsAdminNetworkTest):
                     'provider:physical_network']:
             self.assertEqual(network[key], self.network[key])
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('b86d50ef-39a7-4136-8c89-e5e534fe92aa')
     def test_list_networks(self):
         # Verify the network exists in the list of all networks
@@ -111,7 +110,7 @@ class AdminNetworksTestJSON(base.BaseDvsAdminNetworkTest):
                     if network['id'] == self.network['id']]
         self.assertNotEmpty(networks, "Created network not found in the list")
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('ee3f8b79-da3f-4394-9bea-012488202257')
     def test_show_subnet(self):
         # Verify the details of a subnet

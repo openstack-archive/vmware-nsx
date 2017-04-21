@@ -311,7 +311,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
         self.assertEqual(router['name'], router_name)
         return router
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('c72197f1-b5c6-453f-952e-007acea6df86')
     def test_list_firewall_rules(self):
         # List firewall rules
@@ -328,7 +328,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
         self.assertEqual(self.fw_rule['firewall_rule']['enabled'],
                          fw_rules[0]['enabled'])
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('ef92ba0d-f7c2-46cb-ad4b-21c62cfa85a0')
     def test_create_update_delete_firewall_rule(self):
         # Create firewall rule
@@ -351,7 +351,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
         self.assertNotIn(fw_rule_id,
                          [m['id'] for m in fw_rules['firewall_rules']])
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('264e8b67-a1ef-4ba1-8757-808b249a5320')
     def test_show_firewall_rule(self):
         # show a created firewall rule
@@ -360,7 +360,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
         for key, value in six.iteritems(fw_rule['firewall_rule']):
             self.assertEqual(self.fw_rule['firewall_rule'][key], value)
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('029cd998-9dd4-4a0a-b79d-8bafd8223bda')
     def test_list_firewall_policies(self):
         fw_policies = self.fwaasv1_client.list_firewall_policies()
@@ -372,7 +372,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
         self.assertEqual(self.fw_policy['firewall_policy']['firewall_rules'],
                          fw_policies[0]['firewall_rules'])
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('28c261c8-4fb3-4630-8a9b-707c93536a54')
     def test_create_update_delete_firewall_policy(self):
         # Create firewall policy
@@ -395,7 +395,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
         fw_policies = fw_policies['firewall_policies']
         self.assertNotIn(fw_policy_id, [m['id'] for m in fw_policies])
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('8bc7ad6d-4163-4def-9e1d-b9d24d9e8bf8')
     def test_show_firewall_policy(self):
         # show a created firewall policy
@@ -405,7 +405,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
         for key, value in six.iteritems(fw_policy):
             self.assertEqual(self.fw_policy['firewall_policy'][key], value)
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('0c320840-f3e4-4960-987d-a6f06d327fe1')
     def test_create_show_delete_firewall(self):
         # Create tenant network resources required for an ACTIVE firewall
@@ -442,7 +442,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
         firewalls = self.fwaasv1_client.list_firewalls()['firewalls']
         self.assertNotIn(firewall_id, [m['id'] for m in firewalls])
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('d9b23b3a-66ea-4591-9f8f-fa5a71fe0645')
     def test_firewall_insertion_mode_add_remove_mix_router(self):
         # Create legacy routers
@@ -483,7 +483,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
         self.assertNotIn(router1['id'], updated_firewall['router_ids'])
         self.assertEqual(1, len(updated_firewall['router_ids']))
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('964e0254-e7f2-4bbe-a4c8-db09da8d79ee')
     def test_firewall_insertion_mode_add_remove_router(self):
         # Create legacy routers
@@ -529,7 +529,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
         self.assertNotIn(router1['id'], updated_firewall['router_ids'])
         self.assertEqual(1, len(updated_firewall['router_ids']))
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('662b252f-fa1b-49fe-8599-a37feab9fae8')
     def test_firewall_insertion_one_policy_two_router_backend(self):
         # Create router required for an ACTIVE firewall
@@ -557,7 +557,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
             True, self._check_firewall_rule_exists_at_backend(
                 rules, firewall_topo1['firewall_name']))
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('00330ef3-0a2e-4556-84d1-448d09c5ca2e')
     def test_firewall_insertion_two_policy_two_router_backend(self):
         # Create router required for an ACTIVE firewall
@@ -586,7 +586,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
             True, self._check_firewall_rule_exists_at_backend(
                 rules, firewall_topo2['firewall_name']))
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('8092bd48-e4c1-4709-8a3b-70e7bf6a78c9')
     def test_firewall_insertion_mode_two_firewall_rules_check_backend(self):
         rule_no = 1
@@ -628,7 +628,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
                               "Rule exists at position 2")
                 break
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('da65de07-a60f-404d-ad1d-2d2c71a3b6a5')
     def test_firewall_add_delete_between_routers(self):
         firewall_topo = self._create_firewall_basic_topo('exclusive')
@@ -666,7 +666,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
             True, self._check_firewall_rule_exists_at_backend(
                 rules, firewall_topo['firewall_name']))
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('c60ceff5-d51f-451d-b6e6-cb983d16ab6b')
     def test_firewall_insertion_with_multiple_rules_check_backend(self):
         # Create router required for an ACTIVE firewall
@@ -715,7 +715,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
             True, self._check_firewall_rule_exists_at_backend(
                 rules, firewall_name_3))
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('a1734149-9c4b-46d3-86c8-d61f57458095')
     def test_firewall_add_remove_rule_check_backend(self):
         # Create router required for an ACTIVE firewall
@@ -738,7 +738,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
             False, self._check_firewall_rule_exists_at_backend(
                 rules, firewall_topo['firewall_name']))
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('e1111959-c36a-41d6-86ee-ea6c0b927eb3')
     def test_firewall_insertion_mode_one_firewall_rule_check_backend(self):
         # Create router required for an ACTIVE firewall
@@ -753,7 +753,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
             True, self._check_firewall_rule_exists_at_backend(
                 rules, firewall_topo['firewall_name']))
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('e434b3c9-1148-499a-bb52-b094cdb0a186')
     def test_firewall_insertion_mode_one_firewall_per_router(self):
         # Create router required for an ACTIVE firewall
@@ -767,7 +767,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
             firewall_policy_id=self.fw_policy['firewall_policy']['id'],
             router_ids=[firewall_topo['router']['id']])
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('d162abb2-9c14-45d6-bed1-06646a66803a')
     def test_firewall_insertion_mode_one_firewall_per_dist_router(self):
         # Create router required for an ACTIVE firewall
@@ -781,7 +781,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
             firewall_policy_id=self.fw_policy['firewall_policy']['id'],
             router_ids=[firewall_topo['router']['id']])
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('d5531558-9b18-40bc-9388-3eded0894a85')
     def test_firewall_rule_insertion_position_removal_rule_from_policy(self):
         # Create firewall rule
@@ -836,7 +836,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
         # Verify removal of rule from firewall policy
         self.assertNotIn(fw_rule_id1, self._get_list_fw_rule_ids(fw_policy_id))
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('901dae30-b148-43d9-ac86-09777aeaba20')
     def test_update_firewall_name_at_backend_excl_edge(self):
         firewall_topo = self._create_firewall_basic_topo('exclusive')
@@ -857,7 +857,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
             True, self._check_firewall_rule_exists_at_backend(
                 rules, "Fwaas-updated_rule"))
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('471ebc13-8e3b-4aca-85b8-747935bf0559')
     def test_update_firewall_name_at_backend_dist_edge(self):
         firewall_topo = self._create_firewall_basic_topo('distributed')
@@ -879,7 +879,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
             True, self._check_firewall_rule_exists_at_backend(
                 rules, "Fwaas-updated_rule"))
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('0bdc9670-17b8-4dd5-80c8-dc6e956fc6ef')
     def test_create_multiple_firewall_rules_check_at_backend(self):
         firewall_topo = self._create_firewall_advanced_topo('exclusive')
@@ -894,7 +894,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
                                 "Firewall Rules are greater than %s" %
                                 constants.NO_OF_ENTRIES)
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('0249db39-6284-456a-9449-2adacdca4d3b')
     def test_update_firewall_policy_audited_attribute(self):
         # Create firewall rule

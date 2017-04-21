@@ -126,7 +126,7 @@ class NetworkTagAddTest(BaseTagsTest):
             self.assertIn(tag, network['tags'])
 
     @decorators.idempotent_id('eb52eac3-5e79-4183-803a-a3d97ceb171d')
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     def test_add_tag_one_char_too_long(self):
         tag_too_long = 'a' * (MAX_TAG_LEN + 1)
         network_id = self.net.get('id')
@@ -135,7 +135,7 @@ class NetworkTagAddTest(BaseTagsTest):
                           network_id, tag_too_long)
 
     @decorators.idempotent_id('d08f3fbe-dc6f-4f3c-b9b2-4d9957884edf')
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     def test_add_tag_empty_one(self):
         network_id = self.net.get('id')
         self.assertRaises(exceptions.NotFound,
@@ -161,7 +161,7 @@ class NetworkTagRemoveTest(BaseTagsTest):
         self.network_remove_tag(network_id, tag)
 
     @decorators.idempotent_id('1fe5a8b2-ff5d-4250-b930-21b1a3b48055')
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     def test_remove_all_tags(self):
         network_id = self.net.get('id')
         self.network_replace_tags(network_id)
@@ -172,7 +172,7 @@ class NetworkTagRemoveTest(BaseTagsTest):
         self.assertEqual(len(network['tags']), 0)
 
     @decorators.idempotent_id('591337b0-a2e6-4d72-984c-e5b6a6ec12d2')
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     def test_remove_not_exist_tag(self):
         """neutron tag-remove operations."""
         network_id = self.net.get('id')
@@ -204,7 +204,7 @@ class NetworkTagReplaceTest(BaseTagsTest):
         self.network_replace_tags(network_id, empty_tags)
 
     @decorators.idempotent_id('20a05e9e-0b25-4085-b89f-fd5f0c57d2fa')
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     def test_replace_tags_one_char_too_long(self):
         tags_too_long = ['aaa', 'z' * (MAX_TAG_LEN + 1)]
         network_id = self.net.get('id')

@@ -145,7 +145,7 @@ class TestCertificateMgmt(manager.NetworkScenarioTest):
 class TestCertificateMgmtOps(TestCertificateMgmt):
     openstack_tag = 'com.vmware.nsx.openstack'
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('6cb32a2b-048a-47a3-b0ed-f6337b81377f')
     def test_certificate_backend(self):
         """
@@ -154,7 +154,7 @@ class TestCertificateMgmtOps(TestCertificateMgmt):
         msg = 'Error: Openstack client certificate not registered with backend'
         self.assertIsNotNone(self.nsx.get_openstack_client_certificate(), msg)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('25bb1af7-6190-42d5-a590-4df9fb5592f0')
     def test_prevention_modification_openstack_network(self):
         """
@@ -183,7 +183,7 @@ class TestCertificateMgmtOps(TestCertificateMgmt):
             comp_id=data['id'], body=data)
         self.parse_response(response)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('3e9a4d5b-5a14-44a5-bf9f-8999148b9329')
     def test_prevention_modification_openstack_router(self):
         """
@@ -229,7 +229,7 @@ class TestCertificateMgmtOps(TestCertificateMgmt):
                 comp_id=rtr_ports[0]['id'])
             self.parse_response(response)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('141af4cb-52f0-4764-b817-5b0529dbbc73')
     def test_prevention_modification_qos_policy(self):
         """
@@ -268,7 +268,7 @@ class TestCertificateMgmtOps(TestCertificateMgmt):
             comp_id=data['id'])
         self.parse_response(response)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('2b232060-dc42-4b2d-8185-64bd12e46e55')
     def test_prevention_modification_security_group(self):
         """
@@ -304,7 +304,7 @@ class TestCertificateMgmtOps(TestCertificateMgmt):
                 comp_id=fw_rules[0]['id'])
             self.parse_response(response)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('b10d5ede-d1c7-47a0-9d55-b9aabc8f0af1')
     def test_prevention_modification_port(self):
         """
@@ -328,7 +328,7 @@ class TestCertificateMgmtOps(TestCertificateMgmt):
                 comp_id=data['id'])
         self.parse_response(response)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('280cdcc6-5bd0-472c-a8a9-954dd612a0a6')
     def test_port_modification_super_admin(self):
         """
@@ -345,7 +345,7 @@ class TestCertificateMgmtOps(TestCertificateMgmt):
         self.assertEqual(response.status_code, 200,
             "Superadmin unable to delete the logical port")
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('a874d78b-eb7a-4df6-a01b-dc0a22422dc2')
     def test_cert_removed_post_unstack(self):
         """

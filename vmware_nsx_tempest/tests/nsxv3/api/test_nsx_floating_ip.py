@@ -56,7 +56,7 @@ class NSXv3FloatingIPTest(base.BaseNetworkTest):
                                            CONF.nsxv3.nsx_user,
                                            CONF.nsxv3.nsx_password)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('593e4e51-9ea2-445b-b789-eff2b0b7a503')
     def test_create_floating_ip(self):
         # Create a floating ip
@@ -87,7 +87,7 @@ class NSXv3FloatingIPTest(base.BaseNetworkTest):
         self.assertIn((fip['floating_ip_address'], port_ip), snat_rules)
         self.assertIn((port_ip, fip['floating_ip_address']), dnat_rules)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('48d8cda8-dfc3-4d84-8f91-4bad6cc7d452')
     def test_update_floating_ip(self):
         # Create a floating ip
@@ -128,7 +128,7 @@ class NSXv3FloatingIPTest(base.BaseNetworkTest):
         self.assertIn((port2_ip, updated_fip['floating_ip_address']),
                       dnat_rules)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('6e5a87fe-b40e-4c62-94b8-07431493cc3d')
     def test_delete_floating_ip(self):
         # Create a floating ip

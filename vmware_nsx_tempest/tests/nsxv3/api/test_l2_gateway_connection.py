@@ -20,7 +20,6 @@ from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
-from tempest import test
 
 from vmware_nsx_tempest.common import constants
 from vmware_nsx_tempest.services import base_l2gw
@@ -75,7 +74,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
             cls.l2gw_client.delete_l2_gateway(l2gw_id)
             cls.l2gw_created.pop(l2gw_id)
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("81edfb9e-4722-4565-939c-6593b8405ff4")
     def test_l2_gateway_connection_create(self):
         """
@@ -108,7 +107,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
                          "create l2gw connection response")
         self.addCleanup(self.l2gw_cleanup)
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("7db4f6c9-18c5-4a99-93c1-68bc2ecb48a7")
     def test_l2_gateway_connection_create_with_multiple_vlans(self):
         """
@@ -141,7 +140,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
                          "create l2gw connection response")
         self.addCleanup(self.l2gw_cleanup)
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("de70d6a2-d454-4a09-b06b-8f39be67b635")
     def test_l2_gateway_connection_with_seg_id_create(self):
         """
@@ -178,7 +177,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
                          "create l2gw connection response")
         self.addCleanup(self.l2gw_cleanup)
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("819d9b50-9159-48d0-be2a-493ec686534c")
     def test_l2_gateway_connection_show(self):
         """
@@ -223,7 +222,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
                          "show l2gw connection response")
         self.addCleanup(self.l2gw_cleanup)
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("4188f8e7-cd65-427e-92b8-2a9e0492ab21")
     def test_l2_gateway_connection_list(self):
         """
@@ -277,7 +276,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
                          "segmentation_id")
         self.addCleanup(self.l2gw_cleanup)
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("4d71111f-3d2b-4557-97c7-2e149a6f41fb")
     def test_l2_gateway_connection_recreate(self):
         """
@@ -345,7 +344,7 @@ class L2GatewayConnectionTest(base_l2gw.BaseL2GatewayTest):
                                               "l2gwc id")
         self.addCleanup(self.l2gw_cleanup)
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("671cacb5-134e-467d-ba41-0d7cdbcf3903")
     def test_l2_gateway_connection_delete(self):
         """

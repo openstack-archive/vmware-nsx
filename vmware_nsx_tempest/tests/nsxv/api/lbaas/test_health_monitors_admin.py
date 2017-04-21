@@ -16,7 +16,6 @@ from oslo_utils import uuidutils
 from tempest import config
 from tempest.lib import decorators
 from tempest.lib import exceptions as ex
-from tempest import test
 
 from vmware_nsx_tempest.tests.nsxv.api.lbaas import base
 
@@ -53,7 +52,7 @@ class TestHealthMonitors(base.BaseAdminTestCase):
     def resource_cleanup(cls):
         super(TestHealthMonitors, cls).resource_cleanup()
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('24cf7da4-b829-4df5-a133-b6cef97ec560')
     def test_create_health_monitor_missing_tenant_id_field(self):
         """Test if admin user can
@@ -69,7 +68,7 @@ class TestHealthMonitors(base.BaseAdminTestCase):
         hm_tenant_id = hm.get('tenant_id')
         self.assertEqual(admin_tenant_id, hm_tenant_id)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('acbff982-15d6-43c5-a015-e72b7df30998')
     def test_create_health_monitor_empty_tenant_id_field(self):
         """Test with admin user
@@ -83,7 +82,7 @@ class TestHealthMonitors(base.BaseAdminTestCase):
                           pool_id=self.pool.get('id'),
                           tenant_id="")
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('a318d351-a72e-46dc-a094-8a751e4fa7aa')
     def test_create_health_monitor_for_another_tenant_id_field(self):
         """Test with admin user

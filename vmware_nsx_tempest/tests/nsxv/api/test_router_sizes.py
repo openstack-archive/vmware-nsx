@@ -165,28 +165,28 @@ class RouterSizeBaseTest(base.BaseAdminNetworkTest):
 
 
 class CompactRouterTest(RouterSizeBaseTest):
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('d75fbcd5-c8cb-49ea-a868-ada12fd8c87f')
     def test_create_update_delete_compact_router(self):
         self.do_create_update_delete_router_with_size('compact')
 
 
 class LargeRouterTest(RouterSizeBaseTest):
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('da00c74f-81e6-4ef9-8aca-8e0345b376e9')
     def test_create_update_delete_large_router(self):
         self.do_create_update_delete_router_with_size('large', 20.0)
 
 
 class XlargeRouterTest(RouterSizeBaseTest):
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('091dad07-6044-4ca3-b16c-54a3ef92254b')
     def test_create_update_delete_xlarge_router(self):
         self.do_create_update_delete_router_with_size('xlarge', 20.0)
 
 
 class QuadlargeRouterTest(RouterSizeBaseTest):
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('0f69bf8a-4b06-47ac-a3f7-eedba95fd395')
     def test_create_update_delete_quadlarge_router(self):
         self.do_create_update_delete_router_with_size('quadlarge', 30.0)

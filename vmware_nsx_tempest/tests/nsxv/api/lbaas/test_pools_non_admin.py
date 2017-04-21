@@ -12,7 +12,6 @@
 
 from tempest.lib import decorators
 from tempest.lib import exceptions as ex
-from tempest import test
 
 from vmware_nsx_tempest.tests.nsxv.api.lbaas import base
 
@@ -70,14 +69,14 @@ class TestPools(base.BaseTestCase):
             self.addCleanup(self._delete_pool, response['id'])
         return response
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('99154002-e598-4277-b6d8-bf0fe10f276f')
     def test_list_pools_empty(self):
         """Test get pools when empty"""
         pools = self._list_pools()
         self.assertEmpty(pools)
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('4f09b544-8e82-4313-b452-8fe3ca5ad14e')
     def test_list_pools_one(self):
         """Test get pools with one pool"""
@@ -87,7 +86,7 @@ class TestPools(base.BaseTestCase):
         self.assertEqual(1, len(pools))
         self.assertIn(new_pool, pools)
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('7562b846-a685-49ea-9d41-afcaff418bae')
     def test_list_pools_two(self):
         """Test get pools with two pools"""
@@ -98,7 +97,7 @@ class TestPools(base.BaseTestCase):
         self.assertIn(new_pool1, pools)
         self.assertIn(new_pool2, pools)
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('0cf61c6a-efd5-4859-9d92-da204f5ec1ed')
     def test_get_pool(self):
         """Test get pool"""
@@ -106,7 +105,7 @@ class TestPools(base.BaseTestCase):
         pool = self._show_pool(new_pool.get('id'))
         self.assertEqual(new_pool, pool)
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('7fc310a0-7640-4f7c-8cdb-53b6ae23bd52')
     def test_create_pool(self):
         """Test create pool"""
@@ -114,7 +113,7 @@ class TestPools(base.BaseTestCase):
         pool = self._show_pool(new_pool.get('id'))
         self.assertEqual(new_pool, pool)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('5f414612-4f8c-4f48-ac99-286356870fae')
     def test_create_pool_missing_required_fields(self):
         """Test create pool with a missing required fields"""
@@ -123,7 +122,7 @@ class TestPools(base.BaseTestCase):
                           tenant_id=tenant_id,
                           lb_algorithm='ROUND_ROBIN')
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('7fe53b0c-d7b8-4283-aeb3-eeeb3219e42f')
     def test_create_pool_missing_tenant_field(self):
         """Test create pool with a missing required tenant field"""
@@ -135,7 +134,7 @@ class TestPools(base.BaseTestCase):
         pool_tenant = pool['tenant_id']
         self.assertEqual(tenant_id, pool_tenant)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('7d17e507-99c2-4e8f-a403-27b630b403a2')
     def test_create_pool_missing_protocol_field(self):
         """Test create pool with a missing required protocol field"""
@@ -152,7 +151,7 @@ class TestPools(base.BaseTestCase):
                           listener_id=listener_id,
                           lb_algorithm='ROUND_ROBIN')
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('99051cc6-bf51-4af0-b530-edbfb7d4b7ab')
     def test_create_pool_missing_lb_algorithm_field(self):
         """Test create pool with a missing required lb algorithm field"""
@@ -169,7 +168,7 @@ class TestPools(base.BaseTestCase):
                           listener_id=listener_id,
                           protocol='HTTP')
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('d04b75fe-688b-4713-83d1-f0ac29005391')
     def test_create_pool_missing_listener_id_field(self):
         """Test create pool with a missing required listener id field"""
@@ -179,7 +178,7 @@ class TestPools(base.BaseTestCase):
                           lb_algorithm='ROUND_ROBIN',
                           protocol='HTTP')
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('378c56b4-cf61-448b-8460-1ffb1a091ea5')
     def test_create_pool_missing_description_field(self):
         """Test create pool with missing description field"""
@@ -189,7 +188,7 @@ class TestPools(base.BaseTestCase):
         desc = pool_initial.get('description')
         self.assertEqual(desc, "")
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('f73ff259-7fbb-41ac-ab92-c6eef0213e20')
     def test_create_pool_missing_name_field(self):
         """Test create pool with a missing name field"""
@@ -198,7 +197,7 @@ class TestPools(base.BaseTestCase):
         name = pool_initial.get('name')
         self.assertEqual(name, "")
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('37957c70-6979-4e15-a316-8c29cb7e724e')
     def test_create_pool_missing_admin_state_up_field(self):
         """Test create pool with a missing admin_state_up field"""
@@ -207,7 +206,7 @@ class TestPools(base.BaseTestCase):
         state = pool_initial.get('admin_state_up')
         self.assertEqual(state, True)
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('d1e41b4b-fe79-4bec-bc94-5934995c6e05')
     def test_create_pool_missing_session_pers_field(self):
         """Test create pool with a missing session_pers field"""
@@ -216,7 +215,7 @@ class TestPools(base.BaseTestCase):
         sess = pool_initial.get('session_persistence')
         self.assertIsNone(sess)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('440b3975-b7c8-4cff-85a5-a0a02ad6b8f9')
     def test_create_pool_invalid_protocol(self):
         """Test create pool with an invalid protocol"""
@@ -225,7 +224,7 @@ class TestPools(base.BaseTestCase):
                           lb_algorithm='ROUND_ROBIN',
                           listener_id=self.listener['id'])
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('a0b322b1-629c-483c-9136-397fc9100e48')
     def test_create_pool_invalid_session_persistence_field(self):
         """Test create pool with invalid session persistance field"""
@@ -235,7 +234,7 @@ class TestPools(base.BaseTestCase):
                           lb_algorithm='ROUND_ROBIN',
                           listener_id=self.listener['id'])
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('53cd9427-29fa-4a55-adb8-9cb6388b9548')
     def test_create_pool_invalid_algorithm(self):
         """Test create pool with an invalid algorithm"""
@@ -244,7 +243,7 @@ class TestPools(base.BaseTestCase):
                           lb_algorithm='LEAST_CON',
                           listener_id=self.listener['id'])
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('26e6bb34-4b0f-4650-a5dc-87484fa55038')
     def test_create_pool_invalid_admin_state_up(self):
         """Test create pool with an invalid admin state up field"""
@@ -254,7 +253,7 @@ class TestPools(base.BaseTestCase):
                           lb_algorithm='ROUND_ROBIN',
                           listener_id=self.listener['id'])
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('8df02129-2b9c-4628-a390-805967107090')
     def test_create_pool_invalid_listener_field(self):
         """Test create pool with invalid listener field"""
@@ -265,7 +264,7 @@ class TestPools(base.BaseTestCase):
                           protocol='HTTP',
                           listener_id="$@5$%$7863")
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('94949cd4-ebc1-4af5-a220-9ebb32772fbc')
     def test_create_pool_invalid_tenant_id_field(self):
         """Test create pool with invalid tenant_id field"""
@@ -282,7 +281,7 @@ class TestPools(base.BaseTestCase):
                           protocol='HTTP',
                           listener_id=listener_id)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('e335db64-ad16-4e23-bd60-c72c37c7b188')
     def test_create_pool_incorrect_attribute(self):
         """Test create a pool with an extra, incorrect field"""
@@ -292,7 +291,7 @@ class TestPools(base.BaseTestCase):
                           protocol_port=80,
                           listener_id=self.listener['id'])
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('390053c1-adc9-4b1a-8eb0-dbdb9085cf0f')
     def test_create_pool_empty_listener_field(self):
         """Test create pool with empty listener field"""
@@ -303,7 +302,7 @@ class TestPools(base.BaseTestCase):
                           protocol='HTTP',
                           listener_id="")
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('8b25defa-8efc-47f5-a43d-3d299d7b9752')
     def test_create_pool_empty_description_field(self):
         """Test create pool with empty description field"""
@@ -312,7 +311,7 @@ class TestPools(base.BaseTestCase):
         pool_desc = pool.get('description')
         self.assertEqual(pool_desc, '')
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('c8cd496c-7698-4c0e-bbed-fe9ef6c910de')
     def test_create_pool_empty_name_field(self):
         """Test create pool with empty name field"""
@@ -321,7 +320,7 @@ class TestPools(base.BaseTestCase):
         pool_name = pool.get('name')
         self.assertEqual(pool_name, '')
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('b7997d71-84ea-43d2-8ce0-eea4156cc952')
     def test_create_pool_empty_protocol(self):
         """Test create pool with an empty protocol"""
@@ -330,7 +329,7 @@ class TestPools(base.BaseTestCase):
                           lb_algorithm='ROUND_ROBIN',
                           listener_id=self.listener['id'])
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('bffe50bb-8be5-4ed9-aea6-a15b40342599')
     def test_create_pool_empty_session_persistence_field(self):
         """Test create pool with empty session persistence field"""
@@ -340,7 +339,7 @@ class TestPools(base.BaseTestCase):
                           lb_algorithm='ROUND_ROBIN',
                           listener_id=self.listener['id'])
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('4cfd301a-baae-462d-8041-84c337e95d16')
     def test_create_pool_empty_algorithm(self):
         """Test create pool with an empty algorithm"""
@@ -349,7 +348,7 @@ class TestPools(base.BaseTestCase):
                           lb_algorithm="",
                           listener_id=self.listener['id'])
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('814de2e3-a536-4ab1-a80f-9506b11c7bc8')
     def test_create_pool_empty_admin_state_up(self):
         """Test create pool with an invalid admin state up field"""
@@ -358,7 +357,7 @@ class TestPools(base.BaseTestCase):
                           admin_state_up="",
                           lb_algorithm='ROUND_ROBIN')
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('0f230e6d-057d-4da8-a42d-f32464ae1c47')
     def test_create_pool_empty_tenant_field(self):
         """Test create pool with empty tenant field"""
@@ -368,7 +367,7 @@ class TestPools(base.BaseTestCase):
                           lb_algorithm='ROUND_ROBIN',
                           listener_id=self.listener['id'])
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('4a0e711a-b4da-4226-b265-f87b04ee4977')
     def test_create_pool_for_other_tenant_field(self):
         """Test create pool for other tenant field"""
@@ -379,7 +378,7 @@ class TestPools(base.BaseTestCase):
                           lb_algorithm='ROUND_ROBIN',
                           listener_id=self.listener['id'])
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('cb564af8-89aa-40ca-850e-55418da0f235')
     def test_create_pool_invalid_name_field(self):
         """known bug with
@@ -393,7 +392,7 @@ class TestPools(base.BaseTestCase):
                           listener_id=self.listener['id'],
                           name='n' * 256)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('7f4472be-feb7-4ab7-9fb9-97e08f1fa787')
     def test_create_pool_invalid_desc_field(self):
         """known bug with
@@ -407,7 +406,7 @@ class TestPools(base.BaseTestCase):
                           listener_id=self.listener['id'],
                           description='d' * 256)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('b09b14dc-029d-4132-94dd-e713c9bfa0ee')
     def test_create_pool_with_session_persistence_unsupported_type(self):
         """Test create a pool
@@ -420,7 +419,7 @@ class TestPools(base.BaseTestCase):
                           lb_algorithm='ROUND_ROBIN',
                           listener_id=self.listener['id'])
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('b5af574a-d05f-4db0-aece-58676cdbf440')
     def test_create_pool_with_session_persistence_http_cookie(self):
         """Test create a pool with session_persistence type=HTTP_COOKIE"""
@@ -429,7 +428,7 @@ class TestPools(base.BaseTestCase):
         pool = self._show_pool(new_pool.get('id'))
         self.assertEqual(new_pool, pool)
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('2d6b6667-e38b-4e7f-8443-8dc7ee63ea87')
     def test_create_pool_with_session_persistence_app_cookie(self):
         """Test create a pool with session_persistence type=APP_COOKIE"""
@@ -439,7 +438,7 @@ class TestPools(base.BaseTestCase):
         pool = self._show_pool(new_pool.get('id'))
         self.assertEqual(new_pool, pool)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('9ac450fc-24c5-4b5c-a781-b23e5713f172')
     def test_create_pool_with_session_persistence_redundant_cookie_name(self):
         """Test create a pool
@@ -453,7 +452,7 @@ class TestPools(base.BaseTestCase):
                           lb_algorithm='ROUND_ROBIN',
                           listener_id=self.listener['id'])
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('7783ebd0-5bd9-43f0-baf2-a43212ba2617')
     def test_create_pool_with_session_persistence_without_cookie_name(self):
         """Test create a pool
@@ -466,7 +465,7 @@ class TestPools(base.BaseTestCase):
                           lb_algorithm='ROUND_ROBIN',
                           listener_id=self.listener['id'])
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('767ed26e-7114-402a-bdee-443d52009a73')
     def test_update_pool(self):
         """Test update pool"""
@@ -477,7 +476,7 @@ class TestPools(base.BaseTestCase):
                                  wait=True)
         self.assertEqual(desc, pool.get('description'))
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('5cbc4dac-13fc-44de-b98f-41ca369a6e0f')
     def test_update_pool_missing_name(self):
         """Test update pool with missing name"""
@@ -488,7 +487,7 @@ class TestPools(base.BaseTestCase):
         self._wait_for_load_balancer_status(self.load_balancer.get('id'))
         self.assertEqual(name, pool.get('name'))
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('af9c2f8e-b0e3-455b-83f0-222f8d692185')
     def test_update_pool_missing_description(self):
         """Test update pool with missing description"""
@@ -499,7 +498,7 @@ class TestPools(base.BaseTestCase):
         self._wait_for_load_balancer_status(self.load_balancer.get('id'))
         self.assertEqual(desc, pool.get('description'))
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('3b41e855-edca-42c1-a1c6-07421f87704d')
     def test_update_pool_missing_admin_state_up(self):
         """Test update pool with missing admin state up field"""
@@ -510,7 +509,7 @@ class TestPools(base.BaseTestCase):
         self._wait_for_load_balancer_status(self.load_balancer.get('id'))
         self.assertEqual(admin, pool.get('admin_state_up'))
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('8b49ecc3-4694-4482-9b2d-dc928576e161')
     def test_update_pool_missing_session_persistence(self):
         """Test update pool with missing session persistence"""
@@ -520,7 +519,7 @@ class TestPools(base.BaseTestCase):
         pool = self._update_pool(new_pool.get('id'))
         self.assertAlmostEqual(sess_pers, pool.get('session_persistence'))
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('23a9dbaf-105b-450e-95cf-050203b28366')
     def test_update_pool_invalid_name(self):
         """Test update pool with invalid name
@@ -531,7 +530,7 @@ class TestPools(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._update_pool,
                           new_pool.get('id'), name='n' * 256)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('efeeb827-5cb0-4349-8272-b2dbcbf42d22')
     def test_update_pool_invalid_desc(self):
         """Test update pool with invalid desc
@@ -543,7 +542,7 @@ class TestPools(base.BaseTestCase):
                           new_pool.get('id'),
                           description='d' * 256)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('a91c1380-0d36-43a1-bf64-8fe9078e2bbd')
     def test_update_pool_invalid_admin_state_up(self):
         """Test update pool with an invalid admin_state_up"""
@@ -551,7 +550,7 @@ class TestPools(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._update_pool,
                           new_pool.get('id'), admin_state_up='hello')
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('5d45b0e3-7d7f-4523-8504-9ccfd6ecec81')
     def test_update_pool_invalid_session_persistence(self):
         """Test update pool with an invalid session pers. field"""
@@ -560,7 +559,7 @@ class TestPools(base.BaseTestCase):
                           new_pool.get('id'),
                           session_persistence={'type': 'Hello'})
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('3ddec9b1-fc7a-4073-9451-e73316237763')
     def test_update_pool_empty_name(self):
         """Test update pool with empty name"""
@@ -569,7 +568,7 @@ class TestPools(base.BaseTestCase):
         self._wait_for_load_balancer_status(self.load_balancer.get('id'))
         self.assertEqual(pool.get('name'), "")
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('171e1153-9898-467d-80ed-d6deed430342')
     def test_update_pool_empty_description(self):
         """Test update pool with empty description"""
@@ -579,7 +578,7 @@ class TestPools(base.BaseTestCase):
         self._wait_for_load_balancer_status(self.load_balancer.get('id'))
         self.assertEqual(pool.get('description'), "")
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('397bd0ec-0e82-4421-a672-b7a2c4e84b56')
     def test_update_pool_empty_admin_state_up(self):
         """Test update pool with empty admin state up"""
@@ -587,7 +586,7 @@ class TestPools(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._update_pool,
                           new_pool.get('id'), admin_state_up="")
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('f68a6ed5-4577-44f1-81c8-6dd30d8a874d')
     def test_update_pool_empty_session_persistence(self):
         """Test update pool with empty session persistence field"""
@@ -596,7 +595,7 @@ class TestPools(base.BaseTestCase):
                           new_pool.get('id'),
                           session_persistence="")
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('d8027ea2-6912-41f7-bf5a-f2eb3d0901b1')
     def test_update_pool_invalid_attribute(self):
         """Test update pool with an invalid attribute"""
@@ -604,7 +603,7 @@ class TestPools(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._update_pool,
                           new_pool.get('id'), lb_algorithm='ROUNDED')
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('a58822ee-56fc-4b96-bb28-47cd07ae9cb8')
     def test_update_pool_incorrect_attribute(self):
         """Test update a pool with an extra, incorrect field"""
@@ -612,7 +611,7 @@ class TestPools(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._update_pool,
                           new_pool.get('id'), protocol='HTTPS')
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('4839f03e-2439-4619-8546-411ca883066d')
     def test_delete_pool(self):
         """Test delete pool"""
@@ -623,7 +622,7 @@ class TestPools(base.BaseTestCase):
         self.assertRaises(ex.NotFound, self._show_pool,
                           new_pool.get('id'))
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('cd30962a-12ce-4ae9-89de-db007aebbd9f')
     def test_delete_invalid_pool(self):
         """Test delete pool that doesn't exist"""

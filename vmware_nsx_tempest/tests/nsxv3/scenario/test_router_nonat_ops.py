@@ -341,13 +341,13 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
         self._check_network_internal_connectivity(network=self.network)
         self._check_network_vm_connectivity(network=self.network)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('5e5bfdd4-0962-47d3-a89b-7ce64322b53e')
     def test_router_nat_to_nonat_ops(self):
         """Test update router from NATed to NoNAT scenario"""
         self._test_router_nat_update_when_snat()
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('b951f7fb-f2b2-40eb-8bbd-b54bd76ffbe8')
     def test_disable_nat_when_floating_ips_active_on_network(self):
         """Expect raise condition when floating ips are active on
@@ -355,13 +355,13 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
         """
         self._test_router_nat_when_floating_ips_active_on_network()
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('a0274738-d3e7-49db-bf10-a5563610940d')
     def test_router_nonat_to_nat_ops(self):
         """Test update router from NoNAT to NATed scenario"""
         self._test_router_nat_update_when_no_snat()
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('971e8e8b-3cf2-47a9-ac24-5b19f586731c')
     def test_only_admin_can_configure_snat(self):
         """Only admin can configure the SNAT"""

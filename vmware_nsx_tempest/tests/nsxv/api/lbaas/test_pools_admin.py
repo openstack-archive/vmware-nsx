@@ -12,7 +12,6 @@
 
 from tempest.lib import decorators
 from tempest.lib import exceptions as ex
-from tempest import test
 
 from vmware_nsx_tempest.tests.nsxv.api.lbaas import base
 
@@ -62,7 +61,7 @@ class TestPools(base.BaseAdminTestCase):
         self.addCleanup(self._delete_pool, response['id'])
         return response
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('71b9d3e1-3f13-4c84-a905-054c9cd3d4aa')
     def test_create_pool_using_empty_tenant_field(self):
         """Test create pool with empty tenant field should fail
@@ -74,7 +73,7 @@ class TestPools(base.BaseAdminTestCase):
                           tenant_id="",
                           lb_algorithm='ROUND_ROBIN')
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('f782967d-8dca-4d7b-b625-bfd811379b42')
     def test_create_pool_missing_tenant_id_for_other_tenant(self):
         """Test create pool with a missing tenant id field.
@@ -89,7 +88,7 @@ class TestPools(base.BaseAdminTestCase):
         pool_tenant = pool['tenant_id']
         self.assertNotEqual(pool_tenant, self.subnet['tenant_id'])
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('140c4c95-3d12-47d7-9b20-cc3c60e24af9')
     def test_create_pool_missing_tenant_id_for_admin(self):
         """Test create pool with a missing tenant id field.
@@ -103,7 +102,7 @@ class TestPools(base.BaseAdminTestCase):
         pool_tenant = pool['tenant_id']
         self.assertEqual(pool_tenant, pool.get('tenant_id'))
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('1cf07f5c-7609-4b64-b5b8-f27050860132')
     def test_create_pool_for_another_tenant(self):
         """Test create pool for other tenant field"""
