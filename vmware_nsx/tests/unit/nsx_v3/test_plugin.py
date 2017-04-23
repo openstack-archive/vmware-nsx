@@ -549,6 +549,8 @@ class TestL3NatTestCase(L3NatTest,
                         test_ext_route.ExtraRouteDBTestCaseBase,
                         test_metadata.MetaDataTestCase):
 
+    block_dhcp_notifier = False
+
     def setUp(self, plugin=PLUGIN_NAME,
               ext_mgr=None,
               service_plugins=None):
