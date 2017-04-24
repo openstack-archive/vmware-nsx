@@ -20,6 +20,12 @@ class TestNetworkBasicOps(network_ops.TestNetworkBasicOps):
 
     # NSX-v does not allow tenants to access dhcp service.
     # Overwirte parent class to skip dhcp service testing.
+    def _list_ports(self, *args, **kwargs):
+        """List ports using admin creds """
+        ports_list = self.admin_manager.ports_client.list_ports(
+            *args, **kwargs)
+        return ports_list['ports']
+
     def _check_network_internal_connectivity(self, network,
                                              should_connect=True):
         floating_ip, server = self.floating_ip_tuple
