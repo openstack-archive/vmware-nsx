@@ -5023,7 +5023,7 @@ class TestRouterFlavorTestCase(extension.ExtensionTestCase,
 
     FLAVOR_PLUGIN = 'neutron.services.flavors.flavors_plugin.FlavorsPlugin'
 
-    def _mock_add_flavor_id(self, resource_type, router_res, router_db):
+    def _mock_add_flavor_id(dummy, router_res, router_db):
         # this function is a registered callback so we can't mock it
         # in a regular way.
         # need to change behavior for this test suite only, since

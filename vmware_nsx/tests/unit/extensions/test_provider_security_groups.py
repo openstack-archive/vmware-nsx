@@ -37,7 +37,7 @@ PLUGIN_NAME = ('vmware_nsx.tests.unit.extensions.'
 class ProviderSecurityGroupTestPlugin(
     db_base_plugin_v2.NeutronDbPluginV2,
     extended_security_group.ExtendedSecurityGroupPropertiesMixin,
-        securitygroups_db.SecurityGroupDbMixin):
+    securitygroups_db.SecurityGroupDbMixin):
 
     supported_extension_aliases = ["security-group",
                                    "provider-security-group"]
@@ -96,6 +96,14 @@ class ProviderSecurityGroupTestPlugin(
             self._process_port_update_provider_security_group(
                 context, port, original_port, updated_port)
             return self.get_port(context, id)
+
+    def _make_port_dict(self, port, fields=None, process_extensions=True):
+        port_data = super(
+            ProviderSecurityGroupTestPlugin, self)._make_port_dict(
+            port, fields=fields,
+            process_extensions=process_extensions)
+        self._remove_provider_security_groups_from_list(port_data)
+        return port_data
 
     def delete_security_group(self, context, id):
         self._prevent_non_admin_delete_provider_sg(context, id)

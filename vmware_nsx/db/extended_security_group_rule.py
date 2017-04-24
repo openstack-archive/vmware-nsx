@@ -17,8 +17,8 @@ from neutron_lib.db import model_base
 import sqlalchemy as sa
 from sqlalchemy import orm
 
+from neutron.db import _resource_extend as resource_extend
 from neutron.db import api as db_api
-from neutron.db import db_base_plugin_v2
 from neutron.db.models import securitygroup
 from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.api import validators
@@ -52,6 +52,7 @@ class NsxExtendedSecurityGroupRuleProperties(model_base.BASEV2):
                             uselist=False, cascade='delete'))
 
 
+@resource_extend.has_resource_extenders
 class ExtendedSecurityGroupRuleMixin(object):
 
     def _check_local_ip_prefix(self, context, rule):
@@ -81,10 +82,9 @@ class ExtendedSecurityGroupRuleMixin(object):
         rule_res[ext_local_ip.LOCAL_IP_PREFIX] = (
             rule_req[ext_local_ip.LOCAL_IP_PREFIX])
 
-    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        ext_sg.SECURITYGROUPRULES, ['_extend_security_group_rule_with_params'])
-
-    def _extend_security_group_rule_with_params(self, sg_rule_res, sg_rule_db):
+    @staticmethod
+    @resource_extend.extends([ext_sg.SECURITYGROUPRULES])
+    def _extend_security_group_rule_with_params(sg_rule_res, sg_rule_db):
         if sg_rule_db.ext_properties:
             sg_rule_res[ext_local_ip.LOCAL_IP_PREFIX] = (
                 sg_rule_db.ext_properties.local_ip_prefix)

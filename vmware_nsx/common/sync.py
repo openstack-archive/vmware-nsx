@@ -25,6 +25,7 @@ from oslo_service import loopingcall
 from oslo_utils import timeutils
 import six
 
+from neutron.db import _model_query as model_query
 from neutron.db import api as db_api
 from neutron.db.models import external_net as external_net_db
 from neutron.db.models import l3 as l3_db
@@ -336,7 +337,7 @@ class NsxSynchronizer(object):
         if not scan_missing:
             filters['id'] = neutron_net_ids
 
-        networks = self._plugin._get_collection(
+        networks = model_query.get_collection(
             ctx, models_v2.Network, self._plugin._make_network_dict,
             filters=filters)
 
@@ -416,7 +417,7 @@ class NsxSynchronizer(object):
         # Fetch neutron routers from database
         filters = ({} if scan_missing else
                    {'id': neutron_router_mappings.keys()})
-        routers = self._plugin._get_collection(
+        routers = model_query.get_collection(
             ctx, l3_db.Router, self._plugin._make_router_dict,
             filters=filters)
         for router in routers:
@@ -518,7 +519,7 @@ class NsxSynchronizer(object):
                 external_net_db.ExternalNetwork,
                 (models_v2.Network.id ==
                  external_net_db.ExternalNetwork.network_id))]
-        ports = self._plugin._get_collection(
+        ports = model_query.get_collection(
             ctx, models_v2.Port, self._plugin._make_port_dict,
             filters=filters)
         for port in ports:

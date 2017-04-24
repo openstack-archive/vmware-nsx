@@ -32,6 +32,8 @@ import webob.exc
 from neutron.api import extensions as neutron_extensions
 from neutron.api.v2 import attributes as attr
 from neutron.api.v2 import base
+from neutron.db import _model_query as model_query
+from neutron.db import _resource_extend as resource_extend
 from neutron.db import _utils as db_utils
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
@@ -1005,7 +1007,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # this extra lookup is necessary to get the
         # latest db model for the extension functions
         net_model = self._get_network(context, new_net['id'])
-        self._apply_dict_extend_functions('networks', new_net, net_model)
+        resource_extend.apply_funcs('networks', new_net, net_model)
         self.handle_network_dhcp_access(context, new_net,
                                         action='create_network')
         return new_net
@@ -1197,7 +1199,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # this extra lookup is necessary to get the
         # latest db model for the extension functions
         port_model = self._get_port(context, neutron_port_id)
-        self._apply_dict_extend_functions('ports', port_data, port_model)
+        resource_extend.apply_funcs('ports', port_data, port_model)
         self.handle_port_dhcp_access(context, port_data, action='create_port')
         return port_data
 
@@ -2155,7 +2157,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         LOG.error("Rolling back database changes for gateway device %s "
                   "because of an error in the NSX backend", device_id)
         with db_api.context_manager.writer.using(context):
-            query = self._model_query(
+            query = model_query.query_with_hooks(
                 context, nsx_models.NetworkGatewayDevice).filter(
                     nsx_models.NetworkGatewayDevice.id == device_id)
             if is_create:
@@ -2191,7 +2193,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
             # set NSX GW device in neutron database and update status
             with db_api.context_manager.writer.using(context):
-                query = self._model_query(
+                query = model_query.query_with_hooks(
                     context, nsx_models.NetworkGatewayDevice).filter(
                         nsx_models.NetworkGatewayDevice.id == neutron_id)
                 query.update({'status': device_status,
@@ -2230,7 +2232,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                                             nsx_id)
             # update status
             with db_api.context_manager.writer.using(context):
-                query = self._model_query(
+                query = model_query.query_with_hooks(
                     context, nsx_models.NetworkGatewayDevice).filter(
                         nsx_models.NetworkGatewayDevice.id == neutron_id)
                 query.update({'status': device_status},
@@ -2265,7 +2267,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # TODO(salv-orlando): Asynchronous sync for gateway device status
         # Update status in database
         with db_api.context_manager.writer.using(context):
-            query = self._model_query(
+            query = model_query.query_with_hooks(
                 context, nsx_models.NetworkGatewayDevice).filter(
                     nsx_models.NetworkGatewayDevice.id == device_id)
             query.update({'status': device_status},

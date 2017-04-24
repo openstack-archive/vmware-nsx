@@ -16,7 +16,7 @@
 from sqlalchemy.orm import exc
 
 from neutron.api.v2 import attributes as attr
-from neutron.db import db_base_plugin_v2
+from neutron.db import _resource_extend as resource_extend
 
 from oslo_db import exception as db_exc
 from oslo_log import log as logging
@@ -27,14 +27,14 @@ from vmware_nsx.extensions import vnicindex as vnicidx
 LOG = logging.getLogger(__name__)
 
 
+@resource_extend.has_resource_extenders
 class VnicIndexDbMixin(object):
 
-    def _extend_port_vnic_index_binding(self, port_res, port_db):
+    @staticmethod
+    @resource_extend.extends([attr.PORTS])
+    def _extend_port_vnic_index_binding(port_res, port_db):
         state = port_db.vnic_index
         port_res[vnicidx.VNIC_INDEX] = state.index if state else None
-
-    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        attr.PORTS, ['_extend_port_vnic_index_binding'])
 
     def _get_port_vnic_index(self, context, port_id):
         """Returns the vnic index for the given port.

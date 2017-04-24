@@ -14,6 +14,7 @@
 
 from sqlalchemy.orm import exc as sa_orm_exc
 
+from neutron.db import _model_query as model_query
 from neutron.db import _utils as db_utils
 from neutron.db import api as db_api
 from neutron.plugins.common import utils
@@ -97,7 +98,8 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
 
     def _get_network_gateway(self, context, gw_id):
         try:
-            gw = self._get_by_id(context, nsx_models.NetworkGateway, gw_id)
+            gw = model_query.get_by_id(context, nsx_models.NetworkGateway,
+                                       gw_id)
         except sa_orm_exc.NoResultFound:
             raise GatewayNotFound(gateway_id=gw_id)
         return gw
@@ -172,9 +174,9 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
         for k, v in six.iteritems(mapping_info):
             if v and k != NETWORK_ID:
                 filters[k] = [v]
-        query = self._get_collection_query(context,
-                                           nsx_models.NetworkConnection,
-                                           filters)
+        query = model_query.get_collection_query(context,
+                                                 nsx_models.NetworkConnection,
+                                                 filters)
         return query.one() if only_one else query.all()
 
     def _unset_default_network_gateways(self, context):
@@ -265,12 +267,12 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
                              page_reverse=False):
         marker_obj = self._get_marker_obj(
             context, 'network_gateway', limit, marker)
-        return self._get_collection(context, nsx_models.NetworkGateway,
-                                    self._make_network_gateway_dict,
-                                    filters=filters, fields=fields,
-                                    sorts=sorts, limit=limit,
-                                    marker_obj=marker_obj,
-                                    page_reverse=page_reverse)
+        return model_query.get_collection(context, nsx_models.NetworkGateway,
+                                          self._make_network_gateway_dict,
+                                          filters=filters, fields=fields,
+                                          sorts=sorts, limit=limit,
+                                          marker_obj=marker_obj,
+                                          page_reverse=page_reverse)
 
     def connect_network(self, context, network_gateway_id,
                         network_mapping_info):
@@ -396,14 +398,14 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
 
     def _get_gateway_device(self, context, device_id):
         try:
-            return self._get_by_id(context,
-                                   nsx_models.NetworkGatewayDevice,
-                                   device_id)
+            return model_query.get_by_id(context,
+                                         nsx_models.NetworkGatewayDevice,
+                                         device_id)
         except sa_orm_exc.NoResultFound:
             raise GatewayDeviceNotFound(device_id=device_id)
 
     def _is_device_in_use(self, context, device_id):
-        query = self._get_collection_query(
+        query = model_query.get_collection_query(
             context, nsx_models.NetworkGatewayDeviceReference,
             {'id': [device_id]})
         return query.first()

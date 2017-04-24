@@ -13,25 +13,25 @@
 #    under the License.
 #
 
-from neutron.db import db_base_plugin_v2
-from neutron.extensions import l3
 from oslo_log import log as logging
+
+from neutron.db import _resource_extend as resource_extend
 
 from vmware_nsx.db import nsxv_models
 
 LOG = logging.getLogger(__name__)
 
 
+@resource_extend.has_resource_extenders
 class NsxRouterMixin(object):
     """Mixin class to enable nsx router support."""
 
     nsx_attributes = []
 
-    def _extend_nsx_router_dict(self, router_res, router_db):
+    @staticmethod
+    def _extend_nsx_router_dict(router_res, router_db, nsx_attributes):
         nsx_attrs = router_db['nsx_attributes']
-        # Return False if nsx attributes are not definied for this
-        # neutron router
-        for attr in self.nsx_attributes:
+        for attr in nsx_attributes:
             name = attr['name']
             default = attr['default']
             router_res[name] = (
@@ -61,7 +61,3 @@ class NsxRouterMixin(object):
                     name, default)
         LOG.debug("Nsx router extension successfully processed "
                   "for router:%s", router_db['id'])
-
-    # Register dict extend functions for ports
-    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        l3.ROUTERS, ['_extend_nsx_router_dict'])

@@ -16,9 +16,10 @@
 from sqlalchemy.orm import exc
 
 from neutron.api.v2 import attributes
+from neutron.db import _model_query as model_query
+from neutron.db import _resource_extend as resource_extend
 from neutron.db import _utils as db_utils
 from neutron.db import api as db_api
-from neutron.db import db_base_plugin_v2
 
 from oslo_log import log as logging
 
@@ -28,6 +29,7 @@ from vmware_nsx.extensions import maclearning as mac
 LOG = logging.getLogger(__name__)
 
 
+@resource_extend.has_resource_extenders
 class MacLearningDbMixin(object):
     """Mixin class for mac learning."""
 
@@ -36,18 +38,17 @@ class MacLearningDbMixin(object):
                mac.MAC_LEARNING: port[mac.MAC_LEARNING]}
         return db_utils.resource_fields(res, fields)
 
-    def _extend_port_mac_learning_state(self, port_res, port_db):
+    @staticmethod
+    @resource_extend.extends([attributes.PORTS])
+    def _extend_port_mac_learning_state(port_res, port_db):
         state = port_db.mac_learning_state
         if state and state.mac_learning_enabled:
             port_res[mac.MAC_LEARNING] = state.mac_learning_enabled
 
-    # Register dict extend functions for ports
-    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        attributes.PORTS, ['_extend_port_mac_learning_state'])
-
     def _update_mac_learning_state(self, context, port_id, enabled):
         try:
-            query = self._model_query(context, nsx_models.MacLearningState)
+            query = model_query.query_with_hooks(
+                context, nsx_models.MacLearningState)
             state = query.filter(
                 nsx_models.MacLearningState.port_id == port_id).one()
             state.update({mac.MAC_LEARNING: enabled})

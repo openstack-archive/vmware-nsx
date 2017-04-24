@@ -22,8 +22,8 @@ from sqlalchemy import sql
 
 from neutron.api.v2 import attributes
 from neutron.common import utils as n_utils
+from neutron.db import _resource_extend as resource_extend
 from neutron.db import api as db_api
-from neutron.db import db_base_plugin_v2
 from neutron.db.models import securitygroup as securitygroups_db
 from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.api import validators
@@ -59,6 +59,7 @@ class NsxExtendedSecurityGroupProperties(model_base.BASEV2):
                             uselist=False, cascade='delete'))
 
 
+@resource_extend.has_resource_extenders
 class ExtendedSecurityGroupPropertiesMixin(object):
 
     # NOTE(arosen): here we add a relationship so that from the ports model
@@ -345,39 +346,34 @@ class ExtendedSecurityGroupPropertiesMixin(object):
                                                                    sg_id):
             raise sg_policy.PolicySecurityGroupDeleteNotAdmin(id=sg_id)
 
-    def _extend_security_group_with_properties(self, sg_res, sg_db):
+    @staticmethod
+    @resource_extend.extends([ext_sg.SECURITYGROUPS])
+    def _extend_security_group_with_properties(sg_res, sg_db):
         if sg_db.ext_properties:
             sg_res[sg_logging.LOGGING] = sg_db.ext_properties.logging
             sg_res[provider_sg.PROVIDER] = sg_db.ext_properties.provider
             sg_res[sg_policy.POLICY] = sg_db.ext_properties.policy
 
-    def _extend_port_dict_provider_security_group(self, port_res, port_db):
-        # NOTE(arosen): this method overrides the one in the base
-        # security group db class. The reason this is needed is because
-        # we are storing provider security groups in the same security
-        # groups db model. We need to do this here to remove the provider
-        # security groups and put those on the port resource as their
-        # own attribute.
-
-        # Security group bindings will be retrieved from the SQLAlchemy
-        # model. As they're loaded eagerly with ports because of the
-        # joined load they will not cause an extra query.
-
+    @staticmethod
+    @resource_extend.extends([attributes.PORTS])
+    def _extend_port_dict_provider_security_group(port_res, port_db):
+        # Add the provider sg list to the port.
+        # later we will remove those from the regular sg list
         provider_groups = []
-        not_provider_groups = []
         for sec_group_mapping in port_db.security_groups:
             if sec_group_mapping.extended_grp.provider is True:
                 provider_groups.append(sec_group_mapping['security_group_id'])
-            else:
-                not_provider_groups.append(
-                    sec_group_mapping['security_group_id'])
-
-        port_res[ext_sg.SECURITYGROUPS] = not_provider_groups
         port_res[provider_sg.PROVIDER_SECURITYGROUPS] = provider_groups
         return port_res
 
-    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        attributes.PORTS, ['_extend_port_dict_provider_security_group'])
+    @staticmethod
+    def _remove_provider_security_groups_from_list(port_res):
+        # Remove provider security groups from the list of regular security
+        # groups of the result port
+        if (ext_sg.SECURITYGROUPS not in port_res or
+            provider_sg.PROVIDER_SECURITYGROUPS not in port_res):
+            return
 
-    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        ext_sg.SECURITYGROUPS, ['_extend_security_group_with_properties'])
+        port_res[ext_sg.SECURITYGROUPS] = list(
+            set(port_res[ext_sg.SECURITYGROUPS]) -
+            set(port_res[provider_sg.PROVIDER_SECURITYGROUPS]))

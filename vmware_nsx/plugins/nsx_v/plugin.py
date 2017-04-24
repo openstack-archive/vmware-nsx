@@ -38,6 +38,7 @@ from neutron.common import ipv6_utils
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
 from neutron.common import utils as n_utils
+from neutron.db import _resource_extend as resource_extend
 from neutron.db import _utils as db_utils
 from neutron.db import address_scope_db
 from neutron.db import agents_db
@@ -136,6 +137,7 @@ ROUTER_SIZE = routersize.ROUTER_SIZE
 VALID_EDGE_SIZES = routersize.VALID_EDGE_SIZES
 
 
+@resource_extend.has_resource_extenders
 class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                    agents_db.AgentDbMixin,
                    db_base_plugin_v2.NeutronDbPluginV2,
@@ -289,16 +291,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Bind QoS notifications
         qos_driver.register(self)
 
-    # Register extend dict methods for network and port resources.
-    # Each extension driver that supports extend attribute for the resources
-    # can add those attribute to the result.
-    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        attr.NETWORKS, ['_ext_extend_network_dict'])
-    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        attr.PORTS, ['_ext_extend_port_dict'])
-    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        attr.SUBNETS, ['_ext_extend_subnet_dict'])
-
     def init_complete(self, resource, event, trigger, **kwargs):
         has_metadata_cfg = (
             cfg.CONF.nsxv.nova_metadata_ips
@@ -378,24 +370,34 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Bind FWaaS callbacks to the driver
         self.fwaas_callbacks = fwaas_callbacks.NsxvFwaasCallbacks()
 
-    def _ext_extend_network_dict(self, result, netdb):
+    @staticmethod
+    @resource_extend.extends([attr.NETWORKS])
+    def _ext_extend_network_dict(result, netdb):
         ctx = n_context.get_admin_context()
+        # get the core plugin as this is a static method with no 'self'
+        plugin = directory.get_plugin()
         with db_api.context_manager.writer.using(ctx):
-            self._extension_manager.extend_network_dict(
+            plugin._extension_manager.extend_network_dict(
                 ctx.session, netdb, result)
 
-    def _ext_extend_port_dict(self, result, portdb):
+    @staticmethod
+    @resource_extend.extends([attr.PORTS])
+    def _ext_extend_port_dict(result, portdb):
         ctx = n_context.get_admin_context()
+        # get the core plugin as this is a static method with no 'self'
+        plugin = directory.get_plugin()
         with db_api.context_manager.writer.using(ctx):
-            self._extension_manager.extend_port_dict(
+            plugin._extension_manager.extend_port_dict(
                 ctx.session, portdb, result)
-            self._extend_port_dict_binding(portdb,
-                                           result)
 
-    def _ext_extend_subnet_dict(self, result, subnetdb):
+    @staticmethod
+    @resource_extend.extends([attr.SUBNETS])
+    def _ext_extend_subnet_dict(result, subnetdb):
         ctx = n_context.get_admin_context()
+        # get the core plugin as this is a static method with no 'self'
+        plugin = directory.get_plugin()
         with db_api.context_manager.writer.using(ctx):
-            self._extension_manager.extend_subnet_dict(
+            plugin._extension_manager.extend_subnet_dict(
                 ctx.session, subnetdb, result)
 
     def _create_security_group_container(self):
@@ -447,6 +449,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         else:
             r["distributed"] = False
             r["router_type"] = router_type
+
+    @staticmethod
+    @resource_extend.extends([l3.ROUTERS])
+    def _extend_nsx_router_dict(router_res, router_db):
+        router_type_obj = rt_rtr.RouterType_mixin()
+        router_type_obj._extend_nsx_router_dict(
+            router_res, router_db, router_type_obj.nsx_attributes)
 
     def _create_cluster_default_fw_section(self):
         section_name = 'OS Cluster Security Group section'
@@ -1229,7 +1238,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # this extra lookup is necessary to get the
         # latest db model for the extension functions
         net_model = self._get_network(context, new_net['id'])
-        self._apply_dict_extend_functions('networks', new_net, net_model)
+        resource_extend.apply_funcs('networks', new_net, net_model)
         return new_net
 
     def _update_qos_on_created_network(self, context, net_data):
@@ -1741,7 +1750,16 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # this extra lookup is necessary to get the
         # latest db model for the extension functions
         port_model = self._get_port(context, port_data['id'])
-        self._apply_dict_extend_functions('ports', port_data, port_model)
+        resource_extend.apply_funcs('ports', port_data, port_model)
+        self._remove_provider_security_groups_from_list(port_data)
+        return port_data
+
+    def _make_port_dict(self, port, fields=None,
+                        process_extensions=True):
+        port_data = super(NsxVPluginV2, self)._make_port_dict(
+            port, fields=fields,
+            process_extensions=process_extensions)
+        self._remove_provider_security_groups_from_list(port_data)
         return port_data
 
     def _get_port_subnet_mask(self, context, port):
@@ -2190,7 +2208,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         self._delete_dhcp_static_binding(context, neutron_db_port)
 
-    def _extend_port_dict_binding(self, portdb, result):
+    @staticmethod
+    @resource_extend.extends([attr.PORTS])
+    def _extend_nsx_port_dict_binding(result, portdb):
         result[pbin.VIF_TYPE] = nsx_constants.VIF_TYPE_DVS
         port_attr = portdb.get('nsx_port_attributes')
         if port_attr:
@@ -2199,8 +2219,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             result[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
         result[pbin.VIF_DETAILS] = {
             # TODO(rkukura): Replace with new VIF security details
-            pbin.CAP_PORT_FILTER:
-            'security-group' in self.supported_extension_aliases}
+            # security-groups extension supported by this plugin
+            pbin.CAP_PORT_FILTER: True}
 
     def delete_subnet(self, context, id):
         subnet = self._get_subnet(context, id)
@@ -2460,10 +2480,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._update_subnet_dhcp_status(subnet, context)
         return subnet
 
-    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        attr.SUBNETS, ['_extend_subnet_dict_extended_attributes'])
-
-    def _extend_subnet_dict_extended_attributes(self, subnet_res, subnet_db):
+    @staticmethod
+    @resource_extend.extends([attr.SUBNETS])
+    def _extend_subnet_dict_extended_attributes(subnet_res, subnet_db):
         subnet_attr = subnet_db.get('nsxv_subnet_attributes')
         if subnet_attr:
             subnet_res['dns_search_domain'] = subnet_attr.dns_search_domain
@@ -3027,10 +3046,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         super(NsxVPluginV2, self).delete_router(context, id)
         router_driver.delete_router(context, id)
 
-    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        attr.NETWORKS, ['_extend_availability_zone_hints'])
-
-    def _extend_availability_zone_hints(self, net_res, net_db):
+    @staticmethod
+    @resource_extend.extends([attr.NETWORKS])
+    def _extend_availability_zone_hints(net_res, net_db):
         net_res[az_ext.AZ_HINTS] = az_ext.convert_az_string_to_list(
             net_db[az_ext.AZ_HINTS])
 
@@ -3078,11 +3096,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if validators.is_attr_set(r.get('flavor_id')):
             router_db.flavor_id = r['flavor_id']
 
-    def add_flavor_id(plugin, router_res, router_db):
+    @staticmethod
+    @resource_extend.extends([l3.ROUTERS])
+    def add_flavor_id(router_res, router_db):
         router_res['flavor_id'] = router_db['flavor_id']
-
-    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        l3.ROUTERS, [add_flavor_id])
 
     def get_router(self, context, id, fields=None):
         router = super(NsxVPluginV2, self).get_router(context, id, fields)

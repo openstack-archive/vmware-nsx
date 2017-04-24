@@ -15,12 +15,12 @@
 
 import uuid
 
-from neutron_lib import context as n_context
 from oslo_log import log as logging
 from oslo_utils import excutils
 
 from neutron.api import extensions as neutron_extensions
 from neutron.api.v2 import attributes as attr
+from neutron.db import _resource_extend as resource_extend
 from neutron.db import _utils as db_utils
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
@@ -62,6 +62,7 @@ from vmware_nsx.dvs import dvs_utils
 LOG = logging.getLogger(__name__)
 
 
+@resource_extend.has_resource_extenders
 class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                agentschedulers_db.DhcpAgentSchedulerDbMixin,
                db_base_plugin_v2.NeutronDbPluginV2,
@@ -104,11 +105,9 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         self._dvs = dvs.SingleDvsManager()
         self.setup_dhcpmeta_access()
 
-    # Register extend dict methods for port resources.
-    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        attr.PORTS, ['_ext_extend_port_dict'])
-
-    def _extend_port_dict_binding(self, portdb, result):
+    @staticmethod
+    @resource_extend.extends([attr.PORTS])
+    def _extend_port_dict_binding(result, portdb):
         result[pbin.VIF_TYPE] = nsx_constants.VIF_TYPE_DVS
         port_attr = portdb.get('nsx_port_attributes')
         if port_attr:
@@ -117,14 +116,8 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             result[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
         result[pbin.VIF_DETAILS] = {
             # TODO(rkukura): Replace with new VIF security details
-            pbin.CAP_PORT_FILTER:
-            'security-group' in self.supported_extension_aliases}
-
-    def _ext_extend_port_dict(self, result, portdb):
-        ctx = n_context.get_admin_context()
-        with db_api.context_manager.writer.using(ctx):
-            self._extend_port_dict_binding(portdb,
-                                           result)
+            # security-groups extension supported by this plugin
+            pbin.CAP_PORT_FILTER: True}
 
     def _extend_network_dict_provider(self, context, network,
                                       multiprovider=None, bindings=None):
@@ -202,7 +195,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                 net_db = self._get_network(context, new_net['id'])
                 net_db['vlan_transparent'] = trunk_mode
                 net_data['vlan_transparent'] = trunk_mode
-                self._apply_dict_extend_functions('networks', net_data, net_db)
+                resource_extend.apply_funcs('networks', net_data, net_db)
 
                 nsx_db.add_network_binding(
                     context.session, new_net['id'],
@@ -223,7 +216,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         # this extra lookup is necessary to get the
         # latest db model for the extension functions
         net_model = self._get_network(context, net_data['id'])
-        self._apply_dict_extend_functions('networks', new_net, net_model)
+        resource_extend.apply_funcs('networks', new_net, net_model)
 
         self.handle_network_dhcp_access(context, new_net,
                                         action='create_network')
@@ -397,7 +390,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         # this extra lookup is necessary to get the
         # latest db model for the extension functions
         port_model = self._get_port(context, port_data['id'])
-        self._apply_dict_extend_functions('ports', port_data, port_model)
+        resource_extend.apply_funcs('ports', port_data, port_model)
 
         self.handle_port_dhcp_access(context, port_data, action='create_port')
         return port_data

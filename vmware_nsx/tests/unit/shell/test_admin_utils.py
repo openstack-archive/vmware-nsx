@@ -26,14 +26,14 @@ from neutron.common import config as neutron_config
 from neutron.db import servicetype_db  # noqa
 from neutron.quota import resource_registry
 from neutron.tests import base
-from neutron.tests.unit.api import test_extensions
 from neutron_lib.callbacks import registry
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import config  # noqa
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.dvs import dvs_utils
-import vmware_nsx.shell.admin.plugins.nsxv.resources.utils as utils
+from vmware_nsx.shell.admin.plugins.nsxv.resources import utils as nsxv_utils
+from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils as nsxv3_utils
 from vmware_nsx.shell import resources
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.nsx_v import test_plugin as test_v_plugin
@@ -137,8 +137,20 @@ class TestNsxvAdminUtils(AbstractTestAdminUtils,
                    'NsxVPluginWrapper.count_spawn_jobs',
                    return_value=0).start()
 
+        self._plugin = nsxv_utils.NsxVPluginWrapper()
+        mock_nm_get_plugin = mock.patch(
+            "neutron_lib.plugins.directory.get_plugin")
+        self.mock_nm_get_plugin = mock_nm_get_plugin.start()
+        self.mock_nm_get_plugin.return_value = self._plugin
+
         # Create a router to make sure we have deployed an edge
-        self.create_router()
+        self.router = self.create_router()
+
+    def tearDown(self):
+        if self.router and self.router.get('id'):
+            edgeapi = nsxv_utils.NeutronDbClient()
+            self._plugin.delete_router(edgeapi.context, self.router['id'])
+        super(TestNsxvAdminUtils, self).tearDown()
 
     def test_nsxv_resources(self):
         self._test_resources(resources.nsxv_resources)
@@ -149,26 +161,18 @@ class TestNsxvAdminUtils(AbstractTestAdminUtils,
         self._test_resource('edges', 'nsx-update', **args)
 
     def create_router(self):
-        # Global configuration to support router creation without messing up
-        # the plugin wrapper
-        cfg.CONF.set_override('track_quota_usage', False,
-                              group='QUOTAS')
-        ext_mgr = test_v_plugin.TestL3ExtensionManager()
-        ext_api = test_extensions.setup_extensions_middleware(ext_mgr)
-
         # Create an exclusive router (with an edge)
         tenant_id = uuidutils.generate_uuid()
         data = {'router': {'tenant_id': tenant_id}}
         data['router']['name'] = 'dummy'
         data['router']['admin_state_up'] = True
         data['router']['router_type'] = 'exclusive'
-        router_req = self.new_create_request('routers', data, self.fmt)
-        res = router_req.get_response(ext_api)
-        r = self.deserialize(self.fmt, res)
-        return r
+
+        edgeapi = nsxv_utils.NeutronDbClient()
+        return self._plugin.create_router(edgeapi.context, data)
 
     def get_edge_id(self):
-        edgeapi = utils.NeutronDbClient()
+        edgeapi = nsxv_utils.NeutronDbClient()
         bindings = nsxv_db.get_nsxv_router_bindings(edgeapi.context.session)
         for binding in bindings:
             if binding.edge_id:
@@ -250,6 +254,12 @@ class TestNsxv3AdminUtils(AbstractTestAdminUtils,
                            'find_by_display_name',
                            return_value=[{'id': uuidutils.generate_uuid()}])
         super(TestNsxv3AdminUtils, self)._init_mock_plugin()
+
+        self._plugin = nsxv3_utils.NsxV3PluginWrapper()
+        mock_nm_get_plugin = mock.patch(
+            "neutron_lib.plugins.directory.get_plugin")
+        self.mock_nm_get_plugin = mock_nm_get_plugin.start()
+        self.mock_nm_get_plugin.return_value = self._plugin
 
     def _get_plugin_name(self):
         return 'nsxv3'

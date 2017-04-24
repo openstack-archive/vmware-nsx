@@ -22,6 +22,7 @@ from neutron.api.rpc.handlers import metadata_rpc
 from neutron.api.v2 import attributes
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
+from neutron.db import _resource_extend as resource_extend
 from neutron.db import _utils as db_utils
 from neutron.db import address_scope_db
 from neutron.db import agents_db
@@ -64,6 +65,7 @@ from neutron_lib.callbacks import resources
 from neutron_lib import constants as const
 from neutron_lib import context as q_context
 from neutron_lib import exceptions as n_exc
+from neutron_lib.plugins import directory
 from neutron_lib.utils import helpers
 from oslo_config import cfg
 from oslo_db import exception as db_exc
@@ -119,6 +121,7 @@ NSX_V3_EXCLUDED_PORT_NSGROUP_NAME = 'neutron_excluded_port_nsgroup'
 # this needs to be above securitygroups_db.SecurityGroupDbMixin.
 # FIXME(arosen): we can solve this inheritance order issue by just mixining in
 # the classes into a new class to handle the order correctly.
+@resource_extend.has_resource_extenders
 class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   extended_security_group.ExtendedSecurityGroupPropertiesMixin,
                   addr_pair_db.AllowedAddressPairsMixin,
@@ -242,17 +245,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # Register NSXv3 trunk driver to support trunk extensions
         self.trunk_driver = trunk_driver.NsxV3TrunkDriver.create(self)
 
-    # Register extend dict methods for network and port resources.
-    # Each extension driver that supports extend attribute for the resources
-    # can add those attribute to the result.
-    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        attributes.NETWORKS, ['_ext_extend_network_dict',
-                              '_extend_availability_zone_hints'])
-    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        attributes.PORTS, ['_ext_extend_port_dict'])
-    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        attributes.SUBNETS, ['_ext_extend_subnet_dict'])
-
     def init_availability_zones(self):
         # availability zones are supported only with native dhcp
         # if not - the default az will be loaded and used internally only
@@ -320,7 +312,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         for az in self.get_azs_list():
             az.translate_configured_names_to_uuids(self.nsxlib)
 
-    def _extend_port_dict_binding(self, context, port_data):
+    def _extend_nsx_port_dict_binding(self, context, port_data):
+        # Not using the register api for this because we need the context
         port_data[pbin.VIF_TYPE] = pbin.VIF_TYPE_OVS
         port_data[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
         if 'network_id' in port_data:
@@ -557,22 +550,34 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return self.conn.consume_in_threads()
 
-    def _ext_extend_network_dict(self, result, netdb):
+    @staticmethod
+    @resource_extend.extends([attributes.NETWORKS])
+    def _ext_extend_network_dict(result, netdb):
         ctx = q_context.get_admin_context()
+        # get the core plugin as this is a static method with no 'self'
+        plugin = directory.get_plugin()
         with db_api.context_manager.writer.using(ctx):
-            self._extension_manager.extend_network_dict(
+            plugin._extension_manager.extend_network_dict(
                 ctx.session, netdb, result)
 
-    def _ext_extend_port_dict(self, result, portdb):
+    @staticmethod
+    @resource_extend.extends([attributes.PORTS])
+    def _ext_extend_port_dict(result, portdb):
         ctx = q_context.get_admin_context()
+        # get the core plugin as this is a static method with no 'self'
+        plugin = directory.get_plugin()
         with db_api.context_manager.writer.using(ctx):
-            self._extension_manager.extend_port_dict(
+            plugin._extension_manager.extend_port_dict(
                 ctx.session, portdb, result)
 
-    def _ext_extend_subnet_dict(self, result, subnetdb):
+    @staticmethod
+    @resource_extend.extends([attributes.SUBNETS])
+    def _ext_extend_subnet_dict(result, subnetdb):
         ctx = q_context.get_admin_context()
+        # get the core plugin as this is a static method with no 'self'
+        plugin = directory.get_plugin()
         with db_api.context_manager.writer.using(ctx):
-            self._extension_manager.extend_subnet_dict(
+            plugin._extension_manager.extend_subnet_dict(
                 ctx.session, subnetdb, result)
 
     def _validate_provider_create(self, context, network_data, az):
@@ -829,7 +834,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # this extra lookup is necessary to get the
         # latest db model for the extension functions
         net_model = self._get_network(context, created_net['id'])
-        self._apply_dict_extend_functions('networks', created_net, net_model)
+        resource_extend.apply_funcs('networks', created_net, net_model)
 
         if qos_consts.QOS_POLICY_ID in net_data:
             # attach the policy to the network in neutron DB
@@ -2041,7 +2046,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # sgids is a set() so we need to | it in.
             if provider_groups:
                 sgids = list(set(sgids) | set(provider_groups))
-            self._extend_port_dict_binding(context, port_data)
+            self._extend_nsx_port_dict_binding(context, port_data)
             if validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)):
                 if is_psec_on:
                     msg = _('Mac learning requires that port security be '
@@ -2105,7 +2110,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # this extra lookup is necessary to get the
         # latest db model for the extension functions
         port_model = self._get_port(context, port_data['id'])
-        self._apply_dict_extend_functions('ports', port_data, port_model)
+        resource_extend.apply_funcs('ports', port_data, port_model)
+        self._remove_provider_security_groups_from_list(port_data)
 
         # Add Mac/IP binding to native DHCP server and neutron DB.
         if cfg.CONF.nsx_v3.native_dhcp_metadata:
@@ -2436,7 +2442,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 context, updated_port)
             self._process_portbindings_create_and_update(
                 context, port['port'], updated_port)
-            self._extend_port_dict_binding(context, updated_port)
+            self._extend_nsx_port_dict_binding(context, updated_port)
             mac_learning_state = updated_port.get(mac_ext.MAC_LEARNING)
             if mac_learning_state is not None:
                 if port_security and mac_learning_state:
@@ -2505,8 +2511,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return updated_port
 
-    def _extend_get_port_dict_binding(self, context, port):
-        self._extend_port_dict_binding(context, port)
+    def _extend_get_port_dict_qos_and_binding(self, context, port):
+        # Not using the register api for this because we need the context
+        self._extend_nsx_port_dict_binding(context, port)
 
         # add the qos policy id from the DB
         if 'id' in port:
@@ -2515,8 +2522,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def get_port(self, context, id, fields=None):
         port = super(NsxV3Plugin, self).get_port(context, id, fields=None)
-        self._extend_get_port_dict_binding(context, port)
-
+        if 'id' in port:
+            port_model = self._get_port(context, port['id'])
+            resource_extend.apply_funcs('ports', port, port_model)
+        self._extend_get_port_dict_qos_and_binding(context, port)
+        self._remove_provider_security_groups_from_list(port)
         return db_utils.resource_fields(port, fields)
 
     def get_ports(self, context, filters=None, fields=None,
@@ -2530,7 +2540,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     limit, marker, page_reverse))
             # Add port extensions
             for port in ports:
-                self._extend_get_port_dict_binding(context, port)
+                if 'id' in port:
+                    port_model = self._get_port(context, port['id'])
+                    resource_extend.apply_funcs('ports', port, port_model)
+                self._extend_get_port_dict_qos_and_binding(context, port)
+                self._remove_provider_security_groups_from_list(port)
         return (ports if not fields else
                 [db_utils.resource_fields(port, fields) for port in ports])
 
@@ -3520,7 +3534,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # Validate against the configured AZs
         return self.validate_obj_azs(availability_zones)
 
-    def _extend_availability_zone_hints(self, net_res, net_db):
+    @staticmethod
+    @resource_extend.extends([attributes.NETWORKS])
+    def _extend_availability_zone_hints(net_res, net_db):
         net_res[az_ext.AZ_HINTS] = az_ext.convert_az_string_to_list(
             net_db[az_ext.AZ_HINTS])
         if cfg.CONF.nsx_v3.native_dhcp_metadata:

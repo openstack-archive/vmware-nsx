@@ -27,6 +27,7 @@ from oslo_log import log as logging
 from vmware_nsx.common import utils as com_utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import extended_security_group as extended_secgroup
+from vmware_nsx.db import extended_security_group_rule as extend_sg_rule
 from vmware_nsx.db import nsx_models
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.db import nsxv_models
@@ -44,7 +45,8 @@ LOG = logging.getLogger(__name__)
 class NeutronSecurityGroupDB(
     utils.NeutronDbClient,
     securitygroups_db.SecurityGroupDbMixin,
-    extended_secgroup.ExtendedSecurityGroupPropertiesMixin):
+    extended_secgroup.ExtendedSecurityGroupPropertiesMixin,
+    extend_sg_rule.ExtendedSecurityGroupRuleMixin):
 
     def __init__(self):
         super(NeutronSecurityGroupDB, self)
