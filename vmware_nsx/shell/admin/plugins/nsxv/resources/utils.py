@@ -101,8 +101,7 @@ def get_nsxv_backend_edges():
     """Get a list of all the backend edges and some of their attributes
     """
     nsxv = get_nsxv_client()
-    edges = nsxv.get_edges()[1]
-    edges = edges['edgePage'].get('data', [])
+    edges = nsxv.get_edges()
     backend_edges = []
     for edge in edges:
         # get all the relevant backend information for this edge

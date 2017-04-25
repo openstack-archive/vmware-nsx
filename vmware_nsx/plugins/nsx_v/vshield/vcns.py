@@ -236,9 +236,25 @@ class Vcns(object):
         uri = "%s/%s" % (URI_PREFIX, edge_id)
         return self.do_request(HTTP_GET, uri, decode=True)
 
-    def get_edges(self):
-        uri = URI_PREFIX
+    def _get_edges(self, startindex=0):
+        uri = '%s?startIndex=%d' % (URI_PREFIX, startindex)
         return self.do_request(HTTP_GET, uri, decode=True)
+
+    def get_edges(self):
+        edges = []
+        h, d = self._get_edges()
+        edges.extend(d['edgePage']['data'])
+        paging_info = d['edgePage']['pagingInfo']
+        page_size = int(paging_info['pageSize'])
+        count = int(paging_info['totalCount'])
+        LOG.debug("There are total %s edges and page size is %s",
+                  count, page_size)
+        pages = count / page_size + 1
+        for i in range(1, pages):
+            start_index = page_size * i
+            h, d = self._get_edges(start_index)
+            edges.extend(d['edgePage']['data'])
+        return edges
 
     def get_edge_syslog(self, edge_id):
         uri = "%s/%s/syslog/config" % (URI_PREFIX, edge_id)
