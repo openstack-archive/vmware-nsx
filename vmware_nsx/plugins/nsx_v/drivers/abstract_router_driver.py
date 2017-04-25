@@ -16,10 +16,11 @@ import abc
 
 import six
 
-from neutron.callbacks import events
-from neutron.callbacks import registry
 from neutron.db import l3_db
 from neutron.db import models_v2
+from neutron_lib.callbacks import events
+from neutron_lib.callbacks import registry
+
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import nsxv_constants

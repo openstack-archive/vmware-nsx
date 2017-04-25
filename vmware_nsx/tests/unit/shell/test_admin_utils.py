@@ -22,12 +22,12 @@ from oslo_log import _options
 from oslo_log import log as logging
 from oslo_utils import uuidutils
 
-from neutron.callbacks import registry
 from neutron.common import config as neutron_config
 from neutron.db import servicetype_db  # noqa
 from neutron.quota import resource_registry
 from neutron.tests import base
 from neutron.tests.unit.api import test_extensions
+from neutron_lib.callbacks import registry
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import config  # noqa

@@ -27,9 +27,9 @@ TODO: Autocomplete command line args
 import requests
 import sys
 
-from neutron.callbacks import registry
 from neutron.common import config as neutron_config
 from neutron.conf import common as neutron_common_config
+from neutron_lib.callbacks import registry
 
 from vmware_nsx.common import config  # noqa
 

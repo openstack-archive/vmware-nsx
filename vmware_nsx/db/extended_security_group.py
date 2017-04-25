@@ -21,15 +21,15 @@ from sqlalchemy.orm import exc
 from sqlalchemy import sql
 
 from neutron.api.v2 import attributes
-from neutron.callbacks import events
-from neutron.callbacks import registry
-from neutron.callbacks import resources
 from neutron.common import utils as n_utils
 from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron.db.models import securitygroup as securitygroups_db
 from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.api import validators
+from neutron_lib.callbacks import events
+from neutron_lib.callbacks import registry
+from neutron_lib.callbacks import resources
 from neutron_lib import constants as n_constants
 from neutron_lib.db import model_base
 from neutron_lib.utils import helpers

@@ -34,9 +34,6 @@ from sqlalchemy.orm import exc as sa_exc
 
 from neutron.api import extensions as neutron_extensions
 from neutron.api.v2 import attributes as attr
-from neutron.callbacks import events
-from neutron.callbacks import registry
-from neutron.callbacks import resources
 from neutron.common import ipv6_utils
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
@@ -80,6 +77,9 @@ from neutron.quota import resource_registry
 from neutron.services.flavors import flavors_plugin
 from neutron.services.qos import qos_consts
 from neutron_lib.api.definitions import portbindings as pbin
+from neutron_lib.callbacks import events
+from neutron_lib.callbacks import registry
+from neutron_lib.callbacks import resources
 from vmware_nsx.dvs import dvs
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v import driver as qos_driver

@@ -18,11 +18,11 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from neutron.callbacks import events
-from neutron.callbacks import registry
 from neutron.services.trunk import constants as trunk_consts
 from neutron.services.trunk.drivers import base
 from neutron_lib.api.definitions import portbindings
+from neutron_lib.callbacks import events
+from neutron_lib.callbacks import registry
 
 from vmware_nsx.common import nsx_constants as nsx_consts
 from vmware_nsx.common import utils as nsx_utils

@@ -19,9 +19,9 @@ import xml.etree.ElementTree as et
 from networking_sfc.extensions import flowclassifier
 from networking_sfc.services.flowclassifier.common import exceptions as exc
 from networking_sfc.services.flowclassifier.drivers import base as fc_driver
-from neutron.callbacks import events
-from neutron.callbacks import registry
-from neutron.callbacks import resources
+from neutron_lib.callbacks import events
+from neutron_lib.callbacks import registry
+from neutron_lib.callbacks import resources
 from neutron_lib import context as n_context
 from neutron_lib.plugins import directory
 from oslo_config import cfg

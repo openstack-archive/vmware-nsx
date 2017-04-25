@@ -16,8 +16,8 @@
 import hashlib
 import hmac
 
-from neutron.callbacks import registry
 from neutron.db import models_v2
+from neutron_lib.callbacks import registry
 from oslo_config import cfg
 from oslo_log import log as logging
 

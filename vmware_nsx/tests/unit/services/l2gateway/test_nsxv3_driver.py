@@ -20,17 +20,17 @@ from networking_l2gw.services.l2gateway.common import constants
 from networking_l2gw.services.l2gateway import exceptions as l2gw_exc
 from networking_l2gw.services.l2gateway import plugin as core_l2gw_plugin
 from networking_l2gw.tests.unit.db import test_l2gw_db
-from neutron_lib import context
 from oslo_config import cfg
 from oslo_utils import importutils
 from oslo_utils import uuidutils
 
-from neutron.callbacks import events
-from neutron.callbacks import registry
-from neutron.callbacks import resources
 from neutron.tests import base
-
+from neutron_lib.callbacks import events
+from neutron_lib.callbacks import registry
+from neutron_lib.callbacks import resources
+from neutron_lib import context
 from neutron_lib import exceptions as n_exc
+
 from vmware_nsx.services.l2gateway.nsx_v3 import driver as nsx_v3_driver
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_nsx_v3_plugin
 from vmware_nsxlib.tests.unit.v3 import mocks as nsx_v3_mocks

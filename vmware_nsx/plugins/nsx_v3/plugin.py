@@ -22,10 +22,6 @@ from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
 from neutron.api.rpc.handlers import resources_rpc
 from neutron.api.v2 import attributes
-from neutron.callbacks import events
-from neutron.callbacks import exceptions as callback_exc
-from neutron.callbacks import registry
-from neutron.callbacks import resources
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
 from neutron.db import _utils as db_utils
@@ -63,6 +59,10 @@ from neutron.services.qos import qos_consts
 from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators
+from neutron_lib.callbacks import events
+from neutron_lib.callbacks import exceptions as callback_exc
+from neutron_lib.callbacks import registry
+from neutron_lib.callbacks import resources
 from neutron_lib import constants as const
 from neutron_lib import context as q_context
 from neutron_lib import exceptions as n_exc

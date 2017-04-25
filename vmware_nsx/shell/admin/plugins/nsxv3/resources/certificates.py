@@ -23,7 +23,7 @@ from vmware_nsx.shell import resources as shell
 from vmware_nsxlib.v3 import client_cert
 from vmware_nsxlib.v3 import trust_management
 
-from neutron.callbacks import registry
+from neutron_lib.callbacks import registry
 from neutron_lib import context
 from neutron_lib import exceptions
 from oslo_config import cfg

@@ -18,8 +18,8 @@ import sys
 from vmware_nsx._i18n import _
 from vmware_nsx.shell import resources as nsxadmin
 
-from neutron.callbacks import registry
 from neutron.common import profiler  # noqa
+from neutron_lib.callbacks import registry
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)

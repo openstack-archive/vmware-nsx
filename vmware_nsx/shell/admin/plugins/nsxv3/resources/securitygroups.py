@@ -12,11 +12,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.callbacks import registry
 from neutron.db import api as db_api
 from neutron.db import common_db_mixin as common_db
 from neutron.db.models import securitygroup
 from neutron.db import securitygroups_db
+from neutron_lib.callbacks import registry
 from neutron_lib import context as neutron_context
 from oslo_log import log as logging
 

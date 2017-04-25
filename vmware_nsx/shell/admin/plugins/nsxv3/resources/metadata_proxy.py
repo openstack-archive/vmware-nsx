@@ -12,7 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.callbacks import registry
+from neutron_lib.callbacks import registry
 from neutron_lib import constants as const
 from oslo_config import cfg
 from oslo_log import log as logging
