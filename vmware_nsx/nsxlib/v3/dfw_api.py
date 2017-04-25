@@ -282,4 +282,4 @@ def add_member_to_fw_exclude_list(target_id, target_type):
 def remove_member_from_exclude_list(target_id):
     resource = 'firewall/excludelist'
     params = '?action=remove_member&object_id=%s' % target_id
-    return nsxclient.create_resource(resource + params)
+    return nsxclient.create_resource(resource + params, None)
