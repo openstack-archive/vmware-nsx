@@ -17,10 +17,8 @@ import netaddr
 import six
 
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
-from neutron.api.rpc.callbacks import resources as callbacks_resources
 from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
-from neutron.api.rpc.handlers import resources_rpc
 from neutron.api.v2 import attributes
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
@@ -555,13 +553,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self.conn.create_consumer(topics.REPORTS,
                                   [agents_db.AgentExtRpcCallback()],
                                   fanout=False)
-        if self.qos_use_rpc:
-            qos_topic = resources_rpc.resource_type_versioned_topic(
-                callbacks_resources.QOS_POLICY)
-            self.conn.create_consumer(
-                qos_topic,
-                [resources_rpc.ResourcesPushRpcCallback()],
-                fanout=False)
         self.start_rpc_listeners_called = True
 
         return self.conn.consume_in_threads()
