@@ -80,7 +80,7 @@ function is_neutron_ovs_base_plugin {
 }
 
 function neutron_plugin_create_nova_conf {
-    if [[ "$VIRT_DRIVER" -ne 'vsphere' ]]; then
+    if [[ "$VIRT_DRIVER" != 'vsphere' ]]; then
         # if n-cpu or octavia is enabled, then setup integration bridge
         if is_service_enabled n-cpu || is_service_enabled octavia ; then
             setup_integration_bridge
