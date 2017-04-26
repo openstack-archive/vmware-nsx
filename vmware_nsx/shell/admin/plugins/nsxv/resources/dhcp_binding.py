@@ -131,12 +131,8 @@ def nsx_update_dhcp_edge_binding(resource, event, trigger, **kwargs):
 
 def delete_old_dhcp_edge(context, old_edge_id, bindings):
     LOG.info(_LI("Deleting the old DHCP edge: %s"), old_edge_id)
-    # using one of the router-ids in the bindings for the deleting
-    dhcp_names = [binding['router_id'] for binding in bindings]
-    dhcp_name = dhcp_names[0]
     with locking.LockManager.get_lock(old_edge_id):
         # Delete from NSXv backend
-        # (using the first dhcp name as the "router name")
         # Note - If we will not delete the router, but free it - it will be
         # immediately used as the new one, So it is better to delete it.
         try:
@@ -149,7 +145,7 @@ def delete_old_dhcp_edge(context, old_edge_id, bindings):
 
         try:
             # Remove bindings from Neutron DB
-            nsxv_db.delete_nsxv_router_binding(context.session, dhcp_name)
+            nsxv_db.clean_edge_router_binding(context.session, old_edge_id)
             nsxv_db.clean_edge_vnic_binding(context.session, old_edge_id)
         except Exception as e:
             LOG.warning(_LW("Failed to delete the old edge %(id)s from the "
