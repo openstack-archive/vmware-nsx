@@ -147,8 +147,8 @@ class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
 
     def remove_bgp_peer(self, context, bgp_speaker_id, bgp_peer_info):
         with locking.LockManager.get_lock(str(bgp_speaker_id)):
-            speaker = self._get_bgp_speaker(context, bgp_speaker_id)
-            if bgp_peer_info['bgp_peer_id'] not in speaker['peers']:
+            peers = self.get_bgp_peers_by_bgp_speaker(context, bgp_speaker_id)
+            if bgp_peer_info['bgp_peer_id'] not in [p['id'] for p in peers]:
                 return
             self.nsxv_driver.remove_bgp_peer(context,
                                              bgp_speaker_id, bgp_peer_info)

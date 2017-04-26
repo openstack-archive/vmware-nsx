@@ -25,7 +25,7 @@ ESG_BGP_PEER_EXT_ALIAS = 'edge-service-gateway-bgp-peer'
 
 
 def _validate_edge_service_gw_id(esg_id, valid_values=None):
-    if re.match(r'^edge-[1-9]+[0-9]*$', esg_id) is None:
+    if esg_id and re.match(r'^edge-[1-9]+[0-9]*$', esg_id) is None:
         msg = _("'%s' is not a valid edge service gateway id.") % esg_id
         return msg
 

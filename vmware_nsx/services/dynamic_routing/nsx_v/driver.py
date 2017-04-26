@@ -247,8 +247,9 @@ class NSXvBgpDriver(object):
         neighbour = bgp_neighbour(old_bgp_peer)
         for bgp_speaker_id in bgp_speaker_ids:
             with locking.LockManager.get_lock(bgp_speaker_id):
-                speaker = self._plugin.get_bgp_speaker(context, bgp_speaker_id)
-                if bgp_peer_id not in speaker['peers']:
+                peers = self._plugin.get_bgp_peers_by_bgp_speaker(
+                    context, bgp_speaker_id)
+                if bgp_peer_id not in [p['id'] for p in peers]:
                     continue
                 bgp_bindings = nsxv_db.get_nsxv_bgp_speaker_bindings(
                     context.session, bgp_speaker_id)
