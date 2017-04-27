@@ -29,6 +29,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import excutils
+from oslo_utils import netutils
 from oslo_utils import uuidutils
 from sqlalchemy.orm import exc as sa_exc
 
@@ -4087,6 +4088,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # add in the address pair
         approved_addrs.extend(
             addr['ip_address'] for addr in port[addr_pair.ADDRESS_PAIRS])
+        # add the IPv6 link-local address if there is an IPv6 address
+        if any([netaddr.valid_ipv6(address) for address in approved_addrs]):
+            lla = str(netutils.get_ipv6_addr_by_EUI64(
+                      constants.IPv6_LLA_PREFIX, mac_addr))
+            approved_addrs.append(lla)
         self.nsx_v.vcns.approve_assigned_addresses(
             sg_policy_id, vnic_id, mac_addr, approved_addrs)
         self.nsx_v.vcns.publish_assigned_addresses(sg_policy_id, vnic_id)
