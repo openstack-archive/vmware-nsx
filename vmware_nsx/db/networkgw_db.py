@@ -265,7 +265,7 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
     def get_network_gateways(self, context, filters=None, fields=None,
                              sorts=None, limit=None, marker=None,
                              page_reverse=False):
-        marker_obj = self._get_marker_obj(
+        marker_obj = db_utils.get_marker_obj(self,
             context, 'network_gateway', limit, marker)
         return model_query.get_collection(context, nsx_models.NetworkGateway,
                                           self._make_network_gateway_dict,
@@ -420,7 +420,7 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
                                filters=None, sorts=None,
                                limit=None, marker=None,
                                page_reverse=None):
-        marker_obj = self._get_marker_obj(
+        marker_obj = db_utils.get_marker_obj(self,
             context, 'gateway_device', limit, marker)
         return self._get_collection_query(context,
                                           nsx_models.NetworkGatewayDevice,

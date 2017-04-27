@@ -63,7 +63,8 @@ class QoSDbMixin(qos.QueuePluginBase):
 
     def get_qos_queues(self, context, filters=None, fields=None, sorts=None,
                        limit=None, marker=None, page_reverse=False):
-        marker_obj = self._get_marker_obj(context, 'qos_queue', limit, marker)
+        marker_obj = db_utils.get_marker_obj(self, context, 'qos_queue',
+                                             limit, marker)
         return model_query.get_collection(context, nsx_models.QoSQueue,
                                           self._make_qos_queue_dict,
                                           filters=filters, fields=fields,
