@@ -673,6 +673,14 @@ nsxv_opts = [
     cfg.BoolOpt('exclusive_dhcp_edge',
                 default=False,
                 help=_("(Optional) Have exclusive DHCP edge per network.")),
+    cfg.IntOpt('bgp_neighbour_hold_down_timer',
+               default=4,
+               help=_("(Optional) Set the interval (Seconds) for BGP "
+                      "neighbour hold down time.")),
+    cfg.IntOpt('bgp_neighbour_keep_alive_timer',
+               default=1,
+               help=_("(Optional) Set the interval (Seconds) for BGP "
+                      "neighbour keep alive time.")),
 ]
 
 # define the configuration of each NSX-V availability zone.
