@@ -772,6 +772,15 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             name = port_data['name']
         return name
 
+    def _is_excluded_port(self, device_owner, port_security):
+        if device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF:
+            return False
+        if device_owner == const.DEVICE_OWNER_DHCP:
+            return True
+        elif not port_security:
+            return True
+        return False
+
     def _create_port_at_the_backend(self, context, port_data,
                                     l2gw_port_check, psec_is_on):
         device_owner = port_data.get('device_owner')
@@ -789,13 +798,6 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             device_owner, device_id)
         if resource_type:
             tags = utils.add_v3_tag(tags, resource_type, device_id)
-
-        add_to_exclude_list = False
-        # Treat DHCP port and port security disabled
-        if (device_owner != l3_db.DEVICE_OWNER_ROUTER_INTF and
-            (device_owner == const.DEVICE_OWNER_DHCP or
-             not psec_is_on)):
-            add_to_exclude_list = True
 
         if utils.is_nsx_version_1_1_0(self._nsx_version):
             # If port has no security-groups then we don't need to add any
@@ -856,9 +858,10 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
             attachment_type=attachment_type,
             parent_name=parent_name, parent_tag=tag,
             switch_profile_ids=profiles)
-        if add_to_exclude_list:
+        if self._is_excluded_port(device_owner, psec_is_on):
             firewall.add_member_to_fw_exclude_list(
-                    result['id'], firewall.LOGICAL_PORT)
+                result['id'], firewall.LOGICAL_PORT)
+
         return result
 
     def _validate_address_pairs(self, address_pairs):
@@ -1017,7 +1020,8 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
                 security.update_lport_with_security_groups(
                     context, nsx_port_id,
                     port.get(ext_sg.SECURITYGROUPS, []), [])
-            if not port.get('port_security_enabled'):
+            if self._is_excluded_port(port.get('device_owner'),
+                                      port.get('port_security_enabled')):
                 firewall.remove_member_from_exclude_list(
                         nsx_port_id)
         self.disassociate_floatingips(context, port_id)
@@ -1141,10 +1145,15 @@ class NsxV3Plugin(addr_pair_db.AllowedAddressPairsMixin,
 
         name = self._get_port_name(context, updated_port)
 
-        updated_ps = updated_port.get('port_security_enabled')
+        # Update port in excluded list if needed.
         original_ps = original_port.get('port_security_enabled')
-        if updated_ps != original_ps:
-            if not updated_ps:
+        updated_ps = updated_port.get('port_security_enabled')
+        original_excluded = self._is_excluded_port(original_device_owner,
+                                                   original_ps)
+        updated_excluded = self._is_excluded_port(updated_device_owner,
+                                                  updated_ps)
+        if updated_excluded != original_excluded:
+            if updated_excluded:
                 firewall.add_member_to_fw_exclude_list(
                         lport_id, firewall.LOGICAL_PORT)
             else:
