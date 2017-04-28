@@ -1433,6 +1433,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     "%s") % policy_id
         raise n_exc.InvalidInput(error_message=err_msg)
 
+    def _is_excluded_port(self, device_owner, port_security):
+        if device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF:
+            return False
+        if device_owner == const.DEVICE_OWNER_DHCP:
+            if not cfg.CONF.nsx_v3.native_dhcp_metadata:
+                return True
+        elif not port_security:
+            return True
+        return False
+
     def _create_port_at_the_backend(self, context, port_data,
                                     l2gw_port_check, psec_is_on):
         device_owner = port_data.get('device_owner')
@@ -1450,14 +1460,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             device_owner, device_id)
         if resource_type:
             tags = utils.add_v3_tag(tags, resource_type, device_id)
-
-        add_to_exclude_list = False
-        if device_owner != l3_db.DEVICE_OWNER_ROUTER_INTF:
-            if ((device_owner == const.DEVICE_OWNER_DHCP and
-                 not cfg.CONF.nsx_v3.native_dhcp_metadata) or
-                (device_owner != const.DEVICE_OWNER_DHCP and
-                 not psec_is_on)):
-                    add_to_exclude_list = True
 
         if utils.is_nsx_version_1_1_0(self._nsx_version):
             # If port has no security-groups then we don't need to add any
@@ -1550,9 +1552,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             qos_com_utils.update_port_policy_binding(context,
                                                      port_data['id'],
                                                      qos_policy_id)
-        if add_to_exclude_list:
+
+        # Add port to excluded list if needed.
+        if self._is_excluded_port(device_owner, psec_is_on):
             self.nsxlib.add_member_to_fw_exclude_list(
-                    result['id'], firewall.LOGICAL_PORT)
+                result['id'], firewall.LOGICAL_PORT)
+
         return result
 
     def _validate_address_pairs(self, address_pairs):
@@ -1997,9 +2002,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self.nsxlib.update_lport_with_security_groups(
                     context, nsx_port_id,
                     port.get(ext_sg.SECURITYGROUPS, []), [])
-            if not port.get('port_security_enabled'):
-                self.nsxlib.remove_member_from_exclude_list(
-                        nsx_port_id)
+            if self._is_excluded_port(port.get('device_owner'),
+                                      port.get('port_security_enabled')):
+                self.nsxlib.remove_member_from_exclude_list(nsx_port_id)
         self.disassociate_floatingips(context, port_id)
 
         # Remove Mac/IP binding from native DHCP server and neutron DB.
@@ -2125,15 +2130,19 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         name = self._get_port_name(context, updated_port)
 
-        updated_ps = updated_port.get('port_security_enabled')
+        # Update port in excluded list if needed.
         original_ps = original_port.get('port_security_enabled')
-        if updated_ps != original_ps:
-            if not updated_ps:
+        updated_ps = updated_port.get('port_security_enabled')
+        original_excluded = self._is_excluded_port(original_device_owner,
+                                                   original_ps)
+        updated_excluded = self._is_excluded_port(updated_device_owner,
+                                                  updated_ps)
+        if updated_excluded != original_excluded:
+            if updated_excluded:
                 self.nsxlib.add_member_to_fw_exclude_list(
-                        lport_id, firewall.LOGICAL_PORT)
+                    lport_id, firewall.LOGICAL_PORT)
             else:
-                self.nsxlib.remove_member_from_exclude_list(
-                    lport_id)
+                self.nsxlib.remove_member_from_exclude_list(lport_id)
 
         if utils.is_nsx_version_1_1_0(self._nsx_version):
             tags_update += self.nsxlib.get_lport_tags_for_security_groups(
