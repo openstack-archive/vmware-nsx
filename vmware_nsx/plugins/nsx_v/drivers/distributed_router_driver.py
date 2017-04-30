@@ -163,6 +163,9 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
             self.plugin._get_external_attachment_info(
                 context, router))
 
+        # verify the edge was deployed before calling super code.
+        self._get_edge_id_or_raise(context, router_id)
+
         super(nsx_v.NsxVPluginV2, self.plugin)._update_router_gw_info(
             context, router_id, info, router=router)
 
