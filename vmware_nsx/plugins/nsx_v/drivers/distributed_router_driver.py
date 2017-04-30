@@ -166,6 +166,9 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
             self.plugin._get_external_attachment_info(
                 context, router))
 
+        # verify the edge was deployed before calling super code.
+        tlr_edge_id = self._get_edge_id_or_raise(context, router_id)
+
         super(nsx_v.NsxVPluginV2, self.plugin)._update_router_gw_info(
             context, router_id, info, router=router)
 
@@ -176,7 +179,6 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                 context, router))
 
         plr_id = self.edge_manager.get_plr_by_tlr_id(context, router_id)
-        tlr_edge_id = self._get_edge_id(context, router_id)
         if not new_ext_net_id:
             if plr_id:
                 # delete all plr relative conf
