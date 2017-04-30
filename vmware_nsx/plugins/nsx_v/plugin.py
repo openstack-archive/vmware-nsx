@@ -4193,6 +4193,18 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             azs = self.get_azs_list()
             for az in azs:
                 if az.edge_host_groups and az.edge_ha:
+                    if len(az.edge_host_groups) < 2:
+                        error = _("edge_host_groups must have at least 2 "
+                                  "names")
+                        raise nsx_exc.NsxPluginException(err_msg=error)
+                    if (not az.ha_placement_random and
+                        len(az.edge_host_groups) > 2):
+                        LOG.warning("Availability zone %(az)s has %(count)s "
+                                    "hostgroups. only the first 2 will be "
+                                    "used until ha_placement_random is "
+                                    "enabled",
+                                    {'az': az.name,
+                                     'count': len(az.edge_host_groups)})
                     self._vcm.validate_host_groups(az.resource_pool,
                                                    az.edge_host_groups)
 

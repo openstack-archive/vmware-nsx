@@ -161,7 +161,6 @@ class DvsManager(VCManagerBase):
                   'vlan_tag': vlan_tag,
                   'dvs': dvs_moref.value})
 
-    # DEBUG ADIT used only by the DVS plugin
     def _net_id_to_moref(self, dvs_moref, net_id):
         """Gets the moref for the specific neutron network."""
         # NOTE(garyk): return this from a cache if not found then invoke
@@ -564,9 +563,9 @@ class ClusterManager(VCManagerBase):
             reconfig_task = session.invoke_api(
                 session.vim, "ReconfigureComputeResource_Task",
                 cluster, spec=config_spec, modify=True)
+            session.wait_for_task(reconfig_task)
         except Exception as excep:
             LOG.exception('Failed to reconfigure cluster %s', excep)
-        session.wait_for_task(reconfig_task)
 
     def _create_vm_group_spec(self, client_factory, name, vm_refs,
                               group=None):
@@ -605,7 +604,7 @@ class ClusterManager(VCManagerBase):
         rules_spec.info = rules_info
         return rules_spec
 
-    def get_configured_vms(self, resource_id):
+    def get_configured_vms(self, resource_id, n_host_groups=2):
         session = self._session
         resource = vim_util.get_moref(resource_id, 'ResourcePool')
         # TODO(garyk): cache the cluster details
@@ -616,7 +615,7 @@ class ClusterManager(VCManagerBase):
             vim_util, "get_object_property", self._session.vim, cluster,
             "configurationEx")
         configured_vms = []
-        for index in range(2):
+        for index in range(n_host_groups):
             vm_group = None
             entry_id = index + 1
             groups = []
@@ -632,8 +631,9 @@ class ClusterManager(VCManagerBase):
         return configured_vms
 
     def update_cluster_edge_failover(self, resource_id, vm_moids,
-                                     edge_id, host_group_names):
+                                     host_group_names):
         """Updates cluster for vm placement using DRS"""
+        # DEBUG ADIT edge-id is never used
         session = self._session
         resource = vim_util.get_moref(resource_id, 'ResourcePool')
         # TODO(garyk): cache the cluster details
@@ -643,12 +643,20 @@ class ClusterManager(VCManagerBase):
         cluster_config = session.invoke_api(
             vim_util, "get_object_property", self._session.vim, cluster,
             "configurationEx")
-        vms = [vim_util.get_moref(vm_moid, 'VirtualMachine') for
-               vm_moid in vm_moids]
+        vms = [vim_util.get_moref(vm_moid, 'VirtualMachine')
+               if vm_moid else None
+               for vm_moid in vm_moids]
         client_factory = session.vim.client.factory
         config_spec = client_factory.create('ns0:ClusterConfigSpecEx')
         num_host_groups = len(host_group_names)
+
+        rules = []
+        if hasattr(cluster_config, 'rule'):
+            rules = cluster_config.rule
+
         for index, vm in enumerate(vms, start=1):
+            if not vm:
+                continue
             vmGroup = None
             groups = []
             if hasattr(cluster_config, 'group'):
@@ -664,9 +672,6 @@ class ClusterManager(VCManagerBase):
                             [vm], vmGroup)
             config_spec.groupSpec.append(groupSpec)
             config_rule = None
-            rules = []
-            if hasattr(cluster_config, 'rule'):
-                rules = cluster_config.rule
             # Create the config rule if it does not exist
             for rule in rules:
                 if 'neutron-rule-%s' % index == rule.name:
@@ -691,11 +696,11 @@ class ClusterManager(VCManagerBase):
         cluster_config = session.invoke_api(
             vim_util, "get_object_property", self._session.vim, cluster,
             "configurationEx")
+        groups = []
+        if hasattr(cluster_config, 'group'):
+            groups = cluster_config.group
         for host_group_name in host_group_names:
             found = False
-            groups = []
-            if hasattr(cluster_config, 'group'):
-                groups = cluster_config.group
             for group in groups:
                 if host_group_name == group.name:
                     found = True
@@ -703,15 +708,16 @@ class ClusterManager(VCManagerBase):
             if not found:
                 LOG.error("%s does not exist", host_group_name)
                 raise exceptions.NotFound()
+
         update_cluster = False
         num_host_groups = len(host_group_names)
+        rules = []
+        if hasattr(cluster_config, 'rule'):
+            rules = cluster_config.rule
         # Ensure that the VM groups are created
-        for index in range(2):
+        for index in range(num_host_groups):
             entry_id = index + 1
             vmGroup = None
-            groups = []
-            if hasattr(cluster_config, 'group'):
-                groups = cluster_config.group
             for group in groups:
                 if 'neutron-group-%s' % entry_id == group.name:
                     vmGroup = group
@@ -725,9 +731,6 @@ class ClusterManager(VCManagerBase):
                 update_cluster = True
 
             config_rule = None
-            rules = []
-            if hasattr(cluster_config, 'rule'):
-                rules = cluster_config.rule
             # Create the config rule if it does not exist
             for rule in rules:
                 if 'neutron-rule-%s' % entry_id == rule.name:
@@ -744,8 +747,7 @@ class ClusterManager(VCManagerBase):
             try:
                 self._reconfigure_cluster(session, cluster, config_spec)
             except Exception as e:
-                LOG.error('Unable to update cluster for host groups %s',
-                          e)
+                LOG.error('Unable to update cluster for host groups %s', e)
 
     def _delete_vm_group_spec(self, client_factory, name):
         group_spec = client_factory.create('ns0:ClusterGroupSpec')
@@ -768,7 +770,7 @@ class ClusterManager(VCManagerBase):
         rules_spec.info = rules_info
         return rules_spec
 
-    def cluster_host_group_cleanup(self, resource_id):
+    def cluster_host_group_cleanup(self, resource_id, n_host_groups=2):
         session = self._session
         resource = vim_util.get_moref(resource_id, 'ResourcePool')
         # TODO(garyk): cache the cluster details
@@ -780,21 +782,22 @@ class ClusterManager(VCManagerBase):
         cluster_config = session.invoke_api(
             vim_util, "get_object_property", self._session.vim, cluster,
             "configurationEx")
+        groups = []
+        if hasattr(cluster_config, 'group'):
+            groups = cluster_config.group
+        rules = []
+        if hasattr(cluster_config, 'rule'):
+            rules = cluster_config.rule
+
         groupSpec = []
         ruleSpec = []
-        for index in range(2):
+        for index in range(n_host_groups):
             entry_id = index + 1
-            groups = []
-            if hasattr(cluster_config, 'group'):
-                groups = cluster_config.group
             for group in groups:
                 if 'neutron-group-%s' % entry_id == group.name:
                     groupSpec.append(self._delete_vm_group_spec(
                         client_factory, group.name))
-            rules = []
-            if hasattr(cluster_config, 'rule'):
-                rules = cluster_config.rule
-            # Create the config rule if it does not exist
+            # Delete the config rule if it exists
             for rule in rules:
                 if 'neutron-rule-%s' % entry_id == rule.name:
                     ruleSpec.append(self._delete_cluster_rules_spec(
