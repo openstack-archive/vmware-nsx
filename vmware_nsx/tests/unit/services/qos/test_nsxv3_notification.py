@@ -139,7 +139,7 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                         tags=expected_tags
                     )
 
-    @mock.patch.object(policy_object.QosPolicy, 'reload_rules')
+    @mock.patch.object(policy_object.QosPolicy, '_reload_rules')
     def test_bw_rule_create_profile(self, *mocks):
         # test the switch profile update when a QoS BW rule is created
         _policy = policy_object.QosPolicy(
@@ -173,7 +173,7 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                         dscp=0
                     )
 
-    @mock.patch.object(policy_object.QosPolicy, 'reload_rules')
+    @mock.patch.object(policy_object.QosPolicy, '_reload_rules')
     def test_bw_rule_create_profile_minimal_val(self, *mocks):
         # test the switch profile update when a QoS rule is created
         # with an invalid limit value
@@ -216,7 +216,7 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                         qos_marking='trusted'
                     )
 
-    @mock.patch.object(policy_object.QosPolicy, 'reload_rules')
+    @mock.patch.object(policy_object.QosPolicy, '_reload_rules')
     def test_bw_rule_create_profile_maximal_val(self, *mocks):
         # test the switch profile update when a QoS rule is created
         # with an invalid burst value
@@ -259,7 +259,7 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                         qos_marking='trusted'
                     )
 
-    @mock.patch.object(policy_object.QosPolicy, 'reload_rules')
+    @mock.patch.object(policy_object.QosPolicy, '_reload_rules')
     def test_dscp_rule_create_profile(self, *mocks):
         # test the switch profile update when a QoS DSCP rule is created
         _policy = policy_object.QosPolicy(
@@ -311,11 +311,11 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                 # validate the data on the profile
                 update_profile.assert_called_once_with(
                     self.fake_profile_id,
-                    shaping_enabled=False,
-                    average_bandwidth=None,
-                    burst_size=None,
+                    shaping_enabled=True,
+                    average_bandwidth=2,
+                    burst_size=19200,
                     dscp=0,
-                    peak_bandwidth=None,
+                    peak_bandwidth=4,
                     qos_marking='trusted'
                 )
 
