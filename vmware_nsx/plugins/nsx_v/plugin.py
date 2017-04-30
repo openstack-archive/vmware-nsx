@@ -3336,7 +3336,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                                            router['id'])
             if subnet_cidrs:
                 no_snat_fw_rules.append({
-                    'name': 'No SNAT Rule',
+                    'name': edge_firewall_driver.NO_SNAT_RULE_NAME,
                     'action': 'allow',
                     'enabled': True,
                     'source_vnic_groups': ["external"],
@@ -3516,6 +3516,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _update_subnets_and_dnat_firewall(self, context, router,
                                           router_id=None):
+        # Note(asarfaty): If changing the order or names of rules here,
+        # please take care of fwaas _get_other_backend_rules too.
         fw_rules = []
         if not router_id:
             router_id = router['id']
@@ -3527,7 +3529,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         subnet_cidrs.extend([route['destination'] for route in routes])
         if subnet_cidrs:
             subnet_fw_rule = {
-                'name': 'Subnet Rule',
+                'name': edge_firewall_driver.SUBNET_RULE_NAME,
                 'action': 'allow',
                 'enabled': True,
                 'source_ip_address': subnet_cidrs,
@@ -3553,7 +3555,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         dnat_cidrs = [rule['dst'] for rule in dnat_rules]
         if dnat_cidrs:
             dnat_fw_rule = {
-                'name': 'DNAT Rule',
+                'name': edge_firewall_driver.DNAT_RULE_NAME,
                 'action': 'allow',
                 'enabled': True,
                 'destination_ip_address': dnat_cidrs}
