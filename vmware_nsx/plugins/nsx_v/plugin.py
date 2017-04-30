@@ -1027,6 +1027,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 net_morefs, net_data['id'], net_data[psec.PORTSECURITY])[1]
         return sg_policy_id, False
 
+    def _get_physical_network(self, network_type, net_data):
+        if network_type == c_utils.NsxVNetworkTypes.VXLAN:
+            return self._get_network_vdn_scope_id(net_data)
+        else:
+            # Use the dvs_id of the availability zone
+            return self._get_network_az_dvs_id(net_data)
+
     def create_network(self, context, network):
         net_data = network['network']
         tenant_id = net_data['tenant_id']
@@ -1186,9 +1193,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                             if external_backend_network:
                                 physical_network = net_morefs[0]
                             else:
-                                # Use the dvs_id of the availability zone
-                                physical_network = self._get_network_az_dvs_id(
-                                    net_data)
+                                physical_network = self._get_physical_network(
+                                    network_type, net_data)
                         net_bindings.append(nsxv_db.add_network_binding(
                             context.session, new_net['id'],
                             network_type,
