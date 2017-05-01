@@ -721,7 +721,8 @@ class EdgeManager(object):
             with locking.LockManager.get_lock(str(edge_id)):
                 self.nsxv_manager.callbacks.complete_edge_creation(
                     context, edge_id, lrouter['name'], lrouter['id'], dist,
-                    True, deploy_metadata=deploy_metadata)
+                    True, availability_zone=availability_zone,
+                    deploy_metadata=deploy_metadata)
 
                 try:
                     self.nsxv_manager.rename_edge(edge_id, name)
@@ -2622,7 +2623,7 @@ class NsxVCallbacks(object):
 
         if deploy_successful:
             metadata_proxy_handler = self.plugin.get_metadata_proxy_handler(
-                availability_zone)
+                availability_zone.name)
             if deploy_metadata and metadata_proxy_handler:
                 LOG.debug('Update metadata for resource %s',
                           router_id)

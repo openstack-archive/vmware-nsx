@@ -444,11 +444,13 @@ class EdgeApplianceDriver(object):
 
             self.callbacks.complete_edge_creation(
                 context, edge_id, name, router_id, dist, True,
-                availability_zone, deploy_metadata=deploy_metadata)
+                availability_zone=availability_zone,
+                deploy_metadata=deploy_metadata)
 
         except exceptions.VcnsApiException:
             self.callbacks.complete_edge_creation(
-                context, edge_id, name, router_id, dist, False)
+                context, edge_id, name, router_id, dist, False,
+                availability_zone=availability_zone)
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE("NSXv: deploy edge failed."))
         return edge_id
