@@ -43,6 +43,7 @@ class BaseAdminNetworkTest(base.BaseAdminNetworkTest):
     def resource_setup(cls):
         super(BaseAdminNetworkTest, cls).resource_setup()
         cls.admin_netwk_info = []
+        cls.admin_port_info = []
 
     @classmethod
     def resource_cleanup(cls):
@@ -52,6 +53,13 @@ class BaseAdminNetworkTest(base.BaseAdminNetworkTest):
                 try:
                     test_utils.call_and_ignore_notfound_exc(
                         net_client.delete_network, network['id'])
+                except Exception:
+                    pass
+            for port_info in cls.admin_port_info:
+                port_client, port = port_info
+                try:
+                    test_utils.call_and_ignore_notfound_exc(
+                        port_client.delete_port, port['id'])
                 except Exception:
                     pass
         super(BaseAdminNetworkTest, cls).resource_cleanup()
@@ -120,6 +128,33 @@ class BaseAdminNetworkTest(base.BaseAdminNetworkTest):
     def list_subnets(cls, client=None, **kwargs):
         net_client = client if client else cls.admin_subnets_client
         return net_client.list_subnets(**kwargs)
+
+    @classmethod
+    def create_port(cls, network_id, port_name=None, client=None, **kwargs):
+        port_client = client if client else cls.admin_ports_client
+        port_name = port_name or data_utils.rand_name('ADM-port-')
+        post_body = {'name': port_name,
+                     'network_id': network_id}
+        post_body.update(kwargs)
+        body = port_client.create_port(**post_body)
+        port = body['port']
+        cls.admin_port_info.append([port_client, port])
+        return body
+
+    @classmethod
+    def update_port(cls, port_id, client=None, **kwargs):
+        port_client = client if client else cls.admin_ports_client
+        return port_client.update_port(port_id, **kwargs)
+
+    @classmethod
+    def delete_port(cls, port_id, client=None):
+        port_client = client if client else cls.admin_ports_client
+        return port_client.delete_port(port_id)
+
+    @classmethod
+    def list_ports(cls, client=None, **kwargs):
+        port_client = client if client else cls.admin_ports_client
+        return port_client.list_ports(**kwargs)
 
     # add other create methods, i.e. security-group, port, floatingip
     # if needed.
