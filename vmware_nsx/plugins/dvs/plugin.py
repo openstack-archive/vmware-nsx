@@ -15,6 +15,8 @@
 
 import uuid
 
+from neutron_lib.api.definitions import port_security as psec
+from neutron_lib.exceptions import port_security as psec_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
 
@@ -36,7 +38,6 @@ from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db as vlan_ext_db
 from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import multiprovidernet as mpnet
-from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.extensions import vlantransparent as vlan_ext
@@ -355,7 +356,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             if has_ip:
                 self._ensure_default_security_group_on_port(context, port)
             elif validators.is_attr_set(port_data.get(ext_sg.SECURITYGROUPS)):
-                raise psec.PortSecurityAndIPRequiredForSecurityGroups()
+                raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
             port_data[ext_sg.SECURITYGROUPS] = (
                 self._get_security_groups_on_port(context, port))
             self._process_port_create_security_group(

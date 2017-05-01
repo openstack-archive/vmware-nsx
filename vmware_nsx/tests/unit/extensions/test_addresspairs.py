@@ -12,10 +12,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from neutron_lib.api.definitions import port_security as psec
 from oslo_config import cfg
 
 from neutron.extensions import allowedaddresspairs as addr_pair
-from neutron.extensions import portsecurity as psec
 from neutron.tests.unit.db import test_allowedaddresspairs_db as ext_pairs
 
 from vmware_nsx.tests.unit.nsx_mh import test_plugin as test_nsx_plugin

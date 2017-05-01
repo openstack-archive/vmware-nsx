@@ -18,12 +18,14 @@ import six
 import uuid
 
 import netaddr
+from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib import context as n_context
 from neutron_lib.db import constants as db_const
 from neutron_lib import exceptions as n_exc
+from neutron_lib.exceptions import port_security as psec_exc
 from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
 from oslo_config import cfg
@@ -70,7 +72,6 @@ from neutron.extensions import extra_dhcp_opt as ext_edo
 from neutron.extensions import flavors
 from neutron.extensions import l3
 from neutron.extensions import multiprovidernet as mpnet
-from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.extensions import vlantransparent as ext_vlan
@@ -1709,7 +1710,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if has_ip:
                 self._ensure_default_security_group_on_port(context, port)
             elif (has_security_groups or provider_sg_specified):
-                raise psec.PortSecurityAndIPRequiredForSecurityGroups()
+                raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
             else:
                 port_data[provider_sg.PROVIDER_SECURITYGROUPS] = []
 
@@ -1948,13 +1949,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # checks that if update adds/modify security groups,
             # then port has ip
             if not has_ip:
-                if (has_security_groups or provider_sgs_specified):
-                        raise psec.PortSecurityAndIPRequiredForSecurityGroups()
+                if has_security_groups or provider_sgs_specified:
+                    raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
                 if ((not delete_security_groups
                      and original_port[ext_sg.SECURITYGROUPS]) or
-                    (not delete_provider_sg and
-                     original_port[provider_sg.PROVIDER_SECURITYGROUPS])):
-                        raise psec.PortSecurityAndIPRequiredForSecurityGroups()
+                        (not delete_provider_sg and
+                         original_port[provider_sg.PROVIDER_SECURITYGROUPS])):
+                    raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
 
             if delete_security_groups or has_security_groups:
                 self.update_security_group_on_port(context, id, port,

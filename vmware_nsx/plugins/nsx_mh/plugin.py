@@ -15,10 +15,12 @@
 
 import uuid
 
+from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib import context as q_context
 from neutron_lib import exceptions as n_exc
+from neutron_lib.exceptions import port_security as psec_exc
 from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_db import exception as db_exc
@@ -60,7 +62,6 @@ from neutron.extensions import extra_dhcp_opt as edo_ext
 from neutron.extensions import extraroute
 from neutron.extensions import l3
 from neutron.extensions import multiprovidernet as mpnet
-from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import utils
@@ -1145,7 +1146,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._ensure_default_security_group_on_port(context, port)
             elif self._check_update_has_security_groups(
                  {'port': port_data}):
-                raise psec.PortSecurityAndIPRequiredForSecurityGroups()
+                raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
             port_data[ext_sg.SECURITYGROUPS] = (
                 self._get_security_groups_on_port(context, port))
             self._process_port_create_security_group(
@@ -1250,7 +1251,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # security groups, port security is set and port has ip
             if not (has_ip and ret_port[psec.PORTSECURITY]):
                 if has_security_groups:
-                    raise psec.PortSecurityAndIPRequiredForSecurityGroups()
+                    raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
                 # Update did not have security groups passed in. Check
                 # that port does not have any security groups already on it.
                 filters = {'port_id': [id]}
@@ -1259,7 +1260,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         context, filters)
                 )
                 if security_groups and not delete_security_groups:
-                    raise psec.PortSecurityPortHasSecurityGroup()
+                    raise psec_exc.PortSecurityPortHasSecurityGroup()
 
             if (delete_security_groups or has_security_groups):
                 # delete the port binding and read it with the new rules.

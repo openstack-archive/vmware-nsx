@@ -14,6 +14,8 @@
 #    under the License.
 
 import netaddr
+from neutron_lib.api.definitions import port_security as psec
+from neutron_lib.exceptions import port_security as psec_exc
 import six
 
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
@@ -48,7 +50,6 @@ from neutron.extensions import availability_zone as az_ext
 from neutron.extensions import external_net as ext_net_extn
 from neutron.extensions import extra_dhcp_opt as ext_edo
 from neutron.extensions import l3
-from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import utils as n_utils
@@ -1674,7 +1675,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._ensure_default_security_group_on_port(context, port)
         elif self._check_update_has_security_groups(
                 {'port': port_data}):
-            raise psec.PortSecurityAndIPRequiredForSecurityGroups()
+            raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
         port_data[ext_sg.SECURITYGROUPS] = (
             self._get_security_groups_on_port(context, port))
         return port_security, has_ip
@@ -2216,7 +2217,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if (validate_port_sec and
             not (has_ip and updated_port[psec.PORTSECURITY])):
             if has_security_groups:
-                raise psec.PortSecurityAndIPRequiredForSecurityGroups()
+                raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
             # Update did not have security groups passed in. Check
             # that port does not have any security groups already on it.
             filters = {'port_id': [id]}
@@ -2225,7 +2226,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     context, filters)
             )
             if security_groups and not delete_security_groups:
-                raise psec.PortSecurityPortHasSecurityGroup()
+                raise psec_exc.PortSecurityPortHasSecurityGroup()
 
         if delete_security_groups or has_security_groups:
             # delete the port binding and read it with the new rules.
