@@ -367,14 +367,14 @@ def change_edge_appliance_reservations(properties):
         LOG.error("%s", str(e))
 
 
-def _update_host_group_for_edge(nsxv, dvs_mng, edge_id, edge):
+def _update_host_group_for_edge(nsxv, cluster_mng, edge_id, edge):
     if edge.get('type') == 'gatewayServices':
         try:
             az_name, size = _get_edge_az_and_size(edge_id)
             zones = nsx_az.NsxVAvailabilityZones()
             az = zones.get_availability_zone(az_name)
             edge_utils.update_edge_host_groups(nsxv, edge_id,
-                                               dvs_mng, az,
+                                               cluster_mng, az,
                                                validate=True)
         except Exception as e:
             LOG.error("Failed to update edge %(id)s - %(e)s",
@@ -385,7 +385,7 @@ def _update_host_group_for_edge(nsxv, dvs_mng, edge_id, edge):
 
 
 def change_edge_hostgroup(properties):
-    dvs_mng = dvs.DvsManager()
+    cluster_mng = dvs.ClusterManager()
     if properties.get('hostgroup').lower() == "update":
         edge_id = properties.get('edge-id')
         try:
@@ -396,19 +396,19 @@ def change_edge_hostgroup(properties):
             # edge_result[0] is response status code
             # edge_result[1] is response body
             edge = edge_result[1]
-            _update_host_group_for_edge(nsxv, dvs_mng,
+            _update_host_group_for_edge(nsxv, cluster_mng,
                                         edge_id, edge)
     elif properties.get('hostgroup').lower() == "all":
         edges = utils.get_nsxv_backend_edges()
         for edge in edges:
             edge_id = edge['id']
-            _update_host_group_for_edge(nsxv, dvs_mng,
+            _update_host_group_for_edge(nsxv, cluster_mng,
                                         edge_id, edge)
     elif properties.get('hostgroup').lower() == "clean":
         azs = nsx_az.NsxVAvailabilityZones()
         for az in azs.list_availability_zones_objects():
             try:
-                edge_utils.clean_host_groups(dvs_mng, az)
+                edge_utils.clean_host_groups(cluster_mng, az)
             except Exception:
                 LOG.error("Failed to clean AZ %s", az.name)
     else:
