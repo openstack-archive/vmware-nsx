@@ -69,6 +69,9 @@ NetworkGroup = [
     cfg.StrOpt('public_network_cidr',
                help="Public network cidr which provides external network"
                     " connectivity"),
+    cfg.StrOpt('backend',
+               default='nsxv',
+               help="NSX backend, valid values are nsxv|nsxv3"),
 ]
 
 nsxv_group = cfg.OptGroup(name='nsxv',
