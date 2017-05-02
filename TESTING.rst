@@ -191,9 +191,3 @@ with pdb::
     $ ./.venv/bin/pip install pudb
 
     $ OS_POST_MORTEM_DEBUGGER=pudb ./run_tests.sh -d [test module path]
-
-References
-==========
-
-.. [#pudb] PUDB debugger:
-   https://pypi.python.org/pypi/pudb
