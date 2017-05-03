@@ -63,14 +63,18 @@ class MockIPPools(object):
             return self.nsx_pools[pool_id]['pool']
 
         def _allocate_ip(*args, **kwargs):
-            #TODO(asarfaty): add support for specific ip allocation
-            if kwargs.get('ip_addr'):
-                raise nsx_lib_exc.ManagerError(
-                    manager='dummy', operation='allocate',
-                    details='allocating specific IP is not supported',
-                    error_code=error.ERR_CODE_IPAM_SPECIFIC_IP)
-
             nsx_pool = self.nsx_pools[args[0]]
+            if kwargs.get('ip_addr'):
+                ip_addr = netaddr.IPAddress(kwargs['ip_addr'])
+                # verify that this ip was not yet allocated
+                if ip_addr in nsx_pool['allocated']:
+                    raise nsx_lib_exc.ManagerError(
+                        manager='dummy', operation='allocate',
+                        details='IP already allocated',
+                        error_code=error.ERR_CODE_IPAM_IP_ALLOCATED)
+                # skip ip validation for this mock.
+                nsx_pool['allocated'].append(ip_addr)
+                return {'allocation_id': str(ip_addr)}
             # get an unused ip from the pool
             ranges = nsx_pool['pool']['subnets'][0]['allocation_ranges']
             for ip_range in ranges:
@@ -84,6 +88,11 @@ class MockIPPools(object):
                 manager='dummy', operation='allocate',
                 details='All IPs in the pool are allocated',
                 error_code=error.ERR_CODE_IPAM_POOL_EXHAUSTED)
+
+        def _release_ip(*args, **kwargs):
+            nsx_pool = self.nsx_pools[args[0]]
+            ip_addr = netaddr.IPAddress(args[1])
+            nsx_pool['allocated'].remove(ip_addr)
 
         mock.patch(
             "vmware_nsxlib.v3.resources.IpPool.get",
@@ -101,7 +110,8 @@ class MockIPPools(object):
             "vmware_nsxlib.v3.resources.IpPool.allocate",
             side_effect=_allocate_ip).start()
         mock.patch(
-            "vmware_nsxlib.v3.resources.IpPool.release").start()
+            "vmware_nsxlib.v3.resources.IpPool.release",
+            side_effect=_release_ip).start()
 
 
 class TestNsxv3IpamSubnets(test_plugin.TestSubnetsV2, MockIPPools):
@@ -113,35 +123,11 @@ class TestNsxv3IpamSubnets(test_plugin.TestSubnetsV2, MockIPPools):
         super(TestNsxv3IpamSubnets, self).setUp()
         self.patch_nsxlib_ipam()
 
-    def test_update_subnet_gw_ip_in_use_by_router_returns_409(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_subnet_with_allocation_range(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_delete_subnet_ipv6_slaac_port_exists(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_create_subnet_ipv6_slaac_with_port_on_network(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_create_subnet_ipv6_slaac_with_dhcp_port_on_network(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_create_subnet_dhcpv6_stateless_with_port_on_network(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_create_subnet_ipv6_slaac_with_port_not_found(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_create_subnet_ipv6_slaac_with_db_reference_error(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
     def test_subnet_update_ipv4_and_ipv6_pd_slaac_subnets(self):
-        self.skipTest('Allocating a specific IP is not supported')
+        self.skipTest('Update ipam subnet is not supported')
 
     def test_subnet_update_ipv4_and_ipv6_pd_v6stateless_subnets(self):
-        self.skipTest('Allocating a specific IP is not supported')
+        self.skipTest('Update ipam subnet is not supported')
 
 
 class TestNsxv3IpamPorts(test_plugin.TestPortsV2, MockIPPools):
@@ -152,66 +138,6 @@ class TestNsxv3IpamPorts(test_plugin.TestPortsV2, MockIPPools):
             "vmware_nsx.services.ipam.nsx_v3.driver.Nsxv3IpamDriver")
         super(TestNsxv3IpamPorts, self).setUp()
         self.patch_nsxlib_ipam()
-
-    def test_update_port_mac_v6_slaac(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_create_port_with_multiple_ipv4_and_ipv6_subnets(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_create_port_with_ipv6_slaac_subnet_in_fixed_ips(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_update_port_with_new_ipv6_slaac_subnet_in_fixed_ips(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_create_port_with_ipv6_pd_subnet_in_fixed_ips(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_create_port_anticipating_allocation(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_update_port_with_ipv6_slaac_subnet_in_fixed_ips(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_update_port_mac_ip(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_update_port_update_ips(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_update_port_excluding_ipv6_slaac_subnet_from_fixed_ips(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_update_port_update_ip(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_requested_subnet_id_v6_slaac(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_update_port_invalid_fixed_ip_address_v6_slaac(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_update_dhcp_port_with_exceeding_fixed_ips(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_requested_subnet_id_v4_and_v6_slaac(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_requested_ips_only(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_ip_allocation_for_ipv6_subnet_slaac_address_mode(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_ip_allocation_for_ipv6_2_subnet_slaac_mode(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_delete_port_with_ipv6_slaac_address(self):
-        self.skipTest('Allocating a specific IP is not supported')
-
-    def test_requested_duplicate_ip(self):
-        self.skipTest('Allocating a specific IP is not supported')
 
     def test_create_port_invalid_fixed_ip_address_v6_pd_slaac(self):
         self.skipTest('Update ipam subnet is not supported')
