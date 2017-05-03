@@ -379,7 +379,7 @@ nsx_v3_opts = [
                        "for a router only when the router is attached to a "
                        "DHCP-disabled subnet.")),
     cfg.BoolOpt('native_dhcp_metadata',
-                default=False,
+                default=True,
                 help=_("If true, DHCP and metadata proxy services will be "
                        "provided by NSX backend.")),
     cfg.StrOpt('native_metadata_route',
