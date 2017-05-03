@@ -45,6 +45,10 @@ class TestNSXv3PortSecurityScenario(manager.NetworkScenarioTest):
           and at backend under NSGroup
         - Create servers under different network connected via router and
           check connectivity after enable/disable port security
+        - Check vm with port security disbaled can not ping which is having
+          port security enabled
+        - Check vm with port security enabled can ping any either dest vm
+          has port security enabled or disabled.
     """
 
     @classmethod
@@ -72,6 +76,17 @@ class TestNSXv3PortSecurityScenario(manager.NetworkScenarioTest):
                 self.routers_client.remove_router_interface, router['id'],
                 subnet_id=i['fixed_ips'][0]['subnet_id'])
         self.routers_client.delete_router(router['id'])
+
+    def create_security_group(self, sg_client, sg_name=None, desc=None,
+                              tenant_id=None):
+        name = sg_name or data_utils.rand_name('security-group')
+        desc = desc or "OS security-group %s" % name
+        sg_dict = dict(name=name, description=desc)
+        if tenant_id:
+            sg_dict['tenant_id'] = tenant_id
+        sg = sg_client.create_security_group(**sg_dict)
+        sg = sg.get('security_group', sg)
+        return sg
 
     def _create_router(self, router_name=None, admin_state_up=True,
                        external_network_id=None, enable_snat=None,
@@ -142,9 +157,37 @@ class TestNSXv3PortSecurityScenario(manager.NetworkScenarioTest):
             if address['version'] == CONF.validation.ip_version_for_ssh:
                 return address['addr']
 
+    def setup_sec_group(self, tenant_id):
+        self.security_group = \
+            self.create_security_group(self.cmgr_adm.security_groups_client,
+                                       tenant_id=tenant_id)
+        rulesets = [
+            dict(
+                direction='ingress',
+                protocol='tcp',
+                port_range_min=22,
+                port_range_max=22,
+                remote_ip_prefix=CONF.network.public_network_cidr
+            ),
+            dict(
+                direction='ingress',
+                protocol='icmp',
+                remote_ip_prefix=CONF.network.public_network_cidr
+            ),
+            dict(
+                direction='ingress',
+                protocol='icmp',
+                remote_group_id=self.security_group['id']
+            )
+        ]
+        for ruleset in rulesets:
+            self._create_security_group_rule(secgroup=self.security_group,
+                                             tenant_id=tenant_id, **ruleset)
+
     def create_network_topo(self):
-        self.security_group = self._create_security_group()
         self.network = self._create_network()
+        tenant_id = self.network['tenant_id']
+        self.setup_sec_group(tenant_id)
         self.subnet = self._create_subnet(self.network,
                                           cidr='10.168.1.0/24')
         self.router = self._create_router(
@@ -160,8 +203,9 @@ class TestNSXv3PortSecurityScenario(manager.NetworkScenarioTest):
         return networks
 
     def create_multi_network_topo(self):
-        self.security_group = self._create_security_group()
         self.network = self._create_network(namestart="net-port-sec")
+        tenant_id = self.network['tenant_id']
+        self.setup_sec_group(tenant_id)
         self.subnet = self._create_subnet(self.network,
                                           cidr='10.168.1.0/24')
         self.router = self._create_router(
@@ -267,16 +311,16 @@ class TestNSXv3PortSecurityScenario(manager.NetworkScenarioTest):
             self._get_server_key(server_default_1)
         self._check_server_connectivity(public_ip_address_server_1,
                                         private_ip_address_server_2,
-                                        private_key_server_1,
-                                        should_connect=False)
-        port_id2 = self.get_port_id(network_topo['network']['id'],
-                                    network_topo['subnet']['id'],
-                                    server_default_1)
-        sec_grp_port = port_client.show_port(port_id2)
+                                        private_key_server_1)
+        port_id_server_1 = self.get_port_id(network_topo['network']['id'],
+                                            network_topo['subnet']['id'],
+                                            server_default_1)
+        port_id_server_2 = port_id['port']['id']
+        sec_grp_port = port_client.show_port(port_id_server_1)
         sec_group = sec_grp_port['port']['security_groups'][0]
         body = {"port_security_enabled": "true",
                 "security_groups": [sec_group]}
-        port_client.update_port(port_id['port']['id'], **body)
+        port_client.update_port(port_id_server_2, **body)
         time.sleep(constants.NSX_BACKEND_TIME_INTERVAL)
         self._check_server_connectivity(public_ip_address_server_1,
                                         private_ip_address_server_2,
@@ -287,7 +331,7 @@ class TestNSXv3PortSecurityScenario(manager.NetworkScenarioTest):
             floating_ip_server_2['floating_ip_address']
         private_key_server_2 = \
             self._get_server_key(server_default_2)
-        port_client.update_port(port_id2, **body)
+        port_client.update_port(port_id_server_2, **body)
         time.sleep(constants.NSX_BACKEND_TIME_INTERVAL)
         self._check_server_connectivity(public_ip_address_server_2,
                                         private_ip_address_server_1,
@@ -295,7 +339,7 @@ class TestNSXv3PortSecurityScenario(manager.NetworkScenarioTest):
                                         should_connect=False)
         body = {"port_security_enabled": "true",
                 "security_groups": [sec_group]}
-        port_client.update_port(port_id2, **body)
+        port_client.update_port(port_id_server_2, **body)
         time.sleep(constants.NSX_BACKEND_TIME_INTERVAL)
         self._check_server_connectivity(public_ip_address_server_2,
                                         private_ip_address_server_1,
@@ -347,15 +391,16 @@ class TestNSXv3PortSecurityScenario(manager.NetworkScenarioTest):
         server_1 = self._create_server(server_name_1, network)
         server_name_2 = data_utils.rand_name('server-port-sec-2')
         server_2 = self._create_server(server_name_2, network)
-        floating_ip_default = self.create_floating_ip(server_1)
+        floating_ip_server_1 = self.create_floating_ip(server_1)
         floating_ip_server_2 = self.create_floating_ip(server_2)
-        private_ip_address_psg_vm = floating_ip_server_2['fixed_ip_address']
-        ip_address_default_vm = floating_ip_default['floating_ip_address']
-        private_key_default_vm = self._get_server_key(server_1)
+        private_ip_address_server_1 = floating_ip_server_1['fixed_ip_address']
+        public_ip_address_server_2 = \
+            floating_ip_server_2['floating_ip_address']
+        private_key_server_2 = self._get_server_key(server_2)
         port_client = self.cmgr_adm.ports_client
-        self._check_server_connectivity(ip_address_default_vm,
-                                        private_ip_address_psg_vm,
-                                        private_key_default_vm)
+        self._check_server_connectivity(public_ip_address_server_2,
+                                        private_ip_address_server_1,
+                                        private_key_server_2)
         port_id1 = self.get_port_id(network['id'],
                                     network_topo['subnet']['id'], server_2)
         kwargs = {"port_security_enabled": "false", "security_groups": []}
@@ -364,17 +409,17 @@ class TestNSXv3PortSecurityScenario(manager.NetworkScenarioTest):
         sec_group = sec_grp_port['port']['security_groups'][0]
         port_client.update_port(port_id1, **kwargs)
         time.sleep(constants.NSX_BACKEND_TIME_INTERVAL)
-        self._check_server_connectivity(ip_address_default_vm,
-                                        private_ip_address_psg_vm,
-                                        private_key_default_vm,
+        self._check_server_connectivity(public_ip_address_server_2,
+                                        private_ip_address_server_1,
+                                        private_key_server_2,
                                         should_connect=False)
         kwargs = {"port_security_enabled": "true",
                   "security_groups": [sec_group]}
         port_client.update_port(port_id1, **kwargs)
         time.sleep(constants.NSX_BACKEND_TIME_INTERVAL)
-        self._check_server_connectivity(ip_address_default_vm,
-                                        private_ip_address_psg_vm,
-                                        private_key_default_vm)
+        self._check_server_connectivity(public_ip_address_server_2,
+                                        private_ip_address_server_1,
+                                        private_key_server_2)
 
     def _test_connectivity_between_servers_with_router(self, network_topo):
         server_name_default_1 =\
@@ -395,12 +440,12 @@ class TestNSXv3PortSecurityScenario(manager.NetworkScenarioTest):
                                        network2)
         floating_ip_1 = self.create_floating_ip(server_1)
         floating_ip_2 = self.create_floating_ip(server_2)
-        public_address_server_1 = floating_ip_1['floating_ip_address']
-        private_address_server_2 = floating_ip_2['fixed_ip_address']
-        private_key_server_1 = self._get_server_key(server_1)
-        self._check_server_connectivity(public_address_server_1,
-                                        private_address_server_2,
-                                        private_key_server_1)
+        public_address_server_2 = floating_ip_2['floating_ip_address']
+        private_address_server_1 = floating_ip_1['fixed_ip_address']
+        private_key_server_2 = self._get_server_key(server_2)
+        self._check_server_connectivity(public_address_server_2,
+                                        private_address_server_1,
+                                        private_key_server_2)
         port_client = self.cmgr_adm.ports_client
         kwargs = {"port_security_enabled": "false",
                   "security_groups": []}
@@ -410,17 +455,17 @@ class TestNSXv3PortSecurityScenario(manager.NetworkScenarioTest):
         sec_group = sec_grp_port['port']['security_groups'][0]
         port_client.update_port(port_id, **kwargs)
         time.sleep(constants.NSX_BACKEND_TIME_INTERVAL)
-        self._check_server_connectivity(public_address_server_1,
-                                        private_address_server_2,
-                                        private_key_server_1,
+        self._check_server_connectivity(public_address_server_2,
+                                        private_address_server_1,
+                                        private_key_server_2,
                                         should_connect=False)
         kwargs = {"port_security_enabled": "true",
                   "security_groups": [sec_group]}
         port_client.update_port(port_id, **kwargs)
         time.sleep(constants.NSX_BACKEND_TIME_INTERVAL)
-        self._check_server_connectivity(public_address_server_1,
-                                        private_address_server_2,
-                                        private_key_server_1)
+        self._check_server_connectivity(public_address_server_2,
+                                        private_address_server_1,
+                                        private_key_server_2)
 
     @test.attr(type='nsxv3')
     @decorators.idempotent_id('f1c1d9b8-2fbd-4e7c-9ba7-a1d85d8d77d3')
