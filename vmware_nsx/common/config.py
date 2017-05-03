@@ -484,8 +484,8 @@ nsxv_opts = [
                 default=[],
                 help=_('(Optional) If edge HA is used then this will ensure '
                        'that active/backup edges are placed in the listed '
-                       'host groups. 2 predefined host groups need to be '
-                       'configured.')),
+                       'host groups. At least 2 predefined host groups need '
+                       'to be configured.')),
     cfg.StrOpt('external_network',
                help=_('(Required) Network ID for physical network '
                       'connectivity')),
@@ -709,8 +709,8 @@ nsxv_az_opts = [
                 default=[],
                 help=_('(Optional) If edge HA is used then this will ensure '
                        'that active/backup edges are placed in the listed '
-                       'host groups. 2 predefined host groups need to be '
-                       'configured.')),
+                       'host groups. At least 2 predefined host groups need '
+                       'to be configured.')),
     cfg.StrOpt('datacenter_moid',
                help=_('(Optional) Identifying the ID of datacenter to deploy '
                       'NSX Edges')),

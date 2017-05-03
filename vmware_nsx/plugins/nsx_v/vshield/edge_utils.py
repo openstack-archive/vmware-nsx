@@ -723,7 +723,6 @@ class EdgeManager(object):
                     context, edge_id, lrouter['name'], lrouter['id'], dist,
                     True, availability_zone=availability_zone,
                     deploy_metadata=deploy_metadata)
-
                 try:
                     self.nsxv_manager.rename_edge(edge_id, name)
                 except nsxapi_exc.VcnsApiException as e:
@@ -2603,22 +2602,26 @@ def update_edge_host_groups(vcns, edge_id, dvs, availability_zone,
            for appliance in appliances['appliances']]
     if validate:
         configured_vms = dvs.get_configured_vms(
-            availability_zone.resource_pool)
+            availability_zone.resource_pool,
+            len(availability_zone.edge_host_groups))
         for vm in vms:
             if vm in configured_vms:
                 LOG.info('Edge %s already configured', edge_id)
                 return
+    LOG.info('Create DRS groups for %(vms)s on edge %(edge_id)s',
+             {'vms': vms, 'edge_id': edge_id})
     # Ensure random distribution of the VMs
     if availability_zone.ha_placement_random:
+        if len(vms) < len(availability_zone.edge_host_groups):
+            # add some empty vms to the list, so it will randomize between
+            # all host groups
+            vms.extend([None] * (len(availability_zone.edge_host_groups) -
+                                 len(vms)))
         random.shuffle(vms)
     try:
-        LOG.info('Create DRS groups for '
-                 '%(vms)s on edge %(edge_id)s',
-                 {'vms': vms,
-                  'edge_id': edge_id})
         dvs.update_cluster_edge_failover(
             availability_zone.resource_pool,
-            vms, edge_id, availability_zone.edge_host_groups)
+            vms, availability_zone.edge_host_groups)
     except Exception as e:
         LOG.error('Unable to create DRS groups for '
                   '%(vms)s on edge %(edge_id)s. Error: %(e)s',
@@ -2632,7 +2635,8 @@ def clean_host_groups(dvs, availability_zone):
         LOG.info('Cleaning up host groups for AZ %s',
                  availability_zone.name)
         dvs.cluster_host_group_cleanup(
-            availability_zone.resource_pool)
+            availability_zone.resource_pool,
+            len(availability_zone.edge_host_groups))
     except Exception as e:
         LOG.error('Unable to cleanup. Error: %s', e)
 
