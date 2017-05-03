@@ -51,7 +51,6 @@ from neutron.extensions import l3
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
-from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils as n_utils
 from neutron.quota import resource_registry
 from neutron.services.qos import qos_consts
@@ -622,8 +621,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     err_msg = (_('Segmentation ID %(segmentation_id)s out of '
                                  'range (%(min_id)s through %(max_id)s)') %
                                {'segmentation_id': vlan_id,
-                                'min_id': plugin_const.MIN_VLAN_TAG,
-                                'max_id': plugin_const.MAX_VLAN_TAG})
+                                'min_id': const.MIN_VLAN_TAG,
+                                'max_id': const.MAX_VLAN_TAG})
                 else:
                     # Verify VLAN id is not already allocated
                     bindings = (

@@ -24,6 +24,7 @@ from neutron_lib import constants
 from neutron_lib import context as n_context
 from neutron_lib.db import constants as db_const
 from neutron_lib import exceptions as n_exc
+from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -73,7 +74,6 @@ from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.extensions import vlantransparent as ext_vlan
-from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils
 from neutron.quota import resource_registry
 from neutron.services.flavors import flavors_plugin
@@ -636,8 +636,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     err_msg = (_("%(segmentation_id)s out of range "
                                  "(%(min_id)s through %(max_id)s)") %
                                {'segmentation_id': segmentation_id,
-                                'min_id': plugin_const.MIN_VLAN_TAG,
-                                'max_id': plugin_const.MAX_VLAN_TAG})
+                                'min_id': constants.MIN_VLAN_TAG,
+                                'max_id': constants.MAX_VLAN_TAG})
                 else:
                     # Verify segment is not already allocated
                     bindings = nsxv_db.get_network_bindings_by_vlanid(

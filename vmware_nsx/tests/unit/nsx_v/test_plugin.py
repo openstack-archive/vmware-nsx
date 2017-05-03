@@ -29,7 +29,6 @@ from neutron.extensions import l3_ext_gw_mode
 from neutron.extensions import l3_flavors
 from neutron.extensions import router_availability_zone
 from neutron.extensions import securitygroup as secgrp
-from neutron.plugins.common import constants as plugin_const
 from neutron.services.qos import qos_consts
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.db.test_allowedaddresspairs_db as test_addr_pair
@@ -47,6 +46,7 @@ from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib import context
 from neutron_lib import exceptions as n_exc
+from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
 from neutron_lib.utils import helpers
 from neutron_lib.utils import net
@@ -3293,7 +3293,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
         available_edge = {'edge_id': 'edge-11', 'router_id': 'fake_id'}
         nsxv_db.add_nsxv_router_binding(
             context.get_admin_context().session, available_edge['router_id'],
-            available_edge['edge_id'], None, plugin_const.ACTIVE)
+            available_edge['edge_id'], None, constants.ACTIVE)
         with mock.patch.object(p.edge_manager,
                                '_get_available_router_binding',
                                return_value=available_edge):
@@ -3309,12 +3309,12 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                 returned_router = p.create_router(context.get_admin_context(),
                                                   router)
                 # router status should be 'error'
-                self.assertEqual(plugin_const.ERROR, returned_router['status'])
+                self.assertEqual(constants.ERROR, returned_router['status'])
 
                 # check the same after get_router
                 new_router = p.get_router(context.get_admin_context(),
                                           returned_router['id'])
-                self.assertEqual(plugin_const.ERROR, new_router['status'])
+                self.assertEqual(constants.ERROR, new_router['status'])
 
     def test_create_router_with_bad_az_hint(self):
         p = directory.get_plugin()

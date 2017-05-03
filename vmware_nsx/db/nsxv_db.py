@@ -15,10 +15,10 @@
 #    under the License.
 
 import neutron.db.api as db
-from neutron.plugins.common import constants as neutron_const
 
 import decorator
 from neutron_lib.api.definitions import portbindings as pbin
+from neutron_lib import constants as lib_const
 from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -69,7 +69,7 @@ def warn_on_binding_status_error(f, *args, **kwargs):
         bindings = [result]
 
     for binding in bindings:
-        if binding and binding['status'] == neutron_const.ERROR:
+        if binding and binding['status'] == lib_const.ERROR:
             LOG.warning("Found NSXV router binding entry with status "
                         "%(status)s: router %(router)s, "
                         "edge %(edge)s, lswitch %(lswitch)s, "
