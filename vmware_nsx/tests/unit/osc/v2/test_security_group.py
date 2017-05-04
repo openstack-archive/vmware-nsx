@@ -16,7 +16,7 @@
 import mock
 import re
 
-from openstackclient.tests.unit.network.v2 import test_security_group
+from openstackclient.tests.unit.network.v2 import test_security_group_network
 from openstackclient.tests.unit import utils as tests_utils
 
 from vmware_nsx.osc.v2 import security_group
@@ -28,7 +28,7 @@ supported_extensions = ('security-group-logging',
 
 
 class TestCreateSecurityGroup(
-    test_security_group.TestCreateSecurityGroupNetwork):
+    test_security_group_network.TestCreateSecurityGroupNetwork):
 
     def setUp(self):
         super(TestCreateSecurityGroup, self).setUp()
@@ -109,7 +109,8 @@ class TestCreateSecurityGroup(
         self._test_create_with_arg_val('policy', 'policy-1')
 
 
-class TestSetSecurityGroup(test_security_group.TestSetSecurityGroupNetwork):
+class TestSetSecurityGroup(
+    test_security_group_network.TestSetSecurityGroupNetwork):
 
     def setUp(self):
         super(TestSetSecurityGroup, self).setUp()
