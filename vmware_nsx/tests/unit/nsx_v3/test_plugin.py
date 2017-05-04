@@ -43,6 +43,7 @@ from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_utils import uuidutils
 
+from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import utils
 from vmware_nsx.plugins.nsx_v3 import plugin as nsx_plugin
 from vmware_nsx.tests import unit as vmware
@@ -244,6 +245,16 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
         with self.network(name=name, availability_zone_hints=zone) as net:
             az_hints = net['network']['availability_zone_hints']
             self.assertListEqual(az_hints, zone)
+
+    def test_network_failure_rollback(self):
+        cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        self.plugin = directory.get_plugin()
+        with mock.patch.object(self.plugin._port_client, 'create',
+                               side_effect=api_exc.NsxApiException):
+            self.network()
+            ctx = context.get_admin_context()
+            networks = self.plugin.get_networks(ctx)
+            self.assertListEqual([], networks)
 
 
 class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
