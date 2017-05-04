@@ -172,8 +172,7 @@ class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
                                                     network_info)
 
     def get_advertised_routes(self, context, bgp_speaker_id):
-        return super(NSXvBgpPlugin, self).get_advertised_routes(
-            context, bgp_speaker_id)
+        return self.nsxv_driver.get_advertised_routes(context, bgp_speaker_id)
 
     def router_interface_callback(self, resource, event, trigger, **kwargs):
         if not kwargs['network_id']:

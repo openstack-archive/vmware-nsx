@@ -23,6 +23,7 @@ from neutron_lib import constants as n_const
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
 from vmware_nsx._i18n import _
+from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import locking
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_db
@@ -110,24 +111,49 @@ class NSXvBgpDriver(object):
             advertise_static_routes = True
         return edge_binding['edge_id'], advertise_static_routes
 
-    def _get_dynamic_routing_edge_list(self, context, gateway_network_id):
+    def get_advertised_routes(self, context, bgp_speaker_id):
+        routes = []
+        bgp_speaker = self._plugin.get_bgp_speaker(context, bgp_speaker_id)
+        edge_router_dict = (
+            self._get_dynamic_routing_edge_list(context,
+                                                bgp_speaker['networks'][0],
+                                                bgp_speaker_id))
+        for edge_id, edge_router_config in edge_router_dict.items():
+            bgp_identifier = edge_router_config['bgp_identifier']
+            subnets = self._query_tenant_subnets(
+                context, edge_router_config['no_snat_routers'])
+            routes.extend([(subnet['cidr'], bgp_identifier)
+                           for subnet in subnets])
+        routes = self._plugin._make_advertised_routes_list(routes)
+        return self._plugin._make_advertised_routes_dict(routes)
+
+    def _get_dynamic_routing_edge_list(self, context,
+                                       gateway_network_id, bgp_speaker_id):
         # Filter the routers attached this network as gateway interface
         filters = {'network_id': [gateway_network_id],
                    'device_owner': [n_const.DEVICE_OWNER_ROUTER_GW]}
         fields = ['device_id', 'fixed_ips']
         gateway_ports = self._core_plugin.get_ports(context, filters=filters,
                                                     fields=fields)
+
+        bgp_bindings = nsxv_db.get_nsxv_bgp_speaker_bindings(
+            context.session, bgp_speaker_id)
+        binding_info = {bgp_binding['edge_id']: bgp_binding['bgp_identifier']
+                        for bgp_binding in bgp_bindings}
+
         edge_router_dict = {}
         for port in gateway_ports:
             router_id = port['device_id']
             router = self._core_plugin._get_router(context, router_id)
-            bgp_identifier = port['fixed_ips'][0]['ip_address']
             edge_id, advertise_static_routes = (
                 self._get_router_edge_info(context, router_id))
             if not edge_id:
                 # Shared router is not attached on any edge
                 continue
+
             if edge_id not in edge_router_dict:
+                bgp_identifier = binding_info.get(
+                    edge_id, port['fixed_ips'][0]['ip_address'])
                 edge_router_dict[edge_id] = {'no_snat_routers': [],
                                              'bgp_identifier':
                                              bgp_identifier,
@@ -336,6 +362,14 @@ class NSXvBgpDriver(object):
         if not ext_net['subnets']:
             return
 
+        # REVISIT(roeyc): Currently not allowing more than one bgp speaker per
+        # gateway network.
+        speaker_on_network = self._plugin._bgp_speakers_for_gateway_network(
+            context, gateway_network_id)
+        if speaker_on_network and speaker_on_network.id != bgp_speaker_id:
+            raise nsx_exc.NsxBgpSpeakerUnableToAddGatewayNetwork(
+                network_id=gateway_network_id, bgp_speaker_id=bgp_speaker_id)
+
         subnet_id = ext_net['subnets'][0]
         ext_subnet = self._core_plugin.get_subnet(context, subnet_id)
 
@@ -344,7 +378,7 @@ class NSXvBgpDriver(object):
                 network_id=gateway_network_id, subnet_id=subnet_id)
 
         edge_router_dict = self._get_dynamic_routing_edge_list(
-            context, gateway_network_id)
+            context, gateway_network_id, bgp_speaker_id)
 
         speaker = self._plugin.get_bgp_speaker(context, bgp_speaker_id)
         bgp_peers = self._plugin.get_bgp_peers_by_bgp_speaker(

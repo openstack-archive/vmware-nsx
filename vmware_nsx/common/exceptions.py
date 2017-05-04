@@ -175,3 +175,9 @@ class NsxPortMirrorSessionMappingNotFound(n_exc.NotFound):
 class NsxInvalidConfiguration(n_exc.InvalidConfigurationOption):
     message = _("An invalid value was provided for %(opt_name)s: "
                 "%(opt_value)s: %(reason)s")
+
+
+class NsxBgpSpeakerUnableToAddGatewayNetwork(n_exc.BadRequest):
+    message = _("Unable to add gateway network %(network_id)s to BGP speaker "
+                "%(bgp_speaker_id)s, network may be associated with one BGP "
+                "speaker at most.")
