@@ -347,6 +347,33 @@ Client Certificate
 
     nsxadmin -r certificate -o nsx-list
 
+
+BGP GW edges
+~~~~~~~~~~~~
+- Create new BGP GW edge::
+
+    nsxadmin -r bgp-gw-edge -o create --property name=<NAME> --property local-as=<ASN> --property external-iface=<PORTGROUP_MOREF>:<IP_ADDRESS/PREFIX_LEN> --property internal-iface=<PORTGROUP_MOREF>:<IP_ADDRESS/PREFIX_LEN>
+
+- Delete BGP GW edge::
+
+    nsxadmin -r bgp-gw-edge -o delete --property gw-edge-id=<edge-id>
+
+- Add a redistribution rule to a BGP GW edges::
+
+    nsxadmin -r routing-redistribution-rule -o create --property edge-ids=<edge_id>[,...] [--property prefix=<NAME:CIDR>] --property learner-protocol=<ospf/bgp> --property learn-from=ospf,bgp,connected,static --property action=<permit/deny>
+
+- Remove a redistribution rule from BGP GW edges::
+
+    nsxadmin -r routing-redistribution-rule -o delete --property gw-edge-ids=<edge_id>[,...] [--property prefix-name=<NAME>]
+
+- Add a new BGP neighbour to BGP GW edges::
+
+    nsxadmin -r bgp-neighbour -o create --property gw-edge-ids=<edge_id>[,...] --property ip-address=<IP_ADDRESS>  --property remote-as=<ASN> --property --password=<PASSWORD>
+
+- Remove BGP neighbour from BGP GW edges::
+
+    nsxadmin -r bgp-neighbour -o delete --property gw-edge-ids=<edge_id>[,...] --property ip-address=<IP_ADDRESS>
+
 Config
 ~~~~~~
 
