@@ -34,9 +34,9 @@ from six import moves
 
 from neutron.extensions import extra_dhcp_opt as ext_edo
 from neutron.extensions import l3
-from neutron.plugins.common import constants as plugin_const
 
 from neutron_lib.api import validators
+from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 
 from vmware_nsx._i18n import _
@@ -234,7 +234,7 @@ class EdgeManager(object):
                                            error_reason="backend error"):
         for binding in nsxv_db.get_nsxv_router_bindings_by_edge(
             context.session, edge_id):
-            if binding['status'] == plugin_const.ERROR:
+            if binding['status'] == constants.ERROR:
                 continue
             LOG.error('Mark router binding ERROR for resource '
                       '%(res_id)s on edge %(edge_id)s due to '
@@ -244,7 +244,7 @@ class EdgeManager(object):
                        'reason': error_reason})
             nsxv_db.update_nsxv_router_binding(
                 context.session, binding['router_id'],
-                status=plugin_const.ERROR)
+                status=constants.ERROR)
 
     def _deploy_edge(self, context, lrouter,
                      lswitch=None, appliance_size=nsxv_constants.COMPACT,
@@ -272,7 +272,7 @@ class EdgeManager(object):
         for router_id in router_ids:
             nsxv_db.add_nsxv_router_binding(
                 context.session, router_id, None, None,
-                plugin_const.PENDING_CREATE,
+                constants.PENDING_CREATE,
                 appliance_size=appliance_size, edge_type=edge_type,
                 availability_zone=availability_zone.name)
         return router_ids
@@ -297,14 +297,14 @@ class EdgeManager(object):
                 availability_zone=availability_zone)
 
     def _delete_edge(self, context, router_binding):
-        if router_binding['status'] == plugin_const.ERROR:
+        if router_binding['status'] == constants.ERROR:
             LOG.warning("Start deleting %(router_id)s  corresponding "
                         "edge: %(edge_id)s due to status error",
                         {'router_id': router_binding['router_id'],
                          'edge_id': router_binding['edge_id']})
         nsxv_db.update_nsxv_router_binding(
             context.session, router_binding['router_id'],
-            status=plugin_const.PENDING_DELETE)
+            status=constants.PENDING_DELETE)
         self._get_worker_pool().spawn_n(
             self.nsxv_manager.delete_edge, q_context.get_admin_context(),
             router_binding['router_id'], router_binding['edge_id'],
@@ -314,7 +314,7 @@ class EdgeManager(object):
         for binding in backup_router_bindings:
             nsxv_db.update_nsxv_router_binding(
                 context.session, binding['router_id'],
-                status=plugin_const.PENDING_DELETE)
+                status=constants.PENDING_DELETE)
 
     def _delete_backup_edges_at_backend(self, context, backup_router_bindings):
         for binding in backup_router_bindings:
@@ -329,13 +329,13 @@ class EdgeManager(object):
     def _clean_all_error_edge_bindings(self, context, availability_zone):
         # Find all backup edges in error state &
         # backup edges which are in pending-create state for too long
-        filters = {'status': [plugin_const.ERROR, plugin_const.PENDING_CREATE],
+        filters = {'status': [constants.ERROR, constants.PENDING_CREATE],
                    'availability_zone': [availability_zone.name]}
         like_filters = {'router_id': vcns_const.BACKUP_ROUTER_PREFIX + "%"}
         router_bindings = nsxv_db.get_nsxv_router_bindings(
             context.session, filters=filters, like_filters=like_filters)
         error_router_bindings = [binding for binding in router_bindings if
-            binding.status == plugin_const.ERROR or
+            binding.status == constants.ERROR or
             timeutils.is_older_than(binding.created_at, 600)]
         self._delete_backup_edges_on_db(context,
                                         error_router_bindings)
@@ -350,9 +350,9 @@ class EdgeManager(object):
         filters = {'appliance_size': [appliance_size],
                    'edge_type': [edge_type],
                    'availability_zone': [availability_zone.name],
-                   'status': [plugin_const.PENDING_CREATE,
-                              plugin_const.PENDING_UPDATE,
-                              plugin_const.ACTIVE]}
+                   'status': [constants.PENDING_CREATE,
+                              constants.PENDING_UPDATE,
+                              constants.ACTIVE]}
         like_filters = {'router_id': vcns_const.BACKUP_ROUTER_PREFIX + "%"}
         return nsxv_db.get_nsxv_router_bindings(
             context.session, filters=filters, like_filters=like_filters)
@@ -434,7 +434,7 @@ class EdgeManager(object):
             availability_zone=availability_zone)
         while backup_router_bindings:
             router_binding = random.choice(backup_router_bindings)
-            if (router_binding['status'] == plugin_const.ACTIVE):
+            if (router_binding['status'] == constants.ACTIVE):
                 if not self.check_edge_active_at_backend(
                     router_binding['edge_id']):
                     LOG.debug("Delete unavailable backup resource "
@@ -664,7 +664,7 @@ class EdgeManager(object):
         if edge_pool_range is None:
             nsxv_db.add_nsxv_router_binding(
                 context.session, resource_id, None, None,
-                plugin_const.PENDING_CREATE,
+                constants.PENDING_CREATE,
                 appliance_size=appliance_size,
                 edge_type=edge_type,
                 availability_zone=availability_zone.name)
@@ -684,13 +684,13 @@ class EdgeManager(object):
                 # in case of other threads select the same router binding
                 nsxv_db.update_nsxv_router_binding(
                     context.session, available_router_binding['router_id'],
-                    status=plugin_const.PENDING_UPDATE)
+                    status=constants.PENDING_UPDATE)
         # Synchronously deploy an edge if no available edge in pool.
         if not available_router_binding:
             # store router-edge mapping binding
             nsxv_db.add_nsxv_router_binding(
                 context.session, resource_id, None, None,
-                plugin_const.PENDING_CREATE,
+                constants.PENDING_CREATE,
                 appliance_size=appliance_size,
                 edge_type=edge_type,
                 availability_zone=availability_zone.name)
@@ -711,7 +711,7 @@ class EdgeManager(object):
                 lrouter['id'],
                 available_router_binding['edge_id'],
                 None,
-                plugin_const.PENDING_CREATE,
+                constants.PENDING_CREATE,
                 appliance_size=appliance_size,
                 edge_type=edge_type,
                 availability_zone=availability_zone.name)
@@ -769,18 +769,18 @@ class EdgeManager(object):
             backup_router_id,
             edge_id,
             None,
-            plugin_const.PENDING_UPDATE,
+            constants.PENDING_UPDATE,
             appliance_size=binding['appliance_size'],
             edge_type=binding['edge_type'],
             availability_zone=availability_zone_name)
 
         router_id = backup_router_id
-        if (binding['status'] == plugin_const.ERROR or
+        if (binding['status'] == constants.ERROR or
             not self.check_edge_active_at_backend(edge_id) or
             not edge_pool_range):
             nsxv_db.update_nsxv_router_binding(
                 context.session, router_id,
-                status=plugin_const.PENDING_DELETE)
+                status=constants.PENDING_DELETE)
             # delete edge
             self._get_worker_pool().spawn_n(
                 self.nsxv_manager.delete_edge, q_context.get_admin_context(),
@@ -814,12 +814,12 @@ class EdgeManager(object):
             if update_result:
                 nsxv_db.update_nsxv_router_binding(
                     context.session, backup_router_id,
-                    status=plugin_const.ACTIVE)
+                    status=constants.ACTIVE)
                 LOG.debug("Collect edge: %s to pool", edge_id)
         else:
             nsxv_db.update_nsxv_router_binding(
                 context.session, router_id,
-                status=plugin_const.PENDING_DELETE)
+                status=constants.PENDING_DELETE)
             # delete edge
             self._get_worker_pool().spawn_n(
                 self.nsxv_manager.delete_edge, q_context.get_admin_context(),
@@ -1148,7 +1148,7 @@ class EdgeManager(object):
         all_dhcp_edges = {binding['router_id']: binding['edge_id'] for
                           binding in router_bindings if (binding['router_id'].
                           startswith(vcns_const.DHCP_EDGE_PREFIX) and
-                          binding['status'] == plugin_const.ACTIVE)}
+                          binding['status'] == constants.ACTIVE)}
         vdr_dhcp_edges = self._get_vdr_dhcp_edges(context)
 
         if all_dhcp_edges:
@@ -1237,7 +1237,7 @@ class EdgeManager(object):
         context = q_context.get_admin_context()
         nsxv_db.add_nsxv_router_binding(
             context.session, resource_id,
-            edge_id, None, plugin_const.ACTIVE,
+            edge_id, None, constants.ACTIVE,
             appliance_size=app_size,
             availability_zone=availability_zone.name)
         nsxv_db.allocate_edge_vnic_with_tunnel_index(
@@ -1329,7 +1329,7 @@ class EdgeManager(object):
                     # Delete the existing vnic interface if there is
                     # an overlapping subnet or the binding is in ERROR status
                     if (edge_id in conflict_edge_ids or
-                        dhcp_edge_binding['status'] == plugin_const.ERROR):
+                        dhcp_edge_binding['status'] == constants.ERROR):
                         LOG.debug("Removing network %s from dhcp edge %s",
                                   network_id, edge_id)
                         self.remove_network_from_dhcp_edge(context,
@@ -1853,7 +1853,7 @@ class EdgeManager(object):
             for router_id in optional_router_ids:
                 binding = nsxv_db.get_nsxv_router_binding(
                     context.session, router_id)
-                if (binding and binding.status == plugin_const.ACTIVE and
+                if (binding and binding.status == constants.ACTIVE and
                     binding.availability_zone == availability_zone.name and
                     binding.edge_id not in optional_edge_ids):
                     optional_edge_ids.append(binding.edge_id)
@@ -2142,7 +2142,7 @@ def create_lrouter(nsxv_manager, context, lrouter, lswitch=None, dist=False,
     # store router-edge mapping binding
     nsxv_db.add_nsxv_router_binding(
         context.session, router_id, None, None,
-        plugin_const.PENDING_CREATE,
+        constants.PENDING_CREATE,
         appliance_size=appliance_size,
         availability_zone=availability_zone.name)
 
@@ -2157,7 +2157,7 @@ def delete_lrouter(nsxv_manager, context, router_id, dist=False):
     if binding:
         nsxv_db.update_nsxv_router_binding(
             context.session, router_id,
-            status=plugin_const.PENDING_DELETE)
+            status=constants.PENDING_DELETE)
         edge_id = binding['edge_id']
         # delete edge
         nsxv_manager.delete_edge(context, router_id, edge_id, dist=dist)
@@ -2679,11 +2679,11 @@ class NsxVCallbacks(object):
                       {'edge_id': edge_id,
                        'name': name})
             if (router_db and
-                router_db['status'] == plugin_const.PENDING_CREATE):
-                router_db['status'] = plugin_const.ACTIVE
+                router_db['status'] == constants.PENDING_CREATE):
+                router_db['status'] = constants.ACTIVE
             nsxv_db.update_nsxv_router_binding(
                 context.session, router_id,
-                status=plugin_const.ACTIVE)
+                status=constants.ACTIVE)
             if (not dist and
                 self._vcm and availability_zone and
                 availability_zone.edge_ha and
@@ -2694,10 +2694,10 @@ class NsxVCallbacks(object):
         else:
             LOG.error("Failed to deploy Edge for router %s", name)
             if router_db:
-                router_db['status'] = plugin_const.ERROR
+                router_db['status'] = constants.ERROR
             nsxv_db.update_nsxv_router_binding(
                 context.session, router_id,
-                status=plugin_const.ERROR)
+                status=constants.ERROR)
             if not dist and edge_id:
                 nsxv_db.clean_edge_vnic_binding(
                     context.session, edge_id)
@@ -2718,12 +2718,12 @@ class NsxVCallbacks(object):
             if nsxv_db.get_nsxv_router_binding(admin_ctx.session, router_id):
                 nsxv_db.update_nsxv_router_binding(
                     admin_ctx.session, router_id,
-                    status=plugin_const.ERROR)
+                    status=constants.ERROR)
             if set_errors and context:
                 # Set the router status to ERROR
                 try:
                     router_db = self.plugin._get_router(context, router_id)
-                    router_db['status'] = plugin_const.ERROR
+                    router_db['status'] = constants.ERROR
                 except l3.RouterNotFound:
                     # Router might have been deleted before deploy finished
                     LOG.warning("Router %s not found", router_id)

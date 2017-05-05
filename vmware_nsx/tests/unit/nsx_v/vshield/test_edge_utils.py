@@ -14,12 +14,12 @@
 #
 
 import mock
+from neutron_lib import constants
 from neutron_lib import context
 from oslo_config import cfg
 from oslo_utils import uuidutils
 from six import moves
 
-from neutron.plugins.common import constants as plugin_const
 from neutron.tests.unit import testlib_api
 from neutron_lib import exceptions as n_exc
 from vmware_nsx.common import config as conf
@@ -101,19 +101,19 @@ class EdgeDHCPManagerTestCase(EdgeUtilsTestCaseMixin):
         self.check.return_value = True
 
     def test_create_dhcp_edge_service(self):
-        fake_edge_pool = [{'status': plugin_const.ACTIVE,
+        fake_edge_pool = [{'status': constants.ACTIVE,
                            'edge_id': 'edge-1',
                            'router_id': 'backup-11111111-1111',
                            'appliance_size': 'compact',
                            'edge_type': 'service',
                            'availability_zone': DEFAULT_AZ},
-                          {'status': plugin_const.PENDING_DELETE,
+                          {'status': constants.PENDING_DELETE,
                            'edge_id': 'edge-2',
                            'router_id': 'dhcp-22222222-2222',
                            'appliance_size': 'compact',
                            'edge_type': 'service',
                            'availability_zone': DEFAULT_AZ},
-                          {'status': plugin_const.PENDING_DELETE,
+                          {'status': constants.PENDING_DELETE,
                            'edge_id': 'edge-3',
                            'router_id': 'backup-33333333-3333',
                            'appliance_size': 'compact',
@@ -394,7 +394,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         self, num, size=nsxv_constants.LARGE,
         edge_type=nsxv_constants.SERVICE_EDGE,
         availability_zone=None):
-        status = plugin_const.ACTIVE
+        status = constants.ACTIVE
         id_prefix = EDGE_AVAIL + size + '-' + edge_type
         return self._create_router_bindings(
             num, status, id_prefix, size, edge_type,
@@ -404,14 +404,14 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         self, num, size=nsxv_constants.LARGE,
         edge_type=nsxv_constants.SERVICE_EDGE,
         availability_zone=None):
-        status = plugin_const.PENDING_CREATE
+        status = constants.PENDING_CREATE
         id_prefix = EDGE_CREATING + size + '-' + edge_type
         return self._create_router_bindings(
             num, status, id_prefix, size, edge_type,
             availability_zone)
 
     def _create_error_router_bindings(
-        self, num, status=plugin_const.ERROR,
+        self, num, status=constants.ERROR,
         size=nsxv_constants.LARGE,
         edge_type=nsxv_constants.SERVICE_EDGE,
         availability_zone=None):
@@ -421,7 +421,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
             availability_zone)
 
     def _create_error_router_bindings_at_backend(
-        self, num, status=plugin_const.ACTIVE,
+        self, num, status=constants.ACTIVE,
         size=nsxv_constants.LARGE,
         edge_type=nsxv_constants.SERVICE_EDGE,
         availability_zone=None):
@@ -434,7 +434,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         self, num, size=nsxv_constants.LARGE,
         edge_type=nsxv_constants.SERVICE_EDGE,
         availability_zone=None):
-        status = plugin_const.PENDING_DELETE
+        status = constants.PENDING_DELETE
         id_prefix = EDGE_DELETING + size + '-' + edge_type
         return self._create_router_bindings(
             num, status, id_prefix, size, edge_type,
@@ -469,8 +469,8 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
 
     def _create_backup_router_bindings(
         self, avail, creating, error, error_at_backend, deleting,
-        error_status=plugin_const.PENDING_DELETE,
-        error_at_backend_status=plugin_const.PENDING_DELETE,
+        error_status=constants.PENDING_DELETE,
+        error_at_backend_status=constants.PENDING_DELETE,
         size=nsxv_constants.LARGE,
         edge_type=nsxv_constants.SERVICE_EDGE,
         availability_zone=None):
@@ -516,7 +516,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         self._populate_vcns_router_binding(pool_edges)
         expect_backup_bindings = self._create_backup_router_bindings(
             1, 2, 0, 4, 0,
-            error_at_backend_status=plugin_const.ACTIVE,
+            error_at_backend_status=constants.ACTIVE,
             size=nsxv_constants.LARGE)
         backup_bindings = self.edge_manager._get_backup_edge_bindings(self.ctx,
               appliance_size=nsxv_constants.LARGE, availability_zone=self.az)
@@ -530,7 +530,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
                           1, 2, 3, 0, 5, size=nsxv_constants.COMPACT))
         self._populate_vcns_router_binding(pool_edges)
         expect_backup_bindings = self._create_backup_router_bindings(
-            1, 2, 3, 0, 5, error_status=plugin_const.ERROR)
+            1, 2, 3, 0, 5, error_status=constants.ERROR)
         binding = self.edge_manager._get_available_router_binding(
             self.ctx, appliance_size=appliance_size, edge_type=edge_type,
             availability_zone=self.az)
@@ -555,8 +555,8 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         self._populate_vcns_router_binding(pool_edges)
         expect_pool_bindings = self._create_backup_router_bindings(
             1, 2, 3, 4, 5,
-            error_status=plugin_const.ERROR,
-            error_at_backend_status=plugin_const.PENDING_DELETE)
+            error_status=constants.ERROR,
+            error_at_backend_status=constants.PENDING_DELETE)
         self.edge_manager._check_backup_edge_pool(
             0, 3,
             appliance_size=appliance_size, edge_type=edge_type,
@@ -586,7 +586,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
             binding
             for binding in nsxv_db.get_nsxv_router_bindings(self.ctx.session)
             if binding['edge_id'] is None
-            and binding['status'] == plugin_const.PENDING_CREATE]
+            and binding['status'] == constants.PENDING_CREATE]
 
         binding_ids = [bind.router_id for bind in router_bindings]
         self.assertEqual(2, len(router_bindings))
@@ -603,7 +603,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         self.edge_manager._check_backup_edge_pools()
         router_bindings = nsxv_db.get_nsxv_router_bindings(self.ctx.session)
         for binding in router_bindings:
-            self.assertEqual(plugin_const.PENDING_DELETE, binding['status'])
+            self.assertEqual(constants.PENDING_DELETE, binding['status'])
 
     def test_check_backup_edge_pools_with_default(self):
         self.edge_manager.edge_pool_dicts = self.default_edge_pool_dicts
@@ -618,8 +618,8 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
 
         expect_large_bindings = self._create_backup_router_bindings(
             1, 2, 3, 4, 5,
-            error_status=plugin_const.PENDING_DELETE,
-            error_at_backend_status=plugin_const.PENDING_DELETE)
+            error_status=constants.PENDING_DELETE,
+            error_at_backend_status=constants.PENDING_DELETE)
         large_bindings = [
             binding
             for binding in router_bindings
@@ -629,8 +629,8 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
 
         expect_compact_bindings = self._create_backup_router_bindings(
             1, 2, 3, 4, 5,
-            error_status=plugin_const.PENDING_DELETE,
-            error_at_backend_status=plugin_const.PENDING_DELETE,
+            error_status=constants.PENDING_DELETE,
+            error_at_backend_status=constants.PENDING_DELETE,
             size=nsxv_constants.COMPACT)
         compact_bindings = [
             binding
@@ -645,7 +645,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
             if (binding['appliance_size'] == nsxv_constants.LARGE and
                 binding['edge_type'] == nsxv_constants.VDR_EDGE)]
         for binding in vdr_bindings:
-            self.assertEqual(plugin_const.PENDING_DELETE, binding['status'])
+            self.assertEqual(constants.PENDING_DELETE, binding['status'])
 
     def test_check_backup_edge_pools_with_vdr(self):
         self.edge_manager.edge_pool_dicts = self.vdr_edge_pool_dicts
@@ -659,8 +659,8 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         router_bindings = nsxv_db.get_nsxv_router_bindings(self.ctx.session)
         expect_vdr_bindings = self._create_backup_router_bindings(
             1, 2, 3, 4, 5,
-            error_status=plugin_const.PENDING_DELETE,
-            error_at_backend_status=plugin_const.PENDING_DELETE,
+            error_status=constants.PENDING_DELETE,
+            error_at_backend_status=constants.PENDING_DELETE,
             edge_type=nsxv_constants.VDR_EDGE)
         vdr_bindings = [
             binding
@@ -673,7 +673,7 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
             for binding in router_bindings
             if binding['edge_type'] == nsxv_constants.SERVICE_EDGE]
         for binding in service_bindings:
-            self.assertEqual(plugin_const.PENDING_DELETE, binding['status'])
+            self.assertEqual(constants.PENDING_DELETE, binding['status'])
 
     def test_allocate_edge_appliance_with_empty(self):
         self.edge_manager._clean_all_error_edge_bindings = mock.Mock()

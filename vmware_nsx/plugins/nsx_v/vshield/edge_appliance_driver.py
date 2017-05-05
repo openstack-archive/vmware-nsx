@@ -16,7 +16,7 @@ from distutils import version
 import random
 import time
 
-from neutron.plugins.common import constants as plugin_const
+from neutron_lib import constants as lib_const
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
@@ -421,7 +421,7 @@ class EdgeApplianceDriver(object):
                 if router_id:
                     nsxv_db.update_nsxv_router_binding(
                         context.session, router_id,
-                        status=plugin_const.ERROR)
+                        status=lib_const.ERROR)
                 error = _('Failed to deploy edge')
                 raise nsxv_exc.NsxPluginException(err_msg=error)
 

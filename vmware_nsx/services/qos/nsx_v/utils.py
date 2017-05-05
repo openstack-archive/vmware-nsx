@@ -14,8 +14,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.plugins.common import constants
 from neutron.services.qos import qos_consts
+from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
 
 from oslo_config import cfg
@@ -47,7 +47,7 @@ class NsxVQosRule(object):
 
     def _get_qos_plugin(self):
         if not self._qos_plugin:
-            self._qos_plugin = directory.get_plugin(constants.QOS)
+            self._qos_plugin = directory.get_plugin(plugin_const.QOS)
         return self._qos_plugin
 
     # init the nsx_v qos data (outShapingPolicy) from a neutron qos policy

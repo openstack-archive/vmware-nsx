@@ -63,7 +63,6 @@ from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
-from neutron.plugins.common import constants as plugin_const
 from neutron.plugins.common import utils
 from neutron.quota import resource_registry
 from neutron_lib.api.definitions import portbindings as pbin
@@ -811,8 +810,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     err_msg = (_("%(segmentation_id)s out of range "
                                  "(%(min_id)s through %(max_id)s)") %
                                {'segmentation_id': segmentation_id,
-                                'min_id': plugin_const.MIN_VLAN_TAG,
-                                'max_id': plugin_const.MAX_VLAN_TAG})
+                                'min_id': constants.MIN_VLAN_TAG,
+                                'max_id': constants.MAX_VLAN_TAG})
                 else:
                     # Verify segment is not already allocated
                     bindings = (
@@ -830,8 +829,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     err_msg = (_("%(segmentation_id)s out of range "
                                  "(%(min_id)s through %(max_id)s)") %
                                {'segmentation_id': segmentation_id,
-                                'min_id': plugin_const.MIN_VLAN_TAG,
-                                'max_id': plugin_const.MAX_VLAN_TAG})
+                                'min_id': constants.MIN_VLAN_TAG,
+                                'max_id': constants.MAX_VLAN_TAG})
                 # Network must be external
                 if not network.get(ext_net_extn.EXTERNAL):
                     err_msg = (_("The l3_ext provide network type can be "
@@ -1435,7 +1434,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             raise nsx_exc.NsxPluginException(
                 err_msg=(_("Unable to create router %s on NSX backend") %
                          router['id']))
-        lrouter['status'] = plugin_const.ACTIVE
+        lrouter['status'] = constants.ACTIVE
         return lrouter
 
     def _process_extra_attr_router_create(self, context, router_db, r):

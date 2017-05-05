@@ -13,8 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.plugins.common import constants
 from neutron_lib import constants as lib_const
+from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
 
 
@@ -33,7 +33,7 @@ class EdgeLoadbalancerBaseManager(object):
     def lbv2_driver(self):
         if not EdgeLoadbalancerBaseManager._lbv2_driver:
             plugin = self._get_plugin(
-                constants.LOADBALANCERV2)
+                plugin_const.LOADBALANCERV2)
             EdgeLoadbalancerBaseManager._lbv2_driver = (
                 plugin.drivers['vmwareedge'])
 
