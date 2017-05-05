@@ -152,7 +152,7 @@ class TestAllowedAddressPair(manager.NetworkScenarioTest):
         self.security_group = self._create_security_group()
         self.network = self._create_network()
         self.subnet = self._create_subnet(self.network,
-                                          cidr='13.168.1.0/24')
+                                          cidr='14.168.1.0/24')
         self.router = self._create_router(
             router_name=data_utils.rand_name('router-default1'),
             external_network_id=CONF.network.public_network_id)
@@ -262,6 +262,8 @@ class TestAllowedAddressPair(manager.NetworkScenarioTest):
         port_id = self._create_port(**body)
         # Update allowed address pair attribute of port
         allowed_address_pairs = [{'ip_address': ip_address_vm1}]
+        port_client.update_port(port_id['port']['id'],
+                                security_groups=[self.security_group['id']])
         body = port_client.update_port(
             port_id['port']['id'], allowed_address_pairs=allowed_address_pairs)
         # Update allowed address pair attribute of port
@@ -269,6 +271,8 @@ class TestAllowedAddressPair(manager.NetworkScenarioTest):
                 "admin_state_up": 'true'}
         port1_id = self._create_port(**body)
         allowed_address_pairs = [{'ip_address': ip_address_vm2}]
+        port_client.update_port(port1_id['port']['id'],
+                                security_groups=[self.security_group['id']])
         body = port_client.update_port(
             port1_id['port']['id'],
             allowed_address_pairs=allowed_address_pairs)
@@ -328,6 +332,8 @@ class TestAllowedAddressPair(manager.NetworkScenarioTest):
         # Update allowed address pair attribute of port
         allowed_address_pairs = [{'ip_address': ip_address_vm1,
                                   'mac_address': vm1_mac_address}]
+        port_client.update_port(port_id['port']['id'],
+                                security_groups=[self.security_group['id']])
         body = port_client.update_port(
             port_id['port']['id'], allowed_address_pairs=allowed_address_pairs)
         # Update allowed address pair attribute of port
@@ -336,6 +342,8 @@ class TestAllowedAddressPair(manager.NetworkScenarioTest):
         port1_id = self._create_port(**body)
         allowed_address_pairs = [{'ip_address': ip_address_vm2,
                                   'mac_address': vm2_mac_address}]
+        port_client.update_port(port1_id['port']['id'],
+                                security_groups=[self.security_group['id']])
         body = port_client.update_port(
             port1_id['port']['id'],
             allowed_address_pairs=allowed_address_pairs)
@@ -459,6 +467,8 @@ class TestAllowedAddressPair(manager.NetworkScenarioTest):
                                    server_default)
         # Update allowed address pair attribute of port
         allowed_address_pairs = [{'ip_address': ip_address_vm1}]
+        port_client.update_port(port_id,
+                                security_groups=[self.security_group['id']])
         body = port_client.update_port(
             port_id, allowed_address_pairs=allowed_address_pairs)
         ssh_source = self.get_remote_client(ip_address_default_vm,
