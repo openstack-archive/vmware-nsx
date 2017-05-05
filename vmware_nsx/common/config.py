@@ -268,7 +268,7 @@ nsx_v3_opts = [
                 deprecated_name='nsx_manager',
                 help=_("IP address of one or more NSX managers separated "
                        "by commas. The IP address should be of the form:\n"
-                       "[<scheme>://]<ip_adress>[:<port>]\nIf scheme is not "
+                       "[<scheme>://]<ip_address>[:<port>]\nIf scheme is not "
                        "provided https is used. If port is not provided port "
                        "80 is used for http and port 443 for https.")),
     cfg.BoolOpt('nsx_use_client_auth',
