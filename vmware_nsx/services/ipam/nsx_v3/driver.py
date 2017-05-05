@@ -163,16 +163,20 @@ class Nsxv3IpamSubnet(common.NsxAbstractIpamSubnet):
                        'ip': ip_address,
                        'id': self._subnet_id,
                        'code': e.error_code})
-            # Currently the backend does not support allocation of specific IPs
-            # When this support is added we should handle allocation errors.
             if e.error_code == error.ERR_CODE_IPAM_POOL_EXHAUSTED:
                 # No more IP addresses available on the pool
                 raise ipam_exc.IpAddressGenerationFailure(
                     subnet_id=self._subnet_id)
             if e.error_code == error.ERR_CODE_IPAM_SPECIFIC_IP:
+                # The NSX backend  does not support allocation of specific IPs
+                # prior to version 2.0.
                 msg = (_("NSX-V3 IPAM driver does not support allocation of a "
                          "specific ip %s for port") % ip_address)
                 raise NotImplementedError(msg)
+            if e.error_code == error.ERR_CODE_IPAM_IP_ALLOCATED:
+                # This IP is already in use
+                raise ipam_exc.IpAddressAlreadyAllocated(
+                    ip=ip_address, subnet_id=self._subnet_id)
             if e.error_code == error.ERR_CODE_OBJECT_NOT_FOUND:
                 msg = (_("NSX-V3 IPAM failed to allocate: pool %s was not "
                          "found") % self._nsx_pool_id)
@@ -190,15 +194,21 @@ class Nsxv3IpamSubnet(common.NsxAbstractIpamSubnet):
             raise ipam_exc.IPAllocationFailed()
         return ip_address
 
-    def backend_deallocate(self, address):
+    def backend_deallocate(self, ip_address):
+        # If this is the subnet gateway IP - no need to allocate it
+        subnet = self.get_details()
+        if str(subnet.gateway_ip) == ip_address:
+            LOG.info("Skip deallocation of gateway-ip for pool %s",
+                     self._nsx_pool_id)
+            return
         try:
-            self.nsxlib_ipam.release(self._nsx_pool_id, ip_addr=address)
+            self.nsxlib_ipam.release(self._nsx_pool_id, ip_address)
         except nsx_lib_exc.ManagerError as e:
             # fail silently
             LOG.error("NSX IPAM failed to free ip %(ip)s of subnet "
                       "%(id)s: %(e)s; code %(code)s",
                       {'e': e,
-                       'ip': address,
+                       'ip': ip_address,
                        'id': self._subnet_id,
                        'code': e.error_code})
 
@@ -225,7 +235,6 @@ class Nsxv3IpamSubnet(common.NsxAbstractIpamSubnet):
             for ip_range in subnet.get('allocation_ranges', []):
                 pools.append(netaddr.IPRange(ip_range.get('start'),
                                              ip_range.get('end')))
-
         return ipam_req.SpecificSubnetRequest(
             self._tenant_id, self._subnet_id,
             cidr, gateway_ip=gateway_ip, allocation_pools=pools)
