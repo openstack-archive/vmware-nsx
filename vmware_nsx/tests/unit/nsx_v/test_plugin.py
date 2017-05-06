@@ -3135,7 +3135,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
         """
         cfg.CONF.set_override('dhcp_force_metadata', True, group='nsxv')
         cfg.CONF.set_override('metadata_service_allowed_ports',
-            ['55', ' 66 ', '55', 'xx'], group='nsxv')
+            ['55', ' 66 ', '55', '77'], group='nsxv')
         self.plugin_instance.metadata_proxy_handler = mock.Mock()
         s1_cidr = '10.0.0.0/24'
         with self.router() as r,\
@@ -3150,7 +3150,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
             rule_name = 'MDServiceIP'
             md_srvip = {'action': 'allow',
                         'destination_ip_address': dest_srvip,
-                        'destination_port': '80,443,8775,55, 66 ,55,xx',
+                        'destination_port': '80,443,8775,55,66,55,77',
                         'enabled': True,
                         'name': rule_name,
                         'protocol': 'tcp'}
@@ -3169,7 +3169,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
             # Ports should be sorted & unique, and ignore non numeric values
             drv = edge_firewall_driver.EdgeFirewallDriver()
             rule = drv._convert_firewall_rule(md_srvip)
-            exp_service = {'service': [{'port': [55, 66, 80, 443, 8775],
+            exp_service = {'service': [{'port': [55, 66, 77, 80, 443, 8775],
                                         'protocol': 'tcp'}]}
             exp_rule = {'action': 'accept',
                         'application': exp_service,

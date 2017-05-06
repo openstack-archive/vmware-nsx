@@ -68,7 +68,9 @@ def get_router_fw_rules():
     str_ports = [str(p) for p in int_ports]
     # the list of ports can be extended by configuration
     if cfg.CONF.nsxv.metadata_service_allowed_ports:
-        str_ports = str_ports + cfg.CONF.nsxv.metadata_service_allowed_ports
+        str_metadata_ports = [str(p) for p in
+                              cfg.CONF.nsxv.metadata_service_allowed_ports]
+        str_ports = str_ports + str_metadata_ports
     separator = ','
     dest_ports = separator.join(str_ports)
 
