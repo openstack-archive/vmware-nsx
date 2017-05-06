@@ -1492,11 +1492,7 @@ class EdgeManager(object):
                     LOG.error(_LE('Database conflict could not be recovered '
                                   'for VDR %(vdr)s DHCP edge %(dhcp)s'),
                               {'vdr': vdr_router_id, 'dhcp': dhcp_edge_id})
-
-        address_groups = self.plugin._create_network_dhcp_address_group(
-            context, network_id)
-        self.update_dhcp_edge_service(
-            context, network_id, address_groups=address_groups)
+        self.plugin._update_dhcp_adddress(context, network_id)
 
         self.set_sysctl_rp_filter_for_vdr_dhcp(
             context, dhcp_edge_id, network_id)
