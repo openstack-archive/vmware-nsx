@@ -2786,6 +2786,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                                  router_id)
         ret_val = super(NsxV3Plugin, self).delete_router(context,
                                                          router_id)
+        # if delete was called due to create error, there might not be a
+        # backend id
+        if not nsx_router_id:
+            return ret_val
+
         # Remove logical router from the NSX backend
         # It is safe to do now as db-level checks for resource deletion were
         # passed (and indeed the resource was removed from the Neutron DB
