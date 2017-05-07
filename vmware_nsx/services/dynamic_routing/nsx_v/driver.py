@@ -19,6 +19,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 
+from neutron.extensions import address_scope
 from neutron_lib import constants as n_const
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
@@ -376,6 +377,10 @@ class NSXvBgpDriver(object):
         if ext_subnet.get('gateway_ip'):
             raise ext_esg_peer.ExternalSubnetHasGW(
                 network_id=gateway_network_id, subnet_id=subnet_id)
+
+        if not ext_net[address_scope.IPV4_ADDRESS_SCOPE]:
+            raise nsx_exc.NsxBgpSpeakerUnableToAddGatewayNetwork(
+                network_id=gateway_network_id, bgp_speaker_id=bgp_speaker_id)
 
         edge_router_dict = self._get_dynamic_routing_edge_list(
             context, gateway_network_id, bgp_speaker_id)
