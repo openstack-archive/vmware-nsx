@@ -25,7 +25,6 @@ from vmware_nsx._i18n import _
 from vmware_nsx.services.ipam.common import driver as common
 from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
 from vmware_nsxlib.v3 import nsx_constants as error
-from vmware_nsxlib.v3 import resources
 
 LOG = logging.getLogger(__name__)
 
@@ -35,8 +34,7 @@ class Nsxv3IpamDriver(common.NsxAbstractIpamDriver):
 
     def __init__(self, subnetpool, context):
         super(Nsxv3IpamDriver, self).__init__(subnetpool, context)
-        self.nsxlib_ipam = resources.IpPool(
-            self.get_core_plugin().nsxlib.client)
+        self.nsxlib_ipam = self.get_core_plugin().nsxlib.ip_pool
 
         # Mark which updates to the pool are supported
         self.support_update_gateway = True
@@ -135,8 +133,7 @@ class Nsxv3IpamSubnet(common.NsxAbstractIpamSubnet):
     def __init__(self, subnet_id, nsx_pool_id, ctx, tenant_id):
         super(Nsxv3IpamSubnet, self).__init__(
             subnet_id, nsx_pool_id, ctx, tenant_id)
-        self.nsxlib_ipam = resources.IpPool(
-            self.get_core_plugin().nsxlib.client)
+        self.nsxlib_ipam = self.get_core_plugin().nsxlib.ip_pool
 
     def backend_allocate(self, address_request):
         try:
