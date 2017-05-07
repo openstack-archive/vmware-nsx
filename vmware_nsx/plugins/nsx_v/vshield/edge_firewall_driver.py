@@ -154,14 +154,11 @@ class EdgeFirewallDriver(object):
 
     def _restore_firewall_rule(self, context, edge_id, rule):
         fw_rule = {}
-        try:
-            rule_binding = (
-                nsxv_db.get_nsxv_edge_firewallrule_binding_by_vseid(
-                    context.session, edge_id, rule['ruleId']))
-        except nsx_exc.NsxPluginException:
-            rule_binding = None
-        fw_rule['id'] = (rule_binding['rule_id']
-                         if rule_binding else rule['ruleId'])
+        rule_binding = nsxv_db.get_nsxv_edge_firewallrule_binding_by_vseid(
+            context.session, edge_id, rule['ruleId'])
+        if rule_binding:
+            fw_rule['id'] = rule_binding['rule_id']
+
         fw_rule['ruleId'] = rule['ruleId']
         if rule.get('source'):
             src = rule['source']
@@ -192,22 +189,21 @@ class EdgeFirewallDriver(object):
         return fw_rule
 
     def _convert_firewall(self, firewall, allow_external=False):
-        #bulk configuration on firewall and rescheduling the rule binding
         ruleTag = 1
         vcns_rules = []
-        if allow_external:
-            vcns_rules.append({'name': FWAAS_ALLOW_EXT_RULE_NAME,
-                               'action': "accept",
-                               'enabled': True,
-                               'destination': {'vnicGroupId': ["external"]},
-                               'ruleTag': ruleTag})
-            ruleTag += 1
         for rule in firewall['firewall_rule_list']:
             tag = rule.get('ruleTag', ruleTag)
             vcns_rule = self._convert_firewall_rule(rule, tag)
             vcns_rules.append(vcns_rule)
             if not rule.get('ruleTag'):
                 ruleTag += 1
+        if allow_external:
+            # Add the allow-external rule with the latest tag
+            vcns_rules.append({'name': FWAAS_ALLOW_EXT_RULE_NAME,
+                               'action': "accept",
+                               'enabled': True,
+                               'destination': {'vnicGroupId': ["external"]},
+                               'ruleTag': ruleTag})
         return {
             'featureType': "firewall_4.0",
             'globalConfig': {'tcpTimeoutEstablished': 7200},

@@ -585,8 +585,7 @@ def get_nsxv_edge_firewallrule_binding_by_vseid(
             return (session.query(nsxv_models.NsxvEdgeFirewallRuleBinding).
                     filter_by(edge_id=edge_id, rule_vse_id=rule_vseid).one())
         except exc.NoResultFound:
-            msg = _("Rule Resource binding not found!")
-            raise nsx_exc.NsxPluginException(err_msg=msg)
+            return
 
 
 def cleanup_nsxv_edge_firewallrule_binding(session, edge_id):
