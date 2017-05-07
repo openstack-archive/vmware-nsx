@@ -181,3 +181,9 @@ class NsxBgpSpeakerUnableToAddGatewayNetwork(n_exc.BadRequest):
     message = _("Unable to add gateway network %(network_id)s to BGP speaker "
                 "%(bgp_speaker_id)s, network may be associated with one BGP "
                 "speaker at most.")
+
+
+class NsxRouterInterfaceDoesNotMatchAddressScope(n_exc.BadRequest):
+    message = _("Unable to update no-NAT router %(router_id)s, "
+                "only subnets allocated from address-scope "
+                "%(address_scope_id)s can be connected.")
