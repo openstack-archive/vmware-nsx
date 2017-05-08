@@ -110,11 +110,23 @@ def nsx_update_metadata_proxy(resource, event, trigger, **kwargs):
                 project_name='admin')
             name = nsx_utils.get_name_and_uuid('%s-%s' % (
                 'mdproxy', network['name'] or 'network'), network['id'])
-            port_resource.create(
-                lswitch_id, metadata_proxy_uuid, tags=tags, name=name,
-                attachment_type=nsx_constants.ATTACHMENT_MDPROXY)
-            LOG.info(_LI("Enabled native metadata proxy for network %s"),
-                     network['id'])
+            # check if this logical port already exists
+            existing_ports = port_resource.find_by_display_name(name)
+            if not existing_ports:
+                # create a new port with the md-proxy
+                port_resource.create(
+                    lswitch_id, metadata_proxy_uuid, tags=tags, name=name,
+                    attachment_type=nsx_constants.ATTACHMENT_MDPROXY)
+                LOG.info(_LI("Enabled native metadata proxy for network %s"),
+                         network['id'])
+            else:
+                # update the MDproxy of this port
+                port = existing_ports[0]
+                port_resource.update(
+                    port['id'], metadata_proxy_uuid,
+                    attachment_type=nsx_constants.ATTACHMENT_MDPROXY)
+                LOG.info(_LI("Updated native metadata proxy for network %s"),
+                         network['id'])
 
 
 registry.subscribe(list_metadata_networks,
