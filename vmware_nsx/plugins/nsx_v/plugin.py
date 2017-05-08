@@ -1036,20 +1036,24 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         external = net_data.get(ext_net_extn.EXTERNAL)
         backend_network = (not validators.is_attr_set(external) or
                            validators.is_attr_set(external) and not external)
+        network_type = None
+        if provider_type is not None:
+            segment = net_data[mpnet.SEGMENTS][0]
+            network_type = segment.get(pnet.NETWORK_TYPE)
+        # A external network should be created in the case that we have a flat,
+        # vlan or vxlan network. For port groups we do not make any changes.
+        external_backend_network = (
+            external and provider_type is not None and
+            network_type != c_utils.NsxVNetworkTypes.PORTGROUP)
         self._validate_network_qos(net_data, backend_network)
         # Update the transparent vlan if configured
         vlt = False
         if n_utils.is_extension_supported(self, 'vlan-transparent'):
             vlt = ext_vlan.get_vlan_transparent(net_data)
 
-        network_type = None
-        if backend_network:
+        if backend_network or external_backend_network:
             #NOTE(abhiraut): Consider refactoring code below to have more
             #                readable conditions.
-            if provider_type is not None:
-                segment = net_data[mpnet.SEGMENTS][0]
-                network_type = segment.get(pnet.NETWORK_TYPE)
-
             if (provider_type is None or
                 network_type == c_utils.NsxVNetworkTypes.VXLAN):
                 virtual_wire = {"name": net_data['id'],
@@ -1127,10 +1131,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         try:
             net_data[psec.PORTSECURITY] = net_data.get(psec.PORTSECURITY, True)
             # Create SpoofGuard policy for network anti-spoofing
+            sg_policy_id = None
             if cfg.CONF.nsxv.spoofguard_enabled and backend_network:
                 # This variable is set as the method below may result in a
                 # exception and we may need to rollback
-                sg_policy_id = None
                 predefined = False
                 sg_policy_id, predefined = self._prepare_spoofguard_policy(
                     network_type, net_data, net_morefs)
@@ -1175,9 +1179,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         physical_net_set = validators.is_attr_set(
                             physical_network)
                         if not physical_net_set:
-                            # Use the dvs_id of the availability zone
-                            physical_network = self._get_network_az_dvs_id(
-                                net_data)
+                            if external_backend_network:
+                                physical_network = net_morefs[0]
+                            else:
+                                # Use the dvs_id of the availability zone
+                                physical_network = self._get_network_az_dvs_id(
+                                    net_data)
                         net_bindings.append(nsxv_db.add_network_binding(
                             context.session, new_net['id'],
                             network_type,
@@ -1189,7 +1196,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     self._extend_network_dict_provider(context, new_net,
                                                        provider_type,
                                                        net_bindings)
-                if backend_network:
+                if backend_network or external_backend_network:
                     # Save moref in the DB for future access
                     if (network_type == c_utils.NsxVNetworkTypes.VLAN or
                         network_type == c_utils.NsxVNetworkTypes.FLAT):
@@ -1206,14 +1213,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                             nsx_db.add_neutron_nsx_network_mapping(
                                 context.session, new_net['id'],
                                 net_moref)
-                    if cfg.CONF.nsxv.spoofguard_enabled:
+                    if cfg.CONF.nsxv.spoofguard_enabled and backend_network:
                         nsxv_db.map_spoofguard_policy_for_network(
                             context.session, new_net['id'], sg_policy_id)
 
         except Exception:
             with excutils.save_and_reraise_exception():
                 # Delete the backend network
-                if backend_network:
+                if backend_network or external_backend_network:
                     if (cfg.CONF.nsxv.spoofguard_enabled and sg_policy_id and
                         not predefined):
                         self.nsx_v.vcns.delete_spoofguard_policy(sg_policy_id)
@@ -1495,7 +1502,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if net_attrs.get("admin_state_up") is False:
             raise NotImplementedError(_("admin_state_up=False networks "
                                         "are not supported."))
-        net_morefs = nsx_db.get_nsx_switch_ids(context.session, id)
+
+        ext_net = self._get_network(context, id)
+        if not ext_net.external:
+            net_morefs = nsx_db.get_nsx_switch_ids(context.session, id)
+        else:
+            net_morefs = []
         backend_network = True if len(net_morefs) > 0 else False
         self._validate_network_qos(net_attrs, backend_network)
 
@@ -1553,7 +1565,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         # Updating SpoofGuard policy if exists, on failure revert to network
         # old state
-        if (cfg.CONF.nsxv.spoofguard_enabled and
+        if (not ext_net.external and
+            cfg.CONF.nsxv.spoofguard_enabled and
             (psec_update or updated_morefs)):
             policy_id = nsxv_db.get_spoofguard_policy_id(context.session, id)
             port_sec = (net_attrs[psec.PORTSECURITY]
@@ -1573,7 +1586,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         # Handle QOS updates (Value can be None, meaning to delete the
         # current policy), or moref updates with an existing qos policy
-        if ((qos_consts.QOS_POLICY_ID in net_attrs) or
+        if (not ext_net.external and
+            (qos_consts.QOS_POLICY_ID in net_attrs) or
             (updated_morefs and orig_net.get(qos_consts.QOS_POLICY_ID))):
             # update the qos data
             qos_policy_id = (net_attrs[qos_consts.QOS_POLICY_ID]
