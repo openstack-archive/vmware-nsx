@@ -69,10 +69,22 @@ def get_certificate_manager(**kwargs):
             storage_driver)
 
 
+def verify_client_cert_on():
+    if cfg.CONF.nsx_v3.nsx_use_client_auth:
+        return True
+
+    LOG.info(_LI("Operation not applicable since client authentication "
+             "is disabled"))
+    return False
+
+
 @admin_utils.output_header
 def generate_cert(resource, event, trigger, **kwargs):
     """Generate self signed client certificate and private key
     """
+
+    if not verify_client_cert_on():
+        return
 
     if cfg.CONF.nsx_v3.nsx_client_cert_storage.lower() == "none":
         LOG.info(_LI("Generate operation is not supported "
@@ -122,6 +134,9 @@ def generate_cert(resource, event, trigger, **kwargs):
 def delete_cert(resource, event, trigger, **kwargs):
     """Delete client certificate and private key """
 
+    if not verify_client_cert_on():
+        return
+
     with get_certificate_manager(**kwargs) as cert:
         if cfg.CONF.nsx_v3.nsx_client_cert_storage.lower() == "none":
             filename = get_cert_filename(**kwargs)
@@ -142,6 +157,9 @@ def delete_cert(resource, event, trigger, **kwargs):
 @admin_utils.output_header
 def show_cert(resource, event, trigger, **kwargs):
     """Show client certificate details """
+
+    if not verify_client_cert_on():
+        return
 
     with get_certificate_manager(**kwargs) as cert:
         if cert.exists():
@@ -187,6 +205,9 @@ def get_cert_filename(**kwargs):
 @admin_utils.output_header
 def import_cert(resource, event, trigger, **kwargs):
     """Import client certificate that was generated externally"""
+
+    if not verify_client_cert_on():
+        return
 
     if cfg.CONF.nsx_v3.nsx_client_cert_storage.lower() != "none":
         LOG.info(_LI("Import operation is supported "
