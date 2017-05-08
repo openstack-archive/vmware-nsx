@@ -18,6 +18,7 @@ import re
 from tempest.api.network import base_routers as base
 from tempest import config
 from tempest.lib.common.utils import data_utils
+from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
 from tempest import test
 from vmware_nsx_tempest.services import nsxv_client
@@ -54,6 +55,15 @@ class ExcRouterTest(base.BaseRouterTest):
         cls.vsm = nsxv_client.VSMClient(
             manager_ip, CONF.nsxv.user, CONF.nsxv.password)
 
+    def _delete_router(self, router):
+        body = self.ports_client.list_ports(device_id=router['id'])
+        interfaces = body['ports']
+        for interface in interfaces:
+            test_utils.call_and_ignore_notfound_exc(
+                self.routers_client.remove_router_interface, router['id'],
+                subnet_id=interface['fixed_ips'][0]['subnet_id'])
+        self.routers_client.delete_router(router['id'])
+
     @test.attr(type='nsxv')
     @decorators.idempotent_id('ac1639a0-2a8d-4c68-bccd-54849fd45f86')
     def test_create_exc_router(self):
@@ -66,7 +76,7 @@ class ExcRouterTest(base.BaseRouterTest):
             name=name, external_gateway_info={
                 "network_id": CONF.network.public_network_id},
             admin_state_up=False, router_type='exclusive')
-        self.addCleanup(self._delete_router, router['router']['id'])
+        self.addCleanup(self._delete_router, router['router'])
         router_nsxv_name = '%s-%s' % (router['router']['name'],
                                       router['router']['id'])
         self.assertEqual(router['router']['name'], name)
@@ -85,7 +95,7 @@ class ExcRouterTest(base.BaseRouterTest):
             name=name, external_gateway_info={
                 "network_id": CONF.network.public_network_id},
             admin_state_up=False, router_type='exclusive')
-        self.addCleanup(self._delete_router, router['router']['id'])
+        self.addCleanup(self._delete_router, router['router'])
         self.assertEqual(router['router']['name'], name)
         updated_name = 'updated' + name
         update_body = self.routers_client.update_router(
@@ -103,7 +113,7 @@ class ExcRouterTest(base.BaseRouterTest):
             name=name, external_gateway_info={
                 "network_id": CONF.network.public_network_id},
             admin_state_up=False, router_type='exclusive')
-        self.addCleanup(self._delete_router, router['router']['id'])
+        self.addCleanup(self._delete_router, router['router'])
         self.assertEqual(router['router']['name'], name)
         # Show details of exclusive router
         show_body = self.routers_client.show_router(router['router']['id'])
