@@ -692,6 +692,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _extend_network_dict_provider(self, context, network,
                                       multiprovider=None, bindings=None):
+        if 'id' not in network:
+            return
         if not bindings:
             bindings = nsxv_db.get_network_bindings(context.session,
                                                     network['id'])
