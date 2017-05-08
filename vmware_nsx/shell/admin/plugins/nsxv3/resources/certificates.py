@@ -68,10 +68,22 @@ def get_certificate_manager(**kwargs):
             storage_driver)
 
 
+def verify_client_cert_on():
+    if cfg.CONF.nsx_v3.nsx_use_client_auth:
+        return True
+
+    LOG.info("Operation not applicable since client authentication "
+             "is disabled")
+    return False
+
+
 @admin_utils.output_header
 def generate_cert(resource, event, trigger, **kwargs):
     """Generate self signed client certificate and private key
     """
+
+    if not verify_client_cert_on():
+        return
 
     if cfg.CONF.nsx_v3.nsx_client_cert_storage.lower() == "none":
         LOG.info("Generate operation is not supported "
@@ -120,6 +132,8 @@ def generate_cert(resource, event, trigger, **kwargs):
 @admin_utils.output_header
 def delete_cert(resource, event, trigger, **kwargs):
     """Delete client certificate and private key """
+    if not verify_client_cert_on():
+        return
 
     with get_certificate_manager(**kwargs) as cert:
         if cfg.CONF.nsx_v3.nsx_client_cert_storage.lower() == "none":
@@ -141,6 +155,9 @@ def delete_cert(resource, event, trigger, **kwargs):
 @admin_utils.output_header
 def show_cert(resource, event, trigger, **kwargs):
     """Show client certificate details """
+
+    if not verify_client_cert_on():
+        return
 
     with get_certificate_manager(**kwargs) as cert:
         if cert.exists():
@@ -186,6 +203,8 @@ def get_cert_filename(**kwargs):
 @admin_utils.output_header
 def import_cert(resource, event, trigger, **kwargs):
     """Import client certificate that was generated externally"""
+    if not verify_client_cert_on():
+        return
 
     if cfg.CONF.nsx_v3.nsx_client_cert_storage.lower() != "none":
         LOG.info("Import operation is supported "
@@ -208,6 +227,8 @@ def import_cert(resource, event, trigger, **kwargs):
 @admin_utils.output_header
 def show_nsx_certs(resource, event, trigger, **kwargs):
     """Show client certificates associated with openstack identity in NSX"""
+
+    # Note - this operation is supported even if the feature is disabled
     nsx_trust = get_nsx_trust_management(**kwargs)
 
     ids = nsx_trust.get_identities(cert_utils.NSX_OPENSTACK_IDENTITY)
