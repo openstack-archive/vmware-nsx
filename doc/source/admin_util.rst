@@ -294,7 +294,7 @@ Metadata Proxy
 
     nsxadmin -r metadata-proxy -o list
 
-- Resync metadata proxies for NSXv3 version 1.1.0 and above::
+- Resync metadata proxies for NSXv3 version 1.1.0 and above (enable md proxy, or update the uuid)::
 
     nsxadmin -r metadata-proxy -o nsx-update --property metadata_proxy_uuid=<metadata_proxy_uuid>
 
