@@ -714,6 +714,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 bindings[0].binding_type == utils.NsxV3NetworkTypes.VXLAN)
 
     def _extend_network_dict_provider(self, context, network, bindings=None):
+        if 'id' not in network:
+            return
         if not bindings:
             bindings = nsx_db.get_network_bindings(context.session,
                                                    network['id'])
