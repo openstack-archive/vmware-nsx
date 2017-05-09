@@ -2857,7 +2857,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Toggling router type is supported only for non-distributed router
         elif 'router_type' in router['router']:
             r = self.get_router(context, router_id)
-            if r['router_type'] != router['router']['router_type']:
+            if r.get('router_type') != router['router']['router_type']:
                 if r["distributed"]:
                     err_msg = _('Unable to update distributed mode')
                     raise n_exc.InvalidInput(error_message=err_msg)
