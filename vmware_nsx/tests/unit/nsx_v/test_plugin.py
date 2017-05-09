@@ -3886,6 +3886,30 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
             with self.subnet(network=net, enable_dhcp=False):
                 self._make_floatingip(self.fmt, net_id)
 
+    def test_router_update_type_fails(self):
+        """Check distributed router cannot change it's type
+        """
+        # create a distributed router
+        tenant_id = _uuid()
+        res = self._create_router(self.fmt, tenant_id, distributed=True)
+        r = self.deserialize(self.fmt, res)
+        router_id = r['router']['id']
+
+        # make sure changing the type fails
+        self._update('routers', router_id,
+                     {'router': {'router_type': 'shared'}},
+                     expected_code=400)
+        self._update('routers', router_id,
+                     {'router': {'router_type': 'exclusive'}},
+                     expected_code=400)
+        self._update('routers', router_id,
+                     {'router': {'distributed': False}},
+                     expected_code=400)
+        # make sure keeping the type is ok
+        self._update('routers', router_id,
+                     {'router': {'distributed': True}},
+                     expected_code=200)
+
     def test_router_add_interface_multiple_ipv4_subnets(self):
         self.skipTest('TBD')
 
