@@ -17,6 +17,7 @@ import base64
 import requests
 import six.moves.urllib.parse as urlparse
 
+from copy import deepcopy
 
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
@@ -42,10 +43,10 @@ class NSXV3Client(object):
         self.secure = True
         self.interface = "json"
         self.url = None
-        self.headers = None
+        self.headers_non_super_admin = self.__set_headers()
+        self.headers = deepcopy(self.headers_non_super_admin)
+        self.headers_super_admin = self.__set_headers(super_admin=True)
         self.api_version = NSXV3Client.API_VERSION
-
-        self.__set_headers()
 
     def __set_endpoint(self, endpoint):
         self.endpoint = endpoint
@@ -82,7 +83,7 @@ class NSXV3Client(object):
     def get_url(self):
         return self.url
 
-    def __set_headers(self, content=None, accept=None):
+    def __set_headers(self, content=None, accept=None, super_admin=False):
         content_type = self.content_type if content is None else content
         accept_type = self.accept_type if accept is None else accept
         auth_cred = self.username + ":" + self.password
@@ -91,7 +92,9 @@ class NSXV3Client(object):
         headers['Authorization'] = "Basic %s" % auth
         headers['Content-Type'] = content_type
         headers['Accept'] = accept_type
-        self.headers = headers
+        if super_admin:
+            headers['X-Allow-Overwrite'] = 'true'
+        return headers
 
     def get(self, endpoint=None, params=None, cursor=None):
         """
@@ -114,12 +117,37 @@ class NSXV3Client(object):
                                 verify=self.verify, data=jsonutils.dumps(body))
         return response
 
+    def ca_put_request(self, component, comp_id, body):
+        """
+        NSX-T API Put request for certificate Management
+        """
+        endpoint = ("/%s/%s" % (component, comp_id))
+        response = self.put(endpoint=endpoint, body=body)
+        return response
+
     def delete(self, endpoint=None, params=None):
         """
         Basic delete API method on endpoint
         """
         self.__set_url(endpoint=endpoint)
         response = requests.delete(self.url, headers=self.headers,
+                                   verify=self.verify, params=params)
+        return response
+
+    def ca_delete_request(self, component=None, comp_id=None):
+        """
+        NSX-T API delete request for certificate Management
+        """
+        endpoint = ("/%s/%s" % (component, comp_id))
+        response = self.delete(endpoint=endpoint)
+        return response
+
+    def delete_super_admin(self, endpoint=None, params=None):
+        """
+        Basic delete API method for NSX super admin on endpoint
+        """
+        self.__set_url(endpoint=endpoint)
+        response = requests.delete(self.url, headers=self.headers_super_admin,
                                    verify=self.verify, params=params)
         return response
 
@@ -271,6 +299,12 @@ class NSXV3Client(object):
         return self.get_logical_resources("/logical-switches")
 
     def get_logical_switch_profiles(self):
+        """
+        Retrieve all switching profiles on NSX backend
+        """
+        return self.get_logical_resources("/switching-profiles")
+
+    def get_switching_profiles(self):
         """
         Retrieve all switching profiles on NSX backend
         """
@@ -472,6 +506,29 @@ class NSXV3Client(object):
         :return: returns list of md proxies information.
         """
         return self.get_logical_resources("/md-proxies")
+
+    def get_nsx_certificate(self):
+        """
+        Get all certificates registered with backend
+        """
+        endpoint = "/trust-management/certificates/"
+        response = self.get(endpoint)
+        return response.json()
+
+    def get_openstack_client_certificate(self):
+        """
+        Get self signed openstack client certificate
+        """
+        cert_response = self.get_nsx_certificate()
+        for cert in cert_response['results']:
+            if (cert["_create_user"] == "admin" and
+                cert["resource_type"] == "certificate_self_signed" and
+                cert["display_name"]
+                != "NSX MP Client Certificate for Key Manager"):
+                LOG.info('Client certificate created')
+                return cert
+        LOG.error("Client Certificate not created")
+        return None
 
     def delete_md_proxy(self, uuid):
         """
