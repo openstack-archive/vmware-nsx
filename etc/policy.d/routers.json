@@ -1,7 +1,7 @@
 {
     "create_router:distributed": "rule:admin_or_owner",
     "get_router:distributed": "rule:admin_or_owner",
-    "update_router:distributed": "rule:admin_or_owner"
+    "update_router:distributed": "rule:admin_or_owner",
 
     "get_router:ha": "rule:admin_only",
     "create_router": "rule:regular_user",
