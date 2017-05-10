@@ -14,7 +14,9 @@
 
 
 from neutron.db import db_base_plugin_v2
+from neutron_lib import constants as const
 from neutron_lib import context
+from neutron_lib.plugins import directory
 
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.plugins.nsx_v3 import plugin
@@ -93,6 +95,13 @@ class NsxV3PluginWrapper(plugin.NsxV3Plugin):
     def __init__(self):
         super(NsxV3PluginWrapper, self).__init__()
         self.context = context.get_admin_context()
+
+    def __enter__(self):
+        directory.add_plugin(const.CORE, self)
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        directory.add_plugin(const.CORE, None)
 
     def _init_dhcp_metadata(self):
         pass

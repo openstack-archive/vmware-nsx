@@ -75,44 +75,47 @@ def nsx_update_metadata_proxy(resource, event, trigger, **kwargs):
     cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
     cfg.CONF.set_override('metadata_proxy', metadata_proxy_uuid, 'nsx_v3')
 
-    plugin = utils.NsxV3PluginWrapper()
-    nsx_client = utils.get_nsxv3_client()
-    port_resource = resources.LogicalPort(nsx_client)
+    with utils.NsxV3PluginWrapper() as plugin:
+        nsx_client = utils.get_nsxv3_client()
+        port_resource = resources.LogicalPort(nsx_client)
 
-    # For each Neutron network, check if it is an internal metadata network.
-    # If yes, delete the network and associated router interface.
-    # Otherwise, create a logical switch port with MD-Proxy attachment.
-    for network in neutron_client.get_networks():
-        if _is_metadata_network(network):
-            # It is a metadata network, find the attached router,
-            # remove the router interface and the network.
-            filters = {'device_owner': const.ROUTER_INTERFACE_OWNERS,
-                       'fixed_ips': {
-                           'subnet_id': [network['subnets'][0]],
-                           'ip_address': [nsx_rpc.METADATA_GATEWAY_IP]}}
-            ports = neutron_client.get_ports(filters=filters)
-            if not ports:
-                continue
-            router_id = ports[0]['device_id']
-            interface = {'subnet_id': network['subnets'][0]}
-            plugin.remove_router_interface(router_id, interface)
-            LOG.info("Removed metadata interface on router %s", router_id)
-            plugin.delete_network(network['id'])
-            LOG.info("Removed metadata network %s", network['id'])
-        else:
-            lswitch_id = neutron_client.net_id_to_lswitch_id(network['id'])
-            if not lswitch_id:
-                continue
-            tags = nsxlib.build_v3_tags_payload(
-                network, resource_type='os-neutron-net-id',
-                project_name='admin')
-            name = nsx_utils.get_name_and_uuid('%s-%s' % (
-                'mdproxy', network['name'] or 'network'), network['id'])
-            port_resource.create(
-                lswitch_id, metadata_proxy_uuid, tags=tags, name=name,
-                attachment_type=nsx_constants.ATTACHMENT_MDPROXY)
-            LOG.info("Enabled native metadata proxy for network %s",
-                     network['id'])
+        # For each Neutron network, check if it is an internal metadata
+        # network.
+        # If yes, delete the network and associated router interface.
+        # Otherwise, create a logical switch port with MD-Proxy attachment.
+        for network in neutron_client.get_networks():
+            if _is_metadata_network(network):
+                # It is a metadata network, find the attached router,
+                # remove the router interface and the network.
+                filters = {'device_owner': const.ROUTER_INTERFACE_OWNERS,
+                           'fixed_ips': {
+                               'subnet_id': [network['subnets'][0]],
+                               'ip_address': [nsx_rpc.METADATA_GATEWAY_IP]}}
+                ports = neutron_client.get_ports(filters=filters)
+                if not ports:
+                    continue
+                router_id = ports[0]['device_id']
+                interface = {'subnet_id': network['subnets'][0]}
+                plugin.remove_router_interface(router_id, interface)
+                LOG.info("Removed metadata interface on router %s", router_id)
+                plugin.delete_network(network['id'])
+                LOG.info("Removed metadata network %s", network['id'])
+            else:
+                lswitch_id = neutron_client.net_id_to_lswitch_id(
+                    network['id'])
+                if not lswitch_id:
+                    continue
+                tags = nsxlib.build_v3_tags_payload(
+                    network, resource_type='os-neutron-net-id',
+                    project_name='admin')
+                name = nsx_utils.get_name_and_uuid('%s-%s' % (
+                    'mdproxy', network['name'] or 'network'), network['id'])
+                # create a new port with the md-proxy
+                port_resource.create(
+                    lswitch_id, metadata_proxy_uuid, tags=tags, name=name,
+                    attachment_type=nsx_constants.ATTACHMENT_MDPROXY)
+                LOG.info("Enabled native metadata proxy for network %s",
+                         network['id'])
 
 
 registry.subscribe(list_metadata_networks,

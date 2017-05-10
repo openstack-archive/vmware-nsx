@@ -198,51 +198,51 @@ def list_missing_firewall_sections(resource, event, trigger, **kwargs):
 @admin_utils.output_header
 def fix_security_groups(resource, event, trigger, **kwargs):
     context_ = neutron_context.get_admin_context()
-    plugin = v3_utils.NsxV3PluginWrapper()
     inconsistent_secgroups = _find_missing_sections()
     inconsistent_secgroups.update(_find_missing_security_groups())
 
-    for sg_id, sg in inconsistent_secgroups.items():
-        secgroup = plugin.get_security_group(context_, sg_id)
+    with v3_utils.NsxV3PluginWrapper() as plugin:
+        for sg_id, sg in inconsistent_secgroups.items():
+            secgroup = plugin.get_security_group(context_, sg_id)
 
-        try:
-            # FIXME(roeyc): try..except clause should be removed once the api
-            # will return 404 response code instead 400 for trying to delete a
-            # non-existing firewall section.
-            nsxlib.firewall_section.delete(sg['section-id'])
-        except Exception:
-            pass
-        nsxlib.ns_group.delete(sg['nsx-securitygroup-id'])
-        neutron_sg.delete_security_group_section_mapping(sg_id)
-        neutron_sg.delete_security_group_backend_mapping(sg_id)
-        nsgroup, fw_section = (
-            plugin._create_security_group_backend_resources(secgroup))
-        nsx_db.save_sg_mappings(
-            context_, sg_id, nsgroup['id'], fw_section['id'])
-        # If version > 1.1 then we use dynamic criteria tags, and the port
-        # should already have them.
-        if not utils.is_nsx_version_1_1_0(plugin._nsx_version):
-            members = []
-            for port_id in neutron_sg.get_ports_in_security_group(sg_id):
-                lport_id = neutron_sg.get_logical_port_id(port_id)
-                members.append(lport_id)
-            nsxlib.ns_group.add_members(
-                nsgroup['id'], consts.TARGET_TYPE_LOGICAL_PORT, members)
+            try:
+                # FIXME(roeyc): try..except clause should be removed once the
+                # api will return 404 response code instead 400 for trying to
+                # delete a non-existing firewall section.
+                nsxlib.firewall_section.delete(sg['section-id'])
+            except Exception:
+                pass
+            nsxlib.ns_group.delete(sg['nsx-securitygroup-id'])
+            neutron_sg.delete_security_group_section_mapping(sg_id)
+            neutron_sg.delete_security_group_backend_mapping(sg_id)
+            nsgroup, fw_section = (
+                plugin._create_security_group_backend_resources(secgroup))
+            nsx_db.save_sg_mappings(
+                context_, sg_id, nsgroup['id'], fw_section['id'])
+            # If version > 1.1 then we use dynamic criteria tags, and the port
+            # should already have them.
+            if not utils.is_nsx_version_1_1_0(plugin._nsx_version):
+                members = []
+                for port_id in neutron_sg.get_ports_in_security_group(sg_id):
+                    lport_id = neutron_sg.get_logical_port_id(port_id)
+                    members.append(lport_id)
+                nsxlib.ns_group.add_members(
+                    nsgroup['id'], consts.TARGET_TYPE_LOGICAL_PORT, members)
 
-        for rule in secgroup['security_group_rules']:
-            rule_mapping = (context_.session.query(
-                nsx_models.NeutronNsxRuleMapping).filter_by(
-                    neutron_id=rule['id']).one())
-            with context_.session.begin(subtransactions=True):
-                context_.session.delete(rule_mapping)
-        action = (consts.FW_ACTION_DROP
-                  if secgroup.get(provider_sg.PROVIDER)
-                  else consts.FW_ACTION_ALLOW)
-        rules = plugin._create_firewall_rules(
-            context_, fw_section['id'], nsgroup['id'],
-            secgroup.get(sg_logging.LOGGING, False), action,
-            secgroup['security_group_rules'])
-        plugin.save_security_group_rule_mappings(context_, rules['rules'])
+            for rule in secgroup['security_group_rules']:
+                rule_mapping = (context_.session.query(
+                    nsx_models.NeutronNsxRuleMapping).filter_by(
+                        neutron_id=rule['id']).one())
+                with context_.session.begin(subtransactions=True):
+                    context_.session.delete(rule_mapping)
+            action = (consts.FW_ACTION_DROP
+                      if secgroup.get(provider_sg.PROVIDER)
+                      else consts.FW_ACTION_ALLOW)
+            rules = plugin._create_firewall_rules(
+                context_, fw_section['id'], nsgroup['id'],
+                secgroup.get(sg_logging.LOGGING, False), action,
+                secgroup['security_group_rules'])
+            plugin.save_security_group_rule_mappings(context_, rules['rules'])
 
 
 def _update_ports_dynamic_criteria_tags():
