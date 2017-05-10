@@ -156,7 +156,9 @@ def update_shared_secret(resource, event, trigger, **kwargs):
             lb = nsxv_lb.NsxvLoadbalancer.get_loadbalancer(nsxv, edge_id)
             virt = lb.virtual_servers.get(md_proxy.METADATA_VSE_NAME)
             if not virt:
-                return
+                LOG.error(_LE("Virtual server not found for edge: %s"),
+                          edge_id)
+                continue
 
             virt.del_app_rule('insert-auth')
             if cfg.CONF.nsxv.metadata_shared_secret:
@@ -165,7 +167,7 @@ def update_shared_secret(resource, event, trigger, **kwargs):
                                      hashlib.sha256).hexdigest()
                 sign = 'reqadd X-Metadata-Provider-Signature:' + signature
                 sign_app_rule = nsxv_lb.NsxvLBAppRule('insert-auth', sign)
-                virt.add_app_rule('insert-auth', sign_app_rule)
+                virt.add_app_rule(sign_app_rule)
 
             lb.submit_to_backend(nsxv, edge_id)
 
