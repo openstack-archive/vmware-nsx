@@ -23,7 +23,6 @@ from neutron.api.v2 import attributes
 from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import dvr as dist_router
 from neutron.extensions import external_net
-from neutron.extensions import extra_dhcp_opt as edo_ext
 from neutron.extensions import l3
 from neutron.extensions import l3_ext_gw_mode
 from neutron.extensions import l3_flavors
@@ -40,6 +39,7 @@ import neutron.tests.unit.extensions.test_l3_ext_gw_mode as test_ext_gw_mode
 import neutron.tests.unit.extensions.test_portsecurity as test_psec
 import neutron.tests.unit.extensions.test_securitygroup as ext_sg
 from neutron.tests.unit import testlib_api
+from neutron_lib.api.definitions import extra_dhcp_opt as edo_ext
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators

@@ -68,7 +68,6 @@ from neutron.db import vlantransparent_db
 from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import availability_zone as az_ext
 from neutron.extensions import external_net as ext_net_extn
-from neutron.extensions import extra_dhcp_opt as ext_edo
 from neutron.extensions import flavors
 from neutron.extensions import l3
 from neutron.extensions import multiprovidernet as mpnet
@@ -79,6 +78,7 @@ from neutron.plugins.common import utils
 from neutron.quota import resource_registry
 from neutron.services.flavors import flavors_plugin
 from neutron.services.qos import qos_consts
+from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
 from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry

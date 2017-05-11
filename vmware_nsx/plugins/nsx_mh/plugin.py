@@ -58,7 +58,6 @@ from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db
 from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import external_net as ext_net_extn
-from neutron.extensions import extra_dhcp_opt as edo_ext
 from neutron.extensions import extraroute
 from neutron.extensions import l3
 from neutron.extensions import multiprovidernet as mpnet
@@ -66,6 +65,7 @@ from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import utils
 from neutron.quota import resource_registry
+from neutron_lib.api.definitions import extra_dhcp_opt as edo_ext
 from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet
 
