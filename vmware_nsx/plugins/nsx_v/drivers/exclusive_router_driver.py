@@ -174,11 +174,14 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
                 LOG.debug("Delete default gateway %s", orgnexthop)
                 edge_utils.clear_gateway(self.nsx_v, context, router_id)
 
+            secondary = self.plugin._get_floatingips_by_router(
+                context, router_id)
+
             # Update external vnic if addr or mask is changed
             if orgaddr != newaddr or orgmask != newmask or force_update:
                 self.edge_manager.update_external_interface(
                     self.nsx_v, context, router_id,
-                    new_ext_net_id, newaddr, newmask)
+                    new_ext_net_id, newaddr, newmask, secondary=secondary)
 
             # Update SNAT rules if ext net changed
             # or ext net not changed but snat is changed.
