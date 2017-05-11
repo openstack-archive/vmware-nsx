@@ -2167,8 +2167,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self._is_excluded_port(port.get('device_owner'),
                                        port.get('port_security_enabled'))):
                 fs = self.nsxlib.firewall_section
-                fs.remove_member_from_fw_exclude_list(
-                    nsx_port_id, nsxlib_consts.TARGET_TYPE_LOGICAL_PORT)
+                try:
+                    fs.remove_member_from_fw_exclude_list(
+                        nsx_port_id, nsxlib_consts.TARGET_TYPE_LOGICAL_PORT)
+                except Exception as e:
+                    LOG.warning("Unable to remove port from exclude list. "
+                                "Reason: %s", e)
         self.disassociate_floatingips(context, port_id)
 
         # Remove Mac/IP binding from native DHCP server and neutron DB.
