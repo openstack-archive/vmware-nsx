@@ -21,7 +21,6 @@ from sqlalchemy.orm import exc
 from sqlalchemy import sql
 
 from neutron.api.v2 import attributes
-from neutron.common import utils as n_utils
 from neutron.db import _resource_extend as resource_extend
 from neutron.db import api as db_api
 from neutron.db.models import securitygroup as securitygroups_db
@@ -33,6 +32,7 @@ from neutron_lib.callbacks import resources
 from neutron_lib import constants as n_constants
 from neutron_lib.db import model_base
 from neutron_lib.utils import helpers
+from neutron_lib.utils import net as n_utils
 
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
