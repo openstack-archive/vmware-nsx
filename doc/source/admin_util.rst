@@ -257,6 +257,10 @@ Ports
 
     nsxadmin -r ports -o migrate-exclude-ports
 
+- Tag ports to be part of the default OS security group::
+
+    nsxadmin -r ports -o nsx-tag-default
+
 Security Groups & NSX Security Groups
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

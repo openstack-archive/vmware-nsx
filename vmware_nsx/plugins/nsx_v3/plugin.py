@@ -112,6 +112,8 @@ NSX_V3_NO_PSEC_PROFILE_NAME = 'nsx-default-spoof-guard-vif-profile'
 NSX_V3_DHCP_PROFILE_NAME = 'neutron_port_dhcp_profile'
 NSX_V3_MAC_LEARNING_PROFILE_NAME = 'neutron_port_mac_learning_profile'
 NSX_V3_FW_DEFAULT_SECTION = 'OS Default Section for Neutron Security-Groups'
+NSX_V3_FW_DEFAULT_NS_GROUP = 'os_default_section_ns_group'
+NSX_V3_DEFAULT_SECTION = 'OS-Default-Section'
 NSX_V3_EXCLUDED_PORT_NSGROUP_NAME = 'neutron_excluded_port_nsgroup'
 
 
@@ -204,6 +206,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # metadata proxy names to uuid.
         self._translate_configured_names_to_uuids()
         self._init_dhcp_metadata()
+
+        # Include default section NSGroup
+        LOG.debug("Initializing NSX v3 default section NSGroup")
+        self._default_section_nsgroup = None
+        self._default_section_nsgroup = self._init_default_section_nsgroup()
+        if not self._default_section_nsgroup:
+            msg = _("Unable to initialize NSX v3 default section NSGroup %s"
+                    ) % NSX_V3_FW_DEFAULT_NS_GROUP
+            raise nsx_exc.NsxPluginException(err_msg=msg)
 
         self.default_section = self._init_default_section_rules()
         self._process_security_group_logging()
@@ -312,6 +323,30 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 'security-group' in self.supported_extension_aliases,
                 'nsx-logical-switch-id':
                 self._get_network_nsx_id(context, port_data['network_id'])}
+
+    @nsxlib_utils.retry_upon_exception(
+        Exception, max_attempts=cfg.CONF.nsx_v3.retries)
+    def _init_default_section_nsgroup(self):
+        with locking.LockManager.get_lock('nsxv3_init_default_nsgroup'):
+            nsgroup = self._get_default_section_nsgroup()
+            if not nsgroup:
+                # Create a new NSGroup for default section
+                membership_criteria = (
+                    self.nsxlib.ns_group.get_port_tag_expression(
+                        security.PORT_SG_SCOPE, NSX_V3_DEFAULT_SECTION))
+                nsgroup = self.nsxlib.ns_group.create(
+                    NSX_V3_FW_DEFAULT_NS_GROUP,
+                    'OS Default Section Port NSGroup',
+                    tags=self.nsxlib.build_v3_api_version_tag(),
+                    membership_criteria=membership_criteria)
+            return self._get_default_section_nsgroup()
+
+    def _get_default_section_nsgroup(self):
+        if self._default_section_nsgroup:
+            return self._default_section_nsgroup
+        nsgroups = self.nsxlib.ns_group.find_by_display_name(
+            NSX_V3_FW_DEFAULT_NS_GROUP)
+        return nsgroups[0] if nsgroups else None
 
     @nsxlib_utils.retry_upon_exception(
         Exception, max_attempts=cfg.CONF.nsx_v3.retries)
@@ -465,7 +500,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             section_description = ("This section is handled by OpenStack to "
                                    "contain default rules on security-groups.")
             section_id = self.nsxlib.firewall_section.init_default(
-                NSX_V3_FW_DEFAULT_SECTION, section_description, [],
+                NSX_V3_FW_DEFAULT_SECTION, section_description,
+                [self._default_section_nsgroup.get('id')],
                 cfg.CONF.nsx_v3.log_security_groups_blocked_traffic)
             return section_id
 
@@ -1541,14 +1577,18 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                              'tag': nsxlib_consts.EXCLUDE_PORT})
             else:
                 add_to_exclude_list = True
-
-        if utils.is_nsx_version_1_1_0(self._nsx_version):
+        elif utils.is_nsx_version_1_1_0(self._nsx_version):
             # If port has no security-groups then we don't need to add any
             # security criteria tag.
             if port_data[ext_sg.SECURITYGROUPS]:
                 tags += self.nsxlib.ns_group.get_lport_tags(
                     port_data[ext_sg.SECURITYGROUPS] +
                     port_data[provider_sg.PROVIDER_SECURITYGROUPS])
+            # Add port to the default list
+            if (device_owner != l3_db.DEVICE_OWNER_ROUTER_INTF and
+                device_owner != const.DEVICE_OWNER_DHCP):
+                tags.append({'scope': security.PORT_SG_SCOPE,
+                             'tag': NSX_V3_DEFAULT_SECTION})
 
         parent_name, tag = self._get_data_from_binding_profile(
             context, port_data)
@@ -2322,6 +2362,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             tags_update += self.nsxlib.ns_group.get_lport_tags(
                 updated_port.get(ext_sg.SECURITYGROUPS, []) +
                 updated_port.get(provider_sg.PROVIDER_SECURITYGROUPS, []))
+            # Only set the default section tag if there is no port security
+            if not updated_excluded:
+                tags_update.append({'scope': security.PORT_SG_SCOPE,
+                                    'tag': NSX_V3_DEFAULT_SECTION})
         else:
             self._update_lport_with_security_groups(
                 context, lport_id,
