@@ -118,7 +118,7 @@ def nsx_clean_spoofguard_policy(resource, event, trigger, **kwargs):
         LOG.error("Unable to retrieve policy %(p)s: %(e)s",
                   {'p': policy_id, 'e': str(e)})
     else:
-        if not c['spoofguardList']:
+        if not c.get('spoofguardList'):
             LOG.error("Policy %s does not exist", policy_id)
             return
         confirm = admin_utils.query_yes_no(
