@@ -1187,7 +1187,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                                        net_bindings)
                 if backend_network:
                     # Save moref in the DB for future access
-                    if network_type == c_utils.NsxVNetworkTypes.VLAN:
+                    if (network_type == c_utils.NsxVNetworkTypes.VLAN or
+                        network_type == c_utils.NsxVNetworkTypes.FLAT):
                         # Save netmoref to dvs id mappings for VLAN network
                         # type for future access.
                         for dvs_id, netmoref in six.iteritems(dvs_pg_mappings):
