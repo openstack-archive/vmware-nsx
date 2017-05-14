@@ -59,10 +59,10 @@ def delete_old_edge(context, old_edge_id):
 def _get_router_az_from_plugin_router(router):
     # If the router edge was already deployed the availability_zones will
     # return the az
-    az_name = router['availability_zones'][0]
+    az_name = router.get('availability_zones', [''])[0]
     if not az_name:
         # If it was not deployed - it may be in the creation hints
-        az_name = router['availability_zones_hints'][0]
+        az_name = router.get('availability_zones_hints', [''])[0]
     if not az_name:
         # If not - the default az was used.
         az_name = nsx_az.DEFAULT_NAME
