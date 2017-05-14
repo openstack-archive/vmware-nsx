@@ -179,8 +179,9 @@ class NsxInvalidConfiguration(n_exc.InvalidConfigurationOption):
 
 class NsxBgpSpeakerUnableToAddGatewayNetwork(n_exc.BadRequest):
     message = _("Unable to add gateway network %(network_id)s to BGP speaker "
-                "%(bgp_speaker_id)s, network may be associated with one BGP "
-                "speaker at most.")
+                "%(bgp_speaker_id)s, network must have association with an "
+                "address-scope and can be associated with one BGP speaker at "
+                "most.")
 
 
 class NsxRouterInterfaceDoesNotMatchAddressScope(n_exc.BadRequest):
