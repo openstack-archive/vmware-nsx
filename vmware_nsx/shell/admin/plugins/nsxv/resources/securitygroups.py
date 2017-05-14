@@ -401,10 +401,11 @@ def migrate_sg_to_policy(resource, event, trigger, **kwargs):
                  {'nsx': nsx_sg_id, 'pol': policy_id})
         plugin._update_nsx_security_group_policies(
             policy_id, None, nsx_sg_id)
-        prop = plugin._get_security_group_properties(context_, sg_id)
         with context_.session.begin(subtransactions=True):
-            prop.update({sg_policy.POLICY: policy_id})
-
+            prop = context_.session.query(
+                extended_secgroup.NsxExtendedSecurityGroupProperties).\
+                filter_by(security_group_id=sg_id).one()
+            prop[sg_policy.POLICY] = policy_id
         LOG.info("Done.")
 
 
