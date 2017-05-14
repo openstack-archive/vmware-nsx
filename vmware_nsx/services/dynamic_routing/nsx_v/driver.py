@@ -82,7 +82,6 @@ class NSXvBgpDriver(object):
 
     def __init__(self, plugin):
         super(NSXvBgpDriver, self).__init__()
-        self._edge_password = cfg.CONF.nsxv.edge_appliance_password
         self._plugin = plugin
         self._core_plugin = directory.get_plugin()
         self._nsxv = self._core_plugin.nsx_v
@@ -309,7 +308,7 @@ class NSXvBgpDriver(object):
             else:
                 gw_nbr = gw_bgp_neighbour(binding['bgp_identifier'],
                                           speaker['local_as'],
-                                          self._edge_password)
+                                          bgp_peer_obj['password'])
                 neighbours.append(gw_nbr)
                 LOG.debug("Succesfully added BGP neighbor '%s' on '%s'",
                           bgp_peer_obj['peer_ip'], binding['edge_id'])
@@ -342,7 +341,7 @@ class NSXvBgpDriver(object):
             else:
                 gw_nbr = gw_bgp_neighbour(binding['bgp_identifier'],
                                           speaker['local_as'],
-                                          self._edge_password)
+                                          bgp_peer_obj['password'])
                 neighbours.append(gw_nbr)
                 LOG.debug("Succesfully removed BGP neighbor '%s' on '%s'",
                           bgp_peer_obj['peer_ip'], binding['edge_id'])
@@ -383,7 +382,8 @@ class NSXvBgpDriver(object):
         speaker = self._plugin.get_bgp_speaker(context, bgp_speaker_id)
         bgp_peers = self._plugin.get_bgp_peers_by_bgp_speaker(
             context, bgp_speaker_id)
-        neighbours = []
+        local_as = speaker['local_as']
+        peers = []
         for edge_id, edge_router_config in edge_router_dict.items():
             router_ids = edge_router_config['no_snat_routers']
             advertise_static_routes = (
@@ -400,12 +400,12 @@ class NSXvBgpDriver(object):
                 LOG.error("Failed to configure BGP speaker %s on edge '%s'.",
                           bgp_speaker_id, edge_id)
             else:
-                nbr = gw_bgp_neighbour(bgp_identifier, speaker['local_as'],
-                                       self._edge_password)
-                neighbours.append(nbr)
+                peers.append(bgp_identifier)
 
-        for edge_gw in [peer['esg_id'] for peer in bgp_peers
-                        if peer.get('esg_id')]:
+        for edge_gw, password in [(peer['esg_id'], peer['password'])
+                                  for peer in bgp_peers if peer.get('esg_id')]:
+            neighbours = [gw_bgp_neighbour(bgp_id, local_as, password)
+                          for bgp_id in peers]
             try:
                 self._nsxv.add_bgp_neighbours(edge_gw, neighbours)
             except vcns_exc.VcnsApiException:
@@ -434,8 +434,9 @@ class NSXvBgpDriver(object):
                                                  speaker['id'], bgp_identifier)
 
     def _stop_bgp_on_edges(self, context, bgp_bindings, speaker_id):
-        neighbours_to_remove = []
+        peers_to_remove = []
         speaker = self._plugin.get_bgp_speaker(context, speaker_id)
+        local_as = speaker['local_as']
         for bgp_binding in bgp_bindings:
             edge_id = bgp_binding['edge_id']
             try:
@@ -446,18 +447,20 @@ class NSXvBgpDriver(object):
             else:
                 nsxv_db.delete_nsxv_bgp_speaker_binding(context.session,
                                                         edge_id)
-                nbr = gw_bgp_neighbour(bgp_binding['bgp_identifier'],
-                                       speaker['local_as'],
-                                       self._edge_password)
-                neighbours_to_remove.append(nbr)
+                peers_to_remove.append(bgp_binding['bgp_identifier'])
 
         # We should also remove all bgp neighbours on gw-edges which
         # corresponds with tenant routers that are associated with this bgp
         # speaker.
         bgp_peers = self._plugin.get_bgp_peers_by_bgp_speaker(context,
                                                               speaker_id)
-        gw_edges = [peer['esg_id'] for peer in bgp_peers if peer.get('esg_id')]
-        for gw_edge in gw_edges:
+        gw_edges = [(peer['esg_id'], peer['password'])
+                    for peer in bgp_peers if peer.get('esg_id')]
+        for gw_edge, password in gw_edges:
+            neighbours_to_remove = [gw_bgp_neighbour(bgp_identifier,
+                                                     local_as,
+                                                     password)
+                                    for bgp_identifier in peers_to_remove]
             try:
                 self._nsxv.remove_bgp_neighbours(gw_edge, neighbours_to_remove)
             except vcns_exc.VcnsApiException:
@@ -471,16 +474,16 @@ class NSXvBgpDriver(object):
 
     def _update_edge_bgp_identifier(self, context, bgp_binding, speaker,
                                     new_bgp_identifier):
+        local_as = speaker['local_as']
         bgp_peers = self._plugin.get_bgp_peers_by_bgp_speaker(context,
                                                               speaker['id'])
         self._nsxv.update_router_id(bgp_binding['edge_id'], new_bgp_identifier)
-        nbr_to_remove = gw_bgp_neighbour(bgp_binding['bgp_identifier'],
-                                         speaker['local_as'],
-                                         self._edge_password)
-        nbr_to_add = gw_bgp_neighbour(new_bgp_identifier, speaker['local_as'],
-                                      self._edge_password)
-        for gw_edge_id in [peer['esg_id'] for peer in bgp_peers
-                           if peer['esg_id']]:
+        for gw_edge_id, password in [(peer['esg_id'], peer['password'])
+                                     for peer in bgp_peers if peer['esg_id']]:
+            nbr_to_remove = gw_bgp_neighbour(bgp_binding['bgp_identifier'],
+                                             local_as, password)
+            nbr_to_add = gw_bgp_neighbour(new_bgp_identifier, local_as,
+                                          password)
             self._nsxv.update_bgp_neighbours(gw_edge_id,
                                              [nbr_to_add],
                                              [nbr_to_remove])
@@ -523,6 +526,7 @@ class NSXvBgpDriver(object):
                                                      new_fixed_ip)
 
     def enable_bgp_on_router(self, context, speaker, router_id):
+        local_as = speaker['local_as']
         edge_id, advertise_static_routes = (
             self._get_router_edge_info(context, router_id))
         if not edge_id:
@@ -556,10 +560,10 @@ class NSXvBgpDriver(object):
             self._start_bgp_on_edge(context, edge_id, speaker, bgp_peers,
                                     bgp_identifier, subnets,
                                     advertise_static_routes)
-            nbr = gw_bgp_neighbour(bgp_identifier, speaker['local_as'],
-                                   self._edge_password)
-            for gw_edge_id in [peer['esg_id'] for peer in bgp_peers
-                               if peer['esg_id']]:
+            for gw_edge_id, password in [(peer['esg_id'], peer['password'])
+                                         for peer in bgp_peers
+                                         if peer['esg_id']]:
+                nbr = gw_bgp_neighbour(bgp_identifier, local_as, password)
                 self._nsxv.add_bgp_neighbours(gw_edge_id, [nbr])
 
     def disable_bgp_on_router(self, context, speaker, router_id, gw_ip,
