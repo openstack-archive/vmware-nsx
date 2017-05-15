@@ -98,6 +98,10 @@ class NsxvFwaasCallbacks(firewall_l3_agent.L3WithFWaaS):
                 # Do not add firewall rules on the tlr router.
                 return False
 
+        if not self._get_router_firewall_id(ctx_elevated, router_id):
+            # No FWaas Firewall was assigned to this router
+            return False
+
         return True
 
     def get_fwaas_rules_for_router(self, context, router_id):
