@@ -235,6 +235,19 @@ class VSMClient(object):
             edges += response.json()['edgePage']['data']
         return edges
 
+    def get_edge_firewall_rules(self, edge_Id):
+        """Get nsx-edge firewall info based on edge_id.
+
+        Return firewall rules if found ,else return None.
+        """
+        self.__set_api_version('4.0')
+        self.__set_endpoint('/edges/%s/firewall/config ' % edge_Id)
+        response = self.get()
+        rules = response.json()['firewallRules']['firewallRules']
+        if len(rules) == 0:
+            rules = None
+        return rules
+
     def get_firewall(self):
         """Get all firewall on NSX-v beckend.
 
