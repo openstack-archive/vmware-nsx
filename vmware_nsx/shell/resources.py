@@ -51,6 +51,7 @@ class Operations(enum.Enum):
     MIGRATE_TO_DYNAMIC_CRITERIA = 'migrate-to-dynamic-criteria'
     NSX_MIGRATE_V_V3 = 'nsx-migrate-v-v3'
     MIGRATE_TO_POLICY = 'migrate-to-policy'
+    NSX_MIGRATE_EXCLUDE_PORTS = 'migrate-exclude-ports'
     STATUS = 'status'
     GENERATE = 'generate'
     IMPORT = 'import'
@@ -83,7 +84,8 @@ nsxv3_resources = {
                                  [Operations.LIST_MISMATCHES.value]),
     constants.PORTS: Resource(constants.PORTS,
                               [Operations.LIST_MISMATCHES.value,
-                               Operations.NSX_MIGRATE_V_V3.value]),
+                               Operations.NSX_MIGRATE_V_V3.value,
+                               Operations.NSX_MIGRATE_EXCLUDE_PORTS.value]),
     constants.ROUTERS: Resource(constants.ROUTERS,
                                 [Operations.LIST_MISMATCHES.value]),
     constants.DHCP_BINDING: Resource(constants.DHCP_BINDING,

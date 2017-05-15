@@ -17,6 +17,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from sqlalchemy.orm import exc
 
+from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import nsx_models
 from vmware_nsx.dvs import dvs
@@ -28,7 +29,9 @@ from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils as v3_utils
 from vmware_nsx.shell import resources as shell
 from vmware_nsxlib.v3 import exceptions as nsx_exc
+from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
 from vmware_nsxlib.v3 import resources
+from vmware_nsxlib.v3 import security
 
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import db_base_plugin_v2
@@ -268,6 +271,55 @@ def migrate_compute_ports_vms(resource, event, trigger, **kwargs):
                                    nsx_net_id, device_type)
 
 
+def migrate_exclude_ports(resource, event, trigger, **kwargs):
+    _nsx_client = v3_utils.get_nsxv3_client()
+
+    nsxlib = v3_utils.get_connected_nsxlib()
+    version = nsxlib.get_version()
+    if not nsx_utils.is_nsx_version_2_0_0(version):
+        LOG.info("Migration only supported from 2.0 onwards")
+        LOG.info("Version is %s", version)
+        return
+    admin_cxt = neutron_context.get_admin_context()
+    plugin = PortsPlugin()
+    _port_client = resources.LogicalPort(_nsx_client)
+    exclude_list = nsxlib.firewall_section.get_excludelist()
+    for member in exclude_list['members']:
+        if member['target_type'] == 'LogicalPort':
+            port_id = member['target_id']
+            # Get port
+            try:
+                nsx_port = _port_client.get(port_id)
+            except nsx_exc.ResourceNotFound:
+                LOG.info("Port %s not found", port_id)
+                continue
+            # Validate its a neutron port
+            is_neutron_port = False
+            for tag in nsx_port['tags']:
+                if tag['scope'] == 'os-neutron-port-id':
+                    is_neutron_port = True
+                    neutron_port_id = tag['tag']
+                    break
+            if not is_neutron_port:
+                LOG.info("Port %s is not a neutron port", port_id)
+                continue
+            # Check if this port exists in the DB
+            try:
+                plugin.get_port(admin_cxt, neutron_port_id)
+            except Exception:
+                LOG.info("Port %s is not defined in DB", neutron_port_id)
+                continue
+            # Update tag for the port
+            tags_update = [{'scope': security.PORT_SG_SCOPE,
+                            'tag': nsxlib_consts.EXCLUDE_PORT}]
+            _port_client.update(port_id, None,
+                                tags_update=tags_update)
+            # Remove port from the exclude list
+            nsxlib.firewall_section.remove_member_from_fw_exclude_list(
+                port_id, nsxlib_consts.TARGET_TYPE_LOGICAL_PORT)
+            LOG.info("Port %s successfully updated", port_id)
+
+
 registry.subscribe(list_missing_ports,
                    constants.PORTS,
                    shell.Operations.LIST_MISMATCHES.value)
@@ -275,3 +327,7 @@ registry.subscribe(list_missing_ports,
 registry.subscribe(migrate_compute_ports_vms,
                    constants.PORTS,
                    shell.Operations.NSX_MIGRATE_V_V3.value)
+
+registry.subscribe(migrate_exclude_ports,
+                   constants.PORTS,
+                   shell.Operations.NSX_MIGRATE_EXCLUDE_PORTS.value)

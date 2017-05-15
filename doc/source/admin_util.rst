@@ -253,6 +253,10 @@ Ports
 
     nsxadmin -r ports -o nsx-migrate-v-v3
 
+- Migrate exclude ports to use tags::
+
+    nsxadmin -r ports -o migrate-exclude-ports
+
 Security Groups & NSX Security Groups
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
