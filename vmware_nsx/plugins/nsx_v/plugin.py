@@ -260,8 +260,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if c_utils.is_nsxv_version_6_3(self.nsx_v.vcns.get_version()):
                 self.supported_extension_aliases.append("vlan-transparent")
             else:
-                raise NotImplementedError(_("Transparent support only from "
-                                            "NSX 6.3 onwards"))
+                LOG.warning("Transparent support only from "
+                            "NSX 6.3 onwards")
         self.sg_container_id = self._create_security_group_container()
         self.default_section = self._create_cluster_default_fw_section()
         self._process_security_groups_rules_logging()
