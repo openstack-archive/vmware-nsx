@@ -32,9 +32,9 @@ from oslo_utils import timeutils
 from oslo_utils import uuidutils
 from six import moves
 
-from neutron.extensions import extra_dhcp_opt as ext_edo
 from neutron.extensions import l3
 
+from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
 from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
