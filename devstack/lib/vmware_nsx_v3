@@ -124,7 +124,7 @@ function neutron_plugin_configure_common {
     sudo install -d -o $STACK_USER $NEUTRON_CONF_DIR/policy.d
     cp -v $DEST/$Q_PLUGIN_SRC_CONF_PATH/policy/routers.json $NEUTRON_CONF_DIR/policy.d
     cp -v $DEST/$Q_PLUGIN_SRC_CONF_PATH/policy/network-gateways.json $NEUTRON_CONF_DIR/policy.d
-    Q_PLUGIN_CLASS="vmware_nsx.plugin.NsxV3Plugin"
+    Q_PLUGIN_CLASS="vmware_nsxv3"
 }
 
 function neutron_plugin_configure_debug_command {

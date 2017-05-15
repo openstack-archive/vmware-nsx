@@ -71,7 +71,7 @@ function neutron_plugin_configure_common {
     (cd $DEST/$VMWARE_NSX_DIR && exec ./tools/generate_config_file_samples.sh)
     mkdir -p /$Q_PLUGIN_CONF_PATH
     cp $DEST/$Q_PLUGIN_SRC_CONF_PATH/nsx.ini.sample /$Q_PLUGIN_CONF_PATH/$Q_PLUGIN_CONF_FILENAME
-    Q_PLUGIN_CLASS="neutron.plugins.vmware.plugin.NsxPlugin"
+    Q_PLUGIN_CLASS="vmware_nsx"
 }
 
 function neutron_plugin_configure_debug_command {

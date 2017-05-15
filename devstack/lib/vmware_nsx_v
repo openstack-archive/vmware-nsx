@@ -59,7 +59,7 @@ function neutron_plugin_configure_common {
     cp -v $DEST/$Q_PLUGIN_SRC_CONF_PATH/policy/routers.json $NEUTRON_CONF_DIR/policy.d
     cp -v $DEST/$Q_PLUGIN_SRC_CONF_PATH/policy/network-gateways.json $NEUTRON_CONF_DIR/policy.d
     Q_DB_NAME="neutron_nsx"
-    Q_PLUGIN_CLASS="vmware_nsx.plugin.NsxVPlugin"
+    Q_PLUGIN_CLASS="vmware_nsxv"
 }
 
 function neutron_plugin_configure_debug_command {
