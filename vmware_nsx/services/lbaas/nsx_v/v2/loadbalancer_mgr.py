@@ -37,7 +37,7 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
         super(EdgeLoadBalancerManager, self).__init__(vcns_driver)
         registry.subscribe(
             self._handle_subnet_gw_change,
-            resources.SUBNET_GATEWAY, events.AFTER_UPDATE)
+            resources.SUBNET, events.AFTER_UPDATE)
 
     @log_helpers.log_method_call
     def create(self, context, lb):
@@ -142,7 +142,11 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
         # As the Edge appliance doesn't use DHCP, we should change the
         # default gateway here when the subnet GW changes.
         context = kwargs.get('context')
-        subnet_id = kwargs.get('subnet_id')
+        orig = kwargs['original_subnet']
+        updated = kwargs['subnet']
+        if orig['gateway_ip'] == updated['gateway_ip']:
+            return
+        subnet_id = updated['id']
         subnet = self.core_plugin.get_subnet(context.elevated(), subnet_id)
 
         filters = {'fixed_ips': {'subnet_id': [subnet_id]},
