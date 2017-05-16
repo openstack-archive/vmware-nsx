@@ -46,6 +46,12 @@ class TestDvsNetworkBasicOps(manager.NetworkScenarioTest):
         self.network = self._create_network()
         self.subnet = self._create_subnet(self.network)
 
+    def _list_ports(self, *args, **kwargs):
+        """List ports using admin creds """
+        ports_list = self.admin_manager.ports_client.list_ports(
+            *args, **kwargs)
+        return ports_list['ports']
+
     def _create_network(self, network_name=None):
         """Wrapper utility that returns a test admin provider network."""
         network_name = network_name or data_utils.rand_name('test-adm-net-')
@@ -119,15 +125,6 @@ class TestDvsNetworkBasicOps(manager.NetworkScenarioTest):
 
     def _get_server_key(self, server):
         return self.keypairs[server['key_name']]['private_key']
-
-    def _check_tenant_network_connectivity(self):
-        ssh_login = CONF.validation.image_ssh_user
-        for server in self.servers:
-            # call the common method in the parent class
-            (super(TestDvsNetworkBasicOps, self).
-                _check_tenant_network_connectivity(
-                    server, ssh_login, self._get_server_key(server),
-                    servers_for_debug=self.servers))
 
     def _check_server_connectivity(self, address_list,
                                    should_connect=True):
