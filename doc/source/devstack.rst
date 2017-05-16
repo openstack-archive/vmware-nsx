@@ -104,7 +104,7 @@ Add neutron-fwaas repo as an external repository and configure following flags i
 
     [fwaas]
     enabled = True
-    driver = vmware_nsx.services.fwaas.nsx_v.edge_fwaas_driver.EdgeFwaasDriver
+    driver = vmware_nsxv_edge
 
 
 Neutron dynamic routing plugin (bgp)
