@@ -22,6 +22,15 @@ from tempest.test_discover import plugins
 from vmware_nsx_tempest import config as config_nsx
 
 
+_opts = [
+    (config_nsx.scenario_group, config_nsx.ScenarioGroup),
+    (config_nsx.network_group, config_nsx.NetworkGroup),
+    (config_nsx.nsxv_group, config_nsx.NSXvGroup),
+    (config_nsx.l2gw_group, config_nsx.L2gwGroup),
+    (config_nsx.nsxv3_group, config_nsx.NSXv3Group)
+]
+
+
 class VMwareNsxTempestPlugin(plugins.TempestPlugin):
 
     """Our addon configuration is defined at vmware_nsx_tempest/config.py
@@ -38,29 +47,14 @@ class VMwareNsxTempestPlugin(plugins.TempestPlugin):
         base_path = os.path.split(mydir)[0]
         test_dir = "vmware_nsx_tempest/tests"
         test_fullpath = os.path.join(base_path, test_dir)
-        return (test_fullpath, base_path)
+        return test_fullpath, base_path
 
     def register_opts(self, conf):
         conf.register_opt(config_nsx.service_option,
                           group='service_available')
-        config.register_opt_group(
-            conf,
-            config_nsx.scenario_group, config_nsx.ScenarioGroup)
-        config.register_opt_group(
-            conf,
-            config_nsx.network_group, config_nsx.NetworkGroup)
-        config.register_opt_group(
-            conf,
-            config_nsx.nsxv_group, config_nsx.NSXvGroup)
-        config.register_opt_group(
-            conf,
-            config_nsx.l2gw_group, config_nsx.L2gwGroup)
-        config.register_opt_group(
-            conf,
-            config_nsx.nsxv3_group, config_nsx.NSXv3Group)
+        for group, option in _opts:
+            config.register_opt_group(conf, group, option)
 
     def get_opt_lists(self):
-        return [
-            (config_nsx.scenario_group.name, config_nsx.scenario_group),
-            ('service_available', [config_nsx.service_option])
-        ]
+        return [(group.name, option) for group, option in _opts
+                ].append(('service_available', [config_nsx.service_option]))

@@ -67,6 +67,7 @@ NetworkGroup = [
                default='mail',
                help="host exists in dns_search_domain"),
     cfg.StrOpt('public_network_cidr',
+               default='',
                help="Public network cidr which provides external network"
                     " connectivity"),
     cfg.StrOpt('backend',
