@@ -151,8 +151,7 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
             self.ctxt, **self.policy_data['policy'])
 
         # set the rule in the policy data
-        if action != 'create':
-            setattr(_policy, "rules", [self.rule])
+        setattr(_policy, "rules", [self.rule])
 
         with mock.patch('neutron.services.qos.qos_plugin.QoSPlugin.'
                         'get_policy',
@@ -218,8 +217,7 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
             self.ctxt, **self.policy_data['policy'])
 
         # set the rule in the policy data
-        if action != 'create':
-            setattr(_policy, "rules", [self.dscp_rule])
+        setattr(_policy, "rules", [self.dscp_rule])
         plugin = self.qos_plugin
         with mock.patch('neutron.services.qos.qos_plugin.QoSPlugin.'
                         'get_policy',
