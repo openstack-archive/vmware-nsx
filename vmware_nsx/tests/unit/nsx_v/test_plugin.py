@@ -1667,6 +1667,27 @@ class TestPortsV2(NsxVPluginV2TestCase,
         res = req.get_response(self.api)
         self.assertEqual(webob.exc.HTTPNoContent.code, res.status_int)
 
+    def test_create_port_sec_disabled_and_provider_rule(self):
+        with self.network() as network:
+            kwargs = {'provider_security_groups': [uuidutils.generate_uuid()],
+                      'port_security_enabled': False}
+            res = self._create_port(self.fmt,
+                                    network['network']['id'],
+                                    arg_list=('provider_security_groups',
+                                              'port_security_enabled'),
+                                **kwargs)
+        self.assertEqual(webob.exc.HTTPBadRequest.code, res.status_int)
+
+    def test_update_port_sec_disabled_and_provider_rule(self):
+        with self.port() as port:
+            with mock.patch(
+                PLUGIN_NAME + '._get_provider_security_groups_on_port'):
+                data = {'port': {'port_security_enabled': False}}
+                req = self.new_update_request('ports',
+                                              data, port['port']['id'])
+                res = self.deserialize('json', req.get_response(self.api))
+        self.assertEqual("InvalidInput", res['NeutronError']['type'])
+
 
 class TestSubnetsV2(NsxVPluginV2TestCase,
                     test_plugin.TestSubnetsV2):

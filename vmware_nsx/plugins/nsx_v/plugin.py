@@ -1715,6 +1715,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             provider_sg_specified = (validators.is_attr_set(
                 port_data.get(provider_sg.PROVIDER_SECURITYGROUPS))
                 and port_data[provider_sg.PROVIDER_SECURITYGROUPS] != [])
+            if provider_sg_specified and not port_security:
+                err_msg = _("Can't disable port security when there are "
+                            "provider rules")
+                raise n_exc.InvalidInput(error_message=err_msg)
             has_security_groups = (
                 self._check_update_has_security_groups(port))
 
@@ -1916,6 +1920,17 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 msg = (_('Cannot set port security together with other '
                          'attributes for port %s') % original_port['id'])
                 raise n_exc.BadRequest(resource='port', msg=msg)
+
+            if not has_port_security:
+                # The above check validates that only port security has
+                # changed. We read the existing provider groups
+                provider_port = {'port': original_port}
+                sgids = self._get_provider_security_groups_on_port(
+                    context, provider_port)
+                if sgids:
+                    err_msg = _("Can't disable port security when there are "
+                                "provider rules")
+                    raise n_exc.InvalidInput(error_message=err_msg)
 
         # TODO(roeyc): create a method '_process_vnic_index_update' from the
         # following code block
