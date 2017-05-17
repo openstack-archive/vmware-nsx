@@ -325,6 +325,37 @@ class ApiReplayClient(object):
                     'subnetpools']
         return subnetpools_map
 
+    def fix_network(self, body, dest_default_public_net):
+        # neutron doesn't like some fields being None even though its
+        # what it returns to us.
+        for field in ['provider:physical_network']:
+            if field in body and body[field] is None:
+                del body[field]
+
+        # vxlan network with segmentation id should be translated to regular
+        # networks in nsx-v3.
+        if (body.get('provider:network_type') == 'vxlan' and
+            body.get('provider:segmentation_id') is not None):
+            del body['provider:network_type']
+            del body['provider:segmentation_id']
+
+        # external networks needs some special care
+        if body.get('router:external'):
+            fields_reset = False
+            for field in ['provider:network_type', 'provider:segmentation_id',
+                          'provider:physical_network']:
+                if field in body:
+                    if body[field] is not None:
+                        fields_reset = True
+                    del body[field]
+            if fields_reset:
+                print('Ignoring provider network fields while migrating '
+                      'external network ' + body['id'])
+            if body.get('is_default') and dest_default_public_net:
+                body['is_default'] = False
+                print('Public network ' + body['id'] +
+                      'was set to non default network')
+
     def migrate_networks_subnets_ports(self):
         """Migrates networks/ports/router-uplinks from src to dest neutron."""
         source_ports = self.source_neutron.list_ports()['ports']
@@ -338,7 +369,8 @@ class ApiReplayClient(object):
         # supported by the nsx-v3 plugin
         drop_subnet_fields = self.basic_ignore_fields + [
             'advanced_service_providers',
-            'id']
+            'id',
+            'service_types']
 
         drop_port_fields = self.basic_ignore_fields + [
             'status',
@@ -362,11 +394,17 @@ class ApiReplayClient(object):
             drop_network_fields.append('qos_policy_id')
             drop_port_fields.append('qos_policy_id')
 
+        # Find out if the destination already has a default public network
+        dest_default_public_net = False
+        for dest_net in dest_networks:
+            if dest_net.get('is_default') and dest_net.get('router:external'):
+                dest_default_public_net = True
+
         subnetpools_map = self.migrate_subnetpools()
         for network in source_networks:
-            #TODO(asarfaty): We may need special code for external net migrate
             body = self.drop_fields(network, drop_network_fields)
             self.fix_description(body)
+            self.fix_network(body, dest_default_public_net)
 
             # only create network if the dest server doesn't have it
             if self.have_id(network['id'], dest_networks) is False:
