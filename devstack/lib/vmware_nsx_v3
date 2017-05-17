@@ -212,7 +212,7 @@ function neutron_plugin_check_adv_test_requirements {
 
 
 function init_vmware_nsx_v3 {
-    if [[ "$NATIVE_DHCP_METADATA" == "True" ]]; then
+    if (is_service_enabled q-svc || is_service_enabled neutron-api) && [[ "$NATIVE_DHCP_METADATA" == "True" ]]; then
         if ! is_set DHCP_PROFILE_UUID; then
             die $LINENO "DHCP profile needs to be configured!"
         fi
