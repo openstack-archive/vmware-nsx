@@ -128,7 +128,8 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
                                                                   router_id)
         gw_info = None
         if (external_net_id):
-            gw_info = {'network_id': external_net_id}
+            gw_info = {'network_id': external_net_id,
+                       'enable_snat': router_db.enable_snat}
         self.plugin._update_router_gw_info(
             context, router_id, gw_info, force_update=True)
 
