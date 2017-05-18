@@ -2564,8 +2564,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self.create_port(context, {'port': port_dict})
             # First time binding network with dhcp edge
             else:
-                with locking.LockManager.get_lock(
-                    subnet['subnet']['network_id']):
+                with locking.LockManager.get_lock(subnet['network_id']):
                     self._update_dhcp_service_with_subnet(context, subnet)
                 return
         else:
