@@ -30,7 +30,7 @@ LOG = logging.getLogger(__name__)
 
 CONF = config.CONF
 
-NSX_FIREWALL_REALIZED_DELAY = 2
+NSX_FIREWALL_REALIZED_DELAY = 20
 
 
 class NSXv3SecGroupTest(base.BaseSecGroupTest):
