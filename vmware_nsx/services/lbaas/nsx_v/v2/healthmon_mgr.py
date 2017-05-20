@@ -20,9 +20,9 @@ from oslo_utils import excutils
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as nsxv_exc
+from vmware_nsx.services.lbaas import base_mgr
 from vmware_nsx.services.lbaas.nsx_v import lbaas_common as lb_common
 from vmware_nsx.services.lbaas.nsx_v import lbaas_const as lb_const
-from vmware_nsx.services.lbaas.nsx_v.v2 import base_mgr
 
 LOG = logging.getLogger(__name__)
 
@@ -130,7 +130,7 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
         except nsxv_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
                 self.lbv2_driver.health_monitor.failed_completion(context,
-                                                                new_hm)
+                                                                  new_hm)
                 LOG.error('Failed to update monitor on edge: %s', edge_id)
 
         self.lbv2_driver.health_monitor.successful_completion(context, new_hm)
@@ -170,7 +170,7 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
             except nsxv_exc.VcnsApiException:
                 with excutils.save_and_reraise_exception():
                     self.lbv2_driver.health_monitor.failed_completion(context,
-                                                                    hm)
+                                                                      hm)
                     LOG.error('Failed to delete monitor on edge: %s', edge_id)
 
         nsxv_db.del_nsxv_lbaas_monitor_binding(

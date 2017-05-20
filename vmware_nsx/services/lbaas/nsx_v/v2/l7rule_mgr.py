@@ -18,7 +18,7 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 
 from vmware_nsx.common import locking
-from vmware_nsx.services.lbaas.nsx_v.v2 import base_mgr
+from vmware_nsx.services.lbaas import base_mgr
 from vmware_nsx.services.lbaas.nsx_v.v2 import l7policy_mgr
 
 LOG = logging.getLogger(__name__)

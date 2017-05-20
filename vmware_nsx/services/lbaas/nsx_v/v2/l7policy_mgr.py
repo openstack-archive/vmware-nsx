@@ -23,9 +23,9 @@ from neutron_lib import exceptions as n_exc
 from vmware_nsx._i18n import _
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
+from vmware_nsx.services.lbaas import base_mgr
 from vmware_nsx.services.lbaas.nsx_v import lbaas_common as lb_common
 from vmware_nsx.services.lbaas.nsx_v import lbaas_const as lb_const
-from vmware_nsx.services.lbaas.nsx_v.v2 import base_mgr
 
 LOG = logging.getLogger(__name__)
 
@@ -57,34 +57,34 @@ def policy_to_application_rule(policy):
             # Example: acl <id> hdr_sub(cookie) SEEN=1
             hdr_type = 'hdr' + type_by_comp
             rule_line = ('acl %(rule_id)s %(hdr_type)s(cookie) '
-                '%(key)s=%(val)s' % {'rule_id': rule.id,
-                                     'hdr_type': hdr_type,
-                                     'key': rule.key,
-                                     'val': rule.value})
+                         '%(key)s=%(val)s' % {'rule_id': rule.id,
+                                              'hdr_type': hdr_type,
+                                              'key': rule.key,
+                                              'val': rule.value})
         elif rule.type == lb_const.L7_RULE_TYPE_HEADER:
             # Example: acl <id> hdr(user-agent) -i test
             hdr_type = 'hdr' + type_by_comp
             rule_line = ('acl %(rule_id)s %(hdr_type)s(%(key)s) '
-                '-i %(val)s' % {'rule_id': rule.id,
-                                'hdr_type': hdr_type,
-                                'key': rule.key,
-                                'val': rule.value})
+                         '-i %(val)s' % {'rule_id': rule.id,
+                                         'hdr_type': hdr_type,
+                                         'key': rule.key,
+                                         'val': rule.value})
         elif rule.type == lb_const.L7_RULE_TYPE_HOST_NAME:
             # Example: acl <id> hdr_beg(host) -i abcd
             hdr_type = 'hdr' + type_by_comp
             # -i for case insensitive host name
             rule_line = ('acl %(rule_id)s %(hdr_type)s(host) '
-                '-i %(val)s' % {'rule_id': rule.id,
-                                'hdr_type': hdr_type,
-                                'val': rule.value})
+                         '-i %(val)s' % {'rule_id': rule.id,
+                                         'hdr_type': hdr_type,
+                                         'val': rule.value})
         elif rule.type == lb_const.L7_RULE_TYPE_PATH:
             # Example: acl <id> path_beg -i /images
             # -i for case insensitive path
             path_type = 'path' + type_by_comp
             rule_line = ('acl %(rule_id)s %(path_type)s '
-                '-i %(val)s' % {'rule_id': rule.id,
-                                'path_type': path_type,
-                                'val': rule.value})
+                         '-i %(val)s' % {'rule_id': rule.id,
+                                         'path_type': path_type,
+                                         'val': rule.value})
         elif rule.type == lb_const.L7_RULE_TYPE_FILE_TYPE:
             # Example: acl <id> path_sub -i .jpg
             # Regardless of the compare type, always check contained in path.
@@ -93,8 +93,8 @@ def policy_to_application_rule(policy):
             if not val.startswith('.'):
                 val = '.' + val
             rule_line = ('acl %(rule_id)s path_sub '
-                '-i %(val)s' % {'rule_id': rule.id,
-                                'val': val})
+                         '-i %(val)s' % {'rule_id': rule.id,
+                                         'val': val})
         else:
             msg = _('Unsupported L7rule type %s') % rule.type
             raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)

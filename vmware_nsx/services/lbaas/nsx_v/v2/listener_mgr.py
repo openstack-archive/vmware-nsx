@@ -22,9 +22,9 @@ from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as vcns_exc
+from vmware_nsx.services.lbaas import base_mgr
 from vmware_nsx.services.lbaas.nsx_v import lbaas_common as lb_common
 from vmware_nsx.services.lbaas.nsx_v import lbaas_const as lb_const
-from vmware_nsx.services.lbaas.nsx_v.v2 import base_mgr
 
 LOG = logging.getLogger(__name__)
 
@@ -38,8 +38,8 @@ def listener_to_edge_app_profile(listener, edge_cert_id):
         'template': lb_const.PROTOCOL_MAP[listener.protocol],
     }
 
-    if (listener.protocol == lb_const.LB_PROTOCOL_HTTPS
-        or listener.protocol == lb_const.LB_PROTOCOL_TERMINATED_HTTPS):
+    if (listener.protocol == lb_const.LB_PROTOCOL_HTTPS or
+            listener.protocol == lb_const.LB_PROTOCOL_TERMINATED_HTTPS):
         if edge_cert_id:
             edge_app_profile['clientSsl'] = {
                 'caCertificate': [],
@@ -262,7 +262,7 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
         except vcns_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
                 self.lbv2_driver.listener.failed_completion(context,
-                                                          new_listener)
+                                                            new_listener)
                 LOG.error('Failed to update app profile on edge: %s',
                           edge_id)
 

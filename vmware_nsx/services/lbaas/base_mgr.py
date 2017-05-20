@@ -18,34 +18,40 @@ from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
 
 
-class EdgeLoadbalancerBaseManager(object):
+class LoadbalancerBaseManager(object):
     _lbv2_driver = None
     _core_plugin = None
 
-    def __init__(self, vcns_driver):
-        super(EdgeLoadbalancerBaseManager, self).__init__()
-        self.vcns_driver = vcns_driver
+    def __init__(self):
+        super(LoadbalancerBaseManager, self).__init__()
 
     def _get_plugin(self, plugin_type):
         return directory.get_plugin(plugin_type)
 
     @property
     def lbv2_driver(self):
-        if not EdgeLoadbalancerBaseManager._lbv2_driver:
+        if not LoadbalancerBaseManager._lbv2_driver:
             plugin = self._get_plugin(
                 plugin_const.LOADBALANCERV2)
-            EdgeLoadbalancerBaseManager._lbv2_driver = (
+            LoadbalancerBaseManager._lbv2_driver = (
                 plugin.drivers['vmwareedge'])
 
-        return EdgeLoadbalancerBaseManager._lbv2_driver
+        return LoadbalancerBaseManager._lbv2_driver
 
     @property
     def core_plugin(self):
-        if not EdgeLoadbalancerBaseManager._core_plugin:
-            EdgeLoadbalancerBaseManager._core_plugin = (
+        if not LoadbalancerBaseManager._core_plugin:
+            LoadbalancerBaseManager._core_plugin = (
                 self._get_plugin(lib_const.CORE))
 
-        return EdgeLoadbalancerBaseManager._core_plugin
+        return LoadbalancerBaseManager._core_plugin
+
+
+class EdgeLoadbalancerBaseManager(LoadbalancerBaseManager):
+
+    def __init__(self, vcns_driver):
+        super(EdgeLoadbalancerBaseManager, self).__init__()
+        self.vcns_driver = vcns_driver
 
     @property
     def vcns(self):

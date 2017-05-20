@@ -21,8 +21,8 @@ from neutron_lib import context
 
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield import vcns_driver
+from vmware_nsx.services.lbaas import base_mgr
 from vmware_nsx.services.lbaas.nsx_v import lbaas_common as lb_common
-from vmware_nsx.services.lbaas.nsx_v.v2 import base_mgr
 
 
 LB_VIP = '10.0.0.10'
@@ -98,8 +98,8 @@ class BaseTestEdgeLbaasV2(base.BaseTestCase):
 
         self.lbv2_driver = mock.Mock()
         self.core_plugin = mock.Mock()
-        base_mgr.EdgeLoadbalancerBaseManager._lbv2_driver = self.lbv2_driver
-        base_mgr.EdgeLoadbalancerBaseManager._core_plugin = self.core_plugin
+        base_mgr.LoadbalancerBaseManager._lbv2_driver = self.lbv2_driver
+        base_mgr.LoadbalancerBaseManager._core_plugin = self.core_plugin
         self._patch_lb_plugin(self.lbv2_driver, self._tested_entity)
 
         self.lb = lb_models.LoadBalancer(LB_ID, LB_TENANT_ID, 'lb-name', '',
