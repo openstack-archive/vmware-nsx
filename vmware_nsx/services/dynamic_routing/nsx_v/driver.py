@@ -297,8 +297,9 @@ class NSXvBgpDriver(object):
         self._plugin._validate_peer_ips(bgp_speaker_id, peers, new_peer)
 
     def add_bgp_peer(self, context, bgp_speaker_id, bgp_peer_info):
+        bgp_peer_id = self._plugin._get_id_for(bgp_peer_info, 'bgp_peer_id')
         bgp_peer_obj = self._plugin.get_bgp_peer(context,
-                                                 bgp_peer_info['bgp_peer_id'])
+                                                 bgp_peer_id)
         nbr = bgp_neighbour(bgp_peer_obj)
         bgp_bindings = nsxv_db.get_nsxv_bgp_speaker_bindings(context.session,
                                                              bgp_speaker_id)
