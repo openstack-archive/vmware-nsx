@@ -179,7 +179,7 @@ class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
             # No GW network, hence no BGP speaker associated
             return
 
-        context = kwargs['context']
+        context = kwargs['context'].elevated()
         router_id = kwargs['router_id']
         subnets = kwargs.get('subnets')
         network_id = kwargs['network_id']
@@ -203,6 +203,7 @@ class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
 
     def router_gateway_callback(self, resource, event, trigger, **kwargs):
         context = kwargs.get('context') or n_context.get_admin_context()
+        context = context.elevated()
         router_id = kwargs['router_id']
         network_id = kwargs['network_id']
         speakers = self._bgp_speakers_for_gateway_network(context, network_id)
@@ -227,7 +228,7 @@ class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
 
     def _before_service_edge_delete_callback(self, resource, event,
                                              trigger, **kwargs):
-        context = kwargs['context']
+        context = kwargs['context'].elevated()
         router = kwargs['router']
         ext_net_id = router.gw_port and router.gw_port['network_id']
         gw_ip = router.gw_port and router.gw_port['fixed_ips'][0]['ip_address']
@@ -244,7 +245,7 @@ class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
 
     def _after_service_edge_create_callback(self, resource, event,
                                             trigger, **kwargs):
-        context = kwargs['context']
+        context = kwargs['context'].elevated()
         router = kwargs['router']
         ext_net_id = router.gw_port and router.gw_port['network_id']
         speakers = self._bgp_speakers_for_gateway_network(context, ext_net_id)
