@@ -97,6 +97,7 @@ from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
 from vmware_nsx.plugins.nsx_v3 import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
+from vmware_nsx.services.fwaas.nsx_v3 import fwaas_callbacks
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v3 import driver as qos_driver
 from vmware_nsx.services.trunk.nsx_v3 import driver as trunk_driver
@@ -227,6 +228,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # init profiles on nsx backend
         self._init_nsx_profiles()
 
+        # Init the FWaaS support
+        self._init_fwaas()
+
         # Include exclude NSGroup
         LOG.debug("Initializing NSX v3 Excluded Port NSGroup")
         self._excluded_port_nsgroup = None
@@ -246,6 +250,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         # Register NSXv3 trunk driver to support trunk extensions
         self.trunk_driver = trunk_driver.NsxV3TrunkDriver.create(self)
+
+    def _init_fwaas(self):
+        # Bind FWaaS callbacks to the driver
+        self.fwaas_callbacks = fwaas_callbacks.Nsxv3FwaasCallbacks(self.nsxlib)
 
     def init_availability_zones(self):
         # availability zones are supported only with native dhcp
@@ -2776,7 +2784,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._routerlib.add_router_link_port(nsx_router_id, new_tier0_uuid,
                                                  tags=tags)
         if add_snat_rules:
-            self._routerlib.add_gw_snat_rule(nsx_router_id, newaddr)
+            self._routerlib.add_gw_snat_rule(nsx_router_id, newaddr,
+                                             bypass_firewall=False)
         if bgp_announce:
             # TODO(berlin): bgp announce on new tier0 router
             pass
@@ -3230,7 +3239,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                                      router_id)
             self._routerlib.add_fip_nat_rules(
                 nsx_router_id, new_fip['floating_ip_address'],
-                new_fip['fixed_ip_address'])
+                new_fip['fixed_ip_address'],
+                bypass_firewall=False)
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 self.delete_floatingip(context, new_fip['id'])
@@ -3304,7 +3314,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                                          router_id)
                 self._routerlib.add_fip_nat_rules(
                     nsx_router_id, new_fip['floating_ip_address'],
-                    new_fip['fixed_ip_address'])
+                    new_fip['fixed_ip_address'],
+                    bypass_firewall=False)
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 super(NsxV3Plugin, self).update_floatingip(

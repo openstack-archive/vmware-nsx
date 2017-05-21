@@ -171,3 +171,20 @@ Enable trunk service and configure following flags in ``local.conf``::
     # Trunk plugin NSXv3 driver config
     ENABLED_SERVICES+=,q-trunk
     Q_SERVICE_PLUGIN_CLASSES=trunk
+
+FWAAS (V1) Driver:
+~~~~~~~~~~~~~
+
+Add neutron-fwaas repo as an external repository and configure following flags in ``local.conf``::
+
+    [[local|localrc]]
+    enable_plugin neutron-fwaas https://git.openstack.org/openstack/neutron-fwaas
+    ENABLED_SERVICES+=,q-fwaas
+
+    [[post-config|$NEUTRON_CONF]]
+    [DEFAULT]
+    service_plugins = neutron_fwaas.services.firewall.fwaas_plugin.FirewallPlugin
+
+    [fwaas]
+    enabled = True
+    driver = vmware_nsxv3_edge

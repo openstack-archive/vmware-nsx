@@ -149,6 +149,11 @@ def _mock_nsx_backend_calls():
         side_effect=_return_id_key).start()
 
     mock.patch(
+        "vmware_nsxlib.v3.core_resources.NsxLibLogicalRouter."
+        "get_firewall_section_id",
+        side_effect=_return_id_key).start()
+
+    mock.patch(
         "vmware_nsxlib.v3.NsxLib.get_version",
         return_value='1.1.0').start()
 
@@ -562,6 +567,11 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxV3PluginTestCaseMixin):
         cfg.CONF.set_default('max_routes', 3)
         self.addCleanup(restore_l3_attribute_map, self._l3_attribute_map_bk)
         ext_mgr = ext_mgr or TestL3ExtensionManager()
+        mock_nsx_version = mock.patch.object(nsx_plugin.utils,
+                                             'is_nsx_version_2_0_0',
+                                             new=lambda v: True)
+        mock_nsx_version.start()
+
         super(L3NatTest, self).setUp(
             plugin=plugin, ext_mgr=ext_mgr, service_plugins=service_plugins)
         self.plugin_instance = directory.get_plugin()
