@@ -50,21 +50,21 @@ def listener_to_edge_app_profile(listener, edge_cert_id):
             edge_app_profile['sslPassthrough'] = True
 
     if listener.default_pool:
-        if listener.default_pool.sessionpersistence:
+        if listener.default_pool.session_persistence:
             persistence = {
                 'method':
                     lb_const.SESSION_PERSISTENCE_METHOD_MAP.get(
-                        listener.default_pool.sessionpersistence.type)}
+                        listener.default_pool.session_persistence.type)}
 
-            if (listener.default_pool.sessionpersistence.type in
+            if (listener.default_pool.session_persistence.type in
                     lb_const.SESSION_PERSISTENCE_COOKIE_MAP):
                 persistence.update({
                     'cookieName': getattr(
-                        listener.default_pool.sessionpersistence,
+                        listener.default_pool.session_persistence,
                         'cookie_name',
                         'default_cookie_name'),
                     'cookieMode': lb_const.SESSION_PERSISTENCE_COOKIE_MAP[
-                        listener.default_pool.sessionpersistence.type]})
+                        listener.default_pool.session_persistence.type]})
 
                 edge_app_profile['persistence'] = persistence
 
@@ -101,6 +101,18 @@ def listener_to_edge_vse(context, listener, vip_address, default_pool,
         vse['applicationRuleId'] = app_rule_ids
 
     return vse
+
+
+def update_app_profile(vcns, context, listener, edge_id, edge_cert_id=None):
+    lb_id = listener.loadbalancer_id
+    listener_binding = nsxv_db.get_nsxv_lbaas_listener_binding(
+        context.session, lb_id, listener.id)
+    app_profile_id = listener_binding['app_profile_id']
+    app_profile = listener_to_edge_app_profile(listener, edge_cert_id)
+    with locking.LockManager.get_lock(edge_id):
+        vcns.update_app_profile(
+            edge_id, app_profile_id, app_profile)
+    return app_profile_id
 
 
 class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
@@ -233,14 +245,10 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
                     edge_id)
                 edge_cert_id = cert_binding['edge_cert_id']
 
-        app_profile_id = listener_binding['app_profile_id']
-        app_profile = listener_to_edge_app_profile(new_listener, edge_cert_id)
-
         try:
-            with locking.LockManager.get_lock(edge_id):
-                self.vcns.update_app_profile(
-                    edge_id, app_profile_id, app_profile)
-
+            app_profile_id = update_app_profile(
+                self.vcns, context, new_listener,
+                edge_id, edge_cert_id=edge_cert_id)
             vse = listener_to_edge_vse(context, new_listener,
                                        lb_binding['vip_address'],
                                        default_pool,
