@@ -5506,7 +5506,7 @@ class DHCPOptsTestCase(test_dhcpopts.TestExtraDhcpOpt,
 
     def test_update_port_with_blank_string_extradhcpopt(self):
         opt_list = [{'opt_name': 'bootfile-name', 'opt_value': 'pxelinux.0'},
-                    {'opt_name': 'tftp-server-address',
+                    {'opt_name': 'tftp-server',
                      'opt_value': '123.123.123.123'}]
         upd_opts = [{'opt_name': 'bootfile-name', 'opt_value': '    '}]
 
