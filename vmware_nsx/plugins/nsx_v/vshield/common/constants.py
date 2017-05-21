@@ -78,6 +78,7 @@ SUPPORTED_DHCP_OPTIONS = {
     'bootfile-name': 'option67',
     'classless-static-route': 'option121',
     'tftp-server-address': 'option150',
+    'tftp-server': 'option150',
 }
 
 

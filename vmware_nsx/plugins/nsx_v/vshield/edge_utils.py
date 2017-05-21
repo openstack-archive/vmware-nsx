@@ -942,7 +942,8 @@ class EdgeManager(object):
                 net, ip = opt_val.split(',')
                 opt121['staticRoutes'].append({'destinationSubnet': net,
                                                'router': ip})
-            elif opt_name == 'tftp-server-address':
+            elif (opt_name == 'tftp-server-address' or
+                  opt_name == 'tftp-server'):
                 if 'option150' not in static_config['dhcpOptions']:
                     static_config['dhcpOptions']['option150'] = {
                         'tftpServers': []}
