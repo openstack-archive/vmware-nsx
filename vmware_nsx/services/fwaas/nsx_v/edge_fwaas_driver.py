@@ -51,6 +51,7 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
         Return False in those cases:
         - shared router (not supported)
         - router without an external gateway
+        - md proxy router
         """
         if not router_data.get('external_gateway_info'):
             LOG.info("Cannot apply firewall to router %s with no gateway",
@@ -61,6 +62,12 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
             LOG.info("Cannot apply firewall to shared router %s",
                      router_data['id'])
             return False
+
+        if router_data.get('name', '').startswith('metadata_proxy_router'):
+            LOG.info("Cannot apply firewall to the metadata proxy router %s",
+                     router_data['id'])
+            return False
+
         return True
 
     def _get_routers_edges(self, context, apply_list):
