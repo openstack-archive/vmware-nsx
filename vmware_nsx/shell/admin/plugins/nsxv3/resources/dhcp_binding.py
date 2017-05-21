@@ -26,7 +26,6 @@ from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils
 import vmware_nsx.shell.resources as shell
 from vmware_nsxlib.v3 import nsx_constants
-from vmware_nsxlib.v3 import resources
 
 LOG = logging.getLogger(__name__)
 neutron_client = utils.NeutronDbClient()
@@ -66,10 +65,6 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
     cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
     cfg.CONF.set_override('dhcp_profile', dhcp_profile_uuid, 'nsx_v3')
 
-    nsx_client = utils.get_nsxv3_client()
-    port_resource = resources.LogicalPort(nsx_client)
-    dhcp_server_resource = resources.LogicalDhcpServer(nsx_client)
-
     port_bindings = {}    # lswitch_id: [(port_id, mac, ip), ...]
     server_bindings = {}  # lswitch_id: dhcp_server_id
     ports = neutron_client.get_ports()
@@ -96,7 +91,7 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
                 server_data = nsxlib.native_dhcp.build_server_config(
                     network, subnet, port, net_tags)
                 server_data['dhcp_profile_id'] = dhcp_profile_uuid
-                dhcp_server = dhcp_server_resource.create(**server_data)
+                dhcp_server = nsxlib.dhcp_server.create(**server_data)
                 LOG.info("Created logical DHCP server %(server)s for "
                          "network %(network)s",
                          {'server': dhcp_server['id'],
@@ -107,7 +102,7 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
                 # Update logical port for DHCP purpose.
                 lswitch_id, lport_id = (
                     neutron_client.get_lswitch_and_lport_id(port['id']))
-                port_resource.update(
+                nsxlib.logical_port.update(
                     lport_id, dhcp_server['id'],
                     attachment_type=nsx_constants.ATTACHMENT_DHCP)
                 server_bindings[lswitch_id] = dhcp_server['id']
@@ -136,7 +131,7 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
                 {'network': '%s' % cfg.CONF.nsx_v3.native_metadata_route,
                  'next_hop': ip}]}}
             subnet = neutron_client.get_subnet(subnet_id)
-            binding = dhcp_server_resource.create_binding(
+            binding = nsxlib.dhcp_server.create_binding(
                 dhcp_server_id, mac, ip, hostname,
                 cfg.CONF.nsx_v3.dhcp_lease_time, options,
                 subnet.get('gateway_ip'))

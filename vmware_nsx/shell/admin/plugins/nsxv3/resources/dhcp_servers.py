@@ -25,14 +25,10 @@ from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils
 import vmware_nsx.shell.resources as shell
 from vmware_nsxlib.v3 import nsx_constants
-from vmware_nsxlib.v3 import resources
 
 LOG = logging.getLogger(__name__)
 neutron_client = utils.NeutronDbClient()
-nsx_client = utils.get_nsxv3_client()
 nsxlib = utils.get_connected_nsxlib()
-port_resource = resources.LogicalPort(nsx_client)
-dhcp_server_resource = resources.LogicalDhcpServer(nsx_client)
 
 
 def _get_dhcp_profile_uuid(**kwargs):
@@ -54,7 +50,7 @@ def _get_orphaned_dhcp_servers(dhcp_profile_uuid):
     server_net_pairs = []
 
     # Find matching DHCP servers for a given dhcp_profile_uuid.
-    response = dhcp_server_resource.list()
+    response = nsxlib.dhcp_server.list()
     for dhcp_server in response['results']:
         if dhcp_server['dhcp_profile_id'] != dhcp_profile_uuid:
             continue
@@ -140,12 +136,14 @@ def nsx_clean_orphaned_dhcp_servers(resource, event, trigger, **kwargs):
 
     for server in orphaned_servers:
         try:
+            # TODO(asarfaty): should add this as api to nsxlib instead of
+            # abusing it
             resource = ('?attachment_type=DHCP_SERVICE&attachment_id=%s' %
                         server['id'])
-            response = port_resource._client.url_get(resource)
+            response = nsxlib.logical_port.get(resource)
             if response and response['result_count'] > 0:
-                port_resource.delete(response['results'][0]['id'])
-            dhcp_server_resource.delete(server['id'])
+                nsxlib.logical_port.delete(response['results'][0]['id'])
+            nsxlib.dhcp_server.delete(server['id'])
             net_id = server.get('neutron_net_id')
             if net_id:
                 # Delete neutron_net_id -> dhcp_service_id mapping from the DB.

@@ -98,9 +98,9 @@ from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v3 import driver as qos_driver
 from vmware_nsx.services.trunk.nsx_v3 import driver as trunk_driver
+from vmware_nsxlib.v3 import core_resources as nsx_resources
 from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
 from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
-from vmware_nsxlib.v3 import resources as nsx_resources
 from vmware_nsxlib.v3 import router
 from vmware_nsxlib.v3 import security
 from vmware_nsxlib.v3 import utils as nsxlib_utils
@@ -192,7 +192,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         self._nsx_version = self.nsxlib.get_version()
         LOG.info("NSX Version: %s", self._nsx_version)
-        self._nsx_client = self.nsxlib.client
 
         self.cfg_group = 'nsx_v3'  # group name for nsx_v3 section in nsx.ini
         self.tier0_groups_dict = {}
@@ -206,18 +205,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._translate_configured_names_to_uuids()
         self._init_dhcp_metadata()
 
-        self._port_client = nsx_resources.LogicalPort(self._nsx_client)
         self.default_section = self._init_default_section_rules()
         self._process_security_group_logging()
-        self._router_client = nsx_resources.LogicalRouter(self._nsx_client)
-        self._router_port_client = nsx_resources.LogicalRouterPort(
-            self._nsx_client)
-        self._routerlib = router.RouterLib(self._router_client,
-                                           self._router_port_client,
+        self._routerlib = router.RouterLib(self.nsxlib.logical_router,
+                                           self.nsxlib.logical_router_port,
                                            self.nsxlib)
-
-        self._switching_profiles = nsx_resources.SwitchingProfile(
-            self._nsx_client)
 
         # init profiles on nsx backend
         self._init_nsx_profiles()
@@ -259,11 +251,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             msg = _("Unable to initialize NSX v3 port spoofguard "
                     "switching profile: %s") % NSX_V3_PSEC_PROFILE_NAME
             raise nsx_exc.NsxPluginException(err_msg=msg)
-        profiles = nsx_resources.SwitchingProfile
-        self._no_psec_profile_id = profiles.build_switch_profile_ids(
-                self._switching_profiles,
-                self._switching_profiles.find_by_display_name(
-                        NSX_V3_NO_PSEC_PROFILE_NAME)[0])[0]
+        profile_client = self.nsxlib.switching_profile
+        no_psec_prof = profile_client.find_by_display_name(
+                NSX_V3_NO_PSEC_PROFILE_NAME)[0]
+        self._no_psec_profile_id = profile_client.build_switch_profile_ids(
+            profile_client, no_psec_prof)[0]
 
         LOG.debug("Initializing NSX v3 DHCP switching profile")
         try:
@@ -359,7 +351,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             events.BEFORE_DELETE)
 
     def _validate_dhcp_profile(self, dhcp_profile_uuid):
-        dhcp_profile = self._switching_profiles.get(dhcp_profile_uuid)
+        dhcp_profile = self.nsxlib.switching_profile.get(dhcp_profile_uuid)
         if (dhcp_profile.get('resource_type') !=
             nsx_resources.SwitchingProfileTypes.SWITCH_SECURITY):
             msg = _("Invalid configuration on the backend for DHCP "
@@ -379,7 +371,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _init_dhcp_switching_profile(self):
         with locking.LockManager.get_lock('nsxv3_dhcp_profile_init'):
             if not self._get_dhcp_security_profile():
-                self._switching_profiles.create_dhcp_profile(
+                self.nsxlib.switching_profile.create_dhcp_profile(
                     NSX_V3_DHCP_PROFILE_NAME, 'Neutron DHCP Security Profile',
                     tags=self.nsxlib.build_v3_api_version_tag())
             return self._get_dhcp_security_profile()
@@ -387,7 +379,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _get_dhcp_security_profile(self):
         if hasattr(self, '_dhcp_profile') and self._dhcp_profile:
             return self._dhcp_profile
-        profile = self._switching_profiles.find_by_display_name(
+        profile = self.nsxlib.switching_profile.find_by_display_name(
             NSX_V3_DHCP_PROFILE_NAME)
         self._dhcp_profile = nsx_resources.SwitchingProfileTypeId(
             profile_type=(nsx_resources.SwitchingProfileTypes.
@@ -398,7 +390,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _init_mac_learning_profile(self):
         with locking.LockManager.get_lock('nsxv3_mac_learning_profile_init'):
             if not self._get_mac_learning_profile():
-                self._switching_profiles.create_mac_learning_profile(
+                self.nsxlib.switching_profile.create_mac_learning_profile(
                     NSX_V3_MAC_LEARNING_PROFILE_NAME,
                     'Neutron MAC Learning Profile',
                     tags=self.nsxlib.build_v3_api_version_tag())
@@ -408,7 +400,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if (hasattr(self, '_mac_learning_profile')
             and self._mac_learning_profile):
             return self._mac_learning_profile
-        profile = self._switching_profiles.find_by_display_name(
+        profile = self.nsxlib.switching_profile.find_by_display_name(
             NSX_V3_MAC_LEARNING_PROFILE_NAME)
         self._mac_learning_profile = nsx_resources.SwitchingProfileTypeId(
             profile_type=(nsx_resources.SwitchingProfileTypes.
@@ -417,13 +409,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return self._mac_learning_profile
 
     def _get_port_security_profile_id(self):
-        return nsx_resources.SwitchingProfile.build_switch_profile_ids(
-            self._switching_profiles, self._psec_profile)[0]
+        return self.nsxlib.switching_profile.build_switch_profile_ids(
+            self.nsxlib.switching_profile, self._psec_profile)[0]
 
     def _get_port_security_profile(self):
         if hasattr(self, '_psec_profile') and self._psec_profile:
             return self._psec_profile
-        profile = self._switching_profiles.find_by_display_name(
+        profile = self.nsxlib.switching_profile.find_by_display_name(
             NSX_V3_PSEC_PROFILE_NAME)
         self._psec_profile = profile[0] if profile else None
         return self._psec_profile
@@ -441,7 +433,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if profile:
                 return profile
 
-            self._switching_profiles.create_spoofguard_profile(
+            self.nsxlib.switching_profile.create_spoofguard_profile(
                 NSX_V3_PSEC_PROFILE_NAME, 'Neutron Port Security Profile',
                 whitelist_ports=True, whitelist_switches=False,
                 tags=self.nsxlib.build_v3_api_version_tag())
@@ -492,10 +484,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _init_native_dhcp(self):
         try:
             for az in self.get_azs_list():
-                nsx_resources.DhcpProfile(self._nsx_client).get(
+                self.nsxlib.native_dhcp_profile.get(
                     az._native_dhcp_profile_uuid)
-            self._dhcp_server = nsx_resources.LogicalDhcpServer(
-                self._nsx_client)
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.error("Unable to retrieve DHCP Profile %s, "
@@ -505,8 +495,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _init_native_metadata(self):
         try:
             for az in self.get_azs_list():
-                nsx_resources.MetaDataProxy(self._nsx_client).get(
-                    az._native_md_proxy_uuid)
+                self.nsxlib.native_md_proxy.get(az._native_md_proxy_uuid)
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.error("Unable to retrieve Metadata Proxy %s, "
@@ -817,7 +806,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 name = utils.get_name_and_uuid('%s-%s' % (
                     'mdproxy', created_net['name'] or 'network'),
                                                created_net['id'])
-                md_port = self._port_client.create(
+                md_port = self.nsxlib.logical_port.create(
                     nsx_net_id, az._native_md_proxy_uuid,
                     tags=tags, name=name,
                     attachment_type=nsxlib_consts.ATTACHMENT_MDPROXY)
@@ -1039,12 +1028,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             project_name=context.tenant_name)
         dhcp_server = None
         try:
-            dhcp_server = self._dhcp_server.create(**server_data)
+            dhcp_server = self.nsxlib.dhcp_server.create(**server_data)
             LOG.debug("Created logical DHCP server %(server)s for network "
                       "%(network)s",
                       {'server': dhcp_server['id'], 'network': network['id']})
             name = self._get_port_name(context, port_data)
-            nsx_port = self._port_client.create(
+            nsx_port = self.nsxlib.logical_port.create(
                 nsx_net_id, dhcp_server['id'], tags=port_tags, name=name,
                 attachment_type=nsxlib_consts.ATTACHMENT_DHCP,
                 switch_profile_ids=[self._dhcp_profile])
@@ -1056,7 +1045,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 LOG.error("Unable to create logical DHCP server for "
                           "network %s", network['id'])
                 if dhcp_server:
-                    self._dhcp_server.delete(dhcp_server['id'])
+                    self.nsxlib.dhcp_server.delete(dhcp_server['id'])
                 super(NsxV3Plugin, self).delete_port(
                     context, neutron_port['id'])
 
@@ -1074,7 +1063,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 LOG.error("Failed to create mapping for DHCP port %s,"
                           "deleting port and logical DHCP server",
                           neutron_port['id'])
-                self._dhcp_server.delete(dhcp_server['id'])
+                self.nsxlib.dhcp_server.delete(dhcp_server['id'])
                 self._cleanup_port(context, neutron_port['id'], nsx_port['id'])
 
         # Configure existing ports to work with the new DHCP server
@@ -1108,7 +1097,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                       network_id)
 
         try:
-            self._dhcp_server.delete(dhcp_service['nsx_service_id'])
+            self.nsxlib.dhcp_server.delete(dhcp_service['nsx_service_id'])
             LOG.debug("Deleted logical DHCP server %(server)s for network "
                       "%(network)s",
                       {'server': dhcp_service['nsx_service_id'],
@@ -1205,13 +1194,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   subnet['network_id'])
         if dhcp_info:
             try:
-                self._port_client.delete(dhcp_info['nsx_port_id'])
+                self.nsxlib.logical_port.delete(dhcp_info['nsx_port_id'])
             except Exception as e:
                 LOG.error("Failed to delete logical port %(id)s "
                           "during rollback. Exception: %(e)s",
                           {'id': dhcp_info['nsx_port_id'], 'e': e})
             try:
-                self._dhcp_server.delete(dhcp_info['nsx_service_id'])
+                self.nsxlib.dhcp_server.delete(dhcp_info['nsx_service_id'])
             except Exception as e:
                 LOG.error("Failed to delete logical DHCP server %(id)s "
                           "during rollback. Exception: %(e)s",
@@ -1361,7 +1350,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     nsxlib_consts.SERVICE_DHCP)
                 if dhcp_service:
                     try:
-                        self._dhcp_server.update(
+                        self.nsxlib.dhcp_server.update(
                             dhcp_service['nsx_service_id'], **kwargs)
                     except nsx_lib_exc.ManagerError:
                         with excutils.save_and_reraise_exception():
@@ -1503,10 +1492,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _get_qos_profile_id(self, context, policy_id):
         switch_profile_id = nsx_db.get_switch_profile_by_qos_policy(
             context.session, policy_id)
-        qos_profile = self.nsxlib.qos_switching_profile.get(switch_profile_id)
+        nsxlib_qos = self.nsxlib.qos_switching_profile
+        qos_profile = nsxlib_qos.get(switch_profile_id)
         if qos_profile:
-            profile_ids = self._switching_profiles.build_switch_profile_ids(
-                self._switching_profiles, qos_profile)
+            profile_ids = nsxlib_qos.build_switch_profile_ids(
+                self.nsxlib.switching_profile, qos_profile)
             if profile_ids and len(profile_ids) > 0:
                 # We have only 1 QoS profile, so this array is of size 1
                 return profile_ids[0]
@@ -1620,7 +1610,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         nsx_net_id = port_data[pbin.VIF_DETAILS]['nsx-logical-switch-id']
         try:
-            result = self._port_client.create(
+            result = self.nsxlib.logical_port.create(
                 nsx_net_id, vif_uuid,
                 tags=tags,
                 name=name,
@@ -1701,7 +1691,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _cleanup_port(self, context, port_id, lport_id):
         super(NsxV3Plugin, self).delete_port(context, port_id)
         if lport_id:
-            self._port_client.delete(lport_id)
+            self.nsxlib.logical_port.delete(lport_id)
 
     def _assert_on_external_net_port_with_qos(self, port_data):
         # Prevent creating/update port with QoS policy
@@ -1773,7 +1763,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                  "%(name)s") % {'name': opt_name,
                                                 'val': opt_val})
                         raise n_exc.InvalidInput(error_message=msg)
-            elif not self._dhcp_server.get_dhcp_opt_code(opt_name):
+            elif not self.nsxlib.dhcp_server.get_dhcp_opt_code(opt_name):
                 msg = (_("DHCP option %s is not supported") % opt_name)
                 raise n_exc.InvalidInput(error_message=msg)
 
@@ -1799,7 +1789,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                             'network': net, 'next_hop': ip})
                     else:
                         other_opts.append({
-                            'code': self._dhcp_server.get_dhcp_opt_code(
+                            'code': self.nsxlib.dhcp_server.get_dhcp_opt_code(
                                 opt_name),
                             'values': [opt_val]})
             if other_opts:
@@ -1815,7 +1805,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             options = self._get_dhcp_options(
                 context, ip, port.get(ext_edo.EXTRADHCPOPTS),
                 port['network_id'])
-            binding = self._dhcp_server.create_binding(
+            binding = self.nsxlib.dhcp_server.create_binding(
                 dhcp_service_id, port['mac_address'], ip, hostname,
                 cfg.CONF.nsx_v3.dhcp_lease_time, options, gateway_ip)
             LOG.debug("Created static binding (mac: %(mac)s, ip: %(ip)s, "
@@ -1855,7 +1845,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def _delete_dhcp_binding_on_server(self, context, binding):
         try:
-            self._dhcp_server.delete_binding(
+            self.nsxlib.dhcp_server.delete_binding(
                 binding['nsx_service_id'], binding['nsx_binding_id'])
             LOG.debug("Deleted static binding for port %(port)s) on "
                       "logical DHCP server %(server)s",
@@ -1918,8 +1908,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if dhcp_service:
                 new_ip = ips_to_add[0][1]
                 try:
-                    self._dhcp_server.update(dhcp_service['nsx_service_id'],
-                                             server_ip=new_ip)
+                    self.nsxlib.dhcp_server.update(
+                        dhcp_service['nsx_service_id'],
+                        server_ip=new_ip)
                     LOG.debug("Updated IP %(ip)s for logical DHCP server "
                               "%(server)s",
                               {'ip': new_ip,
@@ -1994,7 +1985,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 # Note that None is valid for gateway_ip, means deleting it.
                 data['gateway_ip'] = gateway_ip
 
-            self._dhcp_server.update_binding(
+            self.nsxlib.dhcp_server.update_binding(
                 binding['nsx_service_id'], binding['nsx_binding_id'], **data)
             LOG.debug("Updated static binding (mac: %(mac)s, ip: %(ip)s, "
                       "gateway: %(gateway)s) for port %(port)s on "
@@ -2163,7 +2154,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if not self._network_is_external(context, port['network_id']):
             _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
                 context.session, port_id)
-            self._port_client.delete(nsx_port_id)
+            self.nsxlib.logical_port.delete(nsx_port_id)
             if not utils.is_nsx_version_1_1_0(self._nsx_version):
                 self._update_lport_with_security_groups(
                     context, nsx_port_id,
@@ -2368,7 +2359,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             switch_profile_ids.append(self._mac_learning_profile)
 
         try:
-            self._port_client.update(
+            self.nsxlib.logical_port.update(
                 lport_id, vif_uuid, name=name,
                 attachment_type=attachment_type,
                 admin_state=updated_port.get('admin_state_up'),
@@ -2751,7 +2742,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # occurred during super.create_router(), which will cause
         # API retry and leaves dangling backend entries.
         try:
-            result = self._router_client.create(
+            result = self.nsxlib.logical_router.create(
                 display_name=utils.get_name_and_uuid(
                     router['name'] or 'router', router['id']),
                 description=router.get('description'),
@@ -2806,7 +2797,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # It is safe to do now as db-level checks for resource deletion were
         # passed (and indeed the resource was removed from the Neutron DB
         try:
-            self._router_client.delete(nsx_router_id, force=True)
+            self.nsxlib.logical_router.delete(nsx_router_id, force=True)
         except nsx_lib_exc.ResourceNotFound:
             # If the logical router was not found on the backend do not worry
             # about it. The conditions has already been logged, so there is no
@@ -2889,8 +2880,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 display_name = utils.get_name_and_uuid(router_name, router_id)
                 nsx_router_id = nsx_router_id or nsx_db.get_nsx_router_id(
                     context.session, router_id)
-                self._router_client.update(nsx_router_id,
-                                           display_name=display_name)
+                self.nsxlib.logical_router.update(nsx_router_id,
+                                                  display_name=display_name)
                 # Update the name of associated logical ports.
                 filters = {'device_id': [router_id],
                            'device_owner': const.ROUTER_INTERFACE_OWNERS}
@@ -2902,8 +2893,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         name = utils.get_name_and_uuid(
                             router_name, port['id'], tag='port')
                         try:
-                            self._port_client.update(nsx_port_id, None,
-                                                     name=name)
+                            self.nsxlib.logical_port.update(nsx_port_id, None,
+                                                            name=name)
                         except Exception as e:
                             LOG.error("Unable to update port %(port_id)s. "
                                       "Reason: %(e)s",
@@ -2912,7 +2903,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if 'description' in router_data:
                 nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                          router_id)
-                self._router_client.update(
+                self.nsxlib.logical_router.update(
                     nsx_router_id,
                     description=router_data['description'])
 
@@ -3123,13 +3114,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 new_using_port_id = ports[0]['id']
                 _net_id, new_nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
                     context.session, new_using_port_id)
-                self._router_port_client.update_by_lswitch_id(
+                self.nsxlib.logical_router_port.update_by_lswitch_id(
                     nsx_router_id, nsx_net_id,
                     linked_logical_switch_port_id={
                         'target_id': new_nsx_port_id},
                     subnets=address_groups)
             else:
-                self._router_port_client.delete_by_lswitch_id(nsx_net_id)
+                self.nsxlib.logical_router_port.delete_by_lswitch_id(
+                    nsx_net_id)
         except nsx_lib_exc.ResourceNotFound:
             LOG.error("router port on router %(router_id)s for net "
                       "%(net_id)s not found at the backend",

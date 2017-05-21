@@ -64,7 +64,7 @@ class NsxV3TrunkHandler(object):
             session=context.session, neutron_id=subport.port_id)[1]
         # Retrieve child logical port from the backend
         try:
-            nsx_child_port = self.plugin_driver._port_client.get(
+            nsx_child_port = self.plugin_driver.nsxlib.logical_port.get(
                 nsx_child_port_id)
         except nsxlib_exc.ResourceNotFound:
             with excutils.save_and_reraise_exception():
@@ -90,7 +90,7 @@ class NsxV3TrunkHandler(object):
             seg_id = None
         # Update logical port in the backend to set/unset parent port
         try:
-            self.plugin_driver._port_client.update(
+            self.plugin_driver.nsxlib.logical_port.update(
                 lport_id=nsx_child_port.get('id'),
                 vif_uuid=subport.port_id,
                 name=nsx_child_port.get('display_name'),

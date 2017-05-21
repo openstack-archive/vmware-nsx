@@ -20,7 +20,6 @@ from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils
 from vmware_nsx.shell import resources as shell
 from vmware_nsxlib.v3 import exceptions as nsx_exc
-from vmware_nsxlib.v3 import resources as nsx_resources
 
 from neutron.db import db_base_plugin_v2
 from neutron.db import l3_db
@@ -29,16 +28,12 @@ from neutron_lib import context as neutron_context
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
+nsxlib = utils.get_connected_nsxlib()
 
 
 class RoutersPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     l3_db.L3_NAT_db_mixin):
     pass
-
-
-def get_router_client():
-    _nsx_client = utils.get_nsxv3_client()
-    return nsx_resources.LogicalRouter(_nsx_client)
 
 
 @admin_utils.output_header
@@ -48,7 +43,6 @@ def list_missing_routers(resource, event, trigger, **kwargs):
     plugin = RoutersPlugin()
     admin_cxt = neutron_context.get_admin_context()
     neutron_routers = plugin.get_routers(admin_cxt)
-    router_client = get_router_client()
     routers = []
     for router in neutron_routers:
         neutron_id = router['id']
@@ -61,7 +55,7 @@ def list_missing_routers(resource, event, trigger, **kwargs):
                             'nsx_id': None})
         else:
             try:
-                router_client.get(nsx_id)
+                nsxlib.logical_router.get(nsx_id)
             except nsx_exc.ResourceNotFound:
                 routers.append({'name': router['name'],
                               'neutron_id': neutron_id,
