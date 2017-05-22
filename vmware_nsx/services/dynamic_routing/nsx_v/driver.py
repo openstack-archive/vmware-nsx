@@ -15,6 +15,7 @@
 #    under the License.
 import netaddr
 
+from neutron_dynamic_routing.extensions import bgp as bgp_ext
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -289,13 +290,20 @@ class NSXvBgpDriver(object):
                                   "edge '%s'", old_bgp_peer['peer_ip'],
                                   binding['edge_id'])
 
+    def _validate_bgp_peer(self, context, bgp_speaker_id, new_peer_id):
+        new_peer = self._plugin._get_bgp_peer(context, new_peer_id)
+        peers = self._plugin._get_bgp_peers_by_bgp_speaker_binding(
+            context, bgp_speaker_id)
+        self._plugin._validate_peer_ips(bgp_speaker_id, peers, new_peer)
+
     def add_bgp_peer(self, context, bgp_speaker_id, bgp_peer_info):
         bgp_peer_obj = self._plugin.get_bgp_peer(context,
                                                  bgp_peer_info['bgp_peer_id'])
-
         nbr = bgp_neighbour(bgp_peer_obj)
         bgp_bindings = nsxv_db.get_nsxv_bgp_speaker_bindings(context.session,
                                                              bgp_speaker_id)
+        self._validate_bgp_peer(context, bgp_speaker_id, bgp_peer_obj['id'])
+
         speaker = self._plugin.get_bgp_speaker(context, bgp_speaker_id)
         # list of tenant edge routers to be removed as bgp-neighbours to this
         # peer if it's associated with specific ESG.
@@ -355,31 +363,41 @@ class NSXvBgpDriver(object):
                 LOG.error("Failed to remove BGP neighbour on GW Edge '%s'",
                           edge_gw)
 
-    def add_gateway_network(self, context, bgp_speaker_id, network_info):
-        gateway_network_id = network_info['network_id']
-        ext_net = self._core_plugin.get_network(context, gateway_network_id)
+    def _validate_gateway_network(self, context, speaker_id, network_id):
+        ext_net = self._core_plugin.get_network(context, network_id)
 
         if not ext_net['subnets']:
-            return
+            LOG.debug("External network should have a subnet before "
+                      "associating it with BGP speaker.")
+            return False
 
         # REVISIT(roeyc): Currently not allowing more than one bgp speaker per
         # gateway network.
-        speaker_on_network = self._plugin._bgp_speakers_for_gateway_network(
-            context, gateway_network_id)
-        if speaker_on_network and speaker_on_network.id != bgp_speaker_id:
-            raise nsx_exc.NsxBgpSpeakerUnableToAddGatewayNetwork(
-                network_id=gateway_network_id, bgp_speaker_id=bgp_speaker_id)
+        speakers_on_network = self._plugin._bgp_speakers_for_gateway_network(
+            context, network_id)
+        if speakers_on_network:
+            raise bgp_ext.BgpSpeakerNetworkBindingError(
+                network_id=network_id,
+                bgp_speaker_id=speakers_on_network[0]['id'])
 
         subnet_id = ext_net['subnets'][0]
         ext_subnet = self._core_plugin.get_subnet(context, subnet_id)
 
         if ext_subnet.get('gateway_ip'):
             raise ext_esg_peer.ExternalSubnetHasGW(
-                network_id=gateway_network_id, subnet_id=subnet_id)
+                network_id=network_id, subnet_id=subnet_id)
 
         if not ext_net[address_scope.IPV4_ADDRESS_SCOPE]:
             raise nsx_exc.NsxBgpSpeakerUnableToAddGatewayNetwork(
-                network_id=gateway_network_id, bgp_speaker_id=bgp_speaker_id)
+                network_id=network_id, bgp_speaker_id=speaker_id)
+        return True
+
+    def add_gateway_network(self, context, bgp_speaker_id, network_info):
+        gateway_network_id = network_info['network_id']
+
+        if not self._validate_gateway_network(context, bgp_speaker_id,
+                                              gateway_network_id):
+            return
 
         edge_router_dict = self._get_dynamic_routing_edge_list(
             context, gateway_network_id, bgp_speaker_id)
