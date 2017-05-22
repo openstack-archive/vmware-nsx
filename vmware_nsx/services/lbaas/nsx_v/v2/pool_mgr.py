@@ -116,6 +116,12 @@ class EdgePoolManager(base_mgr.EdgeLoadbalancerBaseManager):
 
         try:
             with locking.LockManager.get_lock(edge_id):
+                # get the configured monitor-id
+                org_edge_pool = self.vcns.get_pool(edge_id, edge_pool_id)[1]
+                monitor_id = org_edge_pool.get('monitorId')
+                if monitor_id:
+                    edge_pool['monitorId'] = monitor_id
+
                 self.vcns.update_pool(edge_id, edge_pool_id, edge_pool)
 
             self.lbv2_driver.pool.successful_completion(context, new_pool)
