@@ -21,6 +21,7 @@ from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
 from neutron_lib import context as n_context
 from neutron_lib.services import base as service_base
+from oslo_log import log as logging
 
 from vmware_nsx.common import locking
 from vmware_nsx.common import nsxv_constants
@@ -28,6 +29,7 @@ from vmware_nsx.db import nsxv_db
 from vmware_nsx.extensions import edge_service_gateway_bgp_peer as ext_esg
 from vmware_nsx.services.dynamic_routing.nsx_v import driver as nsxv_driver
 
+LOG = logging.getLogger(__name__)
 PLUGIN_NAME = bgp_ext.BGP_EXT_ALIAS + '_nsx_svc_plugin'
 
 
@@ -124,9 +126,9 @@ class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
         return peer
 
     def update_bgp_peer(self, context, bgp_peer_id, bgp_peer):
-        self.nsxv_driver.update_bgp_peer(context, bgp_peer_id, bgp_peer)
         super(NSXvBgpPlugin, self).update_bgp_peer(context,
                                                    bgp_peer_id, bgp_peer)
+        self.nsxv_driver.update_bgp_peer(context, bgp_peer_id, bgp_peer)
         return self.get_bgp_peer(context, bgp_peer_id)
 
     def delete_bgp_peer(self, context, bgp_peer_id):
@@ -134,7 +136,11 @@ class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
         bgp_speaker_ids = self.nsxv_driver._get_bgp_speakers_by_bgp_peer(
             context, bgp_peer_id)
         for speaker_id in bgp_speaker_ids:
-            self.remove_bgp_peer(context, speaker_id, bgp_peer_info)
+            try:
+                self.remove_bgp_peer(context, speaker_id, bgp_peer_info)
+            except bgp_ext.BgpSpeakerPeerNotAssociated:
+                LOG.debug("Couldn't find bgp speaker %s peer binding while "
+                          "deleting bgp peer %s", speaker_id, bgp_peer_id)
         super(NSXvBgpPlugin, self).delete_bgp_peer(context, bgp_peer_id)
 
     def add_bgp_peer(self, context, bgp_speaker_id, bgp_peer_info):
@@ -147,13 +153,11 @@ class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
 
     def remove_bgp_peer(self, context, bgp_speaker_id, bgp_peer_info):
         with locking.LockManager.get_lock(str(bgp_speaker_id)):
-            peers = self.get_bgp_peers_by_bgp_speaker(context, bgp_speaker_id)
-            if bgp_peer_info['bgp_peer_id'] not in [p['id'] for p in peers]:
-                return
+            ret = super(NSXvBgpPlugin, self).remove_bgp_peer(
+                context, bgp_speaker_id, bgp_peer_info)
             self.nsxv_driver.remove_bgp_peer(context,
                                              bgp_speaker_id, bgp_peer_info)
-            return super(NSXvBgpPlugin, self).remove_bgp_peer(
-                context, bgp_speaker_id, bgp_peer_info)
+            return ret
 
     def add_gateway_network(self, context, bgp_speaker_id, network_info):
         with locking.LockManager.get_lock(str(bgp_speaker_id)):
