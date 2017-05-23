@@ -176,9 +176,9 @@ def get_resources(plugin_dir):
 def get_plugin():
     plugin = cfg.CONF.core_plugin
     plugin_name = ''
-    if plugin == constants.NSXV3_PLUGIN:
+    if plugin in (constants.NSXV3_PLUGIN, constants.VMWARE_NSXV3):
         plugin_name = 'nsxv3'
-    elif plugin == constants.NSXV_PLUGIN:
+    elif plugin in (constants.NSXV_PLUGIN, constants.VMWARE_NSXV):
         plugin_name = 'nsxv'
     return plugin_name
 
