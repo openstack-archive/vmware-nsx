@@ -153,10 +153,13 @@ function neutron_plugin_configure_plugin_agent {
 }
 
 function _nsxv3_ini_set {
+    if [[ -z $1 || -z $2 ]]; then
+        if [[ $3 != "" ]]; then
+           die $LINENO $3
+        fi
+    fi
     if [[ $2 != "" ]]; then
         iniset /$Q_PLUGIN_CONF_FILE nsx_v3 $1 $2
-    elif [[ $3 != "" ]]; then
-        die $LINENO $3
     fi
 }
 
