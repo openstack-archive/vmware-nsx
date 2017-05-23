@@ -15,8 +15,9 @@
 
 from sqlalchemy.orm import exc
 
-from neutron.api.v2 import attributes as attr
 from neutron.db import _resource_extend as resource_extend
+
+from neutron_lib.api.definitions import port as port_def
 
 from oslo_db import exception as db_exc
 from oslo_log import log as logging
@@ -31,7 +32,7 @@ LOG = logging.getLogger(__name__)
 class VnicIndexDbMixin(object):
 
     @staticmethod
-    @resource_extend.extends([attr.PORTS])
+    @resource_extend.extends([port_def.COLLECTION_NAME])
     def _extend_port_vnic_index_binding(port_res, port_db):
         state = port_db.vnic_index
         port_res[vnicidx.VNIC_INDEX] = state.index if state else None
