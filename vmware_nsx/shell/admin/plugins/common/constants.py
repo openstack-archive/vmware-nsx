@@ -19,6 +19,8 @@ NSX_INI = '/etc/neutron/plugins/vmware/nsx.ini'
 # NSX Plugin Constants
 NSXV3_PLUGIN = 'vmware_nsx.plugin.NsxV3Plugin'
 NSXV_PLUGIN = 'vmware_nsx.plugin.NsxVPlugin'
+VMWARE_NSXV = 'vmware_nsxv'
+VMWARE_NSXV3 = 'vmware_nsxv3'
 
 # Common Resource Constants
 NETWORKS = 'networks'
