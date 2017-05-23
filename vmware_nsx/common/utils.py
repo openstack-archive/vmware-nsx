@@ -28,13 +28,13 @@ from neutron_lib import constants
 from oslo_context import context as common_context
 from oslo_log import log
 
+from vmware_nsxlib.v3 import nsx_constants as v3_const
+
 LOG = log.getLogger(__name__)
 
 MAX_DISPLAY_NAME_LEN = 40
 NEUTRON_VERSION = n_version.version_info.release_string()
 OS_NEUTRON_ID_SCOPE = 'os-neutron-id'
-NSXV3_VERSION_1_1_0 = '1.1.0'
-NSXV3_VERSION_2_0_0 = '2.0.0'
 
 
 # Allowed network types for the NSX Plugin
@@ -68,12 +68,12 @@ class NsxV3NetworkTypes(object):
 
 def is_nsx_version_1_1_0(nsx_version):
     return (version.LooseVersion(nsx_version) >=
-            version.LooseVersion(NSXV3_VERSION_1_1_0))
+            version.LooseVersion(v3_const.NSX_VERSION_1_1_0))
 
 
 def is_nsx_version_2_0_0(nsx_version):
     return (version.LooseVersion(nsx_version) >=
-            version.LooseVersion(NSXV3_VERSION_2_0_0))
+            version.LooseVersion(v3_const.NSX_VERSION_2_0_0))
 
 
 def is_nsxv_version_6_2(nsx_version):
