@@ -866,7 +866,10 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             network_id = subnet['network_id']
             ports = self.plugin._get_router_interface_ports_by_network(
                 context, router_id, network_id)
-            if not ports:
+            connected_networks = (
+                self.plugin._get_internal_network_ids_by_router(context,
+                                                                router_id))
+            if not ports and not connected_networks:
                 router = self.plugin._get_router(context, router_id)
                 self._notify_before_router_edge_association(context, router)
             with locking.LockManager.get_lock(str(edge_id)):
@@ -881,8 +884,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                                                 router_id, network_id)
                     # unbind all services if no interfaces attached to the
                     # router
-                    if not self.plugin._get_internal_network_ids_by_router(
-                            context, router_id):
+                    if not connected_networks:
                         self._remove_router_services_on_edge(context,
                                                              router_id)
                         self._unbind_router_on_edge(context, router_id)
