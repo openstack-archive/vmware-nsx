@@ -24,7 +24,7 @@ from vmware_nsx.plugins.nsx_v3 import cert_utils
 from vmware_nsx.plugins.nsx_v3 import utils
 
 
-class NsxV3iClientCertProviderTestCase(unittest.TestCase):
+class NsxV3ClientCertProviderTestCase(unittest.TestCase):
 
     CERT = "-----BEGIN CERTIFICATE-----\n" \
         "MIIDJTCCAg0CBFh36j0wDQYJKoZIhvcNAQELBQAwVzELMAkGA1UEBhMCVVMxEzAR\n" \
