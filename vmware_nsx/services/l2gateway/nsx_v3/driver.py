@@ -140,6 +140,15 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         if not uuidutils.is_uuid_like(devices[0]['device_name']):
             msg = _("Device name must be configured with a UUID")
             raise n_exc.InvalidInput(error_message=msg)
+        # Make sure the L2GW device ID exists as Bridge Cluster on NSX.
+        try:
+            self._core_plugin.nsxlib.bridge_cluster.get(
+                devices[0]['device_name'])
+        except nsxlib_exc.ResourceNotFound:
+            msg = _("Could not find Bridge Cluster for L2 gateway device "
+                    "%s on NSX backend") % devices[0]['device_name']
+            LOG.error(msg)
+            raise n_exc.InvalidInput(error_message=msg)
         # One L2 gateway must have only one interface defined.
         interfaces = devices[0].get(l2gw_const.IFACE_NAME_ATTR)
         if len(interfaces) > 1:
