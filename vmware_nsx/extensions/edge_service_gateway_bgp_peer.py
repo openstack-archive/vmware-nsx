@@ -65,6 +65,11 @@ class ExternalSubnetHasGW(nexception.InvalidInput):
                 "BGP on the network.")
 
 
+class EsgInternalIfaceDoesNotMatch(nexception.InvalidInput):
+    message = _("Given BGP peer IP address doesn't match "
+                "any interface on ESG '%(esg_id)s'")
+
+
 class Edge_service_gateway_bgp_peer(extensions.ExtensionDescriptor):
     """Extension class to allow identifying of-peer with specificN SXv edge
     service gateway.
