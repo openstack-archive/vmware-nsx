@@ -14,20 +14,27 @@ import argparse
 
 from vmware_nsx.api_replay import client
 
+DEFAULT_DOMAIN_ID = 'default'
+
 
 class ApiReplayCli(object):
 
     def __init__(self):
         args = self._setup_argparse()
         client.ApiReplayClient(
-            source_os_tenant_name=args.source_os_tenant_name,
+            source_os_tenant_name=args.source_os_project_name,
+            source_os_tenant_domain_id=args.source_os_project_domain_id,
             source_os_username=args.source_os_username,
+            source_os_user_domain_id=args.source_os_user_domain_id,
             source_os_password=args.source_os_password,
             source_os_auth_url=args.source_os_auth_url,
+            dest_os_tenant_name=args.dest_os_project_name,
+            dest_os_tenant_domain_id=args.dest_os_project_domain_id,
             dest_os_username=args.dest_os_username,
-            dest_os_tenant_name=args.dest_os_tenant_name,
+            dest_os_user_domain_id=args.dest_os_user_domain_id,
             dest_os_password=args.dest_os_password,
-            dest_os_auth_url=args.dest_os_auth_url)
+            dest_os_auth_url=args.dest_os_auth_url,
+            use_old_keystone=args.use_old_keystone)
 
     def _setup_argparse(self):
         parser = argparse.ArgumentParser()
@@ -40,9 +47,19 @@ class ApiReplayCli(object):
             help="The source os-username to use to "
                  "gather neutron resources with.")
         parser.add_argument(
-            "--source-os-tenant-name",
+            "--source-os-user-domain-id",
+            default=DEFAULT_DOMAIN_ID,
+            help="The source os-user-domain-id to use to "
+                 "gather neutron resources with.")
+        parser.add_argument(
+            "--source-os-project-name",
             required=True,
-            help="The source os-tenant-name to use to "
+            help="The source os-project-name to use to "
+                 "gather neutron resource with.")
+        parser.add_argument(
+            "--source-os-project-domain-id",
+            default=DEFAULT_DOMAIN_ID,
+            help="The source os-project-domain-id to use to "
                  "gather neutron resource with.")
         parser.add_argument(
             "--source-os-password",
@@ -61,9 +78,19 @@ class ApiReplayCli(object):
             help="The dest os-username to use to"
                  "gather neutron resources with.")
         parser.add_argument(
-            "--dest-os-tenant-name",
+            "--dest-os-user-domain-id",
+            default=DEFAULT_DOMAIN_ID,
+            help="The dest os-user-domain-id to use to"
+                 "gather neutron resources with.")
+        parser.add_argument(
+            "--dest-os-project-name",
             required=True,
-            help="The dest os-tenant-name to use to "
+            help="The dest os-project-name to use to "
+                 "gather neutron resource with.")
+        parser.add_argument(
+            "--dest-os-project-domain-id",
+            default=DEFAULT_DOMAIN_ID,
+            help="The dest os-project-domain-id to use to "
                  "gather neutron resource with.")
         parser.add_argument(
             "--dest-os-password",
@@ -73,6 +100,12 @@ class ApiReplayCli(object):
             "--dest-os-auth-url",
             required=True,
             help="They keystone api endpoint for this user.")
+
+        parser.add_argument(
+            "--use-old-keystone",
+            default=False,
+            action='store_true',
+            help="Use old keystone client for source authentication.")
 
         # NOTE: this will return an error message if any of the
         # require options are missing.
