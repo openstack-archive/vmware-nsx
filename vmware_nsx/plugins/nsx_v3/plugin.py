@@ -687,14 +687,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return tier0_info['edge_cluster_uuid']
 
     def _validate_external_net_create(self, net_data):
-        is_provider_net = False
         if not validators.is_attr_set(net_data.get(pnet.PHYSICAL_NETWORK)):
             tier0_uuid = self._default_tier0_router
         else:
             tier0_uuid = net_data[pnet.PHYSICAL_NETWORK]
-            is_provider_net = True
         self._routerlib.validate_tier0(self.tier0_groups_dict, tier0_uuid)
-        return (is_provider_net, utils.NetworkTypes.L3_EXT, tier0_uuid, 0)
+        return (True, utils.NetworkTypes.L3_EXT, tier0_uuid, 0)
 
     def _create_network_at_the_backend(self, context, net_data):
         is_provider_net, net_type, physical_net, vlan_id = (
