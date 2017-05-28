@@ -23,8 +23,8 @@ from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as nsxv_exc
 from vmware_nsx.services.lbaas import base_mgr
+from vmware_nsx.services.lbaas import lb_const
 from vmware_nsx.services.lbaas.nsx_v import lbaas_common as lb_common
-from vmware_nsx.services.lbaas.nsx_v import lbaas_const as lb_const
 from vmware_nsx.services.lbaas.nsx_v.v2 import listener_mgr
 
 LOG = logging.getLogger(__name__)
@@ -160,7 +160,7 @@ class EdgePoolManager(base_mgr.EdgeLoadbalancerBaseManager):
                     # the pool session persistence may affect the associated
                     # pool application profile
                     if (pool.session_persistence and listener.default_pool and
-                        listener.default_pool.id == pool.id):
+                            listener.default_pool.id == pool.id):
                         listeners_to_update.append(listener)
 
                     listener_binding = nsxv_db.get_nsxv_lbaas_listener_binding(
