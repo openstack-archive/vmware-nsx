@@ -48,6 +48,7 @@ class Operations(enum.Enum):
     NSX_UPDATE_SECRET = 'nsx-update-secret'
     NSX_RECREATE = 'nsx-recreate'
     NSX_REORDER = 'nsx-reorder'
+    NSX_TAG_DEFAULT = 'nsx-tag-default'
     MIGRATE_TO_DYNAMIC_CRITERIA = 'migrate-to-dynamic-criteria'
     NSX_MIGRATE_V_V3 = 'nsx-migrate-v-v3'
     MIGRATE_TO_POLICY = 'migrate-to-policy'
@@ -84,6 +85,7 @@ nsxv3_resources = {
                                  [Operations.LIST_MISMATCHES.value]),
     constants.PORTS: Resource(constants.PORTS,
                               [Operations.LIST_MISMATCHES.value,
+                               Operations.NSX_TAG_DEFAULT.value,
                                Operations.NSX_MIGRATE_V_V3.value,
                                Operations.NSX_MIGRATE_EXCLUDE_PORTS.value]),
     constants.ROUTERS: Resource(constants.ROUTERS,

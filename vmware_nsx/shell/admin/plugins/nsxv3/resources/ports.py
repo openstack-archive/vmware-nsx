@@ -35,6 +35,7 @@ from vmware_nsxlib.v3 import security
 
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import db_base_plugin_v2
+from neutron.db import l3_db
 from neutron.db import portsecurity_db
 from neutron.extensions import allowedaddresspairs
 from neutron_lib.callbacks import registry
@@ -320,6 +321,39 @@ def migrate_exclude_ports(resource, event, trigger, **kwargs):
             LOG.info("Port %s successfully updated", port_id)
 
 
+def tag_default_ports(resource, event, trigger, **kwargs):
+    nsxlib = v3_utils.get_connected_nsxlib()
+    admin_cxt = neutron_context.get_admin_context()
+
+    # the plugin creation below will create the NS group and update the default
+    # OS section to have the correct applied to group
+    with v3_utils.NsxV3PluginWrapper() as _plugin:
+        neutron_ports = _plugin.get_ports(admin_cxt)
+        for port in neutron_ports:
+            neutron_id = port['id']
+            # get the network nsx id from the mapping table
+            nsx_id = get_port_nsx_id(admin_cxt.session, neutron_id)
+            if not nsx_id:
+                continue
+            device_owner = port['device_owner']
+            if (device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF or
+                device_owner == const.DEVICE_OWNER_DHCP):
+                continue
+            ps = _plugin._get_port_security_binding(admin_cxt,
+                                                    neutron_id)
+            if not ps:
+                continue
+            try:
+                nsx_port = nsxlib.logical_port.get(nsx_id)
+            except nsx_exc.ResourceNotFound:
+                continue
+            tags_update = nsx_port['tags']
+            tags_update += [{'scope': security.PORT_SG_SCOPE,
+                             'tag': plugin.NSX_V3_DEFAULT_SECTION}]
+            nsxlib.logical_port.update(nsx_id, None,
+                                       tags_update=tags_update)
+
+
 registry.subscribe(list_missing_ports,
                    constants.PORTS,
                    shell.Operations.LIST_MISMATCHES.value)
@@ -331,3 +365,8 @@ registry.subscribe(migrate_compute_ports_vms,
 registry.subscribe(migrate_exclude_ports,
                    constants.PORTS,
                    shell.Operations.NSX_MIGRATE_EXCLUDE_PORTS.value)
+
+
+registry.subscribe(tag_default_ports,
+                   constants.PORTS,
+                   shell.Operations.NSX_TAG_DEFAULT.value)
