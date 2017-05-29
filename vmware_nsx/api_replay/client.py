@@ -373,6 +373,8 @@ class ApiReplayClient(object):
         # flat network should be translated to a regular network in nsx-v3.
         if (body.get('provider:network_type') == 'flat'):
             del body['provider:network_type']
+            if 'provider:physical_network' in body:
+                del body['provider:physical_network']
 
         # external networks needs some special care
         if body.get('router:external'):
