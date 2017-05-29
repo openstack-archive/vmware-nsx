@@ -93,17 +93,17 @@ class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
             super(NSXvBgpPlugin, self).delete_bgp_speaker(context,
                                                           bgp_speaker_id)
 
-    def _get_esg_peer_info(self, context, bgp_peer_id):
+    def _add_esg_peer_info(self, context, peer):
         binding = nsxv_db.get_nsxv_bgp_peer_edge_binding(context.session,
-                                                         bgp_peer_id)
+                                                         peer['id'])
         if binding:
-            return binding['edge_id']
+            peer['esg_id'] = binding['edge_id']
 
     def get_bgp_peer(self, context, bgp_peer_id, fields=None):
         peer = super(NSXvBgpPlugin, self).get_bgp_peer(context,
                                                        bgp_peer_id, fields)
-        if fields is None or 'esg_id' in fields:
-            peer['esg_id'] = self._get_esg_peer_info(context, bgp_peer_id)
+        if not fields or 'esg_id' in fields:
+            self._add_esg_peer_info(context, peer)
         return peer
 
     def get_bgp_peers_by_bgp_speaker(self, context,
@@ -112,7 +112,7 @@ class NSXvBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
             context, bgp_speaker_id, fields=fields)
         if fields is None or 'esg_id' in fields:
             for peer in ret:
-                peer['esg_id'] = self._get_esg_peer_info(context, peer['id'])
+                self._add_esg_peer_info(context, peer)
         return ret
 
     def create_bgp_peer(self, context, bgp_peer):
