@@ -15,12 +15,14 @@
 
 from sqlalchemy.orm import exc
 
-from neutron.api.v2 import attributes as attr
 from neutron.db import _model_query as model_query
 from neutron.db import _resource_extend as resource_extend
 from neutron.db import _utils as db_utils
 from neutron.db import api as db_api
 from neutron.db import models_v2
+
+from neutron_lib.api.definitions import network as net_def
+from neutron_lib.api.definitions import port as port_def
 
 from oslo_log import log
 from oslo_utils import uuidutils
@@ -130,8 +132,8 @@ class QoSDbMixin(qos.QueuePluginBase):
                 context.session.delete(binding)
 
     @staticmethod
-    @resource_extend.extends([attr.NETWORKS])
-    @resource_extend.extends([attr.PORTS])
+    @resource_extend.extends([net_def.COLLECTION_NAME])
+    @resource_extend.extends([port_def.COLLECTION_NAME])
     def _extend_dict_qos_queue(obj_res, obj_db):
         queue_mapping = obj_db['qos_queue']
         if queue_mapping:

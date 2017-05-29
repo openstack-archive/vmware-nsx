@@ -20,11 +20,11 @@ from sqlalchemy import orm
 from sqlalchemy.orm import exc
 from sqlalchemy import sql
 
-from neutron.api.v2 import attributes
 from neutron.db import _resource_extend as resource_extend
 from neutron.db import api as db_api
 from neutron.db.models import securitygroup as securitygroups_db
 from neutron.extensions import securitygroup as ext_sg
+from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api import validators
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
@@ -355,7 +355,7 @@ class ExtendedSecurityGroupPropertiesMixin(object):
             sg_res[sg_policy.POLICY] = sg_db.ext_properties.policy
 
     @staticmethod
-    @resource_extend.extends([attributes.PORTS])
+    @resource_extend.extends([port_def.COLLECTION_NAME])
     def _extend_port_dict_provider_security_group(port_res, port_db):
         # Add the provider sg list to the port.
         # later we will remove those from the regular sg list

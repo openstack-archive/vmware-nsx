@@ -18,8 +18,11 @@ import six
 import uuid
 
 import netaddr
+from neutron_lib.api.definitions import network as net_def
+from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import provider_net as pnet
+from neutron_lib.api.definitions import subnet as subnet_def
 from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib import context as n_context
@@ -37,7 +40,6 @@ from oslo_utils import uuidutils
 from sqlalchemy.orm import exc as sa_exc
 
 from neutron.api import extensions as neutron_extensions
-from neutron.api.v2 import attributes as attr
 from neutron.common import ipv6_utils
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
@@ -373,7 +375,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self.fwaas_callbacks = fwaas_callbacks.NsxvFwaasCallbacks()
 
     @staticmethod
-    @resource_extend.extends([attr.NETWORKS])
+    @resource_extend.extends([net_def.COLLECTION_NAME])
     def _ext_extend_network_dict(result, netdb):
         ctx = n_context.get_admin_context()
         # get the core plugin as this is a static method with no 'self'
@@ -383,7 +385,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 ctx.session, netdb, result)
 
     @staticmethod
-    @resource_extend.extends([attr.PORTS])
+    @resource_extend.extends([port_def.COLLECTION_NAME])
     def _ext_extend_port_dict(result, portdb):
         ctx = n_context.get_admin_context()
         # get the core plugin as this is a static method with no 'self'
@@ -393,7 +395,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 ctx.session, portdb, result)
 
     @staticmethod
-    @resource_extend.extends([attr.SUBNETS])
+    @resource_extend.extends([subnet_def.COLLECTION_NAME])
     def _ext_extend_subnet_dict(result, subnetdb):
         ctx = n_context.get_admin_context()
         # get the core plugin as this is a static method with no 'self'
@@ -1717,7 +1719,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._check_update_has_security_groups(port))
 
             # allowed address pair checks
-            attrs = port[attr.PORT]
+            attrs = port[port_def.RESOURCE_NAME]
             if self._check_update_has_allowed_address_pairs(port):
                 if not port_security:
                     raise addr_pair.AddressPairAndPortSecurityRequired()
@@ -1881,7 +1883,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _update_port(self, context, id, port, original_port, is_compute_port,
                      device_id):
-        attrs = port[attr.PORT]
+        attrs = port[port_def.RESOURCE_NAME]
         port_data = port['port']
         dhcp_opts = port_data.get(ext_edo.EXTRADHCPOPTS)
         self._validate_extra_dhcp_options(dhcp_opts)
@@ -2229,7 +2231,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._delete_dhcp_static_binding(context, neutron_db_port)
 
     @staticmethod
-    @resource_extend.extends([attr.PORTS])
+    @resource_extend.extends([port_def.COLLECTION_NAME])
     def _extend_nsx_port_dict_binding(result, portdb):
         result[pbin.VIF_TYPE] = nsx_constants.VIF_TYPE_DVS
         port_attr = portdb.get('nsx_port_attributes')
@@ -2502,7 +2504,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         return subnet
 
     @staticmethod
-    @resource_extend.extends([attr.SUBNETS])
+    @resource_extend.extends([subnet_def.COLLECTION_NAME])
     def _extend_subnet_dict_extended_attributes(subnet_res, subnet_db):
         subnet_attr = subnet_db.get('nsxv_subnet_attributes')
         if subnet_attr:
@@ -3080,7 +3082,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         router_driver.delete_router(context, id)
 
     @staticmethod
-    @resource_extend.extends([attr.NETWORKS])
+    @resource_extend.extends([net_def.COLLECTION_NAME])
     def _extend_availability_zone_hints(net_res, net_db):
         net_res[az_ext.AZ_HINTS] = az_ext.convert_az_string_to_list(
             net_db[az_ext.AZ_HINTS])

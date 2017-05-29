@@ -15,13 +15,13 @@
 
 import uuid
 
+from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.exceptions import port_security as psec_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
 
 from neutron.api import extensions as neutron_extensions
-from neutron.api.v2 import attributes as attr
 from neutron.db import _resource_extend as resource_extend
 from neutron.db import _utils as db_utils
 from neutron.db import agentschedulers_db
@@ -107,7 +107,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         self.setup_dhcpmeta_access()
 
     @staticmethod
-    @resource_extend.extends([attr.PORTS])
+    @resource_extend.extends([port_def.COLLECTION_NAME])
     def _extend_port_dict_binding(result, portdb):
         result[pbin.VIF_TYPE] = nsx_constants.VIF_TYPE_DVS
         port_attr = portdb.get('nsx_port_attributes')

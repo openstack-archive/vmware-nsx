@@ -14,14 +14,16 @@
 #    under the License.
 
 import netaddr
+from neutron_lib.api.definitions import network as net_def
+from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import port_security as psec
+from neutron_lib.api.definitions import subnet as subnet_def
 from neutron_lib.exceptions import port_security as psec_exc
 import six
 
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
 from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
-from neutron.api.v2 import attributes
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
 from neutron.db import _resource_extend as resource_extend
@@ -573,7 +575,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return self.conn.consume_in_threads()
 
     @staticmethod
-    @resource_extend.extends([attributes.NETWORKS])
+    @resource_extend.extends([net_def.COLLECTION_NAME])
     def _ext_extend_network_dict(result, netdb):
         ctx = q_context.get_admin_context()
         # get the core plugin as this is a static method with no 'self'
@@ -583,7 +585,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 ctx.session, netdb, result)
 
     @staticmethod
-    @resource_extend.extends([attributes.PORTS])
+    @resource_extend.extends([port_def.COLLECTION_NAME])
     def _ext_extend_port_dict(result, portdb):
         ctx = q_context.get_admin_context()
         # get the core plugin as this is a static method with no 'self'
@@ -593,7 +595,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 ctx.session, portdb, result)
 
     @staticmethod
-    @resource_extend.extends([attributes.SUBNETS])
+    @resource_extend.extends([subnet_def.COLLECTION_NAME])
     def _ext_extend_subnet_dict(result, subnetdb):
         ctx = q_context.get_admin_context()
         # get the core plugin as this is a static method with no 'self'
@@ -3602,7 +3604,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return self.validate_obj_azs(availability_zones)
 
     @staticmethod
-    @resource_extend.extends([attributes.NETWORKS])
+    @resource_extend.extends([net_def.COLLECTION_NAME])
     def _extend_availability_zone_hints(net_res, net_db):
         net_res[az_ext.AZ_HINTS] = az_ext.convert_az_string_to_list(
             net_db[az_ext.AZ_HINTS])
