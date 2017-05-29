@@ -12,8 +12,11 @@
 
 import six
 
+from keystoneauth1 import identity
+from keystoneauth1 import session
 from neutronclient.common import exceptions as n_exc
 from neutronclient.v2_0 import client
+from oslo_utils import excutils
 
 
 class ApiReplayClient(object):
@@ -24,39 +27,61 @@ class ApiReplayClient(object):
                            'revision',
                            'revision_number']
 
-    def __init__(self, source_os_username, source_os_tenant_name,
+    def __init__(self,
+                 source_os_username, source_os_user_domain_id,
+                 source_os_tenant_name, source_os_tenant_domain_id,
                  source_os_password, source_os_auth_url,
-                 dest_os_username, dest_os_tenant_name,
-                 dest_os_password, dest_os_auth_url):
+                 dest_os_username, dest_os_user_domain_id,
+                 dest_os_tenant_name, dest_os_tenant_domain_id,
+                 dest_os_password, dest_os_auth_url,
+                 use_old_keystone):
 
-        self._source_os_username = source_os_username
-        self._source_os_tenant_name = source_os_tenant_name
-        self._source_os_password = source_os_password
-        self._source_os_auth_url = source_os_auth_url
+        # connect to both clients
+        if use_old_keystone:
+            # Since we are not sure what keystone version will be used on the
+            # source setup, we add an option to use the v2 client
+            self.source_neutron = client.Client(
+                username=source_os_username,
+                tenant_name=source_os_tenant_name,
+                password=source_os_password,
+                auth_url=source_os_auth_url)
+        else:
+            self.source_neutron = self.connect_to_client(
+                username=source_os_username,
+                user_domain_id=source_os_user_domain_id,
+                tenant_name=source_os_tenant_name,
+                tenant_domain_id=source_os_tenant_domain_id,
+                password=source_os_password,
+                auth_url=source_os_auth_url)
 
-        self._dest_os_username = dest_os_username
-        self._dest_os_tenant_name = dest_os_tenant_name
-        self._dest_os_password = dest_os_password
-        self._dest_os_auth_url = dest_os_auth_url
+        self.dest_neutron = self.connect_to_client(
+            username=dest_os_username,
+            user_domain_id=dest_os_user_domain_id,
+            tenant_name=dest_os_tenant_name,
+            tenant_domain_id=dest_os_tenant_domain_id,
+            password=dest_os_password,
+            auth_url=dest_os_auth_url)
 
-        self.source_neutron = client.Client(
-            username=self._source_os_username,
-            tenant_name=self._source_os_tenant_name,
-            password=self._source_os_password,
-            auth_url=self._source_os_auth_url)
-
-        self.dest_neutron = client.Client(
-            username=self._dest_os_username,
-            tenant_name=self._dest_os_tenant_name,
-            password=self._dest_os_password,
-            auth_url=self._dest_os_auth_url)
-
+        # Migrate all the objects
         self.migrate_security_groups()
         self.migrate_qos_policies()
         routers_routes = self.migrate_routers()
         self.migrate_networks_subnets_ports()
         self.migrate_floatingips()
         self.migrate_routers_routes(routers_routes)
+
+    def connect_to_client(self, username, user_domain_id,
+                          tenant_name, tenant_domain_id,
+                          password, auth_url):
+        auth = identity.Password(username=username,
+                                 user_domain_id=user_domain_id,
+                                 password=password,
+                                 project_name=tenant_name,
+                                 project_domain_id=tenant_domain_id,
+                                 auth_url=auth_url)
+        sess = session.Session(auth=auth)
+        neutron = client.Client(session=sess)
+        return neutron
 
     def find_subnet_by_id(self, subnet_id, subnets):
         for subnet in subnets:
@@ -257,7 +282,12 @@ class ApiReplayClient(object):
         each router. Static routes must be added later, after the router
         ports are set.
         """
-        source_routers = self.source_neutron.list_routers()['routers']
+        try:
+            source_routers = self.source_neutron.list_routers()['routers']
+        except Exception:
+            # L3 might be disabled in the source
+            source_routers = []
+
         dest_routers = self.dest_neutron.list_routers()['routers']
         update_routes = {}
 
@@ -328,16 +358,21 @@ class ApiReplayClient(object):
     def fix_network(self, body, dest_default_public_net):
         # neutron doesn't like some fields being None even though its
         # what it returns to us.
-        for field in ['provider:physical_network']:
+        for field in ['provider:physical_network',
+                      'provider:segmentation_id']:
             if field in body and body[field] is None:
                 del body[field]
 
-        # vxlan network with segmentation id should be translated to regular
-        # networks in nsx-v3.
+        # vxlan network with segmentation id should be translated to a regular
+        # network in nsx-v3.
         if (body.get('provider:network_type') == 'vxlan' and
             body.get('provider:segmentation_id') is not None):
             del body['provider:network_type']
             del body['provider:segmentation_id']
+
+        # flat network should be translated to a regular network in nsx-v3.
+        if (body.get('provider:network_type') == 'flat'):
+            del body['provider:network_type']
 
         # external networks needs some special care
         if body.get('router:external'):
@@ -408,9 +443,16 @@ class ApiReplayClient(object):
 
             # only create network if the dest server doesn't have it
             if self.have_id(network['id'], dest_networks) is False:
-                created_net = self.dest_neutron.create_network(
-                    {'network': body})['network']
-                print("Created network:  %s " % created_net)
+                try:
+                    created_net = self.dest_neutron.create_network(
+                        {'network': body})['network']
+                    print("Created network:  %s " % created_net)
+                except Exception as e:
+                    # Print the network and exception to help debugging
+                    with excutils.save_and_reraise_exception():
+                        print("Failed to create network: " + str(body))
+                        print("Source network: " + str(network))
+                        raise e
 
             created_subnet = None
             for subnet_id in network['subnets']:
@@ -497,7 +539,12 @@ class ApiReplayClient(object):
 
     def migrate_floatingips(self):
         """Migrates floatingips from source to dest neutron."""
-        source_fips = self.source_neutron.list_floatingips()['floatingips']
+        try:
+            source_fips = self.source_neutron.list_floatingips()['floatingips']
+        except Exception:
+            # L3 might be disabled in the source
+            source_fips = []
+
         drop_fip_fields = ['status', 'router_id', 'id', 'revision']
 
         for source_fip in source_fips:
