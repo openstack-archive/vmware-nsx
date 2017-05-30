@@ -24,13 +24,12 @@ from tempest.lib.common.utils import data_utils
 from tempest.lib import decorators
 from tempest import test
 
+from vmware_nsx_tempest.common import constants
 from vmware_nsx_tempest.services import nsxv3_client
 
 LOG = logging.getLogger(__name__)
 
 CONF = config.CONF
-
-NSX_FIREWALL_REALIZED_DELAY = 20
 
 
 class NSXv3SecGroupTest(base.BaseSecGroupTest):
@@ -85,44 +84,49 @@ class NSXv3SecGroupTest(base.BaseSecGroupTest):
                              "rule does not match with %s." %
                              (key, value))
 
+    def _wait_till_firewall_gets_realize(self, secgroup, dfw_error_msg=""):
+        nsx_firewall_time_counter = 0
+        nsx_dfw_section = None
+        # wait till timeout or till dfw section
+        while nsx_firewall_time_counter < \
+                constants.NSX_FIREWALL_REALIZED_TIMEOUT and \
+                not nsx_dfw_section:
+            nsx_firewall_time_counter += 1
+            nsx_nsgroup = self.nsx.get_ns_group(secgroup['name'],
+                                                secgroup['id'])
+            nsx_dfw_section = self.nsx.get_firewall_section(secgroup['name'],
+                                                            secgroup['id'])
+            time.sleep(constants.ONE_SEC)
+        self.assertIsNotNone(nsx_nsgroup)
+        self.assertIsNotNone(nsx_dfw_section, dfw_error_msg)
+        return nsx_nsgroup, nsx_dfw_section
+
     @test.attr(type='nsxv3')
     @decorators.idempotent_id('904ca2c1-a14d-448b-b723-a7366e613bf1')
     def test_create_update_nsx_security_group(self):
         # Create a security group
         group_create_body, name = self._create_security_group()
         secgroup = group_create_body['security_group']
-        time.sleep(NSX_FIREWALL_REALIZED_DELAY)
-        LOG.info("Create security group with name %(name)s and id %(id)s",
-                 {'name': secgroup['name'], 'id': secgroup['id']})
+        dfw_error_msg = "Firewall section not found for %s!" % secgroup['name']
+        self._wait_till_firewall_gets_realize(secgroup, dfw_error_msg)
         # List security groups and verify if created group is there in response
         list_body = self.security_groups_client.list_security_groups()
         secgroup_list = list()
         for sg in list_body['security_groups']:
             secgroup_list.append(sg['id'])
         self.assertIn(secgroup['id'], secgroup_list)
-        nsx_nsgroup = self.nsx.get_ns_group(secgroup['name'], secgroup['id'])
-        nsx_dfw_section = self.nsx.get_firewall_section(secgroup['name'],
-                                                        secgroup['id'])
-        self.assertIsNotNone(nsx_nsgroup)
-        self.assertIsNotNone(nsx_dfw_section)
         # Update the security group
         new_name = data_utils.rand_name('security-')
         new_description = data_utils.rand_name('security-description')
         update_body = self.security_groups_client.update_security_group(
-            secgroup['id'],
-            name=new_name,
-            description=new_description)
+            secgroup['id'], name=new_name, description=new_description)
         # Verify if security group is updated
         updated_secgroup = update_body['security_group']
         self.assertEqual(updated_secgroup['name'], new_name)
         self.assertEqual(updated_secgroup['description'], new_description)
-        nsx_nsgroup = self.nsx.get_ns_group(updated_secgroup['name'],
-                                            updated_secgroup['id'])
-        nsx_dfw_section = self.nsx.get_firewall_section(
-            new_name, secgroup['id'])
-        self.assertIsNotNone(nsx_nsgroup)
-        self.assertIsNotNone(nsx_dfw_section,
-                             "Firewall section %s is not updated!")
+        dfw_error_msg = "Firewall section is not updated for %s!" % \
+                        updated_secgroup['name']
+        self._wait_till_firewall_gets_realize(updated_secgroup, dfw_error_msg)
 
     @test.attr(type='nsxv3')
     @decorators.idempotent_id('e637cc59-c5e6-49b5-a539-e517e780656e')
@@ -132,15 +136,13 @@ class NSXv3SecGroupTest(base.BaseSecGroupTest):
         create_body = self.security_groups_client.create_security_group(
             name=name)
         secgroup = create_body['security_group']
-        time.sleep(NSX_FIREWALL_REALIZED_DELAY)
-        nsx_nsgroup = self.nsx.get_ns_group(name, secgroup['id'])
-        nsx_dfw_section = self.nsx.get_firewall_section(name, secgroup['id'])
+        dfw_error_msg = "Firewall section not found for %s!" % secgroup['name']
+        self._wait_till_firewall_gets_realize(secgroup, dfw_error_msg)
         self.assertEqual(secgroup['name'], name)
-        self.assertIsNotNone(nsx_nsgroup)
-        self.assertIsNotNone(nsx_dfw_section)
         # Delete the security group
         self._delete_security_group(secgroup['id'])
-        nsx_nsgroup = self.nsx.get_ns_group(name, secgroup['id'])
+        nsx_nsgroup = self.nsx.get_ns_group(secgroup['name'],
+                                            secgroup['id'])
         nsx_dfw_section = self.nsx.get_firewall_section(name, secgroup['id'])
         self.assertIsNone(nsx_nsgroup)
         self.assertIsNone(nsx_dfw_section)
@@ -150,12 +152,10 @@ class NSXv3SecGroupTest(base.BaseSecGroupTest):
     def test_create_nsx_security_group_rule(self):
         # Create a security group
         create_body, _ = self._create_security_group()
-        time.sleep(NSX_FIREWALL_REALIZED_DELAY)
         secgroup = create_body['security_group']
-        nsx_nsgroup = self.nsx.get_ns_group(secgroup['name'], secgroup['id'])
-        nsx_dfw_section = self.nsx.get_firewall_section(secgroup['name'],
-                                                        secgroup['id'])
-        self.assertIsNotNone(nsx_dfw_section)
+        dfw_error_msg = "Firewall section not found for %s!" % secgroup['name']
+        nsx_nsgroup, nsx_dfw_section = self._wait_till_firewall_gets_realize(
+            secgroup, dfw_error_msg)
         # Create rules for each protocol
         protocols = ['tcp', 'udp', 'icmp']
         client = self.security_group_rules_client
@@ -210,13 +210,10 @@ class NSXv3SecGroupTest(base.BaseSecGroupTest):
     def test_delete_nsx_security_group_rule(self):
         # Create a security group
         create_body, _ = self._create_security_group()
-        time.sleep(NSX_FIREWALL_REALIZED_DELAY)
         secgroup = create_body['security_group']
-        nsx_nsgroup = self.nsx.get_ns_group(secgroup['name'], secgroup['id'])
-        nsx_dfw_section = self.nsx.get_firewall_section(secgroup['name'],
-                                                        secgroup['id'])
-        self.assertIsNotNone(nsx_nsgroup)
-        self.assertIsNotNone(nsx_dfw_section)
+        dfw_error_msg = "Firewall section not found for %s!" % secgroup['name']
+        nsx_nsgroup, nsx_dfw_section = self._wait_till_firewall_gets_realize(
+            secgroup, dfw_error_msg)
         # Create a security group rule
         client = self.security_group_rules_client
         rule_create_body = client.create_security_group_rule(

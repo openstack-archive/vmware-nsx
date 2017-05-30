@@ -26,7 +26,7 @@ from vmware_nsx_tempest.common import constants
 from vmware_nsx_tempest.services import nsxv3_client
 
 CONF = config.CONF
-
+PROVIDER_SECURITY_GRP = 'provider-sec-group'
 LOG = constants.log.getLogger(__name__)
 
 
@@ -70,7 +70,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
                                        project_id=None, provider=False):
         cmgr = cmgr or self.cmgr_adm
         sg_client = cmgr.security_groups_client
-        sg_dict = dict(name=data_utils.rand_name('provider-sec-group'))
+        sg_dict = dict(name=data_utils.rand_name(PROVIDER_SECURITY_GRP))
         if project_id:
             sg_dict['tenant_id'] = project_id
         if provider:
@@ -107,6 +107,23 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
         sg_client = cmgr.security_groups_client
         sg = sg_client.show_security_group(security_group_id)
         return sg.get('security_group', sg)
+
+    def _wait_till_firewall_gets_realize(self, secgroup, dfw_error_msg=""):
+        nsx_firewall_time_counter = 0
+        nsx_dfw_section = None
+        # wait till timeout or till dfw section
+        while nsx_firewall_time_counter < \
+                constants.NSX_FIREWALL_REALIZED_TIMEOUT and \
+                not nsx_dfw_section:
+            nsx_firewall_time_counter += 1
+            nsx_nsgroup = self.nsx.get_ns_group(secgroup['name'],
+                                                secgroup['id'])
+            nsx_dfw_section = self.nsx.get_firewall_section(secgroup['name'],
+                                                            secgroup['id'])
+            time.sleep(constants.ONE_SEC)
+        self.assertIsNotNone(nsx_nsgroup)
+        self.assertIsNotNone(nsx_dfw_section, dfw_error_msg)
+        return nsx_nsgroup, nsx_dfw_section
 
     @test.attr(type='nsxv3')
     @decorators.idempotent_id('4fc39f02-4fb1-4e5c-bf64-b98dd7f514f7')
@@ -180,7 +197,8 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
         sg_rule = self.create_security_group_rule(sg_id, cmgr=self.cmgr_adm,
                                                   protocol='icmp')
         sg_rule.get('id')
-        time.sleep(5)
+        dfw_error_msg = "Firewall section not found for %s!" % sg_name
+        self._wait_till_firewall_gets_realize(sg, dfw_error_msg)
         firewall_section = self.nsx.get_firewall_section(sg_name, sg_id)
         output = self.nsx.get_firewall_section_rules(firewall_section)
         self.assertEqual('DROP', output[0]['action'])
@@ -220,13 +238,11 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
     def test_multiple_provider_security_group(self):
         sg = self.create_security_provider_group(self.cmgr_adm, provider=True)
         sg_id = sg.get('id')
-        sg.get('name')
-        sg_rule = self.create_security_group_rule(sg_id, cmgr=self.cmgr_adm,
-                                                  protocol='icmp')
-        sg_rule.get('id')
-        sg1 = self.create_security_provider_group(self.cmgr_adm, provider=True)
-        sg2 = self.create_security_provider_group(self.cmgr_adm, provider=True)
-        self.assertNotEqual(sg1.get('id'), sg2.get('id'))
+        self.create_security_group_rule(sg_id, cmgr=self.cmgr_adm,
+                                        protocol='icmp')
+        self.assertRaises(exceptions.BadRequest,
+                          self.create_security_provider_group,
+                          self.cmgr_adm, provider=True)
 
     @test.attr(type='nsxv3')
     @decorators.idempotent_id('275abe9f-4f01-46e5-bde0-0b6840290d3b')
@@ -280,28 +296,40 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
     @test.attr(type='nsxv3')
     @decorators.idempotent_id('dfc6bb8e-ba7b-4ce5-b6ee-0d0830d7e152')
     def test_check_security_group_precedence_at_beckend(self):
-        count = 0
         project_id = self.cmgr_adm.networks_client.tenant_id
         provider_sg = \
             self.create_security_provider_group(self.cmgr_adm,
                                                 project_id=project_id,
                                                 provider=True)
         provider_sg_name = provider_sg.get('name')
-        default_sg = \
-            self.create_security_provider_group(self.cmgr_adm,
-                                                project_id=project_id,
-                                                provider=False)
-        sg_name = default_sg.get('name')
-        firewall_section = self.nsx.get_firewall_sections()
-        for sec_name in firewall_section:
-            if (provider_sg_name in sec_name['display_name'] and
-                    sg_name not in sec_name['display_name']):
-                if count == 0:
-                    LOG.info("Provider group has high priority over "
-                             "default sec group")
+        self.create_security_provider_group(self.cmgr_adm,
+                                            project_id=project_id,
+                                            provider=False)
+        # Wait till provider sec gets realize in NSX.
+        nsx_firewall_time_counter = 0
+        provider_sec = False
+        while nsx_firewall_time_counter < \
+                constants.NSX_FIREWALL_REALIZED_TIMEOUT and not provider_sec:
+            nsx_firewall_time_counter += 1
+            firewall_sections = self.nsx.get_firewall_sections()
+            for section in firewall_sections:
+                if provider_sg_name in section['display_name']:
+                    provider_sec = True
                     break
-            count += count
-        self.assertIn(provider_sg_name, sec_name['display_name'])
+            time.sleep(constants.ONE_SEC)
+        for section in firewall_sections:
+            # when execute tempest in parallel fashion,
+            # we create provider security group for other tests,
+            # NSX will return all provider security group from DFW.
+            if PROVIDER_SECURITY_GRP in section['display_name'] and \
+                            provider_sg_name not in section['display_name']:
+                pass
+            else:
+                # check the sec name
+                break
+        msg = "Provider group does not have highest priority " \
+              "over default security group"
+        self.assertIn(provider_sg_name, section['display_name'], msg)
 
     @test.attr(type='nsxv3')
     @decorators.idempotent_id('37d8fbfc-eb3f-40c8-a146-70f5df937a2e')
