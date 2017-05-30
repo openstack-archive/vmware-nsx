@@ -74,8 +74,6 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
         mock.patch('neutron.objects.db.api.create_object').start()
         mock.patch('neutron.objects.db.api.update_object').start()
         mock.patch('neutron.objects.db.api.delete_object').start()
-        mock.patch(
-            'neutron.objects.qos.policy.QosPolicy.obj_load_attr').start()
         mock.patch.object(nsx_db, 'get_switch_profile_by_qos_policy',
                           return_value=self.fake_profile_id).start()
 
@@ -291,9 +289,7 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                         dscp=dscp_mark
                     )
 
-    @mock.patch('neutron.objects.db.api.get_objects',
-                return_value=[])
-    def test_rule_delete_profile(self, mock_objects):
+    def test_rule_delete_profile(self):
         # test the switch profile update when a QoS rule is deleted
         _policy = policy_object.QosPolicy(
             self.ctxt, **self.policy_data['policy'])
@@ -311,11 +307,11 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                 # validate the data on the profile
                 update_profile.assert_called_once_with(
                     self.fake_profile_id,
-                    shaping_enabled=True,
-                    average_bandwidth=2,
-                    burst_size=19200,
+                    shaping_enabled=False,
+                    average_bandwidth=None,
+                    burst_size=None,
                     dscp=0,
-                    peak_bandwidth=4,
+                    peak_bandwidth=None,
                     qos_marking='trusted'
                 )
 
