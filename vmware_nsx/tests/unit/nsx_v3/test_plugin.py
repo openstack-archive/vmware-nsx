@@ -50,6 +50,7 @@ from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.extensions import test_metadata
 from vmware_nsxlib.tests.unit.v3 import mocks as nsx_v3_mocks
 from vmware_nsxlib.tests.unit.v3 import nsxlib_testcase
+from vmware_nsxlib.v3 import exceptions as nsxlib_exc
 
 
 PLUGIN_NAME = 'vmware_nsx.plugin.NsxV3Plugin'
@@ -477,6 +478,16 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
             # get specific fields:
             self._get_ports_with_fields(tenid, 'mac_address', 4)
             self._get_ports_with_fields(tenid, 'network_id', 4)
+
+    def test_port_failure_rollback_dhcp_exception(self):
+        cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        self.plugin = directory.get_plugin()
+        with mock.patch.object(self.plugin, '_add_dhcp_binding',
+                               side_effect=nsxlib_exc.ManagerError):
+            self.port()
+            ctx = context.get_admin_context()
+            networks = self.plugin.get_ports(ctx)
+            self.assertListEqual([], networks)
 
 
 class DHCPOptsTestCase(test_dhcpopts.TestExtraDhcpOpt,
