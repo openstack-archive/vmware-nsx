@@ -122,6 +122,7 @@ class Vcns(object):
                                                          ca_file=ca_file,
                                                          insecure=insecure)
         self._nsx_version = None
+        self._normalized_scoping_objects = None
 
     def _log_request(self, method, uri, body, format):
         if format == 'json':
@@ -877,11 +878,23 @@ class Vcns(object):
                                              format='xml')
         return scoping_objects
 
-    def _scopingobjects_lookup(self, type_names, object_id, name=None):
-        uri = '%s/usermgmt/scopingobjects' % SERVICES_PREFIX
-        h, so_list = self.do_request(HTTP_GET, uri, decode=False,
-                                     format='xml')
-        root = utils.normalize_xml(so_list)
+    def _scopingobjects_lookup(self, type_names, object_id, name=None,
+                               use_cache=False):
+        """Look for a specific object in the NSX scoping objects."""
+        # used cached scoping objects during plugin init since it is
+        # a big structure to retrieve and parse each time.
+        if use_cache and self._normalized_scoping_objects is not None:
+            # Use the cached data
+            root = self._normalized_scoping_objects
+        else:
+            # Not using cache, or we do want to use it,
+            # but it was not saved yet:
+            # So get the data from the NSX and parse it
+            so_list = self.get_scoping_objects()
+            root = utils.normalize_xml(so_list)
+            # Save it for possible usage next time (even if not using cache)
+            self._normalized_scoping_objects = root
+
         for obj in root.iter('object'):
             if (obj.find('objectTypeName').text in type_names and
                     obj.find('objectId').text == object_id and
@@ -890,14 +903,17 @@ class Vcns(object):
 
         return False
 
-    def validate_datacenter_moid(self, object_id):
-        return self._scopingobjects_lookup(['Datacenter'], object_id)
+    def validate_datacenter_moid(self, object_id, during_init=False):
+        return self._scopingobjects_lookup(['Datacenter'], object_id,
+                                           use_cache=during_init)
 
-    def validate_network(self, object_id):
-        return self._scopingobjects_lookup(NETWORK_TYPES, object_id)
+    def validate_network(self, object_id, during_init=False):
+        return self._scopingobjects_lookup(NETWORK_TYPES, object_id,
+                                           use_cache=during_init)
 
-    def validate_network_name(self, object_id, name):
-        return self._scopingobjects_lookup(NETWORK_TYPES, object_id, name)
+    def validate_network_name(self, object_id, name, during_init=False):
+        return self._scopingobjects_lookup(NETWORK_TYPES, object_id,
+                                           use_cache=during_init)
 
     def validate_vdn_scope(self, object_id):
         uri = '%s/scopes' % VDN_PREFIX

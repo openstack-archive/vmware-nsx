@@ -4216,23 +4216,27 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         # Validate the global & per-AZ validate_datacenter_moid
         if not self.nsx_v.vcns.validate_datacenter_moid(
-                cfg.CONF.nsxv.datacenter_moid):
+                cfg.CONF.nsxv.datacenter_moid,
+                during_init=True):
             raise nsx_exc.NsxResourceNotFound(
                                 res_name='datacenter_moid',
                                 res_id=cfg.CONF.nsxv.datacenter_moid)
         for dc in self._availability_zones_data.get_additional_datacenter():
-            if not self.nsx_v.vcns.validate_datacenter_moid(dc):
+            if not self.nsx_v.vcns.validate_datacenter_moid(
+                dc, during_init=True):
                 raise nsx_exc.NsxAZResourceNotFound(
                     res_name='datacenter_moid', res_id=dc)
 
         # Validate the global & per-AZ external_network
         if not self.nsx_v.vcns.validate_network(
-                cfg.CONF.nsxv.external_network):
+                cfg.CONF.nsxv.external_network,
+                during_init=True):
             raise nsx_exc.NsxResourceNotFound(
                                 res_name='external_network',
                                 res_id=cfg.CONF.nsxv.external_network)
         for ext_net in self._availability_zones_data.get_additional_ext_net():
-            if not self.nsx_v.vcns.validate_network(ext_net):
+            if not self.nsx_v.vcns.validate_network(
+                ext_net, during_init=True):
                 raise nsx_exc.NsxAZResourceNotFound(
                     res_name='external_network', res_id=ext_net)
 

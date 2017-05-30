@@ -1173,13 +1173,13 @@ class FakeVcns(object):
         self._dhcp_bindings = {}
         self._ipam_pools = {}
 
-    def validate_datacenter_moid(self, object_id):
+    def validate_datacenter_moid(self, object_id, during_init=False):
         return True
 
-    def validate_network(self, object_id):
+    def validate_network(self, object_id, during_init=False):
         return True
 
-    def validate_network_name(self, object_id, name):
+    def validate_network_name(self, object_id, name, during_init=False):
         return True
 
     def validate_vdn_scope(self, object_id):
