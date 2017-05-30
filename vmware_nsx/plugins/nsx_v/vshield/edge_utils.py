@@ -1152,6 +1152,17 @@ class EdgeManager(object):
                           binding['status'] == constants.ACTIVE)}
         vdr_dhcp_edges = self._get_vdr_dhcp_edges(context)
 
+        # Special case if there is more than one subnet per exclusive DHCP
+        # network
+        if availability_zone.exclusive_dhcp_edge:
+            router_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
+            edge_id = all_dhcp_edges.get(router_id)
+            if edge_id:
+                LOG.info("Reusing the same DHCP edge for network %s",
+                         network_id)
+                available_edge_ids.append(edge_id)
+                return (conflict_edge_ids, available_edge_ids)
+
         if all_dhcp_edges:
             for dhcp_edge_id in set(all_dhcp_edges.values()):
                 edge_vnic_bindings = nsxv_db.get_edge_vnic_bindings_by_edge(
