@@ -1074,7 +1074,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         if not (self.nsx_v.vcns.
                                 validate_vdn_scope(vdn_scope_id)):
                             raise nsx_exc.NsxResourceNotFound(
-                                res_name=pnet.PHYSICAL_NETWORK,
+                                res_name='vdn_scope_id',
                                 res_id=vdn_scope_id)
                 h, c = self.nsx_v.vcns.create_virtual_wire(vdn_scope_id,
                                                            config_spec)
