@@ -388,3 +388,63 @@ class NsxCertificateRepository(model_base.BASEV2, models.TimestampMixin):
                         primary_key=True)
     certificate = sa.Column(sa.String(9216), nullable=False)
     private_key = sa.Column(sa.String(5120), nullable=False)
+
+
+class NsxLbaasLoadbalancer(model_base.BASEV2, models.TimestampMixin):
+    """Stores mapping of LBaaS loadbalancer and NSX LB service and router
+
+    Since in NSXv3, multiple loadbalancers may share the same LB service
+    on NSX backend. And the in turn LB service attaches to a logical router.
+    This stores the mapping between LBaaS loadbalancer and NSX LB service id
+    and NSX logical router id.
+    """
+    __tablename__ = 'nsxv3_lbaas_loadbalancers'
+    fk_name = 'fk_nsxv3_lbaas_loadbalancers_id'
+    loadbalancer_id = sa.Column(sa.String(36),
+                                sa.ForeignKey('lbaas_loadbalancers.id',
+                                              name=fk_name,
+                                              ondelete="CASCADE"),
+                                primary_key=True)
+    lb_router_id = sa.Column(sa.String(36), nullable=False)
+    lb_service_id = sa.Column(sa.String(36), nullable=False)
+    vip_address = sa.Column(sa.String(36), nullable=False)
+
+
+class NsxLbaasListener(model_base.BASEV2, models.TimestampMixin):
+    """Stores the mapping between LBaaS listener and NSX LB virtual server"""
+    __tablename__ = 'nsxv3_lbaas_listeners'
+    loadbalancer_id = sa.Column(sa.String(36), primary_key=True)
+    listener_id = sa.Column(sa.String(36),
+                            sa.ForeignKey('lbaas_listeners.id',
+                                          name='fk_nsxv3_lbaas_listeners_id',
+                                          ondelete="CASCADE"),
+                            primary_key=True)
+    app_profile_id = sa.Column(sa.String(36), nullable=False)
+    lb_vs_id = sa.Column(sa.String(36), nullable=False)
+
+
+class NsxLbaasPool(model_base.BASEV2, models.TimestampMixin):
+    """Stores the mapping between LBaaS pool and NSX LB Pool"""
+    __tablename__ = 'nsxv3_lbaas_pools'
+    loadbalancer_id = sa.Column(sa.String(36), primary_key=True)
+    pool_id = sa.Column(sa.String(36),
+                        sa.ForeignKey('lbaas_pools.id',
+                                      name='fk_nsxv3_lbaas_pools_id',
+                                      ondelete="CASCADE"),
+                        primary_key=True)
+    lb_pool_id = sa.Column(sa.String(36), nullable=False)
+    lb_vs_id = sa.Column(sa.String(36), nullable=False)
+
+
+class NsxLbaasMonitor(model_base.BASEV2, models.TimestampMixin):
+    """Stores the mapping between LBaaS monitor and NSX LB monitor"""
+    __tablename__ = 'nsxv3_lbaas_monitors'
+    loadbalancer_id = sa.Column(sa.String(36), primary_key=True)
+    pool_id = sa.Column(sa.String(36), primary_key=True)
+    hm_id = sa.Column(sa.String(36),
+                      sa.ForeignKey('lbaas_healthmonitors.id',
+                                    name='fk_nsxv3_lbaas_healthmonitors_id',
+                                    ondelete="CASCADE"),
+                      primary_key=True)
+    lb_monitor_id = sa.Column(sa.String(36), nullable=False)
+    lb_pool_id = sa.Column(sa.String(36), nullable=False)

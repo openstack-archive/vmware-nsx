@@ -72,3 +72,23 @@ L7_RULE_COMPARE_TYPE_STARTS_WITH = 'STARTS_WITH'
 L7_RULE_COMPARE_TYPE_ENDS_WITH = 'ENDS_WITH'
 L7_RULE_COMPARE_TYPE_CONTAINS = 'CONTAINS'
 L7_RULE_COMPARE_TYPE_EQUAL_TO = 'EQUAL_TO'
+
+# Resource type for resources created on NSX backend
+LB_LB_TYPE = 'os-lbaas-lb-id'
+LB_LISTENER_TYPE = 'os-lbaas-listener-id'
+LB_HM_TYPE = 'os-lbaas-hm-id'
+LB_POOL_TYPE = 'os-lbaas-pool-type'
+LB_HTTP_PROFILE = 'LbHttpProfile'
+LB_TCP_PROFILE = 'LbFastTcpProfile'
+NSXV3_MONITOR_MAP = {LB_HEALTH_MONITOR_PING: 'LbIcmpMonitor',
+                     LB_HEALTH_MONITOR_TCP: 'LbTcpMonitor',
+                     LB_HEALTH_MONITOR_HTTP: 'LbHttpMonitor',
+                     LB_HEALTH_MONITOR_HTTPS: 'LbHttpsMonitor'}
+LB_STATS_MAP = {'active_connections': 'current_sessions',
+                'bytes_in': 'bytes_in',
+                'bytes_out': 'bytes_out',
+                'total_connections': 'total_sessions'}
+LR_ROUTER_TYPE = 'os-neutron-router-id'
+LR_PORT_TYPE = 'os-neutron-rport-id'
+DEFAULT_LB_SIZE = 'SMALL'
+LB_FLAVOR_SIZES = ['SMALL', 'MEDIUM', 'LARGE', 'small', 'medium', 'large']
