@@ -20,7 +20,6 @@ from neutron_lib.callbacks import registry
 from neutron_lib import context as neutron_context
 from oslo_log import log as logging
 
-from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import nsx_models
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
@@ -221,7 +220,7 @@ def fix_security_groups(resource, event, trigger, **kwargs):
                 context_, sg_id, nsgroup['id'], fw_section['id'])
             # If version > 1.1 then we use dynamic criteria tags, and the port
             # should already have them.
-            if not utils.is_nsx_version_1_1_0(plugin._nsx_version):
+            if not nsxlib.feature_supported(consts.FEATURE_DYNAMIC_CRITERIA):
                 members = []
                 for port_id in neutron_sg.get_ports_in_security_group(sg_id):
                     lport_id = neutron_sg.get_logical_port_id(port_id)
@@ -279,7 +278,7 @@ def _update_security_group_dynamic_criteria():
 
 @admin_utils.output_header
 def migrate_nsgroups_to_dynamic_criteria(resource, event, trigger, **kwargs):
-    if not utils.is_nsx_version_1_1_0(nsxlib.get_version()):
+    if not nsxlib.feature_supported(consts.FEATURE_DYNAMIC_CRITERIA):
         LOG.error("Dynamic criteria grouping feature isn't supported by "
                   "this NSX version.")
         return

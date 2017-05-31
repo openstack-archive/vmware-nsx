@@ -282,7 +282,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         self._mac_learning_profile = None
         # Only create MAC Learning profile when nsxv3 version >= 1.1.0
-        if utils.is_nsx_version_1_1_0(self._nsx_version):
+        if self.nsxlib.feature_supported(nsxlib_consts.FEATURE_MAC_LEARNING):
             LOG.debug("Initializing NSX v3 Mac Learning switching profile")
             try:
                 self._init_mac_learning_profile()
@@ -1572,12 +1572,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         add_to_exclude_list = False
         if self._is_excluded_port(device_owner, psec_is_on):
-            if utils.is_nsx_version_2_0_0(self._nsx_version):
+            if self.nsxlib.feature_supported(
+                nsxlib_consts.FEATURE_EXCLUDE_PORT_BY_TAG):
                 tags.append({'scope': security.PORT_SG_SCOPE,
                              'tag': nsxlib_consts.EXCLUDE_PORT})
             else:
                 add_to_exclude_list = True
-        elif utils.is_nsx_version_1_1_0(self._nsx_version):
+
+        elif self.nsxlib.feature_supported(
+            nsxlib_consts.FEATURE_DYNAMIC_CRITERIA):
             # If port has no security-groups then we don't need to add any
             # security criteria tag.
             if port_data[ext_sg.SECURITYGROUPS]:
@@ -2117,7 +2120,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                               {'id': neutron_db['id'], 'e': e})
                     self._cleanup_port(context, neutron_db['id'], None)
 
-            if not utils.is_nsx_version_1_1_0(self._nsx_version):
+            if not self.nsxlib.feature_supported(
+                nsxlib_consts.FEATURE_DYNAMIC_CRITERIA):
                 try:
                     self._update_lport_with_security_groups(
                         context, lport['id'], [], sgids or [])
@@ -2202,11 +2206,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
                 context.session, port_id)
             self.nsxlib.logical_port.delete(nsx_port_id)
-            if not utils.is_nsx_version_1_1_0(self._nsx_version):
+            if not self.nsxlib.feature_supported(
+                nsxlib_consts.FEATURE_DYNAMIC_CRITERIA):
                 self._update_lport_with_security_groups(
                     context, nsx_port_id,
                     port.get(ext_sg.SECURITYGROUPS, []), [])
-            if (not utils.is_nsx_version_2_0_0(self._nsx_version) and
+            if (not self.nsxlib.feature_supported(
+                nsxlib_consts.FEATURE_EXCLUDE_PORT_BY_TAG) and
                 self._is_excluded_port(port.get('device_owner'),
                                        port.get('port_security_enabled'))):
                 fs = self.nsxlib.firewall_section
@@ -2349,7 +2355,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         original_excluded = self._is_excluded_port(original_device_owner,
                                                    original_ps)
         if updated_excluded != original_excluded:
-            if utils.is_nsx_version_2_0_0(self._nsx_version):
+            if self.nsxlib.feature_supported(
+                nsxlib_consts.FEATURE_EXCLUDE_PORT_BY_TAG):
                 if updated_excluded:
                     tags_update.append({'scope': security.PORT_SG_SCOPE,
                                         'tag': nsxlib_consts.EXCLUDE_PORT})
@@ -2365,7 +2372,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     fs.remove_member_from_fw_exclude_list(
                         lport_id, nsxlib_consts.TARGET_TYPE_LOGICAL_PORT)
 
-        if utils.is_nsx_version_1_1_0(self._nsx_version):
+        if self.nsxlib.feature_supported(
+            nsxlib_consts.FEATURE_DYNAMIC_CRITERIA):
             tags_update += self.nsxlib.ns_group.get_lport_tags(
                 updated_port.get(ext_sg.SECURITYGROUPS, []) +
                 updated_port.get(provider_sg.PROVIDER_SECURITYGROUPS, []))
@@ -3367,7 +3375,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             project_name=secgroup['tenant_id'])
         name = self.nsxlib.ns_group.get_name(secgroup)
 
-        if utils.is_nsx_version_1_1_0(self._nsx_version):
+        if self.nsxlib.feature_supported(
+            nsxlib_consts.FEATURE_DYNAMIC_CRITERIA):
                 tag_expression = (
                     self.nsxlib.ns_group.get_port_tag_expression(
                         security.PORT_SG_SCOPE, secgroup['id']))

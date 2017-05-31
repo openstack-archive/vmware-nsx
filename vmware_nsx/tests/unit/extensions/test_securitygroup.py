@@ -17,8 +17,8 @@ import mock
 from neutron.extensions import securitygroup as ext_sg
 from neutron.tests.unit.extensions import test_securitygroup as test_ext_sg
 
-from vmware_nsx.plugins.nsx_v3 import plugin as nsx_plugin
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_nsxv3
+from vmware_nsxlib import v3 as nsxlib
 from vmware_nsxlib.v3 import exceptions as nsxlib_exc
 from vmware_nsxlib.v3 import nsx_constants as consts
 
@@ -65,9 +65,8 @@ class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
 
     def setUp(self):
         super(TestSecurityGroupsNoDynamicCriteria, self).setUp()
-        mock_nsx_version = mock.patch.object(nsx_plugin.utils,
-                                             'is_nsx_version_1_1_0',
-                                             new=lambda v: False)
+        mock_nsx_version = mock.patch.object(
+            nsxlib.NsxLib, 'feature_supported', return_value=False)
         mock_nsx_version.start()
         self._patchers.append(mock_nsx_version)
 
