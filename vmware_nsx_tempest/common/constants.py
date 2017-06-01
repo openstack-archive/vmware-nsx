@@ -17,6 +17,9 @@ from oslo_log import log
 
 LOG = log.getLogger(__name__)
 
+# General constants.
+ONE_SEC = 1
+
 # L2GW constants.
 L2GW = "l2_gateway"
 L2GWS = L2GW + "s"
@@ -41,6 +44,9 @@ MD_BASE_URL = "http://169.254.169.254/"
 NSX_BACKEND_TIME_INTERVAL = 30
 NSX_BACKEND_SMALL_TIME_INTERVAL = 10
 NSX_BACKEND_VERY_SMALL_TIME_INTERVAL = 5
+
+# DFW
+NSX_FIREWALL_REALIZED_TIMEOUT = 120
 
 # FWaaS
 NO_OF_ENTRIES = 20

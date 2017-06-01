@@ -21,6 +21,7 @@ from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
+from tempest.lib import exceptions
 from tempest.scenario import manager
 from tempest import test
 
@@ -75,6 +76,7 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
         self.keypairs = {}
         self.servers = []
         self.config_drive = CONF.compute_feature_enabled.config_drive
+        self.cmgr_adm = self.get_client_manager('admin')
 
     def _setup_network_topo(self, enable_snat=None):
         self.security_group = self._create_security_group()
@@ -83,7 +85,8 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
         self.router = self._create_router(
             router_name=data_utils.rand_name('router-smoke'),
             external_network_id=CONF.network.public_network_id,
-            enable_snat=enable_snat)
+            enable_snat=enable_snat,
+            routers_client=self.cmgr_adm.routers_client)
         self.routers_client.add_router_interface(
             self.router['id'], subnet_id=self.subnet['id'])
         self.addCleanup(self.routers_client.remove_router_interface,
@@ -107,18 +110,27 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
                 subnet_id=i['fixed_ips'][0]['subnet_id'])
         self.routers_client.delete_router(router['id'])
 
+    def _update_router(self, router_id, router_client, ext_gw_info):
+        router_client.update_router(
+            router_id=router_id, external_gateway_info=ext_gw_info)
+
     def _create_router(self, router_name=None, admin_state_up=True,
                        external_network_id=None, enable_snat=None,
+                       routers_client=None,
                        **kwargs):
         ext_gw_info = {}
         if external_network_id:
             ext_gw_info['network_id'] = external_network_id
         if enable_snat is not None:
             ext_gw_info['enable_snat'] = enable_snat
+        if not routers_client:
+            routers_client = self.routers_client
         body = self.routers_client.create_router(
-            name=router_name, external_gateway_info=ext_gw_info,
+            name=router_name,
             admin_state_up=admin_state_up, **kwargs)
         router = body['router']
+        # Only admin can configure SNAT parameteters
+        self._update_router(router['id'], routers_client, ext_gw_info)
         self.addCleanup(self._cleanup_router, router)
         return router
 
@@ -246,11 +258,11 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
         self._check_network_vm_connectivity(network=self.network)
         self._check_nonat_network_connectivity(should_connect=False)
         # Update router to disable snat and disassociate floating ip
-        self.routers_client.update_router(
-            self.router['id'],
-            external_gateway_info={
-                'network_id': CONF.network.public_network_id,
-                'enable_snat': (not snat)})
+        external_gateway_info = {
+            'network_id': CONF.network.public_network_id,
+            'enable_snat': (not snat)}
+        self._update_router(self.router['id'], self.cmgr_adm.routers_client,
+            external_gateway_info)
         floating_ip, server = self.floating_ip_tuple
         self._disassociate_floating_ip(floating_ip)
         nsx_router = self.nsx.get_logical_router(
@@ -285,11 +297,11 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
         self.assertTrue(router_adv['advertise_nsx_connected_routes'], adv_msg)
         self._check_nonat_network_connectivity()
         # Update router to Enable snat and associate floating ip
-        self.routers_client.update_router(
-            self.router['id'],
-            external_gateway_info={
-                'network_id': CONF.network.public_network_id,
-                'enable_snat': (not snat)})
+        external_gateway_info = {
+            'network_id': CONF.network.public_network_id,
+            'enable_snat': (not snat)}
+        self._update_router(self.router['id'], self.cmgr_adm.routers_client,
+            external_gateway_info)
         floating_ip = self.create_floating_ip(self.server)
         self.floating_ip_tuple = Floating_IP_tuple(floating_ip, self.server)
         nsx_router = self.nsx.get_logical_router(
@@ -317,3 +329,15 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
     def test_router_nonat_to_nat_ops(self):
         """Test update router from NoNAT to NATed scenario"""
         self._test_router_nat_update_when_no_snat()
+
+    @test.attr(type='nsxv3')
+    @decorators.idempotent_id('971e8e8b-3cf2-47a9-ac24-5b19f586731c')
+    def test_only_admin_can_configure_snat(self):
+        """Only admin can configure the SNAT"""
+        self.security_group = self._create_security_group()
+        self.network = self._create_network()
+        self.subnet = self._create_subnet(self.network)
+        self.assertRaises(exceptions.Forbidden, self._create_router,
+            router_name=data_utils.rand_name('router-smoke'),
+            external_network_id=CONF.network.public_network_id,
+            enable_snat=False)
