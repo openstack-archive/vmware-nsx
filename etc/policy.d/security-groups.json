@@ -1,0 +1,8 @@
+{
+    "create_security_group:logging": "rule:admin_only",
+    "update_security_group:logging": "rule:admin_only",
+    "get_security_group:logging": "rule:admin_only",
+    "create_security_group:provider": "rule:admin_only",
+    "create_security_group:policy": "rule:admin_only",
+    "update_security_group:policy": "rule:admin_only",
+}

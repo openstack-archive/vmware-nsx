@@ -1,0 +1,7 @@
+{
+    "create_flow_classifier": "rule:admin_only",
+    "update_flow_classifier": "rule:admin_only",
+    "delete_flow_classifier": "rule:admin_only",
+    "get_flow_classifier": "rule:admin_only",
+}
+

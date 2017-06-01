@@ -1,0 +1,15 @@
+{
+    "get_bgp_speaker": "rule:admin_only",
+    "create_bgp_speaker": "rule:admin_only",
+    "update_bgp_speaker": "rule:admin_only",
+    "delete_bgp_speaker": "rule:admin_only",
+    "get_bgp_peer": "rule:admin_only",
+    "create_bgp_peer": "rule:admin_only",
+    "update_bgp_peer": "rule:admin_only",
+    "delete_bgp_peer": "rule:admin_only",
+    "add_bgp_peer": "rule:admin_only",
+    "remove_bgp_peer": "rule:admin_only",
+    "add_gateway_network": "rule:admin_only",
+    "remove_gateway_network": "rule:admin_only",
+    "get_advertised_routes":"rule:admin_only",
+}
