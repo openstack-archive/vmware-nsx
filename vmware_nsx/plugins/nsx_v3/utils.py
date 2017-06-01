@@ -56,18 +56,6 @@ class DbCertProvider(client_cert.ClientCertProvider):
         random.seed()
         self.refcount = 0
 
-    def _increase_and_test_first(self):
-        with self.lock:
-            self.refcount += 1
-
-            return (self.refcount == 1)
-
-    def _decrease_and_test_last(self):
-        with self.lock:
-            self.refcount -= 1
-
-            return (self.refcount == 0)
-
     def _check_expiration(self, expires_in_days):
         if expires_in_days > self.EXPIRATION_ALERT_DAYS:
             return
@@ -81,40 +69,49 @@ class DbCertProvider(client_cert.ClientCertProvider):
                         expires_in_days)
 
     def __enter__(self):
-        if not self._increase_and_test_first():
-            # The file was already created and not yet deleted, use it
+        with self.lock:
+            self.refcount += 1
+
+            if self.refcount > 1:
+                # The file was already created and not yet deleted, use it
+                return self
+
+            # No certificate file available - need to create one
+            # Choose a random filename to contain the certificate
+            self._filename = '/tmp/.' + str(random.randint(1, 10000000))
+
+            try:
+                context = q_context.get_admin_context()
+                db_storage_driver = cert_utils.DbCertificateStorageDriver(
+                    context)
+                with client_cert.ClientCertificateManager(
+                    cert_utils.NSX_OPENSTACK_IDENTITY,
+                    None,
+                    db_storage_driver) as cert_manager:
+                    if not cert_manager.exists():
+                        msg = _("Unable to load from nsx-db")
+                        raise nsx_exc.ClientCertificateException(err_msg=msg)
+
+                    if not os.path.exists(os.path.dirname(self._filename)):
+                        if len(os.path.dirname(self._filename)) > 0:
+                            os.makedirs(os.path.dirname(self._filename))
+                    cert_manager.export_pem(self._filename)
+
+                    expires_in_days = cert_manager.expires_in_days()
+                    self._check_expiration(expires_in_days)
+            except Exception as e:
+                # refcount has to be 1 here
+                self._on_exit()
+                raise e
+
+            LOG.debug("Prepared client certificate file")
             return self
 
-        # Choose a random filename to contain cert for the current connection
-        self._filename = '/tmp/.' + str(random.randint(1, 10000000))
-        try:
-            context = q_context.get_admin_context()
-            db_storage_driver = cert_utils.DbCertificateStorageDriver(context)
-            with client_cert.ClientCertificateManager(
-                cert_utils.NSX_OPENSTACK_IDENTITY,
-                None,
-                db_storage_driver) as cert_manager:
-                if not cert_manager.exists():
-                    msg = _("Unable to load from nsx-db")
-                    raise nsx_exc.ClientCertificateException(err_msg=msg)
-
-                if not os.path.exists(os.path.dirname(self._filename)):
-                    if len(os.path.dirname(self._filename)) > 0:
-                        os.makedirs(os.path.dirname(self._filename))
-                cert_manager.export_pem(self._filename)
-
-                expires_in_days = cert_manager.expires_in_days()
-                self._check_expiration(expires_in_days)
-        except Exception as e:
-            self._on_exit()
-            raise e
-
-        LOG.debug("Prepared client certificate file")
-        return self
-
     def _on_exit(self):
-        # I am the last user of this file
-        if self._decrease_and_test_last():
+        self.refcount -= 1
+
+        if self.refcount == 0:
+            # I am the last user of this file
             if os.path.isfile(self._filename):
                 os.remove(self._filename)
                 LOG.debug("Deleted client certificate file")
@@ -122,7 +119,8 @@ class DbCertProvider(client_cert.ClientCertProvider):
             self._filename = None
 
     def __exit__(self, type, value, traceback):
-        self._on_exit()
+        with self.lock:
+            self._on_exit()
 
     def filename(self):
         return self._filename
