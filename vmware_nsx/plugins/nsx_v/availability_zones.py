@@ -96,6 +96,13 @@ class NsxVAvailabilityZone(common_az.ConfiguredAvailabilityZone):
         self.ha_datastore_id = (az_info.get('ha_datastore_id')
                                 if self.edge_ha else None)
 
+        if self.ha_datastore_id and not self.edge_ha:
+            raise nsx_exc.NsxInvalidConfiguration(
+                opt_name="ha_datastore_id",
+                opt_value=self.ha_datastore_id,
+                reason=_("Expected HA datastore ID only when edge_ha is "
+                         "enabled for availability zone %s") % az_name)
+
         # The optional parameters will get the global values if not
         # defined for this AZ
         self.ha_placement_random = az_info.get('ha_placement_random')
