@@ -38,7 +38,11 @@ LISTENER_ID = 'xxx-111'
 EDGE_APP_PROFILE_ID = 'appp-x'
 EDGE_APP_PROF_DEF = {'sslPassthrough': False, 'insertXForwardedFor': False,
                      'serverSslEnabled': False, 'name': LISTENER_ID,
-                     'template': 'http'}
+                     'template': 'http',
+                     'persistence': {
+                          'cookieMode': 'insert',
+                          'cookieName': 'default_cookie_name',
+                          'method': 'cookie'}}
 EDGE_VIP_ID = 'vip-aaa'
 EDGE_VIP_DEF = {'protocol': 'http', 'name': 'vip_' + LISTENER_ID,
                 'connectionLimit': 0, 'defaultPoolId': None,
@@ -108,12 +112,15 @@ class BaseTestEdgeLbaasV2(base.BaseTestCase):
                                            'l-name', '', None, LB_ID,
                                            'HTTP', protocol_port=80,
                                            loadbalancer=self.lb)
+        self.sess_persist = lb_models.SessionPersistence(type='HTTP_COOKIE')
         self.pool = lb_models.Pool(POOL_ID, LB_TENANT_ID, 'pool-name', '',
                                    None, 'HTTP', 'ROUND_ROBIN',
                                    loadbalancer_id=LB_ID,
                                    listener=self.listener,
                                    listeners=[self.listener],
-                                   loadbalancer=self.lb)
+                                   loadbalancer=self.lb,
+                                   session_persistence=self.sess_persist)
+        self.listener.default_pool = self.pool
         self.member = lb_models.Member(MEMBER_ID, LB_TENANT_ID, POOL_ID,
                                        MEMBER_ADDRESS, 80, 1, pool=self.pool)
         self.hm = lb_models.HealthMonitor(HM_ID, LB_TENANT_ID, 'PING', 3, 3,
@@ -271,7 +278,9 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
             mock.patch.object(self.edge_driver.vcns, 'create_vip'
                               ) as mock_create_vip, \
             mock.patch.object(nsxv_db, 'add_nsxv_lbaas_listener_binding'
-                              ) as mock_add_binding:
+                              ) as mock_add_binding, \
+            mock.patch.object(nsxv_db, 'get_nsxv_lbaas_pool_binding',
+                              return_value=None):
             mock_get_lb_binding.return_value = LB_BINDING
             mock_create_app_prof.return_value = (
                 {'location': 'x/' + EDGE_APP_PROFILE_ID}, None)
@@ -297,11 +306,14 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
                                           'l-name', '', None, LB_ID,
                                           'HTTP', protocol_port=8000,
                                           loadbalancer=self.lb)
+        new_listener.default_pool = self.pool
 
         with mock.patch.object(nsxv_db, 'get_nsxv_lbaas_listener_binding'
                                ) as mock_get_listener_binding, \
             mock.patch.object(nsxv_db, 'get_nsxv_lbaas_loadbalancer_binding'
                               ) as mock_get_lb_binding, \
+            mock.patch.object(nsxv_db, 'get_nsxv_lbaas_pool_binding',
+                              return_value=None), \
             mock.patch.object(self.edge_driver.vcns, 'update_app_profile'
                               ) as mock_upd_app_prof, \
             mock.patch.object(self.edge_driver.vcns, 'update_vip'
@@ -371,7 +383,9 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
             mock.patch.object(nsxv_db, 'add_nsxv_lbaas_pool_binding'
                               ) as mock_add_binding, \
             mock.patch.object(self.edge_driver.vcns, 'update_vip'
-                              ) as mock_upd_vip:
+                              ) as mock_upd_vip,\
+            mock.patch.object(self.edge_driver.vcns, 'update_app_profile'
+                              ) as mock_upd_app_prof:
             mock_get_listener_binding.return_value = LISTENER_BINDING
             mock_get_lb_binding.return_value = LB_BINDING
             mock_create_pool.return_value = (
@@ -387,6 +401,9 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
             edge_vip_def['defaultPoolId'] = EDGE_POOL_ID
             mock_upd_vip.assert_called_with(LB_EDGE_ID, EDGE_VIP_ID,
                                             edge_vip_def)
+            mock_upd_app_prof.assert_called_with(LB_EDGE_ID,
+                                                 EDGE_APP_PROFILE_ID,
+                                                 EDGE_APP_PROF_DEF)
             mock_successful_completion = (
                 self.lbv2_driver.pool.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
@@ -396,14 +413,19 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
         new_pool = lb_models.Pool(POOL_ID, LB_TENANT_ID, 'pool-name', '',
                                   None, 'HTTP', 'LEAST_CONNECTIONS',
                                   listener=self.listener)
+        list_bind = {'app_profile_id': EDGE_APP_PROFILE_ID}
         with mock.patch.object(nsxv_db, 'get_nsxv_lbaas_loadbalancer_binding'
                                ) as mock_get_lb_binding, \
             mock.patch.object(nsxv_db, 'get_nsxv_lbaas_pool_binding'
                               ) as mock_get_pool_binding,\
+            mock.patch.object(nsxv_db, 'get_nsxv_lbaas_listener_binding',
+                              return_value=list_bind),\
             mock.patch.object(self.edge_driver.vcns, 'update_pool'
                               ) as mock_upd_pool,\
             mock.patch.object(self.edge_driver.vcns, 'get_pool'
-                              ) as mock_get_pool:
+                              ) as mock_get_pool,\
+            mock.patch.object(self.edge_driver.vcns, 'update_app_profile'
+                              ) as mock_upd_app_prof:
             mock_get_lb_binding.return_value = LB_BINDING
             mock_get_pool_binding.return_value = POOL_BINDING
             fake_edge = EDGE_POOL_DEF.copy()
@@ -416,6 +438,9 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
             edge_pool_def['monitorId'] = 'monitor-7'
             mock_upd_pool.assert_called_with(
                 LB_EDGE_ID, EDGE_POOL_ID, edge_pool_def)
+            mock_upd_app_prof.assert_called_with(LB_EDGE_ID,
+                                                 EDGE_APP_PROFILE_ID,
+                                                 EDGE_APP_PROF_DEF)
             mock_successful_completion = (
                 self.lbv2_driver.pool.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
@@ -433,7 +458,9 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
             mock.patch.object(self.edge_driver.vcns, 'delete_pool'
                               ) as mock_del_pool, \
             mock.patch.object(nsxv_db, 'del_nsxv_lbaas_pool_binding'
-                              ) as mock_del_binding:
+                              ) as mock_del_binding,\
+            mock.patch.object(self.edge_driver.vcns, 'update_app_profile'
+                              ):
             mock_get_lb_binding.return_value = LB_BINDING
             mock_get_pool_binding.return_value = POOL_BINDING
             mock_get_listener_binding.return_value = LISTENER_BINDING
