@@ -4213,6 +4213,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             raise nsx_exc.NsxResourceNotFound(
                                 res_name='dvs_id',
                                 res_id=cfg.CONF.nsxv.dvs_id)
+        for dvs_id in self._availability_zones_data.get_additional_dvs_ids():
+            if not self.nsx_v.vcns.validate_dvs(dvs_id):
+                raise nsx_exc.NsxAZResourceNotFound(
+                    res_name='dvs_id', res_id=dvs_id)
 
         # Validate the global & per-AZ validate_datacenter_moid
         if not self.nsx_v.vcns.validate_datacenter_moid(

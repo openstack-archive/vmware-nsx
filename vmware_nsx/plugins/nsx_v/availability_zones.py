@@ -243,3 +243,6 @@ class NsxVAvailabilityZones(common_az.ConfiguredAvailabilityZones):
 
     def get_additional_datacenter(self):
         return self.get_unique_non_default_param("datacenter_moid")
+
+    def get_additional_dvs_ids(self):
+        return self.get_unique_non_default_param("dvs_id")
