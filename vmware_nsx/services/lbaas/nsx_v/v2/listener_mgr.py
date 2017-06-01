@@ -51,20 +51,22 @@ def listener_to_edge_app_profile(listener, edge_cert_id):
 
     if listener.default_pool:
         if listener.default_pool.session_persistence:
+            pool_sess_persist = listener.default_pool.session_persistence
+            sess_persist_type = pool_sess_persist.type
             persistence = {
                 'method':
                     lb_const.SESSION_PERSISTENCE_METHOD_MAP.get(
-                        listener.default_pool.session_persistence.type)}
+                        sess_persist_type)}
 
-            if (listener.default_pool.session_persistence.type in
+            if (sess_persist_type in
                     lb_const.SESSION_PERSISTENCE_COOKIE_MAP):
+                cookie_name = getattr(pool_sess_persist, 'cookie_name', None)
+                if cookie_name is None:
+                    cookie_name = 'default_cookie_name'
                 persistence.update({
-                    'cookieName': getattr(
-                        listener.default_pool.session_persistence,
-                        'cookie_name',
-                        'default_cookie_name'),
+                    'cookieName': cookie_name,
                     'cookieMode': lb_const.SESSION_PERSISTENCE_COOKIE_MAP[
-                        listener.default_pool.session_persistence.type]})
+                        sess_persist_type]})
 
                 edge_app_profile['persistence'] = persistence
 
