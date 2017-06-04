@@ -53,21 +53,8 @@ def redistribution_rule(advertise_static_routes, prefix_name, action='permit'):
     return {'rule': rule}
 
 
-def bgp_neighbour(bgp_peer):
-    bgp_filter = {'bgpFilter': [{'direction': 'out', 'action': 'permit'}]}
-    nbr = {
-        'ipAddress': bgp_peer['peer_ip'],
-        'remoteAS': bgp_peer['remote_as'],
-        'bgpFilters': bgp_filter,
-        'password': bgp_peer['password'],
-        'holdDownTimer': cfg.CONF.nsxv.bgp_neighbour_hold_down_timer,
-        'keepAliveTimer': cfg.CONF.nsxv.bgp_neighbour_keep_alive_timer
-    }
-    return {'bgpNeighbour': nbr}
-
-
-def gw_bgp_neighbour(ip_address, remote_as, password):
-    bgp_filter = {'bgpFilter': [{'direction': 'in', 'action': 'permit'}]}
+def _get_bgp_neighbour(ip_address, remote_as, password, direction):
+    bgp_filter = {'bgpFilter': [{'direction': direction, 'action': 'permit'}]}
     nbr = {
         'ipAddress': ip_address,
         'remoteAS': remote_as,
@@ -77,6 +64,18 @@ def gw_bgp_neighbour(ip_address, remote_as, password):
         'keepAliveTimer': cfg.CONF.nsxv.bgp_neighbour_keep_alive_timer
     }
     return {'bgpNeighbour': nbr}
+
+
+def bgp_neighbour_from_peer(bgp_peer):
+    return _get_bgp_neighbour(bgp_peer['peer_ip'],
+                              bgp_peer['remote_as'],
+                              bgp_peer['password'],
+                              direction='out')
+
+
+def gw_bgp_neighbour(ip_address, remote_as, password):
+    return _get_bgp_neighbour(ip_address, remote_as, password,
+                              direction='in')
 
 
 class NSXvBgpDriver(object):
@@ -279,7 +278,7 @@ class NSXvBgpDriver(object):
                                                              bgp_peer_id)
         # Update the password for the old bgp peer and update NSX
         old_bgp_peer['password'] = password
-        neighbour = bgp_neighbour(old_bgp_peer)
+        neighbour = bgp_neighbour_from_peer(old_bgp_peer)
         for bgp_speaker_id in bgp_speaker_ids:
             with locking.LockManager.get_lock(bgp_speaker_id):
                 peers = self._plugin.get_bgp_peers_by_bgp_speaker(
@@ -309,7 +308,8 @@ class NSXvBgpDriver(object):
         bgp_peer_id = self._plugin._get_id_for(bgp_peer_info, 'bgp_peer_id')
         bgp_peer_obj = self._plugin.get_bgp_peer(context,
                                                  bgp_peer_id)
-        nbr = bgp_neighbour(bgp_peer_obj)
+
+        nbr = bgp_neighbour_from_peer(bgp_peer_obj)
         bgp_bindings = nsxv_db.get_nsxv_bgp_speaker_bindings(context.session,
                                                              bgp_speaker_id)
         self._validate_bgp_peer(context, bgp_speaker_id, bgp_peer_obj['id'])
@@ -344,7 +344,7 @@ class NSXvBgpDriver(object):
     def remove_bgp_peer(self, context, bgp_speaker_id, bgp_peer_info):
         bgp_peer_id = bgp_peer_info['bgp_peer_id']
         bgp_peer_obj = self._plugin.get_bgp_peer(context, bgp_peer_id)
-        nbr = bgp_neighbour(bgp_peer_obj)
+        nbr = bgp_neighbour_from_peer(bgp_peer_obj)
         bgp_bindings = nsxv_db.get_nsxv_bgp_speaker_bindings(
             context.session, bgp_speaker_id)
         speaker = self._plugin.get_bgp_speaker(context, bgp_speaker_id)
@@ -452,7 +452,8 @@ class NSXvBgpDriver(object):
         prefixes, redis_rules = self._get_prefixes_and_redistribution_rules(
             subnets, advertise_static_routes)
 
-        bgp_neighbours = [bgp_neighbour(bgp_peer) for bgp_peer in bgp_peers]
+        bgp_neighbours = [bgp_neighbour_from_peer(bgp_peer)
+                          for bgp_peer in bgp_peers]
         try:
             self._nsxv.add_bgp_speaker_config(edge_id, bgp_identifier,
                                               local_as, enabled_state,

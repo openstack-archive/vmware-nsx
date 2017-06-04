@@ -105,6 +105,9 @@ class EdgeDynamicRoutingDriver(object):
 
         bgp_config['bgp']['enabled'] = True
 
+        if 'default_originate' in kwargs:
+            bgp_config['bgp']['defaultOriginate'] = kwargs['default_originate']
+
         if 'local_as' in kwargs:
             bgp_config['bgp']['localAS'] = kwargs['local_as']
 
@@ -131,16 +134,17 @@ class EdgeDynamicRoutingDriver(object):
 
     def add_bgp_speaker_config(self, edge_id, prot_router_id, local_as,
                                enabled, bgp_neighbours,
-                               prefixes, redistribution_rules):
+                               prefixes, redistribution_rules,
+                               default_originate=False):
         with locking.LockManager.get_lock(str(edge_id)):
             self._update_routing_config(edge_id,
                                         router_id=prot_router_id,
                                         prefixes_to_add=prefixes)
-            self._update_bgp_routing_config(edge_id, enabled=enabled,
-                                            local_as=local_as,
-                                            neighbours_to_add=bgp_neighbours,
-                                            prefixes_to_add=prefixes,
-                                            rules_to_add=redistribution_rules)
+            self._update_bgp_routing_config(
+                edge_id, enabled=enabled, local_as=local_as,
+                neighbours_to_add=bgp_neighbours, prefixes_to_add=prefixes,
+                rules_to_add=redistribution_rules,
+                default_originate=default_originate)
 
     def delete_bgp_speaker_config(self, edge_id):
         with locking.LockManager.get_lock(str(edge_id)):
