@@ -184,6 +184,16 @@ class NsxBgpSpeakerUnableToAddGatewayNetwork(n_exc.BadRequest):
                 "most.")
 
 
+class NsxBgpNetworkNotExternal(n_exc.BadRequest):
+    message = _("Network %(net_id)s is not external, only external network "
+                "can be associated with a BGP speaker.")
+
+
+class NsxBgpGatewayNetworkHasNoSubnets(n_exc.BadRequest):
+    message = _("Can't associate external network %(net_id)s with BGP "
+                "speaker, network doesn't contain any subnets.")
+
+
 class NsxRouterInterfaceDoesNotMatchAddressScope(n_exc.BadRequest):
     message = _("Unable to update no-NAT router %(router_id)s, "
                 "only subnets allocated from address-scope "
