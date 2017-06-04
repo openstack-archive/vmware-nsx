@@ -4312,7 +4312,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Add the availability zones resources
         az_resources = self._availability_zones_data.get_inventory()
         for res in az_resources:
-            inventory.append((res, 'availability_zones'))
+            inventory.append((res, 'availability_zone ' + res))
 
         if cfg.CONF.nsxv.use_nsx_policies:
             # if use_nsx_policies=True, the default policy must be defined

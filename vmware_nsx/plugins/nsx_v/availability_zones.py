@@ -214,8 +214,10 @@ class NsxVAvailabilityZones(common_az.ConfiguredAvailabilityZones):
         """
         resources = set()
         for az in self.list_availability_zones_objects():
-            resources.add(az.resource_pool)
-            resources.add(az.datastore_id)
+            if az.resource_pool:
+                resources.add(az.resource_pool)
+            if az.datastore_id:
+                resources.add(az.datastore_id)
             if az.ha_datastore_id:
                 resources.add(az.ha_datastore_id)
 
