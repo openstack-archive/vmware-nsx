@@ -926,13 +926,23 @@ class Vcns(object):
 
         return False
 
-    def validate_dvs(self, object_id):
+    def get_dvs_list(self):
         uri = '%s/switches' % VDN_PREFIX
         h, dvs_list = self.do_request(HTTP_GET, uri, decode=False,
                                       format='xml')
         root = utils.normalize_xml(dvs_list)
+        dvs_list = []
         for obj_id in root.iter('objectId'):
-            if obj_id.text == object_id:
+            if obj_id.text:
+                dvs_list.append(obj_id.text)
+
+        return dvs_list
+
+    def validate_dvs(self, object_id, dvs_list=None):
+        if not dvs_list:
+            dvs_list = self.get_dvs_list()
+        for dvs in dvs_list:
+            if dvs == object_id:
                 return True
 
         return False
