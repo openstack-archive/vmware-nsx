@@ -16,6 +16,8 @@
 import copy
 import mock
 
+from neutron_fwaas.extensions import firewall as fw_ext
+
 from vmware_nsx.services.fwaas.nsx_v import edge_fwaas_driver
 from vmware_nsx.tests.unit.nsx_v import test_plugin as test_v_plugin
 
@@ -197,9 +199,17 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
         # not for shared router:
         router['router_type'] = 'shared'
         router['distributed'] = False
-        self.assertFalse(self.firewall.should_apply_firewall_to_router(router))
+        self.assertRaises(fw_ext.FirewallInternalDriverError,
+                          self.firewall.should_apply_firewall_to_router,
+                          router)
 
         # should work for distributed router
         router['router_type'] = 'exclusive'
         router['distributed'] = True
         self.assertTrue(self.firewall.should_apply_firewall_to_router(router))
+
+        # not for mdproxy router:
+        router['name'] = 'metadata_proxy_router'
+        self.assertRaises(fw_ext.FirewallInternalDriverError,
+                          self.firewall.should_apply_firewall_to_router,
+                          router)

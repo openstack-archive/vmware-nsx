@@ -49,22 +49,27 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
         """Return True if the firewall rules should be added the router
 
         Return False in those cases:
+        - router without an external gateway (rule may be added later when
+                                              there is a gateway)
+
+        Raise an exception if the router is unsupported:
         - shared router (not supported)
-        - router without an external gateway
-        - md proxy router
+        - md proxy router (not supported)
+
         """
-        if not router_data.get('external_gateway_info'):
-            LOG.info("Cannot apply firewall to router %s with no gateway",
-                     router_data['id'])
-            return False
         if (not router_data.get('distributed') and
             router_data.get('router_type') == 'shared'):
-            LOG.info("Cannot apply firewall to shared router %s",
-                     router_data['id'])
-            return False
+            LOG.error("Cannot apply firewall to shared router %s",
+                      router_data['id'])
+            raise fw_ext.FirewallInternalDriverError(driver=FWAAS_DRIVER_NAME)
 
         if router_data.get('name', '').startswith('metadata_proxy_router'):
-            LOG.info("Cannot apply firewall to the metadata proxy router %s",
+            LOG.error("Cannot apply firewall to the metadata proxy router %s",
+                      router_data['id'])
+            raise fw_ext.FirewallInternalDriverError(driver=FWAAS_DRIVER_NAME)
+
+        if not router_data.get('external_gateway_info'):
+            LOG.info("Cannot apply firewall to router %s with no gateway",
                      router_data['id'])
             return False
 

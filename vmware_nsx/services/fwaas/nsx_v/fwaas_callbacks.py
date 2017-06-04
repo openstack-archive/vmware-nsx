@@ -78,16 +78,16 @@ class NsxvFwaasCallbacks(firewall_l3_agent.L3WithFWaaS):
         if not self.fwaas_enabled:
             return False
 
+        ctx_elevated = context.elevated()
+        if not self._get_router_firewall_id(ctx_elevated, router_id):
+            # No FWaas Firewall was assigned to this router
+            return False
+
         # get all the relevant router info
         # ("router" does not have all the fields)
-        ctx_elevated = context.elevated()
         router_data = self.core_plugin.get_router(ctx_elevated, router['id'])
         if not router_data:
             LOG.error("Couldn't read router %s data", router['id'])
-            return False
-
-        # Check if the FWaaS driver supports this router
-        if not self.fwaas_driver.should_apply_firewall_to_router(router_data):
             return False
 
         if router_data.get('distributed'):
@@ -98,8 +98,8 @@ class NsxvFwaasCallbacks(firewall_l3_agent.L3WithFWaaS):
                 # Do not add firewall rules on the tlr router.
                 return False
 
-        if not self._get_router_firewall_id(ctx_elevated, router_id):
-            # No FWaas Firewall was assigned to this router
+        # Check if the FWaaS driver supports this router
+        if not self.fwaas_driver.should_apply_firewall_to_router(router_data):
             return False
 
         return True
