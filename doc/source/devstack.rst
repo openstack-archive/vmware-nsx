@@ -89,8 +89,8 @@ lines to the policy.json file::
     "delete_flow_classifier": "rule:admin_only",
     "get_flow_classifier": "rule:admin_only"
 
-FWAAS (V1) Driver:
-~~~~~~~~~~~~~
+FWAAS (V1) Driver
+~~~~~~~~~~~~~~~~~
 
 Add neutron-fwaas repo as an external repository and configure following flags in ``local.conf``::
 
@@ -108,7 +108,8 @@ Add neutron-fwaas repo as an external repository and configure following flags i
 
 
 Neutron dynamic routing plugin (bgp)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Add neutron-dynamic-routing repo as an external repository and configure following flags in ``local.conf``::
 
     [[local|localrc]]
