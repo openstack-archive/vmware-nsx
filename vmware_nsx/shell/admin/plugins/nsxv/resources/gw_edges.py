@@ -13,7 +13,6 @@
 #    under the License.
 import netaddr
 
-from neutron_dynamic_routing.services.bgp.common import constants as bgp_const
 from neutron_lib.callbacks import registry
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -30,6 +29,9 @@ from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell import resources as shell
 
 LOG = logging.getLogger(__name__)
+MIN_ASNUM = 1
+MAX_ASNUM = 65535
+
 nsxv = vcns_driver.VcnsDriver([])
 
 
@@ -37,7 +39,7 @@ def get_ip_prefix(name, ip_address):
     return {'ipPrefix': {'name': name, 'ipAddress': ip_address}}
 
 
-def get_redistribution_rule(prefix_name, learner_protocol, from_bgp, from_ospf,
+def get_redistribution_rule(prefix_name, from_bgp, from_ospf,
                             from_static, from_connected, action):
     rule = {
         'action': action,
@@ -54,7 +56,7 @@ def get_redistribution_rule(prefix_name, learner_protocol, from_bgp, from_ospf,
 
 
 def _validate_asn(asn):
-    if not bgp_const.MIN_ASNUM <= int(asn) <= bgp_const.MAX_ASNUM:
+    if not MIN_ASNUM <= int(asn) <= MAX_ASNUM:
         msg = "Invalid AS number, expecting an integer value (1 - 65535)."
         LOG.error(msg)
         return False
@@ -62,20 +64,22 @@ def _validate_asn(asn):
 
 
 def _extract_interface_info(info):
-    portgroup, address = info.split(':')
+    info = info.split(':')
     try:
-        network = netaddr.IPNetwork(address)
+        network = netaddr.IPNetwork(info[-1])
     except Exception:
-        LOG.error("Invalid IP address given: '%s'.", address)
+        LOG.error("Invalid IP address given: '%s'.", info)
         return None
 
+    portgroup = info[0]
     subnet_mask = str(network.netmask)
     ip_address = str(network.ip)
+
     return portgroup, ip_address, subnet_mask
 
 
-def _assemble_gw_edge(name, size,
-                      external_iface_info, internal_iface_info, az):
+def _assemble_gw_edge(name, size, external_iface_info, internal_iface_info,
+                      default_gateway, az):
     edge = nsxv._assemble_edge(
         name, datacenter_moid=az.datacenter_moid,
         deployment_container_id=az.datastore_id,
@@ -110,11 +114,17 @@ def _assemble_gw_edge(name, size,
     edge['vnics']['vnics'].append(vnic_external)
     edge['vnics']['vnics'].append(vnic_internal)
 
+    edge['features'] = [{'firewall': {'enabled': False}}]
+    if default_gateway:
+        edge['features'] = {'routing':
+                            {'staticRouting':
+                             {'staticRoute':
+                              {'defaultRoute':
+                               {'description': 'default-gateway',
+                                'gatewayAddress': default_gateway}}}}}
+
     header = nsxv.vcns.deploy_edge(edge)[0]
     edge_id = header.get('location', '/').split('/')[-1]
-    disable_fw_req = {'featureType': 'firewall_4.0',
-                      'enabled': False}
-    nsxv.vcns.update_firewall(edge_id, disable_fw_req)
     return edge_id, gateway_ip
 
 
@@ -126,6 +136,7 @@ def create_bgp_gw(resource, event, trigger, **kwargs):
              "--property local-as=<LOCAL_AS_NUMBER> "
              "--property external-iface=<PORTGROUP>:<IP_ADDRESS/PREFIX_LEN> "
              "--property internal-iface=<PORTGROUP>:<IP_ADDRESS/PREFIX_LEN> "
+             "[--property default-gateway=<IP_ADDRESS>] "
              "[--property az-hint=<AZ_HINT>] "
              "[--property size=compact,large,xlarge,quadlarge]")
     required_params = ('name', 'local-as',
@@ -151,6 +162,9 @@ def create_bgp_gw(resource, event, trigger, **kwargs):
     if not (external_iface_info and internal_iface_info):
         return
 
+    default_gw = ('default-gateway' in properties and
+                  _extract_interface_info(properties['default-gateway']))
+
     az_hint = properties.get('az-hint')
     az = nsx_az.NsxVAvailabilityZones().get_availability_zone(az_hint)
 
@@ -158,6 +172,7 @@ def create_bgp_gw(resource, event, trigger, **kwargs):
                                             size,
                                             external_iface_info,
                                             internal_iface_info,
+                                            default_gw,
                                             az)
     nsxv.add_bgp_speaker_config(edge_id, gateway_ip, local_as,
                                 True, [], [], [], default_originate=True)
@@ -194,11 +209,9 @@ def create_redis_rule(resource, event, trigger, **kwargs):
     usage = ("nsxadmin -r routing-redistribution-rule -o create "
              "--property gw-edge-ids=<GW_EDGE_ID>[,...] "
              "[--property prefix=<NAME:CIDR>] "
-             "--property learner-protocol=<ospf/bgp> "
              "--property learn-from=ospf,bgp,connected,static "
              "--property action=<permit/deny>")
-    required_params = ('gw-edge-ids', 'learner-protocol',
-                       'learn-from', 'action')
+    required_params = ('gw-edge-ids', 'learn-from', 'action')
     properties = admin_utils.parse_multi_keyval_opt(kwargs.get('property', []))
     if not properties or not set(required_params) <= set(properties.keys()):
         LOG.error(usage)
@@ -215,7 +228,6 @@ def create_redis_rule(resource, event, trigger, **kwargs):
     learn_from = properties['learn-from'].split(',')
 
     rule = get_redistribution_rule(prefix_name,
-                                   properties['learner-protocol'],
                                    'bgp' in learn_from,
                                    'ospf' in learn_from,
                                    'static' in learn_from,
@@ -225,6 +237,14 @@ def create_redis_rule(resource, event, trigger, **kwargs):
     edge_ids = properties['gw-edge-ids'].split(',')
     for edge_id in edge_ids:
         try:
+            bgp_config = nsxv.get_routing_bgp_config(edge_id)
+            if not bgp_config['bgp'].get('enabled'):
+                LOG.error("BGP is not enabled on edge %s", edge_id)
+                return
+            if not bgp_config['bgp']['redistribution']['enabled']:
+                LOG.error("BGP redistribution is not enabled on edge %s",
+                          edge_id)
+                return
             nsxv.add_bgp_redistribution_rules(edge_id, prefixes, [rule])
         except exceptions.ResourceNotFound:
             LOG.error("Edge %s was not found", edge_id)
@@ -232,12 +252,10 @@ def create_redis_rule(resource, event, trigger, **kwargs):
 
     res = [{'edge_id': edge_id,
            'prefix': prefix_name if prefix_name else 'ANY',
-           'learner-protocol': properties['learner-protocol'],
            'learn-from': ', '.join(set(learn_from)),
            'action': properties['action']} for edge_id in edge_ids]
 
-    headers = ['edge_id', 'prefix', 'learner-protocol',
-               'learn-from', 'action']
+    headers = ['edge_id', 'prefix', 'learn-from', 'action']
     LOG.info(formatters.output_formatter(
         'Routing redistribution rule', res, headers))
 
@@ -281,12 +299,9 @@ def add_bgp_neighbour(resource, event, trigger, **kwargs):
     if not _validate_asn(remote_as):
         return
 
-    peer = {
-        'peer_ip': properties['ip-address'],
-        'remote_as': properties['remote-as'],
-        'password': properties['password']
-    }
-    nbr = nsxv_bgp.bgp_neighbour(peer)
+    nbr = nsxv_bgp.gw_bgp_neighbour(properties['ip-address'],
+                                    properties['remote-as'],
+                                    properties['password'])
 
     edge_ids = properties['gw-edge-ids'].split(',')
     for edge_id in edge_ids:
@@ -318,12 +333,7 @@ def remove_bgp_neighbour(resource, event, trigger, **kwargs):
         LOG.error(usage)
         return
 
-    peer = {
-        'peer_ip': properties['ip-address'],
-        'remote_as': '',
-        'password': ''
-    }
-    nbr = nsxv_bgp.bgp_neighbour(peer)
+    nbr = nsxv_bgp.gw_bgp_neighbour(properties['ip-address'], '', '')
 
     edge_ids = properties['gw-edge-ids'].split(',')
     for edge_id in edge_ids:
