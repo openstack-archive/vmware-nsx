@@ -18,7 +18,7 @@ from neutron_lib.plugins import directory
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
-from neutron_fwaas.extensions import firewall as fw_ext
+from neutron_fwaas.common import exceptions
 from neutron_fwaas.services.firewall.drivers import fwaas_base
 
 from vmware_nsx.common import locking
@@ -61,12 +61,14 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
             router_data.get('router_type') == 'shared'):
             LOG.error("Cannot apply firewall to shared router %s",
                       router_data['id'])
-            raise fw_ext.FirewallInternalDriverError(driver=FWAAS_DRIVER_NAME)
+            raise exceptions.FirewallInternalDriverError(
+                driver=FWAAS_DRIVER_NAME)
 
         if router_data.get('name', '').startswith('metadata_proxy_router'):
             LOG.error("Cannot apply firewall to the metadata proxy router %s",
                       router_data['id'])
-            raise fw_ext.FirewallInternalDriverError(driver=FWAAS_DRIVER_NAME)
+            raise exceptions.FirewallInternalDriverError(
+                driver=FWAAS_DRIVER_NAME)
 
         if not router_data.get('external_gateway_info'):
             LOG.info("Cannot apply firewall to router %s with no gateway",
@@ -211,7 +213,8 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
             # catch known library exceptions and raise Fwaas generic exception
             LOG.error("Failed to update backend firewall %(fw)s: "
                       "%(e)s", {'e': e, 'fw': fw_id})
-            raise fw_ext.FirewallInternalDriverError(driver=FWAAS_DRIVER_NAME)
+            raise exceptions.FirewallInternalDriverError(
+                driver=FWAAS_DRIVER_NAME)
 
     def _create_or_update_firewall(self, agent_mode, apply_list, firewall):
         # admin state down means default block rule firewall
