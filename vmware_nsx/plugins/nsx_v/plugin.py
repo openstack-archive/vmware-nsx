@@ -589,8 +589,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _validate_physical_network(self, physical_network, default_dvs):
         dvs_ids = self._get_dvs_ids(physical_network, default_dvs)
+        existing_dvs = self.nsx_v.vcns.get_dvs_list()
         for dvs_id in dvs_ids:
-            if not self.nsx_v.vcns.validate_dvs(dvs_id):
+            if not self.nsx_v.vcns.validate_dvs(
+                dvs_id, dvs_list=existing_dvs):
                 raise nsx_exc.NsxResourceNotFound(res_name='dvs_id',
                                                   res_id=dvs_id)
 
@@ -4214,13 +4216,16 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             LOG.info("Unable to configure edge reservations")
 
     def _validate_config(self):
+        existing_dvs = self.nsx_v.vcns.get_dvs_list()
         if (cfg.CONF.nsxv.dvs_id and
-            not self.nsx_v.vcns.validate_dvs(cfg.CONF.nsxv.dvs_id)):
+            not self.nsx_v.vcns.validate_dvs(cfg.CONF.nsxv.dvs_id,
+                                             dvs_list=existing_dvs)):
             raise nsx_exc.NsxResourceNotFound(
                                 res_name='dvs_id',
                                 res_id=cfg.CONF.nsxv.dvs_id)
         for dvs_id in self._availability_zones_data.get_additional_dvs_ids():
-            if not self.nsx_v.vcns.validate_dvs(dvs_id):
+            if not self.nsx_v.vcns.validate_dvs(dvs_id,
+                                                dvs_list=existing_dvs):
                 raise nsx_exc.NsxAZResourceNotFound(
                     res_name='dvs_id', res_id=dvs_id)
 

@@ -1185,7 +1185,10 @@ class FakeVcns(object):
     def validate_vdn_scope(self, object_id):
         return True
 
-    def validate_dvs(self, object_id):
+    def get_dvs_list(self):
+        return []
+
+    def validate_dvs(self, object_id, dvs_list=None):
         return True
 
     def edges_lock_operation(self):
