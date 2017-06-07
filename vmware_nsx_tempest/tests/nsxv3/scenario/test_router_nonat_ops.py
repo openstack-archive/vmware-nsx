@@ -237,6 +237,28 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
                               {'dest': remote_ip, 'src': floating_ip})
                 raise
 
+    def _test_router_nat_when_floating_ips_active_on_network(self):
+        """Expect raise condition when floating ips are active on
+           on network and tenant try to disable NAT
+        """
+        snat = True
+        self._setup_network_topo(enable_snat=snat)
+        nsx_router = self.nsx.get_logical_router(
+            self.router['name'], self.router['id'])
+        self.assertNotEqual(nsx_router, None)
+        self.assertEqual(nsx_router['router_type'], 'TIER1')
+        self._check_network_internal_connectivity(network=self.network)
+        self._check_network_vm_connectivity(network=self.network)
+        self._check_nonat_network_connectivity(should_connect=False)
+        # Update router to disable snat and disassociate floating ip
+        external_gateway_info = {
+            'network_id': CONF.network.public_network_id,
+            'enable_snat': (not snat)}
+        self.assertRaises(exceptions.BadRequest, self._update_router,
+                          self.router['id'],
+                          self.cmgr_adm.routers_client,
+                          external_gateway_info)
+
     def _test_router_nat_update_when_snat(self):
         """Test update router from NATed to NoNAT scenario"""
         snat = True
@@ -257,14 +279,15 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
         self._check_network_internal_connectivity(network=self.network)
         self._check_network_vm_connectivity(network=self.network)
         self._check_nonat_network_connectivity(should_connect=False)
+        # To configure SNAT=False, needs to release all the floating ips
+        floating_ip, server = self.floating_ip_tuple
+        self._disassociate_floating_ip(floating_ip)
         # Update router to disable snat and disassociate floating ip
         external_gateway_info = {
             'network_id': CONF.network.public_network_id,
             'enable_snat': (not snat)}
         self._update_router(self.router['id'], self.cmgr_adm.routers_client,
             external_gateway_info)
-        floating_ip, server = self.floating_ip_tuple
-        self._disassociate_floating_ip(floating_ip)
         nsx_router = self.nsx.get_logical_router(
             self.router['name'], self.router['id'])
         self.assertNotEqual(nsx_router, None)
@@ -323,6 +346,14 @@ class TestRouterNoNATOps(manager.NetworkScenarioTest):
     def test_router_nat_to_nonat_ops(self):
         """Test update router from NATed to NoNAT scenario"""
         self._test_router_nat_update_when_snat()
+
+    @test.attr(type='nsxv3')
+    @decorators.idempotent_id('b951f7fb-f2b2-40eb-8bbd-b54bd76ffbe8')
+    def test_disable_nat_when_floating_ips_active_on_network(self):
+        """Expect raise condition when floating ips are active on
+           on network and tenant try to disable NAT
+        """
+        self._test_router_nat_when_floating_ips_active_on_network()
 
     @test.attr(type='nsxv3')
     @decorators.idempotent_id('a0274738-d3e7-49db-bf10-a5563610940d')
