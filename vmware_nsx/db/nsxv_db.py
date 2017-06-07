@@ -386,6 +386,14 @@ def get_nsxv_internal_network(session, network_purpose, availability_zone):
         if net_list:
             # Should have only one results as purpose+az are the keys
             return net_list[0]
+        else:
+            # try the default availability zone, since this zone does not
+            # have his own
+            net_list = (session.query(nsxv_models.NsxvInternalNetworks).
+                        filter_by(network_purpose=network_purpose,
+                                  availability_zone='default').all())
+            if net_list:
+                return net_list[0]
 
 
 def get_nsxv_internal_networks(session, network_purpose):
