@@ -2280,6 +2280,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             tags_update += self.nsxlib.ns_group.get_lport_tags(
                 updated_port.get(ext_sg.SECURITYGROUPS, []) +
                 updated_port.get(provider_sg.PROVIDER_SECURITYGROUPS, []))
+            if (updated_excluded and
+                utils.is_nsx_version_2_0_0(self._nsx_version)):
+                tags_update.append({'scope': security.PORT_SG_SCOPE,
+                                    'tag': nsxlib_consts.EXCLUDE_PORT})
         else:
             self._update_lport_with_security_groups(
                 context, lport_id,
