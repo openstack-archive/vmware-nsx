@@ -235,7 +235,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
 
     @test.attr(type='nsxv3')
     @decorators.idempotent_id('2c44a134-f013-46b7-a2ec-14c7c38a4d8c')
-    def test_multiple_provider_security_group(self):
+    def test_multiple_provider_security_group_only_on_newton(self):
         sg = self.create_security_provider_group(self.cmgr_adm, provider=True)
         sg_id = sg.get('id')
         self.create_security_group_rule(sg_id, cmgr=self.cmgr_adm,
@@ -243,6 +243,20 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
         self.assertRaises(exceptions.BadRequest,
                           self.create_security_provider_group,
                           self.cmgr_adm, provider=True)
+
+    @test.attr(type='nsxv3')
+    @decorators.idempotent_id('f45fc910-db83-4e0c-8ab6-178783626ad3')
+    def test_multiple_provider_security_group_on_ocata_plus(self):
+        # Ocata plus allows more than 1 provider security group
+        sg1 = self.create_security_provider_group(self.cmgr_adm, provider=True)
+        sg1_id = sg1.get('id')
+        # create icmp rule
+        self.create_security_group_rule(sg1_id, cmgr=self.cmgr_adm,
+                                        protocol='icmp')
+        sg2 = self.create_security_provider_group(self.cmgr_adm, provider=True)
+        sg3 = self.create_security_provider_group(self.cmgr_adm, provider=True)
+        self.assertNotEqual(sg1.get('id'), sg2.get('id'))
+        self.assertNotEqual(sg2.get('id'), sg3.get('id'))
 
     @test.attr(type='nsxv3')
     @decorators.idempotent_id('275abe9f-4f01-46e5-bde0-0b6840290d3b')
