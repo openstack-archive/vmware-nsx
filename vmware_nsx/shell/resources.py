@@ -109,6 +109,9 @@ nsxv3_resources = {
                                      Operations.NSX_LIST.value]),
     constants.CONFIG: Resource(constants.CONFIG,
                                [Operations.VALIDATE.value]),
+    constants.ORPHANED_NETWORKS: Resource(constants.ORPHANED_NETWORKS,
+                                 [Operations.LIST.value,
+                                  Operations.NSX_CLEAN.value]),
 }
 
 # Add supported NSX-V resources in this dictionary

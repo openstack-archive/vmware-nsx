@@ -235,6 +235,17 @@ Networks
 
     nsxadmin -r networks -o list-mismatches
 
+Orphaned Networks
+~~~~~~~~~~~~~~~~~
+
+- List networks (logical switches) which are missing from the neutron DB::
+
+    nsxadmin -r orphaned-networks -o list
+
+- Delete a backend network (logical switch) by it's nsx-id::
+
+    nsxadmin -r orphaned-networks -o nsx-clean --property nsx-id=<id>
+
 Routers
 ~~~~~~~
 

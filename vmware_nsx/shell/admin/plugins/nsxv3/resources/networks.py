@@ -12,6 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import sys
 
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.shell.admin.plugins.common import constants
@@ -27,6 +28,8 @@ from neutron_lib import context as neutron_context
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
+neutron_client = utils.NeutronDbClient()
+nsxlib = utils.get_connected_nsxlib()
 
 
 def get_network_nsx_id(context, neutron_id):
@@ -53,7 +56,7 @@ def list_missing_networks(resource, event, trigger, **kwargs):
             pass
         else:
             try:
-                utils.get_connected_nsxlib().logical_switch.get(nsx_id)
+                nsxlib.logical_switch.get(nsx_id)
             except nsx_exc.ResourceNotFound:
                 networks.append({'name': net['name'],
                                  'neutron_id': neutron_id,
@@ -68,6 +71,76 @@ def list_missing_networks(resource, event, trigger, **kwargs):
         LOG.info("All internal networks exist on the NSX manager")
 
 
+@admin_utils.output_header
+def list_orphaned_networks(resource, event, trigger, **kwargs):
+    nsx_switches = nsxlib.logical_switch.list()['results']
+    missing_networks = []
+    for nsx_switch in nsx_switches:
+        # check if it exists in the neutron DB
+        if not neutron_client.lswitch_id_to_net_id(nsx_switch['id']):
+            # Skip non-neutron networks, by tags
+            neutron_net = False
+            for tag in nsx_switch.get('tags', []):
+                if tag.get('scope') == 'os-neutron-net-id':
+                    neutron_net = True
+                    break
+            if neutron_net:
+                missing_networks.append(nsx_switch)
+
+    LOG.info(formatters.output_formatter(constants.ORPHANED_NETWORKS,
+                                         missing_networks,
+                                         ['id', 'display_name']))
+
+
+@admin_utils.output_header
+def delete_backend_network(resource, event, trigger, **kwargs):
+    errmsg = ("Need to specify nsx-id property. Add --property nsx-id=<id>")
+    if not kwargs.get('property'):
+        LOG.error("%s", errmsg)
+        return
+    properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
+    nsx_id = properties.get('nsx-id')
+    if not nsx_id:
+        LOG.error("%s", errmsg)
+        return
+
+    # check if the network exists
+    try:
+        nsxlib.logical_switch.get(nsx_id, silent=True)
+    except nsx_exc.BackendResourceNotFound:
+        # prevent logger from logging this exception
+        sys.exc_clear()
+        LOG.warning("Backend network %s was not found.", nsx_id)
+        return
+
+    # try to delete it
+    try:
+        nsxlib.logical_switch.delete(nsx_id)
+    except Exception as e:
+        LOG.error("Failed to delete backend network %(id)s : %(e)s.", {
+            'id': nsx_id, 'e': e})
+        return
+
+    # Verify that the network was deleted since the backend does not always
+    # through errors
+    try:
+        nsxlib.logical_switch.get(nsx_id, silent=True)
+    except nsx_exc.BackendResourceNotFound:
+        # prevent logger from logging this exception
+        sys.exc_clear()
+        LOG.info("Backend network %s was deleted.", nsx_id)
+    else:
+        LOG.error("Failed to delete backend network %s.", nsx_id)
+
+
 registry.subscribe(list_missing_networks,
                    constants.NETWORKS,
                    shell.Operations.LIST_MISMATCHES.value)
+
+registry.subscribe(list_orphaned_networks,
+                   constants.ORPHANED_NETWORKS,
+                   shell.Operations.LIST.value)
+
+registry.subscribe(delete_backend_network,
+                   constants.ORPHANED_NETWORKS,
+                   shell.Operations.NSX_CLEAN.value)
