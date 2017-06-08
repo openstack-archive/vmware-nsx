@@ -494,11 +494,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         with locking.LockManager.get_lock(network_id):
             dhcp_id = self.edge_manager.create_dhcp_edge_service(
                 context, network_id, subnet)
-
-            address_groups = self.plugin._create_network_dhcp_address_group(
-                context, network_id)
-            self.edge_manager.update_dhcp_edge_service(
-                context, network_id, address_groups=address_groups)
+            self.plugin._update_dhcp_adddress(context, network_id)
             if dhcp_id:
                 edge_id, az_name = self.plugin._get_edge_id_and_az_by_rtr_id(
                     context, dhcp_id)
