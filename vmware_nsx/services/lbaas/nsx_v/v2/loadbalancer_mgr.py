@@ -130,11 +130,29 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def stats(self, context, lb):
-        # TODO(kobis): implement
         stats = {'bytes_in': 0,
                  'bytes_out': 0,
                  'active_connections': 0,
                  'total_connections': 0}
+
+        binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(context.session,
+                                                              lb.id)
+
+        try:
+            lb_stats = self.vcns.get_loadbalancer_statistics(
+                binding['edge_id'])
+
+        except nsxv_exc.VcnsApiException:
+            msg = (_('Failed to read load balancer statistics, edge: %s') %
+                   binding['edge_id'])
+            raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
+
+        pools_stats = lb_stats[1].get('pool', [])
+        for pool_stats in pools_stats:
+            stats['bytes_in'] += pool_stats.get('bytesIn', 0)
+            stats['bytes_out'] += pool_stats.get('bytesOut', 0)
+            stats['active_connections'] += pool_stats.get('curSessions', 0)
+            stats['total_connections'] += pool_stats.get('totalSessions', 0)
 
         return stats
 
