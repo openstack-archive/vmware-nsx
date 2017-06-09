@@ -1483,23 +1483,31 @@ class FakeVcns(object):
         }
         return self.return_helper(header, response)
 
-    def get_dynamic_routing_service(self, edge_id):
+    def get_edge_routing_config(self, edge_id):
         header = {'status': 200}
         response = {
-            'routerId': '172.24.4.12',
-            'ipPrefixes': {
-                'ipPrefixes': [
-                    {'ipAddress': '10.0.0.0/24',
-                     'name': 'prefix-name'}
-                ]
-            },
-            'logging': {
-                'logLevel': 'info',
-                'enable': False
-            },
-            'ecmp': False
+            'featureType': '',
+            'ospf': {},
+            'routingGlobalConfig': {
+                'routerId': '172.24.4.12',
+                'ipPrefixes': {
+                    'ipPrefixes': [
+                        {'ipAddress': '10.0.0.0/24',
+                         'name': 'prefix-name'}
+                    ]
+                },
+                'logging': {
+                    'logLevel': 'info',
+                    'enable': False
+                },
+                'ecmp': False
+            }
         }
         return self.return_helper(header, response)
+
+    def update_edge_routing_config(self, edge_id, request):
+        header = {'status': 200}
+        return self.return_helper(header, {})
 
     def update_bgp_dynamic_routing(self, edge_id, bgp_request):
         header = {"status": 201}
