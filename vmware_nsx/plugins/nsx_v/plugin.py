@@ -3619,30 +3619,29 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             fw_rules += nsx_v_md_proxy.get_router_fw_rules()
 
         # Add fw rules if FWaaS is enabled
-        allow_external = True
+        router_with_firewall = False
         if (self.fwaas_callbacks.should_apply_firewall_to_router(
             context, router, router_id)):
             fw_rules.extend(self.fwaas_callbacks.get_fwaas_rules_for_router(
                 context, router['id']))
-            # If we have a firewall we shouldn't add the default
-            # allow-external rule
-            allow_external = False
+            router_with_firewall = True
 
-        # Add FW rule to open dnat firewall flows
-        _, dnat_rules = self._get_nat_rules(context, router)
-        dnat_cidrs = [rule['dst'] for rule in dnat_rules]
-        if dnat_cidrs:
-            dnat_fw_rule = {
-                'name': edge_firewall_driver.DNAT_RULE_NAME,
-                'action': 'allow',
-                'enabled': True,
-                'destination_ip_address': dnat_cidrs}
-            fw_rules.append(dnat_fw_rule)
+        if not router_with_firewall:
+            # Add FW rule to open dnat firewall flows
+            _, dnat_rules = self._get_nat_rules(context, router)
+            dnat_cidrs = [rule['dst'] for rule in dnat_rules]
+            if dnat_cidrs:
+                dnat_fw_rule = {
+                    'name': edge_firewall_driver.DNAT_RULE_NAME,
+                    'action': 'allow',
+                    'enabled': True,
+                    'destination_ip_address': dnat_cidrs}
+                fw_rules.append(dnat_fw_rule)
 
-        # Add no-snat rules
-        nosnat_fw_rules = self._get_nosnat_subnets_fw_rules(
-            context, router)
-        fw_rules.extend(nosnat_fw_rules)
+            # Add no-snat rules
+            nosnat_fw_rules = self._get_nosnat_subnets_fw_rules(
+                context, router)
+            fw_rules.extend(nosnat_fw_rules)
 
         # Get the load balancer rules in case they are refreshed
         # (relevant only for older LB that are still on the router edge)
@@ -3663,6 +3662,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         fw = {'firewall_rule_list': fw_rules}
         try:
+            # If we have a firewall we shouldn't add the default
+            # allow-external rule
+            allow_external = False if router_with_firewall else True
             edge_utils.update_firewall(self.nsx_v, context, router_id, fw,
                                        allow_external=allow_external)
         except vsh_exc.ResourceNotFound:
