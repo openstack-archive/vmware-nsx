@@ -17,6 +17,7 @@ from neutron_lib.callbacks import registry
 from oslo_config import cfg
 from oslo_log import log as logging
 
+from vmware_nsx.common import config
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v.vshield.common import constants as vcns_const
@@ -165,7 +166,8 @@ def create_bgp_gw(resource, event, trigger, **kwargs):
     default_gw = ('default-gateway' in properties and
                   _extract_interface_info(properties['default-gateway']))
 
-    az_hint = properties.get('az-hint')
+    config.register_nsxv_azs(cfg.CONF, cfg.CONF.nsxv.availability_zones)
+    az_hint = properties.get('az-hint', 'default')
     az = nsx_az.NsxVAvailabilityZones().get_availability_zone(az_hint)
 
     edge_id, gateway_ip = _assemble_gw_edge(properties['name'],
