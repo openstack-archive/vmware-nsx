@@ -514,7 +514,8 @@ class NSXvBgpDriver(object):
                                                               speaker['id'])
         self._nsxv.update_router_id(bgp_binding['edge_id'], new_bgp_identifier)
         for gw_edge_id, password in [(peer['esg_id'], peer['password'])
-                                     for peer in bgp_peers if peer['esg_id']]:
+                                     for peer in bgp_peers
+                                     if peer.get('esg_id')]:
             nbr_to_remove = gw_bgp_neighbour(bgp_binding['bgp_identifier'],
                                              local_as, password)
             nbr_to_add = gw_bgp_neighbour(new_bgp_identifier, local_as,
@@ -597,7 +598,7 @@ class NSXvBgpDriver(object):
                                     advertise_static_routes)
             for gw_edge_id, password in [(peer['esg_id'], peer['password'])
                                          for peer in bgp_peers
-                                         if peer['esg_id']]:
+                                         if peer.get('esg_id')]:
                 nbr = gw_bgp_neighbour(bgp_identifier, local_as, password)
                 self._nsxv.add_bgp_neighbours(gw_edge_id, [nbr])
 
