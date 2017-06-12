@@ -12,12 +12,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import re
 import time
 
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
+from oslo_utils import strutils
 import six
 import xml.etree.ElementTree as et
 
@@ -124,27 +124,18 @@ class Vcns(object):
         self._nsx_version = None
         self._normalized_scoping_objects = None
 
-    def _log_request(self, method, uri, body, format):
-        if format == 'json':
-            pattern = r'\"password\": [^,}]*'
-            body = re.sub(pattern,
-                          '"password": "********"', body)
-        else:
-            pattern = r'<password>.*?</password>'
-            body = re.sub(pattern,
-                          '<password>********</password>', body)
-        LOG.debug("VcnsApiHelper('%(method)s', '%(uri)s', '%(body)s')", {
-                  'method': method,
-                  'uri': uri,
-                  'body': body})
-
     @retry_upon_exception(exceptions.ServiceConflict)
     def _client_request(self, client, method, uri,
                         params, headers, encodeParams):
         return client(method, uri, params, headers, encodeParams)
 
     def do_request(self, method, uri, params=None, format='json', **kwargs):
-        self._log_request(method, uri, jsonutils.dumps(params), format)
+        msg = ("VcnsApiHelper('%(method)s', '%(uri)s', '%(body)s')" %
+               {'method': method,
+                'uri': uri,
+                'body': jsonutils.dumps(params)})
+        LOG.debug(strutils.mask_password(msg))
+
         headers = kwargs.get('headers')
         encodeParams = kwargs.get('encode', True)
         if format == 'json':
