@@ -240,7 +240,7 @@ class QosPolicyTest(BaseQosTest):
         self.assertEqual('test policy desc2',
                          retrieved_policy['description'])
         self.assertTrue(retrieved_policy['shared'])
-        self.assertEqual([], retrieved_policy['rules'])
+        self.assertEmpty(retrieved_policy['rules'])
 
     @decorators.idempotent_id('1cb42653-54bd-4a9a-b888-c55e18199201')
     def test_delete_policy(self):

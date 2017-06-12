@@ -134,7 +134,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
         sg_rule = self.create_security_group_rule(sg_id, cmgr=self.cmgr_adm,
                                                   protocol='icmp')
         sg_rule.get('id')
-        self.assertNotEqual([], self.nsx.get_firewall_section(sg_name, sg_id))
+        self.assertNotEmpty(self.nsx.get_firewall_section(sg_name, sg_id))
 
     @test.attr(type='nsxv3')
     @decorators.idempotent_id('2c8d013d-4c0b-4d2b-b77c-779351a789ce')
@@ -167,7 +167,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
     def test_tenant_provider_sec_group_with_no_rules(self):
         sg = self.create_security_provider_group(self.cmgr_adm,
                                                  provider=True)
-        self.assertEqual([], sg.get('security_group_rules'))
+        self.assertEmpty(sg.get('security_group_rules'))
 
     @test.attr(type='nsxv3')
     @decorators.idempotent_id('a92c8e1e-ce2c-40be-8449-d326690e078e')
@@ -303,7 +303,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
                         port_client.delete_port,
                         port_id['port']['id'])
         ss = port_client.show_port(port_id['port']['id'])
-        self.assertEqual([], ss['port']['provider_security_groups'])
+        self.assertEmpty(ss['port']['provider_security_groups'])
         kwargs = {"provider_security_groups": ''}
         port_client.update_port(port_id['port']['id'], **kwargs)
 
@@ -394,7 +394,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
                         port_client.delete_port,
                         port_id['port']['id'])
         ss = port_client.show_port(port_id['port']['id'])
-        self.assertEqual([], ss['port']['provider_security_groups'],
+        self.assertEmpty(ss['port']['provider_security_groups'],
                          "Provider security group is not set on port")
         project_id = self.cmgr_adm.networks_client.tenant_id
         sg = self.create_security_provider_group(self.cmgr_adm,
@@ -432,7 +432,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
                         port_client.delete_port,
                         port_id['port']['id'])
         ss = port_client.show_port(port_id['port']['id'])
-        self.assertEqual([], ss['port']['provider_security_groups'],
+        self.assertEmpty(ss['port']['provider_security_groups'],
                          "Provider security group is not set on port")
         project_id = self.cmgr_adm.networks_client.tenant_id
         sg = self.create_security_provider_group(self.cmgr_adm,
