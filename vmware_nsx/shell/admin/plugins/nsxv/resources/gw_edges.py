@@ -115,7 +115,8 @@ def _assemble_gw_edge(name, size, external_iface_info, internal_iface_info,
     edge['vnics']['vnics'].append(vnic_external)
     edge['vnics']['vnics'].append(vnic_internal)
 
-    edge['features'] = [{'firewall': {'enabled': False}}]
+    edge['featureConfigs']['features'] = [{'featureType': 'firewall_4.0',
+                                           'enabled': False}]
     if default_gateway:
         edge['features'] = {'routing':
                             {'staticRouting':
@@ -201,8 +202,8 @@ def delete_bgp_gw(resource, event, trigger, **kwargs):
     edge_id = properties['gw-edge-id']
     try:
         nsxv.vcns.delete_edge(edge_id)
-    except exceptions.ResourceNotFound:
-        LOG.error("Edge %s was not found", edge_id)
+    except Exception:
+        LOG.error("Failed to delete edge %s", edge_id)
         return
 
 
@@ -254,10 +255,11 @@ def create_redis_rule(resource, event, trigger, **kwargs):
 
     res = [{'edge_id': edge_id,
            'prefix': prefix_name if prefix_name else 'ANY',
+            'learner-protocol': 'bgp',
            'learn-from': ', '.join(set(learn_from)),
            'action': properties['action']} for edge_id in edge_ids]
 
-    headers = ['edge_id', 'prefix', 'learn-from', 'action']
+    headers = ['edge_id', 'prefix', 'learner-protocol', 'learn-from', 'action']
     LOG.info(formatters.output_formatter(
         'Routing redistribution rule', res, headers))
 
