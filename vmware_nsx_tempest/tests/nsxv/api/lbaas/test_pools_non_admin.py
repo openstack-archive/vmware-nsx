@@ -75,7 +75,7 @@ class TestPools(base.BaseTestCase):
     def test_list_pools_empty(self):
         """Test get pools when empty"""
         pools = self._list_pools()
-        self.assertEqual([], pools)
+        self.assertEmpty(pools)
 
     @test.attr(type='smoke')
     @decorators.idempotent_id('4f09b544-8e82-4313-b452-8fe3ca5ad14e')

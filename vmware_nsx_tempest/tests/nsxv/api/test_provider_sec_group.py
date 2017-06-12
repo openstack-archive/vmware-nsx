@@ -147,7 +147,7 @@ class ProviderSecGroup(base.BaseAdminNetworkTest):
     def test_tenant_provider_sec_group_with_no_rules(self):
         sg = self.create_security_provider_group(self.cmgr_adm,
                                                  provider=True)
-        self.assertEqual([], sg.get('security_group_rules'))
+        self.assertEmpty(sg.get('security_group_rules'))
 
     @test.attr(type='nsxv')
     @decorators.idempotent_id('5e6237ca-033a-4bee-b5fb-8f225ed00b0c')
@@ -271,7 +271,7 @@ class ProviderSecGroup(base.BaseAdminNetworkTest):
         port_client = self.cmgr_adm.ports_client
         port_id = port_client.create_port(**body)
         ss = port_client.show_port(port_id['port']['id'])
-        self.assertEqual([], ss['port']['provider_security_groups'])
+        self.assertEmpty(ss['port']['provider_security_groups'])
         port_client.delete_port(port_id['port']['id'])
         net_client.delete_network(network['network']['id'])
 
@@ -318,7 +318,7 @@ class ProviderSecGroup(base.BaseAdminNetworkTest):
         port_client = self.cmgr_adm.ports_client
         port_id = port_client.create_port(**body)
         ss = port_client.show_port(port_id['port']['id'])
-        self.assertEqual([], ss['port']['provider_security_groups'])
+        self.assertEmpty(ss['port']['provider_security_groups'])
         project_id = self.cmgr_adm.networks_client.tenant_id
         sg = self.create_security_provider_group(self.cmgr_adm,
                                                  project_id=project_id,

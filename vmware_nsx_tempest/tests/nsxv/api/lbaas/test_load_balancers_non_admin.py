@@ -468,7 +468,7 @@ class LoadBalancersTest(base.BaseTestCase):
         load_balancer = statuses['loadbalancer']
         self.assertEqual("ONLINE", load_balancer['operating_status'])
         self.assertEqual("ACTIVE", load_balancer['provisioning_status'])
-        self.assertEqual([], load_balancer['listeners'])
+        self.assertEmpty(load_balancer['listeners'])
 
     @test.attr(type='smoke')
     @decorators.idempotent_id('a23677a9-b770-4894-8be9-cd66590c228b')
