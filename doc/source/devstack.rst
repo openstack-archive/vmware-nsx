@@ -115,6 +115,7 @@ Add neutron-dynamic-routing repo as an external repository and configure followi
     [[local|localrc]]
     enable_plugin neutron-dynamic-routing https://git.openstack.org/openstack/neutron-dynamic-routing
     DR_MODE=dr_plugin
+    BGP_PLUGIN=vmware_nsx.services.dynamic_routing.bgp_plugin.NSXvBgpPlugin
 
     [[post-config|$NEUTRON_CONF]]
     [DEFAULT]
