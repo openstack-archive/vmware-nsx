@@ -31,7 +31,7 @@ def _fixup_res_dict(context, attr_name, res_dict, check_allow_post=True):
     attr_ops = lib_attrs.AttributeInfo(attr_info)
     try:
         attr_ops.populate_project_id(context, res_dict, True)
-        attributes.populate_project_info(attr_info)
+        lib_attrs.populate_project_info(attr_info)
         attr_ops.verify_attributes(res_dict)
     except webob.exc.HTTPBadRequest as e:
         # convert webob exception into ValueError as these functions are
