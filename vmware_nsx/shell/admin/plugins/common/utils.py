@@ -46,6 +46,7 @@ def parse_multi_keyval_opt(opt_list):
     """Converts a MutliStrOpt to a key-value dict"""
 
     result = dict()
+    opt_list = opt_list if opt_list else []
     for opt_value in opt_list:
         try:
             key, value = opt_value.split('=')
