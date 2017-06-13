@@ -220,10 +220,10 @@ def allocate_edge_vnic(session, edge_id, network_id):
                 binding['network_id'] = network_id
                 session.add(binding)
                 return binding
-    msg = (_("Failed to allocate one available vnic on edge_id: "
+    msg = (_("Edge VNIC: Failed to allocate one available vnic on edge_id: "
              ":%(edge_id)s to network_id: %(network_id)s") %
            {'edge_id': edge_id, 'network_id': network_id})
-    LOG.exception(msg)
+    LOG.error(msg)
     raise nsx_exc.NsxPluginException(err_msg=msg)
 
 
@@ -256,7 +256,7 @@ def allocate_edge_vnic_with_tunnel_index(session, edge_id, network_id,
             msg = (_("Failed to allocate one available vnic on edge_id: "
                      ":%(edge_id)s to network_id: %(network_id)s") %
                    {'edge_id': edge_id, 'network_id': network_id})
-            LOG.exception(msg)
+            LOG.error(msg)
             raise nsx_exc.NsxPluginException(err_msg=msg)
         binding['network_id'] = network_id
         session.add(binding)
