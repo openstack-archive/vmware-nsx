@@ -53,7 +53,11 @@ class DbCertProvider(client_cert.ClientCertProvider):
         # Such collisions are handled with refcount and locking.
         super(DbCertProvider, self).__init__(None)
         random.seed()
-        self.refcount = 0
+
+        with self.lock:
+            # Initialize refcount if other threads did not do it already
+            if not hasattr(self, 'refcount'):
+                self.refcount = 0
 
     def _check_expiration(self, expires_in_days):
         if expires_in_days > self.EXPIRATION_ALERT_DAYS:
