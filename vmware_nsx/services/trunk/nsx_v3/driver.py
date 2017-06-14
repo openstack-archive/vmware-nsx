@@ -200,9 +200,9 @@ class NsxV3TrunkDriver(base.DriverBase):
                    agent_type=None, can_trunk_bound_port=True)
 
     @registry.receives(trunk_consts.TRUNK_PLUGIN, [events.AFTER_INIT])
-    def register(self, resource, event, trigger, **kwargs):
+    def register(self, resource, event, trigger, payload=None):
         super(NsxV3TrunkDriver, self).register(
-            resource, event, trigger, **kwargs)
+            resource, event, trigger, payload=payload)
         self._handler = NsxV3TrunkHandler(self.plugin_driver)
         for event in (events.AFTER_CREATE, events.AFTER_DELETE):
             registry.subscribe(self._handler.trunk_event,

@@ -303,7 +303,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Bind QoS notifications
         qos_driver.register(self)
 
-    def init_complete(self, resource, event, trigger, **kwargs):
+    def init_complete(self, resource, event, trigger, payload=None):
         with locking.LockManager.get_lock('plugin-init-complete'):
             if self.init_is_complete:
                 # Should be called only once per worker
