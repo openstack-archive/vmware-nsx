@@ -15,6 +15,7 @@
 #    under the License.
 
 from networking_l2gw.db.l2gateway import l2gateway_db
+from networking_l2gw.db.l2gateway import l2gateway_models as models
 from networking_l2gw.services.l2gateway.common import constants as l2gw_const
 from networking_l2gw.services.l2gateway import exceptions as l2gw_exc
 from neutron_lib import exceptions as n_exc
@@ -61,7 +62,14 @@ class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
             msg = _("Only a single device is supported for one L2 gateway")
             raise n_exc.InvalidInput(error_message=msg)
 
-    def _validate_interface_list(self, interfaces):
+    def _get_l2gateway_interface(self, context, interface_name):
+        """Get all l2gateway_interfaces_by interface_name."""
+        session = context.session
+        with session.begin():
+            return session.query(models.L2GatewayInterface).filter_by(
+                interface_name=interface_name).all()
+
+    def _validate_interface_list(self, context, interfaces):
         # In NSXv, interface is mapped to a vDS VLAN port group.
         # Since HA is not supported, only one interface is expected
         if len(interfaces) != 1:
@@ -69,6 +77,11 @@ class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
             raise n_exc.InvalidInput(error_message=msg)
         if not self._nsxv.vcns.validate_network(interfaces[0]['name']):
             msg = _("Configured interface not found")
+            raise n_exc.InvalidInput(error_message=msg)
+        interface = self.get_l2gateway_interfaces(context,
+                                                  interfaces[0]['name'])
+        if interface:
+            msg = _("%s is already used.") % interfaces[0]['name']
             raise n_exc.InvalidInput(error_message=msg)
 
     def create_l2_gateway_precommit(self, context, l2_gateway):
@@ -84,7 +97,7 @@ class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
         devices = gw['devices']
         self._validate_device_list(devices)
         interfaces = devices[0]['interfaces']
-        self._validate_interface_list(interfaces)
+        self._validate_interface_list(context, interfaces)
         # Create a dedicated DLR
         try:
             edge_id = self._create_l2_gateway_edge(context)

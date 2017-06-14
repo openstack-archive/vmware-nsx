@@ -70,6 +70,7 @@ class TestL2gatewayDriver(base.BaseTestCase):
         _nsxv.vcns.validate_network.return_value = False
         self.assertRaises(n_exc.InvalidInput,
                           self.plugin._validate_interface_list,
+                          self.context,
                           fake_interfaces)
 
     @mock.patch('vmware_nsx.services.l2gateway.'
@@ -130,7 +131,7 @@ class TestL2gatewayDriver(base.BaseTestCase):
         self.plugin.create_l2_gateway(self.context, fake_l2gw_dict)
         _admin_check.assert_called_with(self.context, 'CREATE')
         val_dev.assert_called_with(fake_devices)
-        val_inter.assert_called_with(fake_interfaces)
+        val_inter.assert_called_with(self.context, fake_interfaces)
 
     @mock.patch('networking_l2gw.db.l2gateway.l2gateway_db.'
                 'L2GatewayMixin._admin_check')
