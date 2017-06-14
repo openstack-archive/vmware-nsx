@@ -3593,18 +3593,47 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if router_id:
             self._update_edge_router(context, router_id)
 
-    def _update_subnets_and_dnat_firewall(self, context, router,
+    def _update_subnets_and_dnat_firewall(self, context, router_db,
                                           router_id=None):
-        # Note(asarfaty): If changing the order or names of rules here,
-        # please take care of fwaas _get_other_backend_rules too.
-        fw_rules = []
+        """Update the router edge firewall with all the relevant rules.
+
+        router_db is the neutron router structure
+        router_id is the id of the actual router that will be updated on
+        the NSX (in case of distributed router it can be plr or tlr)
+        """
         if not router_id:
-            router_id = router['id']
+            router_id = router_db['id']
+
+        # Add fw rules if FWaaS is enabled
+        # in case of a distributed-router:
+        # router['id'] is the id of the neutron router (=tlr)
+        # and router_id is the plr/tlr (the one that is being updated)
+        fwaas_rules = None
+        if (self.fwaas_callbacks.should_apply_firewall_to_router(
+            context, router_db, router_id)):
+            fwaas_rules = self.fwaas_callbacks.get_fwaas_rules_for_router(
+                context, router_db['id'])
+
+        self.update_router_firewall(context, router_id, router_db,
+                                    fwaas_rules=fwaas_rules)
+
+    def update_router_firewall(self, context, router_id, router_db,
+                               fwaas_rules=None):
+        """Recreate all rules in the router edge firewall
+
+        router_db is the neutron router structure
+        router_id is the id of the actual router that will be updated on
+        the NSX (in case of distributed router it can be plr or tlr)
+        if fwaas_rules is not none - this router is attached to a firewall
+        """
+        fw_rules = []
+        router_with_firewall = True if fwaas_rules is not None else False
+        neutron_id = router_db['id']
 
         # Add FW rule to open subnets firewall flows and static routes
         # relative flows
-        subnet_cidrs = self._find_router_subnets_cidrs(context, router['id'])
-        routes = self._get_extra_routes_by_router_id(context, router_id)
+        subnet_cidrs = self._find_router_subnets_cidrs(context, neutron_id)
+        routes = self._get_extra_routes_by_router_id(context, neutron_id)
         subnet_cidrs.extend([route['destination'] for route in routes])
         if subnet_cidrs:
             subnet_fw_rule = {
@@ -3619,17 +3648,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if self.metadata_proxy_handler:
             fw_rules += nsx_v_md_proxy.get_router_fw_rules()
 
-        # Add fw rules if FWaaS is enabled
-        router_with_firewall = False
-        if (self.fwaas_callbacks.should_apply_firewall_to_router(
-            context, router, router_id)):
-            fw_rules.extend(self.fwaas_callbacks.get_fwaas_rules_for_router(
-                context, router['id']))
-            router_with_firewall = True
+        # Add FWaaS rules
+        if router_with_firewall and fwaas_rules:
+            fw_rules += fwaas_rules
 
         if not router_with_firewall:
             # Add FW rule to open dnat firewall flows
-            _, dnat_rules = self._get_nat_rules(context, router)
+            _, dnat_rules = self._get_nat_rules(context, router_db)
             dnat_cidrs = [rule['dst'] for rule in dnat_rules]
             if dnat_cidrs:
                 dnat_fw_rule = {
@@ -3641,7 +3666,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
             # Add no-snat rules
             nosnat_fw_rules = self._get_nosnat_subnets_fw_rules(
-                context, router)
+                context, router_db)
             fw_rules.extend(nosnat_fw_rules)
 
         # Get the load balancer rules in case they are refreshed

@@ -15,6 +15,7 @@
 
 import copy
 import mock
+from oslo_utils import uuidutils
 
 from neutron_fwaas.common import exceptions
 
@@ -28,8 +29,6 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
     def setUp(self):
         super(NsxvFwaasTestCase, self).setUp()
         self.firewall = edge_fwaas_driver.EdgeFwaasDriver()
-        self.firewall._get_routers_edges = mock.Mock()
-        self.firewall._get_routers_edges.return_value = ['edge-1']
 
     def _fake_rules_v4(self):
         rule1 = {'enabled': True,
@@ -81,40 +80,60 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
     def _fake_apply_list(self, router_count=1):
         apply_list = []
         while router_count > 0:
-            router_inst = {}
+            rtr_id = uuidutils.generate_uuid()
+            router_inst = {'id': rtr_id}
             router_info_inst = mock.Mock()
             router_info_inst.router = router_inst
+            router_info_inst.router_id = rtr_id
             apply_list.append(router_info_inst)
             router_count -= 1
         return apply_list
+
+    def _get_fake_mapping(self, apply_list):
+        router_edge_map = {}
+        for router_info in apply_list:
+            router_edge_map[router_info.router_id] = {
+                'edge_id': 'edge-1',
+                'lookup_id': router_info.router_id}
+        return router_edge_map
 
     def _setup_firewall_with_rules(self, func, router_count=1):
         apply_list = self._fake_apply_list(router_count=router_count)
         rule_list = self._fake_rules_v4()
         firewall = self._fake_firewall(rule_list)
-        edges = ['edge-1'] * router_count
-        with mock.patch.object(self.firewall._nsxv,
-                               "update_firewall") as update_fw,\
+        edges = self._get_fake_mapping(apply_list)
+
+        with mock.patch("vmware_nsx.plugins.nsx_v.plugin.NsxVPluginV2."
+                        "update_router_firewall") as update_fw,\
+            mock.patch("vmware_nsx.plugins.nsx_v.plugin.NsxVPluginV2."
+                       "_get_router"),\
             mock.patch.object(self.firewall,
                               "_get_routers_edges", return_value=edges):
             func('nsx', apply_list, firewall)
             self.assertEqual(router_count, update_fw.call_count)
-            backend_rules = update_fw.call_args[0][1]['firewall_rule_list']
+            # Validate the args of the last call
+            self.assertEqual(apply_list[-1].router_id,
+                             update_fw.call_args[0][1])
+            backend_rules = update_fw.call_args[1]['fwaas_rules']
             self.assertEqual(len(rule_list), len(backend_rules))
-            allow_ext = update_fw.call_args[1]['allow_external']
-            self.assertEqual(False, allow_ext)
 
     def test_create_firewall_no_rules(self):
         apply_list = self._fake_apply_list()
         firewall = self._fake_firewall_no_rule()
-        with mock.patch.object(self.firewall._nsxv,
-                               "update_firewall") as update_fw:
+        edges = self._get_fake_mapping(apply_list)
+        with mock.patch("vmware_nsx.plugins.nsx_v.plugin.NsxVPluginV2."
+                        "update_router_firewall") as update_fw,\
+            mock.patch("vmware_nsx.plugins.nsx_v.plugin.NsxVPluginV2."
+                       "_get_router"),\
+            mock.patch.object(self.firewall,
+                              "_get_routers_edges", return_value=edges):
             self.firewall.create_firewall('nsx', apply_list, firewall)
             self.assertEqual(1, update_fw.call_count)
-            backend_rules = update_fw.call_args[0][1]['firewall_rule_list']
-            self.assertEqual(0, len(backend_rules))
-            allow_ext = update_fw.call_args[1]['allow_external']
-            self.assertEqual(False, allow_ext)
+            # Validate the args of the last call
+            self.assertEqual(apply_list[0].router_id,
+                             update_fw.call_args[0][1])
+            backend_rules = update_fw.call_args[1]['fwaas_rules']
+            self.assertEqual([], backend_rules)
 
     def test_create_firewall_with_rules(self):
         self._setup_firewall_with_rules(self.firewall.create_firewall)
@@ -126,63 +145,42 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
     def test_update_firewall_with_rules(self):
         self._setup_firewall_with_rules(self.firewall.update_firewall)
 
-    def test_create_firewall_with_existing_backend_rules(self):
-        apply_list = self._fake_apply_list()
-        rule_list = self._fake_rules_v4()
-        firewall = self._fake_firewall(rule_list)
-        edge_id = 'edge-1'
-        # backend fw already has 3 rules.
-        # The fwaas rule should come in the middle, and replace the fwaas rule
-        existing_rules = [{'name': 'Subnet Rule',
-                           'action': 'accept',
-                           'enabled': True},
-                          {'name': 'Fwaas-1',
-                           'action': 'deny',
-                           'enabled': True},
-                          {'name': 'DNAT Rule',
-                           'action': 'accept',
-                           'enabled': True}]
-        for rule in existing_rules:
-            self.firewall._nsxv.vcns.add_firewall_rule(edge_id, rule)
-
-        with mock.patch.object(self.firewall._nsxv,
-                               "update_firewall") as update_fw,\
-            mock.patch.object(self.firewall,
-                              "_get_routers_edges", return_value=[edge_id]):
-            self.firewall.create_firewall('nsx', apply_list, firewall)
-            self.assertEqual(1, update_fw.call_count)
-            backend_rules = update_fw.call_args[0][1]['firewall_rule_list']
-            self.assertEqual(len(rule_list) + len(existing_rules) - 1,
-                             len(backend_rules))
-            self.assertEqual('Subnet Rule', backend_rules[0]['name'])
-            self.assertEqual('DNAT Rule', backend_rules[-1]['name'])
-            allow_ext = update_fw.call_args[1]['allow_external']
-            self.assertEqual(False, allow_ext)
-
     def test_delete_firewall(self):
         apply_list = self._fake_apply_list()
         firewall = self._fake_firewall_no_rule()
-        with mock.patch.object(self.firewall._nsxv,
-                               "update_firewall") as update_fw:
+        edges = self._get_fake_mapping(apply_list)
+        with mock.patch("vmware_nsx.plugins.nsx_v.plugin.NsxVPluginV2."
+                        "update_router_firewall") as update_fw,\
+            mock.patch("vmware_nsx.plugins.nsx_v.plugin.NsxVPluginV2."
+                       "_get_router"),\
+            mock.patch.object(self.firewall,
+                              "_get_routers_edges", return_value=edges):
             self.firewall.delete_firewall('nsx', apply_list, firewall)
             self.assertEqual(1, update_fw.call_count)
-            backend_rules = update_fw.call_args[0][1]['firewall_rule_list']
-            self.assertEqual(0, len(backend_rules))
-            allow_ext = update_fw.call_args[1]['allow_external']
-            self.assertEqual(True, allow_ext)
+            # Validate the args of the last call
+            self.assertEqual(apply_list[0].router_id,
+                             update_fw.call_args[0][1])
+            backend_rules = update_fw.call_args[1]['fwaas_rules']
+            self.assertIsNone(backend_rules)
 
     def test_create_firewall_with_admin_down(self):
         apply_list = self._fake_apply_list()
         rule_list = self._fake_rules_v4()
         firewall = self._fake_firewall_with_admin_down(rule_list)
-        with mock.patch.object(self.firewall._nsxv,
-                               "update_firewall") as update_fw:
+        edges = self._get_fake_mapping(apply_list)
+        with mock.patch("vmware_nsx.plugins.nsx_v.plugin.NsxVPluginV2."
+                        "update_router_firewall") as update_fw,\
+            mock.patch("vmware_nsx.plugins.nsx_v.plugin.NsxVPluginV2."
+                       "_get_router"),\
+            mock.patch.object(self.firewall,
+                              "_get_routers_edges", return_value=edges):
             self.firewall.create_firewall('nsx', apply_list, firewall)
             self.assertEqual(1, update_fw.call_count)
-            backend_rules = update_fw.call_args[0][1]['firewall_rule_list']
-            self.assertEqual(0, len(backend_rules))
-            allow_ext = update_fw.call_args[1]['allow_external']
-            self.assertEqual(False, allow_ext)
+            # Validate the args of the last call
+            self.assertEqual(apply_list[0].router_id,
+                             update_fw.call_args[0][1])
+            backend_rules = update_fw.call_args[1]['fwaas_rules']
+            self.assertEqual([], backend_rules)
 
     def test_should_apply_firewall_to_router(self):
         router = {'id': 'fake_id',
