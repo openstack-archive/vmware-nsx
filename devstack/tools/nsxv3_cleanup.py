@@ -160,7 +160,7 @@ class NSXClient(object):
         while missing > 0 and not cursor.startswith(self.NULL_CURSOR_PREFIX):
             response = requests.get(url + cursor, headers=self.headers,
                                 verify=self.verify, params=params).json()
-            cursor = response['cursor']
+            cursor = response.get('cursor', self.NULL_CURSOR_PREFIX)
             missing -= len(response['results'])
             results += response['results']
 
