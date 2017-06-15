@@ -292,7 +292,7 @@ class EdgeManager(object):
             context.session, router_binding['router_id'],
             status=constants.PENDING_DELETE)
         self._get_worker_pool().spawn_n(
-            self.nsxv_manager.delete_edge, q_context.get_admin_context(),
+            self.nsxv_manager.delete_edge, None,
             router_binding['router_id'], router_binding['edge_id'],
             dist=(router_binding['edge_type'] == nsxv_constants.VDR_EDGE))
 
@@ -308,7 +308,7 @@ class EdgeManager(object):
             LOG.debug("Start deleting extra edge: %s in pool",
                       binding['edge_id'])
             self._get_worker_pool().spawn_n(
-                self.nsxv_manager.delete_edge, q_context.get_admin_context(),
+                self.nsxv_manager.delete_edge, None,
                 binding['router_id'], binding['edge_id'],
                 dist=(binding['edge_type'] == nsxv_constants.VDR_EDGE))
 
@@ -775,7 +775,7 @@ class EdgeManager(object):
                 # delete edge
                 self._get_worker_pool().spawn_n(
                     self.nsxv_manager.delete_edge,
-                    q_context.get_admin_context(),
+                    None,
                     router_id, edge_id, dist=dist)
                 return
 
@@ -814,7 +814,7 @@ class EdgeManager(object):
                 # delete edge
                 self._get_worker_pool().spawn_n(
                     self.nsxv_manager.delete_edge,
-                    q_context.get_admin_context(),
+                    None,
                     router_id, edge_id, dist=dist)
 
     def _allocate_dhcp_edge_appliance(self, context, resource_id,
