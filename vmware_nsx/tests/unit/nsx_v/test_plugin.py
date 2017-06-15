@@ -1686,7 +1686,8 @@ class TestPortsV2(NsxVPluginV2TestCase,
                 req = self.new_update_request('ports',
                                               data, port['port']['id'])
                 res = self.deserialize('json', req.get_response(self.api))
-        self.assertEqual("InvalidInput", res['NeutronError']['type'])
+        self.assertEqual("PortSecurityAndIPRequiredForSecurityGroups",
+                         res['NeutronError']['type'])
 
 
 class TestSubnetsV2(NsxVPluginV2TestCase,
