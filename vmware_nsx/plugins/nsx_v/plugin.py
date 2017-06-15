@@ -77,6 +77,7 @@ from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.extensions import vlantransparent as ext_vlan
+from neutron.objects import securitygroup
 from neutron.plugins.common import utils
 from neutron.quota import resource_registry
 from neutron.services.flavors import flavors_plugin
@@ -4154,9 +4155,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                       "nsx-rule %(nsx_rule_id)s doesn't exist.",
                       {'id': id, 'nsx_rule_id': nsx_rule_id})
 
-        with db_api.context_manager.writer.using(context):
-            rule_db = self._get_security_group_rule(context, id)
-            context.session.delete(rule_db)
+        securitygroup.SecurityGroupRule.delete_objects(context, id=id)
 
     def _remove_vnic_from_spoofguard_policy(self, session, net_id, vnic_id):
         policy_id = nsxv_db.get_spoofguard_policy_id(session, net_id)
