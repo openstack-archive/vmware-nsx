@@ -24,7 +24,6 @@ import vmware_nsx.shell.admin.plugins.common.utils as admin_utils
 import vmware_nsx.shell.admin.plugins.nsxv.resources.utils as utils
 import vmware_nsx.shell.resources as shell
 
-from neutron.db import l3_db
 from neutron_lib.callbacks import registry
 
 from vmware_nsx.common import locking
@@ -151,42 +150,6 @@ def delete_old_dhcp_edge(context, old_edge_id, bindings):
                         "DB : %(e)s", {'id': old_edge_id, 'e': e})
 
 
-def recreate_vdr_dhcp_edge(context, plugin, edge_manager,
-                           vdr_router_id):
-    """Handle the edge recreation of a VDR router DHCP.
-    """
-    # delete the old bindings
-    nsxv_db.delete_vdr_dhcp_binding(context.session, vdr_router_id)
-
-    # Add each interface port of this router to a new edge:
-    intf_ports = plugin._get_port_by_device_id(
-        context, vdr_router_id, l3_db.DEVICE_OWNER_ROUTER_INTF)
-    for port in intf_ports:
-        fixed_ips = port.get("fixed_ips", [])
-        if len(fixed_ips) > 0:
-            fixed_ip = fixed_ips[0]
-            subnet_id = fixed_ip['subnet_id']
-            subnet = plugin.get_subnet(context, subnet_id)
-        do_metadata = False
-        for fixed_ip in fixed_ips:
-            if fixed_ip['ip_address'] == subnet['gateway_ip']:
-                do_metadata = True
-
-        if do_metadata:
-            edge_manager.configure_dhcp_for_vdr_network(
-                context, subnet['network_id'], vdr_router_id)
-
-    new_binding = nsxv_db.get_vdr_dhcp_binding_by_vdr(
-        context.session, vdr_router_id)
-    if new_binding:
-        LOG.info("VDR router %(vdr_id)s was moved to edge %(edge_id)s",
-                 {'vdr_id': vdr_router_id,
-                  'edge_id': new_binding['dhcp_edge_id']})
-    else:
-        LOG.error("VDR router %(vdr_id)s was not moved to a new edge",
-                 {'vdr_id': vdr_router_id})
-
-
 def recreate_network_dhcp(context, plugin, edge_manager, old_edge_id, net_id):
     """Handle the DHCP edge recreation of a network
     """
@@ -281,38 +244,14 @@ def nsx_recreate_dhcp_edge(resource, event, trigger, **kwargs):
             context.session, old_edge_id)
         network_ids = [binding['network_id'] for binding in networks_binding]
 
-        # Find out the vdr router, if this is a vdr DHCP edge
-        vdr_binding = nsxv_db.get_vdr_dhcp_binding_by_edge(
-            context.session, old_edge_id)
-        vdr_router_id = vdr_binding['vdr_router_id'] if vdr_binding else None
-
         # Delete the old edge
         delete_old_dhcp_edge(context, old_edge_id, bindings)
 
-        if vdr_router_id:
-            # recreate the edge as a VDR DHCP edge
-            recreate_vdr_dhcp_edge(context, plugin, edge_manager,
-                                   vdr_router_id)
-        else:
-            # This is a regular DHCP edge:
-            # Move all the networks to other (new or existing) edge
-            for net_id in network_ids:
-                recreate_network_dhcp(context, plugin, edge_manager,
-                                      old_edge_id, net_id)
-
-
-def _get_net_vdr_router_id(plugin, context, net_id):
-    """Find the distributed router this network is attached to, if any."""
-    port_filters = {'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF],
-                    'network_id': [net_id]}
-    intf_ports = plugin.get_ports(context, filters=port_filters)
-    router_ids = [port['device_id'] for port in intf_ports]
-    all_routers = plugin.get_routers(context, filters={'id': router_ids})
-    dist_routers = [router['id'] for router in all_routers
-                    if router.get('distributed') is True]
-    if len(dist_routers) > 0:
-        # Supposed to be only one
-        return dist_routers[0]
+        # This is a regular DHCP edge:
+        # Move all the networks to other (new or existing) edge
+        for net_id in network_ids:
+            recreate_network_dhcp(context, plugin, edge_manager,
+                                  old_edge_id, net_id)
 
 
 def nsx_recreate_dhcp_edge_by_net_id(net_id):
@@ -344,16 +283,8 @@ def nsx_recreate_dhcp_edge_by_net_id(net_id):
         nsxv_manager = vcns_driver.VcnsDriver(edge_utils.NsxVCallbacks(plugin))
         edge_manager = edge_utils.EdgeManager(nsxv_manager, plugin)
 
-        # check if this network is attached to a distributed router
-        vdr_router_id = _get_net_vdr_router_id(plugin, context, net_id)
-        if vdr_router_id:
-            # recreate the edge as a VDR DHCP edge
-            recreate_vdr_dhcp_edge(context, plugin, edge_manager,
-                                   vdr_router_id)
-        else:
-            # This is a regular DHCP edge:
-            recreate_network_dhcp(context, plugin, edge_manager,
-                                  None, net_id)
+        recreate_network_dhcp(context, plugin, edge_manager,
+                              None, net_id)
 
 
 registry.subscribe(list_missing_dhcp_bindings,

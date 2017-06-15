@@ -28,7 +28,6 @@ from vmware_nsx.plugins.nsx_v import plugin as nsx_v
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 
 LOG = logging.getLogger(__name__)
-METADATA_CIDR = '169.254.169.254/32'
 
 
 class RouterDistributedDriver(router_driver.RouterBaseDriver):
@@ -63,16 +62,8 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
 
     def _update_routes_on_tlr(
         self, context, router_id,
-        newnexthop=edge_utils.get_vdr_transit_network_plr_address(),
-        metadata_gateway=None):
+        newnexthop=edge_utils.get_vdr_transit_network_plr_address()):
         routes = []
-
-        # If metadata service is configured, add a static route to direct
-        # metadata requests to a DHCP Edge on one of the attached networks
-        if metadata_gateway:
-            routes.append({'destination': METADATA_CIDR,
-                           'nexthop': metadata_gateway['ip_address'],
-                           'network_id': metadata_gateway['network_id']})
 
         # Add extra routes referring to internal network on tlr
         extra_routes = self.plugin._prepare_edge_extra_routes(
@@ -107,8 +98,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                                                                 router_id)):
                 self.plugin._update_subnets_and_dnat_firewall(context,
                                                               router_db)
-                md_gw_data = self._get_metadata_gw_data(context, router_id)
-                self._update_routes(context, router_id, nexthop, md_gw_data)
+                self._update_routes(context, router_id, nexthop)
         if 'admin_state_up' in r:
             self.plugin._update_router_admin_state(
                 context, router_id, self.get_type(), r['admin_state_up'])
@@ -124,30 +114,19 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
     def delete_router(self, context, router_id):
         self.edge_manager.delete_lrouter(context, router_id, dist=True)
 
-        # This should address cases where the binding remains due to breakage
-        if nsxv_db.get_vdr_dhcp_binding_by_vdr(context.session, router_id):
-            LOG.warning("DHCP bind wasn't cleaned for router %s. "
-                        "Cleaning up entry", router_id)
-            nsxv_db.delete_vdr_dhcp_binding(context.session, router_id)
-
-    def update_routes(self, context, router_id, newnexthop,
-                      metadata_gateway=None):
+    def update_routes(self, context, router_id, newnexthop):
         with locking.LockManager.get_lock(self._get_edge_id(context,
                                                             router_id)):
-            self._update_routes(context, router_id, newnexthop,
-                                metadata_gateway)
+            self._update_routes(context, router_id, newnexthop)
 
-    def _update_routes(self, context, router_id, newnexthop,
-                      metadata_gateway=None):
+    def _update_routes(self, context, router_id, newnexthop):
         plr_id = self.edge_manager.get_plr_by_tlr_id(context, router_id)
         if plr_id:
             self._update_routes_on_plr(context, router_id, plr_id,
                                        newnexthop)
-            self._update_routes_on_tlr(context, router_id,
-                                       metadata_gateway=metadata_gateway)
+            self._update_routes_on_tlr(context, router_id)
         else:
-            self._update_routes_on_tlr(context, router_id, newnexthop=None,
-                                       metadata_gateway=metadata_gateway)
+            self._update_routes_on_tlr(context, router_id, newnexthop=None)
 
     def _update_nexthop(self, context, router_id, newnexthop):
         plr_id = self.edge_manager.get_plr_by_tlr_id(context, router_id)
@@ -224,8 +203,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
 
         # update static routes in all
         with locking.LockManager.get_lock(tlr_edge_id):
-            md_gw_data = self._get_metadata_gw_data(context, router_id)
-            self._update_routes(context, router_id, newnexthop, md_gw_data)
+            self._update_routes(context, router_id, newnexthop)
 
         if new_ext_net_id:
             self._notify_after_router_edge_association(context, router)
@@ -269,7 +247,6 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
             context, router_id, network_id)
         edge_id = self._get_edge_id(context, router_id)
         interface_created = False
-        port = self.plugin.get_port(context, info['port_id'])
         try:
             with locking.LockManager.get_lock(str(edge_id)):
                 edge_utils.add_vdr_internal_interface(self.nsx_v, context,
@@ -280,21 +257,6 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                 # Update edge's firewall rules to accept subnets flows.
                 self.plugin._update_subnets_and_dnat_firewall(context,
                                                               router_db)
-
-                filters = {'network_id': [network_id],
-                           'enable_dhcp': [True]}
-                sids = self.plugin.get_subnets(context, filters=filters,
-                                               fields=['id'])
-                is_dhcp_network = len(sids) > 0
-                do_metadata = False
-                if self.plugin.metadata_proxy_handler and is_dhcp_network:
-                    for fixed_ip in port.get("fixed_ips", []):
-                        if fixed_ip['ip_address'] == subnet['gateway_ip']:
-                            do_metadata = True
-
-                    if do_metadata:
-                        self.edge_manager.configure_dhcp_for_vdr_network(
-                            context, network_id, router_id)
 
                 if router_db.gw_port:
                     plr_id = self.edge_manager.get_plr_by_tlr_id(context,
@@ -309,18 +271,9 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                     # Update static routes of plr
                     nexthop = self.plugin._get_external_attachment_info(
                         context, router_db)[2]
-                    if do_metadata:
-                        md_gw_data = self._get_metadata_gw_data(context,
-                                                                router_id)
-                    else:
-                        md_gw_data = None
-                    self._update_routes(context, router_id,
-                                        nexthop, md_gw_data)
 
-                elif do_metadata and (
-                    self._metadata_cfg_required_after_port_add(
-                        context, router_id, subnet)):
-                    self._metadata_route_update(context, router_id)
+                    self._update_routes(context, router_id,
+                                        nexthop)
 
         except Exception:
             with excutils.save_and_reraise_exception():
@@ -330,111 +283,13 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                               context, router_id, interface_info)
         return info
 
-    def _metadata_route_update(self, context, router_id):
-        """Update metadata relative routes.
-        The func can only be used when there is no gateway on vdr.
-        """
-        md_gw_data = self._get_metadata_gw_data(context, router_id)
-
-        # Setup metadata route on VDR
-        self._update_routes_on_tlr(
-            context, router_id, newnexthop=None,
-            metadata_gateway=md_gw_data)
-        if not md_gw_data:
-            # No more DHCP interfaces on VDR. Remove DHCP binding
-            nsxv_db.delete_vdr_dhcp_binding(context.session, router_id)
-        return md_gw_data
-
-    def _get_metadata_gw_data(self, context, router_id):
-        if not self.plugin.metadata_proxy_handler:
-            return
-        # Get all subnets which are attached to the VDR and have DHCP enabled
-        vdr_ports = self.plugin._get_port_by_device_id(
-            context, router_id, l3_db.DEVICE_OWNER_ROUTER_INTF)
-        vdr_subnet_ids = [port['fixed_ips'][0]['subnet_id']
-                          for port in vdr_ports if port.get('fixed_ips')]
-        vdr_subnets = None
-        if vdr_subnet_ids:
-            subnet_filters = {'id': vdr_subnet_ids,
-                              'enable_dhcp': [True]}
-            vdr_subnets = self.plugin.get_subnets(context,
-                                                  filters=subnet_filters)
-
-        # Choose the 1st subnet, and get the DHCP interface IP address
-        if vdr_subnets:
-            dhcp_ports = self.plugin.get_ports(
-                context,
-                filters={'device_owner': ['network:dhcp'],
-                         'fixed_ips': {'subnet_id': [vdr_subnets[0]['id']]}},
-                fields=['fixed_ips'])
-
-            if (dhcp_ports
-                and dhcp_ports[0].get('fixed_ips')
-                and dhcp_ports[0]['fixed_ips'][0]):
-                ip_subnet = dhcp_ports[0]['fixed_ips'][0]
-                ip_address = ip_subnet['ip_address']
-                network_id = self.plugin.get_subnet(
-                    context, ip_subnet['subnet_id']).get('network_id')
-
-                return {'ip_address': ip_address,
-                        'network_id': network_id}
-
-    def _metadata_cfg_required_after_port_add(
-            self, context, router_id, subnet):
-        # On VDR, metadata is supported by applying metadata LB on DHCP
-        # Edge, and routing the metadata requests from VDR to the DHCP Edge.
-        #
-        # If DHCP is enabled on this subnet, we can, potentially, use it
-        # for metadata.
-        # Verify if there are networks which are connected to DHCP and to
-        # this router. If so, one of these is serving metadata.
-        # If not, route metadata requests to DHCP on this subnet
-        if self.plugin.metadata_proxy_handler and subnet['enable_dhcp']:
-            vdr_ports = self.plugin.get_ports(
-                context,
-                filters={'device_id': [router_id]})
-            if vdr_ports:
-                for port in vdr_ports:
-                    subnet_id = port['fixed_ips'][0]['subnet_id']
-                    port_subnet = self.plugin.get_subnet(
-                        context.elevated(), subnet_id)
-                    if (port_subnet['id'] != subnet['id']
-                        and port_subnet['enable_dhcp']):
-                        # We already have a subnet which is connected to
-                        # DHCP - hence no need to change the metadata route
-                        return False
-            return True
-        # Metadata routing change is irrelevant if this point is reached
-        return False
-
-    def _metadata_cfg_required_after_port_remove(
-            self, context, router_id, subnet):
-        # When a VDR is detached from a subnet, verify if the subnet is used
-        # to transfer metadata requests to the assigned DHCP Edge.
-        routes = edge_utils.get_routes(self.nsx_v, context, router_id)
-
-        for route in routes:
-            if (route['destination'] == METADATA_CIDR
-                and subnet['network_id'] == route['network_id']):
-
-                # Metadata requests are transferred via this port
-                return True
-        return False
-
     def remove_router_interface(self, context, router_id, interface_info):
         info = super(nsx_v.NsxVPluginV2, self.plugin).remove_router_interface(
             context, router_id, interface_info)
         router_db = self.plugin._get_router(context, router_id)
         subnet = self.plugin.get_subnet(context, info['subnet_id'])
         network_id = subnet['network_id']
-        vdr_dhcp_binding = nsxv_db.get_vdr_dhcp_binding_by_vdr(
-            context.session, router_id)
 
-        sids = self.plugin.get_subnets(context,
-                                       filters={'network_id': [network_id],
-                                                'enable_dhcp': [True]},
-                                       fields=['id'])
-        is_dhcp_network = len(sids) > 0
         with locking.LockManager.get_lock(self._get_edge_id(context,
                                                             router_id)):
             if router_db.gw_port and router_db.enable_snat:
@@ -447,17 +302,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                 # Update static routes of plr
                 nexthop = self.plugin._get_external_attachment_info(
                     context, router_db)[2]
-                md_gw_data = self._get_metadata_gw_data(context, router_id)
-                self._update_routes(context, router_id, nexthop, md_gw_data)
-
-            # If DHCP is disabled, this remove cannot trigger metadata change
-            # as metadata is served via DHCP Edge
-            elif (is_dhcp_network
-                  and self.plugin.metadata_proxy_handler):
-                md_gw_data = self._get_metadata_gw_data(context, router_id)
-                if self._metadata_cfg_required_after_port_remove(
-                    context, router_id, subnet):
-                    self._metadata_route_update(context, router_id)
+                self._update_routes(context, router_id, nexthop)
 
             self.plugin._update_subnets_and_dnat_firewall(context, router_db)
             # Safly remove interface, VDR can have interface to only one subnet
@@ -465,48 +310,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
             edge_utils.delete_interface(
                 self.nsx_v, context, router_id, network_id, dist=True)
 
-            if self.plugin.metadata_proxy_handler and subnet['enable_dhcp']:
-                self._attach_network_to_regular_dhcp(
-                    context, router_id, network_id, subnet, vdr_dhcp_binding)
-
             return info
-
-    def _attach_network_to_regular_dhcp(
-            self, context, router_id, network_id, subnet, vdr_dhcp_binding):
-        # Detach network from VDR-dedicated DHCP Edge
-
-        # A case where we do not have a vdr_dhcp_binding indicates a DB
-        # inconsistency. We check for this anyway, in case that
-        # something is broken.
-        if vdr_dhcp_binding:
-            self.edge_manager.reset_sysctl_rp_filter_for_vdr_dhcp(
-                context, vdr_dhcp_binding['dhcp_edge_id'], network_id)
-
-            with locking.LockManager.get_lock(
-                    vdr_dhcp_binding['dhcp_edge_id']):
-                self.edge_manager.remove_network_from_dhcp_edge(
-                    context, network_id, vdr_dhcp_binding['dhcp_edge_id'])
-        else:
-            LOG.error('VDR DHCP binding is missing for %s',
-                      router_id)
-
-        # Reattach to regular DHCP Edge
-        with locking.LockManager.get_lock(network_id):
-            dhcp_id = self.edge_manager.create_dhcp_edge_service(
-                context, network_id, subnet)
-            self.plugin._update_dhcp_adddress(context, network_id)
-            if dhcp_id:
-                edge_id, az_name = self.plugin._get_edge_id_and_az_by_rtr_id(
-                    context, dhcp_id)
-                if edge_id:
-                    with locking.LockManager.get_lock(str(edge_id)):
-                        md_proxy_handler = (
-                            self.plugin.get_metadata_proxy_handler(az_name))
-                        if md_proxy_handler:
-                            md_proxy_handler.configure_router_edge(
-                                context, dhcp_id)
-                        self.plugin.setup_dhcp_edge_fw_rules(
-                            context, self.plugin, dhcp_id)
 
     def _update_edge_router(self, context, router_id):
         router = self.plugin._get_router(context.elevated(), router_id)

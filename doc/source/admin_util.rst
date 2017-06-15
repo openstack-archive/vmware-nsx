@@ -145,6 +145,10 @@ Routers
 
     nsxadmin -r routers -o nsx-recreate --property edge-id=edge-308
 
+- Migrate NSXv metadata infrastructure for VDRs - use regular DHCP edges for VDR::
+
+    nsxadmin -r routers -o migrate-vdr-dhcp
+
 Networks
 ~~~~~~~~
 

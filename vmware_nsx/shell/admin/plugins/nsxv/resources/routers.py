@@ -140,6 +140,32 @@ def nsx_recreate_router_edge(resource, event, trigger, **kwargs):
                      {'router': router_id, 'edge': new_edge_id})
 
 
+def migrate_distributed_routers_dhcp(resource, event, trigger, **kwargs):
+    context = n_context.get_admin_context()
+    nsxv = utils.get_nsxv_client()
+    with utils.NsxVPluginWrapper() as plugin:
+        routers = plugin.get_routers(context)
+        for router in routers:
+            if router.get('distributed', False):
+                binding = nsxv_db.get_nsxv_router_binding(context.session,
+                                                          router['id'])
+                if binding:
+                    edge_id = binding['edge_id']
+                    with locking.LockManager.get_lock(edge_id):
+                        route_obj = nsxv.get_routes(edge_id)[1]
+                        routes = route_obj.get('staticRoutes', {}
+                                               ).get('staticRoutes', [])
+                        new_routes = [route for route in routes if route.get(
+                            'network') != '169.254.169.254/32']
+                        route_obj['staticRoutes']['staticRoutes'] = new_routes
+
+                        nsxv.update_routes(edge_id, route_obj)
+
+
 registry.subscribe(nsx_recreate_router_edge,
                    constants.ROUTERS,
                    shell.Operations.NSX_RECREATE.value)
+
+registry.subscribe(migrate_distributed_routers_dhcp,
+                   constants.ROUTERS,
+                   shell.Operations.MIGRATE_VDR_DHCP.value)

@@ -24,7 +24,6 @@ import time
 
 from neutron_lib import context as q_context
 from oslo_config import cfg
-from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import excutils
@@ -193,7 +192,6 @@ class EdgeManager(object):
         self.plugin = plugin
         self.per_interface_rp_filter = self._get_per_edge_rp_filter_state()
         self._check_backup_edge_pools()
-        self._validate_new_features()
 
     def _parse_backup_edge_pool_opt(self):
         """Parse edge pool opts for all availability zones."""
@@ -211,18 +209,6 @@ class EdgeManager(object):
             self._worker_pool_pid = os.getpid()
             self._worker_pool = eventlet.GreenPool(WORKER_POOL_SIZE)
         return self._worker_pool
-
-    def _validate_new_features(self):
-        self.is_dhcp_opt_enabled = False
-
-        ver = self.nsxv_manager.vcns.get_version()
-        if version.LooseVersion(ver) >= version.LooseVersion('6.2.3'):
-            self.is_dhcp_opt_enabled = True
-        elif cfg.CONF.nsxv.dhcp_force_metadata:
-            LOG.warning("Skipping dhcp_force_metadata param since dhcp "
-                        "option feature can only be supported at version "
-                        "6.2.3 or higher")
-            self.is_dhcp_opt_enabled = False
 
     def _get_per_edge_rp_filter_state(self):
         ver = self.nsxv_manager.vcns.get_version()
@@ -1064,10 +1050,8 @@ class EdgeManager(object):
         return static_binding
 
     def handle_meta_static_route(self, context, subnet_id, static_bindings):
-        is_dhcp_option121 = (
-            self.is_dhcp_opt_enabled and
-            self.nsxv_plugin.is_dhcp_metadata(
-                context, subnet_id))
+        is_dhcp_option121 = self.nsxv_plugin.is_dhcp_metadata(context,
+                                                              subnet_id)
         if is_dhcp_option121:
             dhcp_ip = self.nsxv_plugin._get_dhcp_ip_addr_from_subnet(
                 context, subnet_id)
@@ -1119,11 +1103,6 @@ class EdgeManager(object):
             nsxv_db.create_edge_dhcp_static_binding(context.session, edge_id,
                                                     mac_address, binding_id)
 
-    def _get_vdr_dhcp_edges(self, context):
-        bindings = nsxv_db.get_vdr_dhcp_bindings(context.session)
-        edges = [binding['dhcp_edge_id'] for binding in bindings]
-        return edges
-
     def _get_random_available_edge(self, available_edge_ids):
         while available_edge_ids:
             # Randomly select an edge ID from the pool.
@@ -1150,7 +1129,6 @@ class EdgeManager(object):
                           binding in router_bindings if (binding['router_id'].
                           startswith(vcns_const.DHCP_EDGE_PREFIX) and
                           binding['status'] == constants.ACTIVE)}
-        vdr_dhcp_edges = self._get_vdr_dhcp_edges(context)
 
         # Special case if there is more than one subnet per exclusive DHCP
         # network
@@ -1184,8 +1162,7 @@ class EdgeManager(object):
 
             for x in all_dhcp_edges.values():
                 if (x not in conflict_edge_ids and
-                    x not in available_edge_ids and
-                    x not in vdr_dhcp_edges):
+                    x not in available_edge_ids):
                     available_edge_ids.append(x)
         return (conflict_edge_ids, available_edge_ids)
 
@@ -1468,84 +1445,6 @@ class EdgeManager(object):
                                        'vnic_index': vnic_index,
                                        'edge_id': edge_id})
 
-    def configure_dhcp_for_vdr_network(
-            self, context, network_id, vdr_router_id):
-        # If network is already attached to a DHCP Edge, detach from it
-        resource_id = (vcns_const.DHCP_EDGE_PREFIX + network_id)[:36]
-        dhcp_edge_binding = nsxv_db.get_nsxv_router_binding(context.session,
-                                                            resource_id)
-
-        if dhcp_edge_binding:
-            with locking.LockManager.get_lock('nsx-edge-pool'):
-                edge_id = dhcp_edge_binding['edge_id']
-                with locking.LockManager.get_lock(str(edge_id)):
-                    self.remove_network_from_dhcp_edge(context, network_id,
-                                                       edge_id)
-
-        # Find DHCP Edge which is associated with this VDR
-        vdr_dhcp_binding = nsxv_db.get_vdr_dhcp_binding_by_vdr(
-            context.session, vdr_router_id)
-        availability_zone = self.plugin.get_network_az_by_net_id(
-            context, network_id)
-        if vdr_dhcp_binding:
-            with locking.LockManager.get_lock('nsx-edge-pool'):
-                dhcp_edge_id = vdr_dhcp_binding['dhcp_edge_id']
-                with locking.LockManager.get_lock(str(dhcp_edge_id)):
-                    self.reuse_existing_dhcp_edge(
-                        context, dhcp_edge_id, resource_id, network_id,
-                        availability_zone)
-        else:
-            # Attach to DHCP Edge
-            dhcp_edge_id = self.allocate_new_dhcp_edge(
-                context, network_id, resource_id, availability_zone)
-            md_proxy = self.plugin.get_metadata_proxy_handler(
-                availability_zone.name)
-            md_proxy.configure_router_edge(context, resource_id)
-            with locking.LockManager.get_lock(str(dhcp_edge_id)):
-                self.plugin.setup_dhcp_edge_fw_rules(
-                    context, self.plugin, resource_id)
-
-            if not self.per_interface_rp_filter:
-                with locking.LockManager.get_lock(str(dhcp_edge_id)):
-                    self.nsxv_manager.vcns.set_system_control(
-                        dhcp_edge_id,
-                        [RP_FILTER_PROPERTY_OFF_TEMPLATE % ('all', '0')])
-
-            try:
-                nsxv_db.add_vdr_dhcp_binding(context.session, vdr_router_id,
-                                             dhcp_edge_id)
-            except db_exc.DBDuplicateEntry as e:
-                # Could have garbage binding in the DB - warn and overwrite
-                if 'PRIMARY' in e.columns:
-                    LOG.warning('Conflict found in VDR DHCP bindings - '
-                                'router %s was already bound',
-                                vdr_router_id)
-                    del_vdr = vdr_router_id
-                else:
-                    LOG.warning('Conflict found in VDR DHCP bindings - '
-                                'DHCP edge %s was already bound',
-                                dhcp_edge_id)
-                    bind = nsxv_db.get_vdr_dhcp_binding_by_edge(
-                        context.session, dhcp_edge_id)
-                    if bind:
-                        del_vdr = bind['vdr_router_id']
-                    else:
-                        del_vdr = None
-
-                if del_vdr:
-                    nsxv_db.delete_vdr_dhcp_binding(context.session,
-                                                    del_vdr)
-                    nsxv_db.add_vdr_dhcp_binding(context.session,
-                                                 vdr_router_id, dhcp_edge_id)
-                else:
-                    LOG.error('Database conflict could not be recovered '
-                              'for VDR %(vdr)s DHCP edge %(dhcp)s',
-                              {'vdr': vdr_router_id, 'dhcp': dhcp_edge_id})
-        self.plugin._update_dhcp_adddress(context, network_id)
-
-        self.set_sysctl_rp_filter_for_vdr_dhcp(
-            context, dhcp_edge_id, network_id)
-
     def _update_address_in_dict(self, address_groups, old_ip, new_ip,
                                 subnet_mask):
         """Update the address_groups data structure to replace the old ip
@@ -1670,42 +1569,6 @@ class EdgeManager(object):
                 for sub_interface in sub_interfaces:
                     if sub_interface['tunnelId'] == vnic_binding.tunnel_index:
                         return sub_interface['index']
-
-    def set_sysctl_rp_filter_for_vdr_dhcp(self, context, edge_id, network_id):
-        if not self.per_interface_rp_filter:
-            return
-
-        vnic_index = self._get_sub_interface_id(context, edge_id, network_id)
-        if vnic_index:
-            vnic_id = 'vNic_%d' % vnic_index
-            with locking.LockManager.get_lock(str(edge_id)):
-                sysctl_props = []
-                h, sysctl = self.nsxv_manager.vcns.get_system_control(edge_id)
-                if sysctl:
-                    sysctl_props = sysctl['property']
-                sysctl_props.append(
-                    RP_FILTER_PROPERTY_OFF_TEMPLATE % (vnic_id, '0'))
-                self.nsxv_manager.vcns.set_system_control(
-                    edge_id, sysctl_props)
-
-    def reset_sysctl_rp_filter_for_vdr_dhcp(self, context, edge_id,
-                                            network_id):
-        if not self.per_interface_rp_filter:
-            return
-
-        vnic_index = self._get_sub_interface_id(context, edge_id, network_id)
-        if vnic_index:
-            vnic_id = 'vNic_%d' % vnic_index
-            with locking.LockManager.get_lock(str(edge_id)):
-                h, sysctl = self.nsxv_manager.vcns.get_system_control(edge_id)
-                if sysctl:
-                    sysctl_props = sysctl['property']
-                    sysctl_props.remove(
-                        RP_FILTER_PROPERTY_OFF_TEMPLATE % (vnic_id, '0'))
-                    sysctl_props.append(
-                        RP_FILTER_PROPERTY_OFF_TEMPLATE % (vnic_id, '1'))
-                    self.nsxv_manager.vcns.set_system_control(
-                        edge_id, sysctl_props)
 
     def get_plr_by_tlr_id(self, context, router_id):
         lswitch_id = nsxv_db.get_nsxv_router_binding(

@@ -632,16 +632,6 @@ nsxv_opts = [
                 default=False,
                 help=_("(Optional) Indicates whether distributed-firewall "
                        "security-groups allowed traffic is logged.")),
-    cfg.BoolOpt('dhcp_force_metadata', default=True,
-                help=_("(Optional) In some cases the Neutron router is not "
-                       "present to provide the metadata IP but the DHCP "
-                       "server can be used to provide this info. Setting this "
-                       "value will force the DHCP server to append specific "
-                       "host routes to the DHCP request. If this option is "
-                       "set, then the metadata service will be activated for "
-                       "all the dhcp enabled networks.\nNote: this option can "
-                       "only be supported at NSX manager version 6.2.3 or "
-                       "higher.")),
     cfg.StrOpt('service_insertion_profile_id',
                help=_("(Optional) The profile id of the redirect firewall "
                       "rules that will be used for the Service Insertion "

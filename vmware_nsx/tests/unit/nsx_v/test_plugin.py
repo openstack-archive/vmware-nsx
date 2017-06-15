@@ -192,7 +192,6 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
         plugin_instance._get_edge_id_and_az_by_rtr_id = mock.Mock()
         plugin_instance._get_edge_id_and_az_by_rtr_id.return_value = (
             False, False)
-        plugin_instance.edge_manager.is_dhcp_opt_enabled = True
         # call init_complete manually. The event is not called in unit tests
         plugin_instance.init_complete(None, None, {})
 
@@ -2666,7 +2665,6 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
                                               expected_code=error_code)
 
     def test_subnet_dhcp_metadata_with_update(self):
-        cfg.CONF.set_override('dhcp_force_metadata', True, group='nsxv')
         self.plugin_instance.metadata_proxy_handler = mock.Mock()
         with self.subnet(cidr="10.0.0.0/24", enable_dhcp=True) as s1:
             subnet_id = s1['subnet']['id']
@@ -3170,7 +3168,6 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
 
     @mock.patch.object(edge_utils, "update_firewall")
     def test_router_interfaces_with_update_firewall_metadata(self, mock):
-        cfg.CONF.set_override('dhcp_force_metadata', True, group='nsxv')
         self.plugin_instance.metadata_proxy_handler = mock.Mock()
         s1_cidr = '10.0.0.0/24'
         s2_cidr = '11.0.0.0/24'
@@ -3241,7 +3238,6 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
     def test_router_interfaces_with_update_firewall_metadata_conf(self, mock):
         """Test the metadata proxy firewall rule with configured ports
         """
-        cfg.CONF.set_override('dhcp_force_metadata', True, group='nsxv')
         cfg.CONF.set_override('metadata_service_allowed_ports',
             ['55', ' 66 ', '55', '77'], group='nsxv')
         self.plugin_instance.metadata_proxy_handler = mock.Mock()
