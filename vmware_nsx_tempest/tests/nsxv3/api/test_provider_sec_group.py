@@ -134,6 +134,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
         sg_rule = self.create_security_group_rule(sg_id, cmgr=self.cmgr_adm,
                                                   protocol='icmp')
         sg_rule.get('id')
+        time.sleep(constants.NSX_BACKEND_TIME_INTERVAL)
         self.assertNotEmpty(self.nsx.get_firewall_section(sg_name, sg_id))
 
     @test.attr(type='nsxv3')
