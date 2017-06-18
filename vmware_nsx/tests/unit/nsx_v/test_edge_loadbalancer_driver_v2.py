@@ -430,12 +430,14 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
             mock_get_pool_binding.return_value = POOL_BINDING
             fake_edge = EDGE_POOL_DEF.copy()
             fake_edge['monitorId'] = 'monitor-7'
+            fake_edge['member'] = ['member1', 'member2']
             mock_get_pool.return_value = (None, fake_edge)
             self.edge_driver.pool.update(self.context, self.pool, new_pool)
 
             edge_pool_def = EDGE_POOL_DEF.copy()
             edge_pool_def['algorithm'] = 'leastconn'
             edge_pool_def['monitorId'] = 'monitor-7'
+            edge_pool_def['member'] = ['member1', 'member2']
             mock_upd_pool.assert_called_with(
                 LB_EDGE_ID, EDGE_POOL_ID, edge_pool_def)
             mock_upd_app_prof.assert_called_with(LB_EDGE_ID,

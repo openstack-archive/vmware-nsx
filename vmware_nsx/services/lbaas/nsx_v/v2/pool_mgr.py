@@ -122,6 +122,10 @@ class EdgePoolManager(base_mgr.EdgeLoadbalancerBaseManager):
                 if monitor_id:
                     edge_pool['monitorId'] = monitor_id
 
+                # Keep the current members
+                if org_edge_pool.get('member'):
+                    edge_pool['member'] = org_edge_pool['member']
+
                 self.vcns.update_pool(edge_id, edge_pool_id, edge_pool)
 
             self.lbv2_driver.pool.successful_completion(context, new_pool)
