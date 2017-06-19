@@ -144,7 +144,7 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         try:
             self._core_plugin.nsxlib.bridge_cluster.get_id_by_name_or_id(
                 devices[0]['device_name'])
-        except nsxlib_exc.ResourceNotFound:
+        except nsxlib_exc.ManagerError:
             msg = _("Could not find Bridge Cluster for L2 gateway device "
                     "%s on NSX backend") % devices[0]['device_name']
             LOG.error(msg)
