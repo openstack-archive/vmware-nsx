@@ -18,6 +18,7 @@ from neutron_lib import context
 from oslo_config import cfg
 from oslo_utils import uuidutils
 
+from neutron.common import exceptions
 from neutron.objects import base as base_object
 from neutron.objects.qos import policy as policy_object
 from neutron.objects.qos import rule as rule_object
@@ -173,8 +174,7 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
 
     @mock.patch.object(policy_object.QosPolicy, '_reload_rules')
     def test_bw_rule_create_profile_minimal_val(self, *mocks):
-        # test the switch profile update when a QoS rule is created
-        # with an invalid limit value
+        # test driver precommit with an invalid limit value
         bad_limit = qos_utils.MAX_KBPS_MIN_VALUE - 1
         rule_data = {
             'bandwidth_limit_rule': {'id': uuidutils.generate_uuid(),
@@ -189,35 +189,17 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
         # add a rule to the policy
         setattr(_policy, "rules", [rule])
         with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
-            return_value=_policy):
-            with mock.patch(
-                'vmware_nsxlib.v3.core_resources.NsxLibQosSwitchingProfile.'
-                'update_shaping'
-            ) as update_profile:
-                with mock.patch('neutron.objects.db.api.update_object',
-                    return_value=rule_data):
-                    self.qos_plugin.update_policy_bandwidth_limit_rule(
-                        self.ctxt, rule.id, _policy.id, rule_data)
-
-                    # validate the data on the profile
-                    rule_dict = rule_data['bandwidth_limit_rule']
-                    expected_bw = qos_utils.MAX_KBPS_MIN_VALUE / 1024
-                    expected_burst = rule_dict['max_burst_kbps'] * 128
-                    expected_peak = int(expected_bw * self.peak_bw_multiplier)
-                    update_profile.assert_called_once_with(
-                        self.fake_profile_id,
-                        average_bandwidth=expected_bw,
-                        burst_size=expected_burst,
-                        peak_bandwidth=expected_peak,
-                        shaping_enabled=True,
-                        dscp=0,
-                        qos_marking='trusted'
-                    )
+                        return_value=_policy),\
+            mock.patch('neutron.objects.db.api.update_object',
+                       return_value=rule_data):
+            self.assertRaises(
+                exceptions.DriverCallError,
+                self.qos_plugin.update_policy_bandwidth_limit_rule,
+                self.ctxt, rule.id, _policy.id, rule_data)
 
     @mock.patch.object(policy_object.QosPolicy, '_reload_rules')
     def test_bw_rule_create_profile_maximal_val(self, *mocks):
-        # test the switch profile update when a QoS rule is created
-        # with an invalid burst value
+        # test driver precommit with an invalid burst value
         bad_burst = qos_utils.MAX_BURST_MAX_VALUE + 1
         rule_data = {
             'bandwidth_limit_rule': {'id': uuidutils.generate_uuid(),
@@ -232,30 +214,13 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
         # add a rule to the policy
         setattr(_policy, "rules", [rule])
         with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
-            return_value=_policy):
-            with mock.patch(
-                'vmware_nsxlib.v3.core_resources.NsxLibQosSwitchingProfile.'
-                'update_shaping'
-            ) as update_profile:
-                with mock.patch('neutron.objects.db.api.update_object',
-                    return_value=rule_data):
-                    self.qos_plugin.update_policy_bandwidth_limit_rule(
-                        self.ctxt, rule.id, _policy.id, rule_data)
-
-                    # validate the data on the profile
-                    rule_dict = rule_data['bandwidth_limit_rule']
-                    expected_burst = qos_utils.MAX_BURST_MAX_VALUE * 128
-                    expected_bw = int(rule_dict['max_kbps'] / 1024)
-                    expected_peak = int(expected_bw * self.peak_bw_multiplier)
-                    update_profile.assert_called_once_with(
-                        self.fake_profile_id,
-                        average_bandwidth=expected_bw,
-                        burst_size=expected_burst,
-                        peak_bandwidth=expected_peak,
-                        shaping_enabled=True,
-                        dscp=0,
-                        qos_marking='trusted'
-                    )
+                        return_value=_policy),\
+            mock.patch('neutron.objects.db.api.update_object',
+                       return_value=rule_data):
+                self.assertRaises(
+                    exceptions.DriverCallError,
+                    self.qos_plugin.update_policy_bandwidth_limit_rule,
+                    self.ctxt, rule.id, _policy.id, rule_data)
 
     @mock.patch.object(policy_object.QosPolicy, '_reload_rules')
     def test_dscp_rule_create_profile(self, *mocks):

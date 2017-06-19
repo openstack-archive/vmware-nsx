@@ -85,6 +85,12 @@ class NSXv3QosDriver(base.DriverBase):
     def delete_policy(self, context, policy):
         self.handler.delete_policy(context, policy.id)
 
+    def update_policy_precommit(self, context, policy):
+        """Validate rules values, before creation"""
+        if (hasattr(policy, "rules")):
+            for rule in policy["rules"]:
+                self.handler.validate_policy_rule(context, policy.id, rule)
+
 
 def register():
     """Register the NSX-V3 QoS driver."""

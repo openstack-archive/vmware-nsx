@@ -17,7 +17,9 @@
 from oslo_config import cfg
 from oslo_log import log as logging
 
+from neutron.services.qos import qos_consts
 from neutron_lib.api import validators
+from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
 
 from vmware_nsx._i18n import _
@@ -95,18 +97,18 @@ class QosNotificationsHandler(object):
         # Validate the max bandwidth value minimum value
         # (max value is above what neutron allows so no need to check it)
         if (bw_rule.max_kbps < MAX_KBPS_MIN_VALUE):
-            LOG.warning("Invalid input for max_kbps. "
-                        "The minimal legal value is %s",
-                        MAX_KBPS_MIN_VALUE)
-            bw_rule.max_kbps = MAX_KBPS_MIN_VALUE
+            msg = (_("Invalid input for max_kbps. "
+                     "The minimal legal value is %s") % MAX_KBPS_MIN_VALUE)
+            LOG.error(msg)
+            raise n_exc.InvalidInput(error_message=msg)
 
         # validate the burst size value max value
         # (max value is 0, and neutron already validates this)
         if (bw_rule.max_burst_kbps > MAX_BURST_MAX_VALUE):
-            LOG.warning("Invalid input for burst_size. "
-                        "The maximal legal value is %s",
-                        MAX_BURST_MAX_VALUE)
-            bw_rule.max_burst_kbps = MAX_BURST_MAX_VALUE
+            msg = (_("Invalid input for burst_size. "
+                     "The maximal legal value is %s") % MAX_BURST_MAX_VALUE)
+            LOG.error(msg)
+            raise n_exc.InvalidInput(error_message=msg)
 
     def _get_bw_values_from_rule(self, bw_rule):
         """Translate the neutron bandwidth_limit_rule values, into the
@@ -115,7 +117,6 @@ class QosNotificationsHandler(object):
         """
         if bw_rule:
             shaping_enabled = True
-            self._validate_bw_values(bw_rule)
 
             # translate kbps -> bytes
             burst_size = int(bw_rule.max_burst_kbps) * 128
@@ -168,3 +169,8 @@ class QosNotificationsHandler(object):
             average_bandwidth=average_bw,
             qos_marking=qos_marking,
             dscp=dscp)
+
+    def validate_policy_rule(self, context, policy_id, rule):
+        """Raise an exception if the rule values are not supported"""
+        if rule.rule_type == qos_consts.RULE_TYPE_BANDWIDTH_LIMIT:
+            self._validate_bw_values(rule)
