@@ -1254,9 +1254,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Therefore we skip this code during init.
         if backend_network and self.init_is_complete:
             # Update the QOS restrictions of the backend network
-            self._update_qos_on_created_network(context, net_data)
-            new_net[qos_consts.QOS_POLICY_ID] = (
-                qos_com_utils.get_network_policy_id(context, new_net['id']))
+            self._update_qos_on_created_network(context, net_data, new_net)
 
         # this extra lookup is necessary to get the
         # latest db model for the extension functions
@@ -1264,17 +1262,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         resource_extend.apply_funcs('networks', new_net, net_model)
         return new_net
 
-    def _update_qos_on_created_network(self, context, net_data):
-        if validators.is_attr_set(net_data.get(qos_consts.QOS_POLICY_ID)):
-            # update the BWM data on the backend
-            qos_policy_id = net_data[qos_consts.QOS_POLICY_ID]
+    def _update_qos_on_created_network(self, context, net_data, new_net):
+        qos_policy_id = qos_com_utils.set_qos_policy_on_new_net(
+            context, net_data, new_net)
+
+        if qos_policy_id:
+            # update the QoS data on the backend
             self._update_qos_on_backend_network(
                 context, net_data['id'], qos_policy_id)
-            # attach the policy to the network in the neutron DB
-            qos_com_utils.update_network_policy_binding(
-                context,
-                net_data['id'],
-                net_data[qos_consts.QOS_POLICY_ID])
 
     def _update_qos_on_backend_network(self, context, net_id, qos_policy_id):
         # Translate the QoS rule data into Nsx values

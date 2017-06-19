@@ -873,16 +873,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         net_model = self._get_network(context, created_net['id'])
         resource_extend.apply_funcs('networks', created_net, net_model)
 
-        if qos_consts.QOS_POLICY_ID in net_data:
-            # attach the policy to the network in neutron DB
-            #(will affect only future compute ports)
-            qos_com_utils.update_network_policy_binding(
-                context,
-                created_net['id'],
-                net_data[qos_consts.QOS_POLICY_ID])
-
-        created_net[qos_consts.QOS_POLICY_ID] = (
-            qos_com_utils.get_network_policy_id(context, created_net['id']))
+        # Update the QoS policy (will affect only future compute ports)
+        qos_com_utils.set_qos_policy_on_new_net(
+            context, net_data, created_net)
 
         return created_net
 
