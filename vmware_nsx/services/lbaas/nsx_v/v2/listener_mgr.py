@@ -66,7 +66,7 @@ def listener_to_edge_app_profile(listener, edge_cert_id):
                     'cookieMode': lb_const.SESSION_PERSISTENCE_COOKIE_MAP[
                         listener.default_pool.sessionpersistence.type]})
 
-                edge_app_profile['persistence'] = persistence
+            edge_app_profile['persistence'] = persistence
 
     return edge_app_profile
 
