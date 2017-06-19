@@ -78,7 +78,7 @@ class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
         if not self._nsxv.vcns.validate_network(interfaces[0]['name']):
             msg = _("Configured interface not found")
             raise n_exc.InvalidInput(error_message=msg)
-        interface = self.get_l2gateway_interfaces(context,
+        interface = self._get_l2gateway_interface(context,
                                                   interfaces[0]['name'])
         if interface:
             msg = _("%s is already used.") % interfaces[0]['name']
