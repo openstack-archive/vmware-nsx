@@ -60,10 +60,11 @@ def _get_bgp_neighbour(ip_address, remote_as, password, direction):
         'ipAddress': ip_address,
         'remoteAS': remote_as,
         'bgpFilters': bgp_filter,
-        'password': password,
         'holdDownTimer': cfg.CONF.nsxv.bgp_neighbour_hold_down_timer,
         'keepAliveTimer': cfg.CONF.nsxv.bgp_neighbour_keep_alive_timer
     }
+    if password:
+        nbr['password'] = password
     return {'bgpNeighbour': nbr}
 
 
