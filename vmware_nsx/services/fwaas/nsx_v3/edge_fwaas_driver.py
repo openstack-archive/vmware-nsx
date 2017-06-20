@@ -18,6 +18,9 @@ import netaddr
 from neutron_fwaas.common import exceptions
 from neutron_fwaas.services.firewall.drivers import fwaas_base
 from neutron_lib.api.definitions import constants as fwaas_consts
+from neutron_lib.callbacks import events
+from neutron_lib.callbacks import registry
+from neutron_lib.callbacks import resources
 from neutron_lib import context as n_context
 from neutron_lib.plugins import directory
 from oslo_log import helpers as log_helpers
@@ -39,6 +42,11 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
         LOG.debug("Loading FWaaS NsxV3Driver.")
         super(EdgeFwaasV3Driver, self).__init__()
 
+        self.backend_support = True
+        registry.subscribe(
+            self.check_backend_version,
+            resources.PROCESS, events.BEFORE_SPAWN)
+
     @property
     def nsxlib(self):
         return directory.get_plugin().nsxlib
@@ -50,6 +58,14 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
     @property
     def nsx_router(self):
         return self.nsxlib.logical_router
+
+    def check_backend_version(self, resource, event, trigger, **kwargs):
+        if not self.nsxlib.feature_supported(consts.FEATURE_ROUTER_FIREWALL):
+            # router firewall is not supported
+            LOG.warning("FWaaS is not supported by the NSX backend (version "
+                        "%s): Router firewall is not supported",
+                        self.nsxlib.get_version())
+            self.backend_support = False
 
     def should_apply_firewall_to_router(self, router_data):
         """Return True if the firewall rules should be added the router
@@ -166,14 +182,23 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
         # update each router using the core plugin code
         self._update_backend_routers(context, apply_list, rules=rules)
 
+    def validate_backend_version(self):
+        # prevent firewall actions if the backend does not support it
+        if not self.backend_support:
+            LOG.error("The NSX backend does not support router firewall")
+            raise exceptions.FirewallInternalDriverError(
+                driver=FWAAS_DRIVER_NAME)
+
     @log_helpers.log_method_call
     def create_firewall(self, agent_mode, apply_list, firewall):
         """Create the Firewall with a given policy. """
+        self.validate_backend_version()
         self._create_or_update_firewall(agent_mode, apply_list, firewall)
 
     @log_helpers.log_method_call
     def update_firewall(self, agent_mode, apply_list, firewall):
         """Remove previous policy and apply the new policy."""
+        self.validate_backend_version()
         self._create_or_update_firewall(agent_mode, apply_list, firewall)
 
     @log_helpers.log_method_call
@@ -183,6 +208,7 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
         Removes rules created by this instance from the backend firewall
         And add the default allow rule.
         """
+        self.validate_backend_version()
         context = n_context.get_admin_context()
         self._update_backend_routers(context, apply_list, delete_fw=True)
 
@@ -193,6 +219,7 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
         The backend firewall always has this policy (=deny all) as default,
         so we only need to delete the current rules.
         """
+        self.validate_backend_version()
         context = n_context.get_admin_context()
         self._update_backend_routers(context, apply_list, rules=[])
 

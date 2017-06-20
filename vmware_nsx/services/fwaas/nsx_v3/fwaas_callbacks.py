@@ -15,9 +15,7 @@
 
 from oslo_log import log as logging
 
-from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.services.fwaas.common import fwaas_callbacks as com_callbacks
-from vmware_nsxlib.v3 import nsx_constants as consts
 
 LOG = logging.getLogger(__name__)
 
@@ -27,17 +25,6 @@ class Nsxv3FwaasCallbacks(com_callbacks.NsxFwaasCallbacks):
 
     def __init__(self, nsxlib):
         super(Nsxv3FwaasCallbacks, self).__init__()
-        # Verify that the nsx backend supports FWaaS
-        if self.fwaas_enabled:
-            self.verify_backend_version(nsxlib)
-
-    def verify_backend_version(self, nsxlib):
-        if not nsxlib.feature_supported(consts.FEATURE_ROUTER_FIREWALL):
-            # router firewall is not supported
-            msg = (_("FWaaS is not supported by the NSX backend (version %s): "
-                     "Router firewall is not supported") %
-                   self.nsxlib.get_version())
-            raise nsx_exc.NsxPluginException(err_msg=msg)
 
     def should_apply_firewall_to_router(self, context, router_id):
         """Return True if the FWaaS rules should be added to this router."""
