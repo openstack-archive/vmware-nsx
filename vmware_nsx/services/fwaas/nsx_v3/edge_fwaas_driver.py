@@ -164,7 +164,7 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
             if rule.get('source_ip_address'):
                 nsx_rule['sources'] = self._translate_addresses(
                     [rule['source_ip_address']])
-            if rule.get('protocol', 'any') != 'any':
+            if rule.get('protocol'):
                 nsx_rule['services'] = self._translate_services(rule)
 
             translated_rules.append(nsx_rule)

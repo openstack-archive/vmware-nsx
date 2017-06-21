@@ -79,7 +79,12 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                  'ip_version': 4,
                  'protocol': 'icmp',
                  'id': 'fake-fw-rule3'}
-        return [rule1, rule2, rule3]
+        rule4 = {'enabled': True,
+                 'action': 'deny',
+                 'ip_version': 4,
+                 'source_ip_address': '10.25.5.2',
+                 'id': 'fake-fw-rule4'}
+        return [rule1, rule2, rule3, rule4]
 
     def _fake_translated_rules(self):
         # The expected translation of the rules in _fake_rules_v4
@@ -109,7 +114,12 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                  'services': [{'service': service3_1},
                               {'service': service3_2}],
                  'display_name': 'Fwaas-fake-fw-rule3'}
-        return [rule1, rule2, rule3]
+        rule4 = {'action': 'DROP',
+                 'sources': [{'target_id': '10.25.5.2',
+                              'target_type': 'IPv4Address'}],
+                 'display_name': 'Fwaas-fake-fw-rule4'}
+
+        return [rule1, rule2, rule3, rule4]
 
     def _fake_firewall_no_rule(self):
         rule_list = []
