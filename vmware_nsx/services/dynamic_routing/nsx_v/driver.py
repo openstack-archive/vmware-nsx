@@ -612,16 +612,25 @@ class NSXvBgpDriver(object):
         if not edge_id:
             return
 
-        routers_ids = (
-            self._core_plugin.edge_manager.get_routers_on_same_edge(
-                context, router_id))
         bgp_binding = nsxv_db.get_nsxv_bgp_speaker_binding(context.session,
                                                            edge_id)
         if not bgp_binding:
             return
 
-        if len(routers_ids) > 1:
-            routers_ids.remove(router_id)
+        routers_ids = (
+            self._core_plugin.edge_manager.get_routers_on_same_edge(
+                context, router_id))
+        routers_ids.remove(router_id)
+
+        # We need to find out what other routers are hosted on the edges and
+        # whether they have a gw addresses that could replace the current
+        # bgp-identifier (if required).
+        filters = {'device_owner': [n_const.DEVICE_OWNER_ROUTER_GW],
+                   'device_id': routers_ids}
+        edge_gw_ports = self._core_plugin.get_ports(context, filters=filters)
+        alt_bgp_identifiers = [p['fixed_ips'][0]['ip_address']
+                               for p in edge_gw_ports]
+        if alt_bgp_identifiers:
             # Shared router, only remove prefixes and redistribution
             # rules.
             subnets = self._query_tenant_subnets(context, [router_id])
@@ -629,11 +638,8 @@ class NSXvBgpDriver(object):
                         for subnet in subnets]
             self._nsxv.remove_bgp_redistribution_rules(edge_id, prefixes)
             if bgp_binding['bgp_identifier'] == gw_ip:
-                router = self._core_plugin._get_router(context, routers_ids[0])
-                new_bgp_identifier = (
-                    router.gw_port['fixed_ips'][0]['ip_address'])
                 self._update_edge_bgp_identifier(context, bgp_binding, speaker,
-                                                 new_bgp_identifier)
+                                                 alt_bgp_identifiers[0])
         else:
             self._stop_bgp_on_edges(context, [bgp_binding], speaker['id'])
 

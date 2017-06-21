@@ -26,6 +26,9 @@ from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
 
 from vmware_nsx.common import exceptions as exc
+from vmware_nsx.db import nsxv_db
+from vmware_nsx.plugins.nsx_v.drivers import (
+    shared_router_driver as router_driver)
 from vmware_nsx.services.dynamic_routing import bgp_plugin
 from vmware_nsx.services.dynamic_routing.nsx_v import driver as bgp_driver
 from vmware_nsx.tests.unit.nsx_v import test_plugin
@@ -143,6 +146,48 @@ class TestNSXvBgpPlugin(test_plugin.NsxVPluginV2TestCase,
                                   self.bgp_plugin.add_gateway_network,
                                   self.context, speaker['id'],
                                   {'network_id': network_id})
+
+    @mock.patch.object(nsxv_db, 'get_nsxv_bgp_speaker_binding',
+                       return_value={'bgp_identifier': '10.0.0.11'})
+    def test_shared_router_on_gateway_clear(self, m1):
+        with self.gw_network(external=True) as net,\
+            self.subnetpool_with_address_scope(4,
+                                               prefixes=['10.0.0.0/24']) as sp:
+            with self.subnet(network=net,
+                             subnetpool_id=sp['id']) as s1,\
+                self.bgp_speaker(sp['ip_version'], 1234,
+                                 networks=[net['network']['id']]):
+                subnet_id = s1['subnet']['id']
+                gw_info1 = {'network_id': net['network']['id'],
+                            'external_fixed_ips': [{'ip_address': '10.0.0.11',
+                                                    'subnet_id': subnet_id}]}
+                gw_info2 = {'network_id': net['network']['id'],
+                            'external_fixed_ips': [{'ip_address': '10.0.0.12',
+                                                    'subnet_id': subnet_id}]}
+                router_obj = router_driver.RouterSharedDriver(self.plugin)
+                with mock.patch.object(self.plugin, '_find_router_driver',
+                                       return_value=router_obj):
+                    with self.router(external_gateway_info=gw_info1) as rtr1,\
+                        self.router(external_gateway_info=gw_info2) as rtr2,\
+                        mock.patch.object(
+                            self.bgp_plugin.nsxv_driver,
+                            '_get_router_edge_info',
+                            return_value=('edge-1', False)),\
+                        mock.patch.object(
+                            self.plugin.edge_manager,
+                            'get_routers_on_same_edge',
+                            return_value=[rtr1['id'], rtr2['id']]),\
+                        mock.patch.object(
+                            self.bgp_plugin.nsxv_driver,
+                            '_update_edge_bgp_identifier') as up_bgp:
+                        gw_clear = {u'router': {u'external_gateway_info': {}}}
+                        self.plugin.update_router(self.context,
+                                                  rtr1['id'],
+                                                  gw_clear)
+                        up_bgp.assert_called_once_with(mock.ANY,
+                                                       mock.ANY,
+                                                       mock.ANY,
+                                                       '10.0.0.12')
 
     def test__bgp_speakers_for_gateway_network_by_ip_version(self):
         # REVISIT(roeyc): Base class test use ipv6 which is not supported.
