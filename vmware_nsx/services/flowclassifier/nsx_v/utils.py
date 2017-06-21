@@ -38,8 +38,15 @@ class NsxvServiceInsertionHandler(object):
             self._enabled = False
             self._sg_id = None
             if self.is_service_insertion_enabled():
-                self._enabled = True
                 self._sg_id = self.get_service_inserion_sg_id()
+                if not self._sg_id:
+                    # failed to create the security group or the driver
+                    # was not configured
+                    LOG.error("Failed to enable service insertion. "
+                              "Security group not found.")
+                    self._enabled = False
+                else:
+                    self._enabled = True
             self._initialized = True
 
     def is_service_insertion_enabled(self):
