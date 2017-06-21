@@ -3002,6 +3002,49 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
         super(TestExclusiveRouterTestCase, self).test_floatingip_update(
             constants.FLOATINGIP_STATUS_DOWN)
 
+    def test_floating_ip_no_snat(self):
+        """Cannot add floating ips to a router with disabled snat"""
+        with self.router() as r1,\
+            self.subnet() as ext_subnet,\
+            self.subnet(cidr='11.0.0.0/24') as s1,\
+            self.port(subnet=s1) as private_port:
+            # Add interfaces to the router
+            self._router_interface_action(
+                'add', r1['router']['id'],
+                s1['subnet']['id'], None)
+            self._set_net_external(ext_subnet['subnet']['network_id'])
+            self._add_external_gateway_to_router(
+                r1['router']['id'],
+                ext_subnet['subnet']['network_id'])
+            # disable snat
+            self._update_router_enable_snat(
+                r1['router']['id'],
+                ext_subnet['subnet']['network_id'],
+                False)
+            # create a floating ip and associate it to the router should fail
+            self.assertRaises(
+                object,
+                self._make_floatingip,
+                self.fmt, ext_subnet['subnet']['network_id'],
+                private_port['port']['id'])
+
+            # now enable snat and try again
+            self._update_router_enable_snat(
+                r1['router']['id'],
+                ext_subnet['subnet']['network_id'],
+                True)
+            self._make_floatingip(
+                self.fmt, ext_subnet['subnet']['network_id'],
+                private_port['port']['id'])
+
+            # now shouldn't be able to disable snat
+            self.assertRaises(
+                object,
+                self._update_router_enable_snat,
+                r1['router']['id'],
+                ext_subnet['subnet']['network_id'],
+                False)
+
     def test_floatingip_disassociate(self):
         with self.port() as p:
             private_sub = {'subnet': {'id':

@@ -189,3 +189,15 @@ class TestNSXvBgpPlugin(test_plugin.NsxVPluginV2TestCase,
 
     def test_get_ipv6_tenant_subnet_routes_by_bgp_speaker_ipv6(self):
         pass
+
+    def test_get_routes_by_bgp_speaker_id_with_fip(self):
+        # base class tests uses no-snat router with floating ips
+        self.skipTest('No SNAT with floating ips not supported')
+
+    def test_get_routes_by_bgp_speaker_binding_with_fip(self):
+        # base class tests uses no-snat router with floating ips
+        self.skipTest('No SNAT with floating ips not supported')
+
+    def test__get_routes_by_router_with_fip(self):
+        # base class tests uses no-snat router with floating ips
+        self.skipTest('No SNAT with floating ips not supported')
