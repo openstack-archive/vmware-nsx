@@ -99,7 +99,10 @@ nsxv3_resources = {
                                      Operations.SHOW.value,
                                      Operations.CLEAN.value,
                                      Operations.IMPORT.value,
-                                     Operations.NSX_LIST.value])
+                                     Operations.NSX_LIST.value]),
+    constants.ORPHANED_NETWORKS: Resource(constants.ORPHANED_NETWORKS,
+                                 [Operations.LIST.value,
+                                  Operations.NSX_CLEAN.value])
 }
 
 # Add supported NSX-V resources in this dictionary
