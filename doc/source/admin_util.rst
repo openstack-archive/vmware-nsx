@@ -253,6 +253,11 @@ Routers
 
     nsxadmin -r routers -o list-mismatches
 
+- Update NAT rules on all routers to stop bypassing the FW rules.
+  This is useful for NSX version 2.0 & up, before starting to use FWaaS  
+
+    nsxadmin -r routers -o nsx-update-rules
+
 Ports
 ~~~~~
 

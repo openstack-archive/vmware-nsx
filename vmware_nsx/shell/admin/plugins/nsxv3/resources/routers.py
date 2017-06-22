@@ -13,6 +13,7 @@
 #    under the License.
 
 
+from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
@@ -70,6 +71,45 @@ def list_missing_routers(resource, event, trigger, **kwargs):
         LOG.info("All routers exist on the NSX manager")
 
 
+@admin_utils.output_header
+def update_nat_rules(resource, event, trigger, **kwargs):
+    """Update all routers NAT rules to not bypass the firewall"""
+    # This feature is supported only since nsx version 2
+    nsxlib = utils.get_connected_nsxlib()
+    version = nsxlib.get_version()
+    if not nsx_utils.is_nsx_version_2_0_0(version):
+        LOG.info("NAT rules update only supported from 2.0 onwards")
+        LOG.info("Version is %s", version)
+        return
+
+    # Go over all neutron routers
+    plugin = RoutersPlugin()
+    admin_cxt = neutron_context.get_admin_context()
+    neutron_routers = plugin.get_routers(admin_cxt)
+    num_of_updates = 0
+    for router in neutron_routers:
+        neutron_id = router['id']
+        # get the network nsx id from the mapping table
+        nsx_id = nsx_db.get_nsx_router_id(admin_cxt.session,
+                                          neutron_id)
+        if nsx_id:
+            # get all NAT rules:
+            rules = nsxlib.logical_router.list_nat_rules(nsx_id)['results']
+            for rule in rules:
+                if 'nat_pass' not in rule or rule['nat_pass']:
+                    nsxlib.logical_router.update_nat_rule(
+                        nsx_id, rule['id'], nat_pass=False)
+                    num_of_updates = num_of_updates + 1
+    if num_of_updates:
+        LOG.info("Done updating %s NAT rules", num_of_updates)
+    else:
+        LOG.info("Did not find any NAT rule to update")
+
+
 registry.subscribe(list_missing_routers,
                    constants.ROUTERS,
                    shell.Operations.LIST_MISMATCHES.value)
+
+registry.subscribe(update_nat_rules,
+                   constants.ROUTERS,
+                   shell.Operations.NSX_UPDATE_RULES.value)

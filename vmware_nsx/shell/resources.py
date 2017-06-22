@@ -48,6 +48,7 @@ class Operations(enum.Enum):
     NSX_UPDATE = 'nsx-update'
     NSX_UPDATE_ALL = 'nsx-update-all'
     NSX_UPDATE_SECRET = 'nsx-update-secret'
+    NSX_UPDATE_RULES = 'nsx-update-rules'
     NSX_RECREATE = 'nsx-recreate'
     NSX_REORDER = 'nsx-reorder'
     NSX_TAG_DEFAULT = 'nsx-tag-default'
@@ -91,7 +92,8 @@ nsxv3_resources = {
                                Operations.NSX_MIGRATE_V_V3.value,
                                Operations.NSX_MIGRATE_EXCLUDE_PORTS.value]),
     constants.ROUTERS: Resource(constants.ROUTERS,
-                                [Operations.LIST_MISMATCHES.value]),
+                                [Operations.LIST_MISMATCHES.value,
+                                 Operations.NSX_UPDATE_RULES.value]),
     constants.DHCP_BINDING: Resource(constants.DHCP_BINDING,
                                      [Operations.LIST.value,
                                       Operations.NSX_UPDATE.value]),
