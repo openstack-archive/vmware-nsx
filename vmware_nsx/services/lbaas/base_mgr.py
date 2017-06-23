@@ -13,7 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron_lib import constants as lib_const
 from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
 
@@ -42,7 +41,7 @@ class LoadbalancerBaseManager(object):
     def core_plugin(self):
         if not LoadbalancerBaseManager._core_plugin:
             LoadbalancerBaseManager._core_plugin = (
-                self._get_plugin(lib_const.CORE))
+                self._get_plugin(plugin_const.CORE))
 
         return LoadbalancerBaseManager._core_plugin
 

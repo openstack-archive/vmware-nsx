@@ -14,8 +14,8 @@
 
 
 from neutron.db import db_base_plugin_v2
-from neutron_lib import constants as const
 from neutron_lib import context
+from neutron_lib.plugins import constants as const
 from neutron_lib.plugins import directory
 
 from vmware_nsx.db import db as nsx_db

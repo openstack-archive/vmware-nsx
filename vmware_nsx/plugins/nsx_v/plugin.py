@@ -2861,7 +2861,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Will raise FlavorNotFound if doesn't exist
         fl_db = flavors_plugin.FlavorsPlugin.get_flavor(
             flv_plugin, context, flavor_id)
-        if fl_db['service_type'] != constants.L3:
+        if fl_db['service_type'] != plugin_const.L3:
             raise flavors.InvalidFlavorServiceType(
                 service_type=fl_db['service_type'])
 

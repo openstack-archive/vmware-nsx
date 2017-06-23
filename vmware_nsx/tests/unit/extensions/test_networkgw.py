@@ -28,8 +28,8 @@ from neutron.tests import base
 from neutron.tests.unit.api import test_extensions
 from neutron.tests.unit.api.v2 import test_base
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_db_plugin
-from neutron_lib import constants
 from neutron_lib import context
+from neutron_lib.plugins import constants
 from neutron_lib.plugins import directory
 
 from vmware_nsx.api_client import exception as api_exc

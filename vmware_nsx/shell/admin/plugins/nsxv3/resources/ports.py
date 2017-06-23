@@ -41,6 +41,7 @@ from neutron.extensions import allowedaddresspairs
 from neutron_lib.callbacks import registry
 from neutron_lib import constants as const
 from neutron_lib import context as neutron_context
+from neutron_lib.plugins import constants as plugin_constants
 from neutron_lib.plugins import directory
 
 LOG = logging.getLogger(__name__)
@@ -50,11 +51,11 @@ class PortsPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                   portsecurity_db.PortSecurityDbMixin,
                   addr_pair_db.AllowedAddressPairsMixin):
     def __enter__(self):
-        directory.add_plugin(const.CORE, self)
+        directory.add_plugin(plugin_constants.CORE, self)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        directory.add_plugin(const.CORE, None)
+        directory.add_plugin(plugin_constants.CORE, None)
 
 
 def get_port_nsx_id(session, neutron_id):

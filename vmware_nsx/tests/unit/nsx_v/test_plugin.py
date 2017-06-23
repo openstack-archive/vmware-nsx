@@ -5224,7 +5224,7 @@ class TestRouterFlavorTestCase(extension.ExtensionTestCase,
         if create_az is not None:
             router_data['availability_zone_hints'] = [create_az]
 
-        flavor_data = {'service_type': constants.L3,
+        flavor_data = {'service_type': plugin_const.L3,
                        'enabled': True,
                        'service_profiles': ['profile_id']}
 
@@ -5380,7 +5380,7 @@ class TestRouterFlavorTestCase(extension.ExtensionTestCase,
         if create_az is not None:
             router_data['availability_zone_hints'] = [create_az]
 
-        flavor_data = {'service_type': constants.L3,
+        flavor_data = {'service_type': plugin_const.L3,
                        'enabled': True,
                        'service_profiles': ['profile_id']}
 
