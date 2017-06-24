@@ -3255,6 +3255,17 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 network_id = info.get('network_id')
                 router_db = self._get_router(context, router_id)
 
+                org_enable_snat = router_db.enable_snat
+                # Ensure that a router cannot have SNAT disabled if there are
+                # floating IP's assigned
+                if ('enable_snat' in info and
+                    org_enable_snat != info.get('enable_snat') and
+                    info.get('enable_snat') is False and
+                    self.router_gw_port_has_floating_ips(context, router_id)):
+                    msg = _("Unable to set SNAT disabled. Floating IPs "
+                            "assigned.")
+                    raise n_exc.InvalidInput(error_message=msg)
+
                 # for multiple external subnets support, we need to set gw
                 # port first on subnet which has gateway. If can't get one
                 # subnet with gateway or allocate one available ip from
@@ -3577,6 +3588,18 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         super(NsxVPluginV2, self).delete_floatingip(context, id)
         if router_id:
             self._update_edge_router(context, router_id)
+
+    def get_router_for_floatingip(self, context, internal_port,
+                                  internal_subnet, external_network_id):
+        router_id = super(NsxVPluginV2, self).get_router_for_floatingip(
+            context, internal_port, internal_subnet, external_network_id)
+        if router_id:
+            router = self._get_router(context.elevated(), router_id)
+            if not router.enable_snat:
+                msg = _("Unable to assign a floating IP to a router that "
+                        "has SNAT disabled")
+                raise n_exc.InvalidInput(error_message=msg)
+        return router_id
 
     def disassociate_floatingips(self, context, port_id):
         router_id = None
