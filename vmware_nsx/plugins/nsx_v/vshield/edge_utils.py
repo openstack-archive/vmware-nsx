@@ -2698,7 +2698,8 @@ class NsxVCallbacks(object):
                 availability_zone.edge_host_groups):
                 with locking.LockManager.get_lock('nsx-vc-drs-update'):
                     update_edge_host_groups(self.plugin.nsx_v.vcns, edge_id,
-                                            self._vcm, availability_zone)
+                                            self._vcm, availability_zone,
+                                            validate=True)
         else:
             LOG.error("Failed to deploy Edge for router %s", name)
             if router_db:
