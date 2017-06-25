@@ -16,6 +16,7 @@
 import pprint
 import textwrap
 
+from vmware_nsx.common import config
 from vmware_nsx.dvs import dvs
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 from vmware_nsx.shell.admin.plugins.common import constants
@@ -27,6 +28,7 @@ import vmware_nsx.shell.resources as shell
 
 from neutron_lib.callbacks import registry
 from neutron_lib import exceptions
+from oslo_config import cfg
 from oslo_log import log as logging
 
 from vmware_nsx.common import nsxv_constants
@@ -310,6 +312,7 @@ def change_edge_appliance(edge_id):
     """
     # find out what is the current resource pool & size, so we can keep them
     az_name, size = _get_edge_az_and_size(edge_id)
+    config.register_nsxv_azs(cfg.CONF, cfg.CONF.nsxv.availability_zones)
     az = nsx_az.NsxVAvailabilityZones().get_availability_zone(az_name)
     appliances = [{'resourcePoolId': az.resource_pool,
                    'datastoreId': az.datastore_id}]
@@ -371,6 +374,8 @@ def _update_host_group_for_edge(nsxv, cluster_mng, edge_id, edge):
     if edge.get('type') == 'gatewayServices':
         try:
             az_name, size = _get_edge_az_and_size(edge_id)
+            config.register_nsxv_azs(cfg.CONF,
+                                     cfg.CONF.nsxv.availability_zones)
             zones = nsx_az.NsxVAvailabilityZones()
             az = zones.get_availability_zone(az_name)
             edge_utils.update_edge_host_groups(nsxv, edge_id,
@@ -405,6 +410,7 @@ def change_edge_hostgroup(properties):
             _update_host_group_for_edge(nsxv, cluster_mng,
                                         edge_id, edge)
     elif properties.get('hostgroup').lower() == "clean":
+        config.register_nsxv_azs(cfg.CONF, cfg.CONF.nsxv.availability_zones)
         azs = nsx_az.NsxVAvailabilityZones()
         for az in azs.list_availability_zones_objects():
             try:
