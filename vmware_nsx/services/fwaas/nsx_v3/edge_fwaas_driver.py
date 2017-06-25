@@ -33,6 +33,7 @@ LOG = logging.getLogger(__name__)
 FWAAS_DRIVER_NAME = 'Fwaas NSX-V3 driver'
 RULE_NAME_PREFIX = 'Fwaas-'
 DEFAULT_RULE_NAME = 'Default LR Layer3 Rule'
+NSX_FW_TAG = 'os-neutron-fw-id'
 
 
 class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
@@ -176,11 +177,11 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
         if not firewall['admin_state_up']:
             self.apply_default_policy(agent_mode, apply_list, firewall)
             return
-
         context = n_context.get_admin_context()
         rules = self._translate_rules(firewall['firewall_rule_list'])
-        # update each router using the core plugin code
-        self._update_backend_routers(context, apply_list, rules=rules)
+        # update each router on the backend
+        self._update_backend_routers(context, apply_list, firewall['id'],
+                                     rules=rules)
 
     def validate_backend_version(self):
         # prevent firewall actions if the backend does not support it
@@ -210,7 +211,8 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
         """
         self.validate_backend_version()
         context = n_context.get_admin_context()
-        self._update_backend_routers(context, apply_list, delete_fw=True)
+        self._update_backend_routers(context, apply_list, firewall['id'],
+                                     delete_fw=True)
 
     @log_helpers.log_method_call
     def apply_default_policy(self, agent_mode, apply_list, firewall):
@@ -221,11 +223,12 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
         """
         self.validate_backend_version()
         context = n_context.get_admin_context()
-        self._update_backend_routers(context, apply_list, rules=[])
+        self._update_backend_routers(context, apply_list, firewall['id'],
+                                     rules=[])
 
-    def _update_backend_routers(self, context, apply_list, rules=None,
+    def _update_backend_routers(self, context, apply_list, fw_id, rules=None,
                                 delete_fw=False):
-        # update each router using the core plugin code
+        # update each router on the backend
         for router_info in apply_list:
 
             # Skip unsupported routers
@@ -238,7 +241,8 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
             if delete_fw:
                 self._delete_nsx_router_firewall(context, router_id)
             else:
-                self._update_nsx_router_firewall(context, router_id, rules)
+                self._update_nsx_router_firewall(context, router_id, fw_id,
+                                                 rules)
 
     def _get_backend_router_and_fw_section(self, context, router_id):
         # find the backend router id in the DB
@@ -265,6 +269,41 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
 
         return nsx_router_id, section_id
 
+    def _update_nsx_router_tags(self, nsx_router_id, fw_id=None):
+        """Get the updated tags to put on the nsx-router
+
+        With/without the firewall id
+        """
+        # Get the current tags
+        nsx_router = self.nsx_router.get(nsx_router_id)
+        if 'tags' not in nsx_router:
+            nsx_router['tags'] = []
+        tags = nsx_router['tags']
+
+        # Look for the firewall tag and update/remove it
+        update_tags = False
+        found_tag = False
+        for tag in tags:
+            if tag.get('scope') == NSX_FW_TAG:
+                found_tag = True
+                if not fw_id:
+                    tags.remove(tag)
+                    update_tags = True
+                    break
+                if fw_id != tag.get('tag'):
+                    tag['tag'] = fw_id
+                    update_tags = True
+                    break
+        # Add the tag if not found
+        if fw_id and not found_tag:
+            tags.append({'scope': NSX_FW_TAG,
+                         'tag': fw_id})
+            update_tags = True
+
+        # update tags on the backend router
+        if update_tags:
+            self.nsx_router.update(nsx_router_id, tags=tags)
+
     def _delete_nsx_router_firewall(self, context, router_id):
         """Reset the router firewall back to it's default"""
 
@@ -284,7 +323,10 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
         # Update the backend firewall section with the rules
         self.nsx_firewall.update(section_id, rules=[allow_all])
 
-    def _update_nsx_router_firewall(self, context, router_id, rules):
+        # Also update the router tags
+        self._update_nsx_router_tags(nsx_router_id)
+
+    def _update_nsx_router_firewall(self, context, router_id, fw_id, rules):
         """Update the backend router firewall section
 
         Adding all relevant north-south rules from the FWaaS firewall
@@ -309,3 +351,6 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
 
         # Update the backend firewall section with the rules
         self.nsx_firewall.update(section_id, rules=rules + [drop_all])
+
+        # Also update the router tags
+        self._update_nsx_router_tags(nsx_router_id, fw_id=fw_id)
