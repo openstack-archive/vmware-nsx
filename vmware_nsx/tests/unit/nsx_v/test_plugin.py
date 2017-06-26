@@ -20,6 +20,7 @@ import mock
 import netaddr
 
 from neutron.api.v2 import attributes
+from neutron.extensions import address_scope
 from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import dvr as dist_router
 from neutron.extensions import external_net
@@ -33,6 +34,7 @@ from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.db.test_allowedaddresspairs_db as test_addr_pair
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
 from neutron.tests.unit.extensions import base as extension
+from neutron.tests.unit.extensions import test_address_scope
 from neutron.tests.unit.extensions import test_extra_dhcp_opt as test_dhcpopts
 import neutron.tests.unit.extensions.test_l3 as test_l3_plugin
 import neutron.tests.unit.extensions.test_l3_ext_gw_mode as test_ext_gw_mode
@@ -2066,7 +2068,10 @@ class TestL3ExtensionManager(object):
         # Finally add l3 resources to the global attribute map
         attributes.RESOURCE_ATTRIBUTE_MAP.update(
             l3.RESOURCE_ATTRIBUTE_MAP)
-        return l3.L3.get_resources()
+        attributes.RESOURCE_ATTRIBUTE_MAP.update(
+            address_scope.RESOURCE_ATTRIBUTE_MAP)
+        return (l3.L3.get_resources() +
+                address_scope.Address_scope.get_resources())
 
     def get_actions(self):
         return []
@@ -2744,7 +2749,8 @@ class IPv6ExpectedFailuresTestMixin(object):
 class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                   test_l3_plugin.L3NatDBIntTestCase,
                                   IPv6ExpectedFailuresTestMixin,
-                                  NsxVPluginV2TestCase):
+                                  NsxVPluginV2TestCase,
+                                  test_address_scope.AddressScopeTestCase):
 
     def setUp(self, plugin=PLUGIN_NAME, ext_mgr=None, service_plugins=None):
         super(TestExclusiveRouterTestCase, self).setUp(
@@ -3477,6 +3483,177 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                 super(TestExclusiveRouterTestCase,
                       self).test_update_subnet_gateway_for_external_net()
                 self.assertTrue(update_nexthop.called)
+
+    def _test_create_subnetpool(self, prefixes, expected=None,
+                                admin=False, **kwargs):
+        keys = kwargs.copy()
+        keys.setdefault('tenant_id', self._tenant_id)
+        with self.subnetpool(prefixes, admin, **keys) as subnetpool:
+            self._validate_resource(subnetpool, keys, 'subnetpool')
+            if expected:
+                self._compare_resource(subnetpool, expected, 'subnetpool')
+        return subnetpool
+
+    def test_router_no_snat_with_different_address_scope(self):
+        """Test that if the router has no snat, you cannot add an interface
+        from a different address scope than the gateway.
+        """
+        # create an external network on one address scope
+        with self.address_scope(name='as1') as addr_scope, \
+            self.network() as ext_net:
+            self._set_net_external(ext_net['network']['id'])
+            as_id = addr_scope['address_scope']['id']
+            subnet = netaddr.IPNetwork('10.10.10.0/24')
+            subnetpool = self._test_create_subnetpool(
+                [subnet.cidr], name='sp1',
+                min_prefixlen='24', address_scope_id=as_id)
+            subnetpool_id = subnetpool['subnetpool']['id']
+            data = {'subnet': {
+                    'network_id': ext_net['network']['id'],
+                    'subnetpool_id': subnetpool_id,
+                    'ip_version': 4,
+                    'enable_dhcp': False,
+                    'tenant_id': ext_net['network']['tenant_id']}}
+            req = self.new_create_request('subnets', data)
+            ext_subnet = self.deserialize(self.fmt, req.get_response(self.api))
+
+            # create a regular network on another address scope
+            with self.address_scope(name='as2') as addr_scope2, \
+                self.network() as net:
+                as_id2 = addr_scope2['address_scope']['id']
+                subnet2 = netaddr.IPNetwork('20.10.10.0/24')
+                subnetpool2 = self._test_create_subnetpool(
+                    [subnet2.cidr], name='sp2',
+                    min_prefixlen='24', address_scope_id=as_id2)
+                subnetpool_id2 = subnetpool2['subnetpool']['id']
+                data = {'subnet': {
+                        'network_id': net['network']['id'],
+                        'subnetpool_id': subnetpool_id2,
+                        'ip_version': 4,
+                        'tenant_id': net['network']['tenant_id']}}
+                req = self.new_create_request('subnets', data)
+                int_subnet = self.deserialize(
+                    self.fmt, req.get_response(self.api))
+
+                # create a no snat router with this gateway
+                with self.router() as r:
+                    self._add_external_gateway_to_router(
+                        r['router']['id'],
+                        ext_subnet['subnet']['network_id'])
+                    self._update_router_enable_snat(
+                        r['router']['id'],
+                        ext_subnet['subnet']['network_id'],
+                        False)
+
+                    # should fail adding the interface to the router
+                    err_code = webob.exc.HTTPBadRequest.code
+                    self._router_interface_action('add',
+                                                  r['router']['id'],
+                                                  int_subnet['subnet']['id'],
+                                                  None,
+                                                  err_code)
+
+    def test_router_no_snat_with_same_address_scope(self):
+        """Test that if the router has no snat, you can add an interface
+        from the same address scope as the gateway.
+        """
+        # create an external network on one address scope
+        with self.address_scope(name='as1') as addr_scope, \
+            self.network() as ext_net:
+            self._set_net_external(ext_net['network']['id'])
+            as_id = addr_scope['address_scope']['id']
+            subnet = netaddr.IPNetwork('10.10.10.0/21')
+            subnetpool = self._test_create_subnetpool(
+                [subnet.cidr], name='sp1',
+                min_prefixlen='24', address_scope_id=as_id)
+            subnetpool_id = subnetpool['subnetpool']['id']
+            data = {'subnet': {
+                    'network_id': ext_net['network']['id'],
+                    'subnetpool_id': subnetpool_id,
+                    'ip_version': 4,
+                    'enable_dhcp': False,
+                    'tenant_id': ext_net['network']['tenant_id']}}
+            req = self.new_create_request('subnets', data)
+            ext_subnet = self.deserialize(self.fmt, req.get_response(self.api))
+
+            # create a regular network on the same address scope
+            with self.network() as net:
+                data = {'subnet': {
+                        'network_id': net['network']['id'],
+                        'subnetpool_id': subnetpool_id,
+                        'ip_version': 4,
+                        'tenant_id': net['network']['tenant_id']}}
+                req = self.new_create_request('subnets', data)
+                int_subnet = self.deserialize(
+                    self.fmt, req.get_response(self.api))
+
+                # create a no snat router with this gateway
+                with self.router() as r:
+                    self._add_external_gateway_to_router(
+                        r['router']['id'],
+                        ext_subnet['subnet']['network_id'])
+                    self._update_router_enable_snat(
+                        r['router']['id'],
+                        ext_subnet['subnet']['network_id'],
+                        False)
+
+                    # should succeed adding the interface to the router
+                    self._router_interface_action('add',
+                                                  r['router']['id'],
+                                                  int_subnet['subnet']['id'],
+                                                  None)
+
+    def test_router_address_scope_snat_rules(self):
+        """Test that if the router interface had the same address scope
+        as the gateway - snat rule is not added.
+        """
+        # create an external network on one address scope
+        with self.address_scope(name='as1') as addr_scope, \
+            self.network() as ext_net:
+            self._set_net_external(ext_net['network']['id'])
+            as_id = addr_scope['address_scope']['id']
+            subnet = netaddr.IPNetwork('10.10.10.0/21')
+            subnetpool = self._test_create_subnetpool(
+                [subnet.cidr], name='sp1',
+                min_prefixlen='24', address_scope_id=as_id)
+            subnetpool_id = subnetpool['subnetpool']['id']
+            data = {'subnet': {
+                    'network_id': ext_net['network']['id'],
+                    'subnetpool_id': subnetpool_id,
+                    'ip_version': 4,
+                    'enable_dhcp': False,
+                    'tenant_id': ext_net['network']['tenant_id']}}
+            req = self.new_create_request('subnets', data)
+            ext_subnet = self.deserialize(self.fmt, req.get_response(self.api))
+
+            # create a regular network on the same address scope
+            with self.network() as net:
+                data = {'subnet': {
+                        'network_id': net['network']['id'],
+                        'subnetpool_id': subnetpool_id,
+                        'ip_version': 4,
+                        'tenant_id': net['network']['tenant_id']}}
+                req = self.new_create_request('subnets', data)
+                int_subnet = self.deserialize(
+                    self.fmt, req.get_response(self.api))
+
+                # create a router with this gateway
+                with self.router() as r:
+                    self._add_external_gateway_to_router(
+                        r['router']['id'],
+                        ext_subnet['subnet']['network_id'])
+
+                    # Add the interface
+                    with mock.patch.object(
+                        edge_utils, 'update_nat_rules') as update_nat:
+                        self._router_interface_action(
+                            'add',
+                            r['router']['id'],
+                            int_subnet['subnet']['id'],
+                            None)
+                        # make sure snat rules are not added
+                        update_nat.assert_called_once_with(
+                            mock.ANY, mock.ANY, r['router']['id'], [], [])
 
 
 class ExtGwModeTestCase(NsxVPluginV2TestCase,

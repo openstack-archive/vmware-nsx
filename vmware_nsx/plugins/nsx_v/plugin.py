@@ -3305,17 +3305,22 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             device_owner=device_owner,).all()
 
     def _find_router_subnets_cidrs(self, context, router_id):
+        """Retrieve cidrs of subnets attached to the specified router."""
+        subnets = self._find_router_subnets_and_cidrs(context, router_id)
+        return [subnet['cidr'] for subnet in subnets]
+
+    def _find_router_subnets_and_cidrs(self, context, router_id):
         """Retrieve subnets attached to the specified router."""
         ports = self._get_port_by_device_id(context, router_id,
                                             l3_db.DEVICE_OWNER_ROUTER_INTF)
         # No need to check for overlapping CIDRs
-        cidrs = []
+        subnets = []
         for port in ports:
             for ip in port.get('fixed_ips', []):
                 subnet_qry = context.session.query(models_v2.Subnet)
                 subnet = subnet_qry.filter_by(id=ip.subnet_id).one()
-                cidrs.append(subnet.cidr)
-        return cidrs
+                subnets.append({'id': subnet.id, 'cidr': subnet.cidr})
+        return subnets
 
     def _get_nat_rules(self, context, router):
         fip_qry = context.session.query(l3_db_models.FloatingIP)
@@ -3330,11 +3335,28 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         gw_port = router.gw_port
         if gw_port and gw_port.get('fixed_ips') and router.enable_snat:
             snat_ip = gw_port['fixed_ips'][0]['ip_address']
-            subnets = self._find_router_subnets_cidrs(context.elevated(),
-                                                      router['id'])
+            subnets = self._find_router_subnets_and_cidrs(context.elevated(),
+                                                          router['id'])
             for subnet in subnets:
+
+                # if the subnets address scope is the same as the gateways:
+                # no need for SNAT
+                gw_address_scope = self._get_network_address_scope(
+                    context, gw_port['network_id'])
+                subnet_address_scope = self._get_subnet_address_scope(
+                    context, subnet['id'])
+                if (gw_address_scope and
+                    gw_address_scope == subnet_address_scope):
+                    LOG.info("No need for SNAT rule for router %(router)s "
+                             "and subnet %(subnet)s because they use the "
+                             "same address scope %(addr_scope)s.",
+                             {'router': router['id'],
+                              'subnet': subnet['id'],
+                              'addr_scope': gw_address_scope})
+                    continue
+
                 snat.append({
-                    'src': subnet,
+                    'src': subnet['cidr'],
                     'translated': snat_ip,
                     'vnic_index': vcns_const.EXTERNAL_VNIC_INDEX,
                 })
@@ -3406,20 +3428,30 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 context, subnet_id)['network_id']
         return net_id, subnet_id
 
+    def _get_network_address_scope(self, context, net_id):
+        network = self.get_network(context, net_id)
+        return network.get(ext_address_scope.IPV4_ADDRESS_SCOPE)
+
+    def _get_subnet_address_scope(self, context, subnet_id):
+        subnet = self.get_subnet(context, subnet_id)
+        if not subnet['subnetpool_id']:
+            return
+        subnetpool = self.get_subnetpool(context, subnet['subnetpool_id'])
+        return subnetpool.get('address_scope_id', '')
+
+    # TODO(asarfaty): the NSX-V3 needs a very similar code too
     def _validate_address_scope_for_router_interface(self, context, router_id,
                                                      gw_network_id, subnet_id):
-        network = self.get_network(context, gw_network_id)
-        subnet = self.get_subnet(context, subnet_id)
-        address_scope = network.get(ext_address_scope.IPV4_ADDRESS_SCOPE)
-        if not address_scope:
+        gw_address_scope = self._get_network_address_scope(context,
+                                                           gw_network_id)
+        if not gw_address_scope:
             return
-        if not subnet['subnetpool_id']:
+        subnet_address_scope = self._get_subnet_address_scope(context,
+                                                              subnet_id)
+        if (not subnet_address_scope or
+            subnet_address_scope != gw_address_scope):
             raise nsx_exc.NsxRouterInterfaceDoesNotMatchAddressScope(
-                router_id=router_id, address_scope_id=address_scope)
-        subnetpool = self.get_subnetpool(context, subnet['subnetpool_id'])
-        if subnetpool.get('address_scope_id', '') != address_scope:
-            raise nsx_exc.NsxRouterInterfaceDoesNotMatchAddressScope(
-                router_id=router_id, address_scope_id=address_scope)
+                router_id=router_id, address_scope_id=gw_address_scope)
 
     def add_router_interface(self, context, router_id, interface_info):
         router = self.get_router(context, router_id)
