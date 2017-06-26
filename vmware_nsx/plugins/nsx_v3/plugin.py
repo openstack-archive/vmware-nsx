@@ -822,7 +822,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         nsx_net_id)
 
             rollback_network = True
-            if is_backend_network and cfg.CONF.nsx_v3.native_dhcp_metadata:
+            if (is_backend_network and
+                cfg.CONF.nsx_v3.native_dhcp_metadata and
+                self._is_overlay_network(context, created_net['id'])):
                 # Enable native metadata proxy for this network.
                 tags = self.nsxlib.build_v3_tags_payload(
                     net_data, resource_type='os-neutron-net-id',
