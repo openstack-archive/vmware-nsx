@@ -173,6 +173,7 @@ class NsxV3TrunkDriver(base.DriverBase):
                    SUPPORTED_SEGMENTATION_TYPES,
                    agent_type=None, can_trunk_bound_port=False)
 
+    @registry.receives(trunk_consts.TRUNK_PLUGIN, [events.AFTER_INIT])
     def register(self, resource, event, trigger, **kwargs):
         super(NsxV3TrunkDriver, self).register(
             resource, event, trigger, **kwargs)
