@@ -155,6 +155,11 @@ class EdgePoolManager(base_mgr.EdgeLoadbalancerBaseManager):
             context.session, lb_id, pool.id)
 
         edge_id = lb_binding['edge_id']
+        if not pool_binding:
+            self.lbv2_driver.pool.successful_completion(
+                context, pool, delete=True)
+            return
+
         edge_pool_id = pool_binding['edge_pool_id']
 
         listeners_to_update = []
