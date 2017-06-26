@@ -15,9 +15,7 @@
 
 import netaddr
 from neutron_lib.api.definitions import network as net_def
-from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import port_security as psec
-from neutron_lib.api.definitions import subnet as subnet_def
 from neutron_lib.exceptions import port_security as psec_exc
 import six
 
@@ -28,7 +26,6 @@ from neutron.common import rpc as n_rpc
 from neutron.common import topics
 from neutron.db import _resource_extend as resource_extend
 from neutron.db import _utils as db_utils
-from neutron.db import address_scope_db
 from neutron.db import agents_db
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
@@ -67,7 +64,6 @@ from neutron_lib.callbacks import resources
 from neutron_lib import constants as const
 from neutron_lib import context as q_context
 from neutron_lib import exceptions as n_exc
-from neutron_lib.plugins import directory
 from neutron_lib.utils import helpers
 from oslo_config import cfg
 from oslo_db import exception as db_exc
@@ -95,6 +91,7 @@ from vmware_nsx.extensions import advancedserviceproviders as as_providers
 from vmware_nsx.extensions import maclearning as mac_ext
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
+from vmware_nsx.plugins.common import plugin as nsx_plugin_common
 from vmware_nsx.plugins.nsx_v3 import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 from vmware_nsx.services.fwaas.nsx_v3 import fwaas_callbacks
@@ -130,7 +127,7 @@ NSX_V3_EXCLUDED_PORT_NSGROUP_NAME = 'neutron_excluded_port_nsgroup'
 class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   extended_security_group.ExtendedSecurityGroupPropertiesMixin,
                   addr_pair_db.AllowedAddressPairsMixin,
-                  db_base_plugin_v2.NeutronDbPluginV2,
+                  nsx_plugin_common.NsxPluginBase,
                   extend_sg_rule.ExtendedSecurityGroupRuleMixin,
                   securitygroups_db.SecurityGroupDbMixin,
                   external_net_db.External_net_db_mixin,
@@ -141,8 +138,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   extradhcpopt_db.ExtraDhcpOptMixin,
                   dns_db.DNSDbMixin,
                   mac_db.MacLearningDbMixin,
-                  nsx_com_az.NSXAvailabilityZonesPluginCommon,
-                  address_scope_db.AddressScopeDbMixin):
+                  nsx_com_az.NSXAvailabilityZonesPluginCommon):
 
     __native_bulk_support = True
     __native_pagination_support = True
@@ -581,36 +577,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self.start_rpc_listeners_called = True
 
         return self.conn.consume_in_threads()
-
-    @staticmethod
-    @resource_extend.extends([net_def.COLLECTION_NAME])
-    def _ext_extend_network_dict(result, netdb):
-        ctx = q_context.get_admin_context()
-        # get the core plugin as this is a static method with no 'self'
-        plugin = directory.get_plugin()
-        with db_api.context_manager.writer.using(ctx):
-            plugin._extension_manager.extend_network_dict(
-                ctx.session, netdb, result)
-
-    @staticmethod
-    @resource_extend.extends([port_def.COLLECTION_NAME])
-    def _ext_extend_port_dict(result, portdb):
-        ctx = q_context.get_admin_context()
-        # get the core plugin as this is a static method with no 'self'
-        plugin = directory.get_plugin()
-        with db_api.context_manager.writer.using(ctx):
-            plugin._extension_manager.extend_port_dict(
-                ctx.session, portdb, result)
-
-    @staticmethod
-    @resource_extend.extends([subnet_def.COLLECTION_NAME])
-    def _ext_extend_subnet_dict(result, subnetdb):
-        ctx = q_context.get_admin_context()
-        # get the core plugin as this is a static method with no 'self'
-        plugin = directory.get_plugin()
-        with db_api.context_manager.writer.using(ctx):
-            plugin._extension_manager.extend_subnet_dict(
-                ctx.session, subnetdb, result)
 
     def _validate_provider_create(self, context, network_data, az):
         is_provider_net = any(
@@ -3002,13 +2968,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         self._routerlib.add_static_routes(nsx_router_id, route)
                 router_db['status'] = curr_status
 
-    def _get_router_interface_ports_by_network(
-        self, context, router_id, network_id):
-        port_filters = {'device_id': [router_id],
-                        'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF],
-                        'network_id': [network_id]}
-        return self.get_ports(context, filters=port_filters)
-
     def _get_ports_and_address_groups(self, context, router_id, network_id,
                                       exclude_sub_ids=None):
         exclude_sub_ids = [] if not exclude_sub_ids else exclude_sub_ids
@@ -3264,18 +3223,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                              'ext_ip': fip['floating_ip_address'],
                              'int_ip': fip['fixed_ip_address']})
         super(NsxV3Plugin, self).delete_floatingip(context, fip_id)
-
-    def get_router_for_floatingip(self, context, internal_port,
-                                  internal_subnet, external_network_id):
-        router_id = super(NsxV3Plugin, self).get_router_for_floatingip(
-            context, internal_port, internal_subnet, external_network_id)
-        if router_id:
-            router = self._get_router(context.elevated(), router_id)
-            if not router.enable_snat:
-                msg = _("Unable to assign a floating IP to a router that "
-                        "has SNAT disabled")
-                raise n_exc.InvalidInput(error_message=msg)
-        return router_id
 
     def update_floatingip(self, context, fip_id, floatingip):
         old_fip = self.get_floatingip(context, fip_id)
@@ -3647,11 +3594,3 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             else:
                 az_name = nsx_az.DEFAULT_NAME
             net_res[az_ext.AVAILABILITY_ZONES] = [az_name]
-
-    def get_network_az_by_net_id(self, context, network_id):
-        try:
-            network = self.get_network(context, network_id)
-        except Exception:
-            return self.get_default_az()
-
-        return self.get_network_az(network)

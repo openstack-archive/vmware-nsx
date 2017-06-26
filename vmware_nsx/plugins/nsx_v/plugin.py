@@ -46,12 +46,10 @@ from neutron.common import topics
 from neutron.common import utils as n_utils
 from neutron.db import _resource_extend as resource_extend
 from neutron.db import _utils as db_utils
-from neutron.db import address_scope_db
 from neutron.db import agents_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import api as db_api
 from neutron.db.availability_zone import router as router_az_db
-from neutron.db import db_base_plugin_v2
 from neutron.db import dns_db
 from neutron.db import external_net_db
 from neutron.db import extradhcpopt_db
@@ -123,6 +121,7 @@ from vmware_nsx.extensions import routersize
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
 from vmware_nsx.extensions import securitygrouppolicy as sg_policy
+from vmware_nsx.plugins.common import plugin as nsx_plugin_common
 from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v import managers
 from vmware_nsx.plugins.nsx_v import md_proxy as nsx_v_md_proxy
@@ -146,7 +145,7 @@ VALID_EDGE_SIZES = routersize.VALID_EDGE_SIZES
 @resource_extend.has_resource_extenders
 class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                    agents_db.AgentDbMixin,
-                   db_base_plugin_v2.NeutronDbPluginV2,
+                   nsx_plugin_common.NsxPluginBase,
                    rt_rtr.RouterType_mixin,
                    external_net_db.External_net_db_mixin,
                    extraroute_db.ExtraRoute_db_mixin,
@@ -161,8 +160,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                    vnic_index_db.VnicIndexDbMixin,
                    dns_db.DNSDbMixin, nsxpolicy.NsxPolicyPluginBase,
                    vlantransparent_db.Vlantransparent_db_mixin,
-                   nsx_com_az.NSXAvailabilityZonesPluginCommon,
-                   address_scope_db.AddressScopeDbMixin):
+                   nsx_com_az.NSXAvailabilityZonesPluginCommon):
 
     supported_extension_aliases = ["agent",
                                    "allowed-address-pairs",
@@ -374,36 +372,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     def _init_fwaas(self):
         # Bind FWaaS callbacks to the driver
         self.fwaas_callbacks = fwaas_callbacks.NsxvFwaasCallbacks()
-
-    @staticmethod
-    @resource_extend.extends([net_def.COLLECTION_NAME])
-    def _ext_extend_network_dict(result, netdb):
-        ctx = n_context.get_admin_context()
-        # get the core plugin as this is a static method with no 'self'
-        plugin = directory.get_plugin()
-        with db_api.context_manager.writer.using(ctx):
-            plugin._extension_manager.extend_network_dict(
-                ctx.session, netdb, result)
-
-    @staticmethod
-    @resource_extend.extends([port_def.COLLECTION_NAME])
-    def _ext_extend_port_dict(result, portdb):
-        ctx = n_context.get_admin_context()
-        # get the core plugin as this is a static method with no 'self'
-        plugin = directory.get_plugin()
-        with db_api.context_manager.writer.using(ctx):
-            plugin._extension_manager.extend_port_dict(
-                ctx.session, portdb, result)
-
-    @staticmethod
-    @resource_extend.extends([subnet_def.COLLECTION_NAME])
-    def _ext_extend_subnet_dict(result, subnetdb):
-        ctx = n_context.get_admin_context()
-        # get the core plugin as this is a static method with no 'self'
-        plugin = directory.get_plugin()
-        with db_api.context_manager.writer.using(ctx):
-            plugin._extension_manager.extend_subnet_dict(
-                ctx.session, subnetdb, result)
 
     def _create_security_group_container(self):
         name = "OpenStack Security Group container"
@@ -1006,14 +974,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         was set.
         """
         return self.validate_obj_azs(availability_zones)
-
-    def get_network_az_by_net_id(self, context, network_id):
-        try:
-            network = self.get_network(context, network_id)
-        except Exception:
-            return self.get_default_az()
-
-        return self.get_network_az(network)
 
     def _prepare_spoofguard_policy(self, network_type, net_data, net_morefs):
         # The method will determine if a portgroup is already assigned to a
@@ -3325,13 +3285,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         intf_net_ids = list(set([port['network_id'] for port in intf_ports]))
         return intf_net_ids
 
-    def _get_router_interface_ports_by_network(
-        self, context, router_id, network_id):
-        port_filters = {'device_id': [router_id],
-                        'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF],
-                        'network_id': [network_id]}
-        return self.get_ports(context, filters=port_filters)
-
     def _get_router_interfaces(self, context, router_id):
         port_filters = {'device_id': [router_id],
                         'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF]}
@@ -3588,18 +3541,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         super(NsxVPluginV2, self).delete_floatingip(context, id)
         if router_id:
             self._update_edge_router(context, router_id)
-
-    def get_router_for_floatingip(self, context, internal_port,
-                                  internal_subnet, external_network_id):
-        router_id = super(NsxVPluginV2, self).get_router_for_floatingip(
-            context, internal_port, internal_subnet, external_network_id)
-        if router_id:
-            router = self._get_router(context.elevated(), router_id)
-            if not router.enable_snat:
-                msg = _("Unable to assign a floating IP to a router that "
-                        "has SNAT disabled")
-                raise n_exc.InvalidInput(error_message=msg)
-        return router_id
 
     def disassociate_floatingips(self, context, port_id):
         router_id = None
