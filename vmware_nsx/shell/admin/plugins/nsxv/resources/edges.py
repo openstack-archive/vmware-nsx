@@ -378,9 +378,13 @@ def _update_host_group_for_edge(nsxv, cluster_mng, edge_id, edge):
                                      cfg.CONF.nsxv.availability_zones)
             zones = nsx_az.NsxVAvailabilityZones()
             az = zones.get_availability_zone(az_name)
-            edge_utils.update_edge_host_groups(nsxv, edge_id,
-                                               cluster_mng, az,
-                                               validate=True)
+            if az.edge_ha and az.edge_host_groups:
+                edge_utils.update_edge_host_groups(nsxv, edge_id,
+                                                   cluster_mng, az,
+                                                   validate=True)
+            else:
+                LOG.error("%s does not have HA enabled or no host "
+                          "groups defined. Skipping %s.", az_name, edge_id)
         except Exception as e:
             LOG.error("Failed to update edge %(id)s - %(e)s",
                       {'id': edge['id'],
