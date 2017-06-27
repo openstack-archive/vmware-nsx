@@ -2897,6 +2897,18 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # TODO(berlin): admin_state_up support
         gw_info = self._extract_external_gw(context, router, is_extract=False)
         router_data = router['router']
+
+        # if setting this router as no-snat, make sure gw address scope match
+        # those of the subnets
+        if (validators.is_attr_set(gw_info) and
+            not gw_info.get('enable_snat', cfg.CONF.enable_snat_by_default)):
+            router_ports = self._get_router_interfaces(context, router_id)
+            for port in router_ports:
+                for fip in port['fixed_ips']:
+                    self._validate_address_scope_for_router_interface(
+                        context, router_id,
+                        gw_info['network_id'], fip['subnet_id'])
+
         nsx_router_id = None
         routes_added = []
         routes_removed = []
@@ -3057,6 +3069,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             network_id = subnet['network_id']
             nsx_net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
                 context.session, port['id'])
+            router_db = self._get_router(context, router_id)
+
+            # If it is a no-snat router, interface address scope must be the
+            # same as the gateways
+            if not router_db.enable_snat:
+                gw_network_id = router_db.gw_port.network_id
+                self._validate_address_scope_for_router_interface(
+                    context, router_id, gw_network_id, subnet['id'])
 
             nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                      router_id)
@@ -3076,7 +3096,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 logical_switch_port_id=nsx_port_id,
                 address_groups=address_groups)
 
-            router_db = self._get_router(context, router_id)
             if router_db.gw_port and not router_db.enable_snat:
                 # TODO(berlin): Announce the subnet on tier0 if enable_snat
                 # is False
