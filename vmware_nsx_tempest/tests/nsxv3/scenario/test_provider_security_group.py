@@ -288,7 +288,7 @@ class TestProviderSecurityGroup(manager.NetworkScenarioTest):
                                         private_ip_address_default_vm,
                                         private_key_psg_vm,
                                         should_connect=False)
-        kwargs = {"provider_security_groups": ''}
+        kwargs = {"provider_security_groups": []}
         p_client.update_port(port_id_psg, **kwargs)
         p_client.update_port(port_id_default, **kwargs)
 
@@ -343,7 +343,7 @@ class TestProviderSecurityGroup(manager.NetworkScenarioTest):
                                         private_key_default_vm,
                                         should_connect=False)
         p_client = self.ports_client
-        kwargs = {"provider_security_groups": ''}
+        kwargs = {"provider_security_groups": []}
         port_id = self.get_port_id(network['id'],
                                    network_topo['subnet']['id'], server_psg)
         p_client.update_port(port_id, **kwargs)

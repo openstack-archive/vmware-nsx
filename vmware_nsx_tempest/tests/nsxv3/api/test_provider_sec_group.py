@@ -231,7 +231,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
                         port_id['port']['id'])
         ss = port_client.show_port(port_id['port']['id'])
         self.assertEqual([sg_id], ss['port']['provider_security_groups'])
-        kwargs = {"provider_security_groups": ''}
+        kwargs = {"provider_security_groups": []}
         port_client.update_port(port_id['port']['id'], **kwargs)
 
     @test.attr(type='nsxv3')
@@ -305,7 +305,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
                         port_id['port']['id'])
         ss = port_client.show_port(port_id['port']['id'])
         self.assertEmpty(ss['port']['provider_security_groups'])
-        kwargs = {"provider_security_groups": ''}
+        kwargs = {"provider_security_groups": []}
         port_client.update_port(port_id['port']['id'], **kwargs)
 
     @test.attr(type='nsxv3')
@@ -407,7 +407,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
         ss = port_client.show_port(port_id['port']['id'])
         self.assertEqual([sg_id], ss['port']['provider_security_groups'],
                          "PSG assigned to port is accurate")
-        kwargs = {"provider_security_groups": ''}
+        kwargs = {"provider_security_groups": []}
         port_client.update_port(port_id['port']['id'], **kwargs)
 
     @test.attr(type='nsxv3')
@@ -444,7 +444,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
         self.assertRaises(exceptions.NotFound,
                           port_client.update_port,
                           port_id['port']['id'], **body)
-        kwargs = {"provider_security_groups": ''}
+        kwargs = {"provider_security_groups": []}
         port_client.update_port(port_id['port']['id'], **kwargs)
 
     @test.attr(type='nsxv3')
