@@ -17,8 +17,7 @@ import copy
 import mock
 from oslo_utils import uuidutils
 
-from neutron_fwaas.common import exceptions
-
+from vmware_nsx.common import exceptions
 from vmware_nsx.services.fwaas.nsx_v import edge_fwaas_driver
 from vmware_nsx.tests.unit.nsx_v import test_plugin as test_v_plugin
 
@@ -197,7 +196,7 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
         # not for shared router:
         router['router_type'] = 'shared'
         router['distributed'] = False
-        self.assertRaises(exceptions.FirewallInternalDriverError,
+        self.assertRaises(exceptions.NsxInternalDriverError,
                           self.firewall.should_apply_firewall_to_router,
                           router)
 
@@ -208,6 +207,6 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
 
         # not for mdproxy router:
         router['name'] = 'metadata_proxy_router'
-        self.assertRaises(exceptions.FirewallInternalDriverError,
+        self.assertRaises(exceptions.NsxInternalDriverError,
                           self.firewall.should_apply_firewall_to_router,
                           router)
