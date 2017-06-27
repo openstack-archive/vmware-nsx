@@ -328,8 +328,11 @@ class EdgeManager(object):
 
     def _clean_all_error_edge_bindings(self, context, availability_zone):
         # Find all backup edges in error state &
-        # backup edges which are in pending-create state for too long
-        filters = {'status': [constants.ERROR, constants.PENDING_CREATE],
+        # backup edges which are in pending-XXX state for too long
+        filters = {'status': [constants.ERROR,
+                              constants.PENDING_CREATE,
+                              constants.PENDING_UPDATE,
+                              constants.PENDING_DELETE],
                    'availability_zone': [availability_zone.name]}
         like_filters = {'router_id': vcns_const.BACKUP_ROUTER_PREFIX + "%"}
         router_bindings = nsxv_db.get_nsxv_router_bindings(
