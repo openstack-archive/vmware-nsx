@@ -171,12 +171,22 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
     def test_create_firewall_no_rules(self):
         apply_list = self._fake_apply_list()
         firewall = self._fake_firewall_no_rule()
+        initial_tags = [{'scope': 'xxx', 'tag': 'yyy'}]
         with mock.patch("vmware_nsxlib.v3.security.NsxLibFirewallSection."
-                        "update") as update_fw:
+                        "update") as update_fw,\
+            mock.patch("vmware_nsxlib.v3.core_resources.NsxLibLogicalRouter."
+                       "update") as update_rtr,\
+            mock.patch("vmware_nsxlib.v3.core_resources.NsxLibLogicalRouter."
+                       "get", return_value={'tags': initial_tags}) as get_rtr:
             self.firewall.create_firewall('nsx', apply_list, firewall)
             update_fw.assert_called_once_with(
                 MOCK_SECTION_ID,
                 rules=[self._default_rule()])
+            get_rtr.assert_called_once_with(MOCK_NSX_ID)
+            expected_tags = initial_tags
+            expected_tags.append({'scope': edge_fwaas_driver.NSX_FW_TAG,
+                                  'tag': firewall['id']})
+            update_rtr.assert_called_once_with(MOCK_NSX_ID, tags=expected_tags)
 
     def test_create_firewall_with_rules(self):
         self._setup_firewall_with_rules(self.firewall.create_firewall)
@@ -191,12 +201,25 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
     def test_delete_firewall(self):
         apply_list = self._fake_apply_list()
         firewall = self._fake_firewall_no_rule()
+        initial_tags = [{'scope': 'xxx', 'tag': 'yyy'},
+                        {'scope': edge_fwaas_driver.NSX_FW_TAG,
+                         'tag': firewall['id']}]
         with mock.patch("vmware_nsxlib.v3.security.NsxLibFirewallSection."
-                        "update") as update_fw:
+                        "update") as update_fw,\
+            mock.patch("vmware_nsxlib.v3.core_resources.NsxLibLogicalRouter."
+                       "update") as update_rtr,\
+            mock.patch("vmware_nsxlib.v3.core_resources.NsxLibLogicalRouter."
+                       "get", return_value={'tags': initial_tags}) as get_rtr:
             self.firewall.delete_firewall('nsx', apply_list, firewall)
             update_fw.assert_called_once_with(
                 MOCK_SECTION_ID,
                 rules=[self._default_rule(drop=False)])
+            get_rtr.assert_called_once_with(MOCK_NSX_ID)
+            expected_tags = initial_tags
+            expected_tags.pop()
+            expected_tags.append({'scope': edge_fwaas_driver.NSX_FW_TAG,
+                                  'tag': firewall['id']})
+            update_rtr.assert_called_once_with(MOCK_NSX_ID, tags=expected_tags)
 
     def test_create_firewall_with_admin_down(self):
         apply_list = self._fake_apply_list()
