@@ -15,10 +15,6 @@
 
 from oslo_log import log as logging
 
-from neutron_fwaas.db.firewall import firewall_db  # noqa
-from neutron_fwaas.db.firewall import firewall_router_insertion_db \
-    as fw_r_ins_db
-
 from vmware_nsx.services.fwaas.common import fwaas_callbacks as com_callbacks
 
 LOG = logging.getLogger(__name__)
@@ -50,7 +46,8 @@ class NsxvFwaasCallbacks(com_callbacks.NsxFwaasCallbacks):
                 return False
 
         # Check if the FWaaS driver supports this router
-        if not self.fwaas_driver.should_apply_firewall_to_router(router_data):
+        if not self.fwaas_driver.should_apply_firewall_to_router(
+            router_data, raise_exception=False):
             return False
 
         return True
@@ -63,17 +60,8 @@ class NsxvFwaasCallbacks(com_callbacks.NsxFwaasCallbacks):
             return self._get_fw_applicable_rules(ctx_elevated, fw_id)
         return []
 
-    # TODO(asarfaty): add this api to fwaas firewall-router-insertion-db
-    def _get_router_firewall_id(self, context, router_id):
-        entry = context.session.query(
-            fw_r_ins_db.FirewallRouterAssociation).filter_by(
-            router_id=router_id).first()
-        if entry:
-            return entry.fw_id
-
     def _get_fw_applicable_rules(self, context, fw_id):
-        fw_list = self.fwplugin_rpc.get_firewalls_for_tenant(context)
-        for fw in fw_list:
-            if fw['id'] == fw_id:
-                return self.fwaas_driver.get_firewall_translated_rules(fw)
+        fw = self._get_fw_from_plugin(context, fw_id)
+        if fw is not None and fw['id'] == fw_id:
+            return self.fwaas_driver.get_firewall_translated_rules(fw)
         return []

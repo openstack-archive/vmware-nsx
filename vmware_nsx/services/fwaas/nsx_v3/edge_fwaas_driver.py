@@ -41,6 +41,7 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
     def __init__(self):
         LOG.debug("Loading FWaaS NsxV3Driver.")
         super(EdgeFwaasV3Driver, self).__init__()
+        self.driver_name = FWAAS_DRIVER_NAME
 
         self.backend_support = True
         registry.subscribe(
@@ -187,7 +188,7 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
         if not self.backend_support:
             LOG.error("The NSX backend does not support router firewall")
             raise exceptions.FirewallInternalDriverError(
-                driver=FWAAS_DRIVER_NAME)
+                driver=self.driver_name)
 
     @log_helpers.log_method_call
     def create_firewall(self, agent_mode, apply_list, firewall):
@@ -246,7 +247,7 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
         if nsx_router_id is None:
             LOG.error("Didn't find nsx router for router %s", router_id)
             raise exceptions.FirewallInternalDriverError(
-                driver=FWAAS_DRIVER_NAME)
+                driver=self.driver_name)
 
         # get the FW section id of the backend router
         try:
@@ -256,12 +257,12 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
             LOG.error("Failed to find router firewall section for router "
                       "%(id)s: %(e)s", {'id': router_id, 'e': e})
             raise exceptions.FirewallInternalDriverError(
-                driver=FWAAS_DRIVER_NAME)
+                driver=self.driver_name)
         if section_id is None:
             LOG.error("Failed to find router firewall section for router "
                       "%(id)s.", {'id': router_id})
             raise exceptions.FirewallInternalDriverError(
-                driver=FWAAS_DRIVER_NAME)
+                driver=self.driver_name)
 
         return nsx_router_id, section_id
 
