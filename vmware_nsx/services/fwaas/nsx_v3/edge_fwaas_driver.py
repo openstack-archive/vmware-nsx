@@ -15,6 +15,7 @@
 
 import netaddr
 
+from neutron_fwaas.extensions import firewall as exceptions
 from neutron_fwaas.services.firewall.drivers import fwaas_base
 from neutron_lib.api.definitions import constants as fwaas_consts
 from neutron_lib.callbacks import events
@@ -25,7 +26,6 @@ from neutron_lib.plugins import directory
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
-from vmware_nsx.common import exceptions
 from vmware_nsx.db import db as nsx_db
 from vmware_nsxlib.v3 import nsx_constants as consts
 
@@ -92,7 +92,7 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
         # Unexpected action
         LOG.error("Unsupported FWAAS action %(action)s for rule %(id)s", {
             'action': fwaas_action, 'id': fwaas_rule_id})
-        raise exceptions.NsxInternalDriverError(
+        raise exceptions.FirewallInternalDriverError(
             driver=FWAAS_DRIVER_NAME)
 
     def _translate_cidr(self, cidr):
@@ -186,7 +186,7 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
         # prevent firewall actions if the backend does not support it
         if not self.backend_support:
             LOG.error("The NSX backend does not support router firewall")
-            raise exceptions.NsxInternalDriverError(
+            raise exceptions.FirewallInternalDriverError(
                 driver=FWAAS_DRIVER_NAME)
 
     @log_helpers.log_method_call
@@ -245,7 +245,7 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
         nsx_router_id = nsx_db.get_nsx_router_id(context.session, router_id)
         if nsx_router_id is None:
             LOG.error("Didn't find nsx router for router %s", router_id)
-            raise exceptions.NsxInternalDriverError(
+            raise exceptions.FirewallInternalDriverError(
                 driver=FWAAS_DRIVER_NAME)
 
         # get the FW section id of the backend router
@@ -255,12 +255,12 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
         except Exception as e:
             LOG.error("Failed to find router firewall section for router "
                       "%(id)s: %(e)s", {'id': router_id, 'e': e})
-            raise exceptions.NsxInternalDriverError(
+            raise exceptions.FirewallInternalDriverError(
                 driver=FWAAS_DRIVER_NAME)
         if section_id is None:
             LOG.error("Failed to find router firewall section for router "
                       "%(id)s.", {'id': router_id})
-            raise exceptions.NsxInternalDriverError(
+            raise exceptions.FirewallInternalDriverError(
                 driver=FWAAS_DRIVER_NAME)
 
         return nsx_router_id, section_id

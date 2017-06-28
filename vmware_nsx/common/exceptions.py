@@ -198,7 +198,3 @@ class NsxRouterInterfaceDoesNotMatchAddressScope(n_exc.BadRequest):
     message = _("Unable to update no-NAT router %(router_id)s, "
                 "only subnets allocated from address-scope "
                 "%(address_scope_id)s can be connected.")
-
-
-class NsxInternalDriverError(n_exc.NeutronException):
-    message = _("%(driver)s: Internal driver error.")
