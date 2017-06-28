@@ -3243,34 +3243,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             address_groups.append(address_group)
         return address_groups
 
-    def _get_port_by_device_id(self, context, device_id, device_owner):
-        """Retrieve ports associated with a specific device id.
-
-        Used for retrieving all neutron ports attached to a given router.
-        """
-        port_qry = context.session.query(models_v2.Port)
-        return port_qry.filter_by(
-            device_id=device_id,
-            device_owner=device_owner,).all()
-
-    def _find_router_subnets_cidrs(self, context, router_id):
-        """Retrieve cidrs of subnets attached to the specified router."""
-        subnets = self._find_router_subnets_and_cidrs(context, router_id)
-        return [subnet['cidr'] for subnet in subnets]
-
-    def _find_router_subnets_and_cidrs(self, context, router_id):
-        """Retrieve subnets attached to the specified router."""
-        ports = self._get_port_by_device_id(context, router_id,
-                                            l3_db.DEVICE_OWNER_ROUTER_INTF)
-        # No need to check for overlapping CIDRs
-        subnets = []
-        for port in ports:
-            for ip in port.get('fixed_ips', []):
-                subnet_qry = context.session.query(models_v2.Subnet)
-                subnet = subnet_qry.filter_by(id=ip.subnet_id).one()
-                subnets.append({'id': subnet.id, 'cidr': subnet.cidr})
-        return subnets
-
     def _get_nat_rules(self, context, router):
         fip_qry = context.session.query(l3_db_models.FloatingIP)
         fip_db = fip_qry.filter_by(router_id=router['id']).all()

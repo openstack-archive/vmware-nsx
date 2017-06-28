@@ -2737,7 +2737,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # TODO(berlin): revocate bgp announce on org tier0 router
             pass
         if remove_snat_rules:
-            self._routerlib.delete_gw_snat_rule(nsx_router_id, orgaddr)
+            self._routerlib.delete_gw_snat_rules(nsx_router_id, orgaddr)
         if remove_router_link_port:
             self._routerlib.remove_router_link_port(
                 nsx_router_id, org_tier0_uuid)
@@ -2752,8 +2752,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._routerlib.add_router_link_port(nsx_router_id, new_tier0_uuid,
                                                  tags=tags)
         if add_snat_rules:
-            self._routerlib.add_gw_snat_rule(nsx_router_id, newaddr,
-                                             bypass_firewall=False)
+            # Add SNAT rules for all the subnets which are in different scope
+            # than the gw
+            gw_address_scope = self._get_network_address_scope(
+                context, router.gw_port.network_id)
+            subnets = self._find_router_subnets_and_cidrs(context.elevated(),
+                                                          router_id)
+            for subnet in subnets:
+                self._add_subnet_snat_rule(context, router_id, nsx_router_id,
+                                           subnet, gw_address_scope, newaddr)
         if bgp_announce:
             # TODO(berlin): bgp announce on new tier0 router
             pass
@@ -2761,6 +2768,26 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._routerlib.update_advertisement(nsx_router_id,
                                              advertise_route_nat_flag,
                                              advertise_route_connected_flag)
+
+    def _add_subnet_snat_rule(self, context, router_id, nsx_router_id, subnet,
+                              gw_address_scope, gw_ip):
+        # if the subnets address scope is the same as the gateways:
+        # no need for SNAT
+        if gw_address_scope:
+            subnet_address_scope = self._get_subnet_address_scope(
+                context, subnet['id'])
+            if (gw_address_scope == subnet_address_scope):
+                LOG.info("No need for SNAT rule for router %(router)s "
+                         "and subnet %(subnet)s because they use the "
+                         "same address scope %(addr_scope)s.",
+                         {'router': router_id,
+                          'subnet': subnet['id'],
+                          'addr_scope': gw_address_scope})
+                return
+
+        self._routerlib.add_gw_snat_rule(nsx_router_id, gw_ip,
+                                         source_net=subnet['cidr'],
+                                         bypass_firewall=False)
 
     def _process_extra_attr_router_create(self, context, router_db, r):
         for extra_attr in l3_attrs_db.get_attr_info().keys():
@@ -3070,11 +3097,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             nsx_net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
                 context.session, port['id'])
             router_db = self._get_router(context, router_id)
+            gw_network_id = (router_db.gw_port.network_id if router_db.gw_port
+                             else None)
 
             # If it is a no-snat router, interface address scope must be the
             # same as the gateways
-            if not router_db.enable_snat:
-                gw_network_id = router_db.gw_port.network_id
+            if not router_db.enable_snat and gw_network_id:
                 self._validate_address_scope_for_router_interface(
                     context, router_id, gw_network_id, subnet['id'])
 
@@ -3106,6 +3134,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 # its DHCP port), by creating it if needed.
                 nsx_rpc.handle_router_metadata_access(self, context, router_id,
                                                       interface=info)
+
+            # add the SNAT rule for this interface
+            if (router_db.enable_snat and gw_network_id and
+                router_db.gw_port.get('fixed_ips')):
+                gw_ip = router_db.gw_port['fixed_ips'][0]['ip_address']
+                gw_address_scope = self._get_network_address_scope(
+                    context, gw_network_id)
+                self._add_subnet_snat_rule(context, router_id, nsx_router_id,
+                                           subnet, gw_address_scope, gw_ip)
         except Exception:
             with excutils.save_and_reraise_exception():
                 LOG.error("Neutron failed to add_router_interface on "
@@ -3176,6 +3213,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             else:
                 self.nsxlib.logical_router_port.delete_by_lswitch_id(
                     nsx_net_id)
+            # try to delete the SNAT rule of this subnet
+            if (router_db.gw_port and router_db.enable_snat and
+                router_db.gw_port.get('fixed_ips')):
+                gw_ip = router_db.gw_port['fixed_ips'][0]['ip_address']
+                self._routerlib.delete_gw_snat_rule_by_source(
+                    nsx_router_id, gw_ip, subnet['cidr'],
+                    skip_not_found=True)
+
         except nsx_lib_exc.ResourceNotFound:
             LOG.error("router port on router %(router_id)s for net "
                       "%(net_id)s not found at the backend",
