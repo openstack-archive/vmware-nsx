@@ -108,6 +108,15 @@ class L2GatewayConnectionTest(base.BaseAdminNetworkTest):
 
     @classmethod
     def resource_cleanup(cls):
+        cls.l2gw_cleanup()
+        if hasattr(cls, 'network'):
+            cls.networks_client.delete_network(cls.network['id'])
+
+    @classmethod
+    def l2gw_cleanup(cls):
+        """
+        Delete created L2GWs and L2GWCs.
+        """
         for _id in cls.l2gwc_created.keys():
             try:
                 cls.l2gwc_client.delete_l2_gateway_connection(_id)
@@ -120,8 +129,6 @@ class L2GatewayConnectionTest(base.BaseAdminNetworkTest):
             except Exception:
                 # log it please
                 pass
-        if hasattr(cls, 'network'):
-            cls.networks_client.delete_network(cls.network['id'])
 
     @classmethod
     def get_ipaddress_from_tempest_conf(cls, ip_version=4):
@@ -204,6 +211,7 @@ class L2GatewayConnectionTest(base.BaseAdminNetworkTest):
         _seg_new = str(_res_new.get('segmentation_id'))
         self.assertEqual(_seg_new, str(_seg_id))
         self.do_suld_l2gw_connection(_res_new)
+        self.addCleanup(self.l2gw_cleanup)
 
     @decorators.idempotent_id('222104e3-1260-42c1-bdf6-536c1141387c')
     def test_csuld_single_device_interface_vlan(self):
@@ -222,6 +230,7 @@ class L2GatewayConnectionTest(base.BaseAdminNetworkTest):
         # vlan specified @l2-gateway, so it is empty @l2-gateway-connection
         self.assertEmpty(_seg_new)
         self.do_suld_l2gw_connection(_res_new)
+        self.addCleanup(self.l2gw_cleanup)
 
     @decorators.skip_because(bug="1559913")
     @decorators.idempotent_id('1875eca7-fde9-49ba-be21-47a8cc41f2e5')
@@ -236,26 +245,29 @@ class L2GatewayConnectionTest(base.BaseAdminNetworkTest):
         self.assertEqaul(0, cmp(_vlan_id_list, _seg_id_list),
                          MSG_DIFF % ('vlan', _vlan_id_list, _seg_id_list))
         self.do_suld_l2gw_connection(_res_new)
+        self.addCleanup(self.l2gw_cleanup)
 
     @decorators.skip_because(bug="1559913")
     @decorators.idempotent_id('53755cb0-fdca-4ee7-8e43-a9b8a9d6d90a')
     def test_csuld_single_device_minterface_mvlan_type1(self):
         # NSX-v does not support multiple interfaces
         dev_profile = self.getattr_or_skip_test(
-                "multiple_interfaces_multiple_vlans")
+            "multiple_interfaces_multiple_vlans")
         _name = data_utils.rand_name('l2gwc-m2v1')
         _devices = base_l2gw.get_l2gw_body(dev_profile)
         _gw = self.create_l2gw_switch(_name, _devices)
         (_res_new, _seg_id) = self.create_l2gw_connection(_gw)
         self.do_suld_l2gw_connection(_res_new)
+        self.addCleanup(self.l2gw_cleanup)
 
     @decorators.skip_because(bug="1559913")
     @decorators.idempotent_id('723b0b78-35d7-4774-89c1-ec73797a1fe3')
     def test_csuld_single_device_minterface_mvlan_type2(self):
         dev_profile = self.getattr_or_skip_test(
-                "multiple_interfaces_multiple_vlans")
+            "multiple_interfaces_multiple_vlans")
         _name = data_utils.rand_name('l2gwc-m2v2')
         _devices = base_l2gw.get_l2gw_body(dev_profile)
         _gw = self.create_l2gw_switch(_name, _devices)
         (_res_new, _seg_id) = self.create_l2gw_connection(_gw)
         self.do_suld_l2gw_connection(_res_new)
+        self.addCleanup(self.l2gw_cleanup)
