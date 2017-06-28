@@ -247,21 +247,6 @@ class NsxvSpoofGuardPolicyNetworkMapping(model_base.BASEV2,
     policy_id = sa.Column(sa.String(36), nullable=False)
 
 
-class NsxvVdrDhcpBinding(model_base.BASEV2, models.TimestampMixin):
-    """1:1 mapping between VDR and a DHCP Edge."""
-
-    __tablename__ = 'nsxv_vdr_dhcp_bindings'
-
-    vdr_router_id = sa.Column(sa.String(36), primary_key=True)
-    dhcp_edge_id = sa.Column(sa.String(36), nullable=False)
-
-    __table_args__ = (
-        sa.UniqueConstraint(
-            dhcp_edge_id,
-            name='unique_nsxv_vdr_dhcp_bindings0dhcp_edge_id'),
-        model_base.BASEV2.__table_args__)
-
-
 class NsxvLbaasLoadbalancerBinding(model_base.BASEV2, models.TimestampMixin):
     """Mapping between Edge LB and LBaaSv2"""
 

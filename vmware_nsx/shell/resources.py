@@ -56,6 +56,7 @@ class Operations(enum.Enum):
     NSX_MIGRATE_V_V3 = 'nsx-migrate-v-v3'
     MIGRATE_TO_POLICY = 'migrate-to-policy'
     NSX_MIGRATE_EXCLUDE_PORTS = 'migrate-exclude-ports'
+    MIGRATE_VDR_DHCP = 'migrate-vdr-dhcp'
     STATUS = 'status'
     GENERATE = 'generate'
     IMPORT = 'import'
@@ -167,7 +168,8 @@ nsxv_resources = {
                              Operations.NSX_UPDATE_SECRET.value,
                              Operations.STATUS.value]),
     constants.ROUTERS: Resource(constants.ROUTERS,
-                                [Operations.NSX_RECREATE.value]),
+                                [Operations.NSX_RECREATE.value,
+                                 Operations.MIGRATE_VDR_DHCP.value]),
     constants.CONFIG: Resource(constants.CONFIG,
                                [Operations.VALIDATE.value]),
     constants.BGP_GW_EDGE: Resource(constants.BGP_GW_EDGE,

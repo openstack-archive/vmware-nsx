@@ -1198,7 +1198,7 @@ class FakeVcns(object):
         return True
 
     def get_version(self):
-        return '6.2.0'
+        return '6.2.3'
 
     def get_tuning_configration(self):
         return {
