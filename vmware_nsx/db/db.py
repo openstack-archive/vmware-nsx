@@ -66,7 +66,7 @@ def delete_network_bindings(session, network_id):
 def add_network_binding(session, network_id, binding_type, phy_uuid, vlan_id):
     with session.begin(subtransactions=True):
         binding = nsx_models.TzNetworkBinding(network_id, binding_type,
-                                          phy_uuid, vlan_id)
+                                              phy_uuid, vlan_id)
         session.add(binding)
     return binding
 
@@ -368,7 +368,7 @@ def add_qos_policy_profile_mapping(session, qos_policy_id, switch_profile_id):
 def get_switch_profile_by_qos_policy(session, qos_policy_id):
     try:
         entry = (session.query(nsx_models.QosPolicySwitchProfile).
-                filter_by(qos_policy_id=qos_policy_id).one())
+                 filter_by(qos_policy_id=qos_policy_id).one())
         return entry.switch_profile_id
     except exc.NoResultFound:
         raise nsx_exc.NsxQosPolicyMappingNotFound(policy=qos_policy_id)
