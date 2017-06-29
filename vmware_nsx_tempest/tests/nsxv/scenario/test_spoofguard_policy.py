@@ -184,7 +184,8 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         net_id = self.green['network']['id']
         name = 'disabled-port-security-port'
         kwargs = {'name': name, 'network_id': net_id,
-                  'port_security_enabled': 'false'}
+                  'port_security_enabled': 'false',
+                  'security_groups': []}
         # Create Port
         port = HELO.create_port(self, client=port_client, **kwargs)
         port_id = port['id']
@@ -255,7 +256,8 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         # Update vm1 port to disbale port security
         port_client.update_port(
             port_id=port1_id,
-            port_security_enabled='false')
+            port_security_enabled='false',
+            security_groups=[])
         time.sleep(constants.NSX_BACKEND_TIME_INTERVAL)
         self.compute_security_group_rules_client.\
             delete_security_group_rule(self.green['rule_id'])
@@ -313,7 +315,8 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         # Update vm1 port to disbale port security
         port_client.update_port(
             port_id=port1_id,
-            port_security_enabled='false')
+            port_security_enabled='false',
+            security_groups=[])
         items = self.vsm.get_excluded_vm_name_list()
         exclude_list = [item.encode('utf-8') for item in items]
         for exclude_vm in exclude_list:
@@ -323,7 +326,8 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         # Update vm2 port to disable port security
         port_client.update_port(
             port_id=port2_id,
-            port_security_enabled='false')
+            port_security_enabled='false',
+            security_groups=[])
         items = self.vsm.get_excluded_vm_name_list()
         exclude_list = [item.encode('utf-8') for item in items]
         # Check vm2 in exclude list or not
@@ -334,7 +338,8 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         # Update vm3 port to enable port security
         port_client.update_port(
             port_id=port3_id,
-            port_security_enabled='false')
+            port_security_enabled='false',
+            security_groups=[])
         items = self.vsm.get_excluded_vm_name_list()
         exclude_list = [item.encode('utf-8') for item in items]
         # Check vm3 in exclude list or not
@@ -361,7 +366,8 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         # Update vm port to disable port security
         port_client.update_port(
             port_id=port_id,
-            port_security_enabled='false')
+            port_security_enabled='false',
+            security_groups=[])
         vm_id = self.green['serv1']['id']
         # Check vm in exclude list or not
         items = self.vsm.get_excluded_vm_name_list()
@@ -418,7 +424,8 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         net_id = self.green['network']['id']
         name = 'disabled-port-security-port1'
         kwargs = {'name': name, 'network_id': net_id,
-                  'port_security_enabled': 'false'}
+                  'port_security_enabled': 'false',
+                  'security_groups': []}
         port1 = HELO.create_port(self, client=port_client, **kwargs)
         port2 = HELO.create_port(self, client=port_client, **kwargs)
         port1_id = port1['id']
