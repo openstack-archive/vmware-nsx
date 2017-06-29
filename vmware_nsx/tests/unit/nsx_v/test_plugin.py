@@ -3601,7 +3601,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
 
     def test_router_address_scope_snat_rules(self):
         """Test that if the router interface had the same address scope
-        as the gateway - snat rule is not added.
+        as the gateway - snat rule is not added, but firewall rule is.
         """
         # create an external network on one address scope
         with self.address_scope(name='as1') as addr_scope, \
@@ -3639,9 +3639,11 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                         r['router']['id'],
                         ext_subnet['subnet']['network_id'])
 
-                    # Add the interface
+                    # Add the interface to the router
                     with mock.patch.object(
-                        edge_utils, 'update_nat_rules') as update_nat:
+                        edge_utils, 'update_nat_rules') as update_nat,\
+                        mock.patch.object(
+                            edge_utils, 'update_firewall') as update_fw:
                         self._router_interface_action(
                             'add',
                             r['router']['id'],
@@ -3650,6 +3652,19 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                         # make sure snat rules are not added
                         update_nat.assert_called_once_with(
                             mock.ANY, mock.ANY, r['router']['id'], [], [])
+
+                        # check fw rules
+                        fw_rules = update_fw.call_args[0][3][
+                            'firewall_rule_list']
+                        self.assertEqual(2, len(fw_rules))
+                        self.assertEqual('Allocation Pool Rule',
+                                         fw_rules[1]['name'])
+                        self.assertEqual('allow', fw_rules[1]['action'])
+                        self.assertEqual(
+                            int_subnet['subnet']['cidr'],
+                            fw_rules[1]['destination_ip_address'][0])
+                        self.assertEqual('external',
+                                         fw_rules[1]['source_vnic_groups'][0])
 
 
 class ExtGwModeTestCase(NsxVPluginV2TestCase,

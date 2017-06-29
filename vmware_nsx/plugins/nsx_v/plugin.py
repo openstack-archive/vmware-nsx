@@ -141,6 +141,11 @@ PORTGROUP_PREFIX = 'dvportgroup'
 ROUTER_SIZE = routersize.ROUTER_SIZE
 VALID_EDGE_SIZES = routersize.VALID_EDGE_SIZES
 
+SUBNET_RULE_NAME = 'Subnet Rule'
+DNAT_RULE_NAME = 'DNAT Rule'
+ALLOCATION_POOL_RULE_NAME = 'Allocation Pool Rule'
+NO_SNAT_RULE_NAME = 'No SNAT Rule'
+
 
 @resource_extend.has_resource_extenders
 class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
@@ -3326,12 +3331,46 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                                            router['id'])
             if subnet_cidrs:
                 no_snat_fw_rules.append({
-                    'name': edge_firewall_driver.NO_SNAT_RULE_NAME,
+                    'name': NO_SNAT_RULE_NAME,
                     'action': 'allow',
                     'enabled': True,
                     'source_vnic_groups': ["external"],
                     'destination_ip_address': subnet_cidrs})
         return no_snat_fw_rules
+
+    def _get_allocation_pools_fw_rule(self, context, router):
+        """Get the firewall rule for the default gateway address pool
+
+        Return the firewall rule that should be added in order to allow
+        not SNAT-ed traffic to external gateway with the same address scope as
+        the interfaces
+        """
+        gw_port = router.gw_port
+        if not gw_port or not router.enable_snat:
+            return
+
+        gw_address_scope = self._get_network_address_scope(
+            context, gw_port['network_id'])
+        if gw_address_scope is None:
+            return
+
+        subnets = self._find_router_subnets_and_cidrs(context.elevated(),
+                                                      router['id'])
+        no_nat_cidrs = []
+        for subnet in subnets:
+            # if the subnets address scope is the same as the gateways:
+            # we should add it to the rule
+            subnet_address_scope = self._get_subnet_address_scope(
+                context, subnet['id'])
+            if (gw_address_scope == subnet_address_scope):
+                no_nat_cidrs.append(subnet['cidr'])
+
+        if no_nat_cidrs:
+            return {'name': ALLOCATION_POOL_RULE_NAME,
+                    'action': 'allow',
+                    'enabled': True,
+                    'source_vnic_groups': ["external"],
+                    'destination_ip_address': no_nat_cidrs}
 
     def _update_nat_rules(self, context, router, router_id=None):
         snat, dnat = self._get_nat_rules(context, router)
@@ -3577,7 +3616,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         subnet_cidrs.extend([route['destination'] for route in routes])
         if subnet_cidrs:
             subnet_fw_rule = {
-                'name': edge_firewall_driver.SUBNET_RULE_NAME,
+                'name': SUBNET_RULE_NAME,
                 'action': 'allow',
                 'enabled': True,
                 'source_ip_address': subnet_cidrs,
@@ -3598,11 +3637,17 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             dnat_cidrs = [rule['dst'] for rule in dnat_rules]
             if dnat_cidrs:
                 dnat_fw_rule = {
-                    'name': edge_firewall_driver.DNAT_RULE_NAME,
+                    'name': DNAT_RULE_NAME,
                     'action': 'allow',
                     'enabled': True,
                     'destination_ip_address': dnat_cidrs}
                 fw_rules.append(dnat_fw_rule)
+
+            # Add rule for not NAT-ed allocation pools
+            alloc_pool_rule = self._get_allocation_pools_fw_rule(
+                context, router_db)
+            if alloc_pool_rule:
+                fw_rules.append(alloc_pool_rule)
 
             # Add no-snat rules
             nosnat_fw_rules = self._get_nosnat_subnets_fw_rules(
