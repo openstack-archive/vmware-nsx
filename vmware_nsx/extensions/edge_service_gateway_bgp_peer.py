@@ -21,10 +21,14 @@ from neutron_lib import exceptions as nexception
 from vmware_nsx._i18n import _
 
 EDGE_SERVICE_GW = 'esg_id'
+EDGE_ID_MAX_LEN = 15
 ESG_BGP_PEER_EXT_ALIAS = 'edge-service-gateway-bgp-peer'
 
 
 def _validate_edge_service_gw_id(esg_id, valid_values=None):
+    msg = validators.validate_string(esg_id, max_len=EDGE_ID_MAX_LEN)
+    if msg:
+        return msg
     if esg_id and re.match(r'^edge-[1-9]+[0-9]*$', esg_id) is None:
         msg = _("'%s' is not a valid edge service gateway id.") % esg_id
         return msg
