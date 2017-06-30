@@ -12,6 +12,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import copy
 import mock
 
 from neutron_lib import context
@@ -110,11 +111,13 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
         cfg.CONF.set_override('dvs_name', 'fake_dvs', group='dvs')
         cfg.CONF.set_default('use_dvs_features', True, 'nsxv')
 
-    def _create_net(self):
+    def _create_net(self, net_data=None):
+        if net_data is None:
+            net_data = self._net_data
         with mock.patch('vmware_nsx.services.qos.common.utils.'
                         'get_network_policy_id',
                         return_value=self.policy.id):
-            return self._core_plugin.create_network(self.ctxt, self._net_data)
+            return self._core_plugin.create_network(self.ctxt, net_data)
 
     @mock.patch.object(qos_com_utils, 'update_network_policy_binding')
     @mock.patch.object(dvs.DvsManager, 'update_port_groups_config')
@@ -132,6 +135,38 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
                         return_value=_policy) as get_rules_mock:
             # create the network to use this policy
             net = self._create_net()
+
+            # make sure the network-policy binding was updated
+            update_bindings_mock.assert_called_once_with(
+                self.ctxt, net['id'], self.policy.id)
+            # make sure the qos rule was found
+            get_rules_mock.assert_called_with(self.ctxt, self.policy.id)
+            # make sure the dvs was updated
+            self.assertTrue(dvs_update_mock.called)
+
+    @mock.patch.object(qos_com_utils, 'update_network_policy_binding')
+    @mock.patch.object(dvs.DvsManager, 'update_port_groups_config')
+    def test_create_network_with_default_policy(self,
+                                                dvs_update_mock,
+                                                update_bindings_mock):
+        """Test the DVS update when default policy attached to a network"""
+        # Create a default policy with a rule
+        policy_data = copy.deepcopy(self.policy_data['policy'])
+        policy_data['is_default'] = True
+        _policy = policy_object.QosPolicy(self.ctxt, **policy_data)
+        setattr(_policy, "rules", [self.rule, self.dscp_rule])
+        default_policy = policy_object.QosPolicyDefault(
+            qos_policy_id=policy_data['id'])
+
+        with mock.patch('neutron.services.qos.qos_plugin.QoSPlugin.'
+                        'get_policy',
+                        return_value=_policy) as get_rules_mock,\
+            mock.patch('neutron.objects.qos.policy.QosPolicyDefault.'
+                       'get_object', return_value=default_policy):
+            # create the network (with no specific qos policy)
+            net_data = copy.deepcopy(self._net_data)
+            del net_data['network']['qos_policy_id']
+            net = self._create_net(net_data=net_data)
 
             # make sure the network-policy binding was updated
             update_bindings_mock.assert_called_once_with(

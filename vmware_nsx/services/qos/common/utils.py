@@ -15,6 +15,7 @@
 #    under the License.
 
 from neutron.objects.qos import policy as qos_policy
+from neutron.services.qos import qos_consts
 
 
 def update_network_policy_binding(context, net_id, new_policy_id):
@@ -63,3 +64,26 @@ def get_network_policy_id(context, net_id):
         context, net_id)
     if policy:
         return policy.id
+
+
+def set_qos_policy_on_new_net(context, net_data, created_net):
+    """Update the network with the assigned or default QoS policy
+
+    Update the network-qos binding table, and the new network structure
+    """
+    qos_policy_id = net_data.get(qos_consts.QOS_POLICY_ID)
+    if not qos_policy_id:
+        # try and get the default one
+        qos_obj = qos_policy.QosPolicyDefault.get_object(
+            context, project_id=created_net['project_id'])
+        if qos_obj:
+            qos_policy_id = qos_obj.qos_policy_id
+
+    if qos_policy_id:
+        # attach the policy to the network in the neutron DB
+        update_network_policy_binding(
+            context,
+            net_data['id'],
+            qos_policy_id)
+    created_net[qos_consts.QOS_POLICY_ID] = qos_policy_id
+    return qos_policy_id
