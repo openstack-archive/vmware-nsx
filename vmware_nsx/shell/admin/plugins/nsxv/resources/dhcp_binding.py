@@ -25,6 +25,7 @@ import vmware_nsx.shell.admin.plugins.nsxv.resources.utils as utils
 import vmware_nsx.shell.resources as shell
 
 from neutron_lib.callbacks import registry
+from neutron_lib import exceptions as nl_exc
 
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
@@ -268,7 +269,7 @@ def nsx_recreate_dhcp_edge_by_net_id(net_id):
         # make sure there is no edge
         if router_binding['edge_id']:
             LOG.warning("Network %(net_id)s already has a dhcp edge: "
-                        "%(egde_id)s",
+                        "%(edge_id)s",
                       {'edge_id': router_binding['edge_id'],
                        'net_id': net_id})
             return
@@ -283,6 +284,12 @@ def nsx_recreate_dhcp_edge_by_net_id(net_id):
         nsxv_manager = vcns_driver.VcnsDriver(edge_utils.NsxVCallbacks(plugin))
         edge_manager = edge_utils.EdgeManager(nsxv_manager, plugin)
 
+        # Verify that the network exists on neutron
+        try:
+            plugin.get_network(context, net_id)
+        except nl_exc.NetworkNotFound:
+            LOG.error("Network %s does not exist", net_id)
+            return
         recreate_network_dhcp(context, plugin, edge_manager,
                               None, net_id)
 
