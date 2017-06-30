@@ -3002,7 +3002,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if router_driver.get_type() == "distributed":
             router = self.get_router(context, id)
             if router.get(l3.EXTERNAL_GW_INFO):
-                router_driver._update_router_gw_info(context, id, {})
+                try:
+                    router_driver._update_router_gw_info(context, id, {})
+                except Exception as e:
+                    # Do not fail router deletion
+                    LOG.error("Failed to remove router %(rtr)s GW info before "
+                              "deletion: %(e)s", {'e': e, 'rtr': id})
         super(NsxVPluginV2, self).delete_router(context, id)
         router_driver.delete_router(context, id)
 
