@@ -92,12 +92,12 @@ def nsx_recreate_router_edge(resource, event, trigger, **kwargs):
         # all the routers on the same edge have the same type, so it
         # is ok to check the type once
         example_router = plugin.get_router(context, router_ids[0])
-        router_driver = plugin._router_managers.get_tenant_router_driver(
-            context, example_router['router_type'])
-        if router_driver.get_type() == "distributed":
+        if example_router.get('distributed'):
             LOG.error(_LE("Recreating a distributed  driver edge is not "
                           "supported"))
             return
+        router_driver = plugin._router_managers.get_tenant_router_driver(
+            context, example_router['router_type'])
 
         # load all the routers before deleting their binding
         routers = []
