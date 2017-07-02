@@ -32,10 +32,6 @@ FWAAS_DENY = "deny"
 FWAAS_REJECT = "reject"
 FWAAS_ALLOW_EXT_RULE_NAME = 'Allow To External'
 
-SUBNET_RULE_NAME = 'Subnet Rule'
-DNAT_RULE_NAME = 'DNAT Rule'
-NO_SNAT_RULE_NAME = 'No SNAT Rule'
-
 
 class EdgeFirewallDriver(object):
     """Implementation of driver APIs for

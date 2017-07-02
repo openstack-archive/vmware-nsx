@@ -184,6 +184,9 @@ class TestExclusiveRouterWithMdTestCase(
     def test_floatingip_delete_router_intf_with_port_id_returns_409(self):
         self.skipTest("The test is not suitable for the metadata test case")
 
+    def test_router_address_scope_snat_rules(self):
+        self.skipTest("The test is not suitable for the metadata test case")
+
 
 class TestVdrWithMdTestCase(test_plugin.TestVdrTestCase,
                             NsxVPluginWithMdV2TestCase):

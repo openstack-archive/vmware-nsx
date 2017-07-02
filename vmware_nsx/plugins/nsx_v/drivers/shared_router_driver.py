@@ -294,7 +294,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                 context, router['id'])
             subnet_cidrs.extend([route['destination'] for route in routes])
             if subnet_cidrs:
-                # Fake fw rule to open subnets firewall flows and static routes
+                # Add fw rule to open subnets firewall flows and static routes
                 # relative flows
                 fake_subnet_fw_rule = {
                     'name': 'Subnet Rule',
@@ -313,6 +313,14 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                     'enabled': True,
                     'destination_ip_address': dnat_cidrs}
                 fake_fw_rules.append(fake_dnat_fw_rule)
+
+            # Add rule for not NAT-ed allocation pools
+            alloc_pool_rule = self.plugin._get_allocation_pools_fw_rule(
+                context, router)
+            if alloc_pool_rule:
+                fake_fw_rules.append(alloc_pool_rule)
+
+            # Add no-snat rules
             nosnat_fw_rules = self.plugin._get_nosnat_subnets_fw_rules(
                 context, router)
             fake_fw_rules.extend(nosnat_fw_rules)
