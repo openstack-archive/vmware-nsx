@@ -17,6 +17,7 @@
 from oslo_config import cfg
 from oslo_log import log as logging
 
+from neutron.common import constants as n_consts
 from neutron.services.qos import qos_consts
 from neutron_lib.api import validators
 from neutron_lib import exceptions as n_exc
@@ -150,25 +151,45 @@ class QosNotificationsHandler(object):
 
         return qos_marking, dscp
 
-    def update_policy_rules(self, context, policy_id, bw_rule, dscp_rule):
+    def update_policy_rules(self, context, policy_id, rules):
         """Update the QoS switch profile with the BW limitations and
         DSCP marking configuration
         """
         profile_id = nsx_db.get_switch_profile_by_qos_policy(
             context.session, policy_id)
 
-        (shaping_enabled, burst_size, peak_bw,
-            average_bw) = self._get_bw_values_from_rule(bw_rule)
+        ingress_bw_rule = None
+        egress_bw_rule = None
+        dscp_rule = None
+        for rule in rules:
+            if rule.rule_type == qos_consts.RULE_TYPE_BANDWIDTH_LIMIT:
+                if rule.direction == n_consts.EGRESS_DIRECTION:
+                    egress_bw_rule = rule
+                else:
+                    ingress_bw_rule = rule
+            else:
+                dscp_rule = rule
+
+        # the NSX direction is opposite to the neutron direction
+        (ingress_bw_enabled, ingress_burst_size, ingress_peak_bw,
+            ingress_average_bw) = self._get_bw_values_from_rule(egress_bw_rule)
+
+        (egress_bw_enabled, egress_burst_size, egress_peak_bw,
+            egress_average_bw) = self._get_bw_values_from_rule(ingress_bw_rule)
 
         qos_marking, dscp = self._get_dscp_values_from_rule(dscp_rule)
-        self._nsxlib_qos.update_shaping(
+
+        self._nsxlib_qos.set_profile_shaping(
             profile_id,
-            shaping_enabled=shaping_enabled,
-            burst_size=burst_size,
-            peak_bandwidth=peak_bw,
-            average_bandwidth=average_bw,
-            qos_marking=qos_marking,
-            dscp=dscp)
+            ingress_bw_enabled=ingress_bw_enabled,
+            ingress_burst_size=ingress_burst_size,
+            ingress_peak_bandwidth=ingress_peak_bw,
+            ingress_average_bandwidth=ingress_average_bw,
+            egress_bw_enabled=egress_bw_enabled,
+            egress_burst_size=egress_burst_size,
+            egress_peak_bandwidth=egress_peak_bw,
+            egress_average_bandwidth=egress_average_bw,
+            qos_marking=qos_marking, dscp=dscp)
 
     def validate_policy_rule(self, context, policy_id, rule):
         """Raise an exception if the rule values are not supported"""

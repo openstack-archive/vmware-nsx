@@ -33,7 +33,8 @@ SUPPORTED_RULES = {
         qos_consts.MAX_BURST: {
             'type:range': [0, n_consts.DB_INTEGER_MAX_VALUE]},
         qos_consts.DIRECTION: {
-            'type:values': [n_consts.EGRESS_DIRECTION]}
+            'type:values': [n_consts.EGRESS_DIRECTION,
+                            n_consts.INGRESS_DIRECTION]}
     },
     qos_consts.RULE_TYPE_DSCP_MARKING: {
         qos_consts.DSCP_MARK: {'type:values': n_consts.VALID_DSCP_MARKS}
@@ -67,17 +68,8 @@ class NSXv3QosDriver(base.DriverBase):
 
     def update_policy(self, context, policy):
         if (hasattr(policy, "rules")):
-            # we may have up to 1 rule of each type
-            bw_rule = None
-            dscp_rule = None
-            for rule in policy["rules"]:
-                if rule.rule_type == qos_consts.RULE_TYPE_BANDWIDTH_LIMIT:
-                    bw_rule = rule
-                else:
-                    dscp_rule = rule
-
             self.handler.update_policy_rules(
-                context, policy.id, bw_rule, dscp_rule)
+                context, policy.id, policy["rules"])
 
         # May also need to update name / description
         self.handler.update_policy(context, policy.id, policy)
