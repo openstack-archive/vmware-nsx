@@ -69,21 +69,7 @@ def _get_router_az_from_plugin_router(router):
     return az_name
 
 
-@admin_utils.output_header
-def nsx_recreate_router_edge(resource, event, trigger, **kwargs):
-    """Recreate a router edge with all the data on a new NSXv edge"""
-    if not kwargs.get('property'):
-        LOG.error("Need to specify edge-id parameter")
-        return
-
-    # input validation
-    properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
-    old_edge_id = properties.get('edge-id')
-    if not old_edge_id:
-        LOG.error("Need to specify edge-id parameter")
-        return
-    LOG.info("ReCreating NSXv Router Edge: %s", old_edge_id)
-
+def nsx_recreate_router_edge(old_edge_id):
     # init the plugin and edge manager
     cfg.CONF.set_override('core_plugin',
                           'vmware_nsx.shell.admin.plugins.nsxv.resources'
@@ -105,7 +91,7 @@ def nsx_recreate_router_edge(resource, event, trigger, **kwargs):
         # is ok to check the type once
         example_router = plugin.get_router(context, router_ids[0])
         if example_router.get('distributed'):
-            LOG.error("Recreating a distributed  driver edge is not "
+            LOG.error("Recreating a distributed router edge is not "
                       "supported")
             return
         router_driver = plugin._router_managers.get_tenant_router_driver(
@@ -140,6 +126,66 @@ def nsx_recreate_router_edge(resource, event, trigger, **kwargs):
                      {'router': router_id, 'edge': new_edge_id})
 
 
+def nsx_recreate_router(router_id):
+    # init the plugin and edge manager
+    cfg.CONF.set_override('core_plugin',
+                          'vmware_nsx.shell.admin.plugins.nsxv.resources'
+                          '.utils.NsxVPluginWrapper')
+    with utils.NsxVPluginWrapper() as plugin:
+        context = n_context.get_admin_context()
+
+        router = plugin.get_router(context, router_id)
+        if router.get('distributed'):
+            LOG.error("Recreating a distributed router is not supported")
+            return
+        router_driver = plugin._router_managers.get_tenant_router_driver(
+            context, router['router_type'])
+
+        # Check if it is already attached to an edge
+        binding = nsxv_db.get_nsxv_router_binding(context.session,
+                                                  router_id)
+        if binding:
+            old_edge_id = binding['edge_id']
+            # detach the router from this edge
+            LOG.info("Detaching the router from edge %s", old_edge_id)
+            router_driver.detach_router(context, router_id,
+                                        {'router': router})
+
+        # attach the router to a new edge
+        appliance_size = router.get(routersize.ROUTER_SIZE)
+        router_driver.attach_router(context, router_id,
+                                    {'router': router},
+                                    appliance_size=appliance_size)
+        # find out who is the new edge to print it
+        new_edge_id = router_driver._get_edge_id_or_raise(
+            context, router_id)
+        LOG.info("Router %(router)s was attached to edge %(edge)s",
+                 {'router': router_id, 'edge': new_edge_id})
+
+
+@admin_utils.output_header
+def nsx_recreate_router_or_edge(resource, event, trigger, **kwargs):
+    """Recreate a router edge with all the data on a new NSXv edge"""
+    if not kwargs.get('property'):
+        LOG.error("Need to specify edge-id or router-id parameter")
+        return
+
+    # input validation
+    properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
+    old_edge_id = properties.get('edge-id')
+    router_id = properties.get('router-id')
+    if (not old_edge_id and not router_id) or (old_edge_id and router_id):
+        LOG.error("Need to specify edge-id or router-id parameter")
+        return
+
+    if old_edge_id:
+        LOG.info("ReCreating NSXv Router Edge: %s", old_edge_id)
+        return nsx_recreate_router_edge(old_edge_id)
+    else:
+        LOG.info("ReCreating NSXv Router: %s", router_id)
+        return nsx_recreate_router(router_id)
+
+
 def migrate_distributed_routers_dhcp(resource, event, trigger, **kwargs):
     context = n_context.get_admin_context()
     nsxv = utils.get_nsxv_client()
@@ -162,7 +208,7 @@ def migrate_distributed_routers_dhcp(resource, event, trigger, **kwargs):
                         nsxv.update_routes(edge_id, route_obj)
 
 
-registry.subscribe(nsx_recreate_router_edge,
+registry.subscribe(nsx_recreate_router_or_edge,
                    constants.ROUTERS,
                    shell.Operations.NSX_RECREATE.value)
 
