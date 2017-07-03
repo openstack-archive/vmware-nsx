@@ -675,6 +675,12 @@ nsxv_opts = [
                default=2,
                help=_("(Optional) Set the wait time (Seconds) between "
                       "enablement of ECMP.")),
+    cfg.ListOpt('network_vlan_ranges',
+                default=[],
+                help=_("List of <DVS MoRef ID>:<vlan_min>:<vlan_max> "
+                       "specifying DVS MoRef ID usable for VLAN provider "
+                       "networks, as well as ranges of VLAN tags on each "
+                       "available for allocation to networks.")),
 ]
 
 # define the configuration of each NSX-V availability zone.

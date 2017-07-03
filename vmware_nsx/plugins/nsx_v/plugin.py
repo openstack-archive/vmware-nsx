@@ -42,6 +42,7 @@ from oslo_utils import excutils
 from oslo_utils import netutils
 from oslo_utils import uuidutils
 import six
+from six import moves
 from sqlalchemy.orm import exc as sa_exc
 
 from neutron.api import extensions as neutron_extensions
@@ -223,6 +224,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             self._extension_manager.extension_aliases())
         self.metadata_proxy_handler = None
         config.validate_nsxv_config_options()
+        self._network_vlans = utils.parse_network_vlan_ranges(
+            cfg.CONF.nsxv.network_vlan_ranges)
         neutron_extensions.append_api_extensions_path(
             [vmware_nsx.NSX_EXT_PATH])
 
@@ -592,6 +595,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if not validators.is_attr_set(network.get(mpnet.SEGMENTS)):
             return
 
+        az_dvs = self._get_network_az_dvs_id(network)
         for segment in network[mpnet.SEGMENTS]:
             network_type = segment.get(pnet.NETWORK_TYPE)
             physical_network = segment.get(pnet.PHYSICAL_NETWORK)
@@ -599,7 +603,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             network_type_set = validators.is_attr_set(network_type)
             segmentation_id_set = validators.is_attr_set(segmentation_id)
             physical_network_set = validators.is_attr_set(physical_network)
-            az_dvs = self._get_network_az_dvs_id(network)
 
             err_msg = None
             if not network_type_set:
@@ -611,9 +614,17 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 if physical_network_set:
                     self._validate_physical_network(physical_network, az_dvs)
             elif network_type == c_utils.NsxVNetworkTypes.VLAN:
+                # Verify whether the DVSes exist in the backend.
+                if physical_network_set:
+                    self._validate_physical_network(physical_network, az_dvs)
                 if not segmentation_id_set:
-                    err_msg = _("Segmentation ID must be specified with "
-                                "vlan network type")
+                    if physical_network_set:
+                        if physical_network not in self._network_vlans:
+                            err_msg = _("Invalid physical network for "
+                                        "segmentation ID allocation")
+                    else:
+                        err_msg = _("Segmentation ID must be specified with "
+                                    "vlan network type")
                 elif (segmentation_id_set and
                       not utils.is_valid_vlan_tag(segmentation_id)):
                     err_msg = (_("%(segmentation_id)s out of range "
@@ -629,16 +640,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         if physical_network_set:
                             phy_uuid = physical_network
                         else:
-                            # use the fvs_id of the availability zone
+                            # use the dvs_id of the availability zone
                             phy_uuid = az_dvs
                         for binding in bindings:
                             if binding['phy_uuid'] == phy_uuid:
                                 raise n_exc.VlanIdInUse(
                                     vlan_id=segmentation_id,
                                     physical_network=phy_uuid)
-                # Verify whether the DVSes exist in the backend.
-                if physical_network_set:
-                    self._validate_physical_network(physical_network, az_dvs)
 
             elif network_type == c_utils.NsxVNetworkTypes.VXLAN:
                 # Currently unable to set the segmentation id
@@ -1006,6 +1014,25 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # Use the dvs_id of the availability zone
             return self._get_network_az_dvs_id(net_data)
 
+    def _generate_segment_id(self, context, physical_network, net_data):
+        bindings = nsxv_db.get_network_bindings_by_physical_net(
+            context.session, physical_network)
+        vlan_ranges = self._network_vlans.get(physical_network, [])
+        if vlan_ranges:
+            vlan_ids = set()
+            for vlan_min, vlan_max in vlan_ranges:
+                vlan_ids |= set(moves.range(vlan_min, vlan_max + 1))
+        else:
+            vlan_min = constants.MIN_VLAN_TAG
+            vlan_max = constants.MAX_VLAN_TAG
+            vlan_ids = set(moves.range(vlan_min, vlan_max + 1))
+        used_ids_in_range = set([binding.vlan_id for binding in bindings
+                                 if binding.vlan_id in vlan_ids])
+        free_ids = list(vlan_ids ^ used_ids_in_range)
+        if len(free_ids) == 0:
+            raise n_exc.NoNetworkAvailable()
+        net_data[mpnet.SEGMENTS][0][pnet.SEGMENTATION_ID] = free_ids[0]
+
     def create_network(self, context, network):
         net_data = network['network']
         tenant_id = net_data['tenant_id']
@@ -1020,16 +1047,49 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         backend_network = (not validators.is_attr_set(external) or
                            validators.is_attr_set(external) and not external)
         network_type = None
+        generate_segmenation_id = False
+        lock_vlan_creation = False
         if provider_type is not None:
             segment = net_data[mpnet.SEGMENTS][0]
             network_type = segment.get(pnet.NETWORK_TYPE)
+            if network_type == c_utils.NsxVNetworkTypes.VLAN:
+                physical_network = segment.get(pnet.PHYSICAL_NETWORK)
+                if physical_network in self._network_vlans:
+                    lock_vlan_creation = True
+                if not validators.is_attr_set(
+                    segment.get(pnet.SEGMENTATION_ID)):
+                    generate_segmenation_id = True
+        if lock_vlan_creation:
+            with locking.LockManager.get_lock(
+                'vlan-networking-%s' % physical_network):
+                if generate_segmenation_id:
+                    self._generate_segment_id(context, physical_network,
+                                              net_data)
+                else:
+                    segmentation_id = segment.get(pnet.SEGMENTATION_ID)
+                    if nsxv_db.get_network_bindings_by_ids(context.session,
+                        segmentation_id, physical_network):
+                        raise n_exc.VlanIdInUse(
+                                    vlan_id=segmentation_id,
+                                    physical_network=physical_network)
+                return self._create_network(context, network, net_data,
+                                            provider_type, external,
+                                            backend_network, network_type)
+        else:
+            return self._create_network(context, network, net_data,
+                                        provider_type, external,
+                                        backend_network, network_type)
+
+    def _create_network(self, context, network, net_data,
+                        provider_type, external, backend_network,
+                        network_type):
         # A external network should be created in the case that we have a flat,
         # vlan or vxlan network. For port groups we do not make any changes.
         external_backend_network = (
             external and provider_type is not None and
             network_type != c_utils.NsxVNetworkTypes.PORTGROUP)
-        self._validate_network_qos(net_data, backend_network)
         # Update the transparent vlan if configured
+        self._validate_network_qos(net_data, backend_network)
         vlt = False
         if n_utils.is_extension_supported(self, 'vlan-transparent'):
             vlt = ext_vlan.get_vlan_transparent(net_data)
