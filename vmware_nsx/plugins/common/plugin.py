@@ -20,6 +20,7 @@ from neutron.db import address_scope_db
 from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron.db import l3_db
+from neutron.extensions import address_scope as ext_address_scope
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import subnet as subnet_def
@@ -28,6 +29,7 @@ from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
 
 from vmware_nsx._i18n import _
+from vmware_nsx.common import exceptions as nsx_exc
 
 LOG = logging.getLogger(__name__)
 
@@ -93,3 +95,34 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
                         "has SNAT disabled")
                 raise n_exc.InvalidInput(error_message=msg)
         return router_id
+
+    def _get_network_address_scope(self, context, net_id):
+        network = self.get_network(context, net_id)
+        return network.get(ext_address_scope.IPV4_ADDRESS_SCOPE)
+
+    def _get_subnet_address_scope(self, context, subnet_id):
+        subnet = self.get_subnet(context, subnet_id)
+        if not subnet['subnetpool_id']:
+            return
+        subnetpool = self.get_subnetpool(context, subnet['subnetpool_id'])
+        return subnetpool.get('address_scope_id', '')
+
+    # TODO(asarfaty): the NSX-V3 needs a very similar code too
+    def _validate_address_scope_for_router_interface(self, context, router_id,
+                                                     gw_network_id, subnet_id):
+        """Validate that the GW address scope is the same as the interface"""
+        gw_address_scope = self._get_network_address_scope(context,
+                                                           gw_network_id)
+        if not gw_address_scope:
+            return
+        subnet_address_scope = self._get_subnet_address_scope(context,
+                                                              subnet_id)
+        if (not subnet_address_scope or
+            subnet_address_scope != gw_address_scope):
+            raise nsx_exc.NsxRouterInterfaceDoesNotMatchAddressScope(
+                router_id=router_id, address_scope_id=gw_address_scope)
+
+    def _get_router_interfaces(self, context, router_id):
+        port_filters = {'device_id': [router_id],
+                        'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF]}
+        return self.get_ports(context, filters=port_filters)
