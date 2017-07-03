@@ -28,7 +28,6 @@ from vmware_nsx.common import nsx_constants as nsx_consts
 from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsxlib.v3 import exceptions as nsxlib_exc
-from vmware_nsxlib.v3 import resources as nsx_resources
 
 LOG = logging.getLogger(__name__)
 
@@ -46,15 +45,14 @@ class NsxV3TrunkHandler(object):
     def __init__(self, plugin_driver):
         self.plugin_driver = plugin_driver
 
-    #TODO(abhiraut): Refactor nsxlib code and reuse here.
+    @property
+    def _nsxlib(self):
+        return self.plugin_driver.nsxlib
+
     def _build_switching_profile_ids(self, profiles):
-        switch_profile_ids = []
-        for profile in profiles:
-            switch_profile = nsx_resources.SwitchingProfileTypeId(
-                profile_type=profile['key'],
-                profile_id=profile['value'])
-            switch_profile_ids.append(switch_profile)
-        return switch_profile_ids
+        switching_profile = self._nsxlib.switching_profile
+        return switching_profile.build_switch_profile_ids(
+            switching_profile.client, profiles)
 
     def _update_port_at_backend(self, context, parent_port_id, subport):
         # Retrieve the child port details
@@ -64,7 +62,7 @@ class NsxV3TrunkHandler(object):
             session=context.session, neutron_id=subport.port_id)[1]
         # Retrieve child logical port from the backend
         try:
-            nsx_child_port = self.plugin_driver.nsxlib.logical_port.get(
+            nsx_child_port = self._nsxlib.logical_port.get(
                 nsx_child_port_id)
         except nsxlib_exc.ResourceNotFound:
             with excutils.save_and_reraise_exception():
@@ -90,7 +88,7 @@ class NsxV3TrunkHandler(object):
             seg_id = None
         # Update logical port in the backend to set/unset parent port
         try:
-            self.plugin_driver.nsxlib.logical_port.update(
+            self._nsxlib.logical_port.update(
                 lport_id=nsx_child_port.get('id'),
                 vif_uuid=subport.port_id,
                 name=nsx_child_port.get('display_name'),
