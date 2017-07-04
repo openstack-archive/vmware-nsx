@@ -74,6 +74,13 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
                 'max_kbps': 100,
                 'max_burst_kbps': 150,
                 'type': qos_consts.RULE_TYPE_BANDWIDTH_LIMIT}}
+        self.ingress_rule_data = {
+            'bandwidth_limit_rule': {
+                'id': uuidutils.generate_uuid(),
+                'max_kbps': 200,
+                'max_burst_kbps': 250,
+                'direction': 'ingress',
+                'type': qos_consts.RULE_TYPE_BANDWIDTH_LIMIT}}
         self.dscp_rule_data = {
             'dscp_marking_rule': {
                 'id': uuidutils.generate_uuid(),
@@ -83,8 +90,13 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
         self.policy = policy_object.QosPolicy(
             self.ctxt, **self.policy_data['policy'])
 
+        # egress bw rule
         self.rule = rule_object.QosBandwidthLimitRule(
             self.ctxt, **self.rule_data['bandwidth_limit_rule'])
+        # ingress bw rule
+        self.ingress_rule = rule_object.QosBandwidthLimitRule(
+            self.ctxt, **self.ingress_rule_data['bandwidth_limit_rule'])
+        # dscp marking rule
         self.dscp_rule = rule_object.QosDscpMarkingRule(
             self.ctxt, **self.dscp_rule_data['dscp_marking_rule'])
 
@@ -128,7 +140,8 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
         # Create a policy with a rule
         _policy = policy_object.QosPolicy(
             self.ctxt, **self.policy_data['policy'])
-        setattr(_policy, "rules", [self.rule, self.dscp_rule])
+        setattr(_policy, "rules", [self.rule, self.ingress_rule,
+                                   self.dscp_rule])
 
         with mock.patch('neutron.services.qos.qos_plugin.QoSPlugin.'
                         'get_policy',

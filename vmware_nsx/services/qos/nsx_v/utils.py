@@ -14,6 +14,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron.common import constants as n_consts
 from neutron.services.qos import qos_consts
 from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
@@ -24,6 +25,15 @@ from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
 
 
+class NsxVQosBWLimits(object):
+    # Data structure to hold the NSX-V representation
+    # of the neutron QoS Bandwidth rule
+    bandwidthEnabled = False
+    averageBandwidth = 0
+    peakBandwidth = 0
+    burstSize = 0
+
+
 class NsxVQosRule(object):
 
     def __init__(self, context=None, qos_policy_id=None):
@@ -32,11 +42,9 @@ class NsxVQosRule(object):
         self._qos_plugin = None
 
         # Data structure to hold the NSX-V representation
-        # of the neutron QoS Bandwidth rule
-        self.bandwidthEnabled = False
-        self.averageBandwidth = 0
-        self.peakBandwidth = 0
-        self.burstSize = 0
+        # of the neutron QoS Bandwidth rule for both directions
+        self.egress = NsxVQosBWLimits()
+        self.ingress = NsxVQosBWLimits()
 
         # And data for the DSCP marking rule
         self.dscpMarkEnabled = False
@@ -61,23 +69,26 @@ class NsxVQosRule(object):
             policy_obj = plugin.get_policy(context, qos_policy_id)
             if 'rules' in policy_obj and len(policy_obj['rules']) > 0:
                 for rule_obj in policy_obj['rules']:
-                    # TODO(asarfaty): for now we support one rule of each type
-                    # This code should be fixed in order to support rules of
-                    # different directions
                     if (rule_obj['type'] ==
                         qos_consts.RULE_TYPE_BANDWIDTH_LIMIT):
-                        self.bandwidthEnabled = True
+                        # BW limit rule for one of the directions
+                        if rule_obj['direction'] == n_consts.EGRESS_DIRECTION:
+                            dir_obj = self.egress
+                        else:
+                            dir_obj = self.ingress
+                        dir_obj.bandwidthEnabled = True
                         # averageBandwidth: kbps (neutron) -> bps (nsxv)
-                        self.averageBandwidth = rule_obj['max_kbps'] * 1024
+                        dir_obj.averageBandwidth = rule_obj['max_kbps'] * 1024
                         # peakBandwidth: a Multiplying on the average BW
                         # because the neutron qos configuration supports
                         # only 1 value
-                        self.peakBandwidth = int(round(
-                            self.averageBandwidth *
+                        dir_obj.peakBandwidth = int(round(
+                            dir_obj.averageBandwidth *
                             cfg.CONF.NSX.qos_peak_bw_multiplier))
                         # burstSize: kbps (neutron) -> Bytes (nsxv)
-                        self.burstSize = rule_obj['max_burst_kbps'] * 128
+                        dir_obj.burstSize = rule_obj['max_burst_kbps'] * 128
                     if rule_obj['type'] == qos_consts.RULE_TYPE_DSCP_MARKING:
+                        # DSCP marking rule
                         self.dscpMarkEnabled = True
                         self.dscpMarkValue = rule_obj['dscp_mark']
 

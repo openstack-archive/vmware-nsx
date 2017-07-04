@@ -210,17 +210,31 @@ class DvsManager(VCManagerBase):
         # Note: openstack refers to the directions from the VM point of view,
         # while the NSX refers to the vswitch point of view.
         # so open stack egress is actually inShaping here.
-        outPol = port_conf.inShapingPolicy
-        if qos_data.bandwidthEnabled:
+        inPol = port_conf.inShapingPolicy
+        if qos_data.egress.bandwidthEnabled:
+            inPol.inherited = False
+            inPol.enabled.inherited = False
+            inPol.enabled.value = True
+            inPol.averageBandwidth.inherited = False
+            inPol.averageBandwidth.value = qos_data.egress.averageBandwidth
+            inPol.peakBandwidth.inherited = False
+            inPol.peakBandwidth.value = qos_data.egress.peakBandwidth
+            inPol.burstSize.inherited = False
+            inPol.burstSize.value = qos_data.egress.burstSize
+        else:
+            inPol.inherited = True
+
+        outPol = port_conf.outShapingPolicy
+        if qos_data.ingress.bandwidthEnabled:
             outPol.inherited = False
             outPol.enabled.inherited = False
             outPol.enabled.value = True
             outPol.averageBandwidth.inherited = False
-            outPol.averageBandwidth.value = qos_data.averageBandwidth
+            outPol.averageBandwidth.value = qos_data.ingress.averageBandwidth
             outPol.peakBandwidth.inherited = False
-            outPol.peakBandwidth.value = qos_data.peakBandwidth
+            outPol.peakBandwidth.value = qos_data.ingress.peakBandwidth
             outPol.burstSize.inherited = False
-            outPol.burstSize.value = qos_data.burstSize
+            outPol.burstSize.value = qos_data.ingress.burstSize
         else:
             outPol.inherited = True
 
@@ -633,7 +647,6 @@ class ClusterManager(VCManagerBase):
     def update_cluster_edge_failover(self, resource_id, vm_moids,
                                      host_group_names):
         """Updates cluster for vm placement using DRS"""
-        # DEBUG ADIT edge-id is never used
         session = self._session
         resource = vim_util.get_moref(resource_id, 'ResourcePool')
         # TODO(garyk): cache the cluster details

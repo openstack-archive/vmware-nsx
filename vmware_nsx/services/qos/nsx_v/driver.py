@@ -29,7 +29,8 @@ SUPPORTED_RULES = {
         qos_consts.MAX_BURST: {
             'type:range': [0, n_consts.DB_INTEGER_MAX_VALUE]},
         qos_consts.DIRECTION: {
-            'type:values': [n_consts.EGRESS_DIRECTION]}
+            'type:values': [n_consts.EGRESS_DIRECTION,
+                            n_consts.INGRESS_DIRECTION]}
     },
     qos_consts.RULE_TYPE_DSCP_MARKING: {
         qos_consts.DSCP_MARK: {'type:values': n_consts.VALID_DSCP_MARKS}
