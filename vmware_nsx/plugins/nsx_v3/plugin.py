@@ -17,7 +17,6 @@ import netaddr
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.exceptions import port_security as psec_exc
-import six
 
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
 from neutron.api.rpc.handlers import dhcp_rpc
@@ -1439,41 +1438,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 [db_utils.resource_fields(network,
                                           fields) for network in networks])
 
-    def _get_data_from_binding_profile(self, context, port):
-        if (pbin.PROFILE not in port or
-                not validators.is_attr_set(port[pbin.PROFILE])):
-            return None, None
-
-        parent_name = (
-            port[pbin.PROFILE].get('parent_name'))
-        tag = port[pbin.PROFILE].get('tag')
-        if not any((parent_name, tag)):
-            # An empty profile is fine.
-            return None, None
-        if not all((parent_name, tag)):
-            # If one is set, they both must be set.
-            msg = _('Invalid binding:profile. parent_name and tag are '
-                    'both required.')
-            LOG.error(msg)
-            raise n_exc.InvalidInput(error_message=msg)
-        if not isinstance(parent_name, six.string_types):
-            msg = _('Invalid binding:profile. parent_name "%s" must be '
-                    'a string.') % parent_name
-            LOG.error(msg)
-            raise n_exc.InvalidInput(error_message=msg)
-        if not n_utils.is_valid_vlan_tag(tag):
-            msg = _('Invalid binding:profile. tag "%s" must be '
-                    'an int between 1 and 4096, inclusive.') % tag
-            LOG.error(msg)
-            raise n_exc.InvalidInput(error_message=msg)
-        # Make sure we can successfully look up the port indicated by
-        # parent_name.  Just let it raise the right exception if there is a
-        # problem.
-        # NOTE(arosen): For demo reasons the parent_port might not be a
-        # a neutron managed port so for now do not perform this check.
-        # self.get_port(context, parent_name)
-        return parent_name, tag
-
     def _get_port_name(self, context, port_data):
         device_owner = port_data.get('device_owner')
         device_id = port_data.get('device_id')
@@ -1562,8 +1526,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 tags.append({'scope': security.PORT_SG_SCOPE,
                              'tag': NSX_V3_DEFAULT_SECTION})
 
-        parent_name, tag = self._get_data_from_binding_profile(
-            context, port_data)
         address_bindings = (self._build_address_bindings(port_data)
                             if psec_is_on else [])
 
@@ -1629,7 +1591,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 admin_state=port_data['admin_state_up'],
                 address_bindings=address_bindings,
                 attachment_type=attachment_type,
-                parent_vif_id=parent_name, traffic_tag=tag,
                 switch_profile_ids=profiles)
         except nsx_lib_exc.ManagerError as inst:
             # we may fail if the QoS is not supported for this port
@@ -2296,9 +2257,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 tags_update = nsxlib_utils.add_v3_tag(
                     tags_update, resource_type, updated_device_id)
 
-        parent_vif_id, tag = self._get_data_from_binding_profile(
-            context, updated_port)
-
         if updated_device_owner in (original_device_owner,
                                     l3_db.DEVICE_OWNER_ROUTER_INTF,
                                     nsxlib_consts.BRIDGE_ENDPOINT):
@@ -2399,9 +2357,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 admin_state=updated_port.get('admin_state_up'),
                 address_bindings=address_bindings,
                 switch_profile_ids=switch_profile_ids,
-                tags_update=tags_update,
-                parent_vif_id=parent_vif_id,
-                traffic_tag=tag)
+                tags_update=tags_update)
         except nsx_lib_exc.ManagerError as inst:
             # we may fail if the QoS is not supported for this port
             # (for example - transport zone with KVM)
