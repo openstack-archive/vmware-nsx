@@ -145,6 +145,10 @@ Routers
 
     nsxadmin -r routers -o nsx-recreate --property edge-id=edge-308
 
+- Recreate a router on the nsx backend by removing it from the current edge (if any), and attaching to a new one::
+
+    nsxadmin -r routers -o nsx-recreate --property router-id=8cdd6d06-b457-4cbb-a0b1-41e08ccce287
+
 - Migrate NSXv metadata infrastructure for VDRs - use regular DHCP edges for VDR::
 
     nsxadmin -r routers -o migrate-vdr-dhcp
