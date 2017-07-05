@@ -20,6 +20,7 @@ from neutron_lib import exceptions as n_exc
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import locking
+from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 
 MEMBER_ID_PFX = 'member-'
@@ -31,6 +32,22 @@ def get_member_id(member_id):
 
 def get_lb_resource_id(lb_id):
     return ('lbaas-' + lb_id)[:36]
+
+
+def get_lb_edge_name(context, lb_id):
+    """Look for the resource name of the edge hosting the LB.
+
+    For older loadbalancers this may be a router edge
+    """
+    binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
+        context.session, lb_id)
+    if binding:
+        edge_binding = nsxv_db.get_nsxv_router_binding_by_edge(
+            context.session, binding['edge_id'])
+        if edge_binding:
+            return edge_binding['router_id']
+    # fallback
+    return get_lb_resource_id(lb_id)
 
 
 def get_lb_interface(context, plugin, lb_id, subnet_id):
@@ -60,7 +77,7 @@ def create_lb_interface(context, plugin, lb_id, subnet_id, tenant_id,
     port = plugin.base_create_port(context, {'port': port_dict})
     ip_addr = port['fixed_ips'][0]['ip_address']
     net = netaddr.IPNetwork(subnet['cidr'])
-    resource_id = get_lb_resource_id(lb_id)
+    resource_id = get_lb_edge_name(context, lb_id)
 
     address_groups = [{'primaryAddress': ip_addr,
                        'subnetPrefixLength': str(net.prefixlen),
@@ -76,7 +93,7 @@ def create_lb_interface(context, plugin, lb_id, subnet_id, tenant_id,
 
 
 def delete_lb_interface(context, plugin, lb_id, subnet_id):
-    resource_id = get_lb_resource_id(lb_id)
+    resource_id = get_lb_edge_name(context, lb_id)
     subnet = plugin.get_subnet(context, subnet_id)
     network_id = subnet.get('network_id')
     lb_ports = get_lb_interface(context, plugin, lb_id, subnet_id)
