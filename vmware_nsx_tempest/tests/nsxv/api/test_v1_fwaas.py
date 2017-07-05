@@ -566,6 +566,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
         firewall_topo1 = self._create_firewall_basic_topo('exclusive')
         firewall_topo2 = self._create_firewall_basic_topo('distributed')
         edges = self.vsm.get_all_edges()
+        firewall_topo2['router']['name'] += '-plr'
         for key in edges:
             if firewall_topo1['router']['name'] in key['name']:
                 edge_id_excl = key['id']
@@ -580,6 +581,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
                 rules, firewall_topo1['firewall_name']))
         time.sleep(constants.NSX_BACKEND_SMALL_TIME_INTERVAL)
         rules = self.vsm.get_edge_firewall_rules(edge_id_dist)
+        time.sleep(constants.NSX_BACKEND_SMALL_TIME_INTERVAL)
         self.assertEqual(
             True, self._check_firewall_rule_exists_at_backend(
                 rules, firewall_topo2['firewall_name']))
@@ -843,12 +845,14 @@ class FWaaSTestJSON(base.BaseNetworkTest):
                                                         name="updated_rule")
         updated_fw_rule = body["firewall_rule"]
         self.assertEqual("updated_rule", updated_fw_rule['name'])
+        time.sleep(constants.NSX_FIREWALL_REALIZED_TIMEOUT)
         edges = self.vsm.get_all_edges()
         for key in edges:
             if firewall_topo['router']['name'] in key['name']:
                 edge_id = key['id']
                 break
         rules = self.vsm.get_edge_firewall_rules(edge_id)
+        time.sleep(constants.NSX_BACKEND_VERY_SMALL_TIME_INTERVAL)
         self.assertEqual(
             True, self._check_firewall_rule_exists_at_backend(
                 rules, "Fwaas-updated_rule"))
@@ -862,6 +866,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
                                                         name="updated_rule")
         updated_fw_rule = body["firewall_rule"]
         self.assertEqual("updated_rule", updated_fw_rule['name'])
+        time.sleep(constants.NSX_FIREWALL_REALIZED_TIMEOUT)
         edges = self.vsm.get_all_edges()
         firewall_topo['router']['name'] += '-plr'
         for key in edges:
@@ -869,6 +874,7 @@ class FWaaSTestJSON(base.BaseNetworkTest):
                 edge_id = key['id']
                 break
         rules = self.vsm.get_edge_firewall_rules(edge_id)
+        time.sleep(constants.NSX_BACKEND_VERY_SMALL_TIME_INTERVAL)
         self.assertEqual(
             True, self._check_firewall_rule_exists_at_backend(
                 rules, "Fwaas-updated_rule"))
