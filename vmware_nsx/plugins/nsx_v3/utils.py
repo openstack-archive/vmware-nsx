@@ -126,7 +126,8 @@ class DbCertProvider(client_cert.ClientCertProvider):
             self._on_exit()
 
     def filename(self):
-        return self._filename
+        with self.lock:
+            return self._filename
 
 
 def get_client_cert_provider():
