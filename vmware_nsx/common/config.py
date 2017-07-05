@@ -423,6 +423,18 @@ nsx_v3_opts = [
                        'zones names for the native dhcp configuration. The '
                        'configuration of each zone will be under a group '
                        'names [az:<name>]')),
+    cfg.BoolOpt('init_objects_by_tags',
+                default=False,
+                help=_("When True, the configured transport zones, router and "
+                       "profiles will be found by tags on the NSX. The scope "
+                       "of the tag will be the value of search_objects_"
+                       "scope. The value of the search tag will be the name "
+                       "configured in each respective configuration.")),
+    cfg.StrOpt('search_objects_scope',
+               help=_("This is the scope of the tag that will be used for "
+                      "finding the objects uuids on the NSX during plugin "
+                      "init.")),
+
 ]
 
 DEFAULT_STATUS_CHECK_INTERVAL = 2000
