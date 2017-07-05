@@ -229,10 +229,20 @@ class NSXClient(object):
             if response.status_code != requests.codes.ok:
                 print("ERROR: Failed to update lport %s" % p['id'])
 
+    def _remove_port_from_exclude_list(self, p):
+        try:
+            endpoint = ('/firewall/excludelist?action=remove_member&'
+                        'object_id=%s' % p['id'])
+            self.post(endpoint)
+        except Exception:
+            pass
+
     def _cleanup_logical_ports(self, lports):
         # logical port vif detachment
         self.update_logical_port_attachment(lports)
         for p in lports:
+            # delete this port from the exclude list (if in it)
+            self._remove_port_from_exclude_list(p)
             endpoint = '/logical-ports/%s' % p['id']
             response = self.delete(endpoint=endpoint)
             if response.status_code == requests.codes.ok:
