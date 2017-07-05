@@ -51,12 +51,12 @@ Tong Liu <tongl@vmware.com>
 
 import base64
 import optparse
-import requests
-import sqlalchemy as sa
 import sys
 
-
 from oslo_serialization import jsonutils
+import requests
+import sqlalchemy as sa
+
 from vmware_nsx.db import nsx_models
 from vmware_nsx.db import nsxv_models
 

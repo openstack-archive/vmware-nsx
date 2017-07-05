@@ -11,7 +11,6 @@
 #    under the License.
 import tempfile
 import time
-import urllib3
 
 from tempest.common import waiters
 from tempest import config
@@ -19,6 +18,7 @@ from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
 from tempest import test
+import urllib3
 
 from vmware_nsx_tempest.services.lbaas import health_monitors_client
 from vmware_nsx_tempest.services.lbaas import listeners_client

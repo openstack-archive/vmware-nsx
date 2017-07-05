@@ -15,11 +15,11 @@
 
 import base64
 import optparse
-import requests
-import sqlalchemy as sa
 
 from oslo_serialization import jsonutils
+import requests
 import six.moves.urllib.parse as urlparse
+import sqlalchemy as sa
 from vmware_nsx.db import nsx_models
 
 

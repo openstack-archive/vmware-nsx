@@ -14,10 +14,10 @@
 #    under the License.
 
 import copy
-import mock
-from oslo_utils import uuidutils
 
+import mock
 from neutron_fwaas.extensions import firewall as exceptions
+from oslo_utils import uuidutils
 
 from vmware_nsx.services.fwaas.nsx_v import edge_fwaas_driver
 from vmware_nsx.tests.unit.nsx_v import test_plugin as test_v_plugin

@@ -15,8 +15,8 @@
 #
 
 import hashlib
-import mock
 
+import mock
 from neutron.tests.unit.api.v2 import test_base
 from neutron_lib import constants
 from neutron_lib import exceptions

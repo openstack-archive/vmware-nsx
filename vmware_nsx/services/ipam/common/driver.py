@@ -15,7 +15,6 @@
 #    under the License.
 
 import abc
-import six
 
 from neutron.ipam import driver as ipam_base
 from neutron.ipam.drivers.neutrondb_ipam import driver as neutron_driver
@@ -23,6 +22,7 @@ from neutron.ipam import exceptions as ipam_exc
 from neutron.ipam import requests as ipam_req
 from neutron.ipam import subnet_alloc
 from neutron_lib.plugins import directory
+import six
 
 from vmware_nsx.db import db as nsx_db
 

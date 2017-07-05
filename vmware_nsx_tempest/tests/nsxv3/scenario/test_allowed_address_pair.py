@@ -14,9 +14,9 @@
 #    under the License.
 
 import collections
-from oslo_log import log as logging
 import time
 
+from oslo_log import log as logging
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils

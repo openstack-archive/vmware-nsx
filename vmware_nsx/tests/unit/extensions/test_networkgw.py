@@ -13,12 +13,8 @@
 #    under the License.
 
 import contextlib
+
 import mock
-
-from oslo_config import cfg
-from webob import exc
-import webtest
-
 from neutron.api import extensions
 from neutron.api.v2 import attributes
 from neutron.db import api as db_api
@@ -31,6 +27,9 @@ from neutron.tests.unit.db import test_db_base_plugin_v2 as test_db_plugin
 from neutron_lib import context
 from neutron_lib.plugins import constants
 from neutron_lib.plugins import directory
+from oslo_config import cfg
+from webob import exc
+import webtest
 
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import exceptions as nsx_exc

@@ -14,12 +14,12 @@
 #    under the License.
 
 import shlex
-import six
 import subprocess
 import tempfile
 import time
 import urllib2
 
+import six
 from tempest import config
 from tempest import exceptions
 from tempest.lib.common.utils import data_utils

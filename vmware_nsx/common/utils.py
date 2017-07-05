@@ -16,11 +16,11 @@
 from distutils import version
 import functools
 import hashlib
+import xml.etree.ElementTree as et
 
 import eventlet
 import six
 import tenacity
-import xml.etree.ElementTree as et
 
 from neutron import version as n_version
 from neutron_lib.api import validators

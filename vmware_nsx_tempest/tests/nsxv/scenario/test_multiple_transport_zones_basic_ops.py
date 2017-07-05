@@ -14,8 +14,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import re
-import six
 
+import six
 from tempest.common import waiters
 from tempest import config
 from tempest.lib.common.utils import data_utils

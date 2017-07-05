@@ -14,10 +14,10 @@
 #    under the License.
 
 import base64
+from copy import deepcopy
+
 import requests
 import six.moves.urllib.parse as urlparse
-
-from copy import deepcopy
 
 from oslo_log import log as logging
 from oslo_serialization import jsonutils

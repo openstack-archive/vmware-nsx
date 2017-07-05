@@ -11,11 +11,11 @@
 #    under the License.
 
 import os
-import paramiko
 import re
 import time
 
 from neutron_lib import constants as nl_constants
+import paramiko
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils

@@ -15,10 +15,10 @@
 
 import contextlib
 import copy
+
 from eventlet import greenthread
 import mock
 import netaddr
-
 from neutron.api.v2 import attributes
 from neutron.extensions import address_scope
 from neutron.extensions import allowedaddresspairs as addr_pair

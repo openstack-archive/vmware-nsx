@@ -13,18 +13,17 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import copy
+
 import mock
-
-from neutron_lib import context
-from oslo_config import cfg
-from oslo_utils import uuidutils
-
 from neutron.objects.qos import policy as policy_object
 from neutron.objects.qos import rule as rule_object
 from neutron.services.qos import qos_consts
 from neutron.services.qos import qos_plugin
 from neutron.tests.unit.services.qos import base
+from neutron_lib import context
 from neutron_lib.plugins import directory
+from oslo_config import cfg
+from oslo_utils import uuidutils
 
 from vmware_nsx.dvs import dvs
 from vmware_nsx.dvs import dvs_utils

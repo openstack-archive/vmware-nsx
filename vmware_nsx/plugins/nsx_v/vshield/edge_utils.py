@@ -14,29 +14,27 @@
 #    under the License.
 
 from distutils import version
-import eventlet
-import netaddr
 import os
 import random
-import six
-from sqlalchemy import exc as db_base_exc
 import time
 
+import eventlet
+import netaddr
+from neutron.extensions import l3
+from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
+from neutron_lib.api import validators
+from neutron_lib import constants
 from neutron_lib import context as q_context
+from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import excutils
 from oslo_utils import timeutils
 from oslo_utils import uuidutils
+import six
 from six import moves
-
-from neutron.extensions import l3
-
-from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
-from neutron_lib.api import validators
-from neutron_lib import constants
-from neutron_lib import exceptions as n_exc
+from sqlalchemy import exc as db_base_exc
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import config as conf

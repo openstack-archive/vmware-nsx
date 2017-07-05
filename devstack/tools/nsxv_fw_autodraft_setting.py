@@ -27,9 +27,9 @@ Usage:
 
 import base64
 import optparse
-import requests
 
 from oslo_serialization import jsonutils
+import requests
 
 requests.packages.urllib3.disable_warnings()
 

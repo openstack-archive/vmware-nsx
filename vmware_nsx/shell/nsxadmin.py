@@ -24,19 +24,17 @@ TODO: Add support for other resources, ports, logical switches etc.
 TODO: Autocomplete command line args
 """
 
-import requests
 import sys
 
 from neutron.common import config as neutron_config
 from neutron.conf import common as neutron_common_config
 from neutron_lib.callbacks import registry
-
-from vmware_nsx.common import config  # noqa
-
 from oslo_config import cfg
 from oslo_log import _options
 from oslo_log import log as logging
+import requests
 
+from vmware_nsx.common import config  # noqa
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin import version
 from vmware_nsx.shell import resources

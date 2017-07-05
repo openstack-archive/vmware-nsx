@@ -14,7 +14,6 @@
 #    under the License.
 
 import getopt
-import libvirt
 import logging
 import re
 import sys
@@ -22,6 +21,7 @@ import xml.etree.ElementTree as et
 
 from keystoneauth1 import identity
 from keystoneauth1 import session
+import libvirt
 from neutronclient.v2_0 import client
 import nova.conf
 

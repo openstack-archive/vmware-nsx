@@ -14,16 +14,15 @@
 #    under the License.
 
 import os
-from oslo_log import log as logging
-import six
 import subprocess
 
+import base_provider as base
+from oslo_log import log as logging
+import six
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
-
-import base_provider as base
 
 CONF = config.CONF
 LOG = logging.getLogger(__name__)

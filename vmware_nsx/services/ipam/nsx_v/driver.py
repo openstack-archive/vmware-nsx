@@ -14,17 +14,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import netaddr
 import xml.etree.ElementTree as et
 
-from oslo_log import log as logging
-
+import netaddr
 from neutron.extensions import external_net as ext_net_extn
 from neutron.extensions import multiprovidernet as mpnet
 from neutron.ipam import exceptions as ipam_exc
 from neutron.ipam import requests as ipam_req
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators
+from oslo_log import log as logging
 
 from vmware_nsx._i18n import _
 from vmware_nsx.plugins.nsx_v.vshield.common import constants

@@ -13,10 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import mock
 import os
 import unittest
 
+import mock
 from oslo_config import cfg
 
 from vmware_nsx.common import exceptions as nsx_exc

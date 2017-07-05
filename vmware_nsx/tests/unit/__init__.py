@@ -14,10 +14,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import eventlet
-import mock
 import os
 import time
+
+import eventlet
+import mock
 
 from vmware_nsx.api_client import client as nsx_client
 from vmware_nsx.api_client import eventlet_client
