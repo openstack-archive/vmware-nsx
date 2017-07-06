@@ -2855,7 +2855,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             for port in router_ports:
                 for fip in port['fixed_ips']:
                     self._validate_address_scope_for_router_interface(
-                        context, router_id,
+                        context.elevated(), router_id,
                         gw_info['network_id'], fip['subnet_id'])
 
         nsx_router_id = None
@@ -3025,7 +3025,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if not router_db.enable_snat:
                 gw_network_id = router_db.gw_port.network_id
                 self._validate_address_scope_for_router_interface(
-                    context, router_id, gw_network_id, subnet['id'])
+                    context.elevated(), router_id, gw_network_id, subnet['id'])
 
             nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                      router_id)

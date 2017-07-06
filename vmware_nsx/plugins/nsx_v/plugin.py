@@ -2972,7 +2972,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             for port in router_ports:
                 for fip in port['fixed_ips']:
                     self._validate_address_scope_for_router_interface(
-                        context, router_id,
+                        context.elevated(), router_id,
                         gw_info['network_id'], fip['subnet_id'])
 
         router_driver = self._find_router_driver(context, router_id)
@@ -3296,9 +3296,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 # if the subnets address scope is the same as the gateways:
                 # no need for SNAT
                 gw_address_scope = self._get_network_address_scope(
-                    context, gw_port['network_id'])
+                    context.elevated(), gw_port['network_id'])
                 subnet_address_scope = self._get_subnet_address_scope(
-                    context, subnet['id'])
+                    context.elevated(), subnet['id'])
                 if (gw_address_scope and
                     gw_address_scope == subnet_address_scope):
                     LOG.info("No need for SNAT rule for router %(router)s "
@@ -3344,7 +3344,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             return
 
         gw_address_scope = self._get_network_address_scope(
-            context, gw_port['network_id'])
+            context.elevated(), gw_port['network_id'])
         if gw_address_scope is None:
             return
 
@@ -3355,7 +3355,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # if the subnets address scope is the same as the gateways:
             # we should add it to the rule
             subnet_address_scope = self._get_subnet_address_scope(
-                context, subnet['id'])
+                context.elevated(), subnet['id'])
             if (gw_address_scope == subnet_address_scope):
                 no_nat_cidrs.append(subnet['cidr'])
 
@@ -3430,7 +3430,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if snat_disabled and subnet_id:
             gw_network_id = router[l3.EXTERNAL_GW_INFO]['network_id']
             self._validate_address_scope_for_router_interface(
-                context, router_id, gw_network_id, subnet_id)
+                context.elevated(), router_id, gw_network_id, subnet_id)
 
         router_driver = self._find_router_driver(context, router_id)
         try:
