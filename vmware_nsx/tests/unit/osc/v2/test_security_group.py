@@ -13,9 +13,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import mock
 import re
 
+import mock
 from openstackclient.tests.unit.network.v2 import (
     test_security_group_network as test_security_group)
 from openstackclient.tests.unit import utils as tests_utils

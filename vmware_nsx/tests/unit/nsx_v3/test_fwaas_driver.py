@@ -14,11 +14,12 @@
 #    under the License.
 
 import copy
+
 import mock
+from vmware_nsxlib.v3 import nsx_constants as consts
 
 from vmware_nsx.services.fwaas.nsx_v3 import edge_fwaas_driver
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_v3_plugin
-from vmware_nsxlib.v3 import nsx_constants as consts
 
 FAKE_FW_ID = 'fake_fw_uuid'
 FAKE_ROUTER_ID = 'fake_rtr_uuid'

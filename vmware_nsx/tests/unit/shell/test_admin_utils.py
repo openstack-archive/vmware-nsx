@@ -14,19 +14,19 @@
 #    under the License.
 
 import abc
+
 import mock
-import six
-
-from oslo_config import cfg
-from oslo_log import _options
-from oslo_log import log as logging
-from oslo_utils import uuidutils
-
 from neutron.common import config as neutron_config
 from neutron.db import servicetype_db  # noqa
 from neutron.quota import resource_registry
 from neutron.tests import base
 from neutron_lib.callbacks import registry
+from oslo_config import cfg
+from oslo_log import _options
+from oslo_log import log as logging
+from oslo_utils import uuidutils
+import six
+from vmware_nsxlib.v3 import resources as nsx_v3_resources
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import config  # noqa
@@ -38,7 +38,6 @@ from vmware_nsx.shell import resources
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.nsx_v import test_plugin as test_v_plugin
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_v3_plugin
-from vmware_nsxlib.v3 import resources as nsx_v3_resources
 
 LOG = logging.getLogger(__name__)
 NSX_INI_PATH = vmware.get_fake_conf('nsx.ini.test')

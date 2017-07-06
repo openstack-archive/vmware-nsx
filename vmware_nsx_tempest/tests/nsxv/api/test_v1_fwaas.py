@@ -13,10 +13,10 @@
 #    under the License.
 
 import re
-import six
 import time
 
 from neutron_lib import constants as nl_constants
+import six
 from tempest.api.network import base
 from tempest import config
 from tempest.lib.common.utils import data_utils

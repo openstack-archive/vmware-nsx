@@ -14,10 +14,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo_log import log as logging
-import six
 import time
 
+from oslo_log import log as logging
+import six
 from tempest.api.network import base_security_groups as base
 from tempest import config
 from tempest.lib.common.utils import data_utils

@@ -14,15 +14,15 @@
 #    under the License.
 
 import re
-import six
 
+import base_provider as base
+import six
+from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
-
-import base_provider as base
-from tempest import config
 from tempest import test
+
 from vmware_nsx_tempest.services import nsxv_client
 
 CONF = config.CONF

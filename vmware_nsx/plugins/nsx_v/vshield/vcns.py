@@ -13,13 +13,13 @@
 #    under the License.
 
 import time
+import xml.etree.ElementTree as et
 
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import strutils
 import six
-import xml.etree.ElementTree as et
 
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.common import utils

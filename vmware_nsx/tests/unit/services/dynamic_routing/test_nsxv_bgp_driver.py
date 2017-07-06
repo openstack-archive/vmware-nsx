@@ -13,8 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import contextlib
-import mock
 
+import mock
 from neutron.api import extensions
 from neutron.extensions import address_scope
 from neutron_dynamic_routing.db import bgp_db  # noqa

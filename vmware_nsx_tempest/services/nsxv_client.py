@@ -11,12 +11,11 @@
 #    under the License.
 
 import base64
+import re
 
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
-import re
 import requests
-
 from tempest import config
 
 import vmware_nsx_tempest.services.utils as utils

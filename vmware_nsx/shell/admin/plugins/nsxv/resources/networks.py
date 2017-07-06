@@ -12,13 +12,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo_log import log as logging
-from oslo_serialization import jsonutils
 import re
 import xml.etree.ElementTree as et
 
 from neutron_lib.callbacks import registry
 from neutron_lib import context
+from oslo_log import log as logging
+from oslo_serialization import jsonutils
 
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions

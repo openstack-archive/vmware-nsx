@@ -14,9 +14,9 @@
 #    under the License.
 
 import base64
-from cryptography import fernet
 import hashlib
 
+from cryptography import fernet
 from oslo_config import cfg
 from oslo_log import log as logging
 

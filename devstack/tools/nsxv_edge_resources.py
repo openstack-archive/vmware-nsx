@@ -25,11 +25,11 @@ Usage:
 
 import base64
 import optparse
+import xml.etree.ElementTree as et
 
 from oslo_serialization import jsonutils
 import requests
 import six
-import xml.etree.ElementTree as et
 
 requests.packages.urllib3.disable_warnings()
 

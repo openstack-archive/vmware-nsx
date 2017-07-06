@@ -13,11 +13,11 @@
 #    under the License.
 
 import base64
+import xml.etree.ElementTree as et
 
 from oslo_serialization import jsonutils
 import requests
 import six
-import xml.etree.ElementTree as et
 
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
 

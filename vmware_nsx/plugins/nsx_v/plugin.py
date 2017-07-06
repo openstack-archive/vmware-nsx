@@ -14,16 +14,20 @@
 #    under the License.
 
 from distutils import version
-import six
 import uuid
 
 import netaddr
+from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import port_security as psec
+from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api.definitions import subnet as subnet_def
 from neutron_lib.api import validators
+from neutron_lib.callbacks import events
+from neutron_lib.callbacks import registry
+from neutron_lib.callbacks import resources
 from neutron_lib import constants
 from neutron_lib import context as n_context
 from neutron_lib.db import constants as db_const
@@ -37,6 +41,7 @@ from oslo_serialization import jsonutils
 from oslo_utils import excutils
 from oslo_utils import netutils
 from oslo_utils import uuidutils
+import six
 from sqlalchemy.orm import exc as sa_exc
 
 from neutron.api import extensions as neutron_extensions
@@ -79,11 +84,6 @@ from neutron.plugins.common import utils
 from neutron.quota import resource_registry
 from neutron.services.flavors import flavors_plugin
 from neutron.services.qos import qos_consts
-from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
-from neutron_lib.api.definitions import portbindings as pbin
-from neutron_lib.callbacks import events
-from neutron_lib.callbacks import registry
-from neutron_lib.callbacks import resources
 from vmware_nsx.dvs import dvs
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v import driver as qos_driver
