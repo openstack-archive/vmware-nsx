@@ -20,6 +20,7 @@ from neutron.db import address_scope_db
 from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron.db import l3_db
+from neutron.db import models_v2
 from neutron.extensions import address_scope as ext_address_scope
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port as port_def
@@ -126,3 +127,31 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
         port_filters = {'device_id': [router_id],
                         'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF]}
         return self.get_ports(context, filters=port_filters)
+
+    def _find_router_subnets_cidrs(self, context, router_id):
+        """Retrieve cidrs of subnets attached to the specified router."""
+        subnets = self._find_router_subnets_and_cidrs(context, router_id)
+        return [subnet['cidr'] for subnet in subnets]
+
+    def _get_port_by_device_id(self, context, device_id, device_owner):
+        """Retrieve ports associated with a specific device id.
+
+        Used for retrieving all neutron ports attached to a given router.
+        """
+        port_qry = context.session.query(models_v2.Port)
+        return port_qry.filter_by(
+            device_id=device_id,
+            device_owner=device_owner,).all()
+
+    def _find_router_subnets_and_cidrs(self, context, router_id):
+        """Retrieve subnets attached to the specified router."""
+        ports = self._get_port_by_device_id(context, router_id,
+                                            l3_db.DEVICE_OWNER_ROUTER_INTF)
+        # No need to check for overlapping CIDRs
+        subnets = []
+        for port in ports:
+            for ip in port.get('fixed_ips', []):
+                subnet_qry = context.session.query(models_v2.Subnet)
+                subnet = subnet_qry.filter_by(id=ip.subnet_id).one()
+                subnets.append({'id': subnet.id, 'cidr': subnet.cidr})
+        return subnets
