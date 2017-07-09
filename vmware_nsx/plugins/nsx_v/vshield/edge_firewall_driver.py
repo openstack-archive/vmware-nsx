@@ -85,8 +85,8 @@ class EdgeFirewallDriver(object):
             return []
         if ':' in port_str:
             min_port, sep, max_port = port_str.partition(":")
-            return list(range(int(min_port.strip()),
-                              int(max_port.strip()) + 1))
+            return ["%s-%s" % (int(min_port.strip()),
+                               int(max_port.strip()))]
         if ',' in port_str:
             # remove duplications (using set) and empty/non numeric entries
             ports_set = set()

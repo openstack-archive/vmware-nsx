@@ -36,6 +36,7 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
                  'ip_version': 4,
                  'protocol': 'tcp',
                  'destination_port': '80',
+                 'source_port': '1-65535',
                  'source_ip_address': '10.24.4.2',
                  'id': 'fake-fw-rule1'}
         rule2 = {'enabled': True,
@@ -50,6 +51,36 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
                  'protocol': 'tcp',
                  'destination_port': '23',
                  'id': 'fake-fw-rule3'}
+        return [rule1, rule2, rule3]
+
+    def _fake_backend_rules_v4(self):
+        rule1 = {'enabled': True,
+                 'action': 'allow',
+                 'ip_version': 4,
+                 'protocol': 'tcp',
+                 'destination_port': '80',
+                 'source_port': '1-65535',
+                 'source_ip_address': ['10.24.4.2'],
+                 'position': '0',
+                 'id': 'fake-fw-rule1',
+                 'name': 'Fwaas-fake-fw-rule1'}
+        rule2 = {'enabled': True,
+                 'action': 'deny',
+                 'ip_version': 4,
+                 'protocol': 'tcp',
+                 'destination_port': '22',
+                 'id': 'fake-fw-rule2',
+                 'position': '1',
+                 'name': 'Fwaas-fake-fw-rule2'}
+        rule3 = {'enabled': True,
+                 'action': 'reject',
+                 'ip_version': 4,
+                 'protocol': 'tcp',
+                 'destination_port': '23',
+                 'position': '2',
+                 'id': 'fake-fw-rule3',
+                 'name': 'Fwaas-fake-fw-rule3'}
+
         return [rule1, rule2, rule3]
 
     def _fake_firewall_no_rule(self):
@@ -116,6 +147,7 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
                              update_fw.call_args[0][1])
             backend_rules = update_fw.call_args[1]['fwaas_rules']
             self.assertEqual(len(rule_list), len(backend_rules))
+            self.assertEqual(self._fake_backend_rules_v4(), backend_rules)
 
     def test_create_firewall_no_rules(self):
         apply_list = self._fake_apply_list()
