@@ -73,7 +73,8 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                  'action': 'reject',
                  'ip_version': 4,
                  'protocol': 'tcp',
-                 'destination_port': '22',
+                 'destination_port': '22:24',
+                 'source_port': '1:65535',
                  'id': 'fake-fw-rule2'}
         rule3 = {'enabled': True,
                  'action': 'deny',
@@ -101,8 +102,8 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                  'notes': 'first rule'}
         service2 = {'l4_protocol': 'TCP',
                     'resource_type': 'L4PortSetNSService',
-                    'destination_ports': ['22'],
-                    'source_ports': []}
+                    'destination_ports': ['22-24'],
+                    'source_ports': ['1-65535']}
         rule2 = {'action': 'DROP',  # Reject is replaced with deny
                  'services': [{'service': service2}],
                  'display_name': 'Fwaas-fake-fw-rule2'}

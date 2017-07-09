@@ -116,15 +116,21 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
             # This will cover icmpv6 too, when adding  the rule.
             return consts.ICMPV4
 
+    @staticmethod
+    def _translate_ports(ports):
+        return [ports.replace(':', '-')]
+
     def _translate_services(self, fwaas_rule):
         l4_protocol = self._translate_protocol(fwaas_rule['protocol'])
         if l4_protocol in [consts.TCP, consts.UDP]:
             source_ports = []
             destination_ports = []
             if fwaas_rule.get('source_port'):
-                source_ports = [fwaas_rule['source_port']]
+                source_ports = self._translate_ports(
+                    fwaas_rule['source_port'])
             if fwaas_rule.get('destination_port'):
-                destination_ports = [fwaas_rule['destination_port']]
+                destination_ports = self._translate_ports(
+                    fwaas_rule['destination_port'])
 
             return [self.nsx_firewall.get_nsservice(
                 consts.L4_PORT_SET_NSSERVICE,
