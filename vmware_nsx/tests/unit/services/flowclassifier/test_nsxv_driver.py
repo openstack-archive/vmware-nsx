@@ -198,38 +198,6 @@ class TestNsxvFlowClassifierDriver(
                     self.driver.create_flow_classifier_precommit,
                     fc_context)
 
-    def test_create_flow_classifier_precommit_src_port_range(self):
-        with self.flow_classifier(flow_classifier={
-            'name': 'test1',
-            'protocol': 'tcp',
-            'source_port_range_min': 100,
-            'source_port_range_max': 116,
-        }) as fc:
-            fc_context = fc_ctx.FlowClassifierContext(
-                self.flowclassifier_plugin, self.ctx,
-                fc['flow_classifier']
-            )
-            self.assertRaises(
-                fc_exc.FlowClassifierBadRequest,
-                self.driver.create_flow_classifier_precommit,
-                fc_context)
-
-    def test_create_flow_classifier_precommit_dst_port_range(self):
-        with self.flow_classifier(flow_classifier={
-            'name': 'test1',
-            'protocol': 'tcp',
-            'destination_port_range_min': 100,
-            'destination_port_range_max': 116,
-        }) as fc:
-            fc_context = fc_ctx.FlowClassifierContext(
-                self.flowclassifier_plugin, self.ctx,
-                fc['flow_classifier']
-            )
-            self.assertRaises(
-                fc_exc.FlowClassifierBadRequest,
-                self.driver.create_flow_classifier_precommit,
-                fc_context)
-
     def _validate_rule_structure(self, rule):
         self.assertEqual(self._fc_description, rule.find('notes').text)
         self.assertEqual('ipv4', rule.find('packetType').text)
@@ -239,11 +207,17 @@ class TestNsxvFlowClassifierDriver(
         self.assertEqual(
             self._fc_dest,
             rule.find('destinations').find('destination').find('value').text)
+        ports = "%s-%s" % (self._fc_source_ports[0], self._fc_source_ports[-1])
+        if self._fc_source_ports[0] == self._fc_source_ports[-1]:
+            ports = str(self._fc_source_ports[0])
         self.assertEqual(
-            str(self._fc_source_ports)[1:-1],
+            ports,
             rule.find('services').find('service').find('sourcePort').text)
+        ports = "%s-%s" % (self._fc_dest_ports[0], self._fc_dest_ports[-1])
+        if self._fc_dest_ports[0] == self._fc_dest_ports[-1]:
+            ports = str(self._fc_dest_ports[0])
         self.assertEqual(
-            str(self._fc_dest_ports)[1:-1],
+            ports,
             rule.find('services').find('service').find('destinationPort').text)
         self.assertEqual(
             self._fc_prot,
