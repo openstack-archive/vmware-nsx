@@ -40,7 +40,6 @@ from vmware_nsx.services.flowclassifier.nsx_v import utils as fc_utils
 LOG = logging.getLogger(__name__)
 
 REDIRECT_FW_SECTION_NAME = 'OS Flow Classifier Rules'
-MAX_PORTS_IN_RANGE = 15
 
 
 class NsxvFlowClassifierDriver(fc_driver.FlowClassifierDriverBase):
@@ -206,10 +205,10 @@ class NsxvFlowClassifierDriver(fc_driver.FlowClassifierDriverBase):
         return self._ports_list(min_port, max_port)
 
     def _ports_list(self, min_port, max_port):
-        """Return a string of comma separated ports. i.e. '80,81'
-        """
-        # convert the range into a string, and remove the '[]' around it
-        return str(range(min_port, max_port + 1))[1:-1]
+        """Return a string representing the port/range"""
+        if min_port == max_port:
+            return str(min_port)
+        return "%s-%s" % (min_port, max_port)
 
     def _rule_name(self, flow_classifier):
         # The name of the rule will include the name & id of the classifier
@@ -369,24 +368,4 @@ class NsxvFlowClassifierDriver(fc_driver.FlowClassifierDriverBase):
         if l7_params is not None and len(l7_params.keys()) > 0:
             msg = _('The NSXv driver does not support setting '
                     'L7 parameters in FlowClassifier')
-            raise exc.FlowClassifierBadRequest(message=msg)
-
-        # Source ports range - up to 15 ports.
-        sport_min = flow_classifier['source_port_range_min']
-        sport_max = flow_classifier['source_port_range_max']
-        if (sport_min is not None and sport_max is not None and
-            (sport_max + 1 - sport_min) > MAX_PORTS_IN_RANGE):
-            msg = _('The NSXv driver does not support setting '
-                    'more than %d source ports in a '
-                    'FlowClassifier') % MAX_PORTS_IN_RANGE
-            raise exc.FlowClassifierBadRequest(message=msg)
-
-        # Destination ports range - up to 15 ports.
-        dport_min = flow_classifier['destination_port_range_min']
-        dport_max = flow_classifier['destination_port_range_max']
-        if (dport_min is not None and dport_max is not None and
-            (dport_max + 1 - dport_min) > MAX_PORTS_IN_RANGE):
-            msg = _('The NSXv driver does not support setting '
-                    'more than %d destination ports in a '
-                    'FlowClassifier') % MAX_PORTS_IN_RANGE
             raise exc.FlowClassifierBadRequest(message=msg)
