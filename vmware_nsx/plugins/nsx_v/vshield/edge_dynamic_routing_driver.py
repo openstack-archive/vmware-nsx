@@ -11,6 +11,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import time
+
+from oslo_config import cfg
 from oslo_log import log as logging
 
 from vmware_nsx.common import locking
@@ -25,6 +28,7 @@ class EdgeDynamicRoutingDriver(object):
     def __init__(self):
         # it will be initialized at subclass
         self.vcns = None
+        self.ecmp_wait_time = cfg.CONF.nsxv.ecmp_wait_time
 
     def _prepare_bgp_config(self, bgp_config):
         bgp_config.setdefault('enabled', False)
@@ -140,6 +144,8 @@ class EdgeDynamicRoutingDriver(object):
             self._update_routing_config(edge_id,
                                         router_id=prot_router_id,
                                         prefixes_to_add=prefixes)
+            if self.ecmp_wait_time > 0:
+                time.sleep(self.ecmp_wait_time)
             self._update_bgp_routing_config(
                 edge_id, enabled=enabled, local_as=local_as,
                 neighbours_to_add=bgp_neighbours, prefixes_to_add=prefixes,

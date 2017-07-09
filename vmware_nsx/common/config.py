@@ -671,6 +671,10 @@ nsxv_opts = [
                default=1,
                help=_("(Optional) Set the interval (Seconds) for BGP "
                       "neighbour keep alive time.")),
+    cfg.IntOpt('ecmp_wait_time',
+               default=2,
+               help=_("(Optional) Set the wait time (Seconds) between "
+                      "enablement of ECMP.")),
 ]
 
 # define the configuration of each NSX-V availability zone.
