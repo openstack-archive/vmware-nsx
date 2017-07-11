@@ -65,8 +65,8 @@ class ApiReplayClient(object):
         # Migrate all the objects
         self.migrate_security_groups()
         self.migrate_qos_policies()
-        routers_routes = self.migrate_routers()
-        self.migrate_networks_subnets_ports()
+        routers_routes, routers_gw_info = self.migrate_routers()
+        self.migrate_networks_subnets_ports(routers_gw_info)
         self.migrate_floatingips()
         self.migrate_routers_routes(routers_routes)
 
@@ -281,6 +281,7 @@ class ApiReplayClient(object):
         Also return a dictionary of the routes that should be added to
         each router. Static routes must be added later, after the router
         ports are set.
+        And return a dictionary of external gateway info per router
         """
         try:
             source_routers = self.source_neutron.list_routers()['routers']
@@ -290,6 +291,18 @@ class ApiReplayClient(object):
 
         dest_routers = self.dest_neutron.list_routers()['routers']
         update_routes = {}
+        gw_info = {}
+
+        drop_router_fields = self.basic_ignore_fields + [
+            'status',
+            'routes',
+            'ha',
+            'external_gateway_info',
+            'router_type',
+            'availability_zone_hints',
+            'availability_zones',
+            'distributed',
+            'flavor_id']
 
         for router in source_routers:
             dest_router = self.have_id(router['id'], dest_routers)
@@ -297,22 +310,15 @@ class ApiReplayClient(object):
                 if router.get('routes'):
                     update_routes[router['id']] = router['routes']
 
-                drop_router_fields = self.basic_ignore_fields + [
-                    'status',
-                    'routes',
-                    'ha',
-                    'external_gateway_info',
-                    'router_type',
-                    'availability_zone_hints',
-                    'availability_zones',
-                    'distributed',
-                    'flavor_id']
+                if router.get('external_gateway_info'):
+                    gw_info[router['id']] = router['external_gateway_info']
+
                 body = self.drop_fields(router, drop_router_fields)
                 self.fix_description(body)
                 new_router = (self.dest_neutron.create_router(
                     {'router': body}))
                 print("created router %s" % new_router)
-        return update_routes
+        return update_routes, gw_info
 
     def migrate_routers_routes(self, routers_routes):
         """Add static routes to the created routers."""
@@ -393,7 +399,7 @@ class ApiReplayClient(object):
                 print('Public network ' + body['id'] +
                       'was set to non default network')
 
-    def migrate_networks_subnets_ports(self):
+    def migrate_networks_subnets_ports(self, routers_gw_info):
         """Migrates networks/ports/router-uplinks from src to dest neutron."""
         source_ports = self.source_neutron.list_ports()['ports']
         source_subnets = self.source_neutron.list_subnets()['subnets']
@@ -497,12 +503,20 @@ class ApiReplayClient(object):
                 # only create port if the dest server doesn't have it
                 if self.have_id(port['id'], dest_ports) is False:
                     if port['device_owner'] == 'network:router_gateway':
-                        body = {
+                        router_id = port['device_id']
+                        enable_snat = True
+                        if router_id in routers_gw_info:
+                            # keep the original snat status of the router
+                            enable_snat = routers_gw_info[router_id].get(
+                                'enable_snat', True)
+                        rtr_body = {
                             "external_gateway_info":
-                                {"network_id": port['network_id']}}
+                                {"network_id": port['network_id'],
+                                 "enable_snat": enable_snat,
+                                 # keep the original GW IP
+                                 "external_fixed_ips": port.get('fixed_ips')}}
                         router_uplink = self.dest_neutron.update_router(
-                            port['device_id'],  # router_id
-                            {'router': body})
+                            router_id, {'router': rtr_body})
                         print("Uplinked router %s" % router_uplink)
                         continue
 
@@ -517,12 +531,18 @@ class ApiReplayClient(object):
                     if (port['device_owner'] == 'network:router_interface' and
                         created_subnet is not None):
                         try:
-                            # uplink router_interface ports
+                            # uplink router_interface ports by creating the
+                            # port, and attaching it to the router
+                            router_id = port['device_id']
+                            del body['device_owner']
+                            del body['device_id']
+                            created_port = self.dest_neutron.create_port(
+                                {'port': body})['port']
                             self.dest_neutron.add_interface_router(
-                                port['device_id'],
-                                {'subnet_id': created_subnet['id']})
+                                router_id,
+                                {'port_id': created_port['id']})
                             print("Uplinked router %s to subnet %s" %
-                                  (port['device_id'], created_subnet['id']))
+                                  (router_id, created_subnet['id']))
                             continue
                         except Exception as e:
                             # NOTE(arosen): this occurs here if you run the
@@ -547,9 +567,14 @@ class ApiReplayClient(object):
             # L3 might be disabled in the source
             source_fips = []
 
-        drop_fip_fields = ['status', 'router_id', 'id', 'revision']
+        drop_fip_fields = self.basic_ignore_fields + [
+            'status', 'router_id', 'id', 'revision']
 
         for source_fip in source_fips:
             body = self.drop_fields(source_fip, drop_fip_fields)
-            fip = self.dest_neutron.create_floatingip({'floatingip': body})
-            print("Created floatingip %s" % fip)
+            try:
+                fip = self.dest_neutron.create_floatingip({'floatingip': body})
+                print("Created floatingip %s" % fip)
+            except Exception as e:
+                print("Failed to create floating ip (%s) : %s" %
+                      (source_fip, str(e)))
