@@ -14,6 +14,7 @@
 
 import sys
 
+from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.shell.admin.plugins.common import constants
@@ -22,11 +23,13 @@ from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils
 from vmware_nsx.shell import resources as shell
 from vmware_nsxlib.v3 import exceptions as nsx_exc
+from vmware_nsxlib.v3 import nsx_constants
 
 from neutron.db import db_base_plugin_v2
 from neutron.db import l3_db
 from neutron_lib.callbacks import registry
 from neutron_lib import context as neutron_context
+from oslo_config import cfg
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
@@ -173,6 +176,42 @@ def delete_backend_router(resource, event, trigger, **kwargs):
         LOG.error("Failed to delete backend router %s.", nsx_id)
 
 
+@admin_utils.output_header
+def update_dhcp_relay(resource, event, trigger, **kwargs):
+    """Update all routers dhcp relay service by the current configuration"""
+    nsxlib = utils.get_connected_nsxlib()
+    if not nsxlib.feature_supported(nsx_constants.FEATURE_DHCP_RELAY):
+        version = nsxlib.get_version()
+        LOG.error("DHCP relay is not supported by NSX version %s", version)
+        return
+
+    # initialize the availability zones and nsxlib
+    config.register_nsxv3_azs(cfg.CONF, cfg.CONF.nsx_v3.availability_zones)
+
+    # get all neutron router interfaces ports
+    admin_cxt = neutron_context.get_admin_context()
+    with utils.NsxV3PluginWrapper() as plugin:
+        filters = {'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF]}
+        ports = plugin.get_ports(admin_cxt, filters=filters)
+        for port in ports:
+            # get the backend router port by the tag
+            nsx_port_id = nsxlib.get_id_by_resource_and_tag(
+                'LogicalRouterDownLinkPort',
+                'os-neutron-rport-id', port['id'])
+            if not nsx_port_id:
+                LOG.warning("Couldn't find nsx router port for interface %s",
+                            port['id'])
+                continue
+            # get the network of this port
+            network_id = port['network_id']
+            # check the relay service on the az of the network
+            az = plugin.get_network_az_by_net_id(admin_cxt, network_id)
+            nsxlib.logical_router_port.update(
+                nsx_port_id, relay_service_uuid=az.dhcp_relay_service)
+    #TODO(asarfaty) also update the firewall rules of the routers
+    LOG.info("Done.")
+
+
 registry.subscribe(list_missing_routers,
                    constants.ROUTERS,
                    shell.Operations.LIST_MISMATCHES.value)
@@ -188,3 +227,7 @@ registry.subscribe(list_orphaned_routers,
 registry.subscribe(delete_backend_router,
                    constants.ORPHANED_ROUTERS,
                    shell.Operations.NSX_CLEAN.value)
+
+registry.subscribe(update_dhcp_relay,
+                   constants.ROUTERS,
+                   shell.Operations.NSX_UPDATE_DHCP_RELAY.value)

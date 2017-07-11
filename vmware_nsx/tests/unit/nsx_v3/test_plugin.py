@@ -64,6 +64,7 @@ NSX_TZ_NAME = 'default transport zone'
 NSX_DHCP_PROFILE_ID = 'default dhcp profile'
 NSX_METADATA_PROXY_ID = 'default metadata proxy'
 NSX_SWITCH_PROFILE = 'dummy switch profile'
+NSX_DHCP_RELAY_SRV = 'dhcp relay srv'
 
 
 def _mock_create_firewall_rules(*args):
@@ -133,6 +134,11 @@ def _mock_nsx_backend_calls():
         "vmware_nsxlib.v3.core_resources.NsxLibDhcpProfile."
         "get_id_by_name_or_id",
         return_value=NSX_DHCP_PROFILE_ID).start()
+
+    mock.patch(
+        "vmware_nsxlib.v3.core_resources.NsxLibDhcpRelayService."
+        "get_id_by_name_or_id",
+        return_value=NSX_DHCP_RELAY_SRV).start()
 
     mock.patch(
         "vmware_nsxlib.v3.core_resources.NsxLibMetadataProxy."
@@ -1314,6 +1320,29 @@ class TestL3NatTestCase(L3NatTest,
             self._update('routers', r['router']['id'],
                          {'router': {'admin_state_up': False}},
                          expected_code=exc.HTTPBadRequest.code)
+
+    def test_router_dhcp_relay(self):
+        # Add the relay service to the config and availability zones
+        cfg.CONF.set_override('dhcp_relay_service', NSX_DHCP_RELAY_SRV,
+                              'nsx_v3')
+        mock_nsx_version = mock.patch.object(
+            self.plugin.nsxlib, 'feature_supported', return_value=True)
+        mock_nsx_version.start()
+        self.plugin.init_availability_zones()
+        for az in self.plugin.get_azs_list():
+            az.translate_configured_names_to_uuids(self.plugin.nsxlib)
+
+        with self.network() as network:
+            with self.subnet(network=network) as s1,\
+                self.router() as r1,\
+                mock.patch.object(self.plugin.nsxlib.logical_router_port,
+                                  'update') as mock_update_port:
+                self._router_interface_action('add', r1['router']['id'],
+                                              s1['subnet']['id'], None)
+                mock_update_port.assert_called_once_with(
+                    mock.ANY,
+                    relay_service_uuid=NSX_DHCP_RELAY_SRV,
+                    subnets=mock.ANY)
 
 
 class ExtGwModeTestCase(test_ext_gw_mode.ExtGwModeIntTestCase,

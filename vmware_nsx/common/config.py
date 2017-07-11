@@ -399,6 +399,10 @@ nsx_v3_opts = [
                       "that will be used to enable native metadata service. "
                       "It needs to be created in NSX before starting Neutron "
                       "with the NSX plugin.")),
+    cfg.StrOpt('dhcp_relay_service',
+               help=_("(Optional) This is the name or UUID of the NSX dhcp "
+                      "relay service that will be used to enable DHCP relay "
+                      "on router ports.")),
     cfg.BoolOpt('log_security_groups_blocked_traffic',
                 default=False,
                 help=_("(Optional) Indicates whether distributed-firewall "
@@ -793,6 +797,10 @@ nsxv3_az_opts = [
     cfg.ListOpt('switching_profiles',
                 help=_("(Optional) list switching profiles uuids that will be "
                        "attached to all neutron created nsx ports.")),
+    cfg.StrOpt('dhcp_relay_service',
+               help=_("(Optional) This is the name or UUID of the NSX dhcp "
+                      "relay service that will be used to enable DHCP relay "
+                      "on router ports.")),
 ]
 
 # Register the configuration options

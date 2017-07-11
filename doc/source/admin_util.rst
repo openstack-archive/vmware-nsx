@@ -278,6 +278,10 @@ Routers
 
     nsxadmin -r routers -o nsx-update-rules
 
+- Update DHCP relay service on NSX router ports according to the current configuration::
+
+    nsxadmin -r routers -o nsx-update-dhcp-relay
+
 Orphaned Routers
 ~~~~~~~~~~~~~~~~~
 

@@ -1,0 +1,11 @@
+---
+prelude: >
+    The NSX-v3 plugin supports DHCP relay service per network
+    availability zones.
+features:
+  - The NSX-v3 plugin supports DHCP relay service per network
+    availability zones. When a router interface port is created,
+    the relay service will be added to it.
+    DHCP traffic on the subnet will go through the DHCP server
+    configured in the dhcp relay service on the NSX, if it is
+    connected to the router.
