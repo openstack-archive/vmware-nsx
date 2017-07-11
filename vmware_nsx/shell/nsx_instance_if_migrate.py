@@ -37,6 +37,7 @@ def usage():
            "[--project-domain-id=<project domain>] "
            "[--user-domain-id=<user domain>] "
            "[--machine-type=<migrated machine type] "
+           "[--logfile=<log file>] "
            "[--nsx-bridge=<NSX managed vSwitch>]\n\n"
            "Convert libvirt interface definitions on a KVM host, to NSX "
            "managed vSwitch definitions\n\n"
@@ -46,6 +47,7 @@ def usage():
            "  project domain: Keystone project domain\n"
            "  user domain: Keystone user domain\n"
            "  migrated machine type: Overwrites libvirt's machine type\n"
+           "  log file: Output log of the command execution\n"
            "  NSX managed vSwitch: vSwitch on host, managed by NSX\n\n")
 
     sys.exit()
@@ -64,6 +66,7 @@ def get_opts():
                                                  'user-domain-id=',
                                                  'auth-url=',
                                                  'machine-type=',
+                                                 'logfile=',
                                                  'nsx-bridge='])
     except getopt.GetoptError as err:
         LOG.debug(err)
@@ -188,6 +191,13 @@ def instance_migrate(libvirt_conn, neutron, instance, machine_type,
 
 def main():
     opts = get_opts()
+    if opts.get('logfile'):
+        f_handler = logging.FileHandler(opts.get('logfile'))
+        f_formatter = logging.Formatter(
+            '%(asctime)s %(levelname)s %(message)s')
+        f_handler.setFormatter(f_formatter)
+        LOG.addHandler(f_handler)
+
     conn = libvirt.open('qemu:///system')
     if conn is None:
         LOG.debug('Failed to connect to libvirt')
