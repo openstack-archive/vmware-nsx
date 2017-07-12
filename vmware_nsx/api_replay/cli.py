@@ -15,6 +15,7 @@ import argparse
 from vmware_nsx.api_replay import client
 
 DEFAULT_DOMAIN_ID = 'default'
+DEFAULT_LOGFILE = 'nsx_migration.log'
 
 
 class ApiReplayCli(object):
@@ -34,7 +35,8 @@ class ApiReplayCli(object):
             dest_os_user_domain_id=args.dest_os_user_domain_id,
             dest_os_password=args.dest_os_password,
             dest_os_auth_url=args.dest_os_auth_url,
-            use_old_keystone=args.use_old_keystone)
+            use_old_keystone=args.use_old_keystone,
+            logfile=args.logfile)
 
     def _setup_argparse(self):
         parser = argparse.ArgumentParser()
@@ -106,6 +108,11 @@ class ApiReplayCli(object):
             default=False,
             action='store_true',
             help="Use old keystone client for source authentication.")
+
+        parser.add_argument(
+            "--logfile",
+            default=DEFAULT_LOGFILE,
+            help="Output logfile.")
 
         # NOTE: this will return an error message if any of the
         # require options are missing.
