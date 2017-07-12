@@ -447,10 +447,20 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                   'action': 'allow',
                   'services': [('17', '67', None, None),
                                ('17', '68', None, None)]},
-                 {'name': 'ICMPv6 neighbor protocol for Security Groups',
+                 {'name': 'Default ICMPv6 rule for OS Security Groups',
                   'action': 'allow',
-                  'services': [('58', None, '135', None),
-                               ('58', None, '136', None)]}]
+                  'services': [('58', None,
+                                constants.ICMPV6_TYPE_NS, None),
+                               ('58', None,
+                                constants.ICMPV6_TYPE_NA, None),
+                               ('58', None,
+                                constants.ICMPV6_TYPE_RA, None),
+                               ('58', None,
+                                constants.ICMPV6_TYPE_MLD_QUERY, None)]},
+                 {'name': 'Default DHCPv6 rule for OS Security Groups',
+                  'action': 'allow',
+                  'services': [('17', '546', None, None),
+                               ('17', '547', None, None)]}]
 
         if cfg.CONF.nsxv.cluster_moid:
             applied_to_ids = cfg.CONF.nsxv.cluster_moid
