@@ -296,9 +296,13 @@ class EdgeManager(object):
 
     def _delete_backup_edges_on_db(self, context, backup_router_bindings):
         for binding in backup_router_bindings:
-            nsxv_db.update_nsxv_router_binding(
-                context.session, binding['router_id'],
-                status=constants.PENDING_DELETE)
+            try:
+                nsxv_db.update_nsxv_router_binding(
+                    context.session, binding['router_id'],
+                    status=constants.PENDING_DELETE)
+            except db_base_exc.NoResultFound:
+                LOG.debug("Router binding %s does not exist.",
+                          binding['router_id'])
 
     def _delete_backup_edges_at_backend(self, context, backup_router_bindings):
         for binding in backup_router_bindings:
