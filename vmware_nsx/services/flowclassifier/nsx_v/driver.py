@@ -66,7 +66,8 @@ class NsxvFlowClassifierDriver(fc_driver.FlowClassifierDriverBase):
         rules from the nsx configuration and verify that it exists on backend.
         """
         if not cfg.CONF.nsxv.service_insertion_profile_id:
-            raise cfg.RequiredOptError("service_profile_id")
+            raise cfg.RequiredOptError("service_insertion_profile_id",
+                                       group=cfg.OptGroup('nsxv'))
         self._profile_id = cfg.CONF.nsxv.service_insertion_profile_id
 
         # Verify that this moref exists
