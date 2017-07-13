@@ -298,20 +298,39 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                              'reason': e})
 
     def _translate_configured_names_to_uuids(self):
+        # If using tags to find the objects, make sure tag scope is configured
+        if (cfg.CONF.nsx_v3.init_objects_by_tags and
+            not cfg.CONF.nsx_v3.search_objects_scope):
+            raise cfg.RequiredOptError("search_objects_scope",
+                                       group=cfg.OptGroup('nsx_v3'))
+
         # default tier0 router
         self._default_tier0_router = None
         if cfg.CONF.nsx_v3.default_tier0_router:
-            rtr_id = self.nsxlib.logical_router.get_id_by_name_or_id(
-                cfg.CONF.nsx_v3.default_tier0_router)
+            rtr_id = None
+            if cfg.CONF.nsx_v3.init_objects_by_tags:
+                # Find the router by its tag
+                resource_type = (self.nsxlib.logical_router.resource_type +
+                                 ' AND router_type:TIER0')
+                rtr_id = self.nsxlib.get_id_by_resource_and_tag(
+                    resource_type,
+                    cfg.CONF.nsx_v3.search_objects_scope,
+                    cfg.CONF.nsx_v3.default_tier0_router)
+            if not rtr_id:
+                # find the router by name or id
+                rtr_id = self.nsxlib.logical_router.get_id_by_name_or_id(
+                    cfg.CONF.nsx_v3.default_tier0_router)
             self._default_tier0_router = rtr_id
 
         # Validate and translate native dhcp profiles per az
         if cfg.CONF.nsx_v3.native_dhcp_metadata:
             if not cfg.CONF.nsx_v3.dhcp_profile:
-                raise cfg.RequiredOptError("dhcp_profile")
+                raise cfg.RequiredOptError("dhcp_profile",
+                                           group=cfg.OptGroup('nsx_v3'))
 
             if not cfg.CONF.nsx_v3.metadata_proxy:
-                raise cfg.RequiredOptError("metadata_proxy")
+                raise cfg.RequiredOptError("metadata_proxy",
+                                           group=cfg.OptGroup('nsx_v3'))
 
         # Translate all the uuids in each of the availability
         for az in self.get_azs_list():

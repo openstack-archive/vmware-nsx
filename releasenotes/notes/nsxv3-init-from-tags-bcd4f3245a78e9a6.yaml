@@ -1,0 +1,10 @@
+---
+prelude: >
+    NSX-V3 plugin supports a new configuration option for the transport zones,
+    tier-0 router, dhcp profile and md-proxy in the nsx ini file using NSX
+    Tags insead of names or IDs.
+features:
+  - |
+    NSX-V3 plugin supports a new configuration option for the transport zones,
+    tier-0 router, dhcp profile and md-proxy in the nsx ini file using NSX
+    Tags insead of names or IDs.

@@ -88,30 +88,68 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
         # Mandatory configurations (in AZ or inherited from global values)
         # Unless this is the default AZ, and metadata is disabled.
         if self.dhcp_profile:
-            dhcp_id = nsxlib.native_dhcp_profile.get_id_by_name_or_id(
-                self.dhcp_profile)
+            dhcp_id = None
+            if cfg.CONF.nsx_v3.init_objects_by_tags:
+                # Find the TZ by its tag
+                dhcp_id = nsxlib.get_id_by_resource_and_tag(
+                    nsxlib.native_dhcp_profile.resource_type,
+                    cfg.CONF.nsx_v3.search_objects_scope,
+                    self.dhcp_profile)
+            if not dhcp_id:
+                dhcp_id = nsxlib.native_dhcp_profile.get_id_by_name_or_id(
+                    self.dhcp_profile)
             self._native_dhcp_profile_uuid = dhcp_id
         else:
             self._native_dhcp_profile_uuid = None
 
         if self.metadata_proxy:
-            proxy_id = nsxlib.native_md_proxy.get_id_by_name_or_id(
-                self.metadata_proxy)
+            proxy_id = None
+            if cfg.CONF.nsx_v3.init_objects_by_tags:
+                # Find the TZ by its tag
+                proxy_id = nsxlib.get_id_by_resource_and_tag(
+                    nsxlib.native_md_proxy.resource_type,
+                    cfg.CONF.nsx_v3.search_objects_scope,
+                    self.metadata_proxy)
+            if not proxy_id:
+                proxy_id = nsxlib.native_md_proxy.get_id_by_name_or_id(
+                    self.metadata_proxy)
             self._native_md_proxy_uuid = proxy_id
         else:
             self._native_md_proxy_uuid = None
 
         if self.default_overlay_tz:
-            tz_id = nsxlib.transport_zone.get_id_by_name_or_id(
-                self.default_overlay_tz)
+            tz_id = None
+            if cfg.CONF.nsx_v3.init_objects_by_tags:
+                # Find the TZ by its tag
+                resource_type = (nsxlib.transport_zone.resource_type +
+                                 ' AND transport_type:OVERLAY')
+                tz_id = nsxlib.get_id_by_resource_and_tag(
+                    resource_type,
+                    cfg.CONF.nsx_v3.search_objects_scope,
+                    self.default_overlay_tz)
+            if not tz_id:
+                # Find the TZ by its name or id
+                tz_id = nsxlib.transport_zone.get_id_by_name_or_id(
+                    self.default_overlay_tz)
             self._default_overlay_tz_uuid = tz_id
         else:
             self._default_overlay_tz_uuid = None
 
         # Optional configurations (may be None)
         if self.default_vlan_tz:
-            tz_id = nsxlib.transport_zone.get_id_by_name_or_id(
-                self.default_vlan_tz)
+            tz_id = None
+            if cfg.CONF.nsx_v3.init_objects_by_tags:
+                # Find the TZ by its tag
+                resource_type = (nsxlib.transport_zone.resource_type +
+                                 ' AND transport_type:VLAN')
+                tz_id = nsxlib.get_id_by_resource_and_tag(
+                    resource_type,
+                    cfg.CONF.nsx_v3.search_objects_scope,
+                    self.default_vlan_tz)
+            if not tz_id:
+                # Find the TZ by its name or id
+                tz_id = nsxlib.transport_zone.get_id_by_name_or_id(
+                    self.default_vlan_tz)
             self._default_vlan_tz_uuid = tz_id
         else:
             self._default_vlan_tz_uuid = None
