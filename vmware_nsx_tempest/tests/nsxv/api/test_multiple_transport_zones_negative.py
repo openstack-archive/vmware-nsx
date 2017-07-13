@@ -21,7 +21,6 @@ from tempest.lib import exceptions as lib_exc
 
 from tempest.api.network import base
 from tempest import config
-from tempest import test
 
 CONF = config.CONF
 
@@ -49,7 +48,7 @@ class MultipleTransportZonesNegativeTest(base.BaseAdminNetworkTest):
                         network['id'])
         return network
 
-    @test.attr(type=['negative'])
+    @decorators.attr(type=['negative'])
     @decorators.idempotent_id('8aff7abc-eacd-409c-8278-4cb7bde6da84')
     def test_create_mtz_networks(self):
         # Multiple Transport Zone use provier network to implement

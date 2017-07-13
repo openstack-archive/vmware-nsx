@@ -48,7 +48,7 @@ class NSXv3RoutersTest(base.BaseAdminNetworkTest):
                                            CONF.nsxv3.nsx_user,
                                            CONF.nsxv3.nsx_password)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('0e9938bc-d2a3-4a9a-a4f9-7a93ee8bb344')
     def test_create_update_nsx_router(self):
         # Create a router
@@ -71,7 +71,7 @@ class NSXv3RoutersTest(base.BaseAdminNetworkTest):
         self.assertEqual(updated_router['name'], updated_name)
         self.assertIsNotNone(nsx_router)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('6f49b69c-0800-4c83-b1f8-595ae5bfeea7')
     def test_delete_nsx_router(self):
         # Create a router

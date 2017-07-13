@@ -64,7 +64,7 @@ class ExcRouterTest(base.BaseAdminNetworkTest):
                 subnet_id=interface['fixed_ips'][0]['subnet_id'])
         self.routers_client.delete_router(router['id'])
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('ac1639a0-2a8d-4c68-bccd-54849fd45f86')
     def test_create_exc_router(self):
         """
@@ -84,7 +84,7 @@ class ExcRouterTest(base.BaseAdminNetworkTest):
         self.assertTrue(exc_edge is not None)
         self.assertEqual(exc_edge['edgeType'], 'gatewayServices')
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('c4b94988-0bc7-11e5-9203-0050568833db')
     def test_update_exc_router(self):
         """
@@ -102,7 +102,7 @@ class ExcRouterTest(base.BaseAdminNetworkTest):
             router['router']['id'], name=updated_name)
         self.assertEqual(update_body['router']['name'], updated_name)
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('a0ff5afa-0bcc-11e5-9203-0050568833db')
     def test_list_show_exc_router(self):
         """
@@ -124,7 +124,7 @@ class ExcRouterTest(base.BaseAdminNetworkTest):
         routers_list = [r['id'] for r in list_body['routers']]
         self.assertIn(router['router']['id'], routers_list)
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('adef8d1e-0bce-11e5-9203-0050568833db')
     def test_delete_exc_router(self):
         """

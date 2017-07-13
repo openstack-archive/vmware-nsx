@@ -15,7 +15,6 @@ from oslo_log import log as logging
 from tempest import config
 from tempest.lib import decorators
 from tempest.lib import exceptions as ex
-from tempest import test
 
 from vmware_nsx_tempest.tests.nsxv.api.lbaas import base
 
@@ -58,7 +57,7 @@ class MemberTest(base.BaseTestCase):
     def resource_cleanup(cls):
         super(MemberTest, cls).resource_cleanup()
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('6dcdc53c-52cf-4b6e-aeec-d13df68ed001')
     def test_list_empty_members(self):
         """Test that pool members are empty."""
@@ -66,7 +65,7 @@ class MemberTest(base.BaseTestCase):
         self.assertEmpty(members,
                          msg='Initial pool was supposed to be empty')
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('346e49ce-0665-4995-a03a-b007052d3619')
     def test_list_3_members(self):
         """Test that we can list members. """
@@ -85,7 +84,7 @@ class MemberTest(base.BaseTestCase):
         found_member_ips = set([m["address"] for m in members])
         self.assertEqual(found_member_ips, member_ips_exp)
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('3121bbdc-81e4-40e3-bf66-3ceefd72a0f5')
     def test_add_member(self):
         """Test that we can add a single member."""
@@ -103,7 +102,7 @@ class MemberTest(base.BaseTestCase):
         self.assertEqual(True, member["admin_state_up"])
         self.assertEqual(1, member["weight"])
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('fc513a45-4c24-42ea-8807-a9b86a81ee56')
     def test_get_member(self):
         """Test that we can fetch a member by id."""
@@ -118,7 +117,7 @@ class MemberTest(base.BaseTestCase):
         self.assertEqual(member_opts["protocol_port"], member["protocol_port"])
         self.assertEqual(member_opts["subnet_id"], member["subnet_id"])
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('2cead036-5a63-43a4-9d9d-03c9b744c101')
     def test_create_member_missing_required_field_tenant_id(self):
         """Test if a non_admin user can create a member_opts
@@ -132,7 +131,7 @@ class MemberTest(base.BaseTestCase):
         member = self._create_member(self.pool_id, **member_opts)
         self.addCleanup(self._delete_member, self.pool_id, member['id'])
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('d7ed0870-a065-4fbd-8d95-0ea4d12063c2')
     def test_create_member_missing_required_field_address(self):
         """Test create a member with missing field address"""
@@ -142,7 +141,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._create_member,
                           self.pool_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('8d2b9a53-aac7-4fb9-b068-47647289aa21')
     def test_create_member_missing_required_field_protocol_port(self):
         """Test create a member with missing field protocol_port"""
@@ -152,7 +151,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._create_member,
                           self.pool_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('9710cd4c-aac0-4b71-b295-82a88c67b0b8')
     def test_create_member_missing_required_field_subnet_id(self):
         """Test create a member with missing field subnet_id """
@@ -162,7 +161,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._create_member,
                           self.pool_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('a6814c49-758d-490a-9557-ef03f0d78c44')
     def test_raises_BadRequest_when_missing_attrs_during_member_create(self):
         """Test failure on missing attributes on member create."""
@@ -170,7 +169,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._create_member,
                           self.pool_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('840bfa84-1d16-4149-a863-6f7afec1682f')
     def test_create_member_invalid_tenant_id(self):
         """Test create member with invalid tenant_id"""
@@ -182,7 +181,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._create_member,
                           self.pool_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('a99dbd0a-5f8c-4c96-8900-1a7d297d913b')
     def test_create_member_invalid_address(self):
         """Test create member with invalid address"""
@@ -193,7 +192,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._create_member,
                           self.pool_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('736b0771-b98c-4045-97e0-a44e4e18c22e')
     def test_create_member_invalid_protocol_port(self):
         """Test create member with invalid protocol_port"""
@@ -204,7 +203,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._create_member,
                           self.pool_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('2cc67f5a-3f66-427e-90b8-59a3da5c1d21')
     def test_create_member_invalid_subnet_id(self):
         """Test create member with invalid subnet_id"""
@@ -215,7 +214,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._create_member,
                           self.pool_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('3403c6f5-5a30-4115-ac3a-8a22855fd614')
     def test_create_member_invalid_admin_state_up(self):
         """Test create member with invalid admin_state_up"""
@@ -227,7 +226,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._create_member,
                           self.pool_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('b12216ec-3442-4239-ba2c-dd17640449d1')
     def test_create_member_invalid_weight(self):
         """Test create member with invalid weight"""
@@ -239,7 +238,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._create_member,
                           self.pool_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('88eb464b-4de6-4ed7-a1e8-bc61581a5c6e')
     def test_create_member_empty_tenant_id(self):
         """Test create member with an empty tenant_id"""
@@ -251,7 +250,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._create_member,
                           self.pool_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('238cd859-2b60-4e42-b356-c6b38768c3e4')
     def test_create_member_empty_address(self):
         """Test create member with an empty address"""
@@ -262,7 +261,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._create_member,
                           self.pool_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('834905ac-5c95-4dfc-900c-1676b6c28247')
     def test_create_member_empty_protocol_port(self):
         """Test create member with an empty protocol_port"""
@@ -273,7 +272,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._create_member,
                           self.pool_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('a0f2148e-160e-4b12-8e30-567a0448d179')
     def test_create_member_empty_subnet_id(self):
         """Test create member with empty subnet_id"""
@@ -284,7 +283,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._create_member,
                           self.pool_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('63cd5897-b82c-4508-8be7-3b7ccab21798')
     def test_create_member_empty_admin_state_up(self):
         """Test create member with an empty admin_state_up"""
@@ -296,7 +295,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._create_member,
                           self.pool_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('55f16682-74a2-4df7-a6b3-2da3623f4a41')
     def test_create_member_empty_weight(self):
         """Test create member with an empty weight"""
@@ -308,7 +307,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._create_member,
                           self.pool_id, **member_opts)
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('c99f6146-2c85-4a32-a850-942d6836c175')
     def test_delete_member(self):
         """Test that we can delete a member by id."""
@@ -321,7 +320,7 @@ class MemberTest(base.BaseTestCase):
         members = self._list_members(self.pool_id)
         self.assertEmpty(members)
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('7d51aa2d-9582-4160-b07b-bf3c3b3e335e')
     def test_update_member(self):
         """Test that we can update a member."""
@@ -341,7 +340,7 @@ class MemberTest(base.BaseTestCase):
         self.assertFalse(member["admin_state_up"])
         self.assertEqual(10, member["weight"])
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('101555d6-c472-45e4-b302-b2916ab6fad5')
     def test_update_member_missing_admin_state_up(self):
         """Test that we can update a member with missing admin_state_up."""
@@ -358,7 +357,7 @@ class MemberTest(base.BaseTestCase):
         self.assertEqual(True, member["admin_state_up"])
         self.assertEqual(10, member["weight"])
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('815c037b-7e3b-474d-a4f6-eec26b44d677')
     def test_update_member_missing_weight(self):
         """Test that we can update a member with missing weight."""
@@ -375,7 +374,7 @@ class MemberTest(base.BaseTestCase):
         self.assertFalse(member["admin_state_up"])
         self.assertEqual(1, member["weight"])
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('3ab3bb11-e287-4693-8ea0-5cfbb4cc2c85')
     def test_update_member_invalid_admin_state_up(self):
         """Test that we can update a member with empty admin_state_up."""
@@ -390,7 +389,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._update_member,
                           self.pool_id, member_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('71979c3b-08d6-449b-8de2-1eefc9d0db0e')
     def test_update_member_invalid_weight(self):
         """Test that we can update a member with an empty weight."""
@@ -405,7 +404,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._update_member,
                           self.pool_id, member_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('e1470212-0a36-4d8c-8e30-1f69a8d31ae1')
     def test_update_member_empty_admin_state_up(self):
         """Test that we can update a member with empty admin_state_up."""
@@ -420,7 +419,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._update_member,
                           self.pool_id, member_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('cd1e276c-b220-439d-a9dc-823a10d11b6a')
     def test_update_member_empty_weight(self):
         """Test that we can update a member with an empty weight."""
@@ -435,7 +434,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._update_member,
                           self.pool_id, member_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('25779006-1e2c-4155-9126-49f45e7646a3')
     def test_raises_immutable_when_updating_immutable_attrs_on_member(self):
         """Test failure on immutable attribute on member create."""
@@ -449,7 +448,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._update_member,
                           self.pool_id, member_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('a332ecda-bb18-4cc2-b847-c09a72d90fd1')
     def test_raises_exception_on_invalid_attr_on_create(self):
         """Test failure on invalid attribute on member create."""
@@ -458,7 +457,7 @@ class MemberTest(base.BaseTestCase):
         self.assertRaises(ex.BadRequest, self._create_member,
                           self.pool_id, **member_opts)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('bc4c3eb5-14d5-43dd-93cb-603801fa6f32')
     def test_raises_exception_on_invalid_attr_on_update(self):
         """Test failure on invalid attribute on member update."""

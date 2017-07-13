@@ -406,13 +406,13 @@ class TestProviderSecurityGroup(manager.NetworkScenarioTest):
                                         private_ip_address_default_vm_2,
                                         private_key_default_vm_1)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('9d4192e9-b1b7-48c9-af04-67a82637c715')
     def test_connectivity_between_default_psg_server(self):
         self.network_topo = self.create_network_topo()
         self._test_connectivity_between_default_psg_server(self.network_topo)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('a14b5c25-39ce-4641-bd51-f28c25e69440')
     def test_vm_connectivity_port_update_with_psg(self):
         self.network_topo = self.create_network_topo()
@@ -420,19 +420,19 @@ class TestProviderSecurityGroup(manager.NetworkScenarioTest):
         self._test_connectivity_between_vms_after_port_update(
             self.network_topo, self.servers)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('4a8eac6a-68ff-4392-bab9-70ea08132acb')
     def test_connectivity_between_default_psg_servers(self):
         self.network_topo = self.create_network_topo()
         self._test_build_up_topology_and_check_connectivity(self.network_topo)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('8bae2101-4f74-4d61-a7a5-42420611cf86')
     def test_connectivity_between_default_psg_server_with_multi_networks(self):
         self.network_topo = self.create_multi_network_topo()
         self._test_build_up_topology_and_check_connectivity(self.network_topo)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('998789ce-8db7-4295-bce0-390fbbf0e489')
     def test_ping_when_psg_enabled_disbaled_on_port(self):
         self.network_topo = self.create_multi_network_topo()

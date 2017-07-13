@@ -17,7 +17,6 @@ from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
 from tempest.lib import exceptions as ex
-from tempest import test
 
 from vmware_nsx_tempest.common import constants
 from vmware_nsx_tempest.services import nsxv3_client
@@ -137,7 +136,7 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
                                  port['mac_learning_enabled'],
                                  "OS and NSX mac learn states don't match")
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('d4c533d4-194e-4d72-931d-a120cd3dd3b2')
     def test_create_mac_learning_port(self):
         """
@@ -148,7 +147,7 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
                         self._delete_port, port)
         self._check_mac_learning(port, mac_learn_state=True)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('d5067c7e-127b-4676-8b33-c421dcc8d6ae')
     def test_list_mac_learning_port(self):
         """
@@ -177,7 +176,7 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
         self.assertEqual(len(test_ports_in_body), 2,
                          'List ports does not match num of created ports')
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('d2eaadb2-52e3-42c1-8225-7380cd70a82c')
     def test_show_mac_learning_port(self):
         """
@@ -205,7 +204,7 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
                                                           'created_at',
                                                           'updated_at']))
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('4d5844bb-88d4-4cdc-b545-6cd9160ae351')
     def test_update_mac_learning_port(self):
         """
@@ -231,7 +230,7 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
                          "MAC learning states do not match for %s"
                          % updated_nsx_port['display_name'])
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('e2295017-b3c4-4cdd-b8e2-daa51aaf7590')
     def test_delete_mac_learning_port(self):
         """
@@ -251,7 +250,7 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
         self.assertIsNone(self.nsx.get_logical_port(test_port['name']),
                           "Port %s is not None" % test_port['name'])
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('5105d8b5-5136-4789-9991-7e419d980169')
     def test_create_enable_mac_learning_port_delete(self):
         """
@@ -272,7 +271,7 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
         self.assertIsNone(self.nsx.get_logical_port(updated_os_port['name']),
                           "Port %s is not None" % updated_os_port['name'])
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('b7ecc93d-6c9b-4958-9a08-bc85d2946c03')
     def test_create_toggle_mac_learning_port_delete(self):
         """
@@ -295,7 +294,7 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
         self.assertIsNone(self.nsx.get_logical_port(ml_on_port['name']),
                           "Port %s is not None" % ml_on_port['name'])
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('262e844f-a033-4fcd-b5d0-4641d9efeccd')
     def test_create_update_delete_mac_learning_port(self):
         """
@@ -317,8 +316,8 @@ class NSXv3MacLearningTest(base.BaseNetworkTest):
         self.assertIsNone(self.nsx.get_logical_port(updated_port['name']),
                           "Logical port %s is not None" % updated_port['name'])
 
-    @test.attr(type='nsxv3')
-    @test.attr(type='negative')
+    @decorators.attr(type='nsxv3')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('e3465ea8-50fc-4070-88de-f4bd5df8ab86')
     def test_create_mac_learning_port_enable_port_security_negative(self):
         """

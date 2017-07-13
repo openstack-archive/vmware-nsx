@@ -125,7 +125,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
         self.assertIsNotNone(nsx_dfw_section, dfw_error_msg)
         return nsx_nsgroup, nsx_dfw_section
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('4fc39f02-4fb1-4e5c-bf64-b98dd7f514f7')
     def test_provider_security_group_at_beckend(self):
         sg = self.create_security_provider_group(self.cmgr_adm, provider=True)
@@ -137,7 +137,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
         time.sleep(constants.NSX_BACKEND_TIME_INTERVAL)
         self.assertNotEmpty(self.nsx.get_firewall_section(sg_name, sg_id))
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('2c8d013d-4c0b-4d2b-b77c-779351a789ce')
     def test_provider_security_group_crud(self):
         sg_desc = "crud provider-security-group"
@@ -154,7 +154,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
         sg_list = sg_list.get('security_groups', sg_list)
         self.assertEqual(len(sg_list), 0)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('2bc5452f-5673-4dbe-afb3-fb40bf0916a5')
     def test_admin_can_create_provider_security_group_for_tenant(self):
         project_id = self.cmgr_alt.networks_client.tenant_id
@@ -163,14 +163,14 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
                                                  provider=True)
         self.assertEqual(True, sg.get('provider'))
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('6ff79516-1e94-4463-9b8c-a524aa806040')
     def test_tenant_provider_sec_group_with_no_rules(self):
         sg = self.create_security_provider_group(self.cmgr_adm,
                                                  provider=True)
         self.assertEmpty(sg.get('security_group_rules'))
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('a92c8e1e-ce2c-40be-8449-d326690e078e')
     def test_admin_can_create_security_group_rule(self):
         sg_client = self.cmgr_adm.security_groups_client
@@ -189,7 +189,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
                          ['security_group_rules']
                          [0]['protocol'])
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('8e43bd57-e478-490c-8064-4211f2c3eb6c')
     def test_provider_security_group_rule_at_beckend(self):
         sg = self.create_security_provider_group(self.cmgr_adm, provider=True)
@@ -204,7 +204,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
         output = self.nsx.get_firewall_section_rules(firewall_section)
         self.assertEqual('DROP', output[0]['action'])
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('cf754eba-304f-441c-8402-0dba706fcf62')
     def test_provider_security_group_at_port_level(self):
         sg = self.create_security_provider_group(self.cmgr_adm,
@@ -234,7 +234,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
         kwargs = {"provider_security_groups": []}
         port_client.update_port(port_id['port']['id'], **kwargs)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('2c44a134-f013-46b7-a2ec-14c7c38a4d8c')
     def test_multiple_provider_security_group_only_on_newton(self):
         sg = self.create_security_provider_group(self.cmgr_adm, provider=True)
@@ -245,7 +245,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
                           self.create_security_provider_group,
                           self.cmgr_adm, provider=True)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('f45fc910-db83-4e0c-8ab6-178783626ad3')
     def test_multiple_provider_security_group_on_ocata_plus(self):
         # Ocata plus allows more than 1 provider security group
@@ -259,7 +259,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
         self.assertNotEqual(sg1.get('id'), sg2.get('id'))
         self.assertNotEqual(sg2.get('id'), sg3.get('id'))
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('275abe9f-4f01-46e5-bde0-0b6840290d3b')
     def test_provider_sec_group_with_multiple_rules(self):
         project_id = self.cmgr_adm.networks_client.tenant_id
@@ -277,7 +277,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
         sg_rule2_id = sg_rule2.get('id')
         self.assertNotEqual(sg_rule1_id, sg_rule2_id)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('5d25370e-da6a-44a7-8565-7b1c2fc39fdc')
     def test_clear_provider_sec_group_from_port(self):
         project_id = self.cmgr_adm.networks_client.tenant_id
@@ -308,7 +308,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
         kwargs = {"provider_security_groups": []}
         port_client.update_port(port_id['port']['id'], **kwargs)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('dfc6bb8e-ba7b-4ce5-b6ee-0d0830d7e152')
     def test_check_security_group_precedence_at_beckend(self):
         project_id = self.cmgr_adm.networks_client.tenant_id
@@ -346,7 +346,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
               "over default security group"
         self.assertIn(provider_sg_name, section['display_name'], msg)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('37d8fbfc-eb3f-40c8-a146-70f5df937a2e')
     def test_tenant_cannot_delete_admin_provider_security_group(self):
         project_id = self.cmgr_adm.networks_client.tenant_id
@@ -362,7 +362,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
                      "provider security group")
             pass
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('1bbebba3-780c-4e95-a95a-e52f577a6c1d')
     def test_tenant_cannot_create_provider_sec_group(self):
         project_id = self.cmgr_alt.networks_client.tenant_id
@@ -372,7 +372,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
                           provider=True)
         LOG.info("Non-Admin Tenant cannot create provider sec group")
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('0d021bb2-9e21-422c-a509-6ac27803b2a2')
     def test_update_port_with_psg(self):
         net_client = self.cmgr_adm.networks_client
@@ -410,7 +410,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
         kwargs = {"provider_security_groups": []}
         port_client.update_port(port_id['port']['id'], **kwargs)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('2922a7fb-75fb-4d9f-9fdb-4b017c191aba')
     def test_update_port_with_psg_using_different_tenant(self):
         net_client = self.cmgr_alt.networks_client
@@ -447,7 +447,7 @@ class ProviderSecurityGroupTest(base.BaseAdminNetworkTest):
         kwargs = {"provider_security_groups": []}
         port_client.update_port(port_id['port']['id'], **kwargs)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('cef8d816-e5fa-45a5-a5a5-f1f2ed8fb49f')
     def test_tenant_cannot_create_provider_sec_group_for_other_tenant(self):
         tenant_cmgr = self.cmgr_alt

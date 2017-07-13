@@ -19,7 +19,6 @@ from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
 from tempest.lib import exceptions as ex
-from tempest import test
 
 from oslo_log import log as logging
 
@@ -83,7 +82,7 @@ class PortTypeTest(base.BaseAdminNetworkTest):
                             self.delete_port, dir_port['id'])
         return dir_port
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('ebb15f36-79bd-4461-91b5-84a57616730c')
     def test_create_direct_port(self):
         """
@@ -95,7 +94,7 @@ class PortTypeTest(base.BaseAdminNetworkTest):
         self.assertEqual(dir_port['binding:vnic_type'], 'direct',
                          "Created port type is not DIRECT")
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('2eaa0014-3265-479c-9012-c110df566ef1')
     def test_enable_port_direct(self):
         """
@@ -120,7 +119,7 @@ class PortTypeTest(base.BaseAdminNetworkTest):
         self.assertEqual(updated_port['port']['binding:vnic_type'], 'direct',
                          "Port vnic-type was not updated to DIRECT")
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('d77125af-7e8f-4dcf-a3a4-7956b3eaa2d2')
     def test_delete_direct_port(self):
         """
@@ -134,7 +133,7 @@ class PortTypeTest(base.BaseAdminNetworkTest):
         self.assertFalse(self.delete_port(dir_port['id']),
                          "Delete of Direct port was not successful")
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('b69f5ff1-7e86-4790-9392-434cd9ab808f')
     def test_list_direct_ports(self):
         """
@@ -164,7 +163,7 @@ class PortTypeTest(base.BaseAdminNetworkTest):
         self.assertEmpty(ports_not_listed, "These ports not listed: %s"
                          % ports_not_listed)
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('9b7ec966-f4e4-4087-9789-96a3aa669fa2')
     def test_create_update_delete_direct_port(self):
         """
@@ -184,8 +183,8 @@ class PortTypeTest(base.BaseAdminNetworkTest):
                          "Port name should be updated to %s"
                          % updated_port_name)
 
-    @test.attr(type='nsxv')
-    @test.attr(type='negative')
+    @decorators.attr(type='nsxv')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('e661ba70-0ab4-4f91-8d84-c5c102ec5793')
     def test_create_direct_port_without_flat_network_negative(self):
         """
@@ -200,8 +199,8 @@ class PortTypeTest(base.BaseAdminNetworkTest):
         self.assertRaises(ex.BadRequest, self._create_direct_port,
                           network_id=test_net['id'])
 
-    @test.attr(type='nsxv')
-    @test.attr(type='negative')
+    @decorators.attr(type='nsxv')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('ee87287f-4ec6-4502-9bc1-855fa7c93e90')
     def test_create_direct_port_w_flat_net_wout_port_settings_negative(self):
         """
@@ -216,8 +215,8 @@ class PortTypeTest(base.BaseAdminNetworkTest):
                           self.create_port, network_id=test_flat_net['id'],
                           **orig_post)
 
-    @test.attr(type='nsxv')
-    @test.attr(type='negative')
+    @decorators.attr(type='nsxv')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('03e0065e-6d76-45d5-9192-ce89853dfa9e')
     def test_update_direct_port_w_flat_net_wout_port_configs_negative(self):
         """
@@ -240,8 +239,8 @@ class PortTypeTest(base.BaseAdminNetworkTest):
         self.assertRaises(ex.BadRequest, self.update_port,
                           test_port['port']['id'], **post_body)
 
-    @test.attr(type='nsxv')
-    @test.attr(type='negative')
+    @decorators.attr(type='nsxv')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('d3e75ed7-f3e5-4395-9ab0-063e7a8c141c')
     def test_update_direct_port_wout_flat_net_with_port_configs_negative(self):
         """

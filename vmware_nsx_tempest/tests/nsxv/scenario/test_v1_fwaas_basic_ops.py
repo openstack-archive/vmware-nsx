@@ -398,7 +398,7 @@ class FWaaSTestBasicOps(dmgr.TopoDeployScenarioManager):
         self.assertEqual(router['name'], router_name)
         return router
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('e2ab2d1a-4dc0-4efd-b03d-8c2322b427f0')
     def test_firewall_icmp_rule_with_exclusive_router(self):
         # Create router required for an ACTIVE firewall
@@ -411,7 +411,7 @@ class FWaaSTestBasicOps(dmgr.TopoDeployScenarioManager):
         out = self._test_ping_from_external_network(fip_ip)
         self.assertIn("0 received", str(out))
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('fd39455a-232e-4f7f-b102-2853688335dc')
     def test_firewall_tcp_rule_with_exclusive_router(self):
         # Create router required for an ACTIVE firewall
@@ -424,7 +424,7 @@ class FWaaSTestBasicOps(dmgr.TopoDeployScenarioManager):
         out = self._test_ssh_connectivity_from_external_network(fip_ip)
         self.assertIn("Servname not supported", out)
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('3628448a-5977-44e3-b34a-690e4e2ba847')
     def test_firewall_icmp_rule_with_distributed_router(self):
         # Create router required for an ACTIVE firewall
@@ -437,7 +437,7 @@ class FWaaSTestBasicOps(dmgr.TopoDeployScenarioManager):
         out = self._test_ping_from_external_network(fip_ip)
         self.assertIn("0 received", str(out))
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('0aeb2acc-0b68-4cca-889d-078f61bbe5b2')
     def test_firewall_tcp_rule_with_distributed_router(self):
         # Create router required for an ACTIVE firewall
@@ -450,7 +450,7 @@ class FWaaSTestBasicOps(dmgr.TopoDeployScenarioManager):
         out = self._test_ssh_connectivity_from_external_network(fip_ip)
         self.assertIn("Servname not supported", out)
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('4a0306e5-663c-4981-8177-e8a255a8859c')
     def test_firewall_update_delete_ops_on_exclusive_router(self):
         # Create router required for an ACTIVE firewall

@@ -334,7 +334,7 @@ class QosPolicyTest(BaseQosTest):
 
         self._disassociate_network(network['id'], self.primary_mgr)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('9efe63d0-836f-4cc2-b00c-468e63aa614e')
     def test_policy_association_with_network_nonexistent_policy(self):
         """Can not attach network to a nonexist policy."""
@@ -348,7 +348,7 @@ class QosPolicyTest(BaseQosTest):
         self.assertIsNone(retrieved_network['qos_policy_id'],
                           'Error: Network is attached to non-existent policy')
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('1aa55a79-324f-47d9-a076-894a8fc2448b')
     def test_policy_association_with_network_non_shared_policy(self):
         """tenant/project can not attach network with not-shared policy."""
@@ -398,8 +398,8 @@ class QosPolicyTest(BaseQosTest):
         updated_port = self.show_port(port_id, client_mgr=client_mgr)
         self.assertIsNone(updated_port['qos_policy_id'])
 
-    @test.attr(type='nsxv3')
-    @test.attr(type='negative')
+    @decorators.attr(type='nsxv3')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('98fcd95e-84cf-4746-860e-44692e674f2e')
     def test_policy_association_with_port_shared_policy(self):
         """test port can associate shared policy."""
@@ -422,8 +422,8 @@ class QosPolicyTest(BaseQosTest):
 
         self._disassociate_port(port['id'], client_mgr=self.primary_mgr)
 
-    @test.attr(type='negative')
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='negative')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('49e02f5a-e1dd-41d5-9855-cfa37f2d195e')
     def test_policy_association_with_port_nonexistent_policy(self):
         """test port cannot be created with nonexist policy."""
@@ -436,8 +436,8 @@ class QosPolicyTest(BaseQosTest):
             network,
             qos_policy_id='49e02f5a-e1dd-41d5-9855-cfa37f2d195e')
 
-    @test.attr(type='negative')
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='negative')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('f53d961c-9fe5-4422-8b66-7add972c6031')
     def test_policy_association_with_port_non_shared_policy(self):
         """project/tenant can not associate port with non-shared policy."""
@@ -459,7 +459,7 @@ class QosPolicyTest(BaseQosTest):
         self.assertIsNone(retrieved_port['qos_policy_id'],
                           'Error:Port is attached to qos policy')
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('f8163237-fba9-4db5-9526-bad6d2343c76')
     def test_policy_update_association_with_port_shared_policy(self):
         """project/tenant can update port with shared policy."""
@@ -487,7 +487,7 @@ class QosPolicyTest(BaseQosTest):
 
         self._disassociate_port(port['id'])
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('18163237-8ba9-4db5-9525-bad6d2343c75')
     def test_delete_not_allowed_if_policy_in_use_by_network(self):
         """can not delete policy if used by network."""
@@ -507,8 +507,8 @@ class QosPolicyTest(BaseQosTest):
         self._disassociate_network(network['id'], self.admin_mgr)
         self.adm_qos_client.delete_policy(policy['id'])
 
-    @test.attr(type='negative')
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='negative')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('24153230-84a9-4dd5-9525-bad6d2343c75')
     def test_delete_not_allowed_if_policy_in_use_by_port(self):
         """can not delete policy if used by port."""
@@ -583,7 +583,7 @@ class QosBandwidthLimitRuleTest(BaseQosTest):
         self.assertEqual(base_qos.RULE_TYPE_BANDWIDTH_LIMIT,
                          policy_rules[0]['type'])
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('8a59b00b-ab01-4787-92f8-93a5cdf5e378')
     def test_rule_create_fail_for_the_same_type(self):
         """One bandwidth limit rule per policy."""
@@ -648,7 +648,7 @@ class QosBandwidthLimitRuleTest(BaseQosTest):
                           qos_client.show_bandwidth_limit_rule,
                           rule['id'], policy['id'])
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('f211222c-5808-46cb-a961-983bbab6b852')
     def test_rule_create_rule_nonexistent_policy(self):
         """Cannot create rule with nonexist policy."""
@@ -657,7 +657,7 @@ class QosBandwidthLimitRuleTest(BaseQosTest):
             self.create_qos_bandwidth_limit_rule,
             'policy', max_kbps=200, max_burst_kbps=1337)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('eed8e2a6-22da-421b-89b9-935a2c1a1b50')
     def test_policy_create_forbidden_for_regular_tenants(self):
         """project/tenant cannot create policy."""
@@ -667,7 +667,7 @@ class QosBandwidthLimitRuleTest(BaseQosTest):
             'test-policy', 'test policy', False,
             qos_client=self.pri_qos_client)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('a4a2e7ad-786f-4927-a85a-e545a93bd274')
     def test_rule_create_forbidden_for_regular_tenants(self):
         """project/tenant cannot create rule."""
@@ -740,7 +740,7 @@ class QosDscpMarkingRuleTest(BaseQosTest):
         self.assertEqual(base_qos.RULE_TYPE_DSCP_MARK,
                          policy_rules[0]['type'])
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('8b59b10b-ab01-4787-92f8-93a5cdf5e378')
     def test_rule_create_fail_for_the_same_type(self):
         """One dscp marking rule per policy."""
@@ -797,7 +797,7 @@ class QosDscpMarkingRuleTest(BaseQosTest):
                           qos_client.show_dscp_marking_rule,
                           rule['id'], policy['id'])
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('f215222c-5808-46cb-a961-983bbab6b852')
     def test_rule_create_rule_nonexistent_policy(self):
         """can not create dscp marking rule with nonexist policy."""
@@ -806,7 +806,7 @@ class QosDscpMarkingRuleTest(BaseQosTest):
             self.create_qos_dscp_marking_rule,
             'policy', self.VALID_DSCP_MARK1)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('a4a2e3ad-786f-4927-a85a-e545a93bd274')
     def test_rule_create_forbidden_for_regular_tenants(self):
         """project/tenant can not create dscp marking rule."""
@@ -816,7 +816,7 @@ class QosDscpMarkingRuleTest(BaseQosTest):
             'policy', self.VALID_DSCP_MARK1,
             qos_client=self.pri_qos_client)
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('32646b08-4f05-4493-a48a-bde768a18533')
     def test_invalid_rule_create(self):
         """Can not create rule with invalid dscp_mark value."""

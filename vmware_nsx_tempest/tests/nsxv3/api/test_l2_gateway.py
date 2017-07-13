@@ -18,7 +18,6 @@
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib import decorators
-from tempest import test
 
 from vmware_nsx_tempest.common import constants
 from vmware_nsx_tempest.services import base_l2gw
@@ -33,7 +32,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
     Test l2 gateway operations.
     """
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("e5e3a089-602c-496e-8c17-4ef613266924")
     def test_l2_gateway_create_without_vlan(self):
         """
@@ -58,7 +57,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
                          "Device name is not the same as expected")
         self.resource_cleanup()
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("9968a529-e785-472f-8705-9b394a912e43")
     def test_l2_gateway_with_single_vlan(self):
         """
@@ -95,7 +94,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
             self.assertIn(id, response_vlans)
         self.resource_cleanup()
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("3861aab0-4f76-4472-ad0e-a255e6e42193")
     def test_l2_gateway_with_multiple_vlans(self):
         """
@@ -132,7 +131,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
             self.assertIn(id, response_vlans)
         self.resource_cleanup()
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("670cbcb5-134e-467d-ba41-0d7cdbcf3903")
     def test_l2_gateway_delete(self):
         """
@@ -163,7 +162,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
         self.l2gw_created.pop(l2gw_id)
         self.resource_cleanup()
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("fa76f6e6-8aa7-46d8-9af4-2206d0773dc3")
     def test_l2_gateway_update_l2gw_name(self):
         """
@@ -205,7 +204,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
                                                  "name": l2gw_new_name})
         self.resource_cleanup()
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("c4977df8-8e3a-4b7e-a8d2-5aa757117658")
     def test_l2_gateway_update_interface(self):
         """
@@ -251,7 +250,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
                              "L2GW segmentation id update failed!!!")
         self.resource_cleanup()
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("5a3cef97-c91c-4e03-92c8-d180f9269f27")
     def test_l2_gateway_show(self):
         """
@@ -294,7 +293,7 @@ class L2GatewayTest(base_l2gw.BaseL2GatewayTest):
             self.assertIn(id, response_vlans)
         self.resource_cleanup()
 
-    @test.attr(type="nsxv3")
+    @decorators.attr(type="nsxv3")
     @decorators.idempotent_id("d4a7d3af-e637-45c5-a967-d179153a6e58")
     def test_l2_gateway_list(self):
         """

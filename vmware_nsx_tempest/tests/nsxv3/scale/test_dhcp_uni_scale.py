@@ -19,7 +19,6 @@ from tempest.api.network import base
 from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib import decorators
-from tempest import test
 
 from vmware_nsx_tempest.services import nsxv3_client
 
@@ -120,42 +119,42 @@ class NSXv3DHCPUniScaleTest(base.BaseNetworkTest):
             dhcp_server['id'])
         self.assertEqual(len(dhcp_bindings), scale)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('c5fa8d5d-3973-4d77-a0d4-f28b2ae92a2c')
     def test_create_100_logical_dhcp_server(self):
         self._create_scale_logical_dhcp_server(100)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('c2b264a2-daab-451f-ad3b-f0713a390f47')
     def test_create_500_logical_dhcp_server(self):
         self._create_scale_logical_dhcp_server(500)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('5ba22b0f-4593-4509-8998-a3002ce63406')
     def test_create_1k_logical_dhcp_server(self):
         self._create_scale_logical_dhcp_server(1000)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('ddf3d789-838a-428a-b4fe-8fe214f0e956')
     def test_create_2k_logical_dhcp_server(self):
         self._create_scale_logical_dhcp_server(2000)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('ed5441be-a700-45fa-bec1-b1d100acbb73')
     def test_create_4k_logical_dhcp_server(self):
         self._create_scale_logical_dhcp_server(4000)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('4a5484e3-f9b8-4562-8a4c-d8974a703767')
     def test_create_100_dhcp_bindings(self):
         self._create_scale_dhcp_bindings(100)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('cbb8af8c-db3a-4ad2-8954-c41670956c52')
     def test_create_256_dhcp_bindings(self):
         self._create_scale_dhcp_bindings(256)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('ffa5db0b-5922-494d-bcd3-9d5b0b10b684')
     def test_create_512_dhcp_bindings(self):
         self._create_scale_dhcp_bindings(512)

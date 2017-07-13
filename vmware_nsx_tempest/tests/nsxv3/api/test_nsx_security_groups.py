@@ -101,7 +101,7 @@ class NSXv3SecGroupTest(base.BaseSecGroupTest):
         self.assertIsNotNone(nsx_dfw_section, dfw_error_msg)
         return nsx_nsgroup, nsx_dfw_section
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('904ca2c1-a14d-448b-b723-a7366e613bf1')
     def test_create_update_nsx_security_group(self):
         # Create a security group
@@ -128,7 +128,7 @@ class NSXv3SecGroupTest(base.BaseSecGroupTest):
                         updated_secgroup['name']
         self._wait_till_firewall_gets_realize(updated_secgroup, dfw_error_msg)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('e637cc59-c5e6-49b5-a539-e517e780656e')
     def test_delete_nsx_security_group(self):
         # Create a security group
@@ -147,7 +147,7 @@ class NSXv3SecGroupTest(base.BaseSecGroupTest):
         self.assertIsNone(nsx_nsgroup)
         self.assertIsNone(nsx_dfw_section)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('91c298c0-fbbd-4597-b4c6-1a7ecfb8a2de')
     def test_create_nsx_security_group_rule(self):
         # Create a security group
@@ -205,7 +205,7 @@ class NSXv3SecGroupTest(base.BaseSecGroupTest):
                 self.assertEqual(value, nsx_dfw_rule[key],
                                  "%s does not match." % key)
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('b6c424e5-3553-4b7d-bd95-8b1f0a860fb4')
     def test_delete_nsx_security_group_rule(self):
         # Create a security group

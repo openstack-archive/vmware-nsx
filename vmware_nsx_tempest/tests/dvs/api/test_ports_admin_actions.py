@@ -16,7 +16,6 @@
 import base_dvs as base
 from tempest.lib.common.utils import data_utils
 from tempest.lib import decorators
-from tempest import test
 
 
 class AdminPortsTestJSON(base.BaseDvsAdminNetworkTest):
@@ -55,7 +54,7 @@ class AdminPortsTestJSON(base.BaseDvsAdminNetworkTest):
         self.assertEqual(updated_port['name'], new_name)
         self.assertFalse(updated_port['admin_state_up'])
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('d3dcd23b-7d5a-4720-8d88-473fb154d609')
     def test_show_port(self):
         # Verify the details of port
@@ -75,7 +74,7 @@ class AdminPortsTestJSON(base.BaseDvsAdminNetworkTest):
                          port['security_groups'])
         self.assertEqual(port['fixed_ips'], [])
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('c5f74042-c512-4569-b9b9-bc2bf46e77e1')
     def test_list_ports(self):
         # Verify the port exists in the list of all ports
@@ -85,7 +84,7 @@ class AdminPortsTestJSON(base.BaseDvsAdminNetworkTest):
         self.assertNotEmpty(ports, "Created port not found in the list")
 
     @decorators.idempotent_id('2775f96c-a09b-49e1-a5a4-adb83a3e91c7')
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     def test_list_ports_fields(self):
         # Verify specific fields of ports
         fields = ['binding:vif_type', 'id', 'mac_address']

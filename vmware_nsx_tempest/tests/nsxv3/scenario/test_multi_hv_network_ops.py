@@ -158,7 +158,7 @@ class TestMultiHVNetworkOps(manager.NetworkScenarioTest):
                               {'dest': remote_ip, 'src': floating_ip})
                 raise
 
-    @test.attr(type='nsxv3')
+    @decorators.attr(type='nsxv3')
     @decorators.idempotent_id('42373fef-cb05-47c9-bb67-32b7a3b48168')
     def test_multi_hv_network_l2_ops(self):
         """Test connectivity between ESX VM and KVM VM on same network

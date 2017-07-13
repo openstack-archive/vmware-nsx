@@ -22,7 +22,6 @@ from tempest import config
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
-from tempest import test
 
 from vmware_nsx_tempest.common import constants
 from vmware_nsx_tempest.services import nsxv_client
@@ -175,7 +174,7 @@ class TestSpoofGuardBasicOps(dmgr.TopoDeployScenarioManager):
 
 
 class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('2804f55d-3221-440a-9fa8-ab16a8932634')
     def test_exclude_list_with_new_attach_port(self):
         port_client = self.manager.ports_client
@@ -210,7 +209,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         # Detach interface from vm
         self.interface_client.delete_interface(vm_id, port_id)
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('a5420350-2658-47e4-9e2b-490b200e9f41')
     def test_spoofguard_with_ping_between_servers_on_same_network(self):
         username, password = self.get_image_userpass()
@@ -287,7 +286,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
             cidr=cidr, cidr_offset=cidr_offset, name=net_network['name'])
         return net_network, net_subnet
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('38c213df-bfc2-4681-9c9c-3a31c05b0e6f')
     def test_exclude_with_multiple_vm(self):
         image = self.get_server_image()
@@ -357,7 +356,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
             if vm_id not in exclude_vm:
                 LOG.info("Vm1 not in exclude list")
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('f034d3e9-d717-4bcd-8e6e-18e9ada7b81a')
     def test_exclude_list_with_single_vm_port(self):
         port_client = self.manager.ports_client
@@ -385,7 +384,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
                 LOG.info("Vm not in exclude list")
         self.interface_client.delete_interface(vm_id, port_id)
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('3ad04e37-2a9f-4465-86e7-94993eecdfa1')
     def test_disabled_network_port_security(self):
         network_client = self.manager.networks_client
@@ -415,7 +414,7 @@ class TestSpoofGuardFeature(TestSpoofGuardBasicOps):
         if (port_details['port']['port_security_enabled'] == 'true'):
             LOG.info("Port security of port is enabled")
 
-    @test.attr(type='nsxv')
+    @decorators.attr(type='nsxv')
     @decorators.idempotent_id('c8683cb7-4be5-4670-95c6-344a0aea3667')
     def test_exclude_list_with_multiple_ports(self):
         port_client = self.manager.ports_client

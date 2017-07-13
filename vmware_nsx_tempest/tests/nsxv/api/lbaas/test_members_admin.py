@@ -15,7 +15,6 @@ from oslo_log import log as logging
 from tempest import config
 from tempest.lib import decorators
 from tempest.lib import exceptions as ex
-from tempest import test
 
 from vmware_nsx_tempest.tests.nsxv.api.lbaas import base
 
@@ -54,7 +53,7 @@ class MemberTest(base.BaseAdminTestCase):
     def resource_cleanup(cls):
         super(MemberTest, cls).resource_cleanup()
 
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @decorators.idempotent_id('03eeec24-78d8-4c2f-8d6c-4a78817f352e')
     def test_create_member_invalid_tenant_id(self):
         """Test create member with invalid tenant_id"""
@@ -69,7 +68,7 @@ class MemberTest(base.BaseAdminTestCase):
         self.assertEqual(member['subnet_id'], self.subnet_id)
         self.assertEqual(member['tenant_id'], "$232!$pw")
 
-    @test.attr(type='negative')
+    @decorators.attr(type='negative')
     @decorators.idempotent_id('01c9ea0c-bdfe-4108-95d1-69ecdc0a1f26')
     def test_create_member_empty_tenant_id(self):
         """Test create member with an empty tenant_id should fail

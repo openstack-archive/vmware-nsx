@@ -271,7 +271,7 @@ class TestMDProxy(manager.NetworkScenarioTest):
         self.verify_md_proxy_logical_ports_on_backend()
 
     @decorators.idempotent_id("cc8d2ab8-0bea-4e32-bf80-c9c46a7612b7")
-    @test.attr(type=["negative"])
+    @decorators.attr(type=["negative"])
     @test.services("compute", "network")
     def test_mdproxy_delete_when_ls_bounded(self):
         (network_id, _) = self._create_net_subnet_router_interface()
@@ -324,7 +324,7 @@ class TestMDProxy(manager.NetworkScenarioTest):
         self.verify_metadata_in_detail(instance=instance2)
 
     @decorators.idempotent_id("29d44d7c-6ea1-4b30-a6c3-a2695c2486fe")
-    @test.attr(type=["negative"])
+    @decorators.attr(type=["negative"])
     @test.services("compute", "network")
     def test_mdproxy_with_incorrect_password(self):
         router = self._create_router(
