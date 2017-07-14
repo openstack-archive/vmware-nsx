@@ -1773,11 +1773,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                     ip, port):
         try:
             hostname = 'host-%s' % ip.replace('.', '-')
-            gateway_ip = self.get_subnet(
-                context, subnet_id).get('gateway_ip')
+            subnet = self.get_subnet(context, subnet_id)
+            gateway_ip = subnet.get('gateway_ip')
             options = {'option121': {'static_routes': [
                 {'network': '%s' % cfg.CONF.nsx_v3.native_metadata_route,
                  'next_hop': ip}]}}
+            # update static routes
+            for hr in subnet['host_routes']:
+                options['option121']['static_routes'].append(
+                    {'network': hr['destination'],
+                     'next_hop': hr['nexthop']})
             binding = self._dhcp_server.create_binding(
                 dhcp_service_id, port['mac_address'], ip, hostname,
                 cfg.CONF.nsx_v3.dhcp_lease_time, options, gateway_ip)
