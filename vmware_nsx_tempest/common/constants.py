@@ -1,4 +1,4 @@
-# Copyright 2016 VMware, Inc.
+# Copyright 2017 VMware, Inc.
 # All Rights Reserved
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -54,3 +54,8 @@ EXCLUSIVE_ROUTER = 'exclusive'
 DISTRIBUTED_ROUTER = 'distributed'
 TCP_PROTOCOL = 'tcp'
 ICMP_PROTOCOL = 'icmp'
+
+# NSXV3 Firewall
+NSX_FIREWALL_REALIZED_DELAY = 2
+
+APPLIANCE_NAME_STARTS_WITH = "vmw_"

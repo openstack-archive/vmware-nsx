@@ -15,12 +15,15 @@
 
 import base64
 from copy import deepcopy
+import time
 
 import requests
 import six.moves.urllib.parse as urlparse
 
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
+
+from vmware_nsx_tempest.common import constants
 
 requests.packages.urllib3.disable_warnings()
 
@@ -70,7 +73,7 @@ class NSXV3Client(object):
         self.api_version = api_version
 
     def get_api_version(self):
-        return self.api
+        return self.api_version
 
     def __set_url(self, api=None, secure=None, host=None, endpoint=None):
         api = self.api_version if api is None else api
@@ -357,8 +360,18 @@ class NSXV3Client(object):
                       "created")
             return None
         nsx_name = os_name + " - " + os_uuid
-        fw_sections = self.get_firewall_sections()
-        return self.get_nsx_resource_by_name(fw_sections, nsx_name)
+        nsx_firewall_time_counter = 0
+        nsx_dfw_section = None
+        # wait till timeout or till dfw section
+        while nsx_firewall_time_counter < \
+                constants.NSX_FIREWALL_REALIZED_TIMEOUT and \
+                not nsx_dfw_section:
+            nsx_firewall_time_counter += 1
+            fw_sections = self.get_firewall_sections()
+            nsx_dfw_section = self.get_nsx_resource_by_name(fw_sections,
+                                                            nsx_name)
+            time.sleep(constants.ONE_SEC)
+        return nsx_dfw_section
 
     def get_firewall_section_rules(self, fw_section):
         """
@@ -521,10 +534,10 @@ class NSXV3Client(object):
         """
         cert_response = self.get_nsx_certificate()
         for cert in cert_response['results']:
-            if (cert["_create_user"] == "admin" and
-                cert["resource_type"] == "certificate_self_signed" and
-                cert["display_name"]
-                != "NSX MP Client Certificate for Key Manager"):
+            if (cert["_create_user"] == "admin" and cert[
+                "resource_type"] == "certificate_self_signed" and cert[
+                "display_name"] != "NSX MP Client Certificate for Key "
+                                   "Manager"):
                 LOG.info('Client certificate created')
                 return cert
         LOG.error("Client Certificate not created")

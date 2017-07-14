@@ -166,6 +166,18 @@ L2gwGroup = [
                default="192.168.1.0/24",
                help="Subnet 1 network cidr."
                     "Example: 1.1.1.0/24"),
+    cfg.StrOpt('vm_on_vds_tz1_vlan16_ip',
+               default="192.168.1.203",
+               help="IPv4 IP address of VM3"),
+    cfg.StrOpt('vm_on_switch_vlan16',
+               default="192.168.1.204",
+               help="IPv4 IP address of VM4"),
+    cfg.StrOpt('vm_on_vds_tz2_vlan16_ip',
+               default="192.168.1.205",
+               help="IPv4 IP address of VM5"),
+    cfg.StrOpt('vm_on_vds_tz2_vlan17_ip',
+               default="192.168.1.206",
+               help="IPv4 IP address of VM6"),
 ]
 
 nsxv3_group = cfg.OptGroup(name='nsxv3',
