@@ -284,56 +284,41 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                                                      target_router_id,
                                                      router_ids,
                                                      allow_external=True):
-        fake_fw_rules = []
+        fw_rules = []
         for router_id in router_ids:
+            # Add FW rules per single router
             router_qry = context.session.query(l3_db_models.Router)
             router = router_qry.filter_by(id=router_id).one()
-            subnet_cidrs = self.plugin._find_router_subnets_cidrs(
-                context, router['id'])
-            routes = self.plugin._get_extra_routes_by_router_id(
-                context, router['id'])
-            subnet_cidrs.extend([route['destination'] for route in routes])
-            if subnet_cidrs:
-                # Add fw rule to open subnets firewall flows and static routes
-                # relative flows
-                fake_subnet_fw_rule = {
-                    'name': 'Subnet Rule',
-                    'action': 'allow',
-                    'enabled': True,
-                    'source_ip_address': subnet_cidrs,
-                    'destination_ip_address': subnet_cidrs}
-                fake_fw_rules.append(fake_subnet_fw_rule)
-            _, dnat_rules = self.plugin._get_nat_rules(context, router)
-            dnat_cidrs = [rule['dst'] for rule in dnat_rules]
-            if dnat_cidrs:
-                # Fake fw rule to open dnat firewall flows
-                fake_dnat_fw_rule = {
-                    'name': 'DNAT Rule',
-                    'action': 'allow',
-                    'enabled': True,
-                    'destination_ip_address': dnat_cidrs}
-                fake_fw_rules.append(fake_dnat_fw_rule)
+
+            # subnet rules to allow east-west traffic
+            subnet_rules = self.plugin._get_subnet_fw_rules(context, router)
+            if subnet_rules:
+                fw_rules.extend(subnet_rules)
+
+            # DNAT rules
+            dnat_rule = self.plugin._get_dnat_fw_rule(context, router)
+            if dnat_rule:
+                fw_rules.append(dnat_rule)
 
             # Add rule for not NAT-ed allocation pools
             alloc_pool_rule = self.plugin._get_allocation_pools_fw_rule(
                 context, router)
             if alloc_pool_rule:
-                fake_fw_rules.append(alloc_pool_rule)
+                fw_rules.append(alloc_pool_rule)
 
             # Add no-snat rules
             nosnat_fw_rules = self.plugin._get_nosnat_subnets_fw_rules(
                 context, router)
-            fake_fw_rules.extend(nosnat_fw_rules)
+            fw_rules.extend(nosnat_fw_rules)
 
         # If metadata service is enabled, block access to inter-edge network
         if self.plugin.metadata_proxy_handler:
-            fake_fw_rules += (
-                nsx_v_md_proxy.get_router_fw_rules())
+            fw_rules += nsx_v_md_proxy.get_router_fw_rules()
 
         # TODO(asarfaty): Add fwaas rules when fwaas supports shared routers
-        fake_fw = {'firewall_rule_list': fake_fw_rules}
+        fw = {'firewall_rule_list': fw_rules}
         edge_utils.update_firewall(self.nsx_v, context, target_router_id,
-                                   fake_fw, allow_external=allow_external)
+                                   fw, allow_external=allow_external)
 
     def update_routes(self, context, router_id, nexthop):
         edge_id = edge_utils.get_router_edge_id(context, router_id)
