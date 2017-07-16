@@ -133,6 +133,22 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
         subnets = self._find_router_subnets_and_cidrs(context, router_id)
         return [subnet['cidr'] for subnet in subnets]
 
+    def _find_router_subnets_cidrs_per_addr_scope(self, context, router_id):
+        """Generate a list of cidrs per address pool.
+
+        Go over all the router interface subnets.
+        return a list of lists of subnets cidrs belonging to same
+        address pool.
+        """
+        subnets = self._find_router_subnets_and_cidrs(context, router_id)
+        cidrs_map = {}
+        for subnet in subnets:
+            ads = self._get_subnet_address_scope(context, subnet['id']) or ''
+            if ads not in cidrs_map:
+                cidrs_map[ads] = []
+            cidrs_map[ads].append(subnet['cidr'])
+        return list(cidrs_map.values())
+
     def _get_port_by_device_id(self, context, device_id, device_owner):
         """Retrieve ports associated with a specific device id.
 

@@ -187,6 +187,9 @@ class TestExclusiveRouterWithMdTestCase(
     def test_router_address_scope_snat_rules(self):
         self.skipTest("The test is not suitable for the metadata test case")
 
+    def test_router_address_scope_fw_rules(self):
+        self.skipTest("The test is not suitable for the metadata test case")
+
 
 class TestVdrWithMdTestCase(test_plugin.TestVdrTestCase,
                             NsxVPluginWithMdV2TestCase):
