@@ -29,6 +29,7 @@ from neutron.extensions import l3_ext_gw_mode
 from neutron.extensions import l3_flavors
 from neutron.extensions import router_availability_zone
 from neutron.extensions import securitygroup as secgrp
+from neutron.plugins.common import utils
 from neutron.services.qos import qos_consts
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.db.test_allowedaddresspairs_db as test_addr_pair
@@ -269,6 +270,34 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
 
     def test_create_bridge_vlan_network(self):
         self._test_create_bridge_network(vlan_id=123)
+
+    def _test_generate_tag(self, vlan_id):
+        net_type = 'vlan'
+        name = 'bridge_net'
+        plugin = directory.get_plugin()
+        plugin._network_vlans = utils.parse_network_vlan_ranges(
+            cfg.CONF.nsxv.network_vlan_ranges)
+        expected = [('subnets', []), ('name', name), ('admin_state_up', True),
+                    ('status', 'ACTIVE'), ('shared', False),
+                    (pnet.NETWORK_TYPE, net_type),
+                    (pnet.PHYSICAL_NETWORK, 'dvs-70'),
+                    (pnet.SEGMENTATION_ID, vlan_id)]
+        providernet_args = {pnet.NETWORK_TYPE: net_type,
+                            pnet.PHYSICAL_NETWORK: 'dvs-70'}
+        with self.network(name=name,
+                          providernet_args=providernet_args,
+                          arg_list=(pnet.NETWORK_TYPE,
+                                    pnet.PHYSICAL_NETWORK)) as net:
+            for k, v in expected:
+                self.assertEqual(net['network'][k], v)
+
+    def test_create_bridge_vlan_generate(self):
+        cfg.CONF.set_default('network_vlan_ranges', 'dvs-70', 'nsxv')
+        self._test_generate_tag(1)
+
+    def test_create_bridge_vlan_generate_range(self):
+        cfg.CONF.set_default('network_vlan_ranges', 'dvs-70:100:110', 'nsxv')
+        self._test_generate_tag(100)
 
     def test_create_bridge_vlan_network_outofrange_returns_400(self):
         with testlib_api.ExpectedException(

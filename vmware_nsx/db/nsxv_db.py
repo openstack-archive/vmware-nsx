@@ -528,6 +528,18 @@ def get_network_bindings_by_vlanid_and_physical_net(session, vlan_id,
             all())
 
 
+def get_network_bindings_by_ids(session, vlan_id, phy_uuid):
+    return get_network_bindings_by_vlanid_and_physical_net(
+        session, vlan_id, phy_uuid)
+
+
+def get_network_bindings_by_physical_net(session, phy_uuid):
+    session = session or db.get_reader_session()
+    return (session.query(nsxv_models.NsxvTzNetworkBinding).
+            filter_by(phy_uuid=phy_uuid).
+            all())
+
+
 def delete_network_bindings(session, network_id):
     return (session.query(nsxv_models.NsxvTzNetworkBinding).
             filter_by(network_id=network_id).delete())
