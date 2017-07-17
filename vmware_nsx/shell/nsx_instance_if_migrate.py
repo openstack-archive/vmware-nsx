@@ -177,6 +177,10 @@ def instance_migrate(libvirt_conn, neutron, instance, machine_type,
 
     devs = root.find('devices')
     ifaces = devs.findall('interface')
+
+    if not ifaces:
+        LOG.error('No interfaces to migrate for instance %s', instance_name)
+
     for iface in ifaces:
         iface_migrate(neutron, instance_name, iface, nsx_switch)
 
@@ -217,6 +221,9 @@ def main():
         exit(1)
 
     instances = conn.listAllDomains()
+    if not instances:
+        LOG.error('No instances to migrate')
+
     for instance in instances:
         try:
             instance_migrate(conn, neutron, instance, opts.get('machine-type'),
