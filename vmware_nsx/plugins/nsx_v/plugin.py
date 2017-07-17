@@ -1338,8 +1338,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if is_dhcp_backend_deleted:
                 subnets = self._get_subnets_by_network(context, id)
                 for subnet in subnets:
-                    super(NsxVPluginV2, self).delete_subnet(
-                        context, subnet['id'])
+                    self.base_delete_subnet(context, subnet['id'])
+
             super(NsxVPluginV2, self).delete_network(context, id)
 
         # Do not delete a predefined port group that was attached to
@@ -2110,6 +2110,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         self._delete_dhcp_static_binding(context, neutron_db_port)
 
+    def base_delete_subnet(self, context, subnet_id):
+        with locking.LockManager.get_lock('neutron-base-subnet'):
+            super(NsxVPluginV2, self).delete_subnet(context, subnet_id)
+
     def delete_subnet(self, context, id):
         subnet = self._get_subnet(context, id)
         filters = {'fixed_ips': {'subnet_id': [id]}}
@@ -2123,10 +2127,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # from backend.
         network_id = subnet['network_id']
         with locking.LockManager.get_lock(network_id):
+            with context.session.begin(subtransactions=True):
+                self.base_delete_subnet(context, id)
             with locking.LockManager.get_lock('nsx-edge-pool'):
-                with context.session.begin(subtransactions=True):
-                    super(NsxVPluginV2, self).delete_subnet(context, id)
-
                 if subnet['enable_dhcp']:
                     # There is only DHCP port available
                     if len(ports) == 1:
@@ -2231,6 +2234,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 raise
         return new_subnets
 
+    def base_create_subnet(self, context, subnet):
+        with locking.LockManager.get_lock('neutron-base-subnet'):
+            return super(NsxVPluginV2, self).create_subnet(context, subnet)
+
     def create_subnet(self, context, subnet):
         """Create subnet on nsx_v provider network.
 
@@ -2257,8 +2264,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 raise n_exc.InvalidInput(error_message=err_msg)
 
         with locking.LockManager.get_lock(subnet['subnet']['network_id']):
-            with locking.LockManager.get_lock('nsx-edge-pool'):
-                s = super(NsxVPluginV2, self).create_subnet(context, subnet)
+            s = self.base_create_subnet(context, subnet)
             self._extension_manager.process_create_subnet(
                 context, subnet['subnet'], s)
             if s['enable_dhcp']:
@@ -2270,8 +2276,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     self._update_dhcp_service_with_subnet(context, s)
                 except Exception:
                     with excutils.save_and_reraise_exception():
-                        super(NsxVPluginV2, self).delete_subnet(context,
-                                                                s['id'])
+                        self.base_delete_subnet(context, s['id'])
         return s
 
     def _process_subnet_ext_attr_create(self, session, subnet_db,
