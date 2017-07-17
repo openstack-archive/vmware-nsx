@@ -25,12 +25,12 @@ from tempest import exceptions
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
-from tempest.scenario import manager
 from tempest import test
 
 from vmware_nsx_tempest.services import load_balancer_v1_client as LBV1C
 from vmware_nsx_tempest.tests.nsxv.scenario import (
     network_addon_methods as HELO)
+from vmware_nsx_tempest.tests.scenario import manager
 
 CONF = config.CONF
 

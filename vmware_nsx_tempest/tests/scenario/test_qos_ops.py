@@ -34,9 +34,8 @@ from tempest.lib import decorators
 from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
 
-from tempest.scenario import manager
-
 from vmware_nsx_tempest.services.qos import base_qos
+from vmware_nsx_tempest.tests.scenario import manager
 
 CONF = config.CONF
 LOG = logging.getLogger(__name__)
