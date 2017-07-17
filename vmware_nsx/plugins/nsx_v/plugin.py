@@ -3549,6 +3549,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         fw_rules = []
         router_with_firewall = True if fwaas_rules is not None else False
         neutron_id = router_db['id']
+        edge_id = self._get_edge_id_by_rtr_id(context, router_id)
 
         # Add FW rule to open subnets firewall flows and static routes
         # relative flows
@@ -3595,9 +3596,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 context, router_db)
             fw_rules.extend(nosnat_fw_rules)
 
+            vpn_plugin = directory.get_plugin(plugin_const.VPN)
+            if vpn_plugin:
+                vpn_driver = vpn_plugin.ipsec_driver
+                vpn_rules = (
+                    vpn_driver._generate_ipsecvpn_firewall_rules(edge_id))
+                fw_rules.extend(vpn_rules)
+
         # Get the load balancer rules in case they are refreshed
         # (relevant only for older LB that are still on the router edge)
-        edge_id = self._get_edge_id_by_rtr_id(context, router_id)
         lb_rules = nsxv_db.get_nsxv_lbaas_loadbalancer_binding_by_edge(
                 context.session, edge_id)
         for rule in lb_rules:

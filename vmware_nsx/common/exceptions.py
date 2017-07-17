@@ -198,3 +198,11 @@ class NsxRouterInterfaceDoesNotMatchAddressScope(n_exc.BadRequest):
     message = _("Unable to update no-NAT router %(router_id)s, "
                 "only subnets allocated from address-scope "
                 "%(address_scope_id)s can be connected.")
+
+
+class NsxVpnValidationError(NsxPluginException):
+    message = _("Invalid VPN configuration: %(details)s")
+
+
+class NsxIPsecVpnMappingNotFound(n_exc.NotFound):
+    message = _("Unable to find mapping for ipsec site connection: %(conn)s")

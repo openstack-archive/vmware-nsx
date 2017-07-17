@@ -21,6 +21,7 @@ from neutron.db import servicetype_db  # noqa
 from neutron.quota import resource_registry
 from neutron.tests import base
 from neutron_lib.callbacks import registry
+from neutron_lib import constants
 from oslo_config import cfg
 from oslo_log import _options
 from oslo_log import log as logging
@@ -137,10 +138,13 @@ class TestNsxvAdminUtils(AbstractTestAdminUtils,
                    return_value=0).start()
 
         self._plugin = nsxv_utils.NsxVPluginWrapper()
-        mock_nm_get_plugin = mock.patch(
-            "neutron_lib.plugins.directory.get_plugin")
-        self.mock_nm_get_plugin = mock_nm_get_plugin.start()
-        self.mock_nm_get_plugin.return_value = self._plugin
+
+        def get_plugin_mock(alias=constants.CORE):
+            if alias in (constants.CORE, constants.L3):
+                return self._plugin
+
+        mock.patch("neutron_lib.plugins.directory.get_plugin",
+                   side_effect=get_plugin_mock).start()
 
         # Create a router to make sure we have deployed an edge
         self.router = self.create_router()

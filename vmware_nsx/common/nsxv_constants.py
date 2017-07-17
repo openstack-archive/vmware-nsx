@@ -60,3 +60,19 @@ CSR_REQUEST = ("<csr><subject>"
 RESERVED_IPS = ["169.254.128.0/17",
                 "169.254.1.0/24",
                 "169.254.64.192/26"]
+
+# VPNaaS constants
+ENCRYPTION_ALGORITHM_MAP = {
+    '3des': '3des',
+    'aes-128': 'aes',
+    'aes-256': 'aes256'
+}
+
+PFS_MAP = {
+    'group2': 'dh2',
+    'group5': 'dh5'
+}
+
+TRANSFORM_PROTOCOL_ALLOWED = ('esp',)
+
+ENCAPSULATION_MODE_ALLOWED = ('tunnel',)
