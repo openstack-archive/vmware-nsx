@@ -4,9 +4,9 @@ Installation
 
 At the command line::
 
-    $ pip install 
+    $ pip install vmware-nsx 
 
 Or, if you have virtualenvwrapper installed::
 
-    $ mkvirtualenv 
-    $ pip install 
+    $ mkvirtualenv vmware-nsx
+    $ pip install vmware-nsx

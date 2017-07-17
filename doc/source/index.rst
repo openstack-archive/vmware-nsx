@@ -1,4 +1,4 @@
-Welcome to oslo.vmware's documentation!
+Welcome to vmware-nsx's documentation!
 =======================================
 
 Contents:
