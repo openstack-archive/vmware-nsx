@@ -21,6 +21,7 @@ from neutron_lib.exceptions import port_security as psec_exc
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
 from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
+from neutron.api.v2 import base
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
 from neutron.db import _resource_extend as resource_extend
@@ -71,6 +72,7 @@ from oslo_utils import excutils
 from oslo_utils import importutils
 from oslo_utils import uuidutils
 from sqlalchemy import exc as sql_exc
+import webob.exc
 
 from vmware_nsx._i18n import _
 from vmware_nsx.api_replay import utils as api_replay_utils
@@ -174,6 +176,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         router=l3_db_models.Router,
         floatingip=l3_db_models.FloatingIP)
     def __init__(self):
+        self._extend_fault_map()
         self._extension_manager = managers.ExtensionManager()
         super(NsxV3Plugin, self).__init__()
         # Bind the dummy L3 notifications
@@ -245,6 +248,22 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         # Register NSXv3 trunk driver to support trunk extensions
         self.trunk_driver = trunk_driver.NsxV3TrunkDriver.create(self)
+
+    def _extend_fault_map(self):
+        """Extends the Neutron Fault Map.
+
+        Exceptions specific to the NSX Plugin are mapped to standard
+        HTTP Exceptions.
+        """
+        base.FAULT_MAP.update({nsx_lib_exc.ManagerError:
+                               webob.exc.HTTPBadRequest,
+                               nsx_lib_exc.ServiceClusterUnavailable:
+                               webob.exc.HTTPServiceUnavailable,
+                               nsx_lib_exc.ClientCertificateNotTrusted:
+                               webob.exc.HTTPBadRequest,
+                               nsx_exc.SecurityGroupMaximumCapacityReached:
+                               webob.exc.HTTPBadRequest,
+                               })
 
     def _init_fwaas(self):
         # Bind FWaaS callbacks to the driver
