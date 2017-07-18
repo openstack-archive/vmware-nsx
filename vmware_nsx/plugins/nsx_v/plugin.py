@@ -1928,7 +1928,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 return self._update_port(context, id, port, original_port,
                                          is_compute_port, device_id)
 
-    def _update_dhcp_adddress(self, context, network_id):
+    def _update_dhcp_address(self, context, network_id):
         with locking.LockManager.get_lock('dhcp-update-%s' % network_id):
             address_groups = self._create_network_dhcp_address_group(
                 context, network_id)
@@ -2070,8 +2070,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._create_dhcp_static_binding(context, ret_port)
             elif owner == constants.DEVICE_OWNER_DHCP:
                 # Update the ip of the dhcp port
-                self._update_dhcp_adddress(context,
-                                           ret_port['network_id'])
+                self._update_dhcp_address(context,
+                                          ret_port['network_id'])
             elif (owner == constants.DEVICE_OWNER_ROUTER_GW or
                   owner == constants.DEVICE_OWNER_ROUTER_INTF):
                 # This is a router port - update the edge appliance
@@ -2332,7 +2332,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         self._delete_dhcp_edge_service(context, network_id)
                     else:
                         # Update address group and delete the DHCP port only
-                        self._update_dhcp_adddress(context, network_id)
+                        self._update_dhcp_address(context, network_id)
 
     def _is_overlapping_reserved_subnets(self, subnet):
         """Return True if the subnet overlaps with reserved subnets.
@@ -2608,7 +2608,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                           network_id)
                 self._delete_dhcp_edge_service(context, network_id)
                 return
-        self._update_dhcp_adddress(context, network_id)
+        self._update_dhcp_address(context, network_id)
 
     def _get_conflict_network_ids_by_overlapping(self, context, subnets):
         with locking.LockManager.get_lock('nsx-networking'):
@@ -2706,7 +2706,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             self.edge_manager.create_dhcp_edge_service(context, network_id,
                                                        subnet)
             # Create all dhcp ports within the network
-            self._update_dhcp_adddress(context, network_id)
+            self._update_dhcp_address(context, network_id)
 
         except Exception:
             with excutils.save_and_reraise_exception():
