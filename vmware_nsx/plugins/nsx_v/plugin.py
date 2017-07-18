@@ -1776,7 +1776,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 attrs[addr_pair.ADDRESS_PAIRS] = []
 
             # security group extension checks
-            if has_ip:
+            if has_ip and port_security:
                 self._ensure_default_security_group_on_port(context, port)
             elif (has_security_groups or provider_sg_specified):
                 raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
