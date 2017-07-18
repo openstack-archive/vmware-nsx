@@ -3408,6 +3408,35 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     'source_vnic_groups': ["external"],
                     'destination_ip_address': no_nat_cidrs}
 
+    def _get_dnat_fw_rule(self, context, router):
+        # Get FW rule to open dnat firewall flows
+        _, dnat_rules = self._get_nat_rules(context, router)
+        dnat_cidrs = [rule['dst'] for rule in dnat_rules]
+        if dnat_cidrs:
+            return {
+                'name': DNAT_RULE_NAME,
+                'action': 'allow',
+                'enabled': True,
+                'destination_ip_address': dnat_cidrs}
+
+    def _get_subnet_fw_rules(self, context, router):
+        # Get FW rule/s to open subnets firewall flows and static routes
+        # relative flows
+        fw_rules = []
+        subnet_cidrs = self._find_router_subnets_cidrs(context, router['id'])
+        routes = self._get_extra_routes_by_router_id(context, router['id'])
+        subnet_cidrs.extend([route['destination'] for route in routes])
+        #TODO(asarfaty): need a separate rule per address scope
+        if subnet_cidrs:
+            subnet_fw_rule = {
+                'name': SUBNET_RULE_NAME,
+                'action': 'allow',
+                'enabled': True,
+                'source_ip_address': subnet_cidrs,
+                'destination_ip_address': subnet_cidrs}
+            fw_rules.append(subnet_fw_rule)
+        return fw_rules
+
     def _update_nat_rules(self, context, router, router_id=None):
         snat, dnat = self._get_nat_rules(context, router)
         if not router_id:
@@ -3618,22 +3647,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         """
         fw_rules = []
         router_with_firewall = True if fwaas_rules is not None else False
-        neutron_id = router_db['id']
         edge_id = self._get_edge_id_by_rtr_id(context, router_id)
 
-        # Add FW rule to open subnets firewall flows and static routes
+        # Add FW rule/s to open subnets firewall flows and static routes
         # relative flows
-        subnet_cidrs = self._find_router_subnets_cidrs(context, neutron_id)
-        routes = self._get_extra_routes_by_router_id(context, neutron_id)
-        subnet_cidrs.extend([route['destination'] for route in routes])
-        if subnet_cidrs:
-            subnet_fw_rule = {
-                'name': SUBNET_RULE_NAME,
-                'action': 'allow',
-                'enabled': True,
-                'source_ip_address': subnet_cidrs,
-                'destination_ip_address': subnet_cidrs}
-            fw_rules.append(subnet_fw_rule)
+        subnet_rules = self._get_subnet_fw_rules(context, router_db)
+        if subnet_rules:
+            fw_rules.extend(subnet_rules)
 
         # If metadata service is enabled, block access to inter-edge network
         if self.metadata_proxy_handler:
@@ -3644,16 +3664,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             fw_rules += fwaas_rules
 
         if not router_with_firewall:
-            # Add FW rule to open dnat firewall flows
-            _, dnat_rules = self._get_nat_rules(context, router_db)
-            dnat_cidrs = [rule['dst'] for rule in dnat_rules]
-            if dnat_cidrs:
-                dnat_fw_rule = {
-                    'name': DNAT_RULE_NAME,
-                    'action': 'allow',
-                    'enabled': True,
-                    'destination_ip_address': dnat_cidrs}
-                fw_rules.append(dnat_fw_rule)
+            dnat_rule = self._get_dnat_fw_rule(context, router_db)
+            if dnat_rule:
+                fw_rules.append(dnat_rule)
 
             # Add rule for not NAT-ed allocation pools
             alloc_pool_rule = self._get_allocation_pools_fw_rule(
