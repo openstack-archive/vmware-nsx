@@ -4,4 +4,4 @@ Usage
 
 To use  in a project::
 
-	import vmware
+	import vmware_nsx
