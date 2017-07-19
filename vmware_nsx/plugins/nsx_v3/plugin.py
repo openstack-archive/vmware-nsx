@@ -96,6 +96,7 @@ from vmware_nsx.plugins.common import plugin as nsx_plugin_common
 from vmware_nsx.plugins.nsx_v3 import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 from vmware_nsx.services.fwaas.nsx_v3 import fwaas_callbacks
+from vmware_nsx.services.lbaas.nsx_v3 import lb_driver_v2
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v3 import driver as qos_driver
 from vmware_nsx.services.trunk.nsx_v3 import driver as trunk_driver
@@ -187,6 +188,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._extension_manager.extension_aliases())
 
         self.nsxlib = v3_utils.get_nsxlib_wrapper()
+        self.lbv2_driver = self._init_lbv2_driver()
         # reinitialize the cluster upon fork for api workers to ensure each
         # process has its own keepalive loops + state
         registry.subscribe(
@@ -268,6 +270,18 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _init_fwaas(self):
         # Bind FWaaS callbacks to the driver
         self.fwaas_callbacks = fwaas_callbacks.Nsxv3FwaasCallbacks(self.nsxlib)
+
+    def _init_lbv2_driver(self):
+        # Get LBaaSv2 driver during plugin initialization. If the platform
+        # has a version that doesn't support native loadbalancing, the driver
+        # will return a NotImplementedManager class.
+        LOG.debug("Initializing LBaaSv2.0 nsxv3 driver")
+        if self.nsxlib.feature_supported(nsxlib_consts.FEATURE_LOAD_BALANCER):
+            return lb_driver_v2.EdgeLoadbalancerDriverV2()
+        else:
+            LOG.warning("Current NSX version %(ver)s doesn't support LBaaS",
+                        {'ver': self.nsxlib.get_version()})
+            return lb_driver_v2.DummyLoadbalancerDriverV2()
 
     def init_availability_zones(self):
         # availability zones are supported only with native dhcp
@@ -2834,6 +2848,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return self.get_router(context, router['id'])
 
     def delete_router(self, context, router_id):
+        # TODO(tongl) Prevent router deletion if router still has load
+        # balancer attachment. Raise exception if router has lb attachment.
         if not cfg.CONF.nsx_v3.native_dhcp_metadata:
             nsx_rpc.handle_router_metadata_access(self, context, router_id,
                                                   interface=None)

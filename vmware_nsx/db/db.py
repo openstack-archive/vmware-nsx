@@ -484,3 +484,112 @@ def save_certificate(session, purpose, cert, pk):
 def delete_certificate(session, purpose):
     return (session.query(nsx_models.NsxCertificateRepository).
             filter_by(purpose=purpose).delete())
+
+
+def add_nsx_lbaas_loadbalancer_binding(session, loadbalancer_id,
+                                       lb_service_id, lb_router_id,
+                                       vip_address):
+    with session.begin(subtransactions=True):
+        binding = nsx_models.NsxLbaasLoadbalancer(
+            loadbalancer_id=loadbalancer_id, lb_service_id=lb_service_id,
+            lb_router_id=lb_router_id, vip_address=vip_address)
+        session.add(binding)
+    return binding
+
+
+def get_nsx_lbaas_loadbalancer_binding(session, loadbalancer_id):
+    try:
+        return session.query(
+            nsx_models.NsxLbaasLoadbalancer).filter_by(
+                loadbalancer_id=loadbalancer_id).one()
+    except exc.NoResultFound:
+        return
+
+
+def get_nsx_lbaas_loadbalancer_binding_by_service(session, lb_service_id):
+    return session.query(
+        nsx_models.NsxLbaasLoadbalancer).filter_by(
+            lb_service_id=lb_service_id).all()
+
+
+def delete_nsx_lbaas_loadbalancer_binding(session, loadbalancer_id):
+    return (session.query(nsx_models.NsxLbaasLoadbalancer).
+            filter_by(loadbalancer_id=loadbalancer_id).delete())
+
+
+def add_nsx_lbaas_listener_binding(session, loadbalancer_id, listener_id,
+                                   app_profile_id, lb_vs_id):
+    with session.begin(subtransactions=True):
+        binding = nsx_models.NsxLbaasListener(
+            loadbalancer_id=loadbalancer_id, listener_id=listener_id,
+            app_profile_id=app_profile_id,
+            lb_vs_id=lb_vs_id)
+        session.add(binding)
+    return binding
+
+
+def get_nsx_lbaas_listener_binding(session, loadbalancer_id, listener_id):
+    try:
+        return session.query(
+            nsx_models.NsxLbaasListener).filter_by(
+                loadbalancer_id=loadbalancer_id,
+                listener_id=listener_id).one()
+    except exc.NoResultFound:
+        return
+
+
+def delete_nsx_lbaas_listener_binding(session, loadbalancer_id, listener_id):
+    return (session.query(nsx_models.NsxLbaasListener).
+            filter_by(loadbalancer_id=loadbalancer_id,
+                      listener_id=listener_id).delete())
+
+
+def add_nsx_lbaas_pool_binding(session, loadbalancer_id, pool_id, lb_pool_id,
+                               lb_vs_id):
+    with session.begin(subtransactions=True):
+        binding = nsx_models.NsxLbaasPool(loadbalancer_id=loadbalancer_id,
+                                          pool_id=pool_id,
+                                          lb_pool_id=lb_pool_id,
+                                          lb_vs_id=lb_vs_id)
+        session.add(binding)
+    return binding
+
+
+def get_nsx_lbaas_pool_binding(session, loadbalancer_id, pool_id):
+    try:
+        return session.query(nsx_models.NsxLbaasPool).filter_by(
+            loadbalancer_id=loadbalancer_id, pool_id=pool_id).one()
+    except exc.NoResultFound:
+        return
+
+
+def delete_nsx_lbaas_pool_binding(session, loadbalancer_id, pool_id):
+    return (session.query(nsx_models.NsxLbaasPool).
+            filter_by(loadbalancer_id=loadbalancer_id,
+                      pool_id=pool_id).delete())
+
+
+def add_nsx_lbaas_monitor_binding(session, loadbalancer_id, pool_id, hm_id,
+                                  lb_monitor_id, lb_pool_id):
+    with session.begin(subtransactions=True):
+        binding = nsx_models.NsxLbaasMonitor(
+            loadbalancer_id=loadbalancer_id, pool_id=pool_id, hm_id=hm_id,
+            lb_monitor_id=lb_monitor_id, lb_pool_id=lb_pool_id)
+        session.add(binding)
+    return binding
+
+
+def get_nsx_lbaas_monitor_binding(session, loadbalancer_id, pool_id, hm_id):
+    try:
+        return session.query(nsx_models.NsxLbaasMonitor).filter_by(
+            loadbalancer_id=loadbalancer_id,
+            pool_id=pool_id, hm_id=hm_id).one()
+    except exc.NoResultFound:
+        return
+
+
+def delete_nsx_lbaas_monitor_binding(session, loadbalancer_id, pool_id,
+                                     hm_id):
+    return (session.query(nsx_models.NsxLbaasMonitor).
+            filter_by(loadbalancer_id=loadbalancer_id,
+                      pool_id=pool_id, hm_id=hm_id).delete())
