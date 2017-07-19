@@ -3695,6 +3695,92 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                         self.assertEqual('external',
                                          fw_rules[1]['source_vnic_groups'][0])
 
+    def test_router_address_scope_fw_rules(self):
+        """Test that if the router interfaces has different address scope
+        there are separate fw rules
+        """
+        # create a router, networks, and address scopes
+        with self.address_scope(name='as1') as addr_scope1, \
+            self.address_scope(name='as2') as addr_scope2,\
+            self.network() as net1, self.network() as net2,\
+            self.network() as net3, self.router() as r:
+
+            as1_id = addr_scope1['address_scope']['id']
+            as2_id = addr_scope2['address_scope']['id']
+            pool1 = netaddr.IPNetwork('10.10.10.0/21')
+            subnetpool1 = self._test_create_subnetpool(
+                [pool1.cidr], name='sp1',
+                min_prefixlen='24', address_scope_id=as1_id)
+            pool2 = netaddr.IPNetwork('20.20.20.0/21')
+            subnetpool2 = self._test_create_subnetpool(
+                [pool2.cidr], name='sp2',
+                min_prefixlen='24', address_scope_id=as2_id)
+            subnetpool_id1 = subnetpool1['subnetpool']['id']
+            subnetpool_id2 = subnetpool2['subnetpool']['id']
+
+            # create subnets on the 2 subnet pools
+            data = {'subnet': {
+                    'network_id': net1['network']['id'],
+                    'subnetpool_id': subnetpool_id1,
+                    'ip_version': 4,
+                    'tenant_id': net1['network']['tenant_id']}}
+            req = self.new_create_request('subnets', data)
+            subnet1 = self.deserialize(
+                self.fmt, req.get_response(self.api))
+
+            data = {'subnet': {
+                    'network_id': net2['network']['id'],
+                    'subnetpool_id': subnetpool_id2,
+                    'ip_version': 4,
+                    'tenant_id': net2['network']['tenant_id']}}
+            req = self.new_create_request('subnets', data)
+            subnet2 = self.deserialize(
+                self.fmt, req.get_response(self.api))
+
+            data = {'subnet': {
+                    'network_id': net3['network']['id'],
+                    'subnetpool_id': subnetpool_id2,
+                    'ip_version': 4,
+                    'tenant_id': net3['network']['tenant_id']}}
+            req = self.new_create_request('subnets', data)
+            subnet3 = self.deserialize(
+                self.fmt, req.get_response(self.api))
+
+            expected_rules = [
+                {'enabled': True,
+                 'destination_ip_address': [subnet1['subnet']['cidr']],
+                 'action': 'allow',
+                 'name': 'Subnet Rule',
+                 'source_ip_address': [subnet1['subnet']['cidr']]},
+                {'enabled': True,
+                 'destination_ip_address': [subnet2['subnet']['cidr'],
+                                            subnet3['subnet']['cidr']],
+                 'action': 'allow',
+                 'name': 'Subnet Rule',
+                 'source_ip_address': [subnet2['subnet']['cidr'],
+                                       subnet3['subnet']['cidr']]}]
+
+            # Add the interfaces to the router
+            with mock.patch.object(
+                edge_utils, 'update_nat_rules'),\
+                mock.patch.object(edge_utils, 'update_firewall') as update_fw:
+                self._router_interface_action(
+                    'add', r['router']['id'],
+                    subnet1['subnet']['id'], None)
+                self._router_interface_action(
+                    'add', r['router']['id'],
+                    subnet2['subnet']['id'], None)
+                self._router_interface_action(
+                    'add', r['router']['id'],
+                    subnet3['subnet']['id'], None)
+
+                # check the final fw rules
+                fw_rules = update_fw.call_args[0][3][
+                    'firewall_rule_list']
+                self.assertEqual(2, len(fw_rules))
+                self.assertEqual(self._recursive_sort_list(expected_rules),
+                                 self._recursive_sort_list(fw_rules))
+
 
 class ExtGwModeTestCase(NsxVPluginV2TestCase,
                         test_ext_gw_mode.ExtGwModeIntTestCase):
