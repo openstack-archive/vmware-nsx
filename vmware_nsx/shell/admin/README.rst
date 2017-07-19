@@ -45,7 +45,7 @@ Adding new functions is fairly straightforward:
 * To test, do
 
 ::
-    cd python-nsxadmin/
+    cd vmware-nsx/shell 
 
     sudo pip install -e .
 
@@ -106,12 +106,13 @@ Example
      | default - 261343f8-4f35-4e57-9cc7-6c4fc7723b72 | 2e5b5ca1-f687-4556-8130-9524b313474b |
      | default - 823247b6-bdb3-47be-8bac-0d1114fc1ad7 | b5cd9ae4-42b5-47a7-a1bf-9767ac62466e |
      +------------------------------------------------+--------------------------------------+
-     ==== [NEUTRON] List Security Groups ====
-     Security Groups
-     +--------+------+
-     | name   | id   |
-     |--------+------|
-     +--------+------+
+     ==== [NEUTRON] List Security Groups Mappings ====
+     security-groups
+     +---------+--------------------------------------+-----------------------------------------------------------+----------------------+
+     | name    | id                                   | section-uri                                               | nsx-securitygroup-id |
+     +---------+--------------------------------------+-----------------------------------------------------------+----------------------+
+     | default | f785c82a-5b28-42ac-aa0a-ad56720ccbbc | /api/4.0/firewall/globalroot-0/config/layer3sections/1006 | securitygroup-12     |
+     +---------+--------------------------------------+-----------------------------------------------------------+----------------------+
 
      $ nsxadmin -r security-groups -o list -f json
      ==== [NSX] List Security Groups ====
@@ -151,11 +152,17 @@ Example
              }
          ]
      }
-     ==== [NEUTRON] List Security Groups ====
+     ==== [NEUTRON] List Security Groups Mappings ====
+     security-groups
      {
-         "Security Groups": []
+         "security-groups": [
+             {
+                "id": "f785c82a-5b28-42ac-aa0a-ad56720ccbbc",
+                "name": "default",
+                "nsx-securitygroup-id": "securitygroup-12",
+                "section-uri": "/api/4.0/firewall/globalroot-0/config/layer3sections/1006"
+             }
      }
-
 
 Upgrade Steps (Version 1.0.0 to Version 1.1.0)
 ----------------------------------------------
