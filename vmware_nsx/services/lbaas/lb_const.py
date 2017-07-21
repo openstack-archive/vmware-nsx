@@ -77,7 +77,8 @@ L7_RULE_COMPARE_TYPE_EQUAL_TO = 'EQUAL_TO'
 LB_LB_TYPE = 'os-lbaas-lb-id'
 LB_LISTENER_TYPE = 'os-lbaas-listener-id'
 LB_HM_TYPE = 'os-lbaas-hm-id'
-LB_POOL_TYPE = 'os-lbaas-pool-type'
+LB_POOL_TYPE = 'os-lbaas-pool-id'
+LB_L7RULE_TYPE = 'os-lbaas-l7rule-id'
 LB_HTTP_PROFILE = 'LbHttpProfile'
 LB_TCP_PROFILE = 'LbFastTcpProfile'
 NSXV3_MONITOR_MAP = {LB_HEALTH_MONITOR_PING: 'LbIcmpMonitor',
@@ -88,6 +89,9 @@ LB_STATS_MAP = {'active_connections': 'current_sessions',
                 'bytes_in': 'bytes_in',
                 'bytes_out': 'bytes_out',
                 'total_connections': 'total_sessions'}
+LB_SELECT_POOL_ACTION = 'LbSelectPoolAction'
+LB_HTTP_REDIRECT_ACTION = 'LbHttpRedirectAction'
+LB_REJECT_ACTION = 'LbHttpRejectAction'
 LR_ROUTER_TYPE = 'os-neutron-router-id'
 LR_PORT_TYPE = 'os-neutron-rport-id'
 DEFAULT_LB_SIZE = 'SMALL'

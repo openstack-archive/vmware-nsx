@@ -46,9 +46,11 @@ class EdgePoolManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                                  lb_const.LB_POOL_TYPE, pool.tenant_id,
                                  context.project_name)
         try:
+            snat_translation = {'type': "LbSnatAutoMap"}
             lb_pool = pool_client.create(display_name=pool_name,
                                          tags=tags,
-                                         algorithm=pool.lb_algorithm)
+                                         algorithm=pool.lb_algorithm,
+                                         snat_translation=snat_translation)
         except nsxlib_exc.ManagerError:
             self.lbv2_driver.pool.failed_completion(context, pool)
             msg = (_('Failed to create pool on NSX backend: %(pool)s') %

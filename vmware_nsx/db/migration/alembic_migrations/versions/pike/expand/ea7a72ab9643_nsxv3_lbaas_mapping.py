@@ -72,6 +72,18 @@ def upgrade():
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint('loadbalancer_id', 'pool_id', 'hm_id'))
 
+    op.create_table(
+        'nsxv3_lbaas_l7rules',
+        sa.Column('loadbalancer_id', sa.String(36), nullable=False),
+        sa.Column('l7policy_id', sa.String(36), nullable=False),
+        sa.Column('l7rule_id', sa.String(36), nullable=False),
+        sa.Column('lb_rule_id', sa.String(36), nullable=False),
+        sa.Column('lb_vs_id', sa.String(36), nullable=False),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), nullable=True),
+        sa.PrimaryKeyConstraint('loadbalancer_id', 'l7policy_id',
+                                'l7rule_id'))
+
     if migration.schema_has_table('lbaas_loadbalancers'):
         op.create_foreign_key(
             'fk_nsxv3_lbaas_loadbalancers_id', 'nsxv3_lbaas_loadbalancers',
@@ -92,3 +104,8 @@ def upgrade():
         op.create_foreign_key(
             'fk_nsxv3_lbaas_healthmonitors_id', 'nsxv3_lbaas_monitors',
             'lbaas_healthmonitors', ['hm_id'], ['id'], ondelete='CASCADE')
+
+    if migration.schema_has_table('lbaas_l7rules'):
+        op.create_foreign_key(
+            'fk_nsxv3_lbaas_l7rules_id', 'nsxv3_lbaas_l7rules',
+            'lbaas_l7rules', ['l7rule_id'], ['id'], ondelete='CASCADE')
