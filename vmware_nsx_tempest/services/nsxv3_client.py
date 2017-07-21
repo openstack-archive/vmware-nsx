@@ -172,14 +172,17 @@ class NSXV3Client(object):
         for the cursor. If cursor is present, query url for multiple pages to
         get all the logical resources.
         """
+        results = []
         response = self.get(endpoint=endpoint)
         res_json = response.json()
         cursor = res_json.get("cursor")
+        if res_json.get("results"):
+            results.extend(res_json["results"])
         while cursor:
             page = self.get(endpoint=endpoint, cursor=cursor).json()
-            res_json["results"].extend(page.get("results", []))
+            results.extend(page.get("results", []))
             cursor = page.get("cursor")
-        return res_json["results"]
+        return results
 
     def get_transport_zones(self):
         """
