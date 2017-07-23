@@ -326,7 +326,7 @@ Metadata Proxy
 
     nsxadmin -r metadata-proxy -o list
 
-- Resync metadata proxies for NSXv3 version 1.1.0 and above (enable md proxy, or update the uuid)::
+- Resync metadata proxies for NSXv3 version 1.1.0 and above (enable md proxy, or update the uuid). This is only for migrating to native metadata support::
 
     nsxadmin -r metadata-proxy -o nsx-update --property metadata_proxy_uuid=<metadata_proxy_uuid>
 
@@ -337,7 +337,7 @@ DHCP Bindings
 
     nsxadmin -r dhcp-binding -o list
 
-- Resync DHCP bindings for NSXv3 version 1.1.0 and above::
+- Resync DHCP bindings for NSXv3 version 1.1.0 and above. This is only for migrating to native DHCP support::
 
     nsxadmin -r dhcp-binding -o nsx-update --property dhcp_profile_uuid=<dhcp_profile_uuid>
 
