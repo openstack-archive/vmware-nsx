@@ -18,6 +18,7 @@ from eventlet import greenthread
 from neutron_lib import constants as const
 from neutron_lib import exceptions as ntn_exc
 from oslo_config import cfg
+from oslo_db import exception as db_exc
 from oslo_log import log as logging
 
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
@@ -233,6 +234,8 @@ def _destroy_metadata_access_network(plugin, context, router_id, ports):
         # must re-add the router interface
         plugin.add_router_interface(context, router_id,
                                     {'subnet_id': meta_sub_id})
+    except db_exc.DBReferenceError as e:
+        LOG.debug("Unable to delete network %s. Reason: %s", meta_net_id, e)
     # Tell to stop the metadata agent proxy
     _notify_rpc_agent(
         context, {'network': {'id': meta_net_id}}, 'network.delete.end')
