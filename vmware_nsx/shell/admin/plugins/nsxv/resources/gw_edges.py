@@ -118,12 +118,15 @@ def _assemble_gw_edge(name, size, external_iface_info, internal_iface_info,
     edge['featureConfigs']['features'] = [{'featureType': 'firewall_4.0',
                                            'enabled': False}]
     if default_gateway:
-        edge['features'] = {'routing':
-                            {'staticRouting':
-                             {'staticRoute':
-                              {'defaultRoute':
-                               {'description': 'default-gateway',
-                                'gatewayAddress': default_gateway}}}}}
+        routing = {'featureType': 'routing_4.0',
+                   'enabled': True,
+                   'staticRouting': {
+                       'defaultRoute': {
+                           'description': 'default-gateway',
+                           'gatewayAddress': default_gateway
+                       }
+                   }}
+        edge['featureConfigs']['features'].append(routing)
 
     header = nsxv.vcns.deploy_edge(edge)[0]
     edge_id = header.get('location', '/').split('/')[-1]
@@ -164,8 +167,14 @@ def create_bgp_gw(resource, event, trigger, **kwargs):
     if not (external_iface_info and internal_iface_info):
         return
 
-    default_gw = ('default-gateway' in properties and
-                  _extract_interface_info(properties['default-gateway']))
+    if 'default-gateway' in properties:
+        default_gw = _extract_interface_info(properties['default-gateway'])
+        if not default_gw:
+            msg = ("Property 'default-gateway' doesn't contain a valid IP "
+                   "address.")
+            LOG.error(msg)
+            return
+        default_gw = default_gw[1]
 
     config.register_nsxv_azs(cfg.CONF, cfg.CONF.nsxv.availability_zones)
     az_hint = properties.get('az-hint', 'default')
