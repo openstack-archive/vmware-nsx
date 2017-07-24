@@ -1355,13 +1355,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     self.edge_manager.reconfigure_shared_edge_metadata_port(
                         context, (vcns_const.DHCP_EDGE_PREFIX + net_id)[:36])
 
-    def _update_dhcp_edge_service(self, context, network_id, address_groups):
-        self.edge_manager.update_dhcp_edge_service(
-            context, network_id, address_groups=address_groups)
-
-    def _delete_dhcp_edge_service(self, context, id):
-        self.edge_manager.delete_dhcp_edge_service(context, id)
-
     def _is_neutron_spoofguard_policy(self, net_id, moref, policy_id):
         # A neutron policy will have the network UUID as the name of the
         # policy
@@ -1397,7 +1390,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if len(sids) > 0:
                 try:
                     self._cleanup_dhcp_edge_before_deletion(context, id)
-                    self._delete_dhcp_edge_service(context, id)
+                    self.edge_manager.delete_dhcp_edge_service(context, id)
                     is_dhcp_backend_deleted = True
                 except Exception:
                     with excutils.save_and_reraise_exception():
@@ -1932,8 +1925,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         with locking.LockManager.get_lock('dhcp-update-%s' % network_id):
             address_groups = self._create_network_dhcp_address_group(
                 context, network_id)
-            self._update_dhcp_edge_service(context, network_id,
-                                           address_groups)
+            self.edge_manager.update_dhcp_edge_service(
+                context, network_id, address_groups=address_groups)
 
     def _update_port(self, context, id, port, original_port, is_compute_port,
                      device_id):
@@ -2304,18 +2297,18 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         filters = {'fixed_ips': {'subnet_id': [id]}}
         ports = self.get_ports(context, filters=filters)
 
-        # Add nsx-edge-pool here is because we first delete the subnet in db.
-        # if the subnet overlaps with another new creating subnet, there is a
-        # chance that the new creating subnet select the deleting subnet's edge
-        # and send update dhcp interface rest call before deleting subnet's
-        # corresponding dhcp interface rest call and lead to overlap response
-        # from backend.
+        # Add nsx-dhcp-edge-pool here is because we first delete the subnet in
+        # db.locking if the subnet overlaps with another new creating subnet,
+        # there is a chance that the new creating subnet select the deleting
+        # subnet's edge and send update dhcp interface rest call before
+        # deleting subnet's corresponding dhcp interface rest call and lead to
+        # overlap response from backend.
         network_id = subnet['network_id']
         with locking.LockManager.get_lock(network_id):
             with db_api.context_manager.writer.using(context):
                 self.base_delete_subnet(context, id)
 
-            with locking.LockManager.get_lock('nsx-edge-pool'):
+            with locking.LockManager.get_lock('nsx-dhcp-edge-pool'):
                 if subnet['enable_dhcp']:
                     # There is only DHCP port available
                     if len(ports) == 1:
@@ -2333,7 +2326,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                             context, network_id)
                         LOG.debug("Delete the DHCP service for network %s",
                                   network_id)
-                        self._delete_dhcp_edge_service(context, network_id)
+                        self.edge_manager.delete_dhcp_edge_service(context,
+                                                                   network_id)
                     else:
                         # Update address group and delete the DHCP port only
                         self._update_dhcp_address(context, network_id)
@@ -2612,7 +2606,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     context, network_id)
                 LOG.debug("Delete the DHCP service for network %s",
                           network_id)
-                self._delete_dhcp_edge_service(context, network_id)
+                self.edge_manager.delete_dhcp_edge_service(context, network_id)
                 return
         self._update_dhcp_address(context, network_id)
 

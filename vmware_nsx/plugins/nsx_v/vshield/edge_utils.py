@@ -1286,13 +1286,12 @@ class EdgeManager(object):
                                availability_zone):
         self._allocate_dhcp_edge_appliance(context, resource_id,
                                            availability_zone)
-        with locking.LockManager.get_lock('nsx-edge-pool'):
-            new_edge = nsxv_db.get_nsxv_router_binding(context.session,
-                                                       resource_id)
-            nsxv_db.allocate_edge_vnic_with_tunnel_index(
-                context.session, new_edge['edge_id'], network_id,
-                availability_zone.name)
-            return new_edge['edge_id']
+        new_edge = nsxv_db.get_nsxv_router_binding(context.session,
+                                                   resource_id)
+        nsxv_db.allocate_edge_vnic_with_tunnel_index(
+            context.session, new_edge['edge_id'], network_id,
+            availability_zone.name)
+        return new_edge['edge_id']
 
     def create_dhcp_edge_service(self, context, network_id,
                                  subnet):
@@ -1309,7 +1308,7 @@ class EdgeManager(object):
         dhcp_edge_binding = nsxv_db.get_nsxv_router_binding(context.session,
                                                             resource_id)
         allocate_new_edge = False
-        with locking.LockManager.get_lock('nsx-edge-pool'):
+        with locking.LockManager.get_lock('nsx-dhcp-edge-pool'):
             (conflict_edge_ids,
              available_edge_ids) = self._get_used_edges(context, subnet,
                                                         availability_zone)
@@ -1354,12 +1353,12 @@ class EdgeManager(object):
                 else:
                     allocate_new_edge = True
 
-        if allocate_new_edge:
-            self.allocate_new_dhcp_edge(context, network_id, resource_id,
-                                        availability_zone)
+            if allocate_new_edge:
+                self.allocate_new_dhcp_edge(context, network_id, resource_id,
+                                            availability_zone)
 
-            # If a new Edge was allocated, return resource_id
-            return resource_id
+                # If a new Edge was allocated, return resource_id
+                return resource_id
 
     def update_dhcp_edge_service(self, context, network_id,
                                  address_groups=None):

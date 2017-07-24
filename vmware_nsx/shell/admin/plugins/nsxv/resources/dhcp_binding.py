@@ -185,7 +185,8 @@ def recreate_network_dhcp(context, plugin, edge_manager, old_edge_id, net_id):
     LOG.info("Creating network %s DHCP address group", net_id)
     address_groups = plugin._create_network_dhcp_address_group(
         context, net_id)
-    plugin._update_dhcp_edge_service(context, net_id, address_groups)
+    plugin.edge_manager.update_dhcp_edge_service(
+        context, net_id, address_groups=address_groups)
 
     # find out the id of the new edge:
     new_binding = nsxv_db.get_nsxv_router_binding(
