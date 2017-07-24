@@ -3335,16 +3335,16 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         gw_port = router.gw_port
         if gw_port and gw_port.get('fixed_ips') and router.enable_snat:
             snat_ip = gw_port['fixed_ips'][0]['ip_address']
-            subnets = self._find_router_subnets_and_cidrs(context.elevated(),
-                                                          router['id'])
+            subnets = self._find_router_subnets(context.elevated(),
+                                                router['id'])
             for subnet in subnets:
 
                 # if the subnets address scope is the same as the gateways:
                 # no need for SNAT
                 gw_address_scope = self._get_network_address_scope(
                     context.elevated(), gw_port['network_id'])
-                subnet_address_scope = self._get_subnet_address_scope(
-                    context.elevated(), subnet['id'])
+                subnet_address_scope = self._get_subnetpool_address_scope(
+                    context.elevated(), subnet['subnetpool_id'])
                 if (gw_address_scope and
                     gw_address_scope == subnet_address_scope):
                     LOG.info("No need for SNAT rule for router %(router)s "
@@ -3394,14 +3394,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if gw_address_scope is None:
             return
 
-        subnets = self._find_router_subnets_and_cidrs(context.elevated(),
-                                                      router['id'])
+        subnets = self._find_router_subnets(context.elevated(),
+                                            router['id'])
         no_nat_cidrs = []
         for subnet in subnets:
             # if the subnets address scope is the same as the gateways:
             # we should add it to the rule
-            subnet_address_scope = self._get_subnet_address_scope(
-                context.elevated(), subnet['id'])
+            subnet_address_scope = self._get_subnetpool_address_scope(
+                context.elevated(), subnet['subnetpool_id'])
             if (gw_address_scope == subnet_address_scope):
                 no_nat_cidrs.append(subnet['cidr'])
 
