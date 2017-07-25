@@ -20,6 +20,7 @@ import os
 import random
 import six
 from sqlalchemy import exc as db_base_exc
+from sqlalchemy.orm import exc as sa_exc
 import time
 
 from oslo_config import cfg
@@ -316,7 +317,7 @@ class EdgeManager(object):
                 nsxv_db.update_nsxv_router_binding(
                     context.session, binding['router_id'],
                     status=plugin_const.PENDING_DELETE)
-            except db_base_exc.NoResultFound:
+            except sa_exc.NoResultFound:
                 LOG.debug("Router binding %s does not exist.",
                           binding['router_id'])
 
