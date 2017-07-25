@@ -35,6 +35,7 @@ from oslo_utils import uuidutils
 import six
 from six import moves
 from sqlalchemy import exc as db_base_exc
+from sqlalchemy.orm import exc as sa_exc
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import config as conf
@@ -300,7 +301,7 @@ class EdgeManager(object):
                 nsxv_db.update_nsxv_router_binding(
                     context.session, binding['router_id'],
                     status=constants.PENDING_DELETE)
-            except db_base_exc.NoResultFound:
+            except sa_exc.NoResultFound:
                 LOG.debug("Router binding %s does not exist.",
                           binding['router_id'])
 
