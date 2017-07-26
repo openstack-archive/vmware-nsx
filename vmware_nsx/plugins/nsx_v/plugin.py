@@ -35,6 +35,7 @@ from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import port_security as psec_exc
 from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
+from neutron_lib.services.qos import constants as qos_consts
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
@@ -84,7 +85,6 @@ from neutron.objects import securitygroup
 from neutron.plugins.common import utils
 from neutron.quota import resource_registry
 from neutron.services.flavors import flavors_plugin
-from neutron.services.qos import qos_consts
 from vmware_nsx.dvs import dvs
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v import driver as qos_driver
