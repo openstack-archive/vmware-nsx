@@ -14,10 +14,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron_lib.services.qos import base
 from oslo_log import log as logging
 
 from neutron.common import constants as n_consts
-from neutron.services.qos.drivers import base
 from neutron.services.qos import qos_consts
 
 from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
