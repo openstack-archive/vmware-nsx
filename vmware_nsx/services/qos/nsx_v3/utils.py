@@ -18,10 +18,10 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 from neutron.common import constants as n_consts
-from neutron.services.qos import qos_consts
 from neutron_lib.api import validators
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
+from neutron_lib.services.qos import constants as qos_consts
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc

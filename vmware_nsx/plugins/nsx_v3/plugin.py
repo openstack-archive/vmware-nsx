@@ -17,6 +17,7 @@ import netaddr
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.exceptions import port_security as psec_exc
+from neutron_lib.services.qos import constants as qos_consts
 
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
 from neutron.api.rpc.handlers import dhcp_rpc
@@ -52,7 +53,6 @@ from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import utils as n_utils
 from neutron.quota import resource_registry
-from neutron.services.qos import qos_consts
 from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
 from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet

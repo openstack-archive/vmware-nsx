@@ -15,10 +15,10 @@
 #    under the License.
 
 from neutron_lib.services.qos import base
+from neutron_lib.services.qos import constants as qos_consts
 from oslo_log import log as logging
 
 from neutron.common import constants as n_consts
-from neutron.services.qos import qos_consts
 
 LOG = logging.getLogger(__name__)
 DRIVER = None

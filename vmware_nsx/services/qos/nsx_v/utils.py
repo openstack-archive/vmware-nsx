@@ -15,9 +15,9 @@
 #    under the License.
 
 from neutron.common import constants as n_consts
-from neutron.services.qos import qos_consts
 from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
+from neutron_lib.services.qos import constants as qos_consts
 
 from oslo_config import cfg
 from oslo_log import log as logging

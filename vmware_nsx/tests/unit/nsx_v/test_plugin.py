@@ -30,7 +30,6 @@ from neutron.extensions import l3_flavors
 from neutron.extensions import router_availability_zone
 from neutron.extensions import securitygroup as secgrp
 from neutron.plugins.common import utils
-from neutron.services.qos import qos_consts
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.db.test_allowedaddresspairs_db as test_addr_pair
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
@@ -51,6 +50,7 @@ from neutron_lib import context
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
+from neutron_lib.services.qos import constants as qos_consts
 from neutron_lib.utils import helpers
 from neutron_lib.utils import net
 from oslo_config import cfg

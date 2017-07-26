@@ -15,7 +15,7 @@
 #    under the License.
 
 from neutron.objects.qos import policy as qos_policy
-from neutron.services.qos import qos_consts
+from neutron_lib.services.qos import constants as qos_consts
 
 
 def update_network_policy_binding(context, net_id, new_policy_id):
