@@ -15,13 +15,13 @@
 
 import netaddr
 
-from neutron_fwaas.extensions import firewall as exceptions
 from neutron_fwaas.services.firewall.drivers import fwaas_base
 from neutron_lib.api.definitions import constants as fwaas_consts
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
 from neutron_lib import context as n_context
+from neutron_lib.exceptions import firewall_v1 as exceptions
 from neutron_lib.plugins import directory
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging

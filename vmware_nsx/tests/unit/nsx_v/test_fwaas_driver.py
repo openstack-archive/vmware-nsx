@@ -16,7 +16,7 @@
 import copy
 
 import mock
-from neutron_fwaas.extensions import firewall as exceptions
+from neutron_lib.exceptions import firewall_v1 as exceptions
 from oslo_utils import uuidutils
 
 from vmware_nsx.services.fwaas.nsx_v import edge_fwaas_driver
