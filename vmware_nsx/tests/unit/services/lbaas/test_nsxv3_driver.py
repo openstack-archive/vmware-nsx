@@ -94,6 +94,14 @@ HM_BINDING = {'loadbalancer_id': LB_ID,
               'hm_id': HM_ID,
               'lb_monitor_id': LB_MONITOR_ID,
               'lb_pool_id': LB_POOL_ID}
+L7POLICY_ID = 'l7policy-xxx'
+LB_RULE_ID = 'lb-rule-xx'
+L7RULE_ID = 'l7rule-111'
+L7RULE_BINDING = {'loadbalancer_id': LB_ID,
+                  'policy_id': L7POLICY_ID,
+                  'rule_id': L7RULE_ID,
+                  'lb_vs_id': LB_VS_ID,
+                  'lb_rule_id': LB_RULE_ID}
 
 
 class BaseTestEdgeLbaasV2(base.BaseTestCase):
@@ -130,6 +138,22 @@ class BaseTestEdgeLbaasV2(base.BaseTestCase):
                                        name='member-mmm-mmm')
         self.hm = lb_models.HealthMonitor(HM_ID, LB_TENANT_ID, 'PING', 3, 3,
                                           1, pool=self.pool, name='hm1')
+        self.l7policy = lb_models.L7Policy(L7POLICY_ID, LB_TENANT_ID,
+                                           name='policy-test',
+                                           description='policy-desc',
+                                           listener_id=LISTENER_ID,
+                                           action='REDIRECT_TO_POOL',
+                                           redirect_pool_id=LB_POOL_ID,
+                                           listener=self.listener,
+                                           position=1)
+        self.l7rule = lb_models.L7Rule(L7RULE_ID, LB_TENANT_ID,
+                                       l7policy_id=L7POLICY_ID,
+                                       compare_type='EQUAL_TO',
+                                       invert=False,
+                                       type='HEADER',
+                                       key='key1',
+                                       value='val1',
+                                       policy=self.l7policy)
 
     def tearDown(self):
         self._unpatch_lb_plugin(self.lbv2_driver, self._tested_entity)
@@ -156,6 +180,8 @@ class BaseTestEdgeLbaasV2(base.BaseTestCase):
                                              'pool').start()
         self.monitor_client = mock.patch.object(load_balancer,
                                                 'monitor').start()
+        self.rule_client = mock.patch.object(load_balancer,
+                                             'rule').start()
 
     def _unpatch_lb_plugin(self, lb_plugin, manager):
         setattr(lb_plugin, manager, self.real_manager)
@@ -487,7 +513,7 @@ class TestEdgeLbaasV2HealthMonitor(BaseTestEdgeLbaasV2):
     def test_update(self):
         new_hm = lb_models.HealthMonitor(HM_ID, LB_TENANT_ID, 'PING', 3, 3,
                                          3, pool=self.pool)
-        self.edge_driver.healthmonitor.update(self.context, self.pool, new_hm)
+        self.edge_driver.healthmonitor.update(self.context, self.hm, new_hm)
 
         mock_successful_completion = (
             self.lbv2_driver.health_monitor.successful_completion)
@@ -516,4 +542,121 @@ class TestEdgeLbaasV2HealthMonitor(BaseTestEdgeLbaasV2):
                 self.lbv2_driver.health_monitor.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
                                                           self.hm,
+                                                          delete=True)
+
+
+class TestEdgeLbaasV2L7Policy(BaseTestEdgeLbaasV2):
+    def setUp(self):
+        super(TestEdgeLbaasV2L7Policy, self).setUp()
+
+    @property
+    def _tested_entity(self):
+        return 'l7policy'
+
+    def test_create(self):
+        self.edge_driver.l7policy.create(self.context, self.l7policy)
+        mock_successful_completion = (
+            self.lbv2_driver.l7policy.successful_completion)
+        mock_successful_completion.assert_called_with(
+            self.context, self.l7policy, delete=False)
+
+    def test_update(self):
+        new_l7policy = lb_models.L7Policy(L7POLICY_ID, LB_TENANT_ID,
+                                          name='new-policy',
+                                          listener_id=LISTENER_ID,
+                                          action='REJECT',
+                                          listener=self.listener,
+                                          position=1)
+        self.edge_driver.l7policy.update(self.context, self.l7policy,
+                                         new_l7policy)
+        mock_successful_completion = (
+            self.lbv2_driver.l7policy.successful_completion)
+        mock_successful_completion.assert_called_with(
+            self.context, new_l7policy, delete=False)
+
+    def test_delete(self):
+        self.edge_driver.l7policy.delete(self.context, self.l7policy)
+        mock_successful_completion = (
+            self.lbv2_driver.l7policy.successful_completion)
+        mock_successful_completion.assert_called_with(
+            self.context, self.l7policy, delete=True)
+
+
+class TestEdgeLbaasV2L7Rule(BaseTestEdgeLbaasV2):
+    def setUp(self):
+        super(TestEdgeLbaasV2L7Rule, self).setUp()
+
+    @property
+    def _tested_entity(self):
+        return 'l7rule'
+
+    def test_create(self):
+        with mock.patch.object(nsx_db, 'get_nsx_lbaas_listener_binding',
+                               ) as mock_get_listnener_binding, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding',
+                              ) as mock_get_pool_binding, \
+            mock.patch.object(self.rule_client, 'create',
+                              ) as mock_create_rule, \
+            mock.patch.object(self.vs_client, 'add_rule',
+                              ) as mock_add_rule, \
+            mock.patch.object(nsx_db, 'add_nsx_lbaas_l7rule_binding',
+                              ) as mock_add_l7rule_binding:
+            mock_get_listnener_binding.return_value = LISTENER_BINDING
+            mock_get_pool_binding.return_value = POOL_BINDING
+            mock_create_rule.return_value = {'id': LB_RULE_ID}
+
+            self.edge_driver.l7rule.create(self.context, self.l7rule)
+
+            mock_add_rule.assert_called_with(LB_VS_ID, LB_RULE_ID)
+            mock_add_l7rule_binding.assert_called_with(
+                self.context.session, LB_ID, L7POLICY_ID, L7RULE_ID,
+                LB_RULE_ID, LB_VS_ID)
+
+            mock_successful_completion = (
+                self.lbv2_driver.l7rule.successful_completion)
+            mock_successful_completion.assert_called_with(self.context,
+                                                          self.l7rule)
+
+    def test_update(self):
+        new_l7rule = lb_models.L7Rule(L7RULE_ID, LB_TENANT_ID,
+                                      l7policy_id=L7POLICY_ID,
+                                      compare_type='STARTS_WITH',
+                                      invert=True,
+                                      type='COOKIE',
+                                      key='cookie1',
+                                      value='xxxxx',
+                                      policy=self.l7policy)
+        self.edge_driver.l7rule.update(self.context, self.l7rule, new_l7rule)
+        mock_successful_completion = (
+            self.lbv2_driver.l7rule.successful_completion)
+        mock_successful_completion.assert_called_with(
+            self.context, new_l7rule)
+
+    def test_delete(self):
+        with mock.patch.object(nsx_db, 'get_nsx_lbaas_l7rule_binding',
+                               ) as mock_get_l7rule_binding, \
+            mock.patch.object(self.rule_client, 'delete',
+                              ) as mock_delete_rule, \
+            mock.patch.object(self.vs_client, 'get',
+                              ) as mock_get_vs, \
+            mock.patch.object(self.vs_client, 'update',
+                              ) as mock_update_vs, \
+            mock.patch.object(nsx_db, 'delete_nsx_lbaas_l7rule_binding',
+                              ) as mock_delete_l7rule_binding:
+            mock_get_l7rule_binding.return_value = L7RULE_BINDING
+            mock_get_vs.return_value = {'id': LB_VS_ID,
+                                        'rule_ids': [LB_RULE_ID]}
+
+            self.edge_driver.l7rule.delete(self.context, self.l7rule)
+
+            mock_delete_rule.assert_called_with(LB_RULE_ID)
+            mock_update_vs.assert_called_with(LB_VS_ID, {'id': LB_VS_ID,
+                                                         'rule_ids': []})
+            mock_delete_l7rule_binding.assert_called_with(
+                self.context.session, LB_ID, L7POLICY_ID, L7RULE_ID)
+
+            mock_successful_completion = (
+                self.lbv2_driver.l7rule.successful_completion)
+            mock_successful_completion.assert_called_with(self.context,
+                                                          self.l7rule,
                                                           delete=True)

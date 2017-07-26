@@ -17,6 +17,8 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
 from vmware_nsx.services.lbaas.nsx_v3 import healthmonitor_mgr as hm_mgr
+from vmware_nsx.services.lbaas.nsx_v3 import l7policy_mgr
+from vmware_nsx.services.lbaas.nsx_v3 import l7rule_mgr
 from vmware_nsx.services.lbaas.nsx_v3 import listener_mgr
 from vmware_nsx.services.lbaas.nsx_v3 import loadbalancer_mgr as lb_mgr
 from vmware_nsx.services.lbaas.nsx_v3 import member_mgr
@@ -50,6 +52,8 @@ class EdgeLoadbalancerDriverV2(object):
         self.pool = pool_mgr.EdgePoolManager()
         self.member = member_mgr.EdgeMemberManager()
         self.healthmonitor = hm_mgr.EdgeHealthMonitorManager()
+        self.l7policy = l7policy_mgr.EdgeL7PolicyManager()
+        self.l7rule = l7rule_mgr.EdgeL7RuleManager()
 
 
 class DummyLoadbalancerDriverV2(object):

@@ -593,3 +593,31 @@ def delete_nsx_lbaas_monitor_binding(session, loadbalancer_id, pool_id,
     return (session.query(nsx_models.NsxLbaasMonitor).
             filter_by(loadbalancer_id=loadbalancer_id,
                       pool_id=pool_id, hm_id=hm_id).delete())
+
+
+def add_nsx_lbaas_l7rule_binding(session, loadbalancer_id, l7policy_id,
+                                 l7rule_id, lb_rule_id, lb_vs_id):
+    with session.begin(subtransactions=True):
+        binding = nsx_models.NsxLbaasL7Rule(
+            loadbalancer_id=loadbalancer_id, l7policy_id=l7policy_id,
+            l7rule_id=l7rule_id, lb_rule_id=lb_rule_id, lb_vs_id=lb_vs_id)
+        session.add(binding)
+    return binding
+
+
+def get_nsx_lbaas_l7rule_binding(session, loadbalancer_id, l7policy_id,
+                                 l7rule_id):
+    try:
+        return session.query(nsx_models.NsxLbaasL7Rule).filter_by(
+            loadbalancer_id=loadbalancer_id, l7policy_id=l7policy_id,
+            l7rule_id=l7rule_id).one()
+    except exc.NoResultFound:
+        return
+
+
+def delete_nsx_lbaas_l7rule_binding(session, loadbalancer_id, l7policy_id,
+                                    l7rule_id):
+    return (session.query(nsx_models.NsxLbaasL7Rule).
+            filter_by(loadbalancer_id=loadbalancer_id,
+                      l7policy_id=l7policy_id,
+                      l7rule_id=l7rule_id).delete())
