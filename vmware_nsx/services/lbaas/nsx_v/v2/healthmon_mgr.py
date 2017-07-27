@@ -17,6 +17,8 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import excutils
 
+from neutron_lib import exceptions as n_exc
+
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as nsxv_exc
@@ -57,10 +59,18 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
         lb_id = hm.pool.loadbalancer_id
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
+        edge_id = lb_binding['edge_id']
+
         pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
             context.session, lb_id, hm.pool.id)
+        if not pool_binding:
+            self.lbv2_driver.health_monitor.failed_completion(
+                context, hm)
+            msg = _('Failed to create health monitor on edge: %s. '
+                    'Binding not found') % edge_id
+            LOG.error(msg)
+            raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
 
-        edge_id = lb_binding['edge_id']
         edge_pool_id = pool_binding['edge_pool_id']
 
         hm_binding = nsxv_db.get_nsxv_lbaas_monitor_binding(
@@ -137,17 +147,25 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def delete(self, context, hm):
+        pool_id = hm.pool.id
         lb_id = hm.pool.loadbalancer_id
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
-        pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
-            context.session, lb_id, hm.pool.id)
-
         edge_id = lb_binding['edge_id']
+
+        pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
+            context.session, lb_id, pool_id)
+        if not pool_binding:
+            nsxv_db.del_nsxv_lbaas_monitor_binding(
+                context.session, lb_id, pool_id, hm.id, edge_id)
+            self.lbv2_driver.health_monitor.successful_completion(
+                context, hm, delete=True)
+            return
+
         edge_pool_id = pool_binding['edge_pool_id']
 
         hm_binding = nsxv_db.get_nsxv_lbaas_monitor_binding(
-            context.session, lb_id, hm.pool.id, hm.id, edge_id)
+            context.session, lb_id, pool_id, hm.id, edge_id)
 
         edge_pool = self.vcns.get_pool(edge_id, edge_pool_id)[1]
         edge_pool['monitorId'].remove(hm_binding['edge_mon_id'])
@@ -174,6 +192,6 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
                     LOG.error('Failed to delete monitor on edge: %s', edge_id)
 
         nsxv_db.del_nsxv_lbaas_monitor_binding(
-            context.session, lb_id, hm.pool.id, hm.id, edge_id)
+            context.session, lb_id, pool_id, hm.id, edge_id)
         self.lbv2_driver.health_monitor.successful_completion(
             context, hm, delete=True)
