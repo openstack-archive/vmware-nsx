@@ -14,11 +14,11 @@
 #    under the License.
 
 from neutron_lib import context as n_context
+from neutron_lib.exceptions import firewall_v1 as exceptions
 from neutron_lib.plugins import directory
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
-from neutron_fwaas.extensions import firewall as exceptions
 from neutron_fwaas.services.firewall.drivers import fwaas_base
 
 from vmware_nsx.common import locking
