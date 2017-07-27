@@ -162,6 +162,17 @@ def delete_neutron_nsx_service_binding(session, network_id, service_type):
         network_id=network_id, nsx_service_type=service_type).delete()
 
 
+def update_nsx_dhcp_bindings(session, port_id, org_ip, new_ip):
+    try:
+        with session.begin(subtransactions=True):
+            binding = (session.query(nsx_models.NeutronNsxDhcpBinding).
+                       filter_by(port_id=port_id, ip_address=org_ip).one())
+            binding.ip_address = new_ip
+    except exc.NoResultFound:
+        LOG.debug("Binding not found for port %s", port_id)
+        return
+
+
 def get_nsx_dhcp_bindings(session, port_id):
     return [binding for binding in session.query(
         nsx_models.NeutronNsxDhcpBinding).filter_by(port_id=port_id)]

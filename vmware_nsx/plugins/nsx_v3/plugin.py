@@ -1973,6 +1973,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                 context, binding, new_port['mac_address'],
                                 ips_to_add[i][1], old_port['network_id'],
                                 dhcp_opts=dhcp_opts)
+                            # Update DB IP
+                            nsx_db.update_nsx_dhcp_bindings(context.session,
+                                                            old_port['id'],
+                                                            ip,
+                                                            ips_to_add[i][1])
                 else:
                     for (subnet_id, ip) in ips_to_delete:
                         binding = self._find_dhcp_binding(subnet_id, ip,
