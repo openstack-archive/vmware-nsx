@@ -578,15 +578,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if err_msg:
             raise n_exc.InvalidInput(error_message=err_msg)
 
-    def _validate_physical_network(self, physical_network, default_dvs):
-        dvs_ids = self._get_dvs_ids(physical_network, default_dvs)
-        existing_dvs = self.nsx_v.vcns.get_dvs_list()
-        for dvs_id in dvs_ids:
-            if not self.nsx_v.vcns.validate_dvs(
-                dvs_id, dvs_list=existing_dvs):
-                raise nsx_exc.NsxResourceNotFound(res_name='dvs_id',
-                                                  res_id=dvs_id)
-
     def _get_network_az_from_net_data(self, net_data):
         if az_ext.AZ_HINTS in net_data and net_data[az_ext.AZ_HINTS]:
             return self._availability_zones_data.get_availability_zone(
@@ -621,12 +612,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 if segmentation_id_set:
                     err_msg = _("Segmentation ID cannot be specified with "
                                 "flat network type")
-                if physical_network_set:
-                    self._validate_physical_network(physical_network, az_dvs)
             elif network_type == c_utils.NsxVNetworkTypes.VLAN:
-                # Verify whether the DVSes exist in the backend.
-                if physical_network_set:
-                    self._validate_physical_network(physical_network, az_dvs)
                 if not segmentation_id_set:
                     if physical_network_set:
                         if physical_network not in self._network_vlans:
@@ -851,7 +837,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _update_network_teaming(self, dvs_id, net_id, net_moref):
         if self._vcm:
-            h, switch = self.nsx_v.vcns.get_vdn_switch(dvs_id)
+            try:
+                h, switch = self.nsx_v.vcns.get_vdn_switch(dvs_id)
+            except Exception as e:
+                LOG.warning('DVS %s not registered on NSX. Unable to '
+                            'update teaming for network %s',
+                            dvs_id, net_id)
+                return
             try:
                 self._vcm.update_port_groups_config(
                     dvs_id, net_id, net_moref,
@@ -1483,8 +1475,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 attrs.get(pnet.NETWORK_TYPE))
             and not validators.is_attr_set(
                 attrs.get(pnet.SEGMENTATION_ID))):
-            self._validate_physical_network(
-                attrs[pnet.PHYSICAL_NETWORK], az_dvs)
             return
         providernet._raise_if_updates_provider_attributes(attrs)
 
