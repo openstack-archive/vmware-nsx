@@ -17,6 +17,8 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import excutils
 
+from neutron_lib import exceptions as n_exc
+
 from vmware_nsx._i18n import _LE
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
@@ -46,10 +48,18 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
         lb_id = self._get_pool_lb_id(member)
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
+        edge_id = lb_binding['edge_id']
+
         pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
             context.session, lb_id, member.pool_id)
+        if not pool_binding:
+            self.lbv2_driver.member.failed_completion(
+                context, member)
+            msg = _('Failed to create member on edge: %s. '
+                    'Binding not found') % edge_id
+            LOG.error(msg)
+            raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
 
-        edge_id = lb_binding['edge_id']
         edge_pool_id = pool_binding['edge_pool_id']
         with locking.LockManager.get_lock(edge_id):
             # Verify that Edge appliance is connected to the member's subnet
@@ -139,9 +149,7 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
             context.session, lb_id)
         pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
             context.session, lb_id, member.pool_id)
-
         edge_id = lb_binding['edge_id']
-        edge_pool_id = pool_binding['edge_pool_id']
 
         with locking.LockManager.get_lock(edge_id):
             # we should remove LB subnet interface if no members are attached
@@ -157,6 +165,12 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
                 lb_common.delete_lb_interface(context, self.core_plugin, lb_id,
                                               member.subnet_id)
 
+            if not pool_binding:
+                self.lbv2_driver.member.successful_completion(
+                    context, member, delete=True)
+                return
+
+            edge_pool_id = pool_binding['edge_pool_id']
             edge_pool = self.vcns.get_pool(edge_id, edge_pool_id)[1]
 
             for i, m in enumerate(edge_pool['member']):
