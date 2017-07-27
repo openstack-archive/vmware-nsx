@@ -120,6 +120,11 @@ class NsxV3PluginWrapper(plugin.NsxV3Plugin):
         # skip getting the Qos policy ID because get_object calls
         # plugin init again on admin-util environment
 
+    def _extend_get_port_dict_binding(self, context, port):
+        self._extend_port_dict_binding(context, port)
+        # skip getting the Qos policy ID because get_object calls
+        # plugin init again on admin-util environment
+
     def delete_network(self, network_id):
         return super(NsxV3PluginWrapper, self).delete_network(
             self.context, network_id)
