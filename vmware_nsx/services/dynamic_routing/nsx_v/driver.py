@@ -20,8 +20,8 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from neutron.extensions import address_scope
 from neutron.extensions import external_net
+from neutron_lib.api.definitions import address_scope
 from neutron_lib import constants as n_const
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory

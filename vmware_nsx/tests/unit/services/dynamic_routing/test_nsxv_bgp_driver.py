@@ -16,11 +16,11 @@ import contextlib
 
 import mock
 from neutron.api import extensions
-from neutron.extensions import address_scope
 from neutron_dynamic_routing.db import bgp_db  # noqa
 from neutron_dynamic_routing import extensions as dr_extensions
 from neutron_dynamic_routing.extensions import bgp as ext_bgp
 from neutron_dynamic_routing.tests.unit.db import test_bgp_db
+from neutron_lib.api.definitions import address_scope
 from neutron_lib import context
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory

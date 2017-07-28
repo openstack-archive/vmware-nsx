@@ -21,7 +21,7 @@ from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron.db import l3_db
 from neutron.db import models_v2
-from neutron.extensions import address_scope as ext_address_scope
+from neutron_lib.api.definitions import address_scope as ext_address_scope
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import subnet as subnet_def

@@ -41,6 +41,7 @@ import neutron.tests.unit.extensions.test_l3_ext_gw_mode as test_ext_gw_mode
 import neutron.tests.unit.extensions.test_portsecurity as test_psec
 import neutron.tests.unit.extensions.test_securitygroup as ext_sg
 from neutron.tests.unit import testlib_api
+from neutron_lib.api.definitions import address_scope as addr_apidef
 from neutron_lib.api.definitions import extra_dhcp_opt as edo_ext
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api.definitions import provider_net as pnet
@@ -2097,7 +2098,7 @@ class TestL3ExtensionManager(object):
         attributes.RESOURCE_ATTRIBUTE_MAP.update(
             l3.RESOURCE_ATTRIBUTE_MAP)
         attributes.RESOURCE_ATTRIBUTE_MAP.update(
-            address_scope.RESOURCE_ATTRIBUTE_MAP)
+            addr_apidef.RESOURCE_ATTRIBUTE_MAP)
         return (l3.L3.get_resources() +
                 address_scope.Address_scope.get_resources())
 
