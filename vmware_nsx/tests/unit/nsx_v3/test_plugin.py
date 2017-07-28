@@ -40,6 +40,7 @@ from neutron.tests.unit.scheduler \
 from neutron_lib.api.definitions import address_scope as addr_apidef
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api.definitions import provider_net as pnet
+from neutron_lib.callbacks import exceptions as nc_exc
 from neutron_lib import constants
 from neutron_lib import context
 from neutron_lib import exceptions as n_exc
@@ -50,6 +51,7 @@ from oslo_utils import uuidutils
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import utils
 from vmware_nsx.plugins.nsx_v3 import plugin as nsx_plugin
+from vmware_nsx.services.lbaas.nsx_v3 import lb_driver_v2
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.extensions import test_metadata
 from vmware_nsxlib.tests.unit.v3 import mocks as nsx_v3_mocks
@@ -161,6 +163,10 @@ def _mock_nsx_backend_calls():
     mock.patch(
         "vmware_nsxlib.v3.NsxLib.get_version",
         return_value='1.1.0').start()
+
+    mock.patch(
+        "vmware_nsxlib.v3.load_balancer.Service.get_router_lb_service",
+        return_value=None).start()
 
 
 class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
@@ -747,6 +753,19 @@ class TestL3NatTestCase(L3NatTest,
 
     def test_floatingip_update_subnet_gateway_disabled(self):
         self.skipTest('not supported')
+
+    def test_router_delete_with_lb_service(self):
+        # Create the LB object - here the delete callback is registered
+        lb_driver = lb_driver_v2.EdgeLoadbalancerDriverV2()
+        with self.router() as router:
+            with mock.patch('vmware_nsxlib.v3.load_balancer.Service.'
+                            'get_router_lb_service'):
+                self.assertRaises(nc_exc.CallbackFailure,
+                                  self.plugin_instance.delete_router,
+                                  context.get_admin_context(),
+                                  router['router']['id'])
+        # Unregister callback
+        lb_driver._unsubscribe_router_delete_callback()
 
     def test_multiple_subnets_on_different_routers(self):
         with self.network() as network:

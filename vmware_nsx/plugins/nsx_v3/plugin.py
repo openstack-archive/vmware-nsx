@@ -2925,8 +2925,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return self.get_router(context, router['id'])
 
     def delete_router(self, context, router_id):
-        # TODO(tongl) Prevent router deletion if router still has load
-        # balancer attachment. Raise exception if router has lb attachment.
         if not cfg.CONF.nsx_v3.native_dhcp_metadata:
             nsx_rpc.handle_router_metadata_access(self, context, router_id,
                                                   interface=None)
