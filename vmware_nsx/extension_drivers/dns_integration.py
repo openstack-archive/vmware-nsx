@@ -14,14 +14,15 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron_lib.api.definitions import dns
 from neutron_lib.api import validators
 from neutron_lib import context as n_context
+from neutron_lib.exceptions import dns as dns_exc
 from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_log import log as logging
 
 from neutron.extensions import availability_zone as az_ext
-from neutron.extensions import dns
 from neutron.objects import network as net_obj
 from neutron.objects import ports as port_obj
 from neutron.services.externaldns import driver
@@ -338,5 +339,5 @@ def _get_dns_driver():
     except ImportError:
         LOG.exception("ImportError exception occurred while loading "
                       "the external DNS service driver")
-        raise dns.ExternalDNSDriverNotFound(
+        raise dns_exc.ExternalDNSDriverNotFound(
             driver=cfg.CONF.external_dns_driver)
