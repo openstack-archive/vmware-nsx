@@ -59,23 +59,10 @@ check_identical_policy_files () {
     fi
 }
 
-check_no_duplicate_api_test_idempotent_ids() {
-    # For API tests, an idempotent ID is assigned to each single API test,
-    # those IDs should be unique
-    output=$(check-uuid --package vmware_nsx_tempest)
-    if [ "$?" -ne 0 ]; then
-        echo "There are duplicate idempotent ids in the API tests" >>$FAILURES
-        echo "please, assign unique uuids to each API test:" >>$FAILURES
-        echo "$output" >>$FAILURES
-    fi
-}
-
 # Add your checks here...
 check_no_symlinks_allowed
 check_pot_files_errors
 #check_identical_policy_files
-# Remove the comment below when we figure out how to consume pyshark
-#check_no_duplicate_api_test_idempotent_ids
 
 # Fail, if there are emitted failures
 if [ -f $FAILURES ]; then
