@@ -14,6 +14,7 @@
 
 
 import pprint
+import sys
 
 from neutron_lib import context as n_context
 from oslo_config import cfg
@@ -262,21 +263,6 @@ def nsx_recreate_dhcp_edge_by_net_id(net_id):
 
     context = n_context.get_admin_context()
 
-    # verify that there is no DHCP edge for this network at the moment
-    resource_id = (nsxv_constants.DHCP_EDGE_PREFIX + net_id)[:36]
-    router_binding = nsxv_db.get_nsxv_router_binding(
-        context.session, resource_id)
-    if router_binding:
-        # make sure there is no edge
-        if router_binding['edge_id']:
-            LOG.warning("Network %(net_id)s already has a dhcp edge: "
-                        "%(edge_id)s",
-                      {'edge_id': router_binding['edge_id'],
-                       'net_id': net_id})
-            return
-        # delete this old entry
-        nsxv_db.delete_nsxv_router_binding(context.session, resource_id)
-
     # init the plugin and edge manager
     cfg.CONF.set_override('core_plugin',
                           'vmware_nsx.shell.admin.plugins.nsxv.resources'
@@ -284,6 +270,30 @@ def nsx_recreate_dhcp_edge_by_net_id(net_id):
     with utils.NsxVPluginWrapper() as plugin:
         nsxv_manager = vcns_driver.VcnsDriver(edge_utils.NsxVCallbacks(plugin))
         edge_manager = edge_utils.EdgeManager(nsxv_manager, plugin)
+
+        # verify that there is no DHCP edge for this network at the moment
+        resource_id = (nsxv_constants.DHCP_EDGE_PREFIX + net_id)[:36]
+        router_binding = nsxv_db.get_nsxv_router_binding(
+            context.session, resource_id)
+        if router_binding:
+            # make sure there is no real edge
+            if router_binding['edge_id']:
+                edge_id = router_binding['edge_id']
+                try:
+                    nsxv_manager.vcns.get_edge(edge_id)
+                except exceptions.ResourceNotFound:
+                    # No edge on backend
+                    # prevent logger from logging this exception
+                    sys.exc_clear()
+                    LOG.info("Edge %s does not exist on the NSX", edge_id)
+                else:
+                    LOG.warning("Network %(net_id)s already has a dhcp edge: "
+                                "%(edge_id)s",
+                                {'edge_id': edge_id,
+                                 'net_id': net_id})
+                    return
+            # delete this old entry
+            nsxv_db.delete_nsxv_router_binding(context.session, resource_id)
 
         # Verify that the network exists on neutron
         try:
