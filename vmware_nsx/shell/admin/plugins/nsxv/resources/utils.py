@@ -48,6 +48,8 @@ class NsxVPluginWrapper(plugin.NsxVPlugin):
     def __init__(self):
         config.register_nsxv_azs(cfg.CONF, cfg.CONF.nsxv.availability_zones)
         super(NsxVPluginWrapper, self).__init__()
+        # finish the plugin initialization (md-proxy)
+        self.init_complete(0, 0, 0)
         # Make this the core plugin
         directory.add_plugin('CORE', self)
 
