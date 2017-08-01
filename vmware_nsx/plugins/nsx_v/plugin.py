@@ -2503,6 +2503,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             router_driver._update_nexthop(context, router_id, new_gateway)
 
     def update_subnet(self, context, id, subnet):
+        # Lock the subnet so that no other conflicting action can occur on
+        # the same subnet
+        with locking.LockManager.get_lock('subnet-%s' % id):
+            return self._safe_update_subnet(context, id, subnet)
+
+    def _safe_update_subnet(self, context, id, subnet):
         s = subnet['subnet']
         orig = self._get_subnet(context, id)
         gateway_ip = orig['gateway_ip']
