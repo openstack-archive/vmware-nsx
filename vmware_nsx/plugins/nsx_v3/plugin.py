@@ -1395,11 +1395,23 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if (cfg.CONF.nsx_v3.native_dhcp_metadata and
             updated_subnet['enable_dhcp']):
             kwargs = {}
-            for key in ('dns_nameservers', 'gateway_ip'):
+            for key in ('dns_nameservers', 'gateway_ip', 'host_routes'):
                 if key in subnet['subnet']:
                     value = subnet['subnet'][key]
                     if value != orig_subnet[key]:
                         kwargs[key] = value
+                        if key != 'dns_nameservers':
+                            kwargs['options'] = None
+            if 'options' in kwargs:
+                sr, gw_ip = self.nsxlib.native_dhcp.build_static_routes(
+                    updated_subnet.get('gateway_ip'),
+                    updated_subnet.get('cidr'),
+                    updated_subnet.get('host_routes', []))
+                kwargs['options'] = {'option121': {'static_routes': sr}}
+                kwargs.pop('host_routes', None)
+                if (gw_ip is not None and 'gateway_ip' not in kwargs and
+                    gw_ip != updated_subnet['gateway_ip']):
+                    kwargs['gateway_ip'] = gw_ip
             if kwargs:
                 dhcp_service = nsx_db.get_nsx_service_binding(
                     context.session, orig_subnet['network_id'],
@@ -1415,17 +1427,22 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                 "%(server)s for network %(network)s",
                                 {'server': dhcp_service['nsx_service_id'],
                                  'network': orig_subnet['network_id']})
-                    if 'gateway_ip' in kwargs:
+                    if 'options' in kwargs:
                         # Need to update the static binding of every VM in
                         # this logical DHCP server.
                         bindings = nsx_db.get_nsx_dhcp_bindings_by_service(
                             context.session, dhcp_service['nsx_service_id'])
                         for binding in bindings:
                             port = self._get_port(context, binding['port_id'])
+                            dhcp_opts = port.get(ext_edo.EXTRADHCPOPTS)
                             self._update_dhcp_binding_on_server(
                                 context, binding, port['mac_address'],
-                                binding['ip_address'], kwargs['gateway_ip'],
-                                port['network_id'])
+                                binding['ip_address'],
+                                port['network_id'],
+                                gateway_ip=kwargs.get('gateway_ip', False),
+                                dhcp_opts=dhcp_opts,
+                                options=kwargs.get('options'),
+                                subnet=updated_subnet)
 
         if (cfg.CONF.nsx_v3.metadata_on_demand and
             not cfg.CONF.nsx_v3.native_dhcp_metadata):
@@ -1792,12 +1809,18 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 msg = (_("DHCP option %s is not supported") % opt_name)
                 raise n_exc.InvalidInput(error_message=msg)
 
-    def _get_dhcp_options(self, context, ip, extra_dhcp_opts, net_id):
+    def _get_dhcp_options(self, context, ip, extra_dhcp_opts, net_id,
+                          subnet):
         # Always add option121.
         net_az = self.get_network_az_by_net_id(context, net_id)
         options = {'option121': {'static_routes': [
             {'network': '%s' % net_az.native_metadata_route,
              'next_hop': ip}]}}
+        if subnet:
+            sr, gateway_ip = self.nsxlib.native_dhcp.build_static_routes(
+                subnet.get('gateway_ip'), subnet.get('cidr'),
+                subnet.get('host_routes', []))
+            options['option121']['static_routes'].extend(sr)
         # Adding extra options only if configured on port
         if extra_dhcp_opts:
             other_opts = []
@@ -1829,12 +1852,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             gateway_ip = subnet.get('gateway_ip')
             options = self._get_dhcp_options(
                 context, ip, port.get(ext_edo.EXTRADHCPOPTS),
-                port['network_id'])
-            # update static routes
-            for hr in subnet['host_routes']:
-                options['option121']['static_routes'].append(
-                    {'network': hr['destination'],
-                     'next_hop': hr['nexthop']})
+                port['network_id'], subnet)
             binding = self.nsxlib.dhcp_server.create_binding(
                 dhcp_service_id, port['mac_address'], ip, hostname,
                 cfg.CONF.nsx_v3.dhcp_lease_time, options, gateway_ip)
@@ -1969,10 +1987,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         binding = self._find_dhcp_binding(subnet_id, ip,
                                                           bindings)
                         if binding:
+                            subnet = self.get_subnet(context,
+                                                     binding['subnet_id'])
                             self._update_dhcp_binding_on_server(
                                 context, binding, new_port['mac_address'],
                                 ips_to_add[i][1], old_port['network_id'],
-                                dhcp_opts=dhcp_opts)
+                                dhcp_opts=dhcp_opts, subnet=subnet)
                             # Update DB IP
                             nsx_db.update_nsx_dhcp_bindings(context.session,
                                                             old_port['id'],
@@ -1999,23 +2019,28 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 # If only Mac address/dhcp opts is changed,
                 # update it in all associated DHCP bindings.
                 for binding in bindings:
+                    subnet = self.get_subnet(context, binding['subnet_id'])
                     self._update_dhcp_binding_on_server(
                         context, binding, new_port['mac_address'],
                         binding['ip_address'], old_port['network_id'],
-                        dhcp_opts=dhcp_opts if dhcp_opts_changed else None)
+                        dhcp_opts=dhcp_opts, subnet=subnet)
 
     def _update_dhcp_binding_on_server(self, context, binding, mac, ip,
                                        net_id, gateway_ip=False,
-                                       dhcp_opts=None):
+                                       dhcp_opts=None, options=None,
+                                       subnet=None):
         try:
             data = {'mac_address': mac, 'ip_address': ip}
             if ip != binding['ip_address']:
                 data['host_name'] = 'host-%s' % ip.replace('.', '-')
                 data['options'] = self._get_dhcp_options(
-                    context, ip, dhcp_opts, net_id)
-            elif dhcp_opts is not None:
+                    context, ip, dhcp_opts, net_id,
+                    subnet)
+            elif (dhcp_opts is not None or
+                  options is not None):
                 data['options'] = self._get_dhcp_options(
-                    context, ip, dhcp_opts, net_id)
+                    context, ip, dhcp_opts, net_id,
+                    subnet)
             if gateway_ip is not False:
                 # Note that None is valid for gateway_ip, means deleting it.
                 data['gateway_ip'] = gateway_ip

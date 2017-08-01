@@ -400,7 +400,11 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                     options = {'option121': {'static_routes': [
                         {'network': '%s' %
                          cfg.CONF.nsx_v3.native_metadata_route,
-                         'next_hop': ip}]}}
+                         'next_hop': ip},
+                        {'network': subnet['subnet']['cidr'],
+                         'next_hop': '0.0.0.0'},
+                        {'network': '0.0.0.0/0',
+                         'next_hop': subnet['subnet']['gateway_ip']}]}}
                     create_dhcp_binding.assert_called_once_with(
                         dhcp_service['nsx_service_id'],
                         port['port']['mac_address'], ip, hostname,
@@ -435,8 +439,12 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                     options = {'option121': {'static_routes': [
                         {'network': '%s' %
                          cfg.CONF.nsx_v3.native_metadata_route,
-                         'next_hop': ip}]},
-                         'others': [{'code': opt_code, 'values': [opt_val]}]}
+                         'next_hop': ip},
+                        {'network': subnet['subnet']['cidr'],
+                         'next_hop': '0.0.0.0'},
+                        {'network': '0.0.0.0/0',
+                         'next_hop': subnet['subnet']['gateway_ip']}]},
+                        'others': [{'code': opt_code, 'values': [opt_val]}]}
                     create_dhcp_binding.assert_called_once_with(
                         dhcp_service['nsx_service_id'],
                         port['port']['mac_address'], ip, hostname,
@@ -469,7 +477,12 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                         {'network': '%s' %
                          cfg.CONF.nsx_v3.native_metadata_route,
                          'next_hop': ip},
-                        {'network': '1.0.0.0/24', 'next_hop': '1.2.3.4'}]}}
+                        {'network': subnet['subnet']['cidr'],
+                         'next_hop': '0.0.0.0'},
+                        {'network': '0.0.0.0/0',
+                         'next_hop': subnet['subnet']['gateway_ip']},
+                        {'network': '1.0.0.0/24',
+                         'next_hop': '1.2.3.4'}]}}
                     create_dhcp_binding.assert_called_once_with(
                         dhcp_service['nsx_service_id'],
                         port['port']['mac_address'], ip, hostname,
@@ -595,7 +608,11 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                            'options': {'option121': {'static_routes': [
                                {'network': '%s' %
                                 cfg.CONF.nsx_v3.native_metadata_route,
-                                'next_hop': new_ip}]}}}
+                                'next_hop': new_ip},
+                               {'network': subnet['subnet']['cidr'],
+                                'next_hop': '0.0.0.0'},
+                               {'network': constants.IPv4_ANY,
+                                'next_hop': subnet['subnet']['gateway_ip']}]}}}
             self._verify_dhcp_binding(subnet, port_data, update_data,
                                       assert_data)
 
@@ -606,7 +623,15 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
             port_data = {'mac_address': '11:22:33:44:55:66'}
             new_mac = '22:33:44:55:66:77'
             update_data = {'port': {'mac_address': new_mac}}
-            assert_data = {'mac_address': new_mac}
+            assert_data = {'mac_address': new_mac,
+                           'options': {'option121': {'static_routes': [
+                               {'network': '%s' %
+                                cfg.CONF.nsx_v3.native_metadata_route,
+                                'next_hop': mock.ANY},
+                               {'network': subnet['subnet']['cidr'],
+                                'next_hop': '0.0.0.0'},
+                               {'network': constants.IPv4_ANY,
+                                'next_hop': subnet['subnet']['gateway_ip']}]}}}
             self._verify_dhcp_binding(subnet, port_data, update_data,
                                       assert_data)
 
@@ -627,7 +652,11 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                            'options': {'option121': {'static_routes': [
                                {'network': '%s' %
                                 cfg.CONF.nsx_v3.native_metadata_route,
-                                'next_hop': new_ip}]}}}
+                                'next_hop': new_ip},
+                               {'network': subnet['subnet']['cidr'],
+                                'next_hop': '0.0.0.0'},
+                               {'network': constants.IPv4_ANY,
+                                'next_hop': subnet['subnet']['gateway_ip']}]}}}
             self._verify_dhcp_binding(subnet, port_data, update_data,
                                       assert_data)
 
@@ -651,7 +680,11 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                            'options': {'option121': {'static_routes': [
                                {'network': '%s' %
                                 cfg.CONF.nsx_v3.native_metadata_route,
-                                'next_hop': ip_addr}]},
+                                'next_hop': ip_addr},
+                               {'network': subnet['subnet']['cidr'],
+                                'next_hop': '0.0.0.0'},
+                               {'network': constants.IPv4_ANY,
+                                'next_hop': subnet['subnet']['gateway_ip']}]},
                                 'others': [{'code': 26, 'values': ['9002']}]}}
             self._verify_dhcp_binding(subnet, port_data, update_data,
                                       assert_data)
@@ -676,7 +709,11 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                            'options': {'option121': {'static_routes': [
                                {'network': '%s' %
                                 cfg.CONF.nsx_v3.native_metadata_route,
-                                'next_hop': ip_addr}]},
+                                'next_hop': ip_addr},
+                               {'network': subnet['subnet']['cidr'],
+                                'next_hop': '0.0.0.0'},
+                               {'network': constants.IPv4_ANY,
+                                'next_hop': subnet['subnet']['gateway_ip']}]},
                                 'others': [{'code': 26, 'values': ['9002']},
                                            {'code': 40, 'values': ['abc']}]}}
             self._verify_dhcp_binding(subnet, port_data, update_data,
@@ -704,7 +741,11 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                            'options': {'option121': {'static_routes': [
                                {'network': '%s' %
                                 cfg.CONF.nsx_v3.native_metadata_route,
-                                'next_hop': ip_addr}]},
+                                'next_hop': ip_addr},
+                               {'network': subnet['subnet']['cidr'],
+                                'next_hop': '0.0.0.0'},
+                               {'network': constants.IPv4_ANY,
+                                'next_hop': subnet['subnet']['gateway_ip']}]},
                                 'others': [{'code': 40, 'values': ['abc']}]}}
             self._verify_dhcp_binding(subnet, port_data, update_data,
                                       assert_data)
@@ -849,8 +890,13 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                         ip = port['port']['fixed_ips'][0]['ip_address']
                         hostname = 'host-%s' % ip.replace('.', '-')
                         options = {'option121': {'static_routes': [
-                            {'network': '%s' % self.az_metadata_route,
-                             'next_hop': ip}]}}
+                            {'network': '%s' %
+                             self.az_metadata_route,
+                             'next_hop': ip},
+                            {'network': subnet['subnet']['cidr'],
+                             'next_hop': '0.0.0.0'},
+                            {'network': '0.0.0.0/0',
+                             'next_hop': subnet['subnet']['gateway_ip']}]}}
                         create_dhcp_binding.assert_called_once_with(
                             dhcp_service['nsx_service_id'],
                             port['port']['mac_address'], ip, hostname,
