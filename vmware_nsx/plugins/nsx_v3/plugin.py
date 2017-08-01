@@ -1066,7 +1066,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             "network_id": network['id'],
             "tenant_id": network["tenant_id"],
             "mac_address": const.ATTR_NOT_SPECIFIED,
-            "fixed_ips": [{"subnet_id": subnet['id']}]
+            "fixed_ips": [{"subnet_id": subnet['id']}],
+            psec.PORTSECURITY: False
         }
         neutron_port = super(NsxV3Plugin, self).create_port(
             context, {'port': port_data})
