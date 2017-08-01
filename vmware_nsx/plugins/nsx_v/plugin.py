@@ -2567,7 +2567,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                              'tenant_id': subnet['tenant_id'],
                              'fixed_ips': [{'subnet_id': subnet['id']}],
                              'device_owner': constants.DEVICE_OWNER_DHCP,
-                             'device_id': '',
+                             'device_id': n_utils.get_dhcp_agent_device_id(
+                                  network_id, 'nsxv'),
                              'mac_address': constants.ATTR_NOT_SPECIFIED
                              }
                 self.create_port(context, {'port': port_dict})
@@ -2687,7 +2688,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                      'tenant_id': subnet['tenant_id'],
                      'fixed_ips': [{'subnet_id': subnet['id']}],
                      'device_owner': constants.DEVICE_OWNER_DHCP,
-                     'device_id': '',
+                     'device_id': n_utils.get_dhcp_agent_device_id(
+                          network_id, 'nsxv'),
                      'mac_address': constants.ATTR_NOT_SPECIFIED
                      }
         self.create_port(context, {'port': port_dict})
