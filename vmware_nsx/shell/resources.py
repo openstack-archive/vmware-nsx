@@ -115,6 +115,14 @@ nsxv3_resources = {
     constants.ORPHANED_NETWORKS: Resource(constants.ORPHANED_NETWORKS,
                                  [Operations.LIST.value,
                                   Operations.NSX_CLEAN.value]),
+    constants.LB_SERVICES: Resource(constants.LB_SERVICES,
+                                    [Operations.LIST.value]),
+    constants.LB_VIRTUAL_SERVERS: Resource(constants.LB_VIRTUAL_SERVERS,
+                                           [Operations.LIST.value]),
+    constants.LB_POOLS: Resource(constants.LB_POOLS,
+                                 [Operations.LIST.value]),
+    constants.LB_MONITORS: Resource(constants.LB_MONITORS,
+                                    [Operations.LIST.value])
 }
 
 # Add supported NSX-V resources in this dictionary

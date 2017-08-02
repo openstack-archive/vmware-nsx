@@ -402,6 +402,26 @@ BGP GW edges
 
     nsxadmin -r bgp-neighbour -o delete --property gw-edge-ids=<edge_id>[,...] --property ip-address=<IP_ADDRESS>
 
+
+LBaaS
+~~~~~~~~~~~~
+- List NSX LB services::
+
+    nsxadmin -r lb-services -o list
+
+- List NSX LB virtual servers::
+
+    nsxadmin -r lb-virtual-servers -o list
+
+- List NSX LB pools::
+
+    nsxadmin -r lb-pools -o list
+
+- List NSX LB monitors::
+
+    nsxadmin -r lb-monitors -o list
+
+
 Config
 ~~~~~~
 
