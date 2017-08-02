@@ -760,6 +760,13 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                 context, router_id, interface_info)
 
     def add_router_interface(self, context, router_id, interface_info):
+        # Lock the shared router before any action that can cause the router
+        # to be deployed on a new edge.
+        with locking.LockManager.get_lock('router-%s' % router_id):
+            return self._safe_add_router_interface(context, router_id,
+                                                   interface_info)
+
+    def _safe_add_router_interface(self, context, router_id, interface_info):
         self.plugin._check_intf_number_of_router(context, router_id)
         edge_id = edge_utils.get_router_edge_id(context, router_id)
         router_db = self.plugin._get_router(context, router_id)
@@ -850,6 +857,14 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         return info
 
     def remove_router_interface(self, context, router_id, interface_info):
+        # Lock the shared router before any action that can cause the router
+        # to be deployed on a new edge
+        with locking.LockManager.get_lock('router-%s' % router_id):
+            return self._safe_remove_router_interface(context, router_id,
+                                                      interface_info)
+
+    def _safe_remove_router_interface(self, context, router_id,
+                                      interface_info):
         edge_id = edge_utils.get_router_edge_id(context, router_id)
         with locking.LockManager.get_lock('nsx-shared-router-pool'):
             info = super(
