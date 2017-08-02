@@ -26,9 +26,11 @@ from neutron_lib.api.definitions import address_scope as ext_address_scope
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import subnet as subnet_def
+from neutron_lib.api import validators
 from neutron_lib import context as n_context
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
+from neutron_lib.utils import net
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
@@ -254,3 +256,17 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
 
             self.recalculate_snat_rules_for_router(context, rtr,
                                                    affected_subnets)
+
+    def _validate_max_ips_per_port(self, fixed_ip_list, device_owner):
+        """Validate the number of fixed ips on a port
+
+        Do not allow multiple ip addresses on a port since the nsx backend
+        cannot add multiple static dhcp bindings with the same port
+        """
+        if (device_owner and
+            net.is_port_trusted({'device_owner': device_owner})):
+            return
+
+        if validators.is_attr_set(fixed_ip_list) and len(fixed_ip_list) > 1:
+            msg = _('Exceeded maximum amount of fixed ips per port')
+            raise n_exc.InvalidInput(error_message=msg)
