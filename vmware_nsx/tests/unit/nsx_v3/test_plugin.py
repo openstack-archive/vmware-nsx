@@ -892,6 +892,69 @@ class TestL3NatTestCase(L3NatTest,
                                                   int_subnet['subnet']['id'],
                                                   None)
 
+    def _mock_add_snat_rule(self):
+        return mock.patch("vmware_nsxlib.v3.router.RouterLib."
+                          "add_gw_snat_rule")
+
+    def _mock_del_snat_rule(self):
+        return mock.patch("vmware_nsxlib.v3.router.RouterLib."
+                          "delete_gw_snat_rule_by_source")
+
+    def _prepare_external_subnet_on_address_scope(self,
+                                                  ext_net,
+                                                  address_scope):
+
+        self._set_net_external(ext_net['network']['id'])
+        as_id = address_scope['address_scope']['id']
+        subnet = netaddr.IPNetwork('10.10.10.0/21')
+        subnetpool = self._test_create_subnetpool(
+            [subnet.cidr], name='sp1',
+            min_prefixlen='24', address_scope_id=as_id)
+        subnetpool_id = subnetpool['subnetpool']['id']
+        data = {'subnet': {
+                'network_id': ext_net['network']['id'],
+                'subnetpool_id': subnetpool_id,
+                'ip_version': 4,
+                'enable_dhcp': False,
+                'tenant_id': ext_net['network']['tenant_id']}}
+        req = self.new_create_request('subnets', data)
+        ext_subnet = self.deserialize(self.fmt, req.get_response(self.api))
+        return ext_subnet['subnet']
+
+    def _create_subnet_and_assert_snat_rules(self, subnetpool_id,
+                                             router_id,
+                                             assert_snat_deleted=False,
+                                             assert_snat_added=False):
+        # create a regular network on the same address scope
+        with self.network() as net:
+            data = {'subnet': {
+                    'network_id': net['network']['id'],
+                    'subnetpool_id': subnetpool_id,
+                    'ip_version': 4,
+                    'tenant_id': net['network']['tenant_id']}}
+            req = self.new_create_request('subnets', data)
+            int_subnet = self.deserialize(
+                self.fmt, req.get_response(self.api))
+
+            with self._mock_add_snat_rule() as add_nat,\
+                self._mock_del_snat_rule() as delete_nat:
+                # Add the interface
+                self._router_interface_action(
+                    'add',
+                    router_id,
+                    int_subnet['subnet']['id'],
+                    None)
+
+                if assert_snat_deleted:
+                    delete_nat.assert_called()
+                else:
+                    delete_nat.assert_not_called()
+
+                if assert_snat_added:
+                    add_nat.assert_called()
+                else:
+                    add_nat.assert_not_called()
+
     def test_router_address_scope_snat_rules(self):
         """Test that if the router interface had the same address scope
         as the gateway - snat rule is not added.
@@ -899,84 +962,223 @@ class TestL3NatTestCase(L3NatTest,
         # create an external network on one address scope
         with self.address_scope(name='as1') as addr_scope, \
             self.network() as ext_net:
-            self._set_net_external(ext_net['network']['id'])
+            ext_subnet = self._prepare_external_subnet_on_address_scope(
+                ext_net, addr_scope)
+
+            # create a router with this gateway
+            with self.router() as r:
+                self._add_external_gateway_to_router(
+                    r['router']['id'],
+                    ext_subnet['network_id'])
+
+            # create a regular network on same address scope
+            # and verify no snat change
             as_id = addr_scope['address_scope']['id']
-            subnet = netaddr.IPNetwork('10.10.10.0/21')
+            subnet = netaddr.IPNetwork('30.10.10.0/24')
             subnetpool = self._test_create_subnetpool(
-                [subnet.cidr], name='sp1',
+                [subnet.cidr], name='sp2',
                 min_prefixlen='24', address_scope_id=as_id)
+            as_id = addr_scope['address_scope']['id']
             subnetpool_id = subnetpool['subnetpool']['id']
-            data = {'subnet': {
-                    'network_id': ext_net['network']['id'],
-                    'subnetpool_id': subnetpool_id,
-                    'ip_version': 4,
-                    'enable_dhcp': False,
-                    'tenant_id': ext_net['network']['tenant_id']}}
-            req = self.new_create_request('subnets', data)
-            ext_subnet = self.deserialize(self.fmt, req.get_response(self.api))
-
-            # create a regular network on the same address scope
-            with self.network() as net:
-                data = {'subnet': {
-                        'network_id': net['network']['id'],
-                        'subnetpool_id': subnetpool_id,
-                        'ip_version': 4,
-                        'tenant_id': net['network']['tenant_id']}}
-                req = self.new_create_request('subnets', data)
-                int_subnet = self.deserialize(
-                    self.fmt, req.get_response(self.api))
-
-                # create a router with this gateway
-                with self.router() as r:
-                    self._add_external_gateway_to_router(
-                        r['router']['id'],
-                        ext_subnet['subnet']['network_id'])
-
-                    with mock.patch("vmware_nsxlib.v3.router.RouterLib."
-                                    "add_gw_snat_rule") as add_nat:
-                        # Add the interface
-                        self._router_interface_action(
-                            'add',
-                            r['router']['id'],
-                            int_subnet['subnet']['id'],
-                            None)
-                        # make sure snat rules are not added
-                        add_nat.assert_not_called()
+            self._create_subnet_and_assert_snat_rules(
+                subnetpool_id, r['router']['id'])
 
             # create a regular network on a different address scope
-            with self.address_scope(name='as2') as addr_scope2, \
-                self.network() as net:
-                as_id2 = addr_scope2['address_scope']['id']
+            # and verify snat rules are added
+            with self.address_scope(name='as2') as addr_scope2:
+                as2_id = addr_scope2['address_scope']['id']
                 subnet2 = netaddr.IPNetwork('20.10.10.0/24')
                 subnetpool2 = self._test_create_subnetpool(
                     [subnet2.cidr], name='sp2',
-                    min_prefixlen='24', address_scope_id=as_id2)
-                subnetpool_id2 = subnetpool2['subnetpool']['id']
-                data = {'subnet': {
-                        'network_id': net['network']['id'],
-                        'subnetpool_id': subnetpool_id2,
-                        'ip_version': 4,
-                        'tenant_id': net['network']['tenant_id']}}
-                req = self.new_create_request('subnets', data)
-                int_subnet = self.deserialize(
-                    self.fmt, req.get_response(self.api))
+                    min_prefixlen='24', address_scope_id=as2_id)
+                subnetpool2_id = subnetpool2['subnetpool']['id']
 
-                # create a router with this gateway
-                with self.router() as r:
-                    self._add_external_gateway_to_router(
-                        r['router']['id'],
-                        ext_subnet['subnet']['network_id'])
+                self._create_subnet_and_assert_snat_rules(
+                    subnetpool2_id, r['router']['id'],
+                    assert_snat_added=True)
 
-                    with mock.patch("vmware_nsxlib.v3.router.RouterLib."
-                                    "add_gw_snat_rule") as add_nat:
-                        # Add the interface
-                        self._router_interface_action(
-                            'add',
-                            r['router']['id'],
-                            int_subnet['subnet']['id'],
-                            None)
-                        # make sure snat rules are added
+    def _test_router_address_scope_change(self, change_gw=False):
+        """When subnetpool address scope changes, and router that was
+        originally under same address scope, results having different
+        address scopes, relevant snat rules are added.
+        """
+        # create an external network on one address scope
+        with self.address_scope(name='as1') as addr_scope, \
+            self.network() as ext_net:
+            ext_subnet = self._prepare_external_subnet_on_address_scope(
+                ext_net, addr_scope)
+
+            # create a router with this gateway
+            with self.router() as r:
+                self._add_external_gateway_to_router(
+                    r['router']['id'],
+                    ext_subnet['network_id'])
+
+            # create a regular network on same address scope
+            # and verify no snat change
+            as_id = addr_scope['address_scope']['id']
+            subnet2 = netaddr.IPNetwork('40.10.10.0/24')
+            subnetpool2 = self._test_create_subnetpool(
+                [subnet2.cidr], name='sp2',
+                min_prefixlen='24', address_scope_id=as_id)
+            subnetpool2_id = subnetpool2['subnetpool']['id']
+
+            self._create_subnet_and_assert_snat_rules(
+                subnetpool2_id, r['router']['id'])
+
+            # change address scope of the first subnetpool
+            with self.address_scope(name='as2') as addr_scope2,\
+                self._mock_add_snat_rule() as add_nat:
+
+                as2_id = addr_scope2['address_scope']['id']
+                data = {'subnetpool': {
+                        'address_scope_id': as2_id}}
+
+                if change_gw:
+                    subnetpool_to_update = ext_subnet['subnetpool_id']
+                else:
+                    subnetpool_to_update = subnetpool2_id
+
+                req = self.new_update_request('subnetpools', data,
+                                              subnetpool_to_update)
+                req.get_response(self.api)
+
+                add_nat.assert_called_once()
+
+    def test_router_address_scope_change(self):
+        self._test_router_address_scope_change()
+
+    def test_router_address_scope_gw_change(self):
+        self._test_router_address_scope_change(change_gw=True)
+
+    def _test_3leg_router_address_scope_change(self, change_gw=False,
+                                               change_2gw=False):
+        """Test address scope change scenarios with router that covers
+        3 address scopes
+        """
+        # create an external network on one address scope
+        with self.address_scope(name='as1') as as1, \
+            self.address_scope(name='as2') as as2, \
+            self.address_scope(name='as3') as as3, \
+            self.network() as ext_net:
+            ext_subnet = self._prepare_external_subnet_on_address_scope(
+                ext_net, as1)
+            as1_id = as1['address_scope']['id']
+
+            # create a router with this gateway
+            with self.router() as r:
+                self._add_external_gateway_to_router(
+                    r['router']['id'],
+                    ext_subnet['network_id'])
+
+            # create a regular network on address scope 2
+            # and verify snat change
+            as2_id = as2['address_scope']['id']
+            subnet2 = netaddr.IPNetwork('20.10.10.0/24')
+            subnetpool2 = self._test_create_subnetpool(
+                [subnet2.cidr], name='sp2',
+                min_prefixlen='24', address_scope_id=as2_id)
+            subnetpool2_id = subnetpool2['subnetpool']['id']
+            self._create_subnet_and_assert_snat_rules(
+                subnetpool2_id, r['router']['id'], assert_snat_added=True)
+
+            # create a regular network on address scope 3
+            # verify no snat change
+            as3_id = as3['address_scope']['id']
+            subnet3 = netaddr.IPNetwork('30.10.10.0/24')
+            subnetpool3 = self._test_create_subnetpool(
+                [subnet3.cidr], name='sp2',
+                min_prefixlen='24', address_scope_id=as3_id)
+            subnetpool3_id = subnetpool3['subnetpool']['id']
+            self._create_subnet_and_assert_snat_rules(
+                subnetpool3_id, r['router']['id'], assert_snat_added=True)
+
+            with self._mock_add_snat_rule() as add_nat, \
+                self._mock_del_snat_rule() as del_nat:
+
+                if change_gw:
+                    # change address scope of GW subnet
+                    subnetpool_to_update = ext_subnet['subnetpool_id']
+                else:
+                    subnetpool_to_update = subnetpool2_id
+
+                if change_2gw:
+                    # change subnet2 to be in GW address scope
+                    target_as = as1_id
+                else:
+                    target_as = as3_id
+
+                data = {'subnetpool': {
+                        'address_scope_id': target_as}}
+
+                req = self.new_update_request('subnetpools', data,
+                                              subnetpool_to_update)
+                req.get_response(self.api)
+
+                if change_gw:
+                    # The test changed address scope of gw subnet.
+                    # Both previous rules should be deleted,
+                    # and one new rule for subnet2 should be added
+                    del_nat.assert_called()
+                    self.assertEqual(2, del_nat.call_count)
+                    add_nat.assert_called_once()
+                else:
+                    if change_2gw:
+                        # The test changed address scope of subnet2 to be
+                        # same as GW address scope.
+                        # Snat rule for as2 will be deleted. No effect on as3
+                        # rule.
+                        del_nat.assert_called_once()
+                    else:
+                        # The test changed address scope of subnet2 to
+                        # as3. Affected snat rule should be re-created.
+                        del_nat.assert_called_once()
                         add_nat.assert_called_once()
+
+    def test_3leg_router_address_scope_change(self):
+        self._test_3leg_router_address_scope_change()
+
+    def test_3leg_router_address_scope_change_to_gw(self, change_2gw=True):
+        self._test_3leg_router_address_scope_change()
+
+    def test_3leg_router_gw_address_scope_change(self):
+        self._test_3leg_router_address_scope_change(change_gw=True)
+
+    def test_subnetpool_router_address_scope_change_no_effect(self):
+        """When all router interfaces are allocated from same subnetpool,
+        changing address scope on this subnetpool should not affect snat rules.
+        """
+        # create an external network on one address scope
+        with self.address_scope(name='as1') as addr_scope, \
+            self.network() as ext_net:
+            ext_subnet = self._prepare_external_subnet_on_address_scope(
+                ext_net, addr_scope)
+
+            # create a router with this gateway
+            with self.router() as r:
+                self._add_external_gateway_to_router(
+                    r['router']['id'],
+                    ext_subnet['network_id'])
+
+            # create a regular network on same address scope
+            # and verify no snat change
+            self._create_subnet_and_assert_snat_rules(
+                ext_subnet['subnetpool_id'], r['router']['id'])
+
+            with self.address_scope(name='as2') as addr_scope2,\
+                self._mock_add_snat_rule() as add_nat,\
+                self._mock_del_snat_rule() as delete_nat:
+
+                as2_id = addr_scope2['address_scope']['id']
+                # change address scope of the subnetpool
+                data = {'subnetpool': {
+                        'address_scope_id': as2_id}}
+                req = self.new_update_request('subnetpools', data,
+                                              ext_subnet['subnetpool_id'])
+                req.get_response(self.api)
+
+                add_nat.assert_not_called()
+                delete_nat.assert_not_called()
 
 
 class ExtGwModeTestCase(test_ext_gw_mode.ExtGwModeIntTestCase,

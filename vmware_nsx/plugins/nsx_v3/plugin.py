@@ -195,6 +195,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self.nsxlib.reinitialize_cluster,
             resources.PROCESS, events.AFTER_INIT)
 
+        registry.subscribe(
+            self.on_subnetpool_address_scope_updated,
+            resources.SUBNETPOOL_ADDRESS_SCOPE, events.AFTER_UPDATE)
+
         self._nsx_version = self.nsxlib.get_version()
         LOG.info("NSX Version: %s", self._nsx_version)
 
@@ -2796,8 +2800,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # than the gw
             gw_address_scope = self._get_network_address_scope(
                 context, router.gw_port.network_id)
-            subnets = self._find_router_subnets_and_cidrs(context.elevated(),
-                                                          router_id)
+            subnets = self._find_router_subnets(context.elevated(),
+                                                router_id)
             for subnet in subnets:
                 self._add_subnet_snat_rule(context, router_id, nsx_router_id,
                                            subnet, gw_address_scope, newaddr)
@@ -2814,8 +2818,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # if the subnets address scope is the same as the gateways:
         # no need for SNAT
         if gw_address_scope:
-            subnet_address_scope = self._get_subnet_address_scope(
-                context, subnet['id'])
+            subnet_address_scope = self._get_subnetpool_address_scope(
+                context, subnet['subnetpool_id'])
             if (gw_address_scope == subnet_address_scope):
                 LOG.info("No need for SNAT rule for router %(router)s "
                          "and subnet %(subnet)s because they use the "
@@ -3702,3 +3706,45 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             else:
                 az_name = nsx_az.DEFAULT_NAME
             net_res[az_ext.AVAILABILITY_ZONES] = [az_name]
+
+    def recalculate_snat_rules_for_router(self, context, router, subnets):
+        """Rrecalculate router snat rules for specific subnets.
+        Invoked when subnetpool address scope changes.
+        """
+        nsx_router_id = nsx_db.get_nsx_router_id(context.session,
+                                                 router['id'])
+
+        if not router['external_gateway_info']:
+            return
+
+        LOG.info("Recalculating snat rules for router %s", router['id'])
+        fip = router['external_gateway_info']['external_fixed_ips'][0]
+        ext_addr = fip['ip_address']
+        gw_address_scope = self._get_network_address_scope(
+            context, router['external_gateway_info']['network_id'])
+
+        # TODO(annak): improve amount of backend calls by rebuilding all
+        # snat rules when API is available
+        for subnet in subnets:
+            if gw_address_scope:
+                subnet_address_scope = self._get_subnetpool_address_scope(
+                    context, subnet['subnetpool_id'])
+                LOG.info("Deleting SNAT rule for %(router)s "
+                         "and subnet %(subnet)s",
+                         {'router': router['id'],
+                          'subnet': subnet['id']})
+
+                # Delete rule for this router/subnet pair if it exists
+                self._routerlib.delete_gw_snat_rule_by_source(
+                    nsx_router_id, ext_addr, subnet['cidr'],
+                    skip_not_found=True)
+
+                if (gw_address_scope != subnet_address_scope):
+                    # subnet is no longer under same address scope with GW
+                    LOG.info("Adding SNAT rule for %(router)s "
+                             "and subnet %(subnet)s",
+                             {'router': router['id'],
+                              'subnet': subnet['id']})
+                    self._routerlib.add_gw_snat_rule(nsx_router_id, ext_addr,
+                                                     source_net=subnet['cidr'],
+                                                     bypass_firewall=False)
