@@ -115,8 +115,7 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                         context.session, loadbalancer.id, lb_service_id,
                         nsx_router_id, loadbalancer.vip_address)
                     try:
-                        service_client.add_virtual_server_to_service(
-                            lb_service_id, vs_id)
+                        service_client.add_virtual_server(lb_service_id, vs_id)
                     except nsxlib_exc.ManagerError:
                         self.lbv2_driver.member.failed_completion(context,
                                                                   member)

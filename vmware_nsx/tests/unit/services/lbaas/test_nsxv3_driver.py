@@ -393,7 +393,7 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
             mock.patch.object(nsx_db, 'add_nsx_lbaas_loadbalancer_binding'
                               ) as mock_add_loadbalancer_bidning, \
             mock.patch.object(self.service_client,
-                              'add_virtual_server_to_service'
+                              'add_virtual_server'
                               ) as mock_add_vs_to_service, \
             mock.patch.object(self.pool_client, 'get'
                               ) as mock_get_pool, \
