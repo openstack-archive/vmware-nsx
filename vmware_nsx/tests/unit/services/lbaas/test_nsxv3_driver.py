@@ -349,8 +349,11 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
             mock.patch.object(self.pool_client, 'delete'
                               ) as mock_delete_pool, \
             mock.patch.object(nsx_db, 'delete_nsx_lbaas_pool_binding'
-                              ) as mock_delete_pool_binding:
+                              ) as mock_delete_pool_binding, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_loadbalancer_binding'
+                              ) as mock_get_lb_binding:
             mock_get_pool_binding.return_value = POOL_BINDING
+            mock_get_lb_binding.return_value = None
 
             self.edge_driver.pool.delete(self.context, self.pool)
 
@@ -632,7 +635,7 @@ class TestEdgeLbaasV2L7Rule(BaseTestEdgeLbaasV2):
         mock_successful_completion.assert_called_with(
             self.context, new_l7rule)
 
-    def test_delete(self):
+    def test_delete_pool_without_members(self):
         with mock.patch.object(nsx_db, 'get_nsx_lbaas_l7rule_binding',
                                ) as mock_get_l7rule_binding, \
             mock.patch.object(self.rule_client, 'delete',
