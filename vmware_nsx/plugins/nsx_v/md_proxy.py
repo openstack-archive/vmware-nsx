@@ -359,6 +359,7 @@ class NsxVMetadataProxyHandler(object):
             self.nsxv_plugin.nsx_v.vcns, edge_id)
 
         vs = lb_obj.virtual_servers.get(METADATA_VSE_NAME)
+        update_md_proxy = False
         if vs:
             md_members = {member.payload['ipAddress']: member.payload['name']
                           for member in vs.default_pool.members.values()}
@@ -369,7 +370,8 @@ class NsxVMetadataProxyHandler(object):
                                      set(cfg.CONF.nsxv.nova_metadata_ips)))
                 m_ip_to_set = (list(set(cfg.CONF.nsxv.nova_metadata_ips)
                                     - set(m_ips)))
-
+                if m_to_convert or m_ip_to_set:
+                    update_md_proxy = True
                 for m_ip in m_to_convert:
                     m_name = md_members[m_ip]
                     vs.default_pool.members[m_name].payload['ipAddress'] = (
@@ -380,7 +382,9 @@ class NsxVMetadataProxyHandler(object):
 
             try:
                 # This may fail if the edge is powered off right now
-                lb_obj.submit_to_backend(self.nsxv_plugin.nsx_v.vcns, edge_id)
+                if update_md_proxy:
+                    lb_obj.submit_to_backend(self.nsxv_plugin.nsx_v.vcns,
+                                             edge_id)
             except exceptions.RequestBad as e:
                 # log the error and continue
                 LOG.error("Failed to update load balancer on metadata "
