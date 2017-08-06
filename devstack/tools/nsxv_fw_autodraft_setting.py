@@ -122,6 +122,3 @@ if __name__ == "__main__":
         print("Enabling autodraft settings:")
         nsx_client.enable_autodraft()
         print("Autodraft is now enabled.")
-
-    if options.disabled or options.enabled:
-        print("Please restart NSX manager for changes to take effect.")
