@@ -106,13 +106,12 @@ def generate_cert(resource, event, trigger, **kwargs):
         return
 
     signature_alg = properties.get('sig-alg')
-    # TODO(annak): use nsxlib constants when they land
     subject = {}
-    subject['country'] = properties.get('country')
-    subject['state'] = properties.get('state')
-    subject['organization'] = properties.get('org')
-    subject['unit'] = properties.get('org')
-    subject['hostname'] = properties.get('host')
+    subject[client_cert.CERT_SUBJECT_COUNTRY] = properties.get('country')
+    subject[client_cert.CERT_SUBJECT_STATE] = properties.get('state')
+    subject[client_cert.CERT_SUBJECT_ORG] = properties.get('org')
+    subject[client_cert.CERT_SUBJECT_UNIT] = properties.get('org')
+    subject[client_cert.CERT_SUBJECT_HOST] = properties.get('host')
 
     with get_certificate_manager(**kwargs) as cert:
         if cert.exists():
@@ -126,7 +125,7 @@ def generate_cert(resource, event, trigger, **kwargs):
             LOG.info(e)
             return
 
-    LOG.info("Client certificate generated succesfully")
+    LOG.info("Client certificate generated successfully")
 
 
 @admin_utils.output_header
@@ -149,7 +148,7 @@ def delete_cert(resource, event, trigger, **kwargs):
                 return
 
             cert.delete()
-        LOG.info("Client certificate deleted succesfully")
+        LOG.info("Client certificate deleted successfully")
 
 
 @admin_utils.output_header
@@ -221,7 +220,7 @@ def import_cert(resource, event, trigger, **kwargs):
             return
         cert.import_pem(filename)
 
-    LOG.info("Client certificate imported succesfully")
+    LOG.info("Client certificate imported successfully")
 
 
 @admin_utils.output_header
