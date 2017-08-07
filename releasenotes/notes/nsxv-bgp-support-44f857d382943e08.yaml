@@ -1,0 +1,6 @@
+---
+prelude: >
+    The NSX-V plugin suppports BGP for dynamic routing.
+features:
+  - |
+    The NSX-V plugin can suppport BGP for dynamic routing.
