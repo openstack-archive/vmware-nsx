@@ -1,0 +1,6 @@
+---
+prelude: >
+    The NSX-V plugin can decide on the VLAN tag for a provider network.
+features:
+  - |
+    The NSX-V plugin can decide on the VLAN tag for a provider network.
