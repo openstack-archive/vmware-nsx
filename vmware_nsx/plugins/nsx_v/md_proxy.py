@@ -742,3 +742,6 @@ class NsxVMetadataProxyHandler(object):
             except Exception as e:
                 LOG.error("Failed to delete md_proxy port %(port)s: "
                           "%(e)s", {'port': ports[0]['id'], 'e': e})
+
+    def is_md_subnet(self, subnet_id):
+        return self.internal_subnet == subnet_id
