@@ -1,0 +1,8 @@
+---
+prelude: >
+    NSXv3 plugin supports LBaaS v2 using NSX native load balancing.
+features:
+  - |
+    Add NSXv3 neutron lbaas v2 driver to support LBaaS v2.0. This
+    includes both layer4 and layer7 load balancing via NSX native
+    load balancer.
