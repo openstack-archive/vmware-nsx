@@ -95,6 +95,8 @@ class EdgeListenerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
             vs_id = binding['lb_vs_id']
             app_profile_id = binding['app_profile_id']
             try:
+                if listener.default_pool_id:
+                    vs_client.update(vs_id, pool_id='')
                 vs_client.delete(vs_id)
             except nsx_exc.NsxResourceNotFound:
                 msg = (_("virtual server not found on nsx: %(vs)s") %
