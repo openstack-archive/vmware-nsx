@@ -1667,10 +1667,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if attrs and validators.is_attr_set(vnic_type):
             if vnic_type == pbin.VNIC_NORMAL:
                 pass
-            elif vnic_type == pbin.VNIC_DIRECT:
+            elif vnic_type in [pbin.VNIC_DIRECT,
+                               pbin.VNIC_DIRECT_PHYSICAL]:
                 if has_security_groups or port_security:
-                    err_msg = _("Direct VNIC type requires no port "
-                                "security and no security groups!")
+                    err_msg = _("Direct/direct-physical  VNIC type requires "
+                                "no port security and no security groups!")
                     raise n_exc.InvalidInput(error_message=err_msg)
                 if not self._validate_network_type(
                     context, port_data['network_id'],
