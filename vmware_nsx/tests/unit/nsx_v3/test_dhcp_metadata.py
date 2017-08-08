@@ -765,49 +765,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                         context.get_admin_context(), port['port']['id'], data)
                     update_dhcp_binding.assert_not_called()
 
-    def test_dhcp_binding_with_multiple_ips(self):
-        # Test create/update/delete DHCP binding with multiple IPs on a
-        # compute port.
-        with mock.patch.object(nsx_resources.LogicalDhcpServer,
-                               'create_binding',
-                               side_effect=[{"id": uuidutils.generate_uuid()},
-                                            {"id": uuidutils.generate_uuid()}]
-                               ) as create_dhcp_binding:
-            with mock.patch.object(nsx_resources.LogicalDhcpServer,
-                                   'update_binding'
-                                   ) as update_dhcp_binding:
-                with mock.patch.object(nsx_resources.LogicalDhcpServer,
-                                       'delete_binding'
-                                       ) as delete_dhcp_binding:
-                    with self.subnet(cidr='10.0.0.0/24', enable_dhcp=True
-                                     ) as subnet:
-                        device_owner = (constants.DEVICE_OWNER_COMPUTE_PREFIX +
-                                        'None')
-                        device_id = uuidutils.generate_uuid()
-                        fixed_ips = [{'subnet_id': subnet['subnet']['id'],
-                                      'ip_address': '10.0.0.3'},
-                                     {'subnet_id': subnet['subnet']['id'],
-                                      'ip_address': '10.0.0.4'}]
-                        with self.port(subnet=subnet,
-                                       device_owner=device_owner,
-                                       device_id=device_id,
-                                       fixed_ips=fixed_ips) as port:
-                            self.assertEqual(create_dhcp_binding.call_count, 2)
-                            new_fixed_ips = [
-                                {'subnet_id': subnet['subnet']['id'],
-                                 'ip_address': '10.0.0.5'},
-                                {'subnet_id': subnet['subnet']['id'],
-                                 'ip_address': '10.0.0.6'}]
-                            self.plugin.update_port(
-                                context.get_admin_context(),
-                                port['port']['id'],
-                                {'port': {'fixed_ips': new_fixed_ips}})
-                            self.assertEqual(update_dhcp_binding.call_count, 2)
-                            self.plugin.delete_port(
-                                context.get_admin_context(),
-                                port['port']['id'])
-                            self.assertEqual(delete_dhcp_binding.call_count, 2)
-
     def test_create_network_with_bad_az_hint(self):
         p = directory.get_plugin()
         ctx = context.get_admin_context()

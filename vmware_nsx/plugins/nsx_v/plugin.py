@@ -1718,6 +1718,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         port_data = port['port']
         dhcp_opts = port_data.get(ext_edo.EXTRADHCPOPTS)
         self._validate_extra_dhcp_options(dhcp_opts)
+        self._validate_max_ips_per_port(port_data.get('fixed_ips', []),
+                                        port_data.get('device_owner'))
 
         with db_api.context_manager.writer.using(context):
             # First we allocate port in neutron database
@@ -1926,6 +1928,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._validate_extra_dhcp_options(dhcp_opts)
         if addr_pair.ADDRESS_PAIRS in attrs:
             self._validate_address_pairs(attrs, original_port)
+        self._validate_max_ips_per_port(
+            port_data.get('fixed_ips', []),
+            port_data.get('device_owner', original_port['device_owner']))
         orig_has_port_security = (cfg.CONF.nsxv.spoofguard_enabled and
                                   original_port[psec.PORTSECURITY])
         port_ip_change = port_data.get('fixed_ips') is not None

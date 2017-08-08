@@ -32,6 +32,7 @@ r="$r|(?:tempest\.api\.network\.test_ports\.PortsTestJSON\.test_create_update_po
 r="$r|(?:tempest\.api\.network\.test_ports\.PortsTestJSON\.test_update_port_with_security_group_and_extra_attributes.*)"
 r="$r|(?:tempest\.api\.network\.test_ports\.PortsTestJSON\.test_update_port_with_two_security_groups_and_extra_attributes.*)"
 r="$r|(?:tempest\.api\.network\.test_extra_dhcp_options\.ExtraDHCPOptionsTestJSON\.test_.*_with_extra_dhcp_options.*)"
+r="$r|(?:tempest\.api\.network\.test_floating_ips\.FloatingIPTestJSON\.test_create_update_floatingip_with_port_multiple_ip_address.*)"
 
 # End list of exclusions.
 r="$r)"

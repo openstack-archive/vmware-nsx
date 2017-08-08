@@ -874,15 +874,7 @@ class TestPortsV2(NsxVPluginV2TestCase,
         self.skipTest('No DHCP v6 Support yet')
 
     def test_create_port_anticipating_allocation(self):
-        with self.network(shared=True) as network:
-            with self.subnet(network=network, cidr='10.0.0.0/24',
-                             enable_dhcp=False) as subnet:
-                fixed_ips = [{'subnet_id': subnet['subnet']['id']},
-                             {'subnet_id': subnet['subnet']['id'],
-                              'ip_address': '10.0.0.2'}]
-                self._create_port(self.fmt, network['network']['id'],
-                                  webob.exc.HTTPCreated.code,
-                                  fixed_ips=fixed_ips)
+        self.skipTest('Multiple fixed ips on a port are not supported')
 
     def test_update_port_mac_ip(self):
         with self.subnet(enable_dhcp=False) as subnet:
@@ -1209,94 +1201,10 @@ class TestPortsV2(NsxVPluginV2TestCase,
                                           self.vnic_type))
 
     def test_range_allocation(self):
-        with self.subnet(enable_dhcp=False, gateway_ip='10.0.0.3',
-                         cidr='10.0.0.0/29') as subnet:
-                kwargs = {"fixed_ips":
-                          [{'subnet_id': subnet['subnet']['id']},
-                           {'subnet_id': subnet['subnet']['id']},
-                           {'subnet_id': subnet['subnet']['id']},
-                           {'subnet_id': subnet['subnet']['id']},
-                           {'subnet_id': subnet['subnet']['id']}]}
-                net_id = subnet['subnet']['network_id']
-                res = self._create_port(self.fmt, net_id=net_id, **kwargs)
-                port = self.deserialize(self.fmt, res)
-                ips = port['port']['fixed_ips']
-                self.assertEqual(len(ips), 5)
-                alloc = ['10.0.0.1', '10.0.0.2', '10.0.0.4', '10.0.0.5',
-                         '10.0.0.6']
-                for ip in ips:
-                    self.assertIn(ip['ip_address'], alloc)
-                    self.assertEqual(ip['subnet_id'],
-                                     subnet['subnet']['id'])
-                    alloc.remove(ip['ip_address'])
-                self.assertEqual(len(alloc), 0)
-                self._delete('ports', port['port']['id'])
-
-        with self.subnet(enable_dhcp=False, gateway_ip='11.0.0.6',
-                         cidr='11.0.0.0/29') as subnet:
-                kwargs = {"fixed_ips":
-                          [{'subnet_id': subnet['subnet']['id']},
-                           {'subnet_id': subnet['subnet']['id']},
-                           {'subnet_id': subnet['subnet']['id']},
-                           {'subnet_id': subnet['subnet']['id']},
-                           {'subnet_id': subnet['subnet']['id']}]}
-                net_id = subnet['subnet']['network_id']
-                res = self._create_port(self.fmt, net_id=net_id, **kwargs)
-                port = self.deserialize(self.fmt, res)
-                ips = port['port']['fixed_ips']
-                self.assertEqual(len(ips), 5)
-                alloc = ['11.0.0.1', '11.0.0.2', '11.0.0.3', '11.0.0.4',
-                         '11.0.0.5']
-                for ip in ips:
-                    self.assertIn(ip['ip_address'], alloc)
-                    self.assertEqual(ip['subnet_id'],
-                                     subnet['subnet']['id'])
-                    alloc.remove(ip['ip_address'])
-                self.assertEqual(len(alloc), 0)
-                self._delete('ports', port['port']['id'])
+        self.skipTest('Multiple fixed ips on a port are not supported')
 
     def test_requested_subnet_id_v4_and_v6(self):
-        with self.subnet(enable_dhcp=False) as subnet:
-                # Get an IPv4 and IPv6 address
-                tenant_id = subnet['subnet']['tenant_id']
-                net_id = subnet['subnet']['network_id']
-                res = self._create_subnet(
-                    self.fmt,
-                    tenant_id=tenant_id,
-                    net_id=net_id,
-                    cidr='2607:f0d0:1002:51::/124',
-                    ip_version=6,
-                    gateway_ip=constants.ATTR_NOT_SPECIFIED,
-                    enable_dhcp=False)
-                subnet2 = self.deserialize(self.fmt, res)
-                kwargs = {"fixed_ips":
-                          [{'subnet_id': subnet['subnet']['id']},
-                           {'subnet_id': subnet2['subnet']['id']}]}
-                res = self._create_port(self.fmt, net_id=net_id, **kwargs)
-                port3 = self.deserialize(self.fmt, res)
-                ips = port3['port']['fixed_ips']
-                cidr_v4 = subnet['subnet']['cidr']
-                cidr_v6 = subnet2['subnet']['cidr']
-                self.assertEqual(2, len(ips))
-                self._test_requested_port_subnet_ids(ips,
-                                                     [subnet['subnet']['id'],
-                                                      subnet2['subnet']['id']])
-                self._test_dual_stack_port_ip_addresses_in_subnets(ips,
-                                                                   cidr_v4,
-                                                                   cidr_v6)
-                res = self._create_port(self.fmt, net_id=net_id)
-                port4 = self.deserialize(self.fmt, res)
-                # Check that a v4 and a v6 address are allocated
-                ips = port4['port']['fixed_ips']
-                self.assertEqual(len(ips), 2)
-                self._test_requested_port_subnet_ids(ips,
-                                                     [subnet['subnet']['id'],
-                                                      subnet2['subnet']['id']])
-                self._test_dual_stack_port_ip_addresses_in_subnets(ips,
-                                                                   cidr_v4,
-                                                                   cidr_v6)
-                self._delete('ports', port3['port']['id'])
-                self._delete('ports', port4['port']['id'])
+        self.skipTest('Multiple fixed ips on a port are not supported')
 
     def test_update_port_update_ip(self):
         """Test update of port IP.
@@ -1496,35 +1404,46 @@ class TestPortsV2(NsxVPluginV2TestCase,
                             old_ip,
                             None, None)
 
-    def test_update_port_update_ip_address_only(self):
-        with self.subnet(enable_dhcp=False) as subnet:
-            ip_address = '10.0.0.2'
-            fixed_ip_data = [{'ip_address': ip_address,
-                              'subnet_id': subnet['subnet']['id']}]
-            with self.port(subnet=subnet, fixed_ips=fixed_ip_data) as port:
-                ips = port['port']['fixed_ips']
-                self.assertEqual(1, len(ips))
-                self.assertEqual(ip_address, ips[0]['ip_address'])
-                self.assertEqual(ips[0]['subnet_id'], subnet['subnet']['id'])
-                data = {'port': {'fixed_ips': [{'subnet_id':
-                                                subnet['subnet']['id'],
-                                                'ip_address': "10.0.0.10"},
-                                               {'ip_address': ip_address}]}}
+    def test_update_port_add_additional_ip(self):
+        """Test update of port with additional IP fails."""
+        with self.subnet() as subnet:
+            with self.port(subnet=subnet) as port:
+                data = {'port': {'admin_state_up': False,
+                                 'fixed_ips': [{'subnet_id':
+                                                subnet['subnet']['id']},
+                                               {'subnet_id':
+                                                subnet['subnet']['id']}]}}
                 req = self.new_update_request('ports', data,
                                               port['port']['id'])
-                res = self.deserialize(self.fmt, req.get_response(self.api))
-                ips = res['port']['fixed_ips']
-                self.assertEqual(2, len(ips))
-                self.assertIn({'ip_address': ip_address,
-                               'subnet_id': subnet['subnet']['id']}, ips)
-                self.assertIn({'ip_address': '10.0.0.10',
-                               'subnet_id': subnet['subnet']['id']}, ips)
+                res = req.get_response(self.api)
+                self.assertEqual(webob.exc.HTTPBadRequest.code,
+                                 res.status_int)
+
+    def test_create_port_additional_ip(self):
+        """Test that creation of port with additional IP fails."""
+        with self.subnet() as subnet:
+            data = {'port': {'network_id': subnet['subnet']['network_id'],
+                             'tenant_id': subnet['subnet']['tenant_id'],
+                             'fixed_ips': [{'subnet_id':
+                                            subnet['subnet']['id']},
+                                           {'subnet_id':
+                                            subnet['subnet']['id']}]}}
+            port_req = self.new_create_request('ports', data)
+            res = port_req.get_response(self.api)
+            self.assertEqual(webob.exc.HTTPBadRequest.code,
+                             res.status_int)
+
+    def test_update_port_update_ip_address_only(self):
+        self.skipTest('Multiple fixed ips on a port are not supported')
+
+    def test_requested_invalid_fixed_ips(self):
+        self.skipTest('Multiple fixed ips on a port are not supported')
+
+    def test_requested_subnet_id_v4_and_v6_slaac(self):
+        self.skipTest('Multiple fixed ips on a port are not supported')
 
     def test_update_dhcp_port_with_exceeding_fixed_ips(self):
         self.skipTest('Updating dhcp port IP is not supported')
-
-    def test_requested_subnet_id_v4_and_v6_slaac(self):
-        self.skipTest('No DHCP v6 Support yet')
 
     def test_create_router_port_ipv4_and_ipv6_slaac_no_fixed_ips(self):
         self.skipTest('No DHCP v6 Support yet')
@@ -2246,6 +2165,21 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
     def test_router_add_gateway_no_subnet(self):
         self.skipTest('No support for no subnet gateway set')
 
+    def test_floatingip_create_different_fixed_ip_same_port(self):
+        self.skipTest('Multiple fixed ips on a port are not supported')
+
+    def test_router_add_interface_multiple_ipv4_subnet_port_returns_400(self):
+        self.skipTest('Multiple fixed ips on a port are not supported')
+
+    def test_router_add_interface_multiple_ipv6_subnet_port(self):
+        self.skipTest('Multiple fixed ips on a port are not supported')
+
+    def test_floatingip_update_different_fixed_ip_same_port(self):
+        self.skipTest('Multiple fixed ips on a port are not supported')
+
+    def test_create_multiple_floatingips_same_fixed_ip_same_port(self):
+        self.skipTest('Multiple fixed ips on a port are not supported')
+
     def _set_net_external(self, net_id):
         self._update('networks', net_id,
                      {'network': {external_net.EXTERNAL: True}})
@@ -2665,29 +2599,6 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
                                                   r['router']['id'],
                                                   s2['subnet']['id'],
                                                   None)
-
-    def test_router_add_interface_multiple_ipv6_subnet_port(self):
-        """A port with multiple IPv6 subnets can be added to a router
-
-        Create a port with multiple associated IPv6 subnets and attach
-        it to a router. The action should succeed.
-        """
-        with self.network() as n, self.router() as r:
-            with self.subnet(network=n, cidr='fd00::/64',
-                             ip_version=6, enable_dhcp=False) as s1, (
-                 self.subnet(network=n, cidr='fd01::/64',
-                             ip_version=6, enable_dhcp=False)) as s2:
-                fixed_ips = [{'subnet_id': s1['subnet']['id']},
-                             {'subnet_id': s2['subnet']['id']}]
-                with self.port(subnet=s1, fixed_ips=fixed_ips) as p:
-                    self._router_interface_action('add',
-                                                  r['router']['id'],
-                                                  None,
-                                                  p['port']['id'])
-                    self._router_interface_action('remove',
-                                                  r['router']['id'],
-                                                  None,
-                                                  p['port']['id'])
 
     def test_router_add_interface_ipv6_subnet_without_gateway_ip(self):
         with self.router() as r:
