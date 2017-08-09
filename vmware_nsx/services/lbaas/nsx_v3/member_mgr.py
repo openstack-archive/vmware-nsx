@@ -57,7 +57,6 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
         tags = lb_utils.get_tags(self.core_plugin, router_id,
                                  lb_const.LR_ROUTER_TYPE,
                                  tenant_id, context.project_name)
-        tags.append({'scope': 'os-lbaas-lb-id', 'tag': lb_id})
         attachment = {'target_id': nsx_router_id,
                       'target_type': 'LogicalRouter'}
         lb_service = service_client.create(display_name=lb_name,
