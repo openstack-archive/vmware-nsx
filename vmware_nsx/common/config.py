@@ -434,6 +434,11 @@ nsx_v3_opts = [
                help=_("This is the scope of the tag that will be used for "
                       "finding the objects uuids on the NSX during plugin "
                       "init.")),
+    cfg.ListOpt('switching_profiles',
+                default=[],
+                help=_("Optional parameter defining a list switching profiles "
+                       "uuids that will be attached to all neutron created "
+                       "nsx ports.")),
 
 ]
 
@@ -792,6 +797,9 @@ nsxv3_az_opts = [
                       "transport zone that will be used for bridging between "
                       "Neutron networks, if no physical network has been "
                       "specified")),
+    cfg.ListOpt('switching_profiles',
+                help=_("(Optional) list switching profiles uuids that will be "
+                       "attached to all neutron created nsx ports.")),
 ]
 
 # Register the configuration options

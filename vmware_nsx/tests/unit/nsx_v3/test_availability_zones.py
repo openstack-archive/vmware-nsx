@@ -40,6 +40,7 @@ class Nsxv3AvailabilityZonesTestCase(base.BaseTestCase):
             "native_metadata_route", "1.1.1.1", group="nsx_v3")
         cfg.CONF.set_override("dns_domain", "xxx.com", group="nsx_v3")
         cfg.CONF.set_override("nameservers", ["10.1.1.1"], group="nsx_v3")
+        cfg.CONF.set_override("switching_profiles", ["uuid1"], group="nsx_v3")
 
     def _config_az(self,
                    metadata_proxy="metadata_proxy1",
@@ -48,7 +49,8 @@ class Nsxv3AvailabilityZonesTestCase(base.BaseTestCase):
                    dns_domain="aaa.com",
                    nameservers=["20.1.1.1"],
                    default_overlay_tz='otz',
-                   default_vlan_tz='vtz'):
+                   default_vlan_tz='vtz',
+                   switching_profiles=["uuid2"]):
         if metadata_proxy is not None:
             cfg.CONF.set_override("metadata_proxy", metadata_proxy,
                                   group=self.group_name)
@@ -71,6 +73,9 @@ class Nsxv3AvailabilityZonesTestCase(base.BaseTestCase):
         if default_vlan_tz is not None:
             cfg.CONF.set_override("default_vlan_tz", default_vlan_tz,
                                   group=self.group_name)
+        if switching_profiles is not None:
+            cfg.CONF.set_override("switching_profiles", switching_profiles,
+                                  group=self.group_name)
 
     def test_simple_availability_zone(self):
         self._config_az()
@@ -83,6 +88,7 @@ class Nsxv3AvailabilityZonesTestCase(base.BaseTestCase):
         self.assertEqual(["20.1.1.1"], az.nameservers)
         self.assertEqual("otz", az.default_overlay_tz)
         self.assertEqual("vtz", az.default_vlan_tz)
+        self.assertEqual(["uuid2"], az.switching_profiles)
 
     def test_missing_group_section(self):
         self.assertRaises(
@@ -120,3 +126,8 @@ class Nsxv3AvailabilityZonesTestCase(base.BaseTestCase):
         self._config_az(nameservers=None)
         az = nsx_az.NsxV3AvailabilityZone(self.az_name)
         self.assertEqual(["10.1.1.1"], az.nameservers)
+
+    def test_availability_zone_missing_profiles(self):
+        self._config_az(switching_profiles=None)
+        az = nsx_az.NsxV3AvailabilityZone(self.az_name)
+        self.assertEqual(["uuid1"], az.switching_profiles)

@@ -61,6 +61,7 @@ PLUGIN_NAME = 'vmware_nsx.plugin.NsxV3Plugin'
 NSX_TZ_NAME = 'default transport zone'
 NSX_DHCP_PROFILE_ID = 'default dhcp profile'
 NSX_METADATA_PROXY_ID = 'default metadata proxy'
+NSX_SWITCH_PROFILE = 'dummy switch profile'
 
 
 def _mock_create_firewall_rules(*args):
@@ -298,6 +299,8 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
     HAS_PORT_FILTER = True
 
     def setUp(self):
+        cfg.CONF.set_override('switching_profiles', [NSX_SWITCH_PROFILE],
+                              'nsx_v3')
         super(TestPortsV2, self).setUp()
         self.plugin = directory.get_plugin()
         self.ctx = context.get_admin_context()
@@ -536,6 +539,30 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
             res = port_req.get_response(self.api)
             self.assertEqual(exc.HTTPBadRequest.code,
                              res.status_int)
+
+    def test_create_port_with_switching_profiles(self):
+        """Tests that nsx ports get the configures switching profiles"""
+        self.plugin = directory.get_plugin()
+        with self.network() as network:
+            data = {'port': {
+                        'network_id': network['network']['id'],
+                        'tenant_id': self._tenant_id,
+                        'name': 'p1',
+                        'admin_state_up': True,
+                        'device_id': 'fake_device',
+                        'device_owner': 'fake_owner',
+                        'fixed_ips': [],
+                        'mac_address': '00:00:00:00:00:01'}
+                    }
+            with mock.patch.object(self.plugin.nsxlib.logical_port, 'create',
+                                   return_value={'id': 'fake'}) as nsx_create:
+                self.plugin.create_port(self.ctx, data)
+                expected_prof = self.plugin.get_default_az().\
+                    switching_profiles_objs[0]
+                actual_profs = nsx_create.call_args[1]['switch_profile_ids']
+                # the ports switching profiles should start with the
+                # configured one
+                self.assertEqual(expected_prof, actual_profs[0])
 
     def test_update_port_update_ip_address_only(self):
         self.skipTest('Multiple fixed ips on a port are not supported')

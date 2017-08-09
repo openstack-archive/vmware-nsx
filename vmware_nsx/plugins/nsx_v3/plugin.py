@@ -1626,6 +1626,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             vif_uuid = port_data['id']
 
         profiles = []
+
+        # Add availability zone profiles first (so that specific profiles will
+        # override them)
+        port_az = self.get_network_az_by_net_id(context,
+                                                port_data['network_id'])
+        if port_az.switching_profiles_objs:
+            profiles.extend(port_az.switching_profiles_objs)
+
         mac_learning_profile_set = False
         if psec_is_on:
             address_pairs = port_data.get(addr_pair.ADDRESS_PAIRS)
@@ -2419,6 +2427,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 original_port.get(provider_sg.PROVIDER_SECURITYGROUPS, []),
                 updated_port.get(ext_sg.SECURITYGROUPS, []) +
                 updated_port.get(provider_sg.PROVIDER_SECURITYGROUPS, []))
+
+        # Add availability zone profiles first (so that specific profiles will
+        # override them)
+        port_az = self.get_network_az_by_net_id(context,
+                                                updated_port['network_id'])
+        if port_az.switching_profiles_objs:
+            switch_profile_ids = (port_az.switching_profiles_objs +
+                                  switch_profile_ids)
 
         # Update the DHCP profile
         if updated_device_owner == const.DEVICE_OWNER_DHCP:
