@@ -89,6 +89,7 @@ class EdgePoolManager(base_mgr.Nsxv3LoadbalancerBaseManager):
         lb_id = pool.loadbalancer_id
         pool_client = self.core_plugin.nsxlib.load_balancer.pool
         vs_client = self.core_plugin.nsxlib.load_balancer.virtual_server
+        service_client = self.core_plugin.nsxlib.load_balancer.service
 
         binding = nsx_db.get_nsx_lbaas_pool_binding(
             context.session, lb_id, pool.id)
@@ -112,6 +113,30 @@ class EdgePoolManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                 raise n_exc.BadRequest(resource='lbaas-pool', msg=msg)
             nsx_db.delete_nsx_lbaas_pool_binding(context.session,
                                                  lb_id, pool.id)
+            lb_binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
+                context.session, lb_id)
+            if lb_binding:
+                lb_service_id = lb_binding['lb_service_id']
+                try:
+                    lb_service = service_client.get(lb_service_id)
+                    vs_list = lb_service.get('virtual_server_ids')
+                    if vs_list and vs_id in vs_list:
+                        vs_list.remove(vs_id)
+                    else:
+                        LOG.debug('virtual server id %s is not in the lb '
+                                  'service virtual server list %s',
+                                  vs_id, vs_list)
+                    service_client.update(lb_service_id,
+                                          virtual_server_ids=vs_list)
+                    if not vs_list:
+                        service_client.delete(lb_service_id)
+                        nsx_db.delete_nsx_lbaas_loadbalancer_binding(
+                            context.session, lb_id)
+                except nsxlib_exc.ManagerError:
+                    self.lbv2_driver.pool.failed_completion(context, pool)
+                    msg = (_('Failed to delete lb pool from nsx: %(pool)s') %
+                           {'pool': lb_pool_id})
+                    raise n_exc.BadRequest(resource='lbaas-pool', msg=msg)
 
         self.lbv2_driver.pool.successful_completion(
             context, pool, delete=True)
