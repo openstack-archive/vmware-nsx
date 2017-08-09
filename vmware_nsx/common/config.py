@@ -234,7 +234,6 @@ nsx_common_opts = [
                       "backend driver(i.e. NSXv3/NSX-V). This field will be "
                       "used when a L2 Gateway service plugin is configured.")),
     cfg.StrOpt('locking_coordinator_url',
-               deprecated_group='nsxv',
                help=_("(Optional) URL for distributed locking coordination "
                       "resource for lock manager. This value is passed as a "
                       "parameter to tooz coordinator. By default, value is "
@@ -255,17 +254,14 @@ nsx_common_opts = [
 
 nsx_v3_opts = [
     cfg.ListOpt('nsx_api_user',
-               deprecated_name='nsx_user',
-               default=['admin'],
-               help=_('User names for the NSX managers')),
+                default=['admin'],
+                help=_('User names for the NSX managers')),
     cfg.ListOpt('nsx_api_password',
-               deprecated_name='nsx_password',
-               default=['default'],
-               secret=True,
-               help=_('Passwords for the NSX managers')),
+                default=['default'],
+                secret=True,
+                help=_('Passwords for the NSX managers')),
     cfg.ListOpt('nsx_api_managers',
                 default=[],
-                deprecated_name='nsx_manager',
                 help=_("IP address of one or more NSX managers separated "
                        "by commas. The IP address should be of the form:\n"
                        "[<scheme>://]<ip_address>[:<port>]\nIf scheme is not "
@@ -287,21 +283,18 @@ nsx_v3_opts = [
                choices=['nsx-db', 'none'],
                help=_("Storage type for client certificate sensitive data")),
     cfg.StrOpt('default_overlay_tz',
-               deprecated_name='default_overlay_tz_uuid',
                help=_("This is the name or UUID of the default NSX overlay "
                       "transport zone that will be used for creating "
                       "tunneled isolated Neutron networks. It needs to be "
                       "created in NSX before starting Neutron with the NSX "
                       "plugin.")),
     cfg.StrOpt('default_vlan_tz',
-               deprecated_name='default_vlan_tz_uuid',
                help=_("(Optional) Only required when creating VLAN or flat "
                       "provider networks. Name or UUID of default NSX VLAN "
                       "transport zone that will be used for bridging between "
                       "Neutron networks, if no physical network has been "
                       "specified")),
     cfg.StrOpt('default_bridge_cluster',
-               deprecated_name='default_bridge_cluster_uuid',
                help=_("(Optional) Name or UUID of the default NSX bridge "
                       "cluster that will be used to perform L2 gateway "
                       "bridging between VXLAN and VLAN networks. If default "
@@ -349,7 +342,6 @@ nsx_v3_opts = [
                default=2,
                help=_('Number of times a HTTP redirect should be followed.')),
     cfg.StrOpt('default_tier0_router',
-               deprecated_name='default_tier0_router_uuid',
                help=_("Name or UUID of the default tier0 router that will be "
                       "used for connecting to tier1 logical routers and "
                       "configuring external networks")),
@@ -387,7 +379,6 @@ nsx_v3_opts = [
                help=_("The metadata route used for native metadata proxy "
                       "service.")),
     cfg.StrOpt('dhcp_profile',
-               deprecated_name='dhcp_profile_uuid',
                help=_("This is the name or UUID of the NSX DHCP Profile "
                       "that will be used to enable native DHCP service. It "
                       "needs to be created in NSX before starting Neutron "
@@ -404,7 +395,6 @@ nsx_v3_opts = [
                        "binding entries. These will be used if there are no "
                        "nameservers defined on the subnet.")),
     cfg.StrOpt('metadata_proxy',
-               deprecated_name='metadata_proxy_uuid',
                help=_("This is the name or UUID of the NSX Metadata Proxy "
                       "that will be used to enable native metadata service. "
                       "It needs to be created in NSX before starting Neutron "
