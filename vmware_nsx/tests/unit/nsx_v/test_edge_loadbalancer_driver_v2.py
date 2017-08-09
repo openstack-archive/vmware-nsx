@@ -220,7 +220,7 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
             self.lbv2_driver.load_balancer.successful_completion)
         mock_successful_completion.assert_called_with(self.context, new_lb)
 
-    def test_delete(self):
+    def test_delete_old(self):
         with mock.patch.object(nsxv_db, 'get_nsxv_lbaas_loadbalancer_binding'
                                ) as mock_get_binding, \
             mock.patch.object(lb_common, 'del_vip_fw_rule') as mock_del_fwr, \
@@ -232,6 +232,8 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
                               ) as mock_del_binding, \
             mock.patch.object(self.core_plugin, 'get_ports'
                               ) as mock_get_ports, \
+            mock.patch.object(self.core_plugin, 'get_router',
+                              return_value={'router_type': 'exclusive'}), \
             mock.patch.object(nsxv_db, 'get_nsxv_router_binding_by_edge'
                               ) as mock_get_r_binding:
             mock_get_binding.return_value = LB_BINDING
@@ -249,6 +251,37 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
                                                 LB_ID)
             mock_set_fw_rule.assert_called_with(
                 self.edge_driver.vcns, LB_EDGE_ID, 'deny')
+            mock_successful_completion = (
+                self.lbv2_driver.load_balancer.successful_completion)
+            mock_successful_completion.assert_called_with(self.context,
+                                                          self.lb,
+                                                          delete=True)
+
+    def test_delete_new(self):
+        with mock.patch.object(nsxv_db, 'get_nsxv_lbaas_loadbalancer_binding'
+                               ) as mock_get_binding, \
+            mock.patch.object(lb_common, 'set_lb_firewall_default_rule'
+                              ) as mock_set_fw_rule, \
+            mock.patch.object(nsxv_db, 'del_nsxv_lbaas_loadbalancer_binding',
+                              ) as mock_del_binding, \
+            mock.patch.object(self.core_plugin, 'get_ports'
+                              ) as mock_get_ports, \
+            mock.patch.object(self.core_plugin.edge_manager, 'delete_lrouter'
+                              ) as mock_delete_lrouter, \
+            mock.patch.object(nsxv_db, 'get_nsxv_router_binding_by_edge'
+                              ) as mock_get_r_binding:
+            mock_get_binding.return_value = LB_BINDING
+            mock_get_ports.return_value = []
+            router_id = 'lbaas-xxxx'
+            mock_get_r_binding.return_value = {'router_id': router_id}
+            self.edge_driver.loadbalancer.delete(self.context, self.lb)
+
+            mock_del_binding.assert_called_with(self.context.session,
+                                                LB_ID)
+            mock_set_fw_rule.assert_called_with(
+                self.edge_driver.vcns, LB_EDGE_ID, 'deny')
+            mock_delete_lrouter.assert_called_with(
+                mock.ANY, 'lbaas-' + LB_ID, dist=False)
             mock_successful_completion = (
                 self.lbv2_driver.load_balancer.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
@@ -494,6 +527,8 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
                                ) as mock_get_lb_binding, \
             mock.patch.object(nsxv_db, 'get_nsxv_lbaas_pool_binding'
                               ) as mock_get_pool_binding, \
+            mock.patch.object(nsxv_db, 'get_nsxv_router_binding_by_edge'
+                              ), \
             mock.patch.object(self.edge_driver.vcns, 'get_pool'
                               ) as mock_get_pool, \
             mock.patch.object(self.edge_driver.vcns, 'update_pool'

@@ -15,6 +15,8 @@
 
 import netaddr
 
+from oslo_log import log as logging
+
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
 
@@ -23,7 +25,10 @@ from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 
+LOG = logging.getLogger(__name__)
+
 MEMBER_ID_PFX = 'member-'
+RESOURCE_ID_PFX = 'lbaas-'
 
 
 def get_member_id(member_id):
@@ -31,7 +36,7 @@ def get_member_id(member_id):
 
 
 def get_lb_resource_id(lb_id):
-    return ('lbaas-' + lb_id)[:36]
+    return (RESOURCE_ID_PFX + lb_id)[:36]
 
 
 def get_lb_edge_name(context, lb_id):
@@ -278,3 +283,24 @@ def enable_edge_acceleration(vcns, edge_id):
         config['enabled'] = True
         config['featureType'] = 'loadbalancer_4.0'
         vcns.enable_service_loadbalancer(edge_id, config)
+
+
+def is_lb_on_router_edge(context, core_plugin, edge_id):
+    binding = nsxv_db.get_nsxv_router_binding_by_edge(
+        context.session, edge_id)
+    router_id = binding['router_id']
+    if router_id.startswith(RESOURCE_ID_PFX):
+        # New lbaas edge
+        return False
+
+    # verify that this is a router (and an exclusive one)
+    try:
+        router = core_plugin.get_router(context, router_id)
+        if router.get('router_type') == 'exclusive':
+            return True
+    except Exception:
+        pass
+    LOG.error("Edge %(edge)s router %(rtr)s is not an lbaas edge, but also "
+              "not an exclusive router",
+              {'edge': edge_id, 'rtr': router_id})
+    return False
