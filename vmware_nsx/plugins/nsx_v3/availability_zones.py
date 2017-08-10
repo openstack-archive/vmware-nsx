@@ -19,7 +19,7 @@ from vmware_nsx._i18n import _
 from vmware_nsx.common import availability_zones as common_az
 from vmware_nsx.common import config
 from vmware_nsx.common import exceptions as nsx_exc
-
+from vmware_nsxlib.v3 import core_resources
 
 DEFAULT_NAME = common_az.DEFAULT_NAME
 
@@ -74,6 +74,10 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
         if self.default_vlan_tz is None:
             self.default_vlan_tz = cfg.CONF.nsx_v3.default_vlan_tz
 
+        self.switching_profiles = az_info.get('switching_profiles')
+        if self.switching_profiles is None:
+            self.switching_profiles = cfg.CONF.nsx_v3.switching_profiles
+
     def init_default_az(self):
         # use the default configuration
         self.metadata_proxy = cfg.CONF.nsx_v3.metadata_proxy
@@ -83,6 +87,7 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
         self.nameservers = cfg.CONF.nsx_v3.nameservers
         self.default_overlay_tz = cfg.CONF.nsx_v3.default_overlay_tz
         self.default_vlan_tz = cfg.CONF.nsx_v3.default_vlan_tz
+        self.switching_profiles = cfg.CONF.nsx_v3.switching_profiles
 
     def translate_configured_names_to_uuids(self, nsxlib):
         # Mandatory configurations (in AZ or inherited from global values)
@@ -153,6 +158,18 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
             self._default_vlan_tz_uuid = tz_id
         else:
             self._default_vlan_tz_uuid = None
+
+        # switching profiles are already uuids, but we need to translate
+        # those to objects
+        profiles = []
+        if self.switching_profiles:
+            for profile in self.switching_profiles:
+                nsx_profile = nsxlib.switching_profile.get(profile)
+                # TODO(asarfaty): skip or alert on unsupported types
+                profiles.append(core_resources.SwitchingProfileTypeId(
+                        nsx_profile.get('resource_type'),
+                        nsx_profile.get('id')))
+        self.switching_profiles_objs = profiles
 
 
 class NsxV3AvailabilityZones(common_az.ConfiguredAvailabilityZones):

@@ -1,0 +1,8 @@
+---
+prelude: >
+    The nsx-v3 plugin can add pre-configured switching profiles to new nsx
+    ports. The configuration can also be done per availability zone.
+features:
+  - |
+    The nsx-v3 plugin can add pre-configured switching profiles to new nsx
+    ports. The configuration can also be done per availability zone.
