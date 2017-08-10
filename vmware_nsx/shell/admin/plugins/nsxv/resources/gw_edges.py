@@ -175,6 +175,8 @@ def create_bgp_gw(resource, event, trigger, **kwargs):
             LOG.error(msg)
             return
         default_gw = default_gw[1]
+    else:
+        default_gw = None
 
     config.register_nsxv_azs(cfg.CONF, cfg.CONF.nsxv.availability_zones)
     az_hint = properties.get('az-hint', 'default')
