@@ -638,17 +638,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     bindings = nsxv_db.get_network_bindings_by_vlanid(
                         context.session, segmentation_id)
                     if bindings:
-                        if physical_network_set:
-                            phy_uuid = physical_network
-                        else:
-                            # use the dvs_id of the availability zone
-                            phy_uuid = az_dvs
-                        for binding in bindings:
-                            if binding['phy_uuid'] == phy_uuid:
-                                raise n_exc.VlanIdInUse(
-                                    vlan_id=segmentation_id,
-                                    physical_network=phy_uuid)
-
+                        dvs_ids = self._get_dvs_ids(physical_network,
+                                                    az_dvs)
+                        for phy_uuid in dvs_ids:
+                            for binding in bindings:
+                                if binding['phy_uuid'] == phy_uuid:
+                                    raise n_exc.VlanIdInUse(
+                                        vlan_id=segmentation_id,
+                                        physical_network=phy_uuid)
             elif network_type == c_utils.NsxVNetworkTypes.VXLAN:
                 # Currently unable to set the segmentation id
                 if segmentation_id_set:
