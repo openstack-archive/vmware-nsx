@@ -324,8 +324,11 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
     def _process_vnic_type(self, context, port_data, port_id):
         vnic_type = port_data.get(pbin.VNIC_TYPE)
         if validators.is_attr_set(vnic_type):
-            if vnic_type != pbin.VNIC_NORMAL and vnic_type != pbin.VNIC_DIRECT:
-                err_msg = _("Only direct or normal VNIC types supported")
+            if (vnic_type != pbin.VNIC_NORMAL and
+                vnic_type != pbin.VNIC_DIRECT and
+                vnic_type != pbin.VNIC_DIRECT_PHYSICAL):
+                err_msg = _("Only direct, direct-physical and normal VNIC "
+                            "types supported")
                 raise n_exc.InvalidInput(error_message=err_msg)
             nsxv_db.update_nsxv_port_ext_attributes(
                 session=context.session,
