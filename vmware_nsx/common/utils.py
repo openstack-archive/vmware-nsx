@@ -40,6 +40,7 @@ NEUTRON_VERSION = n_version.version_info.release_string()
 NSX_NEUTRON_PLUGIN = 'NSX Neutron plugin'
 OS_NEUTRON_ID_SCOPE = 'os-neutron-id'
 NSXV3_VERSION_1_1_0 = '1.1.0'
+NSXV3_VERSION_2_0_0 = '2.0.0'
 
 
 # Allowed network types for the NSX Plugin
@@ -74,6 +75,11 @@ class NsxV3NetworkTypes(object):
 def is_nsx_version_1_1_0(nsx_version):
     return (version.LooseVersion(nsx_version) >=
             version.LooseVersion(NSXV3_VERSION_1_1_0))
+
+
+def is_nsx_version_2_0_0(nsx_version):
+    return (version.LooseVersion(nsx_version) >=
+            version.LooseVersion(NSXV3_VERSION_2_0_0))
 
 
 def is_nsxv_version_6_2(nsx_version):

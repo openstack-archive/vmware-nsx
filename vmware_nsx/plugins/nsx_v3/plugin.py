@@ -1470,7 +1470,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if resource_type:
             tags = utils.add_v3_tag(tags, resource_type, device_id)
 
-        if utils.is_nsx_version_1_1_0(self._nsx_version):
+        add_to_exclude_list = False
+        if self._is_excluded_port(device_owner, psec_is_on):
+            if utils.is_nsx_version_2_0_0(self._nsx_version):
+                tags.append({'scope': security.PORT_SG_SCOPE,
+                             'tag': firewall.EXCLUDE_PORT})
+            else:
+                add_to_exclude_list = True
+        elif utils.is_nsx_version_1_1_0(self._nsx_version):
             # If port has no security-groups then we don't need to add any
             # security criteria tag.
             if port_data[ext_sg.SECURITYGROUPS]:
@@ -1564,7 +1571,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                                      qos_policy_id)
 
         # Add port to excluded list if needed.
-        if self._is_excluded_port(device_owner, psec_is_on):
+        if add_to_exclude_list:
             self.nsxlib.add_member_to_fw_exclude_list(
                 result['id'], firewall.LOGICAL_PORT)
 
@@ -2012,8 +2019,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self.nsxlib.update_lport_with_security_groups(
                     context, nsx_port_id,
                     port.get(ext_sg.SECURITYGROUPS, []), [])
-            if self._is_excluded_port(port.get('device_owner'),
-                                      port.get('port_security_enabled')):
+            if (not utils.is_nsx_version_2_0_0(self._nsx_version) and
+                self._is_excluded_port(port.get('device_owner'),
+                                      port.get('port_security_enabled'))):
                 try:
                     self.nsxlib.remove_member_from_exclude_list(nsx_port_id)
                 except Exception as e:
@@ -2152,11 +2160,19 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         updated_excluded = self._is_excluded_port(updated_device_owner,
                                                   updated_ps)
         if updated_excluded != original_excluded:
-            if updated_excluded:
-                self.nsxlib.add_member_to_fw_exclude_list(
-                    lport_id, firewall.LOGICAL_PORT)
+            if utils.is_nsx_version_2_0_0(self._nsx_version):
+                if updated_excluded:
+                    tags_update.append({'scope': security.PORT_SG_SCOPE,
+                                        'tag': firewall.EXCLUDE_PORT})
+                else:
+                    tags_update.append({'scope': security.PORT_SG_SCOPE,
+                                        'tag': None})
             else:
-                self.nsxlib.remove_member_from_exclude_list(lport_id)
+                if updated_excluded:
+                    self.nsxlib.add_member_to_fw_exclude_list(
+                        lport_id, firewall.LOGICAL_PORT)
+                else:
+                    self.nsxlib.remove_member_from_exclude_list(lport_id)
 
         if utils.is_nsx_version_1_1_0(self._nsx_version):
             tags_update += self.nsxlib.get_lport_tags_for_security_groups(
