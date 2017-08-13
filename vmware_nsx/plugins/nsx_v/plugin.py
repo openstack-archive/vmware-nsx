@@ -481,7 +481,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         for rule in rules:
             rule_config = self.nsx_sg_utils.get_rule_config(
                 applied_to_ids, rule['name'], rule['action'],
-                applied_to_type, services=rule['services'])
+                applied_to_type, services=rule['services'],
+                logged=cfg.CONF.nsxv.log_security_groups_allowed_traffic)
             rule_list.append(rule_config)
 
         # Default security-group rules
