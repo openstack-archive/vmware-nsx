@@ -46,6 +46,10 @@ class EdgeListenerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                                  lb_const.LB_LISTENER_TYPE,
                                  listener.tenant_id,
                                  context.project_name)
+        tags.append({'scope': 'os-lbaas-lb-name',
+                     'tag': listener.loadbalancer.name})
+        tags.append({'scope': 'os-lbaas-lb-id',
+                     'tag': lb_id})
         if listener.protocol == 'HTTP' or listener.protocol == 'HTTPS':
             profile_type = lb_const.LB_HTTP_PROFILE
         elif listener.protocol == 'TCP':

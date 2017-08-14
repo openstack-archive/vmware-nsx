@@ -68,7 +68,7 @@ POOL_BINDING = {'loadbalancer_id': LB_ID,
                 'lb_vs_id': LB_VS_ID}
 MEMBER_ID = 'mmm-mmm'
 MEMBER_ADDRESS = '10.0.0.200'
-LB_MEMBER = {'display_name': 'member-' + MEMBER_ID,
+LB_MEMBER = {'display_name': 'member1_' + MEMBER_ID,
              'weight': 1, 'ip_address': MEMBER_ADDRESS, 'port': 80}
 LB_POOL_WITH_MEMBER = {
     "display_name": "httppool1",
@@ -135,7 +135,7 @@ class BaseTestEdgeLbaasV2(base.BaseTestCase):
                                    loadbalancer=self.lb)
         self.member = lb_models.Member(MEMBER_ID, LB_TENANT_ID, POOL_ID,
                                        MEMBER_ADDRESS, 80, 1, pool=self.pool,
-                                       name='member-mmm-mmm')
+                                       name='member1')
         self.hm = lb_models.HealthMonitor(HM_ID, LB_TENANT_ID, 'PING', 3, 3,
                                           1, pool=self.pool, name='hm1')
         self.l7policy = lb_models.L7Policy(L7POLICY_ID, LB_TENANT_ID,
