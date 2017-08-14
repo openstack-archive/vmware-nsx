@@ -54,6 +54,7 @@ from vmware_nsx.plugins.nsx_v.vshield import vcns
 
 WORKER_POOL_SIZE = 8
 RP_FILTER_PROPERTY_OFF_TEMPLATE = 'sysctl.net.ipv4.conf.%s.rp_filter=%s'
+MAX_EDGE_PENDING_SEC = 600
 
 LOG = logging.getLogger(__name__)
 _uuid = uuidutils.generate_uuid
@@ -326,9 +327,30 @@ class EdgeManager(object):
         like_filters = {'router_id': vcns_const.BACKUP_ROUTER_PREFIX + "%"}
         router_bindings = nsxv_db.get_nsxv_router_bindings(
             context.session, filters=filters, like_filters=like_filters)
-        error_router_bindings = [binding for binding in router_bindings if
-            binding.status == constants.ERROR or
-            timeutils.is_older_than(binding.created_at, 600)]
+        # filter only the entries in error state or too long in pending state
+        error_router_bindings = []
+        for binding in router_bindings:
+            to_delete = False
+            if binding.status == constants.ERROR:
+                to_delete = True
+            elif binding.status == constants.PENDING_CREATE:
+                # Bindings migrated from older versions have no created_at
+                # attribute which should also be deleted.
+                if (not binding.created_at or timeutils.is_older_than(
+                    binding.created_at, MAX_EDGE_PENDING_SEC)):
+                    to_delete = True
+            elif (binding.status == constants.PENDING_UPDATE or
+                binding.status == constants.PENDING_DELETE):
+                # Bindings migrated from older versions have no updated_at
+                # attribute. We will not delete those for now, as it is risky
+                # and fails lots of tests.
+                if (binding.updated_at and timeutils.is_older_than(
+                    binding.updated_at, MAX_EDGE_PENDING_SEC)):
+                    to_delete = True
+            if to_delete:
+                LOG.warning("Going to delete Erroneous edge: %s", binding)
+                error_router_bindings.append(binding)
+
         self._delete_backup_edges_on_db(context,
                                         error_router_bindings)
         self._delete_backup_edges_at_backend(context,
