@@ -117,6 +117,7 @@ NSX_V3_FW_DEFAULT_SECTION = 'OS Default Section for Neutron Security-Groups'
 NSX_V3_FW_DEFAULT_NS_GROUP = 'os_default_section_ns_group'
 NSX_V3_DEFAULT_SECTION = 'OS-Default-Section'
 NSX_V3_EXCLUDED_PORT_NSGROUP_NAME = 'neutron_excluded_port_nsgroup'
+NSX_V3_NON_VIF_PROFILE = 'nsx-default-switch-security-non-vif-profile'
 
 
 # NOTE(asarfaty): the order of inheritance here is important. in order for the
@@ -333,6 +334,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                             "profile: %(name)s. Reason: %(reason)s",
                             {'name': NSX_V3_MAC_LEARNING_PROFILE_NAME,
                              'reason': e})
+            no_switch_security_prof = profile_client.find_by_display_name(
+                    NSX_V3_NON_VIF_PROFILE)[0]
+            self._no_switch_security = profile_client.build_switch_profile_ids(
+                profile_client, no_switch_security_prof)[0]
 
     def _translate_configured_names_to_uuids(self):
         # If using tags to find the objects, make sure tag scope is configured
@@ -1661,6 +1666,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
              (validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)) and
               port_data.get(mac_ext.MAC_LEARNING) is True))):
             profiles.append(self._mac_learning_profile)
+            profiles.append(self._no_switch_security)
 
         name = self._get_port_name(context, port_data)
 
@@ -2463,6 +2469,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             (mac_learning_profile_set or
              updated_port.get(mac_ext.MAC_LEARNING) is True)):
             switch_profile_ids.append(self._mac_learning_profile)
+            switch_profile_ids.append(self._no_switch_security)
 
         try:
             self.nsxlib.logical_port.update(
