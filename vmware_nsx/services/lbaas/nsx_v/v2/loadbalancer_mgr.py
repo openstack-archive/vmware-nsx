@@ -96,7 +96,9 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
             lb_common.set_lb_firewall_default_rule(
                 self.vcns, binding['edge_id'], 'deny')
             if edge_binding:
-                if edge_binding['router_id'].startswith('lbaas-'):
+                old_lb = lb_common.is_lb_on_router_edge(
+                    context, self.core_plugin, binding['edge_id'])
+                if not old_lb:
                     resource_id = lb_common.get_lb_resource_id(lb.id)
                     self.core_plugin.edge_manager.delete_lrouter(
                         context, resource_id, dist=False)
