@@ -277,11 +277,13 @@ class DfwApi(object):
         resource = 'firewall/sections/%s/rules' % section_id
         return self.client.get(resource)
 
+    @utils.retry_upon_exception_nsxv3(exceptions.StaleRevision)
     def add_member_to_fw_exclude_list(self, target_id, target_type):
         resource = 'firewall/excludelist?action=add_member'
         return nsxclient.create_resource(
             resource, {'target_id': target_id, 'target_type': target_type})
 
+    @utils.retry_upon_exception_nsxv3(exceptions.StaleRevision)
     def remove_member_from_exclude_list(self, target_id):
         resource = 'firewall/excludelist'
         params = '?action=remove_member&object_id=%s' % target_id
