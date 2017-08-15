@@ -202,6 +202,13 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
         """
         pass
 
+    def recalculate_fw_rules_for_router(self, context, router, subnets):
+        """Method to recalculate router FW rules for specific subnets.
+        Invoked when subnetpool address scope changes.
+        Implemented in child plugin classes
+        """
+        pass
+
     def _filter_subnets_by_subnetpool(self, subnets, subnetpool_id):
         return [subnet for subnet in subnets
                 if subnet['subnetpool_id'] == subnetpool_id]
@@ -236,7 +243,10 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
                 # (all router subnets were allocated from subnetpool_id)
                 continue
 
-            # TODO(annak): handle east-west FW rules
+            # Update east-west FW rules
+            self.recalculate_fw_rules_for_router(context, rtr,
+                                                 affected_subnets)
+
             if not rtr['external_gateway_info']:
                 continue
 

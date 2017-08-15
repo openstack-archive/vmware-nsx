@@ -3490,6 +3490,26 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                                                   None,
                                                   err_code)
 
+    def _create_subnet_and_add_to_router(self, subnetpool_id, router_id):
+        # create a regular network on the given subnet pool
+        with self.network() as net:
+            data = {'subnet': {
+                    'network_id': net['network']['id'],
+                    'subnetpool_id': subnetpool_id,
+                    'ip_version': 4,
+                    'tenant_id': net['network']['tenant_id']}}
+            req = self.new_create_request('subnets', data)
+            int_subnet = self.deserialize(
+                self.fmt, req.get_response(self.api))
+
+            # Add the interface to the router
+            self._router_interface_action(
+                'add',
+                router_id,
+                int_subnet['subnet']['id'],
+                None)
+            return int_subnet
+
     def test_router_no_snat_with_same_address_scope(self):
         """Test that if the router has no snat, you can add an interface
         from the same address scope as the gateway.
@@ -3514,31 +3534,19 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
             ext_subnet = self.deserialize(self.fmt, req.get_response(self.api))
 
             # create a regular network on the same address scope
-            with self.network() as net:
-                data = {'subnet': {
-                        'network_id': net['network']['id'],
-                        'subnetpool_id': subnetpool_id,
-                        'ip_version': 4,
-                        'tenant_id': net['network']['tenant_id']}}
-                req = self.new_create_request('subnets', data)
-                int_subnet = self.deserialize(
-                    self.fmt, req.get_response(self.api))
+            # and create a no snat router with this gateway
+            with self.router() as r:
+                self._add_external_gateway_to_router(
+                    r['router']['id'],
+                    ext_subnet['subnet']['network_id'])
+                self._update_router_enable_snat(
+                    r['router']['id'],
+                    ext_subnet['subnet']['network_id'],
+                    False)
 
-                # create a no snat router with this gateway
-                with self.router() as r:
-                    self._add_external_gateway_to_router(
-                        r['router']['id'],
-                        ext_subnet['subnet']['network_id'])
-                    self._update_router_enable_snat(
-                        r['router']['id'],
-                        ext_subnet['subnet']['network_id'],
-                        False)
-
-                    # should succeed adding the interface to the router
-                    self._router_interface_action('add',
-                                                  r['router']['id'],
-                                                  int_subnet['subnet']['id'],
-                                                  None)
+                # should succeed adding the interface to the router
+                self._create_subnet_and_add_to_router(
+                    subnetpool_id, r['router']['id'])
 
     def test_router_address_scope_snat_rules(self):
         """Test that if the router interface had the same address scope
@@ -3564,48 +3572,37 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
             ext_subnet = self.deserialize(self.fmt, req.get_response(self.api))
 
             # create a regular network on the same address scope
-            with self.network() as net:
-                data = {'subnet': {
-                        'network_id': net['network']['id'],
-                        'subnetpool_id': subnetpool_id,
-                        'ip_version': 4,
-                        'tenant_id': net['network']['tenant_id']}}
-                req = self.new_create_request('subnets', data)
-                int_subnet = self.deserialize(
-                    self.fmt, req.get_response(self.api))
+            # and create a router with this gateway
+            with self.router() as r:
+                self._add_external_gateway_to_router(
+                    r['router']['id'],
+                    ext_subnet['subnet']['network_id'])
 
-                # create a router with this gateway
-                with self.router() as r:
-                    self._add_external_gateway_to_router(
-                        r['router']['id'],
-                        ext_subnet['subnet']['network_id'])
+                # Add the interface to the router
+                with mock.patch.object(
+                    edge_utils, 'update_nat_rules') as update_nat,\
+                    mock.patch.object(
+                        edge_utils, 'update_firewall') as update_fw:
 
-                    # Add the interface to the router
-                    with mock.patch.object(
-                        edge_utils, 'update_nat_rules') as update_nat,\
-                        mock.patch.object(
-                            edge_utils, 'update_firewall') as update_fw:
-                        self._router_interface_action(
-                            'add',
-                            r['router']['id'],
-                            int_subnet['subnet']['id'],
-                            None)
-                        # make sure snat rules are not added
-                        update_nat.assert_called_once_with(
-                            mock.ANY, mock.ANY, r['router']['id'], [], [])
+                    int_subnet = self._create_subnet_and_add_to_router(
+                        subnetpool_id, r['router']['id'])
 
-                        # check fw rules
-                        fw_rules = update_fw.call_args[0][3][
-                            'firewall_rule_list']
-                        self.assertEqual(2, len(fw_rules))
-                        self.assertEqual('Allocation Pool Rule',
-                                         fw_rules[1]['name'])
-                        self.assertEqual('allow', fw_rules[1]['action'])
-                        self.assertEqual(
-                            int_subnet['subnet']['cidr'],
-                            fw_rules[1]['destination_ip_address'][0])
-                        self.assertEqual('external',
-                                         fw_rules[1]['source_vnic_groups'][0])
+                    # make sure snat rules are not added
+                    update_nat.assert_called_once_with(
+                        mock.ANY, mock.ANY, r['router']['id'], [], [])
+
+                    # check fw rules
+                    fw_rules = update_fw.call_args[0][3][
+                        'firewall_rule_list']
+                    self.assertEqual(2, len(fw_rules))
+                    self.assertEqual('Allocation Pool Rule',
+                                     fw_rules[1]['name'])
+                    self.assertEqual('allow', fw_rules[1]['action'])
+                    self.assertEqual(
+                        int_subnet['subnet']['cidr'],
+                        fw_rules[1]['destination_ip_address'][0])
+                    self.assertEqual('external',
+                                     fw_rules[1]['source_vnic_groups'][0])
 
     def test_router_address_scope_fw_rules(self):
         """Test that if the router interfaces has different address scope
@@ -3613,9 +3610,8 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
         """
         # create a router, networks, and address scopes
         with self.address_scope(name='as1') as addr_scope1, \
-            self.address_scope(name='as2') as addr_scope2,\
-            self.network() as net1, self.network() as net2,\
-            self.network() as net3, self.router() as r:
+            self.address_scope(name='as2') as addr_scope2, \
+            self.router() as r:
 
             as1_id = addr_scope1['address_scope']['id']
             as2_id = addr_scope2['address_scope']['id']
@@ -3630,61 +3626,31 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
             subnetpool_id1 = subnetpool1['subnetpool']['id']
             subnetpool_id2 = subnetpool2['subnetpool']['id']
 
-            # create subnets on the 2 subnet pools
-            data = {'subnet': {
-                    'network_id': net1['network']['id'],
-                    'subnetpool_id': subnetpool_id1,
-                    'ip_version': 4,
-                    'tenant_id': net1['network']['tenant_id']}}
-            req = self.new_create_request('subnets', data)
-            subnet1 = self.deserialize(
-                self.fmt, req.get_response(self.api))
-
-            data = {'subnet': {
-                    'network_id': net2['network']['id'],
-                    'subnetpool_id': subnetpool_id2,
-                    'ip_version': 4,
-                    'tenant_id': net2['network']['tenant_id']}}
-            req = self.new_create_request('subnets', data)
-            subnet2 = self.deserialize(
-                self.fmt, req.get_response(self.api))
-
-            data = {'subnet': {
-                    'network_id': net3['network']['id'],
-                    'subnetpool_id': subnetpool_id2,
-                    'ip_version': 4,
-                    'tenant_id': net3['network']['tenant_id']}}
-            req = self.new_create_request('subnets', data)
-            subnet3 = self.deserialize(
-                self.fmt, req.get_response(self.api))
-
-            expected_rules = [
-                {'enabled': True,
-                 'destination_ip_address': [subnet1['subnet']['cidr']],
-                 'action': 'allow',
-                 'name': 'Subnet Rule',
-                 'source_ip_address': [subnet1['subnet']['cidr']]},
-                {'enabled': True,
-                 'destination_ip_address': [subnet2['subnet']['cidr'],
-                                            subnet3['subnet']['cidr']],
-                 'action': 'allow',
-                 'name': 'Subnet Rule',
-                 'source_ip_address': [subnet2['subnet']['cidr'],
-                                       subnet3['subnet']['cidr']]}]
-
             # Add the interfaces to the router
             with mock.patch.object(
                 edge_utils, 'update_nat_rules'),\
                 mock.patch.object(edge_utils, 'update_firewall') as update_fw:
-                self._router_interface_action(
-                    'add', r['router']['id'],
-                    subnet1['subnet']['id'], None)
-                self._router_interface_action(
-                    'add', r['router']['id'],
-                    subnet2['subnet']['id'], None)
-                self._router_interface_action(
-                    'add', r['router']['id'],
-                    subnet3['subnet']['id'], None)
+                # create subnets on the 2 subnet pools, and attach to router
+                subnet1 = self._create_subnet_and_add_to_router(
+                    subnetpool_id1, r['router']['id'])
+                subnet2 = self._create_subnet_and_add_to_router(
+                    subnetpool_id2, r['router']['id'])
+                subnet3 = self._create_subnet_and_add_to_router(
+                    subnetpool_id2, r['router']['id'])
+
+                expected_rules = [
+                    {'enabled': True,
+                     'destination_ip_address': [subnet1['subnet']['cidr']],
+                     'action': 'allow',
+                     'name': 'Subnet Rule',
+                     'source_ip_address': [subnet1['subnet']['cidr']]},
+                    {'enabled': True,
+                     'destination_ip_address': [subnet2['subnet']['cidr'],
+                                                subnet3['subnet']['cidr']],
+                     'action': 'allow',
+                     'name': 'Subnet Rule',
+                     'source_ip_address': [subnet2['subnet']['cidr'],
+                                           subnet3['subnet']['cidr']]}]
 
                 # check the final fw rules
                 fw_rules = update_fw.call_args[0][3][
@@ -3692,6 +3658,84 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                 self.assertEqual(2, len(fw_rules))
                 self.assertEqual(self._recursive_sort_list(expected_rules),
                                  self._recursive_sort_list(fw_rules))
+
+    def _prepare_external_subnet_on_address_scope(self,
+                                                  ext_net,
+                                                  address_scope):
+
+        self._set_net_external(ext_net['network']['id'])
+        as_id = address_scope['address_scope']['id']
+        subnet = netaddr.IPNetwork('10.10.10.0/21')
+        subnetpool = self._test_create_subnetpool(
+            [subnet.cidr], name='sp1',
+            min_prefixlen='24', address_scope_id=as_id)
+        subnetpool_id = subnetpool['subnetpool']['id']
+        data = {'subnet': {
+                'network_id': ext_net['network']['id'],
+                'subnetpool_id': subnetpool_id,
+                'ip_version': 4,
+                'enable_dhcp': False,
+                'tenant_id': ext_net['network']['tenant_id']}}
+        req = self.new_create_request('subnets', data)
+        ext_subnet = self.deserialize(self.fmt, req.get_response(self.api))
+        return ext_subnet['subnet']
+
+    def _test_router_address_scope_change(self, change_gw=False):
+        """When subnetpool address scope changes, and router that was
+        originally under same address scope, results having different
+        address scopes, relevant snat rules are added.
+        """
+        # create an external network on one address scope
+        with self.address_scope(name='as1') as addr_scope, \
+            self.network() as ext_net:
+            ext_subnet = self._prepare_external_subnet_on_address_scope(
+                ext_net, addr_scope)
+
+            # create a router with this gateway
+            with self.router() as r:
+                self._add_external_gateway_to_router(
+                    r['router']['id'],
+                    ext_subnet['network_id'])
+
+            # create a regular network on same address scope
+            # and verify no snat change
+            as_id = addr_scope['address_scope']['id']
+            subnet2 = netaddr.IPNetwork('40.10.10.0/24')
+            subnetpool2 = self._test_create_subnetpool(
+                [subnet2.cidr], name='sp2',
+                min_prefixlen='24', address_scope_id=as_id)
+            subnetpool2_id = subnetpool2['subnetpool']['id']
+
+            self._create_subnet_and_add_to_router(
+                subnetpool2_id, r['router']['id'])
+
+            # change address scope of the first subnetpool
+            with self.address_scope(name='as2') as addr_scope2,\
+                mock.patch.object(edge_utils, 'update_nat_rules') as update_nat,\
+                mock.patch.object(edge_utils, 'update_firewall') as update_fw:
+
+                as2_id = addr_scope2['address_scope']['id']
+                data = {'subnetpool': {
+                        'address_scope_id': as2_id}}
+
+                if change_gw:
+                    subnetpool_to_update = ext_subnet['subnetpool_id']
+                else:
+                    subnetpool_to_update = subnetpool2_id
+
+                req = self.new_update_request('subnetpools', data,
+                                              subnetpool_to_update)
+                req.get_response(self.api)
+
+                # Verify that the snat & fw rule are being updated
+                update_nat.assert_called_once()
+                update_fw.assert_called_once()
+
+    def test_router_address_scope_change(self):
+        self._test_router_address_scope_change()
+
+    def test_router_address_scope_gw_change(self):
+        self._test_router_address_scope_change(change_gw=True)
 
 
 class ExtGwModeTestCase(NsxVPluginV2TestCase,

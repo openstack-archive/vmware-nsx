@@ -3731,7 +3731,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             net_res[az_ext.AVAILABILITY_ZONES] = [az_name]
 
     def recalculate_snat_rules_for_router(self, context, router, subnets):
-        """Rrecalculate router snat rules for specific subnets.
+        """Recalculate router snat rules for specific subnets.
         Invoked when subnetpool address scope changes.
         """
         nsx_router_id = nsx_db.get_nsx_router_id(context.session,

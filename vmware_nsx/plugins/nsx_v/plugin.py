@@ -294,6 +294,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                            fc_utils.SERVICE_INSERTION_RESOURCE,
                            events.AFTER_CREATE)
 
+        # Subscribe to subnet pools changes
+        registry.subscribe(
+            self.on_subnetpool_address_scope_updated,
+            resources.SUBNETPOOL_ADDRESS_SCOPE, events.AFTER_UPDATE)
+
         if c_utils.is_nsxv_version_6_2(self.nsx_v.vcns.get_version()):
             self.supported_extension_aliases.append("provider-security-group")
 
@@ -3454,6 +3459,22 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             router_id = router['id']
         edge_utils.update_nat_rules(
             self.nsx_v, context, router_id, snat, dnat)
+
+    def recalculate_snat_rules_for_router(self, context, router, subnets):
+        """Recalculate router snat rules for specific subnets.
+        Invoked when subnetpool address scope changes.
+        """
+        # Recalculate all nat rules for all subnets of the router
+        router_db = self._get_router(context, router['id'])
+        self._update_nat_rules(context, router_db)
+
+    def recalculate_fw_rules_for_router(self, context, router, subnets):
+        """Recalculate router fw rules for specific subnets.
+        Invoked when subnetpool address scope changes.
+        """
+        # Recalculate all fw rules for all subnets of the router
+        router_db = self._get_router(context, router['id'])
+        self._update_subnets_and_dnat_firewall(context, router_db)
 
     def _check_intf_number_of_router(self, context, router_id):
         intf_ports = self._get_port_by_device_id(
