@@ -66,7 +66,23 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
         return lb_service
 
     @log_helpers.log_method_call
+    def _add_loadbalancer_binding(self, context, lb_id, lbs_id,
+                                  nsx_router_id, vip_address):
+        # First check if there is already binding for the lb.
+        # If there is no binding for the lb, add the db binding.
+        binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
+            context.session, lb_id)
+        if not binding:
+            nsx_db.add_nsx_lbaas_loadbalancer_binding(
+                context.session, lb_id, lbs_id,
+                nsx_router_id, vip_address)
+        else:
+            LOG.debug("LB binding has already been added, and no need "
+                      "to add here.")
+
+    @log_helpers.log_method_call
     def create(self, context, member):
+        lb_id = member.pool.loadbalancer_id
         pool_id = member.pool.id
         loadbalancer = member.pool.loadbalancer
         if not lb_utils.validate_lb_subnet(context, self.core_plugin,
@@ -92,12 +108,13 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
             fixed_ip = member.address
 
         binding = nsx_db.get_nsx_lbaas_pool_binding(context.session,
-                                                    loadbalancer.id, pool_id)
+                                                    lb_id, pool_id)
         if binding:
-            vs_id = binding['lb_vs_id']
-            lb_pool_id = binding['lb_pool_id']
-
-            if len(pool_members) == 1:
+            vs_id = binding.get('lb_vs_id')
+            lb_pool_id = binding.get('lb_pool_id')
+            lb_binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
+                context.session, lb_id)
+            if not lb_binding and len(pool_members) == 1:
                 nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                          router_id)
                 lb_service = service_client.get_router_lb_service(
@@ -110,19 +127,21 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                         router_id, nsx_router_id, loadbalancer.id, lb_size)
                 if lb_service:
                     lb_service_id = lb_service['id']
-                    nsx_db.add_nsx_lbaas_loadbalancer_binding(
-                        context.session, loadbalancer.id, lb_service_id,
+                    self._add_loadbalancer_binding(
+                        context, loadbalancer.id, lb_service_id,
                         nsx_router_id, loadbalancer.vip_address)
-                    try:
-                        service_client.add_virtual_server(lb_service_id, vs_id)
-                    except nsxlib_exc.ManagerError:
-                        self.lbv2_driver.member.failed_completion(context,
-                                                                  member)
-                        msg = (_('Failed to attach virtual server %(vs)s to '
-                                 'lb service %(service)s') %
-                               {'vs': vs_id, 'service': lb_service_id})
-                        raise n_exc.BadRequest(resource='lbaas-member',
-                                               msg=msg)
+                    if vs_id:
+                        try:
+                            service_client.add_virtual_server(lb_service_id,
+                                                              vs_id)
+                        except nsxlib_exc.ManagerError:
+                            self.lbv2_driver.member.failed_completion(context,
+                                                                      member)
+                            msg = (_('Failed to attach virtual server %(vs)s '
+                                   'to lb service %(service)s') %
+                                   {'vs': vs_id, 'service': lb_service_id})
+                            raise n_exc.BadRequest(resource='lbaas-member',
+                                                   msg=msg)
                 else:
                     msg = (_('Failed to get lb service to attach virtual '
                              'server %(vs)s for member %(member)s') %
@@ -159,45 +178,11 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
     def delete(self, context, member):
         lb_id = member.pool.loadbalancer_id
         pool_id = member.pool.id
-        service_client = self.core_plugin.nsxlib.load_balancer.service
         pool_client = self.core_plugin.nsxlib.load_balancer.pool
-        pool_members = self.lbv2_driver.plugin.get_pool_members(
-            context, pool_id)
         pool_binding = nsx_db.get_nsx_lbaas_pool_binding(
             context.session, lb_id, pool_id)
         if pool_binding:
-            lb_pool_id = pool_binding['lb_pool_id']
-            lb_vs_id = pool_binding['lb_vs_id']
-            # If this is the last member of pool, detach virtual server from
-            # the lb service. If this is the last load balancer for this lb
-            # service, delete the lb service as well.
-            if len(pool_members) == 1:
-                lb_binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
-                    context.session, lb_id)
-                if lb_binding:
-                    lb_service_id = lb_binding['lb_service_id']
-                    try:
-                        lb_service = service_client.get(lb_service_id)
-                        vs_list = lb_service.get('virtual_server_ids')
-                        if vs_list and lb_vs_id in vs_list:
-                            vs_list.remove(lb_vs_id)
-                        else:
-                            LOG.error('virtual server id %s is not in the lb '
-                                      'service virtual server list %s',
-                                      lb_vs_id, vs_list)
-                        service_client.update(lb_service_id,
-                                              virtual_server_ids=vs_list)
-                        if not vs_list:
-                            service_client.delete(lb_service_id)
-                            nsx_db.delete_nsx_lbaas_loadbalancer_binding(
-                                context.session, lb_id)
-                    except nsxlib_exc.ManagerError:
-                        self.lbv2_driver.member.failed_completion(context,
-                                                                  member)
-                        msg = _('Failed to remove virtual server from lb '
-                                'service on NSX backend')
-                        raise n_exc.BadRequest(resource='lbaas-member',
-                                               msg=msg)
+            lb_pool_id = pool_binding.get('lb_pool_id')
             try:
                 lb_pool = pool_client.get(lb_pool_id)
                 network = lb_utils.get_network_from_subnet(

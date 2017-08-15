@@ -556,7 +556,7 @@ def delete_nsx_lbaas_listener_binding(session, loadbalancer_id, listener_id):
 
 
 def add_nsx_lbaas_pool_binding(session, loadbalancer_id, pool_id, lb_pool_id,
-                               lb_vs_id):
+                               lb_vs_id=None):
     with session.begin(subtransactions=True):
         binding = nsx_models.NsxLbaasPool(loadbalancer_id=loadbalancer_id,
                                           pool_id=pool_id,
@@ -571,6 +571,19 @@ def get_nsx_lbaas_pool_binding(session, loadbalancer_id, pool_id):
         return session.query(nsx_models.NsxLbaasPool).filter_by(
             loadbalancer_id=loadbalancer_id, pool_id=pool_id).one()
     except exc.NoResultFound:
+        return
+
+
+def update_nsx_lbaas_pool_binding(session, loadbalancer_id, pool_id,
+                                  lb_vs_id):
+    try:
+        with session.begin(subtransactions=True):
+            binding = (session.query(nsx_models.NsxLbaasPool).
+                       filter_by(loadbalancer_id=loadbalancer_id,
+                                 pool_id=pool_id).one())
+            binding.lb_vs_id = lb_vs_id
+    except exc.NoResultFound:
+        LOG.debug("Binding not found for pool %s", pool_id)
         return
 
 

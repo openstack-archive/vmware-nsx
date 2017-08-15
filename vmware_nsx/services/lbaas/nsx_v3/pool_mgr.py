@@ -37,7 +37,6 @@ class EdgePoolManager(base_mgr.Nsxv3LoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def create(self, context, pool):
-        listener_id = pool.listener.id
         lb_id = pool.loadbalancer_id
         pool_client = self.core_plugin.nsxlib.load_balancer.pool
         vs_client = self.core_plugin.nsxlib.load_balancer.virtual_server
@@ -51,29 +50,37 @@ class EdgePoolManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                                          tags=tags,
                                          algorithm=pool.lb_algorithm,
                                          snat_translation=snat_translation)
+            nsx_db.add_nsx_lbaas_pool_binding(
+                context.session, lb_id, pool.id, lb_pool['id'])
         except nsxlib_exc.ManagerError:
             self.lbv2_driver.pool.failed_completion(context, pool)
             msg = (_('Failed to create pool on NSX backend: %(pool)s') %
                    {'pool': pool.id})
             raise n_exc.BadRequest(resource='lbaas-pool', msg=msg)
 
-        binding = nsx_db.get_nsx_lbaas_listener_binding(
-            context.session, lb_id, listener_id)
-        if binding:
-            vs_id = binding['lb_vs_id']
-            try:
-                vs_client.update(vs_id, pool_id=lb_pool['id'])
-            except nsxlib_exc.ManagerError:
-                with excutils.save_and_reraise_exception():
-                    self.lbv2_driver.pool.failed_completion(context, pool)
-                    LOG.error('Failed to attach pool %s to virtual server %s',
-                              lb_pool['id'], vs_id)
-            nsx_db.add_nsx_lbaas_pool_binding(
-                context.session, lb_id, pool.id, lb_pool['id'], vs_id)
-        else:
-            msg = (_("Couldn't find binding on the listener: %s") %
-                   listener_id)
-            raise nsx_exc.NsxPluginException(err_msg=msg)
+        # The pool object can be created with either --listener or
+        # --loadbalancer option. If listener is present, the virtual server
+        # will be updated with the pool. Otherwise, just return. The binding
+        # will be added later when the pool is associated with layer7 rule.
+        if pool.listener:
+            listener_id = pool.listener.id
+            binding = nsx_db.get_nsx_lbaas_listener_binding(
+                context.session, lb_id, listener_id)
+            if binding:
+                vs_id = binding['lb_vs_id']
+                try:
+                    vs_client.update(vs_id, pool_id=lb_pool['id'])
+                except nsxlib_exc.ManagerError:
+                    with excutils.save_and_reraise_exception():
+                        self.lbv2_driver.pool.failed_completion(context, pool)
+                        LOG.error('Failed to attach pool %s to virtual '
+                                  'server %s', lb_pool['id'], vs_id)
+                nsx_db.update_nsx_lbaas_pool_binding(
+                    context.session, lb_id, pool.id, vs_id)
+            else:
+                msg = (_("Couldn't find binding on the listener: %s") %
+                       listener_id)
+                raise nsx_exc.NsxPluginException(err_msg=msg)
         self.lbv2_driver.pool.successful_completion(context, pool)
 
     @log_helpers.log_method_call
@@ -89,21 +96,21 @@ class EdgePoolManager(base_mgr.Nsxv3LoadbalancerBaseManager):
         lb_id = pool.loadbalancer_id
         pool_client = self.core_plugin.nsxlib.load_balancer.pool
         vs_client = self.core_plugin.nsxlib.load_balancer.virtual_server
-        service_client = self.core_plugin.nsxlib.load_balancer.service
 
         binding = nsx_db.get_nsx_lbaas_pool_binding(
             context.session, lb_id, pool.id)
         if binding:
-            vs_id = binding['lb_vs_id']
-            lb_pool_id = binding['lb_pool_id']
-            try:
-                vs_client.update(vs_id, pool_id='')
-            except nsxlib_exc.ManagerError:
-                self.lbv2_driver.pool.failed_completion(context, pool)
-                msg = _('Failed to remove lb pool %(pool)s from virtual '
-                        'server %(vs)s') % {'pool': lb_pool_id,
-                                            'vs': vs_id}
-                raise n_exc.BadRequest(resource='lbaas-pool', msg=msg)
+            vs_id = binding.get('lb_vs_id')
+            lb_pool_id = binding.get('lb_pool_id')
+            if vs_id:
+                try:
+                    vs_client.update(vs_id, pool_id='')
+                except nsxlib_exc.ManagerError:
+                    self.lbv2_driver.pool.failed_completion(context, pool)
+                    msg = _('Failed to remove lb pool %(pool)s from virtual '
+                            'server %(vs)s') % {'pool': lb_pool_id,
+                                                'vs': vs_id}
+                    raise n_exc.BadRequest(resource='lbaas-pool', msg=msg)
             try:
                 pool_client.delete(lb_pool_id)
             except nsxlib_exc.ManagerError:
@@ -113,30 +120,6 @@ class EdgePoolManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                 raise n_exc.BadRequest(resource='lbaas-pool', msg=msg)
             nsx_db.delete_nsx_lbaas_pool_binding(context.session,
                                                  lb_id, pool.id)
-            lb_binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
-                context.session, lb_id)
-            if lb_binding:
-                lb_service_id = lb_binding['lb_service_id']
-                try:
-                    lb_service = service_client.get(lb_service_id)
-                    vs_list = lb_service.get('virtual_server_ids')
-                    if vs_list and vs_id in vs_list:
-                        vs_list.remove(vs_id)
-                    else:
-                        LOG.debug('virtual server id %s is not in the lb '
-                                  'service virtual server list %s',
-                                  vs_id, vs_list)
-                    service_client.update(lb_service_id,
-                                          virtual_server_ids=vs_list)
-                    if not vs_list:
-                        service_client.delete(lb_service_id)
-                        nsx_db.delete_nsx_lbaas_loadbalancer_binding(
-                            context.session, lb_id)
-                except nsxlib_exc.ManagerError:
-                    self.lbv2_driver.pool.failed_completion(context, pool)
-                    msg = (_('Failed to delete lb pool from nsx: %(pool)s') %
-                           {'pool': lb_pool_id})
-                    raise n_exc.BadRequest(resource='lbaas-pool', msg=msg)
 
         self.lbv2_driver.pool.successful_completion(
             context, pool, delete=True)

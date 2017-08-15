@@ -81,6 +81,7 @@ LB_POOL_TYPE = 'os-lbaas-pool-id'
 LB_L7RULE_TYPE = 'os-lbaas-l7rule-id'
 LB_HTTP_PROFILE = 'LbHttpProfile'
 LB_TCP_PROFILE = 'LbFastTcpProfile'
+LB_UDP_PROFILE = 'LbFastUdpProfile'
 NSXV3_MONITOR_MAP = {LB_HEALTH_MONITOR_PING: 'LbIcmpMonitor',
                      LB_HEALTH_MONITOR_TCP: 'LbTcpMonitor',
                      LB_HEALTH_MONITOR_HTTP: 'LbHttpMonitor',
