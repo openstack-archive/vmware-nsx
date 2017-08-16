@@ -154,7 +154,7 @@ class NsxVMetadataProxyHandler(object):
 
     def _get_internal_net_by_az(self, context):
         # Get the internal network for the current az
-        int_net = nsxv_db.get_nsxv_internal_network(
+        int_net = nsxv_db.get_nsxv_internal_network_for_az(
             context.session,
             vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE,
             self.az.name)

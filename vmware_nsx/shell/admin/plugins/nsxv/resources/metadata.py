@@ -61,7 +61,7 @@ def nsx_redo_metadata_cfg_for_az(az, edgeapi):
     LOG.info(_LI("Updating MetaData for availability zone: %s"), az.name)
 
     # Get the list of internal networks for this AZ
-    db_net = nsxv_db.get_nsxv_internal_network(
+    db_net = nsxv_db.get_nsxv_internal_network_for_az(
         edgeapi.context.session,
         vcns_constants.InternalEdgePurposes.INTER_EDGE_PURPOSE,
         az.name)
