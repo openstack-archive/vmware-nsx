@@ -131,7 +131,7 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
 
             lb_pool = pool_client.get(lb_pool_id)
             old_m = lb_pool.get('members', None)
-            new_m = [{'display_name': member.name,
+            new_m = [{'display_name': member.name[:219] + '_' + member.id,
                       'ip_address': fixed_ip,
                       'port': member.protocol_port,
                       'weight': member.weight}]
