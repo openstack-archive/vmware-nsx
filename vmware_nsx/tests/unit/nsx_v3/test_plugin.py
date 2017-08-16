@@ -78,6 +78,7 @@ def _mock_nsx_backend_calls():
             FakeProfile(),  # _no_psec_profile_id
             FakeProfile(),  # _dhcp_profile
             FakeProfile(),  # _mac_learning_profile
+            FakeProfile(),  # _no_switch_security
         )
 
     def _return_id_key(*args, **kwargs):

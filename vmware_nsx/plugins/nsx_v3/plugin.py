@@ -103,6 +103,7 @@ NSX_V3_NO_PSEC_PROFILE_NAME = 'nsx-default-spoof-guard-vif-profile'
 NSX_V3_DHCP_PROFILE_NAME = 'neutron_port_dhcp_profile'
 NSX_V3_MAC_LEARNING_PROFILE_NAME = 'neutron_port_mac_learning_profile'
 NSX_V3_EXCLUDED_PORT_NSGROUP_NAME = 'neutron_excluded_port_nsgroup'
+NSX_V3_NON_VIF_PROFILE = 'nsx-default-switch-security-non-vif-profile'
 
 
 # NOTE(asarfaty): the order of inheritance here is important. in order for the
@@ -201,8 +202,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._nsx_client)
 
         # init profiles on nsx backend
-        (self._psec_profile, self._no_psec_profile_id, self._dhcp_profile,
-         self._mac_learning_profile) = self._init_nsx_profiles()
+        (self._psec_profile,
+         self._no_psec_profile_id,
+         self._dhcp_profile,
+         self._mac_learning_profile,
+         self._no_switch_security) = self._init_nsx_profiles()
 
         # Include exclude NSGroup
         LOG.debug("Initializing NSX v3 Excluded Port NSGroup")
@@ -266,8 +270,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                 "profile: %(name)s. Reason: %(reason)s"),
                             {'name': NSX_V3_MAC_LEARNING_PROFILE_NAME,
                              'reason': e})
+            self._no_switch_security = profiles.build_switch_profile_ids(
+                self._switching_profiles,
+                self._switching_profiles.find_by_display_name(
+                        NSX_V3_NON_VIF_PROFILE)[0])[0]
         return (self._psec_profile, self._no_psec_profile_id,
-                self._dhcp_profile, self._mac_learning_profile)
+                self._dhcp_profile, self._mac_learning_profile,
+                self._no_switch_security)
 
     def _translate_configured_names_2_uuids(self):
         # default VLAN transport zone name / uuid
@@ -1526,6 +1535,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
              (validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)) and
               port_data.get(mac_ext.MAC_LEARNING) is True))):
             profiles.append(self._mac_learning_profile)
+            profiles.append(self._no_switch_security)
 
         name = self._get_port_name(context, port_data)
 
@@ -2187,6 +2197,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             (mac_learning_profile_set or
              updated_port.get(mac_ext.MAC_LEARNING) is True)):
             switch_profile_ids.append(self._mac_learning_profile)
+            switch_profile_ids.append(self._no_switch_security)
 
         try:
             self._port_client.update(
