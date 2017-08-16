@@ -34,6 +34,7 @@ from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import nsxv_models
 from vmware_nsx.extensions import dhcp_mtu as ext_dhcp_mtu
 from vmware_nsx.extensions import dns_search_domain as ext_dns_search_domain
+from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v.vshield.common import constants
 
 NsxvEdgeDhcpStaticBinding = nsxv_models.NsxvEdgeDhcpStaticBinding
@@ -379,7 +380,8 @@ def create_nsxv_internal_network(session, network_purpose,
                               'az': availability_zone})
 
 
-def get_nsxv_internal_network(session, network_purpose, availability_zone):
+def get_nsxv_internal_network(session, network_purpose, availability_zone,
+                              default_fallback=True):
     with session.begin(subtransactions=True):
         net_list = (session.query(nsxv_models.NsxvInternalNetworks).
                     filter_by(network_purpose=network_purpose,
@@ -387,14 +389,21 @@ def get_nsxv_internal_network(session, network_purpose, availability_zone):
         if net_list:
             # Should have only one results as purpose+az are the keys
             return net_list[0]
-        else:
+        elif default_fallback and availability_zone != nsx_az.DEFAULT_NAME:
             # try the default availability zone, since this zone does not
-            # have his own
+            # have his own internal edge
             net_list = (session.query(nsxv_models.NsxvInternalNetworks).
                         filter_by(network_purpose=network_purpose,
-                                  availability_zone='default').all())
+                                  availability_zone=nsx_az.DEFAULT_NAME).all())
             if net_list:
                 return net_list[0]
+
+
+def get_nsxv_internal_network_for_az(session, network_purpose,
+                                     availability_zone):
+    return get_nsxv_internal_network(session, network_purpose,
+                                     availability_zone,
+                                     default_fallback=False)
 
 
 def get_nsxv_internal_networks(session, network_purpose):
