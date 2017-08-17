@@ -1026,7 +1026,7 @@ class TestL3NatTestCase(L3NatTest,
                                              router_id,
                                              assert_snat_deleted=False,
                                              assert_snat_added=False):
-        # create a regular network on the same address scope
+        # create a regular network on the given subnet pool
         with self.network() as net:
             data = {'subnet': {
                     'network_id': net['network']['id'],
@@ -1239,8 +1239,8 @@ class TestL3NatTestCase(L3NatTest,
     def test_3leg_router_address_scope_change(self):
         self._test_3leg_router_address_scope_change()
 
-    def test_3leg_router_address_scope_change_to_gw(self, change_2gw=True):
-        self._test_3leg_router_address_scope_change()
+    def test_3leg_router_address_scope_change_to_gw(self):
+        self._test_3leg_router_address_scope_change(change_2gw=True)
 
     def test_3leg_router_gw_address_scope_change(self):
         self._test_3leg_router_address_scope_change(change_gw=True)
