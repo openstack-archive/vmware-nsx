@@ -758,7 +758,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         nsx_result = self.nsxlib.logical_switch.create(
             net_name, physical_net, tags,
             admin_state=admin_state,
-            vlan_id=vlan_id)
+            vlan_id=vlan_id,
+            description=net_data.get('description'))
 
         return (is_provider_net,
                 net_type,
@@ -1005,15 +1006,18 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._extend_network_dict_provider(context, updated_net)
 
         if (not extern_net and
-            'name' in net_data or 'admin_state_up' in net_data):
+            ('name' in net_data or 'admin_state_up' in net_data or
+             'description' in net_data)):
             try:
                 # get the nsx switch id from the DB mapping
                 nsx_id = self._get_network_nsx_id(context, id)
+                net_name = net_data.get('name',
+                                        original_net.get('name')) or 'network'
                 self.nsxlib.logical_switch.update(
                     nsx_id,
-                    name=utils.get_name_and_uuid(net_data['name'] or 'network',
-                                                 id),
-                    admin_state=net_data.get('admin_state_up'))
+                    name=utils.get_name_and_uuid(net_name, id),
+                    admin_state=net_data.get('admin_state_up'),
+                    description=net_data.get('description'))
                 # Backend does not update the admin state of the ports on
                 # the switch when the switch's admin state changes. Do not
                 # update the admin state of the ports in neutron either.
@@ -1683,7 +1687,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 admin_state=port_data['admin_state_up'],
                 address_bindings=address_bindings,
                 attachment_type=attachment_type,
-                switch_profile_ids=profiles)
+                switch_profile_ids=profiles,
+                description=port_data.get('description'))
         except nsx_lib_exc.ManagerError as inst:
             # we may fail if the QoS is not supported for this port
             # (for example - transport zone with KVM)
@@ -2482,7 +2487,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 admin_state=updated_port.get('admin_state_up'),
                 address_bindings=address_bindings,
                 switch_profile_ids=switch_profile_ids,
-                tags_update=tags_update)
+                tags_update=tags_update,
+                description=updated_port.get('description'))
         except nsx_lib_exc.ManagerError as inst:
             # we may fail if the QoS is not supported for this port
             # (for example - transport zone with KVM)
