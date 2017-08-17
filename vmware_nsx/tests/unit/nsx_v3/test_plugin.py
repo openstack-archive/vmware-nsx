@@ -846,6 +846,14 @@ class TestL3NatTestCase(L3NatTest,
                                   r['router']['id'],
                                   {'router': {'routes':
                                               routes}})
+
+                updates = {'admin_state_up': False}
+                self.assertRaises(n_exc.InvalidInput,
+                                  self.plugin_instance.update_router,
+                                  context.get_admin_context(),
+                                  r['router']['id'],
+                                  {'router': updates})
+
                 self._remove_external_gateway_from_router(
                     r['router']['id'],
                     s['subnet']['network_id'])
@@ -1280,6 +1288,13 @@ class TestL3NatTestCase(L3NatTest,
 
                 add_nat.assert_not_called()
                 delete_nat.assert_not_called()
+
+    def test_router_admin_state(self):
+        """It is not allowed to set the router admin-state to down"""
+        with self.router() as r:
+            self._update('routers', r['router']['id'],
+                         {'router': {'admin_state_up': False}},
+                         expected_code=exc.HTTPBadRequest.code)
 
 
 class ExtGwModeTestCase(test_ext_gw_mode.ExtGwModeIntTestCase,
