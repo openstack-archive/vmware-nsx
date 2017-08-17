@@ -1764,13 +1764,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # security group extension checks
             if has_ip and port_security:
                 self._ensure_default_security_group_on_port(context, port)
+                (sgids, ssgids) = self._get_port_security_groups_lists(
+                    context, port)
             elif (has_security_groups or provider_sg_specified):
                 raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
             else:
-                port_data[provider_sg.PROVIDER_SECURITYGROUPS] = []
-
-            (sgids, ssgids) = self._get_port_security_groups_lists(
-                context, port)
+                sgids = ssgids = []
 
             self._process_port_create_security_group(context, port_data, sgids)
             self._process_port_create_provider_security_group(context,

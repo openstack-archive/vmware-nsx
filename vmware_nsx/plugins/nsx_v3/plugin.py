@@ -1735,12 +1735,18 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         if port_security and has_ip:
             self._ensure_default_security_group_on_port(context, port)
+            (sgids, psgids) = self._get_port_security_groups_lists(
+                context, port)
+        # FIXME(roeyc): Also raise when provider security-groups specified but
+        # port-security is disabled.
         elif self._check_update_has_security_groups(
                 {'port': port_data}):
             raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
+        else:
+            sgids = psgids = []
         port_data[ext_sg.SECURITYGROUPS] = (
             self._get_security_groups_on_port(context, port))
-        return port_security, has_ip
+        return port_security, has_ip, sgids, psgids
 
     def _assert_on_external_net_with_compute(self, port_data):
         # Prevent creating port with device owner prefix 'compute'
@@ -2117,24 +2123,23 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 context, port_data, neutron_db)
             port["port"].update(neutron_db)
 
-            (is_psec_on, has_ip) = self._create_port_preprocess_security(
-                context, port, port_data, neutron_db)
+            (is_psec_on, has_ip, sgids, psgids) = (
+                self._create_port_preprocess_security(context, port,
+                                                      port_data, neutron_db))
             self._process_portbindings_create_and_update(
                 context, port['port'], port_data)
             self._process_port_create_extra_dhcp_opts(
                 context, port_data, dhcp_opts)
 
             # handle adding security groups to port
-            (sgids, provider_groups) = self._get_port_security_groups_lists(
-                context, port)
             self._process_port_create_security_group(
                 context, port_data, sgids)
             self._process_port_create_provider_security_group(
-                context, port_data, provider_groups)
+                context, port_data, psgids)
             # add provider groups to other security groups list.
             # sgids is a set() so we need to | it in.
-            if provider_groups:
-                sgids = list(set(sgids) | set(provider_groups))
+            if psgids:
+                sgids = list(set(sgids) | set(psgids))
             self._extend_nsx_port_dict_binding(context, port_data)
             if validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)):
                 if is_psec_on:
