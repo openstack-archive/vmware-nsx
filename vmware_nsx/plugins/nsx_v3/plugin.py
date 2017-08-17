@@ -2390,7 +2390,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         name = self._get_port_name(context, updated_port)
 
-        # Update exlude list if necessary
+        # Update exclude list if necessary
         updated_ps = updated_port.get('port_security_enabled')
         updated_excluded = self._is_excluded_port(updated_device_owner,
                                                   updated_ps)
