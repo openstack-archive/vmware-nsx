@@ -860,6 +860,17 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                             cfg.CONF.nsx_v3.dhcp_lease_time, options,
                             subnet['subnet']['gateway_ip'])
 
+    def test_create_subnet_with_dhcp_port(self):
+        with self.subnet(enable_dhcp=True) as subnet:
+            # find the dhcp port and verify it has port security disabled
+            ports = self.plugin.get_ports(
+                context.get_admin_context())
+            self.assertEqual(1, len(ports))
+            self.assertEqual('network:dhcp', ports[0]['device_owner'])
+            self.assertEqual(subnet['subnet']['network_id'],
+                             ports[0]['network_id'])
+            self.assertEqual(False, ports[0]['port_security_enabled'])
+
 
 class NsxNativeMetadataTestCase(test_plugin.NsxV3PluginTestCaseMixin):
 

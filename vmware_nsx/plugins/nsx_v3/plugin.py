@@ -1078,8 +1078,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             "fixed_ips": [{"subnet_id": subnet['id']}],
             psec.PORTSECURITY: False
         }
-        neutron_port = super(NsxV3Plugin, self).create_port(
-            context, {'port': port_data})
+        # Create the DHCP port (on neutron only) and update its port security
+        port = {'port': port_data}
+        neutron_port = super(NsxV3Plugin, self).create_port(context, port)
+        self._create_port_preprocess_security(context, port, port_data,
+                                              neutron_port)
+
         net_tags = self.nsxlib.build_v3_tags_payload(
             network, resource_type='os-neutron-net-id',
             project_name=context.tenant_name)
