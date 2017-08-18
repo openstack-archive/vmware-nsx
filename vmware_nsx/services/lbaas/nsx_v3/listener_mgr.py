@@ -41,6 +41,7 @@ class EdgeListenerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
         load_balancer = self.core_plugin.nsxlib.load_balancer
         app_client = load_balancer.application_profile
         vs_client = load_balancer.virtual_server
+        service_client = load_balancer.service
         vs_name = utils.get_name_and_uuid(listener.name, listener.id)
         tags = lb_utils.get_tags(self.core_plugin, listener.id,
                                  lb_const.LB_LISTENER_TYPE,
@@ -76,6 +77,21 @@ class EdgeListenerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
             msg = _('Failed to create virtual server at NSX backend')
             raise n_exc.BadRequest(resource='lbaas-listener', msg=msg)
 
+        # If there is already lb:lb_service binding, add the virtual
+        # server to the lb service
+        binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
+            context.session, lb_id)
+        if binding:
+            lb_service_id = binding['lb_service_id']
+            try:
+                service_client.add_virtual_server(lb_service_id,
+                                                  virtual_server['id'])
+            except nsxlib_exc.ManagerError:
+                self.lbv2_driver.listener.failed_completion(context, listener)
+                msg = _('Failed to add virtual server to lb service '
+                        'at NSX backend')
+                raise n_exc.BadRequest(resource='lbaas-listener', msg=msg)
+
         nsx_db.add_nsx_lbaas_listener_binding(
             context.session, lb_id, listener.id, app_profile_id,
             virtual_server['id'])
@@ -90,6 +106,7 @@ class EdgeListenerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
     def delete(self, context, listener):
         lb_id = listener.loadbalancer_id
         load_balancer = self.core_plugin.nsxlib.load_balancer
+        service_client = load_balancer.service
         vs_client = load_balancer.virtual_server
         app_client = load_balancer.application_profile
 
@@ -98,6 +115,22 @@ class EdgeListenerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
         if binding:
             vs_id = binding['lb_vs_id']
             app_profile_id = binding['app_profile_id']
+            lb_binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
+                context.session, lb_id)
+            if lb_binding:
+                try:
+                    lbs_id = lb_binding.get('lb_service_id')
+                    lb_service = service_client.get(lbs_id)
+                    vs_list = lb_service.get('virtual_server_ids')
+                    if vs_list and vs_id in vs_list:
+                        service_client.remove_virtual_server(lbs_id, vs_id)
+                except nsxlib_exc.ManagerError:
+                    self.lbv2_driver.listener.failed_completion(context,
+                                                                listener)
+                    msg = (_('Failed to remove virtual server: %(listener)s '
+                             'from lb service %(lbs)s') %
+                           {'listener': listener.id, 'lbs': lbs_id})
+                    raise n_exc.BadRequest(resource='lbaas-listener', msg=msg)
             try:
                 if listener.default_pool_id:
                     vs_client.update(vs_id, pool_id='')
@@ -126,5 +159,6 @@ class EdgeListenerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                 raise n_exc.BadRequest(resource='lbaas-listener', msg=msg)
             nsx_db.delete_nsx_lbaas_listener_binding(
                 context.session, lb_id, listener.id)
+
         self.lbv2_driver.listener.successful_completion(
             context, listener, delete=True)

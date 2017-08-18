@@ -433,7 +433,7 @@ class NsxLbaasPool(model_base.BASEV2, models.TimestampMixin):
                                       ondelete="CASCADE"),
                         primary_key=True)
     lb_pool_id = sa.Column(sa.String(36), nullable=False)
-    lb_vs_id = sa.Column(sa.String(36), nullable=False)
+    lb_vs_id = sa.Column(sa.String(36))
 
 
 class NsxLbaasMonitor(model_base.BASEV2, models.TimestampMixin):

@@ -57,7 +57,24 @@ class EdgeLoadBalancerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def delete(self, context, lb):
-        # Discard any ports which are associated with LB
+        service_client = self.core_plugin.nsxlib.load_balancer.service
+        lb_binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
+            context.session, lb.id)
+        if lb_binding:
+            lb_service_id = lb_binding['lb_service_id']
+            lb_service = service_client.get(lb_service_id)
+            vs_list = lb_service.get('virtual_server_ids')
+            if not vs_list:
+                try:
+                    service_client.delete(lb_service_id)
+                except nsxlib_exc.ManagerError:
+                    self.lbv2_driver.pool.failed_completion(context, lb,
+                                                            delete=True)
+                    msg = (_('Failed to delete lb service %(lbs)s from nsx') %
+                           {'lbs': lb_service_id})
+                    raise n_exc.BadRequest(resource='lbaas-lb', msg=msg)
+            nsx_db.delete_nsx_lbaas_loadbalancer_binding(
+                context.session, lb.id)
         self.lbv2_driver.load_balancer.successful_completion(
             context, lb, delete=True)
 

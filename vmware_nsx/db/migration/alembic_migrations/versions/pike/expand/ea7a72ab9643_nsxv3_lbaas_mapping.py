@@ -56,7 +56,7 @@ def upgrade():
         sa.Column('loadbalancer_id', sa.String(36), nullable=False),
         sa.Column('pool_id', sa.String(36), nullable=False),
         sa.Column('lb_pool_id', sa.String(36), nullable=False),
-        sa.Column('lb_vs_id', sa.String(36), nullable=False),
+        sa.Column('lb_vs_id', sa.String(36), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint('loadbalancer_id', 'pool_id'))

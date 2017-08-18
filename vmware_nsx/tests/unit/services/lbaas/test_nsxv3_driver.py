@@ -219,13 +219,27 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
         mock_successful_completion.assert_called_with(self.context, new_lb)
 
     def test_delete(self):
-        self.edge_driver.loadbalancer.delete(self.context, self.lb)
+        with mock.patch.object(nsx_db, 'get_nsx_lbaas_loadbalancer_binding'
+                               ) as mock_get_lb_binding, \
+            mock.patch.object(self.service_client, 'get'
+                              ) as mock_get_lb_service, \
+            mock.patch.object(self.service_client, 'delete'
+                              ) as mock_delete_lb_service, \
+            mock.patch.object(nsx_db, 'delete_nsx_lbaas_loadbalancer_binding'
+                              ) as mock_delete_lb_binding:
+            mock_get_lb_binding.return_value = LB_BINDING
+            mock_get_lb_service.return_value = {'id': LB_SERVICE_ID}
 
-        mock_successful_completion = (
-            self.lbv2_driver.load_balancer.successful_completion)
-        mock_successful_completion.assert_called_with(self.context,
-                                                      self.lb,
-                                                      delete=True)
+            self.edge_driver.loadbalancer.delete(self.context, self.lb)
+
+            mock_delete_lb_service.assert_called_with(LB_SERVICE_ID)
+            mock_delete_lb_binding.assert_called_with(
+                self.context.session, LB_ID)
+            mock_successful_completion = (
+                self.lbv2_driver.load_balancer.successful_completion)
+            mock_successful_completion.assert_called_with(self.context,
+                                                          self.lb,
+                                                          delete=True)
 
     def test_stats(self):
         pass
@@ -247,13 +261,20 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
                                ) as mock_create_app_profile, \
             mock.patch.object(self.vs_client, 'create'
                               ) as mock_create_virtual_server, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_loadbalancer_binding'
+                              ) as mock_get_lb_binding, \
+            mock.patch.object(self.service_client, 'add_virtual_server'
+                              ) as mock_add_virtual_server, \
             mock.patch.object(nsx_db, 'add_nsx_lbaas_listener_binding'
                               ) as mock_add_listener_binding:
             mock_create_app_profile.return_value = {'id': APP_PROFILE_ID}
             mock_create_virtual_server.return_value = {'id': LB_VS_ID}
+            mock_get_lb_binding.return_value = LB_BINDING
 
             self.edge_driver.listener.create(self.context, self.listener)
 
+            mock_add_virtual_server.assert_called_with(LB_SERVICE_ID,
+                                                       LB_VS_ID)
             mock_add_listener_binding.assert_called_with(
                 self.context.session, LB_ID, LISTENER_ID, APP_PROFILE_ID,
                 LB_VS_ID)
@@ -280,6 +301,12 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
     def test_delete(self):
         with mock.patch.object(nsx_db, 'get_nsx_lbaas_listener_binding'
                                ) as mock_get_listener_binding, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_loadbalancer_binding'
+                              ) as mock_get_lb_binding, \
+            mock.patch.object(self.service_client, 'get'
+                              ) as mock_get_lb_service, \
+            mock.patch.object(self.service_client, 'remove_virtual_server'
+                              ) as mock_remove_virtual_server, \
             mock.patch.object(self.app_client, 'delete'
                               ) as mock_delete_app_profile, \
             mock.patch.object(self.vs_client, 'delete'
@@ -287,9 +314,15 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
             mock.patch.object(nsx_db, 'delete_nsx_lbaas_listener_binding',
                               ) as mock_delete_listener_binding:
             mock_get_listener_binding.return_value = LISTENER_BINDING
+            mock_get_lb_binding.return_value = LB_BINDING
+            mock_get_lb_service.return_value = {
+                'id': LB_SERVICE_ID,
+                'virtual_server_ids': [LB_VS_ID]}
 
             self.edge_driver.listener.delete(self.context, self.listener)
 
+            mock_remove_virtual_server.assert_called_with(LB_SERVICE_ID,
+                                                          LB_VS_ID)
             mock_delete_virtual_server.assert_called_with(LB_VS_ID)
             mock_delete_app_profile.assert_called_with(APP_PROFILE_ID)
 
@@ -314,18 +347,22 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
     def test_create(self):
         with mock.patch.object(self.pool_client, 'create'
                                ) as mock_create_pool, \
+            mock.patch.object(nsx_db, 'add_nsx_lbaas_pool_binding'
+                              ) as mock_add_pool_binding, \
             mock.patch.object(nsx_db, 'get_nsx_lbaas_listener_binding'
                               ) as mock_get_listener_binding, \
             mock.patch.object(self.vs_client, 'update', return_value=None), \
-            mock.patch.object(nsx_db, 'add_nsx_lbaas_pool_binding'
-                              ) as mock_add_pool_binding:
+            mock.patch.object(nsx_db, 'update_nsx_lbaas_pool_binding'
+                              ) as mock_update_pool_binding:
             mock_create_pool.return_value = {'id': LB_POOL_ID}
             mock_get_listener_binding.return_value = LISTENER_BINDING
 
             self.edge_driver.pool.create(self.context, self.pool)
 
             mock_add_pool_binding.assert_called_with(
-                self.context.session, LB_ID, POOL_ID, LB_POOL_ID, LB_VS_ID)
+                self.context.session, LB_ID, POOL_ID, LB_POOL_ID)
+            mock_update_pool_binding.assert_called_with(
+                self.context.session, LB_ID, POOL_ID, LB_VS_ID)
             mock_successful_completion = (
                 self.lbv2_driver.pool.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
@@ -389,6 +426,8 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
                               ) as mock_get_router, \
             mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
                               ) as mock_get_pool_binding, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_loadbalancer_binding'
+                              ) as mock_get_lb_binding, \
             mock.patch.object(nsx_db, 'get_nsx_router_id'
                               ) as mock_get_nsx_router_id, \
             mock.patch.object(self.service_client, 'get_router_lb_service'
@@ -407,6 +446,7 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
             mock_get_network.return_value = LB_NETWORK
             mock_get_router.return_value = LB_ROUTER_ID
             mock_get_pool_binding.return_value = POOL_BINDING
+            mock_get_lb_binding.return_value = None
             mock_get_nsx_router_id.return_value = LB_ROUTER_ID
             mock_get_lb_service.return_value = {'id': LB_SERVICE_ID}
             mock_get_pool.return_value = LB_POOL
@@ -435,42 +475,20 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
         mock_successful_completion.assert_called_with(self.context, new_member)
 
     def test_delete(self):
-        with mock.patch.object(self.lbv2_driver.plugin, 'get_pool_members'
-                               ) as mock_get_pool_members, \
-            mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
-                              ) as mock_get_pool_binding, \
-            mock.patch.object(nsx_db, 'get_nsx_lbaas_loadbalancer_binding'
-                              ) as mock_get_loadbalancer_binding, \
-            mock.patch.object(self.service_client, 'get'
-                              ) as mock_get_lb_service, \
-            mock.patch.object(self.service_client, 'update'
-                              ) as mock_update_lb_service, \
-            mock.patch.object(self.service_client, 'delete'
-                              ) as mock_delete_lb_service, \
-            mock.patch.object(nsx_db, 'delete_nsx_lbaas_loadbalancer_binding'
-                              ) as mock_delete_loadbalancer_binding, \
+        with mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
+                               ) as mock_get_pool_binding, \
             mock.patch.object(self.pool_client, 'get'
                               ) as mock_get_pool, \
             mock.patch.object(lb_utils, 'get_network_from_subnet'
                               ) as mock_get_network_from_subnet, \
             mock.patch.object(self.pool_client, 'update_pool_with_members'
                               ) as mock_update_pool_with_members:
-            mock_get_pool_members.return_value = [self.member]
             mock_get_pool_binding.return_value = POOL_BINDING
-            mock_get_loadbalancer_binding.return_value = LB_BINDING
-            mock_get_lb_service.return_value = {
-                'id': LB_SERVICE_ID,
-                'virtual_server_ids': [LB_VS_ID]}
             mock_get_pool.return_value = LB_POOL_WITH_MEMBER
             mock_get_network_from_subnet.return_value = LB_NETWORK
 
             self.edge_driver.member.delete(self.context, self.member)
 
-            mock_update_lb_service.assert_called_with(LB_SERVICE_ID,
-                                                      virtual_server_ids=[])
-            mock_delete_lb_service.assert_called_with(LB_SERVICE_ID)
-            mock_delete_loadbalancer_binding.assert_called_with(
-                self.context.session, LB_ID)
             mock_update_pool_with_members.assert_called_with(LB_POOL_ID, [])
 
             mock_successful_completion = (
