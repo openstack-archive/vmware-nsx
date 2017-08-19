@@ -19,7 +19,7 @@
 
 GITDIR['vmware-nsxlib']=$DEST/vmware-nsxlib
 GITREPO['vmware-nsxlib']=${NSXLIB_REPO:-${GIT_BASE}/openstack/vmware-nsxlib.git}
-GITBRANCH['vmware-nsxlib']=${NSXLIB_BRANCH:-master}
+GITBRANCH['vmware-nsxlib']=${NSXLIB_BRANCH:-stable/pike}
 
 dir=${GITDIR['vmware-nsx']}/devstack
 
