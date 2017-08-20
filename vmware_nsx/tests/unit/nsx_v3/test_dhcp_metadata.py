@@ -290,10 +290,13 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
         povidernet_args = {pnet.NETWORK_TYPE: 'vlan',
                            pnet.PHYSICAL_NETWORK: 'tzuuid',
                            pnet.SEGMENTATION_ID: 100}
-        with self.network(providernet_args=povidernet_args,
-                          arg_list=(pnet.NETWORK_TYPE,
-                                    pnet.PHYSICAL_NETWORK,
-                                    pnet.SEGMENTATION_ID)) as network:
+        with mock.patch(
+            'vmware_nsxlib.v3.core_resources.NsxLibTransportZone.'
+            'get_transport_type', return_value='VLAN'),\
+            self.network(providernet_args=povidernet_args,
+                         arg_list=(pnet.NETWORK_TYPE,
+                                   pnet.PHYSICAL_NETWORK,
+                                   pnet.SEGMENTATION_ID)) as network:
             subnet = {'subnet': {'network_id': network['network']['id'],
                                  'cidr': '10.0.0.0/24',
                                  'enable_dhcp': True}}
