@@ -1783,6 +1783,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             LOG.warning(err_msg)
             raise n_exc.InvalidInput(error_message=err_msg)
 
+    def _assert_on_port_admin_state(self, port_data, device_owner):
+        """Do not allow changing the admin state of some ports"""
+        if (device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF or
+            device_owner == l3_db.DEVICE_OWNER_ROUTER_GW):
+            if port_data.get("admin_state_up") is False:
+                err_msg = _("admin_state_up=False router ports are not "
+                            "supported.")
+                LOG.warning(err_msg)
+                raise n_exc.InvalidInput(error_message=err_msg)
+
     def _filter_ipv4_dhcp_fixed_ips(self, context, fixed_ips):
         ips = []
         for fixed_ip in fixed_ips:
@@ -2116,6 +2126,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self._assert_on_external_net_with_compute(port_data)
                 self._assert_on_external_net_port_with_qos(port_data)
             self._assert_on_router_port_with_qos(
+                port_data, port_data.get('device_owner'))
+            self._assert_on_port_admin_state(
                 port_data, port_data.get('device_owner'))
 
             neutron_db = super(NsxV3Plugin, self).create_port(context, port)
@@ -2555,7 +2567,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                             else original_port.get('device_owner'))
             self._assert_on_router_port_with_qos(
                 port_data, device_owner)
-
+            self._assert_on_port_admin_state(port_data, device_owner)
             self._validate_max_ips_per_port(
                 port_data.get('fixed_ips', []), device_owner)
 
@@ -2878,9 +2890,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self.set_extra_attr_value(context, router_db,
                                           extra_attr, r[extra_attr])
 
+    def _assert_on_router_admin_state(self, router_data):
+        if router_data.get("admin_state_up") is False:
+            err_msg = _("admin_state_up=False routers are not supported.")
+            LOG.warning(err_msg)
+            raise n_exc.InvalidInput(error_message=err_msg)
+
     def create_router(self, context, router):
-        # TODO(berlin): admin_state_up support
         r = router['router']
+
         gw_info = self._extract_external_gw(context, router, is_extract=True)
         r['id'] = (r.get('id') or uuidutils.generate_uuid())
         tags = self.nsxlib.build_v3_tags_payload(
@@ -3004,9 +3022,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 context, router_id, router)
 
     def update_router(self, context, router_id, router):
-        # TODO(berlin): admin_state_up support
         gw_info = self._extract_external_gw(context, router, is_extract=False)
         router_data = router['router']
+        self._assert_on_router_admin_state(router_data)
 
         # if setting this router as no-snat, make sure gw address scope match
         # those of the subnets
