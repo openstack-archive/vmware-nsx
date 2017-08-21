@@ -1961,8 +1961,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if (len(port_data.keys()) > 2 or
                 (ext_sg.SECURITYGROUPS not in port_data and
                  len(port_data.keys()) > 1)):
-                msg = (_('Cannot set port security together with other '
-                         'attributes for port %s') % original_port['id'])
+                msg = (_('Port security can only be set with security-groups '
+                         'and no other attributes for port %s') %
+                       original_port['id'])
                 raise n_exc.BadRequest(resource='port', msg=msg)
 
         # TODO(roeyc): create a method '_process_vnic_index_update' from the
