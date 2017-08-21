@@ -234,7 +234,8 @@ Config
 NSXv3
 -----
 
-The following resources are supported: 'security-groups', 'routers', 'networks', 'nsx-security-groups', 'dhcp-binding', 'metadata-proxy', 'orphaned-dhcp-servers', 'firewall-sections', 'certificate', and 'ports'.
+The following resources are supported: 'security-groups', 'routers', 'networks', 'nsx-security-groups', 'dhcp-binding', 'metadata-proxy', 'orphaned-dhcp-servers', 'firewall-sections', 'certificate', 'orphaned-networks', 'orphaned-routers',
+and 'ports'.
 
 Networks
 ~~~~~~~~
@@ -265,6 +266,17 @@ Routers
   This is useful for NSX version 2.0 & up, before starting to use FWaaS
 
     nsxadmin -r routers -o nsx-update-rules
+
+Orphaned Routers
+~~~~~~~~~~~~~~~~~
+
+- List logical routers which are missing from the neutron DB::
+
+    nsxadmin -r orphaned-routers -o list
+
+- Delete a backend logical router by it's nsx-id::
+
+    nsxadmin -r orphaned-routers -o nsx-clean --property nsx-id=<id>
 
 Ports
 ~~~~~
