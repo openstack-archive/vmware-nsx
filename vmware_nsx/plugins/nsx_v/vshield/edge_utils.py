@@ -1585,21 +1585,6 @@ class EdgeManager(object):
                  {'eid': edge_id, 'ip': old_ip})
         raise nsx_exc.NsxPluginException(err_msg=error)
 
-    def _get_sub_interface_id(self, context, edge_id, network_id):
-        vnic_binding = nsxv_db.get_edge_vnic_binding(
-            context.session, edge_id, network_id)
-
-        if vnic_binding:
-            _, vnic_config = self.nsxv_manager.get_interface(
-                edge_id, vnic_binding.vnic_index)
-            sub_iface_dict = vnic_config.get('subInterfaces')
-            if sub_iface_dict:
-                sub_interfaces = sub_iface_dict.get('subInterfaces', [])
-
-                for sub_interface in sub_interfaces:
-                    if sub_interface['tunnelId'] == vnic_binding.tunnel_index:
-                        return sub_interface['index']
-
     def get_plr_by_tlr_id(self, context, router_id):
         lswitch_id = nsxv_db.get_nsxv_router_binding(
             context.session, router_id).lswitch_id
