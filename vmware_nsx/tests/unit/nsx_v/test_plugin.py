@@ -43,6 +43,7 @@ import neutron.tests.unit.extensions.test_securitygroup as ext_sg
 from neutron.tests.unit import testlib_api
 from neutron_lib.api.definitions import address_scope as addr_apidef
 from neutron_lib.api.definitions import extra_dhcp_opt as edo_ext
+from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators
@@ -1200,6 +1201,17 @@ class TestPortsV2(NsxVPluginV2TestCase,
                                           portbindings.VNIC_TYPE,
                                           self.vnic_type))
 
+    def test_port_invalid_vnic_type(self):
+        with self._test_create_direct_network(vlan_id=7) as network:
+            kwargs = {portbindings.VNIC_TYPE: 'invalid',
+                      psec.PORTSECURITY: False}
+            net_id = network['network']['id']
+            res = self._create_port(self.fmt, net_id=net_id,
+                                    arg_list=(portbindings.VNIC_TYPE,
+                                              psec.PORTSECURITY),
+                                    **kwargs)
+            self.assertEqual(res.status_int, webob.exc.HTTPBadRequest.code)
+
     def test_range_allocation(self):
         self.skipTest('Multiple fixed ips on a port are not supported')
 
@@ -1524,46 +1536,46 @@ class TestPortsV2(NsxVPluginV2TestCase,
     def test_create_port_vnic_direct(self):
         with self._test_create_direct_network(vlan_id=7) as network:
             # Check that port security conflicts
-            kwargs = {'binding:vnic_type': 'direct'}
+            kwargs = {portbindings.VNIC_TYPE: portbindings.VNIC_DIRECT,
+                      psec.PORTSECURITY: True}
             net_id = network['network']['id']
             res = self._create_port(self.fmt, net_id=net_id,
-                                    arg_list=(portbindings.VNIC_TYPE,),
+                                    arg_list=(portbindings.VNIC_TYPE,
+                                              psec.PORTSECURITY),
                                     **kwargs)
             self.assertEqual(res.status_int, webob.exc.HTTPBadRequest.code)
 
             # Check that security group conflicts
-            kwargs = {'binding:vnic_type': 'direct',
-                      'security_groups':
-                          ['4cd70774-cc67-4a87-9b39-7d1db38eb087'],
-                      'port_security_enabled': False}
+            kwargs = {portbindings.VNIC_TYPE: portbindings.VNIC_DIRECT,
+                      'security_groups': [
+                          '4cd70774-cc67-4a87-9b39-7d1db38eb087'],
+                      psec.PORTSECURITY: False}
             net_id = network['network']['id']
             res = self._create_port(self.fmt, net_id=net_id,
                                     arg_list=(portbindings.VNIC_TYPE,
-                                              'port_security_enabled'),
+                                              psec.PORTSECURITY),
                                     **kwargs)
             self.assertEqual(res.status_int, webob.exc.HTTPBadRequest.code)
 
             # All is kosher so we can create the port
-            kwargs = {'binding:vnic_type': 'direct',
-                      'port_security_enabled': False}
+            kwargs = {portbindings.VNIC_TYPE: portbindings.VNIC_DIRECT}
             net_id = network['network']['id']
             res = self._create_port(self.fmt, net_id=net_id,
-                                    arg_list=(portbindings.VNIC_TYPE,
-                                              'port_security_enabled'),
+                                    arg_list=(portbindings.VNIC_TYPE,),
                                     **kwargs)
             port = self.deserialize('json', res)
-            self.assertEqual("direct", port['port']['binding:vnic_type'])
+            self.assertEqual("direct", port['port'][portbindings.VNIC_TYPE])
 
     def test_create_port_vnic_direct_invalid_network(self):
         with self.network(name='not vlan/flat') as net:
-            kwargs = {'binding:vnic_type': 'direct',
-                      'port_security_enabled': False}
+            kwargs = {portbindings.VNIC_TYPE: portbindings.VNIC_DIRECT,
+                      psec.PORTSECURITY: False}
             net_id = net['network']['id']
             res = self._create_port(self.fmt, net_id=net_id,
                                     arg_list=(portbindings.VNIC_TYPE,
-                                              'port_security_enabled'),
+                                              psec.PORTSECURITY),
                                     **kwargs)
-            self.assertEqual(res.status_int, webob.exc.HTTPBadRequest.code)
+            self.assertEqual(webob.exc.HTTPBadRequest.code, res.status_int)
 
     def test_update_vnic_direct(self):
         with self._test_create_direct_network(vlan_id=7) as network:
@@ -1571,19 +1583,22 @@ class TestPortsV2(NsxVPluginV2TestCase,
                 with self.port(subnet=subnet) as port:
                     # need to do two updates as the update for port security
                     # disabled requires that it can only change 2 items
-                    data = {'port': {'port_security_enabled': False,
+                    data = {'port': {psec.PORTSECURITY: False,
                                      'security_groups': []}}
                     req = self.new_update_request('ports',
                                                   data, port['port']['id'])
                     res = self.deserialize('json', req.get_response(self.api))
-                    self.assertEqual('normal',
-                                     res['port']['binding:vnic_type'])
-                    data = {'port': {'binding:vnic_type': 'direct'}}
+                    self.assertEqual(portbindings.VNIC_NORMAL,
+                                     res['port'][portbindings.VNIC_TYPE])
+
+                    data = {'port': {portbindings.VNIC_TYPE:
+                                     portbindings.VNIC_DIRECT}}
+
                     req = self.new_update_request('ports',
                                                   data, port['port']['id'])
                     res = self.deserialize('json', req.get_response(self.api))
-                    self.assertEqual('direct',
-                                     res['port']['binding:vnic_type'])
+                    self.assertEqual(portbindings.VNIC_DIRECT,
+                                     res['port'][portbindings.VNIC_TYPE])
 
     def test_delete_network_port_exists_owned_by_network_port_not_found(self):
         """Tests that we continue to gracefully delete the network even if
@@ -3711,8 +3726,10 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
 
             # change address scope of the first subnetpool
             with self.address_scope(name='as2') as addr_scope2,\
-                mock.patch.object(edge_utils, 'update_nat_rules') as update_nat,\
-                mock.patch.object(edge_utils, 'update_firewall') as update_fw:
+                mock.patch.object(edge_utils,
+                                  'update_nat_rules') as update_nat,\
+                mock.patch.object(edge_utils,
+                                  'update_firewall') as update_fw:
 
                 as2_id = addr_scope2['address_scope']['id']
                 data = {'subnetpool': {
