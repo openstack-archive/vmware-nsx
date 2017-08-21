@@ -75,6 +75,10 @@ class NeutronDbClient(db_base_plugin_v2.NeutronDbPluginV2):
         net_ids = nsx_db.get_net_ids(self.context.session, lswitch_id)
         return net_ids[0] if net_ids else None
 
+    def lrouter_id_to_router_id(self, lrouter_id):
+        return nsx_db.get_neutron_from_nsx_router_id(self.context.session,
+                                                     lrouter_id)
+
     def net_id_to_lswitch_id(self, net_id):
         lswitch_ids = nsx_db.get_nsx_switch_ids(self.context.session, net_id)
         return lswitch_ids[0] if lswitch_ids else None
