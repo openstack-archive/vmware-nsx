@@ -275,6 +275,15 @@ def get_nsx_router_id(session, neutron_id):
                   "stored in Neutron DB", neutron_id)
 
 
+def get_neutron_from_nsx_router_id(session, nsx_router_id):
+    try:
+        mapping = (session.query(nsx_models.NeutronNsxRouterMapping).
+                   filter_by(nsx_id=nsx_router_id).one())
+        return mapping['neutron_id']
+    except exc.NoResultFound:
+        LOG.debug("Couldn't find router with nsx id  %s", nsx_router_id)
+
+
 def get_nsx_security_group_id(session, neutron_id):
     """Return the id of a security group in the NSX backend.
 
