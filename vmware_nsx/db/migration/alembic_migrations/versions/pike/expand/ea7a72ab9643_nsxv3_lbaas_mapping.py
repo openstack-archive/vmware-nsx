@@ -30,6 +30,9 @@ Create Date: 2017-06-12 16:59:48.021909
 revision = 'ea7a72ab9643'
 down_revision = '53eb497903a4'
 
+# milestone identifier, used by neutron-db-manage
+neutron_milestone = [migration.PIKE]
+
 
 def upgrade():
     op.create_table(

@@ -26,6 +26,12 @@ down_revision = '8c0a81a07691'
 from alembic import op
 from sqlalchemy.engine import reflection
 
+from neutron.db import migration
+
+
+# milestone identifier, used by neutron-db-manage
+neutron_milestone = [migration.PIKE]
+
 
 def upgrade():
     table_name = 'neutron_nsx_qos_policy_mappings'
