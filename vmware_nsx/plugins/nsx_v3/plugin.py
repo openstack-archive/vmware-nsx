@@ -2174,7 +2174,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if psgids:
                 sgids = list(set(sgids) | set(psgids))
             self._extend_nsx_port_dict_binding(context, port_data)
-            if validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)):
+            # Make sure mac_learning and port sec are not both enabled
+            if (validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)) and
+                port_data.get(mac_ext.MAC_LEARNING)):
                 if is_psec_on:
                     msg = _('Mac learning requires that port security be '
                             'disabled')
