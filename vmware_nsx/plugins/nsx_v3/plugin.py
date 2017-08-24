@@ -1778,6 +1778,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if not utils.is_ipv4_ip_address(ip):
                 raise nsx_exc.InvalidIPAddress(ip_address=ip)
 
+    def _provider_sgs_specified(self, port_data):
+        # checks if security groups were updated adding/modifying
+        # security groups, port security is set and port has ip
+        provider_sgs_specified = (validators.is_attr_set(
+            port_data.get(provider_sg.PROVIDER_SECURITYGROUPS)) and
+            port_data.get(provider_sg.PROVIDER_SECURITYGROUPS) != [])
+        return provider_sgs_specified
+
     def _create_port_preprocess_security(
             self, context, port, port_data, neutron_db):
         (port_security, has_ip) = self._determine_port_security_and_has_ip(
@@ -1801,8 +1809,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         if port_security and has_ip:
             self._ensure_default_security_group_on_port(context, port)
-        elif self._check_update_has_security_groups(
-                {'port': port_data}):
+        elif (self._check_update_has_security_groups({'port': port_data}) or
+              self._provider_sgs_specified(port_data)):
             raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
         port_data[ext_sg.SECURITYGROUPS] = (
             self._get_security_groups_on_port(context, port))
@@ -2381,9 +2389,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         # checks if security groups were updated adding/modifying
         # security groups, port security is set and port has ip
-        provider_sgs_specified = (validators.is_attr_set(
-            port_data.get(provider_sg.PROVIDER_SECURITYGROUPS)) and
-            port['port'][provider_sg.PROVIDER_SECURITYGROUPS] != [])
+        provider_sgs_specified = self._provider_sgs_specified(port_data)
         if (validate_port_sec and
             not (has_ip and updated_port[psec.PORTSECURITY])):
             if has_security_groups or provider_sgs_specified:
