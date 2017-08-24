@@ -3036,6 +3036,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         self._process_nsx_router_create(
                             context, router_db, router['router'])
 
+                    # update availability zone
+                    router['router']['availability_zone_hints'] = r.get(
+                        'availability_zone_hints')
+
                     # add the router to the new pool
                     appliance_size = router['router'].get(ROUTER_SIZE)
                     new_router_driver = \
