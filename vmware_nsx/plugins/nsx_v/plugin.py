@@ -1666,33 +1666,26 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             context, port['port'], created_port)
         return created_port
 
-    def _process_vnic_type(self, context, port_data, attrs,
-                           has_security_groups, port_security):
-        vnic_type = attrs and attrs.get(pbin.VNIC_TYPE)
-        if attrs and validators.is_attr_set(vnic_type):
-            if vnic_type == pbin.VNIC_NORMAL:
-                pass
-            elif vnic_type in [pbin.VNIC_DIRECT,
-                               pbin.VNIC_DIRECT_PHYSICAL]:
-                if has_security_groups or port_security:
-                    err_msg = _("Direct/direct-physical  VNIC type requires "
-                                "no port security and no security groups!")
-                    raise n_exc.InvalidInput(error_message=err_msg)
-                if not self._validate_network_type(
-                    context, port_data['network_id'],
-                    [c_utils.NsxVNetworkTypes.VLAN,
-                     c_utils.NsxVNetworkTypes.FLAT,
-                     c_utils.NsxVNetworkTypes.PORTGROUP]):
-                    err_msg = _("Direct VNIC type requires VLAN, Flat or "
-                                "Portgroup network!")
-                    raise n_exc.InvalidInput(error_message=err_msg)
-            else:
-                err_msg = _("Only direct or normal VNIC types supported")
+    def _validate_port_direct_vnic_type(self, context, port_data):
+        vnic_type = port_data.get(pbin.VNIC_TYPE)
+        has_vnic_type = validators.is_attr_set(vnic_type)
+        if has_vnic_type and vnic_type in [pbin.VNIC_DIRECT,
+                                           pbin.VNIC_DIRECT_PHYSICAL]:
+            if not self._validate_network_type(
+                context, port_data['network_id'],
+                [c_utils.NsxVNetworkTypes.VLAN,
+                 c_utils.NsxVNetworkTypes.FLAT,
+                 c_utils.NsxVNetworkTypes.PORTGROUP]):
+                err_msg = _("'%s' vnic-type is only supported"
+                            "for networks of type 'vlan', 'flat' or "
+                            "'portgroup'.") % vnic_type
                 raise n_exc.InvalidInput(error_message=err_msg)
-            nsxv_db.update_nsxv_port_ext_attributes(
-                session=context.session,
-                port_id=port_data['id'],
-                vnic_type=vnic_type)
+            return vnic_type
+        elif has_vnic_type and vnic_type != pbin.VNIC_NORMAL:
+            err_msg = _("Invalid vnic-type %s."
+                        "Supported vnic-types are 'normal', 'direct' and "
+                        "'direct-physical'.") % vnic_type
+            raise n_exc.InvalidInput(error_message=err_msg)
 
     def _validate_extra_dhcp_options(self, opts):
         if not opts:
@@ -1732,29 +1725,41 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             neutron_db = super(NsxVPluginV2, self).create_port(context, port)
             self._extension_manager.process_create_port(
                 context, port_data, neutron_db)
-            # Port port-security is decided by the port-security state on the
-            # network it belongs to, unless specifically specified here
-            if validators.is_attr_set(port_data.get(psec.PORTSECURITY)):
-                port_security = port_data[psec.PORTSECURITY]
+
+            direct_vnic_type = self._validate_port_direct_vnic_type(context,
+                                                                    port_data)
+
+            # Port port-security is decided based on port's vnic_type and ports
+            # network port-security state (unless explicitly requested
+            # differently by the user).
+            port_security = port_data.get(psec.PORTSECURITY)
+            if validators.is_attr_set(port_security):
+                # 'direct' and 'direct-physical' vnic types ports requires
+                # port-security to be disabled.
+                if direct_vnic_type and port_security:
+                    err_msg = _("Security features are not supported for "
+                                "ports with direct/direct-physical VNIC type.")
+                    raise n_exc.InvalidInput(error_message=err_msg)
+            elif direct_vnic_type:
+                # Implicitly disable port-security for direct vnic types.
+                port_security = False
             else:
                 port_security = self._get_network_security_binding(
                     context, neutron_db['network_id'])
-                port_data[psec.PORTSECURITY] = port_security
+            port_data[psec.PORTSECURITY] = port_security
 
-            self._process_port_port_security_create(
-                context, port_data, neutron_db)
-            # Update fields obtained from neutron db (eg: MAC address)
-            port["port"].update(neutron_db)
-            has_ip = self._ip_on_port(neutron_db)
             provider_sg_specified = (validators.is_attr_set(
                 port_data.get(provider_sg.PROVIDER_SECURITYGROUPS))
                 and port_data[provider_sg.PROVIDER_SECURITYGROUPS] != [])
-            if provider_sg_specified and not port_security:
-                err_msg = _("Can't disable port security when there are "
-                            "provider rules")
-                raise n_exc.InvalidInput(error_message=err_msg)
             has_security_groups = (
                 self._check_update_has_security_groups(port))
+
+            self._process_port_port_security_create(
+                context, port_data, neutron_db)
+
+            # Update fields obtained from neutron db (eg: MAC address)
+            port["port"].update(neutron_db)
+            has_ip = self._ip_on_port(neutron_db)
 
             # allowed address pair checks
             attrs = port[port_def.RESOURCE_NAME]
@@ -1781,6 +1786,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                                               port_data,
                                                               ssgids)
 
+            if direct_vnic_type:
+                nsxv_db.update_nsxv_port_ext_attributes(
+                    session=context.session,
+                    port_id=port_data['id'],
+                    vnic_type=direct_vnic_type)
+
             self._process_portbindings_create_and_update(context,
                                                          port['port'],
                                                          port_data)
@@ -1789,9 +1800,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     context, neutron_db,
                     attrs.get(addr_pair.ADDRESS_PAIRS)))
 
-            self._process_vnic_type(context, port_data, attrs,
-                                    has_security_groups,
-                                    port_security)
             self._process_port_create_extra_dhcp_opts(
                 context, port_data, dhcp_opts)
 
@@ -2016,6 +2024,19 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             ret_port.update(port['port'])
             has_ip = self._ip_on_port(ret_port)
 
+            direct_vnic_type = self._validate_port_direct_vnic_type(context,
+                                                                    ret_port)
+            if direct_vnic_type and has_port_security:
+                err_msg = _("Security features are not supported for "
+                            "ports with direct/direct-physical VNIC type.")
+                raise n_exc.InvalidInput(error_message=err_msg)
+
+            if direct_vnic_type:
+                nsxv_db.update_nsxv_port_ext_attributes(
+                    session=context.session,
+                    port_id=ret_port['id'],
+                    vnic_type=direct_vnic_type)
+
             # checks that if update adds/modify security groups,
             # then port has ip and port-security
             if not (has_ip and has_port_security):
@@ -2045,9 +2066,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 update_assigned_addresses = self.update_address_pairs_on_port(
                     context, id, port, original_port, ret_port)
 
-            self._process_vnic_type(context, ret_port, attrs,
-                                    has_security_groups,
-                                    has_port_security)
             self._update_extra_dhcp_opts_on_port(context, id, port,
                                                  ret_port)
 
