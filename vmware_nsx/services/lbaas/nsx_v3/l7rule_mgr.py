@@ -36,62 +36,90 @@ class EdgeL7RuleManager(base_mgr.Nsxv3LoadbalancerBaseManager):
     @log_helpers.log_method_call
     def _get_rule_match_conditions(self, rule):
         match_conditions = []
+        # values in rule have already been validated in LBaaS API,
+        # we won't need to valid anymore in driver, and just get
+        # the LB rule mapping from the dict.
+        match_type = lb_const.LB_RULE_MATCH_TYPE[rule.compare_type]
         if rule.type == lb_const.L7_RULE_TYPE_COOKIE:
             header_value = rule.key + '=' + rule.value
             match_conditions.append(
                 {'type': 'LbHttpRequestHeaderCondition',
+                 'match_type': match_type,
                  'header_name': 'Cookie',
                  'header_value': header_value})
         elif rule.type == lb_const.L7_RULE_TYPE_FILE_TYPE:
             match_conditions.append(
                 {'type': 'LbHttpRequestUriCondition',
+                 'match_type': match_type,
                  'uri': '*.' + rule.value})
         elif rule.type == lb_const.L7_RULE_TYPE_HEADER:
             match_conditions.append(
                 {'type': 'LbHttpRequestHeaderCondition',
+                 'match_type': match_type,
                  'header_name': rule.key,
                  'header_value': rule.value})
         elif rule.type == lb_const.L7_RULE_TYPE_HOST_NAME:
             match_conditions.append(
                 {'type': 'LbHttpRequestHeaderCondition',
+                 'match_type': match_type,
                  'header_name': 'Host',
                  'header_value': rule.value})
         elif rule.type == lb_const.L7_RULE_TYPE_PATH:
             match_conditions.append(
                 {'type': 'LbHttpRequestUriCondition',
+                 'match_type': match_type,
                  'uri': rule.value})
         else:
             msg = (_('l7rule type %(type)s is not supported in LBaaS') %
                    {'type': rule.type})
             LOG.error(msg)
             raise n_exc.BadRequest(resource='lbaas-l7rule', msg=msg)
+        return match_conditions
 
     @log_helpers.log_method_call
-    def _convert_l7policy_to_rule(self, context, rule):
+    def _get_rule_actions(self, context, rule):
         lb_id = rule.policy.listener.loadbalancer_id
-        body = {}
         l7policy = rule.policy
         if l7policy.action == lb_const.L7_POLICY_ACTION_REDIRECT_TO_POOL:
             pool_binding = nsx_db.get_nsx_lbaas_pool_binding(
                 context.session, lb_id, l7policy.redirect_pool_id)
             if pool_binding:
                 lb_pool_id = pool_binding['lb_pool_id']
-                body['actions'] = [{'type': lb_const.LB_SELECT_POOL_ACTION,
-                                   'pool_id': lb_pool_id}]
+                actions = [{'type': lb_const.LB_SELECT_POOL_ACTION,
+                            'pool_id': lb_pool_id}]
             else:
                 msg = _('Failed to get LB pool binding from nsx db')
                 raise n_exc.BadRequest(resource='lbaas-l7rule-create',
                                        msg=msg)
         elif l7policy.action == lb_const.L7_POLICY_ACTION_REDIRECT_TO_URL:
-            body['actions'] = [{'type': lb_const.LB_HTTP_REDIRECT_ACTION,
-                               'redirect_rul': l7policy.redirect_url}]
+            actions = [{'type': lb_const.LB_HTTP_REDIRECT_ACTION,
+                        'redirect_rul': l7policy.redirect_url}]
         elif l7policy.action == lb_const.L7_POLICY_ACTION_REJECT:
-            body['actions'] = [{'type': lb_const.LB_REJECT_ACTION}]
+            actions = [{'type': lb_const.LB_REJECT_ACTION}]
         else:
             msg = (_('Invalid l7policy action: %(action)s') %
                    {'action': l7policy.action})
             raise n_exc.BadRequest(resource='lbaas-l7rule-create',
                                    msg=msg)
+        return actions
+
+    @log_helpers.log_method_call
+    def _get_rule_phase(self, rule):
+        l7policy = rule.policy
+        if (l7policy.action == lb_const.L7_POLICY_ACTION_REDIRECT_TO_POOL or
+                l7policy.action == lb_const.L7_POLICY_ACTION_REJECT):
+            return lb_const.LB_RULE_HTTP_FORWARDING
+        if l7policy.action == lb_const.L7_POLICY_ACTION_REDIRECT_TO_URL:
+            return lb_const.LB_RULE_HTTP_REQUEST_REWRITE
+
+    @log_helpers.log_method_call
+    def _convert_l7policy_to_lb_rule(self, context, rule):
+        body = {}
+        body['match_conditions'] = self._get_rule_match_conditions(rule)
+        body['actions'] = self._get_rule_actions(context, rule)
+        body['phase'] = self._get_rule_phase(rule)
+        body['match_strategy'] = 'ANY'
+
         return body
 
     @log_helpers.log_method_call
@@ -112,7 +140,7 @@ class EdgeL7RuleManager(base_mgr.Nsxv3LoadbalancerBaseManager):
             raise n_exc.BadRequest(resource='lbaas-l7rule-create', msg=msg)
 
         vs_id = binding['lb_vs_id']
-        rule_body = self._convert_l7policy_to_rule(context, rule)
+        rule_body = self._convert_l7policy_to_lb_rule(context, rule)
         try:
             lb_rule = rule_client.create(tags=tags, **rule_body)
         except nsxlib_exc.ManagerError:
