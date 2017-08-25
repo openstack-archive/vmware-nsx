@@ -197,3 +197,17 @@ Add neutron-fwaas repo as an external repository and configure following flags i
     [fwaas]
     enabled = True
     driver = vmware_nsxv3_edge
+
+LBaaS v2 Driver
+~~~~~~~~~~~~~~~
+
+Add lbaas repo as an external repository and configure following flags in ``local.conf``::
+
+    [[local]|[localrc]]
+    enable_plugin neutron-lbaas https://git.openstack.org/openstack/neutron-lbaas
+    enable_service q-lbaasv2
+
+Configure the service provider::
+    [[post-config|$NEUTRON_LBAAS_CONF]]
+    [service_providers]
+    service_provider = LOADBALANCERV2:VMWareEdge:neutron_lbaas.drivers.vmware.edge_driver_v2.EdgeLoadBalancerDriverV2:default
