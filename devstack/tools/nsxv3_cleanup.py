@@ -13,17 +13,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import base64
 import optparse
 
-from oslo_serialization import jsonutils
-import requests
-import six.moves.urllib.parse as urlparse
 import sqlalchemy as sa
+
 from vmware_nsx.db import nsx_models
-
-
-requests.packages.urllib3.disable_warnings()
+from vmware_nsxlib import v3
+from vmware_nsxlib.v3 import config
 
 
 class NeutronNsxDB(object):
@@ -69,142 +65,29 @@ class NSXClient(object):
         self.host = host
         self.username = username
         self.password = password
-        self.version = None
-        self.endpoint = None
-        self.content_type = "application/json"
-        self.accept_type = "application/json"
-        self.verify = False
-        self.secure = True
-        self.interface = "json"
-        self.url = None
-        self.headers = None
-        self.api_version = NSXClient.API_VERSION
         self.neutron_db = (NeutronNsxDB(db_connection)
                            if db_connection else None)
 
-        self.__set_headers()
-
-    def __set_endpoint(self, endpoint):
-        self.endpoint = endpoint
-
-    def get_endpoint(self):
-        return self.endpoint
-
-    def __set_content_type(self, content_type):
-        self.content_type = content_type
-
-    def get_content_type(self):
-        return self.content_type
-
-    def __set_accept_type(self, accept_type):
-        self.accept_type = accept_type
-
-    def get_accept_type(self):
-        return self.accept_type
-
-    def __set_api_version(self, api_version):
-        self.api_version = api_version
-
-    def get_api_version(self):
-        return self.api
-
-    def __set_url(self, api=None, secure=None, host=None, endpoint=None):
-        api = self.api_version if api is None else api
-        secure = self.secure if secure is None else secure
-        host = self.host if host is None else host
-        endpoint = self.endpoint if endpoint is None else endpoint
-        http_type = 'https' if secure else 'http'
-        self.url = '%s://%s/api/%s%s' % (http_type, host, api, endpoint)
-
-    def get_url(self):
-        return self.url
-
-    def __set_headers(self, content=None, accept=None):
-        content_type = self.content_type if content is None else content
-        accept_type = self.accept_type if accept is None else accept
-        auth_cred = self.username + ":" + self.password
-        auth = base64.b64encode(auth_cred)
-        headers = {}
-        headers['Authorization'] = "Basic %s" % auth
-        headers['Content-Type'] = content_type
-        headers['Accept'] = accept_type
-        # allow admin user to delete entities created
-        # under openstack principal identity
-        headers['X-Allow-Overwrite'] = 'true'
-        self.headers = headers
-
-    def get(self, endpoint=None, params=None):
-        """
-        Basic query method for json API request
-        """
-        self.__set_url(endpoint=endpoint)
-        response = requests.get(self.url, headers=self.headers,
-                                verify=self.verify, params=params)
-        return response
-
-    def get_list_results(self, endpoint=None, params=None):
-        """
-        Query method for json API get for list (takes care of pagination)
-        """
-        self.__set_url(endpoint=endpoint)
-        response = requests.get(self.url, headers=self.headers,
-                                verify=self.verify, params=params).json()
-        results = response['results']
-        missing = response['result_count'] - len(results)
-        cursor = response.get('cursor', self.NULL_CURSOR_PREFIX)
-
-        op = '&' if urlparse.urlparse(self.url).query else '?'
-        url = self.url + op + 'cursor='
-
-        # we will enter the loop if response does not fit into single page
-        while missing > 0 and not cursor.startswith(self.NULL_CURSOR_PREFIX):
-            response = requests.get(url + cursor, headers=self.headers,
-                                verify=self.verify, params=params).json()
-            cursor = response.get('cursor', self.NULL_CURSOR_PREFIX)
-            missing -= len(response['results'])
-            results += response['results']
-
-        return results
-
-    def put(self, endpoint=None, body=None):
-        """
-        Basic put API method on endpoint
-        """
-        self.__set_url(endpoint=endpoint)
-        response = requests.put(self.url, headers=self.headers,
-                                verify=self.verify, data=jsonutils.dumps(body))
-        return response
-
-    def delete(self, endpoint=None, params=None):
-        """
-        Basic delete API method on endpoint
-        """
-        self.__set_url(endpoint=endpoint)
-        response = requests.delete(self.url, headers=self.headers,
-                                   verify=self.verify, params=params)
-        return response
-
-    def post(self, endpoint=None, body=None):
-        """
-        Basic post API method on endpoint
-        """
-        self.__set_url(endpoint=endpoint)
-        response = requests.post(self.url, headers=self.headers,
-                                 verify=self.verify,
-                                 data=jsonutils.dumps(body))
-        return response
+        nsxlib_config = config.NsxLibConfig(
+            username=self.username,
+            password=self.password,
+            nsx_api_managers=[self.host],
+            # allow admin user to delete entities created
+            # under openstack principal identity
+            allow_overwrite_header=True)
+        self.nsxlib = v3.NsxLib(nsxlib_config)
 
     def get_transport_zones(self):
         """
         Retrieve all transport zones
         """
-        return self.get_list_results(endpoint="/transport-zones")
+        return self.nsxlib.transport_zone.list()['results']
 
     def get_logical_ports(self):
         """
         Retrieve all logical ports on NSX backend
         """
-        return self.get_list_results(endpoint="/logical-ports")
+        return self.nsxlib.logical_port.list()['results']
 
     def get_os_logical_ports(self):
         """
@@ -223,17 +106,16 @@ class NSXClient(object):
         the VIF attachment on the ports first.
         """
         for p in lports:
-            p['attachment'] = None
-            endpoint = "/logical-ports/%s" % p['id']
-            response = self.put(endpoint=endpoint, body=p)
-            if response.status_code != requests.codes.ok:
-                print("ERROR: Failed to update lport %s" % p['id'])
+            try:
+                self.nsxlib.logical_port.update(
+                    p['id'], None, attachment_type=None)
+            except Exception as e:
+                print("ERROR: Failed to update lport %s: %s" % p['id'], e)
 
     def _remove_port_from_exclude_list(self, p):
         try:
-            endpoint = ('/firewall/excludelist?action=remove_member&'
-                        'object_id=%s' % p['id'])
-            self.post(endpoint)
+            self.nsxlib.firewall_section.remove_member_from_fw_exclude_list(
+                p['id'], None)
         except Exception:
             pass
 
@@ -243,13 +125,13 @@ class NSXClient(object):
         for p in lports:
             # delete this port from the exclude list (if in it)
             self._remove_port_from_exclude_list(p)
-            endpoint = '/logical-ports/%s' % p['id']
-            response = self.delete(endpoint=endpoint)
-            if response.status_code == requests.codes.ok:
-                print("Successfully deleted logical port %s" % p['id'])
+            try:
+                self.nsxlib.logical_port.delete(p['id'])
+            except Exception as e:
+                print("ERROR: Failed to delete logical port %s, error %s" %
+                      (p['id'], e))
             else:
-                print("ERROR: Failed to delete lport %s, response code %s" %
-                      (p['id'], response.status_code))
+                print("Successfully deleted logical port %s" % p['id'])
 
     def cleanup_os_logical_ports(self):
         """
@@ -272,7 +154,7 @@ class NSXClient(object):
         """
         Retrieve all logical switches on NSX backend
         """
-        return self.get_list_results(endpoint="/logical-switches")
+        return self.nsxlib.logical_switch.list()['results']
 
     def get_os_logical_switches(self):
         """
@@ -312,20 +194,20 @@ class NSXClient(object):
                       "deleted: %s" % len(lports))
                 self._cleanup_logical_ports(lports)
 
-            endpoint = '/logical-switches/%s' % ls['id']
-            response = self.delete(endpoint=endpoint)
-            if response.status_code == requests.codes.ok:
+            try:
+                self.nsxlib.logical_switch.delete(ls['id'])
+            except Exception as e:
+                print("ERROR: Failed to delete logical switch %s-%s, "
+                      "error %s" % (ls['display_name'], ls['id'], e))
+            else:
                 print("Successfully deleted logical switch %s-%s" %
                       (ls['display_name'], ls['id']))
-            else:
-                print("Failed to delete lswitch %s-%s, and response is %s" %
-                      (ls['display_name'], ls['id'], response.status_code))
 
     def get_firewall_sections(self):
         """
         Retrieve all firewall sections
         """
-        return self.get_list_results(endpoint="/firewall/sections")
+        return self.nsxlib.firewall_section.list()
 
     def get_os_firewall_sections(self):
         """
@@ -347,21 +229,21 @@ class NSXClient(object):
         print("Number of OS Firewall Sections to be deleted: %s" %
               len(fw_sections))
         for fw in fw_sections:
-            endpoint = "/firewall/sections/%s?cascade=true" % fw['id']
-            response = self.delete(endpoint=endpoint)
-            if response.status_code == requests.codes.ok:
-                print("Successfully deleted firewall section %s" %
-                      fw['display_name'])
+            try:
+                self.nsxlib.firewall_section.delete(fw['id'])
+            except Exception as e:
+                print("Failed to delete firewall section %s: %s" %
+                      (fw['display_name'], e))
             else:
-                print("Failed to delete firewall section %s" %
+                print("Successfully deleted firewall section %s" %
                       fw['display_name'])
 
     def get_ns_groups(self):
         """
         Retrieve all NSGroups on NSX backend
         """
-        ns_groups = self.get_os_resources(
-            self.get_list_results(endpoint="/ns-groups"))
+        backend_groups = self.nsxlib.ns_group.list()
+        ns_groups = self.get_os_resources(backend_groups)
         if self.neutron_db:
             db_nsgroups = self.neutron_db.get_nsgroups()
             ns_groups = [nsg for nsg in ns_groups
@@ -375,18 +257,20 @@ class NSXClient(object):
         ns_groups = self.get_ns_groups()
         print("Number of OS NSGroups to be deleted: %s" % len(ns_groups))
         for nsg in ns_groups:
-            endpoint = "/ns-groups/%s?force=true" % nsg['id']
-            response = self.delete(endpoint=endpoint)
-            if response.status_code == requests.codes.ok:
-                print("Successfully deleted NSGroup: %s" % nsg['display_name'])
+            try:
+                self.nsxlib.ns_group.delete(nsg['id'])
+            except Exception as e:
+                print("Failed to delete NSGroup: %s: %s" %
+                      (nsg['display_name'], e))
             else:
-                print("Failed to delete NSGroup: %s" % nsg['display_name'])
+                print("Successfully deleted NSGroup: %s" %
+                      nsg['display_name'])
 
     def get_switching_profiles(self):
         """
         Retrieve all Switching Profiles on NSX backend
         """
-        return self.get_list_results(endpoint="/switching-profiles")
+        return self.nsxlib.switching_profile.list()['results']
 
     def get_os_switching_profiles(self):
         """
@@ -406,13 +290,13 @@ class NSXClient(object):
         print("Number of OS SwitchingProfiles to be deleted: %s" %
               len(sw_profiles))
         for swp in sw_profiles:
-            endpoint = "/switching-profiles/%s" % swp['id']
-            response = self.delete(endpoint=endpoint)
-            if response.status_code == requests.codes.ok:
-                print("Successfully deleted Switching Profile: %s" %
-                      swp['display_name'])
+            try:
+                self.nsxlib.switching_profile.delete(swp['id'])
+            except Exception as e:
+                print("Failed to delete Switching Profile: %s: %s" %
+                      (swp['display_name'], e))
             else:
-                print("Failed to delete Switching Profile: %s" %
+                print("Successfully deleted Switching Profile: %s" %
                       swp['display_name'])
 
     def get_logical_routers(self, tier=None):
@@ -420,11 +304,8 @@ class NSXClient(object):
         Retrieve all the logical routers based on router type. If tier
         is None, it will return all logical routers.
         """
-        if tier:
-            endpoint = "/logical-routers?router_type=%s" % tier
-        else:
-            endpoint = "/logical-routers"
-        lrouters = self.get_list_results(endpoint=endpoint)
+        lrouters = self.nsxlib.logical_router.list(
+            router_type=tier)['results']
 
         if self.neutron_db:
             db_routers = self.neutron_db.get_logical_routers()
@@ -434,7 +315,7 @@ class NSXClient(object):
 
     def get_os_logical_routers(self):
         """
-        Retrive all logical routers created from Neutron NSXv3 plugin
+        Retrieve all logical routers created from Neutron NSXv3 plugin
         """
         lrouters = self.get_logical_routers()
         return self.get_os_resources(lrouters)
@@ -443,8 +324,7 @@ class NSXClient(object):
         """
         Get all logical ports attached to lrouter
         """
-        endpoint = "/logical-router-ports?logical_router_id=%s" % lrouter['id']
-        return self.get_list_results(endpoint=endpoint)
+        return self.nsxlib.logical_router_port.get_by_router_id(lrouter['id'])
 
     def get_os_logical_router_ports(self, lrouter):
         """
@@ -459,14 +339,15 @@ class NSXClient(object):
         """
         lports = self.get_os_logical_router_ports(lrouter)
         for lp in lports:
-            endpoint = "/logical-router-ports/%s" % lp['id']
-            response = self.delete(endpoint=endpoint)
-            if response.status_code == requests.codes.ok:
+            try:
+                self.nsxlib.logical_router_port.delete(lp['id'])
+            except Exception as e:
+                print("Failed to delete logical router port %s-%s, "
+                      "and response is %s" %
+                      (lp['display_name'], lp['id'], e))
+            else:
                 print("Successfully deleted logical router port %s-%s" %
                       (lp['display_name'], lp['id']))
-            else:
-                print("Failed to delete lr port %s-%s, and response is %s" %
-                      (lp['display_name'], lp['id'], response))
 
     def cleanup_os_logical_routers(self):
         """
@@ -479,14 +360,15 @@ class NSXClient(object):
               len(lrouters))
         for lr in lrouters:
             self.cleanup_logical_router_ports(lr)
-            endpoint = "/logical-routers/%s" % lr['id']
-            response = self.delete(endpoint=endpoint)
-            if response.status_code == requests.codes.ok:
+
+            try:
+                self.nsxlib.logical_router.delete(lr['id'])
+            except Exception as e:
+                print("ERROR: Failed to delete logical router %s-%s, "
+                      "error %s" % (lr['display_name'], lr['id'], e))
+            else:
                 print("Successfully deleted logical router %s-%s" %
                       (lr['display_name'], lr['id']))
-            else:
-                print("Failed to delete lrouter %s-%s, and response is %s" %
-                      (lr['display_name'], lr['id'], response))
 
     def cleanup_os_tier0_logical_ports(self):
         """
@@ -500,7 +382,7 @@ class NSXClient(object):
         """
         Retrieve all logical DHCP servers on NSX backend
         """
-        return self.get_list_results(endpoint="/dhcp/servers")
+        return self.nsxlib.dhcp_server.list()['results']
 
     def get_os_logical_dhcp_servers(self):
         """
@@ -523,13 +405,13 @@ class NSXClient(object):
         print("Number of OS Logical DHCP Servers to be deleted: %s" %
               len(dhcp_servers))
         for server in dhcp_servers:
-            endpoint = "/dhcp/servers/%s" % server['id']
-            response = self.delete(endpoint=endpoint)
-            if response.status_code == requests.codes.ok:
-                print("Successfully deleted logical DHCP server: %s" %
-                      server['display_name'])
+            try:
+                self.nsxlib.dhcp_server.delete(server['id'])
+            except Exception as e:
+                print("ERROR: Failed to delete logical DHCP server %s, "
+                      "error %s" % (server['display_name'], e))
             else:
-                print("Failed to delete logical DHCP server: %s" %
+                print("Successfully deleted logical DHCP server %s" %
                       server['display_name'])
 
     def cleanup_all(self):
