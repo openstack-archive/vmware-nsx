@@ -21,7 +21,6 @@ from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import port_security as psec
-from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api.definitions import subnet as subnet_def
 from neutron_lib.api import validators
@@ -67,7 +66,6 @@ from neutron.db import l3_gwmode_db
 from neutron.db.models import l3 as l3_db_models
 from neutron.db.models import securitygroup as securitygroup_model  # noqa
 from neutron.db import models_v2
-from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
 from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db
@@ -98,7 +96,6 @@ from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import l3_rpc_agent_api
 from vmware_nsx.common import locking
 from vmware_nsx.common import managers as nsx_managers
-from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.common import utils as c_utils
 from vmware_nsx.db import (
@@ -107,6 +104,7 @@ from vmware_nsx.db import (
     routertype as rt_rtr)
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import extended_security_group as extended_secgroup
+from vmware_nsx.db import nsx_portbindings_db as pbin_db
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.db import vnic_index_db
 from vmware_nsx.extensions import (
@@ -157,7 +155,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                    extradhcpopt_db.ExtraDhcpOptMixin,
                    router_az_db.RouterAvailabilityZoneMixin,
                    l3_gwmode_db.L3_NAT_db_mixin,
-                   portbindings_db.PortBindingMixin,
+                   pbin_db.NsxPortBindingMixin,
                    portsecurity_db.PortSecurityDbMixin,
                    extend_sg_rule.ExtendedSecurityGroupRuleMixin,
                    securitygroups_db.SecurityGroupDbMixin,
@@ -1666,27 +1664,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             context, port['port'], created_port)
         return created_port
 
-    def _validate_port_direct_vnic_type(self, context, port_data):
-        vnic_type = port_data.get(pbin.VNIC_TYPE)
-        has_vnic_type = validators.is_attr_set(vnic_type)
-        if has_vnic_type and vnic_type in [pbin.VNIC_DIRECT,
-                                           pbin.VNIC_DIRECT_PHYSICAL]:
-            if not self._validate_network_type(
-                context, port_data['network_id'],
-                [c_utils.NsxVNetworkTypes.VLAN,
-                 c_utils.NsxVNetworkTypes.FLAT,
-                 c_utils.NsxVNetworkTypes.PORTGROUP]):
-                err_msg = _("'%s' vnic-type is only supported"
-                            "for networks of type 'vlan', 'flat' or "
-                            "'portgroup'.") % vnic_type
-                raise n_exc.InvalidInput(error_message=err_msg)
-            return vnic_type
-        elif has_vnic_type and vnic_type != pbin.VNIC_NORMAL:
-            err_msg = _("Invalid vnic-type %s."
-                        "Supported vnic-types are 'normal', 'direct' and "
-                        "'direct-physical'.") % vnic_type
-            raise n_exc.InvalidInput(error_message=err_msg)
-
     def _validate_extra_dhcp_options(self, opts):
         if not opts:
             return
@@ -1719,15 +1696,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._validate_extra_dhcp_options(dhcp_opts)
         self._validate_max_ips_per_port(port_data.get('fixed_ips', []),
                                         port_data.get('device_owner'))
+        direct_vnic_type = self._validate_port_vnic_type(
+            context, port_data, port_data['network_id'])
 
         with db_api.context_manager.writer.using(context):
             # First we allocate port in neutron database
             neutron_db = super(NsxVPluginV2, self).create_port(context, port)
             self._extension_manager.process_create_port(
                 context, port_data, neutron_db)
-
-            direct_vnic_type = self._validate_port_direct_vnic_type(context,
-                                                                    port_data)
 
             # Port port-security is decided based on port's vnic_type and ports
             # network port-security state (unless explicitly requested
@@ -1755,6 +1731,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._check_update_has_security_groups(port))
 
             self._process_port_port_security_create(
+                context, port_data, neutron_db)
+
+            self._process_portbindings_create_and_update(
                 context, port_data, neutron_db)
 
             # Update fields obtained from neutron db (eg: MAC address)
@@ -1786,15 +1765,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                                               port_data,
                                                               ssgids)
 
-            if direct_vnic_type:
-                nsxv_db.update_nsxv_port_ext_attributes(
-                    session=context.session,
-                    port_id=port_data['id'],
-                    vnic_type=direct_vnic_type)
-
-            self._process_portbindings_create_and_update(context,
-                                                         port['port'],
-                                                         port_data)
             neutron_db[addr_pair.ADDRESS_PAIRS] = (
                 self._process_create_allowed_address_pairs(
                     context, neutron_db,
@@ -2013,29 +1983,27 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         comp_owner_update = ('device_owner' in port_data and
                              port_data['device_owner'].startswith('compute:'))
 
+        direct_vnic_type = self._validate_port_vnic_type(
+            context, port_data, original_port['network_id'])
+        if direct_vnic_type and has_port_security:
+            err_msg = _("Security features are not supported for "
+                        "ports with direct/direct-physical VNIC type.")
+            raise n_exc.InvalidInput(error_message=err_msg)
+
         with db_api.context_manager.writer.using(context):
             ret_port = super(NsxVPluginV2, self).update_port(
                 context, id, port)
             self._extension_manager.process_update_port(
                 context, port_data, ret_port)
+
+            self._process_portbindings_create_and_update(
+                context, port_data, ret_port)
+
             # copy values over - except fixed_ips as
             # they've already been processed
             updates_fixed_ips = port['port'].pop('fixed_ips', [])
             ret_port.update(port['port'])
             has_ip = self._ip_on_port(ret_port)
-
-            direct_vnic_type = self._validate_port_direct_vnic_type(context,
-                                                                    ret_port)
-            if direct_vnic_type and has_port_security:
-                err_msg = _("Security features are not supported for "
-                            "ports with direct/direct-physical VNIC type.")
-                raise n_exc.InvalidInput(error_message=err_msg)
-
-            if direct_vnic_type:
-                nsxv_db.update_nsxv_port_ext_attributes(
-                    session=context.session,
-                    port_id=ret_port['id'],
-                    vnic_type=direct_vnic_type)
 
             # checks that if update adds/modify security groups,
             # then port has ip and port-security
@@ -2055,11 +2023,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # update_security_group_on_port was called.
             pvd_sg_changed = self._process_port_update_provider_security_group(
                 context, port, original_port, ret_port)
-
-            LOG.debug("Updating port: %s", port)
-            self._process_portbindings_create_and_update(context,
-                                                         port['port'],
-                                                         ret_port)
 
             update_assigned_addresses = False
             if addr_pair.ADDRESS_PAIRS in attrs:
@@ -2292,20 +2255,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             super(NsxVPluginV2, self).delete_port(context, id)
 
         self._delete_dhcp_static_binding(context, neutron_db_port)
-
-    @staticmethod
-    @resource_extend.extends([port_def.COLLECTION_NAME])
-    def _extend_nsx_port_dict_binding(result, portdb):
-        result[pbin.VIF_TYPE] = nsx_constants.VIF_TYPE_DVS
-        port_attr = portdb.get('nsx_port_attributes')
-        if port_attr:
-            result[pbin.VNIC_TYPE] = port_attr.vnic_type
-        else:
-            result[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
-        result[pbin.VIF_DETAILS] = {
-            # TODO(rkukura): Replace with new VIF security details
-            # security-groups extension supported by this plugin
-            pbin.CAP_PORT_FILTER: True}
 
     def base_delete_subnet(self, context, subnet_id):
         with locking.LockManager.get_lock('neutron-base-subnet'):
