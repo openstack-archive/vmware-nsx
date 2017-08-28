@@ -87,6 +87,7 @@ class DfwApi(object):
                 'scope': scope,
                 'tag': tag}
 
+    @utils.retry_upon_exception_nsxv3(exceptions.StaleRevision)
     def create_nsgroup(self, display_name, description, tags,
                        membership_criteria=None):
         body = {'display_name': display_name,
@@ -193,6 +194,7 @@ class DfwApi(object):
                                 for t_id in applied_tos],
                 'tags': tags}
 
+    @utils.retry_upon_exception_nsxv3(exceptions.StaleRevision)
     def create_empty_section(self, display_name, description, applied_tos,
                              tags, operation=INSERT_BOTTOM,
                              other_section=None):
@@ -259,16 +261,19 @@ class DfwApi(object):
                 'action': action,
                 'logged': logged}
 
+    @utils.retry_upon_exception_nsxv3(exceptions.StaleRevision)
     def add_rule_in_section(self, rule, section_id):
         resource = 'firewall/sections/%s/rules' % section_id
         params = '?operation=insert_bottom'
         return self.client.create(resource + params, rule)
 
+    @utils.retry_upon_exception_nsxv3(exceptions.StaleRevision)
     def add_rules_in_section(self, rules, section_id):
         resource = 'firewall/sections/%s/rules' % section_id
         params = '?action=create_multiple&operation=insert_bottom'
         return self.client.create(resource + params, {'rules': rules})
 
+    @utils.retry_upon_exception_nsxv3(exceptions.StaleRevision)
     def delete_rule(self, section_id, rule_id):
         resource = 'firewall/sections/%s/rules/%s' % (section_id, rule_id)
         return self.client.delete(resource)
