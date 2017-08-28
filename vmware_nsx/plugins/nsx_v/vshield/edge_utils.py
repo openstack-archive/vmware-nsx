@@ -760,6 +760,17 @@ class EdgeManager(object):
             return
         dist = (binding['edge_type'] == nsxv_constants.VDR_EDGE)
         edge_id = binding['edge_id']
+
+        # in case of DB inconsistency, there may still be other entries
+        # with this edge.make sure not to free the edge in this case
+        same_edge_entries = nsxv_db.get_nsxv_router_bindings_by_edge(
+            context.session, edge_id)
+        if edge_id and len(same_edge_entries) > 1:
+            LOG.error(_LE("Cannot free edge %(edge_id)s. There are "
+                          "additional binding entries %(entries)s"),
+                      {'edge_id': edge_id, 'entries': same_edge_entries})
+            return
+
         availability_zone_name = nsxv_db.get_edge_availability_zone(
             context.session, edge_id)
         az_pool = self._get_az_pool(availability_zone_name)
