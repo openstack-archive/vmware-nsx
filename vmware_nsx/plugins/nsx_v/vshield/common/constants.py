@@ -20,10 +20,8 @@ from vmware_nsx.common import nsxv_constants
 EDGE_ID = 'edge_id'
 ROUTER_ID = 'router_id'
 DHCP_EDGE_PREFIX = 'dhcp-'
-ROUTER_EDGE_PREFIX = 'router-'
 PLR_EDGE_PREFIX = 'plr-'
 BACKUP_ROUTER_PREFIX = 'backup-'
-LB_EDGE_PREFIX = 'lb-'
 EDGE_NAME_LEN = 20
 
 # Interface
