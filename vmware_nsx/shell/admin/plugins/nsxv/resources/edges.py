@@ -19,6 +19,7 @@ import textwrap
 
 from vmware_nsx.dvs import dvs
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
+from vmware_nsx.services.lbaas.nsx_v import lbaas_common as lb_common
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 
@@ -27,9 +28,10 @@ import vmware_nsx.shell.admin.plugins.nsxv.resources.utils as utils
 import vmware_nsx.shell.resources as shell
 
 from neutron.callbacks import registry
+from neutron import context as n_context
 from neutron_lib import exceptions
 
-from vmware_nsx._i18n import _LE, _LI
+from vmware_nsx._i18n import _LE, _LI, _LW
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
@@ -76,6 +78,131 @@ def neutron_list_router_edge_bindings(resource, event, trigger, **kwargs):
     edges = get_router_edge_bindings()
     LOG.info(formatters.output_formatter(constants.EDGES, edges,
                                          ['edge_id', 'router_id']))
+
+
+@admin_utils.output_header
+def clean_orphaned_router_bindings(resource, event, trigger, **kwargs):
+    """Delete nsx router bindings entries without real objects behind them"""
+    orphaned_list = get_orphaned_router_bindings()
+    if not len(orphaned_list):
+        LOG.info(_LI("No orphaned Router bindings found."))
+        return
+
+    LOG.info(_LI("Before delete; Orphaned Bindings:"))
+    LOG.info(formatters.output_formatter(
+        constants.ORPHANED_BINDINGS, orphaned_list,
+        ['edge_id', 'router_id', 'availability_zone', 'status']))
+
+    if not kwargs.get('force'):
+        if len(orphaned_list):
+            user_confirm = admin_utils.query_yes_no("Do you want to delete "
+                                                    "orphaned bindings",
+                                                    default="no")
+            if not user_confirm:
+                LOG.info(_LI("NSXv Router bindings deletion aborted by user"))
+                return
+
+    edgeapi = utils.NeutronDbClient()
+    for binding in orphaned_list:
+        nsxv_db.delete_nsxv_router_binding(
+            edgeapi.context.session, binding.router_id)
+
+    LOG.info(_LI("Deleted %s orphaned router bindings. You may need to check "
+                 "for orphaned edges now."), len(orphaned_list))
+
+
+@admin_utils.output_header
+def list_orphaned_router_bindings(resource, event, trigger, **kwargs):
+    """List nsx router bindings entries without real objects behind them"""
+    orphaned_list = get_orphaned_router_bindings()
+    LOG.info(formatters.output_formatter(
+        constants.ORPHANED_BINDINGS, orphaned_list,
+        ['edge_id', 'router_id', 'availability_zone', 'status']))
+
+
+def get_orphaned_router_bindings():
+    context = n_context.get_admin_context()
+    orphaned_list = []
+
+    with utils.NsxVPluginWrapper() as plugin:
+        networks = plugin.get_networks(context, fields=['id'])
+        net_ids = [x['id'] for x in networks]
+        routers = plugin.get_routers(context, fields=['id'])
+        rtr_ids = [x['id'] for x in routers]
+
+        for binding in get_router_edge_bindings():
+            if not router_binding_obj_exist(context, binding,
+                                            net_ids, rtr_ids):
+                orphaned_list.append(binding)
+    return orphaned_list
+
+
+def _get_obj_id_from_binding(router_id, prefix):
+    """Return the id part of the router-binding router-id field"""
+    return router_id[len(prefix):]
+
+
+def _is_id_prefix_in_list(id_prefix, ids):
+    """Return True if the id_prefix is the prefix of one of the ids"""
+    for x in ids:
+        if x.startswith(id_prefix):
+            return True
+    return False
+
+
+def router_binding_obj_exist(context, binding, net_ids, rtr_ids):
+    """Check if the object responsible for the router binding entry exists
+
+    Check if the relevant router/network/loadbalancer exists in the neutron DB
+    """
+    router_id = binding.router_id
+
+    if router_id.startswith(vcns_const.BACKUP_ROUTER_PREFIX):
+        # no neutron object that should match backup edges
+        return True
+
+    if router_id.startswith(vcns_const.DHCP_EDGE_PREFIX):
+        # should have a network starting with this id
+        # get the id. and look for a network with this id
+        net_id_prefix = _get_obj_id_from_binding(
+            router_id, vcns_const.DHCP_EDGE_PREFIX)
+        if _is_id_prefix_in_list(net_id_prefix, net_ids):
+            return True
+        else:
+            LOG.warning(_LW("Network for binding entry %s not found"),
+                        router_id)
+            return False
+
+    if router_id.startswith(vcns_const.PLR_EDGE_PREFIX):
+        # should have a distributed router starting with this id
+        # get the id. and look for a network with this id
+        rtr_id_prefix = _get_obj_id_from_binding(
+            router_id, vcns_const.PLR_EDGE_PREFIX)
+
+        if _is_id_prefix_in_list(rtr_id_prefix, rtr_ids):
+            return True
+        else:
+            LOG.warning(_LW("Router for binding entry %s not found"),
+                        router_id)
+            return False
+
+    if router_id.startswith(lb_common.RESOURCE_ID_PFX):
+        # should have a load balancer starting with this id on the same edge
+        if nsxv_db.get_nsxv_lbaas_loadbalancer_binding_by_edge(
+            context.session, binding.edge_id):
+            return True
+        else:
+            LOG.warning(_LW("Loadbalancer for binding entry %s not found"),
+                        router_id)
+            return False
+
+    # regular router
+    # get the id. and look for a router with this id
+    if _is_id_prefix_in_list(router_id, rtr_ids):
+        return True
+    else:
+        LOG.warning(_LW("Router for binding entry %s not found"), router_id)
+        return False
 
 
 def get_orphaned_edges():
@@ -517,3 +644,9 @@ registry.subscribe(nsx_update_edge,
 registry.subscribe(nsx_update_edges,
                    constants.EDGES,
                    shell.Operations.NSX_UPDATE_ALL.value)
+registry.subscribe(list_orphaned_router_bindings,
+                   constants.ORPHANED_BINDINGS,
+                   shell.Operations.LIST.value)
+registry.subscribe(clean_orphaned_router_bindings,
+                   constants.ORPHANED_BINDINGS,
+                   shell.Operations.CLEAN.value)

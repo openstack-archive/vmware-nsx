@@ -24,6 +24,7 @@ from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 
 MEMBER_ID_PFX = 'member-'
+RESOURCE_ID_PFX = 'lbaas-'
 
 
 def get_member_id(member_id):
@@ -31,7 +32,7 @@ def get_member_id(member_id):
 
 
 def get_lb_resource_id(lb_id):
-    return ('lbaas-' + lb_id)[:36]
+    return (RESOURCE_ID_PFX + lb_id)[:36]
 
 
 def get_lb_edge_name(context, lb_id):
