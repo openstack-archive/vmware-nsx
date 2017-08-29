@@ -87,6 +87,17 @@ Orphaned Edges
 
     nsxadmin -r orphaned-edges -o clean
 
+Orphaned Router bindings
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+- List orphaned router bindings entries (exist on the router bindings DB table, but the neutron object behind them (router, network, or loadbalancer) is missing)::
+
+    nsxadmin -r orphaned-bindings -o list
+
+- Clean orphaned router bindings entries (delete DB entry)::
+
+    nsxadmin -r orphaned-bindings -o clean
+
 Missing Edges
 ~~~~~~~~~~~~~
 
