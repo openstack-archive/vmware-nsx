@@ -141,7 +141,7 @@ def delete_backend_router(resource, event, trigger, **kwargs):
     # check if the router exists
     try:
         nsxlib.logical_router.get(nsx_id, silent=True)
-    except nsx_exc.BackendResourceNotFound:
+    except nsx_exc.ResourceNotFound:
         # prevent logger from logging this exception
         sys.exc_clear()
         LOG.warning("Backend router %s was not found.", nsx_id)
@@ -163,7 +163,7 @@ def delete_backend_router(resource, event, trigger, **kwargs):
     # throws errors
     try:
         nsxlib.logical_router.get(nsx_id, silent=True)
-    except nsx_exc.BackendResourceNotFound:
+    except nsx_exc.ResourceNotFound:
         # prevent logger from logging this exception
         sys.exc_clear()
         LOG.info("Backend router %s was deleted.", nsx_id)
