@@ -109,7 +109,7 @@ def delete_backend_network(resource, event, trigger, **kwargs):
     # check if the network exists
     try:
         nsxlib.logical_switch.get(nsx_id, silent=True)
-    except nsx_exc.BackendResourceNotFound:
+    except nsx_exc.ResourceNotFound:
         # prevent logger from logging this exception
         sys.exc_clear()
         LOG.warning(_LW("Backend network %s was not found."), nsx_id)
@@ -127,7 +127,7 @@ def delete_backend_network(resource, event, trigger, **kwargs):
     # through errors
     try:
         nsxlib.logical_switch.get(nsx_id, silent=True)
-    except nsx_exc.BackendResourceNotFound:
+    except nsx_exc.ResourceNotFound:
         # prevent logger from logging this exception
         sys.exc_clear()
         LOG.info(_LI("Backend network %s was deleted."), nsx_id)
