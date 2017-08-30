@@ -1641,10 +1641,11 @@ class EdgeManager(object):
         if not self.per_interface_rp_filter:
             return
 
-        vnic_index = self._get_sub_interface_id(context, edge_id, network_id)
-        if vnic_index:
-            vnic_id = 'vNic_%d' % vnic_index
-            with locking.LockManager.get_lock(str(edge_id)):
+        with locking.LockManager.get_lock(str(edge_id)):
+            vnic_index = self._get_sub_interface_id(context, edge_id,
+                                                    network_id)
+            if vnic_index:
+                vnic_id = 'vNic_%d' % vnic_index
                 sysctl_props = []
                 h, sysctl = self.nsxv_manager.vcns.get_system_control(edge_id)
                 if sysctl:
@@ -1659,10 +1660,11 @@ class EdgeManager(object):
         if not self.per_interface_rp_filter:
             return
 
-        vnic_index = self._get_sub_interface_id(context, edge_id, network_id)
-        if vnic_index:
-            vnic_id = 'vNic_%d' % vnic_index
-            with locking.LockManager.get_lock(str(edge_id)):
+        with locking.LockManager.get_lock(str(edge_id)):
+            vnic_index = self._get_sub_interface_id(context, edge_id,
+                                                    network_id)
+            if vnic_index:
+                vnic_id = 'vNic_%d' % vnic_index
                 h, sysctl = self.nsxv_manager.vcns.get_system_control(edge_id)
                 if sysctl:
                     sysctl_props = sysctl['property']
