@@ -92,7 +92,7 @@ class NsxV3ClientCertProviderTestCase(unittest.TestCase):
 
     def validate_db_provider(self, expected_cert_data):
         fname = None
-        with self._provider as p:
+        with self._provider() as p:
             # verify cert data was exported to CERTFILE
             fname = p.filename()
             with open(fname, 'r') as f:
@@ -125,7 +125,7 @@ class NsxV3ClientCertProviderTestCase(unittest.TestCase):
             "vmware_nsx.db.db.get_certificate",
             return_value=(None, None)).start()
         self.assertRaises(nsx_exc.ClientCertificateException,
-                          self._provider.__enter__)
+                          self._provider().__enter__)
 
         # now verify return to normal after failure
         mock.patch(
@@ -174,7 +174,7 @@ class NsxV3ClientCertProviderTestCase(unittest.TestCase):
 
         # since PK in DB is not encrypted, we should fail to decrypt it on load
         self.assertRaises(nsx_exc.ClientCertificateException,
-                          self._provider.__enter__)
+                          self._provider().__enter__)
 
     def test_basic_provider(self):
 
