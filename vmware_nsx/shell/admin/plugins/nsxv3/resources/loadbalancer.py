@@ -21,7 +21,6 @@ from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils
 from vmware_nsxlib.v3 import nsx_constants as consts
 
 LOG = logging.getLogger(__name__)
-nsxlib = utils.get_connected_nsxlib()
 
 
 @admin_utils.list_handler(constants.LB_SERVICES)
@@ -29,6 +28,7 @@ nsxlib = utils.get_connected_nsxlib()
 def nsx_list_lb_services(resource, event, trigger, **kwargs):
     """List LB services on NSX backend"""
 
+    nsxlib = utils.get_connected_nsxlib()
     if not nsxlib.feature_supported(consts.FEATURE_LOAD_BALANCER):
         LOG.error("This utility is not available for NSX version %s",
                   nsxlib.get_version())
@@ -46,6 +46,7 @@ def nsx_list_lb_services(resource, event, trigger, **kwargs):
 def nsx_list_lb_virtual_servers(resource, event, trigger, **kwargs):
     """List LB virtual servers on NSX backend"""
 
+    nsxlib = utils.get_connected_nsxlib()
     if not nsxlib.feature_supported(consts.FEATURE_LOAD_BALANCER):
         LOG.error("This utility is not available for NSX version %s",
                   nsxlib.get_version())
@@ -62,6 +63,7 @@ def nsx_list_lb_virtual_servers(resource, event, trigger, **kwargs):
 @admin_utils.output_header
 def nsx_list_lb_pools(resource, event, trigger, **kwargs):
 
+    nsxlib = utils.get_connected_nsxlib()
     if not nsxlib.feature_supported(consts.FEATURE_LOAD_BALANCER):
         LOG.error("This utility is not available for NSX version %s",
                   nsxlib.get_version())
@@ -78,6 +80,7 @@ def nsx_list_lb_pools(resource, event, trigger, **kwargs):
 @admin_utils.output_header
 def nsx_list_lb_monitors(resource, event, trigger, **kwargs):
 
+    nsxlib = utils.get_connected_nsxlib()
     if not nsxlib.feature_supported(consts.FEATURE_LOAD_BALANCER):
         LOG.error("This utility is not available for NSX version %s",
                   nsxlib.get_version())

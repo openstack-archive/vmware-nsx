@@ -31,7 +31,6 @@ from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 neutron_client = utils.NeutronDbClient()
-nsxlib = utils.get_connected_nsxlib()
 
 
 class RoutersPlugin(db_base_plugin_v2.NeutronDbPluginV2,
@@ -43,6 +42,7 @@ class RoutersPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 def list_missing_routers(resource, event, trigger, **kwargs):
     """List neutron routers that are missing the NSX backend router
     """
+    nsxlib = utils.get_connected_nsxlib()
     plugin = RoutersPlugin()
     admin_cxt = neutron_context.get_admin_context()
     neutron_routers = plugin.get_routers(admin_cxt)
@@ -110,6 +110,7 @@ def update_nat_rules(resource, event, trigger, **kwargs):
 
 @admin_utils.output_header
 def list_orphaned_routers(resource, event, trigger, **kwargs):
+    nsxlib = utils.get_connected_nsxlib()
     nsx_routers = nsxlib.logical_router.list()['results']
     missing_routers = []
     for nsx_router in nsx_routers:
@@ -128,6 +129,7 @@ def list_orphaned_routers(resource, event, trigger, **kwargs):
 
 @admin_utils.output_header
 def delete_backend_router(resource, event, trigger, **kwargs):
+    nsxlib = utils.get_connected_nsxlib()
     errmsg = ("Need to specify nsx-id property. Add --property nsx-id=<id>")
     if not kwargs.get('property'):
         LOG.error("%s", errmsg)
