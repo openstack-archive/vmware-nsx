@@ -105,7 +105,6 @@ class NeutronSecurityGroupApi(securitygroups_db.SecurityGroupDbMixin,
 
 neutron_sg = NeutronSecurityGroupApi()
 neutron_db = v3_utils.NeutronDbClient()
-nsxlib = v3_utils.get_connected_nsxlib()
 
 
 def _log_info(resource, data, attrs=['display_name', 'id']):
@@ -125,6 +124,7 @@ def list_security_groups_mappings(resource, event, trigger, **kwargs):
 @admin_utils.list_handler(constants.FIREWALL_SECTIONS)
 @admin_utils.output_header
 def nsx_list_dfw_sections(resource, event, trigger, **kwargs):
+    nsxlib = v3_utils.get_connected_nsxlib()
     fw_sections = nsxlib.firewall_section.list()
     _log_info(constants.FIREWALL_SECTIONS, fw_sections)
     return bool(fw_sections)
@@ -133,12 +133,14 @@ def nsx_list_dfw_sections(resource, event, trigger, **kwargs):
 @admin_utils.list_handler(constants.FIREWALL_NSX_GROUPS)
 @admin_utils.output_header
 def nsx_list_security_groups(resource, event, trigger, **kwargs):
+    nsxlib = v3_utils.get_connected_nsxlib()
     nsx_secgroups = nsxlib.ns_group.list()
     _log_info(constants.FIREWALL_NSX_GROUPS, nsx_secgroups)
     return bool(nsx_secgroups)
 
 
 def _find_missing_security_groups():
+    nsxlib = v3_utils.get_connected_nsxlib()
     nsx_secgroups = nsxlib.ns_group.list()
     sg_mappings = neutron_sg.get_security_groups_mappings()
     missing_secgroups = {}
@@ -168,6 +170,7 @@ def list_missing_security_groups(resource, event, trigger, **kwargs):
 
 
 def _find_missing_sections():
+    nsxlib = v3_utils.get_connected_nsxlib()
     fw_sections = nsxlib.firewall_section.list()
     sg_mappings = neutron_sg.get_security_groups_mappings()
     missing_sections = {}
@@ -200,6 +203,7 @@ def fix_security_groups(resource, event, trigger, **kwargs):
     inconsistent_secgroups = _find_missing_sections()
     inconsistent_secgroups.update(_find_missing_security_groups())
 
+    nsxlib = v3_utils.get_connected_nsxlib()
     with v3_utils.NsxV3PluginWrapper() as plugin:
         for sg_id, sg in inconsistent_secgroups.items():
             secgroup = plugin.get_security_group(context_, sg_id)
@@ -245,6 +249,7 @@ def fix_security_groups(resource, event, trigger, **kwargs):
 
 
 def _update_ports_dynamic_criteria_tags():
+    nsxlib = v3_utils.get_connected_nsxlib()
     port_client, _ = ports.get_port_and_profile_clients()
     for port in neutron_db.get_ports():
         secgroups = neutron_sg.get_port_security_groups(port['id'])
@@ -258,6 +263,7 @@ def _update_ports_dynamic_criteria_tags():
 
 
 def _update_security_group_dynamic_criteria():
+    nsxlib = v3_utils.get_connected_nsxlib()
     secgroups = neutron_sg.get_security_groups()
     for sg in secgroups:
         nsgroup_id = neutron_sg.get_nsgroup_id(sg['id'])
@@ -278,6 +284,7 @@ def _update_security_group_dynamic_criteria():
 
 @admin_utils.output_header
 def migrate_nsgroups_to_dynamic_criteria(resource, event, trigger, **kwargs):
+    nsxlib = v3_utils.get_connected_nsxlib()
     if not nsxlib.feature_supported(consts.FEATURE_DYNAMIC_CRITERIA):
         LOG.error("Dynamic criteria grouping feature isn't supported by "
                   "this NSX version.")

@@ -28,7 +28,6 @@ from vmware_nsxlib.v3 import nsx_constants
 
 LOG = logging.getLogger(__name__)
 neutron_client = utils.NeutronDbClient()
-nsxlib = utils.get_connected_nsxlib()
 
 
 def _get_dhcp_profile_uuid(**kwargs):
@@ -37,6 +36,8 @@ def _get_dhcp_profile_uuid(**kwargs):
         dhcp_profile_uuid = properties.get('dhcp_profile_uuid')
         if dhcp_profile_uuid:
             return dhcp_profile_uuid
+
+    nsxlib = utils.get_connected_nsxlib()
     if cfg.CONF.nsx_v3.dhcp_profile:
         return nsxlib.native_dhcp_profile.get_id_by_name_or_id(
             cfg.CONF.nsx_v3.dhcp_profile)
@@ -50,6 +51,7 @@ def _get_orphaned_dhcp_servers(dhcp_profile_uuid):
     server_net_pairs = []
 
     # Find matching DHCP servers for a given dhcp_profile_uuid.
+    nsxlib = utils.get_connected_nsxlib()
     response = nsxlib.dhcp_server.list()
     for dhcp_server in response['results']:
         if dhcp_server['dhcp_profile_id'] != dhcp_profile_uuid:
@@ -91,6 +93,7 @@ def _get_orphaned_dhcp_servers(dhcp_profile_uuid):
 def nsx_list_orphaned_dhcp_servers(resource, event, trigger, **kwargs):
     """List logical DHCP servers without associated DHCP-enabled subnet."""
 
+    nsxlib = utils.get_connected_nsxlib()
     nsx_version = nsxlib.get_version()
     if not nsx_utils.is_nsx_version_1_1_0(nsx_version):
         LOG.error("This utility is not available for NSX version %s",
@@ -117,6 +120,7 @@ def nsx_clean_orphaned_dhcp_servers(resource, event, trigger, **kwargs):
     # (2) delete the logical DHCP server,
     # (3) clean corresponding neutron DB entry.
 
+    nsxlib = utils.get_connected_nsxlib()
     nsx_version = nsxlib.get_version()
     if not nsx_utils.is_nsx_version_1_1_0(nsx_version):
         LOG.error("This utility is not available for NSX version %s",
