@@ -49,6 +49,7 @@ class Operations(enum.Enum):
     NSX_UPDATE_ALL = 'nsx-update-all'
     NSX_UPDATE_SECRET = 'nsx-update-secret'
     NSX_UPDATE_RULES = 'nsx-update-rules'
+    NSX_UPDATE_IP = 'nsx-update-ip'
     NSX_RECREATE = 'nsx-recreate'
     NSX_REORDER = 'nsx-reorder'
     NSX_TAG_DEFAULT = 'nsx-tag-default'
@@ -100,7 +101,8 @@ nsxv3_resources = {
                                       Operations.NSX_UPDATE.value]),
     constants.METADATA_PROXY: Resource(constants.METADATA_PROXY,
                                        [Operations.LIST.value,
-                                        Operations.NSX_UPDATE.value]),
+                                        Operations.NSX_UPDATE.value,
+                                        Operations.NSX_UPDATE_IP.value]),
     constants.ORPHANED_DHCP_SERVERS: Resource(constants.ORPHANED_DHCP_SERVERS,
                                               [Operations.NSX_LIST.value,
                                                Operations.NSX_CLEAN.value]),
