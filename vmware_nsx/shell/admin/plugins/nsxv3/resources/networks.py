@@ -29,7 +29,6 @@ from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 neutron_client = utils.NeutronDbClient()
-nsxlib = utils.get_connected_nsxlib()
 
 
 def get_network_nsx_id(context, neutron_id):
@@ -43,6 +42,7 @@ def get_network_nsx_id(context, neutron_id):
 def list_missing_networks(resource, event, trigger, **kwargs):
     """List neutron networks that are missing the NSX backend network
     """
+    nsxlib = utils.get_connected_nsxlib()
     plugin = db_base_plugin_v2.NeutronDbPluginV2()
     admin_cxt = neutron_context.get_admin_context()
     neutron_networks = plugin.get_networks(admin_cxt)
@@ -73,6 +73,7 @@ def list_missing_networks(resource, event, trigger, **kwargs):
 
 @admin_utils.output_header
 def list_orphaned_networks(resource, event, trigger, **kwargs):
+    nsxlib = utils.get_connected_nsxlib()
     nsx_switches = nsxlib.logical_switch.list()['results']
     missing_networks = []
     for nsx_switch in nsx_switches:
@@ -104,6 +105,7 @@ def delete_backend_network(resource, event, trigger, **kwargs):
         LOG.error("%s", errmsg)
         return
 
+    nsxlib = utils.get_connected_nsxlib()
     # check if the network exists
     try:
         nsxlib.logical_switch.get(nsx_id, silent=True)
