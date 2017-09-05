@@ -65,6 +65,7 @@ from neutron_lib import constants as const
 from neutron_lib import context as q_context
 from neutron_lib import exceptions as n_exc
 from neutron_lib.utils import helpers
+from neutron_lib.utils import net as nlib_net
 from oslo_config import cfg
 from oslo_db import exception as db_exc
 from oslo_log import log
@@ -1820,6 +1821,19 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 LOG.warning(err_msg)
                 raise n_exc.InvalidInput(error_message=err_msg)
 
+    def _assert_on_port_sec_change(self, port_data, device_owner):
+        """Do not allow enabling port security of some ports
+
+        Trusted ports are created with port security disabled in neutron,
+        and it should not change.
+        """
+        if nlib_net.is_port_trusted({'device_owner': device_owner}):
+            if port_data.get(psec.PORTSECURITY) is True:
+                err_msg = _("port_security_enabled=True is not supported for "
+                            "trusted ports")
+                LOG.warning(err_msg)
+                raise n_exc.InvalidInput(error_message=err_msg)
+
     def _filter_ipv4_dhcp_fixed_ips(self, context, fixed_ips):
         ips = []
         for fixed_ip in fixed_ips:
@@ -2596,6 +2610,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._assert_on_router_port_with_qos(
                 port_data, device_owner)
             self._assert_on_port_admin_state(port_data, device_owner)
+            self._assert_on_port_sec_change(port_data, device_owner)
             self._validate_max_ips_per_port(
                 port_data.get('fixed_ips', []), device_owner)
 
