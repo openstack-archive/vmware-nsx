@@ -134,6 +134,13 @@ class EdgeListenerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
             try:
                 if listener.default_pool_id:
                     vs_client.update(vs_id, pool_id='')
+                    # Update pool binding to disassociate virtual server
+                    pool_binding = nsx_db.get_nsx_lbaas_pool_binding(
+                        context.session, lb_id, listener.default_pool_id)
+                    if pool_binding:
+                        nsx_db.update_nsx_lbaas_pool_binding(
+                            context.session, lb_id, listener.default_pool_id,
+                            None)
                 vs_client.delete(vs_id)
             except nsx_exc.NsxResourceNotFound:
                 msg = (_("virtual server not found on nsx: %(vs)s") %
