@@ -353,6 +353,10 @@ Metadata Proxy
 
     nsxadmin -r metadata-proxy -o nsx-update --property metadata_proxy_uuid=<metadata_proxy_uuid>
 
+- update the ip of the Nova server in the metadata proxy server on the nsx
+
+    nsxadmin -r metadata-proxy -o nsx-update-ip --property server-ip=<server-ip> --property availability-zone=<optional zone name>
+
 DHCP Bindings
 ~~~~~~~~~~~~~
 
