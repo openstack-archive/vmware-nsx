@@ -93,9 +93,11 @@ class EdgeL7RuleManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                                        msg=msg)
         elif l7policy.action == lb_const.L7_POLICY_ACTION_REDIRECT_TO_URL:
             actions = [{'type': lb_const.LB_HTTP_REDIRECT_ACTION,
-                        'redirect_rul': l7policy.redirect_url}]
+                        'redirect_status': lb_const.LB_HTTP_REDIRECT_STATUS,
+                        'redirect_url': l7policy.redirect_url}]
         elif l7policy.action == lb_const.L7_POLICY_ACTION_REJECT:
-            actions = [{'type': lb_const.LB_REJECT_ACTION}]
+            actions = [{'type': lb_const.LB_REJECT_ACTION,
+                        'reply_status': lb_const.LB_HTTP_REJECT_STATUS}]
         else:
             msg = (_('Invalid l7policy action: %(action)s') %
                    {'action': l7policy.action})
@@ -179,24 +181,7 @@ class EdgeL7RuleManager(base_mgr.Nsxv3LoadbalancerBaseManager):
             vs_id = binding['lb_vs_id']
             rule_id = binding['lb_rule_id']
             try:
-                rule_client.delete(rule_id)
-            except nsx_exc.NsxResourceNotFound:
-                msg = (_("LB rule cannot be found on nsx: %(rule)s") %
-                       {'rule': rule_id})
-                raise n_exc.BadRequest(resource='lbaas-l7rule-delete',
-                                       msg=msg)
-            except nsxlib_exc.ManagerError:
-                self.lbv2_driver.l7rule.failed_completion(context,
-                                                          rule)
-                msg = (_('Failed to delete lb rule: %(rule)s') %
-                       {'rule': rule.id})
-                raise n_exc.BadRequest(resource='lbaas-l7rule-delete',
-                                       msg=msg)
-            try:
-                lb_vs = vs_client.get(vs_id)
-                if 'rule_ids' in lb_vs and rule_id in lb_vs['rule_ids']:
-                    lb_vs['rule_ids'].remove(rule_id)
-                vs_client.update(vs_id, lb_vs)
+                vs_client.remove_rule(vs_id, rule_id)
             except nsx_exc.NsxResourceNotFound:
                 msg = (_("virtual server cannot be found on nsx: %(vs)s") %
                        {'vs': vs_id})
@@ -209,9 +194,19 @@ class EdgeL7RuleManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                          '%(vs)s') % {'rule': rule_id, 'vs': vs_id})
                 raise n_exc.BadRequest(resource='lbaas-l7rule-delete',
                                        msg=msg)
-
+            try:
+                rule_client.delete(rule_id)
+            except nsx_exc.NsxResourceNotFound:
+                LOG.warning("LB rule cannot be found on nsx: %(rule)s",
+                            {'rule': rule_id})
+            except nsxlib_exc.ManagerError:
+                self.lbv2_driver.l7rule.failed_completion(context,
+                                                          rule)
+                msg = (_('Failed to delete lb rule: %(rule)s') %
+                       {'rule': rule.id})
+                raise n_exc.BadRequest(resource='lbaas-l7rule-delete',
+                                       msg=msg)
             nsx_db.delete_nsx_lbaas_l7rule_binding(
                 context.session, lb_id, rule.l7policy_id, rule.id)
-
         self.lbv2_driver.l7rule.successful_completion(context, rule,
                                                       delete=True)
