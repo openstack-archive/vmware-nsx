@@ -688,6 +688,9 @@ nsxv_opts = [
                        "specifying DVS MoRef ID usable for VLAN provider "
                        "networks, as well as ranges of VLAN tags on each "
                        "available for allocation to networks.")),
+    cfg.IntOpt('nsx_transaction_timeout',
+               default=120,
+               help=_("Timeout interval for NSX backend transactions.")),
 ]
 
 # define the configuration of each NSX-V availability zone.

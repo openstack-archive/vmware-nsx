@@ -85,12 +85,13 @@ class VcnsApiHelper(object):
     }
 
     def __init__(self, address, user, password, format='json', ca_file=None,
-                 insecure=True):
+                 insecure=True, timeout=None):
         self.authToken = base64.encodestring(six.b("%s:%s" % (user, password)))
         self.user = user
         self.passwd = password
         self.address = address
         self.format = format
+        self.timeout = timeout
         if format == 'json':
             self.encode = jsonutils.dumps
         else:
@@ -135,11 +136,15 @@ class VcnsApiHelper(object):
         else:
             data = None
 
-        response = requests.request(method,
-                                    uri,
-                                    verify=self.verify_cert,
-                                    data=data,
-                                    headers=headers)
+        try:
+            response = requests.request(method,
+                                        uri,
+                                        verify=self.verify_cert,
+                                        data=data,
+                                        headers=headers,
+                                        timeout=self.timeout)
+        except requests.exceptions.Timeout:
+            raise exceptions.VcnsApiException(uri=uri)
 
         status = response.status_code
 

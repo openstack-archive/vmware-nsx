@@ -111,16 +111,12 @@ class Vcns(object):
         self.password = password
         self.ca_file = ca_file
         self.insecure = insecure
-        self.jsonapi_client = VcnsApiClient.VcnsApiHelper(address, user,
-                                                          password,
-                                                          format='json',
-                                                          ca_file=ca_file,
-                                                          insecure=insecure)
-        self.xmlapi_client = VcnsApiClient.VcnsApiHelper(address, user,
-                                                         password,
-                                                         format='xml',
-                                                         ca_file=ca_file,
-                                                         insecure=insecure)
+        self.jsonapi_client = VcnsApiClient.VcnsApiHelper(
+            address, user, password, format='json', ca_file=ca_file,
+            insecure=insecure, timeout=cfg.CONF.nsxv.nsx_transaction_timeout)
+        self.xmlapi_client = VcnsApiClient.VcnsApiHelper(
+            address, user, password, format='xml', ca_file=ca_file,
+            insecure=insecure, timeout=cfg.CONF.nsxv.nsx_transaction_timeout)
         self._nsx_version = None
         self._normalized_scoping_objects = None
 
