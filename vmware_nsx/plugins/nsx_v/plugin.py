@@ -4223,8 +4223,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             with excutils.save_and_reraise_exception():
                 for nsx_rule_id in [p['nsx_id'] for p in rule_pairs
                                     if p['neutron_id'] in ruleids]:
-                    self.nsx_v.vcns.remove_rule_from_section(
-                        section_uri, nsx_rule_id)
+                    with locking.LockManager.get_lock('rule-update-%s' %
+                                                      sg_id):
+                        self.nsx_v.vcns.remove_rule_from_section(
+                            section_uri, nsx_rule_id)
                 LOG.exception("Failed to create security group rule")
         return new_rule_list
 
@@ -4240,8 +4242,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             context.session, security_group_id)
         try:
             if nsx_rule_id and section_uri:
-                self.nsx_v.vcns.remove_rule_from_section(
-                    section_uri, nsx_rule_id)
+                with locking.LockManager.get_lock('rule-update-%s' %
+                                                  security_group_id):
+                    self.nsx_v.vcns.remove_rule_from_section(
+                        section_uri, nsx_rule_id)
         except vsh_exc.ResourceNotFound:
             LOG.debug("Security group rule %(id)s deleted, backend "
                       "nsx-rule %(nsx_rule_id)s doesn't exist.",
