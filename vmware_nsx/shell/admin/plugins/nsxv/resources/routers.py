@@ -14,6 +14,7 @@
 
 
 from vmware_nsx.shell.admin.plugins.common import constants
+from vmware_nsx.shell.admin.plugins.common import formatters
 import vmware_nsx.shell.admin.plugins.common.utils as admin_utils
 import vmware_nsx.shell.admin.plugins.nsxv.resources.utils as utils
 import vmware_nsx.shell.resources as shell
@@ -186,6 +187,7 @@ def nsx_recreate_router_or_edge(resource, event, trigger, **kwargs):
         return nsx_recreate_router(router_id)
 
 
+@admin_utils.output_header
 def migrate_distributed_routers_dhcp(resource, event, trigger, **kwargs):
     context = n_context.get_admin_context()
     nsxv = utils.get_nsxv_client()
@@ -208,6 +210,96 @@ def migrate_distributed_routers_dhcp(resource, event, trigger, **kwargs):
                         nsxv.update_routes(edge_id, route_obj)
 
 
+@admin_utils.output_header
+def list_orphaned_vnics(resource, event, trigger, **kwargs):
+    """List router orphaned router vnics where the port was deleted"""
+    orphaned_vnics = get_orphaned_vnics()
+    if not orphaned_vnics:
+        LOG.info("No orphaned router vnics found")
+        return
+    headers = ['edge_id', 'vnic_index', 'tunnel_index', 'network_id']
+    LOG.info(formatters.output_formatter(constants.ORPHANED_VNICS,
+                                         orphaned_vnics, headers))
+
+
+def get_orphaned_vnics():
+    orphaned_vnics = []
+    context = n_context.get_admin_context()
+    vnic_binds = nsxv_db.get_edge_vnic_bindings_with_networks(
+        context.session)
+    with utils.NsxVPluginWrapper() as plugin:
+        for vnic_bind in vnic_binds:
+            edge_id = vnic_bind['edge_id']
+            # check if this is a router edge by the router bindings table
+            router_bindings = nsxv_db.get_nsxv_router_bindings_by_edge(
+                context.session, edge_id)
+            if not router_bindings:
+                # Only log it. this is a different type of orphaned
+                LOG.warning("Router bindings for vnic %s not found", vnic_bind)
+                continue
+
+            router_ids = [b['router_id'] for b in router_bindings]
+            routers = plugin.get_routers(context,
+                                         filters={'id': router_ids})
+            if routers:
+                interface_found = False
+                # check if any of those routers is attached to this network
+                for router in routers:
+                    if plugin._get_router_interface_ports_by_network(
+                        context, router['id'], vnic_bind['network_id']):
+                        interface_found = True
+                        break
+                if not interface_found:
+                    # for later deleting the interface we need to know if this
+                    # is a distributed router.
+                    # All the routers on the same edge are of the same type,
+                    # so we can check the first one.
+                    vnic_bind['distributed'] = routers[0].get('distributed')
+                    orphaned_vnics.append(vnic_bind)
+
+    return orphaned_vnics
+
+
+@admin_utils.output_header
+def clean_orphaned_vnics(resource, event, trigger, **kwargs):
+    """List router orphaned router vnics where the port was deleted"""
+    orphaned_vnics = get_orphaned_vnics()
+    if not orphaned_vnics:
+        LOG.info("No orphaned router vnics found")
+        return
+    headers = ['edge_id', 'vnic_index', 'tunnel_index', 'network_id']
+    LOG.info(formatters.output_formatter(constants.ORPHANED_VNICS,
+                                         orphaned_vnics, headers))
+    user_confirm = admin_utils.query_yes_no("Do you want to delete "
+                                            "orphaned vnics",
+                                            default="no")
+    if not user_confirm:
+        LOG.info("NSXv vnics deletion aborted by user")
+        return
+
+    context = n_context.get_admin_context()
+    with utils.NsxVPluginWrapper() as plugin:
+        nsxv_manager = vcns_driver.VcnsDriver(
+            edge_utils.NsxVCallbacks(plugin))
+        for vnic in orphaned_vnics:
+            if not vnic['distributed']:
+                try:
+                    nsxv_manager.vcns.delete_interface(
+                        vnic['edge_id'], vnic['vnic_index'])
+                except Exception as e:
+                    LOG.error("Failed to delete vnic from NSX: %s", e)
+                nsxv_db.free_edge_vnic_by_network(
+                    context.session, vnic['edge_id'], vnic['network_id'])
+            else:
+                try:
+                    nsxv_manager.vcns.delete_vdr_internal_interface(
+                        vnic['edge_id'], vnic['vnic_index'])
+                except Exception as e:
+                    LOG.error("Failed to delete vnic from NSX: %s", e)
+                nsxv_db.delete_edge_vnic_binding_by_network(
+                    context.session, vnic['edge_id'], vnic['network_id'])
+
+
 registry.subscribe(nsx_recreate_router_or_edge,
                    constants.ROUTERS,
                    shell.Operations.NSX_RECREATE.value)
@@ -215,3 +307,11 @@ registry.subscribe(nsx_recreate_router_or_edge,
 registry.subscribe(migrate_distributed_routers_dhcp,
                    constants.ROUTERS,
                    shell.Operations.MIGRATE_VDR_DHCP.value)
+
+registry.subscribe(list_orphaned_vnics,
+                   constants.ORPHANED_VNICS,
+                   shell.Operations.NSX_LIST.value)
+
+registry.subscribe(clean_orphaned_vnics,
+                   constants.ORPHANED_VNICS,
+                   shell.Operations.NSX_CLEAN.value)
