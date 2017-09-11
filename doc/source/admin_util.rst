@@ -98,6 +98,17 @@ Orphaned Router bindings
 
     nsxadmin -r orphaned-bindings -o clean
 
+Orphaned Router VNICs
+~~~~~~~~~~~~~~~~~~~~~
+
+- List orphaned router vnic entries (exist on the edge vnics bindings DB table, but the neutron interface port behind them is missing)::
+
+    nsxadmin -r orphaned-vnics -o list
+
+- Clean orphaned router vnics (delete DB entry, and NSX router interface)::
+
+    nsxadmin -r orphaned-vnics -o clean
+
 Missing Edges
 ~~~~~~~~~~~~~
 
