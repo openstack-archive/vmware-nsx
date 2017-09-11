@@ -13,6 +13,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import inspect
+import re
+
 from distutils import version
 import functools
 import hashlib
@@ -21,6 +24,7 @@ import xml.etree.ElementTree as et
 import eventlet
 import six
 import tenacity
+from tenacity import _utils as tenacity_utils
 
 from neutron import version as n_version
 from neutron_lib.api import validators
@@ -145,6 +149,39 @@ def _get_bad_request_error_code(e):
         pass
 
 
+def _log_before_retry(func, trial_number):
+    """Before call strategy that logs to some logger the attempt."""
+    if trial_number > 1:
+        LOG.warning("Retrying call to '%(func)s' for the %(num)s time",
+                    {'func': tenacity_utils.get_callback_name(func),
+                     'num': tenacity_utils.to_ordinal(trial_number)})
+
+
+def _get_args_from_frame(frames, frame_num):
+    if len(frames) > frame_num and frames[frame_num] and frames[frame_num][0]:
+        argvalues = inspect.getargvalues(frames[frame_num][0])
+        formated_args = inspect.formatargvalues(*argvalues)
+        # remove the first 'self' arg from the log as it adds no information
+        formated_args = re.sub(r'\(self=.*?, ', "(", formated_args)
+        return formated_args
+
+
+def _log_after_retry(func, trial_number, trial_time_taken):
+    """After call strategy that logs to some logger the finished attempt."""
+    # Using inspect to get arguments of the relevant call
+    frames = inspect.trace()
+    formated_args = _get_args_from_frame(frames, 1)
+    if not formated_args:
+        formated_args = "Unknown"
+
+    LOG.warning("Finished retry of %(func)s for the %(num)s time after "
+                "%(time)0.3f(s) with args: %(args)s",
+                {'func': tenacity_utils.get_callback_name(func),
+                 'num': tenacity_utils.to_ordinal(trial_number),
+                 'time': trial_time_taken,
+                 'args': formated_args})
+
+
 def retry_upon_exception_exclude_error_codes(
     exc, excluded_errors, delay, max_delay, max_attempts):
     """Retry with the configured exponential delay, unless the exception error
@@ -164,7 +201,8 @@ def retry_upon_exception_exclude_error_codes(
                                 retry_if_not_error_codes),
                           wait=tenacity.wait_exponential(
                                 multiplier=delay, max=max_delay),
-                          stop=tenacity.stop_after_attempt(max_attempts))
+                          stop=tenacity.stop_after_attempt(max_attempts),
+                          before=_log_before_retry, after=_log_after_retry)
 
 
 def retry_upon_exception(exc, delay, max_delay, max_attempts):
@@ -172,7 +210,8 @@ def retry_upon_exception(exc, delay, max_delay, max_attempts):
                           retry=tenacity.retry_if_exception_type(exc),
                           wait=tenacity.wait_exponential(
                                 multiplier=delay, max=max_delay),
-                          stop=tenacity.stop_after_attempt(max_attempts))
+                          stop=tenacity.stop_after_attempt(max_attempts),
+                          before=_log_before_retry, after=_log_after_retry)
 
 
 def read_file(path):
