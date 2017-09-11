@@ -12,6 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import netaddr
 from oslo_log import log as logging
 from oslo_utils import excutils
 
@@ -208,8 +209,9 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         if new_ext_net_id:
             self._notify_after_router_edge_association(context, router)
 
-    def _validate_multiple_subnets_routers(self, context, router_id,
-                                           interface_info):
+    def _validate_subnets_routers(self, context, router_id,
+                                  interface_info):
+        # Validate that multiple subnets are not connected to the router
         _nsxv_plugin = self.plugin
         net_id, subnet_id = _nsxv_plugin._get_interface_info(context,
                                                              interface_info)
@@ -233,10 +235,16 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
             else:
                 # attach to multiple routers
                 raise n_exc.Conflict(error_message=err_msg)
+        # Validate that the subnet is not a v6 one
+        subnet = self.plugin.get_subnet(context.elevated(), subnet_id)
+        if (subnet.get('ip_version') == 6 or
+            (subnet['cidr'] not in (constants.ATTR_NOT_SPECIFIED, None)
+             and netaddr.IPNetwork(subnet['cidr']).version == 6)):
+            err_msg = _("No support for IPv6 interfaces")
+            raise n_exc.InvalidInput(error_message=err_msg)
 
     def add_router_interface(self, context, router_id, interface_info):
-        self._validate_multiple_subnets_routers(
-            context, router_id, interface_info)
+        self._validate_subnets_routers(context, router_id, interface_info)
         info = super(nsx_v.NsxVPluginV2, self.plugin).add_router_interface(
             context, router_id, interface_info)
 
