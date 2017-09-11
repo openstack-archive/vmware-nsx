@@ -4324,6 +4324,31 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                       self).test_update_subnet_gateway_for_external_net()
                 self.assertTrue(update_nexthop.called)
 
+    def test_router_add_interface_ipv6_port_existing_network_returns_400(self):
+        """Ensure unique IPv6 router ports per network id.
+        Adding a router port containing one or more IPv6 subnets with the same
+        network id as an existing router port should fail. This is so
+        there is no ambiguity regarding on which port to add an IPv6 subnet
+        when executing router-interface-add with a subnet and no port.
+        """
+        with self.network() as n, self.router() as r:
+            with self.subnet(network=n, cidr='fd00::/64',
+                             ip_version=6, enable_dhcp=False) as s1, (
+                 self.subnet(network=n, cidr='fd01::/64',
+                             ip_version=6, enable_dhcp=False)) as s2:
+                with self.port(subnet=s1) as p:
+                    exp_code = webob.exc.HTTPBadRequest.code
+                    self._router_interface_action('add',
+                                                  r['router']['id'],
+                                                  s2['subnet']['id'],
+                                                  None,
+                                                  expected_code=exp_code)
+                    self._router_interface_action('add',
+                                                  r['router']['id'],
+                                                  None,
+                                                  p['port']['id'],
+                                                  expected_code=exp_code)
+
 
 class TestNSXvAllowedAddressPairs(NsxVPluginV2TestCase,
                                   test_addr_pair.TestAllowedAddressPairs):
