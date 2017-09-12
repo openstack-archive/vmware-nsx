@@ -78,15 +78,16 @@ def _mock_create_firewall_rules(*args):
         ]}
 
 
+def _return_id_key(*args, **kwargs):
+    return {'id': uuidutils.generate_uuid()}
+
+
 def _mock_nsx_backend_calls():
     mock.patch("vmware_nsxlib.v3.client.NSX3Client").start()
 
     fake_profile = {'key': 'FakeKey',
                     'resource_type': 'FakeResource',
                     'id': uuidutils.generate_uuid()}
-
-    def _return_id_key(*args, **kwargs):
-        return {'id': uuidutils.generate_uuid()}
 
     def _return_id(*args, **kwargs):
         return uuidutils.generate_uuid()
@@ -110,11 +111,6 @@ def _mock_nsx_backend_calls():
 
     mock.patch(
         "vmware_nsxlib.v3.core_resources.NsxLibBridgeCluster."
-        "get_id_by_name_or_id",
-        return_value=uuidutils.generate_uuid()).start()
-
-    mock.patch(
-        "vmware_nsxlib.v3.core_resources.NsxLibTransportZone."
         "get_id_by_name_or_id",
         return_value=uuidutils.generate_uuid()).start()
 
@@ -283,6 +279,167 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
             ctx = context.get_admin_context()
             networks = self.plugin.get_networks(ctx)
             self.assertListEqual([], networks)
+
+    def test_create_provider_flat_network(self):
+        providernet_args = {pnet.NETWORK_TYPE: 'flat'}
+        with mock.patch('vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch.'
+                        'create', side_effect=_return_id_key) as nsx_create, \
+            mock.patch('vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch.'
+                       'delete') as nsx_delete, \
+            mock.patch('vmware_nsxlib.v3.core_resources.NsxLibTransportZone.'
+                       'get_transport_type', return_value='VLAN'),\
+            self.network(name='flat_net',
+                         providernet_args=providernet_args,
+                         arg_list=(pnet.NETWORK_TYPE, )) as net:
+            self.assertEqual('flat', net['network'].get(pnet.NETWORK_TYPE))
+            # make sure the network is created at the backend
+            nsx_create.assert_called_once()
+
+            # Delete the network and make sure it is deleted from the backend
+            req = self.new_delete_request('networks', net['network']['id'])
+            res = req.get_response(self.api)
+            self.assertEqual(exc.HTTPNoContent.code, res.status_int)
+            nsx_delete.assert_called_once()
+
+    def test_create_provider_flat_network_with_physical_net(self):
+        physical_network = nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID
+        providernet_args = {pnet.NETWORK_TYPE: 'flat',
+                            pnet.PHYSICAL_NETWORK: physical_network}
+        with mock.patch(
+            'vmware_nsxlib.v3.core_resources.NsxLibTransportZone.'
+            'get_transport_type', return_value='VLAN'),\
+            self.network(name='flat_net',
+                         providernet_args=providernet_args,
+                         arg_list=(pnet.NETWORK_TYPE,
+                                   pnet.PHYSICAL_NETWORK)) as net:
+            self.assertEqual('flat', net['network'].get(pnet.NETWORK_TYPE))
+
+    def test_create_provider_flat_network_with_vlan(self):
+        providernet_args = {pnet.NETWORK_TYPE: 'flat',
+                            pnet.SEGMENTATION_ID: 11}
+        with mock.patch('vmware_nsxlib.v3.core_resources.NsxLibTransportZone.'
+                        'get_transport_type', return_value='VLAN'):
+            result = self._create_network(fmt='json', name='bad_flat_net',
+                                          admin_state_up=True,
+                                          providernet_args=providernet_args,
+                                          arg_list=(pnet.NETWORK_TYPE,
+                                                    pnet.SEGMENTATION_ID))
+            data = self.deserialize('json', result)
+            # should fail
+            self.assertEqual('InvalidInput', data['NeutronError']['type'])
+
+    def test_create_provider_geneve_network(self):
+        providernet_args = {pnet.NETWORK_TYPE: 'geneve'}
+        with mock.patch('vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch.'
+                        'create', side_effect=_return_id_key) as nsx_create, \
+            mock.patch('vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch.'
+                       'delete') as nsx_delete, \
+            mock.patch('vmware_nsxlib.v3.core_resources.NsxLibTransportZone.'
+                       'get_transport_type', return_value='OVERLAY'),\
+            self.network(name='geneve_net',
+                         providernet_args=providernet_args,
+                         arg_list=(pnet.NETWORK_TYPE, )) as net:
+            self.assertEqual('geneve', net['network'].get(pnet.NETWORK_TYPE))
+            # make sure the network is created at the backend
+            nsx_create.assert_called_once()
+
+            # Delete the network and make sure it is deleted from the backend
+            req = self.new_delete_request('networks', net['network']['id'])
+            res = req.get_response(self.api)
+            self.assertEqual(exc.HTTPNoContent.code, res.status_int)
+            nsx_delete.assert_called_once()
+
+    def test_create_provider_geneve_network_with_physical_net(self):
+        physical_network = nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID
+        providernet_args = {pnet.NETWORK_TYPE: 'geneve',
+                            pnet.PHYSICAL_NETWORK: physical_network}
+        with mock.patch(
+            'vmware_nsxlib.v3.core_resources.NsxLibTransportZone.'
+            'get_transport_type', return_value='OVERLAY'),\
+            self.network(name='geneve_net',
+                         providernet_args=providernet_args,
+                         arg_list=(pnet.NETWORK_TYPE, )) as net:
+            self.assertEqual('geneve', net['network'].get(pnet.NETWORK_TYPE))
+
+    def test_create_provider_geneve_network_with_vlan(self):
+        providernet_args = {pnet.NETWORK_TYPE: 'geneve',
+                            pnet.SEGMENTATION_ID: 11}
+        with mock.patch(
+            'vmware_nsxlib.v3.core_resources.NsxLibTransportZone.'
+            'get_transport_type', return_value='OVERLAY'):
+            result = self._create_network(fmt='json', name='bad_geneve_net',
+                                          admin_state_up=True,
+                                          providernet_args=providernet_args,
+                                          arg_list=(pnet.NETWORK_TYPE,
+                                                    pnet.SEGMENTATION_ID))
+            data = self.deserialize('json', result)
+            # should fail
+            self.assertEqual('InvalidInput', data['NeutronError']['type'])
+
+    def test_create_provider_vlan_network(self):
+        providernet_args = {pnet.NETWORK_TYPE: 'vlan',
+                            pnet.SEGMENTATION_ID: 11}
+        with mock.patch('vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch.'
+                        'create', side_effect=_return_id_key) as nsx_create, \
+            mock.patch('vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch.'
+                       'delete') as nsx_delete, \
+            mock.patch('vmware_nsxlib.v3.core_resources.NsxLibTransportZone.'
+                       'get_transport_type', return_value='VLAN'),\
+            self.network(name='vlan_net',
+                         providernet_args=providernet_args,
+                         arg_list=(pnet.NETWORK_TYPE,
+                                   pnet.SEGMENTATION_ID)) as net:
+            self.assertEqual('vlan', net['network'].get(pnet.NETWORK_TYPE))
+            # make sure the network is created at the backend
+            nsx_create.assert_called_once()
+
+            # Delete the network and make sure it is deleted from the backend
+            req = self.new_delete_request('networks', net['network']['id'])
+            res = req.get_response(self.api)
+            self.assertEqual(exc.HTTPNoContent.code, res.status_int)
+            nsx_delete.assert_called_once()
+
+    def test_create_provider_nsx_network(self):
+        physical_network = 'Fake logical switch'
+        providernet_args = {pnet.NETWORK_TYPE: 'nsx-net',
+                            pnet.PHYSICAL_NETWORK: physical_network}
+
+        with mock.patch(
+            'vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch.create',
+            side_effect=nsxlib_exc.ResourceNotFound) as nsx_create, \
+            mock.patch('vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch.'
+                       'delete') as nsx_delete, \
+            self.network(name='nsx_net',
+                         providernet_args=providernet_args,
+                         arg_list=(pnet.NETWORK_TYPE,
+                                   pnet.PHYSICAL_NETWORK)) as net:
+            self.assertEqual('nsx-net', net['network'].get(pnet.NETWORK_TYPE))
+            self.assertEqual(physical_network,
+                             net['network'].get(pnet.PHYSICAL_NETWORK))
+            # make sure the network is NOT created at the backend
+            nsx_create.assert_not_called()
+
+            # Delete the network. It should NOT deleted from the backend
+            req = self.new_delete_request('networks', net['network']['id'])
+            res = req.get_response(self.api)
+            self.assertEqual(exc.HTTPNoContent.code, res.status_int)
+            nsx_delete.assert_not_called()
+
+    def test_create_provider_bad_nsx_network(self):
+        physical_network = 'Bad logical switch'
+        providernet_args = {pnet.NETWORK_TYPE: 'nsx-net',
+                            pnet.PHYSICAL_NETWORK: physical_network}
+        with mock.patch(
+            "vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch.get",
+            side_effect=nsxlib_exc.ResourceNotFound):
+            result = self._create_network(fmt='json', name='bad_nsx_net',
+                                          admin_state_up=True,
+                                          providernet_args=providernet_args,
+                                          arg_list=(pnet.NETWORK_TYPE,
+                                                    pnet.PHYSICAL_NETWORK))
+            data = self.deserialize('json', result)
+            # should fail
+            self.assertEqual('InvalidInput', data['NeutronError']['type'])
 
 
 class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):

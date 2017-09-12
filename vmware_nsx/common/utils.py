@@ -67,7 +67,8 @@ class NsxV3NetworkTypes(object):
     """Allowed provider network types for the NSXv3 Plugin."""
     FLAT = 'flat'
     VLAN = 'vlan'
-    VXLAN = 'vxlan'
+    GENEVE = 'geneve'
+    NSX_NETWORK = 'nsx-net'
 
 
 def is_nsx_version_1_1_0(nsx_version):

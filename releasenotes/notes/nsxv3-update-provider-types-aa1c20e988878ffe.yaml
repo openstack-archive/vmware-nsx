@@ -1,0 +1,8 @@
+---
+prelude: >
+    Adding support for Geneve and nSX-network provider networks.
+features:
+  - |
+  Deprecating the VXLAN provider network type.
+  Adding Geneve provider networks (with overlay transport zone).
+  Adding nsx-net provider networks attached to an existing nsx
