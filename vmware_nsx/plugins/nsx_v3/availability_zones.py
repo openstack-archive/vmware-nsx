@@ -20,6 +20,7 @@ from vmware_nsx.common import availability_zones as common_az
 from vmware_nsx.common import config
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsxlib.v3 import core_resources
+from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
 
 DEFAULT_NAME = common_az.DEFAULT_NAME
 
@@ -78,6 +79,10 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
         if self.switching_profiles is None:
             self.switching_profiles = cfg.CONF.nsx_v3.switching_profiles
 
+        self.dhcp_relay_service = az_info.get('dhcp_relay_service')
+        if self.dhcp_relay_service is None:
+            self.dhcp_relay_service = cfg.CONF.nsx_v3.dhcp_relay_service
+
     def init_default_az(self):
         # use the default configuration
         self.metadata_proxy = cfg.CONF.nsx_v3.metadata_proxy
@@ -88,6 +93,7 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
         self.default_overlay_tz = cfg.CONF.nsx_v3.default_overlay_tz
         self.default_vlan_tz = cfg.CONF.nsx_v3.default_vlan_tz
         self.switching_profiles = cfg.CONF.nsx_v3.switching_profiles
+        self.dhcp_relay_service = cfg.CONF.nsx_v3.dhcp_relay_service
 
     def translate_configured_names_to_uuids(self, nsxlib):
         # Mandatory configurations (in AZ or inherited from global values)
@@ -170,6 +176,23 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
                         nsx_profile.get('resource_type'),
                         nsx_profile.get('id')))
         self.switching_profiles_objs = profiles
+
+        if (self.dhcp_relay_service and
+            nsxlib.feature_supported(nsxlib_consts.FEATURE_DHCP_RELAY)):
+            relay_id = None
+            if cfg.CONF.nsx_v3.init_objects_by_tags:
+                # Find the TZ by its tag
+                relay_id = nsxlib.get_id_by_resource_and_tag(
+                    nsxlib.relay_service.resource_type,
+                    cfg.CONF.nsx_v3.search_objects_scope,
+                    self.dhcp_relay_service)
+            if not relay_id:
+                # Find the service by its name or id
+                relay_id = nsxlib.relay_service.get_id_by_name_or_id(
+                    self.dhcp_relay_service)
+            self.dhcp_relay_service = relay_id
+        else:
+            self.dhcp_relay_service = None
 
 
 class NsxV3AvailabilityZones(common_az.ConfiguredAvailabilityZones):

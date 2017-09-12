@@ -347,6 +347,7 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
         nsx_router_id, section_id = self._get_backend_router_and_fw_section(
             context, router_id)
 
+        #TODO(asarfaty) add dhcp relay allow rules here
         # Add default drop all rule at the end
         old_default_rule = self.nsx_firewall.get_default_rule(
             section_id)

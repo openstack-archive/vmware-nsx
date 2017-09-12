@@ -3260,13 +3260,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 port, resource_type='os-neutron-rport-id',
                 project_name=context.tenant_name)
             tags.append({'scope': 'os-subnet-id', 'tag': subnet['id']})
+            net_az = self.get_network_az_by_net_id(context, network_id)
             self._routerlib.create_logical_router_intf_port_by_ls_id(
                 logical_router_id=nsx_router_id,
                 display_name=display_name,
                 tags=tags,
                 ls_id=nsx_net_id,
                 logical_switch_port_id=nsx_port_id,
-                address_groups=address_groups)
+                address_groups=address_groups,
+                relay_service_uuid=net_az.dhcp_relay_service)
 
             if router_db.gw_port and not router_db.enable_snat:
                 # TODO(berlin): Announce the subnet on tier0 if enable_snat

@@ -109,6 +109,7 @@ DEFAULT_EDGE_CLUSTER_UUID=<edge-cluster-uuid>
 
 # Enabled native DHCP support from NSX backend
 DHCP_PROFILE_UUID=<dhcp-profile-uuid>
+DHCP_RELAY_SERVICE=<dhcp-relay-service>
 METADATA_PROXY_UUID=<metadata-proxy-uuid>
 METADATA_PROXY_SHARED_SECRET=<metadata-proxy-secret>
 METADATA_PROXY_USE_HTTPS=False
