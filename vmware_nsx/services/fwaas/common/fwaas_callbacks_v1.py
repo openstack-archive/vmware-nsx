@@ -130,3 +130,9 @@ class NsxFwaasCallbacks(firewall_l3_agent.L3WithFWaaS):
         for fw in fw_list:
             if fw['id'] == fw_id:
                 return fw
+
+    def get_router_firewall(self, context, router_id):
+        ctx_elevated = context.elevated()
+        fw_id = self._get_router_firewall_id(ctx_elevated, router_id)
+        if fw_id:
+            return self._get_fw_from_plugin(ctx_elevated, fw_id)
