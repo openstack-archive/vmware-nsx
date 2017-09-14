@@ -3305,6 +3305,26 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             return self.fwaas_callbacks.update_router_firewall(
                 context, self.nsxlib, router_id, ports)
 
+    def _get_port_relay_servers(self, context, port_id, network_id=None):
+        if not network_id:
+            port = self.get_port(context, port_id)
+            network_id = port['network_id']
+        net_az = self.get_network_az_by_net_id(context, network_id)
+        return net_az.dhcp_relay_servers
+
+    def _get_port_relay_services(self):
+        # DHCP services: UDP 67, 68, 2535
+        #TODO(asarfaty): use configurable ports
+        service1 = self.nsxlib.firewall_section.get_nsservice(
+            nsxlib_consts.L4_PORT_SET_NSSERVICE,
+            l4_protocol=nsxlib_consts.UDP,
+            destination_ports=['67-68'])
+        service2 = self.nsxlib.firewall_section.get_nsservice(
+            nsxlib_consts.L4_PORT_SET_NSSERVICE,
+            l4_protocol=nsxlib_consts.UDP,
+            destination_ports=['2535'])
+        return [service1, service2]
+
     def get_extra_fw_rules(self, context, router_id, port_id=None):
         """Return firewall rules that should be added to the router firewall
 
@@ -3317,8 +3337,59 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         port should be returned, and the rules should be ingress/egress
         (but not both) and include the source/dest nsx logical port.
         """
-        #TODO(asarfaty): DHCP relay rules
-        return []
+        extra_rules = []
+        # DHCP relay rules:
+        # get the list of relevant relay servers
+        elv_ctx = context.elevated()
+        if port_id:
+            relay_servers = self._get_port_relay_servers(elv_ctx, port_id)
+        else:
+            relay_servers = []
+            filters = {'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF],
+                       'device_id': [router_id]}
+            ports = self.get_ports(elv_ctx, filters=filters)
+            for port in ports:
+                port_relay_servers = self._get_port_relay_servers(
+                    elv_ctx, port['id'], network_id=port['network_id'])
+                if port_relay_servers:
+                    relay_servers.extend(port_relay_servers)
+
+        # Add rules to allow dhcp traffic relay servers
+        if relay_servers:
+            # if it is a single port, the source/dest is this logical port
+            if port_id:
+                _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
+                    context.session, port_id)
+                port_target = [{'target_type': 'LogicalPort',
+                                'target_id': nsx_port_id}]
+            else:
+                port_target = None
+            # translate the relay server ips to the firewall format
+            relay_target = []
+            if self.fwaas_callbacks:
+                relay_target = (self.fwaas_callbacks.fwaas_driver.
+                    translate_addresses_to_target(set(relay_servers)))
+
+            dhcp_services = self._get_port_relay_services()
+
+            # ingress rule
+            extra_rules.append({
+                'display_name': "DHCP Relay ingress traffic",
+                'action': nsxlib_consts.FW_ACTION_ALLOW,
+                'sources': relay_target,
+                'destinations': port_target,
+                'services': dhcp_services,
+                'direction': 'IN'})
+            # egress rule
+            extra_rules.append({
+                'display_name': "DHCP Relay egress traffic",
+                'action': nsxlib_consts.FW_ACTION_ALLOW,
+                'destinations': relay_target,
+                'sources': port_target,
+                'services': dhcp_services,
+                'direction': 'OUT'})
+
+        return extra_rules
 
     def _get_ports_and_address_groups(self, context, router_id, network_id,
                                       exclude_sub_ids=None):

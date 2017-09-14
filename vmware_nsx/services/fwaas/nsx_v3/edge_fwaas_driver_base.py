@@ -98,7 +98,7 @@ class CommonEdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
             cidr,
             consts.IPV6 if netaddr.valid_ipv6(cidr) else consts.IPV4)
 
-    def _translate_addresses(self, cidrs):
+    def translate_addresses_to_target(self, cidrs):
         return [self._translate_cidr(ip) for ip in cidrs]
 
     @staticmethod
@@ -170,7 +170,7 @@ class CommonEdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
                                              'target_id': replace_dest}]
                 nsx_rule['direction'] = 'IN'
             elif rule.get('destination_ip_address'):
-                nsx_rule['destinations'] = self._translate_addresses(
+                nsx_rule['destinations'] = self.translate_addresses_to_target(
                     [rule['destination_ip_address']])
             if replace_src:
                 # set this value as the source logical port,
@@ -179,7 +179,7 @@ class CommonEdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
                                         'target_id': replace_src}]
                 nsx_rule['direction'] = 'OUT'
             elif rule.get('source_ip_address'):
-                nsx_rule['sources'] = self._translate_addresses(
+                nsx_rule['sources'] = self.translate_addresses_to_target(
                     [rule['source_ip_address']])
             if rule.get('protocol'):
                 nsx_rule['services'] = self._translate_services(rule)

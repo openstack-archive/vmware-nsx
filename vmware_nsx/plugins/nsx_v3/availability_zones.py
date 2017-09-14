@@ -181,7 +181,7 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
             nsxlib.feature_supported(nsxlib_consts.FEATURE_DHCP_RELAY)):
             relay_id = None
             if cfg.CONF.nsx_v3.init_objects_by_tags:
-                # Find the TZ by its tag
+                # Find the relay service by its tag
                 relay_id = nsxlib.get_id_by_resource_and_tag(
                     nsxlib.relay_service.resource_type,
                     cfg.CONF.nsx_v3.search_objects_scope,
@@ -191,8 +191,13 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
                 relay_id = nsxlib.relay_service.get_id_by_name_or_id(
                     self.dhcp_relay_service)
             self.dhcp_relay_service = relay_id
+            # if there is a relay service - also find the server ips
+            if self.dhcp_relay_service:
+                self.dhcp_relay_servers = nsxlib.relay_service.get_server_ips(
+                    self.dhcp_relay_service)
         else:
             self.dhcp_relay_service = None
+            self.dhcp_relay_servers = None
 
 
 class NsxV3AvailabilityZones(common_az.ConfiguredAvailabilityZones):

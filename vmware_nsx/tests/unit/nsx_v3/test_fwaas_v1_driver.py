@@ -29,6 +29,9 @@ from vmware_nsxlib.v3 import nsx_constants as consts
 FAKE_FW_ID = 'fake_fw_uuid'
 FAKE_ROUTER_ID = 'fake_rtr_uuid'
 MOCK_NSX_ID = 'nsx_router_id'
+FAKE_PORT_ID = 'fake_port_uuid'
+FAKE_NET_ID = 'fake_net_uuid'
+FAKE_NSX_PORT_ID = 'fake_nsx_port_uuid'
 MOCK_DEFAULT_RULE_ID = 'nsx_default_rule_id'
 MOCK_SECTION_ID = 'sec_id'
 DEFAULT_RULE = {'is_default': True,
@@ -177,6 +180,8 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                         "update") as update_fw, \
             mock.patch.object(self.plugin, '_get_router_interfaces',
                               return_value=[]), \
+            mock.patch.object(self.plugin, 'get_ports',
+                              return_value=[]), \
             mock.patch.object(self.plugin, 'get_router',
                               return_value=apply_list[0]), \
             mock.patch.object(self.plugin.fwaas_callbacks,
@@ -198,6 +203,8 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
         with mock.patch("vmware_nsxlib.v3.security.NsxLibFirewallSection."
                         "update") as update_fw,\
             mock.patch.object(self.plugin, '_get_router_interfaces',
+                              return_value=[]), \
+            mock.patch.object(self.plugin, 'get_ports',
                               return_value=[]), \
             mock.patch.object(self.plugin, 'get_router',
                               return_value=apply_list[0]), \
@@ -269,6 +276,8 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                         "update") as update_fw, \
             mock.patch.object(self.plugin, '_get_router_interfaces',
                               return_value=[]), \
+            mock.patch.object(self.plugin, 'get_ports',
+                              return_value=[]), \
             mock.patch.object(self.plugin, 'get_router',
                               return_value=apply_list[0]), \
             mock.patch.object(self.plugin.fwaas_callbacks,
@@ -281,3 +290,47 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
             update_fw.assert_called_once_with(
                 MOCK_SECTION_ID,
                 rules=[self._default_rule()])
+
+    def test_create_firewall_with_dhcp_relay(self):
+        apply_list = self._fake_apply_list()
+        firewall = self._fake_firewall_no_rule()
+        relay_server = '1.1.1.1'
+        port = {'id': FAKE_PORT_ID, 'network_id': FAKE_NET_ID}
+        with mock.patch("vmware_nsxlib.v3.security.NsxLibFirewallSection."
+                        "update") as update_fw,\
+            mock.patch.object(self.plugin, '_get_router_interfaces',
+                              return_value=[port]), \
+            mock.patch.object(self.plugin, 'get_ports',
+                              return_value=[port]), \
+            mock.patch.object(self.plugin, 'get_router',
+                              return_value=apply_list[0]), \
+            mock.patch.object(self.plugin, '_get_port_relay_servers',
+                              return_value=[relay_server]),\
+            mock.patch.object(self.plugin.fwaas_callbacks,
+                              '_get_router_firewall_id',
+                              return_value=firewall['id']), \
+            mock.patch.object(self.plugin.fwaas_callbacks,
+                              '_get_fw_from_plugin',
+                              return_value=firewall):
+            self.firewall.create_firewall('nsx', apply_list, firewall)
+            # expecting 2 allow rules for the relay servers + default rule
+            expected_rules = expected_rules = [
+                {'display_name': "DHCP Relay ingress traffic",
+                 'action': consts.FW_ACTION_ALLOW,
+                 'destinations': None,
+                 'sources': [{'target_id': relay_server,
+                              'target_type': 'IPv4Address'}],
+                 'services': self.plugin._get_port_relay_services(),
+                 'direction': 'IN'},
+                {'display_name': "DHCP Relay egress traffic",
+                 'action': consts.FW_ACTION_ALLOW,
+                 'sources': None,
+                 'destinations': [{'target_id': relay_server,
+                                   'target_type': 'IPv4Address'}],
+                 'services': self.plugin._get_port_relay_services(),
+                 'direction': 'OUT'},
+                self._default_rule()
+            ]
+            update_fw.assert_called_once_with(
+                MOCK_SECTION_ID,
+                rules=expected_rules)
