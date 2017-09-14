@@ -14,29 +14,29 @@
 #    under the License.
 import mock
 from oslo_config import cfg
-from oslo_utils import importutils
+#from oslo_utils import importutils
 
 from vmware_nsx.services.flowclassifier.nsx_v import driver as nsx_v_driver
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.nsx_v.vshield import fake_vcns
 
-from neutron.api import extensions as api_ext
-from neutron.common import config
+#from neutron.api import extensions as api_ext
+#from neutron.common import config
 from neutron_lib.api.definitions import portbindings
 from neutron_lib import context
 from neutron_lib.plugins import directory
 
-from networking_sfc.db import flowclassifier_db as fdb
+#from networking_sfc.db import flowclassifier_db as fdb
 from networking_sfc.extensions import flowclassifier
 from networking_sfc.services.flowclassifier.common import context as fc_ctx
 from networking_sfc.services.flowclassifier.common import exceptions as fc_exc
-from networking_sfc.tests import base
-from networking_sfc.tests.unit.db import test_flowclassifier_db
+#from networking_sfc.tests import base
+#from networking_sfc.tests.unit.db import test_flowclassifier_db
 
 
-class TestNsxvFlowClassifierDriver(
-    test_flowclassifier_db.FlowClassifierDbPluginTestCaseBase,
-    base.NeutronDbPluginV2TestCase):
+class TestNsxvFlowClassifierDriver(object):
+    #test_flowclassifier_db.FlowClassifierDbPluginTestCaseBase,
+    #base.NeutronDbPluginV2TestCase):
 
     resource_prefix_map = dict([
         (k, flowclassifier.FLOW_CLASSIFIER_PREFIX)
@@ -45,34 +45,34 @@ class TestNsxvFlowClassifierDriver(
 
     def setUp(self):
         # init the flow classifier plugin
-        flowclassifier_plugin = (
-            test_flowclassifier_db.DB_FLOWCLASSIFIER_PLUGIN_CLASS)
+        # flowclassifier_plugin = (
+        #     test_flowclassifier_db.DB_FLOWCLASSIFIER_PLUGIN_CLASS)
 
-        service_plugins = {
-            flowclassifier.FLOW_CLASSIFIER_EXT: flowclassifier_plugin
-        }
-        fdb.FlowClassifierDbPlugin.supported_extension_aliases = [
-            flowclassifier.FLOW_CLASSIFIER_EXT]
-        fdb.FlowClassifierDbPlugin.path_prefix = (
-            flowclassifier.FLOW_CLASSIFIER_PREFIX
-        )
+        # service_plugins = {
+        #     flowclassifier.FLOW_CLASSIFIER_EXT: flowclassifier_plugin
+        # }
+        # fdb.FlowClassifierDbPlugin.supported_extension_aliases = [
+        #     flowclassifier.FLOW_CLASSIFIER_EXT]
+        # fdb.FlowClassifierDbPlugin.path_prefix = (
+        #     flowclassifier.FLOW_CLASSIFIER_PREFIX
+        # )
 
         super(TestNsxvFlowClassifierDriver, self).setUp(
             ext_mgr=None,
             plugin=None,
-            service_plugins=service_plugins
+            #service_plugins=service_plugins
         )
 
-        self.flowclassifier_plugin = importutils.import_object(
-            flowclassifier_plugin)
-        ext_mgr = api_ext.PluginAwareExtensionManager(
-            test_flowclassifier_db.extensions_path,
-            {
-                flowclassifier.FLOW_CLASSIFIER_EXT: self.flowclassifier_plugin
-            }
-        )
-        app = config.load_paste_app('extensions_test_app')
-        self.ext_api = api_ext.ExtensionMiddleware(app, ext_mgr=ext_mgr)
+        # self.flowclassifier_plugin = importutils.import_object(
+        #     flowclassifier_plugin)
+        # ext_mgr = api_ext.PluginAwareExtensionManager(
+        #     test_flowclassifier_db.extensions_path,
+        #     {
+        #         flowclassifier.FLOW_CLASSIFIER_EXT:self.flowclassifier_plugin
+        #     }
+        # )
+        #app = config.load_paste_app('extensions_test_app')
+        #self.ext_api = api_ext.ExtensionMiddleware(app, ext_mgr=ext_mgr)
         self.ctx = context.get_admin_context()
 
         # use the fake vcns
