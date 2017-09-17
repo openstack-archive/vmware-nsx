@@ -34,7 +34,11 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
 
     @property
     def core_plugin(self):
-        return directory.get_plugin()
+        if not self._core_plugin:
+            self._core_plugin = directory.get_plugin()
+            if not self._core_plugin.init_is_complete:
+                self._core_plugin.init_complete(None, None, {})
+        return self._core_plugin
 
     @property
     def edge_manager(self):
@@ -44,6 +48,7 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
         LOG.debug("Loading FWaaS NsxVDriver.")
         super(EdgeFwaasDriver, self).__init__()
         self.driver_name = FWAAS_DRIVER_NAME
+        self._core_plugin = None
 
     def should_apply_firewall_to_router(self, router_data,
                                         raise_exception=True):

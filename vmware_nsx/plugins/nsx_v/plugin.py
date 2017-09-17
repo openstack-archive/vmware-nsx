@@ -306,22 +306,27 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         qos_driver.register(self)
 
     def init_complete(self, resource, event, trigger, **kwargs):
-        has_metadata_cfg = (
-            cfg.CONF.nsxv.nova_metadata_ips
-            and cfg.CONF.nsxv.mgt_net_moid
-            and cfg.CONF.nsxv.mgt_net_proxy_ips
-            and cfg.CONF.nsxv.mgt_net_proxy_netmask)
-        if has_metadata_cfg:
-            # Init md_proxy handler per availability zone
-            self.metadata_proxy_handler = {}
-            for az in self.get_azs_list():
-                # create metadata handler only if the az supports it.
-                # if not, the global one will be used
-                if az.supports_metadata():
-                    self.metadata_proxy_handler[az.name] = (
-                        nsx_v_md_proxy.NsxVMetadataProxyHandler(self, az))
+        with locking.LockManager.get_lock('plugin-init-complete'):
+            if self.init_is_complete:
+                # Should be called only once per worker
+                return
+            has_metadata_cfg = (
+                cfg.CONF.nsxv.nova_metadata_ips
+                and cfg.CONF.nsxv.mgt_net_moid
+                and cfg.CONF.nsxv.mgt_net_proxy_ips
+                and cfg.CONF.nsxv.mgt_net_proxy_netmask)
+            if has_metadata_cfg:
+                # Init md_proxy handler per availability zone
+                self.metadata_proxy_handler = {}
+                for az in self.get_azs_list():
+                    # create metadata handler only if the az supports it.
+                    # if not, the global one will be used
+                    if az.supports_metadata():
+                        self.metadata_proxy_handler[az.name] = (
+                            nsx_v_md_proxy.NsxVMetadataProxyHandler(
+                                self, az))
 
-        self.init_is_complete = True
+            self.init_is_complete = True
 
     def _validate_nsx_version(self):
         ver = self.nsx_v.vcns.get_version()
