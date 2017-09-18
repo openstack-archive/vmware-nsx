@@ -870,6 +870,15 @@ def add_nsxv_port_ext_attributes(session, port_id,
     return binding
 
 
+def get_nsxv_ext_attr_port_vnic_type(session, port_id):
+    try:
+        binding = session.query(nsxv_models.NsxvPortExtAttributes).filter_by(
+            port_id=port_id).one()
+        return binding['vnic_type']
+    except exc.NoResultFound:
+        return pbin.VNIC_NORMAL
+
+
 def update_nsxv_port_ext_attributes(session, port_id,
                                     vnic_type=pbin.VNIC_NORMAL):
     try:
