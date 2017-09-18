@@ -1382,7 +1382,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def create_subnet(self, context, subnet):
         self._validate_address_space(subnet['subnet'])
-
         # TODO(berlin): public external subnet announcement
         if (cfg.CONF.nsx_v3.native_dhcp_metadata and
             subnet['subnet'].get('enable_dhcp', False)):
@@ -1399,8 +1398,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                             NsxV3Plugin, self).create_subnet(context, subnet)
                         self._extension_manager.process_create_subnet(context,
                             subnet['subnet'], created_subnet)
-                        self._enable_native_dhcp(context, network,
-                                                 created_subnet)
+                        dhcp_relay = self.get_network_az_by_net_id(
+                            context,
+                            subnet['subnet']['network_id']).dhcp_relay_service
+                        if not dhcp_relay:
+                            self._enable_native_dhcp(context, network,
+                                                     created_subnet)
                         msg = None
                     else:
                         msg = (_("Can not create more than one DHCP-enabled "
@@ -1849,6 +1852,52 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             LOG.warning(err_msg)
             raise n_exc.InvalidInput(error_message=err_msg)
 
+    def _assert_on_dhcp_relay_without_router(self, context, port_data,
+                                             original_port=None):
+        # Prevent creating/updating port with device owner prefix 'compute'
+        # on a subnet with dhcp relay but no router.
+        if not original_port:
+            original_port = port_data
+        device_owner = port_data.get('device_owner')
+        if (device_owner is None or
+            not device_owner.startswith(const.DEVICE_OWNER_COMPUTE_PREFIX)):
+            # not a compute port
+            return
+
+        if not self.get_network_az_by_net_id(
+            context,
+            original_port['network_id']).dhcp_relay_service:
+            # No dhcp relay for the net of this port
+            return
+
+        # get the subnet id from the fixed ips of the port
+        if 'fixed_ips' in port_data and port_data['fixed_ips']:
+            subnet_id = port_data['fixed_ips'][0]['subnet_id']
+        elif 'fixed_ips' in original_port and original_port['fixed_ips']:
+            subnet_id = original_port['fixed_ips'][0]['subnet_id']
+        else:
+            return
+
+        # check only dhcp enabled subnets
+        subnet = self.get_subnet(context.elevated(), subnet_id)
+        if not subnet['enable_dhcp']:
+            return
+
+        # check if the subnet is attached to a router
+        port_filters = {'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF],
+                        'network_id': [original_port['network_id']]}
+        interfaces = self.get_ports(context.elevated(), filters=port_filters)
+        router_found = False
+        for interface in interfaces:
+            if interface['fixed_ips'][0]['subnet_id'] == subnet_id:
+                router_found = True
+                break
+        if not router_found:
+            err_msg = _("Neutron is configured with DHCP_Relay but no router "
+                        "connected to the subnet")
+            LOG.warning(err_msg)
+            raise n_exc.InvalidInput(error_message=err_msg)
+
     def _cleanup_port(self, context, port_id, lport_id):
         super(NsxV3Plugin, self).delete_port(context, port_id)
         if lport_id:
@@ -2220,6 +2269,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._validate_extra_dhcp_options(dhcp_opts)
         self._validate_max_ips_per_port(port_data.get('fixed_ips', []),
                                         port_data.get('device_owner'))
+        self._assert_on_dhcp_relay_without_router(context, port_data)
 
         # TODO(salv-orlando): Undo logical switch creation on failure
         with db_api.context_manager.writer.using(context):
@@ -2662,6 +2712,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if is_external_net:
                 self._assert_on_external_net_with_compute(port_data)
                 self._assert_on_external_net_port_with_qos(port_data)
+            self._assert_on_dhcp_relay_without_router(context, port_data,
+                                                      original_port)
 
             dhcp_opts = port_data.get(ext_edo.EXTRADHCPOPTS)
             self._validate_extra_dhcp_options(dhcp_opts)
@@ -3001,9 +3053,18 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             LOG.warning(err_msg)
             raise n_exc.InvalidInput(error_message=err_msg)
 
+    def validate_router_dhcp_relay(self, context):
+        """Fail router creation dhcp relay is configured without IPAM"""
+        if (self._availability_zones_data.dhcp_relay_configured() and
+            cfg.CONF.ipam_driver == 'internal'):
+            err_msg = _("Neutron is configured with DHCP_Relay but no IPAM "
+                        "plugin configured.")
+            LOG.warning(err_msg)
+            raise n_exc.InvalidInput(error_message=err_msg)
+
     def create_router(self, context, router):
         r = router['router']
-
+        self.validate_router_dhcp_relay(context)
         gw_info = self._extract_external_gw(context, router, is_extract=True)
         r['id'] = (r.get('id') or uuidutils.generate_uuid())
         tags = self.nsxlib.build_v3_tags_payload(
@@ -3322,7 +3383,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 port, resource_type='os-neutron-rport-id',
                 project_name=context.tenant_name)
             tags.append({'scope': 'os-subnet-id', 'tag': subnet['id']})
-            net_az = self.get_network_az_by_net_id(context, network_id)
+
+            # Add the dhcp relay service to the NSX interface
+            relay_service = None
+            if subnet['enable_dhcp']:
+                net_az = self.get_network_az_by_net_id(context, network_id)
+                relay_service = net_az.dhcp_relay_service
+
             self._routerlib.create_logical_router_intf_port_by_ls_id(
                 logical_router_id=nsx_router_id,
                 display_name=display_name,
@@ -3330,7 +3397,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 ls_id=nsx_net_id,
                 logical_switch_port_id=nsx_port_id,
                 address_groups=address_groups,
-                relay_service_uuid=net_az.dhcp_relay_service)
+                relay_service_uuid=relay_service)
 
             if router_db.gw_port and not router_db.enable_snat:
                 # TODO(berlin): Announce the subnet on tier0 if enable_snat

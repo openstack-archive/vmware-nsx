@@ -201,3 +201,9 @@ class NsxV3AvailabilityZones(common_az.ConfiguredAvailabilityZones):
         super(NsxV3AvailabilityZones, self).__init__(
             cfg.CONF.nsx_v3.availability_zones,
             NsxV3AvailabilityZone)
+
+    def dhcp_relay_configured(self):
+        for az in self.availability_zones.values():
+            if az.dhcp_relay_service:
+                return True
+        return False
