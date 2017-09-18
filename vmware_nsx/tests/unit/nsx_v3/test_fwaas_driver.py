@@ -19,6 +19,7 @@ import mock
 from vmware_nsxlib.v3 import nsx_constants as consts
 
 from vmware_nsx.services.fwaas.nsx_v3 import edge_fwaas_driver
+from vmware_nsx.services.fwaas.nsx_v3 import edge_fwaas_driver_base
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_v3_plugin
 
 FAKE_FW_ID = 'fake_fw_uuid'
@@ -27,7 +28,7 @@ MOCK_NSX_ID = 'nsx_router_id'
 MOCK_DEFAULT_RULE_ID = 'nsx_default_rule_id'
 MOCK_SECTION_ID = 'sec_id'
 DEFAULT_RULE = {'is_default': True,
-                'display_name': edge_fwaas_driver.DEFAULT_RULE_NAME,
+                'display_name': edge_fwaas_driver_base.DEFAULT_RULE_NAME,
                 'id': MOCK_DEFAULT_RULE_ID,
                 'action': consts.FW_ACTION_DROP}
 
