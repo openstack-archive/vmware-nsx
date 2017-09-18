@@ -93,31 +93,40 @@ class EdgeLoadBalancerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                  'total_connections': 0}
 
         service_client = self.core_plugin.nsxlib.load_balancer.service
-        for listener in lb.listeners:
-            lb_binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
-                context.session, lb.id)
-            vs_binding = nsx_db.get_nsx_lbaas_listener_binding(
-                context.session, lb.id, listener.id)
-            if lb_binding and vs_binding:
-                lb_service_id = lb_binding.get('lb_service_id')
-                vs_id = vs_binding.get('lb_vs_id')
-                try:
-                    rsp = service_client.get_stats(lb_service_id)
-                    if rsp:
-
-                        vs_stats = rsp['virtual_servers'][vs_id]['statistics']
+        lb_binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
+            context.session, lb.id)
+        vs_list = self._get_lb_virtual_servers(context, lb)
+        if lb_binding:
+            lb_service_id = lb_binding.get('lb_service_id')
+            try:
+                rsp = service_client.get_stats(lb_service_id)
+                if rsp:
+                    for vs in rsp['virtual_servers']:
+                        # Skip the virtual server that doesn't belong
+                        # to this loadbalancer
+                        if vs['virtual_server_id'] not in vs_list:
+                            continue
+                        vs_stats = vs['statistics']
                         for stat in lb_const.LB_STATS_MAP:
                             lb_stat = lb_const.LB_STATS_MAP[stat]
-                            if lb_stat in vs_stats:
-                                stats[stat] += stats[stat] + vs_stats[lb_stat]
+                            stats[stat] += vs_stats[lb_stat]
 
-                except nsxlib_exc.ManagerError:
-                    msg = _('Failed to retrieve stats from LB service '
-                            'for loadbalancer %(lb)s') % {'lb': lb.id}
-                    raise n_exc.BadRequest(resource='lbaas-lb', msg=msg)
+            except nsxlib_exc.ManagerError:
+                msg = _('Failed to retrieve stats from LB service '
+                        'for loadbalancer %(lb)s') % {'lb': lb.id}
+                raise n_exc.BadRequest(resource='lbaas-lb', msg=msg)
         return stats
 
-    @log_helpers.log_method_call
+    def _get_lb_virtual_servers(self, context, lb):
+        # Get all virtual servers that belong to this loadbalancer
+        vs_list = []
+        for listener in lb.listeners:
+            vs_binding = nsx_db.get_nsx_lbaas_listener_binding(
+                context.session, lb.id, listener.id)
+            if vs_binding:
+                vs_list.append(vs_binding.get('lb_vs_id'))
+        return vs_list
+
     def _handle_subnet_gw_change(self, *args, **kwargs):
         # As the Edge appliance doesn't use DHCP, we should change the
         # default gateway here when the subnet GW changes.
