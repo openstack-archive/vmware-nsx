@@ -46,7 +46,7 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
         else:
             msg = (_('Cannot get floating ip %(fip)s provided from '
                      'neutron db') % {'fip': fip})
-            raise nsx_exc.BadRequest(resource='lbaas-vip', msg=msg)
+            raise n_exc.BadRequest(resource='lbaas-vip', msg=msg)
 
     @log_helpers.log_method_call
     def _create_lb_service(self, context, service_client, tenant_id,
