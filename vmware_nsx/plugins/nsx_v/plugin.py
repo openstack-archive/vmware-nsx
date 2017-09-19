@@ -2944,6 +2944,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._update_router_gw_info(
                     context, lrouter['id'], gw_info)
         except Exception:
+            LOG.exception("Failed to create router %s", router)
             with excutils.save_and_reraise_exception():
                 self.delete_router(context, lrouter['id'])
 
