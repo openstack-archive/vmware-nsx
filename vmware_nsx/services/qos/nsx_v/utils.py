@@ -14,7 +14,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.common import constants as n_consts
+from neutron_lib import constants as n_consts
 from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
 from neutron_lib.services.qos import constants as qos_consts
