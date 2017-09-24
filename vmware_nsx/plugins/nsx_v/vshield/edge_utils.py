@@ -868,8 +868,9 @@ class EdgeManager(object):
         if self.plugin.metadata_proxy_handler:
             metadata_proxy_handler = self.plugin.get_metadata_proxy_handler(
                 az_name)
-            metadata_proxy_handler.cleanup_router_edge(context, router_id,
-                                                       warn=True)
+            if metadata_proxy_handler:
+                metadata_proxy_handler.cleanup_router_edge(context, router_id,
+                                                           warn=True)
 
         self._free_edge_appliance(context, router_id)
 
