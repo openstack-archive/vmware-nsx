@@ -656,23 +656,18 @@ class TestEdgeLbaasV2L7Rule(BaseTestEdgeLbaasV2):
     def test_delete_pool_without_members(self):
         with mock.patch.object(nsx_db, 'get_nsx_lbaas_l7rule_binding',
                                ) as mock_get_l7rule_binding, \
+            mock.patch.object(self.vs_client, 'remove_rule'
+                              ) as mock_remove_rule, \
             mock.patch.object(self.rule_client, 'delete',
                               ) as mock_delete_rule, \
-            mock.patch.object(self.vs_client, 'get',
-                              ) as mock_get_vs, \
-            mock.patch.object(self.vs_client, 'update',
-                              ) as mock_update_vs, \
             mock.patch.object(nsx_db, 'delete_nsx_lbaas_l7rule_binding',
                               ) as mock_delete_l7rule_binding:
             mock_get_l7rule_binding.return_value = L7RULE_BINDING
-            mock_get_vs.return_value = {'id': LB_VS_ID,
-                                        'rule_ids': [LB_RULE_ID]}
 
             self.edge_driver.l7rule.delete(self.context, self.l7rule)
 
+            mock_remove_rule.assert_called_with(LB_VS_ID, LB_RULE_ID)
             mock_delete_rule.assert_called_with(LB_RULE_ID)
-            mock_update_vs.assert_called_with(LB_VS_ID, {'id': LB_VS_ID,
-                                                         'rule_ids': []})
             mock_delete_l7rule_binding.assert_called_with(
                 self.context.session, LB_ID, L7POLICY_ID, L7RULE_ID)
 
