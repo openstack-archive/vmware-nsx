@@ -334,7 +334,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if az_name in self.metadata_proxy_handler:
             return self.metadata_proxy_handler[az_name]
         # fallback to the global handler
-        return self.metadata_proxy_handler[nsx_az.DEFAULT_NAME]
+        # Note(asarfaty): in case this is called during init_complete the
+        # default availability zone may still not exist.
+        return self.metadata_proxy_handler.get(nsx_az.DEFAULT_NAME)
 
     def add_vms_to_service_insertion(self, sg_id):
         def _add_vms_to_service_insertion(*args, **kwargs):
@@ -1277,7 +1279,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         rtr_id = rtr_binding['router_id']
                         az_name = rtr_binding['availability_zone']
                         md_proxy = self.get_metadata_proxy_handler(az_name)
-                        md_proxy.cleanup_router_edge(context, rtr_id)
+                        if md_proxy:
+                            md_proxy.cleanup_router_edge(context, rtr_id)
                 else:
                     self.edge_manager.reconfigure_shared_edge_metadata_port(
                         context, (vcns_const.DHCP_EDGE_PREFIX + net_id)[:36])
@@ -2548,7 +2551,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     LOG.debug('Update metadata for resource %s az=%s',
                               resource_id, az_name)
                     md_proxy = self.get_metadata_proxy_handler(az_name)
-                    md_proxy.configure_router_edge(context, resource_id)
+                    if md_proxy:
+                        md_proxy.configure_router_edge(context, resource_id)
 
                 self.setup_dhcp_edge_fw_rules(context, self,
                                               resource_id)

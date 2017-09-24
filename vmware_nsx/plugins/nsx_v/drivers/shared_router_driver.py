@@ -595,7 +595,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             if self.plugin.metadata_proxy_handler and new:
                 md_proxy_handler = self.plugin.get_metadata_proxy_handler(
                     az.name)
-                md_proxy_handler.configure_router_edge(context, router_id)
+                if md_proxy_handler:
+                    md_proxy_handler.configure_router_edge(context, router_id)
             edge_id = edge_utils.get_router_edge_id(context, router_id)
             with locking.LockManager.get_lock(str(edge_id)):
                 # add all internal interfaces of the router on edge
@@ -625,7 +626,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         if self.plugin.metadata_proxy_handler:
             metadata_proxy_handler = self.plugin.get_metadata_proxy_handler(
                 az.name)
-            metadata_proxy_handler.cleanup_router_edge(context, router_id)
+            if metadata_proxy_handler:
+                metadata_proxy_handler.cleanup_router_edge(context, router_id)
 
     def _add_router_services_on_available_edge(self, context, router_id):
         router_ids = self.edge_manager.get_routers_on_same_edge(
