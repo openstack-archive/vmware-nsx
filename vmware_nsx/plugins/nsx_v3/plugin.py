@@ -3371,7 +3371,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _validate_multiple_subnets_routers(self, context, router_id, net_id):
         network = self.get_network(context, net_id)
         net_type = network.get(pnet.NETWORK_TYPE)
-        if (net_type and not self._is_overlay_network(context, net_id)):
+        if (net_type and
+            not self.nsxlib.feature_supported(
+                nsxlib_consts.FEATURE_VLAN_ROUTER_INTERFACE) and
+            not self._is_overlay_network(context, net_id)):
             err_msg = (_("Only overlay networks can be attached to a logical "
                          "router. Network %(net_id)s is a %(net_type)s based "
                          "network") % {'net_id': net_id, 'net_type': net_type})
