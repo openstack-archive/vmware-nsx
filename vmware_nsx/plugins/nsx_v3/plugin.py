@@ -949,12 +949,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         nsx_net_id)
 
             rollback_network = True
+            is_overlay_network = self._is_overlay_network(
+                context, created_net['id'])
             if (is_backend_network and
                 cfg.CONF.nsx_v3.native_dhcp_metadata and
-                self._is_overlay_network(context, created_net['id'])):
+                is_overlay_network):
                 # Enable native metadata proxy for this network.
                 tags = self.nsxlib.build_v3_tags_payload(
-                    net_data, resource_type='os-neutron-net-id',
+                    created_net, resource_type='os-neutron-net-id',
                     project_name=context.tenant_name)
                 name = utils.get_name_and_uuid('%s-%s' % (
                     'mdproxy', created_net['name'] or 'network'),
@@ -966,13 +968,19 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 LOG.debug("Created MD-Proxy logical port %(port)s "
                           "for network %(network)s",
                           {'port': md_port['id'],
-                           'network': net_data['id']})
+                           'network': created_net['id']})
         except Exception:
             with excutils.save_and_reraise_exception():
                 # Undo creation on the backend
                 LOG.exception('Failed to create network')
-                if nsx_net_id:
+                if (nsx_net_id and
+                    net_type != utils.NsxV3NetworkTypes.NSX_NETWORK):
                     self.nsxlib.logical_switch.delete(nsx_net_id)
+                if (cfg.CONF.nsx_v3.native_dhcp_metadata and
+                    is_backend_network and is_overlay_network):
+                    # Delete the mdproxy port manually
+                    self._delete_network_nsx_dhcp_port(created_net['id'])
+
                 if rollback_network:
                     super(NsxV3Plugin, self).delete_network(
                         context, created_net['id'])
@@ -1032,6 +1040,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     # we have nothing else to do but raise the exception.
                     raise
 
+    def _delete_network_nsx_dhcp_port(self, network_id):
+        port_id = self.nsxlib.get_id_by_resource_and_tag(
+            self.nsxlib.logical_port.resource_type,
+            'os-neutron-net-id', network_id)
+        if port_id:
+            self.nsxlib.logical_port.delete(port_id)
+
     def delete_network(self, context, network_id):
         if cfg.CONF.nsx_v3.native_dhcp_metadata:
             lock = 'nsxv3_network_' + network_id
@@ -1057,11 +1072,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if (cfg.CONF.nsx_v3.native_dhcp_metadata and is_nsx_net and
                 is_overlay_network):
                 # Delete the mdproxy port manually
-                port_id = self.nsxlib.get_id_by_resource_and_tag(
-                    self.nsxlib.logical_port.resource_type,
-                    'os-neutron-net-id', network_id)
-                if port_id:
-                    self.nsxlib.logical_port.delete(port_id)
+                self._delete_network_nsx_dhcp_port(network_id)
             # TODO(berlin): delete subnets public announce on the network
 
     def _get_network_nsx_id(self, context, neutron_id):
@@ -3360,7 +3371,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _validate_multiple_subnets_routers(self, context, router_id, net_id):
         network = self.get_network(context, net_id)
         net_type = network.get(pnet.NETWORK_TYPE)
-        if (net_type and net_type != utils.NsxV3NetworkTypes.GENEVE):
+        if (net_type and not self._is_overlay_network(context, net_id)):
             err_msg = (_("Only overlay networks can be attached to a logical "
                          "router. Network %(net_id)s is a %(net_type)s based "
                          "network") % {'net_id': net_id, 'net_type': net_type})
