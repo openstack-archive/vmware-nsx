@@ -1548,7 +1548,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._validate_network_qos(net_attrs, backend_network)
 
         # PortSecurity validation checks
-        # TODO(roeyc): enacapsulate validation in a method
+        # TODO(roeyc): encapsulate validation in a method
         psec_update = (psec.PORTSECURITY in net_attrs and
                        orig_net[psec.PORTSECURITY] !=
                        net_attrs[psec.PORTSECURITY])
@@ -1556,7 +1556,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             LOG.warning("Disabling port-security on network %s would "
                         "require instance in the network to have VM tools "
                         "installed in order for security-groups to "
-                        "function properly.")
+                        "function properly.", id)
 
         # Check if the physical network of a vlan provider network was updated
         updated_morefs = False
