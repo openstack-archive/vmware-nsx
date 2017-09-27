@@ -165,7 +165,6 @@ class NsxVMetadataProxyHandler(object):
             return int_net['network_id']
 
     def _get_internal_network_and_subnet(self, context):
-
         # Try to find internal net, internal subnet. If not found, create new
         internal_net = self._get_internal_net_by_az(context)
         internal_subnet = None
@@ -194,9 +193,10 @@ class NsxVMetadataProxyHandler(object):
                         self.nsxv_plugin.delete_network(context,
                                                         internal_net)
 
-                    LOG.exception("Exception %s while creating internal "
-                                  "network for metadata service", e)
-                    return
+                    error = (_("Exception %s while creating internal "
+                               "network for metadata service") % e)
+                    LOG.exception(error)
+                    raise nsxv_exc.NsxPluginException(err_msg=error)
 
                 # Update the new network_id in DB
                 nsxv_db.create_nsxv_internal_network(
