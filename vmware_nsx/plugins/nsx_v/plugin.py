@@ -3322,7 +3322,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             subnets = self._find_router_subnets(context.elevated(),
                                                 router['id'])
             for subnet in subnets:
-
+                # Do not build NAT rules for v6
+                if subnet.get('ip_version') == 6:
+                    continue
                 # if the subnets address scope is the same as the gateways:
                 # no need for SNAT
                 gw_address_scope = self._get_network_address_scope(
