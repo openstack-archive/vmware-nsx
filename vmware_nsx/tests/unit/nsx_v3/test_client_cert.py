@@ -14,17 +14,18 @@
 # limitations under the License.
 
 import os
-import unittest
 
 import mock
 from oslo_config import cfg
+
+from neutron.tests.unit import testlib_api
 
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.plugins.nsx_v3 import cert_utils
 from vmware_nsx.plugins.nsx_v3 import utils
 
 
-class NsxV3ClientCertProviderTestCase(unittest.TestCase):
+class NsxV3ClientCertProviderTestCase(testlib_api.SqlTestCase):
 
     CERT = "-----BEGIN CERTIFICATE-----\n" \
         "MIIDJTCCAg0CBFh36j0wDQYJKoZIhvcNAQELBQAwVzELMAkGA1UEBhMCVVMxEzAR\n" \
@@ -153,7 +154,7 @@ class NsxV3ClientCertProviderTestCase(unittest.TestCase):
         secret = cert_utils.generate_secret_from_password(password)
         encrypted_pkey = cert_utils.symmetric_encrypt(secret, self.PKEY)
 
-        # db should countain encrypted key
+        # db should contain encrypted key
         mock.patch(
             "vmware_nsx.db.db.get_certificate",
             return_value=(self.CERT, encrypted_pkey)).start()
