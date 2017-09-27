@@ -85,7 +85,8 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
             az = self.get_router_az_by_id(context, router_id)
             metadata_proxy_handler = self.plugin.get_metadata_proxy_handler(
                 az.name)
-            metadata_proxy_handler.cleanup_router_edge(context, router_id)
+            if metadata_proxy_handler:
+                metadata_proxy_handler.cleanup_router_edge(context, router_id)
 
     def _build_router_data_from_db(self, router_db, router):
         """Return a new dictionary with all DB & requested router attributes
@@ -142,7 +143,8 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
             edge_id, az_name = self.plugin._get_edge_id_and_az_by_rtr_id(
                 context, router_id)
             md_proxy = self.plugin.get_metadata_proxy_handler(az_name)
-            md_proxy.cleanup_router_edge(context, router_id)
+            if md_proxy:
+                md_proxy.cleanup_router_edge(context, router_id)
         self.edge_manager.delete_lrouter(context, router_id, dist=False)
 
     def update_routes(self, context, router_id, nexthop):
