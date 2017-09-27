@@ -63,7 +63,7 @@ class DbCertificateStorageDriver(object):
                     cfg.CONF.nsx_v3.nsx_client_cert_pk_password)
 
     def store_cert(self, purpose, certificate, private_key):
-        # ecrypt private key
+        # encrypt private key
         if _SECRET:
             private_key = symmetric_encrypt(_SECRET, private_key)
 

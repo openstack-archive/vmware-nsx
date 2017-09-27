@@ -63,31 +63,31 @@ class DbCertProvider(client_cert.ClientCertProvider):
                         expires_in_days)
 
     def __enter__(self):
-            try:
-                context = q_context.get_admin_context()
-                db_storage_driver = cert_utils.DbCertificateStorageDriver(
-                    context)
-                with client_cert.ClientCertificateManager(
-                    cert_utils.NSX_OPENSTACK_IDENTITY,
-                    None,
-                    db_storage_driver) as cert_manager:
-                    if not cert_manager.exists():
-                        msg = _("Unable to load from nsx-db")
-                        raise nsx_exc.ClientCertificateException(err_msg=msg)
+        try:
+            context = q_context.get_admin_context()
+            db_storage_driver = cert_utils.DbCertificateStorageDriver(
+                context)
+            with client_cert.ClientCertificateManager(
+                cert_utils.NSX_OPENSTACK_IDENTITY,
+                None,
+                db_storage_driver) as cert_manager:
+                if not cert_manager.exists():
+                    msg = _("Unable to load from nsx-db")
+                    raise nsx_exc.ClientCertificateException(err_msg=msg)
 
-                    filename = self._filename
-                    if not os.path.exists(os.path.dirname(filename)):
-                        if len(os.path.dirname(filename)) > 0:
-                            os.makedirs(os.path.dirname(filename))
-                    cert_manager.export_pem(filename)
+                filename = self._filename
+                if not os.path.exists(os.path.dirname(filename)):
+                    if len(os.path.dirname(filename)) > 0:
+                        os.makedirs(os.path.dirname(filename))
+                cert_manager.export_pem(filename)
 
-                    expires_in_days = cert_manager.expires_in_days()
-                    self._check_expiration(expires_in_days)
-            except Exception as e:
-                self._on_exit()
-                raise e
+                expires_in_days = cert_manager.expires_in_days()
+                self._check_expiration(expires_in_days)
+        except Exception as e:
+            self._on_exit()
+            raise e
 
-            return self
+        return self
 
     def _on_exit(self):
         if os.path.isfile(self._filename):
