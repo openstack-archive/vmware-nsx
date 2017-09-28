@@ -2607,17 +2607,29 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             return conflict_network_ids
 
     def _get_conflicting_networks_for_subnet(self, context, subnet):
-        network_id = subnet['network_id']
+        """Return a list if networks IDs conflicting with requested subnet
+
+        The requested subnet cannot be placed on the same DHCP edge as the
+        conflicting networks.
+        A network will be conflicting with the current subnet if:
+        1. overlapping ips
+        2. provider networks with different physical network
+        3. flat provider network with any other flat network
+        4. if not share_edges_between_tenants: networks of different tenants
+
+        """
+        subnet_net = subnet['network_id']
+        subnet_tenant = subnet['tenant_id']
         # The DHCP for network with different physical network can not be used
         # The flat network should be located in different DHCP
         conflicting_networks = []
-        network_ids = self.get_networks(context.elevated(),
-                                        fields=['id'])
-        phy_net = nsxv_db.get_network_bindings(context.session, network_id)
+        all_networks = self.get_networks(context.elevated(),
+                                         fields=['id', 'tenant_id'])
+        phy_net = nsxv_db.get_network_bindings(context.session, subnet_net)
         if phy_net:
             binding_type = phy_net[0]['binding_type']
             phy_uuid = phy_net[0]['phy_uuid']
-            for net_id in network_ids:
+            for net_id in all_networks:
                 p_net = nsxv_db.get_network_bindings(context.session,
                                                     net_id['id'])
                 if (p_net and binding_type == p_net[0]['binding_type']
@@ -2625,15 +2637,23 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     conflicting_networks.append(net_id['id'])
                 elif (p_net and phy_uuid != p_net[0]['phy_uuid']):
                     conflicting_networks.append(net_id['id'])
+
+        # get conflicting networks of other tenants
+        if not cfg.CONF.nsxv.share_edges_between_tenants:
+            for another_net in all_networks:
+                if (another_net['id'] != subnet_net and
+                    another_net['tenant_id'] != subnet_tenant):
+                    conflicting_networks.append(another_net['id'])
+
         # get all of the subnets on the network, there may be more than one
-        filters = {'network_id': [network_id]}
+        filters = {'network_id': [subnet_net]}
         subnets = super(NsxVPluginV2, self).get_subnets(context.elevated(),
                                                         filters=filters)
         # Query all networks with overlap subnet
         if cfg.CONF.allow_overlapping_ips:
             conflicting_networks.extend(
                 self._get_conflict_network_ids_by_overlapping(
-                    context, subnets))
+                    context.elevated(), subnets))
 
         conflicting_networks = list(set(conflicting_networks))
         return conflicting_networks

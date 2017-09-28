@@ -1866,6 +1866,50 @@ class TestSubnetsV2(NsxVPluginV2TestCase,
                     self.context.session, router_id)['edge_id']
                 self.assertNotEqual(dhcp_server_id, dhcp_server_id_1)
 
+    def test_create_subnets_with_different_tenants_non_shared(self):
+        cfg.CONF.set_override('share_edges_between_tenants', False,
+                              group="nsxv")
+        self.mock_create_dhcp_service.stop()
+        # create 2 networks with different tenants
+        with self.network(name='net1', tenant_id='fake1') as net1,\
+            self.network(name='net2', tenant_id='fake2') as net2:
+            # create 2 non-overlapping subnets
+            self._test_create_subnet(network=net1, cidr='10.0.0.0/24')
+            router_id1 = (vcns_const.DHCP_EDGE_PREFIX +
+                          net1['network']['id'])[:36]
+            edge1 = nsxv_db.get_nsxv_router_binding(
+                self.context.session, router_id1)['edge_id']
+
+            self._test_create_subnet(network=net2, cidr='20.0.0.0/24')
+            router_id2 = (vcns_const.DHCP_EDGE_PREFIX +
+                          net2['network']['id'])[:36]
+            edge2 = nsxv_db.get_nsxv_router_binding(
+                self.context.session, router_id2)['edge_id']
+            # make sure we have 2 separate dhcp edges
+            self.assertNotEqual(edge1, edge2)
+
+    def test_create_subnets_with_different_tenants_shared(self):
+        cfg.CONF.set_override('share_edges_between_tenants', True,
+                              group="nsxv")
+        self.mock_create_dhcp_service.stop()
+        # create 2 networks with different tenants
+        with self.network(name='net1', tenant_id='fake1') as net1,\
+            self.network(name='net2', tenant_id='fake2') as net2:
+            # create 2 non-overlapping subnets
+            self._test_create_subnet(network=net1, cidr='10.0.0.0/24')
+            router_id1 = (vcns_const.DHCP_EDGE_PREFIX +
+                          net1['network']['id'])[:36]
+            edge1 = nsxv_db.get_nsxv_router_binding(
+                self.context.session, router_id1)['edge_id']
+
+            self._test_create_subnet(network=net2, cidr='20.0.0.0/24')
+            router_id2 = (vcns_const.DHCP_EDGE_PREFIX +
+                          net2['network']['id'])[:36]
+            edge2 = nsxv_db.get_nsxv_router_binding(
+                self.context.session, router_id2)['edge_id']
+            # make sure we have both networks on the same dhcp edges
+            self.assertEqual(edge1, edge2)
+
     def test_create_subnet_ipv6_slaac_with_db_reference_error(self):
         self.skipTest('Currently not supported')
 
@@ -5426,6 +5470,29 @@ class TestSharedRouterTestCase(L3NatTest, L3NatTestCaseBase,
             self._add_external_gateway_to_router(
                 r2['router']['id'],
                 ext2['network']['id'])
+            router_driver = (self.plugin_instance._router_managers.
+                             get_tenant_router_driver(context, 'shared'))
+            available_router_ids, conflict_router_ids = (
+                router_driver._get_available_and_conflicting_ids(
+                    context.get_admin_context(), r1['router']['id']))
+            self.assertIn(r2['router']['id'], conflict_router_ids)
+            self.assertEqual(0, len(available_router_ids))
+
+    def test_get_available_and_conflicting_ids_with_tenants(self):
+        cfg.CONF.set_override('share_edges_between_tenants', False,
+                              group="nsxv")
+        with self.router(tenant_id='fake1') as r1,\
+            self.router(tenant_id='fake2') as r2,\
+            self.subnet(cidr='11.0.0.0/24') as s1,\
+            self.subnet(cidr='12.0.0.0/24') as s2:
+            self._router_interface_action('add',
+                                          r1['router']['id'],
+                                          s1['subnet']['id'],
+                                          None)
+            self._router_interface_action('add',
+                                          r2['router']['id'],
+                                          s2['subnet']['id'],
+                                          None)
             router_driver = (self.plugin_instance._router_managers.
                              get_tenant_router_driver(context, 'shared'))
             available_router_ids, conflict_router_ids = (

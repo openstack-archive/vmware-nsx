@@ -202,7 +202,7 @@ def recreate_network_dhcp(context, plugin, edge_manager, old_edge_id, net_id):
 
 @admin_utils.output_header
 def nsx_recreate_dhcp_edge(resource, event, trigger, **kwargs):
-    """Recreate a dhcp edge with all the networks n a new NSXv edge"""
+    """Recreate a dhcp edge with all the networks on a new NSXv edge"""
     usage_msg = ("Need to specify edge-id or net-id parameter")
     if not kwargs.get('property'):
         LOG.error(usage_msg)
@@ -250,7 +250,6 @@ def nsx_recreate_dhcp_edge(resource, event, trigger, **kwargs):
         # Delete the old edge
         delete_old_dhcp_edge(context, old_edge_id, bindings)
 
-        # This is a regular DHCP edge:
         # Move all the networks to other (new or existing) edge
         for net_id in network_ids:
             recreate_network_dhcp(context, plugin, edge_manager,
@@ -305,6 +304,47 @@ def nsx_recreate_dhcp_edge_by_net_id(net_id):
                               None, net_id)
 
 
+@admin_utils.output_header
+def nsx_redistribute_dhcp_edges(resource, event, trigger, **kwargs):
+    """If any of the DHCP networks are on a conflicting edge move them"""
+    context = n_context.get_admin_context()
+    with utils.NsxVPluginWrapper() as plugin:
+        nsxv_manager = vcns_driver.VcnsDriver(
+                           edge_utils.NsxVCallbacks(plugin))
+        edge_manager = edge_utils.EdgeManager(nsxv_manager, plugin)
+        # go over all DHCP subnets
+        networks = plugin.get_networks(context)
+        for network in networks:
+            network_id = network['id']
+            # Check if the network has a related DHCP edge
+            resource_id = (nsxv_constants.DHCP_EDGE_PREFIX + network_id)[:36]
+            dhcp_edge_binding = nsxv_db.get_nsxv_router_binding(
+                context.session, resource_id)
+            if not dhcp_edge_binding:
+                continue
+            LOG.info("Checking network %s", network_id)
+            edge_id = dhcp_edge_binding['edge_id']
+            availability_zone = plugin.get_network_az_by_net_id(
+                context, network['id'])
+            filters = {'network_id': [network_id], 'enable_dhcp': [True]}
+            subnets = plugin.get_subnets(context, filters=filters)
+            for subnet in subnets:
+                (conflict_edge_ids,
+                 available_edge_ids) = edge_manager._get_used_edges(
+                    context, subnet, availability_zone)
+                if edge_id in conflict_edge_ids:
+                    # move the DHCP to another edge
+                    LOG.info("Network %(net)s on DHCP edge %(edge)s is "
+                             "conflicting with another network and will be "
+                             "moved",
+                             {'net': network_id, 'edge': edge_id})
+                    edge_manager.remove_network_from_dhcp_edge(
+                        context, network_id, edge_id)
+                    edge_manager.create_dhcp_edge_service(
+                        context, network_id, subnet)
+                    break
+
+
 registry.subscribe(list_missing_dhcp_bindings,
                    constants.DHCP_BINDING,
                    shell.Operations.LIST.value)
@@ -314,3 +354,6 @@ registry.subscribe(nsx_update_dhcp_edge_binding,
 registry.subscribe(nsx_recreate_dhcp_edge,
                    constants.DHCP_BINDING,
                    shell.Operations.NSX_RECREATE.value)
+registry.subscribe(nsx_redistribute_dhcp_edges,
+                   constants.DHCP_BINDING,
+                   shell.Operations.NSX_REDISTRIBURE.value)

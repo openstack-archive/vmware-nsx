@@ -52,6 +52,7 @@ class Operations(enum.Enum):
     NSX_UPDATE_DHCP_RELAY = 'nsx-update-dhcp-relay'
     NSX_UPDATE_IP = 'nsx-update-ip'
     NSX_RECREATE = 'nsx-recreate'
+    NSX_REDISTRIBURE = 'nsx-redistribute'
     NSX_REORDER = 'nsx-reorder'
     NSX_TAG_DEFAULT = 'nsx-tag-default'
     MIGRATE_TO_DYNAMIC_CRITERIA = 'migrate-to-dynamic-criteria'
@@ -160,6 +161,7 @@ nsxv_resources = {
     constants.DHCP_BINDING: Resource(constants.DHCP_BINDING,
                                      [Operations.LIST.value,
                                       Operations.NSX_UPDATE.value,
+                                      Operations.NSX_REDISTRIBURE.value,
                                       Operations.NSX_RECREATE.value]),
     constants.NETWORKS: Resource(constants.NETWORKS,
                                  [Operations.LIST.value,
@@ -187,6 +189,7 @@ nsxv_resources = {
                              Operations.STATUS.value]),
     constants.ROUTERS: Resource(constants.ROUTERS,
                                 [Operations.NSX_RECREATE.value,
+                                 Operations.NSX_REDISTRIBURE.value,
                                  Operations.MIGRATE_VDR_DHCP.value]),
     constants.ORPHANED_VNICS: Resource(constants.ORPHANED_VNICS,
                                        [Operations.NSX_LIST.value,

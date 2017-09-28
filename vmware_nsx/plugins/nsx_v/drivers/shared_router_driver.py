@@ -375,6 +375,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         The router with static routes will be conflict with all other routers.
         The routers with different gateway will be conflict.
         The routers with overlapping interface will be conflict.
+        In not share_edges_between_tenants: The routers of different tenants
+            will be in conflict with the router
         """
         # 1. Check gateway
         # 2. Check subnet interface
@@ -391,6 +393,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
             router_dict = {}
             router_dict['id'] = r['id']
             router_dict['gateway'] = None
+            router_dict['tenant_id'] = r['tenant_id']
             for gwp in gw_ports:
                 if gwp['id'] == r['gw_port_id']:
                     try:
@@ -446,7 +449,12 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                     if (conflict_ip_set & ip_set):
                         conflict_routers.append(r['id'])
                     else:
-                        available_routers.append(r['id'])
+                        if (not cfg.CONF.nsxv.share_edges_between_tenants and
+                            src_router_dict['tenant_id'] != r['tenant_id']):
+                            # routers of other tenants are conflicting
+                            conflict_routers.append(r['id'])
+                        else:
+                            available_routers.append(r['id'])
                 else:
                     conflict_routers.append(r['id'])
 
