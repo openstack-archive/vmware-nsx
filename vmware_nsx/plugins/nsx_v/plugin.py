@@ -1013,8 +1013,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 for ep in policy['enforcementPoints']:
                     if ep['id'] == net_morefs[0]:
                         return policy['policyId'], True
+        # Always use enabled spoofguard policy. ports with disabled port
+        # security will be added to the exclude list
         sg_policy_id = self.nsx_v.vcns.create_spoofguard_policy(
-                net_morefs, net_data['id'], net_data[psec.PORTSECURITY])[1]
+                net_morefs, net_data['id'], True)[1]
         return sg_policy_id, False
 
     def _get_physical_network(self, network_type, net_data):
@@ -1532,6 +1534,18 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         return True, dvs_pg_mappings
 
+    def _update_network_validate_port_sec(self, context, net_id, net_attrs):
+        if psec.PORTSECURITY in net_attrs and not net_attrs[psec.PORTSECURITY]:
+            # check if there are compute ports on this network
+            port_filters = {'network_id': [net_id],
+                            'device_owner': ['compute:None']}
+            compute_ports = self.get_ports(context, filters=port_filters)
+            if compute_ports:
+                LOG.warning("Disabling port-security on network %s would "
+                            "require instance in the network to have VM tools "
+                            "installed in order for security-groups to "
+                            "function properly.", net_id)
+
     def update_network(self, context, id, network):
         net_attrs = network['network']
         orig_net = self.get_network(context, id)
@@ -1551,15 +1565,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._validate_network_qos(net_attrs, backend_network)
 
         # PortSecurity validation checks
-        # TODO(roeyc): encapsulate validation in a method
         psec_update = (psec.PORTSECURITY in net_attrs and
                        orig_net[psec.PORTSECURITY] !=
                        net_attrs[psec.PORTSECURITY])
-        if psec_update and not net_attrs[psec.PORTSECURITY]:
-            LOG.warning("Disabling port-security on network %s would "
-                        "require instance in the network to have VM tools "
-                        "installed in order for security-groups to "
-                        "function properly.", id)
+        if psec_update:
+            self._update_network_validate_port_sec(context, id, net_attrs)
 
         # Check if the physical network of a vlan provider network was updated
         updated_morefs = False
@@ -1605,15 +1615,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Updating SpoofGuard policy if exists, on failure revert to network
         # old state
         if (not ext_net.external and
-            cfg.CONF.nsxv.spoofguard_enabled and
-            (psec_update or updated_morefs)):
+            cfg.CONF.nsxv.spoofguard_enabled and updated_morefs):
             policy_id = nsxv_db.get_spoofguard_policy_id(context.session, id)
-            port_sec = (net_attrs[psec.PORTSECURITY]
-                if psec.PORTSECURITY in net_attrs
-                else orig_net.get(psec.PORTSECURITY))
             try:
+                # Always use enabled spoofguard policy. ports with disabled
+                # port security will be added to the exclude list
                 self.nsx_v.vcns.update_spoofguard_policy(
-                    policy_id, net_morefs, id, port_sec)
+                    policy_id, net_morefs, id, True)
             except Exception:
                 with excutils.save_and_reraise_exception():
                     revert_update = db_utils.resource_fields(
