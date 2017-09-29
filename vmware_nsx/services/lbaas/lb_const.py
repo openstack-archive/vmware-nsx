@@ -90,11 +90,6 @@ LB_STATS_MAP = {'active_connections': 'current_sessions',
                 'bytes_in': 'bytes_in',
                 'bytes_out': 'bytes_out',
                 'total_connections': 'total_sessions'}
-LB_SELECT_POOL_ACTION = 'LbSelectPoolAction'
-LB_HTTP_REDIRECT_ACTION = 'LbHttpRedirectAction'
-LB_REJECT_ACTION = 'LbHttpRejectAction'
-LB_HTTP_REDIRECT_STATUS = '301'
-LB_HTTP_REJECT_STATUS = '501'
 LR_ROUTER_TYPE = 'os-neutron-router-id'
 LR_PORT_TYPE = 'os-neutron-rport-id'
 DEFAULT_LB_SIZE = 'SMALL'
@@ -105,6 +100,11 @@ LB_RULE_MATCH_TYPE = {
     L7_RULE_COMPARE_TYPE_EQUAL_TO: 'EQUALS',
     L7_RULE_COMPARE_TYPE_REGEX: 'REGEX',
     L7_RULE_COMPARE_TYPE_STARTS_WITH: 'STARTS_WITH'}
+LB_SELECT_POOL_ACTION = 'LbSelectPoolAction'
+LB_HTTP_REDIRECT_ACTION = 'LbHttpRedirectAction'
+LB_REJECT_ACTION = 'LbHttpRejectAction'
+LB_HTTP_REDIRECT_STATUS = '302'
+LB_HTTP_REJECT_STATUS = '403'
 LB_RULE_HTTP_REQUEST_REWRITE = 'HTTP_REQUEST_REWRITE'
 LB_RULE_HTTP_FORWARDING = 'HTTP_FORWARDING'
 LB_RULE_HTTP_RESPONSE_REWRITE = 'HTTP_RESPONSE_REWRITE'

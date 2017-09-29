@@ -106,20 +106,11 @@ class EdgeL7RuleManager(base_mgr.Nsxv3LoadbalancerBaseManager):
         return actions
 
     @log_helpers.log_method_call
-    def _get_rule_phase(self, rule):
-        l7policy = rule.policy
-        if (l7policy.action == lb_const.L7_POLICY_ACTION_REDIRECT_TO_POOL or
-                l7policy.action == lb_const.L7_POLICY_ACTION_REJECT):
-            return lb_const.LB_RULE_HTTP_FORWARDING
-        if l7policy.action == lb_const.L7_POLICY_ACTION_REDIRECT_TO_URL:
-            return lb_const.LB_RULE_HTTP_REQUEST_REWRITE
-
-    @log_helpers.log_method_call
     def _convert_l7policy_to_lb_rule(self, context, rule):
         body = {}
         body['match_conditions'] = self._get_rule_match_conditions(rule)
         body['actions'] = self._get_rule_actions(context, rule)
-        body['phase'] = self._get_rule_phase(rule)
+        body['phase'] = lb_const.LB_RULE_HTTP_FORWARDING
         body['match_strategy'] = 'ANY'
 
         return body
