@@ -104,6 +104,7 @@ from vmware_nsx.db import (
     routertype as rt_rtr)
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import extended_security_group as extended_secgroup
+from vmware_nsx.db import maclearning as mac_db
 from vmware_nsx.db import nsx_portbindings_db as pbin_db
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.db import vnic_index_db
@@ -113,6 +114,7 @@ from vmware_nsx.extensions import (
     vnicindex as ext_vnic_idx)
 from vmware_nsx.extensions import dhcp_mtu as ext_dhcp_mtu
 from vmware_nsx.extensions import dns_search_domain as ext_dns_search_domain
+from vmware_nsx.extensions import maclearning as mac_ext
 from vmware_nsx.extensions import nsxpolicy
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.extensions import routersize
@@ -163,7 +165,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                    vnic_index_db.VnicIndexDbMixin,
                    dns_db.DNSDbMixin, nsxpolicy.NsxPolicyPluginBase,
                    vlantransparent_db.Vlantransparent_db_mixin,
-                   nsx_com_az.NSXAvailabilityZonesPluginCommon):
+                   nsx_com_az.NSXAvailabilityZonesPluginCommon,
+                   mac_db.MacLearningDbMixin):
 
     supported_extension_aliases = ["agent",
                                    "allowed-address-pairs",
@@ -193,7 +196,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                    "router_availability_zone",
                                    "l3-flavors",
                                    "flavors",
-                                   "dhcp-mtu"]
+                                   "dhcp-mtu",
+                                   "mac-learning"]
 
     __native_bulk_support = True
     __native_pagination_support = True
@@ -1778,6 +1782,20 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
             self._process_port_create_extra_dhcp_opts(
                 context, port_data, dhcp_opts)
+            # MAC learning - only update DB. Can only update NSX when the port
+            # exists - this is done via update
+            if validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)):
+                if (((has_ip and port_security) or
+                     has_security_groups or provider_sg_specified) and
+                    port_data.get(mac_ext.MAC_LEARNING) is True):
+                    err_msg = _("Security features are not supported for "
+                                "mac learning.")
+                    raise n_exc.InvalidInput(error_message=err_msg)
+                self._create_mac_learning_state(context, port_data)
+            elif mac_ext.MAC_LEARNING in port_data:
+                # This is due to the fact that the default is
+                # ATTR_NOT_SPECIFIED
+                port_data.pop(mac_ext.MAC_LEARNING)
 
         try:
             # Configure NSX - this should not be done in the DB transaction
@@ -1909,6 +1927,30 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             self.edge_manager.update_dhcp_edge_service(
                 context, network_id, address_groups=address_groups)
 
+    def _nsx_update_mac_learning(self, context, port):
+        net_id = port['network_id']
+        # default dvs for this network
+        az = self.get_network_az_by_net_id(context, net_id)
+        az_dvs_id = az.dvs_id
+
+        # get the network moref/s from the db
+        net_mappings = nsx_db.get_nsx_network_mappings(
+            context.session, net_id)
+        for mapping in net_mappings:
+            dvs_id = mapping.dvs_id or az_dvs_id
+            try:
+                self._vcm.update_port_groups_config(
+                    dvs_id, net_id, mapping.nsx_id,
+                    self._vcm.update_port_group_security_policy, True)
+            except Exception as e:
+                LOG.error("Unable to update network security override "
+                          "policy: %s", e)
+                return
+            self._vcm.update_port_security_policy(
+                dvs_id, net_id, mapping.nsx_id,
+                port['device_id'], port['mac_address'],
+                port[mac_ext.MAC_LEARNING])
+
     def _update_port(self, context, id, port, original_port, is_compute_port,
                      device_id):
         attrs = port[port_def.RESOURCE_NAME]
@@ -1995,6 +2037,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             err_msg = _("Security features are not supported for "
                         "ports with direct/direct-physical VNIC type.")
             raise n_exc.InvalidInput(error_message=err_msg)
+        if (mac_ext.MAC_LEARNING in port_data and
+            port_data[mac_ext.MAC_LEARNING] is True and
+            has_port_security):
+            err_msg = _("Security features are not supported for "
+                        "mac_learning.")
+            raise n_exc.InvalidInput(error_message=err_msg)
+        old_mac_learning_state = original_port.get(mac_ext.MAC_LEARNING)
 
         with db_api.context_manager.writer.using(context):
             ret_port = super(NsxVPluginV2, self).update_port(
@@ -2037,6 +2086,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
             self._update_extra_dhcp_opts_on_port(context, id, port,
                                                  ret_port)
+            new_mac_learning_state = ret_port.get(mac_ext.MAC_LEARNING)
+            if (new_mac_learning_state is not None and
+                old_mac_learning_state != new_mac_learning_state):
+                self._update_mac_learning_state(context, id,
+                                                new_mac_learning_state)
 
         if comp_owner_update:
             # Create dhcp bindings, the port is now owned by an instance
@@ -2180,6 +2234,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     self._update_security_groups_port_mapping(
                         context.session, id, vnic_id, curr_sgids, new_sgids)
 
+        # update mac learning on NSX
+        if self._vcm:
+            mac_learning = self.get_mac_learning_state(context, id)
+            if mac_learning is not None:
+                try:
+                    self._nsx_update_mac_learning(context, ret_port)
+                except Exception as e:
+                    LOG.error("Unable to update mac learning for port %s, "
+                              "reason: %s", id, e)
         return ret_port
 
     def delete_port(self, context, id, l3_port_check=True,

@@ -66,3 +66,13 @@ class MacLearningDbMixin(object):
                 mac_learning_enabled=enabled)
             context.session.add(state)
         return self._make_mac_learning_state_dict(state)
+
+    def get_mac_learning_state(self, context, port_id):
+        try:
+            query = model_query.query_with_hooks(
+                context, nsx_models.MacLearningState)
+            state = query.filter(
+                nsx_models.MacLearningState.port_id == port_id).one()
+            return state.mac_learning_enabled
+        except exc.NoResultFound:
+            return None
