@@ -130,7 +130,7 @@ class EdgePoolManager(base_mgr.EdgeLoadbalancerBaseManager):
 
             self.lbv2_driver.pool.successful_completion(context, new_pool)
 
-            # if the the session_persistence was changed,
+            # if the session_persistence was changed,
             # we may need to update the listener application profile
             if new_pool.listener:
                 old_sess_persist = old_pool.session_persistence
