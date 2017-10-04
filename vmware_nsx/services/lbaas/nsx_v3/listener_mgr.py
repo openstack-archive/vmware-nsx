@@ -34,10 +34,51 @@ class EdgeListenerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
     def __init__(self):
         super(EdgeListenerManager, self).__init__()
 
+    def _get_virtual_server_kwargs(self, context, listener, vs_name, tags,
+                                   app_profile_id, certificate=None):
+        kwargs = {'display_name': vs_name,
+                  'tags': tags,
+                  'enabled': listener.admin_state_up,
+                  'ip_address': listener.loadbalancer.vip_address,
+                  'port': listener.protocol_port,
+                  'application_profile_id': app_profile_id}
+        if listener.connection_limit != -1:
+            kwargs['max_concurrent_connections'] = \
+                listener.connection_limit
+        if listener.default_pool_id:
+            pool_binding = nsx_db.get_nsx_lbaas_pool_binding(
+                context.session, listener.loadbalancer.id,
+                listener.default_pool_id)
+            if pool_binding:
+                kwargs['pool_id'] = pool_binding.get('lb_pool_id')
+        ssl_profile_binding = self._get_ssl_profile_binding(
+            tags, certificate=certificate)
+        if (listener.protocol == lb_const.LB_PROTOCOL_TERMINATED_HTTPS and
+                ssl_profile_binding):
+            kwargs.update(ssl_profile_binding)
+        return kwargs
+
+    def _get_ssl_profile_binding(self, tags, certificate=None):
+        tm_client = self.core_plugin.nsxlib.trust_management
+        nsx_cert_id = None
+        ssl_profile_binding = None
+        if certificate:
+            nsx_cert_id = tm_client.create_cert(
+                certificate.get_certificate(),
+                private_key=certificate.get_private_key(),
+                passphrase=certificate.get_private_key_passphrase(),
+                tags=tags)
+            ssl_profile_binding = {
+                'client_ssl_profile_binding': {
+                    'ssl_profile_id': self.core_plugin.client_ssl_profile,
+                    'default_certificate_id': nsx_cert_id
+                }
+            }
+        return ssl_profile_binding
+
     @log_helpers.log_method_call
     def create(self, context, listener, certificate=None):
         lb_id = listener.loadbalancer_id
-        vip_address = listener.loadbalancer.vip_address
         load_balancer = self.core_plugin.nsxlib.load_balancer
         app_client = load_balancer.application_profile
         vs_client = load_balancer.virtual_server
@@ -51,9 +92,12 @@ class EdgeListenerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                      'tag': listener.loadbalancer.name[:utils.MAX_TAG_LEN]})
         tags.append({'scope': 'os-lbaas-lb-id',
                      'tag': lb_id})
-        if listener.protocol == 'HTTP' or listener.protocol == 'HTTPS':
+
+        if (listener.protocol == lb_const.LB_PROTOCOL_HTTP or
+                listener.protocol == lb_const.LB_PROTOCOL_TERMINATED_HTTPS):
             profile_type = lb_const.LB_HTTP_PROFILE
-        elif listener.protocol == 'TCP':
+        elif (listener.protocol == lb_const.LB_PROTOCOL_TCP or
+              listener.protocol == lb_const.LB_PROTOCOL_HTTPS):
             profile_type = lb_const.LB_TCP_PROFILE
         else:
             msg = (_('Cannot create listener %(listener)s with '
@@ -65,13 +109,9 @@ class EdgeListenerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
             app_profile = app_client.create(
                 display_name=vs_name, resource_type=profile_type, tags=tags)
             app_profile_id = app_profile['id']
-            virtual_server = vs_client.create(
-                display_name=vs_name,
-                tags=tags,
-                enabled=listener.admin_state_up,
-                ip_address=vip_address,
-                port=listener.protocol_port,
-                application_profile_id=app_profile_id)
+            kwargs = self._get_virtual_server_kwargs(
+                context, listener, vs_name, tags, app_profile_id, certificate)
+            virtual_server = vs_client.create(**kwargs)
         except nsxlib_exc.ManagerError:
             self.lbv2_driver.listener.failed_completion(context, listener)
             msg = _('Failed to create virtual server at NSX backend')
@@ -164,6 +204,23 @@ class EdgeListenerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                 msg = (_('Failed to delete application profile: %(app)s') %
                        {'app': app_profile_id})
                 raise n_exc.BadRequest(resource='lbaas-listener', msg=msg)
+
+            # Delete imported NSX cert if there is any
+            cert_tags = [{'scope': lb_const.LB_LISTENER_TYPE,
+                          'tag': listener.id}]
+            results = self.core_plugin.nsxlib.search_by_tags(
+                tags=cert_tags)
+            # Only delete object related to certificate used by listener
+            for obj in results['results']:
+                if obj.get('resource_type') in lb_const.LB_CERT_RESOURCE_TYPE:
+                    tm_client = self.core_plugin.nsxlib.trust_management
+                    try:
+                        tm_client.delete_cert(obj['id'])
+                    except nsxlib_exc.ManagerError:
+                        LOG.error("Exception thrown when trying to delete "
+                                  "certificate: %(cert)s",
+                                  {'cert': obj['id']})
+
             nsx_db.delete_nsx_lbaas_listener_binding(
                 context.session, lb_id, listener.id)
 
