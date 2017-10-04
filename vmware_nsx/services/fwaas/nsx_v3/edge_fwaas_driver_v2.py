@@ -82,7 +82,8 @@ class EdgeFwaasV3DriverV2(base_driver.CommonEdgeFwaasV3Driver):
         for router_id in routers:
             self.core_plugin.update_router_firewall(context, router_id)
 
-    def get_port_translated_rules(self, nsx_port_id, firewall_group):
+    def get_port_translated_rules(self, nsx_port_id, firewall_group,
+                                  plugin_rules):
         """Return the list of translated rules per port"""
         port_rules = []
         # Add the firewall group ingress/egress rules only if the fw is up
@@ -93,6 +94,10 @@ class EdgeFwaasV3DriverV2(base_driver.CommonEdgeFwaasV3Driver):
             port_rules.extend(self._translate_rules(
                 firewall_group['egress_rule_list'],
                 replace_src=nsx_port_id))
+
+        # Add the per-port plugin rules
+        if plugin_rules and isinstance(plugin_rules, list):
+            port_rules.extend(plugin_rules)
 
         # Add ingress/egress block rules for this port
         port_rules.extend([

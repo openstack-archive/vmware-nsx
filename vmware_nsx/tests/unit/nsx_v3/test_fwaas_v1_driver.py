@@ -16,11 +16,15 @@
 import copy
 
 import mock
-from vmware_nsxlib.v3 import nsx_constants as consts
 
-from vmware_nsx.services.fwaas.nsx_v3 import edge_fwaas_driver
+from neutron_lib.plugins import directory
+
 from vmware_nsx.services.fwaas.nsx_v3 import edge_fwaas_driver_base
+from vmware_nsx.services.fwaas.nsx_v3 import edge_fwaas_driver_v1 as \
+    edge_fwaas_driver
+from vmware_nsx.services.fwaas.nsx_v3 import fwaas_callbacks_v1
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_v3_plugin
+from vmware_nsxlib.v3 import nsx_constants as consts
 
 FAKE_FW_ID = 'fake_fw_uuid'
 FAKE_ROUTER_ID = 'fake_rtr_uuid'
@@ -36,7 +40,7 @@ DEFAULT_RULE = {'is_default': True,
 class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
     def setUp(self):
         super(Nsxv3FwaasTestCase, self).setUp()
-        self.firewall = edge_fwaas_driver.EdgeFwaasV3Driver()
+        self.firewall = edge_fwaas_driver.EdgeFwaasV3DriverV1()
 
         # Start some nsxlib/DB mocks
         mock.patch(
@@ -52,6 +56,12 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
         mock.patch(
             "vmware_nsx.db.db.get_nsx_router_id",
             return_value=MOCK_NSX_ID).start()
+
+        self.plugin = directory.get_plugin()
+        self.plugin.fwaas_callbacks = fwaas_callbacks_v1.\
+            Nsxv3FwaasCallbacksV1(self.plugin.nsxlib)
+        self.plugin.fwaas_callbacks.fwaas_enabled = True
+        self.plugin.fwaas_callbacks.fwaas_driver = self.firewall
 
     def _default_rule(self, drop=True):
         rule = DEFAULT_RULE
@@ -164,7 +174,17 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
         rule_list = self._fake_rules_v4()
         firewall = self._fake_firewall(rule_list)
         with mock.patch("vmware_nsxlib.v3.security.NsxLibFirewallSection."
-                        "update") as update_fw:
+                        "update") as update_fw, \
+            mock.patch.object(self.plugin, '_get_router_interfaces',
+                              return_value=[]), \
+            mock.patch.object(self.plugin, 'get_router',
+                              return_value=apply_list[0]), \
+            mock.patch.object(self.plugin.fwaas_callbacks,
+                              '_get_router_firewall_id',
+                              return_value=firewall['id']), \
+            mock.patch.object(self.plugin.fwaas_callbacks,
+                              '_get_fw_from_plugin',
+                              return_value=firewall):
             func('nsx', apply_list, firewall)
             self.assertEqual(router_count, update_fw.call_count)
             update_fw.assert_called_with(
@@ -177,6 +197,16 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
         initial_tags = [{'scope': 'xxx', 'tag': 'yyy'}]
         with mock.patch("vmware_nsxlib.v3.security.NsxLibFirewallSection."
                         "update") as update_fw,\
+            mock.patch.object(self.plugin, '_get_router_interfaces',
+                              return_value=[]), \
+            mock.patch.object(self.plugin, 'get_router',
+                              return_value=apply_list[0]), \
+            mock.patch.object(self.plugin.fwaas_callbacks,
+                              '_get_router_firewall_id',
+                              return_value=firewall['id']), \
+            mock.patch.object(self.plugin.fwaas_callbacks,
+                              '_get_fw_from_plugin',
+                              return_value=firewall), \
             mock.patch("vmware_nsxlib.v3.core_resources.NsxLibLogicalRouter."
                        "update") as update_rtr,\
             mock.patch("vmware_nsxlib.v3.core_resources.NsxLibLogicalRouter."
@@ -209,6 +239,13 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                          'tag': firewall['id']}]
         with mock.patch("vmware_nsxlib.v3.security.NsxLibFirewallSection."
                         "update") as update_fw,\
+            mock.patch.object(self.plugin, '_get_router_interfaces',
+                              return_value=[]), \
+            mock.patch.object(self.plugin, 'get_router',
+                              return_value=apply_list[0]), \
+            mock.patch.object(self.plugin.fwaas_callbacks,
+                              '_get_router_firewall_id',
+                              return_value=None), \
             mock.patch("vmware_nsxlib.v3.core_resources.NsxLibLogicalRouter."
                        "update") as update_rtr,\
             mock.patch("vmware_nsxlib.v3.core_resources.NsxLibLogicalRouter."
@@ -229,7 +266,17 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
         rule_list = self._fake_rules_v4()
         firewall = self._fake_firewall_with_admin_down(rule_list)
         with mock.patch("vmware_nsxlib.v3.security.NsxLibFirewallSection."
-                        "update") as update_fw:
+                        "update") as update_fw, \
+            mock.patch.object(self.plugin, '_get_router_interfaces',
+                              return_value=[]), \
+            mock.patch.object(self.plugin, 'get_router',
+                              return_value=apply_list[0]), \
+            mock.patch.object(self.plugin.fwaas_callbacks,
+                              '_get_router_firewall_id',
+                              return_value=firewall['id']), \
+            mock.patch.object(self.plugin.fwaas_callbacks,
+                              '_get_fw_from_plugin',
+                              return_value=firewall):
             self.firewall.create_firewall('nsx', apply_list, firewall)
             update_fw.assert_called_once_with(
                 MOCK_SECTION_ID,

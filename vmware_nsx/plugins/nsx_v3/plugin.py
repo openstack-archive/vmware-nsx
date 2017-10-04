@@ -97,7 +97,7 @@ from vmware_nsx.plugins.common import plugin as nsx_plugin_common
 from vmware_nsx.plugins.nsx_v3 import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 from vmware_nsx.services.fwaas.common import utils as fwaas_utils
-from vmware_nsx.services.fwaas.nsx_v3 import fwaas_callbacks
+from vmware_nsx.services.fwaas.nsx_v3 import fwaas_callbacks_v1
 from vmware_nsx.services.fwaas.nsx_v3 import fwaas_callbacks_v2
 from vmware_nsx.services.lbaas.nsx_v3 import lb_driver_v2
 from vmware_nsx.services.qos.common import utils as qos_com_utils
@@ -278,15 +278,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                })
 
     def _init_fwaas(self, resource, event, trigger, **kwargs):
-        self.fwaas_callbacks_v1 = None
-        self.fwaas_callbacks_v2 = None
+        self.fwaas_callbacks = None
         if fwaas_utils.is_fwaas_v1_plugin_enabled():
             LOG.info("NSXv3 FWaaS v1 plugin enabled")
-            self.fwaas_callbacks_v1 = fwaas_callbacks.Nsxv3FwaasCallbacks(
+            self.fwaas_callbacks = fwaas_callbacks_v1.Nsxv3FwaasCallbacksV1(
                 self.nsxlib)
         if fwaas_utils.is_fwaas_v2_plugin_enabled():
             LOG.info("NSXv3 FWaaS v2 plugin enabled")
-            self.fwaas_callbacks_v2 = fwaas_callbacks_v2.Nsxv3FwaasCallbacksV2(
+            self.fwaas_callbacks = fwaas_callbacks_v2.Nsxv3FwaasCallbacksV2(
                 self.nsxlib)
 
     def _init_lbv2_driver(self):
@@ -3291,41 +3290,35 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def update_router_firewall(self, context, router_id):
         """Rewrite all the rules in the router edge firewall
 
-        Currently only for FWaaS v2
-        This method should be called on FWaaS v2 updates, and on router
+        This method should be called on FWaaS v1/v2 updates, and on router
         interfaces changes.
+        When FWaaS is disabled, there is no need to update the NSX router FW,
+        as the default rule is allow-all.
         """
-        # make sure fwaas v2 is enabled
-        if (not self.fwaas_callbacks_v2 or
-            not self.fwaas_callbacks_v2.fwaas_enabled):
-            return
-        fwaas_callbacks = self.fwaas_callbacks_v2
+        if (self.fwaas_callbacks and
+            self.fwaas_callbacks.fwaas_enabled):
+            # find all the relevant ports of the router for FWaaS v2
+            # TODO(asarfaty): Add vm ports as well
+            ports = self._get_router_interfaces(context, router_id)
 
-        # find the backend router and its firewall section
-        nsx_id, sect_id = fwaas_callbacks.get_backend_router_and_fw_section(
-            context, router_id)
+            # let the fwaas callbacks update the router FW
+            return self.fwaas_callbacks.update_router_firewall(
+                context, self.nsxlib, router_id, ports)
 
-        # find all the relevant ports of the router
-        # TODO(asarfaty): Add vm ports as well
-        ports = self._get_router_interfaces(context, router_id)
+    def get_extra_fw_rules(self, context, router_id, port_id=None):
+        """Return firewall rules that should be added to the router firewall
 
-        fw_rules = []
-        for port in ports:
-            _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
-                context.session, port['id'])
-
-            # add the rules for this port, only if it has an active fw
-            fwg = fwaas_callbacks.get_port_fwg(context, port['id'])
-            if fwg:
-                port_rules = fwaas_callbacks.get_port_rules(nsx_port_id, fwg)
-                fw_rules.extend(port_rules)
-
-        # add a default allow-all rule to all other traffic
-        fw_rules.append(fwaas_callbacks.get_default_allow_all_rule(
-            sect_id))
-
-        # update the backend
-        self.nsxlib.firewall_section.update(sect_id, rules=fw_rules)
+        This method should return a list of allow firewall rules that are
+        required in order to enable different plugin features with north/south
+        traffic.
+        The returned rules will be added after the FWaaS rules, and before the
+        default drop rule.
+        if port_id is specified, only rules relevant for this router interface
+        port should be returned, and the rules should be ingress/egress
+        (but not both) and include the source/dest nsx logical port.
+        """
+        #TODO(asarfaty): DHCP relay rules
+        return []
 
     def _get_ports_and_address_groups(self, context, router_id, network_id,
                                       exclude_sub_ids=None):

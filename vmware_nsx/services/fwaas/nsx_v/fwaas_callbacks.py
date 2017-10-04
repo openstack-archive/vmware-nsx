@@ -15,12 +15,12 @@
 
 from oslo_log import log as logging
 
-from vmware_nsx.services.fwaas.common import fwaas_callbacks as com_callbacks
+from vmware_nsx.services.fwaas.common import fwaas_callbacks_v1 as com_clbcks
 
 LOG = logging.getLogger(__name__)
 
 
-class NsxvFwaasCallbacks(com_callbacks.NsxFwaasCallbacks):
+class NsxvFwaasCallbacks(com_clbcks.NsxFwaasCallbacks):
     """NSX-V RPC callbacks for Firewall As A Service - V1."""
 
     def should_apply_firewall_to_router(self, context, router, router_id):

@@ -905,7 +905,7 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxV3PluginTestCaseMixin,
             self.plugin_instance.__module__,
             self.plugin_instance.__class__.__name__)
         self._plugin_class = self.plugin_instance.__class__
-        self.plugin_instance.fwaas_callbacks_v2 = None
+        self.plugin_instance.fwaas_callbacks = None
 
     def test_floatingip_create_different_fixed_ip_same_port(self):
         self.skipTest('Multiple fixed ips on a port are not supported')

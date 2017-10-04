@@ -15,22 +15,20 @@
 
 from oslo_log import log as logging
 
-from vmware_nsx.db import db as nsx_db
-from vmware_nsx.services.fwaas.common import fwaas_callbacks_v2 as \
-    com_callbacks
+from vmware_nsx.services.fwaas.common import fwaas_callbacks_v1 as com_clbcks
 
 LOG = logging.getLogger(__name__)
 
 
-class Nsxv3FwaasCallbacksV2(com_callbacks.NsxFwaasCallbacksV2):
-    """NSX-V3 RPC callbacks for Firewall As A Service - V2."""
+class Nsxv3FwaasCallbacksV1(com_clbcks.NsxFwaasCallbacks):
+    """NSX-V3 RPC callbacks for Firewall As A Service - V1."""
 
     def __init__(self, nsxlib):
-        super(Nsxv3FwaasCallbacksV2, self).__init__()
+        super(Nsxv3FwaasCallbacksV1, self).__init__()
 
     def should_apply_firewall_to_router(self, context, router_id):
         """Return True if the FWaaS rules should be added to this router."""
-        if not super(Nsxv3FwaasCallbacksV2,
+        if not super(Nsxv3FwaasCallbacksV1,
                      self).should_apply_firewall_to_router(context,
                                                            router_id):
             return False
@@ -48,43 +46,43 @@ class Nsxv3FwaasCallbacksV2(com_callbacks.NsxFwaasCallbacksV2):
 
         return True
 
-    def get_port_rules(self, nsx_port_id, fwg, plugin_rules):
-        return self.fwaas_driver.get_port_translated_rules(nsx_port_id, fwg,
-                                                           plugin_rules)
-
     def update_router_firewall(self, context, nsxlib, router_id,
                                router_interfaces):
-        """Rewrite all the FWaaS v2 rules in the router edge firewall
+        """Rewrite all the FWaaS v1 rules in the router edge firewall
 
         This method should be called on FWaaS updates, and on router
         interfaces changes.
         """
+
         # find the backend router and its firewall section
         nsx_id, sect_id = self.fwaas_driver.get_backend_router_and_fw_section(
             context, router_id)
-
         fw_rules = []
-        # Add firewall rules per port attached to a firewall group
-        for port in router_interfaces:
-            _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
-                context.session, port['id'])
+        fw_id = None
+        if self.should_apply_firewall_to_router(context, router_id):
+            # Find the firewall attached to this router
+            # (must have one since should_apply returned true)
+            firewall = self.get_router_firewall(context, router_id)
+            fw_id = firewall['id']
 
-            # Check if this port has a firewall
-            fwg = self.get_port_fwg(context, port['id'])
-            if fwg:
-                # Add plugin additional allow rules
-                plugin_rules = self.core_plugin.get_extra_fw_rules(
-                    context, router_id, port['id'])
+            # Add the FW rules
+            fw_rules.extend(self.fwaas_driver.get_router_translated_rules(
+                router_id, firewall))
 
-                # add the FWaaS rules for this port
-                # ingress/egress firewall rules + default ingress/egress drop
-                # rule for this port
-                fw_rules.extend(self.get_port_rules(nsx_port_id, fwg,
-                                                    plugin_rules))
+            # Add plugin additional allow rules
+            fw_rules.extend(self.core_plugin.get_extra_fw_rules(
+                context, router_id))
 
-        # add a default allow-all rule to all other traffic & ports
-        fw_rules.append(self.fwaas_driver.get_default_backend_rule(
-            sect_id, allow_all=True))
+            # Add the default drop all rule
+            fw_rules.append(self.fwaas_driver.get_default_backend_rule(
+                sect_id, allow_all=False))
+        else:
+            # default allow all rule
+            fw_rules.append(self.fwaas_driver.get_default_backend_rule(
+                sect_id, allow_all=True))
 
-        # update the backend router firewall
+        # update the backend
         nsxlib.firewall_section.update(sect_id, rules=fw_rules)
+
+        # Also update the router tags
+        self.fwaas_driver.update_nsx_router_tags(nsx_id, fw_id=fw_id)

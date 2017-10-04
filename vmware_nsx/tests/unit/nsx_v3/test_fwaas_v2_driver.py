@@ -60,10 +60,10 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
             return_value=MOCK_NSX_ID).start()
 
         self.plugin = directory.get_plugin()
-        self.plugin.fwaas_callbacks_v2 = fwaas_callbacks_v2.\
+        self.plugin.fwaas_callbacks = fwaas_callbacks_v2.\
             Nsxv3FwaasCallbacksV2(self.plugin.nsxlib)
-        self.plugin.fwaas_callbacks_v2.fwaas_enabled = True
-        self.plugin.fwaas_callbacks_v2.fwaas_driver = self.firewall
+        self.plugin.fwaas_callbacks.fwaas_enabled = True
+        self.plugin.fwaas_callbacks.fwaas_driver = self.firewall
 
     def _default_rule(self):
         rule = DEFAULT_RULE
@@ -194,7 +194,7 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
         port = {'id': FAKE_PORT_ID}
         with mock.patch.object(self.plugin, '_get_router_interfaces',
                                return_value=[port]),\
-            mock.patch.object(self.plugin.fwaas_callbacks_v2, 'get_port_fwg',
+            mock.patch.object(self.plugin.fwaas_callbacks, 'get_port_fwg',
                               return_value=firewall),\
             mock.patch("vmware_nsx.db.db.get_nsx_switch_and_port_id",
                        return_value=(0, FAKE_NSX_PORT_ID)),\
@@ -227,7 +227,7 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
         port = {'id': FAKE_PORT_ID}
         with mock.patch.object(self.plugin, '_get_router_interfaces',
                                return_value=[port]),\
-            mock.patch.object(self.plugin.fwaas_callbacks_v2, 'get_port_fwg',
+            mock.patch.object(self.plugin.fwaas_callbacks, 'get_port_fwg',
                               return_value=firewall),\
             mock.patch("vmware_nsx.db.db.get_nsx_switch_and_port_id",
                        return_value=(0, FAKE_NSX_PORT_ID)),\
@@ -281,7 +281,7 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
         port = {'id': FAKE_PORT_ID}
         with mock.patch.object(self.plugin, '_get_router_interfaces',
                                return_value=[port]),\
-            mock.patch.object(self.plugin.fwaas_callbacks_v2, 'get_port_fwg',
+            mock.patch.object(self.plugin.fwaas_callbacks, 'get_port_fwg',
                               return_value=None),\
             mock.patch("vmware_nsx.db.db.get_nsx_switch_and_port_id",
                        return_value=(0, FAKE_NSX_PORT_ID)),\
