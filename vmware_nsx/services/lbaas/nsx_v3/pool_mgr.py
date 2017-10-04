@@ -44,11 +44,12 @@ class EdgePoolManager(base_mgr.Nsxv3LoadbalancerBaseManager):
         tags = lb_utils.get_tags(self.core_plugin, pool.id,
                                  lb_const.LB_POOL_TYPE, pool.tenant_id,
                                  context.project_name)
+        lb_algorithm = lb_const.LB_POOL_ALGORITHM_MAP.get(pool.lb_algorithm)
         try:
             snat_translation = {'type': "LbSnatAutoMap"}
             lb_pool = pool_client.create(display_name=pool_name,
                                          tags=tags,
-                                         algorithm=pool.lb_algorithm,
+                                         algorithm=lb_algorithm,
                                          snat_translation=snat_translation)
             nsx_db.add_nsx_lbaas_pool_binding(
                 context.session, lb_id, pool.id, lb_pool['id'])

@@ -86,6 +86,11 @@ NSXV3_MONITOR_MAP = {LB_HEALTH_MONITOR_PING: 'LbIcmpMonitor',
                      LB_HEALTH_MONITOR_TCP: 'LbTcpMonitor',
                      LB_HEALTH_MONITOR_HTTP: 'LbHttpMonitor',
                      LB_HEALTH_MONITOR_HTTPS: 'LbHttpsMonitor'}
+LB_POOL_ALGORITHM_MAP = {
+    LB_METHOD_ROUND_ROBIN: 'WEIGHTED_ROUND_ROBIN',
+    LB_METHOD_LEAST_CONNECTIONS: 'LEAST_CONNECTION',
+    LB_METHOD_SOURCE_IP: 'IP_HASH',
+}
 LB_STATS_MAP = {'active_connections': 'current_sessions',
                 'bytes_in': 'bytes_in',
                 'bytes_out': 'bytes_out',
