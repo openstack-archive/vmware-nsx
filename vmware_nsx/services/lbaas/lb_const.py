@@ -97,6 +97,7 @@ LB_STATS_MAP = {'active_connections': 'current_sessions',
                 'total_connections': 'total_sessions'}
 LR_ROUTER_TYPE = 'os-neutron-router-id'
 LR_PORT_TYPE = 'os-neutron-rport-id'
+LB_CERT_RESOURCE_TYPE = ['certificate_signed', 'certificate_self_signed']
 DEFAULT_LB_SIZE = 'SMALL'
 LB_FLAVOR_SIZES = ['SMALL', 'MEDIUM', 'LARGE', 'small', 'medium', 'large']
 LB_RULE_MATCH_TYPE = {
