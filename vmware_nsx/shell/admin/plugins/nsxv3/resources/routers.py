@@ -188,27 +188,37 @@ def update_dhcp_relay(resource, event, trigger, **kwargs):
     # initialize the availability zones and nsxlib
     config.register_nsxv3_azs(cfg.CONF, cfg.CONF.nsx_v3.availability_zones)
 
-    # get all neutron router interfaces ports
     admin_cxt = neutron_context.get_admin_context()
     with utils.NsxV3PluginWrapper() as plugin:
-        filters = {'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF]}
-        ports = plugin.get_ports(admin_cxt, filters=filters)
-        for port in ports:
-            # get the backend router port by the tag
-            nsx_port_id = nsxlib.get_id_by_resource_and_tag(
-                'LogicalRouterDownLinkPort',
-                'os-neutron-rport-id', port['id'])
-            if not nsx_port_id:
-                LOG.warning("Couldn't find nsx router port for interface %s",
-                            port['id'])
-                continue
-            # get the network of this port
-            network_id = port['network_id']
-            # check the relay service on the az of the network
-            az = plugin.get_network_az_by_net_id(admin_cxt, network_id)
-            nsxlib.logical_router_port.update(
-                nsx_port_id, relay_service_uuid=az.dhcp_relay_service)
-    #TODO(asarfaty) also update the firewall rules of the routers
+        # Make sure FWaaS was initialized
+        plugin.init_fwaas_for_admin_utils()
+
+        # get all neutron routers and  interfaces ports
+        routers = plugin.get_routers(admin_cxt)
+        for router in routers:
+            LOG.info("Updating router %s", router['id'])
+            filters = {'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF],
+                       'device_id': [router['id']]}
+            ports = plugin.get_ports(admin_cxt, filters=filters)
+            for port in ports:
+                # get the backend router port by the tag
+                nsx_port_id = nsxlib.get_id_by_resource_and_tag(
+                    'LogicalRouterDownLinkPort',
+                    'os-neutron-rport-id', port['id'])
+                if not nsx_port_id:
+                    LOG.warning("Couldn't find nsx router port for interface "
+                                "%s", port['id'])
+                    continue
+                # get the network of this port
+                network_id = port['network_id']
+                # check the relay service on the az of the network
+                az = plugin.get_network_az_by_net_id(admin_cxt, network_id)
+                nsxlib.logical_router_port.update(
+                    nsx_port_id, relay_service_uuid=az.dhcp_relay_service)
+
+            # if FWaaS is enables, also update the firewall rules
+            plugin.update_router_firewall(admin_cxt, router['id'])
+
     LOG.info("Done.")
 
 

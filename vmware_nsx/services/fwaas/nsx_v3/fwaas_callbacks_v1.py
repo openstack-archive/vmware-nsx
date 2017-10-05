@@ -53,7 +53,6 @@ class Nsxv3FwaasCallbacksV1(com_clbcks.NsxFwaasCallbacks):
         This method should be called on FWaaS updates, and on router
         interfaces changes.
         """
-
         # find the backend router and its firewall section
         nsx_id, sect_id = self.fwaas_driver.get_backend_router_and_fw_section(
             context, router_id)

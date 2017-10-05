@@ -13,14 +13,22 @@
 #    under the License.
 
 
+from oslo_config import cfg
+
 from neutron.db import db_base_plugin_v2
+from neutron import manager
 from neutron_lib import context
 from neutron_lib.plugins import constants as const
 from neutron_lib.plugins import directory
 
+from neutron_fwaas.services.firewall import fwaas_plugin as fwaas_plugin_v1
+from neutron_fwaas.services.firewall import fwaas_plugin_v2
+
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.plugins.nsx_v3 import plugin
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
+from vmware_nsx.services.fwaas.nsx_v3 import fwaas_callbacks_v1
+from vmware_nsx.services.fwaas.nsx_v3 import fwaas_callbacks_v2
 from vmware_nsxlib.v3 import nsx_constants
 
 _NSXLIB = None
@@ -106,6 +114,35 @@ class NsxV3PluginWrapper(plugin.NsxV3Plugin):
 
     def __exit__(self, exc_type, exc_value, traceback):
         directory.add_plugin(const.CORE, None)
+
+    def _init_fwaas_plugin(self, provider, callbacks_class, plugin_callbacks):
+        fwaas_plugin_class = manager.NeutronManager.load_class_for_provider(
+            'neutron.service_plugins', provider)
+        fwaas_plugin = fwaas_plugin_class()
+        self.fwaas_callbacks = callbacks_class(self.nsxlib)
+        # override the fwplugin_rpc since there is no RPC support in adminutils
+        self.fwaas_callbacks.fwplugin_rpc = plugin_callbacks(fwaas_plugin)
+
+    def init_fwaas_for_admin_utils(self):
+        # initialize the FWaaS plugin and callbacks
+        self.fwaas_callbacks = None
+        # This is an ugly patch to find out if it is v1 or v2
+        service_plugins = cfg.CONF.service_plugins
+        for srv_plugin in service_plugins:
+            if 'firewall' in srv_plugin:
+                if 'v2' in srv_plugin:
+                    # FWaaS V2
+                    self._init_fwaas_plugin(
+                        'firewall_v2',
+                        fwaas_callbacks_v2.Nsxv3FwaasCallbacksV2,
+                        fwaas_plugin_v2.FirewallCallbacks)
+                else:
+                    # FWaaS V1
+                    self._init_fwaas_plugin(
+                        'firewall',
+                        fwaas_callbacks_v1.Nsxv3FwaasCallbacksV1,
+                        fwaas_plugin_v1.FirewallCallbacks)
+                return
 
     def _init_dhcp_metadata(self):
         pass
