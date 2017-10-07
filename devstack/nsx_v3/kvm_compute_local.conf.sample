@@ -35,7 +35,6 @@ disable_service zookeeper
 LOGFILE=/opt/stack/logs/stack.sh.log
 VERBOSE=True
 LOG_COLOR=True
-SCREEN_LOGDIR=/opt/stack/logs
 
 NSX_MANAGER=<nsx-manager1-ip>
 NSX_USER=<nsx-manager-user>
