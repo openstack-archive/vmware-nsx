@@ -127,6 +127,9 @@ class TestSubnetsWithMdV2(test_plugin.TestSubnetsV2,
     def test_list_subnets_with_pagination_emulated(self):
         self.skipTest("The test is not suitable for the metadata test case")
 
+    def test_list_subnets_filtering_by_unknown_filter(self):
+        self.skipTest("The test is not suitable for the metadata test case")
+
     def test_list_subnets_shared(self):
         self.skipTest("The test is not suitable for the metadata test case")
 
