@@ -206,3 +206,7 @@ class NsxVpnValidationError(NsxPluginException):
 
 class NsxIPsecVpnMappingNotFound(n_exc.NotFound):
     message = _("Unable to find mapping for ipsec site connection: %(conn)s")
+
+
+class NsxENSPortSecurity(n_exc.BadRequest):
+    message = _("Port security is not supported on ENS Transport zones")
