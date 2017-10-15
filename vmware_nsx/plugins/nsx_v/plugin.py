@@ -1487,21 +1487,21 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             return
         providernet._raise_if_updates_provider_attributes(attrs)
 
-    def _update_vlan_network_dvs_ids(self, network, new_physical_network,
-                                     az_dvs):
+    def _update_vlan_network_dvs_ids(self, context, network,
+                                     new_physical_network, az_dvs):
         """Update the dvs ids of a vlan provider network
 
-        The new values will be added to the current ones.
-        No support for removing dvs-ids.
+        The new values will replace the old ones.
 
         Actions done in this function:
         - Create a backend network for each new dvs
+        - Delete the backend networks for the old ones.
         - Return the relevant information in order to later also update
           the spoofguard policy, qos, network object and DB
 
         Returns:
         - dvs_list_changed True/False
-        - dvs_pg_mappings - mapping of the new elements dvs->moref
+        - dvs_pg_mappings - updated mapping of the elements dvs->moref
         """
         dvs_pg_mappings = {}
 
@@ -1509,15 +1509,32 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             network[pnet.PHYSICAL_NETWORK], az_dvs))
         new_dvs_ids = set(self._get_dvs_ids(
             new_physical_network, az_dvs))
-        additinal_dvs_ids = new_dvs_ids - current_dvs_ids
+        additional_dvs_ids = new_dvs_ids - current_dvs_ids
+        removed_dvs_ids = current_dvs_ids - new_dvs_ids
 
-        if not additinal_dvs_ids:
+        if not additional_dvs_ids and not removed_dvs_ids:
+            # no changes in the list of DVS
             return False, dvs_pg_mappings
 
-        # create all the new ones
-        for dvs_id in additinal_dvs_ids:
+        self._convert_to_transport_zones_dict(network)
+        # get the current mapping as in the DB
+        db_mapping = nsx_db.get_nsx_network_mappings(
+            context.session, network['id'])
+        for db_map in db_mapping:
+            dvs_pg_mappings[db_map.dvs_id] = db_map.nsx_id
+
+        # delete old backend networks
+        for dvs_id in removed_dvs_ids:
+            nsx_id = dvs_pg_mappings.get(dvs_id)
+            if nsx_id:
+                #Note(asarfaty) This may fail if there is a vm deployed, but
+                # since the delete is done offline we will not catch it here
+                self._delete_backend_network(nsx_id, dvs_id)
+                del dvs_pg_mappings[dvs_id]
+
+        # create all the new backend networks
+        for dvs_id in additional_dvs_ids:
             try:
-                self._convert_to_transport_zones_dict(network)
                 net_moref = self._create_vlan_network_at_backend(
                     dvs_id=dvs_id,
                     net_data=network)
@@ -1568,12 +1585,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             c_utils.NsxVNetworkTypes.VLAN):
             (updated_morefs,
              new_dvs_pg_mappings) = self._update_vlan_network_dvs_ids(
+                context,
                 orig_net,
                 net_attrs[pnet.PHYSICAL_NETWORK],
                 az_dvs)
             if updated_morefs:
-                new_dvs = list(new_dvs_pg_mappings.values())
-                net_morefs.extend(new_dvs)
+                net_morefs = list(new_dvs_pg_mappings.values())
 
         with db_api.context_manager.writer.using(context):
             net_res = super(NsxVPluginV2, self).update_network(context, id,
@@ -1585,16 +1602,21 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             self._process_l3_update(context, net_res, net_attrs)
             self._extend_network_dict_provider(context, net_res)
             if updated_morefs:
+                # delete old mapping before recreating all
+                nsx_db.delete_neutron_nsx_network_mapping(
+                    session=context.session, neutron_id=id)
+
                 # Save netmoref to dvs id mappings for VLAN network
                 # type for future access.
-                all_dvs = net_res.get(pnet.PHYSICAL_NETWORK)
+                dvs_ids = []
                 for dvs_id, netmoref in six.iteritems(new_dvs_pg_mappings):
                     nsx_db.add_neutron_nsx_network_mapping(
                         session=context.session,
                         neutron_id=id,
                         nsx_switch_id=netmoref,
                         dvs_id=dvs_id)
-                    all_dvs = '%s, %s' % (all_dvs, dvs_id)
+                    dvs_ids.append(dvs_id)
+                all_dvs = ', '.join(sorted(dvs_ids))
                 net_res[pnet.PHYSICAL_NETWORK] = all_dvs
                 vlan_id = net_res.get(pnet.SEGMENTATION_ID)
                 nsxv_db.update_network_binding_phy_uuid(

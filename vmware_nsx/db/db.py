@@ -81,6 +81,11 @@ def add_neutron_nsx_network_mapping(session, neutron_id, nsx_switch_id,
         return mapping
 
 
+def delete_neutron_nsx_network_mapping(session, neutron_id):
+    return (session.query(nsx_models.NeutronNsxNetworkMapping).
+            filter_by(neutron_id=neutron_id).delete())
+
+
 def add_neutron_nsx_port_mapping(session, neutron_id,
                                  nsx_switch_id, nsx_port_id):
     session.begin(subtransactions=True)
