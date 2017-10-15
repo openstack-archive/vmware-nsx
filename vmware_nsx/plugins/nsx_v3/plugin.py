@@ -106,7 +106,6 @@ from vmware_nsx.services.trunk.nsx_v3 import driver as trunk_driver
 from vmware_nsxlib.v3 import core_resources as nsx_resources
 from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
 from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
-from vmware_nsxlib.v3 import router
 from vmware_nsxlib.v3 import security
 from vmware_nsxlib.v3 import utils as nsxlib_utils
 
@@ -229,9 +228,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         self.default_section = self._init_default_section_rules()
         self._process_security_group_logging()
-        self._routerlib = router.RouterLib(self.nsxlib.logical_router,
-                                           self.nsxlib.logical_router_port,
-                                           self.nsxlib)
 
         # init profiles on nsx backend
         self._init_nsx_profiles()
@@ -778,7 +774,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 'switch_mode': switch_mode}
 
     def _get_edge_cluster(self, tier0_uuid):
-        self._routerlib.validate_tier0(self.tier0_groups_dict, tier0_uuid)
+        self.nsxlib.router.validate_tier0(self.tier0_groups_dict, tier0_uuid)
         tier0_info = self.tier0_groups_dict[tier0_uuid]
         return tier0_info['edge_cluster_uuid']
 
@@ -787,7 +783,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             tier0_uuid = self._default_tier0_router
         else:
             tier0_uuid = net_data[pnet.PHYSICAL_NETWORK]
-        self._routerlib.validate_tier0(self.tier0_groups_dict, tier0_uuid)
+        self.nsxlib.router.validate_tier0(self.tier0_groups_dict, tier0_uuid)
         return (True, utils.NetworkTypes.L3_EXT, tier0_uuid, 0)
 
     def _create_network_at_the_backend(self, context, net_data, az):
@@ -3064,20 +3060,21 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # TODO(berlin): revocate bgp announce on org tier0 router
             pass
         if remove_snat_rules:
-            self._routerlib.delete_gw_snat_rules(nsx_router_id, orgaddr)
+            self.nsxlib.router.delete_gw_snat_rules(nsx_router_id, orgaddr)
         if remove_router_link_port:
-            self._routerlib.remove_router_link_port(
+            self.nsxlib.router.remove_router_link_port(
                 nsx_router_id, org_tier0_uuid)
         if add_router_link_port:
             # First update edge cluster info for router
             edge_cluster_uuid = self._get_edge_cluster(new_tier0_uuid)
-            self._routerlib.update_router_edge_cluster(
+            self.nsxlib.router.update_router_edge_cluster(
                 nsx_router_id, edge_cluster_uuid)
             tags = self.nsxlib.build_v3_tags_payload(
                    router, resource_type='os-neutron-rport',
                    project_name=context.tenant_name)
-            self._routerlib.add_router_link_port(nsx_router_id, new_tier0_uuid,
-                                                 tags=tags)
+            self.nsxlib.router.add_router_link_port(nsx_router_id,
+                                                    new_tier0_uuid,
+                                                    tags=tags)
         if add_snat_rules:
             # Add SNAT rules for all the subnets which are in different scope
             # than the gw
@@ -3092,9 +3089,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # TODO(berlin): bgp announce on new tier0 router
             pass
 
-        self._routerlib.update_advertisement(nsx_router_id,
-                                             advertise_route_nat_flag,
-                                             advertise_route_connected_flag)
+        self.nsxlib.router.update_advertisement(nsx_router_id,
+                                                advertise_route_nat_flag,
+                                                advertise_route_connected_flag)
 
     def _add_subnet_snat_rule(self, context, router_id, nsx_router_id, subnet,
                               gw_address_scope, gw_ip):
@@ -3112,9 +3109,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                           'addr_scope': gw_address_scope})
                 return
 
-        self._routerlib.add_gw_snat_rule(nsx_router_id, gw_ip,
-                                         source_net=subnet['cidr'],
-                                         bypass_firewall=False)
+        self.nsxlib.router.add_gw_snat_rule(nsx_router_id, gw_ip,
+                                            source_net=subnet['cidr'],
+                                            bypass_firewall=False)
 
     def _process_extra_attr_router_create(self, context, router_db, r):
         for extra_attr in l3_attrs_db.get_attr_info().keys():
@@ -3294,9 +3291,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                          router_id)
                 for route in routes_removed:
-                    self._routerlib.delete_static_routes(nsx_router_id, route)
+                    self.nsxlib.router.delete_static_routes(nsx_router_id,
+                                                            route)
                 for route in routes_added:
-                    self._routerlib.add_static_routes(nsx_router_id, route)
+                    self.nsxlib.router.add_static_routes(nsx_router_id, route)
             if 'name' in router_data:
                 # Update the name of logical router.
                 router_name = router_data['name'] or 'router'
@@ -3345,10 +3343,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 router_db['status'] = const.NET_STATUS_ERROR
                 if nsx_router_id:
                     for route in routes_added:
-                        self._routerlib.delete_static_routes(
+                        self.nsxlib.router.delete_static_routes(
                             nsx_router_id, route)
                     for route in routes_removed:
-                        self._routerlib.add_static_routes(nsx_router_id, route)
+                        self.nsxlib.router.add_static_routes(nsx_router_id,
+                                                             route)
                 router_db['status'] = curr_status
 
     def update_router_firewall(self, context, router_id):
@@ -3569,7 +3568,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 net_az = self.get_network_az_by_net_id(context, network_id)
                 relay_service = net_az.dhcp_relay_service
 
-            self._routerlib.create_logical_router_intf_port_by_ls_id(
+            self.nsxlib.router.create_logical_router_intf_port_by_ls_id(
                 logical_router_id=nsx_router_id,
                 display_name=display_name,
                 tags=tags,
@@ -3673,7 +3672,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if (router_db.gw_port and router_db.enable_snat and
                 router_db.gw_port.get('fixed_ips')):
                 gw_ip = router_db.gw_port['fixed_ips'][0]['ip_address']
-                self._routerlib.delete_gw_snat_rule_by_source(
+                self.nsxlib.router.delete_gw_snat_rule_by_source(
                     nsx_router_id, gw_ip, subnet['cidr'],
                     skip_not_found=True)
 
@@ -3754,7 +3753,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         try:
             nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                      router_id)
-            self._routerlib.add_fip_nat_rules(
+            self.nsxlib.router.add_fip_nat_rules(
                 nsx_router_id, new_fip['floating_ip_address'],
                 new_fip['fixed_ip_address'],
                 bypass_firewall=False)
@@ -3782,7 +3781,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             try:
                 nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                          router_id)
-                self._routerlib.delete_fip_nat_rules(
+                self.nsxlib.router.delete_fip_nat_rules(
                     nsx_router_id, fip['floating_ip_address'],
                     fip['fixed_ip_address'])
             except nsx_lib_exc.ResourceNotFound:
@@ -3820,7 +3819,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 try:
                     old_nsx_router_id = nsx_db.get_nsx_router_id(
                         context.session, old_fip['router_id'])
-                    self._routerlib.delete_fip_nat_rules(
+                    self.nsxlib.router.delete_fip_nat_rules(
                         old_nsx_router_id, old_fip['floating_ip_address'],
                         old_fip['fixed_ip_address'])
                 except nsx_lib_exc.ResourceNotFound:
@@ -3849,7 +3848,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if router_id and not is_lb_port:
                 nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                          router_id)
-                self._routerlib.add_fip_nat_rules(
+                self.nsxlib.router.add_fip_nat_rules(
                     nsx_router_id, new_fip['floating_ip_address'],
                     new_fip['fixed_ip_address'],
                     bypass_firewall=False)
@@ -3874,7 +3873,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             try:
                 nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                          fip_db.router_id)
-                self._routerlib.delete_fip_nat_rules(
+                self.nsxlib.router.delete_fip_nat_rules(
                     nsx_router_id, fip_db.floating_ip_address,
                     fip_db.fixed_ip_address)
             except nsx_lib_exc.ResourceNotFound:
@@ -4213,7 +4212,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                           'subnet': subnet['id']})
 
                 # Delete rule for this router/subnet pair if it exists
-                self._routerlib.delete_gw_snat_rule_by_source(
+                self.nsxlib.router.delete_gw_snat_rule_by_source(
                     nsx_router_id, ext_addr, subnet['cidr'],
                     skip_not_found=True)
 
@@ -4223,6 +4222,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                              "and subnet %(subnet)s",
                              {'router': router['id'],
                               'subnet': subnet['id']})
-                    self._routerlib.add_gw_snat_rule(nsx_router_id, ext_addr,
-                                                     source_net=subnet['cidr'],
-                                                     bypass_firewall=False)
+                    self.nsxlib.router.add_gw_snat_rule(
+                        nsx_router_id, ext_addr,
+                        source_net=subnet['cidr'],
+                        bypass_firewall=False)
