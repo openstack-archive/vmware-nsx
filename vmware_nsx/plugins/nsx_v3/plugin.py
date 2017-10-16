@@ -1781,7 +1781,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 mac_learning_profile_set = True
             profiles.append(self._get_port_security_profile_id())
         if device_owner == const.DEVICE_OWNER_DHCP:
-            profiles.append(self._dhcp_profile)
+            if not self._is_ens_tz_port(context, port_data):
+                profiles.append(self._dhcp_profile)
 
         # Add QoS switching profile, if exists
         qos_policy_id = None
