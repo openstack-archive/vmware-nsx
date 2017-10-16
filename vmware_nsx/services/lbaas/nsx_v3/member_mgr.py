@@ -63,6 +63,9 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                                            tags=tags,
                                            attachment=attachment,
                                            size=lb_size)
+        # Update router to enable advertise_lb_vip flag
+        self.core_plugin.nsxlib.logical_router.update_advertisement(
+            nsx_router_id, advertise_lb_vip=True)
         return lb_service
 
     @log_helpers.log_method_call
