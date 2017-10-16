@@ -113,6 +113,12 @@ class TestNsxv3IpamSubnets(test_plugin.TestSubnetsV2, MockIPPools):
         super(TestNsxv3IpamSubnets, self).setUp()
         self.patch_nsxlib_ipam()
 
+    def test_create_subnet_ipv6_slaac_with_ip_already_allocated(self):
+        self.skipTest('Allocating a specific IP is not supported')
+
+    def test_create_subnet_dhcpv6_stateless_with_ip_already_allocated(self):
+        self.skipTest('Allocating a specific IP is not supported')
+
     def test_update_subnet_gw_ip_in_use_by_router_returns_409(self):
         self.skipTest('Allocating a specific IP is not supported')
 

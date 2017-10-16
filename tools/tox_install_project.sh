@@ -18,10 +18,12 @@ MOD=$2
 shift 2
 
 ZUUL_CLONER=/usr/zuul-env/bin/zuul-cloner
-neutron_installed=$(echo "import ${MOD}" | python 2>/dev/null ; echo $?)
+project_installed=$(echo "import ${MOD}" | python 2>/dev/null ; echo $?)
 BRANCH_NAME=stable/ocata
+PROJ_DIR=${HOME}/src/git.openstack.org/openstack/${PROJ}
 
 set -e
+set -x
 
 CONSTRAINTS_FILE=$1
 shift
@@ -31,10 +33,15 @@ if [ $CONSTRAINTS_FILE != "unconstrained" ]; then
     install_cmd="$install_cmd -c$CONSTRAINTS_FILE"
 fi
 
-if [ $neutron_installed -eq 0 ]; then
+if [ $project_installed -eq 0 ]; then
     echo "ALREADY INSTALLED" > /tmp/tox_install-${PROJ}.txt
     echo "${PROJ} already installed; using existing package"
+    echo "import ${MOD};print(${MOD})" | python
+elif [ -d "$PROJ_DIR" ]; then
+    echo "FOUND code at $PROJ_DIR - using"
+    $install_cmd --no-deps -U -e ${PROJ_DIR}
 elif [ -x "$ZUUL_CLONER" ]; then
+    echo "${PROJ} not installed; using zuul cloner"
     echo "ZUUL CLONER" > /tmp/tox_install-${PROJ}.txt
     cwd=$(/bin/pwd)
     cd /tmp
@@ -47,6 +54,7 @@ elif [ -x "$ZUUL_CLONER" ]; then
     $install_cmd -e .
     cd "$cwd"
 else
+    echo "${PROJ} not installed; using egg"
     echo "PIP HARDCODE" > /tmp/tox_install-${PROJ}.txt
     $install_cmd -U -egit+https://git.openstack.org/openstack/${PROJ}@${BRANCH_NAME}#egg=${PROJ}
 fi
