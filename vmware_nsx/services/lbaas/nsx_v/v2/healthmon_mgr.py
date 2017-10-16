@@ -168,16 +168,18 @@ class EdgeHealthMonitorManager(base_mgr.EdgeLoadbalancerBaseManager):
             context.session, lb_id, pool_id, hm.id, edge_id)
 
         edge_pool = self.vcns.get_pool(edge_id, edge_pool_id)[1]
-        edge_pool['monitorId'].remove(hm_binding['edge_mon_id'])
+        if hm_binding['edge_mon_id'] in edge_pool['monitorId']:
+            edge_pool['monitorId'].remove(hm_binding['edge_mon_id'])
 
-        try:
-            with locking.LockManager.get_lock(edge_id):
-                self.vcns.update_pool(edge_id, edge_pool_id, edge_pool)
-        except nsxv_exc.VcnsApiException:
-            with excutils.save_and_reraise_exception():
-                self.lbv2_driver.health_monitor.failed_completion(context, hm)
-                LOG.error('Failed to delete monitor mapping on edge: %s',
-                          edge_id)
+            try:
+                with locking.LockManager.get_lock(edge_id):
+                    self.vcns.update_pool(edge_id, edge_pool_id, edge_pool)
+            except nsxv_exc.VcnsApiException:
+                with excutils.save_and_reraise_exception():
+                    self.lbv2_driver.health_monitor.failed_completion(context,
+                                                                      hm)
+                    LOG.error('Failed to delete monitor mapping on edge: %s',
+                              edge_id)
 
         # If this monitor is not used on this edge anymore, delete it
         if not edge_pool['monitorId']:
