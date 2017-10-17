@@ -104,6 +104,7 @@ class VcnsApiHelper(object):
                 self.verify_cert = ca_file
             else:
                 self.verify_cert = True
+        self.session = requests.Session()
 
     def _get_nsx_errorcode(self, content):
         try:
@@ -137,12 +138,12 @@ class VcnsApiHelper(object):
             data = None
 
         try:
-            response = requests.request(method,
-                                        uri,
-                                        verify=self.verify_cert,
-                                        data=data,
-                                        headers=headers,
-                                        timeout=self.timeout)
+            response = self.session.request(method,
+                                            uri,
+                                            verify=self.verify_cert,
+                                            data=data,
+                                            headers=headers,
+                                            timeout=self.timeout)
         except requests.exceptions.Timeout:
             raise exceptions.VcnsApiException(uri=uri)
 
