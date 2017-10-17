@@ -62,6 +62,10 @@ class ResourceNotFound(VcnsApiException):
     message = _("Resource %(uri)s not found")
 
 
+class ResourceTimedOut(VcnsApiException):
+    message = _("Resource %(uri)s timed out")
+
+
 class MediaTypeUnsupport(VcnsApiException):
     message = _("Media Type %(uri)s is not supported")
 

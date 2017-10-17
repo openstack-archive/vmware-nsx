@@ -144,7 +144,7 @@ class VcnsApiHelper(object):
                                         headers=headers,
                                         timeout=self.timeout)
         except requests.exceptions.Timeout:
-            raise exceptions.VcnsApiException(uri=uri)
+            raise exceptions.ResourceTimedOut(uri=uri)
 
         status = response.status_code
 
