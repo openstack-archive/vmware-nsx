@@ -87,6 +87,7 @@ NETWORK_TYPES = ['Network', 'VirtualWire', 'DistributedVirtualPortgroup']
 # Dynamic routing constants
 ROUTING_CONFIG = "routing/config"
 BGP_ROUTING_CONFIG = "routing/config/bgp"
+ELAPSED_TIME_THRESHOLD = 30
 
 
 def retry_upon_exception_exclude_error_codes(
@@ -143,10 +144,18 @@ class Vcns(object):
         header, content = self._client_request(_client, method, uri, params,
                                                headers, encodeParams)
         te = time.time()
+        elapsed_time = te - ts
 
-        LOG.debug('VcnsApiHelper reply: header=%(header)s content=%(content)s'
-                  ' took %(seconds)2.4f',
-                  {'header': header, 'content': content, 'seconds': te - ts})
+        LOG.debug('VcnsApiHelper for %(method)s %(uri)s took %(seconds)2.4f. '
+                  'reply: header=%(header)s content=%(content)s',
+                  {'method': method, 'uri': uri,
+                   'header': header, 'content': content,
+                   'seconds': elapsed_time})
+        if elapsed_time > ELAPSED_TIME_THRESHOLD:
+            LOG.warning('Vcns call for %(method)s %(uri)s took %(seconds)2.4f',
+                        {'method': method, 'uri': uri,
+                         'seconds': elapsed_time})
+
         if content == '':
             return header, {}
         if kwargs.get('decode', True):
