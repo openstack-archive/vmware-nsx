@@ -210,6 +210,40 @@ def migrate_distributed_routers_dhcp(resource, event, trigger, **kwargs):
                         nsxv.update_routes(edge_id, route_obj)
 
 
+def is_router_conflicting_on_edge(context, driver, router_id):
+    edge_id = edge_utils.get_router_edge_id(context, router_id)
+    if not edge_id:
+        return False
+    (available_routers,
+     conflict_routers) = driver._get_available_and_conflicting_ids(
+        context, router_id)
+    for conf_router in conflict_routers:
+        conf_edge_id = edge_utils.get_router_edge_id(context, conf_router)
+        if conf_edge_id == edge_id:
+            LOG.info("Router %(rtr)s on edge %(edge)s is conflicting with "
+                     "another router and will be moved",
+                     {'rtr': router_id, 'edge': edge_id})
+            return True
+    return False
+
+
+@admin_utils.output_header
+def redistribute_routers(resource, event, trigger, **kwargs):
+    """If any of the shared routers are on a conflicting edge move them"""
+    context = n_context.get_admin_context()
+    with utils.NsxVPluginWrapper() as plugin:
+        router_driver = plugin._router_managers.get_tenant_router_driver(
+            context, 'shared')
+        routers = plugin.get_routers(context)
+        for router in routers:
+            if (not router.get('distributed', False) and
+                router.get('router_type') == 'shared' and
+                is_router_conflicting_on_edge(
+                    context, router_driver, router['id'])):
+                router_driver.detach_router(context, router['id'], router)
+                router_driver.attach_router(context, router['id'], router)
+
+
 @admin_utils.output_header
 def list_orphaned_vnics(resource, event, trigger, **kwargs):
     """List router orphaned router vnics where the port was deleted"""
@@ -307,6 +341,10 @@ registry.subscribe(nsx_recreate_router_or_edge,
 registry.subscribe(migrate_distributed_routers_dhcp,
                    constants.ROUTERS,
                    shell.Operations.MIGRATE_VDR_DHCP.value)
+
+registry.subscribe(redistribute_routers,
+                   constants.ROUTERS,
+                   shell.Operations.NSX_REDISTRIBURE.value)
 
 registry.subscribe(list_orphaned_vnics,
                    constants.ORPHANED_VNICS,

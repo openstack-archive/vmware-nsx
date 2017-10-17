@@ -161,6 +161,10 @@ DHCP Bindings
 
     nsxadmin -r dhcp-binding -o nsx-recreate --property net-id=5253ae45-75b4-4489-8aa1-6a9e1cfa80a6
 
+- Redistribute networks on dhcp edges (for example when configuration of share_edges_between_tenants changes)::
+
+    nsxadmin -r dhcp-binding -o nsx-redistribute
+
 Routers
 ~~~~~~~
 - Recreate a router edge by moving the router/s to other edge/s::
@@ -170,6 +174,10 @@ Routers
 - Recreate a router on the nsx backend by removing it from the current edge (if any), and attaching to a new one::
 
     nsxadmin -r routers -o nsx-recreate --property router-id=8cdd6d06-b457-4cbb-a0b1-41e08ccce287
+
+- Redistribute shared routers on edges (for example when configuration of share_edges_between_tenants changes)::
+
+    nsxadmin -r routers -o nsx-redistribute
 
 - Migrate NSXv metadata infrastructure for VDRs - use regular DHCP edges for VDR::
 

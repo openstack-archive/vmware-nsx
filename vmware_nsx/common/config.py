@@ -695,6 +695,10 @@ nsxv_opts = [
     cfg.IntOpt('nsx_transaction_timeout',
                default=120,
                help=_("Timeout interval for NSX backend transactions.")),
+    cfg.BoolOpt('share_edges_between_tenants',
+                default=True,
+                help=_("If False, different tenants will not use the same "
+                       "DHCP edge or router edge.")),
 ]
 
 # define the configuration of each NSX-V availability zone.
