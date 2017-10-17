@@ -18,6 +18,7 @@ from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port_security as psec
+from neutron_lib.api import faults
 from neutron_lib.api.validators import availability_zone as az_validator
 from neutron_lib.exceptions import port_security as psec_exc
 from neutron_lib.services.qos import constants as qos_consts
@@ -25,7 +26,6 @@ from neutron_lib.services.qos import constants as qos_consts
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
 from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
-from neutron.api.v2 import base
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
 from neutron.db import _resource_extend as resource_extend
@@ -268,15 +268,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         Exceptions specific to the NSX Plugin are mapped to standard
         HTTP Exceptions.
         """
-        base.FAULT_MAP.update({nsx_lib_exc.ManagerError:
-                               webob.exc.HTTPBadRequest,
-                               nsx_lib_exc.ServiceClusterUnavailable:
-                               webob.exc.HTTPServiceUnavailable,
-                               nsx_lib_exc.ClientCertificateNotTrusted:
-                               webob.exc.HTTPBadRequest,
-                               nsx_exc.SecurityGroupMaximumCapacityReached:
-                               webob.exc.HTTPBadRequest,
-                               })
+        faults.FAULT_MAP.update({nsx_lib_exc.ManagerError:
+                                 webob.exc.HTTPBadRequest,
+                                 nsx_lib_exc.ServiceClusterUnavailable:
+                                 webob.exc.HTTPServiceUnavailable,
+                                 nsx_lib_exc.ClientCertificateNotTrusted:
+                                 webob.exc.HTTPBadRequest,
+                                 nsx_exc.SecurityGroupMaximumCapacityReached:
+                                 webob.exc.HTTPBadRequest})
 
     def _init_fwaas(self, resource, event, trigger, **kwargs):
         self.fwaas_callbacks = None

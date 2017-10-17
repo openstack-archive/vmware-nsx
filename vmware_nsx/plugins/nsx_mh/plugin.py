@@ -17,6 +17,7 @@ import uuid
 
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import port_security as psec
+from neutron_lib.api import faults
 from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib import context as q_context
@@ -34,7 +35,6 @@ import webob.exc
 
 from neutron.api import extensions as neutron_extensions
 from neutron.api.v2 import attributes as attr
-from neutron.api.v2 import base
 from neutron.db import _model_query as model_query
 from neutron.db import _resource_extend as resource_extend
 from neutron.db import _utils as db_utils
@@ -766,14 +766,14 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         Exceptions specific to the NSX Plugin are mapped to standard
         HTTP Exceptions.
         """
-        base.FAULT_MAP.update({nsx_exc.InvalidNovaZone:
-                               webob.exc.HTTPBadRequest,
-                               nsx_exc.NoMorePortsException:
-                               webob.exc.HTTPBadRequest,
-                               nsx_exc.MaintenanceInProgress:
-                               webob.exc.HTTPServiceUnavailable,
-                               nsx_exc.InvalidSecurityCertificate:
-                               webob.exc.HTTPBadRequest})
+        faults.FAULT_MAP.update({nsx_exc.InvalidNovaZone:
+                                 webob.exc.HTTPBadRequest,
+                                 nsx_exc.NoMorePortsException:
+                                 webob.exc.HTTPBadRequest,
+                                 nsx_exc.MaintenanceInProgress:
+                                 webob.exc.HTTPServiceUnavailable,
+                                 nsx_exc.InvalidSecurityCertificate:
+                                 webob.exc.HTTPBadRequest})
 
     def _validate_provider_create(self, context, network):
         segments = network.get(mpnet.SEGMENTS)
