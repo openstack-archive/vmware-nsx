@@ -1845,9 +1845,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         there are, so we can decide on adding / removing the device from
         the exclusion list
         """
-        filters = {'device_id': [device_id],
-                   'device_owner': ['compute:None']}
-        ports = self.get_ports(context.elevated(), filters=filters)
+        filters = {'device_id': [device_id]}
+        device_ports = self.get_ports(context.elevated(), filters=filters)
+        ports = [port for port in device_ports
+                 if port['device_owner'].startswith('compute')]
         return len([p for p in ports
             if validators.is_attr_set(p.get(ext_vnic_idx.VNIC_INDEX))
             and not p[psec.PORTSECURITY]])
