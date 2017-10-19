@@ -15,6 +15,7 @@
 import base64
 import xml.etree.ElementTree as et
 
+from oslo_context import context as context_utils
 from oslo_serialization import jsonutils
 import requests
 import six
@@ -118,6 +119,11 @@ class VcnsApiHelper(object):
             # We won't assume that integer error-code value is guaranteed.
             return None
 
+    def _get_request_id(self):
+        ctx = context_utils.get_current()
+        if ctx:
+            return ctx.__dict__.get('request_id')
+
     def request(self, method, uri, params=None, headers=None,
                 encodeparams=True):
         uri = self.address + uri
@@ -127,6 +133,9 @@ class VcnsApiHelper(object):
         headers['Accept'] = 'application/' + self.format
         headers['Authorization'] = 'Basic ' + self.authToken.strip()
         headers['Content-Type'] = 'application/' + self.format
+        request_id = self._get_request_id()
+        if request_id:
+            headers['TicketNumber'] = request_id
 
         if params:
             if encodeparams is True:
