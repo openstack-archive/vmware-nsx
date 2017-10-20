@@ -14,9 +14,11 @@
 #    under the License.
 
 import netaddr
+from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port_security as psec
+from neutron_lib.api.validators import availability_zone as az_validator
 from neutron_lib.exceptions import port_security as psec_exc
 from neutron_lib.services.qos import constants as qos_consts
 
@@ -47,7 +49,6 @@ from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
 from neutron.db import securitygroups_db
 from neutron.extensions import allowedaddresspairs as addr_pair
-from neutron.extensions import availability_zone as az_ext
 from neutron.extensions import l3
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
@@ -911,9 +912,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         tenant_id = net_data['tenant_id']
 
         # validate the availability zone, and get the AZ object
-        if az_ext.AZ_HINTS in net_data:
+        if az_def.AZ_HINTS in net_data:
             self.validate_availability_zones(context, 'network',
-                                             net_data[az_ext.AZ_HINTS])
+                                             net_data[az_def.AZ_HINTS])
         az = self.get_obj_az_by_hints(net_data)
 
         self._ensure_default_security_group(context, tenant_id)
@@ -940,14 +941,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     context, net_data, created_net)
                 self._process_l3_create(context, created_net, net_data)
 
-                if az_ext.AZ_HINTS in net_data:
+                if az_def.AZ_HINTS in net_data:
                     # Update the AZ hints in the neutron object
-                    az_hints = az_ext.convert_az_list_to_string(
-                        net_data[az_ext.AZ_HINTS])
+                    az_hints = az_validator.convert_az_list_to_string(
+                        net_data[az_def.AZ_HINTS])
                     super(NsxV3Plugin, self).update_network(
                         context,
                         created_net['id'],
-                        {'network': {az_ext.AZ_HINTS: az_hints}})
+                        {'network': {az_def.AZ_HINTS: az_hints}})
 
                 if is_provider_net:
                     # Save provider network fields, needed by get_network()
@@ -4174,16 +4175,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     @staticmethod
     @resource_extend.extends([net_def.COLLECTION_NAME])
     def _extend_availability_zone_hints(net_res, net_db):
-        net_res[az_ext.AZ_HINTS] = az_ext.convert_az_string_to_list(
-            net_db[az_ext.AZ_HINTS])
+        net_res[az_def.AZ_HINTS] = az_validator.convert_az_string_to_list(
+            net_db[az_def.AZ_HINTS])
         if cfg.CONF.nsx_v3.native_dhcp_metadata:
             # When using the configured AZs, the az will always be the same
             # as the hint (or default if none)
-            if net_res[az_ext.AZ_HINTS]:
-                az_name = net_res[az_ext.AZ_HINTS][0]
+            if net_res[az_def.AZ_HINTS]:
+                az_name = net_res[az_def.AZ_HINTS][0]
             else:
                 az_name = nsx_az.DEFAULT_NAME
-            net_res[az_ext.AVAILABILITY_ZONES] = [az_name]
+            net_res[az_def.COLLECTION_NAME] = [az_name]
 
     def recalculate_snat_rules_for_router(self, context, router, subnets):
         """Recalculate router snat rules for specific subnets.

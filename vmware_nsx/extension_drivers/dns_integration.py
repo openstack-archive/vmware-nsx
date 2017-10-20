@@ -14,6 +14,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import dns
 from neutron_lib.api import validators
 from neutron_lib import context as n_context
@@ -22,7 +23,6 @@ from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from neutron.extensions import availability_zone as az_ext
 from neutron.objects import network as net_obj
 from neutron.objects import ports as port_obj
 from neutron.services.externaldns import driver
@@ -292,8 +292,8 @@ class DNSExtensionDriverNSXv3(DNSExtensionDriver):
         if not context:
             context = n_context.get_admin_context()
         network = self._get_network(context, network_id)
-        if az_ext.AZ_HINTS in network and network[az_ext.AZ_HINTS]:
-            az_name = network[az_ext.AZ_HINTS][0]
+        if az_def.AZ_HINTS in network and network[az_def.AZ_HINTS]:
+            az_name = network[az_def.AZ_HINTS][0]
             return self._availability_zones.get_availability_zone(az_name)
         return self._availability_zones.get_default_availability_zone()
 
