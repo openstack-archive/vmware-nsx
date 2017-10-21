@@ -17,6 +17,8 @@ from distutils import version
 import uuid
 
 import netaddr
+
+from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
@@ -34,6 +36,7 @@ from neutron_lib import constants
 from neutron_lib import context as n_context
 from neutron_lib.db import constants as db_const
 from neutron_lib import exceptions as n_exc
+from neutron_lib.exceptions import allowedaddresspairs as addr_exc
 from neutron_lib.exceptions import port_security as psec_exc
 from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
@@ -73,7 +76,6 @@ from neutron.db import portsecurity_db
 from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db
-from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import flavors
 from neutron.extensions import l3
 from neutron.extensions import multiprovidernet as mpnet
@@ -1657,7 +1659,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         return net_res
 
     def _validate_address_pairs(self, attrs, db_port):
-        for ap in attrs[addr_pair.ADDRESS_PAIRS]:
+        for ap in attrs[addr_apidef.ADDRESS_PAIRS]:
             # Check that the IP address is a subnet
             if len(ap['ip_address'].split('/')) > 1:
                 msg = _('NSXv does not support CIDR as address pairs')
@@ -1763,11 +1765,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             attrs = port[port_def.RESOURCE_NAME]
             if self._check_update_has_allowed_address_pairs(port):
                 if not port_security:
-                    raise addr_pair.AddressPairAndPortSecurityRequired()
+                    raise addr_exc.AddressPairAndPortSecurityRequired()
                 self._validate_address_pairs(attrs, neutron_db)
             else:
                 # remove ATTR_NOT_SPECIFIED
-                attrs[addr_pair.ADDRESS_PAIRS] = []
+                attrs[addr_apidef.ADDRESS_PAIRS] = []
 
             # security group extension checks
             if has_ip and port_security:
@@ -1784,10 +1786,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                                               port_data,
                                                               ssgids)
 
-            neutron_db[addr_pair.ADDRESS_PAIRS] = (
+            neutron_db[addr_apidef.ADDRESS_PAIRS] = (
                 self._process_create_allowed_address_pairs(
                     context, neutron_db,
-                    attrs.get(addr_pair.ADDRESS_PAIRS)))
+                    attrs.get(addr_apidef.ADDRESS_PAIRS)))
 
             self._process_port_create_extra_dhcp_opts(
                 context, port_data, dhcp_opts)
@@ -1967,7 +1969,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         port_data = port['port']
         dhcp_opts = port_data.get(ext_edo.EXTRADHCPOPTS)
         self._validate_extra_dhcp_options(dhcp_opts)
-        if addr_pair.ADDRESS_PAIRS in attrs:
+        if addr_apidef.ADDRESS_PAIRS in attrs:
             self._validate_address_pairs(attrs, original_port)
         self._validate_max_ips_per_port(
             port_data.get('fixed_ips', []),
@@ -2090,7 +2092,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 context, port, original_port, ret_port)
 
             update_assigned_addresses = False
-            if addr_pair.ADDRESS_PAIRS in attrs:
+            if addr_apidef.ADDRESS_PAIRS in attrs:
                 update_assigned_addresses = self.update_address_pairs_on_port(
                     context, id, port, original_port, ret_port)
 
@@ -4319,7 +4321,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         approved_addrs = [addr['ip_address'] for addr in port['fixed_ips']]
         # add in the address pair
         approved_addrs.extend(
-            addr['ip_address'] for addr in port[addr_pair.ADDRESS_PAIRS])
+            addr['ip_address'] for addr in port[addr_apidef.ADDRESS_PAIRS])
         # add the IPv6 link-local address if there is an IPv6 address
         if any([netaddr.valid_ipv6(address) for address in approved_addrs]):
             lla = str(netutils.get_ipv6_addr_by_EUI64(

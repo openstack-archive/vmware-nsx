@@ -12,10 +12,11 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
+from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import port_security as psec
 from oslo_config import cfg
 
-from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.tests.unit.db import test_allowedaddresspairs_db as ext_pairs
 
 from vmware_nsx.tests.unit.nsx_mh import test_plugin as test_nsx_plugin
@@ -33,7 +34,7 @@ class TestAllowedAddressPairsNSXv2(test_nsx_plugin.NsxPluginV2TestCase,
         with self.network() as net:
             res = self._create_port(self.fmt, net['network']['id'])
             port = self.deserialize(self.fmt, res)
-            self.assertEqual(port['port'][addr_pair.ADDRESS_PAIRS], [])
+            self.assertEqual(port['port'][addr_apidef.ADDRESS_PAIRS], [])
             self._delete('ports', port['port']['id'])
 
     def test_create_port_security_false_allowed_address_pairs(self):
@@ -60,7 +61,7 @@ class TestAllowedAddressPairsNSXv3(test_v3_plugin.NsxV3PluginTestCaseMixin,
             port = self.deserialize(self.fmt, res)
             address_pairs = [{'mac_address': '00:00:00:00:00:01',
                               'ip_address': '10.0.0.1/24'}]
-            update_port = {'port': {addr_pair.ADDRESS_PAIRS:
+            update_port = {'port': {addr_apidef.ADDRESS_PAIRS:
                                     address_pairs}}
             req = self.new_update_request('ports', update_port,
                                           port['port']['id'])
@@ -95,7 +96,7 @@ class TestAllowedAddressPairsNSXv(test_nsx_v_plugin.NsxVPluginV2TestCase,
                 fixed_ips = [{'subnet_id': subnet['subnet']['id'],
                               'ip_address': '10.0.0.2'}]
                 res = self._create_port(self.fmt, network['network']['id'],
-                                        arg_list=(addr_pair.ADDRESS_PAIRS,
+                                        arg_list=(addr_apidef.ADDRESS_PAIRS,
                                         'fixed_ips'),
                                         allowed_address_pairs=address_pairs,
                                         fixed_ips=fixed_ips)
@@ -107,11 +108,11 @@ class TestAllowedAddressPairsNSXv(test_nsx_v_plugin.NsxVPluginV2TestCase,
         with self.network() as net:
             address_pairs = [{'ip_address': '10.0.0.1'}]
             res = self._create_port(self.fmt, net['network']['id'],
-                                    arg_list=(addr_pair.ADDRESS_PAIRS,),
+                                    arg_list=(addr_apidef.ADDRESS_PAIRS,),
                                     allowed_address_pairs=address_pairs)
             port = self.deserialize(self.fmt, res)
             address_pairs[0]['mac_address'] = port['port']['mac_address']
-            self.assertEqual(port['port'][addr_pair.ADDRESS_PAIRS],
+            self.assertEqual(port['port'][addr_apidef.ADDRESS_PAIRS],
                              address_pairs)
             self._delete('ports', port['port']['id'])
 
@@ -119,14 +120,14 @@ class TestAllowedAddressPairsNSXv(test_nsx_v_plugin.NsxVPluginV2TestCase,
         with self.network() as net:
             address_pairs = [{'ip_address': '10.0.0.1'}]
             res = self._create_port(self.fmt, net['network']['id'],
-                                    arg_list=(addr_pair.ADDRESS_PAIRS,),
+                                    arg_list=(addr_apidef.ADDRESS_PAIRS,),
                                     allowed_address_pairs=address_pairs)
             port = self.deserialize(self.fmt, res)
-            update_port = {'port': {addr_pair.ADDRESS_PAIRS: []}}
+            update_port = {'port': {addr_apidef.ADDRESS_PAIRS: []}}
             req = self.new_update_request('ports', update_port,
                                           port['port']['id'])
             port = self.deserialize(self.fmt, req.get_response(self.api))
-            self.assertEqual(port['port'][addr_pair.ADDRESS_PAIRS], [])
+            self.assertEqual(port['port'][addr_apidef.ADDRESS_PAIRS], [])
             self._delete('ports', port['port']['id'])
 
     def test_update_add_address_pairs(self):
@@ -134,13 +135,13 @@ class TestAllowedAddressPairsNSXv(test_nsx_v_plugin.NsxVPluginV2TestCase,
             res = self._create_port(self.fmt, net['network']['id'])
             port = self.deserialize(self.fmt, res)
             address_pairs = [{'ip_address': '10.0.0.1'}]
-            update_port = {'port': {addr_pair.ADDRESS_PAIRS:
+            update_port = {'port': {addr_apidef.ADDRESS_PAIRS:
                                     address_pairs}}
             req = self.new_update_request('ports', update_port,
                                           port['port']['id'])
             port = self.deserialize(self.fmt, req.get_response(self.api))
             address_pairs[0]['mac_address'] = port['port']['mac_address']
-            self.assertEqual(port['port'][addr_pair.ADDRESS_PAIRS],
+            self.assertEqual(port['port'][addr_apidef.ADDRESS_PAIRS],
                              address_pairs)
             self._delete('ports', port['port']['id'])
 
@@ -164,12 +165,12 @@ class TestAllowedAddressPairsNSXv(test_nsx_v_plugin.NsxVPluginV2TestCase,
             address_pairs = [{'ip_address': '10.0.0.1'}]
             res = self._create_port(self.fmt, net['network']['id'],
                                     arg_list=('port_security_enabled',
-                                              addr_pair.ADDRESS_PAIRS,),
+                                              addr_apidef.ADDRESS_PAIRS,),
                                     port_security_enabled=True,
                                     allowed_address_pairs=address_pairs)
             port = self.deserialize(self.fmt, res)
             self.assertTrue(port['port'][psec.PORTSECURITY])
             address_pairs[0]['mac_address'] = port['port']['mac_address']
-            self.assertEqual(port['port'][addr_pair.ADDRESS_PAIRS],
+            self.assertEqual(port['port'][addr_apidef.ADDRESS_PAIRS],
                              address_pairs)
             self._delete('ports', port['port']['id'])

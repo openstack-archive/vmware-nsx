@@ -15,6 +15,7 @@
 
 import uuid
 
+from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api import faults
@@ -22,6 +23,7 @@ from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib import context as q_context
 from neutron_lib import exceptions as n_exc
+from neutron_lib.exceptions import allowedaddresspairs as addr_exc
 from neutron_lib.exceptions import port_security as psec_exc
 from oslo_concurrency import lockutils
 from oslo_config import cfg
@@ -57,7 +59,6 @@ from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
 from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db
-from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import extraroute
 from neutron.extensions import l3
 from neutron.extensions import multiprovidernet as mpnet
@@ -433,7 +434,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                       nsx_sec_profile_ids,
                                       port_data.get(qos.QUEUE),
                                       port_data.get(mac_ext.MAC_LEARNING),
-                                      port_data.get(addr_pair.ADDRESS_PAIRS))
+                                      port_data.get(addr_apidef.ADDRESS_PAIRS))
 
     def _handle_create_port_exception(self, context, port_id,
                                       ls_uuid, lp_uuid):
@@ -1128,16 +1129,17 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             self._process_port_port_security_create(
                 context, port_data, neutron_db)
             # allowed address pair checks
-            if validators.is_attr_set(port_data.get(addr_pair.ADDRESS_PAIRS)):
+            if validators.is_attr_set(port_data.get(
+                    addr_apidef.ADDRESS_PAIRS)):
                 if not port_security:
-                    raise addr_pair.AddressPairAndPortSecurityRequired()
+                    raise addr_exc.AddressPairAndPortSecurityRequired()
                 else:
                     self._process_create_allowed_address_pairs(
                         context, neutron_db,
-                        port_data[addr_pair.ADDRESS_PAIRS])
+                        port_data[addr_apidef.ADDRESS_PAIRS])
             else:
                 # remove ATTR_NOT_SPECIFIED
-                port_data[addr_pair.ADDRESS_PAIRS] = []
+                port_data[addr_apidef.ADDRESS_PAIRS] = []
 
             # security group extension checks
             # NOTE: check_update_has_security_groups works fine for
@@ -1234,19 +1236,19 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if not ret_port[psec.PORTSECURITY]:
                 #  has address pairs in request
                 if has_addr_pairs:
-                    raise addr_pair.AddressPairAndPortSecurityRequired()
+                    raise addr_exc.AddressPairAndPortSecurityRequired()
                 elif not delete_addr_pairs:
                     # check if address pairs are in db
-                    ret_port[addr_pair.ADDRESS_PAIRS] = (
+                    ret_port[addr_apidef.ADDRESS_PAIRS] = (
                         self.get_allowed_address_pairs(context, id))
-                    if ret_port[addr_pair.ADDRESS_PAIRS]:
-                        raise addr_pair.AddressPairAndPortSecurityRequired()
+                    if ret_port[addr_apidef.ADDRESS_PAIRS]:
+                        raise addr_exc.AddressPairAndPortSecurityRequired()
 
             if (delete_addr_pairs or has_addr_pairs):
                 # delete address pairs and read them in
                 self._delete_allowed_address_pairs(context, id)
                 self._process_create_allowed_address_pairs(
-                    context, ret_port, ret_port[addr_pair.ADDRESS_PAIRS])
+                    context, ret_port, ret_port[addr_apidef.ADDRESS_PAIRS])
             # checks if security groups were updated adding/modifying
             # security groups, port security is set and port has ip
             if not (has_ip and ret_port[psec.PORTSECURITY]):
@@ -1313,7 +1315,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     nsx_sec_profile_ids,
                     ret_port[qos.QUEUE],
                     ret_port.get(mac_ext.MAC_LEARNING),
-                    ret_port.get(addr_pair.ADDRESS_PAIRS))
+                    ret_port.get(addr_apidef.ADDRESS_PAIRS))
 
                 # Update the port status from nsx. If we fail here hide it
                 # since the port was successfully updated but we were not

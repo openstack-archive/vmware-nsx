@@ -15,8 +15,10 @@
 
 import uuid
 
+from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import port_security as psec
+from neutron_lib.exceptions import allowedaddresspairs as addr_exc
 from neutron_lib.exceptions import port_security as psec_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -36,7 +38,6 @@ from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
 from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db as vlan_ext_db
-from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
@@ -369,16 +370,17 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                                                          port_data)
 
             # allowed address pair checks
-            if validators.is_attr_set(port_data.get(addr_pair.ADDRESS_PAIRS)):
+            if validators.is_attr_set(port_data.get(
+                    addr_apidef.ADDRESS_PAIRS)):
                 if not port_security:
-                    raise addr_pair.AddressPairAndPortSecurityRequired()
+                    raise addr_exc.AddressPairAndPortSecurityRequired()
                 else:
                     self._process_create_allowed_address_pairs(
                         context, neutron_db,
-                        port_data[addr_pair.ADDRESS_PAIRS])
+                        port_data[addr_apidef.ADDRESS_PAIRS])
             else:
                 # remove ATTR_NOT_SPECIFIED
-                port_data[addr_pair.ADDRESS_PAIRS] = []
+                port_data[addr_apidef.ADDRESS_PAIRS] = []
 
             self._process_portbindings_create_and_update(context,
                                                          port['port'],
@@ -422,19 +424,19 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             if not ret_port[psec.PORTSECURITY]:
                 #  has address pairs in request
                 if has_addr_pairs:
-                    raise addr_pair.AddressPairAndPortSecurityRequired()
+                    raise addr_exc.AddressPairAndPortSecurityRequired()
                 elif not delete_addr_pairs:
                     # check if address pairs are in db
-                    ret_port[addr_pair.ADDRESS_PAIRS] = (
+                    ret_port[addr_apidef.ADDRESS_PAIRS] = (
                         self.get_allowed_address_pairs(context, id))
-                    if ret_port[addr_pair.ADDRESS_PAIRS]:
-                        raise addr_pair.AddressPairAndPortSecurityRequired()
+                    if ret_port[addr_apidef.ADDRESS_PAIRS]:
+                        raise addr_exc.AddressPairAndPortSecurityRequired()
 
             if delete_addr_pairs or has_addr_pairs:
                 # delete address pairs and read them in
                 self._delete_allowed_address_pairs(context, id)
                 self._process_create_allowed_address_pairs(
-                    context, ret_port, ret_port[addr_pair.ADDRESS_PAIRS])
+                    context, ret_port, ret_port[addr_apidef.ADDRESS_PAIRS])
 
             if psec.PORTSECURITY in port['port']:
                 self._process_port_port_security_update(
