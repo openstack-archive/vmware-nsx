@@ -17,10 +17,10 @@
 import xml.etree.ElementTree as et
 
 import netaddr
-from neutron.extensions import external_net as ext_net_extn
 from neutron.extensions import multiprovidernet as mpnet
 from neutron.ipam import exceptions as ipam_exc
 from neutron.ipam import requests as ipam_req
+from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators
 from oslo_log import log as logging
@@ -51,7 +51,7 @@ class NsxvIpamDriver(common.NsxAbstractIpamDriver, NsxVIpamBase):
         network_id = subnet_request.network_id
         if network_id:
             network = self._fetch_network(self._context, network_id)
-            if network.get(ext_net_extn.EXTERNAL):
+            if network.get(extnet_apidef.EXTERNAL):
                 # external network
                 return True
             if (validators.is_attr_set(network.get(mpnet.SEGMENTS)) or

@@ -17,6 +17,7 @@ from distutils import version
 import uuid
 
 import netaddr
+from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port as port_def
@@ -72,7 +73,6 @@ from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db
 from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import availability_zone as az_ext
-from neutron.extensions import external_net as ext_net_extn
 from neutron.extensions import flavors
 from neutron.extensions import l3
 from neutron.extensions import multiprovidernet as mpnet
@@ -657,7 +657,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 if segmentation_id_set:
                     err_msg = _("Segmentation ID cannot be set with VXLAN")
             elif network_type == c_utils.NsxVNetworkTypes.PORTGROUP:
-                external = network.get(ext_net_extn.EXTERNAL)
+                external = network.get(extnet_apidef.EXTERNAL)
                 if segmentation_id_set:
                     err_msg = _("Segmentation ID cannot be set with portgroup")
                 if not physical_network_set:
@@ -1053,7 +1053,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._validate_availability_zones_in_obj(context, 'network', net_data)
         net_data['id'] = str(uuid.uuid4())
 
-        external = net_data.get(ext_net_extn.EXTERNAL)
+        external = net_data.get(extnet_apidef.EXTERNAL)
         backend_network = (not validators.is_attr_set(external) or
                            validators.is_attr_set(external) and not external)
         network_type = None
@@ -3200,7 +3200,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         net = self.get_network(context.elevated(),
                                                subnet['network_id'])
                         route['network_id'] = net['id']
-                        if net.get(ext_net_extn.EXTERNAL):
+                        if net.get(extnet_apidef.EXTERNAL):
                             route['external'] = True
 
     def _prepare_edge_extra_routes(self, context, router_id):
@@ -3526,7 +3526,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         net_id, subnet_id = self._get_interface_info(context, interface_info)
         network = self.get_network(context.elevated(), net_id)
         # Do not support external subnet/port as a router interface
-        if network.get(ext_net_extn.EXTERNAL):
+        if network.get(extnet_apidef.EXTERNAL):
             msg = _("cannot add an external subnet/port as a router interface")
             raise n_exc.InvalidInput(error_message=msg)
 

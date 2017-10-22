@@ -21,7 +21,6 @@ from webob import exc
 from neutron.api.v2 import attributes
 from neutron.db import models_v2
 from neutron.extensions import address_scope
-from neutron.extensions import external_net
 from neutron.extensions import extraroute
 from neutron.extensions import l3
 from neutron.extensions import l3_ext_gw_mode
@@ -38,6 +37,7 @@ from neutron.tests.unit.scheduler \
     import test_dhcp_agent_scheduler as test_dhcpagent
 
 from neutron_lib.api.definitions import address_scope as addr_apidef
+from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api.definitions import provider_net as pnet
@@ -223,8 +223,8 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
         # attributes containing a colon to be passed with
         # a double underscore instead
         kwargs = dict((k.replace('__', ':'), v) for k, v in kwargs.items())
-        if external_net.EXTERNAL in kwargs:
-            arg_list = (external_net.EXTERNAL, ) + (arg_list or ())
+        if extnet_apidef.EXTERNAL in kwargs:
+            arg_list = (extnet_apidef.EXTERNAL, ) + (arg_list or ())
 
         if providernet_args:
             kwargs.update(providernet_args)
@@ -1054,7 +1054,7 @@ class TestL3NatTestCase(L3NatTest,
         net_type = utils.NetworkTypes.L3_EXT
         expected = [('subnets', []), ('name', name), ('admin_state_up', True),
                     ('status', 'ACTIVE'), ('shared', False),
-                    (external_net.EXTERNAL, True),
+                    (extnet_apidef.EXTERNAL, True),
                     (pnet.NETWORK_TYPE, net_type),
                     (pnet.PHYSICAL_NETWORK, physical_network)]
         with self._create_l3_ext_network(physical_network) as net:

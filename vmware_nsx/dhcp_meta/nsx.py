@@ -15,6 +15,7 @@
 #    under the License.
 #
 
+from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib import constants as const
 from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
@@ -23,7 +24,6 @@ from oslo_utils import excutils
 
 from neutron.db import db_base_plugin_v2
 from neutron.db import l3_db
-from neutron.extensions import external_net
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as p_exc
@@ -211,7 +211,7 @@ def handle_network_dhcp_access(plugin, context, network, action):
              {"action": action, "resource": network})
     if action == 'create_network':
         network_id = network['id']
-        if network.get(external_net.EXTERNAL):
+        if network.get(extnet_apidef.EXTERNAL):
             LOG.info("Network %s is external: no LSN to create",
                      network_id)
             return
@@ -280,7 +280,7 @@ def handle_port_metadata_access(plugin, context, port, is_delete=False):
     if is_user_port(port, check_dev_id=True):
         network_id = port["network_id"]
         network = plugin.get_network(context, network_id)
-        if network[external_net.EXTERNAL]:
+        if network[extnet_apidef.EXTERNAL]:
             LOG.info("Network %s is external: nothing to do",
                      network_id)
             return

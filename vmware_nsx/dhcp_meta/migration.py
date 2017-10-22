@@ -15,7 +15,7 @@
 #    under the License.
 #
 
-from neutron.extensions import external_net
+from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib import constants as const
 from neutron_lib import exceptions as n_exc
 from oslo_log import log as logging
@@ -114,7 +114,7 @@ class MigrationManager(object):
             reason = _("LSN already exist")
             raise p_exc.LsnMigrationConflict(net_id=network_id, reason=reason)
 
-        if network[external_net.EXTERNAL]:
+        if network[extnet_apidef.EXTERNAL]:
             reason = _("Cannot migrate an external network")
             raise n_exc.BadRequest(resource='network', msg=reason)
 

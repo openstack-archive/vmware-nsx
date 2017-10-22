@@ -15,6 +15,7 @@
 
 import uuid
 
+from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api import validators
 from neutron_lib import constants
@@ -57,7 +58,6 @@ from neutron.db import portsecurity_db
 from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db
 from neutron.extensions import allowedaddresspairs as addr_pair
-from neutron.extensions import external_net as ext_net_extn
 from neutron.extensions import extraroute
 from neutron.extensions import l3
 from neutron.extensions import multiprovidernet as mpnet
@@ -833,7 +833,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                 'min_id': constants.MIN_VLAN_TAG,
                                 'max_id': constants.MAX_VLAN_TAG})
                 # Network must be external
-                if not network.get(ext_net_extn.EXTERNAL):
+                if not network.get(extnet_apidef.EXTERNAL):
                     err_msg = (_("The l3_ext provide network type can be "
                                  "used with external networks only"))
             else:
@@ -949,7 +949,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         "network %s", net_data.get('name', '<unknown>'))
         transport_zone_config = self._convert_to_nsx_transport_zones(
             self.cluster, net_data)
-        external = net_data.get(ext_net_extn.EXTERNAL)
+        external = net_data.get(extnet_apidef.EXTERNAL)
         # NOTE(salv-orlando): Pre-generating uuid for Neutron
         # network. This will be removed once the network create operation
         # becomes an asynchronous task

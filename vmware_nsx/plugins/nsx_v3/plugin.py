@@ -14,6 +14,7 @@
 #    under the License.
 
 import netaddr
+from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.exceptions import port_security as psec_exc
@@ -47,7 +48,6 @@ from neutron.db import portsecurity_db
 from neutron.db import securitygroups_db
 from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import availability_zone as az_ext
-from neutron.extensions import external_net as ext_net_extn
 from neutron.extensions import l3
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
@@ -906,7 +906,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def create_network(self, context, network):
         net_data = network['network']
-        external = net_data.get(ext_net_extn.EXTERNAL)
+        external = net_data.get(extnet_apidef.EXTERNAL)
         is_backend_network = False
         tenant_id = net_data['tenant_id']
 
