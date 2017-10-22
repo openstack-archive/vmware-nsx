@@ -245,6 +245,9 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                                               target_router_id, router_ids):
         ext_net_ids = self._get_ext_net_ids(context, router_ids)
         if len(ext_net_ids) > 1:
+            LOG.error("Can't configure external interface on multiple "
+                      "external networks %(networks)s for routers %(routers)s",
+                      {'networks': ext_net_ids, 'routers': router_ids})
             msg = _("Can't configure external interface on multiple external "
                     "networks")
             raise nsx_exc.NsxPluginException(err_msg=msg)
@@ -616,9 +619,12 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                 # previous syslog settings on the edge
                 self.edge_manager.update_syslog_by_flavor(context, router_id,
                         flavor_id, edge_id)
+            LOG.info("Binding shared router %(rtr)s: edge %(edge)s",
+                     {'rtr': router_id, 'edge': edge_id})
 
     def _unbind_router_on_edge(self, context, router_id):
         az = self.get_router_az_by_id(context, router_id)
+        edge_id = edge_utils.get_router_edge_id(context, router_id)
         self.edge_manager.reconfigure_shared_edge_metadata_port(
             context, router_id)
         self.edge_manager.unbind_router_on_edge(context, router_id)
@@ -627,6 +633,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                 az.name)
             if metadata_proxy_handler:
                 metadata_proxy_handler.cleanup_router_edge(context, router_id)
+        LOG.info("Unbinding shared router %(rtr)s: edge %(edge)s",
+                 {'rtr': router_id, 'edge': edge_id})
 
     def _add_router_services_on_available_edge(self, context, router_id):
         router_ids = self.edge_manager.get_routers_on_same_edge(
