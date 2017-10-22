@@ -3969,6 +3969,32 @@ class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
         sg = self._plugin_update_security_group(_context, sg['id'], True)
         self.assertTrue(sg['logging'])
 
+    def test_create_security_group_rule_bulk(self):
+        """Verify that bulk rule create updates the backend section once"""
+        fake_update_sect = self.fc2.update_section
+
+        def mock_update_section(section_uri, request, h):
+            return fake_update_sect(section_uri, request, h)
+        plugin = directory.get_plugin()
+        with self.security_group() as sg,\
+            mock.patch.object(plugin.nsx_v.vcns, 'update_section',
+                              side_effect=mock_update_section) as update_sect:
+            rule1 = self._build_security_group_rule(sg['security_group']['id'],
+                                                    'ingress',
+                                                    'tcp', '22',
+                                                    '22', '10.0.0.1/24')
+            rule2 = self._build_security_group_rule(sg['security_group']['id'],
+                                                    'ingress',
+                                                    'tcp', '23',
+                                                    '23', '10.0.0.1/24')
+            rules = {'security_group_rules': [rule1['security_group_rule'],
+                                              rule2['security_group_rule']]}
+            res = self._create_security_group_rule(self.fmt, rules)
+            ret = self.deserialize(self.fmt, res)
+            self.assertEqual(webob.exc.HTTPCreated.code, res.status_int)
+            self.assertEqual(2, len(ret['security_group_rules']))
+            update_sect.assert_called_once()
+
 
 class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                       test_l3_plugin.L3NatDBIntTestCase,
