@@ -128,7 +128,8 @@ NSX_V3_NON_VIF_PROFILE = 'nsx-default-switch-security-non-vif-profile'
 def inject_headers():
     ctx = context_utils.get_current()
     if ctx:
-        return {'X-NSX-EUSER': ctx.__dict__.get('_project_id')}
+        return {'X-NSX-EUSER': ctx.__dict__.get('_project_id'),
+                'X-NSX-EREQID': ctx.__dict__.get('request_id')}
     return {}
 
 
