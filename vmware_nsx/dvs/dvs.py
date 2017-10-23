@@ -444,6 +444,36 @@ class DvsManager(VCManagerBase):
         port_conf = pg_spec.defaultPortConfig
         port_conf.vlan = self._get_trunk_vlan_spec()
 
+    def update_port_group_security_policy(self, pg_spec, status):
+        policy = pg_spec.policy
+        policy.securityPolicyOverrideAllowed = status
+
+    def _update_port_security_policy(self, dvs_moref, port, status):
+        client_factory = self._session.vim.client.factory
+        ps = client_factory.create('ns0:DVPortConfigSpec')
+        ps.key = port.portKey
+        ps.operation = 'edit'
+        policy = client_factory.create('ns0:DVSSecurityPolicy')
+        bp = client_factory.create('ns0:BoolPolicy')
+        bp.inherited = False
+        bp.value = status
+        policy.allowPromiscuous = bp
+        policy.forgedTransmits = bp
+        policy.inherited = False
+        setting = client_factory.create('ns0:VMwareDVSPortSetting')
+        setting.securityPolicy = policy
+        ps.setting = setting
+        task = self._session.invoke_api(self._session.vim,
+                                        'ReconfigureDVPort_Task',
+                                        dvs_moref,
+                                        port=ps)
+        try:
+            self._session.wait_for_task(task)
+            LOG.info("Updated port security status")
+        except Exception as e:
+            LOG.error("Failed to update port %s. Reason: %s",
+                      port.key, e)
+
 
 class VMManager(VCManagerBase):
     """Management class for VMs related VC tasks."""
@@ -566,6 +596,25 @@ class VMManager(VCManagerBase):
                                                     vm_moref,
                                                     "config.hardware.device")
         return hardware_devices
+
+    def _get_device_port(self, device_id, mac_address):
+        vm_moref = self.get_vm_moref_obj(device_id)
+        hardware_devices = self.get_vm_interfaces_info(vm_moref)
+        if not hardware_devices:
+            return
+        if hardware_devices.__class__.__name__ == "ArrayOfVirtualDevice":
+            hardware_devices = hardware_devices.VirtualDevice
+        for device in hardware_devices:
+            if hasattr(device, 'macAddress'):
+                if device.macAddress == mac_address:
+                    return device.backing.port
+
+    def update_port_security_policy(self, dvs_id, net_id, net_moref,
+                                    device_id, mac_address, status):
+        dvs_moref = self._get_dvs_moref_by_id(dvs_id)
+        port = self._get_device_port(device_id, mac_address)
+        if port:
+            self._update_port_security_policy(dvs_moref, port, status)
 
 
 class ClusterManager(VCManagerBase):
