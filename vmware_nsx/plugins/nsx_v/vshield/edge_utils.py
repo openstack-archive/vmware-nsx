@@ -1861,9 +1861,9 @@ class EdgeManager(object):
                             {'edge_id': edge_id,
                              'port_id': port_id})
         else:
-            LOG.warning("Failed to find edge_id to delete dhcp "
-                        "binding for port %(port_id)s",
-                        {'port_id': port_id})
+            # This happens during network/subnet deletion
+            LOG.info("Didn't delete dhcp binding for port %(port_id)s: "
+                     "No edge id", {'port_id': port_id})
 
     @vcns.retry_upon_exception(nsxapi_exc.VcnsApiException, max_delay=10)
     def _create_dhcp_binding(self, context, edge_id, binding):
