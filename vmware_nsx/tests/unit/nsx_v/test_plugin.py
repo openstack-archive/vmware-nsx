@@ -23,7 +23,6 @@ from neutron.api.v2 import attributes
 from neutron.extensions import address_scope
 from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import dvr as dist_router
-from neutron.extensions import external_net
 from neutron.extensions import l3
 from neutron.extensions import l3_ext_gw_mode
 from neutron.extensions import l3_flavors
@@ -42,6 +41,7 @@ import neutron.tests.unit.extensions.test_portsecurity as test_psec
 import neutron.tests.unit.extensions.test_securitygroup as ext_sg
 from neutron.tests.unit import testlib_api
 from neutron_lib.api.definitions import address_scope as addr_apidef
+from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import extra_dhcp_opt as edo_ext
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import portbindings
@@ -126,8 +126,8 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
         # attributes containing a colon to be passed with
         # a double underscore instead
         kwargs = dict((k.replace('__', ':'), v) for k, v in kwargs.items())
-        if external_net.EXTERNAL in kwargs:
-            arg_list = (external_net.EXTERNAL, ) + (arg_list or ())
+        if extnet_apidef.EXTERNAL in kwargs:
+            arg_list = (extnet_apidef.EXTERNAL, ) + (arg_list or ())
 
         attrs = kwargs
         if providernet_args:
@@ -311,17 +311,17 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
         name = 'ext_net'
         expected = [('subnets', []), ('name', name), ('admin_state_up', True),
                     ('status', 'ACTIVE'), ('shared', False),
-                    (external_net.EXTERNAL, True),
+                    (extnet_apidef.EXTERNAL, True),
                     (pnet.NETWORK_TYPE, 'portgroup'),
                     (pnet.PHYSICAL_NETWORK, 'tzuuid')]
         providernet_args = {pnet.NETWORK_TYPE: 'portgroup',
                             pnet.PHYSICAL_NETWORK: 'tzuuid',
-                            external_net.EXTERNAL: True}
+                            extnet_apidef.EXTERNAL: True}
         with self.network(name=name,
                           providernet_args=providernet_args,
                           arg_list=(pnet.NETWORK_TYPE,
                                     pnet.PHYSICAL_NETWORK,
-                                    external_net.EXTERNAL)) as net:
+                                    extnet_apidef.EXTERNAL)) as net:
             for k, v in expected:
                 self.assertEqual(net['network'][k], v)
 
@@ -2241,7 +2241,7 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
 
     def _set_net_external(self, net_id):
         self._update('networks', net_id,
-                     {'network': {external_net.EXTERNAL: True}})
+                     {'network': {extnet_apidef.EXTERNAL: True}})
 
     def _add_external_gateway_to_router(self, router_id, network_id,
                                         expected_code=webob.exc.HTTPOk.code,
@@ -2786,7 +2786,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
         name = 'l3_ext_net'
         expected = [('subnets', []), ('name', name), ('admin_state_up', True),
                     ('status', 'ACTIVE'), ('shared', False),
-                    (external_net.EXTERNAL, True)]
+                    (extnet_apidef.EXTERNAL, True)]
         with self._create_l3_ext_network(vlan_id) as net:
             for k, v in expected:
                 self.assertEqual(net['network'][k], v)

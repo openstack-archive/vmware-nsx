@@ -20,8 +20,8 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from neutron.extensions import external_net
 from neutron_lib.api.definitions import address_scope
+from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib import constants as n_const
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
@@ -392,7 +392,7 @@ class NSXvBgpDriver(object):
     def _validate_gateway_network(self, context, speaker_id, network_id):
         ext_net = self._core_plugin.get_network(context, network_id)
 
-        if not ext_net.get(external_net.EXTERNAL):
+        if not ext_net.get(extnet_apidef.EXTERNAL):
             raise nsx_exc.NsxBgpNetworkNotExternal(net_id=network_id)
         if not ext_net['subnets']:
             raise nsx_exc.NsxBgpGatewayNetworkHasNoSubnets(net_id=network_id)
