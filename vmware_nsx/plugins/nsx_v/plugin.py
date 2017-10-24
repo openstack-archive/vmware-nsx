@@ -17,6 +17,7 @@ from distutils import version
 import uuid
 
 import netaddr
+from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
 from neutron_lib.api.definitions import network as net_def
@@ -25,6 +26,7 @@ from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api.definitions import subnet as subnet_def
 from neutron_lib.api import validators
+from neutron_lib.api.validators import availability_zone as az_validator
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
@@ -72,7 +74,6 @@ from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db
 from neutron.extensions import allowedaddresspairs as addr_pair
-from neutron.extensions import availability_zone as az_ext
 from neutron.extensions import flavors
 from neutron.extensions import l3
 from neutron.extensions import multiprovidernet as mpnet
@@ -594,9 +595,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             raise n_exc.InvalidInput(error_message=err_msg)
 
     def _get_network_az_from_net_data(self, net_data):
-        if az_ext.AZ_HINTS in net_data and net_data[az_ext.AZ_HINTS]:
+        if az_def.AZ_HINTS in net_data and net_data[az_def.AZ_HINTS]:
             return self._availability_zones_data.get_availability_zone(
-                net_data[az_ext.AZ_HINTS][0])
+                net_data[az_def.AZ_HINTS][0])
         return self.get_default_az()
 
     def _get_network_az_dvs_id(self, net_data):
@@ -728,7 +729,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     for binding in bindings]
 
         # update availability zones
-        network[az_ext.AVAILABILITY_ZONES] = (
+        network[az_def.COLLECTION_NAME] = (
             self._get_network_availability_zones(context, network))
 
     def _get_subnet_as_providers(self, context, subnet, nw_dict=None):
@@ -995,9 +996,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _validate_availability_zones_in_obj(self, context, resource_type,
                                            obj_data):
-        if az_ext.AZ_HINTS in obj_data:
+        if az_def.AZ_HINTS in obj_data:
             self.validate_availability_zones(context, resource_type,
-                                             obj_data[az_ext.AZ_HINTS])
+                                             obj_data[az_def.AZ_HINTS])
 
     def validate_availability_zones(self, context, resource_type,
                                     availability_zones):
@@ -1212,15 +1213,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         {'network': {'vlan_transparent': vlt}})
 
                 # update the network with the availability zone hints
-                if az_ext.AZ_HINTS in net_data:
-                    az_hints = az_ext.convert_az_list_to_string(
-                        net_data[az_ext.AZ_HINTS])
+                if az_def.AZ_HINTS in net_data:
+                    az_hints = az_validator.convert_az_list_to_string(
+                        net_data[az_def.AZ_HINTS])
                     super(NsxVPluginV2, self).update_network(context,
                         new_net['id'],
-                        {'network': {az_ext.AZ_HINTS: az_hints}})
-                    new_net[az_ext.AZ_HINTS] = az_hints
+                        {'network': {az_def.AZ_HINTS: az_hints}})
+                    new_net[az_def.AZ_HINTS] = az_hints
                     # still no availability zones until subnets creation
-                    new_net[az_ext.AVAILABILITY_ZONES] = []
+                    new_net[az_def.COLLECTION_NAME] = []
 
                 # DB Operations for setting the network as external
                 self._process_l3_create(context, new_net, net_data)
@@ -2966,14 +2967,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         # Go over the attributes of the metainfo
         allowed_keys = [ROUTER_SIZE, 'router_type', 'distributed',
-                        az_ext.AZ_HINTS]
+                        az_def.AZ_HINTS]
         # This info will be used later on
         # and is not part of standard router config
         future_use_keys = ['syslog']
         for k, v in metainfo.items():
             if k in allowed_keys:
                 #special case for availability zones hints which are an array
-                if k == az_ext.AZ_HINTS:
+                if k == az_def.AZ_HINTS:
                     if not isinstance(v, list):
                         v = [v]
                     # The default az hists is an empty array
@@ -3167,8 +3168,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     @staticmethod
     @resource_extend.extends([net_def.COLLECTION_NAME])
     def _extend_availability_zone_hints(net_res, net_db):
-        net_res[az_ext.AZ_HINTS] = az_ext.convert_az_string_to_list(
-            net_db[az_ext.AZ_HINTS])
+        net_res[az_def.AZ_HINTS] = az_validator.convert_az_string_to_list(
+            net_db[az_def.AZ_HINTS])
 
     def _get_availability_zone_name_by_edge(self, context, edge_id):
         az_name = nsxv_db.get_edge_availability_zone(

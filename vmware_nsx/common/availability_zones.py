@@ -15,8 +15,9 @@
 
 import abc
 
-from neutron.extensions import availability_zone as az_ext
+from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib import exceptions as n_exc
+from neutron_lib.exceptions import availability_zone as az_exc
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
@@ -133,21 +134,21 @@ class NSXAvailabilityZonesPluginCommon(object):
         # zones
         diff = (set(availability_zones) - set(self.get_azs_names()))
         if diff:
-            raise az_ext.AvailabilityZoneNotFound(
+            raise az_exc.AvailabilityZoneNotFound(
                 availability_zone=diff.pop())
 
     def get_az_by_hint(self, hint):
         az = self._availability_zones_data.get_availability_zone(hint)
         if not az:
-            raise az_ext.AvailabilityZoneNotFound(availability_zone=hint)
+            raise az_def.AvailabilityZoneNotFound(availability_zone=hint)
         return az
 
     def get_default_az(self):
         return self._availability_zones_data.get_default_availability_zone()
 
     def get_obj_az_by_hints(self, obj):
-        if az_ext.AZ_HINTS in obj:
-            for hint in obj[az_ext.AZ_HINTS]:
+        if az_def.AZ_HINTS in obj:
+            for hint in obj[az_def.AZ_HINTS]:
                 # For now we use only the first hint
                 return self.get_az_by_hint(hint)
 
