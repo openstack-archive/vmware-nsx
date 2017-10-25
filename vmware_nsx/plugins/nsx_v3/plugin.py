@@ -68,6 +68,7 @@ from neutron_lib import exceptions as n_exc
 from neutron_lib.utils import helpers
 from neutron_lib.utils import net as nlib_net
 from oslo_config import cfg
+from oslo_context import context as context_utils
 from oslo_db import exception as db_exc
 from oslo_log import log
 from oslo_utils import excutils
@@ -122,6 +123,13 @@ NSX_V3_FW_DEFAULT_NS_GROUP = 'os_default_section_ns_group'
 NSX_V3_DEFAULT_SECTION = 'OS-Default-Section'
 NSX_V3_EXCLUDED_PORT_NSGROUP_NAME = 'neutron_excluded_port_nsgroup'
 NSX_V3_NON_VIF_PROFILE = 'nsx-default-switch-security-non-vif-profile'
+
+
+def inject_headers():
+    ctx = context_utils.get_current()
+    if ctx:
+        return {'X-NSX-EUSER': ctx.__dict__.get('_project_id')}
+    return {}
 
 
 # NOTE(asarfaty): the order of inheritance here is important. in order for the
@@ -182,6 +190,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         router=l3_db_models.Router,
         floatingip=l3_db_models.FloatingIP)
     def __init__(self):
+        nsxlib_utils.set_inject_headers_callback(inject_headers)
         self._extend_fault_map()
         self._extension_manager = managers.ExtensionManager()
         super(NsxV3Plugin, self).__init__()
