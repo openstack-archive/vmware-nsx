@@ -60,7 +60,7 @@ class NsxSecurityGroupUtils(object):
     def get_rule_config(self, applied_to_ids, name, action='allow',
                         applied_to='SecurityGroup',
                         source=None, destination=None, services=None,
-                        flags=None, logged=False):
+                        flags=None, logged=False, tag=None):
         """Helper method to create a nsx rule dict."""
         ruleTag = et.Element('rule')
         ruleTag.attrib['logged'] = 'true' if logged else 'false'
@@ -123,6 +123,9 @@ class NsxSecurityGroupUtils(object):
             if flags.get('direction') is not None:
                 dirTag = et.SubElement(ruleTag, 'direction')
                 dirTag.text = flags.get('direction')
+        if tag:
+            tagTag = et.SubElement(ruleTag, 'tag')
+            tagTag.text = tag
         return ruleTag
 
     def get_rule_id_pair_from_section(self, resp):

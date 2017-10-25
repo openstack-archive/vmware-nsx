@@ -4235,7 +4235,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             services=services,
             flags=flags,
             action=action,
-            logged=logged)
+            logged=logged,
+            tag='Project_%s' % rule['tenant_id'])
         return nsx_rule
 
     def create_security_group_rule(self, context, security_group_rule):
