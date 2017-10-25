@@ -98,11 +98,9 @@ HM_BINDING = {'loadbalancer_id': LB_ID,
 L7POLICY_ID = 'l7policy-xxx'
 LB_RULE_ID = 'lb-rule-xx'
 L7RULE_ID = 'l7rule-111'
-L7RULE_BINDING = {'loadbalancer_id': LB_ID,
-                  'policy_id': L7POLICY_ID,
-                  'rule_id': L7RULE_ID,
-                  'lb_vs_id': LB_VS_ID,
-                  'lb_rule_id': LB_RULE_ID}
+L7POLICY_BINDING = {'l7policy_id': L7POLICY_ID,
+                    'lb_vs_id': LB_VS_ID,
+                    'lb_rule_id': LB_RULE_ID}
 
 FAKE_CERT = {'id': 'cert-xyz'}
 
@@ -152,7 +150,7 @@ class BaseTestEdgeLbaasV2(base.BaseTestCase):
                                            description='policy-desc',
                                            listener_id=LISTENER_ID,
                                            action='REDIRECT_TO_POOL',
-                                           redirect_pool_id=LB_POOL_ID,
+                                           redirect_pool_id=POOL_ID,
                                            listener=self.listener,
                                            position=1)
         self.l7rule = lb_models.L7Rule(L7RULE_ID, LB_TENANT_ID,
@@ -660,11 +658,33 @@ class TestEdgeLbaasV2L7Policy(BaseTestEdgeLbaasV2):
         return 'l7policy'
 
     def test_create(self):
-        self.edge_driver.l7policy.create(self.context, self.l7policy)
-        mock_successful_completion = (
-            self.lbv2_driver.l7policy.successful_completion)
-        mock_successful_completion.assert_called_with(
-            self.context, self.l7policy, delete=False)
+        with mock.patch.object(nsx_db, 'get_nsx_lbaas_listener_binding'
+                               ) as mock_get_listener_binding, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
+                              ) as mock_get_pool_binding, \
+            mock.patch.object(self.rule_client, 'create'
+                              ) as mock_create_rule, \
+            mock.patch.object(self.vs_client, 'get'
+                              ) as mock_get_virtual_server, \
+            mock.patch.object(self.vs_client, 'update'
+                              ) as mock_update_virtual_server, \
+            mock.patch.object(nsx_db, 'add_nsx_lbaas_l7policy_binding'
+                              ) as mock_add_l7policy_binding:
+            mock_get_listener_binding.return_value = LISTENER_BINDING
+            mock_get_pool_binding.return_value = POOL_BINDING
+            mock_create_rule.return_value = {'id': LB_RULE_ID}
+            mock_get_virtual_server.return_value = {'id': LB_VS_ID}
+
+            self.edge_driver.l7policy.create(self.context, self.l7policy)
+
+            mock_update_virtual_server.assert_called_with(
+                LB_VS_ID, rule_ids=[LB_RULE_ID])
+            mock_add_l7policy_binding.assert_called_with(
+                self.context.session, L7POLICY_ID, LB_RULE_ID, LB_VS_ID)
+            mock_successful_completion = (
+                self.lbv2_driver.l7policy.successful_completion)
+            mock_successful_completion.assert_called_with(self.context,
+                                                          self.l7policy)
 
     def test_update(self):
         new_l7policy = lb_models.L7Policy(L7POLICY_ID, LB_TENANT_ID,
@@ -672,20 +692,66 @@ class TestEdgeLbaasV2L7Policy(BaseTestEdgeLbaasV2):
                                           listener_id=LISTENER_ID,
                                           action='REJECT',
                                           listener=self.listener,
-                                          position=1)
-        self.edge_driver.l7policy.update(self.context, self.l7policy,
-                                         new_l7policy)
-        mock_successful_completion = (
-            self.lbv2_driver.l7policy.successful_completion)
-        mock_successful_completion.assert_called_with(
-            self.context, new_l7policy, delete=False)
+                                          position=2)
+        vs_with_rules = {
+            'id': LB_VS_ID,
+            'rule_ids': [LB_RULE_ID, 'abc', 'xyz']
+        }
+        rule_body = {
+            'match_conditions': [],
+            'actions': [{
+                'type': 'LbHttpRejectAction',
+                'reply_status': '403'}],
+            'phase': 'HTTP_FORWARDING',
+            'match_strategy': 'ALL'
+        }
+        with mock.patch.object(nsx_db, 'get_nsx_lbaas_l7policy_binding'
+                               ) as mock_get_l7policy_binding, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
+                              ) as mock_get_pool_binding, \
+            mock.patch.object(self.rule_client, 'update'
+                              ) as mock_update_rule, \
+            mock.patch.object(self.vs_client, 'get'
+                              ) as mock_get_virtual_server, \
+            mock.patch.object(self.vs_client, 'update'
+                              ) as mock_update_virtual_server:
+            mock_get_l7policy_binding.return_value = L7POLICY_BINDING
+            mock_get_pool_binding.return_value = POOL_BINDING
+            mock_get_virtual_server.return_value = vs_with_rules
+
+            self.edge_driver.l7policy.update(self.context, self.l7policy,
+                                             new_l7policy)
+
+            mock_update_rule.assert_called_with(LB_RULE_ID,
+                                                **rule_body)
+            mock_update_virtual_server.assert_called_with(
+                LB_VS_ID, rule_ids=['abc', LB_RULE_ID, 'xyz'])
+            mock_successful_completion = (
+                self.lbv2_driver.l7policy.successful_completion)
+            mock_successful_completion.assert_called_with(self.context,
+                                                          new_l7policy)
 
     def test_delete(self):
-        self.edge_driver.l7policy.delete(self.context, self.l7policy)
-        mock_successful_completion = (
-            self.lbv2_driver.l7policy.successful_completion)
-        mock_successful_completion.assert_called_with(
-            self.context, self.l7policy, delete=True)
+        with mock.patch.object(nsx_db, 'get_nsx_lbaas_l7policy_binding'
+                               ) as mock_get_l7policy_binding, \
+            mock.patch.object(self.vs_client, 'remove_rule'
+                              ) as mock_vs_remove_rule, \
+            mock.patch.object(self.rule_client, 'delete'
+                              ) as mock_delete_rule, \
+            mock.patch.object(nsx_db, 'delete_nsx_lbaas_l7policy_binding'
+                              ) as mock_delete_l7policy_binding:
+            mock_get_l7policy_binding.return_value = L7POLICY_BINDING
+
+            self.edge_driver.l7policy.delete(self.context, self.l7policy)
+
+            mock_vs_remove_rule.assert_called_with(LB_VS_ID, LB_RULE_ID)
+            mock_delete_rule.assert_called_with(LB_RULE_ID)
+            mock_delete_l7policy_binding.assert_called_with(
+                self.context.session, L7POLICY_ID)
+            mock_successful_completion = (
+                self.lbv2_driver.l7policy.successful_completion)
+            mock_successful_completion.assert_called_with(
+                self.context, self.l7policy, delete=True)
 
 
 class TestEdgeLbaasV2L7Rule(BaseTestEdgeLbaasV2):
@@ -697,31 +763,39 @@ class TestEdgeLbaasV2L7Rule(BaseTestEdgeLbaasV2):
         return 'l7rule'
 
     def test_create(self):
-        with mock.patch.object(nsx_db, 'get_nsx_lbaas_listener_binding',
-                               ) as mock_get_listnener_binding, \
-            mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding',
+        self.l7policy.rules = [self.l7rule]
+        create_rule_body = {
+            'match_conditions': [{
+                'type': 'LbHttpRequestHeaderCondition',
+                'match_type': 'EQUALS',
+                'header_name': self.l7rule.key,
+                'header_value': self.l7rule.value}],
+            'actions': [{
+                'type': 'LbSelectPoolAction',
+                'pool_id': LB_POOL_ID}],
+            'phase': 'HTTP_FORWARDING',
+            'match_strategy': 'ALL'
+        }
+
+        with mock.patch.object(nsx_db, 'get_nsx_lbaas_l7policy_binding'
+                               ) as mock_get_l7policy_binding, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
                               ) as mock_get_pool_binding, \
-            mock.patch.object(self.rule_client, 'create',
-                              ) as mock_create_rule, \
-            mock.patch.object(self.vs_client, 'add_rule',
-                              ) as mock_add_rule, \
-            mock.patch.object(nsx_db, 'add_nsx_lbaas_l7rule_binding',
-                              ) as mock_add_l7rule_binding:
-            mock_get_listnener_binding.return_value = LISTENER_BINDING
+            mock.patch.object(self.rule_client, 'update'
+                              ) as mock_update_rule:
+            mock_get_l7policy_binding.return_value = L7POLICY_BINDING
             mock_get_pool_binding.return_value = POOL_BINDING
-            mock_create_rule.return_value = {'id': LB_RULE_ID}
 
             self.edge_driver.l7rule.create(self.context, self.l7rule)
 
-            mock_add_rule.assert_called_with(LB_VS_ID, LB_RULE_ID)
-            mock_add_l7rule_binding.assert_called_with(
-                self.context.session, LB_ID, L7POLICY_ID, L7RULE_ID,
-                LB_RULE_ID, LB_VS_ID)
+            mock_update_rule.assert_called_with(LB_RULE_ID,
+                                                **create_rule_body)
 
             mock_successful_completion = (
                 self.lbv2_driver.l7rule.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
-                                                          self.l7rule)
+                                                          self.l7rule,
+                                                          delete=False)
 
     def test_update(self):
         new_l7rule = lb_models.L7Rule(L7RULE_ID, LB_TENANT_ID,
@@ -732,29 +806,65 @@ class TestEdgeLbaasV2L7Rule(BaseTestEdgeLbaasV2):
                                       key='cookie1',
                                       value='xxxxx',
                                       policy=self.l7policy)
-        self.edge_driver.l7rule.update(self.context, self.l7rule, new_l7rule)
-        mock_successful_completion = (
-            self.lbv2_driver.l7rule.successful_completion)
-        mock_successful_completion.assert_called_with(
-            self.context, new_l7rule)
+        self.l7policy.rules = [new_l7rule]
+        update_rule_body = {
+            'match_conditions': [{
+                'type': 'LbHttpRequestHeaderCondition',
+                'match_type': 'STARTS_WITH',
+                'header_name': 'Cookie',
+                'header_value': 'cookie1=xxxxx'}],
+            'actions': [{
+                'type': 'LbSelectPoolAction',
+                'pool_id': LB_POOL_ID}],
+            'phase': 'HTTP_FORWARDING',
+            'match_strategy': 'ALL'
+        }
 
-    def test_delete_pool_without_members(self):
-        with mock.patch.object(nsx_db, 'get_nsx_lbaas_l7rule_binding',
-                               ) as mock_get_l7rule_binding, \
-            mock.patch.object(self.vs_client, 'remove_rule'
-                              ) as mock_remove_rule, \
-            mock.patch.object(self.rule_client, 'delete',
-                              ) as mock_delete_rule, \
-            mock.patch.object(nsx_db, 'delete_nsx_lbaas_l7rule_binding',
-                              ) as mock_delete_l7rule_binding:
-            mock_get_l7rule_binding.return_value = L7RULE_BINDING
+        with mock.patch.object(nsx_db, 'get_nsx_lbaas_l7policy_binding'
+                               ) as mock_get_l7policy_binding, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
+                              ) as mock_get_pool_binding, \
+            mock.patch.object(self.rule_client, 'update'
+                              ) as mock_update_rule:
+            mock_get_l7policy_binding.return_value = L7POLICY_BINDING
+            mock_get_pool_binding.return_value = POOL_BINDING
+
+            self.edge_driver.l7rule.update(self.context, self.l7rule,
+                                           new_l7rule)
+
+            mock_update_rule.assert_called_with(LB_RULE_ID,
+                                                **update_rule_body)
+
+            mock_successful_completion = (
+                self.lbv2_driver.l7rule.successful_completion)
+            mock_successful_completion.assert_called_with(self.context,
+                                                          new_l7rule,
+                                                          delete=False)
+
+    def test_delete(self):
+        self.l7policy.rules = [self.l7rule]
+        delete_rule_body = {
+            'match_conditions': [],
+            'actions': [{
+                'type': 'LbSelectPoolAction',
+                'pool_id': LB_POOL_ID}],
+            'phase': 'HTTP_FORWARDING',
+            'match_strategy': 'ALL'
+        }
+
+        with mock.patch.object(nsx_db, 'get_nsx_lbaas_l7policy_binding'
+                               ) as mock_get_l7policy_binding, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
+                              ) as mock_get_pool_binding, \
+            mock.patch.object(self.rule_client, 'update'
+                              ) as mock_update_rule:
+            mock_get_l7policy_binding.return_value = L7POLICY_BINDING
+            mock_get_pool_binding.return_value = POOL_BINDING
 
             self.edge_driver.l7rule.delete(self.context, self.l7rule)
 
-            mock_remove_rule.assert_called_with(LB_VS_ID, LB_RULE_ID)
-            mock_delete_rule.assert_called_with(LB_RULE_ID)
-            mock_delete_l7rule_binding.assert_called_with(
-                self.context.session, LB_ID, L7POLICY_ID, L7RULE_ID)
+            mock_update_rule.assert_called_with(LB_RULE_ID,
+                                                **delete_rule_body)
 
             mock_successful_completion = (
                 self.lbv2_driver.l7rule.successful_completion)
