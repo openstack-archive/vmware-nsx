@@ -19,6 +19,7 @@ from neutron.api.v2 import attributes as attr
 from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron.db import securitygroups_db
+from neutron.extensions import securitygroup as ext_sg
 from neutron.tests.unit.extensions import test_securitygroup
 from neutron_lib import context
 
@@ -132,7 +133,7 @@ class ProviderSecurityGroupExtTestCase(
             plugin=plugin, ext_mgr=ext_mgr)
         self._tenant_id = 'foobar'
         # add provider group attributes
-        attr.RESOURCE_ATTRIBUTE_MAP['security_groups'].update(
+        ext_sg.RESOURCE_ATTRIBUTE_MAP['security_groups'].update(
             provider_sg.EXTENDED_ATTRIBUTES_2_0['security_groups'])
 
         attr.RESOURCE_ATTRIBUTE_MAP['ports'].update(
@@ -140,7 +141,7 @@ class ProviderSecurityGroupExtTestCase(
 
     def tearDown(self):
         # remove provider security group attributes
-        del attr.RESOURCE_ATTRIBUTE_MAP['security_groups']['provider']
+        del ext_sg.RESOURCE_ATTRIBUTE_MAP['security_groups']['provider']
         del attr.RESOURCE_ATTRIBUTE_MAP['ports']['provider_security_groups']
         super(ProviderSecurityGroupExtTestCase, self).tearDown()
 

@@ -18,10 +18,10 @@ import webob.exc
 
 from oslo_utils import uuidutils
 
-from neutron.api.v2 import attributes
 from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron.db import securitygroups_db
+from neutron.extensions import securitygroup as ext_sg
 from neutron.tests.unit.extensions import test_securitygroup
 from neutron_lib import constants as const
 from neutron_lib.plugins import directory
@@ -61,14 +61,14 @@ class LocalIPPrefixExtTestCase(test_securitygroup.SecurityGroupDBTestCase):
     def setUp(self, plugin=PLUGIN_NAME, ext_mgr=None):
         super(LocalIPPrefixExtTestCase, self).setUp(
             plugin=plugin, ext_mgr=ext_mgr)
-        attributes.RESOURCE_ATTRIBUTE_MAP['security_group_rules'].update(
+        ext_sg.RESOURCE_ATTRIBUTE_MAP['security_group_rules'].update(
             ext_loip.RESOURCE_ATTRIBUTE_MAP['security_group_rules'])
 
     def tearDown(self):
         # Remove attributes which were written to global attr map, they may
         # interfer with tests for other plugins which doesn't support this
         # extension.
-        del attributes.RESOURCE_ATTRIBUTE_MAP[
+        del ext_sg.RESOURCE_ATTRIBUTE_MAP[
             'security_group_rules']['local_ip_prefix']
         super(LocalIPPrefixExtTestCase, self).tearDown()
 

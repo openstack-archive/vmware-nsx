@@ -16,7 +16,7 @@ import mock
 from oslo_config import cfg
 import webob.exc
 
-from neutron.api.v2 import attributes as attr
+from neutron.extensions import securitygroup as ext_sg
 from neutron.tests.unit.api import test_extensions
 from neutron.tests.unit.extensions import test_securitygroup
 from neutron_lib import constants
@@ -46,14 +46,14 @@ class SecGroupPolicyExtensionTestCase(
                 plugin=plugin, ext_mgr=ext_mgr)
             self._tenant_id = 'foobar'
             # add policy & logging security group attribute
-            attr.RESOURCE_ATTRIBUTE_MAP['security_groups'].update(
+            ext_sg.RESOURCE_ATTRIBUTE_MAP['security_groups'].update(
                 ext_policy.RESOURCE_ATTRIBUTE_MAP['security_groups'])
-            attr.RESOURCE_ATTRIBUTE_MAP['security_groups'].update(
+            ext_sg.RESOURCE_ATTRIBUTE_MAP['security_groups'].update(
                 ext_logging.RESOURCE_ATTRIBUTE_MAP['security_groups'])
 
     def tearDown(self):
         # remove policy security group attribute
-        del attr.RESOURCE_ATTRIBUTE_MAP['security_groups']['policy']
+        del ext_sg.RESOURCE_ATTRIBUTE_MAP['security_groups']['policy']
         super(SecGroupPolicyExtensionTestCase, self).tearDown()
 
     def _create_secgroup_with_policy(self, policy_id, description=None,
