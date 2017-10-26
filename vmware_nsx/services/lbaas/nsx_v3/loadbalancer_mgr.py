@@ -63,22 +63,27 @@ class EdgeLoadBalancerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
         if lb_binding:
             lb_service_id = lb_binding['lb_service_id']
             nsx_router_id = lb_binding['lb_router_id']
-            lb_service = service_client.get(lb_service_id)
-            vs_list = lb_service.get('virtual_server_ids')
-            if not vs_list:
-                try:
-                    service_client.delete(lb_service_id)
-                    # If there is no lb service attached to the router,
-                    # update the router advertise_lb_vip flag to false.
-                    router_client = self.core_plugin.nsxlib.logical_router
-                    router_client.update_advertisement(nsx_router_id,
-                                                       advertise_lb_vip=False)
-                except nsxlib_exc.ManagerError:
-                    self.lbv2_driver.load_balancer.failed_completion(
-                        context, lb, delete=True)
-                    msg = (_('Failed to delete lb service %(lbs)s from nsx') %
-                           {'lbs': lb_service_id})
-                    raise n_exc.BadRequest(resource='lbaas-lb', msg=msg)
+            try:
+                lb_service = service_client.get(lb_service_id)
+            except nsxlib_exc.ManagerError:
+                LOG.warning("LB service %(lbs)s is not found",
+                            {'lbs': lb_service_id})
+            else:
+                vs_list = lb_service.get('virtual_server_ids')
+                if not vs_list:
+                    try:
+                        service_client.delete(lb_service_id)
+                        # If there is no lb service attached to the router,
+                        # update the router advertise_lb_vip flag to false.
+                        router_client = self.core_plugin.nsxlib.logical_router
+                        router_client.update_advertisement(
+                            nsx_router_id, advertise_lb_vip=False)
+                    except nsxlib_exc.ManagerError:
+                        self.lbv2_driver.load_balancer.failed_completion(
+                            context, lb, delete=True)
+                        msg = (_('Failed to delete lb service %(lbs)s from nsx'
+                                 ) % {'lbs': lb_service_id})
+                        raise n_exc.BadRequest(resource='lbaas-lb', msg=msg)
             nsx_db.delete_nsx_lbaas_loadbalancer_binding(
                 context.session, lb.id)
         self.lbv2_driver.load_balancer.successful_completion(
