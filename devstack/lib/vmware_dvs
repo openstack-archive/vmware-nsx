@@ -101,6 +101,7 @@ function neutron_plugin_configure_service {
     iniset /$Q_PLUGIN_CONF_FILE dvs ca_file "$VMWAREAPI_CA_FILE"
     iniset /$Q_PLUGIN_CONF_FILE dvs insecure "$VMWAREAPI_INSECURE"
     iniset /$Q_PLUGIN_CONF_FILE dvs dvs_name "$VMWARE_DVS_NAME"
+    iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_extension_drivers vmware_dvs_dns
 }
 
 function neutron_plugin_setup_interface_driver {

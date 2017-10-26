@@ -322,6 +322,20 @@ class DNSExtensionDriverNSXv3(DNSExtensionDriver):
         return False
 
 
+class DNSExtensionDriverDVS(DNSExtensionDriver):
+
+    def initialize(self):
+        LOG.info("DNSExtensionDriverDVS initialization complete")
+
+    def external_dns_not_needed(self, context, network):
+        dns_driver = _get_dns_driver()
+        if not dns_driver:
+            return True
+        if network['router:external']:
+            return True
+        return False
+
+
 DNS_DRIVER = None
 
 

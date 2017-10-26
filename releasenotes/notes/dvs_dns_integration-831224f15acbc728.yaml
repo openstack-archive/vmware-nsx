@@ -1,0 +1,8 @@
+---
+features:
+  - |
+    One can enable DNS integration for the upstream neutron for
+    VMware NSX-DVS. DNS integration extension by setting:
+    nsx_extension_drivers = vmware_dvs_dns
+    in the default section of neutron.conf.
+
