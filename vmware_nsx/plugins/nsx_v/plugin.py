@@ -1727,7 +1727,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # Port port-security is decided based on port's vnic_type and ports
             # network port-security state (unless explicitly requested
             # differently by the user).
-            port_security = port_data.get(psec.PORTSECURITY)
+            if not cfg.CONF.nsxv.spoofguard_enabled:
+                port_security = False
+            else:
+                port_security = port_data.get(psec.PORTSECURITY)
             if validators.is_attr_set(port_security):
                 # 'direct' and 'direct-physical' vnic types ports requires
                 # port-security to be disabled.
