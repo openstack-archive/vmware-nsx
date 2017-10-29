@@ -571,7 +571,7 @@ class Vcns(object):
         uri = self._build_uri_path(edge_id,
                                    DHCP_SERVICE, DHCP_BINDING_RESOURCE,
                                    binding_id)
-        return self.do_request(HTTP_GET, uri, decode=False)
+        return self.do_request(HTTP_GET, uri, decode=True)
 
     def create_security_group(self, request):
         """Creates a security group container in nsx.
