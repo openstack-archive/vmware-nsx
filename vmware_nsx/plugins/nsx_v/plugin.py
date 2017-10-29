@@ -1350,7 +1350,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     context.session, dhcp_edge['edge_id'])
 
                 # If the DHCP Edge is connected to two networks:
-                # the delete network and the inter-edge network, we can delete
+                # the deleted network and the inter-edge network, we can delete
                 # the inter-edge interface
                 if len(edge_vnics) == 2:
                     rtr_binding = nsxv_db.get_nsxv_router_binding_by_edge(
@@ -2142,8 +2142,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._create_dhcp_static_binding(context, ret_port)
             elif owner == constants.DEVICE_OWNER_DHCP:
                 # Update the ip of the dhcp port
-                self._update_dhcp_address(context,
-                                          ret_port['network_id'])
+                # Note: if there are no fixed ips this means that we are in
+                # the process of deleting the subnet of this port.
+                # In this case we should avoid updating the nsx backed as the
+                # delete subnet will soon do it.
+                if dhcp_opts or ret_port.get('fixed_ips'):
+                    self._update_dhcp_address(context,
+                                              ret_port['network_id'])
             elif (owner == constants.DEVICE_OWNER_ROUTER_GW or
                   owner == constants.DEVICE_OWNER_ROUTER_INTF):
                 # This is a router port - update the edge appliance
