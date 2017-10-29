@@ -14,12 +14,14 @@
 #    under the License.
 
 import netaddr
+from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api import faults
 from neutron_lib.api.validators import availability_zone as az_validator
+from neutron_lib.exceptions import allowedaddresspairs as addr_exc
 from neutron_lib.exceptions import port_security as psec_exc
 from neutron_lib.services.qos import constants as qos_consts
 
@@ -48,7 +50,6 @@ from neutron.db import models_v2
 from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
 from neutron.db import securitygroups_db
-from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import l3
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
@@ -1614,7 +1615,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             address_bindings.append(nsx_resources.PacketAddressClassifier(
                 fixed_ip['ip_address'], port['mac_address'], None))
 
-        for pair in port.get(addr_pair.ADDRESS_PAIRS):
+        for pair in port.get(addr_apidef.ADDRESS_PAIRS):
             address_bindings.append(nsx_resources.PacketAddressClassifier(
                 pair['ip_address'], pair['mac_address'], None))
 
@@ -1776,7 +1777,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         mac_learning_profile_set = False
         if psec_is_on:
-            address_pairs = port_data.get(addr_pair.ADDRESS_PAIRS)
+            address_pairs = port_data.get(addr_apidef.ADDRESS_PAIRS)
             if validators.is_attr_set(address_pairs) and address_pairs:
                 mac_learning_profile_set = True
             profiles.append(self._get_port_security_profile_id())
@@ -1884,10 +1885,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 context, port_data, neutron_db)
 
         # allowed address pair checks
-        address_pairs = port_data.get(addr_pair.ADDRESS_PAIRS)
+        address_pairs = port_data.get(addr_apidef.ADDRESS_PAIRS)
         if validators.is_attr_set(address_pairs):
             if not port_security:
-                raise addr_pair.AddressPairAndPortSecurityRequired()
+                raise addr_exc.AddressPairAndPortSecurityRequired()
             else:
                 self._validate_address_pairs(address_pairs)
                 self._process_create_allowed_address_pairs(
@@ -1895,7 +1896,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     address_pairs)
         else:
             # remove ATTR_NOT_SPECIFIED
-            port_data[addr_pair.ADDRESS_PAIRS] = []
+            port_data[addr_apidef.ADDRESS_PAIRS] = []
 
         if port_security and has_ip:
             self._ensure_default_security_group_on_port(context, port)
@@ -2534,22 +2535,22 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if not updated_port[psec.PORTSECURITY]:
             #  has address pairs in request
             if has_addr_pairs:
-                raise addr_pair.AddressPairAndPortSecurityRequired()
+                raise addr_exc.AddressPairAndPortSecurityRequired()
             elif not delete_addr_pairs:
                 # check if address pairs are in db
-                updated_port[addr_pair.ADDRESS_PAIRS] = (
+                updated_port[addr_apidef.ADDRESS_PAIRS] = (
                     self.get_allowed_address_pairs(context, id))
-                if updated_port[addr_pair.ADDRESS_PAIRS]:
-                    raise addr_pair.AddressPairAndPortSecurityRequired()
+                if updated_port[addr_apidef.ADDRESS_PAIRS]:
+                    raise addr_exc.AddressPairAndPortSecurityRequired()
 
         if delete_addr_pairs or has_addr_pairs:
             self._validate_address_pairs(
-                updated_port[addr_pair.ADDRESS_PAIRS])
+                updated_port[addr_apidef.ADDRESS_PAIRS])
             # delete address pairs and read them in
             self._delete_allowed_address_pairs(context, id)
             self._process_create_allowed_address_pairs(
                 context, updated_port,
-                updated_port[addr_pair.ADDRESS_PAIRS])
+                updated_port[addr_apidef.ADDRESS_PAIRS])
 
         # No port security is allowed if the port belongs to an ENS TZ
         if (updated_port[psec.PORTSECURITY] and
@@ -2709,7 +2710,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         psec_is_on = self._get_port_security_profile_id() in switch_profile_ids
 
-        address_pairs = updated_port.get(addr_pair.ADDRESS_PAIRS)
+        address_pairs = updated_port.get(addr_apidef.ADDRESS_PAIRS)
         mac_learning_profile_set = (
             validators.is_attr_set(address_pairs) and address_pairs and
             psec_is_on)
@@ -2867,9 +2868,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         # revert allowed address pairs
                         if port_security:
                             orig_pair = original_port.get(
-                                addr_pair.ADDRESS_PAIRS)
+                                addr_apidef.ADDRESS_PAIRS)
                             updated_pair = updated_port.get(
-                                addr_pair.ADDRESS_PAIRS)
+                                addr_apidef.ADDRESS_PAIRS)
                             if orig_pair != updated_pair:
                                 self._delete_allowed_address_pairs(context, id)
                             if orig_pair:

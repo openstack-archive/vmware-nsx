@@ -21,7 +21,6 @@ import mock
 import netaddr
 from neutron.api.v2 import attributes
 from neutron.extensions import address_scope
-from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import dvr as dist_router
 from neutron.extensions import l3
 from neutron.extensions import l3_ext_gw_mode
@@ -41,6 +40,7 @@ import neutron.tests.unit.extensions.test_portsecurity as test_psec
 import neutron.tests.unit.extensions.test_securitygroup as ext_sg
 from neutron.tests.unit import testlib_api
 from neutron_lib.api.definitions import address_scope as addr_apidef
+from neutron_lib.api.definitions import allowedaddresspairs as addrp_apidef
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import extra_dhcp_opt as edo_ext
 from neutron_lib.api.definitions import port_security as psec
@@ -4462,7 +4462,7 @@ class TestNSXvAllowedAddressPairs(NsxVPluginV2TestCase,
                               'ip_address': '192.168.1.0/24'}]
             self._create_port(self.fmt, net['network']['id'],
                             expected_res_status=webob.exc.HTTPBadRequest.code,
-                            arg_list=(addr_pair.ADDRESS_PAIRS,),
+                            arg_list=(addrp_apidef.ADDRESS_PAIRS,),
                             allowed_address_pairs=address_pairs)
 
 

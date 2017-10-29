@@ -37,7 +37,7 @@ from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import l3_db
 from neutron.db import portsecurity_db
-from neutron.extensions import allowedaddresspairs
+from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.callbacks import registry
 from neutron_lib import constants as const
 from neutron_lib import context as neutron_context
@@ -180,7 +180,7 @@ def list_missing_ports(resource, event, trigger, **kwargs):
                 # neutron spoofguard profile should be attached
                 port_sec, has_ip = plugin._determine_port_security_and_has_ip(
                     admin_cxt, port)
-                addr_pair = port.get(allowedaddresspairs.ADDRESS_PAIRS)
+                addr_pair = port.get(addr_apidef.ADDRESS_PAIRS)
                 if port_sec and (has_ip or addr_pair):
                     prf_id = profiles_dict[spoofguard_profile_key]
                     if prf_id != spoofguard_profile_id:
