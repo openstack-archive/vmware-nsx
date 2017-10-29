@@ -99,7 +99,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         self._notify_before_router_edge_association(context, router_db)
         with locking.LockManager.get_lock(str(edge_id)):
             self._remove_router_services_on_edge(context, router_id)
-            self._unbind_router_on_edge(context, router_id)
+            with locking.LockManager.get_lock('nsx-shared-router-pool'):
+                self._unbind_router_on_edge(context, router_id)
 
     def attach_router(self, context, router_id, router, appliance_size=None):
         # find the right place to add, and create a new one if necessary
@@ -335,7 +336,9 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                 self._notify_before_router_edge_association(context, router_db)
                 with locking.LockManager.get_lock(str(edge_id)):
                     self._remove_router_services_on_edge(context, router_id)
-                    self._unbind_router_on_edge(context, router_id)
+                    with locking.LockManager.get_lock(
+                        'nsx-shared-router-pool'):
+                        self._unbind_router_on_edge(context, router_id)
                 self._bind_router_on_available_edge(
                     context, router_id, router_db.admin_state_up)
                 new_edge_id = edge_utils.get_router_edge_id(context,
@@ -706,7 +709,9 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                     if is_migrated:
                         self._remove_router_services_on_edge(context,
                                                              router_id)
-                        self._unbind_router_on_edge(context, router_id)
+                        with locking.LockManager.get_lock(
+                            'nsx-shared-router-pool'):
+                            self._unbind_router_on_edge(context, router_id)
 
                 if not is_migrated:
                     ext_net_ids = self._get_ext_net_ids(context, router_ids)
@@ -716,7 +721,9 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                         # changed.
                         self._remove_router_services_on_edge(context,
                                                              router_id)
-                        self._unbind_router_on_edge(context, router_id)
+                        with locking.LockManager.get_lock(
+                            'nsx-shared-router-pool'):
+                            self._unbind_router_on_edge(context, router_id)
                         is_migrated = True
                     else:
                         updated_routes = False
