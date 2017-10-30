@@ -57,7 +57,7 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                      'external gateway') % {'router': router['id']})
             raise n_exc.BadRequest(resource='lbaas-lbservice-create',
                                    msg=msg)
-        lb_name = utils.get_name_and_uuid(router['name'],
+        lb_name = utils.get_name_and_uuid(router['name'] or 'router',
                                           router_id)
         tags = lb_utils.get_tags(self.core_plugin, router_id,
                                  lb_const.LR_ROUTER_TYPE,

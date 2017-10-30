@@ -83,7 +83,8 @@ class EdgeListenerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
         app_client = load_balancer.application_profile
         vs_client = load_balancer.virtual_server
         service_client = load_balancer.service
-        vs_name = utils.get_name_and_uuid(listener.name, listener.id)
+        vs_name = utils.get_name_and_uuid(listener.name or 'listener',
+                                          listener.id)
         tags = lb_utils.get_tags(self.core_plugin, listener.id,
                                  lb_const.LB_LISTENER_TYPE,
                                  listener.tenant_id,
