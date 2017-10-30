@@ -145,7 +145,7 @@ class EdgeL7RuleManager(base_mgr.Nsxv3LoadbalancerBaseManager):
             vs_client.add_rule(vs_id, lb_rule['id'])
         except nsxlib_exc.ManagerError:
             self.lbv2_driver.l7rule.failed_completion(context, rule)
-            msg = (_('Failed to add rule %(rule)% to virtual server '
+            msg = (_('Failed to add rule %(rule)s to virtual server '
                      '%(vs)s at NSX backend') %
                    {'rule': lb_rule['id'], 'vs': vs_id})
             raise n_exc.BadRequest(resource='lbaas-l7rule-create',
