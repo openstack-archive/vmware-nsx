@@ -66,7 +66,7 @@ class EdgeHealthMonitorManager(base_mgr.Nsxv3LoadbalancerBaseManager):
         pool_id = hm.pool.id
         pool_client = self.core_plugin.nsxlib.load_balancer.pool
         monitor_client = self.core_plugin.nsxlib.load_balancer.monitor
-        monitor_name = utils.get_name_and_uuid(hm.name, hm.id)
+        monitor_name = utils.get_name_and_uuid(hm.name or 'monitor', hm.id)
         tags = lb_utils.get_tags(self.core_plugin, hm.id, lb_const.LB_HM_TYPE,
                                  hm.tenant_id, context.project_name)
         monitor_body = self._build_monitor_args(hm)

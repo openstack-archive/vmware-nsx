@@ -40,7 +40,7 @@ class EdgePoolManager(base_mgr.Nsxv3LoadbalancerBaseManager):
         lb_id = pool.loadbalancer_id
         pool_client = self.core_plugin.nsxlib.load_balancer.pool
         vs_client = self.core_plugin.nsxlib.load_balancer.virtual_server
-        pool_name = utils.get_name_and_uuid(pool.name, pool.id)
+        pool_name = utils.get_name_and_uuid(pool.name or 'pool', pool.id)
         tags = lb_utils.get_tags(self.core_plugin, pool.id,
                                  lb_const.LB_POOL_TYPE, pool.tenant_id,
                                  context.project_name)

@@ -31,19 +31,6 @@ def get_tags(plugin, resource_id, resource_type, project_id, project_name):
     return tags
 
 
-def get_nsx_resource_binding(client, name, id):
-    """
-    :param client: nsx resource client
-    :param name: name of neutron object
-    :param id: id of neutron object
-    :return: return the nsx resource id
-    """
-    nsx_name = utils.get_name_and_uuid(name, id)
-    nsx_resource = client.find_by_display_name(nsx_name)
-    if nsx_resource:
-        return nsx_resource[0]['id']
-
-
 def get_network_from_subnet(context, plugin, subnet_id):
     subnet = plugin.get_subnet(context, subnet_id)
     if subnet:
@@ -62,7 +49,7 @@ def get_router_from_network(context, plugin, subnet_id):
 
 def get_lb_router_id(context, plugin, lb):
     router_client = plugin.nsxlib.logical_router
-    name = utils.get_name_and_uuid(lb.name, lb.id)
+    name = utils.get_name_and_uuid(lb.name or 'router', lb.id)
     tags = get_tags(plugin, lb.id, lb_const.LB_LB_TYPE, lb.tenant_id,
                     context.project_name)
     edge_cluster_uuid = plugin._get_edge_cluster(plugin._default_tier0_router)
