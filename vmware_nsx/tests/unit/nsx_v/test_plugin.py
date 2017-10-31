@@ -41,6 +41,7 @@ from neutron.tests.unit import testlib_api
 from neutron_lib.api.definitions import allowedaddresspairs as addrp_apidef
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import extra_dhcp_opt as edo_ext
+from neutron_lib.api.definitions import l3 as l3_apidef
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api.definitions import provider_net as pnet
@@ -5623,7 +5624,7 @@ class TestRouterFlavorTestCase(extension.ExtensionTestCase,
         self.plugin._process_router_flavor_create = mock.Mock()
 
         self.plugin.register_dict_extend_funcs(
-                l3.ROUTERS, [self._mock_add_flavor_id])
+                l3_apidef.ROUTERS, [self._mock_add_flavor_id])
 
         # init the availability zones
         self.az_name = 'az7'

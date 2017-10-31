@@ -22,6 +22,7 @@ from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
+from neutron_lib.api.definitions import l3 as l3_apidef
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import port_security as psec
@@ -37,6 +38,7 @@ from neutron_lib import context as n_context
 from neutron_lib.db import constants as db_const
 from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import allowedaddresspairs as addr_exc
+from neutron_lib.exceptions import l3 as l3_exc
 from neutron_lib.exceptions import port_security as psec_exc
 from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
@@ -77,7 +79,6 @@ from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db
 from neutron.extensions import flavors
-from neutron.extensions import l3
 from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
@@ -453,7 +454,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             r["router_type"] = router_type
 
     @staticmethod
-    @resource_extend.extends([l3.ROUTERS])
+    @resource_extend.extends([l3_apidef.ROUTERS])
     def _extend_nsx_router_dict(router_res, router_db):
         router_type_obj = rt_rtr.RouterType_mixin()
         router_type_obj._extend_nsx_router_dict(
@@ -3172,14 +3173,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             fips = self.get_floatingips_count(context.elevated(),
                                               filters=router_filter)
             if fips:
-                raise l3.RouterInUse(router_id=router_id)
+                raise l3_exc.RouterInUse(router_id=router_id)
 
             device_filter = {'device_id': [router_id],
                              'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF]}
             ports = self.get_ports_count(context.elevated(),
                                          filters=device_filter)
             if ports:
-                raise l3.RouterInUse(router_id=router_id)
+                raise l3_exc.RouterInUse(router_id=router_id)
 
     def delete_router(self, context, id):
         self._check_router_in_use(context, id)
@@ -3187,7 +3188,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Clear vdr's gw relative components if the router has gw info
         if router_driver.get_type() == "distributed":
             router = self.get_router(context, id)
-            if router.get(l3.EXTERNAL_GW_INFO):
+            if router.get(l3_apidef.EXTERNAL_GW_INFO):
                 try:
                     router_driver._update_router_gw_info(context, id, {})
                 except Exception as e:
@@ -3248,7 +3249,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             router_db.flavor_id = r['flavor_id']
 
     @staticmethod
-    @resource_extend.extends([l3.ROUTERS])
+    @resource_extend.extends([l3_apidef.ROUTERS])
     def add_flavor_id(router_res, router_db):
         router_res['flavor_id'] = router_db['flavor_id']
 
@@ -3634,10 +3635,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             msg = _("cannot add an external subnet/port as a router interface")
             raise n_exc.InvalidInput(error_message=msg)
 
-        snat_disabled = (router[l3.EXTERNAL_GW_INFO] and
-                         not router[l3.EXTERNAL_GW_INFO]['enable_snat'])
+        snat_disabled = (router[l3_apidef.EXTERNAL_GW_INFO] and
+                         not router[l3_apidef.EXTERNAL_GW_INFO]['enable_snat'])
         if snat_disabled and subnet_id:
-            gw_network_id = router[l3.EXTERNAL_GW_INFO]['network_id']
+            gw_network_id = router[l3_apidef.EXTERNAL_GW_INFO]['network_id']
             self._validate_address_scope_for_router_interface(
                 context.elevated(), router_id, gw_network_id, subnet_id)
 
