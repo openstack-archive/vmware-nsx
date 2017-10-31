@@ -19,7 +19,6 @@ import copy
 from eventlet import greenthread
 import mock
 import netaddr
-from neutron.api.v2 import attributes
 from neutron.extensions import address_scope
 from neutron.extensions import dvr as dist_router
 from neutron.extensions import l3
@@ -39,7 +38,6 @@ import neutron.tests.unit.extensions.test_l3_ext_gw_mode as test_ext_gw_mode
 import neutron.tests.unit.extensions.test_portsecurity as test_psec
 import neutron.tests.unit.extensions.test_securitygroup as ext_sg
 from neutron.tests.unit import testlib_api
-from neutron_lib.api.definitions import address_scope as addr_apidef
 from neutron_lib.api.definitions import allowedaddresspairs as addrp_apidef
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import extra_dhcp_opt as edo_ext
@@ -70,7 +68,6 @@ from vmware_nsx.dvs import dvs
 from vmware_nsx.dvs import dvs_utils
 from vmware_nsx.extensions import routersize as router_size
 from vmware_nsx.extensions import routertype as router_type
-from vmware_nsx.extensions import securitygrouplogging
 from vmware_nsx.extensions import vnicindex as ext_vnic_idx
 from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v.drivers import (
@@ -2097,25 +2094,18 @@ class TestL3ExtensionManager(object):
 
     def get_resources(self):
         # Simulate extension of L3 attribute map
-        # First apply attribute extensions
-        for key in l3.RESOURCE_ATTRIBUTE_MAP.keys():
-            l3.RESOURCE_ATTRIBUTE_MAP[key].update(
-                l3_ext_gw_mode.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
-            l3.RESOURCE_ATTRIBUTE_MAP[key].update(
-                dist_router.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
-            l3.RESOURCE_ATTRIBUTE_MAP[key].update(
-                router_type.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
-            l3.RESOURCE_ATTRIBUTE_MAP[key].update(
-                router_size.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
-            l3.RESOURCE_ATTRIBUTE_MAP[key].update(
-                router_availability_zone.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
-            l3.RESOURCE_ATTRIBUTE_MAP[key].update(
-                l3_flavors.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
-        # Finally add l3 resources to the global attribute map
-        attributes.RESOURCE_ATTRIBUTE_MAP.update(
-            l3.RESOURCE_ATTRIBUTE_MAP)
-        attributes.RESOURCE_ATTRIBUTE_MAP.update(
-            addr_apidef.RESOURCE_ATTRIBUTE_MAP)
+        l3.L3().update_attributes_map(
+            l3_ext_gw_mode.EXTENDED_ATTRIBUTES_2_0)
+        l3.L3().update_attributes_map(
+            dist_router.EXTENDED_ATTRIBUTES_2_0)
+        l3.L3().update_attributes_map(
+            router_type.EXTENDED_ATTRIBUTES_2_0)
+        l3.L3().update_attributes_map(
+            router_size.EXTENDED_ATTRIBUTES_2_0)
+        l3.L3().update_attributes_map(
+            router_availability_zone.EXTENDED_ATTRIBUTES_2_0)
+        l3.L3().update_attributes_map(
+            l3_flavors.EXTENDED_ATTRIBUTES_2_0)
         return (l3.L3.get_resources() +
                 address_scope.Address_scope.get_resources())
 
@@ -2126,32 +2116,12 @@ class TestL3ExtensionManager(object):
         return []
 
 
-def backup_l3_attribute_map():
-    """Return a backup of the original l3 attribute map."""
-    return dict((res, attrs.copy()) for
-                (res, attrs) in six.iteritems(l3.RESOURCE_ATTRIBUTE_MAP))
-
-
-def restore_l3_attribute_map(map_to_restore):
-    """Ensure changes made by fake ext mgrs are reverted."""
-    l3.RESOURCE_ATTRIBUTE_MAP = map_to_restore
-
-
 class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
 
-    def _restore_l3_attribute_map(self):
-        l3.RESOURCE_ATTRIBUTE_MAP = self._l3_attribute_map_bk
-
     def setUp(self, plugin=PLUGIN_NAME, ext_mgr=None, service_plugins=None):
-        self._l3_attribute_map_bk = {}
-        for item in l3.RESOURCE_ATTRIBUTE_MAP:
-            self._l3_attribute_map_bk[item] = (
-                l3.RESOURCE_ATTRIBUTE_MAP[item].copy())
         cfg.CONF.set_override('task_status_check_interval', 200, group="nsxv")
 
         cfg.CONF.set_override('api_extensions_path', vmware.NSXEXT_PATH)
-        l3_attribute_map_bk = backup_l3_attribute_map()
-        self.addCleanup(restore_l3_attribute_map, l3_attribute_map_bk)
         ext_mgr = ext_mgr or TestL3ExtensionManager()
         super(L3NatTest, self).setUp(
             plugin=plugin, ext_mgr=ext_mgr, service_plugins=service_plugins)
@@ -3850,8 +3820,6 @@ class NsxVSecurityGroupsTestCase(ext_sg.SecurityGroupDBTestCase):
               ext_mgr=None,
               service_plugins=None):
         test_utils.override_nsx_ini_test()
-        attributes.RESOURCE_ATTRIBUTE_MAP.update(
-            securitygrouplogging.RESOURCE_ATTRIBUTE_MAP)
         mock_vcns = mock.patch(vmware.VCNS_NAME, autospec=True)
         mock_vcns_instance = mock_vcns.start()
         self.fc2 = fake_vcns.FakeVcns()
