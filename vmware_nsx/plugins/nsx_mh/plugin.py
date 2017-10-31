@@ -59,7 +59,6 @@ from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
 from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db
-from neutron.extensions import extraroute
 from neutron.extensions import l3
 from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import providernet
@@ -67,8 +66,10 @@ from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import utils
 from neutron.quota import resource_registry
 from neutron_lib.api.definitions import extra_dhcp_opt as edo_ext
+from neutron_lib.api.definitions import extraroute as xroute_apidef
 from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet
+from neutron_lib.exceptions import extraroute as xroute_exc
 
 import vmware_nsx
 from vmware_nsx._i18n import _
@@ -123,7 +124,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                    "binding",
                                    "dvr",
                                    "ext-gw-mode",
-                                   "extraroute",
+                                   xroute_apidef.ALIAS,
                                    "mac-learning",
                                    "multi-provider",
                                    "network-gateway",
@@ -1595,9 +1596,9 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         try:
             return super(NsxPluginV2, self).update_router(context,
                                                           router_id, router)
-        except (extraroute.InvalidRoutes,
-                extraroute.RouterInterfaceInUseByRoute,
-                extraroute.RoutesExhausted):
+        except (xroute_exc.InvalidRoutes,
+                xroute_exc.RouterInterfaceInUseByRoute,
+                xroute_exc.RoutesExhausted):
             with excutils.save_and_reraise_exception():
                 # revert changes made to NSX
                 self._update_lrouter_routes(
