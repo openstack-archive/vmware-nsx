@@ -144,6 +144,9 @@ class EdgeFirewallDriver(object):
             vcns_rule['application'] = {
                 'service': [service]
             }
+        if rule.get('logged'):
+            vcns_rule['loggingEnabled'] = rule['logged']
+
         if index:
             vcns_rule['ruleTag'] = index
         return vcns_rule
@@ -182,6 +185,9 @@ class EdgeFirewallDriver(object):
             fw_rule['name'] = rule['name']
         if rule.get('description'):
             fw_rule['description'] = rule['description']
+        if rule.get('loggingEnabled'):
+            fw_rule['logged'] = rule['loggingEnabled']
+
         return fw_rule
 
     def _convert_firewall(self, firewall, allow_external=False):

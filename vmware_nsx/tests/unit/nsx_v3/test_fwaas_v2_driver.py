@@ -104,7 +104,8 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
 
         return [rule1, rule2, rule3, rule4]
 
-    def _fake_translated_rules(self, nsx_port_id, is_ingress=True):
+    def _fake_translated_rules(self, nsx_port_id, is_ingress=True,
+                               logged=False):
         # The expected translation of the rules in _fake_rules_v4
         service1 = {'l4_protocol': 'TCP',
                     'resource_type': 'L4PortSetNSService',
@@ -150,6 +151,9 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
             for rule in (rule1, rule2, rule3, rule4):
                 rule[field] = new_val
                 rule['direction'] = direction
+        if logged:
+            for rule in (rule1, rule2, rule3, rule4):
+                rule['logged'] = logged
         return [rule1, rule2, rule3, rule4]
 
     def _fake_empty_firewall_group(self):

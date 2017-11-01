@@ -114,6 +114,9 @@ class EdgeFwaasV3DriverV1(base_driver.CommonEdgeFwaasV3Driver):
         """
         # Return the firewall rules only if the fw is up
         if firewall['admin_state_up']:
-            return self._translate_rules(firewall['firewall_rule_list'])
+            # TODO(asarfaty): get this value from the firewall extensions
+            logged = False
+            return self._translate_rules(firewall['firewall_rule_list'],
+                                         logged=logged)
 
         return []

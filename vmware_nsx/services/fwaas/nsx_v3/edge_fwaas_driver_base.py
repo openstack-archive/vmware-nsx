@@ -145,7 +145,7 @@ class CommonEdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
             ]
 
     def _translate_rules(self, fwaas_rules, replace_src=None,
-                         replace_dest=None):
+                         replace_dest=None, logged=False):
         translated_rules = []
         for rule in fwaas_rules:
             nsx_rule = {}
@@ -183,7 +183,8 @@ class CommonEdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
                     [rule['source_ip_address']])
             if rule.get('protocol'):
                 nsx_rule['services'] = self._translate_services(rule)
-
+            if logged:
+                nsx_rule['logged'] = logged
             translated_rules.append(nsx_rule)
 
         return translated_rules

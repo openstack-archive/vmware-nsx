@@ -102,7 +102,7 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                  'id': 'fake-fw-rule4'}
         return [rule1, rule2, rule3, rule4]
 
-    def _fake_translated_rules(self):
+    def _fake_translated_rules(self, logged=False):
         # The expected translation of the rules in _fake_rules_v4
         service1 = {'l4_protocol': 'TCP',
                     'resource_type': 'L4PortSetNSService',
@@ -135,6 +135,9 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                               'target_type': 'IPv4Address'}],
                  'display_name': 'Fwaas-fake-fw-rule4'}
 
+        if logged:
+            for rule in (rule1, rule2, rule3, rule4):
+                rule['logged'] = logged
         return [rule1, rule2, rule3, rule4]
 
     def _fake_firewall_no_rule(self):

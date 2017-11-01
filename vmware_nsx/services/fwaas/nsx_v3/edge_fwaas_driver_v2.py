@@ -86,14 +86,18 @@ class EdgeFwaasV3DriverV2(base_driver.CommonEdgeFwaasV3Driver):
                                   plugin_rules):
         """Return the list of translated rules per port"""
         port_rules = []
+        # TODO(asarfaty): get this value from the firewall group extensions
+        logged = False
         # Add the firewall group ingress/egress rules only if the fw is up
         if firewall_group['admin_state_up']:
             port_rules.extend(self._translate_rules(
                 firewall_group['ingress_rule_list'],
-                replace_dest=nsx_port_id))
+                replace_dest=nsx_port_id,
+                logged=logged))
             port_rules.extend(self._translate_rules(
                 firewall_group['egress_rule_list'],
-                replace_src=nsx_port_id))
+                replace_src=nsx_port_id,
+                logged=logged))
 
         # Add the per-port plugin rules
         if plugin_rules and isinstance(plugin_rules, list):
