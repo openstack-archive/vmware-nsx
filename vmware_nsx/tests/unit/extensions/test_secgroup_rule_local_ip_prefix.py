@@ -61,16 +61,8 @@ class LocalIPPrefixExtTestCase(test_securitygroup.SecurityGroupDBTestCase):
     def setUp(self, plugin=PLUGIN_NAME, ext_mgr=None):
         super(LocalIPPrefixExtTestCase, self).setUp(
             plugin=plugin, ext_mgr=ext_mgr)
-        ext_sg.RESOURCE_ATTRIBUTE_MAP['security_group_rules'].update(
-            ext_loip.RESOURCE_ATTRIBUTE_MAP['security_group_rules'])
-
-    def tearDown(self):
-        # Remove attributes which were written to global attr map, they may
-        # interfer with tests for other plugins which doesn't support this
-        # extension.
-        del ext_sg.RESOURCE_ATTRIBUTE_MAP[
-            'security_group_rules']['local_ip_prefix']
-        super(LocalIPPrefixExtTestCase, self).tearDown()
+        ext_sg.Securitygroup().update_attributes_map(
+            ext_loip.RESOURCE_ATTRIBUTE_MAP)
 
     def _build_ingress_rule_with_local_ip_prefix(self, security_group_id,
                                                  local_ip_prefix,

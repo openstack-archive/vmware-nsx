@@ -46,15 +46,10 @@ class SecGroupPolicyExtensionTestCase(
                 plugin=plugin, ext_mgr=ext_mgr)
             self._tenant_id = 'foobar'
             # add policy & logging security group attribute
-            ext_sg.RESOURCE_ATTRIBUTE_MAP['security_groups'].update(
-                ext_policy.RESOURCE_ATTRIBUTE_MAP['security_groups'])
-            ext_sg.RESOURCE_ATTRIBUTE_MAP['security_groups'].update(
-                ext_logging.RESOURCE_ATTRIBUTE_MAP['security_groups'])
-
-    def tearDown(self):
-        # remove policy security group attribute
-        del ext_sg.RESOURCE_ATTRIBUTE_MAP['security_groups']['policy']
-        super(SecGroupPolicyExtensionTestCase, self).tearDown()
+            ext_sg.Securitygroup().update_attributes_map(
+                ext_policy.RESOURCE_ATTRIBUTE_MAP)
+            ext_sg.Securitygroup().update_attributes_map(
+                ext_logging.RESOURCE_ATTRIBUTE_MAP)
 
     def _create_secgroup_with_policy(self, policy_id, description=None,
                                      logging=False):

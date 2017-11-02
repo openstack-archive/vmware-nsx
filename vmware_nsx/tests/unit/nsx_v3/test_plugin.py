@@ -13,11 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
-
 import mock
 import netaddr
-from neutron.api.v2 import attributes
 from neutron.db import models_v2
 from neutron.extensions import address_scope
 from neutron.extensions import l3
@@ -33,7 +30,6 @@ from neutron.tests.unit.extensions \
     import test_l3_ext_gw_mode as test_ext_gw_mode
 from neutron.tests.unit.scheduler \
     import test_dhcp_agent_scheduler as test_dhcpagent
-from neutron_lib.api.definitions import address_scope as addr_apidef
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import extraroute as xroute_apidef
 from neutron_lib.api.definitions import port_security as psec
@@ -958,17 +954,10 @@ class TestL3ExtensionManager(object):
 
     def get_resources(self):
         # Simulate extension of L3 attribute map
-        # First apply attribute extensions
-        for key in l3.RESOURCE_ATTRIBUTE_MAP.keys():
-            l3.RESOURCE_ATTRIBUTE_MAP[key].update(
-                l3_ext_gw_mode.EXTENDED_ATTRIBUTES_2_0.get(key, {}))
-            l3.RESOURCE_ATTRIBUTE_MAP[key].update(
-                xroute_apidef.RESOURCE_ATTRIBUTE_MAP.get(key, {}))
-        # Finally add l3 resources to the global attribute map
-        attributes.RESOURCE_ATTRIBUTE_MAP.update(
-            l3.RESOURCE_ATTRIBUTE_MAP)
-        attributes.RESOURCE_ATTRIBUTE_MAP.update(
-            addr_apidef.RESOURCE_ATTRIBUTE_MAP)
+        l3.L3().update_attributes_map(
+            l3_ext_gw_mode.EXTENDED_ATTRIBUTES_2_0)
+        l3.L3().update_attributes_map(
+            xroute_apidef.RESOURCE_ATTRIBUTE_MAP)
         return (l3.L3.get_resources() +
                 address_scope.Address_scope.get_resources())
 
@@ -982,15 +971,10 @@ class TestL3ExtensionManager(object):
 class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxV3PluginTestCaseMixin,
                 test_address_scope.AddressScopeTestCase):
 
-    def _restore(self):
-        l3.RESOURCE_ATTRIBUTE_MAP = self._backup
-
     def setUp(self, plugin=PLUGIN_NAME, ext_mgr=None,
               service_plugins=None):
-        self._backup = copy.deepcopy(l3.RESOURCE_ATTRIBUTE_MAP)
         cfg.CONF.set_override('api_extensions_path', vmware.NSXEXT_PATH)
         cfg.CONF.set_default('max_routes', 3)
-        self.addCleanup(self._restore)
         ext_mgr = ext_mgr or TestL3ExtensionManager()
         mock_nsx_version = mock.patch.object(nsx_plugin.utils,
                                              'is_nsx_version_2_0_0',

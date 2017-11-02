@@ -16,7 +16,6 @@ import contextlib
 
 import mock
 from neutron.api import extensions
-from neutron.api.v2 import attributes
 from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron import quota
@@ -48,12 +47,6 @@ _get_path = test_base._get_path
 class TestExtensionManager(object):
 
     def get_resources(self):
-        # Add the resources to the global attribute map
-        # This is done here as the setup process won't
-        # initialize the main API router which extends
-        # the global attribute map
-        attributes.RESOURCE_ATTRIBUTE_MAP.update(
-            networkgw.RESOURCE_ATTRIBUTE_MAP)
         return networkgw.Networkgw.get_resources()
 
     def get_actions(self):

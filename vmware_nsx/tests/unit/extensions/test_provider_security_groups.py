@@ -15,7 +15,6 @@
 import mock
 import webob.exc
 
-from neutron.api.v2 import attributes as attr
 from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron.db import securitygroups_db
@@ -133,17 +132,8 @@ class ProviderSecurityGroupExtTestCase(
             plugin=plugin, ext_mgr=ext_mgr)
         self._tenant_id = 'foobar'
         # add provider group attributes
-        ext_sg.RESOURCE_ATTRIBUTE_MAP['security_groups'].update(
-            provider_sg.EXTENDED_ATTRIBUTES_2_0['security_groups'])
-
-        attr.RESOURCE_ATTRIBUTE_MAP['ports'].update(
-            provider_sg.EXTENDED_ATTRIBUTES_2_0['ports'])
-
-    def tearDown(self):
-        # remove provider security group attributes
-        del ext_sg.RESOURCE_ATTRIBUTE_MAP['security_groups']['provider']
-        del attr.RESOURCE_ATTRIBUTE_MAP['ports']['provider_security_groups']
-        super(ProviderSecurityGroupExtTestCase, self).tearDown()
+        ext_sg.Securitygroup().update_attributes_map(
+            provider_sg.EXTENDED_ATTRIBUTES_2_0)
 
     def _create_provider_security_group(self):
         body = {'security_group': {'name': 'provider-deny',

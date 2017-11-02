@@ -153,7 +153,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   extradhcpopt_db.ExtraDhcpOptMixin,
                   dns_db.DNSDbMixin,
                   mac_db.MacLearningDbMixin,
-                  nsx_com_az.NSXAvailabilityZonesPluginCommon):
+                  nsx_com_az.NSXAvailabilityZonesPluginCommon,
+                  l3_attrs_db.ExtraAttributesMixin):
 
     __native_bulk_support = True
     __native_pagination_support = True
