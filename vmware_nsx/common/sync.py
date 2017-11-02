@@ -19,6 +19,7 @@ import random
 from neutron_lib import constants
 from neutron_lib import context as n_context
 from neutron_lib import exceptions
+from neutron_lib.exceptions import l3 as l3_exc
 from oslo_log import log
 from oslo_serialization import jsonutils
 from oslo_service import loopingcall
@@ -30,7 +31,6 @@ from neutron.db import api as db_api
 from neutron.db.models import external_net as external_net_db
 from neutron.db.models import l3 as l3_db
 from neutron.db import models_v2
-from neutron.extensions import l3
 
 from vmware_nsx._i18n import _
 from vmware_nsx.api_client import exception as api_exc
@@ -388,7 +388,7 @@ class NsxSynchronizer(object):
             try:
                 router = self._plugin._get_router(context,
                                                   neutron_router_data['id'])
-            except l3.RouterNotFound:
+            except l3_exc.RouterNotFound:
                 pass
             else:
                 router.status = status

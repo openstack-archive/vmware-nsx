@@ -22,11 +22,11 @@ import mock
 from neutron_lib import constants
 from neutron_lib import context
 from neutron_lib import exceptions as n_exc
+from neutron_lib.exceptions import l3 as l3_exc
 from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
 
-from neutron.extensions import l3
 from neutron.tests import base
 from neutron.tests.unit.api.v2 import test_base
 from neutron.tests.unit import testlib_api
@@ -657,7 +657,7 @@ class SyncTestCase(testlib_api.SqlTestCase):
             q_rtr_data = self._plugin._get_router(ctx, q_rtr_id)
             with mock.patch.object(self._plugin,
                                    '_get_router') as _get_router:
-                _get_router.side_effect = l3.RouterNotFound(
+                _get_router.side_effect = l3_exc.RouterNotFound(
                     router_id=q_rtr_data['id'])
                 self._plugin._synchronizer.synchronize_router(ctx, q_rtr_data)
 

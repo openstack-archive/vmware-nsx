@@ -17,11 +17,13 @@ import netaddr
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import external_net as extnet_apidef
+from neutron_lib.api.definitions import l3 as l3_apidef
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api import faults
 from neutron_lib.api.validators import availability_zone as az_validator
 from neutron_lib.exceptions import allowedaddresspairs as addr_exc
+from neutron_lib.exceptions import l3 as l3_exc
 from neutron_lib.exceptions import port_security as psec_exc
 from neutron_lib.services.qos import constants as qos_consts
 
@@ -50,7 +52,6 @@ from neutron.db import models_v2
 from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
 from neutron.db import securitygroups_db
-from neutron.extensions import l3
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import utils as n_utils
@@ -3201,7 +3202,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             nsx_rpc.handle_router_metadata_access(self, context, router_id,
                                                   interface=None)
         router = self.get_router(context, router_id)
-        if router.get(l3.EXTERNAL_GW_INFO):
+        if router.get(l3_apidef.EXTERNAL_GW_INFO):
             self._update_router_gw_info(context, router_id, {})
         nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                  router_id)
@@ -3522,7 +3523,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 raise n_exc.InvalidInput(error_message=err_msg)
             else:
                 # attach to multiple routers
-                raise l3.RouterInterfaceAttachmentConflict(reason=err_msg)
+                raise l3_exc.RouterInterfaceAttachmentConflict(reason=err_msg)
 
     def _add_router_interface_wrapper(self, context, router_id,
                                       interface_info):
@@ -3633,8 +3634,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     context, router_id, subnet_id)
             if not (port['device_owner'] in const.ROUTER_INTERFACE_OWNERS
                     and port['device_id'] == router_id):
-                raise l3.RouterInterfaceNotFound(router_id=router_id,
-                                                 port_id=port_id)
+                raise l3_exc.RouterInterfaceNotFound(
+                    router_id=router_id, port_id=port_id)
         elif 'subnet_id' in interface_info:
             subnet_id = interface_info['subnet_id']
             self._confirm_router_interface_not_in_use(
@@ -3650,8 +3651,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     port_id = p['id']
                     break
             else:
-                raise l3.RouterInterfaceNotFoundForSubnet(router_id=router_id,
-                                                          subnet_id=subnet_id)
+                raise l3_exc.RouterInterfaceNotFoundForSubnet(
+                    router_id=router_id, subnet_id=subnet_id)
         try:
             # TODO(berlin): Revocate announce the subnet on tier0 if
             # enable_snat is False
