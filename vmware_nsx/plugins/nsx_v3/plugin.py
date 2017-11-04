@@ -1316,6 +1316,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def delete_subnet(self, context, subnet_id):
         # TODO(berlin): cancel public external subnet announcement
         if cfg.CONF.nsx_v3.native_dhcp_metadata:
+            # Ensure that subnet is not deleted if attached to router.
+            self._subnet_check_ip_allocations_internal_router_ports(
+                context, subnet_id)
             subnet = self.get_subnet(context, subnet_id)
             if subnet['enable_dhcp']:
                 lock = 'nsxv3_network_' + subnet['network_id']
