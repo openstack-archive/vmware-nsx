@@ -124,6 +124,8 @@ NSX_V3_FW_DEFAULT_NS_GROUP = 'os_default_section_ns_group'
 NSX_V3_DEFAULT_SECTION = 'OS-Default-Section'
 NSX_V3_EXCLUDED_PORT_NSGROUP_NAME = 'neutron_excluded_port_nsgroup'
 NSX_V3_NON_VIF_PROFILE = 'nsx-default-switch-security-non-vif-profile'
+NSX_V3_SERVER_SSL_PROFILE = 'nsx-default-server-ssl-profile'
+NSX_V3_CLIENT_SSL_PROFILE = 'nsx-default-client-ssl-profile'
 
 
 def inject_headers():
@@ -359,6 +361,17 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     NSX_V3_NON_VIF_PROFILE)[0]
             self._no_switch_security = profile_client.build_switch_profile_ids(
                 profile_client, no_switch_security_prof)[0]
+        self.server_ssl_profile = None
+        self.client_ssl_profile = None
+        # Only create LB profiles when nsxv3 version >= 2.1.0
+        if self.nsxlib.feature_supported(nsxlib_consts.FEATURE_LOAD_BALANCER):
+            LOG.debug("Initializing NSX v3 Load Balancer default profiles")
+            try:
+                self._init_lb_profiles()
+            except Exception as e:
+                msg = (_("Unable to initialize NSX v3 lb profiles: "
+                         "Reason: %(reason)s") % {'reason': str(e)})
+                raise nsx_exc.NsxPluginException(err_msg=msg)
 
     def _translate_configured_names_to_uuids(self):
         # If using tags to find the objects, make sure tag scope is configured
@@ -529,6 +542,35 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                           MAC_LEARNING),
             profile_id=profile[0]['id']) if profile else None
         return self._mac_learning_profile
+
+    def _init_lb_profiles(self):
+        with locking.LockManager.get_lock('nsxv3_lb_profiles_init'):
+            lb_profiles = self._get_lb_profiles()
+            if not lb_profiles.get('client_ssl_profile'):
+                self.nsxlib.load_balancer.client_ssl_profile.create(
+                    NSX_V3_CLIENT_SSL_PROFILE,
+                    'Neutron LB Client SSL Profile',
+                    tags=self.nsxlib.build_v3_api_version_tag())
+            if not lb_profiles.get('server_ssl_profile'):
+                self.nsxlib.load_balancer.server_ssl_profile.create(
+                    NSX_V3_SERVER_SSL_PROFILE,
+                    'Neutron LB Server SSL Profile',
+                    tags=self.nsxlib.build_v3_api_version_tag())
+
+    def _get_lb_profiles(self):
+        if not self.client_ssl_profile:
+            ssl_profile_client = self.nsxlib.load_balancer.client_ssl_profile
+            profile = ssl_profile_client.find_by_display_name(
+                NSX_V3_CLIENT_SSL_PROFILE)
+            self.client_ssl_profile = profile[0]['id'] if profile else None
+        if not self.server_ssl_profile:
+            ssl_profile_client = self.nsxlib.load_balancer.server_ssl_profile
+            profile = ssl_profile_client.find_by_display_name(
+                NSX_V3_SERVER_SSL_PROFILE)
+            self.server_ssl_profile = profile[0]['id'] if profile else None
+
+        return {'client_ssl_profile': self.client_ssl_profile,
+                'server_ssl_profile': self.server_ssl_profile}
 
     def _get_port_security_profile_id(self):
         return self.nsxlib.switching_profile.build_switch_profile_ids(

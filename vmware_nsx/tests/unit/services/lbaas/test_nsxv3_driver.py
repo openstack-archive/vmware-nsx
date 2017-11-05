@@ -103,6 +103,8 @@ L7RULE_BINDING = {'loadbalancer_id': LB_ID,
                   'lb_vs_id': LB_VS_ID,
                   'lb_rule_id': LB_RULE_ID}
 
+FAKE_CERT = {'id': 'cert-xyz'}
+
 
 class BaseTestEdgeLbaasV2(base.BaseTestCase):
     def _tested_entity(self):
@@ -127,6 +129,12 @@ class BaseTestEdgeLbaasV2(base.BaseTestCase):
                                            'listener1', '', None, LB_ID,
                                            'HTTP', protocol_port=80,
                                            loadbalancer=self.lb)
+        self.https_listener = lb_models.Listener(
+            LISTENER_ID, LB_TENANT_ID, 'listener1', '', None, LB_ID,
+            'HTTPS', protocol_port=443, loadbalancer=self.lb)
+        self.terminated_https_listener = lb_models.Listener(
+            LISTENER_ID, LB_TENANT_ID, 'listener1', '', None, LB_ID,
+            'TERMINATED_HTTPS', protocol_port=443, loadbalancer=self.lb)
         self.pool = lb_models.Pool(POOL_ID, LB_TENANT_ID, 'pool1', '',
                                    None, 'HTTP', 'ROUND_ROBIN',
                                    loadbalancer_id=LB_ID,
@@ -182,6 +190,8 @@ class BaseTestEdgeLbaasV2(base.BaseTestCase):
                                                 'monitor').start()
         self.rule_client = mock.patch.object(load_balancer,
                                              'rule').start()
+        self.tm_client = mock.patch.object(nsxlib,
+                                           'trust_management').start()
 
     def _unpatch_lb_plugin(self, lb_plugin, manager):
         setattr(lb_plugin, manager, self.real_manager)
@@ -256,7 +266,7 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
     def _tested_entity(self):
         return 'listener'
 
-    def test_create(self):
+    def _create_listener(self, protocol='HTTP'):
         with mock.patch.object(self.app_client, 'create'
                                ) as mock_create_app_profile, \
             mock.patch.object(self.vs_client, 'create'
@@ -270,8 +280,11 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
             mock_create_app_profile.return_value = {'id': APP_PROFILE_ID}
             mock_create_virtual_server.return_value = {'id': LB_VS_ID}
             mock_get_lb_binding.return_value = LB_BINDING
+            listener = self.listener
+            if protocol == 'HTTPS':
+                listener = self.https_listener
 
-            self.edge_driver.listener.create(self.context, self.listener)
+            self.edge_driver.listener.create(self.context, listener)
 
             mock_add_virtual_server.assert_called_with(LB_SERVICE_ID,
                                                        LB_VS_ID)
@@ -282,7 +295,44 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
             mock_successful_completion = (
                 self.lbv2_driver.listener.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
-                                                          self.listener)
+                                                          listener)
+
+    def test_create_http_listener(self):
+        self._create_listener()
+
+    def test_create_https_listener(self):
+        self._create_listener(protocol='HTTPS')
+
+    def test_create_terminated_https(self):
+        with mock.patch.object(self.tm_client, 'create_cert'
+                               ) as mock_create_cert, \
+            mock.patch.object(self.app_client, 'create'
+                              ) as mock_create_app_profile, \
+            mock.patch.object(self.vs_client, 'create'
+                              ) as mock_create_virtual_server, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_loadbalancer_binding'
+                              ) as mock_get_lb_binding, \
+            mock.patch.object(self.service_client, 'add_virtual_server'
+                              ) as mock_add_virtual_server, \
+            mock.patch.object(nsx_db, 'add_nsx_lbaas_listener_binding'
+                              ) as mock_add_listener_binding:
+            mock_create_cert.return_value = FAKE_CERT['id']
+            mock_create_app_profile.return_value = {'id': APP_PROFILE_ID}
+            mock_create_virtual_server.return_value = {'id': LB_VS_ID}
+            mock_get_lb_binding.return_value = LB_BINDING
+
+            self.edge_driver.listener.create(self.context,
+                                             self.terminated_https_listener)
+            mock_add_virtual_server.assert_called_with(LB_SERVICE_ID,
+                                                       LB_VS_ID)
+            mock_add_listener_binding.assert_called_with(
+                self.context.session, LB_ID, LISTENER_ID, APP_PROFILE_ID,
+                LB_VS_ID)
+
+            mock_successful_completion = (
+                self.lbv2_driver.listener.successful_completion)
+            mock_successful_completion.assert_called_with(
+                self.context, self.terminated_https_listener)
 
     def test_update(self):
         new_listener = lb_models.Listener(LISTENER_ID, LB_TENANT_ID,
