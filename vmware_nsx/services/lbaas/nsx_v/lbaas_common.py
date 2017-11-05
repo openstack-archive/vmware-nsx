@@ -109,15 +109,16 @@ def delete_lb_interface(context, plugin, lb_id, subnet_id):
                                 dist=False)
 
 
-def get_lbaas_edge_id(context, plugin, lb_id, vip_addr, subnet_id, tenant_id):
+def get_lbaas_edge_id(context, plugin, lb_id, vip_addr, subnet_id, tenant_id,
+                      appliance_size):
     subnet = plugin.get_subnet(context, subnet_id)
     network_id = subnet.get('network_id')
     availability_zone = plugin.get_network_az_by_net_id(context, network_id)
 
     resource_id = get_lb_resource_id(lb_id)
-
     edge_id = plugin.edge_manager.allocate_lb_edge_appliance(
-        context, resource_id, availability_zone=availability_zone)
+        context, resource_id, availability_zone=availability_zone,
+        appliance_size=appliance_size)
 
     create_lb_interface(context, plugin, lb_id, subnet_id, tenant_id,
                         vip_addr=vip_addr, subnet=subnet)

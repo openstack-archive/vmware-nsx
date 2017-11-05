@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron.services.flavors import flavors_plugin
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
@@ -24,6 +25,8 @@ from oslo_utils import excutils
 
 from vmware_nsx._i18n import _
 from vmware_nsx.db import nsxv_db
+from vmware_nsx.plugins.nsx_v.vshield.common import (
+    constants as vcns_const)
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as nsxv_exc
 from vmware_nsx.services.lbaas import base_mgr
 from vmware_nsx.services.lbaas.nsx_v import lbaas_common as lb_common
@@ -39,11 +42,28 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
             self._handle_subnet_gw_change,
             resources.SUBNET, events.AFTER_UPDATE)
 
+    def _get_lb_flavor_size(self, context, flavor_id):
+        if not flavor_id:
+            return vcns_const.SERVICE_SIZE_MAPPING['lb']
+        else:
+            flavor = flavors_plugin.FlavorsPlugin.get_flavor(
+                self.flavor_plugin, context, flavor_id)
+            flavor_size = flavor['name']
+            if flavor_size.lower() in vcns_const.ALLOWED_EDGE_SIZES:
+                return flavor_size.lower()
+            else:
+                err_msg = (_("Invalid flavor size %(flavor)s, only %(sizes)s "
+                             "are supported") %
+                           {'flavor': flavor_size,
+                            'sizes': vcns_const.ALLOWED_EDGE_SIZES})
+                raise n_exc.InvalidInput(error_message=err_msg)
+
     @log_helpers.log_method_call
     def create(self, context, lb):
+        lb_size = self._get_lb_flavor_size(context, lb.flavor_id)
         edge_id = lb_common.get_lbaas_edge_id(
             context, self.core_plugin, lb.id, lb.vip_address, lb.vip_subnet_id,
-            lb.tenant_id)
+            lb.tenant_id, lb_size)
 
         if not edge_id:
             msg = _('Failed to allocate Edge on subnet %(sub)s for '
