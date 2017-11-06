@@ -1810,7 +1810,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if port_security and has_ip:
             self._ensure_default_security_group_on_port(context, port)
         elif (self._check_update_has_security_groups({'port': port_data}) or
-              self._provider_sgs_specified(port_data)):
+              self._provider_sgs_specified(port_data) or
+              self._get_provider_security_groups_on_port(context, port)):
             raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
         port_data[ext_sg.SECURITYGROUPS] = (
             self._get_security_groups_on_port(context, port))
