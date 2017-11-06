@@ -117,7 +117,7 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
                                             'lookup_id': lookup_id}
         return edges_map
 
-    def _translate_rules(self, fwaas_rules):
+    def _translate_rules(self, fwaas_rules, logged=False):
         translated_rules = []
         for rule in fwaas_rules:
             if not rule['enabled']:
@@ -136,6 +136,8 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
                     rule['destination_ip_address']]
             if rule.get('source_ip_address'):
                 rule['source_ip_address'] = [rule['source_ip_address']]
+            if logged:
+                rule['logged'] = True
             translated_rules.append(rule)
 
         return translated_rules
@@ -183,7 +185,10 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
             return
 
         # Translate the FWaaS rules
-        rules = self._translate_rules(firewall['firewall_rule_list'])
+        # TODO(asarfaty): get this value from the firewall extensions
+        logged = False
+        rules = self._translate_rules(firewall['firewall_rule_list'],
+                                      logged=logged)
 
         # update each relevant edge with the new rules
         for router_info in apply_list:
@@ -244,5 +249,8 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
 
     def get_firewall_translated_rules(self, firewall):
         if firewall['admin_state_up']:
-            return self._translate_rules(firewall['firewall_rule_list'])
+            # TODO(asarfaty): get this value from the firewall extensions
+            logged = False
+            return self._translate_rules(firewall['firewall_rule_list'],
+                                         logged=logged)
         return []

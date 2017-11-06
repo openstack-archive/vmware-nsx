@@ -53,7 +53,7 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
                  'id': 'fake-fw-rule3'}
         return [rule1, rule2, rule3]
 
-    def _fake_backend_rules_v4(self):
+    def _fake_backend_rules_v4(self, logged=False):
         rule1 = {'enabled': True,
                  'action': 'allow',
                  'ip_version': 4,
@@ -80,7 +80,9 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
                  'position': '2',
                  'id': 'fake-fw-rule3',
                  'name': 'Fwaas-fake-fw-rule3'}
-
+        if logged:
+            for rule in (rule1, rule2, rule3):
+                rule['loggingEnabled'] = logged
         return [rule1, rule2, rule3]
 
     def _fake_firewall_no_rule(self):
