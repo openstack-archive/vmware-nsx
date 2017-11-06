@@ -13,6 +13,7 @@
 #    under the License.
 
 import base64
+import os
 import xml.etree.ElementTree as et
 
 from oslo_context import context as context_utils
@@ -105,7 +106,15 @@ class VcnsApiHelper(object):
                 self.verify_cert = ca_file
             else:
                 self.verify_cert = True
-        self.session = requests.Session()
+        self._session = None
+        self._pid = None
+
+    @property
+    def session(self):
+        if self._session is None or self._pid != os.getpid():
+            self._pid = os.getpid()
+            self._session = requests.Session()
+        return self._session
 
     def _get_nsx_errorcode(self, content):
         try:
