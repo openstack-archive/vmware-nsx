@@ -15,9 +15,11 @@
 
 
 import mock
+from neutron.services.flavors import flavors_plugin
 from neutron.tests import base
 from neutron_lbaas.services.loadbalancer import data_models as lb_models
 from neutron_lib import context
+from neutron_lib import exceptions as n_exc
 
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.plugins.nsx_v.vshield import vcns_driver
@@ -102,8 +104,10 @@ class BaseTestEdgeLbaasV2(base.BaseTestCase):
 
         self.lbv2_driver = mock.Mock()
         self.core_plugin = mock.Mock()
+        self.flavor_plugin = flavors_plugin.FlavorsPlugin()
         base_mgr.LoadbalancerBaseManager._lbv2_driver = self.lbv2_driver
         base_mgr.LoadbalancerBaseManager._core_plugin = self.core_plugin
+        base_mgr.LoadbalancerBaseManager._flavor_plugin = self.flavor_plugin
         self._patch_lb_plugin(self.lbv2_driver, self._tested_entity)
 
         self.lb = lb_models.LoadBalancer(LB_ID, LB_TENANT_ID, 'lb-name', '',
@@ -189,7 +193,6 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
             mock_get_edge.return_value = LB_EDGE_ID
             mock_add_vip_fwr.return_value = LB_VIP_FWR_ID
             mock_get_lb_binding_by_edge.return_value = []
-
             self.edge_driver.loadbalancer.create(self.context, self.lb)
 
             mock_add_vip_fwr.assert_called_with(self.edge_driver.vcns,
@@ -203,12 +206,80 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
                                                LB_VIP)
             mock_set_fw_rule.assert_called_with(
                 self.edge_driver.vcns, LB_EDGE_ID, 'accept')
+            mock_get_edge.assert_called_with(mock.ANY, mock.ANY, LB_ID, LB_VIP,
+                                             mock.ANY, LB_TENANT_ID, 'compact')
             mock_successful_completion = (
                 self.lbv2_driver.load_balancer.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
                                                           self.lb)
             mock_enable_edge_acceleration.assert_called_with(
                 self.edge_driver.vcns, LB_EDGE_ID)
+
+    def test_create_with_flavor(self):
+        flavor_name = 'large'
+        with mock.patch.object(lb_common, 'get_lbaas_edge_id'
+                               ) as mock_get_edge, \
+            mock.patch.object(lb_common, 'add_vip_fw_rule'
+                              ) as mock_add_vip_fwr, \
+            mock.patch.object(lb_common, 'set_lb_firewall_default_rule'
+                              ) as mock_set_fw_rule, \
+            mock.patch.object(lb_common, 'enable_edge_acceleration'
+                              ) as mock_enable_edge_acceleration, \
+            mock.patch.object(nsxv_db,
+                              'get_nsxv_lbaas_loadbalancer_binding_by_edge'
+                              ) as mock_get_lb_binding_by_edge, \
+            mock.patch.object(nsxv_db, 'add_nsxv_lbaas_loadbalancer_binding'
+                              ) as mock_db_binding,\
+            mock.patch('neutron.services.flavors.flavors_plugin.FlavorsPlugin.'
+                      'get_flavor', return_value={'name': flavor_name}):
+            mock_get_edge.return_value = LB_EDGE_ID
+            mock_add_vip_fwr.return_value = LB_VIP_FWR_ID
+            mock_get_lb_binding_by_edge.return_value = []
+            self.lb.flavor_id = 'dummy'
+            self.edge_driver.loadbalancer.create(self.context, self.lb)
+
+            mock_add_vip_fwr.assert_called_with(self.edge_driver.vcns,
+                                                LB_EDGE_ID,
+                                                LB_ID,
+                                                LB_VIP)
+            mock_db_binding.assert_called_with(self.context.session,
+                                               LB_ID,
+                                               LB_EDGE_ID,
+                                               LB_VIP_FWR_ID,
+                                               LB_VIP)
+            mock_set_fw_rule.assert_called_with(
+                self.edge_driver.vcns, LB_EDGE_ID, 'accept')
+            mock_get_edge.assert_called_with(
+                mock.ANY, mock.ANY, LB_ID, LB_VIP,
+                mock.ANY, LB_TENANT_ID, flavor_name)
+            mock_successful_completion = (
+                self.lbv2_driver.load_balancer.successful_completion)
+            mock_successful_completion.assert_called_with(self.context,
+                                                          self.lb)
+            mock_enable_edge_acceleration.assert_called_with(
+                self.edge_driver.vcns, LB_EDGE_ID)
+            self.lb.flavor_id = None
+
+    def test_create_with_illegal_flavor(self):
+        flavor_name = 'no_size'
+        with mock.patch.object(lb_common, 'get_lbaas_edge_id'
+                               ) as mock_get_edge, \
+            mock.patch.object(lb_common, 'add_vip_fw_rule'
+                              ) as mock_add_vip_fwr, \
+            mock.patch.object(nsxv_db,
+                              'get_nsxv_lbaas_loadbalancer_binding_by_edge'
+                              ) as mock_get_lb_binding_by_edge, \
+            mock.patch('neutron.services.flavors.flavors_plugin.FlavorsPlugin.'
+                      'get_flavor', return_value={'name': flavor_name}):
+            mock_get_edge.return_value = LB_EDGE_ID
+            mock_add_vip_fwr.return_value = LB_VIP_FWR_ID
+            mock_get_lb_binding_by_edge.return_value = []
+            self.lb.flavor_id = 'dummy'
+            self.assertRaises(
+                n_exc.InvalidInput,
+                self.edge_driver.loadbalancer.create,
+                self.context, self.lb)
+            self.lb.flavor_id = None
 
     def test_update(self):
         new_lb = lb_models.LoadBalancer(LB_ID, 'yyy-yyy', 'lb-name', 'heh-huh',
