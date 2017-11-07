@@ -66,6 +66,7 @@ from neutron_lib import context as q_context
 from neutron_lib import exceptions as n_exc
 from neutron_lib.utils import helpers
 from oslo_config import cfg
+from oslo_context import context as context_utils
 from oslo_db import exception as db_exc
 from oslo_log import log
 from oslo_utils import excutils
@@ -118,6 +119,22 @@ NSX_V3_FW_DEFAULT_NS_GROUP = 'os_default_section_ns_group'
 NSX_V3_DEFAULT_SECTION = 'OS-Default-Section'
 NSX_V3_EXCLUDED_PORT_NSGROUP_NAME = 'neutron_excluded_port_nsgroup'
 NSX_V3_NON_VIF_PROFILE = 'nsx-default-switch-security-non-vif-profile'
+
+
+def inject_headers():
+    ctx = context_utils.get_current()
+    if ctx:
+        ctx_dict = ctx.to_dict()
+        return {'X-NSX-EUSER': ctx_dict.get('user_identity'),
+                'X-NSX-EREQID': ctx_dict.get('request_id')}
+    return {}
+
+
+def inject_requestid_header():
+    ctx = context_utils.get_current()
+    if ctx:
+        return {'X-NSX-EREQID': ctx.__dict__.get('request_id')}
+    return {}
 
 
 # NOTE(asarfaty): the order of inheritance here is important. in order for the
@@ -189,6 +206,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._extension_manager.extension_aliases())
 
         self.nsxlib = v3_utils.get_nsxlib_wrapper()
+        if self.nsxlib.feature_supported(nsxlib_consts.FEATURE_ON_BEHALF_OF):
+            nsxlib_utils.set_inject_headers_callback(inject_headers)
+        else:
+            nsxlib_utils.set_inject_headers_callback(inject_requestid_header)
         self.lbv2_driver = self._init_lbv2_driver()
         # reinitialize the cluster upon fork for api workers to ensure each
         # process has its own keepalive loops + state
