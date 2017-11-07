@@ -24,7 +24,6 @@ from neutron.extensions import dvr as dist_router
 from neutron.extensions import l3
 from neutron.extensions import l3_ext_gw_mode
 from neutron.extensions import l3_flavors
-from neutron.extensions import router_availability_zone
 from neutron.extensions import securitygroup as secgrp
 from neutron.plugins.common import utils
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
@@ -45,6 +44,7 @@ from neutron_lib.api.definitions import l3 as l3_apidef
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api.definitions import provider_net as pnet
+from neutron_lib.api.definitions import router_availability_zone as raz_apidef
 from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib import context
@@ -2104,7 +2104,7 @@ class TestL3ExtensionManager(object):
         l3.L3().update_attributes_map(
             router_size.EXTENDED_ATTRIBUTES_2_0)
         l3.L3().update_attributes_map(
-            router_availability_zone.EXTENDED_ATTRIBUTES_2_0)
+            raz_apidef.RESOURCE_ATTRIBUTE_MAP)
         l3.L3().update_attributes_map(
             l3_flavors.EXTENDED_ATTRIBUTES_2_0)
         return (l3.L3.get_resources() +
