@@ -413,19 +413,26 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                 self.assertRaises(n_exc.InvalidInput,
                           self.plugin.create_port, self.ctx, data)
 
-    def test_create_router_port_with_qos_fail(self):
+    def _test_create_illegal_port_with_qos_fail(self, device_owner):
         with self.network() as network:
             with self.subnet(network=network, cidr='10.0.0.0/24'):
                 policy_id = uuidutils.generate_uuid()
                 data = {'port': {'network_id': network['network']['id'],
                                  'tenant_id': self._tenant_id,
-                                 'device_owner': 'network:router_interface',
+                                 'device_owner': device_owner,
                                  'qos_policy_id': policy_id}}
-                # Cannot add qos policy to a router interface port
+                # Cannot add qos policy to this type of port
                 self.assertRaises(n_exc.InvalidInput,
                           self.plugin.create_port, self.ctx, data)
 
-    def test_update_router_port_with_qos_fail(self):
+    def test_create_router_port_with_qos_fail(self):
+        self._test_create_illegal_port_with_qos_fail(
+            'network:router_interface')
+
+    def test_create_dhcp_port_with_qos_fail(self):
+        self._test_create_illegal_port_with_qos_fail('network:dhcp')
+
+    def _test_update_illegal_port_with_qos_fail(self, device_owner):
         with self.network() as network:
             with self.subnet(network=network, cidr='10.0.0.0/24'):
                 policy_id = uuidutils.generate_uuid()
@@ -440,10 +447,17 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                 port = self.plugin.create_port(self.ctx, data)
                 policy_id = uuidutils.generate_uuid()
                 data['port'] = {'qos_policy_id': policy_id,
-                                'device_owner': 'network:router_interface'}
+                                'device_owner': device_owner}
                 # Cannot add qos policy to a router interface port
                 self.assertRaises(n_exc.InvalidInput,
                           self.plugin.update_port, self.ctx, port['id'], data)
+
+    def test_update_router_port_with_qos_fail(self):
+        self._test_update_illegal_port_with_qos_fail(
+            'network:router_interface')
+
+    def test_update_dhcp_port_with_qos_fail(self):
+        self._test_update_illegal_port_with_qos_fail('network:dhcp')
 
     def test_create_port_with_qos_on_net(self):
         with self.network() as network:

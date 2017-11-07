@@ -1767,13 +1767,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             LOG.warning(err_msg)
             raise n_exc.InvalidInput(error_message=err_msg)
 
-    def _assert_on_router_port_with_qos(self, port_data, device_owner):
+    def _assert_on_illegal_port_with_qos(self, port_data, device_owner):
         # Prevent creating/update port with QoS policy
-        # on router-interface ports.
-        if (device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF and
+        # on router-interface/network-dhcp ports.
+        if ((device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF or
+             device_owner == const.DEVICE_OWNER_DHCP) and
             validators.is_attr_set(port_data.get(qos_consts.QOS_POLICY_ID))):
-            err_msg = _("Unable to update/create a router port with a QoS "
-                        "policy")
+            err_msg = _("Unable to create or update %s port with a QoS "
+                        "policy") % device_owner
             LOG.warning(err_msg)
             raise n_exc.InvalidInput(error_message=err_msg)
 
@@ -2109,7 +2110,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if is_external_net:
                 self._assert_on_external_net_with_compute(port_data)
                 self._assert_on_external_net_port_with_qos(port_data)
-            self._assert_on_router_port_with_qos(
+            self._assert_on_illegal_port_with_qos(
                 port_data, port_data.get('device_owner'))
 
             neutron_db = super(NsxV3Plugin, self).create_port(context, port)
@@ -2550,7 +2551,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             device_owner = (port_data['device_owner']
                             if 'device_owner' in port_data
                             else original_port.get('device_owner'))
-            self._assert_on_router_port_with_qos(
+            self._assert_on_illegal_port_with_qos(
                 port_data, device_owner)
 
             self._validate_max_ips_per_port(
