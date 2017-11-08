@@ -29,15 +29,8 @@ Enable the qos in ``local.conf``::
 
      [[local|localrc]]
      ENABLED_SERVICES=q-qos
-
-For NSXv set the service plugin in ``local.conf``, and enable the dvs features::
-
-    [[post-config|$NEUTRON_CONF]]
-    [DEFAULT]
-    service_plugins = vmware_nsxv_qos
-
-    [[local|localrc]]
-    NSXV_USE_DVS_FEATURES = True
+     Q_SERVICE_PLUGIN_CLASSES=vmware_nsxv_qos
+     NSXV_USE_DVS_FEATURES = True
 
 Optional: Update the nsx qos_peak_bw_multiplier in nsx.ini (default value is 2.0)::
 
@@ -70,11 +63,9 @@ Update the ``local.conf`` file::
 
     [[local|localrc]]
     enable_plugin networking-sfc https://git.openstack.org/openstack/networking-sfc master
+    Q_SERVICE_PLUGIN_CLASSES=networking_sfc.services.flowclassifier.plugin.FlowClassifierPlugin
 
     [[post-config|$NEUTRON_CONF]]
-    [DEFAULT]
-    service_plugins = networking_sfc.services.flowclassifier.plugin.FlowClassifierPlugin
-
     [flowclassifier]
     drivers = vmware-nsxv-sfc
 
@@ -97,11 +88,9 @@ Add neutron-fwaas repo as an external repository and configure following flags i
     [[local|localrc]]
     enable_plugin neutron-fwaas https://git.openstack.org/openstack/neutron-fwaas
     ENABLED_SERVICES+=,q-fwaas-v1
+    Q_SERVICE_PLUGIN_CLASSES=neutron_fwaas.services.firewall.fwaas_plugin.FirewallPlugin
 
     [[post-config|$NEUTRON_CONF]]
-    [DEFAULT]
-    service_plugins = neutron_fwaas.services.firewall.fwaas_plugin.FirewallPlugin
-
     [fwaas]
     enabled = True
     driver = vmware_nsxv_edge
@@ -139,11 +128,8 @@ QoS Driver
 Enable the qos in ``local.conf``::
 
     [[local|localrc]]
-    ENABLED_SERVICES=q-qos
-
-    [[post-config|$NEUTRON_CONF]]
-    [DEFAULT]
-    service_plugins = neutron.services.qos.qos_plugin.QoSPlugin
+    ENABLED_SERVICES+=,q-qos
+    Q_SERVICE_PLUGIN_CLASSES=neutron.services.qos.qos_plugin.QoSPlugin
 
 Optional: Update the nsx qos_peak_bw_multiplier in nsx.ini (default value is 2.0)::
 
@@ -188,11 +174,9 @@ Add neutron-fwaas repo as an external repository and configure following flags i
     [[local|localrc]]
     enable_plugin neutron-fwaas https://git.openstack.org/openstack/neutron-fwaas
     ENABLED_SERVICES+=,q-fwaas
+    Q_SERVICE_PLUGIN_CLASSES=neutron_fwaas.services.firewall.fwaas_plugin.FirewallPlugin
 
     [[post-config|$NEUTRON_CONF]]
-    [DEFAULT]
-    service_plugins = neutron_fwaas.services.firewall.fwaas_plugin.FirewallPlugin
-
     [fwaas]
     enabled = True
     driver = vmware_nsxv3_edge_v1
@@ -206,11 +190,9 @@ Add neutron-fwaas repo as an external repository and configure following flags i
     [[local|localrc]]
     enable_plugin neutron-fwaas https://git.openstack.org/openstack/neutron-fwaas
     ENABLED_SERVICES+=,q-fwaas-v2
+    Q_SERVICE_PLUGIN_CLASSES=neutron_fwaas.services.firewall.fwaas_plugin_v2.FirewallPluginV2
 
     [[post-config|$NEUTRON_CONF]]
-    [DEFAULT]
-    service_plugins = neutron_fwaas.services.firewall.fwaas_plugin_v2.FirewallPluginV2
-
     [fwaas]
     enabled = True
     driver = vmware_nsxv3_edge_v2
