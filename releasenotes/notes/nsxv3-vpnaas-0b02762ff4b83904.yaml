@@ -1,0 +1,6 @@
+---
+prelude: >
+    Support VPN-as-a-Service for VPN IPSEC in NSXv3 plugin.
+features:
+  - |
+  NSXv3 plugin now supports VPN SEC through VPNaaS plugin.

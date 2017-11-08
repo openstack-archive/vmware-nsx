@@ -488,3 +488,14 @@ class NsxProjectPluginMapping(model_base.BASEV2, models.TimestampMixin):
     __tablename__ = 'nsx_project_plugin_mappings'
     project = sa.Column(sa.String(36), primary_key=True)
     plugin = sa.Column(sa.Enum('dvs', 'nsx-v', 'nsx-t'), nullable=False)
+
+
+class NsxVpnConnectionMapping(model_base.BASEV2, models.TimestampMixin):
+    """Stores the mapping between VPNaaS connections and NSX objects"""
+    __tablename__ = 'neutron_nsx_vpn_connection_mappings'
+    neutron_id = sa.Column(sa.String(36), primary_key=True)
+    session_id = sa.Column(sa.String(36), nullable=False)
+    dpd_profile_id = sa.Column(sa.String(36), nullable=False)
+    ike_profile_id = sa.Column(sa.String(36), nullable=False)
+    ipsec_profile_id = sa.Column(sa.String(36), nullable=False)
+    peer_ep_id = sa.Column(sa.String(36), nullable=False)
