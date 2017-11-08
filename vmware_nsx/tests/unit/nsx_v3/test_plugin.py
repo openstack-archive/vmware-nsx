@@ -18,7 +18,6 @@ import netaddr
 from neutron.db import models_v2
 from neutron.extensions import address_scope
 from neutron.extensions import l3
-from neutron.extensions import l3_ext_gw_mode
 from neutron.extensions import securitygroup as secgrp
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_plugin
@@ -32,6 +31,7 @@ from neutron.tests.unit.scheduler \
     import test_dhcp_agent_scheduler as test_dhcpagent
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import extraroute as xroute_apidef
+from neutron_lib.api.definitions import l3_ext_gw_mode as l3_egm_apidef
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api.definitions import provider_net as pnet
@@ -955,7 +955,7 @@ class TestL3ExtensionManager(object):
     def get_resources(self):
         # Simulate extension of L3 attribute map
         l3.L3().update_attributes_map(
-            l3_ext_gw_mode.EXTENDED_ATTRIBUTES_2_0)
+            l3_egm_apidef.RESOURCE_ATTRIBUTE_MAP)
         l3.L3().update_attributes_map(
             xroute_apidef.RESOURCE_ATTRIBUTE_MAP)
         return (l3.L3.get_resources() +
