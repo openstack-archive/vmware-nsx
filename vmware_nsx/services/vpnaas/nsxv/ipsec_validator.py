@@ -37,7 +37,7 @@ class IPsecValidator(vpn_validator.VpnReferenceValidator):
         if version != 'v1':
             msg = _("Unsupported ike policy %s! only v1 "
                     "is supported right now.") % version
-            raise nsxv_exc.NsxIPsecVpnError(details=msg)
+            raise nsxv_exc.NsxVpnValidationError(details=msg)
 
     def validate_ikepolicy_pfs(self, policy_info):
         # Check whether pfs is allowed.
@@ -52,7 +52,7 @@ class IPsecValidator(vpn_validator.VpnReferenceValidator):
         encryption = policy_info['encryption_algorithm']
         if encryption not in nsxv_constants.ENCRYPTION_ALGORITHM_MAP:
             msg = _("Unsupported encryption_algorithm: %(algo)s! please "
-                    "select one of the followoing supported algorithms: "
+                    "select one of the following supported algorithms: "
                     "%(supported_algos)s") % {
                         'algo': encryption,
                         'supported_algos':
