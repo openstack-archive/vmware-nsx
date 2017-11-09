@@ -70,6 +70,7 @@ from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
 from neutron_lib.utils import helpers
 from oslo_config import cfg
+from oslo_context import context as context_utils
 from oslo_db import exception as db_exc
 from oslo_log import log
 from oslo_utils import excutils
@@ -115,6 +116,22 @@ NSX_V3_MAC_LEARNING_PROFILE_NAME = 'neutron_port_mac_learning_profile'
 NSX_V3_FW_DEFAULT_SECTION = 'OS Default Section for Neutron Security-Groups'
 NSX_V3_EXCLUDED_PORT_NSGROUP_NAME = 'neutron_excluded_port_nsgroup'
 NSX_V3_NON_VIF_PROFILE = 'nsx-default-switch-security-non-vif-profile'
+
+
+def inject_headers():
+    ctx = context_utils.get_current()
+    if ctx:
+        ctx_dict = ctx.to_dict()
+        return {'X-NSX-EUSER': ctx_dict.get('user_identity'),
+                'X-NSX-EREQID': ctx_dict.get('request_id')}
+    return {}
+
+
+def inject_requestid_header():
+    ctx = context_utils.get_current()
+    if ctx:
+        return {'X-NSX-EREQID': ctx.__dict__.get('request_id')}
+    return {}
 
 
 # NOTE(asarfaty): the order of inheritance here is important. in order for the
@@ -195,6 +212,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         self._nsx_version = self.nsxlib.get_version()
         LOG.info(_LI("NSX Version: %s"), self._nsx_version)
+        if utils.is_nsx_version_2_2_0(self._nsx_version):
+            nsxlib_utils.set_inject_headers_callback(inject_headers)
+        else:
+            nsxlib_utils.set_inject_headers_callback(inject_requestid_header)
         self._nsx_client = self.nsxlib.client
 
         self.cfg_group = 'nsx_v3'  # group name for nsx_v3 section in nsx.ini
