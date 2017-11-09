@@ -693,7 +693,7 @@ nsxv_opts = [
                        "networks, as well as ranges of VLAN tags on each "
                        "available for allocation to networks.")),
     cfg.IntOpt('nsx_transaction_timeout',
-               default=120,
+               default=240,
                help=_("Timeout interval for NSX backend transactions.")),
     cfg.BoolOpt('share_edges_between_tenants',
                 default=True,

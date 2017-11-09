@@ -135,8 +135,10 @@ class VcnsApiHelper(object):
             return ctx.__dict__.get('request_id')
 
     def request(self, method, uri, params=None, headers=None,
-                encodeparams=True):
+                encodeparams=True, timeout=None):
         uri = self.address + uri
+        if timeout is None:
+            timeout = self.timeout
         if headers is None:
             headers = {}
 
@@ -161,7 +163,7 @@ class VcnsApiHelper(object):
                                             verify=self.verify_cert,
                                             data=data,
                                             headers=headers,
-                                            timeout=self.timeout)
+                                            timeout=timeout)
         except requests.exceptions.Timeout:
             raise exceptions.ResourceTimedOut(uri=uri)
 
