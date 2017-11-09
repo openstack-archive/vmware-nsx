@@ -131,8 +131,16 @@ NSX_V3_CLIENT_SSL_PROFILE = 'nsx-default-client-ssl-profile'
 def inject_headers():
     ctx = context_utils.get_current()
     if ctx:
-        return {'X-NSX-EUSER': ctx.__dict__.get('_project_id'),
-                'X-NSX-EREQID': ctx.__dict__.get('request_id')}
+        ctx_dict = ctx.to_dict()
+        return {'X-NSX-EUSER': ctx_dict.get('user_identity'),
+                'X-NSX-EREQID': ctx_dict.get('request_id')}
+    return {}
+
+
+def inject_requestid_header():
+    ctx = context_utils.get_current()
+    if ctx:
+        return {'X-NSX-EREQID': ctx.__dict__.get('request_id')}
     return {}
 
 
@@ -195,7 +203,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         router=l3_db_models.Router,
         floatingip=l3_db_models.FloatingIP)
     def __init__(self):
-        nsxlib_utils.set_inject_headers_callback(inject_headers)
         self._extend_fault_map()
         self._extension_manager = managers.ExtensionManager()
         super(NsxV3Plugin, self).__init__()
@@ -207,6 +214,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._extension_manager.extension_aliases())
 
         self.nsxlib = v3_utils.get_nsxlib_wrapper()
+        if self.nsxlib.feature_supported(nsxlib_consts.FEATURE_ON_BEHALF_OF):
+            nsxlib_utils.set_inject_headers_callback(inject_headers)
+        else:
+            nsxlib_utils.set_inject_headers_callback(inject_requestid_header)
         self.lbv2_driver = self._init_lbv2_driver()
         # reinitialize the cluster upon fork for api workers to ensure each
         # process has its own keepalive loops + state
