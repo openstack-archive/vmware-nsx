@@ -22,7 +22,6 @@ import netaddr
 from neutron.extensions import address_scope
 from neutron.extensions import dvr as dist_router
 from neutron.extensions import l3
-from neutron.extensions import l3_ext_gw_mode
 from neutron.extensions import l3_flavors
 from neutron.extensions import securitygroup as secgrp
 from neutron.plugins.common import utils
@@ -41,6 +40,7 @@ from neutron_lib.api.definitions import allowedaddresspairs as addrp_apidef
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import extra_dhcp_opt as edo_ext
 from neutron_lib.api.definitions import l3 as l3_apidef
+from neutron_lib.api.definitions import l3_ext_gw_mode as l3_egm_apidef
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api.definitions import provider_net as pnet
@@ -2096,7 +2096,7 @@ class TestL3ExtensionManager(object):
     def get_resources(self):
         # Simulate extension of L3 attribute map
         l3.L3().update_attributes_map(
-            l3_ext_gw_mode.EXTENDED_ATTRIBUTES_2_0)
+            l3_egm_apidef.RESOURCE_ATTRIBUTE_MAP)
         l3.L3().update_attributes_map(
             dist_router.EXTENDED_ATTRIBUTES_2_0)
         l3.L3().update_attributes_map(

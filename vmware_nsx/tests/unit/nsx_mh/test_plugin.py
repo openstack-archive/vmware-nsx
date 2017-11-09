@@ -18,7 +18,6 @@ import uuid
 import mock
 from neutron.extensions import dvr
 from neutron.extensions import l3
-from neutron.extensions import l3_ext_gw_mode
 from neutron.extensions import securitygroup as secgrp
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 import neutron.tests.unit.db.test_db_base_plugin_v2 as test_plugin
@@ -28,6 +27,7 @@ import neutron.tests.unit.extensions.test_l3_ext_gw_mode as test_ext_gw_mode
 import neutron.tests.unit.extensions.test_securitygroup as ext_sg
 from neutron.tests.unit import testlib_api
 from neutron_lib.api.definitions import external_net as extnet_apidef
+from neutron_lib.api.definitions import l3_ext_gw_mode as l3_egm_apidef
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib import constants
@@ -456,7 +456,7 @@ class TestL3ExtensionManager(object):
     def get_resources(self):
         # Simulate extension of L3 attribute map
         l3.L3().update_attributes_map(
-            l3_ext_gw_mode.EXTENDED_ATTRIBUTES_2_0)
+            l3_egm_apidef.RESOURCE_ATTRIBUTE_MAP)
         l3.L3().update_attributes_map(
             dvr.EXTENDED_ATTRIBUTES_2_0)
         return l3.L3.get_resources()
