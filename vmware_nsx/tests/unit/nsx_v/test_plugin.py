@@ -20,7 +20,6 @@ from eventlet import greenthread
 import mock
 import netaddr
 from neutron.extensions import address_scope
-from neutron.extensions import dvr as dist_router
 from neutron.extensions import l3
 from neutron.extensions import l3_flavors
 from neutron.extensions import securitygroup as secgrp
@@ -37,6 +36,7 @@ import neutron.tests.unit.extensions.test_portsecurity as test_psec
 import neutron.tests.unit.extensions.test_securitygroup as ext_sg
 from neutron.tests.unit import testlib_api
 from neutron_lib.api.definitions import allowedaddresspairs as addrp_apidef
+from neutron_lib.api.definitions import dvr as dvr_apidef
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import extra_dhcp_opt as edo_ext
 from neutron_lib.api.definitions import l3 as l3_apidef
@@ -2098,7 +2098,7 @@ class TestL3ExtensionManager(object):
         l3.L3().update_attributes_map(
             l3_egm_apidef.RESOURCE_ATTRIBUTE_MAP)
         l3.L3().update_attributes_map(
-            dist_router.EXTENDED_ATTRIBUTES_2_0)
+            dvr_apidef.RESOURCE_ATTRIBUTE_MAP)
         l3.L3().update_attributes_map(
             router_type.EXTENDED_ATTRIBUTES_2_0)
         l3.L3().update_attributes_map(
