@@ -1671,6 +1671,17 @@ class TestL3NatTestCase(L3NatTest,
                           context.get_admin_context(),
                           {'router': {'name': 'rtr'}})
 
+    def test_router_add_gateway_no_subnet_forbidden(self):
+        with self.router() as r:
+            with self.network() as n:
+                self._set_net_external(n['network']['id'])
+                self._add_external_gateway_to_router(
+                    r['router']['id'], n['network']['id'],
+                    expected_code=exc.HTTPBadRequest.code)
+
+    def test_router_add_gateway_no_subnet(self):
+        self.skipTest('No support for no subnet gateway set')
+
 
 class ExtGwModeTestCase(test_ext_gw_mode.ExtGwModeIntTestCase,
                         L3NatTest):

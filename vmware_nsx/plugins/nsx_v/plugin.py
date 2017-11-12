@@ -2893,31 +2893,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         LOG.debug("Update the DHCP address group to %s", address_groups)
         return address_groups
 
-    def _extract_external_gw(self, context, router, is_extract=True):
-        r = router['router']
-        gw_info = constants.ATTR_NOT_SPECIFIED
-        # First extract the gateway info in case of updating
-        # gateway before edge is deployed.
-        if 'external_gateway_info' in r:
-            gw_info = r['external_gateway_info']
-            if is_extract:
-                del r['external_gateway_info']
-            network_id = (gw_info.get('network_id') if gw_info
-                          else None)
-            if network_id:
-                ext_net = self._get_network(context, network_id)
-                if not ext_net.external:
-                    msg = (_("Network '%s' is not a valid external network") %
-                           network_id)
-                    raise n_exc.BadRequest(resource='router', msg=msg)
-
-                subnets = self._get_subnets_by_network(context, network_id)
-                if not subnets:
-                    msg = _("Cannot update gateway on Network '%s' "
-                            "with no subnet") % network_id
-                    raise n_exc.BadRequest(resource='router', msg=msg)
-        return gw_info
-
     def _validate_router_size(self, router):
         # Check if router-size is specified. router-size can only be specified
         # for an exclusive non-distributed router; else raise a BadRequest

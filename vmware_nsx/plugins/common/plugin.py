@@ -27,6 +27,7 @@ from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import subnet as subnet_def
 from neutron_lib.api import validators
+from neutron_lib import constants
 from neutron_lib import context as n_context
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
@@ -281,3 +282,29 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
         if validators.is_attr_set(fixed_ip_list) and len(fixed_ip_list) > 1:
             msg = _('Exceeded maximum amount of fixed ips per port')
             raise n_exc.InvalidInput(error_message=msg)
+
+    def _extract_external_gw(self, context, router, is_extract=True):
+        r = router['router']
+        gw_info = constants.ATTR_NOT_SPECIFIED
+        # First extract the gateway info in case of updating
+        # gateway before edge is deployed.
+        if 'external_gateway_info' in r:
+            gw_info = r.get('external_gateway_info', {})
+            if is_extract:
+                del r['external_gateway_info']
+            network_id = (gw_info.get('network_id') if gw_info
+                          else None)
+            if network_id:
+                ext_net = self._get_network(context.elevated(), network_id)
+                if not ext_net.external:
+                    msg = (_("Network '%s' is not a valid external network") %
+                           network_id)
+                    raise n_exc.BadRequest(resource='router', msg=msg)
+
+                subnets = self._get_subnets_by_network(context.elevated(),
+                                                       network_id)
+                if not subnets:
+                    msg = _("Cannot update gateway on Network '%s' "
+                            "with no subnet") % network_id
+                    raise n_exc.BadRequest(resource='router', msg=msg)
+        return gw_info

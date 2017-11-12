@@ -2995,25 +2995,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return (ports if not fields else
                 [db_utils.resource_fields(port, fields) for port in ports])
 
-    def _extract_external_gw(self, context, router, is_extract=True):
-        r = router['router']
-        gw_info = const.ATTR_NOT_SPECIFIED
-        # First extract the gateway info in case of updating
-        # gateway before edge is deployed.
-        if 'external_gateway_info' in r:
-            gw_info = r.get('external_gateway_info', {})
-            if is_extract:
-                del r['external_gateway_info']
-            network_id = (gw_info.get('network_id') if gw_info
-                          else None)
-            if network_id:
-                ext_net = self._get_network(context, network_id)
-                if not ext_net.external:
-                    msg = (_("Network '%s' is not a valid external network") %
-                           network_id)
-                    raise n_exc.BadRequest(resource='router', msg=msg)
-        return gw_info
-
     def _get_external_attachment_info(self, context, router):
         gw_port = router.gw_port
         ipaddress = None
