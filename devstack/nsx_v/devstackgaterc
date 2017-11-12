@@ -23,6 +23,7 @@ r="^(?!.*"
 
 r="$r(?:tempest\.api\.network\.test_ports\.PortsTestJSON\.test_create_update_port_with_second_ip.*)"
 r="$r|(?:tempest\.api\.network\.test_floating_ips\.FloatingIPTestJSON\.test_create_update_floatingip_with_port_multiple_ip_address.*)"
+r="$r|(?:tempest\.api\.network\.test_routers\.RoutersTest\.test_update_delete_extra_route.*)"
 
 # End list of exclusions.
 r="$r)"

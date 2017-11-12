@@ -2225,6 +2225,14 @@ def update_routes(edge_manager, context, router_id, routes, nexthop=None):
         else:
             vnic_binding = nsxv_db.get_edge_vnic_binding(
                 context.session, edge_id, route['network_id'])
+            if (netaddr.IPAddress(route['nexthop']) in
+                netaddr.IPNetwork(route['destination'])):
+                # check that the nexthop is not in the destination
+                LOG.error("Cannot add route with nexthop %(nexthop)s "
+                          "contained in the destination: %(dest)s.",
+                          {'dest': route['destination'],
+                           'nexthop': route['nexthop']})
+                continue
             if vnic_binding and vnic_binding.get('vnic_index'):
                 edge_routes.append({
                     'vnic_index': vnic_binding['vnic_index'],
