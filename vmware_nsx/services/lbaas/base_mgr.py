@@ -33,29 +33,29 @@ class LoadbalancerBaseManager(object):
 
     @property
     def lbv2_driver(self):
-        if not LoadbalancerBaseManager._lbv2_driver:
+        if not self._lbv2_driver:
             plugin = self._get_plugin(
                 plugin_const.LOADBALANCERV2)
-            LoadbalancerBaseManager._lbv2_driver = (
+            self._lbv2_driver = (
                 plugin.drivers['vmwareedge'])
 
-        return LoadbalancerBaseManager._lbv2_driver
+        return self._lbv2_driver
 
     @property
     def core_plugin(self):
-        if not LoadbalancerBaseManager._core_plugin:
-            LoadbalancerBaseManager._core_plugin = (
+        if not self._core_plugin:
+            self._core_plugin = (
                 self._get_plugin(plugin_const.CORE))
 
-        return LoadbalancerBaseManager._core_plugin
+        return self._core_plugin
 
     @property
     def flavor_plugin(self):
-        if not LoadbalancerBaseManager._flavor_plugin:
-            LoadbalancerBaseManager._flavor_plugin = (
+        if not self._flavor_plugin:
+            self._flavor_plugin = (
                 self._get_plugin(plugin_const.FLAVORS))
 
-        return LoadbalancerBaseManager._flavor_plugin
+        return self._flavor_plugin
 
 
 class EdgeLoadbalancerBaseManager(LoadbalancerBaseManager):
