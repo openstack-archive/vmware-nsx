@@ -4525,20 +4525,3 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if not self._nsx_policy_is_hidden(policy):
                 results.append(self._nsx_policy_to_dict(policy))
         return results
-
-
-# Register the callback
-def _validate_network_has_subnet(resource, event, trigger, **kwargs):
-    network_id = kwargs.get('network_id')
-    subnets = kwargs.get('subnets')
-    if not subnets:
-        msg = _('No subnet defined on network %s') % network_id
-        raise n_exc.InvalidInput(error_message=msg)
-
-
-def subscribe():
-    registry.subscribe(_validate_network_has_subnet,
-                       resources.ROUTER_GATEWAY, events.BEFORE_CREATE)
-
-
-subscribe()

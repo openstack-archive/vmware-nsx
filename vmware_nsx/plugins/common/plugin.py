@@ -27,6 +27,9 @@ from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import subnet as subnet_def
 from neutron_lib.api import validators
+from neutron_lib.callbacks import events
+from neutron_lib.callbacks import registry
+from neutron_lib.callbacks import resources
 from neutron_lib import constants
 from neutron_lib import context as n_context
 from neutron_lib import exceptions as n_exc
@@ -308,3 +311,24 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
                             "with no subnet") % network_id
                     raise n_exc.BadRequest(resource='router', msg=msg)
         return gw_info
+
+    def get_subnets_by_network(self, context, network_id):
+        return [self._make_subnet_dict(subnet_obj) for subnet_obj in
+                self._get_subnets_by_network(context.elevated(), network_id)]
+
+
+# Register the callback
+def _validate_network_has_subnet(resource, event, trigger, **kwargs):
+    network_id = kwargs.get('network_id')
+    subnets = kwargs.get('subnets')
+    if not subnets:
+        msg = _('No subnet defined on network %s') % network_id
+        raise n_exc.InvalidInput(error_message=msg)
+
+
+def subscribe():
+    registry.subscribe(_validate_network_has_subnet,
+                       resources.ROUTER_GATEWAY, events.BEFORE_CREATE)
+
+
+subscribe()
