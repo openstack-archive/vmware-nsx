@@ -102,6 +102,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         security_group=securitygroup_model.SecurityGroup,
         security_group_rule=securitygroup_model.SecurityGroupRule)
     def __init__(self):
+        dvs_utils.dvs_register_exceptions()
         self._extension_manager = nsx_managers.ExtensionManager()
         super(NsxDvsV2, self).__init__()
         LOG.debug('Driver support: DVS: %s' % dvs_utils.dvs_is_enabled())
@@ -190,7 +191,11 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             dvs_id = dvpg_moref.value
         else:
             dvs_id = self._dvs_get_id(net_data)
-            self._dvs.add_port_group(dvs_id, vlan_tag, trunk_mode=trunk_mode)
+            try:
+                self._dvs.add_port_group(dvs_id, vlan_tag,
+                                         trunk_mode=trunk_mode)
+            except dvs_utils.DvsOperationBulkFault:
+                LOG.warning('One or more hosts may not be configured')
 
         try:
             with db_api.context_manager.writer.using(context):
