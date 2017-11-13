@@ -14,7 +14,8 @@
 #    under the License.
 #
 
-from neutron.extensions import dvr as dist_rtr
+from neutron_lib.api.definitions import dvr as dvr_apidef
+
 from vmware_nsx.db import nsxrouter
 
 
@@ -23,6 +24,6 @@ class DistributedRouter_mixin(nsxrouter.NsxRouterMixin):
 
     nsx_attributes = (
         nsxrouter.NsxRouterMixin.nsx_attributes + [{
-            'name': dist_rtr.DISTRIBUTED,
+            'name': dvr_apidef.DISTRIBUTED,
             'default': False
         }])
