@@ -14,7 +14,7 @@
 
 from oslo_config import cfg
 from oslo_vmware import api
-
+from oslo_vmware import exceptions as oslo_vmware_exc
 
 from vmware_nsx._i18n import _
 
@@ -55,6 +55,16 @@ dvs_opts = [
 
 CONF = cfg.CONF
 CONF.register_opts(dvs_opts, 'dvs')
+
+
+# Create and register exceptions not in oslo.vmware
+class DvsOperationBulkFault(oslo_vmware_exc.VimException):
+    msg_fmt = _("Cannot complete a DVS operation for one or more members.")
+
+
+def dvs_register_exceptions():
+    oslo_vmware_exc.register_fault_class('DvsOperationBulkFault',
+                                         DvsOperationBulkFault)
 
 
 def dvs_is_enabled(dvs_id=None):
