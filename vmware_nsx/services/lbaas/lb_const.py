@@ -75,6 +75,7 @@ L7_RULE_COMPARE_TYPE_EQUAL_TO = 'EQUAL_TO'
 
 # Resource type for resources created on NSX backend
 LB_LB_TYPE = 'os-lbaas-lb-id'
+LB_LB_NAME = 'os-lbaas-lb-name'
 LB_LISTENER_TYPE = 'os-lbaas-listener-id'
 LB_HM_TYPE = 'os-lbaas-hm-id'
 LB_POOL_TYPE = 'os-lbaas-pool-id'
