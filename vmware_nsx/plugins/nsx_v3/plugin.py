@@ -3848,7 +3848,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         old_fip = self.get_floatingip(context, fip_id)
         old_port_id = old_fip['port_id']
         new_status = (const.FLOATINGIP_STATUS_ACTIVE
-                      if floatingip['floatingip']['port_id']
+                      if floatingip['floatingip'].get('port_id')
                       else const.FLOATINGIP_STATUS_DOWN)
         new_fip = super(NsxV3Plugin, self).update_floatingip(
             context, fip_id, floatingip)
