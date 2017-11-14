@@ -38,6 +38,7 @@ from neutron_lib import context as n_context
 from neutron_lib.db import constants as db_const
 from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import allowedaddresspairs as addr_exc
+from neutron_lib.exceptions import flavors as flav_exc
 from neutron_lib.exceptions import l3 as l3_exc
 from neutron_lib.exceptions import port_security as psec_exc
 from neutron_lib.plugins import constants as plugin_const
@@ -78,7 +79,6 @@ from neutron.db import portsecurity_db
 from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db
-from neutron.extensions import flavors
 from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
@@ -2919,11 +2919,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         fl_db = flavors_plugin.FlavorsPlugin.get_flavor(
             flv_plugin, context, flavor_id)
         if fl_db['service_type'] != plugin_const.L3:
-            raise flavors.InvalidFlavorServiceType(
+            raise n_exc.InvalidFlavorServiceType(
                 service_type=fl_db['service_type'])
 
         if not fl_db['enabled']:
-            raise flavors.FlavorDisabled()
+            raise flav_exc.FlavorDisabled()
 
         # get the profile (Currently only 1 is supported, so take the first)
         if not fl_db['service_profiles']:
