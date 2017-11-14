@@ -905,6 +905,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 provider_data['vlan_id'],
                 nsx_id)
 
+    def _is_ddi_supported_on_network(self, context, network_id):
+        return (self.nsxlib.feature_supported(
+                    nsxlib_consts.FEATURE_VLAN_ROUTER_INTERFACE) or
+                self._is_overlay_network(context, network_id))
+
     def _is_overlay_network(self, context, network_id):
         """Return True if this is an overlay network
 
@@ -976,7 +981,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         net_data = network['network']
         external = net_data.get(extnet_apidef.EXTERNAL)
         is_backend_network = False
-        is_overlay_network = False
+        is_ddi_network = False
         tenant_id = net_data['tenant_id']
 
         # validate the availability zone, and get the AZ object
@@ -1035,11 +1040,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         nsx_net_id)
 
             rollback_network = True
-            is_overlay_network = self._is_overlay_network(
+            is_ddi_network = self._is_ddi_supported_on_network(
                 context, created_net['id'])
             if (is_backend_network and
                 cfg.CONF.nsx_v3.native_dhcp_metadata and
-                is_overlay_network):
+                is_ddi_network):
                 # Enable native metadata proxy for this network.
                 tags = self.nsxlib.build_v3_tags_payload(
                     created_net, resource_type='os-neutron-net-id',
@@ -1063,7 +1068,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     net_type != utils.NsxV3NetworkTypes.NSX_NETWORK):
                     self.nsxlib.logical_switch.delete(nsx_net_id)
                 if (cfg.CONF.nsx_v3.native_dhcp_metadata and
-                    is_backend_network and is_overlay_network):
+                    is_backend_network and is_ddi_network):
                     # Delete the mdproxy port manually
                     self._delete_network_nsx_dhcp_port(created_net['id'])
 
@@ -1144,7 +1149,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         nsx_net_id = self._get_network_nsx_id(context, network_id)
         is_nsx_net = self._network_is_nsx_net(context, network_id)
-        is_overlay_network = self._is_overlay_network(context, network_id)
+        is_ddi_network = self._is_ddi_supported_on_network(context, network_id)
         # First call DB operation for delete network as it will perform
         # checks on active ports
         self._retry_delete_network(context, network_id)
@@ -1156,7 +1161,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self.nsxlib.logical_switch.delete(nsx_net_id)
         else:
             if (cfg.CONF.nsx_v3.native_dhcp_metadata and is_nsx_net and
-                is_overlay_network):
+                is_ddi_network):
                 # Delete the mdproxy port manually
                 self._delete_network_nsx_dhcp_port(network_id)
             # TODO(berlin): delete subnets public announce on the network
@@ -1503,7 +1508,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             with locking.LockManager.get_lock(lock):
                 # Check if it is on an overlay network and is the first
                 # DHCP-enabled subnet to create.
-                if self._is_overlay_network(
+                if self._is_ddi_supported_on_network(
                     context, subnet['subnet']['network_id']):
                     network = self._get_network(
                         context, subnet['subnet']['network_id'])
@@ -1570,7 +1575,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     network = self._get_network(
                         context, orig_subnet['network_id'])
                     if enable_dhcp:
-                        if self._is_overlay_network(
+                        if self._is_ddi_supported_on_network(
                             context, orig_subnet['network_id']):
                             if self._has_no_dhcp_enabled_subnet(
                                 context, network):
