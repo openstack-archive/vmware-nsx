@@ -3649,6 +3649,22 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             logging_enabled, action, sg_rules,
             ruleid_2_remote_nsgroup_map)
 
+    def _handle_api_replay_default_sg(self, context, secgroup_db):
+        """Set default api-replay migrated SG as default manually"""
+        if (secgroup_db['name'] == 'default'):
+            # this is a default security group copied from another cloud
+            # Ugly patch! mark it as default manually
+            with context.session.begin(subtransactions=True):
+                try:
+                    default_entry = securitygroup_model.DefaultSecurityGroup(
+                        security_group_id=secgroup_db['id'],
+                        project_id=secgroup_db['project_id'])
+                    context.session.add(default_entry)
+                except Exception as e:
+                    LOG.error("Failed to mark migrated security group %(id)s "
+                              "as default %(e)s",
+                              {'id': secgroup_db['id'], 'e': e})
+
     def create_security_group(self, context, security_group, default_sg=False):
         secgroup = security_group['security_group']
         secgroup['id'] = secgroup.get('id') or uuidutils.generate_uuid()
@@ -3685,6 +3701,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                                                secgroup_db,
                                                                secgroup,
                                                                default_sg)
+                if cfg.CONF.api_replay_mode:
+                    self._handle_api_replay_default_sg(context, secgroup_db)
+
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():
                 LOG.exception("Unable to create security-group on the "
