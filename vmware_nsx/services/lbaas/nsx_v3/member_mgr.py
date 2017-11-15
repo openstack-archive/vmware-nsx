@@ -52,6 +52,11 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
     def _create_lb_service(self, context, service_client, tenant_id,
                            router_id, nsx_router_id, lb_id, lb_size):
         router = self.core_plugin.get_router(context, router_id)
+        if not router.get('external_gateway_info'):
+            msg = (_('Tenant router %(router)s does not connect to '
+                     'external gateway') % {'router': router['id']})
+            raise n_exc.BadRequest(resource='lbaas-lbservice-create',
+                                   msg=msg)
         lb_name = utils.get_name_and_uuid(router['name'],
                                           router_id)
         tags = lb_utils.get_tags(self.core_plugin, router_id,
