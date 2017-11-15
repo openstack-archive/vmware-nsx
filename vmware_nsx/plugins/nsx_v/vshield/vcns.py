@@ -921,7 +921,7 @@ class Vcns(object):
 
     def validate_network_name(self, object_id, name, during_init=False):
         return self._scopingobjects_lookup(NETWORK_TYPES, object_id,
-                                           use_cache=during_init)
+                                           name=name, use_cache=during_init)
 
     def validate_vdn_scope(self, object_id):
         uri = '%s/scopes' % VDN_PREFIX
