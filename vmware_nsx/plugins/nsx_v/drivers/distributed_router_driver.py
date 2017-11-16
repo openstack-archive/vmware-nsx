@@ -15,6 +15,7 @@
 from oslo_log import log as logging
 from oslo_utils import excutils
 
+from neutron.db import api as db_api
 from neutron.db import l3_db
 
 from neutron_lib import constants
@@ -134,6 +135,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
             self._update_routes_on_plr(context, router_id, plr_id,
                                        newnexthop)
 
+    @db_api.retry_db_errors
     def _update_router_gw_info(self, context, router_id, info,
                                is_routes_update=False,
                                force_update=False):
