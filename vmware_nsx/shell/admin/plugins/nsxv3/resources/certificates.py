@@ -21,11 +21,11 @@ from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils
 from vmware_nsx.shell import resources as shell
 from vmware_nsxlib.v3 import client_cert
+from vmware_nsxlib.v3 import exceptions
 from vmware_nsxlib.v3 import trust_management
 
 from neutron_lib.callbacks import registry
 from neutron_lib import context
-from neutron_lib import exceptions
 from oslo_config import cfg
 
 LOG = logging.getLogger(__name__)
@@ -121,7 +121,7 @@ def generate_cert(resource, event, trigger, **kwargs):
 
         try:
             cert.generate(subject, key_size, valid_for_days, signature_alg)
-        except exceptions.InvalidInput as e:
+        except exceptions.NsxLibInvalidInput as e:
             LOG.info(e)
             return
 

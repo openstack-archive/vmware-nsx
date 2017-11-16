@@ -203,6 +203,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         router=l3_db_models.Router,
         floatingip=l3_db_models.FloatingIP)
     def __init__(self):
+        nsxlib_utils.set_is_attr_callback(validators.is_attr_set)
         self._extend_fault_map()
         self._extension_manager = managers.ExtensionManager()
         super(NsxV3Plugin, self).__init__()
@@ -297,6 +298,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                  nsx_lib_exc.ClientCertificateNotTrusted:
                                  webob.exc.HTTPBadRequest,
                                  nsx_exc.SecurityGroupMaximumCapacityReached:
+                                 webob.exc.HTTPBadRequest,
+                                 nsx_lib_exc.NsxLibInvalidInput:
                                  webob.exc.HTTPBadRequest})
 
     def _init_fwaas(self, resource, event, trigger, **kwargs):
