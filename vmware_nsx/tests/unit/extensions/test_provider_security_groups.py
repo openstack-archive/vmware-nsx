@@ -353,7 +353,20 @@ class ProviderSecurityGroupExtTestCase(
 
 class TestNSXv3ProviderSecurityGrp(test_nsxv3_plugin.NsxV3PluginTestCaseMixin,
                                    ProviderSecurityGroupExtTestCase):
-    pass
+
+    def test_update_port_remove_provider_sg(self):
+        # need to create provider security group first.
+        self._create_provider_security_group()
+        with self.port(tenant_id=self._tenant_id) as p:
+            body = {'port': {'provider_security_groups': []}}
+            req = self.new_update_request('ports', body, p['port']['id'])
+            port = self.deserialize(self.fmt, req.get_response(self.api))
+            # confirm that the group has been removed.
+            self.assertEqual([], port['port']['provider_security_groups'])
+            # make sure that the security groups did not contain the provider
+            # security group
+            self.assertEqual(p['port']['security_groups'],
+                             port['port']['security_groups'])
 
 
 class TestNSXvProviderSecurityGroup(test_nsxv_plugin.NsxVPluginV2TestCase,

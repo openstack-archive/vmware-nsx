@@ -2625,6 +2625,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         with db_api.context_manager.writer.using(context):
             original_port = super(NsxV3Plugin, self).get_port(context, id)
+            self._remove_provider_security_groups_from_list(original_port)
             port_data = port['port']
             nsx_lswitch_id, nsx_lport_id = nsx_db.get_nsx_switch_and_port_id(
                 context.session, id)
@@ -2681,6 +2682,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     raise n_exc.InvalidInput(error_message=msg)
                 self._update_mac_learning_state(context, id,
                                                 mac_learning_state)
+            self._remove_provider_security_groups_from_list(updated_port)
 
         address_bindings = self._build_address_bindings(updated_port)
         if port_security and address_bindings:
