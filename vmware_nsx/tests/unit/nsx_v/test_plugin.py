@@ -323,6 +323,30 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
             for k, v in expected:
                 self.assertEqual(net['network'][k], v)
 
+    def test_create_portgroup_network(self):
+        name = 'pg_net'
+        expected = [('subnets', []), ('name', name), ('admin_state_up', True),
+                    ('status', 'ACTIVE'), ('shared', False),
+                    (pnet.NETWORK_TYPE, 'portgroup'),
+                    (pnet.PHYSICAL_NETWORK, 'tzuuid')]
+        providernet_args = {pnet.NETWORK_TYPE: 'portgroup',
+                            pnet.PHYSICAL_NETWORK: 'tzuuid'}
+        with self.network(name=name,
+                          providernet_args=providernet_args,
+                          arg_list=(pnet.NETWORK_TYPE,
+                                    pnet.PHYSICAL_NETWORK)) as net:
+            for k, v in expected:
+                self.assertEqual(net['network'][k], v)
+
+            # try to create another one on the same physical net will failure
+            res = self._create_network(
+                self.fmt, name, True,
+                providernet_args=providernet_args,
+                arg_list=(pnet.NETWORK_TYPE,
+                          pnet.PHYSICAL_NETWORK))
+            data = self.deserialize(self.fmt, res)
+            self.assertIn('NeutronError', data)
+
     def test_delete_network_after_removing_subnet(self):
         gateway_ip = '10.0.0.1'
         cidr = '10.0.0.0/24'
