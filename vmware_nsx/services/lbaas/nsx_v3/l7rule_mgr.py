@@ -33,6 +33,16 @@ class EdgeL7RuleManager(base_mgr.Nsxv3LoadbalancerBaseManager):
     def __init__(self):
         super(EdgeL7RuleManager, self).__init__()
 
+    @staticmethod
+    def _validate_rule_in_policy(policy):
+        # Only one l7rule is allowed for each l7policy in pike release.
+        # This validation is to allow only one l7rule per l7policy.
+        if len(policy.rules) > 1:
+            msg = (_('Only one l7rule is allowed on l7policy'
+                     '%(policy)s') % {'policy': policy.id})
+            raise n_exc.BadRequest(resource='lbaas-l7rule-create',
+                                   msg=msg)
+
     @log_helpers.log_method_call
     def _get_rule_match_conditions(self, rule):
         match_conditions = []
@@ -117,6 +127,8 @@ class EdgeL7RuleManager(base_mgr.Nsxv3LoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def create(self, context, rule):
+        self._validate_rule_in_policy(rule.policy)
+
         lb_id = rule.policy.listener.loadbalancer_id
         listener_id = rule.policy.listener_id
         vs_client = self.core_plugin.nsxlib.load_balancer.virtual_server
