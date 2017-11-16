@@ -1109,7 +1109,7 @@ class FakeVcns(object):
 
     def create_spoofguard_policy(self, enforcement_points, name, enable):
         policy = {'name': name,
-                  'enforcement_point': enforcement_points[0],
+                  'enforcementPoints': [{'id': enforcement_points[0]}],
                   'operationMode': 'MANUAL' if enable else 'DISABLE'}
         policy_id = len(self._spoofguard_policies)
         self._spoofguard_policies.append(policy)
@@ -1118,7 +1118,7 @@ class FakeVcns(object):
     def update_spoofguard_policy(self, policy_id,
                                  enforcement_points, name, enable):
         policy = {'name': name,
-                  'enforcement_point': enforcement_points[0],
+                  'enforcementPoints': [{'id': enforcement_points[0]}],
                   'operationMode': 'MANUAL' if enable else 'DISABLE'}
         self._spoofguard_policies[int(policy_id)] = policy
         return None, ''

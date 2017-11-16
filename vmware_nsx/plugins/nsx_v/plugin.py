@@ -675,6 +675,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                       not self.nsx_v.vcns.validate_network_name(
                           physical_network, network['name'])):
                     err_msg = _("Portgroup name must match network name")
+
+                # make sure no other neutron network is using it
+                bindings = (
+                    nsxv_db.get_network_bindings_by_physical_net_and_type(
+                        context.elevated().session, physical_network,
+                        network_type))
+                if bindings:
+                    err_msg = (_('protgroup %s is already used by '
+                                 'another network') % physical_network)
             else:
                 err_msg = (_("%(net_type_param)s %(net_type_value)s not "
                              "supported") %
