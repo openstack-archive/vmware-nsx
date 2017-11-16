@@ -15,6 +15,7 @@
 import netaddr
 from oslo_config import cfg
 
+from neutron.db import api as db_api
 from neutron.db import l3_db
 from neutron.db.models import l3 as l3_db_models
 from neutron.db import models_v2
@@ -679,6 +680,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         for net_id in intf_net_ids:
             edge_utils.delete_interface(self.nsx_v, context, router_id, net_id)
 
+    @db_api.retry_db_errors
     def _update_router_gw_info(self, context, router_id, info,
                                is_routes_update=False,
                                force_update=False):
