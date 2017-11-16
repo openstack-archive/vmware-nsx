@@ -14,6 +14,7 @@
 
 from oslo_log import log as logging
 
+from neutron.db import api as db_api
 from neutron_lib import constants as n_consts
 from neutron_lib.plugins import constants as plugin_const
 
@@ -152,6 +153,7 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
                 self._get_router_edge_id(context, router_id)):
             self.plugin._update_routes(context, router_id, nexthop)
 
+    @db_api.retry_db_errors
     def _update_router_gw_info(self, context, router_id, info,
                                is_routes_update=False, force_update=False):
         router = self.plugin._get_router(context, router_id)
