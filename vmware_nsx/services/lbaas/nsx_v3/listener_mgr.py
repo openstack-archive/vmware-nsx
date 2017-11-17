@@ -60,21 +60,26 @@ class EdgeListenerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
 
     def _get_ssl_profile_binding(self, tags, certificate=None):
         tm_client = self.core_plugin.nsxlib.trust_management
-        nsx_cert_id = None
-        ssl_profile_binding = None
         if certificate:
-            nsx_cert_id = tm_client.create_cert(
-                certificate.get_certificate(),
-                private_key=certificate.get_private_key(),
-                passphrase=certificate.get_private_key_passphrase(),
-                tags=tags)
-            ssl_profile_binding = {
+            # First check if NSX already has certificate with same pem.
+            # If so, use that certificate for ssl binding. Otherwise,
+            # create a new certificate on NSX.
+            cert_ids = tm_client.find_cert_with_pem(
+                certificate.get_certificate())
+            if cert_ids:
+                nsx_cert_id = cert_ids[0]
+            else:
+                nsx_cert_id = tm_client.create_cert(
+                    certificate.get_certificate(),
+                    private_key=certificate.get_private_key(),
+                    passphrase=certificate.get_private_key_passphrase(),
+                    tags=tags)
+            return {
                 'client_ssl_profile_binding': {
                     'ssl_profile_id': self.core_plugin.client_ssl_profile,
                     'default_certificate_id': nsx_cert_id
                 }
             }
-        return ssl_profile_binding
 
     @log_helpers.log_method_call
     def create(self, context, listener, certificate=None):
