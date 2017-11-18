@@ -374,6 +374,9 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                     options = {'option121': {'static_routes': [
                         {'network': '%s' %
                          cfg.CONF.nsx_v3.native_metadata_route,
+                         'next_hop': '0.0.0.0'},
+                        {'network': '%s' %
+                         cfg.CONF.nsx_v3.native_metadata_route,
                          'next_hop': ip}]}}
                     create_dhcp_binding.assert_called_once_with(
                         dhcp_service['nsx_service_id'],
@@ -470,6 +473,9 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                            'options': {'option121': {'static_routes': [
                                {'network': '%s' %
                                 cfg.CONF.nsx_v3.native_metadata_route,
+                                'next_hop': '0.0.0.0'},
+                               {'network': '%s' %
+                                cfg.CONF.nsx_v3.native_metadata_route,
                                 'next_hop': new_ip}]}}}
             self._verify_dhcp_binding(subnet, port_data, update_data,
                                       assert_data)
@@ -500,6 +506,9 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                            'mac_address': new_mac,
                            'ip_address': new_ip,
                            'options': {'option121': {'static_routes': [
+                               {'network': '%s' %
+                                cfg.CONF.nsx_v3.native_metadata_route,
+                                'next_hop': '0.0.0.0'},
                                {'network': '%s' %
                                 cfg.CONF.nsx_v3.native_metadata_route,
                                 'next_hop': new_ip}]}}}
