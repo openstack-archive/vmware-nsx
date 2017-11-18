@@ -404,6 +404,9 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                     options = {'option121': {'static_routes': [
                         {'network': '%s' %
                          cfg.CONF.nsx_v3.native_metadata_route,
+                         'next_hop': '0.0.0.0'},
+                        {'network': '%s' %
+                         cfg.CONF.nsx_v3.native_metadata_route,
                          'next_hop': ip},
                         {'network': subnet['subnet']['cidr'],
                          'next_hop': '0.0.0.0'},
@@ -443,6 +446,9 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                     options = {'option121': {'static_routes': [
                         {'network': '%s' %
                          cfg.CONF.nsx_v3.native_metadata_route,
+                         'next_hop': '0.0.0.0'},
+                        {'network': '%s' %
+                         cfg.CONF.nsx_v3.native_metadata_route,
                          'next_hop': ip},
                         {'network': subnet['subnet']['cidr'],
                          'next_hop': '0.0.0.0'},
@@ -478,6 +484,9 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                     ip = port['port']['fixed_ips'][0]['ip_address']
                     hostname = 'host-%s' % ip.replace('.', '-')
                     options = {'option121': {'static_routes': [
+                        {'network': '%s' %
+                         cfg.CONF.nsx_v3.native_metadata_route,
+                         'next_hop': '0.0.0.0'},
                         {'network': '%s' %
                          cfg.CONF.nsx_v3.native_metadata_route,
                          'next_hop': ip},
@@ -612,6 +621,9 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                            'options': {'option121': {'static_routes': [
                                {'network': '%s' %
                                 cfg.CONF.nsx_v3.native_metadata_route,
+                                'next_hop': '0.0.0.0'},
+                               {'network': '%s' %
+                                cfg.CONF.nsx_v3.native_metadata_route,
                                 'next_hop': new_ip},
                                {'network': subnet['subnet']['cidr'],
                                 'next_hop': '0.0.0.0'},
@@ -629,6 +641,9 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
             update_data = {'port': {'mac_address': new_mac}}
             assert_data = {'mac_address': new_mac,
                            'options': {'option121': {'static_routes': [
+                               {'network': '%s' %
+                                cfg.CONF.nsx_v3.native_metadata_route,
+                                'next_hop': '0.0.0.0'},
                                {'network': '%s' %
                                 cfg.CONF.nsx_v3.native_metadata_route,
                                 'next_hop': mock.ANY},
@@ -654,6 +669,9 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                            'mac_address': new_mac,
                            'ip_address': new_ip,
                            'options': {'option121': {'static_routes': [
+                               {'network': '%s' %
+                                cfg.CONF.nsx_v3.native_metadata_route,
+                                'next_hop': '0.0.0.0'},
                                {'network': '%s' %
                                 cfg.CONF.nsx_v3.native_metadata_route,
                                 'next_hop': new_ip},
@@ -684,6 +702,9 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                            'options': {'option121': {'static_routes': [
                                {'network': '%s' %
                                 cfg.CONF.nsx_v3.native_metadata_route,
+                                'next_hop': '0.0.0.0'},
+                               {'network': '%s' %
+                                cfg.CONF.nsx_v3.native_metadata_route,
                                 'next_hop': ip_addr},
                                {'network': subnet['subnet']['cidr'],
                                 'next_hop': '0.0.0.0'},
@@ -711,6 +732,9 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
             assert_data = {'mac_address': mac_address,
                            'ip_address': ip_addr,
                            'options': {'option121': {'static_routes': [
+                               {'network': '%s' %
+                                cfg.CONF.nsx_v3.native_metadata_route,
+                                'next_hop': '0.0.0.0'},
                                {'network': '%s' %
                                 cfg.CONF.nsx_v3.native_metadata_route,
                                 'next_hop': ip_addr},
@@ -743,6 +767,9 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
             assert_data = {'mac_address': mac_address,
                            'ip_address': ip_addr,
                            'options': {'option121': {'static_routes': [
+                               {'network': '%s' %
+                                cfg.CONF.nsx_v3.native_metadata_route,
+                                'next_hop': '0.0.0.0'},
                                {'network': '%s' %
                                 cfg.CONF.nsx_v3.native_metadata_route,
                                 'next_hop': ip_addr},
@@ -851,6 +878,9 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
                         ip = port['port']['fixed_ips'][0]['ip_address']
                         hostname = 'host-%s' % ip.replace('.', '-')
                         options = {'option121': {'static_routes': [
+                            {'network': '%s' %
+                             self.az_metadata_route,
+                             'next_hop': '0.0.0.0'},
                             {'network': '%s' %
                              self.az_metadata_route,
                              'next_hop': ip},
