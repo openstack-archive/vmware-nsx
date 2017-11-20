@@ -36,6 +36,9 @@ NATIVE_DHCP_METADATA=${NATIVE_DHCP_METADATA:-True}
 NATIVE_METADATA_ROUTE=${NATIVE_METADATA_ROUTE:-169.254.169.254/31}
 METADATA_PROXY_SHARED_SECRET=${METADATA_PROXY_SHARED_SECRET:-}
 
+# Default AZ
+NSX_DEFAULT_AZ=${NSX_DEFAULT_AZ:-defaultv3}
+
 # Save trace setting
 NSX_XTRACE=$(set +o | grep xtrace)
 set +o xtrace
@@ -125,7 +128,7 @@ function neutron_plugin_configure_common {
     cp $DEST/$Q_PLUGIN_SRC_CONF_PATH/nsx.ini.sample /$Q_PLUGIN_CONF_PATH/$Q_PLUGIN_CONF_FILENAME
     sudo install -d -o $STACK_USER $NEUTRON_CONF_DIR/policy.d
     cp -vr $DEST/$Q_PLUGIN_SRC_CONF_PATH/policy.d $NEUTRON_CONF_DIR/policy.d
-    Q_PLUGIN_CLASS="vmware_nsxv3"
+    Q_PLUGIN_CLASS="vmware_nsxtvd"
 }
 
 function neutron_plugin_configure_debug_command {
@@ -155,7 +158,10 @@ function neutron_plugin_configure_plugin_agent {
 
 function neutron_plugin_configure_service {
     nsxv3_configure_service
-    iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_extension_drivers vmware_nsxv3_dns
+    nsxv_configure_service
+    iniset /$Q_PLUGIN_CONF_FILE nsx_tvd nsx_v_extension_drivers vmware_nsxv_dns
+    iniset /$Q_PLUGIN_CONF_FILE nsx_tvd nsx_v3_extension_drivers vmware_nsxv3_dns
+    iniset /$Q_PLUGIN_CONF_FILE DEFAULT default_availability_zones $NSX_DEFAULT_AZ
 }
 
 function neutron_plugin_setup_interface_driver {
@@ -168,7 +174,7 @@ function neutron_plugin_check_adv_test_requirements {
 }
 
 
-function init_vmware_nsx_v3 {
+function init_vmware_nsx_tvd {
     if (is_service_enabled q-svc || is_service_enabled neutron-api) && [[ "$NATIVE_DHCP_METADATA" == "True" ]]; then
         if ! is_set DHCP_PROFILE_UUID; then
             die $LINENO "DHCP profile needs to be configured!"
@@ -217,7 +223,7 @@ function init_vmware_nsx_v3 {
     sudo ip link set $PUBLIC_BRIDGE up
 }
 
-function stop_vmware_nsx_v3 {
+function stop_vmware_nsx_tvd {
     # Clean client certificate if exists
     nsxadmin -o clean -r certificate
 

@@ -61,6 +61,7 @@ from vmware_nsx.db import nsxv_db
 from vmware_nsx.dhcp_meta import modes as dhcpmeta_modes
 from vmware_nsx.dvs import dvs
 from vmware_nsx.dvs import dvs_utils
+from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.plugins.common import plugin as nsx_plugin_common
 
 LOG = logging.getLogger(__name__)
@@ -114,6 +115,14 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         self.cfg_group = 'dvs'  # group name for dvs section in nsx.ini
         self._dvs = dvs.SingleDvsManager()
         self.setup_dhcpmeta_access()
+
+    @staticmethod
+    def plugin_type():
+        return projectpluginmap.NsxPlugins.DVS
+
+    @staticmethod
+    def is_tvd_plugin():
+        return False
 
     @staticmethod
     @resource_extend.extends([port_def.COLLECTION_NAME])

@@ -204,10 +204,11 @@ class NsxV3AvailabilityZones(common_az.ConfiguredAvailabilityZones):
 
     default_name = DEFAULT_NAME
 
-    def __init__(self):
+    def __init__(self, validate_default=False):
         super(NsxV3AvailabilityZones, self).__init__(
             cfg.CONF.nsx_v3.availability_zones,
-            NsxV3AvailabilityZone)
+            NsxV3AvailabilityZone,
+            validate_default=validate_default)
 
     def dhcp_relay_configured(self):
         for az in self.availability_zones.values():

@@ -204,10 +204,11 @@ class NsxVAvailabilityZone(common_az.ConfiguredAvailabilityZone):
 
 class NsxVAvailabilityZones(common_az.ConfiguredAvailabilityZones):
 
-    def __init__(self):
+    def __init__(self, validate_default=False):
         super(NsxVAvailabilityZones, self).__init__(
             cfg.CONF.nsxv.availability_zones,
-            NsxVAvailabilityZone)
+            NsxVAvailabilityZone,
+            validate_default=validate_default)
 
     def get_inventory(self):
         """Return a set of relevant resources in all the availability zones

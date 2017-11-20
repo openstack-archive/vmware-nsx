@@ -78,7 +78,7 @@ class ConfiguredAvailabilityZones(object):
 
     default_name = DEFAULT_NAME
 
-    def __init__(self, az_conf, az_class):
+    def __init__(self, az_conf, az_class, validate_default=True):
         self.availability_zones = {}
 
         # Add the configured availability zones
@@ -100,12 +100,17 @@ class ConfiguredAvailabilityZones(object):
                     reason=_("The NSX plugin supports only 1 default AZ"))
             default_az_name = cfg.CONF.default_availability_zones[0]
             if (default_az_name not in self.availability_zones):
-                raise nsx_exc.NsxInvalidConfiguration(
-                    opt_name="default_availability_zones",
-                    opt_value=cfg.CONF.default_availability_zones,
-                    reason=_("The default AZ is not defined in the NSX "
-                             "plugin"))
-            self._default_az = self.availability_zones[default_az_name]
+                if validate_default:
+                    raise nsx_exc.NsxInvalidConfiguration(
+                        opt_name="default_availability_zones",
+                        opt_value=cfg.CONF.default_availability_zones,
+                        reason=_("The default AZ is not defined in the NSX "
+                                 "plugin"))
+                else:
+                    self._default_az = self.availability_zones[
+                        self.default_name]
+            else:
+                self._default_az = self.availability_zones[default_az_name]
         else:
             self._default_az = self.availability_zones[self.default_name]
 

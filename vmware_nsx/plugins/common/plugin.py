@@ -47,6 +47,10 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
                     address_scope_db.AddressScopeDbMixin):
     """Common methods for NSX-V and NSX-V3 plugins"""
 
+    @property
+    def plugin_type(self):
+        return "Unknown"
+
     @staticmethod
     @resource_extend.extends([net_def.COLLECTION_NAME])
     def _ext_extend_network_dict(result, netdb):

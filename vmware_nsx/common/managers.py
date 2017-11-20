@@ -24,15 +24,18 @@ LOG = log.getLogger(__name__)
 class ExtensionManager(stevedore.named.NamedExtensionManager):
     """Manage extension drivers using drivers."""
 
-    def __init__(self):
+    def __init__(self, extension_drivers=None):
         # Ordered list of extension drivers, defining
         # the order in which the drivers are called.
         self.ordered_ext_drivers = []
 
+        if extension_drivers is None:
+            extension_drivers = cfg.CONF.nsx_extension_drivers
+
         LOG.info("Configured extension driver names: %s",
-                 cfg.CONF.nsx_extension_drivers)
+                 extension_drivers)
         super(ExtensionManager, self).__init__('vmware_nsx.extension_drivers',
-                                               cfg.CONF.nsx_extension_drivers,
+                                               extension_drivers,
                                                invoke_on_load=True,
                                                name_order=True)
         LOG.info("Loaded extension driver names: %s", self.names())

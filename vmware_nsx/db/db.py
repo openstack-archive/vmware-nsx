@@ -20,6 +20,7 @@ from sqlalchemy.orm import exc
 from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
+from oslo_utils import uuidutils
 
 import neutron.db.api as db
 
@@ -289,16 +290,20 @@ def get_neutron_from_nsx_router_id(session, nsx_router_id):
         LOG.debug("Couldn't find router with nsx id  %s", nsx_router_id)
 
 
-def get_nsx_security_group_id(session, neutron_id):
+def get_nsx_security_group_id(session, neutron_id, moref=False):
     """Return the id of a security group in the NSX backend.
 
     Note: security groups are called 'security profiles' in NSX
     """
     try:
-        mapping = (session.query(nsx_models.NeutronNsxSecurityGroupMapping).
-                   filter_by(neutron_id=neutron_id).
-                   one())
-        return mapping['nsx_id']
+        mappings = (session.query(nsx_models.NeutronNsxSecurityGroupMapping).
+                    filter_by(neutron_id=neutron_id).
+                    all())
+        for mapping in mappings:
+            if moref and not uuidutils.is_uuid_like(mapping['nsx_id']):
+                return mapping['nsx_id']
+            if not moref and uuidutils.is_uuid_like(mapping['nsx_id']):
+                return mapping['nsx_id']
     except exc.NoResultFound:
         LOG.debug("NSX identifiers for neutron security group %s not yet "
                   "stored in Neutron DB", neutron_id)
@@ -437,14 +442,29 @@ def save_sg_mappings(context, sg_id, nsgroup_id, section_id):
                                                   nsx_id=nsgroup_id))
 
 
-def get_sg_mappings(session, sg_id):
-    nsgroup_mapping = session.query(
+def get_sg_mappings(session, sg_id, moref=False):
+    nsgroup_mappings = session.query(
         nsx_models.NeutronNsxSecurityGroupMapping
-    ).filter_by(neutron_id=sg_id).one()
-    section_mapping = session.query(
+    ).filter_by(neutron_id=sg_id).all()
+    nsgroup_mapping = section_mapping = None
+    for mapping in nsgroup_mappings:
+        if moref and not uuidutils.is_uuid_like(mapping['nsx_id']):
+            nsgroup_mapping = mapping['nsx_id']
+            break
+        if not moref and uuidutils.is_uuid_like(mapping['nsx_id']):
+            nsgroup_mapping = mapping['nsx_id']
+            break
+    section_mappings = session.query(
         nsx_models.NeutronNsxFirewallSectionMapping
-    ).filter_by(neutron_id=sg_id).one()
-    return nsgroup_mapping.nsx_id, section_mapping.nsx_id
+    ).filter_by(neutron_id=sg_id).all()
+    for mapping in section_mappings:
+        if moref and not uuidutils.is_uuid_like(mapping['nsx_id']):
+            section_mapping = mapping['nsx_id']
+            break
+        if not moref and uuidutils.is_uuid_like(mapping['nsx_id']):
+            section_mapping = mapping['nsx_id']
+            break
+    return nsgroup_mapping, section_mapping
 
 
 def get_sg_rule_mapping(session, rule_id):
@@ -652,3 +672,23 @@ def get_nsx_lbaas_l7policy_binding(session, l7policy_id):
 def delete_nsx_lbaas_l7policy_binding(session, l7policy_id):
     return (session.query(nsx_models.NsxLbaasL7Policy).
             filter_by(l7policy_id=l7policy_id).delete())
+
+
+def add_project_plugin_mapping(session, project, plugin):
+    with session.begin(subtransactions=True):
+        binding = nsx_models.NsxProjectPluginMapping(
+            project=project, plugin=plugin)
+        session.add(binding)
+    return binding
+
+
+def get_project_plugin_mapping(session, project):
+    try:
+        return session.query(nsx_models.NsxProjectPluginMapping).filter_by(
+            project=project).one()
+    except exc.NoResultFound:
+        return
+
+
+def get_project_plugin_mappings(session):
+    return session.query(nsx_models.NsxProjectPluginMapping).all()
