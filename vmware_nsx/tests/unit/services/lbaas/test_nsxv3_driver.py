@@ -336,16 +336,19 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
     def test_update(self):
         new_listener = lb_models.Listener(LISTENER_ID, LB_TENANT_ID,
                                           'listener1-new', 'new-description',
-                                          None, LB_ID, protocol_port=8000,
+                                          None, LB_ID, protocol_port=80,
                                           loadbalancer=self.lb)
+        with mock.patch.object(nsx_db, 'get_nsx_lbaas_listener_binding'
+                               ) as mock_get_listener_binding:
+            mock_get_listener_binding.return_value = LISTENER_BINDING
 
-        self.edge_driver.listener.update(self.context, self.listener,
-                                         new_listener)
+            self.edge_driver.listener.update(self.context, self.listener,
+                                             new_listener)
 
-        mock_successful_completion = (
-            self.lbv2_driver.listener.successful_completion)
-        mock_successful_completion.assert_called_with(self.context,
-                                                      new_listener)
+            mock_successful_completion = (
+                self.lbv2_driver.listener.successful_completion)
+            mock_successful_completion.assert_called_with(self.context,
+                                                          new_listener)
 
     def test_delete(self):
         with mock.patch.object(nsx_db, 'get_nsx_lbaas_listener_binding'
@@ -421,11 +424,16 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
         new_pool = lb_models.Pool(POOL_ID, LB_TENANT_ID, 'pool-name', '',
                                   None, 'HTTP', 'LEAST_CONNECTIONS',
                                   listener=self.listener)
-        self.edge_driver.pool.update(self.context, self.pool, new_pool)
+        with mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
+                               ) as mock_get_pool_binding:
+            mock_get_pool_binding.return_value = POOL_BINDING
 
-        mock_successful_completion = (
-            self.lbv2_driver.pool.successful_completion)
-        mock_successful_completion.assert_called_with(self.context, new_pool)
+            self.edge_driver.pool.update(self.context, self.pool, new_pool)
+
+            mock_successful_completion = (
+                self.lbv2_driver.pool.successful_completion)
+            mock_successful_completion.assert_called_with(self.context,
+                                                          new_pool)
 
     def test_delete(self):
         with mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'

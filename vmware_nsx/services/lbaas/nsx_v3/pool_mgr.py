@@ -35,22 +35,37 @@ class EdgePoolManager(base_mgr.Nsxv3LoadbalancerBaseManager):
     def __init__(self):
         super(EdgePoolManager, self).__init__()
 
+    def _get_pool_kwargs(self, name=None, tags=None, algorithm=None,
+                         session_persistence=None):
+        kwargs = {}
+        if name:
+            kwargs['display_name'] = name
+        if tags:
+            kwargs['tags'] = tags
+        if algorithm:
+            kwargs['algorithm'] = algorithm
+        if session_persistence:
+            kwargs['session_persistence'] = session_persistence
+        kwargs['snat_translation'] = {'type': "LbSnatAutoMap"}
+        return kwargs
+
+    def _get_pool_tags(self, context, pool):
+        return lb_utils.get_tags(self.core_plugin, pool.id,
+                                 lb_const.LB_POOL_TYPE, pool.tenant_id,
+                                 context.project_name)
+
     @log_helpers.log_method_call
     def create(self, context, pool):
         lb_id = pool.loadbalancer_id
         pool_client = self.core_plugin.nsxlib.load_balancer.pool
         vs_client = self.core_plugin.nsxlib.load_balancer.virtual_server
         pool_name = utils.get_name_and_uuid(pool.name or 'pool', pool.id)
-        tags = lb_utils.get_tags(self.core_plugin, pool.id,
-                                 lb_const.LB_POOL_TYPE, pool.tenant_id,
-                                 context.project_name)
+        tags = self._get_pool_tags(context, pool)
+
         lb_algorithm = lb_const.LB_POOL_ALGORITHM_MAP.get(pool.lb_algorithm)
         try:
-            snat_translation = {'type': "LbSnatAutoMap"}
-            lb_pool = pool_client.create(display_name=pool_name,
-                                         tags=tags,
-                                         algorithm=lb_algorithm,
-                                         snat_translation=snat_translation)
+            kwargs = self._get_pool_kwargs(pool_name, tags, lb_algorithm)
+            lb_pool = pool_client.create(**kwargs)
             nsx_db.add_nsx_lbaas_pool_binding(
                 context.session, lb_id, pool.id, lb_pool['id'])
         except nsxlib_exc.ManagerError:
@@ -86,11 +101,34 @@ class EdgePoolManager(base_mgr.Nsxv3LoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def update(self, context, old_pool, new_pool):
+        pool_client = self.core_plugin.nsxlib.load_balancer.pool
+        pool_name = None
+        tags = None
+        lb_algorithm = None
+        if new_pool.name != old_pool.name:
+            pool_name = utils.get_name_and_uuid(new_pool.name or 'pool',
+                                                new_pool.id)
+            tags = self._get_pool_tags(context, new_pool)
+        if new_pool.lb_algorithm != old_pool.lb_algorithm:
+            lb_algorithm = lb_const.LB_POOL_ALGORITHM_MAP.get(
+                new_pool.lb_algorithm)
+        binding = nsx_db.get_nsx_lbaas_pool_binding(
+            context.session, old_pool.loadbalancer_id, old_pool.id)
+        if not binding:
+            msg = (_('Cannot find pool %(pool)s binding on NSX db '
+                     'mapping'), {'pool': old_pool.id})
+            raise n_exc.BadRequest(resource='lbaas-pool', msg=msg)
         try:
+            lb_pool_id = binding['lb_pool_id']
+            kwargs = self._get_pool_kwargs(pool_name, tags, lb_algorithm)
+            pool_client.update(lb_pool_id, **kwargs)
             self.lbv2_driver.pool.successful_completion(context, new_pool)
-        except Exception:
+        except Exception as e:
             with excutils.save_and_reraise_exception():
                 self.lbv2_driver.pool.failed_completion(context, new_pool)
+                LOG.error('Failed to update pool %(pool)s with '
+                          'error %(error)s',
+                          {'pool': old_pool.id, 'error': e})
 
     @log_helpers.log_method_call
     def delete(self, context, pool):

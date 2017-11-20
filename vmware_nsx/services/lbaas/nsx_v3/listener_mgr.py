@@ -16,6 +16,7 @@
 from neutron_lib import exceptions as n_exc
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
+from oslo_utils import excutils
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
@@ -36,12 +37,14 @@ class EdgeListenerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
 
     def _get_virtual_server_kwargs(self, context, listener, vs_name, tags,
                                    app_profile_id, certificate=None):
-        kwargs = {'display_name': vs_name,
-                  'tags': tags,
-                  'enabled': listener.admin_state_up,
+        kwargs = {'enabled': listener.admin_state_up,
                   'ip_address': listener.loadbalancer.vip_address,
                   'port': listener.protocol_port,
                   'application_profile_id': app_profile_id}
+        if vs_name:
+            kwargs['display_name'] = vs_name
+        if tags:
+            kwargs['tags'] = tags
         if listener.connection_limit != -1:
             kwargs['max_concurrent_connections'] = \
                 listener.connection_limit
@@ -81,6 +84,17 @@ class EdgeListenerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                 }
             }
 
+    def _get_listener_tags(self, context, listener):
+        tags = lb_utils.get_tags(self.core_plugin, listener.id,
+                                 lb_const.LB_LISTENER_TYPE,
+                                 listener.tenant_id,
+                                 context.project_name)
+        tags.append({'scope': 'os-lbaas-lb-name',
+                     'tag': listener.loadbalancer.name[:utils.MAX_TAG_LEN]})
+        tags.append({'scope': 'os-lbaas-lb-id',
+                     'tag': listener.loadbalancer_id})
+        return tags
+
     @log_helpers.log_method_call
     def create(self, context, listener, certificate=None):
         lb_id = listener.loadbalancer_id
@@ -90,14 +104,7 @@ class EdgeListenerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
         service_client = load_balancer.service
         vs_name = utils.get_name_and_uuid(listener.name or 'listener',
                                           listener.id)
-        tags = lb_utils.get_tags(self.core_plugin, listener.id,
-                                 lb_const.LB_LISTENER_TYPE,
-                                 listener.tenant_id,
-                                 context.project_name)
-        tags.append({'scope': 'os-lbaas-lb-name',
-                     'tag': listener.loadbalancer.name[:utils.MAX_TAG_LEN]})
-        tags.append({'scope': 'os-lbaas-lb-id',
-                     'tag': lb_id})
+        tags = self._get_listener_tags(context, listener)
 
         if (listener.protocol == lb_const.LB_PROTOCOL_HTTP or
                 listener.protocol == lb_const.LB_PROTOCOL_TERMINATED_HTTPS):
@@ -146,7 +153,40 @@ class EdgeListenerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def update(self, context, old_listener, new_listener, certificate=None):
-        self.lbv2_driver.listener.successful_completion(context, new_listener)
+        vs_client = self.core_plugin.nsxlib.load_balancer.virtual_server
+        app_client = self.core_plugin.nsxlib.load_balancer.application_profile
+        vs_name = None
+        tags = None
+        if new_listener.name != old_listener.name:
+            vs_name = utils.get_name_and_uuid(new_listener.name or 'listener',
+                                              new_listener.id)
+            tags = self._get_listener_tags(context, new_listener)
+
+        binding = nsx_db.get_nsx_lbaas_listener_binding(
+            context.session, old_listener.loadbalancer_id, old_listener.id)
+        if not binding:
+            msg = (_('Cannot find listener %(listener)s binding on NSX '
+                     'backend'), {'listener': old_listener.id})
+            raise n_exc.BadRequest(resource='lbaas-listener', msg=msg)
+        try:
+            vs_id = binding['lb_vs_id']
+            app_profile_id = binding['app_profile_id']
+            updated_kwargs = self._get_virtual_server_kwargs(
+                context, new_listener, vs_name, tags, app_profile_id,
+                certificate)
+            vs_client.update(vs_id, **updated_kwargs)
+            if vs_name:
+                app_client.update(app_profile_id, display_name=vs_name,
+                                  tags=tags)
+            self.lbv2_driver.listener.successful_completion(context,
+                                                            new_listener)
+        except Exception as e:
+            with excutils.save_and_reraise_exception():
+                self.lbv2_driver.listener.failed_completion(
+                    context, new_listener)
+                LOG.error('Failed to update listener %(listener)s with '
+                          'error %(error)s',
+                          {'listener': old_listener.id, 'error': e})
 
     @log_helpers.log_method_call
     def delete(self, context, listener):
