@@ -49,7 +49,7 @@ nsxv = utils.get_nsxv_client()
 def nsx_list_edges(resource, event, trigger, **kwargs):
     """List edges from NSXv backend"""
 
-    headers = ['id', 'name', 'type', 'size']
+    headers = ['id', 'name', 'type', 'size', 'ha']
     edges = utils.get_nsxv_backend_edges()
     if (kwargs.get('verbose')):
         headers += ['syslog']

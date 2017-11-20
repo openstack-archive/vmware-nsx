@@ -106,13 +106,19 @@ def get_nsxv_backend_edges():
     edges = nsxv.get_edges()
     backend_edges = []
     for edge in edges:
+        summary = edge.get('appliancesSummary')
+        size = ha = None
+        if summary:
+            size = summary.get('applianceSize')
+            deployed_vms = summary.get('numberOfDeployedVms', 1)
+            ha = 'Enabled' if deployed_vms > 1 else 'Disabled'
         # get all the relevant backend information for this edge
         edge_data = {
             'id': edge.get('id'),
             'name': edge.get('name'),
-            'size': edge['appliancesSummary'].get(
-                'applianceSize') if edge.get('appliancesSummary') else None,
-            'type': edge.get('edgeType')
+            'size': size,
+            'type': edge.get('edgeType'),
+            'ha': ha,
         }
         backend_edges.append(edge_data)
     return backend_edges
