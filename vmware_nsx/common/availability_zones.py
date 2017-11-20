@@ -29,8 +29,9 @@ DEFAULT_NAME = 'default'
 
 class ConfiguredAvailabilityZone(object):
 
-    def __init__(self, config_line):
+    def __init__(self, config_line, default_name=DEFAULT_NAME):
         self.name = ""
+        self._is_default = False
         if config_line and ':' in config_line:
             # Older configuration - each line contains all the relevant
             # values for one availability zones, separated by ':'
@@ -46,11 +47,12 @@ class ConfiguredAvailabilityZone(object):
             self.init_from_config_section(self.name)
         else:
             # Default zone configuration
-            self.name = DEFAULT_NAME
+            self.name = default_name
+            self._is_default = True
             self.init_default_az()
 
     def is_default(self):
-        return self.name == DEFAULT_NAME
+        return self._is_default
 
     def _validate_zone_name(self, config_line):
         if len(self.name) > 36:
@@ -74,6 +76,8 @@ class ConfiguredAvailabilityZone(object):
 
 class ConfiguredAvailabilityZones(object):
 
+    default_name = DEFAULT_NAME
+
     def __init__(self, az_conf, az_class):
         self.availability_zones = {}
 
@@ -83,7 +87,7 @@ class ConfiguredAvailabilityZones(object):
             self.availability_zones[obj.name] = obj
 
         # add a default entry
-        obj = az_class(None)
+        obj = az_class(None, default_name=self.default_name)
         self.availability_zones[obj.name] = obj
 
         # validate the default az:
@@ -103,7 +107,7 @@ class ConfiguredAvailabilityZones(object):
                              "plugin"))
             self._default_az = self.availability_zones[default_az_name]
         else:
-            self._default_az = self.availability_zones[DEFAULT_NAME]
+            self._default_az = self.availability_zones[self.default_name]
 
     def get_availability_zone(self, name):
         """Return an availability zone object by its name

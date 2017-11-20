@@ -22,7 +22,7 @@ from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsxlib.v3 import core_resources
 from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
 
-DEFAULT_NAME = common_az.DEFAULT_NAME
+DEFAULT_NAME = common_az.DEFAULT_NAME + 'v3'
 
 
 class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
@@ -201,6 +201,8 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
 
 
 class NsxV3AvailabilityZones(common_az.ConfiguredAvailabilityZones):
+
+    default_name = DEFAULT_NAME
 
     def __init__(self):
         super(NsxV3AvailabilityZones, self).__init__(
