@@ -4254,6 +4254,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # as the hint (or default if none)
             if net_res[az_def.AZ_HINTS]:
                 az_name = net_res[az_def.AZ_HINTS][0]
+            elif cfg.CONF.default_availability_zones:
+                az_name = cfg.CONF.default_availability_zones[0]
             else:
                 az_name = nsx_az.DEFAULT_NAME
             net_res[az_def.COLLECTION_NAME] = [az_name]

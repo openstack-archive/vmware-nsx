@@ -3494,6 +3494,27 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
         self.assertEqual([az_name],
                          returned_router['availability_zones'])
 
+    def test_create_router_with_default_az(self):
+        az_name = 'az7'
+        set_az_in_config(az_name)
+        cfg.CONF.set_override('default_availability_zones', [az_name])
+        p = directory.get_plugin()
+        p._availability_zones_data = nsx_az.NsxVAvailabilityZones()
+        p._get_edge_id_by_rtr_id = p.real_get_edge
+
+        router = {'router': {'admin_state_up': True,
+                  'name': 'e161be1d-0d0d-4046-9823-5a593d94f72c',
+                  'tenant_id': 'fake_tenant',
+                  'router_type': 'exclusive'}}
+
+        # router creation should succeed
+        returned_router = p.create_router(context.get_admin_context(),
+                                          router)
+        self.assertEqual([],
+                         returned_router['availability_zone_hints'])
+        self.assertEqual([az_name],
+                         returned_router['availability_zones'])
+
     def test_floatingip_update_to_same_port_id_twice(self):
         self.skipTest('Plugin changes floating port status')
 
