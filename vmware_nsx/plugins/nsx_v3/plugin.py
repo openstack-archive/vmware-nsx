@@ -38,6 +38,7 @@ from neutron.db import agents_db
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import api as db_api
+from neutron.db.availability_zone import router as router_az_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import dns_db
 from neutron.db import external_net_db
@@ -159,6 +160,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   securitygroups_db.SecurityGroupDbMixin,
                   external_net_db.External_net_db_mixin,
                   extraroute_db.ExtraRoute_db_mixin,
+                  router_az_db.RouterAvailabilityZoneMixin,
                   l3_gwmode_db.L3_NAT_db_mixin,
                   portbindings_db.PortBindingMixin,
                   portsecurity_db.PortSecurityDbMixin,
@@ -189,6 +191,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                    "router",
                                    "availability_zone",
                                    "network_availability_zone",
+                                   "router_availability_zone",
                                    "subnet_allocation",
                                    "security-group-logging",
                                    "provider-security-group"]
@@ -3189,12 +3192,26 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def create_router(self, context, router):
         r = router['router']
         self.validate_router_dhcp_relay(context)
+
+        # validate the availability zone
+        if az_def.AZ_HINTS in r:
+            self.validate_availability_zones(context, 'router',
+                                             r[az_def.AZ_HINTS])
+
         gw_info = self._extract_external_gw(context, router, is_extract=True)
         r['id'] = (r.get('id') or uuidutils.generate_uuid())
         tags = self.nsxlib.build_v3_tags_payload(
             r, resource_type='os-neutron-router-id',
             project_name=context.tenant_name)
         router = super(NsxV3Plugin, self).create_router(context, router)
+        if az_def.AZ_HINTS in r:
+            # Update the AZ hints in the neutron object
+            az_hints = az_validator.convert_az_list_to_string(
+                r[az_def.AZ_HINTS])
+            super(NsxV3Plugin, self).update_router(
+                context,
+                router['id'],
+                {'router': {az_def.AZ_HINTS: az_hints}})
         with db_api.context_manager.writer.using(context):
             router_db = self._get_router(context, r['id'])
             self._process_extra_attr_router_create(context, router_db, r)
@@ -3274,6 +3291,20 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         "Neutron database", router_id)
 
         return ret_val
+
+    def get_router(self, context, id, fields=None):
+        with db_api.context_manager.reader.using(context):
+            # Get router from Neutron database
+            router = self._get_router(context, id)
+            # Don't do field selection here otherwise we won't be able to add
+            # provider networks fields
+            rtr = self._make_router_dict(router)
+            rtr['availability_zones'] = self.get_router_availability_zones(rtr)
+        return db_utils.resource_fields(rtr, fields)
+
+    def get_router_availability_zones(self, router):
+        """Return availability zones which a router belongs to."""
+        return [self.get_router_az(router).name]
 
     def _validate_ext_routes(self, context, router_id, gw_info, new_routes):
         ext_net_id = (gw_info['network_id']
