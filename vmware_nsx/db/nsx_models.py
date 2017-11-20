@@ -451,7 +451,14 @@ class NsxLbaasMonitor(model_base.BASEV2, models.TimestampMixin):
 
 
 class NsxLbaasL7Rule(model_base.BASEV2, models.TimestampMixin):
-    """Stores the mapping between LBaaS monitor and NSX LB monitor"""
+    """Stores the mapping between LBaaS monitor and NSX LB monitor
+
+    This table is only used in Pike and obsoleted since Queen as the
+    mapping has been stored in nsxv3_lbaas_l7policies table instead.
+    This original table was added in pike so that we cannot change
+    DB migration script there, but instead we update the table with
+    a new db migration script in Queen.
+    """
     __tablename__ = 'nsxv3_lbaas_l7rules'
     loadbalancer_id = sa.Column(sa.String(36), primary_key=True)
     l7policy_id = sa.Column(sa.String(36), primary_key=True)
@@ -460,5 +467,17 @@ class NsxLbaasL7Rule(model_base.BASEV2, models.TimestampMixin):
                                         name='fk_nsxv3_lbaas_l7rules_id',
                                         ondelete="CASCADE"),
                           primary_key=True)
+    lb_rule_id = sa.Column(sa.String(36), nullable=False)
+    lb_vs_id = sa.Column(sa.String(36), nullable=False)
+
+
+class NsxLbaasL7Policy(model_base.BASEV2, models.TimestampMixin):
+    """Stores the mapping between LBaaS l7policy and NSX LB rule"""
+    __tablename__ = 'nsxv3_lbaas_l7policies'
+    l7policy_id = sa.Column(sa.String(36),
+                            sa.ForeignKey('lbaas_l7policies.id',
+                                          name='fk_nsxv3_lbaas_l7policies_id',
+                                          ondelete="CASCADE"),
+                            primary_key=True)
     lb_rule_id = sa.Column(sa.String(36), nullable=False)
     lb_vs_id = sa.Column(sa.String(36), nullable=False)
