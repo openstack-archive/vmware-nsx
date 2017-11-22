@@ -973,6 +973,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         net_data = network['network']
         external = net_data.get(extnet_apidef.EXTERNAL)
         is_backend_network = False
+        is_overlay_network = False
         tenant_id = net_data['tenant_id']
 
         # validate the availability zone, and get the AZ object
