@@ -1688,6 +1688,29 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             net_res[qos_consts.QOS_POLICY_ID] = (
                 qos_com_utils.get_network_policy_id(context, id))
 
+        # Handle case of network name update - this only is relevant for
+        # networks that we create - not portgroup providers
+        if (net_attrs.get('name') and
+            orig_net.get('name') != net_attrs.get('name') and
+            (orig_net.get(pnet.NETWORK_TYPE) ==
+             c_utils.NsxVNetworkTypes.VLAN or
+             orig_net.get(pnet.NETWORK_TYPE) ==
+             c_utils.NsxVNetworkTypes.FLAT)):
+            # Only update networks created by plugin
+            mappings = nsx_db.get_nsx_network_mappings(context.session, id)
+            for mapping in mappings:
+                network_name = self._get_vlan_network_name(net_res,
+                                                           mapping.dvs_id)
+                try:
+                    self._vcm.update_port_groups_config(
+                        mapping.dvs_id, id, mapping.nsx_id,
+                        self._dvs.update_port_group_spec_name,
+                        network_name)
+                except Exception as e:
+                    LOG.error('Unable to update name for net %(net_id)s. '
+                              'Error: %(e)s',
+                              {'net_id': id, 'e': e})
+
         return net_res
 
     def _validate_address_pairs(self, attrs, db_port):
