@@ -15,6 +15,8 @@
 
 import abc
 
+from oslo_config import cfg
+
 from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import availability_zone as az_exc
@@ -84,6 +86,25 @@ class ConfiguredAvailabilityZones(object):
         obj = az_class(None)
         self.availability_zones[obj.name] = obj
 
+        # validate the default az:
+        if cfg.CONF.default_availability_zones:
+            # we support only 1 default az
+            if len(cfg.CONF.default_availability_zones) > 1:
+                raise nsx_exc.NsxInvalidConfiguration(
+                    opt_name="default_availability_zones",
+                    opt_value=cfg.CONF.default_availability_zones,
+                    reason=_("The NSX plugin supports only 1 default AZ"))
+            default_az_name = cfg.CONF.default_availability_zones[0]
+            if (default_az_name not in self.availability_zones):
+                raise nsx_exc.NsxInvalidConfiguration(
+                    opt_name="default_availability_zones",
+                    opt_value=cfg.CONF.default_availability_zones,
+                    reason=_("The default AZ is not defined in the NSX "
+                             "plugin"))
+            self._default_az = self.availability_zones[default_az_name]
+        else:
+            self._default_az = self.availability_zones[DEFAULT_NAME]
+
     def get_availability_zone(self, name):
         """Return an availability zone object by its name
         """
@@ -94,7 +115,7 @@ class ConfiguredAvailabilityZones(object):
     def get_default_availability_zone(self):
         """Return the default availability zone object
         """
-        return self.availability_zones[DEFAULT_NAME]
+        return self._default_az
 
     def list_availability_zones(self):
         """Return a list of availability zones names
