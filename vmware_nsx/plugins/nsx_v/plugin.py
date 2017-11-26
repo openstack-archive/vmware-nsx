@@ -4396,6 +4396,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 raise nsx_exc.NsxAZResourceNotFound(
                     res_name='dvs_id', res_id=dvs_id)
 
+        # validate network-vlan dvs ID's
+        for dvs_id in self._network_vlans:
+            if not self.nsx_v.vcns.validate_dvs(dvs_id,
+                                                dvs_list=existing_dvs):
+                raise nsx_exc.NsxResourceNotFound(res_name='dvs_id',
+                                                  res_id=dvs_id)
+
         # Validate the global & per-AZ validate_datacenter_moid
         if not self.nsx_v.vcns.validate_datacenter_moid(
                 cfg.CONF.nsxv.datacenter_moid,
