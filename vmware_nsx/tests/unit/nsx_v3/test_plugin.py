@@ -1696,6 +1696,15 @@ class TestL3NatTestCase(L3NatTest,
     def test_router_add_gateway_no_subnet(self):
         self.skipTest('No support for no subnet gateway set')
 
+    @mock.patch.object(nsx_plugin.NsxV3Plugin, 'validate_availability_zones')
+    def test_create_router_with_availability_zone(self, mock_validate_az):
+        name = 'rtr-with-zone'
+        zone = ['zone1']
+        mock_validate_az.return_value = None
+        with self.router(name=name, availability_zone_hints=zone) as rtr:
+            az_hints = rtr['router']['availability_zone_hints']
+            self.assertListEqual(zone, az_hints)
+
 
 class ExtGwModeTestCase(test_ext_gw_mode.ExtGwModeIntTestCase,
                         L3NatTest):
