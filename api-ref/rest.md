@@ -310,8 +310,8 @@ POST, PUT
 
 ###### Description
 The VMware NSX neutron plugins also support the
-[neutron provider networks extension](https://docs.openstack.org/admin-guide/networking-adv-features.html#provider-networks).
-Provider network extensions add [attributes](https://docs.openstack.org/admin-guide/networking-adv-features.html#provider-attributes)
+[neutron provider networks extension](https://docs.openstack.org/neutron/latest/admin/archives/adv-features.html#provider-networks).
+Provider network extensions add [attributes](https://docs.openstack.org/neutron/latest/admin/archives/adv-features.html#provider-attributes)
 to neutron [networks](https://developer.openstack.org/api-ref/networking/v2/#networks)
 enabling providers to map virtual networks onto physical networks, or in this case
 onto physical networks in NSX.
