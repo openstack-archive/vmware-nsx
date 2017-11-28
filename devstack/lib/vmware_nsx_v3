@@ -44,6 +44,8 @@ set +o xtrace
 CLIENT_CERT_FILE=${DEST}/data/neutron/client.pem
 
 source $TOP_DIR/lib/neutron_plugins/ovs_base
+dir=${GITDIR['vmware-nsx']}/devstack
+source $dir/lib/nsx_common
 
 
 function _version { echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'; }
@@ -151,57 +153,8 @@ function neutron_plugin_configure_plugin_agent {
     die $LINENO "q-agt must not be executed with VMware NSX plugin!"
 }
 
-function _nsxv3_ini_set {
-    if [[ -z $1 || -z $2 ]]; then
-        if [[ $3 != "" ]]; then
-           die $LINENO $3
-        fi
-    fi
-    if [[ $2 != "" ]]; then
-        iniset /$Q_PLUGIN_CONF_FILE nsx_v3 $1 $2
-    fi
-}
-
 function neutron_plugin_configure_service {
-    _nsxv3_ini_set default_overlay_tz $DEFAULT_OVERLAY_TZ_UUID "The VMware NSX plugin won't work without a default transport zone."
-    _nsxv3_ini_set default_vlan_tz $DEFAULT_VLAN_TZ_UUID
-    if [[ "$DEFAULT_TIER0_ROUTER_UUID" != "" ]]; then
-        _nsxv3_ini_set default_tier0_router $DEFAULT_TIER0_ROUTER_UUID
-        Q_L3_ENABLED=True
-        Q_L3_ROUTER_PER_TENANT=True
-    fi
-    # NSX_MANAGER must be a comma separated string
-    if [[ "$NSX_MANAGERS" != "" ]]; then
-        _nsxv3_ini_set nsx_api_managers $NSX_MANAGERS
-    elif [[ "$NSX_MANAGER" != "" ]]; then
-        _nsxv3_ini_set nsx_api_managers $NSX_MANAGER
-    else
-        die $LINENO "The VMware NSX plugin needs at least one NSX manager."
-    fi
-    if [[ "$NSX_L2GW_DRIVER" != "" ]]; then
-        iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_l2gw_driver $NSX_L2GW_DRIVER
-    fi
-    iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_extension_drivers vmware_nsxv3_dns
-    _nsxv3_ini_set nsx_api_user $NSX_USER
-    _nsxv3_ini_set nsx_api_password $NSX_PASSWORD
-    _nsxv3_ini_set retries $NSX_RETRIES
-    _nsxv3_ini_set insecure $NSX_INSECURE
-    _nsxv3_ini_set ca_file $NSX_CA_FILE
-    _nsxv3_ini_set default_bridge_cluster $DEFAULT_BRIDGE_CLUSTER_UUID
-    _nsxv3_ini_set native_dhcp_metadata $NATIVE_DHCP_METADATA
-    if [[ "$NATIVE_DHCP_METADATA" == "True" ]]; then
-        _nsxv3_ini_set native_metadata_route $NATIVE_METADATA_ROUTE
-        _nsxv3_ini_set dhcp_profile $DHCP_PROFILE_UUID
-        _nsxv3_ini_set metadata_proxy $METADATA_PROXY_UUID
-        _nsxv3_ini_set dhcp_relay_service $DHCP_RELAY_SERVICE
-        iniset $NEUTRON_CONF DEFAULT dhcp_agent_notification False
-    fi
-    if [[ "$NSX_USE_CLIENT_CERT_AUTH" == "True" ]]; then
-        _nsxv3_ini_set nsx_use_client_auth "True"
-        _nsxv3_ini_set nsx_client_cert_file "$CLIENT_CERT_FILE"
-        _nsxv3_ini_set nsx_client_cert_storage "nsx-db"
-        _nsxv3_ini_set nsx_client_cert_pk_password "openstack"
-    fi
+    nsxv3_configure_service
 }
 
 function neutron_plugin_setup_interface_driver {
