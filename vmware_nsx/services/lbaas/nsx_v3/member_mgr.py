@@ -73,6 +73,20 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
             nsx_router_id, advertise_lb_vip=True)
         return lb_service
 
+    def _get_updated_pool_members(self, context, lb_pool, member):
+        network = lb_utils.get_network_from_subnet(
+            context, self.core_plugin, member.subnet_id)
+        if network.get('router:external'):
+            fixed_ip, router_id = self._get_info_from_fip(
+                context, member.address)
+        else:
+            fixed_ip = member.address
+        for m in lb_pool['members']:
+            if m['ip_address'] == fixed_ip:
+                m['display_name'] = member.name[:219] + '_' + member.id
+                m['weight'] = member.weight
+        return lb_pool['members']
+
     @log_helpers.log_method_call
     def _add_loadbalancer_binding(self, context, lb_id, lbs_id,
                                   nsx_router_id, vip_address):
@@ -173,14 +187,28 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def update(self, context, old_member, new_member):
-        try:
-            self.lbv2_driver.member.successful_completion(
-                context, new_member)
-
-        except nsx_exc.NsxPluginException:
-            with excutils.save_and_reraise_exception():
-                self.lbv2_driver.member.failed_completion(
-                    context, new_member)
+        lb_id = old_member.pool.loadbalancer_id
+        pool_id = old_member.pool.id
+        pool_client = self.core_plugin.nsxlib.load_balancer.pool
+        pool_binding = nsx_db.get_nsx_lbaas_pool_binding(
+            context.session, lb_id, pool_id)
+        if pool_binding:
+            lb_pool_id = pool_binding.get('lb_pool_id')
+            try:
+                lb_pool = pool_client.get(lb_pool_id)
+                updated_members = self._get_updated_pool_members(
+                    context, lb_pool, new_member)
+                pool_client.update_pool_with_members(lb_pool_id,
+                                                     updated_members)
+            except Exception as e:
+                with excutils.save_and_reraise_exception():
+                    self.lbv2_driver.member.failed_completion(
+                        context, new_member)
+                    LOG.error('Failed to update member %(member)s: '
+                              '%(err)s',
+                              {'member': old_member.id, 'err': e})
+        self.lbv2_driver.member.successful_completion(
+            context, new_member)
 
     @log_helpers.log_method_call
     def delete(self, context, member):

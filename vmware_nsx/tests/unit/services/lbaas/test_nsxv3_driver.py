@@ -85,7 +85,6 @@ LB_POOL_WITH_MEMBER = {
             "admin_state": "ENABLED"
         }
     ]
-
 }
 HM_ID = 'hhh-mmm'
 LB_MONITOR_ID = 'mmm-ddd'
@@ -557,13 +556,25 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
 
     def test_update(self):
         new_member = lb_models.Member(MEMBER_ID, LB_TENANT_ID, POOL_ID,
-                                      MEMBER_ADDRESS, 80, 1, pool=self.pool,
+                                      MEMBER_ADDRESS, 80, 2, pool=self.pool,
                                       name='member-nnn-nnn')
-        self.edge_driver.member.update(self.context, self.pool, new_member)
+        with mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
+                               ) as mock_get_pool_binding, \
+            mock.patch.object(self.pool_client, 'get'
+                              ) as mock_get_pool, \
+            mock.patch.object(lb_utils, 'get_network_from_subnet'
+                              ) as mock_get_network_from_subnet:
+            mock_get_pool_binding.return_value = POOL_BINDING
+            mock_get_pool.return_value = LB_POOL_WITH_MEMBER
+            mock_get_network_from_subnet.return_value = LB_NETWORK
 
-        mock_successful_completion = (
-            self.lbv2_driver.member.successful_completion)
-        mock_successful_completion.assert_called_with(self.context, new_member)
+            self.edge_driver.member.update(self.context, self.member,
+                                           new_member)
+
+            mock_successful_completion = (
+                self.lbv2_driver.member.successful_completion)
+            mock_successful_completion.assert_called_with(self.context,
+                                                          new_member)
 
     def test_delete(self):
         with mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
