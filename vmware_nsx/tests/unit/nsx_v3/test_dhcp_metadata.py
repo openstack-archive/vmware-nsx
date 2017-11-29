@@ -288,12 +288,15 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
 
     def test_dhcp_service_with_create_dhcp_subnet_in_vlan_network(self):
         # Test if a DHCP-enabled subnet cannot be created in a vlan network.
+        # on nsx version that does not support it
         povidernet_args = {pnet.NETWORK_TYPE: 'vlan',
                            pnet.PHYSICAL_NETWORK: 'tzuuid',
                            pnet.SEGMENTATION_ID: 100}
         with mock.patch(
             'vmware_nsxlib.v3.core_resources.NsxLibTransportZone.'
             'get_transport_type', return_value='VLAN'),\
+            mock.patch.object(self.plugin.nsxlib, 'feature_supported',
+                              return_value=False),\
             self.network(providernet_args=povidernet_args,
                          arg_list=(pnet.NETWORK_TYPE,
                                    pnet.PHYSICAL_NETWORK,
