@@ -3792,9 +3792,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         vs_list = self.nsxlib.search_by_tags(
             tags=lb_tag, resource_type='LbVirtualServer')
         if vs_list['results']:
-            vs_id = vs_list['results'][0]['id']
             vs_client = self.nsxlib.load_balancer.virtual_server
-            vs_client.update_virtual_server_with_vip(vs_id, vip_address)
+            for vs in vs_list['results']:
+                vs_client.update_virtual_server_with_vip(vs['id'],
+                                                         vip_address)
         else:
             msg = (_('Virtual server cannot be found with scope '
                      '%(scope)s and tag %(tag)s') %
