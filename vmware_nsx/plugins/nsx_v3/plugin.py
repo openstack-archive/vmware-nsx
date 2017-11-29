@@ -3839,7 +3839,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 except (nsx_lib_exc.ManagerError,
                         nsx_exc.NsxResourceNotFound):
                     with excutils.save_and_reraise_exception():
-                        self.delete_floatingip(context, new_fip['id'])
+                        super(NsxV3Plugin, self).delete_floatingip(
+                            context, new_fip['id'])
                 return new_fip
         try:
             nsx_router_id = nsx_db.get_nsx_router_id(context.session,
@@ -3866,7 +3867,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 # If the port is LB VIP port, after deleting the FIP,
                 # update the virtual server VIP back to fixed IP.
                 is_lb_port = True
-                self._update_lb_vip(port_data, fixed_ip_address)
+                try:
+                    self._update_lb_vip(port_data, fixed_ip_address)
+                except nsx_exc.NsxResourceNotFound:
+                    LOG.warning("Virtual server cannot be found to "
+                                "update VIP for fip %(fip_id)s",
+                                {'fip_id': fip_id})
 
         if router_id and not is_lb_port:
             try:
