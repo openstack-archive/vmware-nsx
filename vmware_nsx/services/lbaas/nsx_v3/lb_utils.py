@@ -45,7 +45,9 @@ def get_router_from_network(context, plugin, subnet_id):
                     'network_id': [network_id]}
     ports = plugin.get_ports(context, filters=port_filters)
     if ports:
-        return ports[0]['device_id']
+        router = plugin.get_router(context, ports[0]['device_id'])
+        if router.get('external_gateway_info'):
+            return True
 
 
 def get_lb_router_id(context, plugin, lb):
@@ -78,8 +80,9 @@ def validate_lb_subnet(context, plugin, subnet_id):
     '''Validate LB subnet before creating loadbalancer on it.
 
     To create a loadbalancer, the network has to be either an external
-    network or private network that connects to a tenant router. It will
-    throw exception if the network doesn't meet this requirement.
+    network or private network that connects to a tenant router. The
+    tenant router needs to connect to gateway. It will throw
+    exception if the network doesn't meet this requirement.
 
     :param context: context
     :param plugin: core plugin
@@ -87,9 +90,9 @@ def validate_lb_subnet(context, plugin, subnet_id):
     :return: True if subnet meet requirement, otherwise return False
     '''
     network = get_network_from_subnet(context, plugin, subnet_id)
-    router_id = get_router_from_network(
+    valid_router = get_router_from_network(
         context, plugin, subnet_id)
-    if network.get('router:external') or router_id:
+    if network.get('router:external') or valid_router:
         return True
     else:
         return False
