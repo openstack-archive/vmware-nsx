@@ -2320,6 +2320,16 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                               "reason: %s", id, e)
         return ret_port
 
+    def _extend_get_port_dict_qos(self, context, port):
+        # add the qos policy id from the DB (always None in this plugin)
+        port[qos_consts.QOS_POLICY_ID] = qos_com_utils.get_port_policy_id(
+            context, port['id'])
+
+    def get_port(self, context, id, fields=None):
+        port = super(NsxVPluginV2, self).get_port(context, id, fields=None)
+        self._extend_get_port_dict_qos(context, port)
+        return db_utils.resource_fields(port, fields)
+
     def delete_port(self, context, id, l3_port_check=True,
                     nw_gw_port_check=True, force_delete_dhcp=False):
         neutron_db_port = self.get_port(context, id)
