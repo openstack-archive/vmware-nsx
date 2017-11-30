@@ -47,10 +47,10 @@ class EdgeLoadBalancerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                                        lb.vip_subnet_id):
             self.lbv2_driver.load_balancer.successful_completion(context, lb)
         else:
-            msg = _('Cannot create lb on subnet %(sub)s for '
-                    'loadbalancer %(lb)s as it does not connect '
-                    'to router') % {'sub': lb.vip_subnet_id,
-                                    'lb': lb.id}
+            msg = (_('Cannot create lb on subnet %(sub)s for '
+                     'loadbalancer %(lb)s. The subnet needs to connect a '
+                     'router which is already set gateway.') %
+                   {'sub': lb.vip_subnet_id, 'lb': lb.id})
             raise n_exc.BadRequest(resource='lbaas-subnet', msg=msg)
 
     @log_helpers.log_method_call
