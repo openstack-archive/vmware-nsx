@@ -2034,6 +2034,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             port_data.get('device_owner', original_port['device_owner']))
         orig_has_port_security = (cfg.CONF.nsxv.spoofguard_enabled and
                                   original_port[psec.PORTSECURITY])
+        port_mac_change = port_data.get('mac_address') is not None
         port_ip_change = port_data.get('fixed_ips') is not None
         device_owner_change = port_data.get('device_owner') is not None
         # We do not support updating the port ip and device owner together
@@ -2165,7 +2166,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if comp_owner_update:
             # Create dhcp bindings, the port is now owned by an instance
             self._create_dhcp_static_binding(context, ret_port)
-        elif port_ip_change or dhcp_opts:
+        elif port_mac_change or port_ip_change or dhcp_opts:
             owner = original_port['device_owner']
             # If port IP has changed we should update according to device
             # owner
