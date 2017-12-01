@@ -1113,22 +1113,25 @@ class FakeVcns(object):
                   'operationMode': 'MANUAL' if enable else 'DISABLE'}
         policy_id = len(self._spoofguard_policies)
         self._spoofguard_policies.append(policy)
-        return None, policy_id
+        return None, 'spoofguardpolicy-%s' % policy_id
+
+    def _get_index(self, policy_id):
+        return int(policy_id.split('-')[-1])
 
     def update_spoofguard_policy(self, policy_id,
                                  enforcement_points, name, enable):
         policy = {'name': name,
                   'enforcementPoints': [{'id': enforcement_points[0]}],
                   'operationMode': 'MANUAL' if enable else 'DISABLE'}
-        self._spoofguard_policies[int(policy_id)] = policy
+        self._spoofguard_policies[self._get_index(policy_id)] = policy
         return None, ''
 
     def delete_spoofguard_policy(self, policy_id):
-        self._spoofguard_policies[int(policy_id)] = {}
+        self._spoofguard_policies[self._get_index(policy_id)] = {}
 
     def get_spoofguard_policy(self, policy_id):
         try:
-            return None, self._spoofguard_policies[int(policy_id)]
+            return None, self._spoofguard_policies[self._get_index(policy_id)]
         except IndexError:
             raise exceptions.VcnsGeneralException(
                 _("Spoofguard policy not found"))
