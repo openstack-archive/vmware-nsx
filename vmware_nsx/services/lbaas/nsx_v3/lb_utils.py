@@ -46,7 +46,7 @@ def get_router_from_network(context, plugin, subnet_id):
     if ports:
         router = plugin.get_router(context, ports[0]['device_id'])
         if router.get('external_gateway_info'):
-            return True
+            return router['id']
 
 
 def get_lb_router_id(context, plugin, lb):
