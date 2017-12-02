@@ -85,6 +85,9 @@ function neutron_plugin_configure_plugin_agent {
 function neutron_plugin_configure_service {
     nsxv_configure_service
     iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_extension_drivers vmware_nsxv_dns
+    if [[ "$NSXV_USE_DVS_FEATURES" != "" ]]; then
+        dvs_configure_service $VMWAREAPI_IP $VMWAREAPI_USER $VMWAREAPI_PASSWORD $VMWAREAPI_CA_FILE $VMWAREAPI_INSECURE $VMWARE_DVS_NAME
+    fi
 }
 
 function neutron_plugin_setup_interface_driver {
