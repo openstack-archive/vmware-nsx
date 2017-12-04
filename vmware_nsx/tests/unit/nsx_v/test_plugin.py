@@ -142,6 +142,46 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
                 '', tenant_id)
         return network_req.get_response(self.api)
 
+    @contextlib.contextmanager
+    def subnet(self, network=None, **kwargs):
+        # Override the subnet method to automatically disable dhcp on external
+        # subnets or ipv6 subnets, unless specified.
+        set_context = kwargs.get('set_context', False)
+        with test_plugin.optional_ctx(
+            network, self.network,
+            set_context=set_context,
+            tenant_id=kwargs.get('tenant_id')) as network_to_use:
+            if 'enable_dhcp' not in kwargs:
+                if kwargs.get('ip_version') == 6:
+                    kwargs['enable_dhcp'] = False
+                else:
+                    # Read the network itself, as the network in the args
+                    # does not content this value
+                    net = self._show('networks',
+                                     network_to_use['network']['id'])
+                    if net['network']['router:external']:
+                        kwargs['enable_dhcp'] = False
+            subnet = self._make_subnet(self.fmt,
+                                       network_to_use,
+                                       kwargs.get(
+                                           'gateway_ip',
+                                           constants.ATTR_NOT_SPECIFIED),
+                                       kwargs.get('cidr', '10.0.0.0/24'),
+                                       kwargs.get('subnetpool_id'),
+                                       kwargs.get('allocation_pools'),
+                                       kwargs.get('ip_version', 4),
+                                       kwargs.get('enable_dhcp', True),
+                                       kwargs.get('dns_nameservers'),
+                                       kwargs.get('host_routes'),
+                                       segment_id=kwargs.get('segment_id'),
+                                       shared=kwargs.get('shared'),
+                                       ipv6_ra_mode=kwargs.get('ipv6_ra_mode'),
+                                       ipv6_address_mode=kwargs.get(
+                                           'ipv6_address_mode'),
+                                       tenant_id=kwargs.get('tenant_id'),
+                                       set_context=set_context)
+            yield subnet
+
     @mock.patch.object(edge_utils.EdgeManager, '_deploy_edge')
     def setUp(self, mock_deploy_edge,
               plugin=PLUGIN_NAME,
@@ -938,13 +978,6 @@ class TestPortsV2(NsxVPluginV2TestCase,
     def test_create_port_anticipating_allocation(self):
         self.skipTest('Multiple fixed ips on a port are not supported')
 
-    def test_update_port_mac_ip(self):
-        with self.subnet(enable_dhcp=False) as subnet:
-            updated_fixed_ips = [{'subnet_id': subnet['subnet']['id'],
-                              'ip_address': '10.0.0.3'}]
-            self.check_update_port_mac(subnet=subnet,
-                                       updated_fixed_ips=updated_fixed_ips)
-
     def test_list_ports(self):
         # for this test we need to enable overlapping ips
         cfg.CONF.set_default('allow_overlapping_ips', True)
@@ -1147,16 +1180,6 @@ class TestPortsV2(NsxVPluginV2TestCase,
                 update = {'port': {'device_owner'}}
                 self.new_update_request('ports',
                                         update, port['port']['id'])
-
-    def test_no_more_port_exception(self):
-        with self.subnet(enable_dhcp=False, cidr='10.0.0.0/31',
-                         gateway_ip=None) as subnet:
-            id = subnet['subnet']['network_id']
-            res = self._create_port(self.fmt, id)
-            data = self.deserialize(self.fmt, res)
-            msg = str(n_exc.IpAddressGenerationFailure(net_id=id))
-            self.assertEqual(data['NeutronError']['message'], msg)
-            self.assertEqual(res.status_int, webob.exc.HTTPConflict.code)
 
     def test_ports_vif_host(self):
         cfg.CONF.set_default('allow_overlapping_ips', True)
@@ -2348,40 +2371,6 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
                     self.assertEqual(r1['router']['id'],
                                      fp['floatingip']['router_id'])
 
-    def test_create_floatingip_with_specific_ip_out_of_allocation(self):
-        with self.subnet(cidr='10.0.0.0/24',
-                         allocation_pools=[
-                             {'start': '10.0.0.10', 'end': '10.0.0.20'}],
-                         enable_dhcp=False) as s:
-            network_id = s['subnet']['network_id']
-            self._set_net_external(network_id)
-            fp = self._make_floatingip(self.fmt, network_id,
-                                       floating_ip='10.0.0.30')
-            self.assertEqual('10.0.0.30',
-                             fp['floatingip']['floating_ip_address'])
-
-    def test_create_floatingip_with_specific_ip_non_admin(self):
-        ctx = context.Context('user_id', 'tenant_id')
-
-        with self.subnet(cidr='10.0.0.0/24',
-                         enable_dhcp=False) as s:
-            network_id = s['subnet']['network_id']
-            self._set_net_external(network_id)
-            self._make_floatingip(self.fmt, network_id,
-                                  set_context=ctx,
-                                  floating_ip='10.0.0.10',
-                                  http_status=webob.exc.HTTPForbidden.code)
-
-    def test_create_floatingip_with_specific_ip_out_of_subnet(self):
-
-        with self.subnet(cidr='10.0.0.0/24',
-                         enable_dhcp=False) as s:
-            network_id = s['subnet']['network_id']
-            self._set_net_external(network_id)
-            self._make_floatingip(self.fmt, network_id,
-                                  floating_ip='10.0.1.10',
-                                  http_status=webob.exc.HTTPBadRequest.code)
-
     def test_floatingip_multi_external_one_internal(self):
         with self.subnet(cidr="10.0.0.0/24", enable_dhcp=False) as exs1,\
                 self.subnet(cidr="11.0.0.0/24", enable_dhcp=False) as exs2,\
@@ -2421,49 +2410,6 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
                                      r1['router']['id'])
                     self.assertEqual(fp2['floatingip']['router_id'],
                                      r2['router']['id'])
-
-    def test_create_floatingip_with_multisubnet_id(self):
-        with self.network() as network:
-            self._set_net_external(network['network']['id'])
-            with self.subnet(network,
-                             enable_dhcp=False,
-                             cidr='10.0.12.0/24') as subnet1:
-                with self.subnet(network,
-                                 enable_dhcp=False,
-                                 cidr='10.0.13.0/24') as subnet2:
-                    with self.router():
-                        res = self._create_floatingip(
-                            self.fmt,
-                            subnet1['subnet']['network_id'],
-                            subnet_id=subnet1['subnet']['id'])
-                        fip1 = self.deserialize(self.fmt, res)
-                        res = self._create_floatingip(
-                            self.fmt,
-                            subnet1['subnet']['network_id'],
-                            subnet_id=subnet2['subnet']['id'])
-                        fip2 = self.deserialize(self.fmt, res)
-        self.assertTrue(
-            fip1['floatingip']['floating_ip_address'].startswith('10.0.12'))
-        self.assertTrue(
-            fip2['floatingip']['floating_ip_address'].startswith('10.0.13'))
-
-    def test_create_floatingip_with_wrong_subnet_id(self):
-        with self.network() as network1:
-            self._set_net_external(network1['network']['id'])
-            with self.subnet(network1,
-                             enable_dhcp=False,
-                             cidr='10.0.12.0/24') as subnet1:
-                with self.network() as network2:
-                    self._set_net_external(network2['network']['id'])
-                    with self.subnet(network2,
-                                     enable_dhcp=False,
-                                     cidr='10.0.13.0/24') as subnet2:
-                        with self.router():
-                            res = self._create_floatingip(
-                                self.fmt,
-                                subnet1['subnet']['network_id'],
-                                subnet_id=subnet2['subnet']['id'])
-        self.assertEqual(res.status_int, webob.exc.HTTPBadRequest.code)
 
     @mock.patch.object(edge_utils, "update_firewall")
     def test_router_set_gateway_with_nosnat(self, mock):
@@ -2554,57 +2500,6 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
     def test_router_add_interface_subnet_with_bad_tenant_returns_404(self):
         self.skipTest('TBD')
 
-    def test_create_floatingip_ipv6_only_network_returns_400(self):
-        with self.subnet(cidr="2001:db8::/48", ip_version=6,
-                         enable_dhcp=False) as public_sub:
-            self._set_net_external(public_sub['subnet']['network_id'])
-            res = self._create_floatingip(
-                self.fmt,
-                public_sub['subnet']['network_id'])
-            self.assertEqual(res.status_int, webob.exc.HTTPBadRequest.code)
-
-    def test_create_floatingip_ipv6_and_ipv4_network_creates_ipv4(self):
-        with self.network() as n,\
-                self.subnet(cidr="2001:db8::/48", ip_version=6, network=n,
-                            enable_dhcp=False),\
-                self.subnet(cidr="192.168.1.0/24", ip_version=4, network=n,
-                            enable_dhcp=False):
-            self._set_net_external(n['network']['id'])
-            fip = self._make_floatingip(self.fmt, n['network']['id'])
-            fip_set = netaddr.IPSet(netaddr.IPNetwork("192.168.1.0/24"))
-            fip_ip = fip['floatingip']['floating_ip_address']
-            self.assertIn(netaddr.IPAddress(fip_ip), fip_set)
-
-    def test_create_floatingip_with_assoc_to_ipv6_subnet(self):
-        with self.subnet() as public_sub:
-            self._set_net_external(public_sub['subnet']['network_id'])
-            with self.subnet(cidr="2001:db8::/48",
-                             ip_version=6, enable_dhcp=False) as private_sub:
-                with self.port(subnet=private_sub) as private_port:
-                    res = self._create_floatingip(
-                        self.fmt,
-                        public_sub['subnet']['network_id'],
-                        port_id=private_port['port']['id'])
-                    self.assertEqual(res.status_int,
-                                     webob.exc.HTTPBadRequest.code)
-
-    def test_create_floatingip_with_assoc_to_ipv4_and_ipv6_port(self):
-        with self.network() as n,\
-                self.subnet(cidr='10.0.0.0/24', network=n) as s4,\
-                self.subnet(cidr='2001:db8::/64', ip_version=6, network=n,
-                            enable_dhcp=False),\
-                self.port(subnet=s4) as p:
-            self.assertEqual(len(p['port']['fixed_ips']), 2)
-            ipv4_address = next(i['ip_address'] for i in
-                    p['port']['fixed_ips'] if
-                    netaddr.IPAddress(i['ip_address']).version == 4)
-            with self.floatingip_with_assoc(port_id=p['port']['id']) as fip:
-                self.assertEqual(fip['floatingip']['fixed_ip_address'],
-                                 ipv4_address)
-                floating_ip = netaddr.IPAddress(
-                        fip['floatingip']['floating_ip_address'])
-                self.assertEqual(floating_ip.version, 4)
-
     def test_router_add_interface_multiple_ipv6_subnets_same_net(self):
         """Test router-interface-add for multiple ipv6 subnets on a network.
 
@@ -2638,33 +2533,6 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
                     self._router_interface_action('remove', r['router']['id'],
                                                   s2['subnet']['id'], None)
 
-    def test_router_add_interface_multiple_ipv6_subnets_different_net(self):
-        """Test router-interface-add for ipv6 subnets on different networks.
-
-        Verify that adding multiple ipv6 subnets from different networks
-        to a router places them on different router interfaces.
-        """
-        with self.router() as r, self.network() as n1, self.network() as n2:
-            with (self.subnet(network=n1, cidr='fd00::1/64',
-                              enable_dhcp=False, ip_version=6)
-                  ) as s1, self.subnet(network=n2, cidr='fd01::1/64',
-                                       ip_version=6, enable_dhcp=False) as s2:
-                    body = self._router_interface_action('add',
-                                                         r['router']['id'],
-                                                         s1['subnet']['id'],
-                                                         None)
-                    pid1 = body['port_id']
-                    body = self._router_interface_action('add',
-                                                         r['router']['id'],
-                                                         s2['subnet']['id'],
-                                                         None)
-                    pid2 = body['port_id']
-                    self.assertNotEqual(pid1, pid2)
-                    self._router_interface_action('remove', r['router']['id'],
-                                                  s1['subnet']['id'], None)
-                    self._router_interface_action('remove', r['router']['id'],
-                                                  s2['subnet']['id'], None)
-
     def test_router_add_interface_ipv6_port_existing_network_returns_400(self):
         """Ensure unique IPv6 router ports per network id.
         Adding a router port containing one or more IPv6 subnets with the same
@@ -2692,17 +2560,6 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
                                                   r['router']['id'],
                                                   s2['subnet']['id'],
                                                   None)
-
-    def test_router_add_interface_ipv6_subnet_without_gateway_ip(self):
-        with self.router() as r:
-            with self.subnet(ip_version=6, cidr='fe80::/64',
-                             gateway_ip=None, enable_dhcp=False) as s:
-                error_code = webob.exc.HTTPBadRequest.code
-                self._router_interface_action('add',
-                                              r['router']['id'],
-                                              s['subnet']['id'],
-                                              None,
-                                              expected_code=error_code)
 
     def test_subnet_dhcp_metadata_with_update(self):
         self.plugin_instance.metadata_proxy_handler = mock.Mock()
@@ -2844,7 +2701,7 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
         with self._create_l3_ext_network() as net:
             with testlib_api.ExpectedException(
                 webob.exc.HTTPClientError) as ctx_manager:
-                with self.subnet(network=net):
+                with self.subnet(network=net, enable_dhcp=True):
                     self.assertEqual(ctx_manager.exception.code, 400)
 
     def test_create_l3_ext_network_without_vlan(self):
@@ -3365,13 +3222,6 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
             expected_fw = []
             fw_rules = mock.call_args[0][3]['firewall_rule_list']
             self.assertEqual(expected_fw, fw_rules)
-
-    def test_delete_ext_net_with_disassociated_floating_ips(self):
-        with self.network() as net:
-            net_id = net['network']['id']
-            self._set_net_external(net_id)
-            with self.subnet(network=net, enable_dhcp=False):
-                self._make_floatingip(self.fmt, net_id)
 
     def test_create_router_gateway_fails(self):
         self.skipTest('not supported')
@@ -4386,13 +4236,6 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                                                   shared['router']['id'],
                                                   s1['subnet']['id'],
                                                   None)
-
-    def test_delete_ext_net_with_disassociated_floating_ips(self):
-        with self.network() as net:
-            net_id = net['network']['id']
-            self._set_net_external(net_id)
-            with self.subnet(network=net, enable_dhcp=False):
-                self._make_floatingip(self.fmt, net_id)
 
     def test_router_update_type_fails(self):
         """Check distributed router cannot change it's type
