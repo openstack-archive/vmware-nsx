@@ -37,8 +37,18 @@ class EdgeListenerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
 
     def _get_virtual_server_kwargs(self, context, listener, vs_name, tags,
                                    app_profile_id, certificate=None):
+        # If loadbalancer vip_port already has floating ip, use floating
+        # IP as the virtual server VIP address. Else, use the loadbalancer
+        # vip_address directly on virtual server.
+        filters = {'port_id': [listener.loadbalancer.vip_port_id]}
+        floating_ips = self.core_plugin.get_floatingips(context,
+                                                        filters=filters)
+        if floating_ips:
+            lb_vip_address = floating_ips[0]['floating_ip_address']
+        else:
+            lb_vip_address = listener.loadbalancer.vip_address
         kwargs = {'enabled': listener.admin_state_up,
-                  'ip_address': listener.loadbalancer.vip_address,
+                  'ip_address': lb_vip_address,
                   'port': listener.protocol_port,
                   'application_profile_id': app_profile_id}
         if vs_name:
