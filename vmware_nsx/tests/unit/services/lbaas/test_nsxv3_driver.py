@@ -267,8 +267,10 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
         return 'listener'
 
     def _create_listener(self, protocol='HTTP'):
-        with mock.patch.object(self.app_client, 'create'
-                               ) as mock_create_app_profile, \
+        with mock.patch.object(self.core_plugin, 'get_floatingips'
+                               ) as mock_get_floatingips, \
+            mock.patch.object(self.app_client, 'create'
+                              ) as mock_create_app_profile, \
             mock.patch.object(self.vs_client, 'create'
                               ) as mock_create_virtual_server, \
             mock.patch.object(nsx_db, 'get_nsx_lbaas_loadbalancer_binding'
@@ -277,6 +279,7 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
                               ) as mock_add_virtual_server, \
             mock.patch.object(nsx_db, 'add_nsx_lbaas_listener_binding'
                               ) as mock_add_listener_binding:
+            mock_get_floatingips.return_value = []
             mock_create_app_profile.return_value = {'id': APP_PROFILE_ID}
             mock_create_virtual_server.return_value = {'id': LB_VS_ID}
             mock_get_lb_binding.return_value = LB_BINDING
@@ -304,8 +307,10 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
         self._create_listener(protocol='HTTPS')
 
     def test_create_terminated_https(self):
-        with mock.patch.object(self.tm_client, 'create_cert'
-                               ) as mock_create_cert, \
+        with mock.patch.object(self.core_plugin, 'get_floatingips'
+                               ) as mock_get_floatingips, \
+            mock.patch.object(self.tm_client, 'create_cert'
+                              ) as mock_create_cert, \
             mock.patch.object(self.app_client, 'create'
                               ) as mock_create_app_profile, \
             mock.patch.object(self.vs_client, 'create'
@@ -316,6 +321,7 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
                               ) as mock_add_virtual_server, \
             mock.patch.object(nsx_db, 'add_nsx_lbaas_listener_binding'
                               ) as mock_add_listener_binding:
+            mock_get_floatingips.return_value = []
             mock_create_cert.return_value = FAKE_CERT['id']
             mock_create_app_profile.return_value = {'id': APP_PROFILE_ID}
             mock_create_virtual_server.return_value = {'id': LB_VS_ID}
@@ -339,8 +345,11 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
                                           'listener1-new', 'new-description',
                                           None, LB_ID, protocol_port=80,
                                           loadbalancer=self.lb)
-        with mock.patch.object(nsx_db, 'get_nsx_lbaas_listener_binding'
-                               ) as mock_get_listener_binding:
+        with mock.patch.object(self.core_plugin, 'get_floatingips'
+                               ) as mock_get_floatingips, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_listener_binding'
+                              ) as mock_get_listener_binding:
+            mock_get_floatingips.return_value = []
             mock_get_listener_binding.return_value = LISTENER_BINDING
 
             self.edge_driver.listener.update(self.context, self.listener,
