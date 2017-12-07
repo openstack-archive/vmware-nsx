@@ -1912,7 +1912,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             _p, _s, old_internal_ip = self._internal_fip_assoc_data(
                 context, {'id': floatingip_db.id,
                           'port_id': floatingip_db.fixed_port_id,
-                          'fixed_ip_address': floatingip_db.fixed_ip_address,
+                          'fixed_ip_address':
+                              str(floatingip_db.fixed_ip_address),
                           'tenant_id': floatingip_db.tenant_id},
                 floatingip_db.tenant_id)
             nsx_gw_port_id = routerlib.find_router_gw_port(
@@ -1977,11 +1978,10 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     raise nsx_exc.NsxPluginException(err_msg=msg)
         # Update also floating ip status (no need to call base class method)
         new_status = self._floatingip_status(floatingip_db, router_id)
-        floatingip_db.update(
-            {'fixed_ip_address': internal_ip,
-             'fixed_port_id': port_id,
-             'router_id': router_id,
-             'status': new_status})
+        floatingip_db.fixed_ip_address = internal_ip
+        floatingip_db.fixed_port_id = port_id
+        floatingip_db.router_id = router_id
+        floatingip_db.status = new_status
 
         return {'fixed_ip_address': internal_ip,
                 'fixed_port_id': port_id,
