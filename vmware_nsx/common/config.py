@@ -621,6 +621,12 @@ nsxv_opts = [
                       "exclusive_router_appliance_size will be picked up if "
                       "--router-size parameter is not specified while doing "
                       "neutron router-create")),
+    cfg.StrOpt('shared_router_appliance_size',
+               default="compact",
+               choices=routersize.VALID_EDGE_SIZES,
+               help=_("(Optional) Edge appliance size to be used for creating "
+                      "shared router edge. Valid values: "
+                      "['compact', 'large', 'xlarge', 'quadlarge'].")),
     cfg.StrOpt('dns_search_domain',
                help=_("(Optional) Use this search domain if there is no "
                       "search domain configured on the subnet.")),

@@ -1732,7 +1732,7 @@ class EdgeManager(object):
         self, context, target_router_id,
         optional_router_ids, conflict_router_ids,
         conflict_network_ids, network_number, availability_zone):
-        """Bind logical router on an available edge.
+        """Bind logical shared router on an available edge.
         Return True if the logical router is bound to a new edge.
         """
         with locking.LockManager.get_lock('nsx-edge-router'):
@@ -1788,7 +1788,7 @@ class EdgeManager(object):
                               :vcns_const.EDGE_NAME_LEN]
                 self._allocate_edge_appliance(
                     context, target_router_id, router_name,
-                    appliance_size=vcns_const.SERVICE_SIZE_MAPPING['router'],
+                    appliance_size=cfg.CONF.nsxv.shared_router_appliance_size,
                     availability_zone=availability_zone)
                 return True
 
