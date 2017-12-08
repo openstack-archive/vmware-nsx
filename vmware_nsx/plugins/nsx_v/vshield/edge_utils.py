@@ -676,7 +676,8 @@ class EdgeManager(object):
             return self._deploy_edge(context, lrouter,
                               appliance_size=appliance_size,
                               edge_type=edge_type,
-                              availability_zone=availability_zone)
+                              availability_zone=availability_zone,
+                              deploy_metadata=deploy_metadata)
 
         with locking.LockManager.get_lock('nsx-edge-request'):
             self._clean_all_error_edge_bindings(
