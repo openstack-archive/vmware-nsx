@@ -96,7 +96,7 @@ function neutron_plugin_configure_plugin_agent {
 }
 
 function neutron_plugin_configure_service {
-    dvs_configure_service $VMWAREAPI_IP $VMWAREAPI_USER $VMWAREAPI_PASSWORD $VMWAREAPI_CA_FILE $VMWAREAPI_INSECURE $VMWARE_DVS_NAME
+    dvs_configure_service "$VMWAREAPI_IP" "$VMWAREAPI_USER" "$VMWAREAPI_PASSWORD" "$VMWAREAPI_CA_FILE" "$VMWAREAPI_INSECURE" "$VMWARE_DVS_NAME"
     iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_extension_drivers vmware_dvs_dns
 }
 
