@@ -524,7 +524,8 @@ class NsxVMetadataProxyHandler(object):
             for port in ports:
                 self.nsxv_plugin.delete_port(context, port['id'],
                                              l3_port_check=True,
-                                             nw_gw_port_check=True)
+                                             nw_gw_port_check=True,
+                                             allow_delete_internal=True)
 
             nsxv_db.delete_nsxv_internal_edge(
                 context.session,
