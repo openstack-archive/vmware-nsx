@@ -17,8 +17,12 @@ import mock
 
 from oslo_config import cfg
 
+from neutron_lib import context
+
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.db import nsxv_models
+from vmware_nsx.plugins.nsx_v.vshield.common import (
+    constants as vcns_const)
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 from vmware_nsx.tests.unit.nsx_v import test_plugin
 
@@ -52,6 +56,12 @@ class NsxVPluginWithMdV2TestCase(test_plugin.NsxVPluginV2TestCase):
         super(NsxVPluginWithMdV2TestCase, self).setUp(
             plugin=plugin, ext_mgr=ext_mgr,
             service_plugins=service_plugins)
+
+        self.context = context.get_admin_context()
+        self.internal_net_id = nsxv_db.get_nsxv_internal_network_for_az(
+            self.context.session,
+            vcns_const.InternalEdgePurposes.INTER_EDGE_PURPOSE,
+            'default')['network_id']
 
 
 class TestNetworksWithMdV2(test_plugin.TestNetworksV2,
@@ -107,6 +117,11 @@ class TestNetworksWithMdV2(test_plugin.TestNetworksV2,
     def test_create_networks_bulk_emulated_plugin_failure(self):
         self.skipTest("The test is not suitable for the metadata test case")
 
+    def test_cannot_delete_md_net(self):
+        req = self.new_delete_request('networks', self.internal_net_id)
+        net_del_res = req.get_response(self.api)
+        self.assertEqual(net_del_res.status_int, 400)
+
 
 class TestSubnetsWithMdV2(test_plugin.TestSubnetsV2,
                           NsxVPluginWithMdV2TestCase):
@@ -144,6 +159,16 @@ class TestSubnetsWithMdV2(test_plugin.TestSubnetsV2,
 
     def test_create_subnets_bulk_emulated_plugin_failure(self):
         self.skipTest("The test is not suitable for the metadata test case")
+
+    def test_cannot_delete_md_subnet(self):
+        query_params = "network_id=%s" % self.internal_net_id
+        res = self._list('subnets',
+                         neutron_context=self.context,
+                         query_params=query_params)
+        internal_sub = res['subnets'][0]['id']
+        req = self.new_delete_request('subnets', internal_sub)
+        net_del_res = req.get_response(self.api)
+        self.assertEqual(net_del_res.status_int, 400)
 
 
 class TestExclusiveRouterWithMdTestCase(
