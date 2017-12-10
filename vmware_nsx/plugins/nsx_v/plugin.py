@@ -1300,12 +1300,21 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     return True
         return False
 
+    def _validate_internal_network(self, context, network_id):
+        if nsxv_db.get_nsxv_internal_network_by_id(
+            context.elevated().session, network_id):
+            msg = (_("Cannot delete internal network %s or its subnets and "
+                     "ports") % network_id)
+            raise n_exc.InvalidInput(error_message=msg)
+
     def delete_network(self, context, id):
         mappings = nsx_db.get_nsx_switch_ids(context.session, id)
         bindings = nsxv_db.get_network_bindings(context.session, id)
         if cfg.CONF.nsxv.spoofguard_enabled:
             sg_policy_id = nsxv_db.get_spoofguard_policy_id(
                 context.session, id)
+
+        self._validate_internal_network(context, id)
 
         # Update the DHCP edge for metadata and clean the vnic in DHCP edge
         # if there is only no other existing port besides DHCP port
@@ -2042,10 +2051,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         return db_utils.resource_fields(port, fields)
 
     def delete_port(self, context, id, l3_port_check=True,
-                    nw_gw_port_check=True):
+                    nw_gw_port_check=True,
+                    allow_delete_internal=False):
         neutron_db_port = self.get_port(context, id)
         device_id = neutron_db_port['device_id']
         is_compute_port = self._is_compute_port(neutron_db_port)
+        if not allow_delete_internal:
+            self._validate_internal_network(
+                context, neutron_db_port['network_id'])
+
         if is_compute_port and device_id:
             # Lock on the device ID to make sure we do not change/delete
             # ports of the same device at the same time
@@ -2076,6 +2090,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if neutron_db_port['device_owner'] in [constants.DEVICE_OWNER_DHCP]:
             msg = (_('Can not delete DHCP port %s') % neutron_db_port['id'])
             raise n_exc.BadRequest(resource='port', msg=msg)
+
         # If this port is attached to a device, remove the corresponding vnic
         # from all NSXv Security-Groups and the spoofguard policy
         port_index = neutron_db_port.get(ext_vnic_idx.VNIC_INDEX)
@@ -2133,6 +2148,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # deleting subnet's corresponding dhcp interface rest call and lead to
         # overlap response from backend.
         network_id = subnet['network_id']
+        self._validate_internal_network(context, network_id)
+
         with locking.LockManager.get_lock(network_id):
             with context.session.begin(subtransactions=True):
                 self.base_delete_subnet(context, id)
@@ -2939,6 +2956,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                          filters=device_filter)
             if ports:
                 raise l3.RouterInUse(router_id=router_id)
+
+            if nsxv_db.get_nsxv_internal_edge_by_router(
+                context.elevated().session, router_id):
+                msg = _("Cannot delete internal router %s") % router_id
+                raise n_exc.InvalidInput(error_message=msg)
 
     def delete_router(self, context, id):
         self._check_router_in_use(context, id)

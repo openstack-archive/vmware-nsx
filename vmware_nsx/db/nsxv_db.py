@@ -411,6 +411,12 @@ def get_nsxv_internal_networks(session, network_purpose):
                 filter_by(network_purpose=network_purpose).all())
 
 
+def get_nsxv_internal_network_by_id(session, network_id):
+    with session.begin(subtransactions=True):
+        return (session.query(nsxv_models.NsxvInternalNetworks).
+                filter_by(network_id=network_id).first())
+
+
 def delete_nsxv_internal_network(session, network_purpose, network_id):
     with session.begin(subtransactions=True):
         return (session.query(nsxv_models.NsxvInternalNetworks).
@@ -450,6 +456,12 @@ def get_nsxv_internal_edges_by_purpose(session, purpose):
     with session.begin(subtransactions=True):
         return (session.query(nsxv_models.NsxvInternalEdges).
                 filter_by(purpose=purpose).all())
+
+
+def get_nsxv_internal_edge_by_router(session, router_id):
+    with session.begin(subtransactions=True):
+        return (session.query(nsxv_models.NsxvInternalEdges).
+                filter_by(router_id=router_id).first())
 
 
 def delete_nsxv_internal_edge(session, ext_ip_address):
