@@ -2154,6 +2154,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         net_az = self.get_network_az_by_net_id(context, net_id)
         options = {'option121': {'static_routes': [
             {'network': '%s' % net_az.native_metadata_route,
+             'next_hop': '0.0.0.0'},
+            {'network': '%s' % net_az.native_metadata_route,
              'next_hop': ip}]}}
         if subnet:
             sr, gateway_ip = self.nsxlib.native_dhcp.build_static_routes(
