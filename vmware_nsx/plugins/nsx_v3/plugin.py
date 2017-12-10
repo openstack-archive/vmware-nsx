@@ -1805,6 +1805,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             gateway_ip = subnet.get('gateway_ip')
             options = {'option121': {'static_routes': [
                 {'network': '%s' % cfg.CONF.nsx_v3.native_metadata_route,
+                 'next_hop': '0.0.0.0'},
+                {'network': '%s' % cfg.CONF.nsx_v3.native_metadata_route,
                  'next_hop': ip}]}}
             # update static routes
             for hr in subnet['host_routes']:
@@ -1972,6 +1974,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if ip != binding['ip_address']:
                 data['host_name'] = 'host-%s' % ip.replace('.', '-')
                 data['options'] = {'option121': {'static_routes': [
+                    {'network': '%s' % cfg.CONF.nsx_v3.native_metadata_route,
+                     'next_hop': '0.0.0.0'},
                     {'network': '%s' % cfg.CONF.nsx_v3.native_metadata_route,
                      'next_hop': ip}]}}
             if gateway_ip is not False:
