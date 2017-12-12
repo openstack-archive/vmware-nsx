@@ -303,7 +303,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                  nsx_exc.SecurityGroupMaximumCapacityReached:
                                  webob.exc.HTTPBadRequest,
                                  nsx_lib_exc.NsxLibInvalidInput:
-                                 webob.exc.HTTPBadRequest})
+                                 webob.exc.HTTPBadRequest,
+                                 nsx_exc.NsxENSPortSecurity:
+                                 webob.exc.HTTPBadRequest,
+                                 })
 
     def _init_fwaas(self, resource, event, trigger, **kwargs):
         self.fwaas_callbacks = None
