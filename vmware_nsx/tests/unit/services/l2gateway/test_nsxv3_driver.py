@@ -82,8 +82,8 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
                               "nsx_v3")
         nsx_v3_driver.NsxV3Driver(mock.MagicMock())
         # fake the callback invoked after init
-        registry.notify(resources.PROCESS, events.BEFORE_SPAWN,
-                        mock.MagicMock())
+        registry.publish(resources.PROCESS, events.BEFORE_SPAWN,
+                         mock.MagicMock())
         l2gws = self.driver._get_l2_gateways(self.context)
         def_bridge_cluster_id = (
             self.nsxlib.bridge_cluster.get_id_by_name_or_id(
@@ -107,8 +107,8 @@ class TestNsxV3L2GatewayDriver(test_l2gw_db.L2GWTestCase,
         for i in range(0, 2):
             nsx_v3_driver.NsxV3Driver(mock.MagicMock())
             # fake the callback invoked after init
-            registry.notify(resources.PROCESS, events.BEFORE_SPAWN,
-                            mock.MagicMock())
+            registry.publish(resources.PROCESS, events.BEFORE_SPAWN,
+                             mock.MagicMock())
         l2gws = self.driver._get_l2_gateways(self.context)
         # Verify whether only one default L2 gateway is created
         self.assertEqual(1, len(l2gws))

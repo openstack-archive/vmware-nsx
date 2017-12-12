@@ -117,7 +117,7 @@ class NsxvFlowClassifierDriver(fc_driver.FlowClassifierDriverBase):
                 self._profile_id,
                 et.tostring(profile_binding, encoding="us-ascii"))
 
-    def init_complete(self, resource, event, trigger, **kwargs):
+    def init_complete(self, resource, event, trigger, payload=None):
         if self._is_new_security_group:
             # add existing VMs to the new security group
             # This code must run after init is done

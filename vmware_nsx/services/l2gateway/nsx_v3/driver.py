@@ -74,7 +74,8 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         registry.subscribe(self._ensure_default_l2_gateway, resources.PROCESS,
                            events.BEFORE_SPAWN)
 
-    def _ensure_default_l2_gateway(self, resource, event, trigger, **kwargs):
+    def _ensure_default_l2_gateway(self, resource, event,
+                                   trigger, payload=None):
         """
         Create a default logical L2 gateway.
 
