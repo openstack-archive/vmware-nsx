@@ -56,6 +56,7 @@ from vmware_nsx.db import (
     routertype as rt_rtr)
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import nsx_portbindings_db as pbin_db
+from vmware_nsx.extensions import advancedserviceproviders as as_providers
 from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.plugins.common import plugin as nsx_plugin_common
 from vmware_nsx.plugins.dvs import plugin as dvs
@@ -127,6 +128,7 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def init_plugins(self):
         # initialize all supported plugins
         self.plugins = {}
+        self.as_providers = {}
 
         try:
             self.plugins[projectpluginmap.NsxPlugins.NSX_T] = t.NsxV3Plugin()
@@ -159,6 +161,10 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             msg = (_("The default plugin %s failed to start") %
                 self.default_plugin)
             raise nsx_exc.NsxPluginException(err_msg=msg)
+
+        for k, val in self.plugins.items():
+            if "advanced-service-providers" in val.supported_extension_aliases:
+                self.as_providers[k] = val
 
         LOG.info("NSX-TVD plugin will use %s as the default plugin",
             self.default_plugin)
@@ -394,22 +400,32 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def get_subnets(self, context, filters=None, fields=None, sorts=None,
                     limit=None, marker=None, page_reverse=False):
-        # The subnets is tricky as the metadata requests make use of the
-        # get subnet. So there are two use cases here:
-        # 1. that the metadata request returns a value
-        # 2. that this is a general subnet query.
-        # If none found then we return default plugin subnets
-        default_plugin_subnets = []
-        for plugin in self.plugins.values():
-            subnets = plugin.get_subnets(context, filters=filters,
-                                         fields=fields, sorts=sorts,
-                                         limit=limit, marker=marker,
-                                         page_reverse=page_reverse)
-            if subnets:
-                return subnets
-            if self.plugins[self.default_plugin] == plugin:
-                default_plugin_subnets = subnets
-        return default_plugin_subnets
+        # Check if we need to invoke metadata search. Here we are unable to
+        # filter according to projects as this is from the nova api service
+        # so we invoke on all plugins that support this extension
+        if ((fields and as_providers.ADV_SERVICE_PROVIDERS in fields)
+            or (filters and filters.get(as_providers.ADV_SERVICE_PROVIDERS))):
+            for plugin in self.as_providers.values():
+                subnets = plugin.get_subnets(context, filters=filters,
+                                             fields=fields, sorts=sorts,
+                                             limit=limit, marker=marker,
+                                             page_reverse=page_reverse)
+                if subnets:
+                    return subnets
+            return []
+        else:
+            # Read project plugin to filter relevant projects according to
+            # plugin
+            req_p = self._get_plugin_from_project(context, context.project_id)
+            filters = filters or {}
+            subnets = super(NsxTVDPlugin, self).get_subnets(
+                context, filters=filters, fields=fields, sorts=sorts,
+                limit=limit, marker=marker, page_reverse=page_reverse)
+            for subnet in subnets[:]:
+                p = self._get_plugin_from_project(context, subnet['tenant_id'])
+                if p != req_p:
+                    subnets.remove(subnet)
+            return subnets
 
     def delete_subnet(self, context, id):
         db_subnet = self._get_subnet(context, id)
