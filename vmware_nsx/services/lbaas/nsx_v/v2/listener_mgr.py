@@ -288,10 +288,7 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
             except vcns_exc.ResourceNotFound:
                 LOG.error('vip not found on edge: %s', edge_id)
             except vcns_exc.VcnsApiException:
-                with excutils.save_and_reraise_exception():
-                    self.lbv2_driver.listener.failed_completion(context,
-                                                                listener)
-                    LOG.error('Failed to delete vip on edge: %s', edge_id)
+                LOG.error('Failed to delete vip on edge: %s', edge_id)
 
             try:
                 with locking.LockManager.get_lock(edge_id):
@@ -299,12 +296,7 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
             except vcns_exc.ResourceNotFound:
                 LOG.error('app profile not found on edge: %s', edge_id)
             except vcns_exc.VcnsApiException:
-                with excutils.save_and_reraise_exception():
-                    self.lbv2_driver.listener.failed_completion(context,
-                                                                listener)
-                    LOG.error(
-                        'Failed to delete app profile on Edge: %s',
-                        edge_id)
+                LOG.error('Failed to delete app profile on Edge: %s', edge_id)
 
             nsxv_db.del_nsxv_lbaas_listener_binding(context.session, lb_id,
                                                     listener.id)
