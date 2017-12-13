@@ -23,7 +23,7 @@ LOG = logging.getLogger(__name__)
 class Nsxv3FwaasCallbacksV1(com_clbcks.NsxFwaasCallbacks):
     """NSX-V3 RPC callbacks for Firewall As A Service - V1."""
 
-    def __init__(self, nsxlib):
+    def __init__(self):
         super(Nsxv3FwaasCallbacksV1, self).__init__()
 
     def should_apply_firewall_to_router(self, context, router_id):
@@ -47,15 +47,12 @@ class Nsxv3FwaasCallbacksV1(com_clbcks.NsxFwaasCallbacks):
         return True
 
     def update_router_firewall(self, context, nsxlib, router_id,
-                               router_interfaces):
+                               router_interfaces, nsx_router_id, section_id):
         """Rewrite all the FWaaS v1 rules in the router edge firewall
 
         This method should be called on FWaaS updates, and on router
         interfaces changes.
         """
-        # find the backend router and its firewall section
-        nsx_id, sect_id = self.fwaas_driver.get_backend_router_and_fw_section(
-            context, router_id)
         fw_rules = []
         fw_id = None
         if self.should_apply_firewall_to_router(context, router_id):
@@ -74,14 +71,14 @@ class Nsxv3FwaasCallbacksV1(com_clbcks.NsxFwaasCallbacks):
 
             # Add the default drop all rule
             fw_rules.append(self.fwaas_driver.get_default_backend_rule(
-                sect_id, allow_all=False))
+                section_id, allow_all=False))
         else:
             # default allow all rule
             fw_rules.append(self.fwaas_driver.get_default_backend_rule(
-                sect_id, allow_all=True))
+                section_id, allow_all=True))
 
         # update the backend
-        nsxlib.firewall_section.update(sect_id, rules=fw_rules)
+        nsxlib.firewall_section.update(section_id, rules=fw_rules)
 
         # Also update the router tags
-        self.fwaas_driver.update_nsx_router_tags(nsx_id, fw_id=fw_id)
+        self.fwaas_driver.update_nsx_router_tags(nsx_router_id, fw_id=fw_id)

@@ -25,7 +25,7 @@ LOG = logging.getLogger(__name__)
 class Nsxv3FwaasCallbacksV2(com_callbacks.NsxFwaasCallbacksV2):
     """NSX-V3 RPC callbacks for Firewall As A Service - V2."""
 
-    def __init__(self, nsxlib):
+    def __init__(self):
         super(Nsxv3FwaasCallbacksV2, self).__init__()
 
     def should_apply_firewall_to_router(self, context, router_id):
@@ -53,16 +53,12 @@ class Nsxv3FwaasCallbacksV2(com_callbacks.NsxFwaasCallbacksV2):
                                                            plugin_rules)
 
     def update_router_firewall(self, context, nsxlib, router_id,
-                               router_interfaces):
+                               router_interfaces, nsx_router_id, section_id):
         """Rewrite all the FWaaS v2 rules in the router edge firewall
 
         This method should be called on FWaaS updates, and on router
         interfaces changes.
         """
-        # find the backend router and its firewall section
-        nsx_id, sect_id = self.fwaas_driver.get_backend_router_and_fw_section(
-            context, router_id)
-
         fw_rules = []
         # Add firewall rules per port attached to a firewall group
         for port in router_interfaces:
@@ -84,7 +80,7 @@ class Nsxv3FwaasCallbacksV2(com_callbacks.NsxFwaasCallbacksV2):
 
         # add a default allow-all rule to all other traffic & ports
         fw_rules.append(self.fwaas_driver.get_default_backend_rule(
-            sect_id, allow_all=True))
+            section_id, allow_all=True))
 
         # update the backend router firewall
-        nsxlib.firewall_section.update(sect_id, rules=fw_rules)
+        nsxlib.firewall_section.update(section_id, rules=fw_rules)
