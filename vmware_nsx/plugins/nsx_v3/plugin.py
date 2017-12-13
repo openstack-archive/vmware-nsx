@@ -32,6 +32,7 @@ from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
+from neutron.common import utils as nc_utils
 from neutron.db import _resource_extend as resource_extend
 from neutron.db import _utils as db_utils
 from neutron.db import agents_db
@@ -53,8 +54,10 @@ from neutron.db import models_v2
 from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
 from neutron.db import securitygroups_db
+from neutron.db import vlantransparent_db
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
+from neutron.extensions import vlantransparent as ext_vlan
 from neutron.plugins.common import utils as n_utils
 from neutron.quota import resource_registry
 from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
@@ -166,6 +169,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   portsecurity_db.PortSecurityDbMixin,
                   extradhcpopt_db.ExtraDhcpOptMixin,
                   dns_db.DNSDbMixin,
+                  vlantransparent_db.Vlantransparent_db_mixin,
                   mac_db.MacLearningDbMixin,
                   nsx_com_az.NSXAvailabilityZonesPluginCommon,
                   l3_attrs_db.ExtraAttributesMixin):
@@ -284,6 +288,17 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._unsubscribe_callback_events()
         if cfg.CONF.api_replay_mode:
             self.supported_extension_aliases.append('api-replay')
+
+        # Support transparent VLANS from 2.2.0 onwards. The feature is only
+        # supported if the global configuration flag vlan_transparent is
+        # True
+        if cfg.CONF.vlan_transparent:
+            if self.nsxlib.feature_supported(nsxlib_consts.FEATURE_TRUNK_VLAN):
+                self.supported_extension_aliases.append("vlan-transparent")
+            else:
+                raise NotImplementedError(
+                    _("Current NSX version %s doesn't support "
+                      "transparent vlans") % self.nsxlib.get_version())
 
         # Register NSXv3 trunk driver to support trunk extensions
         self.trunk_driver = trunk_driver.NsxV3TrunkDriver.create(self)
@@ -718,7 +733,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return self.conn.consume_in_threads()
 
-    def _validate_provider_create(self, context, network_data, az):
+    def _validate_provider_create(self, context, network_data, az,
+                                  transparent_vlan):
         is_provider_net = any(
             validators.is_attr_set(network_data.get(f))
             for f in (pnet.NETWORK_TYPE,
@@ -833,6 +849,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         err_msg = (_('%(tz)s transport zone is required for '
                                      'creating a %(net)s provider network') %
                                    {'tz': tz_type, 'net': net_type})
+                    elif (transparent_vlan and
+                          tz_type == nsxlib_tz.TRANSPORT_TYPE_VLAN):
+                        raise NotImplementedError(_(
+                            "Transparent support only for internal overlay "
+                            "networks"))
+
             if not err_msg:
                 switch_mode = nsxlib_tz.get_host_switch_mode(physical_net)
 
@@ -858,8 +880,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self.nsxlib.router.validate_tier0(self.tier0_groups_dict, tier0_uuid)
         return (True, utils.NetworkTypes.L3_EXT, tier0_uuid, 0)
 
-    def _create_network_at_the_backend(self, context, net_data, az):
-        provider_data = self._validate_provider_create(context, net_data, az)
+    def _create_network_at_the_backend(self, context, net_data, az,
+                                       transparent_vlan):
+        provider_data = self._validate_provider_create(context, net_data, az,
+                                                       transparent_vlan)
 
         if (provider_data['switch_mode'] ==
             self.nsxlib.transport_zone.HOST_SWITCH_MODE_ENS):
@@ -892,11 +916,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                        'tags': tags,
                        'admin_state': admin_state,
                        'vlan_id': provider_data['vlan_id']})
+            trunk_vlan_range = None
+            if transparent_vlan:
+                # all vlan tags are allowed for guest vlan
+                trunk_vlan_range = [const.MIN_VLAN_TAG, const.MAX_VLAN_TAG]
             nsx_result = self.nsxlib.logical_switch.create(
                 net_name, provider_data['physical_net'], tags,
                 admin_state=admin_state,
                 vlan_id=provider_data['vlan_id'],
-                description=net_data.get('description'))
+                description=net_data.get('description'),
+                trunk_vlan_range=trunk_vlan_range)
             nsx_id = nsx_result['id']
 
         return (provider_data['is_provider_net'],
@@ -991,15 +1020,26 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         az = self.get_obj_az_by_hints(net_data)
 
         self._ensure_default_security_group(context, tenant_id)
+
+        # Update the transparent vlan if configured
+        vlt = False
+        if nc_utils.is_extension_supported(self, 'vlan-transparent'):
+            vlt = ext_vlan.get_vlan_transparent(net_data)
+
         nsx_net_id = None
         if validators.is_attr_set(external) and external:
+            if vlt:
+                raise NotImplementedError(_(
+                    "Transparent support only for internal overlay networks"))
             self._assert_on_external_net_with_qos(net_data)
             is_provider_net, net_type, physical_net, vlan_id = (
                 self._validate_external_net_create(net_data))
         else:
             is_provider_net, net_type, physical_net, vlan_id, nsx_net_id = (
-                self._create_network_at_the_backend(context, net_data, az))
+                self._create_network_at_the_backend(context, net_data, az,
+                                                    vlt))
             is_backend_network = True
+
         try:
             rollback_network = False
             with db_api.context_manager.writer.using(context):
@@ -1038,6 +1078,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         context.session,
                         neutron_net_id,
                         nsx_net_id)
+
+                if vlt:
+                    super(NsxV3Plugin, self).update_network(context,
+                        created_net['id'],
+                        {'network': {'vlan_transparent': vlt}})
 
             rollback_network = True
             is_ddi_network = self._is_ddi_supported_on_network(

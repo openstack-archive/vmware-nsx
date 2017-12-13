@@ -19,6 +19,7 @@ from neutron.db import models_v2
 from neutron.extensions import address_scope
 from neutron.extensions import l3
 from neutron.extensions import securitygroup as secgrp
+from neutron.extensions import vlantransparent as ext_vlan
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_plugin
 from neutron.tests.unit.extensions import test_address_scope
@@ -268,6 +269,17 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
 
 class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
 
+    def setUp(self, plugin=PLUGIN_NAME,
+              ext_mgr=None,
+              service_plugins=None):
+        # add vlan transparent to the configuration
+        cfg.CONF.set_override('vlan_transparent', True)
+        super(TestNetworksV2, self).setUp(plugin=plugin,
+                                          ext_mgr=ext_mgr)
+
+    def tearDown(self):
+        super(TestNetworksV2, self).tearDown()
+
     @mock.patch.object(nsx_plugin.NsxV3Plugin, 'validate_availability_zones')
     def test_create_network_with_availability_zone(self, mock_validate_az):
         name = 'net-with-zone'
@@ -502,6 +514,32 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
             # should fail
             self.assertEqual('NsxENSPortSecurity',
                              res['NeutronError']['type'])
+
+    def test_create_transparent_vlan_network(self):
+        providernet_args = {ext_vlan.VLANTRANSPARENT: True}
+        with mock.patch(
+            'vmware_nsxlib.v3.core_resources.NsxLibTransportZone.'
+            'get_transport_type', return_value='OVERLAY'),\
+            self.network(name='vt_net',
+                         providernet_args=providernet_args,
+                         arg_list=(ext_vlan.VLANTRANSPARENT, )) as net:
+            self.assertTrue(net['network'].get(ext_vlan.VLANTRANSPARENT))
+
+    def test_create_provider_vlan_network_with_transparent(self):
+        providernet_args = {pnet.NETWORK_TYPE: 'vlan',
+                            pnet.SEGMENTATION_ID: 11,
+                            ext_vlan.VLANTRANSPARENT: True}
+        with mock.patch('vmware_nsxlib.v3.core_resources.NsxLibTransportZone.'
+                       'get_transport_type', return_value='VLAN'):
+            result = self._create_network(fmt='json', name='badvlan_net',
+                                          admin_state_up=True,
+                                          providernet_args=providernet_args,
+                                          arg_list=(pnet.NETWORK_TYPE,
+                                                    pnet.SEGMENTATION_ID,
+                                                    ext_vlan.VLANTRANSPARENT))
+            data = self.deserialize('json', result)
+            # should fail
+            self.assertIn('NotImplementedError', data)
 
 
 class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
