@@ -42,10 +42,16 @@ class CommonEdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
         registry.subscribe(
             self.check_backend_version,
             resources.PROCESS, events.BEFORE_SPAWN)
+        self._core_plugin = None
 
     @property
     def core_plugin(self):
-        return directory.get_plugin()
+        if not self._core_plugin:
+            self._core_plugin = directory.get_plugin()
+            # make sure plugin init was completed
+            if not self._core_plugin.init_is_complete:
+                self._core_plugin.init_complete(None, None, {})
+        return self._core_plugin
 
     @property
     def nsxlib(self):

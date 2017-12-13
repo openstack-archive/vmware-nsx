@@ -227,11 +227,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         else:
             nsxlib_utils.set_inject_headers_callback(inject_requestid_header)
         self.lbv2_driver = self._init_lbv2_driver()
-        # reinitialize the cluster upon fork for api workers to ensure each
-        # process has its own keepalive loops + state
-        registry.subscribe(
-            self.nsxlib.reinitialize_cluster,
-            resources.PROCESS, events.AFTER_INIT)
 
         registry.subscribe(
             self.on_subnetpool_address_scope_updated,
@@ -267,10 +262,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # init profiles on nsx backend
         self._init_nsx_profiles()
 
-        # Init the FWaaS support
-        registry.subscribe(
-            self._init_fwaas,
-            resources.PROCESS, events.AFTER_INIT)
+        self.init_is_complete = False
+        registry.subscribe(self.init_complete,
+                           resources.PROCESS,
+                           events.AFTER_INIT)
 
         # Include exclude NSGroup
         LOG.debug("Initializing NSX v3 Excluded Port NSGroup")
@@ -303,6 +298,22 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # Register NSXv3 trunk driver to support trunk extensions
         self.trunk_driver = trunk_driver.NsxV3TrunkDriver.create(self)
 
+    def init_complete(self, resource, event, trigger, payload=None):
+        with locking.LockManager.get_lock('plugin-init-complete'):
+            if self.init_is_complete:
+                # Should be called only once per worker
+                return
+
+            # reinitialize the cluster upon fork for api workers to ensure
+            # each process has its own keepalive loops + state
+            self.nsxlib.reinitialize_cluster(resource, event, trigger,
+                                             payload=payload)
+
+            # Init the FWaaS support
+            self._init_fwaas()
+
+            self.init_is_complete = True
+
     def _extend_fault_map(self):
         """Extends the Neutron Fault Map.
 
@@ -323,7 +334,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                  webob.exc.HTTPBadRequest,
                                  })
 
-    def _init_fwaas(self, resource, event, trigger, **kwargs):
+    def _init_fwaas(self):
         self.fwaas_callbacks = None
         if fwaas_utils.is_fwaas_v1_plugin_enabled():
             LOG.info("NSXv3 FWaaS v1 plugin enabled")
