@@ -23,6 +23,7 @@ from neutron_lib.callbacks import resources
 from neutron_lib.plugins import directory
 from oslo_log import log as logging
 
+from vmware_nsx.extensions import projectpluginmap
 from vmware_nsxlib.v3 import nsx_constants as consts
 
 LOG = logging.getLogger(__name__)
@@ -45,8 +46,12 @@ class CommonEdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
 
     @property
     def core_plugin(self):
+        """Get the NSX-V3 core plugin"""
         if not self._core_plugin:
             self._core_plugin = directory.get_plugin()
+            if self._core_plugin.is_tvd_plugin():
+                self._core_plugin = self._core_plugin.get_plugin_by_type(
+                    projectpluginmap.NsxPlugins.NSX_T)
             # make sure plugin init was completed
             if not self._core_plugin.init_is_complete:
                 self._core_plugin.init_complete(None, None, {})
