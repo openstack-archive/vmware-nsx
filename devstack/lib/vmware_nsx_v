@@ -24,6 +24,8 @@
 NSXV_XTRACE=$(set +o | grep xtrace)
 set +o xtrace
 
+dir=${GITDIR['vmware-nsx']}/devstack
+source $dir/lib/nsx_common
 
 function setup_integration_bridge {
     :
@@ -80,55 +82,8 @@ function neutron_plugin_configure_plugin_agent {
     die $LINENO "q-agt must not be executed with VMware NSXv plugin!"
 }
 
-function _nsxv_ini_set {
-    if [[ $2 != "" ]]; then
-        iniset /$Q_PLUGIN_CONF_FILE nsxv $1 $2
-    fi
-}
-
 function neutron_plugin_configure_service {
-    if [[ "$NSX_L2GW_DRIVER" != "" ]]; then
-        iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_l2gw_driver $NSX_L2GW_DRIVER
-    fi
-    iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_extension_drivers vmware_nsxv_dns
-    _nsxv_ini_set password "$NSXV_PASSWORD"
-    _nsxv_ini_set user "$NSXV_USER"
-    _nsxv_ini_set vdn_scope_id "$NSXV_VDN_SCOPE_ID"
-    _nsxv_ini_set dvs_id "$NSXV_DVS_ID"
-    _nsxv_ini_set manager_uri "$NSXV_MANAGER_URI"
-    _nsxv_ini_set ca_file "$NSXV_CA_FILE"
-    _nsxv_ini_set insecure "$NSXV_INSECURE"
-    _nsxv_ini_set datacenter_moid "$NSXV_DATACENTER_MOID"
-    _nsxv_ini_set datastore_id "$NSXV_DATASTORE_ID"
-    _nsxv_ini_set resource_pool_id "$NSXV_RESOURCE_POOL_ID"
-    _nsxv_ini_set availability_zones "$NSXV_AVAILABILITY_ZONES"
-    _nsxv_ini_set external_network "$NSXV_EXTERNAL_NETWORK"
-    _nsxv_ini_set cluster_moid "$NSXV_CLUSTER_MOID"
-    _nsxv_ini_set backup_edge_pool "$NSXV_BACKUP_POOL"
-    _nsxv_ini_set mgt_net_proxy_ips "$NSXV_MGT_NET_PROXY_IPS"
-    _nsxv_ini_set mgt_net_moid "$NSXV_MGT_NET_MOID"
-    _nsxv_ini_set mgt_net_proxy_netmask "$NSXV_MGT_NET_PROXY_NETMASK"
-    _nsxv_ini_set nova_metadata_port "$NSXV_NOVA_METADATA_PORT"
-    _nsxv_ini_set nova_metadata_ips "$NSXV_NOVA_METADATA_IPS"
-    _nsxv_ini_set metadata_shared_secret "$NSXV_METADATA_SHARED_SECRET"
-    _nsxv_ini_set metadata_insecure "$NSXV_METADATA_INSECURE"
-    _nsxv_ini_set metadata_nova_client_cert "$NSXV_METADATA_NOVA_CERT"
-    _nsxv_ini_set metadata_nova_client_priv_key "$NSXV_METADATA_NOVA_PRIV_KEY"
-    _nsxv_ini_set metadata_service_allowed_ports "$NSXV_METADATA_SERVICE_ALLOWED_PORTS"
-    _nsxv_ini_set edge_ha "$NSXV_EDGE_HA"
-    _nsxv_ini_set exclusive_router_appliance_size "$NSXV_EXCLUSIVE_ROUTER_APPLIANCE_SIZE"
-    _nsxv_ini_set use_dvs_features "$NSXV_USE_DVS_FEATURES"
-    _nsxv_ini_set use_nsx_policies "$NSXV_USE_NSX_POLICIES"
-    _nsxv_ini_set default_policy_id "$NSXV_DEFAULT_POLICY_ID"
-    _nsxv_ini_set allow_tenant_rules_with_policy "$NSXV_ALLOW_TENANT_RULES_WITH_POLICY"
-    if [[ "$NSXV_USE_DVS_FEATURES" != "" ]]; then
-        iniset /$Q_PLUGIN_CONF_FILE dvs host_ip "$VMWAREAPI_IP"
-        iniset /$Q_PLUGIN_CONF_FILE dvs host_username "$VMWAREAPI_USER"
-        iniset /$Q_PLUGIN_CONF_FILE dvs host_password "$VMWAREAPI_PASSWORD"
-        iniset /$Q_PLUGIN_CONF_FILE dvs ca_file "$VMWAREAPI_CA_FILE"
-        iniset /$Q_PLUGIN_CONF_FILE dvs insecure "$VMWAREAPI_INSECURE"
-        iniset /$Q_PLUGIN_CONF_FILE dvs dvs_name "$VMWARE_DVS_NAME"
-    fi
+    nsxv_configure_service
 }
 
 function neutron_plugin_setup_interface_driver {

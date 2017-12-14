@@ -1,0 +1,128 @@
+#!/bin/bash
+
+# Copyright 2015 VMware, Inc.
+#
+# All Rights Reserved
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
+# Common VMware NSXv and NSXv3 plugin
+# -----------------------------------
+
+# ensure we don't re-source this in the same environment
+[[ -z "$_NSX_COMMON" ]] || return 0
+declare -r -g _NSX_COMMON=1
+
+function _nsxv_ini_set {
+    if [[ $2 != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE nsxv $1 $2
+    fi
+}
+
+function nsxv_configure_service {
+    if [[ "$NSX_L2GW_DRIVER" != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_l2gw_driver $NSX_L2GW_DRIVER
+    fi
+    iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_extension_drivers vmware_nsxv_dns
+    _nsxv_ini_set password "$NSXV_PASSWORD"
+    _nsxv_ini_set user "$NSXV_USER"
+    _nsxv_ini_set vdn_scope_id "$NSXV_VDN_SCOPE_ID"
+    _nsxv_ini_set dvs_id "$NSXV_DVS_ID"
+    _nsxv_ini_set manager_uri "$NSXV_MANAGER_URI"
+    _nsxv_ini_set ca_file "$NSXV_CA_FILE"
+    _nsxv_ini_set insecure "$NSXV_INSECURE"
+    _nsxv_ini_set datacenter_moid "$NSXV_DATACENTER_MOID"
+    _nsxv_ini_set datastore_id "$NSXV_DATASTORE_ID"
+    _nsxv_ini_set resource_pool_id "$NSXV_RESOURCE_POOL_ID"
+    _nsxv_ini_set availability_zones "$NSXV_AVAILABILITY_ZONES"
+    _nsxv_ini_set external_network "$NSXV_EXTERNAL_NETWORK"
+    _nsxv_ini_set cluster_moid "$NSXV_CLUSTER_MOID"
+    _nsxv_ini_set backup_edge_pool "$NSXV_BACKUP_POOL"
+    _nsxv_ini_set mgt_net_proxy_ips "$NSXV_MGT_NET_PROXY_IPS"
+    _nsxv_ini_set mgt_net_moid "$NSXV_MGT_NET_MOID"
+    _nsxv_ini_set mgt_net_proxy_netmask "$NSXV_MGT_NET_PROXY_NETMASK"
+    _nsxv_ini_set nova_metadata_port "$NSXV_NOVA_METADATA_PORT"
+    _nsxv_ini_set nova_metadata_ips "$NSXV_NOVA_METADATA_IPS"
+    _nsxv_ini_set metadata_shared_secret "$NSXV_METADATA_SHARED_SECRET"
+    _nsxv_ini_set metadata_insecure "$NSXV_METADATA_INSECURE"
+    _nsxv_ini_set metadata_nova_client_cert "$NSXV_METADATA_NOVA_CERT"
+    _nsxv_ini_set metadata_nova_client_priv_key "$NSXV_METADATA_NOVA_PRIV_KEY"
+    _nsxv_ini_set metadata_service_allowed_ports "$NSXV_METADATA_SERVICE_ALLOWED_PORTS"
+    _nsxv_ini_set edge_ha "$NSXV_EDGE_HA"
+    _nsxv_ini_set exclusive_router_appliance_size "$NSXV_EXCLUSIVE_ROUTER_APPLIANCE_SIZE"
+    _nsxv_ini_set use_dvs_features "$NSXV_USE_DVS_FEATURES"
+    _nsxv_ini_set use_nsx_policies "$NSXV_USE_NSX_POLICIES"
+    _nsxv_ini_set default_policy_id "$NSXV_DEFAULT_POLICY_ID"
+    _nsxv_ini_set allow_tenant_rules_with_policy "$NSXV_ALLOW_TENANT_RULES_WITH_POLICY"
+    if [[ "$NSXV_USE_DVS_FEATURES" != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE dvs host_ip "$VMWAREAPI_IP"
+        iniset /$Q_PLUGIN_CONF_FILE dvs host_username "$VMWAREAPI_USER"
+        iniset /$Q_PLUGIN_CONF_FILE dvs host_password "$VMWAREAPI_PASSWORD"
+        iniset /$Q_PLUGIN_CONF_FILE dvs ca_file "$VMWAREAPI_CA_FILE"
+        iniset /$Q_PLUGIN_CONF_FILE dvs insecure "$VMWAREAPI_INSECURE"
+        iniset /$Q_PLUGIN_CONF_FILE dvs dvs_name "$VMWARE_DVS_NAME"
+    fi
+}
+
+function _nsxv3_ini_set {
+    if [[ -z $1 || -z $2 ]]; then
+        if [[ $3 != "" ]]; then
+           die $LINENO $3
+        fi
+    fi
+    if [[ $2 != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE nsx_v3 $1 $2
+    fi
+}
+
+function nsxv3_configure_service {
+    _nsxv3_ini_set default_overlay_tz $DEFAULT_OVERLAY_TZ_UUID "The VMware NSX plugin won't work without a default transport zone."
+    _nsxv3_ini_set default_vlan_tz $DEFAULT_VLAN_TZ_UUID
+    if [[ "$DEFAULT_TIER0_ROUTER_UUID" != "" ]]; then
+        _nsxv3_ini_set default_tier0_router $DEFAULT_TIER0_ROUTER_UUID
+        Q_L3_ENABLED=True
+        Q_L3_ROUTER_PER_TENANT=True
+    fi
+    # NSX_MANAGER must be a comma separated string
+    if [[ "$NSX_MANAGERS" != "" ]]; then
+        _nsxv3_ini_set nsx_api_managers $NSX_MANAGERS
+    elif [[ "$NSX_MANAGER" != "" ]]; then
+        _nsxv3_ini_set nsx_api_managers $NSX_MANAGER
+    else
+        die $LINENO "The VMware NSX plugin needs at least one NSX manager."
+    fi
+    if [[ "$NSX_L2GW_DRIVER" != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_l2gw_driver $NSX_L2GW_DRIVER
+    fi
+    iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_extension_drivers vmware_nsxv3_dns
+    _nsxv3_ini_set nsx_api_user $NSX_USER
+    _nsxv3_ini_set nsx_api_password $NSX_PASSWORD
+    _nsxv3_ini_set retries $NSX_RETRIES
+    _nsxv3_ini_set insecure $NSX_INSECURE
+    _nsxv3_ini_set ca_file $NSX_CA_FILE
+    _nsxv3_ini_set default_bridge_cluster $DEFAULT_BRIDGE_CLUSTER_UUID
+    _nsxv3_ini_set native_dhcp_metadata $NATIVE_DHCP_METADATA
+    if [[ "$NATIVE_DHCP_METADATA" == "True" ]]; then
+        _nsxv3_ini_set native_metadata_route $NATIVE_METADATA_ROUTE
+        _nsxv3_ini_set dhcp_profile $DHCP_PROFILE_UUID
+        _nsxv3_ini_set metadata_proxy $METADATA_PROXY_UUID
+        _nsxv3_ini_set dhcp_relay_service $DHCP_RELAY_SERVICE
+        iniset $NEUTRON_CONF DEFAULT dhcp_agent_notification False
+    fi
+    if [[ "$NSX_USE_CLIENT_CERT_AUTH" == "True" ]]; then
+        _nsxv3_ini_set nsx_use_client_auth "True"
+        _nsxv3_ini_set nsx_client_cert_file "$CLIENT_CERT_FILE"
+        _nsxv3_ini_set nsx_client_cert_storage "nsx-db"
+        _nsxv3_ini_set nsx_client_cert_pk_password "openstack"
+    fi
+}
