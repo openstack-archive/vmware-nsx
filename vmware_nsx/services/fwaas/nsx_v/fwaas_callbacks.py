@@ -25,8 +25,11 @@ class NsxvFwaasCallbacks(com_callbacks.NsxFwaasCallbacks):
 
     def should_apply_firewall_to_router(self, context, router, router_id):
         """Return True if the FWaaS rules should be added to this router."""
+        # in case of a distributed-router:
+        # router['id'] is the id of the neutron router (=tlr)
+        # and router_id is the plr/tlr (the one that is being updated)
         if not super(NsxvFwaasCallbacks, self).should_apply_firewall_to_router(
-            context, router_id):
+            context, router['id']):
             return False
 
         # get all the relevant router info
@@ -38,9 +41,6 @@ class NsxvFwaasCallbacks(com_callbacks.NsxFwaasCallbacks):
             return False
 
         if router_data.get('distributed'):
-            # in case of a distributed-router:
-            # router['id'] is the id of the neutron router (=tlr)
-            # and router_id is the plr/tlr (the one that is being updated)
             if router_id == router['id']:
                 # Do not add firewall rules on the tlr router.
                 return False
