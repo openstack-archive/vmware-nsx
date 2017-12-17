@@ -20,6 +20,7 @@ import eventlet
 import netaddr
 from neutron_lib import constants
 from neutron_lib import context as neutron_context
+from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -29,6 +30,7 @@ from vmware_nsx.common import locking
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.common import utils
 from vmware_nsx.db import nsxv_db
+from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.plugins.nsx_v.vshield import (
     nsxv_loadbalancer as nsxv_lb)
 from vmware_nsx.plugins.nsx_v.vshield.common import (
@@ -117,6 +119,18 @@ class NsxVMetadataProxyHandler(object):
 
         # Init cannot run concurrently on multiple nodes
         with locking.LockManager.get_lock('nsx-metadata-init'):
+            # if the core plugin is the TVD - we need to add project
+            # plugin mapping for the internal project
+            core_plugin = directory.get_plugin()
+            if core_plugin.is_tvd_plugin():
+                try:
+                    core_plugin.create_project_plugin_map(
+                        context,
+                        {'project_plugin_map':
+                            {'plugin': projectpluginmap.NsxPlugins.NSX_T,
+                             'project': nsxv_constants.INTERNAL_TENANT_ID}})
+                except projectpluginmap.ProjectPluginAlreadyExists:
+                    pass
             self.internal_net, self.internal_subnet = (
                 self._get_internal_network_and_subnet(context))
 
