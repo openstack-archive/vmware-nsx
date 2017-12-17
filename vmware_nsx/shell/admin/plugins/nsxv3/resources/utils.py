@@ -119,7 +119,7 @@ class NsxV3PluginWrapper(plugin.NsxV3Plugin):
         fwaas_plugin_class = manager.NeutronManager.load_class_for_provider(
             'neutron.service_plugins', provider)
         fwaas_plugin = fwaas_plugin_class()
-        self.fwaas_callbacks = callbacks_class(self.nsxlib)
+        self.fwaas_callbacks = callbacks_class()
         # override the fwplugin_rpc since there is no RPC support in adminutils
         self.fwaas_callbacks.fwplugin_rpc = plugin_callbacks(fwaas_plugin)
 

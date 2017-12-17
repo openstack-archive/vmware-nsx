@@ -338,12 +338,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self.fwaas_callbacks = None
         if fwaas_utils.is_fwaas_v1_plugin_enabled():
             LOG.info("NSXv3 FWaaS v1 plugin enabled")
-            self.fwaas_callbacks = fwaas_callbacks_v1.Nsxv3FwaasCallbacksV1(
-                self.nsxlib)
+            self.fwaas_callbacks = fwaas_callbacks_v1.Nsxv3FwaasCallbacksV1()
         if fwaas_utils.is_fwaas_v2_plugin_enabled():
             LOG.info("NSXv3 FWaaS v2 plugin enabled")
-            self.fwaas_callbacks = fwaas_callbacks_v2.Nsxv3FwaasCallbacksV2(
-                self.nsxlib)
+            self.fwaas_callbacks = fwaas_callbacks_v2.Nsxv3FwaasCallbacksV2()
 
     def _init_lbv2_driver(self):
         # Get LBaaSv2 driver during plugin initialization. If the platform
@@ -3505,6 +3503,28 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                                              route)
                 router_db['status'] = curr_status
 
+    def _get_nsx_router_and_fw_section(self, context, router_id):
+        # find the backend router id in the DB
+        nsx_router_id = nsx_db.get_nsx_router_id(context.session, router_id)
+        if nsx_router_id is None:
+            LOG.error("Didn't find nsx router for router %s", router_id)
+            raise self.driver_exception(driver=self.driver_name)
+
+        # get the FW section id of the backend router
+        try:
+            section_id = self.nsxlib.logical_router.get_firewall_section_id(
+                nsx_router_id)
+        except Exception as e:
+            LOG.error("Failed to find router firewall section for router "
+                      "%(id)s: %(e)s", {'id': router_id, 'e': e})
+            raise self.driver_exception(driver=self.driver_name)
+        if section_id is None:
+            LOG.error("Failed to find router firewall section for router "
+                      "%(id)s.", {'id': router_id})
+            raise self.driver_exception(driver=self.driver_name)
+
+        return nsx_router_id, section_id
+
     def update_router_firewall(self, context, router_id):
         """Rewrite all the rules in the router edge firewall
 
@@ -3519,9 +3539,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # TODO(asarfaty): Add vm ports as well
             ports = self._get_router_interfaces(context, router_id)
 
+            nsx_router_id, section_id = self._get_nsx_router_and_fw_section(
+                context, router_id)
             # let the fwaas callbacks update the router FW
             return self.fwaas_callbacks.update_router_firewall(
-                context, self.nsxlib, router_id, ports)
+                context, self.nsxlib, router_id, ports,
+                nsx_router_id, section_id)
 
     def _get_port_relay_servers(self, context, port_id, network_id=None):
         if not network_id:

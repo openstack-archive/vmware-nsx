@@ -62,7 +62,7 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
 
         self.plugin = directory.get_plugin()
         self.plugin.fwaas_callbacks = fwaas_callbacks_v1.\
-            Nsxv3FwaasCallbacksV1(self.plugin.nsxlib)
+            Nsxv3FwaasCallbacksV1()
         self.plugin.fwaas_callbacks.fwaas_enabled = True
         self.plugin.fwaas_callbacks.fwaas_driver = self.firewall
         self.plugin.init_is_complete = True
