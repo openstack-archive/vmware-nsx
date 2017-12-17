@@ -36,27 +36,33 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
     def init_from_config_section(self, az_name):
         az_info = config.get_nsxv3_az_opts(self.name)
 
-        # The optional parameters will get the global values if not
-        # defined for this AZ
-        self.metadata_proxy = az_info.get('metadata_proxy')
-        if not self.metadata_proxy:
-            raise nsx_exc.NsxInvalidConfiguration(
-                opt_name="metadata_proxy",
-                opt_value='None',
-                reason=(_("metadata_proxy for availability zone %s "
-                          "must be defined") % az_name))
+        if cfg.CONF.nsx_v3.native_dhcp_metadata:
+            # The optional parameters will get the global values if not
+            # defined for this AZ
+            self.metadata_proxy = az_info.get('metadata_proxy')
+            if not self.metadata_proxy:
+                raise nsx_exc.NsxInvalidConfiguration(
+                    opt_name="metadata_proxy",
+                    opt_value='None',
+                    reason=(_("metadata_proxy for availability zone %s "
+                              "must be defined") % az_name))
 
-        self.dhcp_profile = az_info.get('dhcp_profile')
-        if not self.dhcp_profile:
-            raise nsx_exc.NsxInvalidConfiguration(
-                opt_name="dhcp_profile",
-                opt_value='None',
-                reason=(_("dhcp_profile for availability zone %s "
-                          "must be defined") % az_name))
+            self.dhcp_profile = az_info.get('dhcp_profile')
+            if not self.dhcp_profile:
+                raise nsx_exc.NsxInvalidConfiguration(
+                    opt_name="dhcp_profile",
+                    opt_value='None',
+                    reason=(_("dhcp_profile for availability zone %s "
+                              "must be defined") % az_name))
 
-        self.native_metadata_route = az_info.get('native_metadata_route')
-        if self.native_metadata_route is None:
-            self.native_metadata_route = cfg.CONF.nsx_v3.native_metadata_route
+            self.native_metadata_route = az_info.get('native_metadata_route')
+            if self.native_metadata_route is None:
+                nmr = cfg.CONF.nsx_v3.native_metadata_route
+                self.native_metadata_route = nmr
+        else:
+            self.metadata_proxy = None
+            self.dhcp_profile = None
+            self.native_metadata_route = None
 
         self.dns_domain = az_info.get('dns_domain')
         if self.dns_domain is None:
