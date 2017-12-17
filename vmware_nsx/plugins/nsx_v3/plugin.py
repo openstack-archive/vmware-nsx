@@ -375,14 +375,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             return lb_driver_v2.DummyLoadbalancerDriverV2()
 
     def init_availability_zones(self):
-        # availability zones are supported only with native dhcp
-        # if not - the default az will be loaded and used internally only
-        if (cfg.CONF.nsx_v3.availability_zones and
-            not cfg.CONF.nsx_v3.native_dhcp_metadata):
-            msg = _("Availability zones are not supported without native "
-                    "DHCP metadata")
-            LOG.error(msg)
-            raise n_exc.InvalidInput(error_message=msg)
         validate_default = not self._is_sub_plugin
         self._availability_zones_data = nsx_az.NsxV3AvailabilityZones(
             validate_default=validate_default)
