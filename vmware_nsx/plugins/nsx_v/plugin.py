@@ -2108,6 +2108,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                          'and no other attributes for port %s') %
                        original_port['id'])
                 raise n_exc.BadRequest(resource='port', msg=msg)
+        # Address pairs require port security
+        if (not has_port_security and
+            (original_port[addr_apidef.ADDRESS_PAIRS] or
+             addr_apidef.ADDRESS_PAIRS in attrs)):
+            msg = _('Address pairs require port security enabled')
+            raise n_exc.BadRequest(resource='port', msg=msg)
 
         # TODO(roeyc): create a method '_process_vnic_index_update' from the
         # following code block
