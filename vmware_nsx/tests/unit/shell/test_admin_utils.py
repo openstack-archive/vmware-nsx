@@ -286,3 +286,12 @@ class TestNsxv3AdminUtils(AbstractTestAdminUtils,
                     # Run all utilities with backend objects
                     self._test_resources_with_args(
                         resources.nsxv3_resources, args)
+
+
+class TestNsxtvdAdminUtils(AbstractTestAdminUtils):
+
+    def _get_plugin_name(self):
+        return 'nsxtvd'
+
+    def test_nsxtv_resources(self):
+        self._test_resources(resources.nsxtvd_resources)
