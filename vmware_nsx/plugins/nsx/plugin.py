@@ -271,7 +271,8 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
                     port_model = self._get_port(context, port['id'])
                     resource_extend.apply_funcs('ports', port, port_model)
                 p = self._get_plugin_from_net_id(context, port['network_id'])
-                p._extend_get_port_dict_qos_and_binding(context, port)
+                if hasattr(p, '_extend_get_port_dict_qos_and_binding'):
+                    p._extend_get_port_dict_qos_and_binding(context, port)
                 p._remove_provider_security_groups_from_list(port)
         return (ports if not fields else
                 [db_utils.resource_fields(port, fields) for port in ports])
