@@ -17,6 +17,8 @@ from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
 from oslo_log import log as logging
 
+from vmware_nsx.extensions import projectpluginmap
+
 LOG = logging.getLogger(__name__)
 
 
@@ -68,8 +70,30 @@ class EdgeLoadbalancerBaseManager(LoadbalancerBaseManager):
     def vcns(self):
         return self.vcns_driver.vcns
 
+    @property
+    def core_plugin(self):
+        if not self._core_plugin:
+            self._core_plugin = (
+                self._get_plugin(plugin_const.CORE))
+            if self._core_plugin.is_tvd_plugin():
+                # get the plugin that match this driver
+                self._core_plugin = self._core_plugin.get_plugin_by_type(
+                    projectpluginmap.NsxPlugins.NSX_V)
+        return self._core_plugin
+
 
 class Nsxv3LoadbalancerBaseManager(LoadbalancerBaseManager):
 
     def __init__(self):
         super(Nsxv3LoadbalancerBaseManager, self).__init__()
+
+    @property
+    def core_plugin(self):
+        if not self._core_plugin:
+            self._core_plugin = (
+                self._get_plugin(plugin_const.CORE))
+            if self._core_plugin.is_tvd_plugin():
+                # get the plugin that match this driver
+                self._core_plugin = self._core_plugin.get_plugin_by_type(
+                    projectpluginmap.NsxPlugins.NSX_T)
+        return self._core_plugin

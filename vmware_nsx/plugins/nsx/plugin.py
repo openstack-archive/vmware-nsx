@@ -53,6 +53,7 @@ from vmware_nsx.plugins.common import plugin as nsx_plugin_common
 from vmware_nsx.plugins.dvs import plugin as dvs
 from vmware_nsx.plugins.nsx_v import plugin as v
 from vmware_nsx.plugins.nsx_v3 import plugin as t
+from vmware_nsx.services.lbaas.nsx import lb_driver_v2
 
 LOG = logging.getLogger(__name__)
 TVD_PLUGIN_TYPE = "Nsx-TVD"
@@ -102,6 +103,7 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
 
         # init the extensions supported by any of the plugins
         self.init_extensions()
+        self.lbv2_driver = lb_driver_v2.EdgeLoadbalancerDriverV2()
 
     @staticmethod
     def plugin_type():
