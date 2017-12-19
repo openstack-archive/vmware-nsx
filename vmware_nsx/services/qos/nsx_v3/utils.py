@@ -26,6 +26,7 @@ from neutron_lib.services.qos import constants as qos_consts
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import db as nsx_db
+from vmware_nsx.extensions import projectpluginmap
 
 LOG = logging.getLogger(__name__)
 
@@ -39,14 +40,21 @@ class QosNotificationsHandler(object):
 
     def __init__(self):
         super(QosNotificationsHandler, self).__init__()
+        self._core_plugin = None
 
     @property
-    def _core_plugin(self):
-        return directory.get_plugin()
+    def core_plugin(self):
+        if not self._core_plugin:
+            self._core_plugin = directory.get_plugin()
+            if self._core_plugin.is_tvd_plugin():
+                # get the plugin that match this driver
+                self._core_plugin = self._core_plugin.get_plugin_by_type(
+                    projectpluginmap.NsxPlugins.NSX_T)
+        return self._core_plugin
 
     @property
     def _nsxlib_qos(self):
-        return self._core_plugin.nsxlib.qos_switching_profile
+        return self.core_plugin.nsxlib.qos_switching_profile
 
     def _get_tags(self, context, policy):
         policy_dict = {'id': policy.id, 'tenant_id': policy.tenant_id}

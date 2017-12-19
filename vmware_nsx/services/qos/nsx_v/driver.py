@@ -20,6 +20,7 @@ from neutron_lib.services.qos import base
 from neutron_lib.services.qos import constants as qos_consts
 from oslo_log import log as logging
 
+from vmware_nsx.extensions import projectpluginmap
 
 LOG = logging.getLogger(__name__)
 DRIVER = None
@@ -54,6 +55,10 @@ class NSXvQosDriver(base.DriverBase):
     def __init__(self, core_plugin, **kwargs):
         super(NSXvQosDriver, self).__init__(**kwargs)
         self.core_plugin = core_plugin
+        if self.core_plugin.is_tvd_plugin():
+            # get the plugin that match this driver
+            self.core_plugin = self.core_plugin.get_plugin_by_type(
+                projectpluginmap.NsxPlugins.NSX_V)
         self.requires_rpc_notifications = False
 
     def is_vif_type_compatible(self, vif_type):
