@@ -159,11 +159,18 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
         for plugin in self.plugins:
             # TODO(asarfaty): add other resources here
             plugin_type = self.plugins[plugin].plugin_type()
-            self._unsupported_fields[plugin_type] = {'router': []}
+            self._unsupported_fields[plugin_type] = {'router': [],
+                                                     'port': []}
 
         # router size and type are supported only by the V plugin
         self._unsupported_fields[t.NsxV3Plugin.plugin_type()]['router'] = [
             'router_size', 'router_type']
+        self._unsupported_fields[dvs.NsxDvsV2.plugin_type()]['router'] = [
+            'router_size', 'router_type']
+
+        # port mac learning is not supported by the dvs plugin
+        self._unsupported_fields[dvs.NsxDvsV2.plugin_type()]['port'] = [
+            'mac_learning_enabled']
 
     def _validate_obj_extensions(self, data, plugin_type, obj_type):
         """prevent configuration of unsupported extensions"""
@@ -239,13 +246,21 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
         return p.update_network(context, id, network)
 
     def create_port(self, context, port):
-        id = port['port']['network_id']
-        p = self._get_plugin_from_net_id(context, id)
-        return p.create_port(context, port)
+        net_id = port['port']['network_id']
+        p = self._get_plugin_from_net_id(context, net_id)
+        self._validate_obj_extensions(
+            port['port'], p.plugin_type(), 'port')
+        new_port = p.create_port(context, port)
+        self._cleanup_obj_fields(
+            new_port, p.plugin_type(), 'port')
+        LOG.error("DEBUG ADIT created new_port %s", new_port)
+        return new_port
 
     def update_port(self, context, id, port):
         db_port = self._get_port(context, id)
         p = self._get_plugin_from_net_id(context, db_port['network_id'])
+        self._validate_obj_extensions(
+            port['port'], p.plugin_type(), 'port')
         return p.update_port(context, id, port)
 
     def delete_port(self, context, id, **kwargs):
@@ -256,7 +271,10 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
     def get_port(self, context, id, fields=None):
         db_port = self._get_port(context, id)
         p = self._get_plugin_from_net_id(context, db_port['network_id'])
-        return p.get_port(context, id, fields=fields)
+        port = p.get_port(context, id, fields=fields)
+        self._cleanup_obj_fields(
+            port, p.plugin_type(), 'port')
+        return port
 
     def get_ports(self, context, filters=None, fields=None,
                   sorts=None, limit=None, marker=None,
@@ -275,7 +293,10 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
                 p = self._get_plugin_from_net_id(context, port['network_id'])
                 if hasattr(p, '_extend_get_port_dict_qos_and_binding'):
                     p._extend_get_port_dict_qos_and_binding(context, port)
-                p._remove_provider_security_groups_from_list(port)
+                if hasattr(p, '_remove_provider_security_groups_from_list'):
+                    p._remove_provider_security_groups_from_list(port)
+                self._cleanup_obj_fields(
+                    port, p.plugin_type(), 'port')
         return (ports if not fields else
                 [db_utils.resource_fields(port, fields) for port in ports])
 
@@ -364,7 +385,7 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
             router['router'], p.plugin_type(), 'router')
         new_router = p.create_router(context, router)
         self._cleanup_obj_fields(
-            router['router'], p.plugin_type(), 'router')
+            new_router, p.plugin_type(), 'router')
         return new_router
 
     def update_router(self, context, router_id, router):

@@ -138,8 +138,8 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             # security-groups extension supported by this plugin
             pbin.CAP_PORT_FILTER: True}
 
-    def _extend_network_dict_provider(self, context, network,
-                                      multiprovider=None, bindings=None):
+    def _extend_get_network_dict_provider(self, context, network,
+                                          multiprovider=None, bindings=None):
         if not bindings:
             bindings = nsx_db.get_network_bindings(context.session,
                                                    network['id'])
@@ -310,7 +310,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             # to add provider networks fields
             net_result = self._make_network_dict(network,
                                                  context=context)
-            self._extend_network_dict_provider(context, net_result)
+            self._extend_get_network_dict_provider(context, net_result)
         return db_utils.resource_fields(net_result, fields)
 
     def get_network(self, context, id, fields=None):
@@ -326,7 +326,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                     context, filters, fields, sorts,
                     limit, marker, page_reverse))
             for net in networks:
-                self._extend_network_dict_provider(context, net)
+                self._extend_get_network_dict_provider(context, net)
         return (networks if not fields else
                 [db_utils.resource_fields(network,
                                           fields) for network in networks])
@@ -343,7 +343,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             # Process port security extension
             self._process_network_port_security_update(
                 context, net_attrs, net_res)
-            self._extend_network_dict_provider(context, net_res)
+            self._extend_get_network_dict_provider(context, net_res)
 
         return net_res
 
@@ -504,3 +504,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         msg = (_("Unable to create router %s with DVS") %
                router['router']['name'])
         raise n_exc.BadRequest(resource="router", msg=msg)
+
+    def get_network_availability_zones(self, net_db):
+        """Api to comply with the NSX-TVD plugin"""
+        return []
