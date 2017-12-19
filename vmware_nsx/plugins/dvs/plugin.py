@@ -20,6 +20,7 @@ from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.exceptions import allowedaddresspairs as addr_exc
 from neutron_lib.exceptions import port_security as psec_exc
+from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 
@@ -63,6 +64,7 @@ from vmware_nsx.dvs import dvs
 from vmware_nsx.dvs import dvs_utils
 from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.plugins.common import plugin as nsx_plugin_common
+from vmware_nsx.plugins.nsx import utils as tvd_utils
 
 LOG = logging.getLogger(__name__)
 
@@ -103,9 +105,15 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         security_group=securitygroup_model.SecurityGroup,
         security_group_rule=securitygroup_model.SecurityGroupRule)
     def __init__(self):
+        self._is_sub_plugin = tvd_utils.is_tvd_core_plugin()
         dvs_utils.dvs_register_exceptions()
-        self._extension_manager = nsx_managers.ExtensionManager()
         super(NsxDvsV2, self).__init__()
+        if self._is_sub_plugin:
+            extension_drivers = cfg.CONF.nsx_tvd.dvs_extension_drivers
+        else:
+            extension_drivers = cfg.CONF.nsx_extension_drivers
+        self._extension_manager = nsx_managers.ExtensionManager(
+             extension_drivers=extension_drivers)
         LOG.debug('Driver support: DVS: %s' % dvs_utils.dvs_is_enabled())
         self._extension_manager.initialize()
         self.supported_extension_aliases.extend(

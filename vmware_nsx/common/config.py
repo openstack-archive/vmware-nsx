@@ -824,6 +824,11 @@ nsx_tvd_opts = [
                 help=_("An ordered list of NSX-T extension driver "
                        "entrypoints to be loaded from the "
                        "vmware_nsx.extension_drivers namespace.")),
+    cfg.ListOpt('dvs_extension_drivers',
+                default=[],
+                help=_("An ordered list of DVS extension driver "
+                       "entrypoints to be loaded from the "
+                       "vmware_nsx.extension_drivers namespace.")),
 ]
 
 # Register the configuration options
