@@ -184,8 +184,10 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
         context = kwargs.get('context')
         orig = kwargs['original_subnet']
         updated = kwargs['subnet']
-        if orig['gateway_ip'] == updated['gateway_ip']:
+        if (orig['gateway_ip'] == updated['gateway_ip'] and
+            self._routes_equal(orig['host_routes'], updated['host_routes'])):
             return
+
         subnet_id = updated['id']
         subnet = self.core_plugin.get_subnet(context.elevated(), subnet_id)
 
@@ -201,5 +203,22 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
                         context.session, lb_port['device_id'])
                     edge_id = edge_bind['edge_id']
 
+                    routes = [{'cidr': r['destination'],
+                               'nexthop': r['nexthop']} for r in
+                              subnet['host_routes']]
+
                     self.core_plugin.nsx_v.update_routes(
-                        edge_id, subnet['gateway_ip'], [])
+                        edge_id, subnet['gateway_ip'], routes)
+
+    def _routes_equal(self, a, b):
+        if len(a) != len(b):
+            return False
+        for a_item in a:
+            found = False
+            for b_item in b:
+                # compare values as keysets should be same
+                if set(a_item.values()) == set(b_item.values()):
+                    found = True
+            if not found:
+                return False
+        return True
