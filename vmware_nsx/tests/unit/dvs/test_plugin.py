@@ -132,7 +132,7 @@ class DvsTestCase(base.BaseTestCase):
         fake_get_spec.assert_called_once_with(net_id, vlan, trunk_mode=False)
 
 
-class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
+class NeutronSimpleDvsTestCase(test_plugin.NeutronDbPluginV2TestCase):
 
     @mock.patch.object(dvs_utils, 'dvs_create_session',
                        return_value=fake_session())
@@ -147,8 +147,11 @@ class NeutronSimpleDvsTest(test_plugin.NeutronDbPluginV2TestCase):
         cfg.CONF.set_override('host_username', 'fake_user', group='dvs')
         cfg.CONF.set_override('host_password', 'fake_password', group='dvs')
         cfg.CONF.set_override('dvs_name', 'fake_dvs', group='dvs')
-        super(NeutronSimpleDvsTest, self).setUp(plugin=PLUGIN_NAME)
+        super(NeutronSimpleDvsTestCase, self).setUp(plugin=plugin)
         self._plugin = directory.get_plugin()
+
+
+class NeutronSimpleDvsTest(NeutronSimpleDvsTestCase):
 
     def _create_and_delete_dvs_network(self, network_type='flat', vlan_tag=0,
                                        trunk_mode=False):

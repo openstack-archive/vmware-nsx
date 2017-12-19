@@ -357,7 +357,8 @@ class ExtendedSecurityGroupPropertiesMixin(object):
         # later we will remove those from the regular sg list
         provider_groups = []
         for sec_group_mapping in port_db.security_groups:
-            if sec_group_mapping.extended_grp.provider is True:
+            if (sec_group_mapping.extended_grp and
+                sec_group_mapping.extended_grp.provider is True):
                 provider_groups.append(sec_group_mapping['security_group_id'])
         port_res[provider_sg.PROVIDER_SECURITYGROUPS] = provider_groups
         return port_res

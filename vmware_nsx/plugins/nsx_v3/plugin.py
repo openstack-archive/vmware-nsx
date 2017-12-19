@@ -4096,15 +4096,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             return super(NsxV3Plugin, self)._ensure_default_security_group(
                 context, tenant_id)
 
-    def get_security_groups(self, context, filters=None, fields=None,
-                            sorts=None, limit=None,
-                            marker=None, page_reverse=False, default_sg=False):
-        return super(NsxV3Plugin, self).get_security_groups(
-                context, filters=filters, fields=fields,
-                sorts=sorts, limit=limit,
-                marker=marker, page_reverse=page_reverse,
-                default_sg=default_sg)
-
     def _create_fw_section_for_secgroup(self, nsgroup, is_provider):
         # NOTE(arosen): if a security group is provider we want to
         # insert our rules at the top.
