@@ -152,7 +152,7 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
         extensions = []
         for plugin in self.plugins:
             extensions.extend(self.plugins[plugin].supported_extension_aliases)
-        self.supported_extension_aliases = list(set(extensions))
+        self.supported_extension_aliases.extend(list(set(extensions)))
 
         # mark extensions which are supported by only one of the plugins
         self._unsupported_fields = {}
