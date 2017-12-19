@@ -120,27 +120,34 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
             self.plugins[projectpluginmap.NsxPlugins.NSX_T] = t.NsxV3Plugin()
         except Exception as e:
             LOG.info("NSX-T plugin will not be supported: %s", e)
+        else:
+            LOG.info("NSX-T plugin will be supported")
 
         try:
             self.plugins[projectpluginmap.NsxPlugins.NSX_V] = v.NsxVPluginV2()
         except Exception as e:
             LOG.info("NSX-V plugin will not be supported: %s", e)
+        else:
+            LOG.info("NSX-V plugin will be supported")
 
         try:
             self.plugins[projectpluginmap.NsxPlugins.DVS] = dvs.NsxDvsV2()
         except Exception as e:
             LOG.info("DVS plugin will not be supported: %s", e)
+        else:
+            LOG.info("DVS plugin will be supported")
 
         if not len(self.plugins):
             msg = _("No active plugins were found")
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
-        # update the default plugin for new projects
+        # update the default plugin for new projects as the NSX-T
         # TODO(asarfaty): make the default configurable?
         if projectpluginmap.NsxPlugins.NSX_T in self.plugins:
             self.default_plugin = projectpluginmap.NsxPlugins.NSX_T
         else:
-            self.default_plugin = self.plugins[0].key
+            # If the NSX-T is not supported, use another one
+            self.default_plugin = self.plugins.keys()[0]
         LOG.info("NSX-TVD plugin will use %s as the default plugin",
             self.default_plugin)
 
@@ -445,47 +452,23 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
     def delete_security_group(self, context, id):
         p = self._get_plugin_from_sg_id(context, id)
         p.delete_security_group(context, id)
-        # self._v.delete_security_group(context, id, delete_base=False)
-        # self._t.delete_security_group(context, id)
 
     def update_security_group(self, context, id, security_group):
         p = self._get_plugin_from_sg_id(context, id)
         return p.update_security_group(context, id, security_group)
-        #self._t.update_security_group(context, id, security_group)
-        #return self._v.update_security_group(context, id, security_group)
 
     def create_security_group_rule_bulk(self, context, security_group_rules):
         p = self._get_plugin_from_project(context, context.project_id)
         return p.create_security_group_rule_bulk(context,
                                                  security_group_rules)
-        # sg_rules = security_group_rules['security_group_rules']
-        # for r in sg_rules:
-        #     r['security_group_rule']['id'] = (
-        #         r['security_group_rule'].get('id') or
-        #         uuidutils.generate_uuid())
-        # sgs = self._t.create_security_group_rule_bulk(context,
-        #                                               security_group_rules)
-        # self._v.create_security_group_rule_bulk(context,
-        #                                         security_group_rules,
-        #                                         base_create=False)
-        # return sgs
 
     def create_security_group_rule(self, context, security_group_rule):
         p = self._get_plugin_from_project(context, context.project_id)
         return p.create_security_group_rule(context, security_group_rule)
-        # security_group_rule['security_group_rule']['id'] = (
-        #     security_group_rule['security_group_rule'].get('id') or
-        #     uuidutils.generate_uuid())
-        # sg = self._t.create_security_group_rule(context, security_group_rule)
-        # self._v.create_security_group_rule(context, security_group_rule,
-        #                                    create_base=False)
-        # return sg
 
     def delete_security_group_rule(self, context, id):
         p = self._get_plugin_from_sg_id(context, id)
         p.delete_security_group_rule(context, id)
-        # self._v.delete_security_group_rule(context, id, delete_base=False)
-        # self._t.delete_security_group_rule(context, id)
 
     @staticmethod
     @resource_extend.extends([net_def.COLLECTION_NAME])
@@ -533,6 +516,9 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
             context.session, data['project']):
             raise projectpluginmap.ProjectPluginAlreadyExists(
                 project_id=data['project'])
+        LOG.info("Adding mapping between project %(project)s and plugin "
+                 "%(plugin)s", {'project': data['project'],
+                                'plugin': data['plugin']})
         nsx_db.add_project_plugin_mapping(context.session,
                                           data['project'],
                                           data['plugin'])
