@@ -15,13 +15,28 @@
 
 from oslo_log import log as logging
 
+from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.services.fwaas.common import fwaas_callbacks_v1 as com_clbcks
+from vmware_nsx.services.fwaas.nsx_tv import edge_fwaas_driver_v1 as tv_driver
 
 LOG = logging.getLogger(__name__)
 
 
 class NsxvFwaasCallbacks(com_clbcks.NsxFwaasCallbacks):
     """NSX-V RPC callbacks for Firewall As A Service - V1."""
+
+    def __init__(self):
+        super(NsxvFwaasCallbacks, self).__init__()
+        # update the fwaas driver in case of TV plugin
+        if self.fwaas_enabled:
+            if self.fwaas_driver.driver_name == tv_driver.FWAAS_DRIVER_NAME:
+                self.internal_driver = self.fwaas_driver.get_V_driver()
+            else:
+                self.internal_driver = self.fwaas_driver
+
+    @property
+    def plugin_type(self):
+        return projectpluginmap.NsxPlugins.NSX_V
 
     def should_apply_firewall_to_router(self, context, router, router_id):
         """Return True if the FWaaS rules should be added to this router."""
@@ -46,7 +61,7 @@ class NsxvFwaasCallbacks(com_clbcks.NsxFwaasCallbacks):
                 return False
 
         # Check if the FWaaS driver supports this router
-        if not self.fwaas_driver.should_apply_firewall_to_router(
+        if not self.internal_driver.should_apply_firewall_to_router(
             router_data, raise_exception=False):
             return False
 
@@ -63,5 +78,5 @@ class NsxvFwaasCallbacks(com_clbcks.NsxFwaasCallbacks):
     def _get_fw_applicable_rules(self, context, fw_id):
         fw = self._get_fw_from_plugin(context, fw_id)
         if fw is not None and fw['id'] == fw_id:
-            return self.fwaas_driver.get_firewall_translated_rules(fw)
+            return self.internal_driver.get_firewall_translated_rules(fw)
         return []

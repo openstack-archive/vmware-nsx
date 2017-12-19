@@ -39,10 +39,22 @@ class NsxFwaasCallbacks(firewall_l3_agent.L3WithFWaaS):
         neutron_conf = cfg.CONF
         neutron_conf.agent_mode = 'nsx'
         super(NsxFwaasCallbacks, self).__init__(conf=neutron_conf)
+        self._core_plugin = None
+
+    @property
+    def plugin_type(self):
+        pass
 
     @property
     def core_plugin(self):
-        return directory.get_plugin()
+        """Get the NSX-V3 core plugin"""
+        if not self._core_plugin:
+            self._core_plugin = directory.get_plugin()
+            if self._core_plugin.is_tvd_plugin():
+                # get the plugin that match this driver
+                self._core_plugin = self._core_plugin.get_plugin_by_type(
+                    self.plugin_type)
+        return self._core_plugin
 
     # Override functions using the agent_api that is not used by our plugin
     def _get_router_ids_for_fw(self, context, fw, to_delete=False):

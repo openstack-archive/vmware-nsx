@@ -16,8 +16,10 @@
 from oslo_log import log as logging
 
 from vmware_nsx.db import db as nsx_db
+from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.services.fwaas.common import fwaas_callbacks_v2 as \
     com_callbacks
+from vmware_nsx.services.fwaas.nsx_tv import edge_fwaas_driver_v2 as tv_driver
 
 LOG = logging.getLogger(__name__)
 
@@ -27,6 +29,17 @@ class Nsxv3FwaasCallbacksV2(com_callbacks.NsxFwaasCallbacksV2):
 
     def __init__(self):
         super(Nsxv3FwaasCallbacksV2, self).__init__()
+        # update the fwaas driver in case of TV plugin
+        self.internal_driver = None
+        if self.fwaas_enabled:
+            if self.fwaas_driver.driver_name == tv_driver.FWAAS_DRIVER_NAME:
+                self.internal_driver = self.fwaas_driver.get_T_driver()
+            else:
+                self.internal_driver = self.fwaas_driver
+
+    @property
+    def plugin_type(self):
+        return projectpluginmap.NsxPlugins.NSX_T
 
     def should_apply_firewall_to_router(self, context, router_id):
         """Return True if the FWaaS rules should be added to this router."""
@@ -43,14 +56,15 @@ class Nsxv3FwaasCallbacksV2(com_callbacks.NsxFwaasCallbacksV2):
             return False
 
         # Check if the FWaaS driver supports this router
-        if not self.fwaas_driver.should_apply_firewall_to_router(router_data):
+        if not self.internal_driver.should_apply_firewall_to_router(
+            router_data):
             return False
 
         return True
 
     def get_port_rules(self, nsx_port_id, fwg, plugin_rules):
-        return self.fwaas_driver.get_port_translated_rules(nsx_port_id, fwg,
-                                                           plugin_rules)
+        return self.internal_driver.get_port_translated_rules(
+            nsx_port_id, fwg, plugin_rules)
 
     def update_router_firewall(self, context, nsxlib, router_id,
                                router_interfaces, nsx_router_id, section_id):
@@ -79,7 +93,7 @@ class Nsxv3FwaasCallbacksV2(com_callbacks.NsxFwaasCallbacksV2):
                                                     plugin_rules))
 
         # add a default allow-all rule to all other traffic & ports
-        fw_rules.append(self.fwaas_driver.get_default_backend_rule(
+        fw_rules.append(self.internal_driver.get_default_backend_rule(
             section_id, allow_all=True))
 
         # update the backend router firewall

@@ -22,10 +22,11 @@ from oslo_log import log as logging
 from neutron_fwaas.services.firewall.drivers import fwaas_base
 
 from vmware_nsx.common import locking
+from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 
 LOG = logging.getLogger(__name__)
-FWAAS_DRIVER_NAME = 'Fwaas NSX-V driver'
+FWAAS_DRIVER_NAME = 'Fwaas V1 NSX-V driver'
 RULE_NAME_PREFIX = 'Fwaas-'
 
 
@@ -36,6 +37,10 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
     def core_plugin(self):
         if not self._core_plugin:
             self._core_plugin = directory.get_plugin()
+            if self._core_plugin.is_tvd_plugin():
+                self._core_plugin = self._core_plugin.get_plugin_by_type(
+                    projectpluginmap.NsxPlugins.NSX_V)
+            # make sure plugin init was completed
             if not self._core_plugin.init_is_complete:
                 self._core_plugin.init_complete(None, None, {})
         return self._core_plugin
@@ -45,7 +50,7 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
         return self.core_plugin.edge_manager
 
     def __init__(self):
-        LOG.debug("Loading FWaaS NsxVDriver.")
+        LOG.debug("Loading FWaaS V1 NsxVDriver.")
         super(EdgeFwaasDriver, self).__init__()
         self.driver_name = FWAAS_DRIVER_NAME
         self._core_plugin = None
