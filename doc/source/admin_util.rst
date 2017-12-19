@@ -454,7 +454,7 @@ BGP GW edges
 
 
 LBaaS
-~~~~~~~~~~~~
+~~~~~
 - List NSX LB services::
 
     nsxadmin -r lb-services -o list
@@ -471,6 +471,12 @@ LBaaS
 
     nsxadmin -r lb-monitors -o list
 
+
+NSXtvd
+------
+
+- Add mapping between projects and plugin before starting to use the tvd plugin:
+    nsxadmin -r projects -o import --property plugin=nsx-v --property project=<>
 
 Config
 ~~~~~~

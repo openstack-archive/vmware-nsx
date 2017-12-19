@@ -19,8 +19,10 @@ NSX_INI = '/etc/neutron/plugins/vmware/nsx.ini'
 # NSX Plugin Constants
 NSXV3_PLUGIN = 'vmware_nsx.plugin.NsxV3Plugin'
 NSXV_PLUGIN = 'vmware_nsx.plugin.NsxVPlugin'
+NSXTVD_PLUGIN = 'vmware_nsx.plugin.NsxTVDPlugin'
 VMWARE_NSXV = 'vmware_nsxv'
 VMWARE_NSXV3 = 'vmware_nsxv3'
+VMWARE_NSXTVD = 'vmware_nsxtvd'
 
 # Common Resource Constants
 NETWORKS = 'networks'
@@ -57,3 +59,6 @@ LBAAS = 'lbaas'
 BGP_GW_EDGE = 'bgp-gw-edge'
 ROUTING_REDIS_RULE = 'routing-redistribution-rule'
 BGP_NEIGHBOUR = 'bgp-neighbour'
+
+# NSXTV only Resource Constants
+PROJECTS = 'projects'
