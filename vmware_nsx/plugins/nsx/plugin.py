@@ -549,7 +549,7 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
             context.session, project_id)
         if mapping:
             plugin_type = mapping['plugin']
-        else:
+        elif project_id:
             self.create_project_plugin_map(context,
                 {'project_plugin_map': {'plugin': plugin_type,
                                         'project': project_id}})
@@ -559,5 +559,5 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
                                        'project': project_id})
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
-        LOG.debug("Using %s plugin", plugin_type)
+        LOG.debug("Using %s plugin for project %s", plugin_type, project_id)
         return self.plugins[plugin_type]
