@@ -243,7 +243,7 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
                     'fixed_ips', [])]
             subnet = port_subnets[0]
 
-        if subnet and self._check_lb_on_subnet(context, subnet):
+        if subnet and self._check_lb_on_subnet(context, subnet, router_id):
             error = _('Cannot delete router %(rtr)s interface while '
                       'loadbalancers are provisioned on attached '
                       'subnet %(subnet)s') % {'rtr': router_id,
@@ -277,7 +277,7 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
                                                      address_groups)
         return info
 
-    def _check_lb_on_subnet(self, context, subnet_id):
+    def _check_lb_on_subnet(self, context, subnet_id, router_id):
         # Check lbaas
         dev_owner_v1 = 'neutron:' + plugin_const.LOADBALANCER
         dev_owner_v2 = 'neutron:' + plugin_const.LOADBALANCERV2
@@ -285,7 +285,11 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
                    'fixed_ips': {'subnet_id': [subnet_id]}}
         ports = super(nsx_v.NsxVPluginV2, self.plugin).get_ports(
             context, filters=filters)
-        return (len(ports) >= 1)
+
+        edge_id = self._get_router_edge_id(context, router_id)
+        lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding_by_edge(
+            context.session, edge_id)
+        return (len(ports) >= 1) and lb_binding
 
     def _update_edge_router(self, context, router_id):
         router = self.plugin._get_router(context.elevated(), router_id)

@@ -3248,19 +3248,6 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
                 body = self._show('routers', router_id)
                 self.assertEqual('shared', body['router']['router_type'])
 
-    def test_router_remove_interface_with_load_balancer(self):
-        with self.router() as router, self.subnet() as subnet:
-            fixed_ips = [{'subnet_id': subnet['subnet']['id']}]
-            with self.port(subnet,
-                           device_owner='neutron:LOADBALANCER',
-                           fixed_ips=fixed_ips):
-                expected_code = webob.exc.HTTPInternalServerError.code
-                self._router_interface_action('remove',
-                                              router['router']['id'],
-                                              subnet['subnet']['id'],
-                                              None,
-                                              expected_code=expected_code)
-
     @mock.patch.object(edge_utils.EdgeManager,
                        'update_interface_addr')
     def test_router_update_gateway_with_different_external_subnet(self, mock):
