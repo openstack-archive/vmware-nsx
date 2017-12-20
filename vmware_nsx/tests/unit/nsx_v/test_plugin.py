@@ -67,6 +67,7 @@ from vmware_nsx.common import utils as c_utils
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.dvs import dvs
 from vmware_nsx.dvs import dvs_utils
+from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.extensions import routersize as router_size
 from vmware_nsx.extensions import routertype as router_type
 from vmware_nsx.extensions import vnicindex as ext_vnic_idx
@@ -229,6 +230,10 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
                 ext_mgr=ext_mgr)
         self.addCleanup(self.fc2.reset_all)
         plugin_instance = directory.get_plugin()
+        # handle TVD plugin case
+        if plugin_instance.is_tvd_plugin():
+            plugin_instance = plugin_instance.get_plugin_by_type(
+                projectpluginmap.NsxPlugins.NSX_V)
         plugin_instance.real_get_edge = plugin_instance._get_edge_id_by_rtr_id
         plugin_instance._get_edge_id_by_rtr_id = mock.Mock()
         plugin_instance._get_edge_id_by_rtr_id.return_value = False
@@ -245,6 +250,35 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
         with mock.patch.object(dvs_utils, 'dvs_create_session'):
             plugin._vcm = dvs.VCManager()
         return plugin
+
+
+class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
+
+    def _test_create_bridge_network(self, vlan_id=0):
+        net_type = vlan_id and 'vlan' or 'flat'
+        name = 'bridge_net'
+        expected = [('subnets', []), ('name', name), ('admin_state_up', True),
+                    ('status', 'ACTIVE'), ('shared', False),
+                    (pnet.NETWORK_TYPE, net_type),
+                    (pnet.PHYSICAL_NETWORK, 'tzuuid'),
+                    (pnet.SEGMENTATION_ID, vlan_id)]
+        providernet_args = {pnet.NETWORK_TYPE: net_type,
+                            pnet.PHYSICAL_NETWORK: 'tzuuid'}
+        if vlan_id:
+            providernet_args[pnet.SEGMENTATION_ID] = vlan_id
+        with self.network(name=name,
+                          providernet_args=providernet_args,
+                          arg_list=(pnet.NETWORK_TYPE,
+                                    pnet.PHYSICAL_NETWORK,
+                                    pnet.SEGMENTATION_ID)) as net:
+            for k, v in expected:
+                self.assertEqual(net['network'][k], v)
+
+    def test_create_bridge_network(self):
+        self._test_create_bridge_network()
+
+    def test_create_bridge_vlan_network(self):
+        self._test_create_bridge_network(vlan_id=123)
 
     def test_get_vlan_network_name(self):
         p = directory.get_plugin()
@@ -281,35 +315,6 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
         expected = '%s-%s' % (dvs_id, net_id)
         self.assertEqual(expected,
                          p._get_vlan_network_name(net, dvs_id))
-
-
-class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
-
-    def _test_create_bridge_network(self, vlan_id=0):
-        net_type = vlan_id and 'vlan' or 'flat'
-        name = 'bridge_net'
-        expected = [('subnets', []), ('name', name), ('admin_state_up', True),
-                    ('status', 'ACTIVE'), ('shared', False),
-                    (pnet.NETWORK_TYPE, net_type),
-                    (pnet.PHYSICAL_NETWORK, 'tzuuid'),
-                    (pnet.SEGMENTATION_ID, vlan_id)]
-        providernet_args = {pnet.NETWORK_TYPE: net_type,
-                            pnet.PHYSICAL_NETWORK: 'tzuuid'}
-        if vlan_id:
-            providernet_args[pnet.SEGMENTATION_ID] = vlan_id
-        with self.network(name=name,
-                          providernet_args=providernet_args,
-                          arg_list=(pnet.NETWORK_TYPE,
-                                    pnet.PHYSICAL_NETWORK,
-                                    pnet.SEGMENTATION_ID)) as net:
-            for k, v in expected:
-                self.assertEqual(net['network'][k], v)
-
-    def test_create_bridge_network(self):
-        self._test_create_bridge_network()
-
-    def test_create_bridge_vlan_network(self):
-        self._test_create_bridge_network(vlan_id=123)
 
     def _test_generate_tag(self, vlan_id):
         net_type = 'vlan'
@@ -4347,9 +4352,6 @@ class TestNSXvAllowedAddressPairs(NsxVPluginV2TestCase,
         pass
 
     def test_create_overlap_with_fixed_ip(self):
-        pass
-
-    def test_get_vlan_network_name(self):
         pass
 
     def test_create_port_with_cidr_address_pair(self):

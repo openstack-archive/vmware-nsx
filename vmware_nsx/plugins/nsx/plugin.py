@@ -169,15 +169,17 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
             self._unsupported_fields[plugin_type] = {'router': [],
                                                      'port': []}
 
-        # router size and type are supported only by the V plugin
-        self._unsupported_fields[t.NsxV3Plugin.plugin_type()]['router'] = [
-            'router_size', 'router_type']
-        self._unsupported_fields[dvs.NsxDvsV2.plugin_type()]['router'] = [
-            'router_size', 'router_type']
+            # router size and type are supported only by the V plugin
+            if plugin_type in [t.NsxV3Plugin.plugin_type(),
+                               dvs.NsxDvsV2.plugin_type()]:
+                self._unsupported_fields[plugin_type]['router'] = [
+                    'router_size', 'router_type']
 
-        # port mac learning is not supported by the dvs plugin
-        self._unsupported_fields[dvs.NsxDvsV2.plugin_type()]['port'] = [
-            'mac_learning_enabled']
+            # port mac learning, and provider sg are not supported by
+            # the dvs plugin
+            if plugin_type in [dvs.NsxDvsV2.plugin_type()]:
+                self._unsupported_fields[plugin_type]['port'] = [
+                    'mac_learning_enabled', 'provider_security_groups']
 
     def _validate_obj_extensions(self, data, plugin_type, obj_type):
         """prevent configuration of unsupported extensions"""
@@ -209,7 +211,7 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
     def _get_plugin_from_net_id(self, context, net_id):
         # get the network using the super plugin - here we use the
         # _get_network (so as not to call the make dict method)
-        network = super(NsxTVDPlugin, self)._get_network(context, net_id)
+        network = self._get_network(context, net_id)
         return self._get_plugin_from_project(context, network['tenant_id'])
 
     def get_network_availability_zones(self, net_db):
@@ -260,7 +262,6 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
         new_port = p.create_port(context, port)
         self._cleanup_obj_fields(
             new_port, p.plugin_type(), 'port')
-        LOG.error("DEBUG ADIT created new_port %s", new_port)
         return new_port
 
     def update_port(self, context, id, port):
@@ -365,10 +366,10 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
                                           interface_info):
         is_port, is_sub = self._validate_interface_info(interface_info)
         if is_port:
-            net_id = self.get_port(
+            net_id = self._get_port(
                 context, interface_info['port_id'])['network_id']
         elif is_sub:
-            net_id = self.get_subnet(
+            net_id = self._get_subnet(
                 context, interface_info['subnet_id'])['network_id']
         net_plugin = self._get_plugin_from_net_id(context, net_id)
         if net_plugin.plugin_type() != router_plugin.plugin_type():
@@ -379,7 +380,7 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
     def _get_plugin_from_router_id(self, context, router_id):
         # get the router using the super plugin - here we use the
         # _get_router (so as not to call the make dict method)
-        router = super(NsxTVDPlugin, self)._get_router(context, router_id)
+        router = self._get_router(context, router_id)
         return self._get_plugin_from_project(context, router['tenant_id'])
 
     def create_router(self, context, router):
@@ -408,6 +409,10 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
         router = p.get_router(context, id, fields=fields)
         self._cleanup_obj_fields(router, p.plugin_type(), 'router')
         return router
+
+    def delete_router(self, context, id):
+        p = self._get_plugin_from_router_id(context, id)
+        p.delete_router(context, id)
 
     def add_router_interface(self, context, router_id, interface_info):
         p = self._get_plugin_from_router_id(context, router_id)
@@ -447,6 +452,12 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
         p = self._get_plugin_from_net_id(context, net_id)
         return p.delete_floatingip(context, id)
 
+    def get_floatingip(self, context, id):
+        fip = self._get_floatingip(context, id)
+        net_id = fip['floating_network_id']
+        p = self._get_plugin_from_net_id(context, net_id)
+        return p.get_floatingip(context, id)
+
     def disassociate_floatingips(self, context, port_id):
         db_port = self._get_port(context, port_id)
         p = self._get_plugin_from_net_id(context, db_port['network_id'])
@@ -455,10 +466,9 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
     def _get_plugin_from_sg_id(self, context, sg_id):
         # get the router using the super plugin - here we use the
         # _get_router (so as not to call the make dict method)
-        sg = super(NsxTVDPlugin, self)._get_security_group(context, sg_id)
+        sg = self._get_security_group(context, sg_id)
         return self._get_plugin_from_project(context, sg['tenant_id'])
 
-    # TODO(asarfaty): no need to create on both any more?
     def create_security_group(self, context, security_group,
                               default_sg=False):
         if not default_sg:
@@ -477,6 +487,10 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
     def update_security_group(self, context, id, security_group):
         p = self._get_plugin_from_sg_id(context, id)
         return p.update_security_group(context, id, security_group)
+
+    def get_security_group(self, context, id):
+        p = self._get_plugin_from_sg_id(context, id)
+        return p.get_security_group(context, id)
 
     def create_security_group_rule_bulk(self, context, security_group_rules):
         p = self._get_plugin_from_project(context, context.project_id)
