@@ -124,8 +124,11 @@ def get_lbaas_edge_id(context, plugin, lb_id, vip_addr, subnet_id, tenant_id,
                         vip_addr=vip_addr, subnet=subnet)
 
     gw_ip = subnet.get('gateway_ip')
-    if gw_ip:
-        plugin.nsx_v.update_routes(edge_id, gw_ip, [])
+    if gw_ip or subnet['host_routes']:
+        routes = [{'cidr': r['destination'],
+                   'nexthop': r['nexthop']} for r in
+                  subnet['host_routes']]
+        plugin.nsx_v.update_routes(edge_id, gw_ip, routes)
 
     return edge_id
 
