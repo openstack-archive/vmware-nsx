@@ -118,6 +118,7 @@ from vmware_nsx.extensions import (
     vnicindex as ext_vnic_idx)
 from vmware_nsx.extensions import dhcp_mtu as ext_dhcp_mtu
 from vmware_nsx.extensions import dns_search_domain as ext_dns_search_domain
+from vmware_nsx.extensions import housekeeper as hk_ext
 from vmware_nsx.extensions import maclearning as mac_ext
 from vmware_nsx.extensions import nsxpolicy
 from vmware_nsx.extensions import projectpluginmap
@@ -126,6 +127,7 @@ from vmware_nsx.extensions import routersize
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
 from vmware_nsx.extensions import securitygrouppolicy as sg_policy
+from vmware_nsx.plugins.common.housekeeper import housekeeper
 from vmware_nsx.plugins.common import plugin as nsx_plugin_common
 from vmware_nsx.plugins.nsx import utils as tvd_utils
 from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
@@ -172,7 +174,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                    dns_db.DNSDbMixin, nsxpolicy.NsxPolicyPluginBase,
                    vlantransparent_db.Vlantransparent_db_mixin,
                    nsx_com_az.NSXAvailabilityZonesPluginCommon,
-                   mac_db.MacLearningDbMixin):
+                   mac_db.MacLearningDbMixin,
+                   hk_ext.Housekeeper):
 
     supported_extension_aliases = ["agent",
                                    "allowed-address-pairs",
@@ -203,7 +206,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                    "l3-flavors",
                                    "flavors",
                                    "dhcp-mtu",
-                                   "mac-learning"]
+                                   "mac-learning",
+                                   "housekeeper"]
 
     __native_bulk_support = True
     __native_pagination_support = True
@@ -220,6 +224,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         floatingip=l3_db_models.FloatingIP)
     def __init__(self):
         self._is_sub_plugin = tvd_utils.is_tvd_core_plugin()
+        self.housekeeper = None
         super(NsxVPluginV2, self).__init__()
         if self._is_sub_plugin:
             extension_drivers = cfg.CONF.nsx_tvd.nsx_v_extension_drivers
@@ -347,6 +352,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         self.metadata_proxy_handler[az.name] = (
                             nsx_v_md_proxy.NsxVMetadataProxyHandler(
                                 self, az))
+
+            self.housekeeper = housekeeper.NsxvHousekeeper(
+                hk_ns='vmware_nsx.neutron.nsxv.housekeeper.jobs',
+                hk_jobs=['error_dhcp_edge'])
 
             self.init_is_complete = True
 
@@ -3274,7 +3283,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         net_res[az_def.AZ_HINTS] = az_validator.convert_az_string_to_list(
             net_db[az_def.AZ_HINTS])
 
-    def _get_availability_zone_name_by_edge(self, context, edge_id):
+    def get_availability_zone_name_by_edge(self, context, edge_id):
         az_name = nsxv_db.get_edge_availability_zone(
             context.session, edge_id)
         if az_name:
@@ -4643,3 +4652,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if not self._nsx_policy_is_hidden(policy):
                 results.append(self._nsx_policy_to_dict(policy))
         return results
+
+    def get_housekeeper(self, context, name, fields=None):
+        return self.housekeeper.get(name)
+
+    def get_housekeepers(self, context, filters=None, fields=None, sorts=None,
+                         limit=None, marker=None, page_reverse=False):
+        return self.housekeeper.list()
+
+    def update_housekeeper(self, context, name, housekeeper):
+        self.housekeeper.run(context, name)
+        return self.housekeeper.get(name)
