@@ -18,6 +18,7 @@ from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import subnet as subnet_def
 from neutron_lib import context as n_context
 from neutron_lib.plugins import directory
+from oslo_config import cfg
 from oslo_log import log as logging
 
 from neutron.db import _resource_extend as resource_extend
@@ -41,7 +42,7 @@ from neutron_lib.api import validators
 from neutron_lib import exceptions as n_exc
 
 from vmware_nsx.common import availability_zones as nsx_com_az
-from vmware_nsx.common import config  # noqa
+from vmware_nsx.common import config
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import managers as nsx_managers
 from vmware_nsx.db import (
@@ -116,6 +117,7 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
     def init_plugins(self):
         # initialize all supported plugins
         self.plugins = {}
+
         try:
             self.plugins[projectpluginmap.NsxPlugins.NSX_T] = t.NsxV3Plugin()
         except Exception as e:
@@ -141,13 +143,13 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
             msg = _("No active plugins were found")
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
-        # update the default plugin for new projects as the NSX-T
-        # TODO(asarfaty): make the default configurable?
-        if projectpluginmap.NsxPlugins.NSX_T in self.plugins:
-            self.default_plugin = projectpluginmap.NsxPlugins.NSX_T
-        else:
-            # If the NSX-T is not supported, use another one
-            self.default_plugin = self.plugins.keys()[0]
+        # update the default plugin for new projects
+        self.default_plugin = cfg.CONF.nsx_tvd.default_plugin
+        if self.default_plugin not in self.plugins:
+            msg = (_("The default plugin %s failed to start") %
+                self.default_plugin)
+            raise nsx_exc.NsxPluginException(err_msg=msg)
+
         LOG.info("NSX-TVD plugin will use %s as the default plugin",
             self.default_plugin)
 

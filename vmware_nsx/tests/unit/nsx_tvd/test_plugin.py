@@ -15,6 +15,7 @@
 
 import mock
 
+from oslo_config import cfg
 from oslo_utils import uuidutils
 
 from neutron_lib import context
@@ -37,6 +38,12 @@ class NsxTVDPluginTestCase(v_tests.NsxVPluginV2TestCase,
               plugin=PLUGIN_NAME,
               ext_mgr=None,
               service_plugins=None):
+
+        # set the default plugin
+        if self.plugin_type:
+            cfg.CONF.set_override('default_plugin', self.plugin_type,
+                                  group="nsx_tvd")
+
         super(NsxTVDPluginTestCase, self).setUp(
             plugin=plugin,
             ext_mgr=ext_mgr)
@@ -65,13 +72,14 @@ class NsxTVDPluginTestCase(v_tests.NsxVPluginV2TestCase,
         self.assertTrue(self.core_plugin.is_tvd_plugin())
         self.assertIsNotNone(self.sub_plugin)
 
-    def _test_call_create(self, obj_name, calls_count=1):
+    def _test_call_create(self, obj_name, calls_count=1, project_id=None):
         method_name = 'create_%s' % obj_name
         func_to_call = getattr(self.core_plugin, method_name)
-
+        if not project_id:
+            project_id = self.project_id
         with mock.patch.object(self.sub_plugin, method_name) as sub_func:
             func_to_call(self.context,
-                         {obj_name: {'tenant_id': self.project_id}})
+                         {obj_name: {'tenant_id': project_id}})
             self.assertEqual(calls_count, sub_func.call_count)
 
     def _test_call_create_with_net_id(self, obj_name, field_name='network_id',
@@ -325,6 +333,10 @@ class TestPluginWithDefaultPlugin(NsxTVDPluginTestCase):
                               return_value={'tenant_id': self.project_id}):
             self.core_plugin.disassociate_floatingips(self.context, port_id)
             sub_func.assert_called_once()
+
+    def test_new_user(self):
+        project_id = _uuid()
+        self._test_call_create('network', project_id=project_id)
 
 
 class TestPluginWithNsxv(TestPluginWithDefaultPlugin):

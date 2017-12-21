@@ -21,6 +21,7 @@ from neutron.conf.db import l3_hamode_db
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.dvs import dvs_utils
+from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.extensions import routersize
 
 LOG = logging.getLogger(__name__)
@@ -835,6 +836,11 @@ nsx_tvd_opts = [
                 help=_("An ordered list of DVS extension driver "
                        "entrypoints to be loaded from the "
                        "vmware_nsx.extension_drivers namespace.")),
+    cfg.StrOpt('default_plugin',
+               default=projectpluginmap.NsxPlugins.NSX_T,
+               choices=projectpluginmap.VALID_TYPES,
+               help=_("The default plugin that will be used for new projects "
+                      "that were not added to the projects plugin mapping.")),
 ]
 
 # Register the configuration options
