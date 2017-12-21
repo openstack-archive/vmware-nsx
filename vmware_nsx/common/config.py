@@ -707,7 +707,7 @@ nsxv_opts = [
                 help=_("If False, different tenants will not use the same "
                        "DHCP edge or router edge.")),
     cfg.ListOpt('housekeeping_jobs',
-                default=['error_dhcp_edge'],
+                default=['error_dhcp_edge', 'error_backup_edge'],
                 help=_("List of the enabled housekeeping jobs")),
     cfg.BoolOpt('housekeeping_readonly',
                 default=True,

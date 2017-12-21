@@ -60,3 +60,6 @@ error_dhcp_edge: scans for DHCP Edge appliances which are in ERROR state.
 When in non-readonly mode, the job will attempt recovery of the DHCP edges by
 removing stale elements from the Neutron DB and reconfigure the interfaces at
 the backend when required.
+
+error_backup_edge: scans from backup Edge appliances which are in ERROR state.
+When in non-readonly mode, the job will reset the Edge appliance configuration.

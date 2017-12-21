@@ -355,7 +355,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
             self.housekeeper = housekeeper.NsxvHousekeeper(
                 hk_ns='vmware_nsx.neutron.nsxv.housekeeper.jobs',
-                hk_jobs=['error_dhcp_edge'])
+                hk_jobs=cfg.CONF.nsxv.housekeeping_jobs)
 
             self.init_is_complete = True
 
