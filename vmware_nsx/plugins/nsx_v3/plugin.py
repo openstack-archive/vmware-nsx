@@ -3381,18 +3381,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return ret_val
 
-    def get_router(self, context, id, fields=None):
-        with db_api.context_manager.reader.using(context):
-            # Get router from Neutron database
-            router = self._get_router(context, id)
-            # Don't do field selection here otherwise we won't be able to add
-            # provider networks fields
-            rtr = self._make_router_dict(router)
-            rtr['availability_zones'] = self.get_router_availability_zones(rtr)
-        return db_utils.resource_fields(rtr, fields)
-
     def get_router_availability_zones(self, router):
         """Return availability zones which a router belongs to."""
+        # add the hints to the structure first
+        l3_attrs_db.ExtraAttributesMixin._extend_extra_router_dict(
+            router, router)
+        # get the availability zones from the hints
         return [self.get_router_az(router).name]
 
     def _validate_ext_routes(self, context, router_id, gw_info, new_routes):
@@ -4368,6 +4362,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         for az in self._availability_zones_data.list_availability_zones():
             # Add this availability zone as a network resource
             result[(az, 'network')] = True
+            result[(az, 'router')] = True
         return result
 
     def _validate_availability_zones_forced(self, context, resource_type,
