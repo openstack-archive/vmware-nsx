@@ -31,6 +31,7 @@ from vmware_nsx.common import locking
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.extensions import edge_service_gateway_bgp_peer as ext_esg_peer
+from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as vcns_exc
 
 LOG = logging.getLogger(__name__)
@@ -87,6 +88,12 @@ class NSXvBgpDriver(object):
         super(NSXvBgpDriver, self).__init__()
         self._plugin = plugin
         self._core_plugin = directory.get_plugin()
+        if self._core_plugin.is_tvd_plugin():
+            self._core_plugin = self._core_plugin.get_plugin_by_type(
+                projectpluginmap.NsxPlugins.NSX_V)
+        if not self._core_plugin:
+            err_msg = _("NSXv BGP cannot work without the NSX-V core plugin")
+            raise n_exc.InvalidInput(error_message=err_msg)
         self._nsxv = self._core_plugin.nsx_v
         self._edge_manager = self._core_plugin.edge_manager
 
@@ -99,7 +106,7 @@ class NSXvBgpDriver(object):
         if not edge_binding:
             return None, None
 
-        # Idicates which routes should be advertised - connected or static.
+        # Indicates which routes should be advertised - connected or static.
         advertise_static_routes = False
         if edge_binding['edge_type'] != nsxv_constants.SERVICE_EDGE:
             # Distributed router
