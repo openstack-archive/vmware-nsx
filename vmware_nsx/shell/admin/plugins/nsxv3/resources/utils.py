@@ -16,6 +16,7 @@
 from oslo_config import cfg
 
 from neutron.db import db_base_plugin_v2
+from neutron.db import l3_dvr_db  # noqa
 from neutron import manager
 from neutron_lib import context
 from neutron_lib.plugins import constants as const
