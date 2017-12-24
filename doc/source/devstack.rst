@@ -210,3 +210,85 @@ Configure the service provider::
     [[post-config|$NEUTRON_LBAAS_CONF]]
     [service_providers]
     service_provider = LOADBALANCERV2:VMWareEdge:neutron_lbaas.drivers.vmware.edge_driver_v2.EdgeLoadBalancerDriverV2:default
+
+NSX-TVD
+-------
+
+LBaaS v2 Driver
+~~~~~~~~~~~~~~~
+
+Add lbaas repo as an external repository and configure following flags in ``local.conf``::
+
+    [[local]|[localrc]]
+    enable_plugin neutron-lbaas https://git.openstack.org/openstack/neutron-lbaas
+    enable_service q-lbaasv2
+
+Configure the service provider::
+    [[post-config|$NEUTRON_LBAAS_CONF]]
+    [service_providers]
+    service_provider = LOADBALANCERV2:VMWareEdge:neutron_lbaas.drivers.vmware.edge_driver_v2.EdgeLoadBalancerDriverV2:default
+
+FWaaS (V1) Driver:
+~~~~~~~~~~~~~
+
+Add neutron-fwaas repo as an external repository and configure following flags in ``local.conf``::
+
+    [[local|localrc]]
+    enable_plugin neutron-fwaas https://git.openstack.org/openstack/neutron-fwaas
+    ENABLED_SERVICES+=,q-fwaas
+    Q_SERVICE_PLUGIN_CLASSES=neutron_fwaas.services.firewall.fwaas_plugin.FirewallPlugin
+
+    [[post-config|$NEUTRON_CONF]]
+    [fwaas]
+    enabled = True
+    driver = vmware_nsxtvd_edge_v1
+
+
+FWaaS (V2) Driver
+~~~~~~~~~~~~~~~~~
+
+Add neutron-fwaas repo as an external repository and configure following flags in ``local.conf``::
+
+    [[local|localrc]]
+    enable_plugin neutron-fwaas https://git.openstack.org/openstack/neutron-fwaas
+    ENABLED_SERVICES+=,q-fwaas-v2
+    Q_SERVICE_PLUGIN_CLASSES=neutron_fwaas.services.firewall.fwaas_plugin_v2.FirewallPluginV2
+
+    [[post-config|$NEUTRON_CONF]]
+    [fwaas]
+    enabled = True
+    driver = vmware_nsxtvd_edge_v2
+
+L2GW Driver
+~~~~~~~~~~~
+
+Add networking-l2gw repo as an external repository and configure following flags in ``local.conf``::
+
+     [[local|localrc]]
+     enable_plugin networking-l2gw https://github.com/openstack/networking-l2gw
+     ENABLED_SERVICES+=l2gw-plugin
+     NETWORKING_L2GW_SERVICE_DRIVER=L2GW:vmware-nsx-l2gw:vmware_nsx.services.l2gateway.nsx_tvd.driver.NsxTvdL2GatewayDriver:default
+     DEFAULT_BRIDGE_CLUSTER_UUID=
+
+QoS Driver
+~~~~~~~~~~
+
+Enable the qos in ``local.conf``::
+
+    [[local|localrc]]
+    ENABLED_SERVICES+=,q-qos
+    Q_SERVICE_PLUGIN_CLASSES=neutron.services.qos.qos_plugin.QoSPlugin
+
+Neutron dynamic routing plugin (bgp)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Add neutron-dynamic-routing repo as an external repository and configure following flags in ``local.conf``::
+
+    [[local|localrc]]
+    enable_plugin neutron-dynamic-routing https://git.openstack.org/openstack/neutron-dynamic-routing
+    DR_MODE=dr_plugin
+    BGP_PLUGIN=vmware_nsx.services.dynamic_routing.bgp_plugin.NSXBgpPlugin
+
+    [[post-config|$NEUTRON_CONF]]
+    [DEFAULT]
+    api_extensions_path = $DEST/neutron-dynamic-routing/neutron_dynamic_routing/extensions
