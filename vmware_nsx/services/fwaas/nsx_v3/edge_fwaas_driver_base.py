@@ -52,6 +52,9 @@ class CommonEdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
             if self._core_plugin.is_tvd_plugin():
                 self._core_plugin = self._core_plugin.get_plugin_by_type(
                     projectpluginmap.NsxPlugins.NSX_T)
+                if not self._core_plugin:
+                    # The nsx-t plugin was not initialized
+                    return
             # make sure plugin init was completed
             if not self._core_plugin.init_is_complete:
                 self._core_plugin.init_complete(None, None, {})
@@ -70,7 +73,8 @@ class CommonEdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
         return self.nsxlib.logical_router
 
     def check_backend_version(self, resource, event, trigger, **kwargs):
-        if not self.nsxlib.feature_supported(consts.FEATURE_ROUTER_FIREWALL):
+        if (self.core_plugin and
+            not self.nsxlib.feature_supported(consts.FEATURE_ROUTER_FIREWALL)):
             # router firewall is not supported
             LOG.warning("FWaaS is not supported by the NSX backend (version "
                         "%s): Router firewall is not supported",

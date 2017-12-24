@@ -575,8 +575,8 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
         mappings = nsx_db.get_project_plugin_mappings(context.session)
         return [self._get_project_plugin_dict(data) for data in mappings]
 
-    def _get_plugin_from_project(self, context, project_id):
-        """Get the correct plugin for this project.
+    def get_plugin_type_from_project(self, context, project_id):
+        """Get the correct plugin type for this project.
 
         Look for the project in the DB.
         If not there - add an entry with the default plugin
@@ -597,4 +597,13 @@ class NsxTVDPlugin(addr_pair_db.AllowedAddressPairsMixin,
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
         LOG.debug("Using %s plugin for project %s", plugin_type, project_id)
+        return plugin_type
+
+    def _get_plugin_from_project(self, context, project_id):
+        """Get the correct plugin for this project.
+
+        Look for the project in the DB.
+        If not there - add an entry with the default plugin
+        """
+        plugin_type = self.get_plugin_type_from_project(context, project_id)
         return self.plugins[plugin_type]

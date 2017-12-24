@@ -27,7 +27,6 @@ from oslo_log import log as logging
 
 from vmware_nsx.common import locking
 from vmware_nsx.common import nsxv_constants
-from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.extensions import edge_service_gateway_bgp_peer as ext_esg
 from vmware_nsx.extensions import projectpluginmap
@@ -97,22 +96,8 @@ class NSXBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
         # Check if the current project id has a matching driver
         # Currently only NSX-V is supported
         if self._core_plugin.is_tvd_plugin():
-            mapping = nsx_db.get_project_plugin_mapping(
-                context.session, project)
-            if mapping:
-                plugin_type = mapping['plugin']
-            else:
-                msg = (_("Couldn't find the plugin project %s is "
-                         "using") % project)
-                raise n_exc.InvalidInput(error_message=msg)
-
-            # make sure the core plugin is supported
-            if not self._core_plugin.get_plugin_by_type(plugin_type):
-                msg = (_("Plugin %(plugin)s for project %(project)s is not "
-                         "supported by the core plugin") % {
-                        'project': project,
-                        'plugin': plugin_type})
-                raise n_exc.InvalidInput(error_message=msg)
+            plugin_type = self._core_plugin.get_plugin_type_from_project(
+                context, project)
         else:
             plugin_type = self._core_plugin.plugin_type()
 

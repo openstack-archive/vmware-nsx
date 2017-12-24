@@ -17,11 +17,10 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
 from neutron_fwaas.services.firewall.drivers import fwaas_base_v2
-from neutron_lib import context as n_context
 from neutron_lib.exceptions import firewall_v2 as exceptions
 
-from vmware_nsx.db import db as nsx_db
 from vmware_nsx.extensions import projectpluginmap
+from vmware_nsx.plugins.nsx import utils as tvd_utils
 from vmware_nsx.services.fwaas.nsx_v3 import edge_fwaas_driver_v2 as t_driver
 
 LOG = logging.getLogger(__name__)
@@ -40,24 +39,20 @@ class EdgeFwaasTVDriverV2(fwaas_base_v2.FwaasDriverBase):
 
         # supported drivers (Only NSX-T):
         self.drivers = {}
-        self.drivers[projectpluginmap.NsxPlugins.NSX_T] = (
-            t_driver.EdgeFwaasV3DriverV2())
+        try:
+            self.drivers[projectpluginmap.NsxPlugins.NSX_T] = (
+                t_driver.EdgeFwaasV3DriverV2())
+        except Exception:
+            LOG.warning("EdgeFwaasTVDriverV2 failed to initialize the NSX-T "
+                        "driver")
+            self.drivers[projectpluginmap.NsxPlugins.NSX_T] = None
 
     def get_T_driver(self):
         return self.drivers[projectpluginmap.NsxPlugins.NSX_T]
 
     def _get_driver_for_project(self, project):
-        context = n_context.get_admin_context()
-        mapping = nsx_db.get_project_plugin_mapping(
-            context.session, project)
-        if mapping:
-            plugin_type = mapping['plugin']
-        else:
-            LOG.error("Didn't find the plugin project %s is using", project)
-            raise exceptions.FirewallInternalDriverError(
-                driver=self.driver_name)
-
-        if plugin_type not in self.drivers:
+        plugin_type = tvd_utils.get_tvd_plugin_type_for_project(project)
+        if not self.drivers.get(plugin_type):
             LOG.error("Project %(project)s with plugin %(plugin)s has no "
                       "support for FWaaS V2", {'project': project,
                                                'plugin': plugin_type})
