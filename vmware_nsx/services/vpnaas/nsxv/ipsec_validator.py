@@ -79,15 +79,48 @@ class IPsecValidator(vpn_validator.VpnReferenceValidator):
                             "VSE!")
                 break
 
-    def validate_ipsec_conn(self, context, ipsec_site_conn):
-        ike_policy_id = ipsec_site_conn['ikepolicy_id']
-        ipsec_policy_id = ipsec_site_conn['ipsecpolicy_id']
-        ipsecpolicy = self.vpn_plugin.get_ipsecpolicy(context,
-                                                      ipsec_policy_id)
-        ikepolicy = self.vpn_plugin.get_ikepolicy(context,
-                                                  ike_policy_id)
-        self.validate_ikepolicy_version(ikepolicy)
-        self.validate_ikepolicy_pfs(ikepolicy)
-        self.validate_encryption_algorithm(ikepolicy)
-        self.validate_ipsec_policy(context, ipsecpolicy)
-        self.validate_policies_matching_algorithms(ikepolicy, ipsecpolicy)
+    def _is_shared_router(self, router):
+        return router.get('router_type') == nsxv_constants.SHARED
+
+    def _validate_router(self, context, router_id):
+        # Only support distributed and exclusive router type
+        router = self.core_plugin.get_router(context, router_id)
+        if self._is_shared_router(router):
+            msg = _("Router type is not supported for VPN service, only "
+                    "support distributed and exclusive router")
+            raise nsxv_exc.NsxVpnValidationError(details=msg)
+
+    def validate_vpnservice(self, context, vpnservice):
+        """Called upon create/update of a service"""
+
+        # Call general validations
+        super(IPsecValidator, self).validate_vpnservice(
+            context, vpnservice)
+
+        # Call specific NSX validations
+        self._validate_router(context, vpnservice['router_id'])
+
+        if not vpnservice['subnet_id']:
+            # we currently do not support multiple subnets so a subnet must
+            # be defined
+            msg = _("Subnet must be defined in a service")
+            raise nsxv_exc.NsxVpnValidationError(details=msg)
+
+    def validate_ipsec_site_connection(self, context, ipsec_site_conn):
+        ike_policy_id = ipsec_site_conn.get('ikepolicy_id')
+        if ike_policy_id:
+            ikepolicy = self.vpn_plugin.get_ikepolicy(context,
+                                                      ike_policy_id)
+
+            self.validate_ikepolicy_version(ikepolicy)
+            self.validate_ikepolicy_pfs(ikepolicy)
+            self.validate_encryption_algorithm(ikepolicy)
+
+        ipsec_policy_id = ipsec_site_conn.get('ipsecpolicy_id')
+        if ipsec_policy_id:
+            ipsecpolicy = self.vpn_plugin.get_ipsecpolicy(context,
+                                                          ipsec_policy_id)
+            self.validate_ipsec_policy(context, ipsecpolicy)
+
+        if ike_policy_id and ipsec_policy_id:
+            self.validate_policies_matching_algorithms(ikepolicy, ipsecpolicy)

@@ -14,10 +14,10 @@
 #    under the License.
 
 import netaddr
-from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
 from neutron_vpnaas.services.vpn import service_drivers
 from oslo_log import log as logging
+from oslo_utils import excutils
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsxv_exc
@@ -46,9 +46,6 @@ class NSXvIPsecVpnDriver(service_drivers.VpnDriver):
     @property
     def service_type(self):
         return IPSEC
-
-    def _is_shared_router(self, router):
-        return router.get('router_type') == nsxv_constants.SHARED
 
     def _get_router_edge_id(self, context, vpnservice_id):
         vpnservice = self.service_plugin._get_vpnservice(context,
@@ -122,7 +119,7 @@ class NSXvIPsecVpnDriver(service_drivers.VpnDriver):
                 peer_subnets = site['peerSubnets']['subnets']
                 local_subnets = site['localSubnets']['subnets']
                 ipsec_vpn_fw_rules.append({
-                    'name': 'VPN ' + site['name'],
+                    'name': 'VPN ' + site.get('name', 'rule'),
                     'action': 'allow',
                     'enabled': True,
                     'source_ip_address': peer_subnets,
@@ -155,8 +152,6 @@ class NSXvIPsecVpnDriver(service_drivers.VpnDriver):
     def create_ipsec_site_connection(self, context, ipsec_site_connection):
         LOG.debug('Creating ipsec site connection %(conn_info)s.',
                   {"conn_info": ipsec_site_connection})
-
-        self.validator.validate_ipsec_conn(context, ipsec_site_connection)
         new_ipsec = self._convert_ipsec_conn(context, ipsec_site_connection)
         vpnservice_id = ipsec_site_connection['vpnservice_id']
         edge_id = self._get_router_edge_id(context, vpnservice_id)[1]
@@ -314,16 +309,13 @@ class NSXvIPsecVpnDriver(service_drivers.VpnDriver):
 
     def create_vpnservice(self, context, vpnservice):
         LOG.debug('Creating VPN service %(vpn)s', {'vpn': vpnservice})
-        # Only support distributed and exclusive router type
-        router_id = vpnservice['router_id']
         vpnservice_id = vpnservice['id']
-        router = self._core_plugin.get_router(context, router_id)
-        if self._is_shared_router(router):
-            # Rolling back change on the neutron
-            self.service_plugin.delete_vpnservice(context, vpnservice_id)
-            msg = _("Router type is not supported for VPN service, only "
-                    "support distributed and exclusive router")
-            raise n_exc.InvalidInput(error_message=msg)
+        try:
+            self.validator.validate_vpnservice(context, vpnservice)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                # Rolling back change on the neutron
+                self.service_plugin.delete_vpnservice(context, vpnservice_id)
 
         vpnservice = self.service_plugin._get_vpnservice(context,
                                                          vpnservice_id)
