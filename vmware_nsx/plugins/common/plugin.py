@@ -320,6 +320,15 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
         return [self._make_subnet_dict(subnet_obj) for subnet_obj in
                 self._get_subnets_by_network(context.elevated(), network_id)]
 
+    def _validate_routes(self, context, router_id, routes):
+        super(NsxPluginBase, self)._validate_routes(
+            context, router_id, routes)
+        # do not allow adding a default route. NSX-v/v3 don't support it
+        for route in routes:
+            if route.get('destination') == '0.0.0.0/0':
+                msg = _("Cannot set a default route using static routes")
+                raise n_exc.BadRequest(resource='router', msg=msg)
+
 
 # Register the callback
 def _validate_network_has_subnet(resource, event, trigger, **kwargs):
