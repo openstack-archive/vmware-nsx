@@ -280,3 +280,12 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
         if validators.is_attr_set(fixed_ip_list) and len(fixed_ip_list) > 1:
             msg = _('Exceeded maximum amount of fixed ips per port')
             raise n_exc.InvalidInput(error_message=msg)
+
+    def _validate_routes(self, context, router_id, routes):
+        super(NsxPluginBase, self)._validate_routes(
+            context, router_id, routes)
+        # do not allow adding a default route. NSX-v/v3 don't support it
+        for route in routes:
+            if route.get('destination') == '0.0.0.0/0':
+                msg = _("Cannot set a default route using static routes")
+                raise n_exc.BadRequest(resource='router', msg=msg)
