@@ -278,14 +278,27 @@ class TestNsxv3AdminUtils(AbstractTestAdminUtils,
         """
         args = ["dhcp_profile_uuid=e5b9b249-0034-4729-8ab6-fe4dacaa3a12",
                 "metadata_proxy_uuid=e5b9b249-0034-4729-8ab6-fe4dacaa3a12",
+                "nsx-id=e5b9b249-0034-4729-8ab6-fe4dacaa3a12",
+                "availability-zone=default",
+                "server-ip=1.1.1.1"
                 ]
         # Create some neutron objects for the utilities to run on
+        self._create_router()
         with self._create_l3_ext_network() as network:
             with self.subnet(network=network) as subnet:
                 with self.port(subnet=subnet):
                     # Run all utilities with backend objects
                     self._test_resources_with_args(
                         resources.nsxv3_resources, args)
+
+    def _create_router(self):
+        tenant_id = uuidutils.generate_uuid()
+        data = {'router': {'tenant_id': tenant_id}}
+        data['router']['name'] = 'dummy'
+        data['router']['admin_state_up'] = True
+
+        edgeapi = nsxv_utils.NeutronDbClient()
+        return self._plugin.create_router(edgeapi.context, data)
 
 
 class TestNsxtvdAdminUtils(AbstractTestAdminUtils):
