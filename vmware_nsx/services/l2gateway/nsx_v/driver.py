@@ -28,6 +28,7 @@ from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import nsxv_db
+from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
 
@@ -41,10 +42,16 @@ class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
     def __init__(self, plugin):
         super(NsxvL2GatewayDriver, self).__init__()
         self._plugin = plugin
+        self.__core_plugin = None
 
     @property
     def _core_plugin(self):
-        return directory.get_plugin()
+        if not self.__core_plugin:
+            self.__core_plugin = directory.get_plugin()
+            if self.__core_plugin.is_tvd_plugin():
+                self.__core_plugin = self.__core_plugin.get_plugin_by_type(
+                    projectpluginmap.NsxPlugins.NSX_V)
+        return self.__core_plugin
 
     @property
     def _nsxv(self):
