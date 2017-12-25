@@ -3899,7 +3899,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
             vpn_plugin = directory.get_plugin(plugin_const.VPN)
             if vpn_plugin:
-                vpn_driver = vpn_plugin.ipsec_driver
+                vpn_driver = vpn_plugin.drivers[vpn_plugin.default_provider]
                 vpn_rules = (
                     vpn_driver._generate_ipsecvpn_firewall_rules(edge_id))
                 fw_rules.extend(vpn_rules)
