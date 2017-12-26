@@ -77,7 +77,7 @@ elif [[ $Q_PLUGIN == 'vmware_nsx_tvd' ]]; then
         init_vmware_nsx_tvd
     elif [[ "$1" == "unstack" ]]; then
         db_connection=$(iniget $NEUTRON_CONF database connection)
-        stop_vmware_nsx_v3
+        stop_vmware_nsx_tvd
         # only clean up when q-svc (legacy support) or neutron-api is enabled
         if is_service_enabled q-svc || is_service_enabled neutron-api; then
             NSX_MANAGER=${NSX_MANAGERS:-$NSX_MANAGER}
