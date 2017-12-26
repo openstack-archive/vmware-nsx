@@ -16,7 +16,6 @@
 import uuid
 
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
-from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.exceptions import allowedaddresspairs as addr_exc
 from neutron_lib.exceptions import port_security as psec_exc
@@ -133,8 +132,8 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         return False
 
     @staticmethod
-    @resource_extend.extends([port_def.COLLECTION_NAME])
     def _extend_port_dict_binding(result, portdb):
+        LOG.error("DEBUG ADIT DVS _extend_port_dict_binding")
         result[pbin.VIF_TYPE] = nsx_constants.VIF_TYPE_DVS
         port_attr = portdb.get('nsx_port_attributes')
         if port_attr:
@@ -432,6 +431,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         # latest db model for the extension functions
         port_model = self._get_port(context, port_data['id'])
         resource_extend.apply_funcs('ports', port_data, port_model)
+        self._extend_port_dict_binding(port_data, port_model)
 
         self.handle_port_dhcp_access(context, port_data, action='create_port')
         return port_data
@@ -506,6 +506,16 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             super(NsxDvsV2, self).delete_port(context, id)
         self.handle_port_dhcp_access(
             context, neutron_db_port, action='delete_port')
+
+    def get_port(self, context, id, fields=None):
+        port = super(NsxDvsV2, self).get_port(context, id, fields=None)
+        if 'id' in port:
+            port_model = self._get_port(context, port['id'])
+            resource_extend.apply_funcs('ports', port, port_model)
+            self._extend_port_dict_binding(port, port_model)
+        self._extend_get_port_dict_qos_and_binding(context, port)
+        self._remove_provider_security_groups_from_list(port)
+        return db_utils.resource_fields(port, fields)
 
     def create_router(self, context, router):
         # DVS backend cannot support logical router
