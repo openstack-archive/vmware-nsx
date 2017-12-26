@@ -29,6 +29,7 @@ DVS_XTRACE=$(set +o | grep xtrace)
 set +o xtrace
 
 source $TOP_DIR/lib/neutron_plugins/ovs_base
+source $dir/lib/nsx_common
 
 DVS_BRIDGE=${DVS_BRIDGE:-br-dvs}
 DVS_INTERFACE=${DVS_INTERFACE:-eth1}
@@ -95,12 +96,7 @@ function neutron_plugin_configure_plugin_agent {
 }
 
 function neutron_plugin_configure_service {
-    iniset /$Q_PLUGIN_CONF_FILE dvs host_ip "$VMWAREAPI_IP"
-    iniset /$Q_PLUGIN_CONF_FILE dvs host_username "$VMWAREAPI_USER"
-    iniset /$Q_PLUGIN_CONF_FILE dvs host_password "$VMWAREAPI_PASSWORD"
-    iniset /$Q_PLUGIN_CONF_FILE dvs ca_file "$VMWAREAPI_CA_FILE"
-    iniset /$Q_PLUGIN_CONF_FILE dvs insecure "$VMWAREAPI_INSECURE"
-    iniset /$Q_PLUGIN_CONF_FILE dvs dvs_name "$VMWARE_DVS_NAME"
+    dvs_configure_service $VMWAREAPI_IP $VMWAREAPI_USER $VMWAREAPI_PASSWORD $VMWAREAPI_CA_FILE $VMWAREAPI_INSECURE $VMWARE_DVS_NAME
     iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_extension_drivers vmware_dvs_dns
 }
 
