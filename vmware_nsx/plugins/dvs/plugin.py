@@ -506,14 +506,32 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         self.handle_port_dhcp_access(
             context, neutron_db_port, action='delete_port')
 
+    def get_ports(self, context, filters=None, fields=None,
+                  sorts=None, limit=None, marker=None,
+                  page_reverse=False):
+        filters = filters or {}
+        with db_api.context_manager.reader.using(context):
+            ports = (
+                super(NsxDvsV2, self).get_ports(
+                      context, filters, fields, sorts,
+                      limit, marker, page_reverse))
+            # Add port extensions
+            for port in ports:
+                if 'id' in port:
+                    port_model = self._get_port(context, port['id'])
+                    resource_extend.apply_funcs('ports', port, port_model)
+                    self._extend_port_dict_binding(port, port_model)
+        return (ports if not fields else
+                [db_utils.resource_fields(port, fields) for port in ports])
+
     def get_port(self, context, id, fields=None):
         port = super(NsxDvsV2, self).get_port(context, id, fields=None)
         if 'id' in port:
             port_model = self._get_port(context, port['id'])
             resource_extend.apply_funcs('ports', port, port_model)
             self._extend_port_dict_binding(port, port_model)
-        self._extend_get_port_dict_qos_and_binding(context, port)
-        self._remove_provider_security_groups_from_list(port)
+        else:
+            port[pbin.VIF_TYPE] = nsx_constants.VIF_TYPE_DVS
         return db_utils.resource_fields(port, fields)
 
     def create_router(self, context, router):
