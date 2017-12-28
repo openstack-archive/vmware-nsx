@@ -16,10 +16,12 @@
 import contextlib
 
 import mock
+
+from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib import context
-from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
 from neutron_vpnaas.db.vpn import vpn_models  # noqa
+from neutron_vpnaas.extensions import vpnaas
 from oslo_utils import uuidutils
 
 from vmware_nsx.common import exceptions as nsxv_exc
@@ -66,7 +68,6 @@ class TestVpnaasDriver(test_plugin.NsxVPluginV2TestCase):
         router = self.l3plugin.create_router(self.context, request)
         yield router
 
-    @mock.patch('%s.validate_ipsec_conn' % VALI_PATH)
     @mock.patch('%s._convert_ipsec_conn' % DRIVER_PATH)
     @mock.patch('%s._get_router_edge_id' % DRIVER_PATH)
     @mock.patch('%s._generate_new_sites' % DRIVER_PATH)
@@ -77,15 +78,12 @@ class TestVpnaasDriver(test_plugin.NsxVPluginV2TestCase):
                                           mock_update_status,
                                           mock_update_ipsec, mock_gen_new,
                                           mock_get_id,
-                                          mock_conv_ipsec,
-                                          mock_val_conn):
+                                          mock_conv_ipsec):
         mock_get_id.return_value = (FAKE_ROUTER_ID, FAKE_EDGE_ID)
         mock_conv_ipsec.return_value = FAKE_IPSEC_VPN_SITE
         mock_gen_new.return_value = FAKE_IPSEC_VPN_SITE
         self.driver.create_ipsec_site_connection(self.context,
                                                  FAKE_IPSEC_CONNECTION)
-        mock_val_conn.assert_called_with(self.context,
-                                         FAKE_IPSEC_CONNECTION)
         mock_conv_ipsec.assert_called_with(self.context,
                                            FAKE_IPSEC_CONNECTION)
         mock_get_id.assert_called_with(self.context, FAKE_VPNSERVICE_ID)
@@ -100,7 +98,6 @@ class TestVpnaasDriver(test_plugin.NsxVPluginV2TestCase):
             FAKE_IPSEC_CONNECTION["id"],
             "ACTIVE")
 
-    @mock.patch('%s.validate_ipsec_conn' % VALI_PATH)
     @mock.patch('%s._convert_ipsec_conn' % DRIVER_PATH)
     @mock.patch('%s._get_router_edge_id' % DRIVER_PATH)
     @mock.patch('%s._generate_new_sites' % DRIVER_PATH)
@@ -110,8 +107,7 @@ class TestVpnaasDriver(test_plugin.NsxVPluginV2TestCase):
                                                mock_update_status,
                                                mock_update_ipsec,
                                                mock_gen_new, mock_get_id,
-                                               mock_conv_ipsec,
-                                               mock_val_conn):
+                                               mock_conv_ipsec):
         mock_get_id.return_value = (FAKE_ROUTER_ID, FAKE_EDGE_ID)
         mock_conv_ipsec.return_value = FAKE_IPSEC_VPN_SITE
         mock_gen_new.return_value = FAKE_IPSEC_VPN_SITE
@@ -120,7 +116,6 @@ class TestVpnaasDriver(test_plugin.NsxVPluginV2TestCase):
         self.assertRaises(nsxv_exc.NsxPluginException,
                           self.driver.create_ipsec_site_connection,
                           self.context, FAKE_IPSEC_CONNECTION)
-        mock_val_conn.assert_called_with(self.context, FAKE_IPSEC_CONNECTION)
         mock_conv_ipsec.assert_called_with(self.context, FAKE_IPSEC_CONNECTION)
         mock_get_id.assert_called_with(self.context, FAKE_VPNSERVICE_ID)
         mock_gen_new.assert_called_with(FAKE_EDGE_ID, FAKE_IPSEC_VPN_SITE)
@@ -133,7 +128,6 @@ class TestVpnaasDriver(test_plugin.NsxVPluginV2TestCase):
             FAKE_IPSEC_CONNECTION["id"],
             "ERROR")
 
-    @mock.patch('%s.validate_ipsec_conn' % VALI_PATH)
     @mock.patch('%s._convert_ipsec_conn' % DRIVER_PATH)
     @mock.patch('%s._get_router_edge_id' % DRIVER_PATH)
     @mock.patch('%s._generate_new_sites' % DRIVER_PATH)
@@ -142,7 +136,7 @@ class TestVpnaasDriver(test_plugin.NsxVPluginV2TestCase):
     @mock.patch('%s._update_firewall_rules' % DRIVER_PATH)
     def test_update_fw_fail(self, mock_update_fw, mock_update_status,
                             mock_update_ipsec, mock_gen_new,
-                            mock_get_id, mock_conv_ipsec, mock_val_conn):
+                            mock_get_id, mock_conv_ipsec):
         mock_get_id.return_value = (FAKE_ROUTER_ID, FAKE_EDGE_ID)
         mock_conv_ipsec.return_value = FAKE_IPSEC_VPN_SITE
         mock_gen_new.return_value = FAKE_IPSEC_VPN_SITE
@@ -151,7 +145,6 @@ class TestVpnaasDriver(test_plugin.NsxVPluginV2TestCase):
         self.assertRaises(nsxv_exc.NsxPluginException,
                           self.driver.create_ipsec_site_connection,
                           self.context, FAKE_IPSEC_CONNECTION)
-        mock_val_conn.assert_called_with(self.context, FAKE_IPSEC_CONNECTION)
         mock_conv_ipsec.assert_called_with(self.context, FAKE_IPSEC_CONNECTION)
         mock_get_id.assert_called_with(self.context, FAKE_VPNSERVICE_ID)
         mock_gen_new.assert_called_with(FAKE_EDGE_ID, FAKE_IPSEC_VPN_SITE)
@@ -246,10 +239,97 @@ class TestVpnaasDriver(test_plugin.NsxVPluginV2TestCase):
             FAKE_IPSEC_CONNECTION["id"],
             "ERROR")
 
-    def test_create_vpn_service_on_shared_router(self):
-        with self.router(router_type='shared') as router, self.subnet():
+    def test_create_vpn_service_legal(self):
+        """Create a legal vpn service"""
+        # create an external network with a subnet, and an exclusive router
+        providernet_args = {extnet_apidef.EXTERNAL: True}
+        with self.network(name='ext-net',
+                          providernet_args=providernet_args,
+                          arg_list=(extnet_apidef.EXTERNAL, )) as ext_net,\
+            self.subnet(ext_net),\
+            self.router(router_type='exclusive',
+                        external_gateway_info={'network_id':
+                            ext_net['network']['id']}) as router,\
+            self.subnet() as sub:
+            # add an interface to the router
+            self.l3plugin.add_router_interface(
+                self.context,
+                router['id'],
+                {'subnet_id': sub['subnet']['id']})
+            # create the service
             vpnservice = {'router_id': router['id'],
-                          'id': _uuid()}
-            self.assertRaises(n_exc.InvalidInput,
+                          'id': _uuid(),
+                          'subnet_id': sub['subnet']['id']}
+            with mock.patch.object(self.driver, '_get_gateway_ips',
+                                   return_value=(None, None)):
+                self.driver.create_vpnservice(self.context, vpnservice)
+
+    def test_create_vpn_service_on_shared_router(self):
+        """Creating a service with shared router is not allowed"""
+        # create an external network with a subnet, and a shared router
+        providernet_args = {extnet_apidef.EXTERNAL: True}
+        with self.network(name='ext-net',
+                          providernet_args=providernet_args,
+                          arg_list=(extnet_apidef.EXTERNAL, )) as ext_net,\
+            self.subnet(ext_net),\
+            self.router(router_type='shared',
+                        external_gateway_info={'network_id':
+                            ext_net['network']['id']}) as router,\
+            self.subnet() as sub:
+            # add an interface to the router
+            self.l3plugin.add_router_interface(
+                self.context,
+                router['id'],
+                {'subnet_id': sub['subnet']['id']})
+            # create the service
+            vpnservice = {'router_id': router['id'],
+                          'id': _uuid(),
+                          'subnet_id': sub['subnet']['id']}
+            self.assertRaises(nsxv_exc.NsxPluginException,
+                              self.driver.create_vpnservice,
+                              self.context, vpnservice)
+
+    def test_create_vpn_service_on_router_without_if(self):
+        """Creating a service with unattached subnet is not allowed"""
+        # create an external network with a subnet, and an exclusive router
+        providernet_args = {extnet_apidef.EXTERNAL: True}
+        with self.network(name='ext-net',
+                          providernet_args=providernet_args,
+                          arg_list=(extnet_apidef.EXTERNAL, )) as ext_net,\
+            self.subnet(ext_net),\
+            self.router(router_type='exclusive',
+                        external_gateway_info={'network_id':
+                            ext_net['network']['id']}) as router,\
+            self.subnet() as sub:
+            # create the service
+            vpnservice = {'router_id': router['id'],
+                          'id': _uuid(),
+                          'subnet_id': sub['subnet']['id']}
+            self.assertRaises(vpnaas.SubnetIsNotConnectedToRouter,
+                              self.driver.create_vpnservice,
+                              self.context, vpnservice)
+
+    def test_create_vpn_service_without_subnet(self):
+        """Creating a service without a subnet is not allowed"""
+        # create an external network with a subnet, and an exclusive router
+        providernet_args = {extnet_apidef.EXTERNAL: True}
+        with self.network(name='ext-net',
+                          providernet_args=providernet_args,
+                          arg_list=(extnet_apidef.EXTERNAL, )) as ext_net,\
+            self.subnet(ext_net),\
+            self.router(router_type='exclusive',
+                        external_gateway_info={'network_id':
+                            ext_net['network']['id']}) as router,\
+            self.subnet() as sub:
+            # add an interface to the router
+            self.l3plugin.add_router_interface(
+                self.context,
+                router['id'],
+                {'subnet_id': sub['subnet']['id']})
+            # create the service without the subnet
+            vpnservice = {'router_id': router['id'],
+                          'id': _uuid(),
+                          'subnet_id': None}
+            self.assertRaises(nsxv_exc.NsxPluginException,
                               self.driver.create_vpnservice,
                               self.context, vpnservice)
