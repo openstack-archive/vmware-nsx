@@ -23,7 +23,6 @@ from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
 from neutron_lib.api.definitions import l3 as l3_apidef
-from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import provider_net as pnet
@@ -3276,12 +3275,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                               "deletion: %(e)s", {'e': e, 'rtr': id})
         super(NsxVPluginV2, self).delete_router(context, id)
         router_driver.delete_router(context, id)
-
-    @staticmethod
-    @resource_extend.extends([net_def.COLLECTION_NAME])
-    def _extend_availability_zone_hints(net_res, net_db):
-        net_res[az_def.AZ_HINTS] = az_validator.convert_az_string_to_list(
-            net_db[az_def.AZ_HINTS])
 
     def get_availability_zone_name_by_edge(self, context, edge_id):
         az_name = nsxv_db.get_edge_availability_zone(

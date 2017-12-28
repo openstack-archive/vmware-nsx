@@ -23,10 +23,12 @@ from neutron.db import db_base_plugin_v2
 from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron_lib.api.definitions import address_scope as ext_address_scope
+from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import subnet as subnet_def
 from neutron_lib.api import validators
+from neutron_lib.api.validators import availability_zone as az_validator
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
@@ -328,6 +330,12 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
             if route.get('destination') == '0.0.0.0/0':
                 msg = _("Cannot set a default route using static routes")
                 raise n_exc.BadRequest(resource='router', msg=msg)
+
+    @staticmethod
+    @resource_extend.extends([net_def.COLLECTION_NAME])
+    def _extend_availability_zone_hints(net_res, net_db):
+        net_res[az_def.AZ_HINTS] = az_validator.convert_az_string_to_list(
+            net_db[az_def.AZ_HINTS])
 
 
 # Register the callback
