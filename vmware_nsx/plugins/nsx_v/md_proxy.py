@@ -127,7 +127,7 @@ class NsxVMetadataProxyHandler(object):
                     core_plugin.create_project_plugin_map(
                         context,
                         {'project_plugin_map':
-                            {'plugin': projectpluginmap.NsxPlugins.NSX_T,
+                            {'plugin': projectpluginmap.NsxPlugins.NSX_V,
                              'project': nsxv_constants.INTERNAL_TENANT_ID}})
                 except projectpluginmap.ProjectPluginAlreadyExists:
                     pass
