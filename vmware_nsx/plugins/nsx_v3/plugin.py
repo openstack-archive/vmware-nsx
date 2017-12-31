@@ -18,7 +18,6 @@ from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import l3 as l3_apidef
-from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api import faults
 from neutron_lib.api.validators import availability_zone as az_validator
@@ -4385,21 +4384,21 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # Validate against the configured AZs
         return self.validate_obj_azs(availability_zones)
 
-    @staticmethod
-    @resource_extend.extends([net_def.COLLECTION_NAME])
-    def _extend_availability_zone_hints(net_res, net_db):
-        net_res[az_def.AZ_HINTS] = az_validator.convert_az_string_to_list(
-            net_db[az_def.AZ_HINTS])
+    def get_network_availability_zones(self, net_db):
         if cfg.CONF.nsx_v3.native_dhcp_metadata:
+            hints = az_validator.convert_az_string_to_list(
+                net_db[az_def.AZ_HINTS])
             # When using the configured AZs, the az will always be the same
             # as the hint (or default if none)
-            if net_res[az_def.AZ_HINTS]:
-                az_name = net_res[az_def.AZ_HINTS][0]
+            if hints:
+                az_name = hints[0]
             elif cfg.CONF.default_availability_zones:
                 az_name = cfg.CONF.default_availability_zones[0]
             else:
                 az_name = nsx_az.DEFAULT_NAME
-            net_res[az_def.COLLECTION_NAME] = [az_name]
+            return [az_name]
+        else:
+            return []
 
     def recalculate_snat_rules_for_router(self, context, router, subnets):
         """Recalculate router snat rules for specific subnets.
