@@ -268,22 +268,6 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         p = self._get_plugin_from_project(context, tenant_id)
         return p.create_network(context, network)
 
-    def _create_bulk(self, resource, context, request_items):
-        objects = []
-        collection = "%ss" % resource
-        items = request_items[collection]
-        try:
-            with db_api.context_manager.writer.using(context):
-                for item in items:
-                    obj_creator = getattr(self, 'create_%s' % resource)
-                    objects.append(obj_creator(context, item))
-        except Exception:
-            with excutils.save_and_reraise_exception():
-                LOG.error("An exception occurred while creating "
-                          "the %(resource)s:%(item)s",
-                          {'resource': resource, 'item': item})
-        return objects
-
     @db_api.retry_if_session_inactive()
     def create_network_bulk(self, context, networks):
         #Implement create bulk so that the plugin calculation will be done once
