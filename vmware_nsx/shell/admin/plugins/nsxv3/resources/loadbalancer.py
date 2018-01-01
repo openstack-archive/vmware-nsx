@@ -36,7 +36,7 @@ def nsx_list_lb_services(resource, event, trigger, **kwargs):
 
     lb_services = nsxlib.load_balancer.service.list()
     LOG.info(formatters.output_formatter(
-        constants.LB_SERVICES, lb_services,
+        constants.LB_SERVICES, [lb_services['results']],
         ['display_name', 'id', 'virtual_server_ids', 'attachment']))
     return bool(lb_services)
 
@@ -54,7 +54,7 @@ def nsx_list_lb_virtual_servers(resource, event, trigger, **kwargs):
 
     lb_virtual_servers = nsxlib.load_balancer.virtual_server.list()
     LOG.info(formatters.output_formatter(
-        constants.LB_VIRTUAL_SERVERS, lb_virtual_servers,
+        constants.LB_VIRTUAL_SERVERS, [lb_virtual_servers['results']],
         ['display_name', 'id', 'ip_address', 'pool_id']))
     return bool(lb_virtual_servers)
 
@@ -71,7 +71,7 @@ def nsx_list_lb_pools(resource, event, trigger, **kwargs):
 
     lb_pools = nsxlib.load_balancer.pool.list()
     LOG.info(formatters.output_formatter(
-        constants.LB_POOLS, lb_pools,
+        constants.LB_POOLS, [lb_pools['results']],
         ['display_name', 'id', 'active_monitor_ids', 'members']))
     return bool(lb_pools)
 
@@ -88,6 +88,6 @@ def nsx_list_lb_monitors(resource, event, trigger, **kwargs):
 
     lb_monitors = nsxlib.load_balancer.monitor.list()
     LOG.info(formatters.output_formatter(
-        constants.LB_MONITORS, lb_monitors,
+        constants.LB_MONITORS, [lb_monitors['results']],
         ['display_name', 'id', 'resource_type']))
     return bool(lb_monitors)
