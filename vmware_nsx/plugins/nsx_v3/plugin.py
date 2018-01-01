@@ -675,11 +675,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                        if sg[sg_logging.LOGGING] is False]:
                 nsgroup_id, section_id = nsx_db.get_sg_mappings(
                     context.session, sg['id'])
-                try:
-                    self.nsxlib.firewall_section.set_rule_logging(
-                        section_id, logging=log_all_rules)
-                except nsx_lib_exc.ManagerError:
-                    with excutils.save_and_reraise_exception():
+                if section_id:
+                    try:
+                        self.nsxlib.firewall_section.set_rule_logging(
+                            section_id, logging=log_all_rules)
+                    except nsx_lib_exc.ManagerError:
                         LOG.error("Failed to update firewall rule logging "
                                   "for rule in section %s", section_id)
 
