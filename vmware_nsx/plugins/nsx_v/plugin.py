@@ -2210,6 +2210,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self._update_mac_learning_state(context, id,
                                                 new_mac_learning_state)
 
+            # update port security in DB if changed
+            if psec.PORTSECURITY in port['port']:
+                self._process_port_port_security_update(
+                    context, port_data, ret_port)
+
         if comp_owner_update:
             # Create dhcp bindings, the port is now owned by an instance
             self._create_dhcp_static_binding(context, ret_port)
@@ -2254,11 +2259,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 LOG.info('Not updating fixed IP on backend for '
                          'device owner [%(dev_own)s] and port %(pid)s',
                          {'dev_own': owner, 'pid': original_port['id']})
-
-        # update port security in DB if changed
-        if psec.PORTSECURITY in port['port']:
-            self._process_port_port_security_update(
-                context, port_data, ret_port)
 
         # Processing compute port update
         vnic_idx = original_port.get(ext_vnic_idx.VNIC_INDEX)
