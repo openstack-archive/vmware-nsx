@@ -685,3 +685,23 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         """
         plugin_type = self.get_plugin_type_from_project(context, project_id)
         return self.plugins[plugin_type]
+
+    def get_housekeeper(self, context, name, fields=None):
+        p = self._get_plugin_from_project(context, context.project_id)
+        if hasattr(p, 'housekeeper'):
+            return p.housekeeper.get(name)
+        msg = _("Housekeeper %s not found") % name
+        raise nsx_exc.NsxPluginException(err_msg=msg)
+
+    def get_housekeepers(self, context, filters=None, fields=None, sorts=None,
+                         limit=None, marker=None, page_reverse=False):
+        p = self._get_plugin_from_project(context, context.project_id)
+        if hasattr(p, 'housekeeper'):
+            return p.housekeeper.list()
+        return []
+
+    def update_housekeeper(self, context, name, housekeeper):
+        p = self._get_plugin_from_project(context, context.project_id)
+        if hasattr(p, 'housekeeper'):
+            p.housekeeper.run(context, name)
+        return p.housekeeper.get(name)
