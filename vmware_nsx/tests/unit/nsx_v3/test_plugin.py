@@ -1314,6 +1314,22 @@ class TestL3NatTestCase(L3NatTest,
                 add_nat.assert_not_called()
                 delete_nat.assert_not_called()
 
+    def _test_route_update_illegal(self, destination):
+        routes = [{'destination': destination, 'nexthop': '10.0.1.3'}]
+        with self.router() as r:
+            with self.subnet(cidr='10.0.1.0/24') as s:
+                fixed_ip_data = [{'ip_address': '10.0.1.2'}]
+                with self.port(subnet=s, fixed_ips=fixed_ip_data) as p:
+                    self._router_interface_action(
+                        'add', r['router']['id'], None, p['port']['id'])
+                    self._update('routers', r['router']['id'],
+                                 {'router': {'routes': routes}},
+                                 expected_code=400)
+
+    def test_route_update_illegal(self):
+        self._test_route_update_illegal('0.0.0.0/0')
+        self._test_route_update_illegal('0.0.0.0/16')
+
 
 class ExtGwModeTestCase(test_ext_gw_mode.ExtGwModeIntTestCase,
                         L3NatTest):
