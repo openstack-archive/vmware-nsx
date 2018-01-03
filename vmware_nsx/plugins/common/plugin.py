@@ -327,7 +327,7 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
             context, router_id, routes)
         # do not allow adding a default route. NSX-v/v3 don't support it
         for route in routes:
-            if route.get('destination') == '0.0.0.0/0':
+            if route.get('destination', '').startswith('0.0.0.0/'):
                 msg = _("Cannot set a default route using static routes")
                 raise n_exc.BadRequest(resource='router', msg=msg)
 
