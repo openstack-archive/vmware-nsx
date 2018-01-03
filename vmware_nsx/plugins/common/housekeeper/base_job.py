@@ -25,12 +25,24 @@ LOG = log.getLogger(__name__)
 
 @six.add_metaclass(abc.ABCMeta)
 class BaseJob(object):
+
+    _core_plugin = None
+
     def __init__(self, readonly):
         self.readonly = readonly or (self.get_name() in
                                      cfg.CONF.nsxv.housekeeping_readonly_jobs)
         LOG.info('Housekeeping: %s job initialized in %s mode',
                  self.get_name(), 'RO' if self.readonly else 'RW')
-        self.plugin = directory.get_plugin()
+
+    @property
+    def plugin(self):
+        if not self._core_plugin:
+            self._core_plugin = directory.get_plugin()
+            if self._core_plugin.is_tvd_plugin() is True:
+                # get the plugin that match this driver
+                self._core_plugin = self.get_project_plugin(
+                    self._core_plugin)
+        return self._core_plugin
 
     @abc.abstractmethod
     def get_name(self):
@@ -42,4 +54,8 @@ class BaseJob(object):
 
     @abc.abstractmethod
     def run(self, context):
+        pass
+
+    @abc.abstractmethod
+    def get_project_plugin(self, plugin):
         pass

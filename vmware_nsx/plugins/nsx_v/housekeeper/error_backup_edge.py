@@ -20,6 +20,7 @@ from sqlalchemy.orm import exc as sa_exc
 from vmware_nsx.common import locking
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_db
+from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.plugins.common.housekeeper import base_job
 from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v.vshield.common import constants as vcns_const
@@ -31,6 +32,9 @@ class ErrorBackupEdgeJob(base_job.BaseJob):
     def __init__(self, readonly):
         super(ErrorBackupEdgeJob, self).__init__(readonly)
         self.azs = nsx_az.NsxVAvailabilityZones()
+
+    def get_project_plugin(self, plugin):
+        return plugin.get_plugin_by_type(projectpluginmap.NsxPlugins.NSX_V)
 
     def get_name(self):
         return 'error_backup_edge'
