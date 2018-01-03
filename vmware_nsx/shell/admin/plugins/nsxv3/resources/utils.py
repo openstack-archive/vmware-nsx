@@ -123,6 +123,7 @@ class NsxV3PluginWrapper(plugin.NsxV3Plugin):
         self.fwaas_callbacks = callbacks_class()
         # override the fwplugin_rpc since there is no RPC support in adminutils
         self.fwaas_callbacks.fwplugin_rpc = plugin_callbacks(fwaas_plugin)
+        self.init_is_complete = True
 
     def init_fwaas_for_admin_utils(self):
         # initialize the FWaaS plugin and callbacks
