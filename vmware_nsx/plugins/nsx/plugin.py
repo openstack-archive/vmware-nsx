@@ -303,15 +303,21 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def get_networks(self, context, filters=None, fields=None,
                      sorts=None, limit=None, marker=None,
                      page_reverse=False):
+        # Read project plugin to filter relevant projects according to
+        # plugin
+        req_p = self._get_plugin_from_project(context, context.project_id)
         filters = filters or {}
         with db_api.context_manager.reader.using(context):
             networks = (
                 super(NsxTVDPlugin, self).get_networks(
                     context, filters, fields, sorts,
                     limit, marker, page_reverse))
-            for net in networks:
+            for net in networks[:]:
                 p = self._get_plugin_from_project(context, net['tenant_id'])
-                p._extend_get_network_dict_provider(context, net)
+                if p == req_p:
+                    p._extend_get_network_dict_provider(context, net)
+                else:
+                    networks.remove(net)
         return (networks if not fields else
                 [db_utils.resource_fields(network,
                                           fields) for network in networks])
@@ -353,6 +359,9 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def get_ports(self, context, filters=None, fields=None,
                   sorts=None, limit=None, marker=None,
                   page_reverse=False):
+        # Read project plugin to filter relevant projects according to
+        # plugin
+        req_p = self._get_plugin_from_project(context, context.project_id)
         filters = filters or {}
         with db_api.context_manager.reader.using(context):
             ports = (
@@ -360,17 +369,21 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     context, filters, fields, sorts,
                     limit, marker, page_reverse))
             # Add port extensions
-            for port in ports:
+            for port in ports[:]:
                 if 'id' in port:
                     port_model = self._get_port(context, port['id'])
                     resource_extend.apply_funcs('ports', port, port_model)
                 p = self._get_plugin_from_net_id(context, port['network_id'])
-                if hasattr(p, '_extend_get_port_dict_qos_and_binding'):
-                    p._extend_get_port_dict_qos_and_binding(context, port)
-                if hasattr(p, '_remove_provider_security_groups_from_list'):
-                    p._remove_provider_security_groups_from_list(port)
-                self._cleanup_obj_fields(
-                    port, p.plugin_type(), 'port')
+                if p == req_p:
+                    if hasattr(p, '_extend_get_port_dict_qos_and_binding'):
+                        p._extend_get_port_dict_qos_and_binding(context, port)
+                    if hasattr(p,
+                               '_remove_provider_security_groups_from_list'):
+                        p._remove_provider_security_groups_from_list(port)
+                    self._cleanup_obj_fields(
+                        port, p.plugin_type(), 'port')
+                else:
+                    ports.remove(port)
         return (ports if not fields else
                 [db_utils.resource_fields(port, fields) for port in ports])
 
@@ -499,6 +512,21 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                            fip_plugin.plugin_type())
                 raise n_exc.InvalidInput(error_message=err_msg)
 
+    def get_routers(self, context, filters=None, fields=None,
+                    sorts=None, limit=None, marker=None,
+                    page_reverse=False):
+        # Read project plugin to filter relevant projects according to
+        # plugin
+        req_p = self._get_plugin_from_project(context, context.project_id)
+        routers = super(NsxTVDPlugin, self).get_routers(
+            context, filters=filters, fields=fields, sorts=sorts,
+            limit=limit, marker=marker, page_reverse=page_reverse)
+        for router in routers[:]:
+            p = self._get_plugin_from_project(context, router['tenant_id'])
+            if p != req_p:
+                routers.remove(router)
+        return routers
+
     def create_floatingip(self, context, floatingip):
         net_id = floatingip['floatingip']['floating_network_id']
         p = self._get_plugin_from_net_id(context, net_id)
@@ -524,14 +552,28 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         p = self._get_plugin_from_net_id(context, net_id)
         return p.get_floatingip(context, id, fields=fields)
 
+    def get_floatingips(self, context, filters=None, fields=None,
+                        sorts=None, limit=None, marker=None,
+                        page_reverse=False):
+        # Read project plugin to filter relevant projects according to
+        # plugin
+        req_p = self._get_plugin_from_project(context, context.project_id)
+        fips = super(NsxTVDPlugin, self).get_floatingips(
+            context, filters=filters, fields=fields, sorts=sorts,
+            limit=limit, marker=marker, page_reverse=page_reverse)
+        for fip in fips[:]:
+            p = self._get_plugin_from_project(context,
+                                              fip['tenant_id'])
+            if p != req_p:
+                fips.remove(fip)
+        return fips
+
     def disassociate_floatingips(self, context, port_id):
         db_port = self._get_port(context, port_id)
         p = self._get_plugin_from_net_id(context, db_port['network_id'])
         return p.disassociate_floatingips(context, port_id)
 
     def _get_plugin_from_sg_id(self, context, sg_id):
-        # get the router using the super plugin - here we use the
-        # _get_router (so as not to call the make dict method)
         sg = self._get_security_group(context, sg_id)
         return self._get_plugin_from_project(context, sg['tenant_id'])
 
@@ -558,6 +600,22 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         p = self._get_plugin_from_sg_id(context, id)
         return p.get_security_group(context, id, fields=fields)
 
+    def get_security_groups(self, context, filters=None, fields=None,
+                            sorts=None, limit=None,
+                            marker=None, page_reverse=False, default_sg=False):
+        # Read project plugin to filter relevant projects according to
+        # plugin
+        req_p = self._get_plugin_from_project(context, context.project_id)
+        sgs = super(NsxTVDPlugin, self).get_security_groups(
+            context, filters=filters, fields=fields, sorts=sorts,
+            limit=limit, marker=marker, page_reverse=page_reverse,
+            default_sg=default_sg)
+        for sg in sgs[:]:
+            p = self._get_plugin_from_project(context, sg['tenant_id'])
+            if p != req_p:
+                sgs.remove(sg)
+        return sgs
+
     def create_security_group_rule_bulk(self, context, security_group_rules):
         p = self._get_plugin_from_project(context, context.project_id)
         return p.create_security_group_rule_bulk(context,
@@ -572,6 +630,21 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         sg_id = rule_db['security_group_id']
         p = self._get_plugin_from_sg_id(context, sg_id)
         p.delete_security_group_rule(context, id)
+
+    def get_security_group_rules(self, context, filters=None, fields=None,
+                                 sorts=None, limit=None, marker=None,
+                                 page_reverse=False):
+        # Read project plugin to filter relevant projects according to
+        # plugin
+        req_p = self._get_plugin_from_project(context, context.project_id)
+        rules = super(NsxTVDPlugin, self).get_security_group_rules(
+            context, filters=filters, fields=fields, sorts=sorts,
+            limit=limit, marker=marker, page_reverse=page_reverse)
+        for rule in rules[:]:
+            p = self._get_plugin_from_project(context, rule['tenant_id'])
+            if p != req_p:
+                rules.remove(rule)
+        return rules
 
     @staticmethod
     @resource_extend.extends([net_def.COLLECTION_NAME])
