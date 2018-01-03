@@ -620,6 +620,18 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                 self.assertEqual(res['port']['fixed_ips'],
                                  data['port']['fixed_ips'])
 
+    def test_delete_dhcp_port(self):
+        cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        with self.subnet():
+            pl = directory.get_plugin()
+            ctx = context.Context(user_id=None, tenant_id=self._tenant_id,
+                                  is_admin=False)
+            ports = pl.get_ports(
+                ctx, filters={'device_owner': [constants.DEVICE_OWNER_DHCP]})
+            req = self.new_delete_request('ports', ports[0]['id'])
+            res = req.get_response(self.api)
+            self.assertEqual(exc.HTTPBadRequest.code, res.status_int)
+
     def test_fail_create_port_with_ext_net(self):
         expected_error = 'InvalidInput'
         with self._create_l3_ext_network() as network:
