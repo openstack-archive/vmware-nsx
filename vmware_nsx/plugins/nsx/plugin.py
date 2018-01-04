@@ -778,3 +778,35 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if hasattr(p, 'housekeeper'):
             p.housekeeper.run(context, name)
         return p.housekeeper.get(name)
+
+    def get_address_scopes(self, context, filters=None, fields=None,
+                           sorts=None, limit=None, marker=None,
+                           page_reverse=False):
+        # Read project plugin to filter relevant projects according to
+        # plugin
+        req_p = self._get_plugin_from_project(context, context.project_id)
+        address_scopes = super(NsxTVDPlugin, self).get_address_scopes(
+            context, filters=filters, fields=fields, sorts=sorts,
+            limit=limit, marker=marker, page_reverse=page_reverse)
+        for address_scope in address_scopes[:]:
+            p = self._get_plugin_from_project(context,
+                                              address_scope['tenant_id'])
+            if p != req_p:
+                address_scopes.remove(address_scope)
+        return address_scopes
+
+    def get_subnetpools(self, context, filters=None, fields=None,
+                        sorts=None, limit=None, marker=None,
+                        page_reverse=False):
+        # Read project plugin to filter relevant projects according to
+        # plugin
+        req_p = self._get_plugin_from_project(context, context.project_id)
+        pools = super(NsxTVDPlugin, self).get_subnetpools(
+            context, filters=filters, fields=fields, sorts=sorts,
+            limit=limit, marker=marker, page_reverse=page_reverse)
+        for pool in pools[:]:
+            p = self._get_plugin_from_project(context,
+                                              pool['tenant_id'])
+            if p != req_p:
+                pools.remove(pool)
+        return pools
