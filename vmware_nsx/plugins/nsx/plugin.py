@@ -421,6 +421,13 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         p = self._get_plugin_from_net_id(context, id)
         return p.create_subnet(context, subnet)
 
+    def create_subnet_bulk(self, context, subnets):
+        # look at the first subnet to find out the project & plugin
+        items = subnets['subnets']
+        id = items[0]['subnet']['network_id']
+        p = self._get_plugin_from_net_id(context, id)
+        return p.create_subnet_bulk(context, subnets)
+
     def update_subnet(self, context, id, subnet):
         db_subnet = self._get_subnet(context, id)
         p = self._get_plugin_from_net_id(context, db_subnet['network_id'])
