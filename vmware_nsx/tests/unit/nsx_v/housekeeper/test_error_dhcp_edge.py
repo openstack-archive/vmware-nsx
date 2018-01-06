@@ -18,7 +18,7 @@ import datetime
 
 import mock
 from neutron.tests import base
-from neutron_lib import constants
+from neutron_lib.plugins import constants
 
 from vmware_nsx.plugins.nsx_v.housekeeper import error_dhcp_edge
 

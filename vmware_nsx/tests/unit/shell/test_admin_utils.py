@@ -21,7 +21,7 @@ from neutron.db import servicetype_db  # noqa
 from neutron.quota import resource_registry
 from neutron.tests import base
 from neutron_lib.callbacks import registry
-from neutron_lib import constants
+from neutron_lib.plugins import constants
 from oslo_config import cfg
 from oslo_log import _options
 from oslo_log import log as logging
