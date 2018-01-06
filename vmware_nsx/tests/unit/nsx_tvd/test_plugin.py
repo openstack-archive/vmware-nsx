@@ -72,28 +72,46 @@ class NsxTVDPluginTestCase(v_tests.NsxVPluginV2TestCase,
         self.assertTrue(self.core_plugin.is_tvd_plugin())
         self.assertIsNotNone(self.sub_plugin)
 
-    def _test_call_create(self, obj_name, calls_count=1, project_id=None):
-        method_name = 'create_%s' % obj_name
+    def _test_call_create(self, obj_name, calls_count=1, project_id=None,
+                          is_bulk=False):
+        method_name = single_name = 'create_%s' % obj_name
+        if is_bulk:
+            method_name = method_name + '_bulk'
         func_to_call = getattr(self.core_plugin, method_name)
         if not project_id:
             project_id = self.project_id
-        with mock.patch.object(self.sub_plugin, method_name) as sub_func:
-            func_to_call(self.context,
-                         {obj_name: {'tenant_id': project_id}})
-            self.assertEqual(calls_count, sub_func.call_count)
+        with mock.patch.object(self.sub_plugin, method_name) as sub_func,\
+            mock.patch.object(self.sub_plugin, single_name) as single_func:
+            if is_bulk:
+                func_to_call(self.context,
+                             {obj_name + 's': [{obj_name:
+                                                {'tenant_id': project_id}}]})
+            else:
+                func_to_call(self.context,
+                             {obj_name: {'tenant_id': project_id}})
+            self.assertEqual(calls_count,
+                             sub_func.call_count or single_func.call_count)
 
     def _test_call_create_with_net_id(self, obj_name, field_name='network_id',
-                                      calls_count=1):
+                                      calls_count=1, is_bulk=False):
         method_name = 'create_%s' % obj_name
+        if is_bulk:
+            method_name = method_name + '_bulk'
         func_to_call = getattr(self.core_plugin, method_name)
         net_id = _uuid()
 
         with mock.patch.object(self.sub_plugin, method_name) as sub_func,\
             mock.patch.object(self.core_plugin, '_get_network',
                               return_value={'tenant_id': self.project_id}):
-            func_to_call(self.context,
-                         {obj_name: {'tenant_id': self.project_id,
-                                     field_name: net_id}})
+            if is_bulk:
+                func_to_call(self.context,
+                             {obj_name + 's': [{obj_name:
+                                                {'tenant_id': self.project_id,
+                                                 field_name: net_id}}]})
+            else:
+                func_to_call(self.context,
+                             {obj_name: {'tenant_id': self.project_id,
+                                         field_name: net_id}})
             self.assertEqual(calls_count, sub_func.call_count)
 
     def _test_call_delete(self, obj_name):
@@ -206,6 +224,18 @@ class TestPluginWithDefaultPlugin(NsxTVDPluginTestCase):
     def test_create_security_group(self):
         # plugin will be called twice because of the default sg
         self._test_call_create('security_group', calls_count=2)
+
+    def test_create_security_group_rule(self):
+        self._test_call_create('security_group_rule')
+
+    def test_create_network_bulk(self):
+        self._test_call_create('network', is_bulk=True)
+
+    def test_create_subnet_bulk(self):
+        self._test_call_create_with_net_id('subnet', is_bulk=True)
+
+    def test_create_security_group_rule_bulk(self):
+        self._test_call_create('security_group_rule', is_bulk=True)
 
     def test_delete_network(self):
         self._test_call_delete('network')
