@@ -95,3 +95,7 @@ class Nsxv3FwaasCallbacksV1(com_clbcks.NsxFwaasCallbacks):
 
         # Also update the router tags
         self.internal_driver.update_nsx_router_tags(nsx_router_id, fw_id=fw_id)
+
+    def delete_port(self, context, port_id):
+        # nothing to do in FWaaS v1
+        pass

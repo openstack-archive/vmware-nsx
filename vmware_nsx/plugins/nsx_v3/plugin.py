@@ -3894,6 +3894,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                       "%(net_id)s not found at the backend",
                       {'router_id': router_id,
                        'net_id': subnet['network_id']})
+
+        # inform the FWaaS that interface port was removed
+        if self.fwaas_callbacks:
+            self.fwaas_callbacks.delete_port(context, port_id)
+
         info = super(NsxV3Plugin, self).remove_router_interface(
             context, router_id, interface_info)
         if not cfg.CONF.nsx_v3.native_dhcp_metadata:
