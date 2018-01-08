@@ -223,6 +223,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         floatingip=l3_db_models.FloatingIP)
     def __init__(self):
         self._is_sub_plugin = tvd_utils.is_tvd_core_plugin()
+        self.init_is_complete = False
         self.housekeeper = None
         super(NsxVPluginV2, self).__init__()
         if self._is_sub_plugin:
@@ -233,10 +234,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             extension_drivers=extension_drivers)
         # Bind the dummy L3 notifications
         self.l3_rpc_notifier = l3_rpc_agent_api.L3NotifyAPI()
-        self.init_is_complete = False
-        registry.subscribe(self.init_complete,
-                           resources.PROCESS,
-                           events.AFTER_INIT)
         self._extension_manager.initialize()
         self.supported_extension_aliases.extend(
             self._extension_manager.extension_aliases())
@@ -322,6 +319,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         # Bind QoS notifications
         qos_driver.register(self)
+
+        # subscribe the init complete method last, so it will be called only
+        # if init was successful
+        registry.subscribe(self.init_complete,
+                           resources.PROCESS,
+                           events.AFTER_INIT)
 
     @staticmethod
     def plugin_type():
