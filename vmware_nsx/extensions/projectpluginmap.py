@@ -107,6 +107,14 @@ class ProjectPluginAlreadyExists(nexception.Conflict):
                 "%(project_id)s.")
 
 
+class ProjectPluginAdminOnly(nexception.NotAuthorized):
+    message = _("Project Plugin map can be added only by an admin user.")
+
+
+class ProjectPluginIllegalId(nexception.Conflict):
+    message = _("Project ID %(project_id)s is illegal.")
+
+
 class ProjectPluginMapPluginBase(object):
 
     @abc.abstractmethod

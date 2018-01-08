@@ -128,7 +128,8 @@ class NsxVMetadataProxyHandler(object):
                         context,
                         {'project_plugin_map':
                             {'plugin': projectpluginmap.NsxPlugins.NSX_V,
-                             'project': nsxv_constants.INTERNAL_TENANT_ID}})
+                             'project': nsxv_constants.INTERNAL_TENANT_ID}},
+                        internal=True)
                 except projectpluginmap.ProjectPluginAlreadyExists:
                     pass
             self.internal_net, self.internal_subnet = (

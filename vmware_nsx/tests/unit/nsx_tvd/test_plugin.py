@@ -47,7 +47,7 @@ class NsxTVDPluginTestCase(v_tests.NsxVPluginV2TestCase,
         super(NsxTVDPluginTestCase, self).setUp(
             plugin=plugin,
             ext_mgr=ext_mgr)
-
+        self._project_id = _uuid()
         self.core_plugin = directory.get_plugin()
 
         # create a context with this tenant
@@ -62,7 +62,7 @@ class NsxTVDPluginTestCase(v_tests.NsxVPluginV2TestCase,
 
     @property
     def project_id(self):
-        pass
+        return self._project_id
 
     @property
     def plugin_type(self):
@@ -186,9 +186,6 @@ class NsxTVDPluginTestCase(v_tests.NsxVPluginV2TestCase,
 
 class TestPluginWithDefaultPlugin(NsxTVDPluginTestCase):
     """Test TVD plugin with the NSX-T (default) sub plugin"""
-    @property
-    def project_id(self):
-        return 'project_t'
 
     @property
     def plugin_type(self):
@@ -373,10 +370,6 @@ class TestPluginWithNsxv(TestPluginWithDefaultPlugin):
     """Test TVD plugin with the NSX-V sub plugin"""
 
     @property
-    def project_id(self):
-        return 'project_v'
-
-    @property
     def plugin_type(self):
         return 'nsx-v'
 
@@ -397,10 +390,6 @@ class TestPluginWithNsxv(TestPluginWithDefaultPlugin):
 
 class TestPluginWithDvs(TestPluginWithDefaultPlugin):
     """Test TVD plugin with the DVS sub plugin"""
-
-    @property
-    def project_id(self):
-        return 'project_dvs'
 
     @property
     def plugin_type(self):
