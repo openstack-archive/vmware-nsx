@@ -131,21 +131,21 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         try:
             self.plugins[projectpluginmap.NsxPlugins.NSX_T] = t.NsxV3Plugin()
         except Exception as e:
-            LOG.info("NSX-T plugin will not be supported: %s", e)
+            LOG.warning("NSX-T plugin will not be supported: %s", e)
         else:
             LOG.info("NSX-T plugin will be supported")
 
         try:
             self.plugins[projectpluginmap.NsxPlugins.NSX_V] = v.NsxVPluginV2()
         except Exception as e:
-            LOG.info("NSX-V plugin will not be supported: %s", e)
+            LOG.warning("NSX-V plugin will not be supported: %s", e)
         else:
             LOG.info("NSX-V plugin will be supported")
 
         try:
             self.plugins[projectpluginmap.NsxPlugins.DVS] = dvs.NsxDvsV2()
         except Exception as e:
-            LOG.info("DVS plugin will not be supported: %s", e)
+            LOG.warning("DVS plugin will not be supported: %s", e)
         else:
             LOG.info("DVS plugin will be supported")
 
