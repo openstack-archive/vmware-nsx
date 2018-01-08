@@ -15,8 +15,6 @@
 
 import abc
 
-from oslo_config import cfg
-
 from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import availability_zone as az_exc
@@ -78,7 +76,7 @@ class ConfiguredAvailabilityZones(object):
 
     default_name = DEFAULT_NAME
 
-    def __init__(self, az_conf, az_class, validate_default=True):
+    def __init__(self, az_conf, az_class, default_availability_zones=None):
         self.availability_zones = {}
 
         # Add the configured availability zones
@@ -91,24 +89,20 @@ class ConfiguredAvailabilityZones(object):
         self.availability_zones[obj.name] = obj
 
         # validate the default az:
-        if cfg.CONF.default_availability_zones:
+        if default_availability_zones:
             # we support only 1 default az
-            if len(cfg.CONF.default_availability_zones) > 1:
+            if len(default_availability_zones) > 1:
                 raise nsx_exc.NsxInvalidConfiguration(
                     opt_name="default_availability_zones",
-                    opt_value=cfg.CONF.default_availability_zones,
+                    opt_value=default_availability_zones,
                     reason=_("The NSX plugin supports only 1 default AZ"))
-            default_az_name = cfg.CONF.default_availability_zones[0]
+            default_az_name = default_availability_zones[0]
             if (default_az_name not in self.availability_zones):
-                if validate_default:
-                    raise nsx_exc.NsxInvalidConfiguration(
-                        opt_name="default_availability_zones",
-                        opt_value=cfg.CONF.default_availability_zones,
-                        reason=_("The default AZ is not defined in the NSX "
-                                 "plugin"))
-                else:
-                    self._default_az = self.availability_zones[
-                        self.default_name]
+                raise nsx_exc.NsxInvalidConfiguration(
+                    opt_name="default_availability_zones",
+                    opt_value=default_availability_zones,
+                    reason=_("The default AZ is not defined in the NSX "
+                             "plugin"))
             else:
                 self._default_az = self.availability_zones[default_az_name]
         else:

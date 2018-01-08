@@ -1023,9 +1023,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         return '%s.%03d' % (device_id, port_index)
 
     def init_availability_zones(self):
-        validate_default = not self._is_sub_plugin
         self._availability_zones_data = nsx_az.NsxVAvailabilityZones(
-            validate_default=validate_default)
+            use_tvd_config=self._is_sub_plugin)
 
     def _list_availability_zones(self, context, filters=None):
         #TODO(asarfaty): We may need to use the filters arg, but now it
