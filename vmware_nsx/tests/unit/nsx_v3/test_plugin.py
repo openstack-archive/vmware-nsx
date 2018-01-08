@@ -197,6 +197,9 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
         _mock_nsx_backend_calls()
         self.setup_conf_overrides()
         self.mock_plugin_methods()
+        # ignoring the given plugin and use the nsx-v3 one
+        if not plugin.endswith('NsxTVDPlugin'):
+            plugin = PLUGIN_NAME
         super(NsxV3PluginTestCaseMixin, self).setUp(plugin=plugin,
                                                     ext_mgr=ext_mgr)
 
