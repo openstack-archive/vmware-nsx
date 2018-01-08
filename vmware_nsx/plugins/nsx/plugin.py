@@ -125,47 +125,39 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def is_tvd_plugin():
         return True
 
+    def _init_plugin(self, map_type, plugin_class):
+        try:
+            self.plugins[map_type] = plugin_class()
+        except Exception as e:
+            LOG.warning("%s plugin will not be supported: %s",
+                        map_type.upper(), e)
+            if map_type == self.default_plugin:
+                msg = (_("The default plugin %(def)s failed to start. "
+                         "Reason: %(reason)s") % {'def': self.default_plugin,
+                                                  'reason': e})
+                LOG.error(msg)
+                raise nsx_exc.NsxPluginException(err_msg=msg)
+        else:
+            LOG.info("%s plugin will be supported", map_type.upper())
+
     def init_plugins(self):
         # initialize all supported plugins
         self.plugins = {}
         self.as_providers = {}
-
-        try:
-            self.plugins[projectpluginmap.NsxPlugins.NSX_T] = t.NsxV3Plugin()
-        except Exception as e:
-            LOG.warning("NSX-T plugin will not be supported: %s", e)
-        else:
-            LOG.info("NSX-T plugin will be supported")
-
-        try:
-            self.plugins[projectpluginmap.NsxPlugins.NSX_V] = v.NsxVPluginV2()
-        except Exception as e:
-            LOG.warning("NSX-V plugin will not be supported: %s", e)
-        else:
-            LOG.info("NSX-V plugin will be supported")
-
-        try:
-            self.plugins[projectpluginmap.NsxPlugins.DVS] = dvs.NsxDvsV2()
-        except Exception as e:
-            LOG.warning("DVS plugin will not be supported: %s", e)
-        else:
-            LOG.info("DVS plugin will be supported")
-
-        if not len(self.plugins):
-            msg = _("No active plugins were found")
-            raise nsx_exc.NsxPluginException(err_msg=msg)
-
         # update the default plugin for new projects
         self.default_plugin = cfg.CONF.nsx_tvd.default_plugin
-        if self.default_plugin not in self.plugins:
-            msg = (_("The default plugin %s failed to start") %
-                self.default_plugin)
+        plugins = [(projectpluginmap.NsxPlugins.NSX_T, t.NsxV3Plugin),
+                   (projectpluginmap.NsxPlugins.NSX_V, v.NsxVPluginV2),
+                   (projectpluginmap.NsxPlugins.DVS, dvs.NsxDvsV2)]
+        for (map_type, plugin_class) in plugins:
+            self._init_plugin(map_type, plugin_class)
+        if not len(self.plugins):
+            msg = _("No active plugins were found")
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
         for k, val in self.plugins.items():
             if "advanced-service-providers" in val.supported_extension_aliases:
                 self.as_providers[k] = val
-
         LOG.info("NSX-TVD plugin will use %s as the default plugin",
             self.default_plugin)
 
