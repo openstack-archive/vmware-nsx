@@ -3309,8 +3309,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 context,
                 router['id'],
                 {'router': {az_def.AZ_HINTS: az_hints}})
+        router_db = self._get_router(context, r['id'])
         with db_api.context_manager.writer.using(context):
-            router_db = self._get_router(context, r['id'])
             self._process_extra_attr_router_create(context, router_db, r)
         # Create backend entries here in case neutron DB exception
         # occurred during super.create_router(), which will cause
