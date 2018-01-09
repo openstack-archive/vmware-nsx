@@ -20,6 +20,7 @@ from oslo_utils import excutils
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.common import locking
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.services.lbaas import base_mgr
 from vmware_nsx.services.lbaas import lb_const
@@ -104,6 +105,11 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def create(self, context, member):
+        with locking.LockManager.get_lock('member-%s' %
+                                          str(member.pool.loadbalancer_id)):
+            self._member_create(context, member)
+
+    def _member_create(self, context, member):
         lb_id = member.pool.loadbalancer_id
         pool_id = member.pool.id
         loadbalancer = member.pool.loadbalancer
@@ -116,8 +122,6 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
 
         pool_client = self.core_plugin.nsxlib.load_balancer.pool
         service_client = self.core_plugin.nsxlib.load_balancer.service
-        pool_members = self.lbv2_driver.plugin.get_pool_members(
-            context, pool_id)
 
         network = lb_utils.get_network_from_subnet(
             context, self.core_plugin, member.subnet_id)
@@ -136,7 +140,7 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
             lb_pool_id = binding.get('lb_pool_id')
             lb_binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
                 context.session, lb_id)
-            if not lb_binding and len(pool_members) == 1:
+            if not lb_binding:
                 nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                          router_id)
                 lb_service = service_client.get_router_lb_service(
