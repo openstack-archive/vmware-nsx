@@ -455,6 +455,16 @@ LBaaS
 
     nsxadmin -r lb-monitors -o list
 
+Rate Limit
+~~~~~~~~~~
+- Show the current NSX rate limit:
+
+    nsxadmin -r rate-limit -o show
+
+- Update the NSX rate limit:
+
+nsxadmin -r rate-limit -o nsx-update --property value=<>
+
 
 Config
 ~~~~~~
