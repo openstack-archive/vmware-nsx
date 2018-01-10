@@ -24,6 +24,7 @@ from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import locking
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_db
+from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as vcns_exc
 from vmware_nsx.services.vpnaas.nsxv import ipsec_validator
 
@@ -35,6 +36,9 @@ class NSXvIPsecVpnDriver(service_drivers.VpnDriver):
 
     def __init__(self, service_plugin):
         self._core_plugin = directory.get_plugin()
+        if self._core_plugin.is_tvd_plugin():
+            self._core_plugin = self._core_plugin.get_plugin_by_type(
+                projectpluginmap.NsxPlugins.NSX_V)
         self._vcns = self._core_plugin.nsx_v.vcns
         validator = ipsec_validator.IPsecValidator(service_plugin)
         super(NSXvIPsecVpnDriver, self).__init__(service_plugin, validator)
@@ -111,7 +115,8 @@ class NSXvIPsecVpnDriver(service_drivers.VpnDriver):
         vse_sites.append(ipsec_site_conn)
         return vse_sites
 
-    def _generate_ipsecvpn_firewall_rules(self, edge_id):
+    def _generate_ipsecvpn_firewall_rules(self, plugin_type, context,
+                                          edge_id=None):
         ipsecvpn_configs = self._get_ipsec_config(edge_id)
         ipsec_vpn_fw_rules = []
         if ipsecvpn_configs[1]['enabled']:

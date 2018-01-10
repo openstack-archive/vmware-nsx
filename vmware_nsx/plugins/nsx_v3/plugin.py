@@ -3658,7 +3658,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             vpn_driver = vpn_plugin.drivers[vpn_plugin.default_provider]
             vpn_rules = (
                 vpn_driver._generate_ipsecvpn_firewall_rules(
-                    context, router_id))
+                    self.plugin_type(), context, router_id=router_id))
             if vpn_rules:
                 extra_rules.extend(vpn_rules)
 

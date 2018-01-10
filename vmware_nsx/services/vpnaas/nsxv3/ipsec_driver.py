@@ -26,6 +26,7 @@ from neutron_vpnaas.services.vpn import service_drivers
 
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import db
+from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.services.vpnaas.nsxv3 import ipsec_utils
 from vmware_nsx.services.vpnaas.nsxv3 import ipsec_validator
 from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
@@ -41,6 +42,9 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
     def __init__(self, service_plugin):
         self.vpn_plugin = service_plugin
         self._core_plugin = directory.get_plugin()
+        if self._core_plugin.is_tvd_plugin():
+            self._core_plugin = self._core_plugin.get_plugin_by_type(
+                projectpluginmap.NsxPlugins.NSX_T)
         self._nsxlib = self._core_plugin.nsxlib
         self._nsx_vpn = self._nsxlib.vpn_ipsec
         validator = ipsec_validator.IPsecV3Validator(service_plugin)
@@ -66,7 +70,8 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
     def _translate_addresses_to_target(self, cidrs):
         return [self._translate_cidr(ip) for ip in cidrs]
 
-    def _generate_ipsecvpn_firewall_rules(self, context, router_id):
+    def _generate_ipsecvpn_firewall_rules(self, plugin_type, context,
+                                          router_id=None):
         """Return the firewall rules needed to allow vpn traffic"""
         fw_rules = []
         # get all the active services of this router
