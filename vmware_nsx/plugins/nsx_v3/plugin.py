@@ -3619,12 +3619,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         # Add rules to allow dhcp traffic relay servers
         if relay_servers:
-            # if it is a single port, the source/dest is this logical port
+            # if it is a single port, the source/dest is this logical switch
             if port_id:
-                _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
+                nsx_ls_id, _nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
                     context.session, port_id)
-                port_target = [{'target_type': 'LogicalPort',
-                                'target_id': nsx_port_id}]
+                port_target = [{'target_type': 'LogicalSwitch',
+                                'target_id': nsx_ls_id}]
             else:
                 port_target = None
             # translate the relay server ips to the firewall format

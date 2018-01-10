@@ -178,18 +178,18 @@ class CommonEdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
             nsx_rule['action'] = self._translate_action(
                 rule['action'], rule['id'])
             if replace_dest:
-                # set this value as the destination logical port,
+                # set this value as the destination logical switch,
                 # and set the rule to ingress
-                nsx_rule['destinations'] = [{'target_type': 'LogicalPort',
+                nsx_rule['destinations'] = [{'target_type': 'LogicalSwitch',
                                              'target_id': replace_dest}]
                 nsx_rule['direction'] = 'IN'
             elif rule.get('destination_ip_address'):
                 nsx_rule['destinations'] = self.translate_addresses_to_target(
                     [rule['destination_ip_address']])
             if replace_src:
-                # set this value as the source logical port,
-                # and set the rule to eggress
-                nsx_rule['sources'] = [{'target_type': 'LogicalPort',
+                # set this value as the source logical switch,
+                # and set the rule to egress
+                nsx_rule['sources'] = [{'target_type': 'LogicalSwitch',
                                         'target_id': replace_src}]
                 nsx_rule['direction'] = 'OUT'
             elif rule.get('source_ip_address'):

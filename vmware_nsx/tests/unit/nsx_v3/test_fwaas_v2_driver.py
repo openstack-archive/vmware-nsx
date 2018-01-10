@@ -30,7 +30,7 @@ FAKE_FW_ID = 'fake_fw_uuid'
 FAKE_ROUTER_ID = 'fake_rtr_uuid'
 FAKE_PORT_ID = 'fake_port_uuid'
 FAKE_NET_ID = 'fake_net_uuid'
-FAKE_NSX_PORT_ID = 'fake_nsx_port_uuid'
+FAKE_NSX_LS_ID = 'fake_nsx_ls_uuid'
 MOCK_NSX_ID = 'nsx_nsx_router_id'
 MOCK_DEFAULT_RULE_ID = 'nsx_default_rule_id'
 MOCK_SECTION_ID = 'sec_id'
@@ -149,7 +149,7 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                 field = 'sources'
                 direction = 'OUT'
             new_val = [{'target_id': nsx_port_id,
-                        'target_type': 'LogicalPort'}]
+                        'target_type': 'LogicalSwitch'}]
             for rule in (rule1, rule2, rule3, rule4):
                 rule[field] = new_val
                 rule['direction'] = direction
@@ -206,7 +206,7 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
             mock.patch.object(self.plugin.fwaas_callbacks, 'get_port_fwg',
                               return_value=firewall),\
             mock.patch("vmware_nsx.db.db.get_nsx_switch_and_port_id",
-                       return_value=(0, FAKE_NSX_PORT_ID)),\
+                       return_value=(FAKE_NSX_LS_ID, 0)),\
             mock.patch("vmware_nsxlib.v3.security.NsxLibFirewallSection."
                        "update") as update_fw:
             self.firewall.create_firewall_group('nsx', apply_list, firewall)
@@ -215,13 +215,13 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
             expected_rules = [
                 {'display_name': "Block port ingress",
                  'action': consts.FW_ACTION_DROP,
-                 'destinations': [{'target_type': 'LogicalPort',
-                                   'target_id': FAKE_NSX_PORT_ID}],
+                 'destinations': [{'target_type': 'LogicalSwitch',
+                                   'target_id': FAKE_NSX_LS_ID}],
                  'direction': 'IN'},
                 {'display_name': "Block port egress",
                  'action': consts.FW_ACTION_DROP,
-                 'sources': [{'target_type': 'LogicalPort',
-                              'target_id': FAKE_NSX_PORT_ID}],
+                 'sources': [{'target_type': 'LogicalSwitch',
+                              'target_id': FAKE_NSX_LS_ID}],
                  'direction': 'OUT'},
                 self._default_rule()
             ]
@@ -241,21 +241,21 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
             mock.patch.object(self.plugin.fwaas_callbacks, 'get_port_fwg',
                               return_value=firewall),\
             mock.patch("vmware_nsx.db.db.get_nsx_switch_and_port_id",
-                       return_value=(0, FAKE_NSX_PORT_ID)),\
+                       return_value=(FAKE_NSX_LS_ID, 0)),\
             mock.patch("vmware_nsxlib.v3.security.NsxLibFirewallSection."
                        "update") as update_fw:
             func('nsx', apply_list, firewall)
             expected_rules = self._fake_translated_rules(
-                FAKE_NSX_PORT_ID, is_ingress=is_ingress) + [
+                FAKE_NSX_LS_ID, is_ingress=is_ingress) + [
                 {'display_name': "Block port ingress",
                  'action': consts.FW_ACTION_DROP,
-                 'destinations': [{'target_type': 'LogicalPort',
-                                   'target_id': FAKE_NSX_PORT_ID}],
+                 'destinations': [{'target_type': 'LogicalSwitch',
+                                   'target_id': FAKE_NSX_LS_ID}],
                  'direction': 'IN'},
                 {'display_name': "Block port egress",
                  'action': consts.FW_ACTION_DROP,
-                 'sources': [{'target_type': 'LogicalPort',
-                              'target_id': FAKE_NSX_PORT_ID}],
+                 'sources': [{'target_type': 'LogicalSwitch',
+                              'target_id': FAKE_NSX_LS_ID}],
                  'direction': 'OUT'},
                 self._default_rule()
             ]
@@ -295,7 +295,7 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
             mock.patch.object(self.plugin.fwaas_callbacks, 'get_port_fwg',
                               return_value=None),\
             mock.patch("vmware_nsx.db.db.get_nsx_switch_and_port_id",
-                       return_value=(0, FAKE_NSX_PORT_ID)),\
+                       return_value=(FAKE_NSX_LS_ID, 0)),\
             mock.patch("vmware_nsxlib.v3.security.NsxLibFirewallSection."
                        "update") as update_fw:
             self.firewall.delete_firewall_group('nsx', apply_list, firewall)
@@ -328,7 +328,7 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
             mock.patch.object(self.plugin.fwaas_callbacks, 'get_port_fwg',
                               return_value=firewall),\
             mock.patch("vmware_nsx.db.db.get_nsx_switch_and_port_id",
-                       return_value=(0, FAKE_NSX_PORT_ID)),\
+                       return_value=(FAKE_NSX_LS_ID, 0)),\
             mock.patch("vmware_nsxlib.v3.security.NsxLibFirewallSection."
                        "update") as update_fw:
             self.firewall.create_firewall_group('nsx', apply_list, firewall)
@@ -338,29 +338,29 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
             expected_rules = [
                 {'display_name': "DHCP Relay ingress traffic",
                  'action': consts.FW_ACTION_ALLOW,
-                 'destinations': [{'target_type': 'LogicalPort',
-                                   'target_id': FAKE_NSX_PORT_ID}],
+                 'destinations': [{'target_type': 'LogicalSwitch',
+                                   'target_id': FAKE_NSX_LS_ID}],
                  'sources': [{'target_id': relay_server,
                               'target_type': 'IPv4Address'}],
                  'services': self.plugin._get_port_relay_services(),
                  'direction': 'IN'},
                 {'display_name': "DHCP Relay egress traffic",
                  'action': consts.FW_ACTION_ALLOW,
-                 'sources': [{'target_type': 'LogicalPort',
-                              'target_id': FAKE_NSX_PORT_ID}],
+                 'sources': [{'target_type': 'LogicalSwitch',
+                              'target_id': FAKE_NSX_LS_ID}],
                  'destinations': [{'target_id': relay_server,
                                    'target_type': 'IPv4Address'}],
                  'services': self.plugin._get_port_relay_services(),
                  'direction': 'OUT'},
                 {'display_name': "Block port ingress",
                  'action': consts.FW_ACTION_DROP,
-                 'destinations': [{'target_type': 'LogicalPort',
-                                   'target_id': FAKE_NSX_PORT_ID}],
+                 'destinations': [{'target_type': 'LogicalSwitch',
+                                   'target_id': FAKE_NSX_LS_ID}],
                  'direction': 'IN'},
                 {'display_name': "Block port egress",
                  'action': consts.FW_ACTION_DROP,
-                 'sources': [{'target_type': 'LogicalPort',
-                              'target_id': FAKE_NSX_PORT_ID}],
+                 'sources': [{'target_type': 'LogicalSwitch',
+                              'target_id': FAKE_NSX_LS_ID}],
                  'direction': 'OUT'},
                 self._default_rule()
             ]
