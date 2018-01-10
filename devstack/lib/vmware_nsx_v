@@ -59,7 +59,6 @@ function neutron_plugin_configure_common {
     cp $DEST/$Q_PLUGIN_SRC_CONF_PATH/nsx.ini.sample /$Q_PLUGIN_CONF_PATH/$Q_PLUGIN_CONF_FILENAME
     sudo install -d -o $STACK_USER $NEUTRON_CONF_DIR/policy.d
     cp -vr $DEST/$Q_PLUGIN_SRC_CONF_PATH/policy.d/* $NEUTRON_CONF_DIR/policy.d/
-    Q_DB_NAME="neutron_nsx"
     Q_PLUGIN_CLASS="vmware_nsxv"
 }
 
