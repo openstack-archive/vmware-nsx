@@ -130,7 +130,10 @@ nsxv3_resources = {
     constants.LB_POOLS: Resource(constants.LB_POOLS,
                                  [Operations.LIST.value]),
     constants.LB_MONITORS: Resource(constants.LB_MONITORS,
-                                    [Operations.LIST.value])
+                                    [Operations.LIST.value]),
+    constants.RATE_LIMIT: Resource(constants.RATE_LIMIT,
+                                   [Operations.SHOW.value,
+                                    Operations.NSX_UPDATE.value])
 }
 
 # Add supported NSX-V resources in this dictionary
