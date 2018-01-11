@@ -3894,7 +3894,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if vpn_plugin:
                 vpn_driver = vpn_plugin.drivers[vpn_plugin.default_provider]
                 vpn_rules = (
-                    vpn_driver._generate_ipsecvpn_firewall_rules(edge_id))
+                    vpn_driver._generate_ipsecvpn_firewall_rules(
+                        self.plugin_type(), context, edge_id=edge_id))
                 fw_rules.extend(vpn_rules)
 
         # Get the load balancer rules in case they are refreshed

@@ -21,6 +21,7 @@ from neutron_vpnaas.db.vpn import vpn_validator
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.services.vpnaas.nsxv3 import ipsec_utils
 from vmware_nsxlib.v3 import nsx_constants as consts
 from vmware_nsxlib.v3 import vpn_ipsec
@@ -34,7 +35,13 @@ class IPsecV3Validator(vpn_validator.VpnReferenceValidator):
     def __init__(self, service_plugin):
         super(IPsecV3Validator, self).__init__()
         self.vpn_plugin = service_plugin
-        self.nsxlib = self.core_plugin.nsxlib
+
+        self._core_plugin = self.core_plugin
+        if self._core_plugin.is_tvd_plugin():
+            self._core_plugin = self._core_plugin.get_plugin_by_type(
+                projectpluginmap.NsxPlugins.NSX_T)
+        self.nsxlib = self._core_plugin.nsxlib
+
         self.check_backend_version()
 
     def check_backend_version(self):
@@ -219,7 +226,7 @@ class IPsecV3Validator(vpn_validator.VpnReferenceValidator):
         this_cidr = srv['subnet']['cidr']
 
         # get all subnets of no-snat routers
-        all_routers = self.core_plugin.get_routers(admin_con)
+        all_routers = self._core_plugin.get_routers(admin_con)
         nosnat_routers = [rtr for rtr in all_routers
                           if (rtr['id'] != this_router and
                               rtr.get('external_gateway_info') and
@@ -229,7 +236,7 @@ class IPsecV3Validator(vpn_validator.VpnReferenceValidator):
             if rtr['id'] == this_router:
                 continue
             # go over the subnets of this router
-            subnets = self.core_plugin._find_router_subnets_cidrs(
+            subnets = self._core_plugin._find_router_subnets_cidrs(
                 admin_con, rtr['id'])
             if subnets and netaddr.IPSet(subnets) & netaddr.IPSet([this_cidr]):
                 msg = (_("Cannot create connection with overlapping local "
@@ -283,9 +290,10 @@ class IPsecV3Validator(vpn_validator.VpnReferenceValidator):
                                                       ipsec_policy_id)
             self.validate_ipsec_policy(context, ipsecpolicy)
 
-        self._check_advertisment_overlap(context, ipsec_site_conn)
-        self._check_unique_addresses(context, ipsec_site_conn)
-        self._check_policy_rules_overlap(context, ipsec_site_conn)
+        if ipsec_site_conn.get('vpnservice_id'):
+            self._check_advertisment_overlap(context, ipsec_site_conn)
+            self._check_unique_addresses(context, ipsec_site_conn)
+            self._check_policy_rules_overlap(context, ipsec_site_conn)
 
         #TODO(asarfaty): IPv6 is not yet supported. add validation
 
@@ -293,15 +301,15 @@ class IPsecV3Validator(vpn_validator.VpnReferenceValidator):
         vpnservice = self.vpn_plugin._get_vpnservice(context,
                                                      vpnservice_id)
         router_id = vpnservice['router_id']
-        router_db = self.core_plugin.get_router(context, router_id)
+        router_db = self._core_plugin.get_router(context, router_id)
         gw = router_db['external_gateway_info']
         return gw['external_fixed_ips'][0]['ip_address']
 
     def _validate_router(self, context, router_id):
         # Verify that the router gw network is connected to an active-standby
         # Tier0 router
-        router_db = self.core_plugin._get_router(context, router_id)
-        tier0_uuid = self.core_plugin._get_tier0_uuid_by_router(context,
+        router_db = self._core_plugin._get_router(context, router_id)
+        tier0_uuid = self._core_plugin._get_tier0_uuid_by_router(context,
             router_db)
         # TODO(asarfaty): cache this result
         tier0_router = self.nsxlib.logical_router.get(tier0_uuid)
