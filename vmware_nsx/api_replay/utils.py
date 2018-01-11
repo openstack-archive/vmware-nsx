@@ -14,7 +14,6 @@
 #    under the License.
 
 
-from neutron.api.v2 import attributes
 from neutron_lib.api import attributes as lib_attrs
 from oslo_config import cfg
 from oslo_utils import uuidutils
@@ -27,7 +26,7 @@ def _fixup_res_dict(context, attr_name, res_dict, check_allow_post=True):
     # for the id field if one is not found ONLY if running in api_replay_mode.
     if cfg.CONF.api_replay_mode and 'id' not in res_dict:
         res_dict['id'] = uuidutils.generate_uuid()
-    attr_info = attributes.RESOURCE_ATTRIBUTE_MAP[attr_name]
+    attr_info = lib_attrs.RESOURCES[attr_name]
     attr_ops = lib_attrs.AttributeInfo(attr_info)
     try:
         attr_ops.populate_project_id(context, res_dict, True)

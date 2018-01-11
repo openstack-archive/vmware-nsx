@@ -15,7 +15,7 @@
 
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin
 
-from neutron.api.v2 import attributes
+from neutron_lib.api import attributes
 from neutron_lib.plugins import directory
 from oslo_config import cfg
 
@@ -39,7 +39,7 @@ class TestApiReplay(test_plugin.NsxV3PluginTestCaseMixin):
         # Revert the attributes map back to normal
         for attr_name in ('ports', 'networks', 'security_groups',
                           'security_group_rules', 'routers', 'policies'):
-            attr_info = attributes.RESOURCE_ATTRIBUTE_MAP[attr_name]
+            attr_info = attributes.RESOURCES[attr_name]
             attr_info['id']['allow_post'] = False
 
         super(TestApiReplay, self).tearDown()
