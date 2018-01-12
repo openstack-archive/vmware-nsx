@@ -15,6 +15,8 @@
 
 from oslo_log import log as logging
 
+from neutron_lib import constants as nl_constants
+
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.services.fwaas.common import fwaas_callbacks_v2 as \
@@ -98,3 +100,11 @@ class Nsxv3FwaasCallbacksV2(com_callbacks.NsxFwaasCallbacksV2):
 
         # update the backend router firewall
         nsxlib.firewall_section.update(section_id, rules=fw_rules)
+
+    def delete_port(self, context, port_id):
+        # Mark the FW group as inactive if this is the last port
+        fwg = self.get_port_fwg(context, port_id)
+        if (fwg and fwg.get('status') == nl_constants.ACTIVE and
+            len(fwg.get('ports', [])) <= 1):
+            self.fwplugin_rpc.set_firewall_group_status(
+                context, fwg['id'], nl_constants.INACTIVE)
