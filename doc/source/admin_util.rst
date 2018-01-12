@@ -509,3 +509,18 @@ Upgrade Steps (Version 1.0.0 to Version 1.1.0)
    metadata_proxy_shared_secret = <Secret of Metadata-Proxy created in Step 2>
 
 8. Restart VMs or ifdown/ifup their network interface to get new DHCP options
+
+Steps to create a TVD admin user
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Do the following steps:
+    source devstack/openrc admin admin
+    openstack project create admin_v --domain=default --or-show -f value -c id
+    openstack user create admin_v --password password --domain=default --email=alt_demo@example.com --or-show -f value -c id
+    openstack role add admin --user <user-id> --project <admin-id>
+
+Or run:
+    devstack/tools/create_userrc.sh
+
+Then:
+    openstack project plugin create --plugin nsx-v <project-id>
