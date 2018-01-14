@@ -24,6 +24,7 @@ from neutron_lib.callbacks import registry
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsxv_exc
 from vmware_nsx.common import nsxv_constants
+from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 
 
@@ -76,6 +77,7 @@ class RouterBaseDriver(RouterAbstractDriver):
         self.nsx_v = plugin.nsx_v
         self.edge_manager = plugin.edge_manager
         self.vcns = self.nsx_v.vcns
+        self._availability_zones = nsx_az.NsxVAvailabilityZones()
 
     def _notify_after_router_edge_association(self, context, router):
         registry.notify(nsxv_constants.SERVICE_EDGE, events.AFTER_CREATE,

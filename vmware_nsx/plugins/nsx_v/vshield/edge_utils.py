@@ -2393,10 +2393,13 @@ def delete_interface(nsxv_manager, context, router_id, network_id, dist=False):
             context.session, edge_id, network_id)
 
 
-def update_nat_rules(nsxv_manager, context, router_id, snat, dnat):
+def update_nat_rules(nsxv_manager, context, router_id, snat, dnat, az=None):
     binding = nsxv_db.get_nsxv_router_binding(context.session, router_id)
     if binding:
-        bind_to_all = cfg.CONF.nsxv.bind_floatingip_to_all_interfaces
+        if not az:
+            azs = nsx_az.NsxVAvailabilityZones()
+            az = azs.get_availability_zone(binding['availability_zone'])
+        bind_to_all = az.bind_floatingip_to_all_interfaces
 
         indices = None
         if bind_to_all:
