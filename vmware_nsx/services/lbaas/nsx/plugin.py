@@ -19,7 +19,18 @@ from vmware_nsx.db import db as nsx_db
 
 
 class LoadBalancerTVDPluginv2(plugin.LoadBalancerPluginv2):
-    def _get_project_mapping(self, context, project_id):
+
+    def _get_project_mapping(self, context, filters):
+        project_id = context.project_id
+        if filters:
+            if filters.get('tenant_id'):
+                project_id = filters.get('tenant_id')
+            elif filters.get('project_id'):
+                project_id = filters.get('project_id')
+            # If multiple are requested then we revert to
+            # the context's project id
+            if isinstance(project_id, list):
+                project_id = context.project_id
         mapping = nsx_db.get_project_plugin_mapping(
                 context.session, project_id)
         if mapping:
@@ -28,7 +39,7 @@ class LoadBalancerTVDPluginv2(plugin.LoadBalancerPluginv2):
             raise exceptions.ObjectNotFound(id=project_id)
 
     def _filter_entries(self, method, context, filters=None, fields=None):
-        req_p = self._get_project_mapping(context, context.project_id)
+        req_p = self._get_project_mapping(context, filters)
         entries = method(context, filters=filters, fields=fields)
         for entry in entries[:]:
             p = self._get_project_mapping(context,
