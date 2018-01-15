@@ -64,9 +64,9 @@ class Nsxv3FwaasCallbacksV2(com_callbacks.NsxFwaasCallbacksV2):
 
         return True
 
-    def get_port_rules(self, nsx_port_id, fwg, plugin_rules):
+    def get_port_rules(self, nsx_ls_id, fwg, plugin_rules):
         return self.internal_driver.get_port_translated_rules(
-            nsx_port_id, fwg, plugin_rules)
+            nsx_ls_id, fwg, plugin_rules)
 
     def update_router_firewall(self, context, nsxlib, router_id,
                                router_interfaces, nsx_router_id, section_id):
@@ -78,7 +78,7 @@ class Nsxv3FwaasCallbacksV2(com_callbacks.NsxFwaasCallbacksV2):
         fw_rules = []
         # Add firewall rules per port attached to a firewall group
         for port in router_interfaces:
-            _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
+            nsx_ls_id, _nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
                 context.session, port['id'])
 
             # Check if this port has a firewall
@@ -91,7 +91,7 @@ class Nsxv3FwaasCallbacksV2(com_callbacks.NsxFwaasCallbacksV2):
                 # add the FWaaS rules for this port
                 # ingress/egress firewall rules + default ingress/egress drop
                 # rule for this port
-                fw_rules.extend(self.get_port_rules(nsx_port_id, fwg,
+                fw_rules.extend(self.get_port_rules(nsx_ls_id, fwg,
                                                     plugin_rules))
 
         # add a default allow-all rule to all other traffic & ports
