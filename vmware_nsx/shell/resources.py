@@ -271,6 +271,8 @@ cli_opts = [cfg.StrOpt('fmt',
                        short='o',
                        help='Supported list of operations: {}'
                              .format(', '.join(ops))),
+            cfg.StrOpt('plugin',
+                       help='nsxv or nsxv3 if the tvd plugin is used'),
             cfg.BoolOpt('force',
                         default=False,
                         help='Enables \'force\' mode. No confirmations will '

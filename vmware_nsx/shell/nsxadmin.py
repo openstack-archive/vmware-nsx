@@ -110,16 +110,41 @@ def _validate_op_choice(choice, nsx_plugin):
             sys.exit(1)
 
 
+def _validate_plugin_choice(selected_plugin, nsx_plugin):
+    if nsx_plugin == 'nsxtvd':
+        if selected_plugin:
+            if selected_plugin != 'nsxv' and selected_plugin != 'nsxv3':
+                LOG.error('Illegal plugin %s. please select nsxv or nsxv3',
+                          selected_plugin)
+                sys.exit(1)
+            # use nsxv or nsxv3 plugins
+            return selected_plugin
+        else:
+            # use the TVD pluging
+            return nsx_plugin
+    else:
+        if selected_plugin:
+            LOG.error('Cannot select plugin. The current plugin is %s',
+                      nsx_plugin)
+            sys.exit(1)
+        return nsx_plugin
+
+
 def main(argv=sys.argv[1:]):
     _init_cfg()
     nsx_plugin_in_use = resources.get_plugin()
-    resources.init_resource_plugin(
-        nsx_plugin_in_use,
-        resources.get_plugin_dir(nsx_plugin_in_use))
     LOG.info('NSX Plugin in use: %s', nsx_plugin_in_use)
 
-    _validate_resource_choice(cfg.CONF.resource, nsx_plugin_in_use)
-    _validate_op_choice(cfg.CONF.operation, nsx_plugin_in_use)
+    # the user can select the specific plugin
+    selected_plugin = _validate_plugin_choice(cfg.CONF.plugin,
+                                              nsx_plugin_in_use)
+
+    resources.init_resource_plugin(
+        selected_plugin,
+        resources.get_plugin_dir(selected_plugin))
+
+    _validate_resource_choice(cfg.CONF.resource, selected_plugin)
+    _validate_op_choice(cfg.CONF.operation, selected_plugin)
 
     registry.notify(cfg.CONF.resource, cfg.CONF.operation, 'nsxadmin',
                     force=cfg.CONF.force, property=cfg.CONF.property,
