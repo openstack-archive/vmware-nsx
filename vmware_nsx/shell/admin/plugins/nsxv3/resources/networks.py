@@ -45,7 +45,8 @@ def list_missing_networks(resource, event, trigger, **kwargs):
     nsxlib = utils.get_connected_nsxlib()
     plugin = db_base_plugin_v2.NeutronDbPluginV2()
     admin_cxt = neutron_context.get_admin_context()
-    neutron_networks = plugin.get_networks(admin_cxt)
+    filters = utils.get_plugin_filters(admin_cxt)
+    neutron_networks = plugin.get_networks(admin_cxt, filters=filters)
     networks = []
     for net in neutron_networks:
         neutron_id = net['id']

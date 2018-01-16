@@ -41,10 +41,12 @@ class NeutronSecurityGroupApi(securitygroups_db.SecurityGroupDbMixin,
     def __init__(self):
         super(NeutronSecurityGroupApi, self)
         self.context = neutron_context.get_admin_context()
+        self.filters = v3_utils.get_plugin_filters(self.context)
 
     def get_security_groups(self):
         return super(NeutronSecurityGroupApi,
-                     self).get_security_groups(self.context)
+                     self).get_security_groups(self.context,
+                                               filters=self.filters)
 
     def delete_security_group(self, sg_id):
         return super(NeutronSecurityGroupApi,

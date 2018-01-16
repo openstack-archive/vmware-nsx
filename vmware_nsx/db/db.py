@@ -694,6 +694,11 @@ def get_project_plugin_mappings(session):
     return session.query(nsx_models.NsxProjectPluginMapping).all()
 
 
+def get_project_plugin_mappings_by_plugin(session, plugin):
+    return session.query(nsx_models.NsxProjectPluginMapping).filter_by(
+        plugin=plugin).all()
+
+
 def add_nsx_vpn_connection_mapping(session, neutron_id, session_id,
                                    dpd_profile_id, ike_profile_id,
                                    ipsec_profile_id, peer_ep_id):

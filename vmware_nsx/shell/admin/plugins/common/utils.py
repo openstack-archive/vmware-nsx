@@ -16,6 +16,7 @@ import sys
 
 import six
 from vmware_nsx._i18n import _
+from vmware_nsx.db import db
 from vmware_nsx.shell import resources as nsxadmin
 
 from neutron.common import profiler  # noqa
@@ -112,3 +113,16 @@ def fix_mismatches_handler(resource):
                            nsxadmin.Operations.FIX_MISMATCH.value)
         return func
     return wrap
+
+
+def get_plugin_filters(context, plugin):
+    # Return filters for the neutron list apis so that only resources from
+    # a specific plugin will be returned.
+    filters = {}
+    core_plugin = nsxadmin.get_plugin()
+    if core_plugin == 'nsxtvd':
+        maps = db.get_project_plugin_mappings_by_plugin(
+            context.session, plugin)
+        if maps:
+            filters['project_id'] = [m.project for m in maps]
+    return filters

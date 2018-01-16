@@ -73,8 +73,9 @@ class NeutronSecurityGroupDB(
             self.context, sg_id)
 
     def get_security_groups(self):
+        filters = utils.get_plugin_filters(self.context)
         return super(NeutronSecurityGroupDB,
-                     self).get_security_groups(self.context)
+                     self).get_security_groups(self.context, filters=filters)
 
     def get_security_group_id_by_section_id(self, section_id):
         section_url = ("/api/4.0/firewall/globalroot-0/config/layer3sections"
