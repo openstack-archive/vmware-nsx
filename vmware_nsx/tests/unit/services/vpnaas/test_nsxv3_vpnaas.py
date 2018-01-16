@@ -54,7 +54,7 @@ class TestDriverValidation(base.BaseTestCase):
             self.validator.validate_ipsec_policy)
 
     def _test_lifetime_seconds_values_at_limits(self, validation_func):
-        policy_info = {'lifetime': {'units': 'seconds', 'value': 90}}
+        policy_info = {'lifetime': {'units': 'seconds', 'value': 21600}}
         validation_func(self.context, policy_info)
         policy_info = {'lifetime': {'units': 'seconds', 'value': 86400}}
         validation_func(self.context, policy_info)
@@ -128,7 +128,7 @@ class TestDriverValidation(base.BaseTestCase):
                           validation_func,
                           self.context, policy_info)
 
-        policy_info = {'pfs': 'group5'}
+        policy_info = {'pfs': 'group14'}
         validation_func(self.context, policy_info)
 
     def test_ipsec_pfs(self):
@@ -243,7 +243,7 @@ class TestDriverValidation(base.BaseTestCase):
         self._test_conn_validation(conn_params=params, success=False)
 
         params = {'dpd': {'action': 'hold',
-                          'timeout': 5}}
+                          'timeout': 2}}
         self._test_conn_validation(conn_params=params, success=False)
 
     def test_check_unique_addresses(self):

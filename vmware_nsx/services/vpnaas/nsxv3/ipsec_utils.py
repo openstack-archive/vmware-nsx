@@ -26,8 +26,6 @@ AUTH_ALGORITHM_MAP = {
 }
 
 PFS_MAP = {
-    'group2': vpn_ipsec.DHGroupTypes.DH_GROUP_2,
-    'group5': vpn_ipsec.DHGroupTypes.DH_GROUP_5,
     'group14': vpn_ipsec.DHGroupTypes.DH_GROUP_14
 }
 
