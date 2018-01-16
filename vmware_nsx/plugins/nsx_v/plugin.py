@@ -1816,12 +1816,18 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     LOG.error(msg)
                     raise n_exc.InvalidInput(error_message=msg)
 
+    def _validate_port_qos(self, port):
+        if validators.is_attr_set(port.get(qos_consts.QOS_POLICY_ID)):
+            err_msg = (_("Cannot configure QOS directly on ports"))
+            raise n_exc.InvalidInput(error_message=err_msg)
+
     def create_port(self, context, port):
         port_data = port['port']
         dhcp_opts = port_data.get(ext_edo.EXTRADHCPOPTS)
         self._validate_extra_dhcp_options(dhcp_opts)
         self._validate_max_ips_per_port(port_data.get('fixed_ips', []),
                                         port_data.get('device_owner'))
+        self._validate_port_qos(port_data)
         direct_vnic_type = self._validate_port_vnic_type(
             context, port_data, port_data['network_id'])
 
@@ -2077,6 +2083,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         port_data = port['port']
         dhcp_opts = port_data.get(ext_edo.EXTRADHCPOPTS)
         self._validate_extra_dhcp_options(dhcp_opts)
+        self._validate_port_qos(port_data)
         if addr_apidef.ADDRESS_PAIRS in attrs:
             self._validate_address_pairs(attrs, original_port)
         self._validate_max_ips_per_port(
