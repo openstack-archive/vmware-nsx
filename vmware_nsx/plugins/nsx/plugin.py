@@ -162,6 +162,9 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         LOG.info("NSX-TVD plugin will use %s as the default plugin",
             self.default_plugin)
 
+        # validate the availability zones configuration
+        self.init_availability_zones()
+
     def get_plugin_by_type(self, plugin_type):
         return self.plugins.get(plugin_type)
 
@@ -191,6 +194,15 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if plugin_type in [dvs.NsxDvsV2.plugin_type()]:
                 self._unsupported_fields[plugin_type]['port'] = [
                     'mac_learning_enabled', 'provider_security_groups']
+
+    def init_availability_zones(self):
+        # Make sure there are no overlaps between v/t availability zones
+        if (self.plugins.get(projectpluginmap.NsxPlugins.NSX_V) and
+            self.plugins.get(projectpluginmap.NsxPlugins.NSX_T) and
+            bool(set(cfg.CONF.nsxv.availability_zones) &
+                 set(cfg.CONF.nsx_v3.availability_zones))):
+            msg = _("Cannot use the same availability zones in NSX-V and T")
+            raise nsx_exc.NsxPluginException(err_msg=msg)
 
     def _unsubscribe_callback_events(self):
         # unsubscribe the callback that should be called on all plugins

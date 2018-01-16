@@ -845,6 +845,16 @@ nsx_tvd_opts = [
                choices=projectpluginmap.VALID_TYPES,
                help=_("The default plugin that will be used for new projects "
                       "that were not added to the projects plugin mapping.")),
+    cfg.ListOpt('nsx_v_default_availability_zones',
+                default=[],
+                help=_("The default availability zones that will be used for "
+                       "NSX-V networks and routers creation under the TVD "
+                       "plugin.")),
+    cfg.ListOpt('nsx_v3_default_availability_zones',
+                default=[],
+                help=_("The default availability zones that will be used for "
+                       "NSX-V3 networks and routers creation under the TVD "
+                       "plugin.")),
 ]
 
 # Register the configuration options

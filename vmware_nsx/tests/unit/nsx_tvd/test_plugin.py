@@ -44,6 +44,14 @@ class NsxTVDPluginTestCase(v_tests.NsxVPluginV2TestCase,
             cfg.CONF.set_override('default_plugin', self.plugin_type,
                                   group="nsx_tvd")
 
+        # set the default availability zones
+        cfg.CONF.set_override('nsx_v_default_availability_zones',
+                              ['default'],
+                              group="nsx_tvd")
+        cfg.CONF.set_override('nsx_v3_default_availability_zones',
+                              ['defaultv3'],
+                              group="nsx_tvd")
+
         super(NsxTVDPluginTestCase, self).setUp(
             plugin=plugin,
             ext_mgr=ext_mgr)
