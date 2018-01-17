@@ -186,7 +186,6 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
                 ike_version=ipsec_utils.IKE_VERSION_MAP[
                     ikepolicy['ike_version']],
                 dh_group=ipsec_utils.PFS_MAP[ikepolicy['pfs']],
-                pfs=True,
                 sa_life_time=ikepolicy['lifetime']['value'],
                 tags=self._nsx_tags(context, connection))
         except nsx_lib_exc.ManagerError as e:
@@ -593,7 +592,7 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
         # Note(asarfaty) we expect only a small number of services
         services = self._nsx_vpn.service.list()['results']
         for srv in services:
-            if srv['logical_router_id']['target_id'] == tier0_uuid:
+            if srv['logical_router_id'] == tier0_uuid:
                 # if it exists but disabled: issue an error
                 if not srv.get('enabled', True):
                     msg = _("NSX vpn service %s must be enabled") % srv['id']

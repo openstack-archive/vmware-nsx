@@ -71,14 +71,18 @@ class IPsecV3Validator(vpn_validator.VpnReferenceValidator):
                         'val': lifetime, 'pol': policy_type}
             raise nsx_exc.NsxVpnValidationError(details=msg)
         value = lifetime.get('value')
-        if (value and (value < vpn_ipsec.SALifetimeLimits.SA_LIFETIME_MIN or
-            value > vpn_ipsec.SALifetimeLimits.SA_LIFETIME_MAX)):
+        if policy_type == 'IKE':
+            limits = vpn_ipsec.IkeSALifetimeLimits
+        else:
+            limits = vpn_ipsec.IPsecSALifetimeLimits
+        if (value and (value < limits.SA_LIFETIME_MIN or
+            value > limits.SA_LIFETIME_MAX)):
             msg = _("Unsupported policy lifetime %(value)s in %(pol)s policy. "
                     "Value range is [%(min)s-%(max)s].") % {
                         'value': value,
                         'pol': policy_type,
-                        'min': vpn_ipsec.SALifetimeLimits.SA_LIFETIME_MIN,
-                        'max': vpn_ipsec.SALifetimeLimits.SA_LIFETIME_MAX}
+                        'min': limits.SA_LIFETIME_MIN,
+                        'max': limits.SA_LIFETIME_MAX}
             raise nsx_exc.NsxVpnValidationError(details=msg)
 
     def _validate_policy_auth_algorithm(self, policy_info, policy_type):
