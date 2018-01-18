@@ -3521,21 +3521,24 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # find the backend router id in the DB
         nsx_router_id = nsx_db.get_nsx_router_id(context.session, router_id)
         if nsx_router_id is None:
-            LOG.error("Didn't find nsx router for router %s", router_id)
-            raise self.driver_exception(driver=self.driver_name)
+            msg = _("Didn't find nsx router for router %s") % router_id
+            LOG.error(msg)
+            raise nsx_exc.NsxPluginException(err_msg=msg)
 
         # get the FW section id of the backend router
         try:
             section_id = self.nsxlib.logical_router.get_firewall_section_id(
                 nsx_router_id)
         except Exception as e:
-            LOG.error("Failed to find router firewall section for router "
-                      "%(id)s: %(e)s", {'id': router_id, 'e': e})
-            raise self.driver_exception(driver=self.driver_name)
+            msg = (_("Failed to find router firewall section for router "
+                     "%(id)s: %(e)s") % {'id': router_id, 'e': e})
+            LOG.error(msg)
+            raise nsx_exc.NsxPluginException(err_msg=msg)
         if section_id is None:
-            LOG.error("Failed to find router firewall section for router "
-                      "%(id)s.", {'id': router_id})
-            raise self.driver_exception(driver=self.driver_name)
+            msg = (_("Failed to find router firewall section for router "
+                     "%(id)s.") % {'id': router_id})
+            LOG.error(msg)
+            raise nsx_exc.NsxPluginException(err_msg=msg)
 
         return nsx_router_id, section_id
 
