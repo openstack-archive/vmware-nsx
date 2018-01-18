@@ -16,7 +16,10 @@
 from oslo_config import cfg
 
 from neutron_lib import context as n_context
+from neutron_lib import exceptions
 from neutron_lib.plugins import directory
+
+from vmware_nsx.db import db as nsx_db
 
 
 def is_tvd_core_plugin():
@@ -36,3 +39,42 @@ def get_tvd_plugin_type_for_project(project_id, context=None):
         context = n_context.get_admin_context()
     core_plugin = directory.get_plugin()
     return core_plugin.get_plugin_type_from_project(context, project_id)
+
+
+def filter_plugins(cls):
+    """
+    Class decorator to separate the results of each of the given methods
+    by plugin
+    """
+    def get_project_mapping(context, project_id):
+        """Return the plugin associated with this project"""
+        mapping = nsx_db.get_project_plugin_mapping(
+                context.session, project_id)
+        if mapping:
+            return mapping['plugin']
+        else:
+            raise exceptions.ObjectNotFound(id=project_id)
+
+    def add_separate_plugin_hook(name):
+        orig_method = getattr(cls, name, None)
+
+        def filter_results_by_plugin(self, context, filters=None, fields=None):
+            """Run the original get-list method, and filter the results
+            by the project id of the context
+            """
+            req_p = get_project_mapping(context, context.project_id)
+            entries = orig_method(self, context, filters=filters,
+                                  fields=fields)
+            for entry in entries[:]:
+                p = get_project_mapping(context, entry['tenant_id'])
+                if p != req_p:
+                    entries.remove(entry)
+
+            return entries
+
+        setattr(cls, name, filter_results_by_plugin)
+
+    for method in cls.methods_to_separate:
+        add_separate_plugin_hook(method)
+
+    return cls
