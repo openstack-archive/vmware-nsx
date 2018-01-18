@@ -83,9 +83,16 @@ class NsxFwaasCallbacksV2(firewall_l3_agent_v2.L3WithFWaaS):
                             router.internal_ports])
 
         # Return in-namespace port objects.
-        return self._get_in_ns_ports(fwg_port_ids)
+        ports = self._get_in_ns_ports(fwg_port_ids, ignore_errors=to_delete)
+        # On illegal ports - change FW status to Error
+        if ports is None:
+            self.fwplugin_rpc.set_firewall_group_status(
+                context,
+                firewall_group['id'],
+                nl_constants.ERROR)
+        return ports
 
-    def _get_in_ns_ports(self, port_ids):
+    def _get_in_ns_ports(self, port_ids, ignore_errors=False):
         """Returns port objects in the local namespace, along with their
            router_info.
         """
@@ -94,15 +101,40 @@ class NsxFwaasCallbacksV2(firewall_l3_agent_v2.L3WithFWaaS):
         for port_id in port_ids:
             # find the router of this port:
             port = self.core_plugin.get_port(context, port_id)
-            router_id = port['device_id']
-            router = self.core_plugin.get_router(context, router_id)
-            router_info = self._router_dict_to_obj(router)
-            if router_info:
-                if router_info in in_ns_ports:
-                    in_ns_ports[router_info].append(port_id)
-                else:
-                    in_ns_ports[router_info] = [port_id]
+            # verify that this is a router interface port
+            if port['device_owner'] != nl_constants.DEVICE_OWNER_ROUTER_INTF:
+                if not ignore_errors:
+                    LOG.error("NSX-V3 FWaaS V2 plugin does not support %s "
+                              "ports", port['device_owner'])
+                    return
+            else:
+                router_id = port['device_id']
+                router = self.core_plugin.get_router(context, router_id)
+                router_info = self._router_dict_to_obj(router)
+                if router_info:
+                    if router_info in in_ns_ports:
+                        in_ns_ports[router_info].append(port_id)
+                    else:
+                        in_ns_ports[router_info] = [port_id]
         return list(in_ns_ports.items())
+
+    def delete_firewall_group(self, context, firewall_group, host):
+        """Handles RPC from plugin to delete a firewall group.
+
+        This method is overridden here in order to handle routers
+        in Error state without ports, and make sure those are deleted.
+        """
+
+        ports_for_fwg = self._get_firewall_group_ports(
+            context, firewall_group, to_delete=True)
+        if not ports_for_fwg:
+            # FW without ports should be deleted without calling the driver
+            self.fwplugin_rpc.firewall_group_deleted(
+                context, firewall_group['id'])
+            return
+
+        return super(NsxFwaasCallbacksV2, self).delete_firewall_group(
+            context, firewall_group, host)
 
     def _get_routers_in_project(self, context, project_id):
         return self.core_plugin.get_routers(
