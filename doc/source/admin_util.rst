@@ -485,7 +485,12 @@ nsxadmin -r rate-limit -o nsx-update --property value=<>
 NSXtvd
 ------
 
+- All the nsx-v/v3 utilities can be used by calling
+
+    nsxadmin --plugin nsxv/v3 -r <> -o <>
+
 - Add mapping between projects and plugin before starting to use the tvd plugin:
+
     nsxadmin -r projects -o import --property plugin=nsx-v --property project=<>
 
 Config
