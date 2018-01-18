@@ -211,6 +211,9 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
 
     def _update_nat_rules_on_routers(self, context,
                                      target_router_id, router_ids):
+        edge_id, az_name = self.plugin._get_edge_id_and_az_by_rtr_id(
+            context, target_router_id)
+        az = self._availability_zones.get_availability_zone(az_name)
         snats = []
         dnats = []
         vnics_by_router = self._get_all_routers_vnic_indices(
@@ -222,7 +225,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                 snat, dnat = self.plugin._get_nat_rules(context, router)
                 snats.extend(snat)
                 dnats.extend(dnat)
-                if (not cfg.CONF.nsxv.bind_floatingip_to_all_interfaces and
+                if (not az.bind_floatingip_to_all_interfaces and
                     len(dnat) > 0):
                     # Copy each DNAT rule to all vnics of the other routers,
                     # to allow NAT-ed traffic between routers
@@ -241,7 +244,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
                             dnats.extend([new_rule])
 
         edge_utils.update_nat_rules(
-            self.nsx_v, context, target_router_id, snats, dnats)
+            self.nsx_v, context, target_router_id, snats, dnats, az=az)
 
     def _update_external_interface_on_routers(self, context,
                                               target_router_id, router_ids):

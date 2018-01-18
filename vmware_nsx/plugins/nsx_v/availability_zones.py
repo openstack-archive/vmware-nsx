@@ -67,6 +67,8 @@ class NsxVAvailabilityZone(common_az.ConfiguredAvailabilityZone):
         self.dvs_id = cfg.CONF.nsxv.dvs_id
         self.edge_host_groups = cfg.CONF.nsxv.edge_host_groups
         self.exclusive_dhcp_edge = cfg.CONF.nsxv.exclusive_dhcp_edge
+        self.bind_floatingip_to_all_interfaces = (
+            cfg.CONF.nsxv.bind_floatingip_to_all_interfaces)
 
         # No support for metadata per az
         self.az_metadata_support = False
@@ -135,6 +137,8 @@ class NsxVAvailabilityZone(common_az.ConfiguredAvailabilityZone):
             self.edge_host_groups = cfg.CONF.nsxv.edge_host_groups
 
         self.exclusive_dhcp_edge = az_info.get('exclusive_dhcp_edge', False)
+        self.bind_floatingip_to_all_interfaces = az_info.get(
+            'bind_floatingip_to_all_interfaces', False)
 
         # Support for metadata per az only if configured, and different
         # from the global one
@@ -195,6 +199,8 @@ class NsxVAvailabilityZone(common_az.ConfiguredAvailabilityZone):
         self.dvs_id = cfg.CONF.nsxv.dvs_id
         self.edge_host_groups = cfg.CONF.nsxv.edge_host_groups
         self.exclusive_dhcp_edge = cfg.CONF.nsxv.exclusive_dhcp_edge
+        self.bind_floatingip_to_all_interfaces = (
+            cfg.CONF.nsxv.bind_floatingip_to_all_interfaces)
 
     def supports_metadata(self):
         # Return True if this az has it's own metadata configuration

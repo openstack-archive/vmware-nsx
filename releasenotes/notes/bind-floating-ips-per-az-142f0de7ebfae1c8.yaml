@@ -1,0 +1,10 @@
+---
+prelude: >
+    Enable 'bind_floatingip_to_all_interfaces' to be configured per
+    availability zone.
+features:
+  - |
+    Enable 'bind_floatingip_to_all_interfaces' to be configured per
+    availability zone. This will enable an admin to ensure that an AZ
+    can have flotaing IP's configured on all edge vNICS. This enables VM's
+    on the same subnet to communicate via floating IP's.

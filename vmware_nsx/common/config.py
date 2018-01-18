@@ -777,6 +777,12 @@ nsxv_az_opts = [
     cfg.BoolOpt('exclusive_dhcp_edge',
                 default=False,
                 help=_("(Optional) Have exclusive DHCP edge per network.")),
+    cfg.BoolOpt('bind_floatingip_to_all_interfaces', default=False,
+                help=_("If set to False, router will associate floating ip "
+                       "with external interface of only, thus denying "
+                       "connectivity between hosts on same network via "
+                       "their floating ips. If True, floating ip will "
+                       "be associated with all router interfaces.")),
 ]
 
 # define the configuration of each NSX-V3 availability zone.
