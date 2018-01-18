@@ -13,7 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.extensions import multiprovidernet as mpnet
+from neutron_lib.api.definitions import multiprovidernet as mpnet_apidef
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators
 from neutron_lib import constants
@@ -309,7 +309,7 @@ def convert_to_nsx_transport_zones(
 
     # Convert fields from provider request to nsx format
     if (network and not validators.is_attr_set(
-        network.get(mpnet.SEGMENTS))):
+        network.get(mpnet_apidef.SEGMENTS))):
         return [{"zone_uuid": default_tz_uuid,
                  "transport_type": default_transport_type}]
 
@@ -320,4 +320,4 @@ def convert_to_nsx_transport_zones(
     # If we end up here we need to convert multiprovider segments into nsx
     # transport zone configurations
     return _convert_segments_to_nsx_transport_zones(
-        network.get(mpnet.SEGMENTS), default_tz_uuid)
+        network.get(mpnet_apidef.SEGMENTS), default_tz_uuid)

@@ -23,6 +23,7 @@ from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
 from neutron_lib.api.definitions import l3 as l3_apidef
+from neutron_lib.api.definitions import multiprovidernet as mpnet_apidef
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import provider_net as pnet
@@ -39,6 +40,7 @@ from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import allowedaddresspairs as addr_exc
 from neutron_lib.exceptions import flavors as flav_exc
 from neutron_lib.exceptions import l3 as l3_exc
+from neutron_lib.exceptions import multiprovidernet as mpnet_exc
 from neutron_lib.exceptions import port_security as psec_exc
 from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
@@ -78,7 +80,6 @@ from neutron.db import portsecurity_db
 from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db
-from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.extensions import vlantransparent as ext_vlan
@@ -639,11 +640,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         return az.vdn_scope_id
 
     def _validate_provider_create(self, context, network):
-        if not validators.is_attr_set(network.get(mpnet.SEGMENTS)):
+        if not validators.is_attr_set(network.get(mpnet_apidef.SEGMENTS)):
             return
 
         az_dvs = self._get_network_az_dvs_id(network)
-        for segment in network[mpnet.SEGMENTS]:
+        for segment in network[mpnet_apidef.SEGMENTS]:
             network_type = segment.get(pnet.NETWORK_TYPE)
             physical_network = segment.get(pnet.PHYSICAL_NETWORK)
             segmentation_id = segment.get(pnet.SEGMENTATION_ID)
@@ -761,7 +762,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 network[pnet.SEGMENTATION_ID] = bindings[0].vlan_id
             else:
                 # network come in though multiprovider networks api
-                network[mpnet.SEGMENTS] = [
+                network[mpnet_apidef.SEGMENTS] = [
                     {pnet.NETWORK_TYPE: binding.binding_type,
                      pnet.PHYSICAL_NETWORK: binding.phy_uuid,
                      pnet.SEGMENTATION_ID: binding.vlan_id}
@@ -850,10 +851,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if any(validators.is_attr_set(network.get(f))
                for f in (pnet.NETWORK_TYPE, pnet.PHYSICAL_NETWORK,
                          pnet.SEGMENTATION_ID)):
-            if validators.is_attr_set(network.get(mpnet.SEGMENTS)):
-                raise mpnet.SegmentsSetInConjunctionWithProviders()
+            if validators.is_attr_set(network.get(mpnet_apidef.SEGMENTS)):
+                raise mpnet_exc.SegmentsSetInConjunctionWithProviders()
             # convert to transport zone list
-            network[mpnet.SEGMENTS] = [
+            network[mpnet_apidef.SEGMENTS] = [
                 {pnet.NETWORK_TYPE: network[pnet.NETWORK_TYPE],
                  pnet.PHYSICAL_NETWORK: network[pnet.PHYSICAL_NETWORK],
                  pnet.SEGMENTATION_ID: network[pnet.SEGMENTATION_ID]}]
@@ -861,7 +862,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             del network[pnet.PHYSICAL_NETWORK]
             del network[pnet.SEGMENTATION_ID]
             return False
-        if validators.is_attr_set(network.get(mpnet.SEGMENTS)):
+        if validators.is_attr_set(network.get(mpnet_apidef.SEGMENTS)):
             return True
 
     def _delete_backend_network(self, moref, dvs_id=None):
@@ -908,7 +909,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _create_vlan_network_at_backend(self, net_data, dvs_id):
         network_name = self._get_vlan_network_name(net_data, dvs_id)
-        segment = net_data[mpnet.SEGMENTS][0]
+        segment = net_data[mpnet_apidef.SEGMENTS][0]
         vlan_tag = 0
         if (segment.get(pnet.NETWORK_TYPE) ==
             c_utils.NsxVNetworkTypes.VLAN):
@@ -1099,7 +1100,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         free_ids = list(vlan_ids ^ used_ids_in_range)
         if len(free_ids) == 0:
             raise n_exc.NoNetworkAvailable()
-        net_data[mpnet.SEGMENTS][0][pnet.SEGMENTATION_ID] = free_ids[0]
+        net_data[mpnet_apidef.SEGMENTS][0][pnet.SEGMENTATION_ID] = free_ids[0]
 
     def create_network(self, context, network):
         net_data = network['network']
@@ -1118,7 +1119,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         generate_segmenation_id = False
         lock_vlan_creation = False
         if provider_type is not None:
-            segment = net_data[mpnet.SEGMENTS][0]
+            segment = net_data[mpnet_apidef.SEGMENTS][0]
             network_type = segment.get(pnet.NETWORK_TYPE)
             if network_type == c_utils.NsxVNetworkTypes.VLAN:
                 physical_network = segment.get(pnet.PHYSICAL_NETWORK)
@@ -1174,7 +1175,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 config_spec = {"virtualWireCreateSpec": virtual_wire}
                 vdn_scope_id = self._get_network_vdn_scope_id(net_data)
                 if provider_type is not None:
-                    segment = net_data[mpnet.SEGMENTS][0]
+                    segment = net_data[mpnet_apidef.SEGMENTS][0]
                     if validators.is_attr_set(
                         segment.get(pnet.PHYSICAL_NETWORK)):
                         vdn_scope_id = segment.get(pnet.PHYSICAL_NETWORK)
@@ -1191,11 +1192,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 if vlt:
                     raise NotImplementedError(_("Transparent support only "
                                                 "for VXLANs"))
-                segment = net_data[mpnet.SEGMENTS][0]
+                segment = net_data[mpnet_apidef.SEGMENTS][0]
                 net_morefs = [segment.get(pnet.PHYSICAL_NETWORK)]
                 dvs_net_ids = [net_data['name']]
             else:
-                segment = net_data[mpnet.SEGMENTS][0]
+                segment = net_data[mpnet_apidef.SEGMENTS][0]
                 physical_network = segment.get(pnet.PHYSICAL_NETWORK)
                 # Retrieve the list of dvs-ids from physical network.
                 # If physical_network attr is not set, retrieve a list
@@ -1276,10 +1277,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
                 # DB Operations for setting the network as external
                 self._process_l3_create(context, new_net, net_data)
-                if (net_data.get(mpnet.SEGMENTS) and
+                if (net_data.get(mpnet_apidef.SEGMENTS) and
                     isinstance(provider_type, bool)):
                     net_bindings = []
-                    for tz in net_data[mpnet.SEGMENTS]:
+                    for tz in net_data[mpnet_apidef.SEGMENTS]:
                         network_type = tz.get(pnet.NETWORK_TYPE)
                         segmentation_id = tz.get(pnet.SEGMENTATION_ID, 0)
                         segmentation_id_set = validators.is_attr_set(
