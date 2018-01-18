@@ -22,8 +22,10 @@ from neutron_lib import context as neutron_context
 from neutron_lib.plugins import directory
 
 from vmware_nsx.common import config
+from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx import plugin
 from vmware_nsx.plugins.nsx_v.vshield import vcns
+from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 
 LOG = logging.getLogger(__name__)
 
@@ -37,6 +39,11 @@ def get_nsxv_client():
         insecure=cfg.CONF.nsxv.insecure)
 
 
+def get_plugin_filters(context):
+    return admin_utils.get_plugin_filters(
+        context, projectpluginmap.NsxPlugins.NSX_V)
+
+
 class NeutronDbClient(common_db.CommonDbMixin):
     def __init__(self):
         super(NeutronDbClient, self)
@@ -47,6 +54,8 @@ class NsxVPluginWrapper(plugin.NsxVPlugin):
 
     def __init__(self):
         config.register_nsxv_azs(cfg.CONF, cfg.CONF.nsxv.availability_zones)
+        self.context = neutron_context.get_admin_context()
+        self.filters = get_plugin_filters(self.context)
         super(NsxVPluginWrapper, self).__init__()
         # Make this the core plugin
         directory.add_plugin('CORE', self)
@@ -97,6 +106,32 @@ class NsxVPluginWrapper(plugin.NsxVPlugin):
 
         LOG.warning("Sorry. Waited for too long. Some jobs are still "
                     "running.")
+
+    def _update_filters(self, requested_filters):
+        filters = self.filters.copy()
+        if requested_filters:
+            filters.update(requested_filters)
+        return filters
+
+    def get_networks(self, context, filters=None, fields=None):
+        filters = self._update_filters(filters)
+        return super(NsxVPluginWrapper, self).get_networks(
+            context, filters=filters, fields=fields)
+
+    def get_subnets(self, context, filters=None, fields=None):
+        filters = self._update_filters(filters)
+        return super(NsxVPluginWrapper, self).get_subnets(
+            context, filters=filters, fields=fields)
+
+    def get_ports(self, context, filters=None, fields=None):
+        filters = self._update_filters(filters)
+        return super(NsxVPluginWrapper, self).get_ports(
+            self.context, filters=filters, fields=fields)
+
+    def get_routers(self, context, filters=None, fields=None):
+        filters = self._update_filters(filters)
+        return super(NsxVPluginWrapper, self).get_routers(
+            self.context, filters=filters, fields=fields)
 
 
 def get_nsxv_backend_edges():

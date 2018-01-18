@@ -25,11 +25,14 @@ from neutron_lib.plugins import directory
 from neutron_fwaas.services.firewall import fwaas_plugin as fwaas_plugin_v1
 from neutron_fwaas.services.firewall import fwaas_plugin_v2
 
+from vmware_nsx.common import config
 from vmware_nsx.db import db as nsx_db
+from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.plugins.nsx_v3 import plugin
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 from vmware_nsx.services.fwaas.nsx_v3 import fwaas_callbacks_v1
 from vmware_nsx.services.fwaas.nsx_v3 import fwaas_callbacks_v2
+from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsxlib.v3 import nsx_constants
 
 _NSXLIB = None
@@ -57,16 +60,30 @@ def get_connected_nsxlib(nsx_username=None, nsx_password=None,
     return _NSXLIB
 
 
+def get_plugin_filters(context):
+    return admin_utils.get_plugin_filters(
+        context, projectpluginmap.NsxPlugins.NSX_T)
+
+
 class NeutronDbClient(db_base_plugin_v2.NeutronDbPluginV2):
     def __init__(self):
         super(NeutronDbClient, self).__init__()
         self.context = context.get_admin_context()
+        self.filters = get_plugin_filters(self.context)
+
+    def _update_filters(self, requested_filters):
+        filters = self.filters.copy()
+        if requested_filters:
+            filters.update(requested_filters)
+        return filters
 
     def get_ports(self, filters=None, fields=None):
+        filters = self._update_filters(filters)
         return super(NeutronDbClient, self).get_ports(
             self.context, filters=filters, fields=fields)
 
     def get_networks(self, filters=None, fields=None):
+        filters = self._update_filters(filters)
         return super(NeutronDbClient, self).get_networks(
             self.context, filters=filters, fields=fields)
 
@@ -106,6 +123,8 @@ class NeutronDbClient(db_base_plugin_v2.NeutronDbPluginV2):
 
 class NsxV3PluginWrapper(plugin.NsxV3Plugin):
     def __init__(self):
+        # initialize the availability zones
+        config.register_nsxv3_azs(cfg.CONF, cfg.CONF.nsx_v3.availability_zones)
         super(NsxV3PluginWrapper, self).__init__()
         self.context = context.get_admin_context()
 

@@ -119,9 +119,9 @@ def list_missing_ports(resource, event, trigger, **kwargs):
     And ports with wrong switch profiles
     """
     admin_cxt = neutron_context.get_admin_context()
-
+    filters = v3_utils.get_plugin_filters(admin_cxt)
     with PortsPlugin() as plugin:
-        neutron_ports = plugin.get_ports(admin_cxt)
+        neutron_ports = plugin.get_ports(admin_cxt, filters=filters)
         port_client, profile_client = get_port_and_profile_clients()
 
         # get pre-defined profile ids
@@ -228,7 +228,8 @@ def migrate_compute_ports_vms(resource, event, trigger, **kwargs):
 
     # Go over all the compute ports from the plugin
     admin_cxt = neutron_context.get_admin_context()
-    port_filters = {'device_owner': ['compute:None']}
+    port_filters = v3_utils.get_plugin_filters(admin_cxt)
+    port_filters['device_owner'] = ['compute:None']
     with PortsPlugin() as plugin:
         neutron_ports = plugin.get_ports(admin_cxt, filters=port_filters)
 
@@ -325,11 +326,12 @@ def migrate_exclude_ports(resource, event, trigger, **kwargs):
 def tag_default_ports(resource, event, trigger, **kwargs):
     nsxlib = v3_utils.get_connected_nsxlib()
     admin_cxt = neutron_context.get_admin_context()
+    filters = v3_utils.get_plugin_filters(admin_cxt)
 
     # the plugin creation below will create the NS group and update the default
     # OS section to have the correct applied to group
     with v3_utils.NsxV3PluginWrapper() as _plugin:
-        neutron_ports = _plugin.get_ports(admin_cxt)
+        neutron_ports = _plugin.get_ports(admin_cxt, filters=filters)
         for port in neutron_ports:
             neutron_id = port['id']
             # get the network nsx id from the mapping table

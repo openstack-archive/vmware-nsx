@@ -14,7 +14,6 @@
 
 import sys
 
-from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.shell.admin.plugins.common import constants
@@ -29,7 +28,6 @@ from neutron.db import db_base_plugin_v2
 from neutron.db import l3_db
 from neutron_lib.callbacks import registry
 from neutron_lib import context as neutron_context
-from oslo_config import cfg
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
@@ -48,7 +46,8 @@ def list_missing_routers(resource, event, trigger, **kwargs):
     nsxlib = utils.get_connected_nsxlib()
     plugin = RoutersPlugin()
     admin_cxt = neutron_context.get_admin_context()
-    neutron_routers = plugin.get_routers(admin_cxt)
+    filters = utils.get_plugin_filters(admin_cxt)
+    neutron_routers = plugin.get_routers(admin_cxt, filters=filters)
     routers = []
     for router in neutron_routers:
         neutron_id = router['id']
@@ -90,7 +89,8 @@ def update_nat_rules(resource, event, trigger, **kwargs):
     # Go over all neutron routers
     plugin = RoutersPlugin()
     admin_cxt = neutron_context.get_admin_context()
-    neutron_routers = plugin.get_routers(admin_cxt)
+    filters = utils.get_plugin_filters(admin_cxt)
+    neutron_routers = plugin.get_routers(admin_cxt, filters=filters)
     num_of_updates = 0
     for router in neutron_routers:
         neutron_id = router['id']
@@ -185,21 +185,19 @@ def update_dhcp_relay(resource, event, trigger, **kwargs):
         LOG.error("DHCP relay is not supported by NSX version %s", version)
         return
 
-    # initialize the availability zones and nsxlib
-    config.register_nsxv3_azs(cfg.CONF, cfg.CONF.nsx_v3.availability_zones)
-
     admin_cxt = neutron_context.get_admin_context()
+    filters = utils.get_plugin_filters(admin_cxt)
     with utils.NsxV3PluginWrapper() as plugin:
         # Make sure FWaaS was initialized
         plugin.init_fwaas_for_admin_utils()
 
         # get all neutron routers and  interfaces ports
-        routers = plugin.get_routers(admin_cxt)
+        routers = plugin.get_routers(admin_cxt, filters=filters)
         for router in routers:
             LOG.info("Updating router %s", router['id'])
-            filters = {'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF],
-                       'device_id': [router['id']]}
-            ports = plugin.get_ports(admin_cxt, filters=filters)
+            port_filters = {'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF],
+                            'device_id': [router['id']]}
+            ports = plugin.get_ports(admin_cxt, filters=port_filters)
             for port in ports:
                 # get the backend router port by the tag
                 nsx_port_id = nsxlib.get_id_by_resource_and_tag(
@@ -217,7 +215,10 @@ def update_dhcp_relay(resource, event, trigger, **kwargs):
                     nsx_port_id, relay_service_uuid=az.dhcp_relay_service)
 
             # if FWaaS is enables, also update the firewall rules
-            plugin.update_router_firewall(admin_cxt, router['id'])
+            try:
+                plugin.update_router_firewall(admin_cxt, router['id'])
+            except Exception:
+                pass
 
     LOG.info("Done.")
 
