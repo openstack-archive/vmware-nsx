@@ -667,7 +667,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                                  fields=['id',
                                                  sg_logging.LOGGING])
             for sg in [sg for sg in secgroups
-                       if sg[sg_logging.LOGGING] is False]:
+                       if sg.get(sg_logging.LOGGING) is False]:
                 nsgroup_id, section_id = nsx_db.get_sg_mappings(
                     context.session, sg['id'])
                 if section_id:

@@ -561,7 +561,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 # If the section/sg is already logged, then no action is
                 # required.
                 for sg in [sg for sg in self.get_security_groups(context)
-                           if sg[sg_logging.LOGGING] is False]:
+                           if sg.get(sg_logging.LOGGING) is False]:
                     if sg.get(sg_policy.POLICY):
                         # Logging is not relevant with a policy
                         continue
