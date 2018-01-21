@@ -16,7 +16,7 @@
 from oslo_config import cfg
 import webob.exc
 
-from neutron.extensions import multiprovidernet as mpnet
+from neutron_lib.api.definitions import multiprovidernet as mpnet_apidef
 from neutron_lib.api.definitions import provider_net as pnet
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.nsx_mh import test_plugin as test_nsx_plugin
@@ -79,7 +79,7 @@ class TestMultiProviderNetworks(test_nsx_plugin.NsxPluginV2TestCase):
         self.assertEqual(network['network'][pnet.NETWORK_TYPE], 'vlan')
         self.assertEqual(network['network'][pnet.PHYSICAL_NETWORK], 'physnet1')
         self.assertEqual(network['network'][pnet.SEGMENTATION_ID], 1)
-        self.assertNotIn(mpnet.SEGMENTS, network['network'])
+        self.assertNotIn(mpnet_apidef.SEGMENTS, network['network'])
 
     def test_create_network_provider_flat(self):
         data = {'network': {'name': 'net1',
@@ -92,11 +92,11 @@ class TestMultiProviderNetworks(test_nsx_plugin.NsxPluginV2TestCase):
         self.assertEqual('flat', network['network'][pnet.NETWORK_TYPE])
         self.assertEqual('physnet1', network['network'][pnet.PHYSICAL_NETWORK])
         self.assertEqual(0, network['network'][pnet.SEGMENTATION_ID])
-        self.assertNotIn(mpnet.SEGMENTS, network['network'])
+        self.assertNotIn(mpnet_apidef.SEGMENTS, network['network'])
 
     def test_create_network_single_multiple_provider(self):
         data = {'network': {'name': 'net1',
-                            mpnet.SEGMENTS:
+                            mpnet_apidef.SEGMENTS:
                             [{pnet.NETWORK_TYPE: 'vlan',
                               pnet.PHYSICAL_NETWORK: 'physnet1',
                               pnet.SEGMENTATION_ID: 1}],
@@ -106,7 +106,7 @@ class TestMultiProviderNetworks(test_nsx_plugin.NsxPluginV2TestCase):
         for provider_field in [pnet.NETWORK_TYPE, pnet.PHYSICAL_NETWORK,
                                pnet.SEGMENTATION_ID]:
             self.assertNotIn(provider_field, network['network'])
-        tz = network['network'][mpnet.SEGMENTS][0]
+        tz = network['network'][mpnet_apidef.SEGMENTS][0]
         self.assertEqual(tz[pnet.NETWORK_TYPE], 'vlan')
         self.assertEqual(tz[pnet.PHYSICAL_NETWORK], 'physnet1')
         self.assertEqual(tz[pnet.SEGMENTATION_ID], 1)
@@ -114,14 +114,14 @@ class TestMultiProviderNetworks(test_nsx_plugin.NsxPluginV2TestCase):
         # Tests get_network()
         net_req = self.new_show_request('networks', network['network']['id'])
         network = self.deserialize(self.fmt, net_req.get_response(self.api))
-        tz = network['network'][mpnet.SEGMENTS][0]
+        tz = network['network'][mpnet_apidef.SEGMENTS][0]
         self.assertEqual(tz[pnet.NETWORK_TYPE], 'vlan')
         self.assertEqual(tz[pnet.PHYSICAL_NETWORK], 'physnet1')
         self.assertEqual(tz[pnet.SEGMENTATION_ID], 1)
 
     def test_create_network_multprovider(self):
         data = {'network': {'name': 'net1',
-                            mpnet.SEGMENTS:
+                            mpnet_apidef.SEGMENTS:
                             [{pnet.NETWORK_TYPE: 'vlan',
                               pnet.PHYSICAL_NETWORK: 'physnet1',
                               pnet.SEGMENTATION_ID: 1},
@@ -131,8 +131,8 @@ class TestMultiProviderNetworks(test_nsx_plugin.NsxPluginV2TestCase):
         network_req = self.new_create_request('networks', data)
         network = self.deserialize(self.fmt,
                                    network_req.get_response(self.api))
-        tz = network['network'][mpnet.SEGMENTS]
-        for tz in data['network'][mpnet.SEGMENTS]:
+        tz = network['network'][mpnet_apidef.SEGMENTS]
+        for tz in data['network'][mpnet_apidef.SEGMENTS]:
             for field in [pnet.NETWORK_TYPE, pnet.PHYSICAL_NETWORK,
                           pnet.SEGMENTATION_ID]:
                 self.assertEqual(tz.get(field), tz.get(field))
@@ -140,15 +140,15 @@ class TestMultiProviderNetworks(test_nsx_plugin.NsxPluginV2TestCase):
         # Tests get_network()
         net_req = self.new_show_request('networks', network['network']['id'])
         network = self.deserialize(self.fmt, net_req.get_response(self.api))
-        tz = network['network'][mpnet.SEGMENTS]
-        for tz in data['network'][mpnet.SEGMENTS]:
+        tz = network['network'][mpnet_apidef.SEGMENTS]
+        for tz in data['network'][mpnet_apidef.SEGMENTS]:
             for field in [pnet.NETWORK_TYPE, pnet.PHYSICAL_NETWORK,
                           pnet.SEGMENTATION_ID]:
                 self.assertEqual(tz.get(field), tz.get(field))
 
     def test_create_network_with_provider_and_multiprovider_fail(self):
         data = {'network': {'name': 'net1',
-                            mpnet.SEGMENTS:
+                            mpnet_apidef.SEGMENTS:
                             [{pnet.NETWORK_TYPE: 'vlan',
                               pnet.PHYSICAL_NETWORK: 'physnet1',
                               pnet.SEGMENTATION_ID: 1}],
@@ -163,7 +163,7 @@ class TestMultiProviderNetworks(test_nsx_plugin.NsxPluginV2TestCase):
 
     def test_create_network_duplicate_segments(self):
         data = {'network': {'name': 'net1',
-                            mpnet.SEGMENTS:
+                            mpnet_apidef.SEGMENTS:
                             [{pnet.NETWORK_TYPE: 'vlan',
                               pnet.PHYSICAL_NETWORK: 'physnet1',
                               pnet.SEGMENTATION_ID: 1},

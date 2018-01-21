@@ -38,12 +38,12 @@ from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
 from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db as vlan_ext_db
-from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.extensions import vlantransparent as vlan_ext
 from neutron.plugins.common import utils
 from neutron.quota import resource_registry
+from neutron_lib.api.definitions import multiprovidernet as mpnet_apidef
 from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators
@@ -163,7 +163,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                 network[pnet.SEGMENTATION_ID] = bindings[0].vlan_id
             else:
                 # network come in though multiprovider networks api
-                network[mpnet.SEGMENTS] = [
+                network[mpnet_apidef.SEGMENTS] = [
                     {pnet.NETWORK_TYPE: binding.binding_type,
                      pnet.PHYSICAL_NETWORK: binding.phy_uuid,
                      pnet.SEGMENTATION_ID: binding.vlan_id}

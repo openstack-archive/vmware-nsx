@@ -60,16 +60,17 @@ from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
 from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db
-from neutron.extensions import multiprovidernet as mpnet
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import utils
 from neutron.quota import resource_registry
 from neutron_lib.api.definitions import extra_dhcp_opt as edo_ext
 from neutron_lib.api.definitions import extraroute as xroute_apidef
+from neutron_lib.api.definitions import multiprovidernet as mpnet_apidef
 from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.exceptions import extraroute as xroute_exc
+from neutron_lib.exceptions import multiprovidernet as mpnet_exc
 
 import vmware_nsx
 from vmware_nsx._i18n import _
@@ -778,11 +779,11 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                  webob.exc.HTTPBadRequest})
 
     def _validate_provider_create(self, context, network):
-        segments = network.get(mpnet.SEGMENTS)
+        segments = network.get(mpnet_apidef.SEGMENTS)
         if not validators.is_attr_set(segments):
             return
 
-        mpnet.check_duplicate_segments(segments)
+        mpnet_apidef.check_duplicate_segments(segments)
         for segment in segments:
             network_type = segment.get(pnet.NETWORK_TYPE)
             physical_network = segment.get(pnet.PHYSICAL_NETWORK)
@@ -867,7 +868,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 network[pnet.SEGMENTATION_ID] = bindings[0].vlan_id
             else:
                 # network come in though multiprovider networks api
-                network[mpnet.SEGMENTS] = [
+                network[mpnet_apidef.SEGMENTS] = [
                     {pnet.NETWORK_TYPE: binding.binding_type,
                      pnet.PHYSICAL_NETWORK: binding.phy_uuid,
                      pnet.SEGMENTATION_ID: binding.vlan_id}
@@ -919,10 +920,10 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if any(validators.is_attr_set(network.get(f))
                for f in (pnet.NETWORK_TYPE, pnet.PHYSICAL_NETWORK,
                          pnet.SEGMENTATION_ID)):
-            if validators.is_attr_set(network.get(mpnet.SEGMENTS)):
-                raise mpnet.SegmentsSetInConjunctionWithProviders()
+            if validators.is_attr_set(network.get(mpnet_apidef.SEGMENTS)):
+                raise mpnet_exc.SegmentsSetInConjunctionWithProviders()
             # convert to transport zone list
-            network[mpnet.SEGMENTS] = [
+            network[mpnet_apidef.SEGMENTS] = [
                 {pnet.NETWORK_TYPE: network[pnet.NETWORK_TYPE],
                  pnet.PHYSICAL_NETWORK: network[pnet.PHYSICAL_NETWORK],
                  pnet.SEGMENTATION_ID: network[pnet.SEGMENTATION_ID]}]
@@ -930,7 +931,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             del network[pnet.PHYSICAL_NETWORK]
             del network[pnet.SEGMENTATION_ID]
             return False
-        if validators.is_attr_set(mpnet.SEGMENTS):
+        if validators.is_attr_set(mpnet_apidef.SEGMENTS):
             return True
 
     def create_network(self, context, network):
@@ -985,10 +986,10 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 nsx_db.add_neutron_nsx_network_mapping(
                     context.session, new_net['id'],
                     lswitch['uuid'])
-            if (net_data.get(mpnet.SEGMENTS) and
+            if (net_data.get(mpnet_apidef.SEGMENTS) and
                 isinstance(provider_type, bool)):
                 net_bindings = []
-                for tz in net_data[mpnet.SEGMENTS]:
+                for tz in net_data[mpnet_apidef.SEGMENTS]:
                     segmentation_id = tz.get(pnet.SEGMENTATION_ID, 0)
                     segmentation_id_set = validators.is_attr_set(
                         segmentation_id)

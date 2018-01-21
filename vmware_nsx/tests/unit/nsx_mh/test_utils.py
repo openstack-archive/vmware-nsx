@@ -15,8 +15,8 @@
 
 import mock
 from neutron.db import api as db_api
-from neutron.extensions import multiprovidernet as mpnet
 from neutron.tests import base
+from neutron_lib.api.definitions import multiprovidernet as mpnet_apidef
 from neutron_lib.api.definitions import provider_net as pnet
 from oslo_utils import uuidutils
 
@@ -358,7 +358,8 @@ class NsxUtilsTestCase(base.BaseTestCase):
              pnet.PHYSICAL_NETWORK: 'whatever_tz_2'},
         ]
         results = nsx_utils.convert_to_nsx_transport_zones(
-            'meh_zone_uuid', {'id': 'whatever_net', mpnet.SEGMENTS: segments})
+            'meh_zone_uuid',
+            {'id': 'whatever_net', mpnet_apidef.SEGMENTS: segments})
         self._verify_nsx_transport_zones(results)
 
 
