@@ -400,6 +400,7 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     limit, marker, page_reverse))
             # Add port extensions
             for port in ports[:]:
+                port_model = None
                 if 'id' in port:
                     port_model = self._get_port(context, port['id'])
                     resource_extend.apply_funcs('ports', port, port_model)
@@ -407,6 +408,10 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 if p == req_p or req_p is None:
                     if hasattr(p, '_extend_get_port_dict_qos_and_binding'):
                         p._extend_get_port_dict_qos_and_binding(context, port)
+                    else:
+                        if not port_model:
+                            port_model = port
+                        p._extend_port_dict_binding(port, port_model)
                     if hasattr(p,
                                '_remove_provider_security_groups_from_list'):
                         p._remove_provider_security_groups_from_list(port)
