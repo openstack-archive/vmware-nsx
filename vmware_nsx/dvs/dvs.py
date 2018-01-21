@@ -486,8 +486,11 @@ class DvsManager(object):
                                            self._session.vim,
                                            dvs_moref,
                                            "config.uplinkPortPolicy")
-        standby = list(set(uplinks.uplinkPortName) - set(ports))
-        policy.uplinkPortOrder.standbyUplinkPort = standby
+        # VC does not support LAG and normal uplinks. So need to check
+        # if we need to configure standby links
+        if set(ports) & set(uplinks.uplinkPortName):
+            standby = list(set(uplinks.uplinkPortName) - set(ports))
+            policy.uplinkPortOrder.standbyUplinkPort = standby
 
     def _reconfigure_cluster(self, session, cluster, config_spec):
         """Reconfigure a cluster in vcenter"""
