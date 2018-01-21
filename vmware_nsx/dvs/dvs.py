@@ -437,8 +437,11 @@ class DvsManager(VCManagerBase):
                                            self._session.vim,
                                            dvs_moref,
                                            "config.uplinkPortPolicy")
-        standby = list(set(uplinks.uplinkPortName) - set(ports))
-        policy.uplinkPortOrder.standbyUplinkPort = standby
+        # VC does not support LAG and normal uplinks. So need to check
+        # if we need to configure standby links
+        if set(ports) & set(uplinks.uplinkPortName):
+            standby = list(set(uplinks.uplinkPortName) - set(ports))
+            policy.uplinkPortOrder.standbyUplinkPort = standby
 
     def update_port_group_spec_name(self, pg_spec, name):
         pg_spec.name = name
