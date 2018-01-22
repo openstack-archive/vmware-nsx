@@ -20,6 +20,7 @@ import sqlalchemy as sa
 from vmware_nsx.db import nsx_models
 from vmware_nsxlib import v3
 from vmware_nsxlib.v3 import config
+from vmware_nsxlib.v3 import nsx_constants
 
 
 class NeutronNsxDB(object):
@@ -54,6 +55,10 @@ class NeutronNsxDB(object):
     def get_logical_dhcp_servers(self):
         return self.query_all('nsx_service_id',
                               nsx_models.NeutronNsxServiceBinding)
+
+    def get_vpn_sessions(self):
+        return self.query_all('session_id',
+                              nsx_models.NsxVpnConnectionMapping)
 
 
 class NSXClient(object):
@@ -360,7 +365,7 @@ class NSXClient(object):
               len(lrouters))
         for lr in lrouters:
             self.cleanup_logical_router_ports(lr)
-
+            self.cleanup_logical_router_vpn_sess(lr)
             try:
                 self.nsxlib.logical_router.delete(lr['id'])
             except Exception as e:
@@ -414,6 +419,72 @@ class NSXClient(object):
                 print("Successfully deleted logical DHCP server %s" %
                       server['display_name'])
 
+    def get_os_vpn_sessions(self):
+        """
+        Retrieve all nsx vpn sessions from nsx and OpenStack
+        """
+        sessions = self.get_os_resources(
+            self.nsxlib.vpn_ipsec.session.list()['results'])
+
+        if self.neutron_db:
+            db_sessions = self.neutron_db.get_vpn_sessions()
+            sessions = [sess for sess in sessions
+                        if sess['id'] in db_sessions]
+        return sessions
+
+    def cleanup_vpnaas_objects(self):
+        """
+        Cleanup vpn/ipsec nsx objects
+        """
+        if not self.nsxlib.feature_supported(nsx_constants.FEATURE_IPSEC_VPN):
+            # no vpn support
+            return
+
+        # sessions: leftover sessions prevent us from configuring new similar
+        # sessions so it is important to delete them
+        sessions = self.get_os_vpn_sessions()
+        for session in sessions:
+            try:
+                self.nsxlib.vpn_ipsec.session.delete(session['id'])
+            except Exception as e:
+                print("ERROR: Failed to delete vpn ipsec session %s, "
+                      "error %s" % (session['id'], e))
+            else:
+                print("Successfully deleted vpn ipsec session %s" %
+                      session['id'])
+
+    def cleanup_logical_router_vpn_sess(self, lr):
+        """
+        Cleanup the vpn local session of the logical router
+        """
+        if not self.nsxlib.feature_supported(nsx_constants.FEATURE_IPSEC_VPN):
+            # no vpn support
+            return
+
+        # find the router neutron id in its tags
+        neutron_id = None
+        for tag in lr['tags']:
+            if tag.get('scope') == 'os-neutron-router-id':
+                neutron_id = tag.get('tag')
+                break
+
+        if not neutron_id:
+            return
+
+        tags = [{'scope': 'os-neutron-router-id', 'tag': neutron_id}]
+        ep_list = self.nsxlib.search_by_tags(
+            tags=tags,
+            resource_type=self.nsxlib.vpn_ipsec.local_endpoint.resource_type)
+        if ep_list['results']:
+            id = ep_list['results'][0]['id']
+            try:
+                self.nsxlib.vpn_ipsec.local_endpoint.delete(id)
+            except Exception as e:
+                print("ERROR: Failed to delete vpn ipsec local endpoint %s, "
+                      "error %s" % (id, e))
+            else:
+                print("Successfully deleted vpn ipsec local endpoint %s" % id)
+
     def cleanup_all(self):
         """
         Cleanup steps:
@@ -427,6 +498,7 @@ class NSXClient(object):
         """
         self.cleanup_os_firewall_sections()
         self.cleanup_os_ns_groups()
+        self.cleanup_vpnaas_objects()
         self.cleanup_os_logical_routers()
         self.cleanup_os_tier0_logical_ports()
         self.cleanup_os_logical_ports()
