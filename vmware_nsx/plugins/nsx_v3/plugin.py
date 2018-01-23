@@ -58,12 +58,12 @@ from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
-from neutron.extensions import vlantransparent as ext_vlan
 from neutron.plugins.common import utils as n_utils
 from neutron.quota import resource_registry
 from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
 from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet
+from neutron_lib.api.definitions import vlantransparent as vlan_apidef
 from neutron_lib.api import validators
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import exceptions as callback_exc
@@ -1048,7 +1048,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # Update the transparent vlan if configured
         vlt = False
         if nc_utils.is_extension_supported(self, 'vlan-transparent'):
-            vlt = ext_vlan.get_vlan_transparent(net_data)
+            vlt = vlan_apidef.get_vlan_transparent(net_data)
 
         nsx_net_id = None
         if validators.is_attr_set(external) and external:

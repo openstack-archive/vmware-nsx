@@ -40,12 +40,12 @@ from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db as vlan_ext_db
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
-from neutron.extensions import vlantransparent as vlan_ext
 from neutron.plugins.common import utils
 from neutron.quota import resource_registry
 from neutron_lib.api.definitions import multiprovidernet as mpnet_apidef
 from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet
+from neutron_lib.api.definitions import vlantransparent as vlan_apidef
 from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
@@ -190,7 +190,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
 
         trunk_mode = False
         # vlan transparent can be an object if not set.
-        if net_data.get(vlan_ext.VLANTRANSPARENT) is True:
+        if net_data.get(vlan_apidef.VLANTRANSPARENT) is True:
             trunk_mode = True
 
         net_id = None

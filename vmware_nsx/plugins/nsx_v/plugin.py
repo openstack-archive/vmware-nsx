@@ -28,6 +28,7 @@ from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api.definitions import subnet as subnet_def
+from neutron_lib.api.definitions import vlantransparent as vlan_apidef
 from neutron_lib.api import validators
 from neutron_lib.api.validators import availability_zone as az_validator
 from neutron_lib.callbacks import events
@@ -82,7 +83,6 @@ from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
-from neutron.extensions import vlantransparent as ext_vlan
 from neutron.objects import securitygroup
 from neutron.plugins.common import utils
 from neutron.quota import resource_registry
@@ -1161,7 +1161,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._validate_network_qos(net_data, backend_network)
         vlt = False
         if n_utils.is_extension_supported(self, 'vlan-transparent'):
-            vlt = ext_vlan.get_vlan_transparent(net_data)
+            vlt = vlan_apidef.get_vlan_transparent(net_data)
 
         if backend_network or external_backend_network:
             #NOTE(abhiraut): Consider refactoring code below to have more
