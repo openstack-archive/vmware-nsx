@@ -1,4 +1,4 @@
-# Copyright 2017 VMware, Inc.
+# Copyright 2018 VMware, Inc.
 # All Rights Reserved
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -13,19 +13,17 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron_lbaas.services.loadbalancer import plugin
+from neutron_fwaas.services.firewall import fwaas_plugin_v2
 
 from vmware_nsx.plugins.nsx import utils as tvd_utils
 
 
 @tvd_utils.filter_plugins
-class LoadBalancerTVPluginV2(plugin.LoadBalancerPluginv2):
-    """NSX-TV plugin for LBaaS V2.
+class FwaasTVPluginV2(fwaas_plugin_v2.FirewallPluginV2):
+    """NSX-TV plugin for Firewall As A Service - V2.
 
     This plugin adds separation between T/V instances
     """
-    methods_to_separate = ['get_loadbalancers',
-                           'get_listeners',
-                           'get_pools',
-                           'get_healthmonitors',
-                           'get_l7policies']
+    methods_to_separate = ['get_firewall_groups',
+                           'get_firewall_policies',
+                           'get_firewall_rules']
