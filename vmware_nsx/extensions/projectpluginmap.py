@@ -115,6 +115,10 @@ class ProjectPluginIllegalId(nexception.Conflict):
     message = _("Project ID %(project_id)s is illegal.")
 
 
+class ProjectPluginNotAvailable(nexception.NotAuthorized):
+    message = _("Plugin %(plugin)s is not available.")
+
+
 class ProjectPluginMapPluginBase(object):
 
     @abc.abstractmethod

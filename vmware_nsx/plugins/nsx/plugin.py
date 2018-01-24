@@ -756,6 +756,10 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if not uuidutils.is_uuid_like(data['project']):
                 raise projectpluginmap.ProjectPluginIllegalId(
                     project_id=data['project'])
+            # 4. Check that plugin is available
+            if data['plugin'] not in self.plugins:
+                raise projectpluginmap.ProjectPluginNotAvailable(
+                    plugin=data['plugin'])
 
         # Add the entry to the DB and return it
         LOG.info("Adding mapping between project %(project)s and plugin "
