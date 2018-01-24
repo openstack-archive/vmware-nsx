@@ -50,12 +50,32 @@ def _is_metadata_network(network):
 @admin_utils.output_header
 def list_metadata_networks(resource, event, trigger, **kwargs):
     """List Metadata networks in Neutron."""
-
-    meta_networks = [network for network in neutron_client.get_networks()
-                     if _is_metadata_network(network)]
-    LOG.info(formatters.output_formatter(constants.METADATA_PROXY,
-                                         meta_networks,
-                                         ['id', 'name', 'subnets']))
+    if not cfg.CONF.nsx_v3.native_metadata_route:
+        meta_networks = [network
+                         for network in neutron_client.get_networks()
+                         if _is_metadata_network(network)]
+        LOG.info(formatters.output_formatter(constants.METADATA_PROXY,
+                                             meta_networks,
+                                             ['id', 'name', 'subnets']))
+    else:
+        nsxlib = utils.get_connected_nsxlib()
+        tags = [{'scope': 'os-neutron-net-id'}]
+        ports = nsxlib.search_by_tags(resource_type='LogicalPort', tags=tags)
+        for port in ports['results']:
+            if port['attachment']['attachment_type'] == 'METADATA_PROXY':
+                net_id = None
+                for tag in port['tags']:
+                    if tag['scope'] == 'os-neutron-net-id':
+                        net_id = tag['tag']
+                        break
+                uri = '/md-proxies/%s/%s/status' % (port['attachment']['id'],
+                                                    port['logical_switch_id'])
+                status = nsxlib.client.get(uri)
+                LOG.info("Status for MD proxy on neutron network %s (logical "
+                         "switch %s) is %s",
+                         net_id,
+                         port['logical_switch_id'],
+                         status.get('proxy_status', 'Unknown'))
 
 
 @admin_utils.output_header
