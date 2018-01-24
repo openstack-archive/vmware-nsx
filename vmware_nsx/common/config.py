@@ -434,7 +434,10 @@ nsx_v3_opts = [
                 help=_("Optional parameter defining a list switching profiles "
                        "uuids that will be attached to all neutron created "
                        "nsx ports.")),
-
+    cfg.BoolOpt('ens_support',
+                default=False,
+                help=_("(Optional) Indicates whether ENS transport zones can "
+                       "be used")),
 ]
 
 DEFAULT_STATUS_CHECK_INTERVAL = 2000
