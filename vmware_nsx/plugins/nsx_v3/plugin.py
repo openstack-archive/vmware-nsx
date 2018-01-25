@@ -213,6 +213,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         router=l3_db_models.Router,
         floatingip=l3_db_models.FloatingIP)
     def __init__(self):
+        self.fwaas_callbacks = None
         self._is_sub_plugin = tvd_utils.is_tvd_core_plugin()
         self.init_is_complete = False
         nsxlib_utils.set_is_attr_callback(validators.is_attr_set)
@@ -354,7 +355,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                  })
 
     def _init_fwaas(self):
-        self.fwaas_callbacks = None
         if fwaas_utils.is_fwaas_v1_plugin_enabled():
             LOG.info("NSXv3 FWaaS v1 plugin enabled")
             self.fwaas_callbacks = fwaas_callbacks_v1.Nsxv3FwaasCallbacksV1()
