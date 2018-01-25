@@ -911,6 +911,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         if (provider_data['switch_mode'] ==
             self.nsxlib.transport_zone.HOST_SWITCH_MODE_ENS):
+            if not cfg.CONF.nsx_v3.ens_support:
+                raise NotImplementedError(_("ENS support is disabled"))
             if net_data.get(psec.PORTSECURITY):
                 raise nsx_exc.NsxENSPortSecurity()
             # set the default port security to False

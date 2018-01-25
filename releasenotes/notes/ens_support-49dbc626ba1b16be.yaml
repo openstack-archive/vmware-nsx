@@ -1,0 +1,8 @@
+---
+prelude: >
+    Add a configuration variable indicating that ENS transport zones can be
+    used.
+features:
+  - |
+    Add a new configuration variable ``ens_support`` to the ``nsx_v3`` section.
+    This indicates if a tenant or admin can create ENS networks.

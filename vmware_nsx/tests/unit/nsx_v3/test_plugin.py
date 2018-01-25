@@ -465,6 +465,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
             self.assertEqual('InvalidInput', data['NeutronError']['type'])
 
     def test_create_ens_network_with_no_port_sec(self):
+        cfg.CONF.set_override('ens_support', True, 'nsx_v3')
         providernet_args = {psec.PORTSECURITY: False}
         with mock.patch("vmware_nsxlib.v3.core_resources.NsxLibTransportZone."
                         "get_host_switch_mode", return_value="ENS"),\
@@ -481,6 +482,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
             self.assertFalse(res['network']['port_security_enabled'])
 
     def test_create_ens_network_with_port_sec(self):
+        cfg.CONF.set_override('ens_support', True, 'nsx_v3')
         providernet_args = {psec.PORTSECURITY: True}
         with mock.patch("vmware_nsxlib.v3.core_resources.NsxLibTransportZone."
                         "get_host_switch_mode", return_value="ENS"),\
@@ -497,6 +499,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
                              res['NeutronError']['type'])
 
     def test_update_ens_network(self):
+        cfg.CONF.set_override('ens_support', True, 'nsx_v3')
         providernet_args = {psec.PORTSECURITY: False}
         with mock.patch("vmware_nsxlib.v3.core_resources.NsxLibTransportZone."
                         "get_host_switch_mode", return_value="ENS"),\
