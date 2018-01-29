@@ -14,6 +14,7 @@
 #    under the License.
 
 import netaddr
+from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 
@@ -21,6 +22,7 @@ from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
 from neutron_lib import constants
+from neutron_lib import exceptions as nexception
 from neutron_lib.plugins import directory
 from neutron_vpnaas.services.vpn import service_drivers
 
@@ -35,6 +37,11 @@ from vmware_nsxlib.v3 import vpn_ipsec
 
 LOG = logging.getLogger(__name__)
 IPSEC = 'ipsec'
+
+
+class RouterWithSNAT(nexception.BadRequest):
+    message = _("Router %(router_id)s has a VPN service and cannot enable "
+                "SNAT")
 
 
 class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
@@ -353,6 +360,19 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
         local_ep_id = self._search_local_endpint(router_id)
         if local_ep_id:
             self._nsx_vpn.local_endpoint.delete(local_ep_id)
+
+    def validate_router_gw_info(self, context, router_id, gw_info):
+        """Upon router gw update - verify no-snat"""
+        # ckeck if this router has a vpn service
+        filters = {'router_id': [router_id],
+                   'status': [constants.ACTIVE]}
+        services = self.vpn_plugin.get_vpnservices(
+            context.elevated(), filters=filters)
+        if services:
+            # do not allow enable-snat
+            if (gw_info and
+                gw_info.get('enable_snat', cfg.CONF.enable_snat_by_default)):
+                raise RouterWithSNAT(router_id=router_id)
 
     def _get_session_rules(self, context, connection, vpnservice):
         # TODO(asarfaty): support vpn-endpoint-groups too
