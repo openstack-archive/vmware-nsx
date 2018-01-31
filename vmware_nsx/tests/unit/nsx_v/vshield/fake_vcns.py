@@ -1614,3 +1614,6 @@ class FakeVcns(object):
         header = {'status': 200}
         response = ''
         return header, response
+
+    def get_application_id(self, name):
+        return 'application-123'
