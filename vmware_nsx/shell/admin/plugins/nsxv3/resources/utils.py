@@ -174,9 +174,6 @@ class NsxV3PluginWrapper(plugin.NsxV3Plugin):
     def _init_port_security_profile(self):
         return True
 
-    def _init_dhcp_switching_profile(self):
-        pass
-
     def _extend_get_network_dict_provider(self, context, net):
         self._extend_network_dict_provider(context, net)
         # skip getting the Qos policy ID because get_object calls
