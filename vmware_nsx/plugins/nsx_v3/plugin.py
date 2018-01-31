@@ -3262,7 +3262,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def _process_extra_attr_router_create(self, context, router_db, r):
         for extra_attr in l3_attrs_db.get_attr_info().keys():
-            if extra_attr in r:
+            if (extra_attr in r and
+                validators.is_attr_set(r.get(extra_attr))):
                 self.set_extra_attr_value(context, router_db,
                                           extra_attr, r[extra_attr])
 
