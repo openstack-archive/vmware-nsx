@@ -533,7 +533,6 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
 
     def test_create_provider_vlan_network_with_transparent(self):
         providernet_args = {pnet.NETWORK_TYPE: 'vlan',
-                            pnet.SEGMENTATION_ID: 11,
                             vlan_apidef.VLANTRANSPARENT: True}
         with mock.patch('vmware_nsxlib.v3.core_resources.NsxLibTransportZone.'
                        'get_transport_type', return_value='VLAN'):
@@ -545,8 +544,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
                                               pnet.SEGMENTATION_ID,
                                               vlan_apidef.VLANTRANSPARENT))
             data = self.deserialize('json', result)
-            # should fail
-            self.assertIn('NotImplementedError', data)
+            self.assertEqual('vlan', data['network'].get(pnet.NETWORK_TYPE))
 
 
 class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
