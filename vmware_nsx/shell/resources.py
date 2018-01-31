@@ -291,10 +291,34 @@ cli_opts = [cfg.StrOpt('fmt',
             ]
 
 
+# Describe dependencies between admin utils resources and external libraries
+# that are not always installed
+resources_dependencies = {
+    'nsxv': {'gw_edges': ['neutron_dynamic_routing.extensions']}}
+
+
+def verify_external_dependencies(plugin_name, resource):
+    if plugin_name in resources_dependencies:
+        deps = resources_dependencies[plugin_name]
+        if resource in deps:
+            for d in deps[resource]:
+                try:
+                    importlib.import_module(d)
+                except ImportError:
+                    return False
+    return True
+
+
 def init_resource_plugin(plugin_name, plugin_dir):
     plugin_resources = get_resources(plugin_dir)
     for resource in plugin_resources:
         if (resource != '__init__'):
+            # skip unsupported resources
+            if not verify_external_dependencies(plugin_name, resource):
+                LOG.info("Skipping resource %s because of dependencies",
+                         resource)
+                continue
+            # load the resource
             importlib.import_module(
                 "vmware_nsx.shell.admin.plugins."
                 "{}.resources.".format(plugin_name) + resource)
