@@ -1937,6 +1937,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         port_model = self._get_port(context, port_data['id'])
         resource_extend.apply_funcs('ports', port_data, port_model)
         self._remove_provider_security_groups_from_list(port_data)
+
+        kwargs = {'context': context, 'port': neutron_db}
+        registry.notify(resources.PORT, events.AFTER_CREATE, self, **kwargs)
         return port_data
 
     def _make_port_dict(self, port, fields=None,
@@ -2382,6 +2385,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 except Exception as e:
                     LOG.error("Unable to update mac learning for port %s, "
                               "reason: %s", id, e)
+
+        kwargs = {
+            'context': context,
+            'port': ret_port,
+            'mac_address_updated': False,
+            'original_port': original_port,
+        }
+        registry.notify(resources.PORT, events.AFTER_UPDATE, self, **kwargs)
         return ret_port
 
     def _extend_get_port_dict_qos(self, context, port):
@@ -2397,6 +2408,14 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     def delete_port(self, context, id, l3_port_check=True,
                     nw_gw_port_check=True, force_delete_dhcp=False,
                     allow_delete_internal=False):
+        kwargs = {
+            'context': context,
+            'port_check': l3_port_check,
+            'port_id': id,
+        }
+        # Send delete port notification to any interested service plugin
+        registry.notify(resources.PORT, events.BEFORE_DELETE, self, **kwargs)
+
         neutron_db_port = self.get_port(context, id)
         device_id = neutron_db_port['device_id']
         is_compute_port = self._is_compute_port(neutron_db_port)
