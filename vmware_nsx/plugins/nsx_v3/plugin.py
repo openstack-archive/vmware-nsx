@@ -3788,6 +3788,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 net_az = self.get_network_az_by_net_id(context, network_id)
                 relay_service = net_az.dhcp_relay_service
 
+            resource_type = None
+            if not self._is_overlay_network(context, network_id):
+                # The router can only be configured to be centralized if
+                # GW network is attached
+                if not gw_network_id:
+                    msg = _("A router attached to a VLAN backed network "
+                            "must have a external network assigned.")
+                    raise n_exc.InvalidInput(error_message=msg)
+                resource_type = nsxlib_consts.LROUTERPORT_CENTRALIZED
             self.nsxlib.router.create_logical_router_intf_port_by_ls_id(
                 logical_router_id=nsx_router_id,
                 display_name=display_name,
@@ -3795,7 +3804,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 ls_id=nsx_net_id,
                 logical_switch_port_id=nsx_port_id,
                 address_groups=address_groups,
-                relay_service_uuid=relay_service)
+                relay_service_uuid=relay_service,
+                resource_type=resource_type)
 
             if router_db.gw_port and not router_db.enable_snat:
                 # TODO(berlin): Announce the subnet on tier0 if enable_snat
