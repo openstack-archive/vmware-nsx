@@ -104,7 +104,6 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def __init__(self):
         self._extension_manager = nsx_managers.ExtensionManager()
         LOG.info("Start NSX TVD Plugin")
-        LOG.info("This plugin is experimental!")
         # Validate configuration
         config.validate_nsx_config_options()
         super(NsxTVDPlugin, self).__init__()
