@@ -319,11 +319,8 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 project_id = filters.get('tenant_id')
             elif filters.get('project_id'):
                 project_id = filters.get('project_id')
-            else:
-                # A specific filter request is made. So here we
-                # will not filter according to the plugin.
-                return
-            # If there are multiple tenants/prijects being requested then
+
+            # If there are multiple tenants/projects being requested then
             # we will not filter according to the plugin
             if isinstance(project_id, list):
                 return
