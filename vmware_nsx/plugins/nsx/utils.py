@@ -62,9 +62,11 @@ def filter_plugins(cls):
             """Run the original get-list method, and filter the results
             by the project id of the context
             """
-            req_p = get_project_mapping(context, context.project_id)
             entries = orig_method(self, context, filters=filters,
                                   fields=fields)
+            if not context.project_id:
+                return entries
+            req_p = get_project_mapping(context, context.project_id)
             for entry in entries[:]:
                 p = get_project_mapping(context, entry['tenant_id'])
                 if p != req_p:
