@@ -16,6 +16,8 @@ import netaddr
 
 from neutron_lib.callbacks import registry
 from neutron_lib import constants as const
+from neutron_lib import context as neutron_context
+from neutron_lib import exceptions
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -143,9 +145,61 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
                      {'mac': mac, 'ip': ip, 'port': port_id})
 
 
+@admin_utils.output_header
+def nsx_recreate_dhcp_server(resource, event, trigger, **kwargs):
+    """Recreate DHCP server & binding for a neutron network"""
+    if not cfg.CONF.nsx_v3.native_dhcp_metadata:
+        LOG.error("Native DHCP is disabled.")
+        return
+
+    errmsg = ("Need to specify net-id property. Add --property net-id=<id>")
+    if not kwargs.get('property'):
+        LOG.error("%s", errmsg)
+        return
+    properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
+    net_id = properties.get('net-id')
+    if not net_id:
+        LOG.error("%s", errmsg)
+        return
+
+    context = neutron_context.get_admin_context()
+    with utils.NsxV3PluginWrapper() as plugin:
+        # verify that this is an existing network with dhcp enabled
+        try:
+            network = plugin._get_network(context, net_id)
+        except exceptions.NetworkNotFound:
+            LOG.error("Network %s was not found", net_id)
+            return
+        if plugin._has_no_dhcp_enabled_subnet(context, network):
+            LOG.error("Network %s has no DHCP enabled subnet", net_id)
+            return
+        dhcp_relay = plugin.get_network_az_by_net_id(
+            context, net_id).dhcp_relay_service
+        if dhcp_relay:
+            LOG.error("Native DHCP should not be enabled with dhcp relay")
+            return
+
+        # find the dhcp subnet of this network
+        subnet_id = None
+        for subnet in network.subnets:
+            if subnet.enable_dhcp:
+                subnet_id = subnet.id
+                break
+        if not subnet_id:
+            LOG.error("Network %s has no DHCP enabled subnet", net_id)
+            return
+        dhcp_subnet = plugin.get_subnet(context, subnet_id)
+        # disable and re-enable the dhcp
+        plugin._enable_native_dhcp(context, network, dhcp_subnet)
+    LOG.info("Done.")
+
+
 registry.subscribe(list_dhcp_bindings,
                    constants.DHCP_BINDING,
                    shell.Operations.LIST.value)
 registry.subscribe(nsx_update_dhcp_bindings,
                    constants.DHCP_BINDING,
                    shell.Operations.NSX_UPDATE.value)
+registry.subscribe(nsx_recreate_dhcp_server,
+                   constants.DHCP_BINDING,
+                   shell.Operations.NSX_RECREATE.value)

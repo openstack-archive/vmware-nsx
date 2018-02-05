@@ -391,6 +391,10 @@ DHCP Bindings
 
     nsxadmin -r dhcp-binding -o nsx-update --property dhcp_profile_uuid=<dhcp_profile_uuid>
 
+- Recreate dhcp server for a neutron network::
+
+    nsxadmin -r dhcp-binding -o nsx-recreate --property net-id=<neutron-net-id>
+
 Orphaned DHCP Servers
 ~~~~~~~~~~~~~~~~~~~~~
 
