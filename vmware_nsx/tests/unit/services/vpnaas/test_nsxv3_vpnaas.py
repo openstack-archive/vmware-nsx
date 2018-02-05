@@ -14,6 +14,7 @@
 #    under the License.
 import mock
 
+from neutron.db.models import l3 as l3_models
 from neutron_lib import context as n_ctx
 from neutron_vpnaas.tests import base
 
@@ -156,16 +157,31 @@ class TestDriverValidation(base.BaseTestCase):
         self.validator.validate_ipsec_policy(self.context, policy_info)
 
     def test_vpn_service_validation_router(self):
-        router = {'high_availability_mode': 'ACITVE_ACTIVE'}
+        db_router = l3_models.Router()
+        nsx_router = {'high_availability_mode': 'ACITVE_ACTIVE'}
+        db_router.enable_snat = False
         with mock.patch.object(self.validator.nsxlib.logical_router, 'get',
-                               return_value=router):
+                               return_value=nsx_router):
             self.assertRaises(nsx_exc.NsxVpnValidationError,
                               self.validator.validate_vpnservice,
                               self.context, self.vpn_service)
 
-        router = {'high_availability_mode': 'ACTIVE_STANDBY'}
+        nsx_router = {'high_availability_mode': 'ACTIVE_STANDBY'}
+        db_router.enable_snat = True
         with mock.patch.object(self.validator.nsxlib.logical_router, 'get',
-                               return_value=router):
+                               return_value=nsx_router),\
+            mock.patch.object(self.validator._core_plugin, '_get_router',
+                              return_value=db_router):
+            self.assertRaises(nsx_exc.NsxVpnValidationError,
+                              self.validator.validate_vpnservice,
+                              self.context, self.vpn_service)
+
+        nsx_router = {'high_availability_mode': 'ACTIVE_STANDBY'}
+        db_router.enable_snat = False
+        with mock.patch.object(self.validator.nsxlib.logical_router, 'get',
+                               return_value=nsx_router),\
+            mock.patch.object(self.validator._core_plugin, '_get_router',
+                              return_value=db_router):
             self.validator.validate_vpnservice(self.context, self.vpn_service)
 
     def _test_conn_validation(self, conn_params=None, success=True,

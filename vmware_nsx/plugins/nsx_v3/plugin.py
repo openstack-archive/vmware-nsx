@@ -3445,6 +3445,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         context.elevated(), router_id,
                         gw_info['network_id'], fip['subnet_id'])
 
+        # VPNaaS need to be notified on router GW changes (there is currently
+        # no matching upstream registration for this)
+        if validators.is_attr_set(gw_info):
+            vpn_plugin = directory.get_plugin(plugin_const.VPN)
+            if vpn_plugin:
+                vpn_driver = vpn_plugin.drivers[vpn_plugin.default_provider]
+                vpn_driver.validate_router_gw_info(context, router_id, gw_info)
+
         nsx_router_id = None
         routes_added = []
         routes_removed = []

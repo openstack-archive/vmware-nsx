@@ -323,6 +323,11 @@ class IPsecV3Validator(vpn_validator.VpnReferenceValidator):
                     "with ACTIVE_STANDBY HA mode")
             raise nsx_exc.NsxVpnValidationError(details=msg)
 
+        # Verify that this is a no-snat router
+        if router_db.enable_snat:
+            msg = _("VPN is supported only for routers with disabled SNAT")
+            raise nsx_exc.NsxVpnValidationError(details=msg)
+
     def validate_vpnservice(self, context, vpnservice):
         """Called upon create/update of a service"""
 
