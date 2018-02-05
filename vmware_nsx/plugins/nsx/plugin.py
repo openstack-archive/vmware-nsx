@@ -180,7 +180,8 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # TODO(asarfaty): add other resources here
             plugin_type = self.plugins[plugin].plugin_type()
             self._unsupported_fields[plugin_type] = {'router': [],
-                                                     'port': []}
+                                                     'port': [],
+                                                     'security_group': []}
 
             # router size and type are supported only by the V plugin
             if plugin_type in [t.NsxV3Plugin.plugin_type(),
@@ -193,6 +194,12 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if plugin_type in [dvs.NsxDvsV2.plugin_type()]:
                 self._unsupported_fields[plugin_type]['port'] = [
                     'mac_learning_enabled', 'provider_security_groups']
+
+            # security group policy can be supported only by nsx-v
+            if plugin_type in [t.NsxV3Plugin.plugin_type(),
+                               dvs.NsxDvsV2.plugin_type()]:
+                self._unsupported_fields[plugin_type]['security_group'] = [
+                    'policy']
 
     def init_availability_zones(self):
         # Make sure there are no overlaps between v/t availability zones
@@ -636,8 +643,15 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._ensure_default_security_group(context, tenant_id)
 
         p = self._get_plugin_from_project(context, context.project_id)
-        return p.create_security_group(context, security_group,
-                                       default_sg=default_sg)
+        self._validate_obj_extensions(
+            security_group['security_group'], p.plugin_type(),
+            'security_group')
+
+        new_sg = p.create_security_group(context, security_group,
+                                         default_sg=default_sg)
+        self._cleanup_obj_fields(
+            new_sg, p.plugin_type(), 'security_group')
+        return new_sg
 
     def delete_security_group(self, context, id):
         p = self._get_plugin_from_sg_id(context, id)
@@ -645,11 +659,17 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def update_security_group(self, context, id, security_group):
         p = self._get_plugin_from_sg_id(context, id)
+        self._validate_obj_extensions(
+            security_group['security_group'], p.plugin_type(),
+            'security_group')
         return p.update_security_group(context, id, security_group)
 
     def get_security_group(self, context, id, fields=None):
         p = self._get_plugin_from_sg_id(context, id)
-        return p.get_security_group(context, id, fields=fields)
+        sg = p.get_security_group(context, id, fields=fields)
+        self._cleanup_obj_fields(
+            sg, p.plugin_type(), 'security_group')
+        return sg
 
     def get_security_groups(self, context, filters=None, fields=None,
                             sorts=None, limit=None,
@@ -879,3 +899,26 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if req_p and p != req_p:
                 pools.remove(pool)
         return pools
+
+    def get_nsx_policy(self, context, id, fields=None):
+        # Extension supported only by the nsxv plugin
+        p = self._get_plugin_from_project(context, context.project_id)
+        if p.plugin_type() != v.NsxVPluginV2.plugin_type():
+            err_msg = (_('Can not support %(field)s extension for '
+                         '%(p)s plugin') % {
+                       'field': 'nsx-policy',
+                       'p': p.plugin_type()})
+            raise n_exc.InvalidInput(error_message=err_msg)
+
+        return p.get_nsx_policy(context, id, fields=fields)
+
+    def get_nsx_policies(self, context, filters=None, fields=None,
+                         sorts=None, limit=None, marker=None,
+                         page_reverse=False):
+        # Extension supported only by the nsxv plugin
+        p = self._get_plugin_from_project(context, context.project_id)
+        if p.plugin_type() != v.NsxVPluginV2.plugin_type():
+            return []
+        return p.get_nsx_policies(context, filters=filters, fields=fields,
+                                  sorts=sorts, limit=limit, marker=marker,
+                                  page_reverse=page_reverse)
