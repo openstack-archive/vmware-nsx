@@ -24,6 +24,6 @@ class FwaasTVPluginV1(fwaas_plugin.FirewallPlugin):
 
     This plugin adds separation between T/V instances
     """
-    methods_to_separate = ['get_firewall',
+    methods_to_separate = ['get_firewalls',
                            'get_firewall_policies',
                            'get_firewall_rules']
