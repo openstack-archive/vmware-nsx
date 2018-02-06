@@ -1242,6 +1242,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                         netmoref, dvsmoref)
         try:
             net_data[psec.PORTSECURITY] = net_data.get(psec.PORTSECURITY, True)
+            if not cfg.CONF.nsxv.spoofguard_enabled:
+                LOG.info("Network %s will have port security disabled",
+                         net_data['id'])
+                net_data[psec.PORTSECURITY] = False
             # Create SpoofGuard policy for network anti-spoofing
             sg_policy_id = None
             if cfg.CONF.nsxv.spoofguard_enabled and backend_network:
@@ -2146,7 +2150,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                           original_port['fixed_ips'])
                 self._update_vnic_assigned_addresses(
                     context.session, original_port, vnic_id)
-            elif cfg.CONF.nsxv.spoofguard_enabled:
+            else:
                 # Add vm to the exclusion list, since it has no port security
                 self._add_vm_to_exclude_list(context, device_id, id)
             # if service insertion is enabled - add this vnic to the service
@@ -2465,8 +2469,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     LOG.error('Could not delete the spoofguard policy. '
                               'Exception %s', e)
 
-            if (cfg.CONF.nsxv.spoofguard_enabled and
-                not neutron_db_port[psec.PORTSECURITY] and
+            if (not neutron_db_port[psec.PORTSECURITY] and
                 self._is_compute_port(neutron_db_port)):
                 device_id = neutron_db_port['device_id']
                 # Note that we expect to find 1 relevant port in the DB still
