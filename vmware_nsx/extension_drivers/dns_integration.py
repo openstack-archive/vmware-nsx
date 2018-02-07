@@ -311,6 +311,11 @@ class DNSExtensionDriverNSXv(DNSExtensionDriver):
         dns_driver = _get_dns_driver()
         if not dns_driver:
             return True
+
+        provider_type = network.get('provider:network_type')
+        if not provider_type:
+            return True
+
         if network['router:external']:
             return True
         return False
