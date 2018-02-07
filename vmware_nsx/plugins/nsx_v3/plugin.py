@@ -2615,6 +2615,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         if not cfg.CONF.nsx_v3.native_dhcp_metadata:
             nsx_rpc.handle_port_metadata_access(self, context, neutron_db)
+        kwargs = {'context': context, 'port': neutron_db}
+        registry.notify(resources.PORT, events.AFTER_CREATE, self, **kwargs)
         return port_data
 
     def _pre_delete_port_check(self, context, port_id, l2gw_port_check):
@@ -3061,6 +3063,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if cfg.CONF.nsx_v3.native_dhcp_metadata:
             self._update_dhcp_binding(context, original_port, updated_port)
 
+        # Notifications must be sent after the above transaction is complete
+        kwargs = {
+            'context': context,
+            'port': updated_port,
+            'mac_address_updated': False,
+            'original_port': original_port,
+        }
+
+        registry.notify(resources.PORT, events.AFTER_UPDATE, self, **kwargs)
         return updated_port
 
     def _extend_get_port_dict_qos_and_binding(self, context, port):
