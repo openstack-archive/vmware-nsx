@@ -773,6 +773,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if not validators.is_attr_set(vlan_id):
             vlan_id = None
 
+        if vlan_id and transparent_vlan:
+            err_msg = (_("Segmentation ID cannot be set with transparent "
+                         "vlan!"))
+            raise n_exc.InvalidInput(error_message=err_msg)
+
         err_msg = None
         net_type = network_data.get(pnet.NETWORK_TYPE)
         nsxlib_tz = self.nsxlib.transport_zone
@@ -785,11 +790,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                  "%s network type") %
                                utils.NsxV3NetworkTypes.FLAT)
                 else:
-                    # Set VLAN id to 0 for flat networks
-                    vlan_id = '0'
+                    if not transparent_vlan:
+                        # Set VLAN id to 0 for flat networks
+                        vlan_id = '0'
                     if physical_net is None:
                         physical_net = az._default_vlan_tz_uuid
-            elif net_type == utils.NsxV3NetworkTypes.VLAN:
+            elif (net_type == utils.NsxV3NetworkTypes.VLAN and
+                  not transparent_vlan):
                 # Use default VLAN transport zone if physical network not given
                 if physical_net is None:
                     physical_net = az._default_vlan_tz_uuid
@@ -814,6 +821,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     if bindings:
                         raise n_exc.VlanIdInUse(
                             vlan_id=vlan_id, physical_network=physical_net)
+            elif (net_type == utils.NsxV3NetworkTypes.VLAN and
+                  transparent_vlan):
+                # Use default VLAN transport zone if physical network not given
+                if physical_net is None:
+                    physical_net = az._default_vlan_tz_uuid
             elif net_type == utils.NsxV3NetworkTypes.GENEVE:
                 if vlan_id:
                     err_msg = (_("Segmentation ID cannot be specified with "
@@ -873,12 +885,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         err_msg = (_('%(tz)s transport zone is required for '
                                      'creating a %(net)s provider network') %
                                    {'tz': tz_type, 'net': net_type})
-                    elif (transparent_vlan and
-                          tz_type == nsxlib_tz.TRANSPORT_TYPE_VLAN):
-                        raise NotImplementedError(_(
-                            "Transparent support only for internal overlay "
-                            "networks"))
-
             if not err_msg:
                 switch_mode = nsxlib_tz.get_host_switch_mode(physical_net)
 
@@ -1054,9 +1060,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         nsx_net_id = None
         if validators.is_attr_set(external) and external:
-            if vlt:
-                raise NotImplementedError(_(
-                    "Transparent support only for internal overlay networks"))
             self._assert_on_external_net_with_qos(net_data)
             is_provider_net, net_type, physical_net, vlan_id = (
                 self._validate_external_net_create(net_data))
