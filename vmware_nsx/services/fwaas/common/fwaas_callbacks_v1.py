@@ -25,7 +25,6 @@ from neutron_fwaas.services.firewall.agents.l3reference \
     import firewall_l3_agent
 from neutron_lib import constants as nl_constants
 from neutron_lib import context as n_context
-from neutron_lib.exceptions import firewall_v1 as exceptions
 from neutron_lib.plugins import directory
 
 LOG = logging.getLogger(__name__)
@@ -77,8 +76,6 @@ class NsxFwaasCallbacks(firewall_l3_agent.L3WithFWaaS):
                     context,
                     fw['id'],
                     nl_constants.ERROR)
-                raise exceptions.FirewallInternalDriverError(
-                    driver=self.fwaas_driver.driver_name)
             return ids
         else:
             return [router['id'] for router in routers_in_proj]
