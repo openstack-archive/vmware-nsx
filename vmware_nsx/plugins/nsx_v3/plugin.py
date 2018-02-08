@@ -1580,6 +1580,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # TODO(berlin): public external subnet announcement
         if (cfg.CONF.nsx_v3.native_dhcp_metadata and
             subnet['subnet'].get('enable_dhcp', False)):
+            self._validate_external_subnet(context,
+                                           subnet['subnet']['network_id'])
             lock = 'nsxv3_network_' + subnet['subnet']['network_id']
             with locking.LockManager.get_lock(lock):
                 # Check if it is on an overlay network and is the first

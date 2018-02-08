@@ -2637,12 +2637,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         """
         self._validate_host_routes_input(subnet)
         if subnet['subnet']['enable_dhcp']:
-            filters = {'id': [subnet['subnet']['network_id']],
-                       'router:external': [True]}
-            nets = self.get_networks(context, filters=filters)
-            if len(nets) > 0:
-                err_msg = _("Can not enable DHCP on external network")
-                raise n_exc.InvalidInput(error_message=err_msg)
+            self._validate_external_subnet(context,
+                                           subnet['subnet']['network_id'])
             data = subnet['subnet']
             if (data.get('ip_version') == 6 or
                 (data['cidr'] not in (constants.ATTR_NOT_SPECIFIED, None)

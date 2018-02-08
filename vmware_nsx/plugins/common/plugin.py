@@ -337,6 +337,13 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
         net_res[az_def.AZ_HINTS] = az_validator.convert_az_string_to_list(
             net_db[az_def.AZ_HINTS])
 
+    def _validate_external_subnet(self, context, network_id):
+        filters = {'id': [network_id], 'router:external': [True]}
+        nets = self.get_networks(context, filters=filters)
+        if len(nets) > 0:
+            err_msg = _("Can not enable DHCP on external network")
+            raise n_exc.InvalidInput(error_message=err_msg)
+
 
 # Register the callback
 def _validate_network_has_subnet(resource, event, trigger, **kwargs):
