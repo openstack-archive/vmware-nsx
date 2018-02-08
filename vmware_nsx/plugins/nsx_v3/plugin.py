@@ -1108,7 +1108,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         neutron_net_id,
                         nsx_net_id)
 
-                if vlt:
+                if nc_utils.is_extension_supported(self, 'vlan-transparent'):
                     super(NsxV3Plugin, self).update_network(context,
                         created_net['id'],
                         {'network': {'vlan_transparent': vlt}})
