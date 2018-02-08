@@ -956,7 +956,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             trunk_vlan_range = None
             if transparent_vlan:
                 # all vlan tags are allowed for guest vlan
-                trunk_vlan_range = [const.MIN_VLAN_TAG, const.MAX_VLAN_TAG]
+                trunk_vlan_range = [0, const.MAX_VLAN_TAG]
             nsx_result = self.nsxlib.logical_switch.create(
                 net_name, provider_data['physical_net'], tags,
                 admin_state=admin_state,
