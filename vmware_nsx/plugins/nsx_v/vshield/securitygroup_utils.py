@@ -60,7 +60,8 @@ class NsxSecurityGroupUtils(object):
     def get_rule_config(self, applied_to_ids, name, action='allow',
                         applied_to='SecurityGroup',
                         source=None, destination=None, services=None,
-                        flags=None, logged=False, tag=None):
+                        flags=None, logged=False, tag=None,
+                        application_services=None):
         """Helper method to create a nsx rule dict."""
         ruleTag = et.Element('rule')
         ruleTag.attrib['logged'] = 'true' if logged else 'false'
@@ -115,6 +116,13 @@ class NsxSecurityGroupUtils(object):
                 if icmpcode is not None:
                     svcPortTag = et.SubElement(svcTag, 'icmpCode')
                     svcPortTag.text = str(icmpcode)
+
+        if application_services:
+            s = et.SubElement(ruleTag, 'services')
+            for application_service in application_services:
+                svcTag = et.SubElement(s, 'service')
+                svcProtocolTag = et.SubElement(svcTag, 'value')
+                svcProtocolTag.text = str(application_service)
 
         if flags:
             if flags.get('ethertype') is not None:

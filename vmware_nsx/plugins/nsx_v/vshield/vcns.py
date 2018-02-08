@@ -121,6 +121,7 @@ class Vcns(object):
             insecure=insecure, timeout=cfg.CONF.nsxv.nsx_transaction_timeout)
         self._nsx_version = None
         self._normalized_scoping_objects = None
+        self._normalized_global_objects = None
 
     @retry_upon_exception(exceptions.ServiceConflict)
     def _client_request(self, client, method, uri,
@@ -1155,3 +1156,32 @@ class Vcns(object):
     def delete_bgp_routing_config(self, edge_id):
         uri = self._build_uri_path(edge_id, BGP_ROUTING_CONFIG)
         return self.do_request(HTTP_DELETE, uri)
+
+    def get_global_objects(self):
+        uri = '%s/application/scope/globalroot-0' % SERVICES_PREFIX
+        h, scoping_objects = self.do_request(HTTP_GET, uri, decode=False,
+                                             format='xml')
+        return scoping_objects
+
+    def _globalobjects_lookup(self, name, use_cache=False):
+        """Return objectId a specific name in the NSX global objects."""
+        # used cached scoping objects during plugin init since it is
+        # a big structure to retrieve and parse each time.
+        if use_cache and self._normalized_global_objects is not None:
+            # Use the cached data
+            root = self._normalized_global_objects
+        else:
+            # Not using cache, or we do want to use it,
+            # but it was not saved yet:
+            # So get the data from the NSX and parse it
+            so_list = self.get_global_objects()
+            root = utils.normalize_xml(so_list)
+            # Save it for possible usage next time (even if not using cache)
+            self._normalized_global_objects = root
+
+        for obj in root.iter('application'):
+            if obj.find('name').text == name:
+                return obj.find('objectId').text
+
+    def get_application_id(self, name):
+        return self._globalobjects_lookup(name, use_cache=True)
