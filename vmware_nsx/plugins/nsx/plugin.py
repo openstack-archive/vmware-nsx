@@ -464,16 +464,27 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         p = self._get_plugin_from_net_id(context, db_subnet['network_id'])
         p.delete_subnet(context, id)
 
+    def _get_subnet_plugin(self, context, subnet_data):
+        # get the plugin of the associated network
+        net_id = subnet_data['network_id']
+        net_plugin = self._get_plugin_from_net_id(context, net_id)
+        # make sure it matches the plugin of the current tenant
+        tenant_id = subnet_data['tenant_id']
+        tenant_plugin = self._get_plugin_from_project(context, tenant_id)
+        if tenant_plugin.plugin_type() != net_plugin.plugin_type():
+            err_msg = (_('Subnet should belong to the %s plugin '
+                         'as the network') % net_plugin.plugin_type())
+            raise n_exc.InvalidInput(error_message=err_msg)
+        return net_plugin
+
     def create_subnet(self, context, subnet):
-        id = subnet['subnet']['network_id']
-        p = self._get_plugin_from_net_id(context, id)
+        p = self._get_subnet_plugin(context, subnet['subnet'])
         return p.create_subnet(context, subnet)
 
     def create_subnet_bulk(self, context, subnets):
         # look at the first subnet to find out the project & plugin
         items = subnets['subnets']
-        id = items[0]['subnet']['network_id']
-        p = self._get_plugin_from_net_id(context, id)
+        p = self._get_subnet_plugin(context, items[0]['subnet'])
         return p.create_subnet_bulk(context, subnets)
 
     def update_subnet(self, context, id, subnet):
