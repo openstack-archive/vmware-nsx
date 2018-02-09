@@ -1914,6 +1914,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 (sgids, ssgids) = self._get_port_security_groups_lists(
                     context, port)
             elif (has_security_groups or provider_sg_specified):
+                LOG.error("Port has conflicting port security status and "
+                          "security groups")
                 raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
             else:
                 sgids = ssgids = []
@@ -2224,11 +2226,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # then port has ip and port-security
             if not (has_ip and has_port_security):
                 if has_security_groups or provider_sgs_specified:
+                    LOG.error("Port has conflicting port security status and "
+                              "security groups")
                     raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
                 if ((not delete_security_groups
                      and original_port[ext_sg.SECURITYGROUPS]) or
                         (not delete_provider_sg and
                          original_port[provider_sg.PROVIDER_SECURITYGROUPS])):
+                    LOG.error("Port has conflicting port security status and "
+                              "security groups")
                     raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
 
             if delete_security_groups or has_security_groups:

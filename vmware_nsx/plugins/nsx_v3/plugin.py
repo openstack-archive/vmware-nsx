@@ -2064,6 +2064,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         elif (self._check_update_has_security_groups({'port': port_data}) or
               self._provider_sgs_specified(port_data) or
               self._get_provider_security_groups_on_port(context, port)):
+            LOG.error("Port has conflicting port security status and "
+                      "security groups")
             raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
         else:
             sgids = psgids = []
@@ -2737,6 +2739,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if (validate_port_sec and
             not (has_ip and updated_port[psec.PORTSECURITY])):
             if has_security_groups or provider_sgs_specified:
+                LOG.error("Port has conflicting port security status and "
+                          "security groups")
                 raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
             # Update did not have security groups passed in. Check
             # that port does not have any security groups already on it.
