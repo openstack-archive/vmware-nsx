@@ -4,8 +4,8 @@ Admin Utility
 The NSXv and the NSXv3 support the nsxadmin utility. This enables and administrator to determine and rectify inconsistencies between the Neutron DB and the NSX.
 usage: nsxadmin -r <resources> -o <operation>
 
-NSXv
-----
+NSXv Plugin
+-----------
 
 The following resources are supported: 'security-groups', 'edges', 'networks', 'firewall-sections', 'orphaned-edges', 'spoofguard-policy', 'missing-edges', 'backup-edges', 'nsx-security-groups', 'dhcp-binding' and  'metadata'
 
@@ -261,8 +261,8 @@ Config
 
     nsxadmin -r config -o validate
 
-NSXv3
------
+NSXv3 Plugin
+------------
 
 The following resources are supported: 'security-groups', 'routers', 'networks', 'nsx-security-groups', 'dhcp-binding', 'metadata-proxy', 'orphaned-dhcp-servers', 'firewall-sections', 'certificate', 'orphaned-networks', 'orphaned-routers',
 and 'ports'.
@@ -486,23 +486,23 @@ Rate Limit
 nsxadmin -r rate-limit -o nsx-update --property value=<>
 
 
-NSXtvd
-------
-
-- All the nsx-v/v3 utilities can be used by calling
-
-    nsxadmin --plugin nsxv/v3 -r <> -o <>
-
-- Add mapping between projects and plugin before starting to use the tvd plugin:
-
-    nsxadmin -r projects -o import --property plugin=nsx-v --property project=<>
-
 Config
 ~~~~~~
 
 - Validate the configuration in the nsx.ini and backend connectivity
 
     nsxadmin -r config -o validate
+
+NSXtvd Plugin
+-------------
+
+- All the nsx-v/v3 utilities can be used by calling
+
+    nsxadmin --plugin nsxv/v3 -r <> -o <>
+
+- Add mapping between existing projects and old (v) plugin before starting to use the tvd plugin:
+
+    nsxadmin -r projects -o import --property plugin=nsx-v --property project=<>
 
 
 Upgrade Steps (Version 1.0.0 to Version 1.1.0)
