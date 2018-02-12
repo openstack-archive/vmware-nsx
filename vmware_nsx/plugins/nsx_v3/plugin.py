@@ -4511,3 +4511,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         nsx_router_id, ext_addr,
                         source_net=subnet['cidr'],
                         bypass_firewall=False)
+
+    def extend_port_portbinding(self, port_res, binding):
+        pass

@@ -213,10 +213,10 @@ nsxv_resources = {
 
 
 # Add supported NSX-TVD resources in this dictionary
-# TODO(asarfaty): add v+v3 resources here too
 nsxtvd_resources = {
     constants.PROJECTS: Resource(constants.PROJECTS,
-                                 [Operations.IMPORT.value]),
+                                 [Operations.IMPORT.value,
+                                  Operations.NSX_MIGRATE_V_V3.value]),
 }
 
 nsxv3_resources_names = list(nsxv3_resources.keys())

@@ -118,23 +118,31 @@ class NsxVPluginWrapper(plugin.NsxVPlugin):
             filters.update(requested_filters)
         return filters
 
-    def get_networks(self, context, filters=None, fields=None):
-        filters = self._update_filters(filters)
+    def get_networks(self, context, filters=None, fields=None,
+                     filter_project=True):
+        if filter_project:
+            filters = self._update_filters(filters)
         return super(NsxVPluginWrapper, self).get_networks(
             context, filters=filters, fields=fields)
 
-    def get_subnets(self, context, filters=None, fields=None):
-        filters = self._update_filters(filters)
+    def get_subnets(self, context, filters=None, fields=None,
+                    filter_project=True):
+        if filter_project:
+            filters = self._update_filters(filters)
         return super(NsxVPluginWrapper, self).get_subnets(
             context, filters=filters, fields=fields)
 
-    def get_ports(self, context, filters=None, fields=None):
-        filters = self._update_filters(filters)
+    def get_ports(self, context, filters=None, fields=None,
+                  filter_project=True):
+        if filter_project:
+            filters = self._update_filters(filters)
         return super(NsxVPluginWrapper, self).get_ports(
             self.context, filters=filters, fields=fields)
 
-    def get_routers(self, context, filters=None, fields=None):
-        filters = self._update_filters(filters)
+    def get_routers(self, context, filters=None, fields=None,
+                    filter_project=True):
+        if filter_project:
+            filters = self._update_filters(filters)
         return super(NsxVPluginWrapper, self).get_routers(
             self.context, filters=filters, fields=fields)
 

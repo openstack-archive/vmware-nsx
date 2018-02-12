@@ -319,9 +319,9 @@ Ports
 
     nsxadmin -r ports -o list-mismatches
 
-- Update the VMs ports on the backend after migrating nsx-v -> nsx-v3::
+- Update the VMs ports (all or of a specific project) on the backend after migrating nsx-v -> nsx-v3::
 
-    nsxadmin -r ports -o nsx-migrate-v-v3
+    nsxadmin -r ports -o nsx-migrate-v-v3 (--property project-id=<>)
 
 - Migrate exclude ports to use tags::
 
@@ -503,6 +503,10 @@ NSXtvd Plugin
 - Add mapping between existing projects and old (v) plugin before starting to use the tvd plugin:
 
     nsxadmin -r projects -o import --property plugin=nsx-v --property project=<>
+
+- Migrate a specific project from V to T:
+
+     nsxadmin -r projects -o nsx-migrate-v-v3 --property project-id=<V project ID> --property external-net=<T external network ID> (--property from-file=True)
 
 
 Upgrade Steps (Version 1.0.0 to Version 1.1.0)
