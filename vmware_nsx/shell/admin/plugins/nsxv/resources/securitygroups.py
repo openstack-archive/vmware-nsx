@@ -95,7 +95,7 @@ class NeutronSecurityGroupDB(
         return False
 
     def delete_security_group_section_mapping(self, sg_id):
-        with self.db_api.context_manager.writer.using(self.context):
+        with db_api.context_manager.writer.using(self.context):
             fw_mapping = self.context.session.query(
                 nsxv_models.NsxvSecurityGroupSectionMapping).filter_by(
                     neutron_id=sg_id).one_or_none()
@@ -432,6 +432,10 @@ registry.subscribe(migrate_sg_to_policy,
 registry.subscribe(reorder_firewall_sections,
                    constants.FIREWALL_SECTIONS,
                    shell.Operations.NSX_REORDER.value)
+
+registry.subscribe(fix_security_groups,
+                   constants.FIREWALL_SECTIONS,
+                   shell.Operations.NSX_UPDATE.value)
 
 registry.subscribe(firewall_update_cluster_default_fw_section,
                    constants.FIREWALL_SECTIONS,

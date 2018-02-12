@@ -300,3 +300,7 @@ def migrate_nsgroups_to_dynamic_criteria(resource, event, trigger, **kwargs):
 registry.subscribe(migrate_nsgroups_to_dynamic_criteria,
                    constants.FIREWALL_NSX_GROUPS,
                    shell.Operations.MIGRATE_TO_DYNAMIC_CRITERIA.value)
+
+registry.subscribe(fix_security_groups,
+                   constants.FIREWALL_SECTIONS,
+                   shell.Operations.NSX_UPDATE.value)
