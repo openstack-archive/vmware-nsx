@@ -14,7 +14,7 @@
 """Project Plugin mapping action implementations"""
 
 from openstack.network import network_service
-from openstack import resource2 as resource
+from openstack import resource
 from openstackclient.i18n import _
 from osc_lib.command import command
 from osc_lib import utils
