@@ -219,7 +219,7 @@ Security Groups, Firewall and Spoofguard
 
     nsxadmin --resource security-groups --operation list
     nsxadmin -r nsx-security-groups -o {list, list-missmatches}
-    nsxadmin -r firewall-sections -o {list, list-missmatches}
+    nsxadmin -r firewall-sections -o {list, list-missmatches, nsx-update}
 
 - Spoofguard support::
 
