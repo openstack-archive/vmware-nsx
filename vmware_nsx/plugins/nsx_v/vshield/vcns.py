@@ -826,9 +826,17 @@ class Vcns(object):
                   'approvedMacAddress': mac_addr,
                   'publishedIpAddress': addresses,
                   'publishedMacAddress': mac_addr}}}
-
-        return self.do_request(HTTP_POST, '%s?action=approve' % uri,
-                               body, format='xml', decode=False)
+        try:
+            return self.do_request(HTTP_POST, '%s?action=approve' % uri,
+                                   body, format='xml', decode=False)
+        except exceptions.VcnsApiException as e:
+            nsx_errcode = self.xmlapi_client._get_nsx_errorcode(e.response)
+            if nsx_errcode == constants.NSX_ERROR_ALREADY_EXISTS:
+                LOG.warning("Spoofguard entry for %s already exists",
+                            vnic_id)
+                raise exceptions.AlreadyExists(resource=vnic_id)
+            # raise original exception for retries
+            raise
 
     @retry_upon_exception(exceptions.RequestBad)
     def approve_assigned_addresses(self, policy_id,

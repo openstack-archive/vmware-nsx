@@ -76,3 +76,7 @@ class ServiceUnavailable(VcnsApiException):
 
 class ServiceConflict(VcnsApiException):
     message = _("Concurrent object access error: %(uri)s")
+
+
+class AlreadyExists(VcnsApiException):
+    message = _("Resource %(resource)s already exists")
