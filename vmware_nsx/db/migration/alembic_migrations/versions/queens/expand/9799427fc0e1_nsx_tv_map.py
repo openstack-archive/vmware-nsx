@@ -27,8 +27,12 @@ down_revision = 'ea7a72ab9643'
 from alembic import op
 import sqlalchemy as sa
 
+from neutron.db import migration
+
 plugin_type_enum = sa.Enum('dvs', 'nsx-v', 'nsx-t',
                            name='nsx_plugin_type')
+# milestone identifier, used by neutron-db-manage
+neutron_milestone = [migration.QUEENS]
 
 
 def upgrade():
