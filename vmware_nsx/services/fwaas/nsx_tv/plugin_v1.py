@@ -13,6 +13,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron_lib import exceptions as n_exc
+from neutron_lib.plugins import directory
+
 from neutron_fwaas.services.firewall import fwaas_plugin
 
 from vmware_nsx.plugins.nsx import utils as tvd_utils
@@ -27,3 +30,18 @@ class FwaasTVPluginV1(fwaas_plugin.FirewallPlugin):
     methods_to_separate = ['get_firewalls',
                            'get_firewall_policies',
                            'get_firewall_rules']
+
+    def validate_firewall_routers_not_in_use(
+        self, context, router_ids, fwid=None):
+        # Override this method to verify that the router & firewall belongs to
+        # the same plugin
+        context_plugin_type = tvd_utils.get_tvd_plugin_type_for_project(
+            context.project_id, context)
+        core_plugin = directory.get_plugin()
+        for rtr_id in router_ids:
+            rtr_plugin = core_plugin._get_plugin_from_router_id(
+                context, rtr_id)
+            if rtr_plugin.plugin_type() != context_plugin_type:
+                err_msg = (_('Router should belong to the %s plugin '
+                             'as the firewall') % context_plugin_type)
+                raise n_exc.InvalidInput(error_message=err_msg)
