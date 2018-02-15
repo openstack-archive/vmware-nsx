@@ -22,6 +22,7 @@ from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
 from neutron_lib import constants
+from neutron_lib import context as n_context
 from neutron_lib import exceptions as nexception
 from neutron_lib.plugins import directory
 from neutron_vpnaas.services.vpn import service_drivers
@@ -37,6 +38,7 @@ from vmware_nsxlib.v3 import vpn_ipsec
 
 LOG = logging.getLogger(__name__)
 IPSEC = 'ipsec'
+VPN_PORT_OWNER = constants.DEVICE_OWNER_NEUTRON_PREFIX + 'vpnservice'
 
 
 class RouterWithSNAT(nexception.BadRequest):
@@ -348,18 +350,32 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
             return local_ep_id
 
         # create a new one
-        local_addr = self._get_router_ext_gw(context, router_id)
+        local_addr = vpnservice['external_v4_ip']
         nsx_service_id = self._get_nsx_vpn_service(context, vpnservice)
         local_ep_id = self._create_local_endpoint(
             context, local_addr, nsx_service_id, router_id)
         return local_ep_id
 
+    def _find_vpn_service_port(self, context, router_id):
+        """Look for the neutron port created for the vpnservice of a router"""
+        filters = {'device_id': [router_id],
+                   'device_owner': [VPN_PORT_OWNER]}
+        ports = self.l3_plugin.get_ports(context, filters=filters)
+        if ports:
+            return ports[0]
+
     def _delete_local_endpoint(self, resource, event, trigger, **kwargs):
         """Upon router deletion / gw removal delete the matching endpoint"""
         router_id = kwargs.get('router_id')
+        # delete the local endpoint from the NSX
         local_ep_id = self._search_local_endpint(router_id)
         if local_ep_id:
             self._nsx_vpn.local_endpoint.delete(local_ep_id)
+        # delete the neutron port with this IP
+        ctx = n_context.get_admin_context()
+        port = self._find_vpn_service_port(ctx, router_id)
+        if port:
+            self.l3_plugin.delete_port(ctx, port['id'])
 
     def validate_router_gw_info(self, context, router_id, gw_info):
         """Upon router gw update - verify no-snat"""
@@ -568,22 +584,6 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
 
         # No service updates. No need to update router advertisement rules
 
-    def _get_gateway_ips(self, router):
-        """Obtain the IPv4 and/or IPv6 GW IP for the router.
-
-        If there are multiples, (arbitrarily) use the first one.
-        """
-        v4_ip = v6_ip = None
-        for fixed_ip in router.gw_port['fixed_ips']:
-            addr = fixed_ip['ip_address']
-            vers = netaddr.IPAddress(addr).version
-            if vers == 4:
-                if v4_ip is None:
-                    v4_ip = addr
-            elif v6_ip is None:
-                v6_ip = addr
-        return v4_ip, v6_ip
-
     def _create_vpn_service(self, tier0_uuid):
         try:
             service = self._nsx_vpn.service.create(
@@ -635,29 +635,52 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
         tier0_uuid = self._get_tier0_uuid(context, router_id)
         return self._find_vpn_service(tier0_uuid)
 
+    def _get_service_local_address(self, context, vpnservice):
+        """Find/Allocate a port on the external network
+
+        to save the ip to be used as the local ip of this service
+        """
+        router_id = vpnservice.router['id']
+        # check if this router already have an IP
+        port = self._find_vpn_service_port(context, router_id)
+        if not port:
+            # create a new port, on the external network of the router
+            ext_net = vpnservice.router.gw_port['network_id']
+            port_data = {
+                'port': {
+                    'network_id': ext_net,
+                    'name': None,
+                    'admin_state_up': True,
+                    'device_id': vpnservice.router['id'],
+                    'device_owner': VPN_PORT_OWNER,
+                    'fixed_ips': constants.ATTR_NOT_SPECIFIED,
+                    'mac_address': constants.ATTR_NOT_SPECIFIED,
+                    'port_security_enabled': False,
+                    'tenant_id': vpnservice['tenant_id']}}
+            port = self.l3_plugin.base_create_port(context, port_data)
+        # return the port ip as the local address
+        return port['fixed_ips'][0]['ip_address']
+
     def create_vpnservice(self, context, vpnservice):
         #TODO(asarfaty) support vpn-endpoint-group-create for local & peer
         # cidrs too
         LOG.debug('Creating VPN service %(vpn)s', {'vpn': vpnservice})
         vpnservice_id = vpnservice['id']
-
+        vpnservice = self.service_plugin._get_vpnservice(context,
+                                                         vpnservice_id)
         try:
             self.validator.validate_vpnservice(context, vpnservice)
+            local_address = self._get_service_local_address(
+                context, vpnservice)
         except Exception:
             with excutils.save_and_reraise_exception():
                 # Rolling back change on the neutron
                 self.service_plugin.delete_vpnservice(context, vpnservice_id)
 
-        vpnservice = self.service_plugin._get_vpnservice(context,
-                                                         vpnservice_id)
-        v4_ip, v6_ip = self._get_gateway_ips(vpnservice.router)
-        if v4_ip:
-            vpnservice['external_v4_ip'] = v4_ip
-        if v6_ip:
-            vpnservice['external_v6_ip'] = v6_ip
+        vpnservice['external_v4_ip'] = local_address
         self.service_plugin.set_external_tunnel_ips(context,
                                                     vpnservice_id,
-                                                    v4_ip=v4_ip, v6_ip=v6_ip)
+                                                    v4_ip=local_address)
         self._create_vpn_service_if_needed(context, vpnservice)
 
     def update_vpnservice(self, context, old_vpnservice, vpnservice):

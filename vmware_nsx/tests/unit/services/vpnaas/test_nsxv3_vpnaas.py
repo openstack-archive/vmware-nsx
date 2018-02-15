@@ -192,12 +192,6 @@ class TestDriverValidation(base.BaseTestCase):
         if router_subnets is None:
             router_subnets = []
 
-        def mock_get_router(context, router_id):
-            return {'id': router_id,
-                    'external_gateway_info': {
-                        'external_fixed_ips': [{
-                            'ip_address': '1.1.1.%s' % router_id}]}}
-
         def mock_get_routers(context, filters=None, fields=None):
             return [{'id': 'no-snat',
                      'external_gateway_info': {'enable_snat': False}}]
@@ -211,6 +205,7 @@ class TestDriverValidation(base.BaseTestCase):
             return {'id': service_id,
                     'router_id': service_id,
                     'subnet_id': 'dummy_subnet',
+                    'external_v4_ip': '1.1.1.%s' % service_id,
                     'subnet': {'id': 'dummy_subnet',
                                'cidr': subnet_cidr}}
 
@@ -223,8 +218,6 @@ class TestDriverValidation(base.BaseTestCase):
 
         with mock.patch.object(self.validator.vpn_plugin, '_get_vpnservice',
                                side_effect=mock_get_service),\
-            mock.patch.object(self.validator._core_plugin, 'get_router',
-                              side_effect=mock_get_router),\
             mock.patch.object(self.validator._core_plugin, 'get_routers',
                               side_effect=mock_get_routers),\
             mock.patch.object(self.validator._core_plugin,
