@@ -429,9 +429,12 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return (ports if not fields else
                 [db_utils.resource_fields(port, fields) for port in ports])
 
+    def _get_subnet_plugin_by_id(self, context, subnet_id):
+        db_subnet = self._get_subnet(context, subnet_id)
+        return self._get_plugin_from_net_id(context, db_subnet['network_id'])
+
     def get_subnet(self, context, id, fields=None):
-        db_subnet = self._get_subnet(context, id)
-        p = self._get_plugin_from_net_id(context, db_subnet['network_id'])
+        p = self._get_subnet_plugin_by_id(context, id)
         return p.get_subnet(context, id, fields=fields)
 
     def get_subnets(self, context, filters=None, fields=None, sorts=None,
@@ -464,8 +467,7 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             return subnets
 
     def delete_subnet(self, context, id):
-        db_subnet = self._get_subnet(context, id)
-        p = self._get_plugin_from_net_id(context, db_subnet['network_id'])
+        p = self._get_subnet_plugin_by_id(context, id)
         p.delete_subnet(context, id)
 
     def _get_subnet_plugin(self, context, subnet_data):
@@ -492,8 +494,7 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return p.create_subnet_bulk(context, subnets)
 
     def update_subnet(self, context, id, subnet):
-        db_subnet = self._get_subnet(context, id)
-        p = self._get_plugin_from_net_id(context, db_subnet['network_id'])
+        p = self._get_subnet_plugin_by_id(context, id)
         return p.update_subnet(context, id, subnet)
 
     def get_router_availability_zones(self, router):
