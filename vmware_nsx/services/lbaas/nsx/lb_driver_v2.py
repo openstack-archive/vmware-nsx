@@ -16,6 +16,8 @@
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
+from neutron_lib import exceptions as n_exc
+
 from vmware_nsx.services.lbaas import base_mgr
 
 LOG = logging.getLogger(__name__)
@@ -39,9 +41,17 @@ class EdgeLoadBalancerManager(base_mgr.LoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def create(self, context, lb):
-        p = self.core_plugin._get_plugin_from_project(context,
-                                                      lb.tenant_id)
-        return p.lbv2_driver.loadbalancer.create(context, lb)
+        # verify that the subnet belongs to the same plugin as the lb
+        lb_p = self.core_plugin._get_plugin_from_project(context,
+                                                         lb.tenant_id)
+        subnet_p = self.core_plugin._get_subnet_plugin_by_id(
+            context, lb.vip_subnet_id)
+        if lb_p.plugin_type() != subnet_p.plugin_type():
+            self.lbv2_driver.load_balancer.failed_completion(context, lb)
+            msg = (_('Subnet must belong to the plugin %s, as the '
+                     'loadbalancer.') % lb_p.plugin_type())
+            raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
+        return lb_p.lbv2_driver.loadbalancer.create(context, lb)
 
     @log_helpers.log_method_call
     def update(self, context, old_lb, new_lb):
