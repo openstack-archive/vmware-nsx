@@ -14,6 +14,8 @@
 
 import time
 
+import mock
+
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -59,8 +61,11 @@ class NsxVPluginWrapper(plugin.NsxVPlugin):
         super(NsxVPluginWrapper, self).__init__()
         # Make this the core plugin
         directory.add_plugin('CORE', self)
-        # finish the plugin initialization (md-proxy)
-        self.init_complete(0, 0, 0)
+        # finish the plugin initialization
+        # (with md-proxy config, but without housekeeping)
+        with mock.patch("vmware_nsx.plugins.common.housekeeper."
+                        "housekeeper.NsxvHousekeeper"):
+            self.init_complete(0, 0, 0)
 
     def _start_rpc_listeners(self):
         pass
