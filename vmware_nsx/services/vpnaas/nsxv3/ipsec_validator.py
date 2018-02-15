@@ -184,7 +184,7 @@ class IPsecV3Validator(vpn_validator.VpnReferenceValidator):
                              "as connection %(id)s") % {'local': local_cidrs,
                                                         'peer': peer_cidrs,
                                                         'id': conn['id']})
-                raise nsx_exc.NsxVpnValidationError(details=msg)
+                    raise nsx_exc.NsxVpnValidationError(details=msg)
 
     def _check_unique_addresses(self, context, ipsec_site_conn):
         """Validate no repeating local & peer addresses (of all tenants)
@@ -302,12 +302,13 @@ class IPsecV3Validator(vpn_validator.VpnReferenceValidator):
         #TODO(asarfaty): IPv6 is not yet supported. add validation
 
     def _get_service_local_address(self, context, vpnservice_id):
+        """The local address of the service is assigned upon creation
+
+        From the attached external network pool
+        """
         vpnservice = self.vpn_plugin._get_vpnservice(context,
                                                      vpnservice_id)
-        router_id = vpnservice['router_id']
-        router_db = self._core_plugin.get_router(context, router_id)
-        gw = router_db['external_gateway_info']
-        return gw['external_fixed_ips'][0]['ip_address']
+        return vpnservice['external_v4_ip']
 
     def _validate_router(self, context, router_id):
         # Verify that the router gw network is connected to an active-standby

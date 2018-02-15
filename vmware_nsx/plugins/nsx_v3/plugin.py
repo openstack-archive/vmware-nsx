@@ -2498,6 +2498,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self.nsxlib.ns_group.update_lport(
             context, lport_id, nsx_origial, nsx_updated)
 
+    def base_create_port(self, context, port):
+        neutron_db = super(NsxV3Plugin, self).create_port(context, port)
+        self._extension_manager.process_create_port(
+            context, port['port'], neutron_db)
+        return neutron_db
+
     def create_port(self, context, port, l2gw_port_check=False):
         port_data = port['port']
         dhcp_opts = port_data.get(ext_edo.EXTRADHCPOPTS)
@@ -2518,9 +2524,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._assert_on_port_admin_state(
                 port_data, port_data.get('device_owner'))
 
-            neutron_db = super(NsxV3Plugin, self).create_port(context, port)
-            self._extension_manager.process_create_port(
-                context, port_data, neutron_db)
+            neutron_db = self.base_create_port(context, port)
             port["port"].update(neutron_db)
 
             (is_psec_on, has_ip, sgids, psgids) = (
