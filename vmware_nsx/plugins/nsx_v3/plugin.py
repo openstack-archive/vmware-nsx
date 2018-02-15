@@ -19,6 +19,7 @@ from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import l3 as l3_apidef
 from neutron_lib.api.definitions import port_security as psec
+from neutron_lib.api import extensions
 from neutron_lib.api import faults
 from neutron_lib.api.validators import availability_zone as az_validator
 from neutron_lib.exceptions import allowedaddresspairs as addr_exc
@@ -33,7 +34,6 @@ from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
-from neutron.common import utils as nc_utils
 from neutron.db import _resource_extend as resource_extend
 from neutron.db import _utils as db_utils
 from neutron.db import agents_db
@@ -1060,7 +1060,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         # Update the transparent vlan if configured
         vlt = False
-        if nc_utils.is_extension_supported(self, 'vlan-transparent'):
+        if extensions.is_extension_supported(self, 'vlan-transparent'):
             vlt = vlan_apidef.get_vlan_transparent(net_data)
 
         nsx_net_id = None
@@ -1113,7 +1113,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         neutron_net_id,
                         nsx_net_id)
 
-                if nc_utils.is_extension_supported(self, 'vlan-transparent'):
+                if extensions.is_extension_supported(self, 'vlan-transparent'):
                     super(NsxV3Plugin, self).update_network(context,
                         created_net['id'],
                         {'network': {'vlan_transparent': vlt}})
