@@ -719,6 +719,10 @@ nsxv_opts = [
     cfg.BoolOpt('housekeeping_readonly',
                 default=True,
                 help=_("Housekeeping will only warn about breakage.")),
+    cfg.BoolOpt('use_default_block_all',
+                default=False,
+                help=_("Use default block all rule when no security groups "
+                       "are set on a port and port security is enabled")),
 ]
 
 # define the configuration of each NSX-V availability zone.

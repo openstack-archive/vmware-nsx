@@ -1,0 +1,9 @@
+---
+prelude: >
+    Enable 'use_default_block_all' to ensure that traffic to a port that has
+    no security groups and has port security enabled will be discarded.
+features:
+  - |
+    Enable 'use_default_block_all' to ensure that traffic to a port that has
+    no security groups and has port security enabled will be discarded. This
+    will ensure the same behaviours as the upstream security groups.
