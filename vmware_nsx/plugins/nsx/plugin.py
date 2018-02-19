@@ -319,7 +319,7 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         p = self._get_plugin_from_net_id(context, id)
         return p.get_network(context, id, fields=fields)
 
-    def _get_plugin_for_request(self, context, filters):
+    def _get_plugin_for_request(self, context, filters, keys=None):
         project_id = context.project_id
         if filters:
             if filters.get('tenant_id'):
@@ -329,8 +329,12 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             else:
                 # we have specific filters on the request. If those are
                 # specific enough, we should not filter by project
-                if filters.get('device_id'):
+                if filters.get('id'):
                     return
+                if keys:
+                    for key in keys:
+                        if filters.get(key):
+                            return
             # If there are multiple tenants/projects being requested then
             # we will not filter according to the plugin
             if isinstance(project_id, list):
@@ -342,7 +346,8 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                      page_reverse=False):
         # Read project plugin to filter relevant projects according to
         # plugin
-        req_p = self._get_plugin_for_request(context, filters)
+        req_p = self._get_plugin_for_request(context, filters,
+                                             keys=['shared'])
         filters = filters or {}
         with db_api.context_manager.reader.using(context):
             networks = (
@@ -398,7 +403,8 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   page_reverse=False):
         # Read project plugin to filter relevant projects according to
         # plugin
-        req_p = self._get_plugin_for_request(context, filters)
+        req_p = self._get_plugin_for_request(context, filters,
+                                             keys=['device_id'])
         filters = filters or {}
         with db_api.context_manager.reader.using(context):
             ports = (
