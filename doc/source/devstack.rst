@@ -269,7 +269,7 @@ Add neutron-fwaas repo as an external repository and configure following flags i
     [[local|localrc]]
     enable_plugin neutron-fwaas https://git.openstack.org/openstack/neutron-fwaas
     ENABLED_SERVICES+=,q-fwaas-v2
-    Q_SERVICE_PLUGIN_CLASSES=vmware_nsxtvd_fwaasv2
+    Q_SERVICE_PLUGIN_CLASSES+=,vmware_nsxtvd_fwaasv2
 
     [[post-config|$NEUTRON_CONF]]
     [fwaas]
@@ -288,6 +288,11 @@ Add networking-l2gw repo as an external repository and configure following flags
      ENABLED_SERVICES+=l2gw-plugin
      NETWORKING_L2GW_SERVICE_DRIVER=L2GW:vmware-nsx-l2gw:vmware_nsx.services.l2gateway.nsx_tvd.driver.NsxTvdL2GatewayDriver:default
      DEFAULT_BRIDGE_CLUSTER_UUID=
+     Q_SERVICE_PLUGIN_CLASSES+=,vmware_nsxtvd_l2gw
+
+    [[post-config|$NEUTRON_CONF]]
+    [DEFAULT]
+    api_extensions_path = $DEST/networking-l2gateway/networking_l2gw/extensions
 
 QoS Driver
 ~~~~~~~~~~
@@ -296,7 +301,7 @@ Enable the qos in ``local.conf``::
 
     [[local|localrc]]
     ENABLED_SERVICES+=,q-qos
-    Q_SERVICE_PLUGIN_CLASSES=neutron.services.qos.qos_plugin.QoSPlugin
+    Q_SERVICE_PLUGIN_CLASSES+=,vmware_nsxtvd_qos
 
 Neutron dynamic routing plugin (bgp)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -320,3 +325,9 @@ Add neutron-vpnaas repo as an external repository and configure following flags 
     [[local|localrc]]
     enable_plugin neutron-vpnaas https://git.openstack.org/openstack/neutron-vpnaas
     NEUTRON_VPNAAS_SERVICE_PROVIDER=VPN:vmware:vmware_nsx.services.vpnaas.nsx_tvd.ipsec_driver.NSXIPsecVpnDriver:default
+    Q_SERVICE_PLUGIN_CLASSES+=,vmware_nsxtvd_vpnaas
+
+    [[post-config|$NEUTRON_CONF]]
+    [DEFAULT]
+    api_extensions_path = $DEST/neutron-vpnaas/neutron_vpnaas/extensions
+

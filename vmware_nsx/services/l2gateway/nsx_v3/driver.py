@@ -98,6 +98,7 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         # Optimistically create the default L2 gateway in neutron DB
         device = {'device_name': def_l2gw_uuid,
                   'interfaces': [{'name': 'default-bridge-cluster'}]}
+        # TODO(asarfaty): Add a default v3 tenant-id to allow TVD filtering
         def_l2gw = {'name': 'default-l2gw',
                     'devices': [device]}
         l2gw_dict = {self.gateway_resource: def_l2gw}
