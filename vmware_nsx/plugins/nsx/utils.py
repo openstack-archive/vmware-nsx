@@ -58,19 +58,19 @@ def filter_plugins(cls):
     def add_separate_plugin_hook(name):
         orig_method = getattr(cls, name, None)
 
-        def filter_results_by_plugin(self, context, filters=None, fields=None):
+        def filter_results_by_plugin(self, context, **kwargs):
             """Run the original get-list method, and filter the results
             by the project id of the context
             """
-            entries = orig_method(self, context, filters=filters,
-                                  fields=fields)
+            entries = orig_method(self, context, **kwargs)
             if not context.project_id:
                 return entries
             req_p = get_project_mapping(context, context.project_id)
             for entry in entries[:]:
-                p = get_project_mapping(context, entry['tenant_id'])
-                if p != req_p:
-                    entries.remove(entry)
+                if entry.get('tenant_id'):
+                    p = get_project_mapping(context, entry['tenant_id'])
+                    if p != req_p:
+                        entries.remove(entry)
 
             return entries
 
