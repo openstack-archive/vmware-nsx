@@ -1379,6 +1379,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             neutron_port, resource_type='os-neutron-dport-id',
             project_name=context.tenant_name)
         dhcp_server = None
+        dhcp_port_profiles = []
+        if not self._is_ens_tz_net(context, network['id']):
+            dhcp_port_profiles.append(self._dhcp_profile)
         try:
             dhcp_server = self.nsxlib.dhcp_server.create(**server_data)
             LOG.debug("Created logical DHCP server %(server)s for network "
@@ -1388,7 +1391,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             nsx_port = self.nsxlib.logical_port.create(
                 nsx_net_id, dhcp_server['id'], tags=port_tags, name=name,
                 attachment_type=nsxlib_consts.ATTACHMENT_DHCP,
-                switch_profile_ids=[self._dhcp_profile])
+                switch_profile_ids=dhcp_port_profiles)
             LOG.debug("Created DHCP logical port %(port)s for "
                       "network %(network)s",
                       {'port': nsx_port['id'], 'network': network['id']})
@@ -2874,7 +2877,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                   switch_profile_ids)
 
         # Update the DHCP profile
-        if updated_device_owner == const.DEVICE_OWNER_DHCP:
+        if (updated_device_owner == const.DEVICE_OWNER_DHCP and
+            not self._is_ens_tz_net(context, updated_port['network_id'])):
             switch_profile_ids.append(self._dhcp_profile)
 
         # Update QoS switch profile
