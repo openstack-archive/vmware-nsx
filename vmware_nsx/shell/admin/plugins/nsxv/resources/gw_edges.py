@@ -27,6 +27,7 @@ from vmware_nsx.services.dynamic_routing.nsx_v import driver as nsxv_bgp
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
+from vmware_nsx.shell.admin.plugins.nsxv.resources import utils as v_utils
 from vmware_nsx.shell import resources as shell
 
 LOG = logging.getLogger(__name__)
@@ -218,6 +219,23 @@ def delete_bgp_gw(resource, event, trigger, **kwargs):
         return
 
 
+def list_bgp_edges(resource, event, trigger, **kwargs):
+    bgp_edges = []
+    edges = v_utils.get_nsxv_backend_edges()
+    for edge in edges:
+        bgp_config = nsxv.get_routing_bgp_config(edge['id'])
+        if bgp_config['bgp']['enabled']:
+            bgp_edges.append({'name': edge['name'],
+                              'edge_id': edge['id'],
+                              'local_as': bgp_config['bgp']['localAS']})
+    if not bgp_edges:
+        LOG.info("No BGP GW edges found")
+        return
+
+    headers = ['name', 'edge_id', 'local_as']
+    LOG.info(formatters.output_formatter(constants.EDGES, bgp_edges, headers))
+
+
 @admin_utils.output_header
 def create_redis_rule(resource, event, trigger, **kwargs):
     usage = ("nsxadmin -r routing-redistribution-rule -o create "
@@ -365,6 +383,9 @@ registry.subscribe(create_bgp_gw,
 registry.subscribe(delete_bgp_gw,
                    constants.BGP_GW_EDGE,
                    shell.Operations.DELETE.value)
+registry.subscribe(list_bgp_edges,
+                   constants.BGP_GW_EDGE,
+                   shell.Operations.LIST.value)
 registry.subscribe(create_redis_rule,
                    constants.ROUTING_REDIS_RULE,
                    shell.Operations.CREATE.value)
