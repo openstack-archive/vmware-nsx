@@ -2174,6 +2174,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                           original_port['fixed_ips'])
                 self._update_vnic_assigned_addresses(
                     context.session, original_port, vnic_id)
+                if (cfg.CONF.nsxv.use_default_block_all and
+                    not original_port[ext_sg.SECURITYGROUPS]):
+                    self._add_member_to_security_group(
+                        self.sg_container_id, vnic_id)
             else:
                 # Add vm to the exclusion list, since it has no port security
                 self._add_vm_to_exclude_list(context, device_id, id)
@@ -2404,6 +2408,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         ret_port[ext_sg.SECURITYGROUPS])
                     self._update_security_groups_port_mapping(
                         context.session, id, vnic_id, curr_sgids, new_sgids)
+                    if (cfg.CONF.nsxv.use_default_block_all and
+                        not ret_port[ext_sg.SECURITYGROUPS]):
+                        # If there are no security groups ensure that the
+                        # default is 'Drop All'
+                        self._add_member_to_security_group(
+                            self.sg_container_id, vnic_id)
 
         # update mac learning on NSX
         if self._vcm:
