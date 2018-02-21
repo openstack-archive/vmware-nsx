@@ -440,6 +440,10 @@ BGP GW edges
 
     nsxadmin -r bgp-gw-edge -o delete --property gw-edge-id=<edge-id>
 
+- List BGP GW edges::
+
+    nsxadmin -r bgp-gw-edge -o list
+
 - Add a redistribution rule to a BGP GW edges::
 
     nsxadmin -r routing-redistribution-rule -o create --property edge-ids=<edge_id>[,...] [--property prefix=<NAME:CIDR>] --property learner-protocol=<ospf/bgp> --property learn-from=ospf,bgp,connected,static --property action=<permit/deny>
