@@ -30,20 +30,25 @@ from vmware_nsx.common import nsxv_constants
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.extensions import edge_service_gateway_bgp_peer as ext_esg
 from vmware_nsx.extensions import projectpluginmap
+from vmware_nsx.plugins.nsx import utils as tvd_utils
 from vmware_nsx.services.dynamic_routing.nsx_v import driver as nsxv_driver
 
 LOG = logging.getLogger(__name__)
 PLUGIN_NAME = bgp_ext.BGP_EXT_ALIAS + '_nsx_svc_plugin'
 
 
+@tvd_utils.filter_plugins
 class NSXBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
     """BGP service plugin for NSX-V as well as TVD plugins.
 
-    Currently only the nsx-v is supported. other plugins  will be refused.
+    Currently only the nsx-v is supported. other plugins will be refused.
     """
 
     supported_extension_aliases = [bgp_ext.BGP_EXT_ALIAS,
                                    ext_esg.ESG_BGP_PEER_EXT_ALIAS]
+
+    methods_to_separate = ['get_bgp_speakers',
+                           'get_bgp_peers']
 
     def __init__(self):
         super(NSXBgpPlugin, self).__init__()
