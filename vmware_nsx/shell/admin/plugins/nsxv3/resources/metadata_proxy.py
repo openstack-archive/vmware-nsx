@@ -119,9 +119,9 @@ def nsx_update_metadata_proxy(resource, event, trigger, **kwargs):
                     continue
                 router_id = ports[0]['device_id']
                 interface = {'subnet_id': network['subnets'][0]}
-                plugin.remove_router_interface(router_id, interface)
+                plugin.remove_router_interface(None, router_id, interface)
                 LOG.info("Removed metadata interface on router %s", router_id)
-                plugin.delete_network(network['id'])
+                plugin.delete_network(None, network['id'])
                 LOG.info("Removed metadata network %s", network['id'])
             else:
                 lswitch_id = neutron_client.net_id_to_lswitch_id(

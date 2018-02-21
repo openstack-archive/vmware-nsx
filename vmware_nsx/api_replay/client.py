@@ -20,6 +20,8 @@ from neutronclient.common import exceptions as n_exc
 from neutronclient.v2_0 import client
 from oslo_utils import excutils
 
+from vmware_nsx.api_replay import utils
+
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger(__name__)
 
@@ -27,13 +29,7 @@ LOG = logging.getLogger(__name__)
 use_old_keystone_on_dest = False
 
 
-class ApiReplayClient(object):
-
-    basic_ignore_fields = ['updated_at',
-                           'created_at',
-                           'tags',
-                           'revision',
-                           'revision_number']
+class ApiReplayClient(utils.PrepareObjectForMigration):
 
     def __init__(self,
                  source_os_username, source_os_user_domain_id,
@@ -112,18 +108,6 @@ class ApiReplayClient(object):
             if subnet['id'] == subnet_id:
                 return subnet
 
-    def subnet_drop_ipv6_fields_if_v4(self, body):
-        """
-        Drops v6 fields on subnets that are v4 as server doesn't allow them.
-        """
-        v6_fields_to_remove = ['ipv6_address_mode', 'ipv6_ra_mode']
-        if body['ip_version'] != 4:
-            return
-
-        for field in v6_fields_to_remove:
-            if field in body:
-                body.pop(field)
-
     def get_ports_on_network(self, network_id, ports):
         """Returns all the ports on a given network_id."""
         ports_on_network = []
@@ -140,20 +124,6 @@ class ApiReplayClient(object):
 
         return False
 
-    def drop_fields(self, item, drop_fields):
-        body = {}
-        for k, v in item.items():
-            if k in drop_fields:
-                continue
-            body[k] = v
-        return body
-
-    def fix_description(self, body):
-        # neutron doesn't like description being None even though its
-        # what it returns to us.
-        if 'description' in body and body['description'] is None:
-            body['description'] = ''
-
     def migrate_qos_rule(self, dest_policy, source_rule):
         """Add the QoS rule from the source to the QoS policy
 
@@ -169,8 +139,7 @@ class ApiReplayClient(object):
                 if dest_rule['type'] == rule_type:
                     return
         pol_id = dest_policy['id']
-        drop_qos_rule_fields = ['revision', 'type', 'qos_policy_id', 'id']
-        body = self.drop_fields(source_rule, drop_qos_rule_fields)
+        body = self.prepare_qos_rule(source_rule)
         try:
             if rule_type == 'bandwidth_limit':
                 rule = self.dest_neutron.create_bandwidth_limit_rule(
@@ -207,8 +176,6 @@ class ApiReplayClient(object):
             # QoS disabled on source
             return
 
-        drop_qos_policy_fields = ['revision']
-
         for pol in source_qos_pols:
             dest_pol = self.have_id(pol['id'], dest_qos_pols)
             # If the policy already exists on the dest_neutron
@@ -222,8 +189,7 @@ class ApiReplayClient(object):
             else:
                 qos_rules = pol.pop('rules')
                 try:
-                    body = self.drop_fields(pol, drop_qos_policy_fields)
-                    self.fix_description(body)
+                    body = self.prepare_qos_policy(pol)
                     new_pol = self.dest_neutron.create_qos_policy(
                         body={'policy': body})
                 except Exception as e:
@@ -246,8 +212,6 @@ class ApiReplayClient(object):
         source_sec_groups = source_sec_groups['security_groups']
         dest_sec_groups = dest_sec_groups['security_groups']
 
-        drop_sg_fields = self.basic_ignore_fields + ['policy']
-
         total_num = len(source_sec_groups)
         LOG.info("Migrating %s security groups", total_num)
         for count, sg in enumerate(source_sec_groups, 1):
@@ -261,8 +225,7 @@ class ApiReplayClient(object):
                                     dest_sec_group['security_group_rules'])
                        is False):
                         try:
-                            body = self.drop_fields(sg_rule, drop_sg_fields)
-                            self.fix_description(body)
+                            body = self.prepare_security_group_rule(sg_rule)
                             self.dest_neutron.create_security_group_rule(
                                 {'security_group_rule': body})
                         except n_exc.Conflict:
@@ -277,8 +240,7 @@ class ApiReplayClient(object):
             else:
                 sg_rules = sg.pop('security_group_rules')
                 try:
-                    body = self.drop_fields(sg, drop_sg_fields)
-                    self.fix_description(body)
+                    body = self.prepare_security_group(sg)
                     new_sg = self.dest_neutron.create_security_group(
                         {'security_group': body})
                     LOG.info("Created security-group %(count)s/%(total)s: "
@@ -294,8 +256,7 @@ class ApiReplayClient(object):
                 # be created on the destination with the default rules only
                 for sg_rule in sg_rules:
                     try:
-                        body = self.drop_fields(sg_rule, drop_sg_fields)
-                        self.fix_description(body)
+                        body = self.prepare_security_group_rule(sg_rule)
                         rule = self.dest_neutron.create_security_group_rule(
                             {'security_group_rule': body})
                         LOG.debug("created security group rule %s", rule['id'])
@@ -325,16 +286,6 @@ class ApiReplayClient(object):
         update_routes = {}
         gw_info = {}
 
-        drop_router_fields = self.basic_ignore_fields + [
-            'status',
-            'routes',
-            'ha',
-            'external_gateway_info',
-            'router_type',
-            'availability_zone_hints',
-            'availability_zones',
-            'distributed',
-            'flavor_id']
         total_num = len(source_routers)
         LOG.info("Migrating %s routers", total_num)
         for count, router in enumerate(source_routers, 1):
@@ -346,8 +297,7 @@ class ApiReplayClient(object):
 
             dest_router = self.have_id(router['id'], dest_routers)
             if dest_router is False:
-                body = self.drop_fields(router, drop_router_fields)
-                self.fix_description(body)
+                body = self.prepare_router(router)
                 try:
                     new_router = (self.dest_neutron.create_router(
                         {'router': body}))
@@ -386,9 +336,6 @@ class ApiReplayClient(object):
             return subnetpools_map
         dest_subnetpools = self.dest_neutron.list_subnetpools()[
             'subnetpools']
-        drop_subnetpool_fields = self.basic_ignore_fields + [
-            'id',
-            'ip_version']
 
         for pool in source_subnetpools:
             # a default subnetpool (per ip-version) should be unique.
@@ -401,8 +348,7 @@ class ApiReplayClient(object):
                         break
             else:
                 old_id = pool['id']
-                body = self.drop_fields(pool, drop_subnetpool_fields)
-                self.fix_description(body)
+                body = self.prepare_subnetpool(pool)
                 if 'default_quota' in body and body['default_quota'] is None:
                     del body['default_quota']
 
@@ -418,59 +364,6 @@ class ApiReplayClient(object):
                               {'pool': pool, 'e': e})
         return subnetpools_map
 
-    def fix_port(self, body):
-        # remove allowed_address_pairs if empty:
-        if ('allowed_address_pairs' in body and
-            not body['allowed_address_pairs']):
-            del body['allowed_address_pairs']
-
-        # remove port security if mac learning is enabled
-        if (body.get('mac_learning_enabled') and
-            body.get('port_security_enabled')):
-            LOG.warning("Disabling port security of port %s: The plugin "
-                        "doesn't support mac learning with port security",
-                        body['id'])
-            body['port_security_enabled'] = False
-            body['security_groups'] = []
-
-    def fix_network(self, body, dest_default_public_net):
-        # neutron doesn't like some fields being None even though its
-        # what it returns to us.
-        for field in ['provider:physical_network',
-                      'provider:segmentation_id']:
-            if field in body and body[field] is None:
-                del body[field]
-
-        # vxlan network with segmentation id should be translated to a regular
-        # network in nsx-v3.
-        if (body.get('provider:network_type') == 'vxlan' and
-            body.get('provider:segmentation_id') is not None):
-            del body['provider:network_type']
-            del body['provider:segmentation_id']
-
-        # flat network should be translated to a regular network in nsx-v3.
-        if (body.get('provider:network_type') == 'flat'):
-            del body['provider:network_type']
-            if 'provider:physical_network' in body:
-                del body['provider:physical_network']
-
-        # external networks needs some special care
-        if body.get('router:external'):
-            fields_reset = False
-            for field in ['provider:network_type', 'provider:segmentation_id',
-                          'provider:physical_network']:
-                if field in body:
-                    if body[field] is not None:
-                        fields_reset = True
-                    del body[field]
-            if fields_reset:
-                LOG.warning("Ignoring provider network fields while migrating "
-                            "external network %s", body['id'])
-            if body.get('is_default') and dest_default_public_net:
-                body['is_default'] = False
-                LOG.warning("Public network %s was set to non default network",
-                            body['id'])
-
     def migrate_networks_subnets_ports(self, routers_gw_info):
         """Migrates networks/ports/router-uplinks from src to dest neutron."""
         source_ports = self.source_neutron.list_ports()['ports']
@@ -479,34 +372,9 @@ class ApiReplayClient(object):
         dest_networks = self.dest_neutron.list_networks()['networks']
         dest_ports = self.dest_neutron.list_ports()['ports']
 
-        # Remove some fields before creating the new object.
-        # Some fields are not supported for a new object, and some are not
-        # supported by the nsx-v3 plugin
-        drop_subnet_fields = self.basic_ignore_fields + [
-            'advanced_service_providers',
-            'id',
-            'service_types']
-
-        drop_port_fields = self.basic_ignore_fields + [
-            'status',
-            'binding:vif_details',
-            'binding:vif_type',
-            'binding:host_id',
-            'vnic_index',
-            'dns_assignment']
-
-        drop_network_fields = self.basic_ignore_fields + [
-            'status',
-            'subnets',
-            'availability_zones',
-            'availability_zone_hints',
-            'ipv4_address_scope',
-            'ipv6_address_scope',
-            'mtu']
-
+        remove_qos = False
         if not self.dest_qos_support:
-            drop_network_fields.append('qos_policy_id')
-            drop_port_fields.append('qos_policy_id')
+            remove_qos = True
 
         # Find out if the destination already has a default public network
         dest_default_public_net = False
@@ -523,9 +391,9 @@ class ApiReplayClient(object):
                   'ports': len(source_ports)})
         for count, network in enumerate(source_networks, 1):
             external_net = network.get('router:external')
-            body = self.drop_fields(network, drop_network_fields)
-            self.fix_description(body)
-            self.fix_network(body, dest_default_public_net)
+            body = self.prepare_network(
+                network, remove_qos=remove_qos,
+                dest_default_public_net=dest_default_public_net)
 
             # only create network if the dest server doesn't have it
             if self.have_id(network['id'], dest_networks):
@@ -549,12 +417,10 @@ class ApiReplayClient(object):
             count_dhcp_subnet = 0
             for subnet_id in network['subnets']:
                 subnet = self.find_subnet_by_id(subnet_id, source_subnets)
-                body = self.drop_fields(subnet, drop_subnet_fields)
+                body = self.prepare_subnet(subnet)
 
                 # specify the network_id that we just created above
                 body['network_id'] = network['id']
-                self.subnet_drop_ipv6_fields_if_v4(body)
-                self.fix_description(body)
                 # translate the old subnetpool id to the new one
                 if body.get('subnetpool_id'):
                     body['subnetpool_id'] = subnetpools_map.get(
@@ -602,9 +468,7 @@ class ApiReplayClient(object):
             ports = self.get_ports_on_network(network['id'], source_ports)
             for port in ports:
 
-                body = self.drop_fields(port, drop_port_fields)
-                self.fix_description(body)
-                self.fix_port(body)
+                body = self.prepare_port(port, remove_qos=remove_qos)
 
                 # specify the network_id that we just created above
                 port['network_id'] = network['id']
@@ -723,11 +587,9 @@ class ApiReplayClient(object):
             # L3 might be disabled in the source
             source_fips = []
 
-        drop_fip_fields = self.basic_ignore_fields + [
-            'status', 'router_id', 'id', 'revision']
         total_num = len(source_fips)
         for count, source_fip in enumerate(source_fips, 1):
-            body = self.drop_fields(source_fip, drop_fip_fields)
+            body = self.prepare_floatingip(source_fip)
             try:
                 fip = self.dest_neutron.create_floatingip({'floatingip': body})
                 LOG.info("Created floatingip %(count)s/%(total)s : %(fip)s",

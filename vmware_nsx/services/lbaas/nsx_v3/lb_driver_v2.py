@@ -79,6 +79,8 @@ class EdgeLoadbalancerDriverV2(object):
 
         nsx_router_id = nsx_db.get_nsx_router_id(kwargs['context'].session,
                                                  kwargs['router_id'])
+        if not nsx_router_id:
+            return
         nsxlib = self.loadbalancer.core_plugin.nsxlib
         service_client = nsxlib.load_balancer.service
         lb_service = service_client.get_router_lb_service(nsx_router_id)

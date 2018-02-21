@@ -226,14 +226,23 @@ def migrate_compute_ports_vms(resource, event, trigger, **kwargs):
                   "section in the nsx.ini file: %s", e)
         return
 
-    # Go over all the compute ports from the plugin
+    port_filters = {}
+    if kwargs.get('property'):
+        properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
+        project = properties.get('project-id')
+        if project:
+            port_filters['project_id'] = [project]
+
+    # Go over all the ports from the plugin
     admin_cxt = neutron_context.get_admin_context()
-    port_filters = v3_utils.get_plugin_filters(admin_cxt)
-    port_filters['device_owner'] = ['compute:None']
     with PortsPlugin() as plugin:
         neutron_ports = plugin.get_ports(admin_cxt, filters=port_filters)
 
     for port in neutron_ports:
+        # skip non compute ports
+        if (not port.get('device_owner').startswith(
+            const.DEVICE_OWNER_COMPUTE_PREFIX)):
+            continue
         device_id = port.get('device_id')
 
         # get the vm moref & spec from the DVS
@@ -249,7 +258,8 @@ def migrate_compute_ports_vms(resource, event, trigger, **kwargs):
             if (prop.name == 'network' and
                 hasattr(prop.val, 'ManagedObjectReference')):
                 for net in prop.val.ManagedObjectReference:
-                    if net._type == 'DistributedVirtualPortgroup':
+                    if (net._type == 'DistributedVirtualPortgroup' or
+                        net._type == 'Network'):
                         update_spec = True
 
         if not update_spec:

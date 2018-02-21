@@ -171,9 +171,6 @@ class NsxV3PluginWrapper(plugin.NsxV3Plugin):
     def _process_security_group_logging(self):
         pass
 
-    def _init_port_security_profile(self):
-        return True
-
     def _extend_get_network_dict_provider(self, context, net):
         self._extend_network_dict_provider(context, net)
         # skip getting the Qos policy ID because get_object calls
@@ -184,10 +181,14 @@ class NsxV3PluginWrapper(plugin.NsxV3Plugin):
         # skip getting the Qos policy ID because get_object calls
         # plugin init again on admin-util environment
 
-    def delete_network(self, network_id):
+    def delete_network(self, context, network_id):
+        if not context:
+            context = self.context
         return super(NsxV3PluginWrapper, self).delete_network(
-            self.context, network_id)
+            context, network_id)
 
-    def remove_router_interface(self, router_id, interface):
+    def remove_router_interface(self, context, router_id, interface):
+        if not context:
+            context = self.context
         return super(NsxV3PluginWrapper, self).remove_router_interface(
-            self.context, router_id, interface)
+            context, router_id, interface)

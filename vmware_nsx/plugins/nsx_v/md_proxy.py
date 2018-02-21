@@ -754,7 +754,8 @@ class NsxVMetadataProxyHandler(object):
             try:
                 self.nsxv_plugin.delete_port(
                     ctx, ports[0]['id'],
-                    l3_port_check=False)
+                    l3_port_check=False,
+                    allow_delete_internal=True)
             except Exception as e:
                 LOG.error("Failed to delete md_proxy port %(port)s: "
                           "%(e)s", {'port': ports[0]['id'], 'e': e})
