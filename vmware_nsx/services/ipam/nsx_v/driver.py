@@ -33,15 +33,7 @@ from vmware_nsx.services.ipam.common import driver as common
 LOG = logging.getLogger(__name__)
 
 
-class NsxVIpamBase(common.NsxIpamBase):
-
-    @property
-    def _vcns(self):
-        p = self.get_core_plugin()
-        return p.nsx_v.vcns
-
-
-class NsxvIpamDriver(common.NsxAbstractIpamDriver, NsxVIpamBase):
+class NsxvIpamDriver(common.NsxAbstractIpamDriver, common.NsxIpamBase):
     """IPAM Driver For NSX-V external & provider networks."""
 
     def _is_ext_or_provider_net(self, subnet_request):
@@ -122,7 +114,7 @@ class NsxvIpamDriver(common.NsxAbstractIpamDriver, NsxVIpamBase):
         pass
 
 
-class NsxvIpamSubnet(common.NsxAbstractIpamSubnet, NsxVIpamBase):
+class NsxvIpamSubnet(common.NsxAbstractIpamSubnet, common.NsxIpamBase):
     """Manage IP addresses for the NSX-V IPAM driver."""
 
     def _get_vcns_error_code(self, e):
