@@ -569,6 +569,27 @@ class VMManager(VCManagerBase):
             LOG.error("Failed to reconfigure VM %(moref)s spec: %(e)s",
                       {'moref': vm_moref.value, 'e': e})
 
+    def _build_vm_spec_update(self, devices):
+        client_factory = self._session.vim.client.factory
+        vm_spec = client_factory.create('ns0:VirtualMachineConfigSpec')
+        vm_spec.deviceChange = [devices]
+        return vm_spec
+
+    def update_vm_interface(self, vm_moref, devices):
+        update_spec = self._build_vm_spec_update(devices)
+        task = self._session.invoke_api(self._session.vim,
+                                        'ReconfigVM_Task',
+                                        vm_moref,
+                                        spec=update_spec)
+        try:
+            self._session.wait_for_task(task)
+            LOG.info("Updated VM moref %(moref)s spec - "
+                     "attached an interface",
+                     {'moref': vm_moref.value})
+        except Exception as e:
+            LOG.error("Failed to reconfigure VM %(moref)s spec: %(e)s",
+                      {'moref': vm_moref.value, 'e': e})
+
     def _build_vm_spec_detach(self, device):
         """Builds the vif detach config spec."""
         # Code inspired by nova: get_network_detach_config_spec
@@ -621,6 +642,59 @@ class VMManager(VCManagerBase):
         port = self._get_device_port(device_id, mac_address)
         if port:
             self._update_port_security_policy(dvs_moref, port, status)
+
+    def update_vm_network(self, device, name='VM Network'):
+        # In order to live migrate need a common network for interfaces
+        client_factory = self._session.vim.client.factory
+        network_spec = client_factory.create('ns0:VirtualDeviceConfigSpec')
+        network_spec.operation = 'edit'
+        backing = client_factory.create(
+                  'ns0:VirtualEthernetCardNetworkBackingInfo')
+        backing.deviceName = name
+        device.backing = backing
+        network_spec.device = device
+        return network_spec
+
+    def update_vm_opaque_spec(self, vif_info, device):
+        """Updates the backing for the VIF spec."""
+        client_factory = self._session.vim.client.factory
+        network_spec = client_factory.create('ns0:VirtualDeviceConfigSpec')
+        network_spec.operation = 'edit'
+        backing = client_factory.create(
+                'ns0:VirtualEthernetCardOpaqueNetworkBackingInfo')
+        backing.opaqueNetworkId = vif_info['nsx_id']
+        backing.opaqueNetworkType = 'nsx.LogicalSwitch'
+        # Configure externalId
+        device.externalId = vif_info['iface_id']
+        device.backing = backing
+        network_spec.device = device
+        return network_spec
+
+    def relocate_vm_spec(self, client_factory, respool_moref=None,
+                         datastore_moref=None, host_moref=None,
+                         disk_move_type="moveAllDiskBackingsAndAllowSharing"):
+        rel_spec = client_factory.create('ns0:VirtualMachineRelocateSpec')
+        if datastore_moref:
+            datastore = vim_util.get_moref(datastore_moref, 'Datastore')
+        else:
+            datastore = None
+        rel_spec.datastore = datastore
+        host = vim_util.get_moref(host_moref, 'HostSystem')
+        rel_spec.host = host
+        res_pool = vim_util.get_moref(respool_moref, 'ResourcePool')
+        rel_spec.pool = res_pool
+        return rel_spec
+
+    def relocate_vm(self, vm_ref, respool_moref=None, datastore_moref=None,
+                    host_moref=None,
+                    disk_move_type="moveAllDiskBackingsAndAllowSharing"):
+        client_factory = self._session.vim.client.factory
+        rel_spec = self.relocate_vm_spec(client_factory, respool_moref,
+                                         datastore_moref, host_moref,
+                                         disk_move_type)
+        task = self._session.invoke_api(self._session.vim, "RelocateVM_Task",
+                                        vm_ref, spec=rel_spec)
+        self._session.wait_for_task(task)
 
 
 class ClusterManager(VCManagerBase):
