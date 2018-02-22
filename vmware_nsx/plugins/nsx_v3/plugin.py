@@ -117,6 +117,7 @@ from vmware_nsx.services.trunk.nsx_v3 import driver as trunk_driver
 from vmware_nsxlib.v3 import core_resources as nsx_resources
 from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
 from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
+from vmware_nsxlib.v3 import router as nsxlib_router
 from vmware_nsxlib.v3 import security
 from vmware_nsxlib.v3 import utils as nsxlib_utils
 
@@ -3207,6 +3208,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                              (newaddr != orgaddr or
                               not new_enable_snat))
 
+        # Remove No-DNAT rules if GW was removed
+        remove_no_dnat_rules = (orgaddr and not newaddr)
+
         # Revocate bgp announce for nonat subnets if tier0 router link is
         # changed or enable_snat is updated from False to True
         revocate_bgp_announce = (not org_enable_snat and org_tier0_uuid and
@@ -3225,6 +3229,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                           (newaddr != orgaddr or
                            not org_enable_snat))
 
+        # Add No-DNAT rules if GW was added
+        add_no_dnat_rules = (newaddr and not orgaddr)
+
         # Bgp announce for nonat subnets if tier0 router link is changed or
         # enable_snat is updated from True to False
         bgp_announce = (not new_enable_snat and new_tier0_uuid and
@@ -3236,11 +3243,18 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         advertise_route_nat_flag = True if new_enable_snat else False
         advertise_route_connected_flag = True if not new_enable_snat else False
 
+        if add_no_dnat_rules or remove_no_dnat_rules or add_snat_rules:
+            subnets = self._find_router_subnets(context.elevated(),
+                                                router_id)
+
         if revocate_bgp_announce:
             # TODO(berlin): revocate bgp announce on org tier0 router
             pass
         if remove_snat_rules:
             self.nsxlib.router.delete_gw_snat_rules(nsx_router_id, orgaddr)
+        if remove_no_dnat_rules:
+            for subnet in subnets:
+                self._del_subnet_no_dnat_rule(context, nsx_router_id, subnet)
         if remove_router_link_port:
             self.nsxlib.router.remove_router_link_port(
                 nsx_router_id, org_tier0_uuid)
@@ -3260,11 +3274,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # than the gw
             gw_address_scope = self._get_network_address_scope(
                 context, router.gw_port.network_id)
-            subnets = self._find_router_subnets(context.elevated(),
-                                                router_id)
             for subnet in subnets:
                 self._add_subnet_snat_rule(context, router_id, nsx_router_id,
                                            subnet, gw_address_scope, newaddr)
+        if add_no_dnat_rules:
+            for subnet in subnets:
+                self._add_subnet_no_dnat_rule(context, nsx_router_id, subnet)
+
         if bgp_announce:
             # TODO(berlin): bgp announce on new tier0 router
             pass
@@ -3292,6 +3308,21 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self.nsxlib.router.add_gw_snat_rule(nsx_router_id, gw_ip,
                                             source_net=subnet['cidr'],
                                             bypass_firewall=False)
+
+    def _add_subnet_no_dnat_rule(self, context, nsx_router_id, subnet):
+        # Add NO-DNAT rule to allow internal traffic between VMs, even if
+        # they have floating ips
+        self.nsxlib.logical_router.add_nat_rule(
+            nsx_router_id, "NO_DNAT", None,
+            dest_net=subnet['cidr'],
+            rule_priority=nsxlib_router.GW_NAT_PRI)
+
+    def _del_subnet_no_dnat_rule(self, context, nsx_router_id, subnet):
+        # Delete the previously created NO-DNAT rules
+        self.nsxlib.logical_router.delete_nat_rule_by_values(
+            nsx_router_id,
+            action="NO_DNAT",
+            match_destination_network=subnet['cidr'])
 
     def _process_extra_attr_router_create(self, context, router_db, r):
         for extra_attr in l3_attrs_db.get_attr_info().keys():
@@ -3858,7 +3889,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 nsx_rpc.handle_router_metadata_access(self, context, router_id,
                                                       interface=info)
 
-            # add the SNAT rule for this interface
+            # add the SNAT/NO_DNAT rules for this interface
             if (router_db.enable_snat and gw_network_id and
                 router_db.gw_port.get('fixed_ips')):
                 gw_ip = router_db.gw_port['fixed_ips'][0]['ip_address']
@@ -3866,6 +3897,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     context, gw_network_id)
                 self._add_subnet_snat_rule(context, router_id, nsx_router_id,
                                            subnet, gw_address_scope, gw_ip)
+            if gw_network_id:
+                self._add_subnet_no_dnat_rule(context, nsx_router_id, subnet)
             # update firewall rules
             self.update_router_firewall(context, router_id)
         except Exception:
@@ -3938,13 +3971,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             else:
                 self.nsxlib.logical_router_port.delete_by_lswitch_id(
                     nsx_net_id)
-            # try to delete the SNAT rule of this subnet
+            # try to delete the SNAT/NO_DNAT rules of this subnet
             if (router_db.gw_port and router_db.enable_snat and
                 router_db.gw_port.get('fixed_ips')):
                 gw_ip = router_db.gw_port['fixed_ips'][0]['ip_address']
                 self.nsxlib.router.delete_gw_snat_rule_by_source(
                     nsx_router_id, gw_ip, subnet['cidr'],
                     skip_not_found=True)
+            if router_db.gw_port:
+                self._del_subnet_no_dnat_rule(context, nsx_router_id, subnet)
 
         except nsx_lib_exc.ResourceNotFound:
             LOG.error("router port on router %(router_id)s for net "
