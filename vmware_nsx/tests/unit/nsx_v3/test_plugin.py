@@ -1266,6 +1266,47 @@ class TestL3NatTestCase(L3NatTest,
                 gw_info = body['router']['external_gateway_info']
                 self.assertIsNone(gw_info)
 
+    def test_router_on_vlan_net(self):
+        providernet_args = {pnet.NETWORK_TYPE: 'vlan',
+                            pnet.SEGMENTATION_ID: 10}
+        with mock.patch('vmware_nsxlib.v3.core_resources.NsxLibTransportZone.'
+                       'get_transport_type', return_value='VLAN'):
+            result = self._create_network(fmt='json', name='badvlan_net',
+                                          admin_state_up=True,
+                                          providernet_args=providernet_args,
+                                          arg_list=(
+                                              pnet.NETWORK_TYPE,
+                                              pnet.SEGMENTATION_ID))
+            vlan_network = self.deserialize('json', result)
+            with self.router() as r1,\
+                self.subnet() as ext_subnet,\
+                self.subnet(cidr='11.0.0.0/24', network=vlan_network) as s1:
+                self._set_net_external(ext_subnet['subnet']['network_id'])
+                # adding a vlan interface with no GW should fail
+                self._router_interface_action(
+                    'add', r1['router']['id'],
+                    s1['subnet']['id'], None,
+                    expected_code=400)
+                # adding GW
+                self._add_external_gateway_to_router(
+                    r1['router']['id'],
+                    ext_subnet['subnet']['network_id'])
+                # adding the vlan interface
+                self._router_interface_action(
+                    'add', r1['router']['id'],
+                    s1['subnet']['id'], None)
+
+                # adding a floating ip
+                with self.port(subnet=s1) as p:
+                    fip_res = self._create_floatingip(
+                        self.fmt,
+                        ext_subnet['subnet']['network_id'],
+                        subnet_id=ext_subnet['subnet']['id'],
+                        port_id=p['port']['id'])
+                    fip = self.deserialize(self.fmt, fip_res)
+                    self.assertEqual(p['port']['id'],
+                                     fip['floatingip']['port_id'])
+
     def test_create_router_gateway_fails(self):
         self.skipTest('not supported')
 
