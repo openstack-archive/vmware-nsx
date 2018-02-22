@@ -16,15 +16,21 @@
 
 import abc
 
+import six
+
+from oslo_log import log as logging
+
 from neutron.ipam import driver as ipam_base
 from neutron.ipam.drivers.neutrondb_ipam import driver as neutron_driver
 from neutron.ipam import exceptions as ipam_exc
 from neutron.ipam import requests as ipam_req
 from neutron.ipam import subnet_alloc
 from neutron_lib.plugins import directory
-import six
 
 from vmware_nsx.db import db as nsx_db
+from vmware_nsx.extensions import projectpluginmap
+
+LOG = logging.getLogger(__name__)
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -32,6 +38,30 @@ class NsxIpamBase(object):
     @classmethod
     def get_core_plugin(cls):
         return directory.get_plugin()
+
+    @property
+    def _nsxlib(self):
+        p = self.get_core_plugin()
+        if p.is_tvd_plugin():
+            # get the NSX-T sub-plugin
+            p = p.get_plugin_by_type(
+                projectpluginmap.NsxPlugins.NSX_T)
+        elif p.plugin_type() != projectpluginmap.NsxPlugins.NSX_T:
+            # Non NSX-T plugin
+            return
+        return p.nsxlib
+
+    @property
+    def _vcns(self):
+        p = self.get_core_plugin()
+        if p.is_tvd_plugin():
+            # get the NSX-V sub-plugin
+            p = p.get_plugin_by_type(
+                projectpluginmap.NsxPlugins.NSX_V)
+        elif p.plugin_type() != projectpluginmap.NsxPlugins.NSX_V:
+            # Non NSX-V plugin
+            return
+        return p.nsx_v.vcns
 
     @classmethod
     def _fetch_subnet(cls, context, id):

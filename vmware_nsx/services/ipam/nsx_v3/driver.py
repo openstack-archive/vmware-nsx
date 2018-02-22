@@ -30,11 +30,11 @@ LOG = logging.getLogger(__name__)
 
 
 class Nsxv3IpamDriver(common.NsxAbstractIpamDriver):
-    """IPAM Driver For NSX-V3 external & provider networks."""
+    """IPAM Driver For NSX-V3 networks."""
 
     def __init__(self, subnetpool, context):
         super(Nsxv3IpamDriver, self).__init__(subnetpool, context)
-        self.nsxlib_ipam = self.get_core_plugin().nsxlib.ip_pool
+        self.nsxlib_ipam = self._nsxlib.ip_pool
 
         # Mark which updates to the pool are supported
         self.support_update_gateway = True
@@ -133,7 +133,7 @@ class Nsxv3IpamSubnet(common.NsxAbstractIpamSubnet):
     def __init__(self, subnet_id, nsx_pool_id, ctx, tenant_id):
         super(Nsxv3IpamSubnet, self).__init__(
             subnet_id, nsx_pool_id, ctx, tenant_id)
-        self.nsxlib_ipam = self.get_core_plugin().nsxlib.ip_pool
+        self.nsxlib_ipam = self._nsxlib.ip_pool
 
     def backend_allocate(self, address_request):
         try:

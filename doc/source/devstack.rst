@@ -331,3 +331,12 @@ Add neutron-vpnaas repo as an external repository and configure following flags 
     [DEFAULT]
     api_extensions_path = $DEST/neutron-vpnaas/neutron_vpnaas/extensions
 
+IPAM Driver
+~~~~~~~~~~~
+
+Update the ``local.conf`` file::
+
+    [[post-config|$NEUTRON_CONF]]
+    [DEFAULT]
+    ipam_driver = vmware_nsxtvd_ipam
+
