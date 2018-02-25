@@ -621,17 +621,21 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             self.edge_manager.create_dhcp_bindings(
                     context, neutron_port_db['id'], network_id, s_bindings)
 
-    def _delete_dhcp_static_binding(self, context, neutron_port_db):
+    def _delete_dhcp_static_binding(self, context, neutron_port_db,
+                                    log_error=True):
 
+        port_id = neutron_port_db['id']
         network_id = neutron_port_db['network_id']
         try:
             self.edge_manager.delete_dhcp_binding(
-                context, neutron_port_db['id'], network_id,
-                neutron_port_db['mac_address'])
+                context, port_id, network_id, neutron_port_db['mac_address'])
         except Exception as e:
-            LOG.error('Unable to delete static bindings for %(id)s. '
-                      'Error: %(e)s',
-                      {'id': neutron_port_db['id'], 'e': e})
+            msg = ("Unable to delete static bindings for port %(id)s"
+                   "Error: %(e)s" % {'id': port_id, 'e': e})
+            if log_error:
+                LOG.error(msg)
+            else:
+                LOG.info(msg)
 
     def _validate_network_qos(self, network, backend_network):
         err_msg = None
@@ -2501,6 +2505,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # If this port is attached to a device, remove the corresponding vnic
         # from all NSXv Security-Groups and the spoofguard policy
         port_index = neutron_db_port.get(ext_vnic_idx.VNIC_INDEX)
+        compute_port = self._is_compute_port(neutron_db_port)
         if validators.is_attr_set(port_index):
             vnic_id = self._get_port_vnic_id(port_index,
                                              neutron_db_port['device_id'])
@@ -2524,8 +2529,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     LOG.error('Could not delete the spoofguard policy. '
                               'Exception %s', e)
 
-            if (not neutron_db_port[psec.PORTSECURITY] and
-                self._is_compute_port(neutron_db_port)):
+            if not neutron_db_port[psec.PORTSECURITY] and compute_port:
                 device_id = neutron_db_port['device_id']
                 # Note that we expect to find 1 relevant port in the DB still
                 # because this port was not yet deleted
@@ -2536,7 +2540,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         with db_api.context_manager.writer.using(context):
             super(NsxVPluginV2, self).delete_port(context, id)
 
-        self._delete_dhcp_static_binding(context, neutron_db_port)
+        # deleting the dhcp binding anyway
+        # (even if not compute port to be on the safe side)
+        self._delete_dhcp_static_binding(
+            context, neutron_db_port,
+            log_error=(True if compute_port else False))
 
     def base_delete_subnet(self, context, subnet_id):
         with locking.LockManager.get_lock('neutron-base-subnet'):
