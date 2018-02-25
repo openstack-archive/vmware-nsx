@@ -81,6 +81,7 @@ from oslo_log import log
 from oslo_utils import excutils
 from oslo_utils import importutils
 from oslo_utils import uuidutils
+from six import moves
 from sqlalchemy import exc as sql_exc
 import webob.exc
 
@@ -249,6 +250,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self.cfg_group = 'nsx_v3'  # group name for nsx_v3 section in nsx.ini
         self.tier0_groups_dict = {}
 
+        self._network_vlans = n_utils.parse_network_vlan_ranges(
+            cfg.CONF.nsx_v3.network_vlan_ranges)
         # Initialize the network availability zones, which will be used only
         # when native_dhcp_metadata is True
         self.init_availability_zones()
@@ -803,9 +806,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
                 # Validate VLAN id
                 if not vlan_id:
-                    err_msg = (_('Segmentation ID must be specified with %s '
-                                 'network type') %
-                               utils.NsxV3NetworkTypes.VLAN)
+                    vlan_id = self._generate_segment_id(context,
+                                                        physical_net,
+                                                        network_data)
                 elif not n_utils.is_valid_vlan_tag(vlan_id):
                     err_msg = (_('Segmentation ID %(segmentation_id)s out of '
                                  'range (%(min_id)s through %(max_id)s)') %
@@ -1042,6 +1045,26 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             return False
         return (bindings[0].binding_type ==
                 utils.NsxV3NetworkTypes.NSX_NETWORK)
+
+    def _generate_segment_id(self, context, physical_network, net_data):
+        bindings = nsx_db.get_network_bindings_by_phy_uuid(
+            context.session, physical_network)
+        vlan_ranges = self._network_vlans.get(physical_network, [])
+        if vlan_ranges:
+            vlan_ids = set()
+            for vlan_min, vlan_max in vlan_ranges:
+                vlan_ids |= set(moves.range(vlan_min, vlan_max + 1))
+        else:
+            vlan_min = const.MIN_VLAN_TAG
+            vlan_max = const.MAX_VLAN_TAG
+            vlan_ids = set(moves.range(vlan_min, vlan_max + 1))
+        used_ids_in_range = set([binding.vlan_id for binding in bindings
+                                 if binding.vlan_id in vlan_ids])
+        free_ids = list(vlan_ids ^ used_ids_in_range)
+        if len(free_ids) == 0:
+            raise n_exc.NoNetworkAvailable()
+        net_data[pnet.SEGMENTATION_ID] = free_ids[0]
+        return net_data[pnet.SEGMENTATION_ID]
 
     def create_network(self, context, network):
         net_data = network['network']
