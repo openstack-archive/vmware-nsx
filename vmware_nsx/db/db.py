@@ -51,6 +51,13 @@ def get_network_bindings(session, network_id):
             all())
 
 
+def get_network_bindings_by_phy_uuid(session, phy_uuid):
+    session = session or db.get_reader_session()
+    return (session.query(nsx_models.TzNetworkBinding).
+            filter_by(phy_uuid=phy_uuid).
+            all())
+
+
 def get_network_bindings_by_vlanid_and_physical_net(session, vlan_id,
                                                     phy_uuid):
     session = session or db.get_reader_session()
