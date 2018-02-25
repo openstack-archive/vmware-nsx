@@ -3467,20 +3467,27 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         router_data = router['router']
         self._assert_on_router_admin_state(router_data)
 
-        # if setting this router as no-snat, make sure gw address scope match
-        # those of the subnets
-        if (validators.is_attr_set(gw_info) and
-            not gw_info.get('enable_snat', cfg.CONF.enable_snat_by_default)):
+        if validators.is_attr_set(gw_info):
             router_ports = self._get_router_interfaces(context, router_id)
             for port in router_ports:
-                for fip in port['fixed_ips']:
-                    self._validate_address_scope_for_router_interface(
-                        context.elevated(), router_id,
-                        gw_info['network_id'], fip['subnet_id'])
+                # if setting this router as no-snat, make sure gw address scope
+                # match those of the subnets
+                if not gw_info.get('enable_snat',
+                                   cfg.CONF.enable_snat_by_default):
+                    for fip in port['fixed_ips']:
+                        self._validate_address_scope_for_router_interface(
+                            context.elevated(), router_id,
+                            gw_info['network_id'], fip['subnet_id'])
+                # If the network attached to a router is a VLAN backed network
+                # then it must be attached to a edge cluster
+                if (not gw_info and
+                    not self._is_overlay_network(context, port['network_id'])):
+                    msg = _("A router attached to a VLAN backed network "
+                            "must have a external network assigned.")
+                    raise n_exc.InvalidInput(error_message=msg)
 
-        # VPNaaS need to be notified on router GW changes (there is currently
-        # no matching upstream registration for this)
-        if validators.is_attr_set(gw_info):
+            # VPNaaS need to be notified on router GW changes (there is
+            # currentlyno matching upstream registration for this)
             vpn_plugin = directory.get_plugin(plugin_const.VPN)
             if vpn_plugin:
                 vpn_driver = vpn_plugin.drivers[vpn_plugin.default_provider]
