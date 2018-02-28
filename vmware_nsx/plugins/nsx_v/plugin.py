@@ -18,6 +18,7 @@ import uuid
 
 import netaddr
 
+from neutron_lib.agent import topics
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import external_net as extnet_apidef
@@ -60,7 +61,6 @@ from sqlalchemy.orm import exc as sa_exc
 from neutron.api import extensions as neutron_extensions
 from neutron.common import ipv6_utils
 from neutron.common import rpc as n_rpc
-from neutron.common import topics
 from neutron.common import utils as n_utils
 from neutron.db import _resource_extend as resource_extend
 from neutron.db import _utils as db_utils
