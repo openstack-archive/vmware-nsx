@@ -31,7 +31,7 @@ class DvsUtilsTestCase(base.BaseTestCase):
                               group='dvs')
         cfg.CONF.set_override('host_username', 'fake_host_user_name',
                               group='dvs')
-        cfg.CONF.set_override('host_password', 'fake_host_pasword',
+        cfg.CONF.set_override('host_password', 'fake_host_password',
                               group='dvs')
         cfg.CONF.set_override('dvs_name', 'fake_dvs', group='dvs')
         cfg.CONF.set_override('host_port', '443', group='dvs')
