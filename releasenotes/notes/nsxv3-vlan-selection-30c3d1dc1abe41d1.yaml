@@ -1,0 +1,9 @@
+---
+prelude: >
+    The NSX-V3 plugin can decide on the VLAN tag for a provider network.
+features:
+  - |
+    The NSX-V3 plugin can decide on the VLAN tag for a provider network,
+    according to pre-defined configuration set per transport zone UUID,
+    noting a specific range or letting the plugin decide according to
+    min/max constants.
