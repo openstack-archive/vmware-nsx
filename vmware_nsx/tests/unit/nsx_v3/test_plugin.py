@@ -188,6 +188,12 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
         mock_process_security_group_logging = mock.patch.object(
             nsx_plugin.NsxV3Plugin, '_process_security_group_logging')
         mock_process_security_group_logging.start()
+        # need to mock the global placeholder. This is due to the fact that
+        # the generic security group tests assume that there is just one
+        # security group.
+        mock_ensure_global_sg_placeholder = mock.patch.object(
+            nsx_plugin.NsxV3Plugin, '_ensure_global_sg_placeholder')
+        mock_ensure_global_sg_placeholder.start()
 
     def setUp(self, plugin=PLUGIN_NAME,
               ext_mgr=None,
