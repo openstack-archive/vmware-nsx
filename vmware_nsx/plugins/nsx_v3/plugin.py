@@ -1122,7 +1122,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         existing_ports = super(NsxV3Plugin, self).get_ports(
             context, filters={'network_id': [network['id']],
                               'fixed_ips': {'subnet_id': [subnet['id']]}})
-        az = self.get_network_az(network)
+        az = self.get_network_az_by_net_id(context, network['id'])
         port_data = {
             "name": "",
             "admin_state_up": True,
