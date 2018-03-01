@@ -37,7 +37,6 @@ from sqlalchemy.orm import exc as sa_exc
 import webob.exc
 
 from neutron.api import extensions as neutron_extensions
-from neutron.api.v2 import attributes as attr
 from neutron.db import _model_query as model_query
 from neutron.db import _resource_extend as resource_extend
 from neutron.db import _utils as db_utils
@@ -963,7 +962,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self.cluster, net_data['id'],
                 tenant_id, net_data.get('name'),
                 transport_zone_config,
-                shared=net_data.get(attr.SHARED))
+                shared=net_data.get(constants.SHARED))
 
         with db_api.context_manager.writer.using(context):
             new_net = super(NsxPluginV2, self).create_network(context,

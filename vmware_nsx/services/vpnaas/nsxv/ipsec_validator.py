@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron_lib import constants
 from neutron_vpnaas.db.vpn import vpn_validator
 from oslo_log import log as logging
 
@@ -80,7 +81,7 @@ class IPsecValidator(vpn_validator.VpnReferenceValidator):
                 break
 
     def _is_shared_router(self, router):
-        return router.get('router_type') == nsxv_constants.SHARED
+        return router.get('router_type') == constants.SHARED
 
     def _validate_router(self, context, router_id):
         # Only support distributed and exclusive router type

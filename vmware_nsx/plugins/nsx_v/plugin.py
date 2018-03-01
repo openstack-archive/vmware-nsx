@@ -3067,7 +3067,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # exception.
         r = router['router']
         if validators.is_attr_set(r.get(ROUTER_SIZE)):
-            if r.get('router_type') == nsxv_constants.SHARED:
+            if r.get('router_type') == constants.SHARED:
                 msg = _("Cannot specify router-size for shared router")
                 raise n_exc.BadRequest(resource="router", msg=msg)
             elif r.get('distributed') is True:
