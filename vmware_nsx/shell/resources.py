@@ -38,6 +38,7 @@ class Operations(enum.Enum):
     DELETE = 'delete'
     LIST_MISMATCHES = 'list-mismatches'
     FIX_MISMATCH = 'fix-mismatch'
+    LIST_UNUSED = 'list-unused'
 
     NEUTRON_LIST = 'neutron-list'
     NEUTRON_CLEAN = 'neutron-clean'
@@ -186,7 +187,9 @@ nsxv_resources = {
                                           [Operations.LIST.value,
                                            Operations.LIST_MISMATCHES.value,
                                            Operations.NSX_UPDATE.value,
-                                           Operations.NSX_REORDER.value]),
+                                           Operations.NSX_REORDER.value,
+                                           Operations.LIST_UNUSED.value,
+                                           Operations.NSX_CLEAN.value]),
     constants.METADATA: Resource(
         constants.METADATA, [Operations.NSX_UPDATE.value,
                              Operations.NSX_UPDATE_SECRET.value,

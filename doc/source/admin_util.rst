@@ -215,21 +215,21 @@ Orphaned Networks
 Security Groups, Firewall and Spoofguard
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Security groups. This adds support to list security-groups mappings and miss-matches between the mappings and backend resources as: firewall-sections and nsx-security-groups::
+- List NSX firewall sections::
 
-    nsxadmin --resource security-groups --operation list
-    nsxadmin -r nsx-security-groups -o {list, list-missmatches}
-    nsxadmin -r firewall-sections -o {list, list-missmatches, nsx-update}
+    nsxadmin -r firewall-section -o list
 
-- Spoofguard support::
+- List neutron security groups that does not have a matching NSX firewall section::
 
-    nsxadmin -r spoofguard-policy -o list-mismatches
-    nsxadmin -r spoofguard-policy -o clean --property policy-id=spoofguardpolicy-10
-    nsxadmin -r spoofguard-policy -o list --property reverse (entries defined on NSXv and not in Neutron)
+    nsxadmin -r firewall-section -o list-mismatches
 
-- Migrate a security group from using rules to using a policy
+- List NSX firewall sections that does not have a matching neutron security group::
 
-    nsxadmin -r security-groups -o migrate-to-policy --property policy-id=policy-10 --property security-group-id=733f0741-fa2c-4b32-811c-b78e4dc8ec39
+    nsxadmin -r firewall-section -o list-unused
+
+- Delete NSX firewall sections that does not have a matching neutron security group::
+
+    nsxadmin -r firewall-section -o nsx-clean
 
 - Reorder the nsx L3 firewall sections to correctly support the policy security groups
 
@@ -238,6 +238,32 @@ Security Groups, Firewall and Spoofguard
 - Update the default cluster section
 
     nsxadmin -r firewall-sections -o nsx-update
+
+- List NSX security groups::
+
+    nsxadmin -r nsx-security-groups -o list
+
+- List neutron security groups that does not have a matching NSX security group::
+
+    nsxadmin -r nsx-security-groups -o list-mismatches
+
+- List all the neutron security groups together with their NSX security groups and firewall sections::
+
+    nsxadmin -r security-groups -o list
+
+- Recreate missing NSX security groups ans firewall sections
+
+    nsxadmin -r security-groups -o fix-mismatch
+
+- Migrate a security group from using rules to using a policy
+
+    nsxadmin -r security-groups -o migrate-to-policy --property policy-id=policy-10 --property security-group-id=733f0741-fa2c-4b32-811c-b78e4dc8ec39
+
+- Spoofguard support::
+
+    nsxadmin -r spoofguard-policy -o list-mismatches
+    nsxadmin -r spoofguard-policy -o clean --property policy-id=spoofguardpolicy-10
+    nsxadmin -r spoofguard-policy -o list --property reverse (entries defined on NSXv and not in Neutron)
 
 Metadata
 ~~~~~~~~

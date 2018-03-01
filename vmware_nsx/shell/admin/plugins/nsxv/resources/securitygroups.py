@@ -12,7 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-
+import re
 import xml.etree.ElementTree as et
 
 from neutron.db import api as db_api
@@ -158,6 +158,11 @@ class NsxFirewallAPI(object):
                              'id': sec_id})
         return sections
 
+    def delete_fw_section(self, section_id):
+        section_uri = ("/api/4.0/firewall/globalroot-0/"
+                       "config/layer3sections/%s" % section_id)
+        self.vcns.delete_section(section_uri)
+
     def reorder_fw_sections(self):
         # read all the sections
         h, firewall_config = self.vcns.get_dfw_config()
@@ -294,7 +299,38 @@ def list_missing_firewall_sections(resource, event, trigger, **kwargs):
     return bool(missing_sections_info)
 
 
-@admin_utils.list_mismatches_handler(constants.FIREWALL_SECTIONS)
+def _get_unused_firewall_sections():
+    fw_sections = nsxv_firewall.list_fw_sections()
+    sg_mappings = neutron_sg.get_security_groups_mappings()
+    unused_sections = []
+    for fw_section in fw_sections:
+        for sg_db in sg_mappings:
+            if fw_section['id'] == sg_db.get('section-uri', '').split('/')[-1]:
+                break
+        else:
+            # skip sections with non neutron like names
+            if re.search("SG Section: .* (.*)", fw_section['name']):
+                unused_sections.append(fw_section)
+    return unused_sections
+
+
+@admin_utils.output_header
+def list_unused_firewall_sections(resource, event, trigger, **kwargs):
+    unused_sections = _get_unused_firewall_sections()
+    _log_info(constants.FIREWALL_SECTIONS, unused_sections,
+              attrs=['name', 'id'])
+    return bool(unused_sections)
+
+
+@admin_utils.output_header
+def clean_unused_firewall_sections(resource, event, trigger, **kwargs):
+    unused_sections = _get_unused_firewall_sections()
+    for fw_section in unused_sections:
+        LOG.info("Deleting firewall section %s", fw_section['id'])
+        nsxv_firewall.delete_fw_section(fw_section['id'])
+    return bool(unused_sections)
+
+
 @admin_utils.output_header
 def reorder_firewall_sections(resource, event, trigger, **kwargs):
     nsxv_firewall.reorder_fw_sections()
@@ -319,6 +355,7 @@ def fix_security_groups(resource, event, trigger, **kwargs):
             plugin._create_fw_section_for_security_group(
                 context_, secgroup,
                 sgs_with_missing_section[sg_id]['nsx-securitygroup-id'])
+            LOG.info("Created NSX section for security group %s", sg_id)
 
         # If nsx security-group is missing then create both nsx security-group
         # and a new fw section (remove old one).
@@ -330,6 +367,8 @@ def fix_security_groups(resource, event, trigger, **kwargs):
             neutron_sg.delete_security_group_backend_mapping(sg_id)
             plugin._process_security_group_create_backend_resources(context_,
                                                                     secgroup)
+            LOG.info("Created NSX section & security group for security group"
+                     " %s", sg_id)
             nsx_id = nsx_db.get_nsx_security_group_id(context_.session, sg_id,
                                                       moref=False)
             for vnic_id in neutron_sg.get_vnics_in_security_group(sg_id):
@@ -440,3 +479,11 @@ registry.subscribe(fix_security_groups,
 registry.subscribe(firewall_update_cluster_default_fw_section,
                    constants.FIREWALL_SECTIONS,
                    shell.Operations.NSX_UPDATE.value)
+
+registry.subscribe(list_unused_firewall_sections,
+                   constants.FIREWALL_SECTIONS,
+                   shell.Operations.LIST_UNUSED.value)
+
+registry.subscribe(clean_unused_firewall_sections,
+                   constants.FIREWALL_SECTIONS,
+                   shell.Operations.NSX_CLEAN.value)
