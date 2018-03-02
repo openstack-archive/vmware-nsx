@@ -23,7 +23,6 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import uuidutils
 
-from neutron.plugins.common import utils as n_utils
 from neutron_lib.api.definitions import provider_net as providernet
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
@@ -32,6 +31,7 @@ from neutron_lib import constants
 from neutron_lib import context
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
+from neutron_lib.plugins import utils as plugin_utils
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import utils as nsx_utils
@@ -204,7 +204,7 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
     def _validate_segment_id(self, seg_id):
         if not seg_id:
             raise l2gw_exc.L2GatewaySegmentationRequired
-        return n_utils.is_valid_vlan_tag(seg_id)
+        return plugin_utils.is_valid_vlan_tag(seg_id)
 
     def create_l2_gateway_connection(self, context, l2_gateway_connection):
         gw_connection = l2_gateway_connection.get(self.connection_resource)

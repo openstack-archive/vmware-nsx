@@ -19,7 +19,6 @@ from neutron.db import models_v2
 from neutron.extensions import address_scope
 from neutron.extensions import l3
 from neutron.extensions import securitygroup as secgrp
-from neutron.plugins.common import utils as n_utils
 from neutron.tests.unit import _test_extension_portbindings as test_bindings
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_plugin
 from neutron.tests.unit.extensions import test_address_scope
@@ -43,6 +42,7 @@ from neutron_lib import constants
 from neutron_lib import context
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
+from neutron_lib.plugins import utils as plugin_utils
 from oslo_config import cfg
 from oslo_utils import uuidutils
 from webob import exc
@@ -552,7 +552,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
         net_type = 'vlan'
         name = 'phys_net'
         plugin = directory.get_plugin()
-        plugin._network_vlans = n_utils.parse_network_vlan_ranges(
+        plugin._network_vlans = plugin_utils.parse_network_vlan_ranges(
                        cfg.CONF.nsx_v3.network_vlan_ranges)
         expected = [('subnets', []), ('name', name),
                     ('admin_state_up', True),

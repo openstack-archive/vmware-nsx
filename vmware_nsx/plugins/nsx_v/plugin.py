@@ -47,6 +47,7 @@ from neutron_lib.exceptions import multiprovidernet as mpnet_exc
 from neutron_lib.exceptions import port_security as psec_exc
 from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
+from neutron_lib.plugins import utils
 from neutron_lib.services.qos import constants as qos_consts
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -85,7 +86,6 @@ from neutron.db import vlantransparent_db
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.objects import securitygroup
-from neutron.plugins.common import utils
 from neutron.quota import resource_registry
 from neutron.services.flavors import flavors_plugin
 from vmware_nsx.dvs import dvs

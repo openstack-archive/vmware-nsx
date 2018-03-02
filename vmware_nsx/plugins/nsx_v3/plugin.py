@@ -58,7 +58,6 @@ from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
-from neutron.plugins.common import utils as n_utils
 from neutron.quota import resource_registry
 from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
 from neutron_lib.api.definitions import portbindings as pbin
@@ -72,6 +71,7 @@ from neutron_lib.callbacks import resources
 from neutron_lib import constants as const
 from neutron_lib import context as q_context
 from neutron_lib import exceptions as n_exc
+from neutron_lib.plugins import utils as plugin_utils
 from neutron_lib.utils import helpers
 from neutron_lib.utils import net as nlib_net
 from oslo_config import cfg
@@ -251,7 +251,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self.cfg_group = 'nsx_v3'  # group name for nsx_v3 section in nsx.ini
         self.tier0_groups_dict = {}
 
-        self._network_vlans = n_utils.parse_network_vlan_ranges(
+        self._network_vlans = plugin_utils.parse_network_vlan_ranges(
             cfg.CONF.nsx_v3.network_vlan_ranges)
         # Initialize the network availability zones, which will be used only
         # when native_dhcp_metadata is True
@@ -810,7 +810,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     vlan_id = self._generate_segment_id(context,
                                                         physical_net,
                                                         network_data)
-                elif not n_utils.is_valid_vlan_tag(vlan_id):
+                elif not plugin_utils.is_valid_vlan_tag(vlan_id):
                     err_msg = (_('Segmentation ID %(segmentation_id)s out of '
                                  'range (%(min_id)s through %(max_id)s)') %
                                {'segmentation_id': vlan_id,
