@@ -15,6 +15,7 @@
 #    under the License.
 #
 
+from neutron_lib.agent import topics
 from neutron_lib import constants as const
 from oslo_concurrency import lockutils
 from oslo_config import cfg
@@ -25,7 +26,6 @@ from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
 from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
 from neutron.common import rpc as n_rpc
-from neutron.common import topics
 from neutron.db import agents_db
 
 from vmware_nsx._i18n import _
