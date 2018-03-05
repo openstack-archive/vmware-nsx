@@ -1,0 +1,9 @@
+---
+prelude: >
+    The nsx-v3 plugin can add default Tier-0 router configuration per
+    availability zone.
+features:
+  - |
+    The nsx-v3 plugin can add default Tier-0 router configuration per
+    availability zone. The Tier-0 rotuer will be used as a default for
+    external networks creation.
