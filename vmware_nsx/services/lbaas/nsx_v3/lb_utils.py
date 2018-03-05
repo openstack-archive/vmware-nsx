@@ -20,7 +20,6 @@ from neutron_lib import exceptions as n_exc
 from vmware_nsx._i18n import _
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.services.lbaas import lb_const
-from vmware_nsxlib.v3 import utils
 
 
 def get_tags(plugin, resource_id, resource_type, project_id, project_name):
@@ -48,16 +47,6 @@ def get_router_from_network(context, plugin, subnet_id):
         router = plugin.get_router(context, ports[0]['device_id'])
         if router.get('external_gateway_info'):
             return router['id']
-
-
-def get_lb_router_id(context, plugin, lb):
-    router_client = plugin.nsxlib.logical_router
-    name = utils.get_name_and_uuid(lb.name or 'router', lb.id)
-    tags = get_tags(plugin, lb.id, lb_const.LB_LB_TYPE, lb.tenant_id,
-                    context.project_name)
-    edge_cluster_uuid = plugin._get_edge_cluster(plugin._default_tier0_router)
-    lb_router = router_client.create(name, tags, edge_cluster_uuid)
-    return lb_router
 
 
 def get_lb_flavor_size(flavor_plugin, context, flavor_id):
