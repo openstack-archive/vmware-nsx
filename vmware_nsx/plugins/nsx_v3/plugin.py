@@ -2040,19 +2040,22 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             port_data.get(provider_sg.PROVIDER_SECURITYGROUPS) != [])
         return provider_sgs_specified
 
-    def _is_ens_tz_net(self, context, net_id):
-        #Check the host-switch-mode of the TZ connected to network
+    def _get_net_tz(self, context, net_id):
         mappings = nsx_db.get_nsx_switch_ids(context.session, net_id)
         if mappings:
             nsx_net_id = nsx_net_id = mappings[0]
             if nsx_net_id:
                 nsx_net = self.nsxlib.logical_switch.get(nsx_net_id)
-                if nsx_net and nsx_net.get('transport_zone_id'):
-                    # Check the mode of this TZ
-                    mode = self.nsxlib.transport_zone.get_host_switch_mode(
-                        nsx_net['transport_zone_id'])
-                    return (mode ==
-                            self.nsxlib.transport_zone.HOST_SWITCH_MODE_ENS)
+                return nsx_net.get('transport_zone_id')
+
+    def _is_ens_tz_net(self, context, net_id):
+        #Check the host-switch-mode of the TZ connected to network
+        tz_id = self._get_net_tz(context, net_id)
+        if tz_id:
+            # Check the mode of this TZ
+            mode = self.nsxlib.transport_zone.get_host_switch_mode(tz_id)
+            return (mode ==
+                    self.nsxlib.transport_zone.HOST_SWITCH_MODE_ENS)
         return False
 
     def _is_ens_tz_port(self, context, port_data):
@@ -3189,6 +3192,24 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         else:
             return network.get(pnet.PHYSICAL_NETWORK)
 
+    def _validate_router_tz(self, context, tier0_uuid, subnets):
+        # make sure the related GW (Tier0 router) belongs to the same TZ
+        # as the subnets attached to the Tier1 router
+        if not subnets:
+            return
+        tier0_tzs = self.nsxlib.router.get_tier0_router_tz(tier0_uuid)
+        if not tier0_tzs:
+            return
+        for sub in subnets:
+            tz_uuid = self._get_net_tz(context, sub['network_id'])
+            if tz_uuid not in tier0_tzs:
+                msg = (_("Tier0 router %(rtr)s transport zone should match "
+                         "transport zone %(tz)s of the network %(net)s") % {
+                    'rtr': tier0_uuid,
+                    'tz': tz_uuid,
+                    'net': sub['network_id']})
+                raise n_exc.InvalidInput(error_message=msg)
+
     def _update_router_gw_info(self, context, router_id, info):
         router = self._get_router(context, router_id)
         org_tier0_uuid = self._get_tier0_uuid_by_router(context, router)
@@ -3266,7 +3287,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         advertise_route_nat_flag = True if new_enable_snat else False
         advertise_route_connected_flag = True if not new_enable_snat else False
 
-        if add_no_dnat_rules or remove_no_dnat_rules or add_snat_rules:
+        if (add_no_dnat_rules or remove_no_dnat_rules or add_snat_rules or
+            add_router_link_port):
             subnets = self._find_router_subnets(context.elevated(),
                                                 router_id)
 
@@ -3279,9 +3301,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             for subnet in subnets:
                 self._del_subnet_no_dnat_rule(context, nsx_router_id, subnet)
         if remove_router_link_port:
+            # remove the link port and reset the router edge cluster
             self.nsxlib.router.remove_router_link_port(
                 nsx_router_id, org_tier0_uuid)
+            self.nsxlib.router.update_router_edge_cluster(
+                nsx_router_id, None)
         if add_router_link_port:
+            self._validate_router_tz(context, new_tier0_uuid, subnets)
             # First update edge cluster info for router
             edge_cluster_uuid = self._get_edge_cluster(new_tier0_uuid)
             self.nsxlib.router.update_router_edge_cluster(
@@ -3891,6 +3917,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                             "must have a external network assigned.")
                     raise n_exc.InvalidInput(error_message=msg)
                 resource_type = nsxlib_consts.LROUTERPORT_CENTRALIZED
+
+            # IF this is an ENS case - check GW & subnets
+            subnets = self._find_router_subnets(context.elevated(),
+                                                router_id)
+            tier0_uuid = self._get_tier0_uuid_by_router(context.elevated(),
+                                                        router_db)
+            self._validate_router_tz(context.elevated(), tier0_uuid, subnets)
+
+            # create the interface ports on the NSX
             self.nsxlib.router.create_logical_router_intf_port_by_ls_id(
                 logical_router_id=nsx_router_id,
                 display_name=display_name,
