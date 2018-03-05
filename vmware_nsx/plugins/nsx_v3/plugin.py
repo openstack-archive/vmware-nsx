@@ -498,24 +498,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             raise cfg.RequiredOptError("search_objects_scope",
                                        group=cfg.OptGroup('nsx_v3'))
 
-        # default tier0 router
-        self._default_tier0_router = None
-        if cfg.CONF.nsx_v3.default_tier0_router:
-            rtr_id = None
-            if cfg.CONF.nsx_v3.init_objects_by_tags:
-                # Find the router by its tag
-                resource_type = (self.nsxlib.logical_router.resource_type +
-                                 ' AND router_type:TIER0')
-                rtr_id = self.nsxlib.get_id_by_resource_and_tag(
-                    resource_type,
-                    cfg.CONF.nsx_v3.search_objects_scope,
-                    cfg.CONF.nsx_v3.default_tier0_router)
-            if not rtr_id:
-                # find the router by name or id
-                rtr_id = self.nsxlib.logical_router.get_id_by_name_or_id(
-                    cfg.CONF.nsx_v3.default_tier0_router)
-            self._default_tier0_router = rtr_id
-
         # Validate and translate native dhcp profiles per az
         if cfg.CONF.nsx_v3.native_dhcp_metadata:
             if not cfg.CONF.nsx_v3.dhcp_profile:
@@ -964,9 +946,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         tier0_info = self.tier0_groups_dict[tier0_uuid]
         return tier0_info['edge_cluster_uuid']
 
-    def _validate_external_net_create(self, net_data):
+    def _validate_external_net_create(self, net_data, az):
         if not validators.is_attr_set(net_data.get(pnet.PHYSICAL_NETWORK)):
-            tier0_uuid = self._default_tier0_router
+            tier0_uuid = az._default_tier0_router
         else:
             tier0_uuid = net_data[pnet.PHYSICAL_NETWORK]
         if ((validators.is_attr_set(net_data.get(pnet.NETWORK_TYPE)) and
@@ -1174,7 +1156,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if validators.is_attr_set(external) and external:
             self._assert_on_external_net_with_qos(net_data)
             is_provider_net, net_type, physical_net, vlan_id = (
-                self._validate_external_net_create(net_data))
+                self._validate_external_net_create(net_data, az))
         else:
             is_provider_net, net_type, physical_net, vlan_id, nsx_net_id = (
                 self._create_network_at_the_backend(context, net_data, az,
@@ -3409,7 +3391,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             return
         network = self.get_network(context, network_id)
         if not network.get(pnet.PHYSICAL_NETWORK):
-            return self._default_tier0_router
+            az = self.get_network_az_by_net_id(context, network_id)
+            return az._default_tier0_router
         else:
             return network.get(pnet.PHYSICAL_NETWORK)
 

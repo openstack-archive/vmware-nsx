@@ -89,6 +89,10 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
         if self.dhcp_relay_service is None:
             self.dhcp_relay_service = cfg.CONF.nsx_v3.dhcp_relay_service
 
+        self.default_tier0_router = az_info.get('default_tier0_router')
+        if self.default_tier0_router is None:
+            self.default_tier0_router = cfg.CONF.nsx_v3.default_tier0_router
+
     def init_default_az(self):
         # use the default configuration
         self.metadata_proxy = cfg.CONF.nsx_v3.metadata_proxy
@@ -100,6 +104,7 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
         self.default_vlan_tz = cfg.CONF.nsx_v3.default_vlan_tz
         self.switching_profiles = cfg.CONF.nsx_v3.switching_profiles
         self.dhcp_relay_service = cfg.CONF.nsx_v3.dhcp_relay_service
+        self.default_tier0_router = cfg.CONF.nsx_v3.default_tier0_router
 
     def translate_configured_names_to_uuids(self, nsxlib):
         # Mandatory configurations (in AZ or inherited from global values)
@@ -204,6 +209,24 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
         else:
             self.dhcp_relay_service = None
             self.dhcp_relay_servers = None
+
+        if self.default_tier0_router:
+            rtr_id = None
+            if cfg.CONF.nsx_v3.init_objects_by_tags:
+                # Find the router by its tag
+                resource_type = (nsxlib.logical_router.resource_type +
+                                 ' AND router_type:TIER0')
+                rtr_id = nsxlib.get_id_by_resource_and_tag(
+                    resource_type,
+                    cfg.CONF.nsx_v3.search_objects_scope,
+                    self.default_tier0_router)
+            if not rtr_id:
+                # find the router by name or id
+                rtr_id = nsxlib.logical_router.get_id_by_name_or_id(
+                    self.default_tier0_router)
+            self._default_tier0_router = rtr_id
+        else:
+            self._default_tier0_router = None
 
 
 class NsxV3AvailabilityZones(common_az.ConfiguredAvailabilityZones):
