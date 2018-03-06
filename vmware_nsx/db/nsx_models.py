@@ -261,7 +261,7 @@ class MacLearningState(model_base.BASEV2, models.TimestampMixin):
     # Add a relationship to the Port model using the backref attribute.
     # This will instruct SQLAlchemy to eagerly load this association.
     port = orm.relationship(
-        models_v2.Port,
+        'neutron.db.models_v2.Port',
         backref=orm.backref("mac_learning_state", lazy='joined',
                             uselist=False, cascade='delete'))
 
@@ -318,7 +318,7 @@ class PortQueueMapping(model_base.BASEV2, models.TimestampMixin):
     # Add a relationship to the Port model adding a backref which will
     # allow SQLAlchemy for eagerly load the queue binding
     port = orm.relationship(
-        models_v2.Port,
+        'neutron.db.models_v2.Port',
         backref=orm.backref("qos_queue", uselist=False,
                             cascade='delete', lazy='joined'))
 
@@ -334,7 +334,7 @@ class NetworkQueueMapping(model_base.BASEV2, models.TimestampMixin):
     # Add a relationship to the Network model adding a backref which will
     # allow SQLAlcremy for eagerly load the queue binding
     network = orm.relationship(
-        models_v2.Network,
+        'neutron.db.models_v2.Network',
         backref=orm.backref("qos_queue", uselist=False,
                             cascade='delete', lazy='joined'))
 

@@ -19,8 +19,6 @@ from neutron_lib.db import model_base
 import sqlalchemy as sa
 from sqlalchemy import orm
 
-from neutron.db.models import l3 as l3_db
-from neutron.db import models_v2
 from oslo_db.sqlalchemy import models
 
 from vmware_nsx.common import nsxv_constants
@@ -164,7 +162,7 @@ class NsxvRouterExtAttributes(model_base.BASEV2, models.TimestampMixin):
     # Add a relationship to the Router model in order to instruct
     # SQLAlchemy to eagerly load this association
     router = orm.relationship(
-        l3_db.Router,
+        'neutron.db.models.l3.Router',
         backref=orm.backref("nsx_attributes", lazy='joined',
                             uselist=False, cascade='delete'))
 
@@ -218,7 +216,7 @@ class NsxvPortIndexMapping(model_base.BASEV2, models.TimestampMixin):
     # Add a relationship to the Port model in order to instruct SQLAlchemy to
     # eagerly read port vnic-index
     port = orm.relationship(
-        models_v2.Port,
+        'neutron.db.models_v2.Port',
         backref=orm.backref("vnic_index", lazy='joined',
                             uselist=False, cascade='delete'))
 
@@ -344,7 +342,7 @@ class NsxvSubnetExtAttributes(model_base.BASEV2, models.TimestampMixin):
     # Add a relationship to the Subnet model in order to instruct
     # SQLAlchemy to eagerly load this association
     subnet = orm.relationship(
-        models_v2.Subnet,
+        'neutron.db.models_v2.Subnet',
         backref=orm.backref("nsxv_subnet_attributes", lazy='joined',
                             uselist=False, cascade='delete'))
 
@@ -363,7 +361,7 @@ class NsxvPortExtAttributes(model_base.BASEV2, models.TimestampMixin):
     # Add a relationship to the port model in order to instruct
     # SQLAlchemy to eagerly load this association
     port = orm.relationship(
-        models_v2.Port,
+        'neutron.db.models_v2.Port',
         backref=orm.backref("nsx_port_attributes", lazy='joined',
                             uselist=False, cascade='delete'))
 
