@@ -301,9 +301,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if self.nsxlib.feature_supported(nsxlib_consts.FEATURE_TRUNK_VLAN):
                 self.supported_extension_aliases.append("vlan-transparent")
             else:
-                raise NotImplementedError(
-                    _("Current NSX version %s doesn't support "
-                      "transparent vlans") % self.nsxlib.get_version())
+                LOG.warning("Current NSX version %s doesn't support "
+                            "transparent vlans", self.nsxlib.get_version())
 
         # Register NSXv3 trunk driver to support trunk extensions
         self.trunk_driver = trunk_driver.NsxV3TrunkDriver.create(self)
