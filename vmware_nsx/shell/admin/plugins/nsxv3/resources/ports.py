@@ -232,6 +232,17 @@ def migrate_compute_ports_vms(resource, event, trigger, **kwargs):
         project = properties.get('project-id')
         if project:
             port_filters['project_id'] = [project]
+        net_name = properties.get('net-name', 'VM Network')
+        LOG.info("Common network name for migration %s", net_name)
+        host_moref = properties.get('host-moref')
+        # TODO(garyk): We can explore the option of passing the cluster
+        # moref then this will remove the need for the host-moref and the
+        # resource pool moref.
+        respool_moref = properties.get('respool-moref')
+        datastore_moref = properties.get('datastore-moref')
+        if not host_moref:
+            LOG.error("Unable to migrate with no host")
+            return
 
     # Go over all the ports from the plugin
     admin_cxt = neutron_context.get_admin_context()
@@ -266,22 +277,28 @@ def migrate_compute_ports_vms(resource, event, trigger, **kwargs):
             LOG.info("No need to update the spec of vm %s", device_id)
             continue
 
-        # find the old interface by it's mac and delete it
         device = get_vm_network_device(vm_mng, vm_moref, port['mac_address'])
         if device is None:
             LOG.warning("No device with MAC address %s exists on the VM",
                         port['mac_address'])
             continue
-        device_type = device.__class__.__name__
 
-        LOG.info("Detaching old interface from VM %s", device_id)
-        vm_mng.detach_vm_interface(vm_moref, device)
-
-        # add the new interface as OpaqueNetwork
-        LOG.info("Attaching new interface to VM %s", device_id)
-        nsx_net_id = get_network_nsx_id(admin_cxt.session, port['network_id'])
-        vm_mng.attach_vm_interface(vm_moref, port['id'], port['mac_address'],
-                                   nsx_net_id, device_type)
+        # Update interface to be common network
+        devices = [vm_mng.update_vm_network(device, name=net_name)]
+        LOG.info("Update instance %s to common network", device_id)
+        vm_mng.update_vm_interface(vm_moref, devices=devices)
+        LOG.info("Migrate instance %s to host %s", device_id, host_moref)
+        vm_mng.relocate_vm(vm_moref, host_moref=host_moref,
+                           datastore_moref=datastore_moref,
+                           respool_moref=respool_moref)
+        LOG.info("Update instance %s to opaque network", device_id)
+        device = get_vm_network_device(vm_mng, vm_moref, port['mac_address'])
+        vif_info = {'nsx_id': get_network_nsx_id(admin_cxt.session,
+                                                 port['network_id']),
+                    'iface_id': port['id']}
+        devices = [vm_mng.update_vm_opaque_spec(vif_info, device)]
+        vm_mng.update_vm_interface(vm_moref, devices=devices)
+        LOG.info("Instance %s successfully migrated!", device_id)
 
 
 def migrate_exclude_ports(resource, event, trigger, **kwargs):

@@ -347,7 +347,7 @@ Ports
 
 - Update the VMs ports (all or of a specific project) on the backend after migrating nsx-v -> nsx-v3::
 
-    nsxadmin -r ports -o nsx-migrate-v-v3 (--property project-id=<>)
+    nsxadmin -r ports -o nsx-migrate-v-v3 (--property project-id=<> --property host-moref=<> --property respool-moref=<> --property net-name=<> --property datastore-moref=<>)) --plugin nsxv3
 
 - Migrate exclude ports to use tags::
 
