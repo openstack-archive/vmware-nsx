@@ -3319,11 +3319,25 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if remove_router_link_port:
             self.nsxlib.router.remove_router_link_port(
                 nsx_router_id, org_tier0_uuid)
+            self.nsxlib.router.update_router_edge_cluster(
+                nsx_router_id, None)
+            if self.nsxlib.feature_supported(
+                nsxlib_consts.FEATURE_ROUTER_TRANSPORT_ZONE):
+                self.nsxlib.router.update_router_transport_zone(
+                    nsx_router_id, None)
         if add_router_link_port:
             # First update edge cluster info for router
             edge_cluster_uuid = self._get_edge_cluster(new_tier0_uuid)
             self.nsxlib.router.update_router_edge_cluster(
                 nsx_router_id, edge_cluster_uuid)
+            # Add the overlay transport zone to the router config
+            if self.nsxlib.feature_supported(
+                nsxlib_consts.FEATURE_ROUTER_TRANSPORT_ZONE):
+                tz_uuid = self.nsxlib.router.get_tier0_router_overlay_tz(
+                    new_tier0_uuid)
+                if tz_uuid:
+                    self.nsxlib.router.update_router_transport_zone(
+                        nsx_router_id, tz_uuid)
             tags = self.nsxlib.build_v3_tags_payload(
                    router, resource_type='os-neutron-rport',
                    project_name=context.tenant_name)
