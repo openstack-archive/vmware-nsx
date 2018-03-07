@@ -42,6 +42,8 @@ class Nsxv3AvailabilityZonesTestCase(base.BaseTestCase):
         cfg.CONF.set_override("nameservers", ["10.1.1.1"], group="nsx_v3")
         cfg.CONF.set_override("switching_profiles", ["uuid1"], group="nsx_v3")
         cfg.CONF.set_override("dhcp_relay_service", "service1", group="nsx_v3")
+        cfg.CONF.set_override(
+            "default_tier0_router", "uuidrtr1", group="nsx_v3")
 
     def _config_az(self,
                    metadata_proxy="metadata_proxy1",
@@ -52,7 +54,8 @@ class Nsxv3AvailabilityZonesTestCase(base.BaseTestCase):
                    default_overlay_tz='otz',
                    default_vlan_tz='vtz',
                    switching_profiles=["uuid2"],
-                   dhcp_relay_service="service2"):
+                   dhcp_relay_service="service2",
+                   default_tier0_router="uuidrtr2"):
         if metadata_proxy is not None:
             cfg.CONF.set_override("metadata_proxy", metadata_proxy,
                                   group=self.group_name)
@@ -81,6 +84,9 @@ class Nsxv3AvailabilityZonesTestCase(base.BaseTestCase):
         if dhcp_relay_service is not None:
             cfg.CONF.set_override("dhcp_relay_service", dhcp_relay_service,
                                   group=self.group_name)
+        if default_tier0_router is not None:
+            cfg.CONF.set_override("default_tier0_router", default_tier0_router,
+                                  group=self.group_name)
 
     def test_simple_availability_zone(self):
         self._config_az()
@@ -95,6 +101,7 @@ class Nsxv3AvailabilityZonesTestCase(base.BaseTestCase):
         self.assertEqual("vtz", az.default_vlan_tz)
         self.assertEqual(["uuid2"], az.switching_profiles)
         self.assertEqual("service2", az.dhcp_relay_service)
+        self.assertEqual("uuidrtr2", az.default_tier0_router)
 
     def test_missing_group_section(self):
         self.assertRaises(
