@@ -220,6 +220,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def __init__(self):
         self.fwaas_callbacks = None
         self._is_sub_plugin = tvd_utils.is_tvd_core_plugin()
+        self.init_is_complete = False
+        nsxlib_utils.set_is_attr_callback(validators.is_attr_set)
         self._extend_fault_map()
         if self._is_sub_plugin:
             extension_drivers = cfg.CONF.nsx_tvd.nsx_v3_extension_drivers
