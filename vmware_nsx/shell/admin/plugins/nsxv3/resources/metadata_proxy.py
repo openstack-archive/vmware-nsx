@@ -68,9 +68,8 @@ def list_metadata_networks(resource, event, trigger, **kwargs):
                     if tag['scope'] == 'os-neutron-net-id':
                         net_id = tag['tag']
                         break
-                uri = '/md-proxies/%s/%s/status' % (port['attachment']['id'],
-                                                    port['logical_switch_id'])
-                status = nsxlib.client.get(uri)
+                status = nsxlib.native_md_proxy.get_md_proxy_status(
+                    port['attachment']['id'], port['logical_switch_id'])
                 LOG.info("Status for MD proxy on neutron network %s (logical "
                          "switch %s) is %s",
                          net_id,
