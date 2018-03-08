@@ -450,6 +450,12 @@ class TestSecurityGroup(ext_sg.TestSecurityGroups, SecurityGroupsTestCase):
     def test_create_security_group_rule_icmpv6_legacy_protocol_name(self):
         self.skipTest('not supported')
 
+    def test_create_security_group_rule_protocol_as_number_range(self):
+        self.skipTest('not supported')
+
+    def test_create_security_group_rule_protocol_as_number_with_port(self):
+        self.skipTest('not supported')
+
 
 class TestL3ExtensionManager(object):
 
