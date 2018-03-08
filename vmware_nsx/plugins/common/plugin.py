@@ -127,7 +127,6 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
         subnetpool = self.get_subnetpool(context, subnetpool_id)
         return subnetpool.get('address_scope_id', '')
 
-    # TODO(asarfaty): the NSX-V3 needs a very similar code too
     def _validate_address_scope_for_router_interface(self, context, router_id,
                                                      gw_network_id, subnet_id):
         """Validate that the GW address scope is the same as the interface"""
