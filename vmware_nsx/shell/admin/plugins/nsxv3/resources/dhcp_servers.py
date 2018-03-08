@@ -140,11 +140,8 @@ def nsx_clean_orphaned_dhcp_servers(resource, event, trigger, **kwargs):
 
     for server in orphaned_servers:
         try:
-            # TODO(asarfaty): should add this as api to nsxlib instead of
-            # abusing it
-            resource = ('?attachment_type=DHCP_SERVICE&attachment_id=%s' %
-                        server['id'])
-            response = nsxlib.logical_port.get(resource)
+            response = nsxlib.logical_port.get_by_attachment('DHCP_SERVICE',
+                                                             server['id'])
             if response and response['result_count'] > 0:
                 nsxlib.logical_port.delete(response['results'][0]['id'])
             nsxlib.dhcp_server.delete(server['id'])
