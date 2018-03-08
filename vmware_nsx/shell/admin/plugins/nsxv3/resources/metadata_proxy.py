@@ -131,8 +131,8 @@ def nsx_update_metadata_proxy(resource, event, trigger, **kwargs):
                 tags = nsxlib.build_v3_tags_payload(
                     network, resource_type='os-neutron-net-id',
                     project_name='admin')
-                name = nsx_utils.get_name_and_uuid('%s-%s' % (
-                    'mdproxy', network['name'] or 'network'), network['id'])
+                name = plugin._get_mdproxy_port_name(network['name'],
+                                                     network['id'])
                 # check if this logical port already exists
                 existing_ports = nsxlib.logical_port.find_by_display_name(
                     name)
