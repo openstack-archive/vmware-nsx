@@ -634,7 +634,8 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         page_reverse=False):
         # Read project plugin to filter relevant projects according to
         # plugin
-        req_p = self._get_plugin_for_request(context, filters)
+        req_p = self._get_plugin_for_request(context, filters,
+                                             keys=['port_id'])
         fips = super(NsxTVDPlugin, self).get_floatingips(
             context, filters=filters, fields=fields, sorts=sorts,
             limit=limit, marker=marker, page_reverse=page_reverse)
