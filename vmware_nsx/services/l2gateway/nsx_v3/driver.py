@@ -332,3 +332,11 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         if port['device_owner'] == nsx_constants.BRIDGE_ENDPOINT:
             reason = _("has device owner %s") % port['device_owner']
             raise n_exc.ServicePortInUse(port_id=port_id, reason=reason)
+
+    def add_port_mac(self, context, port_dict):
+        """Process a created Neutron port."""
+        pass
+
+    def delete_port_mac(self, context, port):
+        """Process a deleted Neutron port."""
+        pass
