@@ -338,7 +338,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                          {'id': NSX_V3_OS_DFW_UUID,
                           'tenant_id': nsx_constants.INTERNAL_V3_TENANT_ID,
                           'name': 'NSX Internal',
-                          'description': None}}
+                          'description': ''}}
             try:
                 # ensure that the global default is created
                 super(NsxV3Plugin, self).create_security_group(
