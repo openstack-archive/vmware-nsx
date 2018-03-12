@@ -868,6 +868,12 @@ nsx_tvd_opts = [
                choices=projectpluginmap.VALID_TYPES,
                help=_("The default plugin that will be used for new projects "
                       "that were not added to the projects plugin mapping.")),
+    cfg.ListOpt('enabled_plugins',
+                default=[projectpluginmap.NsxPlugins.NSX_T,
+                         projectpluginmap.NsxPlugins.NSX_V,
+                         projectpluginmap.NsxPlugins.DVS],
+                help=_("The list of plugins that the TVD core plugin will "
+                       "load")),
     cfg.ListOpt('nsx_v_default_availability_zones',
                 default=[],
                 help=_("The default availability zones that will be used for "

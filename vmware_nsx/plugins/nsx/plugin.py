@@ -126,6 +126,11 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return True
 
     def _init_plugin(self, map_type, plugin_class):
+        if map_type not in cfg.CONF.nsx_tvd.enabled_plugins:
+            # skip this plugin
+            LOG.info("%s plugin was not enabled by the configuration",
+                     map_type.upper())
+            return
         try:
             self.plugins[map_type] = plugin_class()
         except Exception as e:
