@@ -102,6 +102,11 @@ class ExtendedSecurityGroupPropertiesMixin(object):
                 context, id=s.get('id') or uuidutils.generate_uuid(),
                 description=s.get('description', ''), project_id=tenant_id,
                 name=s.get('name', ''), is_default=default_sg)
+            # Note(asarfaty): for unknown reason, removing the 'is_default'
+            # here allows the loading of the ext_properties of the security
+            # group. If not - we will get DetachedInstanceError
+            if 'is_default' in sg.fields_no_update:
+                sg.fields_no_update.remove('is_default')
             sg.create()
 
         secgroup_dict = self._make_security_group_dict(sg)
