@@ -224,3 +224,11 @@ class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
 
     def delete_l2_gateway_postcommit(self, context, l2_gateway):
         pass
+
+    def add_port_mac(self, context, port_dict):
+        """Process a created Neutron port."""
+        pass
+
+    def delete_port_mac(self, context, port):
+        """Process a deleted Neutron port."""
+        pass
