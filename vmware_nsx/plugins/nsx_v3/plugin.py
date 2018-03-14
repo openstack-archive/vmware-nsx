@@ -1124,6 +1124,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         net_data[pnet.SEGMENTATION_ID] = free_ids[0]
         return net_data[pnet.SEGMENTATION_ID]
 
+    def _get_mdproxy_port_name(self, net_name, net_id):
+        return utils.get_name_and_uuid('%s-%s' % ('mdproxy',
+                                                  net_name or 'network'),
+                                       net_id)
+
     def create_network(self, context, network):
         net_data = network['network']
         external = net_data.get(extnet_apidef.EXTERNAL)
@@ -1210,9 +1215,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 tags = self.nsxlib.build_v3_tags_payload(
                     created_net, resource_type='os-neutron-net-id',
                     project_name=context.tenant_name)
-                name = utils.get_name_and_uuid('%s-%s' % (
-                    'mdproxy', created_net['name'] or 'network'),
-                                               created_net['id'])
+                name = self._get_mdproxy_port_name(created_net['name'],
+                                                   created_net['id'])
                 md_port = self.nsxlib.logical_port.create(
                     nsx_net_id, az._native_md_proxy_uuid,
                     tags=tags, name=name,
@@ -1393,7 +1397,94 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             qos_com_utils.update_network_policy_binding(
                 context, id, net_data[qos_consts.QOS_POLICY_ID])
 
+        if not extern_net and not is_nsx_net:
+            # update the network name & attributes in related NSX objects:
+            if 'name' in net_data or 'dns_domain' in net_data:
+                # update the dhcp server after finding it by tags
+                self._update_dhcp_server_on_net_update(context, updated_net)
+
+            if 'name' in net_data:
+                # update the mdproxy port after finding it by tags
+                self._update_mdproxy_port_on_net_update(context, updated_net)
+
+                # update the DHCP port after finding it by tags
+                self._update_dhcp_port_on_net_update(context, updated_net)
+
         return updated_net
+
+    def _update_dhcp_port_on_net_update(self, context, network):
+        """Update the NSX DHCP port when the neutron network changes"""
+        dhcp_service = nsx_db.get_nsx_service_binding(
+            context.session, network['id'], nsxlib_consts.SERVICE_DHCP)
+        if dhcp_service and dhcp_service['port_id']:
+            # get the neutron port id and search by it
+            port_tag = [{'scope': 'os-neutron-dport-id',
+                         'tag': dhcp_service['port_id']}]
+            dhcpports = self.nsxlib.search_by_tags(
+                tags=port_tag,
+                resource_type=self.nsxlib.logical_port.resource_type)
+            if dhcpports['results']:
+                # There should be only 1 dhcp port
+                # update the port name by the new network name
+                name = self._get_dhcp_port_name(network['name'], network['id'])
+                try:
+                    self.nsxlib.logical_port.update(
+                        dhcpports['results'][0]['id'],
+                        False, name=name, attachment_type=False)
+                except Exception as e:
+                    LOG.warning("Failed to update network %(id)s DHCP port "
+                                "on the NSX: %(e)s", {'id': network['id'],
+                                                      'e': e})
+
+    def _update_mdproxy_port_on_net_update(self, context, network):
+        """Update the NSX MDPROXY port when the neutron network changes"""
+        net_tag = [{'scope': 'os-neutron-net-id', 'tag': network['id']}]
+        # find the logical port by the neutron network id & attachment
+        mdproxy_list = self.nsxlib.search_by_tags(
+            tags=net_tag,
+            resource_type=self.nsxlib.logical_port.resource_type)
+        if not mdproxy_list['results']:
+            return
+        for port in mdproxy_list['results']:
+            if (port.get('attachment') and
+                port['attachment'].get('attachment_type') == 'METADATA_PROXY'):
+                # update the port name by the new network name
+                name = self._get_mdproxy_port_name(network['name'],
+                                                   network['id'])
+                try:
+                    self.nsxlib.logical_port.update(
+                        port['id'], False, name=name, attachment_type=False)
+                except Exception as e:
+                    LOG.warning("Failed to update network %(id)s mdproxy port "
+                                "on the NSX: %(e)s", {'id': network['id'],
+                                                      'e': e})
+                # There should be only 1 mdproxy port so it is safe to return
+                return
+
+    def _update_dhcp_server_on_net_update(self, context, network):
+        """Update the NSX DHCP server when the neutron network changes"""
+        net_tag = [{'scope': 'os-neutron-net-id', 'tag': network['id']}]
+        # Find the DHCP server by the neutron network tag
+        dhcp_srv_list = self.nsxlib.search_by_tags(
+            tags=net_tag,
+            resource_type=self.nsxlib.dhcp_server.resource_type)
+        if dhcp_srv_list['results']:
+            # Calculate the new name and domain by the network data
+            dhcp_name = self.nsxlib.native_dhcp.build_server_name(
+                network['name'], network['id'])
+            az = self.get_network_az_by_net_id(context, network['id'])
+            domain_name = self.nsxlib.native_dhcp.build_server_domain_name(
+                network.get('dns_domain'), az.dns_domain)
+            try:
+                # There should be only 1 dhcp server
+                # Update its name and domain
+                self.nsxlib.dhcp_server.update(
+                    dhcp_srv_list['results'][0]['id'],
+                    name=dhcp_name,
+                    domain_name=domain_name)
+            except Exception as e:
+                LOG.warning("Failed to update network %(id)s dhcp server on "
+                            "the NSX: %(e)s", {'id': network['id'], 'e': e})
 
     def _has_no_dhcp_enabled_subnet(self, context, network):
         # Check if there is no DHCP-enabled subnet in the network.
@@ -1896,6 +1987,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 [db_utils.resource_fields(network,
                                           fields) for network in networks])
 
+    def _get_dhcp_port_name(self, net_name, net_id):
+        return utils.get_name_and_uuid('%s-%s' % ('dhcp',
+                                                  net_name or 'network'),
+                                       net_id)
+
     def _get_port_name(self, context, port_data):
         device_owner = port_data.get('device_owner')
         device_id = port_data.get('device_id')
@@ -1905,10 +2001,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 router['name'] or 'router', port_data['id'], tag='port')
         elif device_owner == const.DEVICE_OWNER_DHCP:
             network = self.get_network(context, port_data['network_id'])
-            name = utils.get_name_and_uuid('%s-%s' % (
-                                           'dhcp',
-                                           network['name'] or 'network'),
-                                           network['id'])
+            name = self._get_dhcp_port_name(network['name'],
+                                            network['id'])
         elif device_owner.startswith(const.DEVICE_OWNER_COMPUTE_PREFIX):
             name = utils.get_name_and_uuid(
                 port_data['name'] or 'instance-port', port_data['id'])
