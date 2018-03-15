@@ -1517,8 +1517,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # Create the DHCP port (on neutron only) and update its port security
         port = {'port': port_data}
         neutron_port = super(NsxV3Plugin, self).create_port(context, port)
+        is_ens_tz_port = self._is_ens_tz_port(context, port_data)
         self._create_port_preprocess_security(context, port, port_data,
-                                              neutron_port)
+                                              neutron_port, is_ens_tz_port)
 
         net_tags = self.nsxlib.build_v3_tags_payload(
             network, resource_type='os-neutron-net-id',
@@ -2020,7 +2021,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return False
 
     def _create_port_at_the_backend(self, context, port_data,
-                                    l2gw_port_check, psec_is_on):
+                                    l2gw_port_check, psec_is_on,
+                                    is_ens_tz_port):
         device_owner = port_data.get('device_owner')
         device_id = port_data.get('device_id')
         if device_owner == const.DEVICE_OWNER_DHCP:
@@ -2101,7 +2103,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 mac_learning_profile_set = True
             profiles.append(self._get_port_security_profile_id())
         if device_owner == const.DEVICE_OWNER_DHCP:
-            if not self._is_ens_tz_port(context, port_data):
+            if not is_ens_tz_port:
                 profiles.append(self._dhcp_profile)
 
         # Add QoS switching profile, if exists
@@ -2117,7 +2119,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             profiles.append(qos_profile_id)
 
         # Add mac_learning profile if it exists and is configured
-        if (self._mac_learning_profile and
+        if (not is_ens_tz_port and self._mac_learning_profile and
             (mac_learning_profile_set or
              (validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)) and
               port_data.get(mac_ext.MAC_LEARNING) is True))):
@@ -2196,12 +2198,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return self._is_ens_tz_net(context, port_data['network_id'])
 
     def _create_port_preprocess_security(
-            self, context, port, port_data, neutron_db):
+            self, context, port, port_data, neutron_db, is_ens_tz_port):
         (port_security, has_ip) = self._determine_port_security_and_has_ip(
             context, port_data)
         port_data[psec.PORTSECURITY] = port_security
         # No port security is allowed if the port belongs to an ENS TZ
-        if port_security and self._is_ens_tz_port(context, port_data):
+        if port_security and is_ens_tz_port:
             raise nsx_exc.NsxENSPortSecurity()
         self._process_port_port_security_create(
                 context, port_data, neutron_db)
@@ -2674,6 +2676,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._validate_max_ips_per_port(port_data.get('fixed_ips', []),
                                         port_data.get('device_owner'))
         self._assert_on_dhcp_relay_without_router(context, port_data)
+        is_ens_tz_port = self._is_ens_tz_port(context, port_data)
 
         # TODO(salv-orlando): Undo logical switch creation on failure
         with db_api.context_manager.writer.using(context):
@@ -2692,7 +2695,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
             (is_psec_on, has_ip, sgids, psgids) = (
                 self._create_port_preprocess_security(context, port,
-                                                      port_data, neutron_db))
+                                                      port_data, neutron_db,
+                                                      is_ens_tz_port))
             self._process_portbindings_create_and_update(
                 context, port['port'], port_data)
             self._process_port_create_extra_dhcp_opts(
@@ -2718,9 +2722,17 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     raise n_exc.InvalidInput(error_message=msg)
                 self._create_mac_learning_state(context, port_data)
             elif mac_ext.MAC_LEARNING in port_data:
+                if is_ens_tz_port and not port_data.get(mac_ext.MAC_LEARNING):
+                    msg = _('Cannot disable Mac learning for ENS TZ')
+                    LOG.error(msg)
+                    raise n_exc.InvalidInput(error_message=msg)
                 # This is due to the fact that the default is
                 # ATTR_NOT_SPECIFIED
                 port_data.pop(mac_ext.MAC_LEARNING)
+            # For a ENZ TZ mac learning is always enabled
+            if is_ens_tz_port and mac_ext.MAC_LEARNING not in port_data:
+                port_data[mac_ext.MAC_LEARNING] = True
+                self._create_mac_learning_state(context, port_data)
 
         # Operations to backend should be done outside of DB transaction.
         # NOTE(arosen): ports on external networks are nat rules and do
@@ -2728,7 +2740,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if not is_external_net:
             try:
                 lport = self._create_port_at_the_backend(
-                    context, port_data, l2gw_port_check, is_psec_on)
+                    context, port_data, l2gw_port_check, is_psec_on,
+                    is_ens_tz_port)
             except Exception as e:
                 with excutils.save_and_reraise_exception():
                     LOG.error('Failed to create port %(id)s on NSX '
@@ -3177,6 +3190,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._extend_nsx_port_dict_binding(context, updated_port)
             mac_learning_state = updated_port.get(mac_ext.MAC_LEARNING)
             if mac_learning_state is not None:
+                if (not mac_learning_state and
+                    self._is_ens_tz_port(context, updated_port)):
+                    msg = _('Mac learning cannot be disabled with ENS TZ')
+                    LOG.error(msg)
+                    raise n_exc.InvalidInput(error_message=msg)
                 if port_security and mac_learning_state:
                     msg = _('Mac learning requires that port security be '
                             'disabled')
