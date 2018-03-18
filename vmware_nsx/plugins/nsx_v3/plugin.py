@@ -207,7 +207,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                    "router_availability_zone",
                                    "subnet_allocation",
                                    "security-group-logging",
-                                   "provider-security-group"]
+                                   "provider-security-group",
+                                   "port-security-groups-filtering"]
 
     @resource_registry.tracked_resources(
         network=models_v2.Network,
@@ -3309,6 +3310,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   sorts=None, limit=None, marker=None,
                   page_reverse=False):
         filters = filters or {}
+        self._update_filters_with_sec_group(context, filters)
         with db_api.context_manager.reader.using(context):
             ports = (
                 super(NsxV3Plugin, self).get_ports(

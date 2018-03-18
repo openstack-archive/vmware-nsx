@@ -19,6 +19,7 @@ import copy
 from eventlet import greenthread
 import mock
 import netaddr
+from neutron.db import securitygroups_db as sg_db
 from neutron.extensions import address_scope
 from neutron.extensions import l3
 from neutron.extensions import securitygroup as secgrp
@@ -1068,6 +1069,39 @@ class TestPortsV2(NsxVPluginV2TestCase,
             self._test_list_with_sort('port', (port3, port2, port1),
                                       [('admin_state_up', 'asc'),
                                       ('mac_address', 'desc')])
+
+    def test_list_ports_filtered_by_security_groups(self):
+        ctx = context.get_admin_context()
+        with self.port() as port1, self.port() as port2:
+            query_params = "security_groups=%s" % (
+                           port1['port']['security_groups'][0])
+            ports_data = self._list('ports', query_params=query_params)
+            self.assertEqual(set([port1['port']['id'], port2['port']['id']]),
+                             set([port['id'] for port in ports_data['ports']]))
+            query_params = "security_groups=%s&id=%s" % (
+                           port1['port']['security_groups'][0],
+                           port1['port']['id'])
+            ports_data = self._list('ports', query_params=query_params)
+            self.assertEqual(port1['port']['id'], ports_data['ports'][0]['id'])
+            self.assertEqual(1, len(ports_data['ports']))
+            temp_sg = {'security_group': {'tenant_id': 'some_tenant',
+                                          'name': '', 'description': 's'}}
+            sg_dbMixin = sg_db.SecurityGroupDbMixin()
+            sg = sg_dbMixin.create_security_group(ctx, temp_sg)
+            sg_dbMixin._delete_port_security_group_bindings(
+                ctx, port2['port']['id'])
+            sg_dbMixin._create_port_security_group_binding(
+                ctx, port2['port']['id'], sg['id'])
+            port2['port']['security_groups'][0] = sg['id']
+            query_params = "security_groups=%s" % (
+                           port1['port']['security_groups'][0])
+            ports_data = self._list('ports', query_params=query_params)
+            self.assertEqual(port1['port']['id'], ports_data['ports'][0]['id'])
+            self.assertEqual(1, len(ports_data['ports']))
+            query_params = "security_groups=%s" % (
+                           (port2['port']['security_groups'][0]))
+            ports_data = self._list('ports', query_params=query_params)
+            self.assertEqual(port2['port']['id'], ports_data['ports'][0]['id'])
 
     def test_update_port_delete_ip(self):
         # This test case overrides the default because the nsx plugin
