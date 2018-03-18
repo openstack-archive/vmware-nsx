@@ -186,7 +186,7 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
         ikepolicy = self.vpn_plugin.get_ikepolicy(context, ike_policy_id)
         try:
             profile = self._nsx_vpn.ike_profile.create(
-                ikepolicy['name'],
+                ikepolicy['name'] or ikepolicy['id'],
                 description=ikepolicy['description'],
                 encryption_algorithm=ipsec_utils.ENCRYPTION_ALGORITHM_MAP[
                     ikepolicy['encryption_algorithm']],
@@ -217,7 +217,7 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
 
         try:
             profile = self._nsx_vpn.tunnel_profile.create(
-                ipsecpolicy['name'],
+                ipsecpolicy['name'] or ipsecpolicy['id'],
                 description=ipsecpolicy['description'],
                 encryption_algorithm=ipsec_utils.ENCRYPTION_ALGORITHM_MAP[
                     ipsecpolicy['encryption_algorithm']],
@@ -235,11 +235,14 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
     def _delete_ipsec_profile(self, ipsecprofile_id):
         self._nsx_vpn.tunnel_profile.delete(ipsecprofile_id)
 
+    def _get_dpd_profile_name(self, connection):
+        return (connection['name'] or connection['id'])[:240] + '-dpd-profile'
+
     def _create_dpd_profile(self, context, connection):
         dpd_info = connection['dpd']
         try:
             profile = self._nsx_vpn.dpd_profile.create(
-                connection['name'][:240] + '-dpd-profile',
+                self._get_dpd_profile_name(connection),
                 description='neutron dpd profile',
                 timeout=dpd_info.get('timeout'),
                 enabled=True if dpd_info.get('action') == 'hold' else False,
@@ -256,6 +259,7 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
     def _update_dpd_profile(self, connection, dpdprofile_id):
         dpd_info = connection['dpd']
         self._nsx_vpn.dpd_profile.update(dpdprofile_id,
+                name=self._get_dpd_profile_name(connection),
                 timeout=dpd_info.get('timeout'),
                 enabled=True if dpd_info.get('action') == 'hold' else False)
 
@@ -264,7 +268,7 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
         default_auth = vpn_ipsec.AuthenticationModeTypes.AUTH_MODE_PSK
         try:
             peer_endpoint = self._nsx_vpn.peer_endpoint.create(
-                connection['name'],
+                connection['name'] or connection['id'],
                 connection['peer_address'],
                 connection['peer_id'],
                 description=connection['description'],
@@ -285,7 +289,7 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
     def _update_peer_endpoint(self, peer_ep_id, connection):
         self._nsx_vpn.peer_endpoint.update(
             peer_ep_id,
-            name=connection['name'],
+            name=connection['name'] or connection['id'],
             peer_address=connection['peer_address'],
             peer_id=connection['peer_id'],
             description=connection['description'],
@@ -304,7 +308,7 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
             peer_ep['dpd_profile_id'])
 
     def _create_local_endpoint(self, context, local_addr, nsx_service_id,
-                               router_id):
+                               router_id, project_id):
         """Creating an NSX local endpoint for a logical router
 
         This endpoint can be reused by other connections, and will be deleted
@@ -312,7 +316,8 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
         """
         # Add the neutron router-id to the tags to help search later
         tags = self._nsxlib.build_v3_tags_payload(
-            {'id': router_id}, resource_type='os-neutron-router-id',
+            {'id': router_id, 'project_id': project_id},
+            resource_type='os-neutron-router-id',
             project_name=context.tenant_name)
 
         try:
@@ -353,7 +358,8 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
         local_addr = vpnservice['external_v4_ip']
         nsx_service_id = self._get_nsx_vpn_service(context, vpnservice)
         local_ep_id = self._create_local_endpoint(
-            context, local_addr, nsx_service_id, router_id)
+            context, local_addr, nsx_service_id, router_id,
+            vpnservice['project_id'])
         return local_ep_id
 
     def _find_vpn_service_port(self, context, router_id):
@@ -398,24 +404,28 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
         return [rule]
 
     def _create_session(self, context, connection, local_ep_id,
-                        peer_ep_id, rules):
+                        peer_ep_id, rules, enabled=True):
         try:
             session = self._nsx_vpn.session.create(
-                connection['name'], local_ep_id, peer_ep_id, rules,
+                connection['name'] or connection['id'],
+                local_ep_id, peer_ep_id, rules,
                 description=connection['description'],
-                tags=self._nsx_tags(context, connection))
+                tags=self._nsx_tags(context, connection),
+                enabled=enabled)
         except nsx_lib_exc.ManagerError as e:
             msg = _("Failed to create a session: %s") % e
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
         return session['id']
 
-    def _update_session(self, session_id, connection, rules):
+    def _update_session(self, session_id, connection, rules=None,
+                        enabled=True):
         self._nsx_vpn.session.update(
             session_id,
-            name=connection['name'],
+            name=connection['name'] or connection['id'],
             description=connection['description'],
-            policy_rules=rules)
+            policy_rules=rules,
+            enabled=enabled)
 
     def _delete_session(self, session_id):
         self._nsx_vpn.session.delete(session_id)
@@ -465,8 +475,11 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
             # Finally: create the session with policy rules
             rules = self._get_session_rules(
                 context, ipsec_site_conn, vpnservice)
+            connection_enabled = (vpnservice['admin_state_up'] and
+                                  ipsec_site_conn['admin_state_up'])
             session_id = self._create_session(
-                context, ipsec_site_conn, local_ep_id, peer_ep_id, rules)
+                context, ipsec_site_conn, local_ep_id, peer_ep_id, rules,
+                enabled=connection_enabled)
 
             # update the DB with the session id
             db.add_nsx_vpn_connection_mapping(
@@ -559,15 +572,12 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
             self._update_status(context, vpnservice_id, ipsec_id, "ERROR")
             raise nsx_exc.NsxIPsecVpnMappingNotFound(conn=ipsec_id)
 
-        update_all = (old_ipsec_conn['name'] != ipsec_site_conn['name'] or
-                      old_ipsec_conn['description'] !=
-                      ipsec_site_conn['description'])
         # check if the dpd configuration changed
         old_dpd = old_ipsec_conn['dpd']
         new_dpd = ipsec_site_conn['dpd']
         if (old_dpd['action'] != new_dpd['action'] or
             old_dpd['timeout'] != new_dpd['timeout'] or
-            update_all):
+            old_ipsec_conn['name'] != ipsec_site_conn['name']):
             self._update_dpd_profile(ipsec_site_conn,
                                      mapping['dpd_profile_id'])
 
@@ -576,9 +586,12 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
         self._update_peer_endpoint(mapping['peer_ep_id'], ipsec_site_conn)
         rules = self._get_session_rules(
             context, ipsec_site_conn, vpnservice)
-        self._update_session(mapping['session_id'], ipsec_site_conn, rules)
+        connection_enabled = (vpnservice['admin_state_up'] and
+                              ipsec_site_conn['admin_state_up'])
+        self._update_session(mapping['session_id'], ipsec_site_conn, rules,
+                             enabled=connection_enabled)
 
-        if 'peer_cidrs' in ipsec_site_conn:
+        if ipsec_site_conn['peer_cidrs'] != old_ipsec_conn['peer_cidrs']:
             # Update firewall
             self._update_firewall_rules(context, vpnservice)
 
@@ -684,8 +697,20 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
         self._create_vpn_service_if_needed(context, vpnservice)
 
     def update_vpnservice(self, context, old_vpnservice, vpnservice):
-        # No meaningful field can change here
-        pass
+        # Only handle the case of admin-state-up changes
+        if old_vpnservice['admin_state_up'] != vpnservice['admin_state_up']:
+            # update all relevant connections
+            filters = {'vpnservice_id': [vpnservice['id']]}
+            connections = self.vpn_plugin.get_ipsec_site_connections(
+                context, filters=filters)
+            for conn in connections:
+                mapping = db.get_nsx_vpn_connection_mapping(
+                    context.session, conn['id'])
+                if mapping:
+                    connection_enabled = (vpnservice['admin_state_up'] and
+                                          conn['admin_state_up'])
+                    self._update_session(mapping['session_id'], conn,
+                                         enabled=connection_enabled)
 
     def delete_vpnservice(self, context, vpnservice):
         # Do not delete the NSX service or DB entry as those will be reused.
