@@ -55,7 +55,7 @@ class NsxExtendedSecurityGroupProperties(model_base.BASEV2):
                          nullable=False)
     policy = sa.Column(sa.String(36))
     security_group = orm.relationship(
-        'neutron.db.models.securitygroup.SecurityGroup',
+        securitygroups_db.SecurityGroup,
         backref=orm.backref('ext_properties', lazy='joined',
                             uselist=False, cascade='delete'))
 
