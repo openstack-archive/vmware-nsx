@@ -105,7 +105,11 @@ function nsxv3_configure_service {
     elif [[ "$NSX_MANAGER" != "" ]]; then
         _nsxv3_ini_set nsx_api_managers $NSX_MANAGER
     else
-        die $LINENO "The VMware NSX plugin needs at least one NSX manager."
+        if [[ $1 == "nsx_v3" ]]; then
+            die $LINENO "The VMware NSX plugin needs at least one NSX manager."
+        else
+            return
+        fi
     fi
     if [[ "$NSX_L2GW_DRIVER" != "" ]]; then
         iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_l2gw_driver $NSX_L2GW_DRIVER
