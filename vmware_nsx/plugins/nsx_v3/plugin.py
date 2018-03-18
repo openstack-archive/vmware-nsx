@@ -1656,7 +1656,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 LOG.error("Unable to delete DHCP server mapping for "
                           "network %s", network_id)
 
-    def _validate_address_space(self, subnet):
+    def _validate_address_space(self, context, subnet):
         cidr = subnet.get('cidr')
         if (not validators.is_attr_set(cidr) or
             netaddr.IPNetwork(cidr).version != 4):
@@ -1667,6 +1667,28 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             msg = _("Subnet overlaps with shared address space 100.64.0.0/10")
             LOG.error(msg)
             raise n_exc.InvalidInput(error_message=msg)
+        # Ensure that the NSX uplink does not lie on the same subnet as
+        # the external subnet
+        filters = {'id': [subnet['network_id']],
+                   'router:external': [True]}
+        nets = self.get_networks(context, filters=filters)
+        for net in nets:
+            tier0 = net.get(pnet.PHYSICAL_NETWORK)
+            if tier0:
+                ports = self.nsxlib.logical_router_port.get_by_router_id(tier0)
+                for port in ports:
+                    if (port.get('resource_type') ==
+                        'LogicalRouterUpLinkPort'):
+                        for subnet in port.get('subnets', []):
+                            for ip_address in subnet.get('ip_addresses'):
+                                if (netaddr.IPAddress(ip_address) in
+                                    netaddr.IPNetwork(cidr)):
+                                    msg = _("External subnet cannot "
+                                            "overlap with T0 router "
+                                            "address!")
+                                    LOG.error(msg)
+                                    raise n_exc.InvalidInput(
+                                            error_message=msg)
 
     def _create_bulk_with_callback(self, resource, context, request_items,
                                    post_create_func=None, rollback_func=None):
@@ -1764,7 +1786,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             return self._create_bulk('subnet', context, subnets)
 
     def create_subnet(self, context, subnet):
-        self._validate_address_space(subnet['subnet'])
+        self._validate_address_space(context, subnet['subnet'])
         # TODO(berlin): public external subnet announcement
         if (cfg.CONF.nsx_v3.native_dhcp_metadata and
             subnet['subnet'].get('enable_dhcp', False)):
