@@ -27,4 +27,14 @@ oslo.vmware>=2.17.0 # Apache-2.0
 PrettyTable<0.8,>=0.7.1 # BSD
 tooz>=1.58.0 # Apache-2.0
 decorator>=3.4.0 # BSD
+
+# These repos are installed from git in OpenStack CI if the job
+# configures them as required-projects:
 neutron>=12.0.0 # Apache-2.0
+networking-l2gw>=12.0.0  # Apache-2.0
+networking-sfc>=6.0.0  # Apache-2.0
+neutron-lbaas>=12.0.0  # Apache-2.0
+neutron-fwaas>=12.0.0  # Apache-2.0
+neutron-vpnaas>=12.0.0  # Apache-2.0
+neutron-dynamic-routing>=12.0.0  # Apache-2.0
+vmware-nsxlib>=11.0.0  # Apache-2.0
