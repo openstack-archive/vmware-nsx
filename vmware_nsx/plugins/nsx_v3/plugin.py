@@ -3525,17 +3525,21 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _add_subnet_no_dnat_rule(self, context, nsx_router_id, subnet):
         # Add NO-DNAT rule to allow internal traffic between VMs, even if
         # they have floating ips
-        self.nsxlib.logical_router.add_nat_rule(
-            nsx_router_id, "NO_DNAT", None,
-            dest_net=subnet['cidr'],
-            rule_priority=nsxlib_router.GW_NAT_PRI)
+        if self.nsxlib.feature_supported(
+            nsxlib_consts.FEATURE_NO_DNAT_NO_SNAT):
+            self.nsxlib.logical_router.add_nat_rule(
+                nsx_router_id, "NO_DNAT", None,
+                dest_net=subnet['cidr'],
+                rule_priority=nsxlib_router.GW_NAT_PRI)
 
     def _del_subnet_no_dnat_rule(self, context, nsx_router_id, subnet):
         # Delete the previously created NO-DNAT rules
-        self.nsxlib.logical_router.delete_nat_rule_by_values(
-            nsx_router_id,
-            action="NO_DNAT",
-            match_destination_network=subnet['cidr'])
+        if self.nsxlib.feature_supported(
+            nsxlib_consts.FEATURE_NO_DNAT_NO_SNAT):
+            self.nsxlib.logical_router.delete_nat_rule_by_values(
+                nsx_router_id,
+                action="NO_DNAT",
+                match_destination_network=subnet['cidr'])
 
     def _process_extra_attr_router_create(self, context, router_db, r):
         for extra_attr in l3_attrs_db.get_attr_info().keys():
