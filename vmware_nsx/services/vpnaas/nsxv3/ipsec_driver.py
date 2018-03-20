@@ -104,9 +104,9 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
                 fw_rules.append({
                     'display_name': 'VPN connection ' + conn['id'],
                     'action': consts.FW_ACTION_ALLOW,
-                    'sources': self._translate_addresses_to_target(
-                        peer_cidrs),
                     'destinations': self._translate_addresses_to_target(
+                        peer_cidrs),
+                    'sources': self._translate_addresses_to_target(
                         local_cidrs)})
 
         return fw_rules
