@@ -1015,6 +1015,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 nsx_id)
 
     def _is_ddi_supported_on_network(self, context, network_id):
+        # NSX current does not support transparent VLAN ports for
+        # DHCP and metadata
+        if cfg.CONF.vlan_transparent:
+            net = self.get_network(context, network_id)
+            if net.get('vlan_transparent') is True:
+                return False
         return (self.nsxlib.feature_supported(
                     nsxlib_consts.FEATURE_VLAN_ROUTER_INTERFACE) or
                 self._is_overlay_network(context, network_id))
