@@ -56,8 +56,8 @@ class NeutronNsxDB(object):
         return self.query_all('nsx_service_id',
                               nsx_models.NeutronNsxServiceBinding)
 
-    def get_vpn_sessions(self):
-        return self.query_all('session_id',
+    def get_vpn_objects(self, column_name):
+        return self.query_all(column_name,
                               nsx_models.NsxVpnConnectionMapping)
 
 
@@ -419,20 +419,32 @@ class NSXClient(object):
                 print("Successfully deleted logical DHCP server %s" %
                       server['display_name'])
 
-    def get_os_vpn_sessions(self):
+    def get_os_vpn_objects(self, nsxlib_class, db_column_name):
         """
         Retrieve all nsx vpn sessions from nsx and OpenStack
         """
-        sessions = self.get_os_resources(
-            self.nsxlib.vpn_ipsec.session.list()['results'])
-
+        objects = self.get_os_resources(nsxlib_class.list()['results'])
         if self.neutron_db:
-            db_sessions = self.neutron_db.get_vpn_sessions()
-            sessions = [sess for sess in sessions
-                        if sess['id'] in db_sessions]
-        return sessions
+            db_objects = self.neutron_db.get_vpn_objects(db_column_name)
+            objects = [obj for obj in objects if obj['id'] in db_objects]
+        return objects
 
-    def cleanup_vpnaas_objects(self):
+    def clean_vpn_objects(self, obj_name, nsxlib_class, db_column_name):
+        objects = self.get_os_vpn_objects(nsxlib_class, db_column_name)
+        print("Number of VPN %(name)ss to be deleted: %(num)s" %
+              {'name': obj_name, 'num': len(objects)})
+        for obj in objects:
+            try:
+                nsxlib_class.delete(obj['id'])
+            except Exception as e:
+                print("ERROR: Failed to delete vpn ipsec %(name)s %(id)s, "
+                      "error %(e)s" % {'name': obj_name, 'id': obj['id'],
+                                       'e': e})
+            else:
+                print("Successfully deleted vpn ipsec %(name)s %(id)s" %
+                      {'name': obj_name, 'id': obj['id']})
+
+    def cleanup_vpnaas(self):
         """
         Cleanup vpn/ipsec nsx objects
         """
@@ -440,18 +452,23 @@ class NSXClient(object):
             # no vpn support
             return
 
-        # sessions: leftover sessions prevent us from configuring new similar
-        # sessions so it is important to delete them
-        sessions = self.get_os_vpn_sessions()
-        for session in sessions:
-            try:
-                self.nsxlib.vpn_ipsec.session.delete(session['id'])
-            except Exception as e:
-                print("ERROR: Failed to delete vpn ipsec session %s, "
-                      "error %s" % (session['id'], e))
-            else:
-                print("Successfully deleted vpn ipsec session %s" %
-                      session['id'])
+        self.clean_vpn_objects('session',
+                               self.nsxlib.vpn_ipsec.session,
+                               'session_id')
+        self.clean_vpn_objects('peer endpoint',
+                               self.nsxlib.vpn_ipsec.peer_endpoint,
+                               'peer_ep_id')
+        self.clean_vpn_objects('DPD profile',
+                               self.nsxlib.vpn_ipsec.dpd_profile,
+                               'dpd_profile_id')
+        self.clean_vpn_objects('IKE profile',
+                               self.nsxlib.vpn_ipsec.ike_profile,
+                               'ike_profile_id')
+        self.clean_vpn_objects('tunnel profile',
+                               self.nsxlib.vpn_ipsec.tunnel_profile,
+                               'ipsec_profile_id')
+        #NOTE(asarfaty): The vpn services are not deleted since we have 1 per
+        # Tier-0 router, and those can be used outside of openstack too.
 
     def cleanup_logical_router_vpn_sess(self, lr):
         """
@@ -498,7 +515,7 @@ class NSXClient(object):
         """
         self.cleanup_os_firewall_sections()
         self.cleanup_os_ns_groups()
-        self.cleanup_vpnaas_objects()
+        self.cleanup_vpnaas()
         self.cleanup_os_logical_routers()
         self.cleanup_os_tier0_logical_ports()
         self.cleanup_os_logical_ports()
