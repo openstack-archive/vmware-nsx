@@ -3758,7 +3758,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     raise n_exc.InvalidInput(error_message=msg)
 
             # VPNaaS need to be notified on router GW changes (there is
-            # currentlyno matching upstream registration for this)
+            # currently no matching upstream registration for this)
             vpn_plugin = directory.get_plugin(plugin_const.VPN)
             if vpn_plugin:
                 vpn_driver = vpn_plugin.drivers[vpn_plugin.default_provider]
