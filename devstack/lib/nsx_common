@@ -92,7 +92,11 @@ function _nsxv3_ini_set {
 }
 
 function nsxv3_configure_service {
-    _nsxv3_ini_set default_overlay_tz $DEFAULT_OVERLAY_TZ_UUID "The VMware NSX plugin won't work without a default transport zone."
+    if [[ $1 == "nsx_v3" ]]; then
+        _nsxv3_ini_set default_overlay_tz $DEFAULT_OVERLAY_TZ_UUID "The VMware NSX plugin won't work without a default transport zone."
+    else
+        _nsxv3_ini_set default_overlay_tz $DEFAULT_OVERLAY_TZ_UUID
+    fi
     _nsxv3_ini_set default_vlan_tz $DEFAULT_VLAN_TZ_UUID
     if [[ "$DEFAULT_TIER0_ROUTER_UUID" != "" ]]; then
         _nsxv3_ini_set default_tier0_router $DEFAULT_TIER0_ROUTER_UUID
