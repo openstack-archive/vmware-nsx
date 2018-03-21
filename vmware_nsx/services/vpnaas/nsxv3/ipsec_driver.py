@@ -38,12 +38,22 @@ from vmware_nsxlib.v3 import vpn_ipsec
 
 LOG = logging.getLogger(__name__)
 IPSEC = 'ipsec'
-VPN_PORT_OWNER = constants.DEVICE_OWNER_NEUTRON_PREFIX + 'vpnservice'
+VPN_PORT_OWNER = 'vpnservice'
 
 
 class RouterWithSNAT(nexception.BadRequest):
     message = _("Router %(router_id)s has a VPN service and cannot enable "
                 "SNAT")
+
+
+class RouterWithOverlapNoSnat(nexception.BadRequest):
+    message = _("Router %(router_id)s has a subnet overlapping with a VPN "
+                "local subnet, and cannot disable SNAT")
+
+
+class RouterOverlapping(nexception.BadRequest):
+    message = _("Router %(router_id)s interface is overlapping with a VPN "
+                "local subnet and cannot be added")
 
 
 class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
@@ -62,6 +72,10 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
         registry.subscribe(
             self._delete_local_endpoint, resources.ROUTER_GATEWAY,
             events.AFTER_DELETE)
+
+        registry.subscribe(
+            self._verify_overlap_subnet, resources.ROUTER_INTERFACE,
+            events.BEFORE_CREATE)
 
     @property
     def l3_plugin(self):
@@ -364,7 +378,7 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
 
     def _find_vpn_service_port(self, context, router_id):
         """Look for the neutron port created for the vpnservice of a router"""
-        filters = {'device_id': [router_id],
+        filters = {'device_id': ['router-' + router_id],
                    'device_owner': [VPN_PORT_OWNER]}
         ports = self.l3_plugin.get_ports(context, filters=filters)
         if ports:
@@ -383,18 +397,68 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
         if port:
             self.l3_plugin.delete_port(ctx, port['id'])
 
+    def _check_subnets_overlap_with_all_conns(self, context, subnets):
+        # find all vpn services with connections
+        filters = {'status': [constants.ACTIVE]}
+        connections = self.vpn_plugin.get_ipsec_site_connections(
+            context, filters=filters)
+        for conn in connections:
+            srv_id = conn.get('vpnservice_id')
+            srv = self.vpn_plugin._get_vpnservice(context, srv_id)
+            srv_subnet = self.l3_plugin.get_subnet(
+                context, srv['subnet_id'])
+            if netaddr.IPSet(subnets) & netaddr.IPSet([srv_subnet['cidr']]):
+                return False
+
+        return True
+
+    def _verify_overlap_subnet(self, resource, event, trigger, **kwargs):
+        """Upon router interface creation validation overlapping with vpn"""
+        router_db = kwargs.get('router_db')
+        port = kwargs.get('port')
+        if not port or not router_db:
+            LOG.warning("NSX V3 VPNaaS ROUTER_INTERFACE BEFORE_CRAETE "
+                        "callback didn't get all the relevant information")
+            return
+
+        if router_db.enable_snat:
+            # checking only no-snat routers
+            return
+
+        admin_con = n_context.get_admin_context()
+        subnet_id = port['fixed_ips'][0].get('subnet_id')
+        if subnet_id:
+            subnet = self._core_plugin.get_subnet(admin_con, subnet_id)
+            # find all vpn services with connections
+            if not self._check_subnets_overlap_with_all_conns(
+                admin_con, [subnet['cidr']]):
+                raise RouterOverlapping(router_id=kwargs.get('router_id'))
+
     def validate_router_gw_info(self, context, router_id, gw_info):
         """Upon router gw update - verify no-snat"""
-        # ckeck if this router has a vpn service
+        # check if this router has a vpn service
+        admin_con = context.elevated()
         filters = {'router_id': [router_id],
                    'status': [constants.ACTIVE]}
-        services = self.vpn_plugin.get_vpnservices(
-            context.elevated(), filters=filters)
+        services = self.vpn_plugin.get_vpnservices(admin_con, filters=filters)
         if services:
             # do not allow enable-snat
             if (gw_info and
                 gw_info.get('enable_snat', cfg.CONF.enable_snat_by_default)):
                 raise RouterWithSNAT(router_id=router_id)
+        else:
+            # if this is a non-vpn router. if snat was disabled, should check
+            # there is no overlapping with vpn connections
+            if (gw_info and
+                not gw_info.get('enable_snat',
+                                cfg.CONF.enable_snat_by_default)):
+                # get router subnets
+                subnets = self._core_plugin._find_router_subnets_cidrs(
+                    context, router_id)
+                # find all vpn services with connections
+                if not self._check_subnets_overlap_with_all_conns(
+                    admin_con, subnets):
+                    raise RouterWithOverlapNoSnat(router_id=router_id)
 
     def _get_session_rules(self, context, connection, vpnservice):
         # TODO(asarfaty): support vpn-endpoint-groups too
@@ -600,7 +664,7 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
     def _create_vpn_service(self, tier0_uuid):
         try:
             service = self._nsx_vpn.service.create(
-                'Neutron VPN service for router ' + tier0_uuid,
+                'Neutron VPN service for T0 router ' + tier0_uuid,
                 tier0_uuid,
                 enabled=True,
                 ike_log_level=ipsec_utils.DEFAULT_LOG_LEVEL,
@@ -658,13 +722,15 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
         port = self._find_vpn_service_port(context, router_id)
         if not port:
             # create a new port, on the external network of the router
+            # Note(asarfaty): using a unique device owner and device id to
+            # make sure tis port will be ignored in certain queries
             ext_net = vpnservice.router.gw_port['network_id']
             port_data = {
                 'port': {
                     'network_id': ext_net,
-                    'name': None,
+                    'name': 'VPN local address port',
                     'admin_state_up': True,
-                    'device_id': vpnservice.router['id'],
+                    'device_id': 'router-' + vpnservice.router['id'],
                     'device_owner': VPN_PORT_OWNER,
                     'fixed_ips': constants.ATTR_NOT_SPECIFIED,
                     'mac_address': constants.ATTR_NOT_SPECIFIED,

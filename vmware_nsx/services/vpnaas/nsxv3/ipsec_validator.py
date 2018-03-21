@@ -14,6 +14,7 @@
 #    under the License.
 
 import netaddr
+from oslo_config import cfg
 from oslo_log import log as logging
 
 from neutron_lib import constants
@@ -235,7 +236,8 @@ class IPsecV3Validator(vpn_validator.VpnReferenceValidator):
                           if (rtr['id'] != this_router and
                               rtr.get('external_gateway_info') and
                               not rtr['external_gateway_info'].get(
-                                'enable_snat', True))]
+                                  'enable_snat',
+                                  cfg.CONF.enable_snat_by_default))]
         for rtr in nosnat_routers:
             if rtr['id'] == this_router:
                 continue
@@ -270,9 +272,6 @@ class IPsecV3Validator(vpn_validator.VpnReferenceValidator):
                     'rtr': conn_srv['router_id'],
                     'conn': conn['id']})
                 raise nsx_exc.NsxVpnValidationError(details=msg)
-
-        # TODO(asarfaty): also add this validation when adding an interface
-        # or no-snat to a router through the nsx-v3 plugin
 
     def validate_ipsec_site_connection(self, context, ipsec_site_conn):
         """Called upon create/update of a connection"""
