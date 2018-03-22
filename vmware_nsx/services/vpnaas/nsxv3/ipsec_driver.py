@@ -395,7 +395,7 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
         ctx = n_context.get_admin_context()
         port = self._find_vpn_service_port(ctx, router_id)
         if port:
-            self.l3_plugin.delete_port(ctx, port['id'])
+            self.l3_plugin.delete_port(ctx, port['id'], force_delete_vpn=True)
 
     def _check_subnets_overlap_with_all_conns(self, context, subnets):
         # find all vpn services with connections
