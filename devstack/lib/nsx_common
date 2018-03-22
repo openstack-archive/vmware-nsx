@@ -111,8 +111,6 @@ function nsxv3_configure_service {
     else
         if [[ $1 == "nsx_v3" ]]; then
             die $LINENO "The VMware NSX plugin needs at least one NSX manager."
-        else
-            return
         fi
     fi
     if [[ "$NSX_L2GW_DRIVER" != "" ]]; then
