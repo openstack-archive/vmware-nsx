@@ -168,6 +168,8 @@ def _mock_nsx_backend_calls():
     mock.patch(
         "vmware_nsxlib.v3.load_balancer.Service.get_router_lb_service",
         return_value=None).start()
+    mock.patch('vmware_nsxlib.v3.core_resources.NsxLibTransportZone.'
+               'get_transport_type', return_value='OVERLAY').start()
 
 
 class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,

@@ -1054,6 +1054,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         bindings = nsx_db.get_network_bindings(context.session, network_id)
         # With NSX plugin, "normal" overlay networks will have no binding
         if not bindings:
+            # check the backend network
+            # TODO(asarfaty): Keep TZ type in DB to avoid going to the backend
+            az = self.get_network_az_by_net_id(context, network_id)
+            ls = self.nsxlib.logical_switch.get(az._default_overlay_tz_uuid)
+            tz = ls.get('transport_zone_id')
+            if tz:
+                backend_type = self.nsxlib.transport_zone.get_transport_type(
+                    tz)
+                return (backend_type ==
+                        self.nsxlib.transport_zone.TRANSPORT_TYPE_OVERLAY)
             return True
         binding = bindings[0]
         if binding.binding_type == utils.NsxV3NetworkTypes.GENEVE:
