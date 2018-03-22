@@ -116,6 +116,7 @@ from vmware_nsx.services.lbaas.nsx_v3 import lb_driver_v2
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v3 import driver as qos_driver
 from vmware_nsx.services.trunk.nsx_v3 import driver as trunk_driver
+from vmware_nsx.services.vpnaas.nsxv3 import ipsec_driver
 from vmware_nsxlib.v3 import core_resources as nsx_resources
 from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
 from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
@@ -2349,6 +2350,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 LOG.warning(err_msg)
                 raise n_exc.InvalidInput(error_message=err_msg)
 
+    def _assert_on_vpn_port_change(self, port_data):
+        if port_data['device_owner'] == ipsec_driver.VPN_PORT_OWNER:
+            msg = _('Can not update/delete VPNaaS port %s') % port_data['id']
+            raise n_exc.InvalidInput(error_message=msg)
+
     def _filter_ipv4_dhcp_fixed_ips(self, context, fixed_ips):
         ips = []
         for fixed_ip in fixed_ips:
@@ -2832,7 +2838,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def delete_port(self, context, port_id,
                     l3_port_check=True, l2gw_port_check=True,
-                    force_delete_dhcp=False):
+                    force_delete_dhcp=False,
+                    force_delete_vpn=False):
         # if needed, check to see if this is a port owned by
         # a l2 gateway.  If so, we should prevent deletion here
         self._pre_delete_port_check(context, port_id, l2gw_port_check)
@@ -2847,6 +2854,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             port['device_owner'] in [const.DEVICE_OWNER_DHCP]):
             msg = (_('Can not delete DHCP port %s') % port['id'])
             raise n_exc.BadRequest(resource='port', msg=msg)
+        if not force_delete_vpn:
+            self._assert_on_vpn_port_change(port)
         if not self._network_is_external(context, port['network_id']):
             _net_id, nsx_port_id = nsx_db.get_nsx_switch_and_port_id(
                 context.session, port_id)
@@ -3168,6 +3177,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._assert_on_port_sec_change(port_data, device_owner)
             self._validate_max_ips_per_port(
                 port_data.get('fixed_ips', []), device_owner)
+            self._assert_on_vpn_port_change(original_port)
 
             updated_port = super(NsxV3Plugin, self).update_port(context,
                                                                 id, port)
