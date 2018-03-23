@@ -30,6 +30,22 @@ function _nsxv_ini_set {
 }
 
 function nsxv_configure_service {
+    # TODO(boden): find a better way to use master branch dependencies in devstack
+    sudo rm -rf /usr/local/lib/python2.7/dist-packages/networking_l2gw*
+    sudo pip install -e "git+https://git.openstack.org/openstack/networking-l2gw#egg=networking_l2gw"
+    sudo rm -rf /usr/local/lib/python2.7/dist-packages/networking_sfc*
+    sudo pip install -e "git+https://git.openstack.org/openstack/networking-sfc#egg=networking_sfc"
+    sudo rm -rf /usr/local/lib/python2.7/dist-packages/neutron_lbaas*
+    sudo pip install -e "git+https://git.openstack.org/openstack/neutron-lbaas#egg=neutron_lbaas"
+    sudo rm -rf /usr/local/lib/python2.7/dist-packages/neutron_fwaas*
+    sudo pip install -e "git+https://git.openstack.org/openstack/neutron-fwaas#egg=neutron_fwaas"
+    sudo rm -rf /usr/local/lib/python2.7/dist-packages/neutron_dynamic_routing*
+    sudo pip install -e "git+https://git.openstack.org/openstack/neutron-dynamic-routing#egg=neutron_dynamic_routing"
+    sudo rm -rf /usr/local/lib/python2.7/dist-packages/neutron_vpnaas*
+    sudo pip install -e "git+https://git.openstack.org/openstack/neutron-vpnaas#egg=neutron_vpnaas"
+    sudo rm -rf /usr/local/lib/python2.7/dist-packages/vmware_nsxlib*
+    sudo pip install -e "git+https://git.openstack.org/openstack/vmware-nsxlib#egg=vmware_nsxlib"
+
     if [[ "$NSX_L2GW_DRIVER" != "" ]]; then
         iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_l2gw_driver $NSX_L2GW_DRIVER
     fi
@@ -92,6 +108,22 @@ function _nsxv3_ini_set {
 }
 
 function nsxv3_configure_service {
+    # TODO(boden): find a better way to use master branch dependencies in devstack
+    sudo rm -rf /usr/local/lib/python2.7/dist-packages/networking_l2gw*
+    sudo pip install -e "git+https://git.openstack.org/openstack/networking-l2gw#egg=networking_l2gw"
+    sudo rm -rf /usr/local/lib/python2.7/dist-packages/networking_sfc*
+    sudo pip install -e "git+https://git.openstack.org/openstack/networking-sfc#egg=networking_sfc"
+    sudo rm -rf /usr/local/lib/python2.7/dist-packages/neutron_lbaas*
+    sudo pip install -e "git+https://git.openstack.org/openstack/neutron-lbaas#egg=neutron_lbaas"
+    sudo rm -rf /usr/local/lib/python2.7/dist-packages/neutron_fwaas*
+    sudo pip install -e "git+https://git.openstack.org/openstack/neutron-fwaas#egg=neutron_fwaas"
+    sudo rm -rf /usr/local/lib/python2.7/dist-packages/neutron_dynamic_routing*
+    sudo pip install -e "git+https://git.openstack.org/openstack/neutron-dynamic-routing#egg=neutron_dynamic_routing"
+    sudo rm -rf /usr/local/lib/python2.7/dist-packages/neutron_vpnaas*
+    sudo pip install -e "git+https://git.openstack.org/openstack/neutron-vpnaas#egg=neutron_vpnaas"
+    sudo rm -rf /usr/local/lib/python2.7/dist-packages/vmware_nsxlib*
+    sudo pip install -e "git+https://git.openstack.org/openstack/vmware-nsxlib#egg=vmware_nsxlib"
+
     if [[ $1 == "nsx_v3" ]]; then
         _nsxv3_ini_set default_overlay_tz $DEFAULT_OVERLAY_TZ_UUID "The VMware NSX plugin won't work without a default transport zone."
     else
