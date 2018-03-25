@@ -1,0 +1,12 @@
+- job:
+    name: vmware-tox-lower-constraints
+    parent: openstack-tox-lower-constraints
+    timeout: 5400
+
+- project:
+    check:
+      jobs:
+        - vmware-tox-lower-constraints
+    gate:
+      jobs:
+        - vmware-tox-lower-constraints
