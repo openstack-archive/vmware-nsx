@@ -509,6 +509,65 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
             self.assertEqual('NsxENSPortSecurity',
                              res['NeutronError']['type'])
 
+    def test_create_ens_network_with_qos(self):
+        cfg.CONF.set_override('ens_support', True, 'nsx_v3')
+        mock_ens = mock.patch('vmware_nsxlib.v3'
+                              '.core_resources.NsxLibTransportZone'
+                              '.get_host_switch_mode', return_value='ENS')
+        mock_tz = mock.patch('vmware_nsxlib.v3'
+                             '.core_resources.NsxLibLogicalSwitch.get',
+                             return_value={'transport_zone_id': 'xxx'})
+        mock_tt = mock.patch('vmware_nsxlib.v3'
+                             '.core_resources.NsxLibTransportZone'
+                             '.get_transport_type', return_value='VLAN')
+        policy_id = uuidutils.generate_uuid()
+        data = {'network': {
+                'name': 'qos_net',
+                'tenant_id': 'some_tenant',
+                'provider:network_type': 'flat',
+                'provider:physical_network': 'xxx',
+                'qos_policy_id': policy_id,
+                'port_security_enabled': False}}
+        with mock_ens, mock_tz, mock_tt:
+                self.assertRaises(n_exc.InvalidInput,
+                                  self.plugin.create_network,
+                                  context.get_admin_context(), data)
+
+    def test_update_ens_network_with_qos(self):
+        cfg.CONF.set_override('ens_support', True, 'nsx_v3')
+        mock_ens = mock.patch('vmware_nsxlib.v3'
+                              '.core_resources.NsxLibTransportZone'
+                              '.get_host_switch_mode', return_value='ENS')
+        mock_tz = mock.patch('vmware_nsxlib.v3'
+                             '.core_resources.NsxLibLogicalSwitch.get',
+                             return_value={'transport_zone_id': 'xxx'})
+        mock_tt = mock.patch('vmware_nsxlib.v3'
+                             '.core_resources.NsxLibTransportZone'
+                             '.get_transport_type', return_value='VLAN')
+        data = {'network': {
+                'name': 'qos_net',
+                'tenant_id': 'some_tenant',
+                'provider:network_type': 'flat',
+                'provider:physical_network': 'xxx',
+                'admin_state_up': True,
+                'shared': False,
+                'port_security_enabled': False}}
+        with mock_ens, mock_tz, mock_tt:
+            network = self.plugin.create_network(context.get_admin_context(),
+                                                 data)
+            policy_id = uuidutils.generate_uuid()
+            data = {'network': {
+                    'id': network['id'],
+                    'admin_state_up': True,
+                    'shared': False,
+                    'port_security_enabled': False,
+                    'tenant_id': 'some_tenant',
+                    'qos_policy_id': policy_id}}
+            self.assertRaises(n_exc.InvalidInput,
+                              self.plugin.update_network,
+                              context.get_admin_context(),
+                              network['id'], data)
+
     def test_update_ens_network(self):
         cfg.CONF.set_override('ens_support', True, 'nsx_v3')
         providernet_args = {psec.PORTSECURITY: False}
@@ -818,6 +877,75 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                 # Cannot add qos policy to this type of port
                 self.assertRaises(n_exc.InvalidInput,
                           self.plugin.create_port, self.ctx, data)
+
+    def test_create_port_ens_with_qos_fail(self):
+        with self.network() as network:
+            with self.subnet(network=network, cidr='10.0.0.0/24'):
+                policy_id = uuidutils.generate_uuid()
+                mock_ens = mock.patch('vmware_nsxlib.v3'
+                                      '.core_resources.NsxLibTransportZone'
+                                      '.get_host_switch_mode',
+                                      return_value='ENS')
+                mock_tz = mock.patch('vmware_nsxlib.v3'
+                                     '.core_resources'
+                                     '.NsxLibLogicalSwitch.get',
+                                     return_value={
+                                          'transport_zone_id': 'xxx'})
+                mock_tt = mock.patch('vmware_nsxlib.v3'
+                                     '.core_resources.NsxLibTransportZone'
+                                     '.get_transport_type',
+                                     return_value='VLAN')
+                data = {'port': {
+                    'network_id': network['network']['id'],
+                    'tenant_id': self._tenant_id,
+                    'name': 'qos_port',
+                    'admin_state_up': True,
+                    'device_id': 'fake_device',
+                    'device_owner': 'fake_owner',
+                    'fixed_ips': [],
+                    'port_security_enabled': False,
+                    'mac_address': '00:00:00:00:00:01',
+                    'qos_policy_id': policy_id}
+                }
+                # Cannot add qos policy to this type of port
+                with mock_ens, mock_tz, mock_tt:
+                    self.assertRaises(n_exc.InvalidInput,
+                                      self.plugin.create_port, self.ctx, data)
+
+    def test_update_port_ens_with_qos_fail(self):
+        with self.network() as network:
+            with self.subnet(network=network, cidr='10.0.0.0/24'):
+                policy_id = uuidutils.generate_uuid()
+                mock_ens = mock.patch('vmware_nsxlib.v3'
+                                      '.core_resources.NsxLibTransportZone'
+                                      '.get_host_switch_mode',
+                                      return_value='ENS')
+                mock_tz = mock.patch('vmware_nsxlib.v3'
+                                     '.core_resources'
+                                     '.NsxLibLogicalSwitch.get',
+                                     return_value={
+                                          'transport_zone_id': 'xxx'})
+                mock_tt = mock.patch('vmware_nsxlib.v3'
+                                     '.core_resources.NsxLibTransportZone'
+                                     '.get_transport_type',
+                                     return_value='VLAN')
+                data = {'port': {
+                        'network_id': network['network']['id'],
+                        'tenant_id': self._tenant_id,
+                        'name': 'qos_port',
+                        'admin_state_up': True,
+                        'device_id': 'fake_device',
+                        'device_owner': 'fake_owner',
+                        'fixed_ips': [],
+                        'port_security_enabled': False,
+                        'mac_address': '00:00:00:00:00:01'}
+                        }
+                with mock_ens, mock_tz, mock_tt:
+                    port = self.plugin.create_port(self.ctx, data)
+                    data['port'] = {'qos_policy_id': policy_id}
+                    self.assertRaises(n_exc.InvalidInput,
+                                      self.plugin.update_port,
+                                      self.ctx, port['id'], data)
 
     def test_create_router_port_with_qos_fail(self):
         self._test_create_illegal_port_with_qos_fail(
