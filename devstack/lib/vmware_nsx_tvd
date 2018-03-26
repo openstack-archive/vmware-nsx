@@ -112,21 +112,7 @@ function neutron_plugin_create_nova_conf {
 function neutron_plugin_install_agent_packages {
     # VMware NSX Plugin does not run q-agt, but it currently needs dhcp and metadata agents
     _neutron_ovs_base_install_agent_packages
-    # TODO(boden): find a better way to use master branch dependencies in devstack
-    sudo rm -rf /usr/local/lib/python2.7/dist-packages/networking_l2gw*
-    sudo pip install -e "git+https://git.openstack.org/openstack/networking-l2gw#egg=networking_l2gw"
-    sudo rm -rf /usr/local/lib/python2.7/dist-packages/networking_sfc*
-    sudo pip install -e "git+https://git.openstack.org/openstack/networking-sfc#egg=networking_sfc"
-    sudo rm -rf /usr/local/lib/python2.7/dist-packages/neutron_lbaas*
-    sudo pip install -e "git+https://git.openstack.org/openstack/neutron-lbaas#egg=neutron_lbaas"
-    sudo rm -rf /usr/local/lib/python2.7/dist-packages/neutron_fwaas*
-    sudo pip install -e "git+https://git.openstack.org/openstack/neutron-fwaas#egg=neutron_fwaas"
-    sudo rm -rf /usr/local/lib/python2.7/dist-packages/neutron_dynamic_routing*
-    sudo pip install -e "git+https://git.openstack.org/openstack/neutron-dynamic-routing#egg=neutron_dynamic_routing"
-    sudo rm -rf /usr/local/lib/python2.7/dist-packages/neutron_vpnaas*
-    sudo pip install -e "git+https://git.openstack.org/openstack/neutron-vpnaas#egg=neutron_vpnaas"
-    sudo rm -rf /usr/local/lib/python2.7/dist-packages/vmware_nsxlib*
-    sudo pip install -e "git+https://git.openstack.org/openstack/vmware-nsxlib#egg=vmware_nsxlib"
+    install_neutron_projects
 }
 
 function neutron_plugin_configure_common {
