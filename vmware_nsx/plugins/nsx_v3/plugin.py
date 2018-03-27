@@ -4034,7 +4034,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                          "network") % {'net_id': net_id, 'net_type': net_type})
             LOG.error(err_msg)
             raise n_exc.InvalidInput(error_message=err_msg)
-
+        # Unable to attach a trunked network to a router interface
+        if cfg.CONF.vlan_transparent:
+            if network.get('vlan_transparent') is True:
+                err_msg = (_("Transparent VLAN networks cannot be attached to "
+                             "a logical router."))
+                LOG.error(err_msg)
+                raise n_exc.InvalidInput(error_message=err_msg)
         port_filters = {'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF],
                         'network_id': [net_id]}
         intf_ports = self.get_ports(context.elevated(), filters=port_filters)
