@@ -208,7 +208,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                    "flavors",
                                    "dhcp-mtu",
                                    "mac-learning",
-                                   "housekeeper"]
+                                   "housekeeper",
+                                   "port-security-groups-filtering"]
 
     __native_bulk_support = True
     __native_pagination_support = True
@@ -2448,6 +2449,19 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         port = super(NsxVPluginV2, self).get_port(context, id, fields=None)
         self._extend_get_port_dict_qos(context, port)
         return db_utils.resource_fields(port, fields)
+
+    def get_ports(self, context, filters=None, fields=None,
+                  sorts=None, limit=None, marker=None,
+                  page_reverse=False):
+        filters = filters or {}
+        self._update_filters_with_sec_group(context, filters)
+        with db_api.context_manager.reader.using(context):
+            ports = (
+                super(NsxVPluginV2, self).get_ports(
+                    context, filters, fields, sorts,
+                    limit, marker, page_reverse))
+        return (ports if not fields else
+                [db_utils.resource_fields(port, fields) for port in ports])
 
     def delete_port(self, context, id, l3_port_check=True,
                     nw_gw_port_check=True, force_delete_dhcp=False,

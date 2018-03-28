@@ -178,6 +178,21 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
             device_id=device_id,
             device_owner=device_owner,).all()
 
+    def _update_filters_with_sec_group(self, context, filters=None):
+        if filters is not None:
+            security_groups = filters.pop("security_groups", None)
+            if security_groups:
+                bindings = (
+                    super(NsxPluginBase, self)
+                    ._get_port_security_group_bindings(context,
+                        filters={'security_group_id': security_groups}))
+                if 'id' in filters:
+                    filters['id'] = [entry['port_id'] for
+                                     entry in bindings
+                                     if entry['port_id'] in filters['id']]
+                else:
+                    filters['id'] = [entry['port_id'] for entry in bindings]
+
     def _find_router_subnets(self, context, router_id):
         """Retrieve subnets attached to the specified router."""
         ports = self._get_port_by_device_id(context, router_id,
