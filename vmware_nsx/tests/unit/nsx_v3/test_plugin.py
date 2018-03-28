@@ -616,6 +616,30 @@ class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
                               self.plugin.create_subnet,
                               context.get_admin_context(), data)
 
+    def _create_external_network(self):
+        data = {'network': {'name': 'net1',
+                            'router:external': 'True',
+                            'tenant_id': 'tenant_one',
+                            'provider:physical_network': 'stam'}}
+        network_req = self.new_create_request('networks', data)
+        network = self.deserialize(self.fmt,
+                                   network_req.get_response(self.api))
+        return network
+
+    def test_create_subnet_with_conflicting_t0_address(self):
+        network = self._create_external_network()
+        data = {'subnet': {'network_id': network['network']['id'],
+                           'cidr': '172.20.1.0/24'}}
+        ports = [{'subnets': [{'ip_addresses': [u'172.20.1.60'],
+                               'prefix_length': 24}],
+                  'resource_type': 'LogicalRouterUpLinkPort'}]
+        with mock.patch.object(self.plugin.nsxlib.logical_router_port,
+                               'get_by_router_id',
+                               return_value=ports):
+            self.assertRaises(n_exc.InvalidInput,
+                              self.plugin.create_subnet,
+                              context.get_admin_context(), data)
+
     def test_subnet_update_ipv4_and_ipv6_pd_v6stateless_subnets(self):
         self.skipTest('Multiple fixed ips on a port are not supported')
 
