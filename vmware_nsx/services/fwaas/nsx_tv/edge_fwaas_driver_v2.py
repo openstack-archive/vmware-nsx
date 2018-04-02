@@ -16,7 +16,6 @@
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
-from neutron_fwaas.services.firewall.drivers import fwaas_base_v2
 from neutron_lib.exceptions import firewall_v2 as exceptions
 
 from vmware_nsx.extensions import projectpluginmap
@@ -25,6 +24,13 @@ from vmware_nsx.services.fwaas.nsx_v3 import edge_fwaas_driver_v2 as t_driver
 
 LOG = logging.getLogger(__name__)
 FWAAS_DRIVER_NAME = 'FwaaS V2 NSX-TV driver'
+
+try:
+    from neutron_fwaas.services.firewall.drivers import fwaas_base_v2
+except ImportError:
+    # FWaaS project no found
+    from vmware_nsx.services.fwaas.common import fwaas_mocks \
+        as fwaas_base_v2
 
 
 class EdgeFwaasTVDriverV2(fwaas_base_v2.FwaasDriverBase):

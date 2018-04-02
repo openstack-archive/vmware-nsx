@@ -13,9 +13,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron_fwaas.services.firewall import fwaas_plugin_v2
-
 from vmware_nsx.plugins.nsx import utils as tvd_utils
+
+try:
+    from neutron_fwaas.services.firewall import fwaas_plugin_v2
+except ImportError:
+    # FWaaS project no found
+    from vmware_nsx.services.fwaas.common import fwaas_mocks \
+        as fwaas_plugin_v2
 
 
 @tvd_utils.filter_plugins

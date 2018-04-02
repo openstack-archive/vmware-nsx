@@ -18,14 +18,20 @@ from oslo_log import log as logging
 
 from neutron.agent.l3 import router_info
 from neutron.common import config as neutron_config  # noqa
-from neutron_fwaas.db.firewall.v2 import firewall_db_v2
-from neutron_fwaas.services.firewall.agents.l3reference \
-    import firewall_l3_agent_v2
 from neutron_lib import constants as nl_constants
 from neutron_lib import context as n_context
 from neutron_lib.plugins import directory
 
 LOG = logging.getLogger(__name__)
+
+try:
+    from neutron_fwaas.db.firewall.v2 import firewall_db_v2
+    from neutron_fwaas.services.firewall.agents.l3reference \
+        import firewall_l3_agent_v2
+except ImportError:
+    # FWaaS project no found
+    from vmware_nsx.services.fwaas.common import fwaas_mocks \
+        as firewall_l3_agent_v2
 
 
 class DummyAgentApi(object):
