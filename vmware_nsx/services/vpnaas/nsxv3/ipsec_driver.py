@@ -38,7 +38,6 @@ from vmware_nsxlib.v3 import vpn_ipsec
 
 LOG = logging.getLogger(__name__)
 IPSEC = 'ipsec'
-VPN_PORT_OWNER = 'vpnservice'
 
 
 class RouterWithSNAT(nexception.BadRequest):
@@ -379,7 +378,7 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
     def _find_vpn_service_port(self, context, router_id):
         """Look for the neutron port created for the vpnservice of a router"""
         filters = {'device_id': ['router-' + router_id],
-                   'device_owner': [VPN_PORT_OWNER]}
+                   'device_owner': [ipsec_utils.VPN_PORT_OWNER]}
         ports = self.l3_plugin.get_ports(context, filters=filters)
         if ports:
             return ports[0]
@@ -731,7 +730,7 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
                     'name': 'VPN local address port',
                     'admin_state_up': True,
                     'device_id': 'router-' + vpnservice.router['id'],
-                    'device_owner': VPN_PORT_OWNER,
+                    'device_owner': ipsec_utils.VPN_PORT_OWNER,
                     'fixed_ips': constants.ATTR_NOT_SPECIFIED,
                     'mac_address': constants.ATTR_NOT_SPECIFIED,
                     'port_security_enabled': False,
