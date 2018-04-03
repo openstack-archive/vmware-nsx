@@ -15,6 +15,8 @@
 
 from vmware_nsxlib.v3 import vpn_ipsec
 
+VPN_PORT_OWNER = 'vpnservice'
+
 ENCRYPTION_ALGORITHM_MAP = {
     'aes-128': vpn_ipsec.EncryptionAlgorithmTypes.ENCRYPTION_ALGORITHM_128,
     'aes-256': vpn_ipsec.EncryptionAlgorithmTypes.ENCRYPTION_ALGORITHM_256,
