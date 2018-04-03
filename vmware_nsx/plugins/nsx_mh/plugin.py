@@ -13,8 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import uuid
-
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import port_security as psec
@@ -31,6 +29,7 @@ from oslo_config import cfg
 from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
+from oslo_utils import uuidutils
 import six
 from sqlalchemy import exc as sql_exc
 from sqlalchemy.orm import exc as sa_exc
@@ -955,7 +954,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # NOTE(salv-orlando): Pre-generating uuid for Neutron
         # network. This will be removed once the network create operation
         # becomes an asynchronous task
-        net_data['id'] = str(uuid.uuid4())
+        net_data['id'] = str(uuidutils.generate_uuid())
         if (not validators.is_attr_set(external) or
             validators.is_attr_set(external) and not external):
             lswitch = switchlib.create_lswitch(
@@ -1480,7 +1479,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # NOTE(salv-orlando): Pre-generating uuid for Neutron
         # router. This will be removed once the router create operation
         # becomes an asynchronous task
-        neutron_router_id = str(uuid.uuid4())
+        neutron_router_id = str(uuidutils.generate_uuid())
         r['id'] = neutron_router_id
         # Populate distributed attribute in order to ensure the appropriate
         # type of router is created in the NSX backend
@@ -2362,7 +2361,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if not default_sg:
             self._ensure_default_security_group(context, tenant_id)
         # NOTE(salv-orlando): Pre-generating Neutron ID for security group.
-        neutron_id = str(uuid.uuid4())
+        neutron_id = str(uuidutils.generate_uuid())
         nsx_secgroup = secgrouplib.create_security_profile(
             self.cluster, tenant_id, neutron_id, s)
         with db_api.context_manager.writer.using(context):

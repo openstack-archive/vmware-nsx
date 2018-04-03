@@ -13,8 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import uuid
-
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.exceptions import allowedaddresspairs as addr_exc
@@ -22,6 +20,7 @@ from neutron_lib.exceptions import port_security as psec_exc
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
+from oslo_utils import uuidutils
 
 from neutron.api import extensions as neutron_extensions
 from neutron.db import _resource_extend as resource_extend
@@ -183,7 +182,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             LOG.warning("Network with admin_state_up=False are not yet "
                         "supported by this plugin. Ignoring setting for "
                         "network %s", net_data.get('name', '<unknown>'))
-        net_data['id'] = str(uuid.uuid4())
+        net_data['id'] = uuidutils.generate_uuid()
         vlan_tag = 0
         if net_data.get(pnet.NETWORK_TYPE) == c_utils.NetworkTypes.VLAN:
             vlan_tag = net_data.get(pnet.SEGMENTATION_ID, 0)

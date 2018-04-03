@@ -14,7 +14,6 @@
 #    under the License.
 
 from distutils import version
-import uuid
 
 import netaddr
 
@@ -1135,7 +1134,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         provider_type = self._convert_to_transport_zones_dict(net_data)
         self._validate_provider_create(context, net_data)
         self._validate_availability_zones_in_obj(context, 'network', net_data)
-        net_data['id'] = str(uuid.uuid4())
+        net_data['id'] = str(uuidutils.generate_uuid())
 
         external = net_data.get(extnet_apidef.EXTERNAL)
         backend_network = (not validators.is_attr_set(external) or
@@ -4190,7 +4189,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     def create_security_group(self, context, security_group, default_sg=False):
         """Create a security group."""
         sg_data = security_group['security_group']
-        sg_id = sg_data["id"] = str(uuid.uuid4())
+        sg_id = sg_data["id"] = str(uuidutils.generate_uuid())
         self._validate_security_group(context, sg_data, default_sg)
 
         with db_api.context_manager.writer.using(context):

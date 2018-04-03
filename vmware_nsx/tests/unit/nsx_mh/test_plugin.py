@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import copy
-import uuid
 
 import mock
 from neutron.extensions import l3
@@ -1091,7 +1090,8 @@ class NeutronNsxOutOfSync(NsxPluginV2TestCase,
             # duplicate every entry in the nat rule dict
             tmp = copy.deepcopy(self.fc._fake_lrouter_nat_dict)
             for (_rule_id, rule) in tmp.items():
-                self.fc._fake_lrouter_nat_dict[uuid.uuid4()] = rule
+                _uuid = uuidutils.generate_uuid()
+                self.fc._fake_lrouter_nat_dict[_uuid] = rule
 
         self._test_remove_router_interface_nsx_out_of_sync(unsync_action)
 
