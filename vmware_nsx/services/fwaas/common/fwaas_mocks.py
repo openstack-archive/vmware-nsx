@@ -1,4 +1,4 @@
-# Copyright 2017 VMware, Inc.
+# Copyright 2018 VMware, Inc.
 # All Rights Reserved
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -13,23 +13,29 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron_lib.plugins import directory
+# This file contains FWaaS mocks, to allow the vmware nsx plugins to work when
+# FWaaS code does not exist, and FWaaS is not configured in neutron
 
-try:
-    from neutron_fwaas.common import fwaas_constants
-except ImportError:
-    # FWaaS project no found
-    from vmware_nsx.services.fwaas.common import fwaas_mocks \
-        as fwaas_constants
+FIREWALL = 'FIREWALL'
+FIREWALL_V2 = 'FIREWALL_V2'
 
 
-def is_fwaas_v1_plugin_enabled():
-    fwaas_plugin = directory.get_plugin(fwaas_constants.FIREWALL)
-    if fwaas_plugin:
-        return True
+class L3WithFWaaS(object):
+    def __init__(self, **kwargs):
+        self.fwaas_enabled = False
 
 
-def is_fwaas_v2_plugin_enabled():
-    fwaas_plugin = directory.get_plugin(fwaas_constants.FIREWALL_V2)
-    if fwaas_plugin:
-        return True
+class FwaasDriverBase(object):
+    pass
+
+
+class FirewallPlugin(object):
+    pass
+
+
+class FirewallPluginV2(object):
+    pass
+
+
+class FirewallCallbacks(object):
+    pass

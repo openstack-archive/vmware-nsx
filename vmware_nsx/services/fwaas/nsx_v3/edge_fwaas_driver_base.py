@@ -15,7 +15,6 @@
 
 import netaddr
 
-from neutron_fwaas.services.firewall.drivers import fwaas_base
 from neutron_lib.api.definitions import constants as fwaas_consts
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
@@ -29,6 +28,13 @@ from vmware_nsxlib.v3 import nsx_constants as consts
 LOG = logging.getLogger(__name__)
 RULE_NAME_PREFIX = 'Fwaas-'
 DEFAULT_RULE_NAME = 'Default LR Layer3 Rule'
+
+try:
+    from neutron_fwaas.services.firewall.drivers import fwaas_base
+except ImportError:
+    # FWaaS project no found
+    from vmware_nsx.services.fwaas.common import fwaas_mocks \
+        as fwaas_base
 
 
 class CommonEdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):

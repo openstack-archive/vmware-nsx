@@ -16,9 +16,14 @@
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
 
-from neutron_fwaas.services.firewall import fwaas_plugin
-
 from vmware_nsx.plugins.nsx import utils as tvd_utils
+
+try:
+    from neutron_fwaas.services.firewall import fwaas_plugin
+except ImportError:
+    # FWaaS project no found
+    from vmware_nsx.services.fwaas.common import fwaas_mocks \
+        as fwaas_plugin
 
 
 @tvd_utils.filter_plugins

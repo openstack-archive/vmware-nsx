@@ -18,16 +18,22 @@ from oslo_log import log as logging
 
 from neutron.agent.l3 import router_info
 from neutron.common import config as neutron_config  # noqa
-from neutron_fwaas.db.firewall import firewall_db  # noqa
-from neutron_fwaas.db.firewall import firewall_router_insertion_db \
-    as fw_r_ins_db
-from neutron_fwaas.services.firewall.agents.l3reference \
-    import firewall_l3_agent
 from neutron_lib import constants as nl_constants
 from neutron_lib import context as n_context
 from neutron_lib.plugins import directory
 
 LOG = logging.getLogger(__name__)
+
+try:
+    from neutron_fwaas.db.firewall import firewall_db  # noqa
+    from neutron_fwaas.db.firewall import firewall_router_insertion_db \
+        as fw_r_ins_db
+    from neutron_fwaas.services.firewall.agents.l3reference \
+        import firewall_l3_agent
+except ImportError:
+    # FWaaS project no found
+    from vmware_nsx.services.fwaas.common import fwaas_mocks \
+        as firewall_l3_agent
 
 
 class NsxFwaasCallbacks(firewall_l3_agent.L3WithFWaaS):

@@ -19,8 +19,6 @@ from neutron_lib.plugins import directory
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
-from neutron_fwaas.services.firewall.drivers import fwaas_base
-
 from vmware_nsx.common import locking
 from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
@@ -28,6 +26,13 @@ from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 LOG = logging.getLogger(__name__)
 FWAAS_DRIVER_NAME = 'Fwaas V1 NSX-V driver'
 RULE_NAME_PREFIX = 'Fwaas-'
+
+try:
+    from neutron_fwaas.services.firewall.drivers import fwaas_base
+except ImportError:
+    # FWaaS project no found
+    from vmware_nsx.services.fwaas.common import fwaas_mocks \
+        as fwaas_base
 
 
 class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):

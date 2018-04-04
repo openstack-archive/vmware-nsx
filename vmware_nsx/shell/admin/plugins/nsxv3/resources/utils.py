@@ -22,9 +22,6 @@ from neutron_lib import context
 from neutron_lib.plugins import constants as const
 from neutron_lib.plugins import directory
 
-from neutron_fwaas.services.firewall import fwaas_plugin as fwaas_plugin_v1
-from neutron_fwaas.services.firewall import fwaas_plugin_v2
-
 from vmware_nsx.common import config
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.extensions import projectpluginmap
@@ -34,6 +31,17 @@ from vmware_nsx.services.fwaas.nsx_v3 import fwaas_callbacks_v1
 from vmware_nsx.services.fwaas.nsx_v3 import fwaas_callbacks_v2
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsxlib.v3 import nsx_constants
+
+try:
+    from neutron_fwaas.services.firewall import fwaas_plugin as fwaas_plugin_v1
+    from neutron_fwaas.services.firewall import fwaas_plugin_v2
+except ImportError:
+    # FWaaS project no found
+    from vmware_nsx.services.fwaas.common import fwaas_mocks \
+        as fwaas_plugin_v1
+    from vmware_nsx.services.fwaas.common import fwaas_mocks \
+        as fwaas_plugin_v2
+
 
 _NSXLIB = None
 
