@@ -116,7 +116,7 @@ from vmware_nsx.services.lbaas.nsx_v3 import lb_driver_v2
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v3 import driver as qos_driver
 from vmware_nsx.services.trunk.nsx_v3 import driver as trunk_driver
-from vmware_nsx.services.vpnaas.nsxv3 import ipsec_driver
+from vmware_nsx.services.vpnaas.nsxv3 import ipsec_utils
 from vmware_nsxlib.v3 import core_resources as nsx_resources
 from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
 from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
@@ -2388,7 +2388,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 raise n_exc.InvalidInput(error_message=err_msg)
 
     def _assert_on_vpn_port_change(self, port_data):
-        if port_data['device_owner'] == ipsec_driver.VPN_PORT_OWNER:
+        if port_data['device_owner'] == ipsec_utils.VPN_PORT_OWNER:
             msg = _('Can not update/delete VPNaaS port %s') % port_data['id']
             raise n_exc.InvalidInput(error_message=msg)
 
