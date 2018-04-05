@@ -749,7 +749,7 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
         try:
             self.validator.validate_vpnservice(context, vpnservice)
             local_address = self._get_service_local_address(
-                context, vpnservice)
+                context.elevated(), vpnservice)
         except Exception:
             with excutils.save_and_reraise_exception():
                 # Rolling back change on the neutron
