@@ -145,3 +145,41 @@ class TestNSXv3ExtendedSGRule(test_nsxv3_plugin.NsxV3PluginTestCaseMixin,
                 'ALLOW',  # action
                 sg_rules,  # sg_rules
                 mock.ANY)  # ruleid_2_remote_nsgroup_map
+
+    def test_create_rule_with_remote_ip_prefix(self):
+        remote_ip_prefix = '0.0.0.0/0'
+        with self.security_group() as sg:
+            rule = self._build_security_group_rule(
+                sg['security_group']['id'], remote_ip_prefix=remote_ip_prefix,
+                direction='ingress', proto=const.PROTO_NAME_UDP)
+            res = self._make_security_group_rule(self.fmt, rule)
+            self.assertEqual(remote_ip_prefix,
+                             res['security_group_rule']['remote_ip_prefix'])
+
+    def test_create_nsx_rule_with_remote_ip_prefix_zeros(self):
+        sg_rules = [
+            {'tenant_id': mock.ANY,
+             'project_id': mock.ANY,
+             'id': mock.ANY,
+             'port_range_min': None,
+             'local_ip_prefix': None,
+             'ethertype': 'IPv4',
+             'protocol': u'udp', 'remote_ip_prefix': 'ANY',
+             'port_range_max': None,
+             'security_group_id': mock.ANY,
+             'remote_group_id': None, 'direction': u'ingress',
+             'description': ''}]
+
+        with mock.patch(
+            "vmware_nsxlib.v3.security.NsxLibFirewallSection.create_rules",
+            side_effect=test_nsxv3_plugin._mock_create_firewall_rules,
+        ) as mock_rule:
+            self.test_create_rule_with_remote_ip_prefix()
+            mock_rule.assert_called_with(
+                mock.ANY,  # content
+                mock.ANY,  # firewall_section_id
+                mock.ANY,  # ns_group_id
+                False,  # logging
+                'ALLOW',  # action
+                sg_rules,  # sg_rules
+                mock.ANY)  # ruleid_2_remote_nsgroup_map
