@@ -31,23 +31,41 @@ from neutron.db import migration
 
 
 def upgrade():
-    if migration.schema_has_table('lbaas_loadbalancers'):
+    if (migration.schema_has_table('lbaas_loadbalancers')
+        and migration.schema_has_table('nsxv_lbaas_loadbalancer_bindings')):
+
+        op.execute('delete from nsxv_lbaas_loadbalancer_bindings '
+                   'where loadbalancer_id not in '
+                   '(select id from lbaas_loadbalancers)')
         op.create_foreign_key(
             'fk_lbaas_loadbalancers_id', 'nsxv_lbaas_loadbalancer_bindings',
             'lbaas_loadbalancers', ['loadbalancer_id'], ['id'],
             ondelete='CASCADE')
 
-    if migration.schema_has_table('lbaas_listeners'):
+    if (migration.schema_has_table('lbaas_listeners')
+        and migration.schema_has_table('nsxv_lbaas_listener_bindings')):
+
+        op.execute('delete from nsxv_lbaas_listener_bindings '
+                   'where listener_id  not in '
+                   '(select id from lbaas_listeners)')
         op.create_foreign_key(
             'fk_lbaas_listeners_id', 'nsxv_lbaas_listener_bindings',
             'lbaas_listeners', ['listener_id'], ['id'], ondelete='CASCADE')
 
-    if migration.schema_has_table('lbaas_pools'):
+    if (migration.schema_has_table('lbaas_pools')
+        and migration.schema_has_table('nsxv_lbaas_pool_bindings')):
+
+        op.execute('delete from nsxv_lbaas_pool_bindings '
+                   'where pool_id not in (select id from lbaas_pools)')
         op.create_foreign_key(
             'fk_lbaas_pools_id', 'nsxv_lbaas_pool_bindings',
             'lbaas_pools', ['pool_id'], ['id'], ondelete='CASCADE')
 
-    if migration.schema_has_table('lbaas_healthmonitors'):
+    if (migration.schema_has_table('lbaas_healthmonitors')
+        and migration.schema_has_table('nsxv_lbaas_monitor_bindings')):
+
+        op.execute('delete from nsxv_lbaas_monitor_bindings '
+                   'where hm_id not in (select id from lbaas_healthmonitors)')
         op.create_foreign_key(
             'fk_lbaas_healthmonitors_id', 'nsxv_lbaas_monitor_bindings',
             'lbaas_healthmonitors', ['hm_id'], ['id'], ondelete='CASCADE')
