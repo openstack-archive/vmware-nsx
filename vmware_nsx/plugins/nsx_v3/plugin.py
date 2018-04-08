@@ -12,6 +12,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import copy
 
 import netaddr
 from neutron_lib.api.definitions import network as net_def
@@ -3704,7 +3705,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # since the nsxlib does not have access to the nsx db,
         # we need to provide a mapping for the remote nsgroup ids.
         ruleid_2_remote_nsgroup_map = {}
-        for sg_rule in sg_rules:
+        _sg_rules = copy.deepcopy(sg_rules)
+        for sg_rule in _sg_rules:
             remote_nsgroup_id = None
             remote_group_id = sg_rule.get('remote_group_id')
             # skip unnecessary db access when possible
@@ -3714,10 +3716,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 remote_nsgroup_id = nsx_db.get_nsx_security_group_id(
                     context.session, remote_group_id)
             ruleid_2_remote_nsgroup_map[sg_rule['id']] = remote_nsgroup_id
+            # 0.0.0.0/0 is not a valid entry for local and remote so we need
+            # to change this to 'ANY'
+            if sg_rule.get('remote_ip_prefix') == '0.0.0.0/0':
+                sg_rule['remote_ip_prefix'] = 'ANY'
+            if sg_rule.get('local_ip_prefix') == '0.0.0.0/0':
+                sg_rule['local_ip_prefix'] = 'ANY'
 
         return self.nsxlib.firewall_section.create_rules(
             context, section_id, nsgroup_id,
-            logging_enabled, action, sg_rules,
+            logging_enabled, action, _sg_rules,
             ruleid_2_remote_nsgroup_map)
 
     def _handle_api_replay_default_sg(self, context, secgroup_db):
