@@ -2944,7 +2944,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         super(NsxV3Plugin, self).delete_port(context, port_id)
 
     def _update_port_preprocess_security(
-            self, context, port, id, updated_port, validate_port_sec=True):
+            self, context, port, id, updated_port, is_ens_tz_port,
+            validate_port_sec=True):
         delete_addr_pairs = self._check_update_deletes_allowed_address_pairs(
             port)
         has_addr_pairs = self._check_update_has_allowed_address_pairs(port)
@@ -2981,8 +2982,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         # No port security is allowed if the port belongs to an ENS TZ
         if (updated_port[psec.PORTSECURITY] and
-            psec.PORTSECURITY in port_data and
-            self._is_ens_tz_port(context, updated_port)):
+            psec.PORTSECURITY in port_data and is_ens_tz_port):
             raise nsx_exc.NsxENSPortSecurity()
 
         # checks if security groups were updated adding/modifying
@@ -3026,7 +3026,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _update_port_on_backend(self, context, lport_id,
                                 original_port, updated_port,
                                 address_bindings,
-                                switch_profile_ids):
+                                switch_profile_ids,
+                                is_ens_tz_port):
         original_device_owner = original_port.get('device_owner')
         original_device_id = original_port.get('device_id')
         updated_device_owner = updated_port.get('device_owner')
@@ -3145,7 +3146,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             validators.is_attr_set(address_pairs) and address_pairs and
             psec_is_on)
         # Add mac_learning profile if it exists and is configured
-        if (self._mac_learning_profile and
+        if (not is_ens_tz_port and self._mac_learning_profile and
             (mac_learning_profile_set or
              updated_port.get(mac_ext.MAC_LEARNING) is True)):
             switch_profile_ids.append(self._mac_learning_profile)
@@ -3253,7 +3254,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             updated_port.update(port_data)
 
             updated_port = self._update_port_preprocess_security(
-                context, port, id, updated_port, validate_port_sec)
+                context, port, id, updated_port, is_ens_tz_port,
+                validate_port_sec=validate_port_sec)
 
             self._update_extra_dhcp_opts_on_port(context, id, port,
                                                  updated_port)
@@ -3270,8 +3272,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._extend_nsx_port_dict_binding(context, updated_port)
             mac_learning_state = updated_port.get(mac_ext.MAC_LEARNING)
             if mac_learning_state is not None:
-                if (not mac_learning_state and
-                    self._is_ens_tz_port(context, updated_port)):
+                if (not mac_learning_state and is_ens_tz_port):
                     msg = _('Mac learning cannot be disabled with ENS TZ')
                     LOG.error(msg)
                     raise n_exc.InvalidInput(error_message=msg)
@@ -3298,7 +3299,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self._update_port_on_backend(context, nsx_lport_id,
                                              original_port, updated_port,
                                              address_bindings,
-                                             switch_profile_ids)
+                                             switch_profile_ids,
+                                             is_ens_tz_port)
             except (nsx_lib_exc.ManagerError,
                     nsx_lib_exc.SecurityGroupMaximumCapacityReached) as e:
                 # In case if there is a failure on NSX-v3 backend, rollback the
