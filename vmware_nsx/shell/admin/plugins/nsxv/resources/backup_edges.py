@@ -125,12 +125,13 @@ def nsx_clean_backup_edge(resource, event, trigger, **kwargs):
     if not edge_id:
         LOG.error("%s", errmsg)
         return
-    #ask for the user confirmation
-    confirm = admin_utils.query_yes_no(
-        "Do you want to delete edge: %s" % edge_id, default="no")
-    if not confirm:
-        LOG.info("Backup edge deletion aborted by user")
-        return
+    if not kwargs.get('force'):
+        #ask for the user confirmation
+        confirm = admin_utils.query_yes_no(
+            "Do you want to delete edge: %s" % edge_id, default="no")
+        if not confirm:
+            LOG.info("Backup edge deletion aborted by user")
+            return
     # delete the backup edge
     _nsx_delete_backup_edge(edge_id, get_nsxv_backup_edges())
 
@@ -139,13 +140,14 @@ def nsx_clean_all_backup_edges(resource, event, trigger, **kwargs):
     """Delete all backup edges"""
     backup_edges = get_nsxv_backup_edges()
 
-    #ask for the user confirmation
-    confirm = admin_utils.query_yes_no(
-        "Do you want to delete %s backup edges?" % len(backup_edges),
-        default="no")
-    if not confirm:
-        LOG.info("Backup edges deletion aborted by user")
-        return
+    if not kwargs.get('force'):
+        #ask for the user confirmation
+        confirm = admin_utils.query_yes_no(
+            "Do you want to delete %s backup edges?" % len(backup_edges),
+            default="no")
+        if not confirm:
+            LOG.info("Backup edges deletion aborted by user")
+            return
 
     deleted_cnt = 0
     for edge in backup_edges:
@@ -299,14 +301,15 @@ def nsx_fix_name_mismatch(resource, event, trigger, **kwargs):
                                 'Edge %s', edge_id)
                             return
 
-                    confirm = admin_utils.query_yes_no(
-                        "Do you want to rename edge %s to %s" % (edge_id,
-                                                                 edge['name']),
-                        default="no")
+                    if not kwargs.get('force'):
+                        confirm = admin_utils.query_yes_no(
+                            "Do you want to rename edge %s to %s" %
+                            (edge_id, edge['name']),
+                            default="no")
 
-                    if not confirm:
-                        LOG.info("Edge rename aborted by user")
-                        return
+                        if not confirm:
+                            LOG.info("Edge rename aborted by user")
+                            return
                     LOG.info("Edge rename started")
                     # remove some keys that will fail the NSX transaction
                     edge_utils.remove_irrelevant_keys_from_edge_request(edge)

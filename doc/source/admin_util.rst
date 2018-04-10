@@ -125,11 +125,11 @@ Backup Edges
 
 - Delete backup edge::
 
-    nsxadmin -r backup-edges -o clean --property edge-id=edge-9
+    nsxadmin -r backup-edges -o clean --property edge-id=edge-9 [--force]
 
 - Delete all backup edges::
 
-    nsxadmin -r backup-edges -o clean-all
+    nsxadmin -r backup-edges -o clean-all [--force]
 
 - List Edge name mismatches between DB and backend, and backup edges that are missing from the backend::
 
@@ -137,7 +137,7 @@ Backup Edges
 
 - Fix Edge name mismatch between DB and backend by updating the name on the backend::
 
-    nsxadmin -r backup-edges -o fix-mismatch --property edge-id=edge-9
+    nsxadmin -r backup-edges -o fix-mismatch --property edge-id=edge-9 [--force]
 
 - Delete a backup edge from the DB and NSX by it's router ID::
 
