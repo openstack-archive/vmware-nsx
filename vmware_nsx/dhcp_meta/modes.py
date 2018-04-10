@@ -84,7 +84,7 @@ class DhcpMetadataAccess(object):
 
     def _setup_rpc_dhcp_metadata(self, notifier=None):
         self.topic = topics.PLUGIN
-        self.conn = n_rpc.create_connection()
+        self.conn = n_rpc.Connection()
         self.endpoints = [SynchronizedDhcpRpcCallback(),
                           agents_db.AgentExtRpcCallback(),
                           metadata_rpc.MetadataRpcCallback()]

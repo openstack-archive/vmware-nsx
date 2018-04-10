@@ -423,7 +423,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self.endpoints = [agents_db.AgentExtRpcCallback()]
         self.topic = topics.PLUGIN
 
-        self.conn = n_rpc.create_connection()
+        self.conn = n_rpc.Connection()
         self.conn.create_consumer(self.topic, self.endpoints, fanout=False)
 
         self.start_rpc_listeners_called = True
