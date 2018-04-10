@@ -3735,8 +3735,10 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
 
             # change address scope of the first subnetpool
             with self.address_scope(name='as2') as addr_scope2,\
-                mock.patch.object(edge_utils, 'update_nat_rules') as update_nat,\
-                mock.patch.object(edge_utils, 'update_firewall') as update_fw:
+                mock.patch.object(
+                    edge_utils, 'update_nat_rules') as update_nat,\
+                mock.patch.object(
+                    edge_utils, 'update_firewall') as update_fw:
 
                 as2_id = addr_scope2['address_scope']['id']
                 data = {'subnetpool': {
