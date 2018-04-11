@@ -164,15 +164,15 @@ class ErrorDhcpEdgeJob(base_job.BaseJob):
         # appliance are registered in nsxv_edge_vnic_bindings
         for vnic in backend_vnics:
             if_changed[vnic['index']] = False
-            if (vnic['isConnected'] and vnic['type'] == 'trunk'
-                and vnic['subInterfaces']):
+            if (vnic['isConnected'] and vnic['type'] == 'trunk' and
+                vnic['subInterfaces']):
 
                 for sub_if in vnic['subInterfaces']['subInterfaces']:
                     # Subinterface name field contains the net id
                     vnic_bind = vnic_dict.get(sub_if['logicalSwitchName'])
-                    if (vnic_bind
-                        and vnic_bind['vnic_index'] == vnic['index']
-                        and vnic_bind['tunnel_index'] == sub_if['tunnelId']):
+                    if (vnic_bind and
+                        vnic_bind['vnic_index'] == vnic['index'] and
+                        vnic_bind['tunnel_index'] == sub_if['tunnelId']):
                         pass
                     else:
                         LOG.warning('Housekeeping: subinterface %s for vnic '

@@ -156,8 +156,8 @@ class NsxvLoadbalancer(nsxv_edge_cfg_obj.NsxvEdgeCfgObj):
 
             # Find application profile objects, attach to virtual server
             for app_prof in edge_lb['applicationProfile']:
-                if (virt_srvr['applicationProfileId']
-                        == app_prof['applicationProfileId']):
+                if (virt_srvr['applicationProfileId'] ==
+                    app_prof['applicationProfileId']):
                     a_p = NsxvLBAppProfile(
                         app_prof['name'],
                         app_prof['serverSslEnabled'],

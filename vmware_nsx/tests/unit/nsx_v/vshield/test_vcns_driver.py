@@ -446,8 +446,8 @@ class VcnsDriverTestCase(base.BaseTestCase):
         natcfg = self.vcns_driver.get_nat_config(self.edge_id)
         rules = natcfg['rules']['natRulesDtos']
 
-        self.assertEqual(2 * len(indices) * len(dnats)
-                + len(indices) * len(snats), len(rules))
+        self.assertEqual(2 * len(indices) * len(dnats) +
+                         len(indices) * len(snats), len(rules))
 
         sorted_rules = sorted(rules, key=lambda k: k['vnic'])
         for i in range(0, len(sorted_rules), 7):

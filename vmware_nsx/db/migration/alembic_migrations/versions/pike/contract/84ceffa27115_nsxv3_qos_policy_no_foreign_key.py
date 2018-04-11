@@ -19,15 +19,14 @@ Revises: 8c0a81a07691
 Create Date: 2017-03-15 11:47:09.450116
 """
 
-# revision identifiers, used by Alembic.
-revision = '84ceffa27115'
-down_revision = '8c0a81a07691'
-
 from alembic import op
 from sqlalchemy.engine import reflection
 
 from neutron.db import migration
 
+# revision identifiers, used by Alembic.
+revision = '84ceffa27115'
+down_revision = '8c0a81a07691'
 
 # milestone identifier, used by neutron-db-manage
 neutron_milestone = [migration.PIKE]

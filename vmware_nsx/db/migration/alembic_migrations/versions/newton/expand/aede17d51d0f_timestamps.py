@@ -21,12 +21,12 @@ Create Date: 2016-04-21 10:45:32.278433
 
 """
 
+from alembic import op
+import sqlalchemy as sa
+
 # revision identifiers, used by Alembic.
 revision = 'aede17d51d0f'
 down_revision = '5e564e781d77'
-
-from alembic import op
-import sqlalchemy as sa
 
 tables = [
     'nsxv_router_bindings',

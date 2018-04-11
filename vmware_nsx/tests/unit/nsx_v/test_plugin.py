@@ -2248,8 +2248,7 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxVPluginV2TestCase):
             data['router']['name'] = name
         if admin_state_up:
             data['router']['admin_state_up'] = admin_state_up
-        for arg in (('admin_state_up', 'tenant_id')
-                   + (arg_list or ())):
+        for arg in (('admin_state_up', 'tenant_id') + (arg_list or ())):
             # Arg must be present and not empty
             if kwargs.get(arg):
                 data['router'][arg] = kwargs[arg]

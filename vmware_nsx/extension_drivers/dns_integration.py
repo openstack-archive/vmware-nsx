@@ -340,13 +340,13 @@ class DNSExtensionDriverNSXv3(DNSExtensionDriver):
         # try to get the dns-domain from the specific availability zone
         # of this network
         az = self._get_network_az(network_id, context)
-        if (az.dns_domain
-            and _dotted_domain(az.dns_domain) !=
-                _dotted_domain(DNS_DOMAIN_DEFAULT)):
+        if (az.dns_domain and
+            _dotted_domain(az.dns_domain) !=
+            _dotted_domain(DNS_DOMAIN_DEFAULT)):
             dns_domain = az.dns_domain
-        elif (cfg.CONF.nsx_v3.dns_domain
-              and (_dotted_domain(cfg.CONF.nsx_v3.dns_domain) !=
-                   _dotted_domain(DNS_DOMAIN_DEFAULT))):
+        elif (cfg.CONF.nsx_v3.dns_domain and
+              (_dotted_domain(cfg.CONF.nsx_v3.dns_domain) !=
+               _dotted_domain(DNS_DOMAIN_DEFAULT))):
             dns_domain = cfg.CONF.nsx_v3.dns_domain
         elif cfg.CONF.dns_domain:
             dns_domain = cfg.CONF.dns_domain

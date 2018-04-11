@@ -20,16 +20,15 @@ Create Date: 2017-02-05 14:34:21.163418
 
 """
 
-# revision identifiers, used by Alembic.
-revision = '14a89ddf96e2'
-down_revision = '5c8f451290b7'
-
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.engine import reflection
 
 from neutron.db import migration
 
+# revision identifiers, used by Alembic.
+revision = '14a89ddf96e2'
+down_revision = '5c8f451290b7'
 
 # milestone identifier, used by neutron-db-manage
 neutron_milestone = [migration.OCATA]

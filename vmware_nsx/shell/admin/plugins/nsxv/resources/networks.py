@@ -166,8 +166,8 @@ def list_orphaned_networks(resource, event, trigger, **kwargs):
         backend_name = net['name']
         # Decide if this is a neutron network by its name (which should always
         # contain the net-id), and type
-        if (backend_name.startswith('edge-') or len(backend_name) < 36
-            or net['type'] == 'Network'):
+        if (backend_name.startswith('edge-') or len(backend_name) < 36 or
+            net['type'] == 'Network'):
             # This is not a neutron network
             continue
         # get the list of neutron networks with this moref

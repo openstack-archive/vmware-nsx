@@ -1046,8 +1046,8 @@ class FakeVcns(object):
 
     def get_section_id(self, section_name):
         for k, v in self._sections.items():
-            if (k not in ('section_ids', 'rule_ids', 'names')
-                and v['name'] == section_name):
+            if (k not in ('section_ids', 'rule_ids', 'names') and
+                v['name'] == section_name):
                 return k
 
     def update_section_by_id(self, id, type, request):

@@ -377,8 +377,8 @@ class NsxSynchronizer(object):
                          ['LogicalRouterStatus']
                          ['fabric_status'])
             status = (lr_status and
-                      constants.NET_STATUS_ACTIVE
-                      or constants.NET_STATUS_DOWN)
+                      constants.NET_STATUS_ACTIVE or
+                      constants.NET_STATUS_DOWN)
         # Update db object
         if status == neutron_router_data['status']:
             # do nothing
@@ -471,8 +471,8 @@ class NsxSynchronizer(object):
                          ['LogicalPortStatus']
                          ['fabric_status_up'])
             status = (lp_status and
-                      constants.PORT_STATUS_ACTIVE
-                      or constants.PORT_STATUS_DOWN)
+                      constants.PORT_STATUS_ACTIVE or
+                      constants.PORT_STATUS_DOWN)
 
         # Update db object
         if status == neutron_port_data['status']:

@@ -140,8 +140,8 @@ def is_valid_os_data(libvirt_conn, os_type, os_arch, os_machine):
     caps_xml = libvirt_conn.getCapabilities()
     caps_root = et.fromstring(caps_xml)
     for guest_tag in caps_root.findall('guest'):
-        if (xmltag_text_get(guest_tag, 'os_type') == os_type
-           and xmltag_attr_get(guest_tag, 'arch', 'name') == os_arch):
+        if (xmltag_text_get(guest_tag, 'os_type') == os_type and
+            xmltag_attr_get(guest_tag, 'arch', 'name') == os_arch):
             for machine_tag in guest_tag.find('arch').findall('machine'):
                 if machine_tag.text == os_machine:
                     return True

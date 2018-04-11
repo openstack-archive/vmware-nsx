@@ -88,8 +88,8 @@ class NsxPortBindingMixin(pbin_db.PortBindingMixin):
         org_vnic_type = nsxv_db.get_nsxv_ext_attr_port_vnic_type(
             context.session, port_id)
         vnic_type = port.get(pbin.VNIC_TYPE, org_vnic_type)
-        cap_port_filter = (port.get(pbin.VNIC_TYPE, org_vnic_type)
-                           == pbin.VNIC_NORMAL)
+        cap_port_filter = (port.get(pbin.VNIC_TYPE, org_vnic_type) ==
+                           pbin.VNIC_NORMAL)
         vif_details = {pbin.CAP_PORT_FILTER: cap_port_filter}
         network = self.get_network(context, port_res['network_id'])
         if network.get(pnet.NETWORK_TYPE) == c_utils.NsxVNetworkTypes.FLAT:

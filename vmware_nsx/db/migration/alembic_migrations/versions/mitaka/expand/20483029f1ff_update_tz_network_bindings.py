@@ -20,13 +20,13 @@ Create Date: 2016-02-09 13:57:01.590154
 
 """
 
-# revision identifiers, used by Alembic.
-revision = '20483029f1ff'
-down_revision = '69fb78b33d41'
-
 from alembic import op
 import sqlalchemy as sa
 
+
+# revision identifiers, used by Alembic.
+revision = '20483029f1ff'
+down_revision = '69fb78b33d41'
 
 old_tz_binding_type_enum = sa.Enum('flat', 'vlan', 'stt', 'gre', 'l3_ext',
                                    name='tz_network_bindings_binding_type')

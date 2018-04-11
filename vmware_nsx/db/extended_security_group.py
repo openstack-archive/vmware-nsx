@@ -145,12 +145,12 @@ class ExtendedSecurityGroupPropertiesMixin(object):
 
     def _process_security_group_properties_update(self, context,
                                                   sg_res, sg_req):
-        if ((sg_logging.LOGGING in sg_req
-                and (sg_req[sg_logging.LOGGING] !=
-                     sg_res.get(sg_logging.LOGGING, False))) or
-            (sg_policy.POLICY in sg_req
-                and (sg_req[sg_policy.POLICY] !=
-                     sg_res.get(sg_policy.POLICY)))):
+        if ((sg_logging.LOGGING in sg_req and
+             (sg_req[sg_logging.LOGGING] !=
+              sg_res.get(sg_logging.LOGGING, False))) or
+            (sg_policy.POLICY in sg_req and
+             (sg_req[sg_policy.POLICY] !=
+              sg_res.get(sg_policy.POLICY)))):
             prop = self._get_security_group_properties(context, sg_res['id'])
             with db_api.context_manager.writer.using(context):
                 prop.update({

@@ -232,8 +232,7 @@ class NSXvIPsecVpnDriver(service_drivers.VpnDriver):
         if ipsecvpn_configs['enabled']:
             vse_sites = ipsecvpn_configs['sites'].get('sites')
             for s in vse_sites:
-                if ((s['peerSubnets'].get('subnets') == site['peer_cidrs'])
-                    and
+                if ((s['peerSubnets'].get('subnets') == site['peer_cidrs']) and
                     (s['localSubnets'].get('subnets')[0] == local_cidr)):
                     old_site = s
                     break

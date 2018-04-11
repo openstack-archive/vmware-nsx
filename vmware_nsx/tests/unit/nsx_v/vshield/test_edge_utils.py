@@ -585,8 +585,8 @@ class EdgeManagerTestCase(EdgeUtilsTestCaseMixin):
         router_bindings = [
             binding
             for binding in nsxv_db.get_nsxv_router_bindings(self.ctx.session)
-            if binding['edge_id'] is None
-            and binding['status'] == constants.PENDING_CREATE]
+            if binding['edge_id'] is None and
+            binding['status'] == constants.PENDING_CREATE]
 
         binding_ids = [bind.router_id for bind in router_bindings]
         self.assertEqual(2, len(router_bindings))

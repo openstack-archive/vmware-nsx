@@ -174,8 +174,8 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
 
         edge_id = self._get_router_edge_id(context, router_id)
         with locking.LockManager.get_lock(edge_id):
-            if ((new_ext_net_id != org_ext_net_id or force_update)
-                and orgnexthop):
+            if ((new_ext_net_id != org_ext_net_id or force_update) and
+                orgnexthop):
                 # network changed, so need to remove default gateway before
                 # vnic can be configured
                 LOG.debug("Delete default gateway %s", orgnexthop)

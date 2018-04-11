@@ -104,10 +104,10 @@ def nsx_redo_metadata_cfg_for_az(az, edgeapi):
         filters={'edge_type': [nsxv_constants.SERVICE_EDGE],
                  'availability_zones': az.name})
     edge_ids = list(set([binding['edge_id'] for binding in router_bindings
-                         if (binding['router_id'] not in set(md_rtr_ids)
-                             and not binding['router_id'].startswith(
-                                 vcns_constants.BACKUP_ROUTER_PREFIX)
-                             and not binding['router_id'].startswith(
+                         if (binding['router_id'] not in set(md_rtr_ids) and
+                             not binding['router_id'].startswith(
+                                 vcns_constants.BACKUP_ROUTER_PREFIX) and
+                             not binding['router_id'].startswith(
                                     vcns_constants.PLR_EDGE_PREFIX))]))
 
     for edge_id in edge_ids:
@@ -143,10 +143,10 @@ def update_shared_secret(resource, event, trigger, **kwargs):
         edgeapi.context.session,
         filters={'edge_type': [nsxv_constants.SERVICE_EDGE]})
     edge_ids = list(set([binding['edge_id'] for binding in router_bindings
-                         if (binding['router_id'] not in set(md_rtr_ids)
-                             and not binding['router_id'].startswith(
-                                 vcns_constants.BACKUP_ROUTER_PREFIX)
-                             and not binding['router_id'].startswith(
+                         if (binding['router_id'] not in set(md_rtr_ids) and
+                             not binding['router_id'].startswith(
+                                 vcns_constants.BACKUP_ROUTER_PREFIX) and
+                             not binding['router_id'].startswith(
                                  vcns_constants.PLR_EDGE_PREFIX))]))
 
     for edge_id in edge_ids:

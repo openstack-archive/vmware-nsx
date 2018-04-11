@@ -405,8 +405,8 @@ class FakeClient(object):
                 # verify that the switch exist
                 if parent_uuid and parent_uuid not in self._fake_lswitch_dict:
                     raise Exception(_("lswitch:%s not found") % parent_uuid)
-                if (not parent_uuid
-                    or res_dict[res_uuid].get('ls_uuid') == parent_uuid):
+                if (not parent_uuid or
+                    res_dict[res_uuid].get('ls_uuid') == parent_uuid):
                     return True
                 return False
 
@@ -449,7 +449,7 @@ class FakeClient(object):
                                    self.LROUTER_LPORT_STATUS):
                 parent_func = _lrouter_match
             else:
-                parent_func = lambda x: True
+                parent_func = (lambda x: True)
 
             items = [_build_item(res_dict[res_uuid])
                      for res_uuid in res_dict

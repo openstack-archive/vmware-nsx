@@ -351,8 +351,8 @@ class NsxVMetadataProxyHandler(object):
                              ).get('addressGroups', {}
                                    )[0].get('primaryAddress')
         cur_pgroup = if_data['portgroupId']
-        if (if_data and cur_pgroup != self.az.mgt_net_moid
-                or cur_ip != rtr_ext_ip):
+        if (if_data and cur_pgroup != self.az.mgt_net_moid or
+            cur_ip != rtr_ext_ip):
             if cfg.CONF.nsxv.metadata_initializer:
                 self.nsxv_plugin.nsx_v.update_interface(
                     rtr_id,
@@ -383,8 +383,8 @@ class NsxVMetadataProxyHandler(object):
                 m_ips = md_members.keys()
                 m_to_convert = (list(set(m_ips) -
                                      set(cfg.CONF.nsxv.nova_metadata_ips)))
-                m_ip_to_set = (list(set(cfg.CONF.nsxv.nova_metadata_ips)
-                                    - set(m_ips)))
+                m_ip_to_set = (list(set(cfg.CONF.nsxv.nova_metadata_ips) -
+                                    set(m_ips)))
                 if m_to_convert or m_ip_to_set:
                     update_md_proxy = True
                 for m_ip in m_to_convert:

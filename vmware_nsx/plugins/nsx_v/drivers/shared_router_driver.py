@@ -584,8 +584,8 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         for router in routers:
             router_res = {}
             self.plugin._extend_nsx_router_dict(router_res, router)
-            if (router['id'] not in conflict_router_ids
-                and router_res.get('router_type') == 'shared'):
+            if (router['id'] not in conflict_router_ids and
+                router_res.get('router_type') == 'shared'):
                 optional_router_ids.append(router['id'])
         return optional_router_ids, conflict_router_ids
 

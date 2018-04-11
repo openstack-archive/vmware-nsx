@@ -19,15 +19,15 @@ Revises: b7f41687cbad
 Create Date: 2016-05-15 06:12:09.450116
 """
 
-# revision identifiers, used by Alembic.
-revision = 'c288bb6a7252'
-down_revision = 'b7f41687cbad'
-
 from alembic import op
 from oslo_config import cfg
 import sqlalchemy as sa
 
 from vmware_nsx.common import config  # noqa
+
+# revision identifiers, used by Alembic.
+revision = 'c288bb6a7252'
+down_revision = 'b7f41687cbad'
 
 
 def upgrade():

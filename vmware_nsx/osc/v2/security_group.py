@@ -38,8 +38,8 @@ def add_nsx_extensions_to_parser(parser, client_manager, for_create=True):
             action='store_true',
             help=_("Disable logging (default)")
         )
-    if ('provider-security-group' in utils.get_extensions(client_manager)
-        and for_create):
+    if ('provider-security-group' in utils.get_extensions(client_manager) and
+        for_create):
         # provider
         parser.add_argument(
             '--provider',

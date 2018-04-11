@@ -116,8 +116,8 @@ class NsxApiClient(eventlet_client.EventletApiClient):
             exception.ERROR_MAPPINGS[status](response)
 
         # Continue processing for non-error condition.
-        if (status != httplib.OK and status != httplib.CREATED
-                and status != httplib.NO_CONTENT):
+        if (status != httplib.OK and status != httplib.CREATED and
+            status != httplib.NO_CONTENT):
             LOG.error("%(method)s to %(url)s, unexpected response code: "
                       "%(status)d (content = '%(body)s')",
                       {'method': method, 'url': url,

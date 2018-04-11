@@ -20,13 +20,12 @@ Create Date: 2015-11-24 13:44:08.664653
 
 """
 
-# revision identifiers, used by Alembic.
-revision = '2af850eb3970'
-down_revision = '312211a5725f'
-
 from alembic import op
 import sqlalchemy as sa
 
+# revision identifiers, used by Alembic.
+revision = '2af850eb3970'
+down_revision = '312211a5725f'
 
 tz_binding_type_enum = sa.Enum('flat', 'vlan', 'portgroup',
                                name='nsxv_tz_network_bindings_binding_type')

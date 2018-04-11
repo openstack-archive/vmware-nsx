@@ -240,8 +240,8 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
         # Validate that the subnet is not a v6 one
         subnet = self.plugin.get_subnet(context.elevated(), subnet_id)
         if (subnet.get('ip_version') == 6 or
-            (subnet['cidr'] not in (constants.ATTR_NOT_SPECIFIED, None)
-             and netaddr.IPNetwork(subnet['cidr']).version == 6)):
+            (subnet['cidr'] not in (constants.ATTR_NOT_SPECIFIED, None) and
+             netaddr.IPNetwork(subnet['cidr']).version == 6)):
             err_msg = _("No support for IPv6 interfaces")
             raise n_exc.InvalidInput(error_message=err_msg)
 

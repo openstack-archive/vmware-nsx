@@ -20,14 +20,14 @@ Revises: 7e46906f8997
 Create Date: 2016-07-12 09:18:44.450116
 """
 
-# revision identifiers, used by Alembic.
-revision = '86a55205337c'
-down_revision = '7e46906f8997'
-
 from alembic import op
 import sqlalchemy as sa
 
 from vmware_nsx.common import config  # noqa
+
+# revision identifiers, used by Alembic.
+revision = '86a55205337c'
+down_revision = '7e46906f8997'
 
 
 def upgrade():

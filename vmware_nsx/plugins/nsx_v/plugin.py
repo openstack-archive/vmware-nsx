@@ -342,10 +342,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 # Should be called only once per worker
                 return
             has_metadata_cfg = (
-                cfg.CONF.nsxv.nova_metadata_ips
-                and cfg.CONF.nsxv.mgt_net_moid
-                and cfg.CONF.nsxv.mgt_net_proxy_ips
-                and cfg.CONF.nsxv.mgt_net_proxy_netmask)
+                cfg.CONF.nsxv.nova_metadata_ips and
+                cfg.CONF.nsxv.mgt_net_moid and
+                cfg.CONF.nsxv.mgt_net_proxy_ips and
+                cfg.CONF.nsxv.mgt_net_proxy_netmask)
             if has_metadata_cfg:
                 # Init md_proxy handler per availability zone
                 self.metadata_proxy_handler = {}
@@ -394,9 +394,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             ports = self.get_ports(context, filters=filters)
             for port in ports:
                 # Only add compute ports with device-id, vnic & port security
-                if (validators.is_attr_set(port.get(ext_vnic_idx.VNIC_INDEX))
-                    and validators.is_attr_set(port.get('device_id'))
-                    and port[psec.PORTSECURITY]):
+                if (validators.is_attr_set(
+                        port.get(ext_vnic_idx.VNIC_INDEX)) and
+                    validators.is_attr_set(port.get('device_id')) and
+                    port[psec.PORTSECURITY]):
                     try:
                         vnic_idx = port[ext_vnic_idx.VNIC_INDEX]
                         device_id = port['device_id']
@@ -829,8 +830,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             return subnets
 
         new_subnets = []
-        if ((fields and as_providers.ADV_SERVICE_PROVIDERS in fields)
-            or (filters and filters.get(as_providers.ADV_SERVICE_PROVIDERS))):
+        if ((fields and as_providers.ADV_SERVICE_PROVIDERS in fields) or
+            (filters and filters.get(as_providers.ADV_SERVICE_PROVIDERS))):
 
             # This ugly mess should reduce DB calls with network_id field
             # as filter - as network_id is not indexed
@@ -1574,12 +1575,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         vlan type networks.
         """
         if (original_network.get(pnet.NETWORK_TYPE) ==
-            c_utils.NsxVNetworkTypes.VLAN
-            and validators.is_attr_set(
-                attrs.get(pnet.PHYSICAL_NETWORK))
-            and not validators.is_attr_set(
-                attrs.get(pnet.NETWORK_TYPE))
-            and not validators.is_attr_set(
+            c_utils.NsxVNetworkTypes.VLAN and
+            validators.is_attr_set(
+                attrs.get(pnet.PHYSICAL_NETWORK)) and
+            not validators.is_attr_set(
+                attrs.get(pnet.NETWORK_TYPE)) and
+            not validators.is_attr_set(
                 attrs.get(pnet.SEGMENTATION_ID))):
             return
         providernet._raise_if_updates_provider_attributes(attrs)
@@ -1888,8 +1889,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             port_data[psec.PORTSECURITY] = port_security
 
             provider_sg_specified = (validators.is_attr_set(
-                port_data.get(provider_sg.PROVIDER_SECURITYGROUPS))
-                and port_data[provider_sg.PROVIDER_SECURITYGROUPS] != [])
+                port_data.get(provider_sg.PROVIDER_SECURITYGROUPS)) and
+                port_data[provider_sg.PROVIDER_SECURITYGROUPS] != [])
             has_security_groups = (
                 self._check_update_has_security_groups(port))
 
@@ -2001,8 +2002,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         ports = [port for port in device_ports
                  if port['device_owner'].startswith('compute')]
         return len([p for p in ports
-            if validators.is_attr_set(p.get(ext_vnic_idx.VNIC_INDEX))
-            and not p[psec.PORTSECURITY]])
+            if validators.is_attr_set(p.get(ext_vnic_idx.VNIC_INDEX)) and
+               not p[psec.PORTSECURITY]])
 
     def _add_vm_to_exclude_list(self, context, device_id, port_id):
         if (self._vcm and
@@ -2238,8 +2239,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     LOG.error("Port has conflicting port security status and "
                               "security groups")
                     raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
-                if ((not delete_security_groups
-                     and original_port[ext_sg.SECURITYGROUPS]) or
+                if ((not delete_security_groups and
+                     original_port[ext_sg.SECURITYGROUPS]) or
                         (not delete_provider_sg and
                          original_port[provider_sg.PROVIDER_SECURITYGROUPS])):
                     LOG.error("Port has conflicting port security status and "
@@ -2403,8 +2404,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                 "function properly ",
                                 {'id': id,
                                  'device_id': original_port['device_id']})
-                if (delete_security_groups
-                        or has_security_groups or pvd_sg_changed):
+                if (delete_security_groups or has_security_groups or
+                    pvd_sg_changed):
                     # Update security-groups,
                     # calculate differences and update vnic membership
                     # accordingly.
@@ -2698,8 +2699,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                            subnet['subnet']['network_id'])
             data = subnet['subnet']
             if (data.get('ip_version') == 6 or
-                (data['cidr'] not in (constants.ATTR_NOT_SPECIFIED, None)
-                 and netaddr.IPNetwork(data['cidr']).version == 6)):
+                (data['cidr'] not in (constants.ATTR_NOT_SPECIFIED, None) and
+                 netaddr.IPNetwork(data['cidr']).version == 6)):
                 err_msg = _("No support for DHCP for IPv6")
                 raise n_exc.InvalidInput(error_message=err_msg)
             if self._is_overlapping_reserved_subnets(subnet):
@@ -2927,8 +2928,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             for net_id in all_networks:
                 p_net = nsxv_db.get_network_bindings(context.session,
                                                     net_id['id'])
-                if (p_net and binding_type == p_net[0]['binding_type']
-                    and binding_type == c_utils.NsxVNetworkTypes.FLAT):
+                if (p_net and binding_type == p_net[0]['binding_type'] and
+                    binding_type == c_utils.NsxVNetworkTypes.FLAT):
                     conflicting_networks.append(net_id['id'])
                 elif (p_net and phy_uuid != p_net[0]['phy_uuid']):
                     conflicting_networks.append(net_id['id'])
@@ -4555,8 +4556,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _is_compute_port(self, port):
         try:
-            if (port['device_id'] and uuidutils.is_uuid_like(port['device_id'])
-                and port['device_owner'].startswith('compute:')):
+            if (port['device_id'] and
+                uuidutils.is_uuid_like(port['device_id']) and
+                port['device_owner'].startswith('compute:')):
                 return True
         except (KeyError, AttributeError):
             pass
@@ -4646,8 +4648,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     res_name='vdn_scope_id', res_id=vdns)
 
         # Validate the global & per-AZ mgt_net_moid
-        if (cfg.CONF.nsxv.mgt_net_moid
-            and not self.nsx_v.vcns.validate_network(
+        if (cfg.CONF.nsxv.mgt_net_moid and
+            not self.nsx_v.vcns.validate_network(
                 cfg.CONF.nsxv.mgt_net_moid)):
             raise nsx_exc.NsxResourceNotFound(
                                 res_name='mgt_net_moid',

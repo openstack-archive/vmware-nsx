@@ -634,8 +634,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             return self._get_mac_learning_profile()
 
     def _get_mac_learning_profile(self):
-        if (hasattr(self, '_mac_learning_profile')
-            and self._mac_learning_profile):
+        if (hasattr(self, '_mac_learning_profile') and
+            self._mac_learning_profile):
             return self._mac_learning_profile
         profile = self.nsxlib.switching_profile.find_by_display_name(
             NSX_V3_MAC_LEARNING_PROFILE_NAME)
@@ -4236,8 +4236,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 subnet_id = port['fixed_ips'][0]['subnet_id']
                 self._confirm_router_interface_not_in_use(
                     context, router_id, subnet_id)
-            if not (port['device_owner'] in const.ROUTER_INTERFACE_OWNERS
-                    and port['device_id'] == router_id):
+            if not (port['device_owner'] in const.ROUTER_INTERFACE_OWNERS and
+                    port['device_id'] == router_id):
                 raise l3_exc.RouterInterfaceNotFound(
                     router_id=router_id, port_id=port_id)
         elif 'subnet_id' in interface_info:
@@ -4662,8 +4662,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # skip if there are no rules in group. i.e provider case
             if sg_rules:
                 # translate and creates firewall rules.
-                logging = (cfg.CONF.nsx_v3.log_security_groups_allowed_traffic
-                           or secgroup.get(sg_logging.LOGGING, False))
+                logging = (
+                    cfg.CONF.nsx_v3.log_security_groups_allowed_traffic or
+                    secgroup.get(sg_logging.LOGGING, False))
                 action = (nsxlib_consts.FW_ACTION_DROP
                           if secgroup.get(provider_sg.PROVIDER)
                           else nsxlib_consts.FW_ACTION_ALLOW)
@@ -4759,8 +4760,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         sg_id = rules_db[0]['security_group_id']
         nsgroup_id, section_id = nsx_db.get_sg_mappings(context.session,
                                                         sg_id)
-        logging_enabled = (cfg.CONF.nsx_v3.log_security_groups_allowed_traffic
-                           or self._is_security_group_logged(context, sg_id))
+        logging_enabled = (
+            cfg.CONF.nsx_v3.log_security_groups_allowed_traffic or
+            self._is_security_group_logged(context, sg_id))
         try:
             rules = self._create_firewall_rules(
                 context, section_id, nsgroup_id,

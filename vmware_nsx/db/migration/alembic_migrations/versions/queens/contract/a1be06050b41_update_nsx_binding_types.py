@@ -19,16 +19,15 @@ Revises: 84ceffa27115
 Create Date: 2017-09-04 23:58:22.003350
 """
 
-# revision identifiers, used by Alembic.
-revision = 'a1be06050b41'
-down_revision = '84ceffa27115'
-depends_on = ('aede17d51d0f')
-
 from alembic import op
 import sqlalchemy as sa
 
 from neutron.db import migration as neutron_op
 
+# revision identifiers, used by Alembic.
+revision = 'a1be06050b41'
+down_revision = '84ceffa27115'
+depends_on = ('aede17d51d0f')
 
 all_tz_binding_type_enum = sa.Enum('flat', 'vlan', 'stt', 'gre', 'l3_ext',
                                    'vxlan', 'geneve', 'portgroup', 'nsx-net',

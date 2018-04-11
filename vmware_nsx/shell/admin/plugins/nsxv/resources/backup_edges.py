@@ -104,8 +104,8 @@ def _nsx_delete_backup_edge(edge_id, all_backup_edges):
         # edge_result[1] is response body
         edge = edge_result[1]
         backup_edges = [e['id'] for e in all_backup_edges]
-        if (not edge['name'].startswith('backup-')
-            or edge['id'] not in backup_edges):
+        if (not edge['name'].startswith('backup-') or
+            edge['id'] not in backup_edges):
             LOG.error(
                 'Edge: %s is not a backup edge; aborting delete',
                 edge_id)
@@ -206,8 +206,8 @@ def nsx_list_name_mismatches(resource, event, trigger, **kwargs):
                 edgeapi.context.session, edge['id'])
 
         if (rtr_binding and
-            edge['name'].startswith('backup-')
-            and rtr_binding['router_id'] != edge['name']):
+            edge['name'].startswith('backup-') and
+            rtr_binding['router_id'] != edge['name']):
             plugin_nsx_mismatch.append(
                     {'edge_id': edge['id'],
                      'edge_name': edge['name'],
@@ -279,8 +279,8 @@ def nsx_fix_name_mismatch(resource, event, trigger, **kwargs):
                         if nsx_attr and nsx_attr['router_type'] == 'shared':
                             edge['name'] = ('shared-' + _uuid())[
                                            :vcns_const.EDGE_NAME_LEN]
-                        elif (nsx_attr
-                              and nsx_attr['router_type'] == 'exclusive'):
+                        elif (nsx_attr and
+                              nsx_attr['router_type'] == 'exclusive'):
                             rtr_db = (edgeapi.context.session.query(
                                 l3_db.Router).filter_by(
                                     id=rtr_binding['router_id']).first())

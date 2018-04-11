@@ -20,14 +20,14 @@ Create Date: 2017-06-12 16:59:48.021909
 
 """
 
-# revision identifiers, used by Alembic.
-revision = '9799427fc0e1'
-down_revision = 'ea7a72ab9643'
-
 from alembic import op
 import sqlalchemy as sa
 
 from neutron.db import migration
+
+# revision identifiers, used by Alembic.
+revision = '9799427fc0e1'
+down_revision = 'ea7a72ab9643'
 
 plugin_type_enum = sa.Enum('dvs', 'nsx-v', 'nsx-t',
                            name='nsx_plugin_type')

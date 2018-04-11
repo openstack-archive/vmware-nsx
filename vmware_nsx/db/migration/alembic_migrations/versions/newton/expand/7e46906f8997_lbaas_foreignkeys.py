@@ -21,18 +21,17 @@ Create Date: 2016-04-21 10:45:32.278433
 
 """
 
+from alembic import op
+from neutron.db import migration
+
 # revision identifiers, used by Alembic.
 revision = '7e46906f8997'
 down_revision = 'aede17d51d0f'
 
-from alembic import op
-
-from neutron.db import migration
-
 
 def upgrade():
-    if (migration.schema_has_table('lbaas_loadbalancers')
-        and migration.schema_has_table('nsxv_lbaas_loadbalancer_bindings')):
+    if (migration.schema_has_table('lbaas_loadbalancers') and
+        migration.schema_has_table('nsxv_lbaas_loadbalancer_bindings')):
 
         op.execute('delete from nsxv_lbaas_loadbalancer_bindings '
                    'where loadbalancer_id not in '
@@ -42,8 +41,8 @@ def upgrade():
             'lbaas_loadbalancers', ['loadbalancer_id'], ['id'],
             ondelete='CASCADE')
 
-    if (migration.schema_has_table('lbaas_listeners')
-        and migration.schema_has_table('nsxv_lbaas_listener_bindings')):
+    if (migration.schema_has_table('lbaas_listeners') and
+        migration.schema_has_table('nsxv_lbaas_listener_bindings')):
 
         op.execute('delete from nsxv_lbaas_listener_bindings '
                    'where listener_id  not in '
@@ -52,8 +51,8 @@ def upgrade():
             'fk_lbaas_listeners_id', 'nsxv_lbaas_listener_bindings',
             'lbaas_listeners', ['listener_id'], ['id'], ondelete='CASCADE')
 
-    if (migration.schema_has_table('lbaas_pools')
-        and migration.schema_has_table('nsxv_lbaas_pool_bindings')):
+    if (migration.schema_has_table('lbaas_pools') and
+        migration.schema_has_table('nsxv_lbaas_pool_bindings')):
 
         op.execute('delete from nsxv_lbaas_pool_bindings '
                    'where pool_id not in (select id from lbaas_pools)')
@@ -61,8 +60,8 @@ def upgrade():
             'fk_lbaas_pools_id', 'nsxv_lbaas_pool_bindings',
             'lbaas_pools', ['pool_id'], ['id'], ondelete='CASCADE')
 
-    if (migration.schema_has_table('lbaas_healthmonitors')
-        and migration.schema_has_table('nsxv_lbaas_monitor_bindings')):
+    if (migration.schema_has_table('lbaas_healthmonitors') and
+        migration.schema_has_table('nsxv_lbaas_monitor_bindings')):
 
         op.execute('delete from nsxv_lbaas_monitor_bindings '
                    'where hm_id not in (select id from lbaas_healthmonitors)')

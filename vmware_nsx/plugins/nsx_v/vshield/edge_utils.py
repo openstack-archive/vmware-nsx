@@ -117,8 +117,8 @@ def is_overlapping_reserved_subnets(cidr, reserved_subnets):
         # translate the reserved subnet to a range object
         reserved_range = netaddr.IPNetwork(reserved_subnet)
         # check if new subnet overlaps this reserved subnet
-        if (range.first <= reserved_range.last
-            and reserved_range.first <= range.last):
+        if (range.first <= reserved_range.last and
+            reserved_range.first <= range.last):
             return True
 
     return False
@@ -474,8 +474,8 @@ class EdgeManager(object):
         if bindings:
             binding = bindings[0]
             network_type = binding['binding_type']
-            if (network_type == c_utils.NsxVNetworkTypes.VLAN
-                and binding['phy_uuid'] != ''):
+            if (network_type == c_utils.NsxVNetworkTypes.VLAN and
+                binding['phy_uuid'] != ''):
                 if ',' not in binding['phy_uuid']:
                     phys_net = binding['phy_uuid']
             # Return user input physical network value for all network types
@@ -484,9 +484,9 @@ class EdgeManager(object):
             # We also validate that this binding starts with 'dvs'. If a admin
             # creates a provider portgroup then we need to use the default
             # configured DVS.
-            elif (not network_type == c_utils.NsxVNetworkTypes.VXLAN
-                  and binding['phy_uuid'] != ''
-                  and binding['phy_uuid'].startswith('dvs')):
+            elif (not network_type == c_utils.NsxVNetworkTypes.VXLAN and
+                  binding['phy_uuid'] != '' and
+                  binding['phy_uuid'].startswith('dvs')):
                 phys_net = binding['phy_uuid']
         return phys_net, network_type
 
@@ -1764,8 +1764,8 @@ class EdgeManager(object):
                 # one vnic is used to provide external access.
                 net_number = (
                     vcns_const.MAX_VNIC_NUM - len(edge_vnic_bindings) - 1)
-                if (net_number > max_net_number
-                    and net_number >= network_number):
+                if (net_number > max_net_number and
+                    net_number >= network_number):
                     net_ids = [vnic_binding.network_id
                                for vnic_binding in edge_vnic_bindings]
                     if not (set(conflict_network_ids) & set(net_ids)):
@@ -2071,8 +2071,8 @@ def _retrieve_nsx_switch_id(context, network_id, az_name):
     if bindings:
         binding = bindings[0]
         network_type = binding['binding_type']
-        if (network_type == c_utils.NsxVNetworkTypes.VLAN
-            and binding['phy_uuid'] != ''):
+        if (network_type == c_utils.NsxVNetworkTypes.VLAN and
+            binding['phy_uuid'] != ''):
             if ',' not in binding['phy_uuid']:
                 dvs_id = binding['phy_uuid']
             else:

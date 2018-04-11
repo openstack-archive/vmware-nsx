@@ -20,12 +20,12 @@ Create Date: 2016-06-27 23:58:22.003350
 
 """
 
+from alembic import op
+import sqlalchemy as sa
+
 # revision identifiers, used by Alembic.
 revision = '5e564e781d77'
 down_revision = 'c644ec62c585'
-
-from alembic import op
-import sqlalchemy as sa
 
 
 tz_binding_type_enum = sa.Enum('flat', 'vlan', 'stt', 'gre', 'l3_ext',

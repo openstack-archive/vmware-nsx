@@ -20,15 +20,14 @@ Create Date: 2016-04-29 23:19:39.523196
 
 """
 
-# revision identifiers, used by Alembic.
-revision = 'c644ec62c585'
-down_revision = 'c288bb6a7252'
-
 from alembic import op
 import sqlalchemy as sa
 
 from vmware_nsxlib.v3 import nsx_constants
 
+# revision identifiers, used by Alembic.
+revision = 'c644ec62c585'
+down_revision = 'c288bb6a7252'
 
 nsx_service_type_enum = sa.Enum(
     nsx_constants.SERVICE_DHCP,

@@ -1404,8 +1404,8 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             lrouter = routerlib.create_lrouter(
                 self.cluster, router['id'],
                 tenant_id, router['name'], nexthop,
-                distributed=(validators.is_attr_set(distributed)
-                             and distributed))
+                distributed=(validators.is_attr_set(distributed) and
+                             distributed))
         except nsx_exc.InvalidVersion:
             msg = _("Cannot create a distributed router with the NSX "
                     "platform currently in execution. Please, try "
@@ -1763,8 +1763,9 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             port = self._get_port(context, port_id)
             if port.get('fixed_ips'):
                 subnet_id = port['fixed_ips'][0]['subnet_id']
-            if not (port['device_owner'] in constants.ROUTER_INTERFACE_OWNERS
-                    and port['device_id'] == router_id):
+            if not (port['device_owner'] in
+                    constants.ROUTER_INTERFACE_OWNERS and
+                    port['device_id'] == router_id):
                 raise l3_exc.RouterInterfaceNotFound(
                     router_id=router_id, port_id=port_id)
         elif 'subnet_id' in interface_info:

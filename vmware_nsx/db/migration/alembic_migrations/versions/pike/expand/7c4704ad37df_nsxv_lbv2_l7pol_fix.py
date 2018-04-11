@@ -20,13 +20,14 @@ Create Date: 2017-02-22 10:10:59.990122
 
 """
 
-# revision identifiers, used by Alembic.
-revision = '7c4704ad37df'
-down_revision = 'e4c503f4133f'
 from alembic import op
 import sqlalchemy as sa
 
 from neutron.db import migration
+
+# revision identifiers, used by Alembic.
+revision = '7c4704ad37df'
+down_revision = 'e4c503f4133f'
 
 
 def upgrade():

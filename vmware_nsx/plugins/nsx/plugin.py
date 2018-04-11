@@ -453,8 +453,8 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # Check if we need to invoke metadata search. Here we are unable to
         # filter according to projects as this is from the nova api service
         # so we invoke on all plugins that support this extension
-        if ((fields and as_providers.ADV_SERVICE_PROVIDERS in fields)
-            or (filters and filters.get(as_providers.ADV_SERVICE_PROVIDERS))):
+        if ((fields and as_providers.ADV_SERVICE_PROVIDERS in fields) or
+            (filters and filters.get(as_providers.ADV_SERVICE_PROVIDERS))):
             for plugin in self.as_providers.values():
                 subnets = plugin.get_subnets(context, filters=filters,
                                              fields=fields, sorts=sorts,
