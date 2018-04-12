@@ -92,7 +92,7 @@ class ConfigurationTest(base.BaseTestCase):
         self.assertEqual('whatever', cluster.nsx_default_interface_name)
 
     def _get_mh_plugin(self):
-        with mock.patch("neutron.common.rpc.create_connection"):
+        with mock.patch("neutron.common.rpc.Connection"):
             plugin = mh_plugin.NsxPlugin()
         return plugin
 
@@ -249,7 +249,7 @@ class OldNVPConfigurationTest(base.BaseTestCase):
         self.config_parse(args=['--config-file', BASE_CONF_PATH,
                                 '--config-file', NVP_INI_DEPR_PATH])
         cfg.CONF.set_override('core_plugin', vmware.PLUGIN_NAME)
-        with mock.patch("neutron.common.rpc.create_connection"):
+        with mock.patch("neutron.common.rpc.Connection"):
             plugin = mh_plugin.NsxPlugin()
             cluster = plugin.cluster
             # Verify old nvp_* params have been fully parsed

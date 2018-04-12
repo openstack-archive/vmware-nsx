@@ -295,7 +295,7 @@ class SyncTestCase(testlib_api.SqlTestCase):
         self.config_parse(args=args)
         cfg.CONF.set_override('allow_overlapping_ips', True)
 
-        with mock.patch("neutron.common.rpc.create_connection"):
+        with mock.patch("neutron.common.rpc.Connection"):
             self._plugin = plugin.NsxPlugin()
 
         mock_nm_get_plugin = mock.patch(
