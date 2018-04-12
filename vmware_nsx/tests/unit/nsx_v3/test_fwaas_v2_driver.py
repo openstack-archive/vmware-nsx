@@ -73,7 +73,7 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
         rule['action'] = consts.FW_ACTION_ALLOW
         return rule
 
-    def _fake_rules_v4(self, is_ingress=True):
+    def _fake_rules_v4(self, is_ingress=True, cidr='10.24.4.0/24'):
         rule1 = {'enabled': True,
                  'action': 'allow',
                  'ip_version': 4,
@@ -99,10 +99,10 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                  'id': 'fake-fw-rule4'}
         if is_ingress:
             # source ips are allowed
-            rule1['source_ip_address'] = '10.24.4.2'
+            rule1['source_ip_address'] = cidr
         else:
             # dest ips are allowed for egress rules
-            rule1['destination_ip_address'] = '10.24.4.2'
+            rule1['destination_ip_address'] = cidr
 
         return [rule1, rule2, rule3, rule4]
 
@@ -115,7 +115,7 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                     'source_ports': []}
         rule1 = {'action': 'ALLOW',
                  'services': [{'service': service1}],
-                 'sources': [{'target_id': '10.24.4.2',
+                 'sources': [{'target_id': '10.24.4.0/24',
                               'target_type': 'IPv4Address'}],
                  'display_name': 'Fwaas-fake-fw-rule1',
                  'notes': 'first rule'}
@@ -285,6 +285,23 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
         self.assertRaises(exceptions.FirewallInternalDriverError,
                           self.firewall.create_firewall_group, 'nsx',
                           apply_list, firewall)
+
+    def test_create_firewall_with_illegal_cidr(self):
+        apply_list = self._fake_apply_list()
+        rule_list = self._fake_rules_v4(cidr='0.0.0.0/24')
+        firewall = self._fake_firewall_group(rule_list)
+        port = {'id': FAKE_PORT_ID, 'network_id': FAKE_NET_ID}
+        with mock.patch.object(self.plugin, '_get_router_interfaces',
+                               return_value=[port]),\
+            mock.patch.object(self.plugin, 'get_port',
+                              return_value=port),\
+            mock.patch.object(self.plugin.fwaas_callbacks, 'get_port_fwg',
+                              return_value=firewall),\
+            mock.patch("vmware_nsx.db.db.get_nsx_switch_and_port_id",
+                       return_value=(FAKE_NSX_LS_ID, 0)):
+            self.assertRaises(exceptions.FirewallInternalDriverError,
+                              self.firewall.create_firewall_group, 'nsx',
+                              apply_list, firewall)
 
     def test_delete_firewall(self):
         apply_list = self._fake_apply_list()
