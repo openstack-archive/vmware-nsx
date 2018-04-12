@@ -97,13 +97,19 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
         raise exceptions.FirewallInternalDriverError(
             driver=FWAAS_DRIVER_NAME)
 
-    def _translate_cidr(self, cidr):
+    def _translate_cidr(self, cidr, fwaas_rule_id):
+        if cidr and cidr.startswith('0.0.0.0/'):
+            LOG.error("Unsupported FWAAS cidr %(cidr)s for rule %(id)s", {
+                'cidr': cidr, 'id': fwaas_rule_id})
+            raise exceptions.FirewallInternalDriverError(
+                driver=FWAAS_DRIVER_NAME)
+
         return self.nsx_firewall.get_ip_cidr_reference(
             cidr,
             consts.IPV6 if netaddr.valid_ipv6(cidr) else consts.IPV4)
 
-    def _translate_addresses(self, cidrs):
-        return [self._translate_cidr(ip) for ip in cidrs]
+    def _translate_addresses(self, cidrs, fwaas_rule_id=None):
+        return [self._translate_cidr(ip, fwaas_rule_id) for ip in cidrs]
 
     @staticmethod
     def _translate_protocol(fwaas_protocol):
@@ -168,10 +174,10 @@ class EdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
                 rule['action'], rule['id'])
             if rule.get('destination_ip_address'):
                 nsx_rule['destinations'] = self._translate_addresses(
-                    [rule['destination_ip_address']])
+                    [rule['destination_ip_address']], rule['id'])
             if rule.get('source_ip_address'):
                 nsx_rule['sources'] = self._translate_addresses(
-                    [rule['source_ip_address']])
+                    [rule['source_ip_address']], rule['id'])
             if rule.get('protocol'):
                 nsx_rule['services'] = self._translate_services(rule)
 
