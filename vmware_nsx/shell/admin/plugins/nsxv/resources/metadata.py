@@ -102,7 +102,7 @@ def nsx_redo_metadata_cfg_for_az(az, edgeapi):
     router_bindings = nsxv_db.get_nsxv_router_bindings(
         edgeapi.context.session,
         filters={'edge_type': [nsxv_constants.SERVICE_EDGE],
-                 'availability_zones': az.name})
+                 'availability_zone': az.name})
     edge_ids = list(set([binding['edge_id'] for binding in router_bindings
                          if (binding['router_id'] not in set(md_rtr_ids) and
                              not binding['router_id'].startswith(
