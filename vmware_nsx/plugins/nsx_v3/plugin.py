@@ -3717,11 +3717,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     context.session, remote_group_id)
             ruleid_2_remote_nsgroup_map[sg_rule['id']] = remote_nsgroup_id
             # 0.0.0.0/0 is not a valid entry for local and remote so we need
-            # to change this to 'ANY'
+            # to change this to None
             if sg_rule.get('remote_ip_prefix') == '0.0.0.0/0':
-                sg_rule['remote_ip_prefix'] = 'ANY'
+                sg_rule['remote_ip_prefix'] = None
             if sg_rule.get('local_ip_prefix') == '0.0.0.0/0':
-                sg_rule['local_ip_prefix'] = 'ANY'
+                sg_rule['local_ip_prefix'] = None
 
         return self.nsxlib.firewall_section.create_rules(
             context, section_id, nsgroup_id,

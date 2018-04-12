@@ -172,10 +172,12 @@ class TestNSXv3ExtendedSGRule(test_nsxv3_plugin.NsxV3PluginTestCaseMixin,
              'port_range_min': None,
              'local_ip_prefix': None,
              'ethertype': 'IPv4',
-             'protocol': u'udp', 'remote_ip_prefix': 'ANY',
+             'protocol': u'udp',
+             'remote_ip_prefix': None,
              'port_range_max': None,
              'security_group_id': mock.ANY,
-             'remote_group_id': None, 'direction': u'ingress',
+             'remote_group_id': None,
+             'direction': u'ingress',
              'description': ''}]
 
         with mock.patch(
