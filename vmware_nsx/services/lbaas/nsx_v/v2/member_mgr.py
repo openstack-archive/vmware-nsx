@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -61,8 +62,10 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
 
         edge_pool_id = pool_binding['edge_pool_id']
         with locking.LockManager.get_lock(edge_id):
-            if not lb_common.is_lb_on_router_edge(
-                context.elevated(), self.core_plugin, edge_id):
+            if (not cfg.CONF.nsxv.use_routers_as_lbaas_platform and
+                    not lb_common.is_lb_on_router_edge(context.elevated(),
+                                                       self.core_plugin,
+                                                       edge_id)):
                 # Verify that Edge appliance is connected to the member's
                 # subnet (only if this is a dedicated loadbalancer edge)
                 if not lb_common.get_lb_interface(
@@ -153,24 +156,26 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
             context.session, lb_id, member.pool_id)
         edge_id = lb_binding['edge_id']
 
-        with locking.LockManager.get_lock(edge_id):
-            # we should remove LB subnet interface if no members are attached
-            # and this is not the LB's VIP interface
-            remove_interface = True
-            if member.subnet_id == member.pool.loadbalancer.vip_subnet_id:
-                remove_interface = False
-            else:
-                for m in member.pool.members:
-                    if m.subnet_id == member.subnet_id and m.id != member.id:
-                        remove_interface = False
-            if remove_interface:
-                lb_common.delete_lb_interface(context, self.core_plugin, lb_id,
-                                              member.subnet_id)
+        if not cfg.CONF.nsxv.use_routers_as_lbaas_platform:
+            with locking.LockManager.get_lock(edge_id):
+                # we should remove LB subnet interface if no members are
+                # attached and this is not the LB's VIP interface
+                remove_interface = True
+                if member.subnet_id == member.pool.loadbalancer.vip_subnet_id:
+                    remove_interface = False
+                else:
+                    for m in member.pool.members:
+                        if (m.subnet_id == member.subnet_id and
+                                m.id != member.id):
+                            remove_interface = False
+                if remove_interface:
+                    lb_common.delete_lb_interface(context, self.core_plugin,
+                                                  lb_id, member.subnet_id)
 
-            if not pool_binding:
-                self.lbv2_driver.member.successful_completion(
-                    context, member, delete=True)
-                return
+                if not pool_binding:
+                    self.lbv2_driver.member.successful_completion(
+                        context, member, delete=True)
+                    return
 
             edge_pool_id = pool_binding['edge_pool_id']
             edge_pool = self.vcns.get_pool(edge_id, edge_pool_id)[1]
