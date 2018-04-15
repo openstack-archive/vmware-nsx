@@ -967,7 +967,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                                        transparent_vlan)
 
         physical_net = provider_data['physical_net']
-        self._assert_on_ens_with_qos(physical_net, net_data)
+        neutron_net_id = net_data.get('id') or uuidutils.generate_uuid()
+        net_data['id'] = neutron_net_id
+        if self._is_ens_tz(physical_net):
+            self._assert_on_ens_with_qos(net_data)
+            self._ensure_override_ens_with_portsecurity(net_data)
         if (provider_data['switch_mode'] ==
             self.nsxlib.transport_zone.HOST_SWITCH_MODE_ENS):
             if not cfg.CONF.nsx_v3.ens_support:
@@ -983,9 +987,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             nsx_id = provider_data['physical_net']
         else:
             # Create network on the backend
-            neutron_net_id = net_data.get('id') or uuidutils.generate_uuid()
-            # To ensure that the correct tag will be set
-            net_data['id'] = neutron_net_id
             # update the network name to indicate the neutron id too.
             net_name = utils.get_name_and_uuid(net_data['name'] or 'network',
                                                neutron_net_id)
@@ -1259,11 +1260,18 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return created_net
 
-    def _assert_on_ens_with_qos(self, tz_id, net_data):
+    def _assert_on_ens_with_qos(self, net_data):
         qos_id = net_data.get(qos_consts.QOS_POLICY_ID)
-        if validators.is_attr_set(qos_id) and tz_id and self._is_ens_tz(tz_id):
+        if validators.is_attr_set(qos_id):
             err_msg = _("Cannot configure QOS on ENS networks")
             raise n_exc.InvalidInput(error_message=err_msg)
+
+    def _ensure_override_ens_with_portsecurity(self, net_data):
+        if cfg.CONF.nsx_v3.disable_port_security_for_ens:
+            if net_data[psec.PORTSECURITY]:
+                LOG.warning("Disabling port security for network %s",
+                            net_data['id'])
+                net_data[psec.PORTSECURITY] = False
 
     def _has_active_port(self, context, network_id):
         ports_in_use = context.session.query(models_v2.Port).filter_by(
@@ -1367,8 +1375,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if extern_net:
             self._assert_on_external_net_with_qos(net_data)
         else:
-            self._assert_on_ens_with_qos(self._get_net_tz(context, id),
-                                         net_data)
+            if self._get_net_tz(context, id):
+                self._assert_on_ens_with_qos(net_data)
         updated_net = super(NsxV3Plugin, self).update_network(context, id,
                                                               network)
         self._extension_manager.process_update_network(context, net_data,
@@ -2743,9 +2751,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         qos_selected = validators.is_attr_set(port_data.get(
             qos_consts.QOS_POLICY_ID))
 
-        if is_ens_tz_port and qos_selected:
-            err_msg = _("Cannot configure QOS on ENS networks")
-            raise n_exc.InvalidInput(error_message=err_msg)
+        if is_ens_tz_port:
+            if qos_selected:
+                err_msg = _("Cannot configure QOS on ENS networks")
+                raise n_exc.InvalidInput(error_message=err_msg)
+
+            if cfg.CONF.nsx_v3.disable_port_security_for_ens:
+                LOG.warning("Disabling port security for network %s",
+                            port_data['network_id'])
+                port_data[psec.PORTSECURITY] = False
+                port_data['security_groups'] = []
 
         # TODO(salv-orlando): Undo logical switch creation on failure
         with db_api.context_manager.writer.using(context):
@@ -3226,9 +3241,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             is_ens_tz_port = self._is_ens_tz_port(context, original_port)
             qos_selected = validators.is_attr_set(port_data.get
                                                   (qos_consts.QOS_POLICY_ID))
-            if is_ens_tz_port and qos_selected:
-                err_msg = _("Cannot configure QOS on ENS networks")
-                raise n_exc.InvalidInput(error_message=err_msg)
+            if is_ens_tz_port:
+                if qos_selected:
+                    err_msg = _("Cannot configure QOS on ENS networks")
+                    raise n_exc.InvalidInput(error_message=err_msg)
 
             dhcp_opts = port_data.get(ext_edo.EXTRADHCPOPTS)
             self._validate_extra_dhcp_options(dhcp_opts)
