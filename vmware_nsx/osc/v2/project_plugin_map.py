@@ -13,10 +13,14 @@
 
 """Project Plugin mapping action implementations"""
 
+import six
+
+from openstack import exceptions as os_exceptions
 from openstack.network import network_service
 from openstack import resource
 from openstackclient.i18n import _
 from osc_lib.command import command
+from osc_lib import exceptions as osc_exceptions
 from osc_lib import utils
 
 project_plugin_maps_path = "/project-plugin-maps"
@@ -82,7 +86,13 @@ class CreateProjectPluginMap(command.ShowOne):
     def take_action(self, parsed_args):
         client = self.app.client_manager.network
         attrs = _get_attrs(parsed_args)
-        obj = client._create(ProjectPluginMap, **attrs)
+        try:
+            obj = client._create(ProjectPluginMap, **attrs)
+        except os_exceptions.HttpException as exc:
+            msg = _("Error while executing command: %s") % exc.message
+            if exc.details:
+                msg += ", " + six.text_type(exc.details)
+            raise osc_exceptions.CommandError(msg)
         display_columns, columns = _get_columns(obj)
         data = utils.get_item_properties(obj, columns, formatters={})
         return (display_columns, data)
