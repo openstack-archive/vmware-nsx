@@ -10,7 +10,9 @@ Contents:
    installation
    usage
    contributing
-   history
+   admin_util
+   devstack
+   housekeeper
 
 Code Documentation
 ==================
@@ -18,7 +20,6 @@ Code Documentation
 .. toctree::
    :maxdepth: 1
 
-   api/autoindex
 
 Indices and tables
 ==================

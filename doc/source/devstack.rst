@@ -166,8 +166,8 @@ Enable trunk service and configure following flags in ``local.conf``::
     ENABLED_SERVICES+=,q-trunk
     Q_SERVICE_PLUGIN_CLASSES=trunk
 
-FWaaS (V1) Driver:
-~~~~~~~~~~~~~
+FWaaS (V1) Driver
+~~~~~~~~~~~~~~~~~
 
 Add neutron-fwaas repo as an external repository and configure following flags in ``local.conf``::
 
@@ -243,8 +243,8 @@ Configure the service provider::
     [DEFAULT]
     api_extensions_path = $DEST/neutron-lbaas/neutron_lbaas/extensions
 
-FWaaS (V1) Driver:
-~~~~~~~~~~~~~
+FWaaS (V1) Driver
+~~~~~~~~~~~~~~~~~
 
 Add neutron-fwaas repo as an external repository and configure following flags in ``local.conf``::
 

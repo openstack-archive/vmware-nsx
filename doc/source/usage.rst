@@ -2,6 +2,6 @@
 Usage
 ========
 
-To use  in a project::
+To use in a project::
 
 	import vmware_nsx

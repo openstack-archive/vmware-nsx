@@ -1,3 +1,7 @@
+=================
+Contributor Guide
+=================
+
 If you would like to contribute to the development of OpenStack,
 you must follow the steps documented at:
 
