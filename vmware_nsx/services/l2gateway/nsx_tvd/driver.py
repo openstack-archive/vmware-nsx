@@ -155,3 +155,11 @@ class NsxTvdL2GatewayDriver(l2gateway_db.L2GatewayMixin):
         #Note(asarfaty): in postcommit the l2_gateway was already deleted
         # so we cannot decide on the plugin by the project of the gw.
         pass
+
+    def add_port_mac(self, context, port_dict):
+        """Process a created Neutron port."""
+        pass
+
+    def delete_port_mac(self, context, port):
+        """Process a deleted Neutron port."""
+        pass
