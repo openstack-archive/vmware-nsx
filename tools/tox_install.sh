@@ -20,4 +20,9 @@ if [ $CONSTRAINTS_FILE != "unconstrained" ]; then
     install_cmd="$install_cmd -c$CONSTRAINTS_FILE"
 fi
 
+if [ -z "$*" ]; then
+    echo "No install args given, skipping install command."
+    return 0
+fi
+
 $install_cmd -U $*
