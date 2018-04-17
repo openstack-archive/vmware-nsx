@@ -1666,38 +1666,51 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                           "network %s", network_id)
 
     def _validate_address_space(self, context, subnet):
-        cidr = subnet.get('cidr')
-        if (not validators.is_attr_set(cidr) or
-            netaddr.IPNetwork(cidr).version != 4):
+        # Only working for IPv4 at the moment
+        if (subnet['ip_version'] != 4):
             return
+
+        # get the subnet IPs
+        if ('allocation_pools' in subnet and
+            validators.is_attr_set(subnet['allocation_pools'])):
+            # use the pools instead of the cidr
+            subnet_networks = [
+                netaddr.IPRange(pool.get('start'), pool.get('end'))
+                for pool in subnet.get('allocation_pools')]
+        else:
+            cidr = subnet.get('cidr')
+            if not validators.is_attr_set(cidr):
+                return
+            subnet_networks = [netaddr.IPNetwork(subnet['cidr'])]
+
         # Check if subnet overlaps with shared address space.
         # This is checked on the backend when attaching subnet to a router.
-        if netaddr.IPSet([cidr]) & netaddr.IPSet(['100.64.0.0/10']):
-            msg = _("Subnet overlaps with shared address space 100.64.0.0/10")
-            LOG.error(msg)
-            raise n_exc.InvalidInput(error_message=msg)
+        shared_ips = '100.64.0.0/10'
+        for subnet_net in subnet_networks:
+            if netaddr.IPSet(subnet_net) & netaddr.IPSet([shared_ips]):
+                msg = _("Subnet overlaps with shared address space "
+                        "%s") % shared_ips
+                LOG.error(msg)
+                raise n_exc.InvalidInput(error_message=msg)
+
         # Ensure that the NSX uplink does not lie on the same subnet as
         # the external subnet
         filters = {'id': [subnet['network_id']],
                    'router:external': [True]}
-        nets = self.get_networks(context, filters=filters)
-        for net in nets:
-            tier0 = net.get(pnet.PHYSICAL_NETWORK)
-            if tier0:
-                ports = self.nsxlib.logical_router_port.get_by_router_id(tier0)
-                for port in ports:
-                    if (port.get('resource_type') ==
-                        'LogicalRouterUpLinkPort'):
-                        for subnet in port.get('subnets', []):
-                            for ip_address in subnet.get('ip_addresses'):
-                                if (netaddr.IPAddress(ip_address) in
-                                    netaddr.IPNetwork(cidr)):
-                                    msg = _("External subnet cannot "
-                                            "overlap with T0 router "
-                                            "address!")
-                                    LOG.error(msg)
-                                    raise n_exc.InvalidInput(
-                                            error_message=msg)
+        external_nets = self.get_networks(context, filters=filters)
+        tier0_routers = [ext_net[pnet.PHYSICAL_NETWORK]
+                         for ext_net in external_nets
+                         if ext_net.get(pnet.PHYSICAL_NETWORK)]
+        for tier0_rtr in set(tier0_routers):
+            tier0_ips = self.nsxlib.logical_router_port.get_tier0_uplink_ips(
+                tier0_rtr)
+            for ip_address in tier0_ips:
+                for subnet_network in subnet_networks:
+                    if (netaddr.IPAddress(ip_address) in subnet_network):
+                        msg = _("External subnet cannot overlap with T0 "
+                                "router address %s!") % ip_address
+                        LOG.error(msg)
+                        raise n_exc.InvalidInput(error_message=msg)
 
     def _create_bulk_with_callback(self, resource, context, request_items,
                                    post_create_func=None, rollback_func=None):
@@ -1795,7 +1808,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             return self._create_bulk('subnet', context, subnets)
 
     def create_subnet(self, context, subnet):
-        self._validate_address_space(context, subnet['subnet'])
         # TODO(berlin): public external subnet announcement
         if (cfg.CONF.nsx_v3.native_dhcp_metadata and
             subnet['subnet'].get('enable_dhcp', False)):
@@ -1812,6 +1824,17 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     if self._has_no_dhcp_enabled_subnet(context, network):
                         created_subnet = super(
                             NsxV3Plugin, self).create_subnet(context, subnet)
+                        try:
+                            # This can be called only after the super create
+                            # since we need the subnet pool to be translated
+                            # to allocation pools
+                            self._validate_address_space(
+                                context, created_subnet)
+                        except n_exc.InvalidInput:
+                            # revert the subnet creation
+                            with excutils.save_and_reraise_exception():
+                                super(NsxV3Plugin, self).delete_subnet(
+                                    context, created_subnet['id'])
                         self._extension_manager.process_create_subnet(context,
                             subnet['subnet'], created_subnet)
                         dhcp_relay = self.get_network_az_by_net_id(
@@ -1834,6 +1857,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         else:
             created_subnet = super(NsxV3Plugin, self).create_subnet(
                 context, subnet)
+            try:
+                # This can be called only after the super create
+                # since we need the subnet pool to be translated
+                # to allocation pools
+                self._validate_address_space(context, created_subnet)
+            except n_exc.InvalidInput:
+                # revert the subnet creation
+                with excutils.save_and_reraise_exception():
+                    super(NsxV3Plugin, self).delete_subnet(
+                        context, created_subnet['id'])
         return created_subnet
 
     def delete_subnet(self, context, subnet_id):

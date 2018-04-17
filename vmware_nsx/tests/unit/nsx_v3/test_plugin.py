@@ -673,7 +673,14 @@ class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
     def test_create_subnet_with_shared_address_space(self):
         with self.network() as network:
             data = {'subnet': {'network_id': network['network']['id'],
-                               'cidr': '100.64.0.0/16'}}
+                               'cidr': '100.64.0.0/16',
+                               'name': 'sub1',
+                               'enable_dhcp': False,
+                               'dns_nameservers': None,
+                               'allocation_pools': None,
+                               'tenant_id': 'tenant_one',
+                               'host_routes': None,
+                               'ip_version': 4}}
             self.assertRaises(n_exc.InvalidInput,
                               self.plugin.create_subnet,
                               context.get_admin_context(), data)
@@ -691,7 +698,14 @@ class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
     def test_create_subnet_with_conflicting_t0_address(self):
         network = self._create_external_network()
         data = {'subnet': {'network_id': network['network']['id'],
-                           'cidr': '172.20.1.0/24'}}
+                           'cidr': '172.20.1.0/24',
+                           'name': 'sub1',
+                           'enable_dhcp': False,
+                           'dns_nameservers': None,
+                           'allocation_pools': None,
+                           'tenant_id': 'tenant_one',
+                           'host_routes': None,
+                           'ip_version': 4}}
         ports = [{'subnets': [{'ip_addresses': [u'172.20.1.60'],
                                'prefix_length': 24}],
                   'resource_type': 'LogicalRouterUpLinkPort'}]
