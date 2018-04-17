@@ -1,0 +1,9 @@
+- project:
+    check:
+      jobs:
+        - build-openstack-sphinx-docs:
+            voting: false
+    gate:
+      jobs:
+        - build-openstack-sphinx-docs:
+            voting: false
