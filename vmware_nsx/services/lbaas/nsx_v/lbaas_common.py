@@ -39,6 +39,27 @@ def get_lb_resource_id(lb_id):
     return (RESOURCE_ID_PFX + lb_id)[:36]
 
 
+def get_lbaas_edge_id_for_subnet(context, plugin, subnet_id, tenant_id):
+    """
+    Grab the id of an Edge appliance that is connected to subnet_id.
+    """
+    subnet = plugin.get_subnet(context, subnet_id)
+    net_id = subnet.get('network_id')
+    filters = {'network_id': [net_id],
+               'device_owner': ['network:router_interface'],
+               'tenant_id': [tenant_id]}
+    attached_routers = plugin.get_ports(context.elevated(),
+                                        filters=filters,
+                                        fields=['device_id'])
+
+    for attached_router in attached_routers:
+        router = plugin.get_router(context, attached_router['device_id'])
+        if router.get('router_type') == 'exclusive':
+            rtr_bindings = nsxv_db.get_nsxv_router_binding(context.session,
+                                                           router['id'])
+            return rtr_bindings['edge_id']
+
+
 def get_lb_edge_name(context, lb_id):
     """Look for the resource name of the edge hosting the LB.
 

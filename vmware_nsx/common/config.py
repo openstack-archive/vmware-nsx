@@ -729,6 +729,10 @@ nsxv_opts = [
                 default=False,
                 help=_("Use default block all rule when no security groups "
                        "are set on a port and port security is enabled")),
+    cfg.BoolOpt('use_routers_as_lbaas_platform',
+                default=False,
+                help=_("Use subnet's exclusive router as a platform for "
+                       "LBaaS")),
 ]
 
 # define the configuration of each NSX-V availability zone.

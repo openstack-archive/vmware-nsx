@@ -19,6 +19,7 @@ from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
 from neutron_lib import constants
 from neutron_lib import exceptions as n_exc
+from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -60,10 +61,18 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def create(self, context, lb):
-        lb_size = self._get_lb_flavor_size(context, lb.flavor_id)
-        edge_id = lb_common.get_lbaas_edge_id(
-            context, self.core_plugin, lb.id, lb.vip_address, lb.vip_subnet_id,
-            lb.tenant_id, lb_size)
+        if cfg.CONF.nsxv.use_routers_as_lbaas_platform:
+            edge_id = lb_common.get_lbaas_edge_id_for_subnet(
+                context, self.core_plugin, lb.vip_subnet_id, lb.tenant_id)
+            if not edge_id:
+                msg = _(
+                    'No suitable Edge found for subnet %s') % lb.vip_subnet_id
+                raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
+        else:
+            lb_size = self._get_lb_flavor_size(context, lb.flavor_id)
+            edge_id = lb_common.get_lbaas_edge_id(
+                context, self.core_plugin, lb.id, lb.vip_address,
+                lb.vip_subnet_id, lb.tenant_id, lb_size)
 
         if not edge_id:
             msg = _('Failed to allocate Edge on subnet %(sub)s for '
@@ -72,14 +81,22 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
             raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
 
         try:
-            lb_common.enable_edge_acceleration(self.vcns, edge_id)
+            if cfg.CONF.nsxv.use_routers_as_lbaas_platform:
+                if not nsxv_db.get_nsxv_lbaas_loadbalancer_binding_by_edge(
+                        context.session, edge_id):
+                    lb_common.enable_edge_acceleration(self.vcns, edge_id)
+                lb_common.add_vip_as_secondary_ip(self.vcns, edge_id,
+                                                  lb.vip_address)
+            else:
+                lb_common.enable_edge_acceleration(self.vcns, edge_id)
 
             edge_fw_rule_id = lb_common.add_vip_fw_rule(
                 self.vcns, edge_id, lb.id, lb.vip_address)
 
             # set LB default rule
-            lb_common.set_lb_firewall_default_rule(self.vcns, edge_id,
-                                                   'accept')
+            if not cfg.CONF.nsxv.use_routers_as_lbaas_platform:
+                lb_common.set_lb_firewall_default_rule(self.vcns, edge_id,
+                                                       'accept')
 
             nsxv_db.add_nsxv_lbaas_loadbalancer_binding(
                 context.session, lb.id, edge_id, edge_fw_rule_id,
