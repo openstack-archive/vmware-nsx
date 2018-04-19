@@ -144,6 +144,8 @@ class EdgePoolManager(base_mgr.Nsxv3LoadbalancerBaseManager):
             if vs_id:
                 try:
                     vs_client.update(vs_id, pool_id='')
+                except nsxlib_exc.ResourceNotFound:
+                    pass
                 except nsxlib_exc.ManagerError:
                     self.lbv2_driver.pool.failed_completion(context, pool)
                     msg = _('Failed to remove lb pool %(pool)s from virtual '
@@ -152,6 +154,8 @@ class EdgePoolManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                     raise n_exc.BadRequest(resource='lbaas-pool', msg=msg)
             try:
                 pool_client.delete(lb_pool_id)
+            except nsxlib_exc.ResourceNotFound:
+                pass
             except nsxlib_exc.ManagerError:
                 self.lbv2_driver.pool.failed_completion(context, pool)
                 msg = (_('Failed to delete lb pool from nsx: %(pool)s') %

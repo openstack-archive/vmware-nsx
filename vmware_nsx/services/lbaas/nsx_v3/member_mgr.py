@@ -237,6 +237,8 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                     members = [m for m in m_list
                                if m['ip_address'] != fixed_ip]
                     pool_client.update_pool_with_members(lb_pool_id, members)
+            except nsxlib_exc.ResourceNotFound:
+                pass
             except nsxlib_exc.ManagerError:
                 self.lbv2_driver.member.failed_completion(context, member)
                 msg = _('Failed to remove member from pool on NSX backend')
