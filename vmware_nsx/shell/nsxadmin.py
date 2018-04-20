@@ -17,7 +17,7 @@ Purpose of this script is to build a framework which can be leveraged
 to build utilities to help the on-field ops in system debugging.
 
 
-TODO: Use Cliff https://pypi.python.org/pypi/cliff
+TODO: Use Cliff https://pypi.org/project/cliff
 TODO: Define commands instead of -r -o like get-security-groups,
 delete-security-groups, nsx neutron nsxv3 can be options
 TODO: Autocomplete command line args
