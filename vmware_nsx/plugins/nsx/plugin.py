@@ -409,7 +409,8 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # Read project plugin to filter relevant projects according to
         # plugin
         req_p = self._get_plugin_for_request(context, filters,
-                                             keys=['device_id'])
+                                             keys=['device_id',
+                                                   'network_id'])
         filters = filters or {}
         with db_api.context_manager.reader.using(context):
             ports = (
