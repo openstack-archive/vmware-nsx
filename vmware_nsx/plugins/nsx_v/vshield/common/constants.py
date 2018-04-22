@@ -78,6 +78,7 @@ SUPPORTED_DHCP_OPTIONS = {
     'classless-static-route': 'option121',
     'tftp-server-address': 'option150',
     'tftp-server': 'option150',
+    'server-ip-address': 'option150',
 }
 
 
