@@ -1879,28 +1879,30 @@ class EdgeManager(object):
         except nsxapi_exc.VcnsApiException as e:
             with excutils.save_and_reraise_exception():
                 binding_id = None
-                desc = jsonutils.loads(e.response)
-                if desc.get('errorCode') == (
-                    vcns_const.NSX_ERROR_DHCP_DUPLICATE_MAC):
-                    bindings = get_dhcp_binding_mappings(self.nsxv_manager,
-                                                         edge_id)
-                    binding_id = bindings.get(binding['macAddress'].lower())
-                    LOG.debug("Duplicate MAC for %s with binding %s",
-                              binding['macAddress'], binding_id)
-                elif desc.get('errorCode') == (
-                    vcns_const.NSX_ERROR_DHCP_OVERLAPPING_IP):
-                    bindings = get_dhcp_binding_mappings_for_ips(
-                        self.nsxv_manager, edge_id)
-                    binding_id = bindings.get(binding['ipAddress'])
-                    LOG.debug("Overlapping IP %s with binding %s",
-                              binding['ipAddress'], binding_id)
-                elif desc.get('errorCode') == (
-                    vcns_const.NSX_ERROR_DHCP_DUPLICATE_HOSTNAME):
-                    bindings = get_dhcp_binding_mappings_for_hostname(
-                        self.nsxv_manager, edge_id)
-                    binding_id = bindings.get(binding['hostname'])
-                    LOG.debug("Overlapping hostname %s with binding %s",
-                              binding['hostname'], binding_id)
+                if e.response:
+                    desc = jsonutils.loads(e.response)
+                    if desc.get('errorCode') == (
+                        vcns_const.NSX_ERROR_DHCP_DUPLICATE_MAC):
+                        bindings = get_dhcp_binding_mappings(self.nsxv_manager,
+                                                             edge_id)
+                        binding_id = bindings.get(
+                            binding['macAddress'].lower())
+                        LOG.debug("Duplicate MAC for %s with binding %s",
+                                  binding['macAddress'], binding_id)
+                    elif desc.get('errorCode') == (
+                        vcns_const.NSX_ERROR_DHCP_OVERLAPPING_IP):
+                        bindings = get_dhcp_binding_mappings_for_ips(
+                            self.nsxv_manager, edge_id)
+                        binding_id = bindings.get(binding['ipAddress'])
+                        LOG.debug("Overlapping IP %s with binding %s",
+                                  binding['ipAddress'], binding_id)
+                    elif desc.get('errorCode') == (
+                        vcns_const.NSX_ERROR_DHCP_DUPLICATE_HOSTNAME):
+                        bindings = get_dhcp_binding_mappings_for_hostname(
+                            self.nsxv_manager, edge_id)
+                        binding_id = bindings.get(binding['hostname'])
+                        LOG.debug("Overlapping hostname %s with binding %s",
+                                  binding['hostname'], binding_id)
                 if binding_id:
                     self.nsxv_manager.vcns.delete_dhcp_binding(
                         edge_id, binding_id)
