@@ -156,8 +156,8 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
             context.session, lb_id, member.pool_id)
         edge_id = lb_binding['edge_id']
 
-        if not cfg.CONF.nsxv.use_routers_as_lbaas_platform:
-            with locking.LockManager.get_lock(edge_id):
+        with locking.LockManager.get_lock(edge_id):
+            if not cfg.CONF.nsxv.use_routers_as_lbaas_platform:
                 # we should remove LB subnet interface if no members are
                 # attached and this is not the LB's VIP interface
                 remove_interface = True
