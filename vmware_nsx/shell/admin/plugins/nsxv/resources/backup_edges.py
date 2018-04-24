@@ -37,7 +37,7 @@ nsxv = utils.get_nsxv_client()
 _uuid = uuidutils.generate_uuid
 
 
-def get_nsxv_backup_edges():
+def get_nsxv_backup_edges(scope="all"):
     edges = utils.get_nsxv_backend_edges()
     backup_edges = []
     edgeapi = utils.NeutronDbClient()
@@ -46,9 +46,19 @@ def get_nsxv_backup_edges():
             # Make sure it is really a backup edge
             edge_vnic_binds = nsxv_db.get_edge_vnic_bindings_by_edge(
                 edgeapi.context.session, edge['id'])
-            if not edge_vnic_binds:
-                extend_edge_info(edge)
-                backup_edges.append(edge)
+            if scope != "all":
+                # Make sure the backup edge exists in neutron
+                # Return backup edges existing in both neutron and backend
+                # when scope != all
+                edge_in_neutron = nsxv_db.get_nsxv_router_binding_by_edge(
+                    edgeapi.context.session, edge['id'])
+                if not edge_vnic_binds and edge_in_neutron:
+                    extend_edge_info(edge)
+                    backup_edges.append(edge)
+            else:
+                if not edge_vnic_binds:
+                    extend_edge_info(edge)
+                    backup_edges.append(edge)
     return backup_edges
 
 
@@ -138,7 +148,15 @@ def nsx_clean_backup_edge(resource, event, trigger, **kwargs):
 
 def nsx_clean_all_backup_edges(resource, event, trigger, **kwargs):
     """Delete all backup edges"""
-    backup_edges = get_nsxv_backup_edges()
+    scope = "all"
+    if kwargs.get('property'):
+        properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
+        scope = properties.get("scope", "all")
+        if scope not in ["neutron", "all"]:
+            LOG.error("Need to specify the scope in ['neutron', 'all']")
+            return
+
+    backup_edges = get_nsxv_backup_edges(scope=scope)
 
     if not kwargs.get('force'):
         #ask for the user confirmation

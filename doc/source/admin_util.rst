@@ -127,9 +127,9 @@ Backup Edges
 
     nsxadmin -r backup-edges -o clean --property edge-id=edge-9 [--force]
 
-- Delete all backup edges::
+- Delete all backup edges existing in both neutron and backend when scope is neutron, else backend only::
 
-    nsxadmin -r backup-edges -o clean-all [--force]
+    nsxadmin -r backup-edges -o clean-all --property scope=[neutron/all] [--force]
 
 - List Edge name mismatches between DB and backend, and backup edges that are missing from the backend::
 
