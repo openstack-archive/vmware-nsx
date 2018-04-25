@@ -2556,10 +2556,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._validate_internal_network(context, network_id)
 
         with locking.LockManager.get_lock(network_id):
-            with db_api.context_manager.writer.using(context):
-                self.base_delete_subnet(context, id)
-
             with locking.LockManager.get_lock('nsx-dhcp-edge-pool'):
+
+                with db_api.context_manager.writer.using(context):
+                    self.base_delete_subnet(context, id)
+
                 if subnet['enable_dhcp']:
                     # There is only DHCP port available
                     if len(ports) == 1:
