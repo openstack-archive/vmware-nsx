@@ -188,7 +188,7 @@ function init_vmware_nsx_tvd {
     fi
     # Generate client certificate
     if [[ "$NSX_USE_CLIENT_CERT_AUTH" == "True" ]]; then
-        nsxadmin -o generate -r certificate
+        nsxadmin --plugin nsxv3 -o generate -r certificate
     fi
     if ! is_set NSX_GATEWAY_NETWORK_INTERFACE; then
         echo "NSX_GATEWAY_NETWORK_INTERFACE not set not configuring routes"
@@ -225,7 +225,7 @@ function init_vmware_nsx_tvd {
 
 function stop_vmware_nsx_tvd {
     # Clean client certificate if exists
-    nsxadmin -o clean -r certificate
+    nsxadmin --plugin nsxv3 -o clean -r certificate
 
     if ! is_set NSX_GATEWAY_NETWORK_INTERFACE; then
         echo "NSX_GATEWAY_NETWORK_INTERFACE was not configured."
