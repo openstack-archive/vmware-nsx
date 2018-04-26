@@ -3263,6 +3263,16 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 len(router['routes']) > 0):
                 raise n_exc.InvalidInput(error_message=err_msg)
 
+            # shared router cannot be attached to a loadbalancer
+            edge_id = self._get_edge_id_by_rtr_id(context, router_id)
+            if edge_id:
+                lb_bind = nsxv_db.get_nsxv_lbaas_loadbalancer_binding_by_edge(
+                    context.session, edge_id)
+                if lb_bind:
+                    err_msg = _('Unable to create a shared router with a load '
+                                'balancer')
+                    raise n_exc.InvalidInput(error_message=err_msg)
+
     def update_router(self, context, router_id, router):
         with locking.LockManager.get_lock('router-%s' % router_id):
             return self._safe_update_router(context, router_id, router)
