@@ -14,7 +14,6 @@
 #    under the License.
 #
 
-from eventlet import greenthread
 from neutron_lib import constants as const
 from neutron_lib import exceptions as ntn_exc
 from oslo_config import cfg
@@ -185,9 +184,7 @@ def _create_metadata_access_network(plugin, context, router_id):
                 'status': const.NET_STATUS_ACTIVE}
     meta_net = plugin.create_network(context,
                                      {'network': net_data})
-    greenthread.sleep(0)  # yield
     plugin.schedule_network(context, meta_net)
-    greenthread.sleep(0)  # yield
     # From this point on there will be resources to garbage-collect
     # in case of failures
     meta_sub = None
@@ -207,10 +204,8 @@ def _create_metadata_access_network(plugin, context, router_id):
                        'host_routes': []}
         meta_sub = plugin.create_subnet(context,
                                         {'subnet': subnet_data})
-        greenthread.sleep(0)  # yield
         plugin.add_router_interface(context, router_id,
                                     {'subnet_id': meta_sub['id']})
-        greenthread.sleep(0)  # yield
         # Tell to start the metadata agent proxy, only if we had success
         _notify_rpc_agent(context, {'subnet': meta_sub}, 'subnet.create.end')
     except (ntn_exc.NeutronException,
@@ -231,12 +226,10 @@ def _destroy_metadata_access_network(plugin, context, router_id, ports):
     meta_sub_id = meta_port['fixed_ips'][0]['subnet_id']
     plugin.remove_router_interface(
         context, router_id, {'port_id': meta_port['id']})
-    greenthread.sleep(0)  # yield
     context.session.expunge_all()
     try:
         # Remove network (this will remove the subnet too)
         plugin.delete_network(context, meta_net_id)
-        greenthread.sleep(0)  # yield
     except (ntn_exc.NeutronException, nsx_exc.NsxPluginException,
             api_exc.NsxApiException):
         # must re-add the router interface
