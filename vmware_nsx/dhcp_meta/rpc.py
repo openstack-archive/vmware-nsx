@@ -22,6 +22,7 @@ from oslo_db import exception as db_exc
 from oslo_log import log as logging
 
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
+from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron.db import models_v2
 
@@ -153,7 +154,14 @@ def _find_metadata_port(plugin, context, ports):
 def _find_dhcp_disabled_subnet_by_port(plugin, context, ports):
     for port in ports:
         for fixed_ip in port['fixed_ips']:
-            subnet = plugin.get_subnet(context, fixed_ip['subnet_id'])
+            # NOTE(ihrachys) explicit use of reader.using guarantees we don't
+            # fetch an old state of subnet with incorrect value for
+            # enable_dhcp. A more correct fix would be switching all operations
+            # of the vmware plugin (and base db neutron plugin) to engine
+            # facade to avoid cross transaction session cache reuse but such
+            # change wouldn't happen overnight.
+            with db_api.context_manager.reader.using(context):
+                subnet = plugin.get_subnet(context, fixed_ip['subnet_id'])
             if not subnet['enable_dhcp']:
                 return subnet
 

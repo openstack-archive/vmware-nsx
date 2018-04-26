@@ -3220,12 +3220,17 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             self._process_extra_attr_router_create(context, router_db, r)
             self._process_nsx_router_create(context, router_db, r)
             self._process_router_flavor_create(context, router_db, r)
+            try:
+                router_driver = self._get_router_driver(context, router_db)
+            except Exception:
+                LOG.exception("Failed to create router %s", router)
+                with excutils.save_and_reraise_exception():
+                    self.delete_router(context, lrouter['id'])
 
         with db_api.context_manager.reader.using(context):
             lrouter = super(NsxVPluginV2, self).get_router(context,
                                                            lrouter['id'])
         try:
-            router_driver = self._get_router_driver(context, router_db)
             if router_driver.get_type() == nsxv_constants.EXCLUSIVE:
                 router_driver.create_router(
                     context, lrouter,
