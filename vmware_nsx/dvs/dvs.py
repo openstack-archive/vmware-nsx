@@ -92,7 +92,7 @@ class VCManagerBase(object):
 class DvsManager(VCManagerBase):
     """Management class for dvs related tasks
 
-    The dvs-id is not a class member, ince multiple dvs-es can be supported.
+    The dvs-id is not a class member, since multiple dvs-es can be supported.
     """
 
     def _get_dvs_moref_by_id(self, dvs_id):

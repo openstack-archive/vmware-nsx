@@ -154,7 +154,7 @@ class ApiClientBase(object):
                          'conn': api_client.ctrl_conn_to_str(http_conn)})
             http_conn = self._create_connection(*self._conn_params(http_conn))
         elif service_unavail:
-            # http_conn returned a service unaviable response, put other
+            # http_conn returned a service unavailable response, put other
             # connections to the same controller at end of priority queue,
             conns = []
             while not self._conn_pool.empty():

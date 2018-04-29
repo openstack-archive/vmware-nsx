@@ -315,8 +315,8 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                 self._update_routes(context, router_id, nexthop)
 
             self.plugin._update_subnets_and_dnat_firewall(context, router_db)
-            # Safly remove interface, VDR can have interface to only one subnet
-            # in a given network.
+            # Safely remove interface, VDR can have interface to only one
+            # subnet in a given network.
             edge_utils.delete_interface(
                 self.nsx_v, context, router_id, network_id, dist=True)
 

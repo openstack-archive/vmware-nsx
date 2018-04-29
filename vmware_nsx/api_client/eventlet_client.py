@@ -84,7 +84,7 @@ class EventletApiClient(base.ApiClientBase):
 
         Returns: An available HTTPConnection instance corresponding to the
                  specified conn_params. If a connection did not previously
-                 exist, new connections are created with the highest prioity
+                 exist, new connections are created with the highest priority
                  in the connection pool and one of these new connections
                  returned.
         """

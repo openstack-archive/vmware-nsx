@@ -91,7 +91,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
 
     def detach_router(self, context, router_id, router):
         LOG.debug("Detach shared router id %s", router_id)
-        # if it is the last shared router on this adge - add it to the pool
+        # if it is the last shared router on this edge - add it to the pool
         edge_id = edge_utils.get_router_edge_id(context, router_id)
         if not edge_id:
             return
@@ -163,7 +163,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         edge_utils.update_routes(self.nsx_v, context, target_router_id,
                                  all_routes, nexthop)
 
-    # return a dic of each router -> list of vnics from the other routers
+    # return a dict of each router -> list of vnics from the other routers
     def _get_all_routers_vnic_indices(self, context, router_ids):
 
         all_vnic_indices = {}
