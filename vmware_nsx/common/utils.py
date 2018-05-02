@@ -51,6 +51,7 @@ class NetworkTypes(object):
     VLAN = 'vlan'
     BRIDGE = 'bridge'
     PORTGROUP = 'portgroup'
+    LOCAL = 'local'
 
 
 # Allowed network types for the NSX-v Plugin
