@@ -107,6 +107,14 @@ function neutron_plugin_create_nova_conf {
             fi
         fi
     fi
+    # if n-api-meta is enabled, then setup https on n-api-meta
+    if is_service_enabled n-api-meta; then
+        if [[ "$NATIVE_DHCP_METADATA" == "True" && "$METADATA_PROXY_USE_HTTPS" == "True" ]]; then
+            inidelete $NOVA_METADATA_UWSGI_CONF uwsgi http
+            https=":8775,$METADATA_PROXY_CERT_FILE,$METADATA_PROXY_PRIV_KEY_FILE"
+            iniset $NOVA_METADATA_UWSGI_CONF uwsgi https $https
+        fi
+    fi
 }
 
 function neutron_plugin_install_agent_packages {
