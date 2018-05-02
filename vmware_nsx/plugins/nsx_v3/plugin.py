@@ -953,7 +953,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         else:
             tier0_uuid = net_data[pnet.PHYSICAL_NETWORK]
         if ((validators.is_attr_set(net_data.get(pnet.NETWORK_TYPE)) and
-             net_data.get(pnet.NETWORK_TYPE) != utils.NetworkTypes.L3_EXT) or
+             net_data.get(pnet.NETWORK_TYPE) != utils.NetworkTypes.L3_EXT and
+             net_data.get(pnet.NETWORK_TYPE) != utils.NetworkTypes.LOCAL) or
             validators.is_attr_set(net_data.get(pnet.SEGMENTATION_ID))):
             msg = _("Invalid provider network configuration")
             raise n_exc.InvalidInput(error_message=msg)
