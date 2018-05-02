@@ -38,6 +38,7 @@ from neutron_lib.callbacks import resources
 from neutron_lib import constants
 from neutron_lib import context as n_context
 from neutron_lib.db import constants as db_const
+from neutron_lib.db import utils as db_utils
 from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import allowedaddresspairs as addr_exc
 from neutron_lib.exceptions import flavors as flav_exc
@@ -63,7 +64,6 @@ from neutron.common import ipv6_utils
 from neutron.common import rpc as n_rpc
 from neutron.common import utils as n_utils
 from neutron.db import _resource_extend as resource_extend
-from neutron.db import _utils as db_utils
 from neutron.db import agents_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import api as db_api

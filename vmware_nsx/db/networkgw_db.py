@@ -15,9 +15,9 @@
 from sqlalchemy.orm import exc as sa_orm_exc
 
 from neutron.db import _model_query as model_query
-from neutron.db import _utils as db_utils
 from neutron.db import api as db_api
 from neutron_lib import constants
+from neutron_lib.db import utils as db_utils
 from neutron_lib import exceptions
 from neutron_lib.plugins import utils
 from oslo_log import log as logging

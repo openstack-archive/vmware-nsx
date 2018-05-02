@@ -15,6 +15,7 @@
 
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import port_security as psec
+from neutron_lib.db import utils as db_utils
 from neutron_lib.exceptions import allowedaddresspairs as addr_exc
 from neutron_lib.exceptions import port_security as psec_exc
 from oslo_config import cfg
@@ -24,7 +25,6 @@ from oslo_utils import uuidutils
 
 from neutron.api import extensions as neutron_extensions
 from neutron.db import _resource_extend as resource_extend
-from neutron.db import _utils as db_utils
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import api as db_api

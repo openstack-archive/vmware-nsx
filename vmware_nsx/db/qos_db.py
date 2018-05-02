@@ -17,12 +17,12 @@ from sqlalchemy.orm import exc
 
 from neutron.db import _model_query as model_query
 from neutron.db import _resource_extend as resource_extend
-from neutron.db import _utils as db_utils
 from neutron.db import api as db_api
 from neutron.db import models_v2
 
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port as port_def
+from neutron_lib.db import utils as db_utils
 
 from oslo_log import log
 from oslo_utils import uuidutils

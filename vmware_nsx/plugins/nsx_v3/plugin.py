@@ -24,6 +24,7 @@ from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api import extensions
 from neutron_lib.api import faults
 from neutron_lib.api.validators import availability_zone as az_validator
+from neutron_lib.db import utils as db_utils
 from neutron_lib.exceptions import allowedaddresspairs as addr_exc
 from neutron_lib.exceptions import l3 as l3_exc
 from neutron_lib.exceptions import port_security as psec_exc
@@ -36,7 +37,6 @@ from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
 from neutron.common import rpc as n_rpc
 from neutron.db import _resource_extend as resource_extend
-from neutron.db import _utils as db_utils
 from neutron.db import agents_db
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
