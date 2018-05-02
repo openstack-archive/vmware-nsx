@@ -217,6 +217,14 @@ class EdgeL7PolicyManager(base_mgr.EdgeLoadbalancerBaseManager):
             msg = _(
                 'No suitable Edge found for listener %s') % pol.listener_id
             raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
+
+        if (pol.listener.protocol == lb_const.LB_PROTOCOL_HTTPS or
+            pol.listener.protocol == lb_const.LB_PROTOCOL_TERMINATED_HTTPS):
+            msg = _(
+                'L7 policy is not supported for %(prot)s listener %(ls)s') % {
+                'prot': pol.listener.protocol, 'ls': pol.listener_id}
+            raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
+
         edge_id = lb_binding['edge_id']
         app_rule = policy_to_application_rule(pol)
         app_rule_id = None
