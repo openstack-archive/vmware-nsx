@@ -1021,16 +1021,27 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 provider_data['vlan_id'],
                 nsx_id)
 
-    def _is_ddi_supported_on_network(self, context, network_id):
+    def _is_ddi_supported_on_net_with_type(self, context, network_id):
+        net = self.get_network(context, network_id)
         # NSX current does not support transparent VLAN ports for
         # DHCP and metadata
         if cfg.CONF.vlan_transparent:
-            net = self.get_network(context, network_id)
             if net.get('vlan_transparent') is True:
-                return False
+                return False, "VLAN transparent"
+        # NSX current does not support flat network ports for
+        # DHCP and metadata
+        if net.get(pnet.NETWORK_TYPE) == utils.NsxV3NetworkTypes.FLAT:
+            return False, "flat"
+        # supported for overlay networks, and for vlan networks depending on
+        # NSX version
         return (self.nsxlib.feature_supported(
                     nsxlib_consts.FEATURE_VLAN_ROUTER_INTERFACE) or
-                self._is_overlay_network(context, network_id))
+                self._is_overlay_network(context, network_id)), "non-overlay"
+
+    def _is_ddi_supported_on_network(self, context, network_id):
+        result, _ = self._is_ddi_supported_on_net_with_type(
+            context, network_id)
+        return result
 
     def _is_overlay_network(self, context, network_id):
         """Return True if this is an overlay network
@@ -1823,11 +1834,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._validate_external_subnet(context,
                                            subnet['subnet']['network_id'])
             lock = 'nsxv3_network_' + subnet['subnet']['network_id']
+            ddi_support, ddi_type = self._is_ddi_supported_on_net_with_type(
+                context, subnet['subnet']['network_id'])
             with locking.LockManager.get_lock(lock):
                 # Check if it is on an overlay network and is the first
                 # DHCP-enabled subnet to create.
-                if self._is_ddi_supported_on_network(
-                    context, subnet['subnet']['network_id']):
+                if ddi_support:
                     network = self._get_network(
                         context, subnet['subnet']['network_id'])
                     if self._has_no_dhcp_enabled_subnet(context, network):
@@ -1858,8 +1870,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                 "subnet in network %s") %
                                subnet['subnet']['network_id'])
                 else:
-                    msg = _("Native DHCP is not supported for non-overlay "
-                            "network %s") % subnet['subnet']['network_id']
+                    msg = _("Native DHCP is not supported for %(type)s "
+                            "network %(id)s") % {
+                          'id': subnet['subnet']['network_id'],
+                          'type': ddi_type}
                 if msg:
                     LOG.error(msg)
                     raise n_exc.InvalidInput(error_message=msg)
@@ -1914,8 +1928,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     network = self._get_network(
                         context, orig_subnet['network_id'])
                     if enable_dhcp:
-                        if self._is_ddi_supported_on_network(
-                            context, orig_subnet['network_id']):
+                        (ddi_support,
+                         ddi_type) = self._is_ddi_supported_on_net_with_type(
+                            context, orig_subnet['network_id'])
+                        if ddi_support:
                             if self._has_no_dhcp_enabled_subnet(
                                 context, network):
                                 updated_subnet = super(
@@ -1932,8 +1948,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                        orig_subnet['network_id'])
                         else:
                             msg = (_("Native DHCP is not supported for "
-                                     "non-overlay network %s") %
-                                   orig_subnet['network_id'])
+                                     "%(type)s network %(id)s") %
+                                   {'id': orig_subnet['network_id'],
+                                    'type': ddi_type})
                         if msg:
                             LOG.error(msg)
                             raise n_exc.InvalidInput(error_message=msg)
