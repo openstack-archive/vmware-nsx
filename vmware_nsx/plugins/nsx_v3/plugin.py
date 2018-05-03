@@ -4622,11 +4622,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 remote_nsgroup_id = nsx_db.get_nsx_security_group_id(
                     context.session, remote_group_id)
             ruleid_2_remote_nsgroup_map[sg_rule['id']] = remote_nsgroup_id
-            # 0.0.0.0/0 is not a valid entry for local and remote so we need
+            # 0.0.0.0/# is not a valid entry for local and remote so we need
             # to change this to None
-            if sg_rule.get('remote_ip_prefix') == '0.0.0.0/0':
+            if (sg_rule.get('remote_ip_prefix') and
+                sg_rule['remote_ip_prefix'].startswith('0.0.0.0/')):
                 sg_rule['remote_ip_prefix'] = None
-            if sg_rule.get('local_ip_prefix') == '0.0.0.0/0':
+            if (sg_rule.get('local_ip_prefix') and
+                sg_rule['local_ip_prefix'].startswith('0.0.0.0/')):
                 sg_rule['local_ip_prefix'] = None
 
         return self.nsxlib.firewall_section.create_rules(
@@ -4778,7 +4780,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         sg_rules = security_group_rules['security_group_rules']
         for r in sg_rules:
             self._check_local_ip_prefix(context, r['security_group_rule'])
-            # Generate id for security group rule or use one sepecified,
+            # Generate id for security group rule or use one specified,
             # if specified we are running in api-replay as server doesn't
             # allow id to be specified by default
             r['security_group_rule']['id'] = (
