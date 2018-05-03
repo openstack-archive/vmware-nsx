@@ -722,7 +722,7 @@ class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
             with mock.patch.object(self.plugin,
                                    '_enable_native_dhcp') as enable_dhcp,\
                 self.subnet(network=network, enable_dhcp=False):
-                # Native dhcp should be set for this subnet
+                # Native dhcp should not be set for this subnet
                 self.assertFalse(enable_dhcp.called)
 
     def test_subnet_native_dhcp_with_relay(self):
@@ -734,6 +734,47 @@ class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
                 self.subnet(network=network, enable_dhcp=True):
                 # Native dhcp should not be set for this subnet
                 self.assertFalse(enable_dhcp.called)
+
+    def test_subnet_native_dhcp_flat_subnet_disabled(self):
+        cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        providernet_args = {pnet.NETWORK_TYPE: 'flat'}
+        with mock.patch('vmware_nsxlib.v3.core_resources.NsxLibTransportZone.'
+                        'get_transport_type', return_value='VLAN'):
+            with self.network(name='flat_net',
+                              providernet_args=providernet_args,
+                              arg_list=(pnet.NETWORK_TYPE, )) as network:
+                data = {'subnet': {'network_id': network['network']['id'],
+                                   'cidr': '172.20.1.0/24',
+                                   'name': 'sub1',
+                                   'enable_dhcp': False,
+                                   'dns_nameservers': None,
+                                   'allocation_pools': None,
+                                   'tenant_id': 'tenant_one',
+                                   'host_routes': None,
+                                   'ip_version': 4}}
+                self.plugin.create_subnet(
+                    context.get_admin_context(), data)
+
+    def test_subnet_native_dhcp_flat_subnet_enabled(self):
+        cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        providernet_args = {pnet.NETWORK_TYPE: 'flat'}
+        with mock.patch('vmware_nsxlib.v3.core_resources.NsxLibTransportZone.'
+                        'get_transport_type', return_value='VLAN'):
+            with self.network(name='flat_net',
+                             providernet_args=providernet_args,
+                             arg_list=(pnet.NETWORK_TYPE, )) as network:
+                data = {'subnet': {'network_id': network['network']['id'],
+                                   'cidr': '172.20.1.0/24',
+                                   'name': 'sub1',
+                                   'enable_dhcp': True,
+                                   'dns_nameservers': None,
+                                   'allocation_pools': None,
+                                   'tenant_id': 'tenant_one',
+                                   'host_routes': None,
+                                   'ip_version': 4}}
+                self.assertRaises(n_exc.InvalidInput,
+                                  self.plugin.create_subnet,
+                                  context.get_admin_context(), data)
 
 
 class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
