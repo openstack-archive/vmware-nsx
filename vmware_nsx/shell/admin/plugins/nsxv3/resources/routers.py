@@ -217,8 +217,9 @@ def update_dhcp_relay(resource, event, trigger, **kwargs):
             # if FWaaS is enables, also update the firewall rules
             try:
                 plugin.update_router_firewall(admin_cxt, router['id'])
-            except Exception:
-                pass
+            except Exception as e:
+                LOG.warning("Updating router firewall was skipped because of "
+                            "an error %s", e)
 
     LOG.info("Done.")
 
