@@ -30,7 +30,8 @@ RULE_NAME_PREFIX = 'Fwaas-'
 DEFAULT_RULE_NAME = 'Default LR Layer3 Rule'
 
 try:
-    from neutron_fwaas.services.firewall.drivers import fwaas_base
+    from neutron_fwaas.services.firewall.service_drivers.agents.drivers \
+        import fwaas_base
 except ImportError:
     # FWaaS project no found
     from vmware_nsx.services.fwaas.common import fwaas_mocks \

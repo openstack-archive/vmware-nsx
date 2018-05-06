@@ -28,7 +28,8 @@ FWAAS_DRIVER_NAME = 'Fwaas V1 NSX-V driver'
 RULE_NAME_PREFIX = 'Fwaas-'
 
 try:
-    from neutron_fwaas.services.firewall.drivers import fwaas_base
+    from neutron_fwaas.services.firewall.service_drivers.agents.drivers \
+        import fwaas_base
 except ImportError:
     # FWaaS project no found
     from vmware_nsx.services.fwaas.common import fwaas_mocks \

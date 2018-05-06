@@ -27,7 +27,8 @@ LOG = logging.getLogger(__name__)
 FWAAS_DRIVER_NAME = 'FwaaS V1 NSX-TV driver'
 
 try:
-    from neutron_fwaas.services.firewall.drivers import fwaas_base
+    from neutron_fwaas.services.firewall.service_drivers.agents.drivers \
+        import fwaas_base
 except ImportError:
     # FWaaS project no found
     from vmware_nsx.services.fwaas.common import fwaas_mocks \

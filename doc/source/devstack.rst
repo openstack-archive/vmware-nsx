@@ -197,6 +197,9 @@ Add neutron-fwaas repo as an external repository and configure following flags i
     enabled = True
     driver = vmware_nsxv3_edge_v2
 
+    [service_providers]
+    service_provider = FIREWALL_V2:fwaas_db:neutron_fwaas.services.firewall.service_drivers.agents.agents.FirewallAgentDriver:default
+
 LBaaS v2 Driver
 ~~~~~~~~~~~~~~~
 
@@ -277,6 +280,9 @@ Add neutron-fwaas repo as an external repository and configure following flags i
     driver = vmware_nsxtvd_edge_v2
     [DEFAULT]
     api_extensions_path = $DEST/neutron-fwaas/neutron_fwaas/extensions
+
+    [service_providers]
+    service_provider = FIREWALL_V2:fwaas_db:neutron_fwaas.services.firewall.service_drivers.agents.agents.FirewallAgentDriver:default
 
 L2GW Driver
 ~~~~~~~~~~~
