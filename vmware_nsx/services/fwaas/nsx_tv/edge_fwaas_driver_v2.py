@@ -79,3 +79,9 @@ class EdgeFwaasTVDriverV2(fwaas_base_v2.FwaasDriverBase):
     def apply_default_policy(self, agent_mode, apply_list, firewall_group):
         d = self._get_driver_for_project(firewall_group['tenant_id'])
         return d.apply_default_policy(agent_mode, apply_list, firewall_group)
+
+    def translate_addresses_to_target(self, cidrs, fwaas_rule_id=None):
+        # This api is called directly from the core plugin
+        # Assuming nsx-T as it is the only one supported now.
+        return self.get_T_driver().translate_addresses_to_target(
+            cidrs, fwaas_rule_id=fwaas_rule_id)
