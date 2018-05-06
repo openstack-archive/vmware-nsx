@@ -150,7 +150,7 @@ class NsxV3PluginWrapper(plugin.NsxV3Plugin):
         # This is an ugly patch to find out if it is v1 or v2
         service_plugins = cfg.CONF.service_plugins
         for srv_plugin in service_plugins:
-            if 'firewall' in srv_plugin:
+            if 'firewall' in srv_plugin or 'fwaas' in srv_plugin:
                 if 'v2' in srv_plugin:
                     # FWaaS V2
                     self._init_fwaas_plugin(
