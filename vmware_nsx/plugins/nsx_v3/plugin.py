@@ -350,6 +350,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 # Treat a race of multiple processing creating the seg group
                 LOG.warning('Unable to create global security group')
 
+    def _cleanup_duplicates(self, default_ns_group_id):
+        LOG.warning("Duplicate rules created. Cleaning up!")
+        # Delete duplicates created
+        self.nsxlib.firewall_section.delete(self.default_section)
+        self.nsxlib.ns_group.delete(default_ns_group_id)
+        # Ensure global variables are updated
+        self._ensure_default_rules()
+
     def _prepare_default_rules(self):
         ctx = q_context.get_admin_context()
         # Need a global placeholder as the DB below has a foreign key to
@@ -359,20 +367,27 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # Validate if there is a race between processes
         nsgroup_id, section_id = nsx_db.get_sg_mappings(
             ctx.session, NSX_V3_OS_DFW_UUID)
+        LOG.debug("Default NSGroup - %s, Section %s", nsgroup_id, section_id)
+        default_ns_group_id = self._default_section_nsgroup.get('id')
+        duplicates = False
         if nsgroup_id is None or section_id is None:
-            default_ns_group_id = self._default_section_nsgroup.get('id')
             try:
+                LOG.debug("Updating NSGroup - %s, Section %s",
+                          default_ns_group_id, self.default_section)
                 nsx_db.save_sg_mappings(ctx,
                                         NSX_V3_OS_DFW_UUID,
                                         default_ns_group_id,
                                         self.default_section)
             except Exception:
-                LOG.warning("Duplicate rules created. Cleaning up!")
-                # Delete duplicates created
-                self.nsxlib.firewall_section.delete(self.default_section)
-                self.nsxlib.ns_group.delete(default_ns_group_id)
-                # Ensure global variables are updated
-                self._ensure_default_rules()
+                LOG.debug("Concurrent update! Duplicates exist")
+                duplicates = True
+        elif (section_id != self.default_section or
+              nsgroup_id != default_ns_group_id):
+            LOG.debug("NSGroup and Section don't match those in the DB. "
+                      "Duplicates exist")
+            duplicates = True
+        if duplicates:
+            self._cleanup_duplicates(default_ns_group_id)
 
     @staticmethod
     def plugin_type():
