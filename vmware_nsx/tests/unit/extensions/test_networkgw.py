@@ -55,6 +55,10 @@ class TestExtensionManager(object):
     def get_request_extensions(self):
         return []
 
+    @property
+    def extensions(self):
+        return []
+
 
 class NetworkGatewayExtensionTestCase(base.BaseTestCase):
 
