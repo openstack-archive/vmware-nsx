@@ -4863,13 +4863,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             return super(NsxV3Plugin, self)._list_availability_zones(
                 context, filters=filters)
 
-        #TODO(asarfaty): We may need to use the filters arg, but now it
-        # is here only for overriding the original api
         result = {}
         for az in self._availability_zones_data.list_availability_zones():
-            # Add this availability zone as a network resource
-            result[(az, 'network')] = True
-            result[(az, 'router')] = True
+            # Add this availability zone as a network & router resource
+            if filters:
+                if 'name' in filters and az not in filters['name']:
+                    continue
+            for res in ['network', 'router']:
+                if 'resource' not in filters or res in filters['resource']:
+                    result[(az, res)] = True
         return result
 
     def _validate_availability_zones_forced(self, context, resource_type,

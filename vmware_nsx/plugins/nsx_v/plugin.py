@@ -1053,13 +1053,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             use_tvd_config=self._is_sub_plugin)
 
     def _list_availability_zones(self, context, filters=None):
-        #TODO(asarfaty): We may need to use the filters arg, but now it
-        # is here only for overriding the original api
         result = {}
         for az in self.get_azs_names():
             # Add this availability zone as a router & network resource
-            for resource in ('router', 'network'):
-                result[(az, resource)] = True
+            if filters:
+                if 'name' in filters and az not in filters['name']:
+                    continue
+            for res in ['network', 'router']:
+                if 'resource' not in filters or res in filters['resource']:
+                    result[(az, res)] = True
         return result
 
     def _validate_availability_zones_in_obj(self, context, resource_type,
