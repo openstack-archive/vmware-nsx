@@ -1604,7 +1604,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             project_name=context.tenant_name)
         dhcp_server = None
         dhcp_port_profiles = []
-        if not self._is_ens_tz_net(context, network['id']):
+        if (not self._is_ens_tz_net(context, network['id']) and
+            not cfg.CONF.nsx_v3.native_dhcp_metadata):
             dhcp_port_profiles.append(self._dhcp_profile)
         try:
             dhcp_server = self.nsxlib.dhcp_server.create(**server_data)
@@ -2233,7 +2234,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 mac_learning_profile_set = True
             profiles.append(self._get_port_security_profile_id())
         if device_owner == const.DEVICE_OWNER_DHCP:
-            if not is_ens_tz_port:
+            if (not is_ens_tz_port and
+                not cfg.CONF.nsx_v3.native_dhcp_metadata):
                 profiles.append(self._dhcp_profile)
 
         # Add QoS switching profile, if exists
@@ -3205,7 +3207,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         # Update the DHCP profile
         if (updated_device_owner == const.DEVICE_OWNER_DHCP and
-            not self._is_ens_tz_net(context, updated_port['network_id'])):
+            not self._is_ens_tz_net(context, updated_port['network_id']) and
+            not cfg.CONF.nsx_v3.native_dhcp_metadata):
             switch_profile_ids.append(self._dhcp_profile)
 
         # Update QoS switch profile
