@@ -14,9 +14,6 @@
 #    under the License.
 
 
-from neutron_lib.callbacks import events
-from neutron_lib.callbacks import registry
-from neutron_lib.callbacks import resources
 from neutron_lib import exceptions as n_exc
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
@@ -34,12 +31,6 @@ LOG = logging.getLogger(__name__)
 
 
 class EdgeLoadBalancerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
-    @log_helpers.log_method_call
-    def __init__(self):
-        super(EdgeLoadBalancerManager, self).__init__()
-        registry.subscribe(
-            self._handle_subnet_gw_change,
-            resources.SUBNET, events.AFTER_UPDATE)
 
     @log_helpers.log_method_call
     def create(self, context, lb):
@@ -170,11 +161,3 @@ class EdgeLoadBalancerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
             if vs_binding:
                 vs_list.append(vs_binding.get('lb_vs_id'))
         return vs_list
-
-    def _handle_subnet_gw_change(self, *args, **kwargs):
-        # As the Edge appliance doesn't use DHCP, we should change the
-        # default gateway here when the subnet GW changes.
-        orig = kwargs['original_subnet']
-        updated = kwargs['subnet']
-        if orig['gateway_ip'] == updated['gateway_ip']:
-            return
