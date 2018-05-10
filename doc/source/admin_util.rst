@@ -212,6 +212,16 @@ Orphaned Networks
 
     nsxadmin -r orphaned-networks -o nsx-clean --property moref=<moref>
 
+Portgroups
+~~~~~~~~~~
+- List all NSX portgroups on the configured dvs
+
+    nsxadmin -r nsx-portgroups -o list
+
+- Delete all NSX portgroups on the configured dvs
+
+    nsxadmin -r nsx-portgroups -o nsx-cleanup <--force>
+
 Security Groups, Firewall and Spoofguard
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

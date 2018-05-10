@@ -60,6 +60,7 @@ LBAAS = 'lbaas'
 BGP_GW_EDGE = 'bgp-gw-edge'
 ROUTING_REDIS_RULE = 'routing-redistribution-rule'
 BGP_NEIGHBOUR = 'bgp-neighbour'
+NSX_PORTGROUPS = 'nsx-portgroups'
 
 # NSXTV only Resource Constants
 PROJECTS = 'projects'
