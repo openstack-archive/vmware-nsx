@@ -13,14 +13,18 @@
 #    under the License.
 
 import re
+import sys
 import xml.etree.ElementTree as et
 
 from neutron_lib.callbacks import registry
 from neutron_lib import context
+from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
+from oslo_vmware import vim_util
 
 from vmware_nsx.db import db as nsx_db
+from vmware_nsx.dvs import dvs
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
@@ -192,6 +196,73 @@ def list_orphaned_networks(resource, event, trigger, **kwargs):
                                          ['type', 'moref', 'name']))
 
 
+def _get_nsx_portgroups(dvs_id):
+    dvsManager = dvs.VCManager()
+    dvs_moref = dvsManager._get_dvs_moref_by_id(dvs_id)
+    port_groups = dvsManager._session.invoke_api(vim_util,
+                                                 'get_object_properties',
+                                                 dvsManager._session.vim,
+                                                 dvs_moref,
+                                                 ['portgroup'])
+    nsx_portgroups = []
+    if len(port_groups) and hasattr(port_groups[0], 'propSet'):
+        for prop in port_groups[0].propSet:
+            for val in prop.val[0]:
+                nsx_portgroups.append({'moref': val.value, 'type': val._type})
+
+    return nsx_portgroups
+
+
+@admin_utils.output_header
+def list_nsx_portgroups(resource, event, trigger, **kwargs):
+    if not cfg.CONF.dvs.host_ip:
+        LOG.info("Please configure the dvs section in the nsx configuration "
+                 "file")
+        return
+
+    dvs_id = cfg.CONF.nsxv.dvs_id
+    port_groups = _get_nsx_portgroups(dvs_id)
+    LOG.info(formatters.output_formatter(
+        constants.NSX_PORTGROUPS + " for %s" % dvs_id,
+        port_groups, ['moref', 'type']))
+
+
+@admin_utils.output_header
+def delete_nsx_portgroups(resource, event, trigger, **kwargs):
+    if not cfg.CONF.dvs.host_ip:
+        LOG.info("Please configure the dvs section in the nsx configuration "
+                 "file")
+        return
+
+    dvs_id = cfg.CONF.nsxv.dvs_id
+    portgroups = _get_nsx_portgroups(dvs_id)
+    if not portgroups:
+        LOG.info("No NSX portgroups found for %s", dvs_id)
+        return
+
+    if not kwargs.get('force'):
+        #ask for the user confirmation
+        confirm = admin_utils.query_yes_no(
+            "Do you want to delete all NSX portgroups for %s" % dvs_id,
+            default="no")
+        if not confirm:
+            LOG.info("NSX portgroups deletion aborted by user")
+            return
+
+    vcns = utils.get_nsxv_client()
+    for portgroup in portgroups:
+        try:
+            vcns.delete_port_group(dvs_id, portgroup['moref'])
+        except Exception as e:
+            LOG.error("Failed to delete portgroup %(pg)s: %(e)s",
+                      {'pg': portgroup['moref'], 'e': e})
+            sys.exc_clear()
+        else:
+            LOG.info("Successfully deleted portgroup %(pg)s",
+                     {'pg': portgroup['moref']})
+    LOG.info("Done.")
+
+
 def get_dvs_id_from_backend_name(backend_name):
     reg = re.search(r"^dvs-\d*", backend_name)
     if reg:
@@ -263,4 +334,10 @@ registry.subscribe(list_orphaned_networks,
                    shell.Operations.LIST.value)
 registry.subscribe(delete_backend_network,
                    constants.ORPHANED_NETWORKS,
+                   shell.Operations.NSX_CLEAN.value)
+registry.subscribe(list_nsx_portgroups,
+                   constants.NSX_PORTGROUPS,
+                   shell.Operations.LIST.value)
+registry.subscribe(delete_nsx_portgroups,
+                   constants.NSX_PORTGROUPS,
                    shell.Operations.NSX_CLEAN.value)
