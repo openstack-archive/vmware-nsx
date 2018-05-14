@@ -4358,6 +4358,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             with excutils.save_and_reraise_exception():
                 LOG.exception("Failed to delete security group")
 
+    def _translate_nsx_protocols(self, protocol):
+        # The NSX only excepts '58' as icmp-v6
+        if (protocol == constants.PROTO_NAME_IPV6_ICMP or
+            protocol == constants.PROTO_NAME_IPV6_ICMP_LEGACY):
+            return str(constants.PROTO_NUM_IPV6_ICMP)
+        return protocol
+
     def _create_nsx_rule(self, context, rule,
                          nsx_sg_id=None, logged=False, action='allow'):
         src = None
@@ -4398,9 +4405,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             src = self.nsx_sg_utils.get_container(nsx_sg_id)
             flags['direction'] = 'out'
 
-        protocol = rule.get('protocol')
+        protocol = self._translate_nsx_protocols(rule.get('protocol'))
         if rule['port_range_min'] is not None:
-            if protocol == '1' or protocol == 'icmp':
+            if protocol == '1' or protocol == '58' or protocol == 'icmp':
                 icmptype = str(rule['port_range_min'])
                 if rule['port_range_max'] is not None:
                     icmpcode = str(rule['port_range_max'])
