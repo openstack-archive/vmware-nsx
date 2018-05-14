@@ -1110,16 +1110,6 @@ class NeutronNsxOutOfSync(NsxPluginV2TestCase,
         self.assertEqual(router['router']['status'],
                          constants.NET_STATUS_ERROR)
 
-    def test_delete_security_group_not_in_nsx(self):
-        res = self._create_security_group('json', 'name', 'desc')
-        sec_group = self.deserialize('json', res)
-        self.fc._fake_securityprofile_dict.clear()
-        req = self.new_delete_request(
-            'security-groups',
-            sec_group['security_group']['id'])
-        res = req.get_response(self.ext_api)
-        self.assertEqual(res.status_int, 204)
-
 
 class DHCPOptsTestCase(test_dhcpopts.TestExtraDhcpOpt, NsxPluginV2TestCase):
 
