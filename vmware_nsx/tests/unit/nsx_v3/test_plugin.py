@@ -51,7 +51,7 @@ from webob import exc
 from vmware_nsx.api_client import exception as api_exc
 from vmware_nsx.common import utils
 from vmware_nsx.plugins.nsx_v3 import plugin as nsx_plugin
-from vmware_nsx.services.lbaas.nsx_v3 import lb_driver_v2
+from vmware_nsx.services.lbaas.nsx_v3.v2 import lb_driver_v2
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.extensions import test_metadata
 from vmware_nsxlib.tests.unit.v3 import mocks as nsx_v3_mocks
@@ -1407,11 +1407,11 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxV3PluginTestCaseMixin,
         mock_nsx_version.start()
         # Make sure the LB callback is not called on router deletion
         self.lb_mock1 = mock.patch(
-            "vmware_nsx.services.lbaas.nsx_v3.lb_driver_v2."
+            "vmware_nsx.services.lbaas.nsx_v3.v2.lb_driver_v2."
             "EdgeLoadbalancerDriverV2._check_lb_service_on_router")
         self.lb_mock1.start()
         self.lb_mock2 = mock.patch(
-            "vmware_nsx.services.lbaas.nsx_v3.lb_driver_v2."
+            "vmware_nsx.services.lbaas.nsx_v3.v2.lb_driver_v2."
             "EdgeLoadbalancerDriverV2._check_lb_service_on_router_interface")
         self.lb_mock2.start()
 

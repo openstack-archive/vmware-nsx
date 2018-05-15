@@ -21,49 +21,48 @@ from oslo_utils import excutils
 from vmware_nsx._i18n import _
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.services.lbaas import base_mgr
-from vmware_nsx.services.lbaas.nsx_v3 import lb_utils
+from vmware_nsx.services.lbaas.nsx_v3.implementation import lb_utils
 
 LOG = logging.getLogger(__name__)
 
 
-class EdgeL7RuleManager(base_mgr.Nsxv3LoadbalancerBaseManager):
+class EdgeL7RuleManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
     @log_helpers.log_method_call
     def __init__(self):
-        super(EdgeL7RuleManager, self).__init__()
+        super(EdgeL7RuleManagerFromDict, self).__init__()
 
-    def _update_l7rule_change(self, context, rule, delete=False):
+    def _update_l7rule_change(self, context, rule, completor,
+                              delete=False):
         rule_client = self.core_plugin.nsxlib.load_balancer.rule
+        policy_id = rule['policy']['id']
         binding = nsx_db.get_nsx_lbaas_l7policy_binding(context.session,
-                                                        rule.policy.id)
+                                                        policy_id)
         if not binding:
-            self.lbv2_driver.l7rule.failed_completion(context, rule)
+            completor(success=False)
             msg = _('Cannot find nsx lbaas binding for policy '
-                    '%(policy_id)s') % {'policy_id': rule.policy.id}
+                    '%(policy_id)s') % {'policy_id': policy_id}
             raise n_exc.BadRequest(resource='lbaas-l7policy-update', msg=msg)
 
         lb_rule_id = binding['lb_rule_id']
         if delete:
             lb_utils.remove_rule_from_policy(rule)
-        rule_body = lb_utils.convert_l7policy_to_lb_rule(context, rule.policy)
+        rule_body = lb_utils.convert_l7policy_to_lb_rule(
+            context, rule['policy'])
         try:
             rule_client.update(lb_rule_id, **rule_body)
         except Exception as e:
             with excutils.save_and_reraise_exception():
-                self.lbv2_driver.l7rule.failed_completion(context, rule)
+                completor(success=False)
                 LOG.error('Failed to update L7policy %(policy)s: '
-                          '%(err)s', {'policy': rule.policy.id, 'err': e})
+                          '%(err)s', {'policy': policy_id, 'err': e})
 
-        self.lbv2_driver.l7rule.successful_completion(context, rule,
-                                                      delete=delete)
+        completor(success=True)
 
-    @log_helpers.log_method_call
-    def create(self, context, rule):
-        self._update_l7rule_change(context, rule)
+    def create(self, context, rule, completor):
+        self._update_l7rule_change(context, rule, completor)
 
-    @log_helpers.log_method_call
-    def update(self, context, old_rule, new_rule):
-        self._update_l7rule_change(context, new_rule)
+    def update(self, context, old_rule, new_rule, completor):
+        self._update_l7rule_change(context, new_rule, completor)
 
-    @log_helpers.log_method_call
-    def delete(self, context, rule):
-        self._update_l7rule_change(context, rule, delete=True)
+    def delete(self, context, rule, completor):
+        self._update_l7rule_change(context, rule, completor, delete=True)

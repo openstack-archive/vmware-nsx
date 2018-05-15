@@ -234,7 +234,8 @@ class TestEdgeLbaasV2LoadbalancerOnRtr(BaseTestEdgeLbaasV2):
             mock_successful_completion = (
                 self.lbv2_driver.load_balancer.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
-                                                          self.lb)
+                                                          self.lb,
+                                                          delete=False)
             mock_enable_edge_acceleration.assert_called_with(
                 self.edge_driver.vcns, LB_EDGE_ID)
 
@@ -246,7 +247,8 @@ class TestEdgeLbaasV2LoadbalancerOnRtr(BaseTestEdgeLbaasV2):
 
         mock_successful_completion = (
             self.lbv2_driver.load_balancer.successful_completion)
-        mock_successful_completion.assert_called_with(self.context, new_lb)
+        mock_successful_completion.assert_called_with(self.context, new_lb,
+                                                      delete=False)
 
     def test_delete_old(self):
         with mock.patch.object(nsxv_db, 'get_nsxv_lbaas_loadbalancer_binding'
@@ -375,7 +377,8 @@ class TestEdgeLbaasV2LoadbalancerOnEdge(TestEdgeLbaasV2LoadbalancerOnRtr):
             mock_successful_completion = (
                 self.lbv2_driver.load_balancer.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
-                                                          self.lb)
+                                                          self.lb,
+                                                          delete=False)
             mock_enable_edge_acceleration.assert_called_with(
                 self.edge_driver.vcns, LB_EDGE_ID)
             self.lb.flavor_id = None
@@ -439,7 +442,8 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
             mock_successful_completion = (
                 self.lbv2_driver.listener.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
-                                                          self.listener)
+                                                          self.listener,
+                                                          delete=False)
 
     def test_update(self):
         new_listener = lb_models.Listener(LISTENER_ID, LB_TENANT_ID,
@@ -475,7 +479,8 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
             mock_successful_completion = (
                 self.lbv2_driver.listener.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
-                                                          new_listener)
+                                                          new_listener,
+                                                          delete=False)
 
     def test_delete(self):
         with mock.patch.object(nsxv_db, 'get_nsxv_lbaas_listener_binding'
@@ -547,7 +552,8 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
             mock_successful_completion = (
                 self.lbv2_driver.pool.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
-                                                          self.pool)
+                                                          self.pool,
+                                                          delete=False)
 
     def test_update(self):
         new_pool = lb_models.Pool(POOL_ID, LB_TENANT_ID, 'pool-name', '',
@@ -586,7 +592,8 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
             mock_successful_completion = (
                 self.lbv2_driver.pool.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
-                                                          new_pool)
+                                                          new_pool,
+                                                          delete=False)
 
     def test_delete(self):
         with mock.patch.object(nsxv_db, 'get_nsxv_lbaas_loadbalancer_binding'
@@ -653,7 +660,8 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
             mock_successful_completion = (
                 self.lbv2_driver.member.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
-                                                          self.member)
+                                                          self.member,
+                                                          delete=False)
 
     def test_update(self):
         new_member = lb_models.Member(MEMBER_ID, LB_TENANT_ID, POOL_ID,
@@ -686,7 +694,8 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
             mock_successful_completion = (
                 self.lbv2_driver.member.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
-                                                          new_member)
+                                                          new_member,
+                                                          delete=False)
 
     def test_delete(self):
         with mock.patch.object(nsxv_db, 'get_nsxv_lbaas_loadbalancer_binding'
@@ -764,7 +773,8 @@ class TestEdgeLbaasV2HealthMonitor(BaseTestEdgeLbaasV2):
             mock_successful_completion = (
                 self.lbv2_driver.health_monitor.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
-                                                          self.hm)
+                                                          self.hm,
+                                                          delete=False)
 
     def test_update(self):
         new_hm = lb_models.HealthMonitor(HM_ID, LB_TENANT_ID, 'PING', 3, 3,
@@ -791,7 +801,8 @@ class TestEdgeLbaasV2HealthMonitor(BaseTestEdgeLbaasV2):
             mock_successful_completion = (
                 self.lbv2_driver.health_monitor.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
-                                                          new_hm)
+                                                          new_hm,
+                                                          delete=False)
 
     def test_delete(self):
         with mock.patch.object(nsxv_db, 'get_nsxv_lbaas_loadbalancer_binding'
@@ -876,7 +887,8 @@ class TestEdgeLbaasV2L7Policy(BaseTestEdgeLbaasV2):
             mock_successful_completion = (
                 self.lbv2_driver.l7policy.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
-                                                          self.l7policy)
+                                                          self.l7policy,
+                                                          delete=False)
 
     def test_update(self):
         url = 'http://www.test.com'
@@ -919,7 +931,8 @@ class TestEdgeLbaasV2L7Policy(BaseTestEdgeLbaasV2):
             mock_successful_completion = (
                 self.lbv2_driver.l7policy.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
-                                                          new_pol)
+                                                          new_pol,
+                                                          delete=False)
 
     def test_delete(self):
         with mock.patch.object(nsxv_db, 'get_nsxv_lbaas_l7policy_binding'

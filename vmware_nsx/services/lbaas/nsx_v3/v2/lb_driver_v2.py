@@ -23,13 +23,16 @@ from oslo_log import log as logging
 
 from vmware_nsx._i18n import _
 from vmware_nsx.db import db as nsx_db
-from vmware_nsx.services.lbaas.nsx_v3 import healthmonitor_mgr as hm_mgr
-from vmware_nsx.services.lbaas.nsx_v3 import l7policy_mgr
-from vmware_nsx.services.lbaas.nsx_v3 import l7rule_mgr
-from vmware_nsx.services.lbaas.nsx_v3 import listener_mgr
-from vmware_nsx.services.lbaas.nsx_v3 import loadbalancer_mgr as lb_mgr
-from vmware_nsx.services.lbaas.nsx_v3 import member_mgr
-from vmware_nsx.services.lbaas.nsx_v3 import pool_mgr
+from vmware_nsx.services.lbaas import base_mgr
+from vmware_nsx.services.lbaas import lb_helper
+from vmware_nsx.services.lbaas import lb_translators
+from vmware_nsx.services.lbaas.nsx_v3.implementation import healthmonitor_mgr
+from vmware_nsx.services.lbaas.nsx_v3.implementation import l7policy_mgr
+from vmware_nsx.services.lbaas.nsx_v3.implementation import l7rule_mgr
+from vmware_nsx.services.lbaas.nsx_v3.implementation import listener_mgr
+from vmware_nsx.services.lbaas.nsx_v3.implementation import loadbalancer_mgr
+from vmware_nsx.services.lbaas.nsx_v3.implementation import member_mgr
+from vmware_nsx.services.lbaas.nsx_v3.implementation import pool_mgr
 
 LOG = logging.getLogger(__name__)
 
@@ -49,18 +52,56 @@ class NotImplementedManager(object):
         raise NotImplementedError()
 
 
-class EdgeLoadbalancerDriverV2(object):
+class EdgeLoadbalancerDriverV2(base_mgr.LoadbalancerBaseManager):
     @log_helpers.log_method_call
     def __init__(self):
         super(EdgeLoadbalancerDriverV2, self).__init__()
 
-        self.loadbalancer = lb_mgr.EdgeLoadBalancerManager()
-        self.listener = listener_mgr.EdgeListenerManager()
-        self.pool = pool_mgr.EdgePoolManager()
-        self.member = member_mgr.EdgeMemberManager()
-        self.healthmonitor = hm_mgr.EdgeHealthMonitorManager()
-        self.l7policy = l7policy_mgr.EdgeL7PolicyManager()
-        self.l7rule = l7rule_mgr.EdgeL7RuleManager()
+        # Init all LBaaS objects
+        # Note(asarfaty): self.lbv2_driver is not yet defined at init time
+        # so lambda is used to retrieve it later.
+        self.loadbalancer = lb_helper.LBaaSNSXObjectManagerWrapper(
+            "loadbalancer",
+            loadbalancer_mgr.EdgeLoadBalancerManagerFromDict(),
+            lb_translators.lb_loadbalancer_obj_to_dict,
+            lambda: self.lbv2_driver.load_balancer)
+
+        self.listener = lb_helper.LBaaSNSXObjectManagerWrapper(
+            "listener",
+            listener_mgr.EdgeListenerManagerFromDict(),
+            lb_translators.lb_listener_obj_to_dict,
+            lambda: self.lbv2_driver.listener)
+
+        self.pool = lb_helper.LBaaSNSXObjectManagerWrapper(
+            "pool",
+            pool_mgr.EdgePoolManagerFromDict(),
+            lb_translators.lb_pool_obj_to_dict,
+            lambda: self.lbv2_driver.pool)
+
+        self.member = lb_helper.LBaaSNSXObjectManagerWrapper(
+            "member",
+            member_mgr.EdgeMemberManagerFromDict(),
+            lb_translators.lb_member_obj_to_dict,
+            lambda: self.lbv2_driver.member)
+
+        self.healthmonitor = lb_helper.LBaaSNSXObjectManagerWrapper(
+            "healthmonitor",
+            healthmonitor_mgr.EdgeHealthMonitorManagerFromDict(),
+            lb_translators.lb_hm_obj_to_dict,
+            lambda: self.lbv2_driver.health_monitor)
+
+        self.l7policy = lb_helper.LBaaSNSXObjectManagerWrapper(
+            "l7policy",
+            l7policy_mgr.EdgeL7PolicyManagerFromDict(),
+            lb_translators.lb_l7policy_obj_to_dict,
+            lambda: self.lbv2_driver.l7policy)
+
+        self.l7rule = lb_helper.LBaaSNSXObjectManagerWrapper(
+            "l7rule",
+            l7rule_mgr.EdgeL7RuleManagerFromDict(),
+            lb_translators.lb_l7rule_obj_to_dict,
+            lambda: self.lbv2_driver.l7rule)
+
         self._subscribe_router_delete_callback()
 
     def _subscribe_router_delete_callback(self):
