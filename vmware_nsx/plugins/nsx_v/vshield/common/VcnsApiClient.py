@@ -142,8 +142,9 @@ class VcnsApiHelper(object):
         if headers is None:
             headers = {}
 
+        auth_token = self.authToken.decode('ascii').strip()
         headers['Accept'] = 'application/' + self.format
-        headers['Authorization'] = 'Basic ' + self.authToken.strip()
+        headers['Authorization'] = 'Basic ' + auth_token
         headers['Content-Type'] = 'application/' + self.format
         request_id = self._get_request_id()
         if request_id:
