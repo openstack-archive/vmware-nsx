@@ -15,12 +15,12 @@
 import netaddr
 from oslo_config import cfg
 
-from neutron.db import api as db_api
 from neutron.db import l3_db
 from neutron.db.models import l3 as l3_db_models
 from neutron.db import models_v2
 from neutron_lib.api import validators
 from neutron_lib import constants
+from neutron_lib.db import api as db_api
 from neutron_lib import exceptions as n_exc
 from oslo_log import log as logging
 

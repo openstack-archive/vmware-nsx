@@ -14,8 +14,8 @@
 
 from oslo_log import log as logging
 
-from neutron.db import api as db_api
 from neutron_lib import constants as n_consts
+from neutron_lib.db import api as db_api
 from neutron_lib.plugins import constants as plugin_const
 
 from vmware_nsx._i18n import _
