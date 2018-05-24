@@ -21,12 +21,11 @@ from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
 from neutron_lib import context as n_context
 from neutron_lib.exceptions import dns as dns_exc
+from neutron_lib.objects import registry as obj_reg
 from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from neutron.objects import network as net_obj
-from neutron.objects import ports as port_obj
 from neutron.services.externaldns import driver
 
 from vmware_nsx.common import driver_api
@@ -56,9 +55,9 @@ class DNSExtensionDriver(driver_api.ExtensionDriver):
             return
 
         if dns_domain:
-            net_obj.NetworkDNSDomain(plugin_context,
-                                     network_id=db_data['id'],
-                                     dns_domain=dns_domain).create()
+            obj_reg.new_instance('NetworkDNSDomain', plugin_context,
+                                 network_id=db_data['id'],
+                                 dns_domain=dns_domain).create()
         db_data[dns.DNSDOMAIN] = dns_domain
 
     def process_update_network(self, plugin_context, request_data, db_data):
@@ -72,7 +71,7 @@ class DNSExtensionDriver(driver_api.ExtensionDriver):
 
         net_id = db_data['id']
         if current_dns_domain:
-            net_dns_domain = net_obj.NetworkDNSDomain.get_object(
+            net_dns_domain = obj_reg.load_class('NetworkDNSDomain').get_object(
                 plugin_context,
                 network_id=net_id)
             if new_value:
@@ -83,9 +82,9 @@ class DNSExtensionDriver(driver_api.ExtensionDriver):
                 net_dns_domain.delete()
                 db_data[dns.DNSDOMAIN] = ''
         elif new_value:
-            net_obj.NetworkDNSDomain(plugin_context,
-                                     network_id=net_id,
-                                     dns_domain=new_value).create()
+            obj_reg.new_instance('NetworkDNSDomain', plugin_context,
+                                 network_id=net_id,
+                                 dns_domain=new_value).create()
             db_data[dns.DNSDOMAIN] = new_value
 
     def process_create_port(self, plugin_context, request_data, db_data):
@@ -109,7 +108,8 @@ class DNSExtensionDriver(driver_api.ExtensionDriver):
                 dns_name, external_dns_domain,
                 self.external_dns_not_needed(plugin_context, network)))
 
-        dns_data_obj = port_obj.PortDNS(
+        dns_data_obj = obj_reg.new_instance(
+            'PortDNS',
             plugin_context,
             port_id=db_data['id'],
             current_dns_name=current_dns_name,
@@ -141,7 +141,7 @@ class DNSExtensionDriver(driver_api.ExtensionDriver):
 
     def _update_dns_db(self, dns_name, dns_domain, db_data,
                       plugin_context, has_fixed_ips):
-        dns_data_db = port_obj.PortDNS.get_object(
+        dns_data_db = obj_reg.load_class('PortDNS').get_object(
             plugin_context,
             port_id=db_data['id'])
         if dns_data_db:
@@ -165,13 +165,11 @@ class DNSExtensionDriver(driver_api.ExtensionDriver):
             dns_data_db.update()
             return dns_data_db
         if dns_name:
-            dns_data_db = port_obj.PortDNS(plugin_context,
-                                           port_id=db_data['id'],
-                                           current_dns_name=dns_name,
-                                           current_dns_domain=dns_domain,
-                                           previous_dns_name='',
-                                           previous_dns_domain='',
-                                           dns_name=dns_name)
+            dns_data_db = obj_reg.new_instance(
+                'PortDNS', plugin_context, port_id=db_data['id'],
+                current_dns_name=dns_name, current_dns_domain=dns_domain,
+                previous_dns_name='', previous_dns_domain='',
+                dns_name=dns_name)
             dns_data_db.create()
         return dns_data_db
 
@@ -202,7 +200,7 @@ class DNSExtensionDriver(driver_api.ExtensionDriver):
         self._extend_port_dict(db_data, db_data, dns_data_db, plugin_context)
 
     def _process_only_dns_name_update(self, plugin_context, db_data, dns_name):
-        dns_data_db = port_obj.PortDNS.get_object(
+        dns_data_db = obj_reg.load_class('PortDNS').get_object(
             plugin_context,
             port_id=db_data['id'])
         if dns_data_db:
@@ -210,13 +208,11 @@ class DNSExtensionDriver(driver_api.ExtensionDriver):
             dns_data_db.update()
             return dns_data_db
         if dns_name:
-            dns_data_db = port_obj.PortDNS(plugin_context,
-                                           port_id=db_data['id'],
-                                           current_dns_name='',
-                                           current_dns_domain='',
-                                           previous_dns_name='',
-                                           previous_dns_domain='',
-                                           dns_name=dns_name)
+            dns_data_db = obj_reg.new_instance(
+                'PortDNS', plugin_context, port_id=db_data['id'],
+                current_dns_name='', current_dns_domain='',
+                previous_dns_name='', previous_dns_domain='',
+                dns_name=dns_name)
             dns_data_db.create()
         return dns_data_db
 
@@ -436,7 +432,7 @@ def _create_port_in_external_dns_service(resource, event, trigger, **kwargs):
         return
     context = kwargs['context']
     port = kwargs['port']
-    dns_data_db = port_obj.PortDNS.get_object(
+    dns_data_db = obj_reg.load_class('PortDNS').get_object(
         context, port_id=port['id'])
     if not (dns_data_db and dns_data_db['current_dns_name']):
         return
@@ -466,7 +462,7 @@ def _update_port_in_external_dns_service(resource, event, trigger, **kwargs):
     ips_changed = set(original_ips) != set(updated_ips)
     if not any((is_dns_name_changed, is_dns_domain_changed, ips_changed)):
         return
-    dns_data_db = port_obj.PortDNS.get_object(
+    dns_data_db = obj_reg.load_class('PortDNS').get_object(
         context, port_id=updated_port['id'])
     if not (dns_data_db and
             (dns_data_db['previous_dns_name'] or
@@ -489,13 +485,13 @@ def _delete_port_in_external_dns_service(resource, event, trigger, **kwargs):
         return
     context = kwargs['context']
     port_id = kwargs['port_id']
-    dns_data_db = port_obj.PortDNS.get_object(
+    dns_data_db = obj_reg.load_class('PortDNS').get_object(
         context, port_id=port_id)
     if not dns_data_db:
         return
     if dns_data_db['current_dns_name']:
-        ip_allocations = port_obj.IPAllocation.get_objects(context,
-                                                           port_id=port_id)
+        ip_allocations = obj_reg.load_class('IPAllocation').get_objects(
+            context, port_id=port_id)
         records = [str(alloc['ip_address']) for alloc in ip_allocations]
         _remove_data_from_external_dns_service(
             context, dns_driver, dns_data_db['current_dns_domain'],
