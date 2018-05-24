@@ -192,10 +192,10 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         for vs in vs_statuses.get('results', []):
             vs_status = self._nsx_status_to_lb_status(vs.get('status'))
             vs_id = vs.get('virtual_server_id')
-            listener_binding = nsx_db.get_nsx_lbaas_listener_binding_by_vs(
+            list_binding = nsx_db.get_nsx_lbaas_listener_binding_by_lb_and_vs(
                 context.session, id, vs_id)
-            if listener_binding:
-                listener_id = listener_binding['listener_id']
+            if list_binding:
+                listener_id = list_binding['listener_id']
                 statuses[lb_const.LISTENERS].append(
                     {'id': listener_id, 'status': vs_status})
 

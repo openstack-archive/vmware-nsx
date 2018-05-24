@@ -131,3 +131,4 @@
       - openstack/neutron-dynamic-routing
       - openstack/neutron-vpnaas
       - openstack/tap-as-a-service
+      - openstack/octavia

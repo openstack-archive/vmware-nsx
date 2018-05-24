@@ -65,10 +65,15 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                                  tenant_id, context.project_name)
         attachment = {'target_id': nsx_router_id,
                       'target_type': 'LogicalRouter'}
-        lb_service = service_client.create(display_name=lb_name,
-                                           tags=tags,
-                                           attachment=attachment,
-                                           size=lb_size)
+        try:
+            lb_service = service_client.create(display_name=lb_name,
+                                               tags=tags,
+                                               attachment=attachment,
+                                               size=lb_size)
+        except nsxlib_exc.ManagerError as e:
+            LOG.error("Failed to create LB service: %s", e)
+            return
+
         # Update router to enable advertise_lb_vip flag
         self.core_plugin.nsxlib.logical_router.update_advertisement(
             nsx_router_id, advertise_lb_vip=True)

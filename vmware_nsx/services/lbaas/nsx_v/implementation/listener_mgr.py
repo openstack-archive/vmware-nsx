@@ -13,6 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import copy
+
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -297,3 +299,45 @@ class EdgeListenerManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
                                                     listener['id'])
 
         completor(success=True)
+
+
+def stats_getter(context, core_plugin, ignore_list=None):
+    """Update Octavia statistics for each listener (virtual server)"""
+    stat_list = []
+    vcns = core_plugin.nsx_v.vcns
+    # go over all LB edges
+    bindings = nsxv_db.get_nsxv_lbaas_loadbalancer_bindings(context.session)
+    for binding in bindings:
+        lb_id = binding['loadbalancer_id']
+        if ignore_list and lb_id in ignore_list:
+            continue
+        edge_id = binding['edge_id']
+
+        try:
+            lb_stats = vcns.get_loadbalancer_statistics(edge_id)
+
+            virtual_servers_stats = lb_stats[1].get('virtualServer', [])
+            for vs_stats in virtual_servers_stats:
+                # Get the stats of the virtual server
+                stats = copy.copy(lb_const.LB_EMPTY_STATS)
+                stats['bytes_in'] += vs_stats.get('bytesIn', 0)
+                stats['bytes_out'] += vs_stats.get('bytesOut', 0)
+                stats['active_connections'] += vs_stats.get('curSessions', 0)
+                stats['total_connections'] += vs_stats.get('totalSessions', 0)
+                stats['request_errors'] = 0  # currently unsupported
+
+                # Find the listener Id
+                vs_id = vs_stats.get('virtualServerId')
+                list_bind = nsxv_db.get_nsxv_lbaas_listener_binding_by_vse(
+                    context.session, lb_id, vs_id)
+                if not list_bind:
+                    continue
+                stats['id'] = list_bind['listener_id']
+
+                stat_list.append(stats)
+
+        except vcns_exc.VcnsApiException as e:
+            LOG.warning('Failed to read load balancer statistics for %s: %s',
+                        edge_id, e)
+
+    return stat_list

@@ -262,6 +262,10 @@ nsx_common_opts = [
                 default=[],
                 help=_("(Optional) List of email addresses for "
                        "notifications.")),
+    cfg.IntOpt('octavia_stats_interval',
+               default=10,
+               help=_("Interval in seconds for Octavia statistics reporting. "
+                      "0 means no reporting")),
 ]
 
 nsx_v3_and_p = [

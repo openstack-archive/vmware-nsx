@@ -31,6 +31,7 @@ from vmware_nsx.plugins.nsx_v.vshield.common import (
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as nsxv_exc
 from vmware_nsx.services.lbaas import base_mgr
 from vmware_nsx.services.lbaas.nsx_v import lbaas_common as lb_common
+from vmware_nsx.services.lbaas.octavia import constants as oct_const
 
 LOG = logging.getLogger(__name__)
 
@@ -159,33 +160,15 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
         completor(success=True)
 
     def refresh(self, context, lb):
-        # TODO(kobis): implememnt
+        # TODO(kobis): implement
         pass
 
     def stats(self, context, lb):
-        stats = {'bytes_in': 0,
-                 'bytes_out': 0,
-                 'active_connections': 0,
-                 'total_connections': 0}
-
         binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(context.session,
                                                               lb['id'])
 
-        try:
-            lb_stats = self.vcns.get_loadbalancer_statistics(
-                binding['edge_id'])
-
-        except nsxv_exc.VcnsApiException:
-            msg = (_('Failed to read load balancer statistics, edge: %s') %
-                   binding['edge_id'])
-            raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
-
-        pools_stats = lb_stats[1].get('pool', [])
-        for pool_stats in pools_stats:
-            stats['bytes_in'] += pool_stats.get('bytesIn', 0)
-            stats['bytes_out'] += pool_stats.get('bytesOut', 0)
-            stats['active_connections'] += pool_stats.get('curSessions', 0)
-            stats['total_connections'] += pool_stats.get('totalSessions', 0)
+        stats = _get_edge_loadbalancer_statistics(self.vcns,
+                                                  binding['edge_id'])
 
         return stats
 
@@ -208,12 +191,15 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
         subnet = self.core_plugin.get_subnet(context.elevated(), subnet_id)
 
         filters = {'fixed_ips': {'subnet_id': [subnet_id]},
-                   'device_owner': [constants.DEVICE_OWNER_LOADBALANCERV2]}
+                   'device_owner': [constants.DEVICE_OWNER_LOADBALANCERV2,
+                                    oct_const.DEVICE_OWNER_OCTAVIA]}
         lb_ports = self.core_plugin.get_ports(context.elevated(),
                                               filters=filters)
 
         if lb_ports:
             for lb_port in lb_ports:
+                # TODO(asarfaty): for Octavia this code might need to change
+                # as the device_id is different
                 if lb_port['device_id']:
                     edge_bind = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
                         context.session, lb_port['device_id'])
@@ -238,3 +224,27 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
             if not found:
                 return False
         return True
+
+
+def _get_edge_loadbalancer_statistics(vcns, edge_id):
+    stats = {'bytes_in': 0,
+             'bytes_out': 0,
+             'active_connections': 0,
+             'total_connections': 0}
+
+    try:
+        lb_stats = vcns.get_loadbalancer_statistics(edge_id)
+
+    except nsxv_exc.VcnsApiException:
+        msg = (_('Failed to read load balancer statistics, edge: %s') %
+               edge_id)
+        raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
+
+    pools_stats = lb_stats[1].get('pool', [])
+    for pool_stats in pools_stats:
+        stats['bytes_in'] += pool_stats.get('bytesIn', 0)
+        stats['bytes_out'] += pool_stats.get('bytesOut', 0)
+        stats['active_connections'] += pool_stats.get('curSessions', 0)
+        stats['total_connections'] += pool_stats.get('totalSessions', 0)
+
+    return stats

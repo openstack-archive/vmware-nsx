@@ -46,6 +46,8 @@ class EdgeL7RuleManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         lb_rule_id = binding['lb_rule_id']
         if delete:
             lb_utils.remove_rule_from_policy(rule)
+        else:
+            lb_utils.update_rule_in_policy(rule)
         rule_body = lb_utils.convert_l7policy_to_lb_rule(
             context, rule['policy'])
         try:

@@ -684,6 +684,15 @@ def add_nsxv_lbaas_loadbalancer_binding(
     return binding
 
 
+def get_nsxv_lbaas_loadbalancer_bindings(session, filters=None,
+                                         like_filters=None):
+    session = db_api.get_reader_session()
+    query = session.query(nsxv_models.NsxvLbaasLoadbalancerBinding)
+    return nsx_db._apply_filters_to_query(
+        query, nsxv_models.NsxvLbaasLoadbalancerBinding, filters,
+        like_filters).all()
+
+
 def get_nsxv_lbaas_loadbalancer_binding(session, loadbalancer_id):
     try:
         return session.query(
@@ -729,6 +738,15 @@ def del_nsxv_lbaas_listener_binding(session, loadbalancer_id, listener_id):
     return (session.query(nsxv_models.NsxvLbaasListenerBinding).
             filter_by(loadbalancer_id=loadbalancer_id,
                       listener_id=listener_id).delete())
+
+
+def get_nsxv_lbaas_listener_binding_by_vse(session, loadbalancer_id, vse_id):
+    try:
+        return session.query(
+            nsxv_models.NsxvLbaasListenerBinding).filter_by(
+            loadbalancer_id=loadbalancer_id, vse_id=vse_id).one()
+    except exc.NoResultFound:
+        return
 
 
 def add_nsxv_lbaas_pool_binding(session, loadbalancer_id, pool_id,

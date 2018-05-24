@@ -16,7 +16,6 @@ from oslo_log import log as logging
 
 from neutron_lib import constants as n_consts
 from neutron_lib.db import api as db_api
-from neutron_lib.plugins import constants as plugin_const
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsxv_exc
@@ -26,6 +25,7 @@ from vmware_nsx.plugins.nsx_v.drivers import (
     abstract_router_driver as router_driver)
 from vmware_nsx.plugins.nsx_v import plugin as nsx_v
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
+from vmware_nsx.services.lbaas.octavia import constants as oct_const
 
 LOG = logging.getLogger(__name__)
 
@@ -279,9 +279,10 @@ class RouterExclusiveDriver(router_driver.RouterBaseDriver):
 
     def _check_lb_on_subnet(self, context, subnet_id, router_id):
         # Check lbaas
-        dev_owner_v1 = 'neutron:' + plugin_const.LOADBALANCER
-        dev_owner_v2 = 'neutron:' + plugin_const.LOADBALANCERV2
-        filters = {'device_owner': [dev_owner_v1, dev_owner_v2],
+        dev_owner_v1 = n_consts.DEVICE_OWNER_LOADBALANCER
+        dev_owner_v2 = n_consts.DEVICE_OWNER_LOADBALANCERV2
+        dev_owner_oct = oct_const.DEVICE_OWNER_OCTAVIA
+        filters = {'device_owner': [dev_owner_v1, dev_owner_v2, dev_owner_oct],
                    'fixed_ips': {'subnet_id': [subnet_id]}}
         ports = super(nsx_v.NsxVPluginV2, self.plugin).get_ports(
             context, filters=filters)

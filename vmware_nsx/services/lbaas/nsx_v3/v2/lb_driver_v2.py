@@ -16,8 +16,8 @@
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
+from neutron_lib import constants as n_consts
 from neutron_lib import exceptions as n_exc
-from neutron_lib.plugins import constants as plugin_const
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
@@ -33,6 +33,7 @@ from vmware_nsx.services.lbaas.nsx_v3.implementation import listener_mgr
 from vmware_nsx.services.lbaas.nsx_v3.implementation import loadbalancer_mgr
 from vmware_nsx.services.lbaas.nsx_v3.implementation import member_mgr
 from vmware_nsx.services.lbaas.nsx_v3.implementation import pool_mgr
+from vmware_nsx.services.lbaas.octavia import constants as oct_const
 
 LOG = logging.getLogger(__name__)
 
@@ -108,6 +109,9 @@ class EdgeLoadbalancerDriverV2(base_mgr.LoadbalancerBaseManager):
         # Check if there is any LB attachment for the NSX router.
         # This callback is subscribed here to prevent router/GW/interface
         # deletion if it still has LB service attached to it.
+
+        #Note(asarfaty): Those callbacks are used by Octavia as well even
+        # though they are bound only here
         registry.subscribe(self._check_lb_service_on_router,
                            resources.ROUTER, events.BEFORE_DELETE)
         registry.subscribe(self._check_lb_service_on_router,
@@ -124,8 +128,9 @@ class EdgeLoadbalancerDriverV2(base_mgr.LoadbalancerBaseManager):
                              resources.ROUTER_INTERFACE, events.BEFORE_DELETE)
 
     def _get_lb_ports(self, context, subnet_ids):
-        dev_owner = 'neutron:' + plugin_const.LOADBALANCERV2
-        filters = {'device_owner': [dev_owner],
+        dev_owner_v2 = n_consts.DEVICE_OWNER_LOADBALANCERV2
+        dev_owner_oct = oct_const.DEVICE_OWNER_OCTAVIA
+        filters = {'device_owner': [dev_owner_v2, dev_owner_oct],
                    'fixed_ips': {'subnet_id': subnet_ids}}
         return self.loadbalancer.core_plugin.get_ports(
             context, filters=filters)
