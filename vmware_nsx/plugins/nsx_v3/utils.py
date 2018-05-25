@@ -17,6 +17,7 @@ import random
 
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_utils import fileutils
 
 from neutron import version as n_version
 from neutron_lib import context as q_context
@@ -78,7 +79,7 @@ class DbCertProvider(client_cert.ClientCertProvider):
                 filename = self._filename
                 if not os.path.exists(os.path.dirname(filename)):
                     if len(os.path.dirname(filename)) > 0:
-                        os.makedirs(os.path.dirname(filename))
+                        fileutils.ensure_tree(os.path.dirname(filename))
                 cert_manager.export_pem(filename)
 
                 expires_in_days = cert_manager.expires_in_days()
