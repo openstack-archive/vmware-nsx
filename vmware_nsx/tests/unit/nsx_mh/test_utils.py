@@ -14,10 +14,10 @@
 # limitations under the License.
 
 import mock
-from neutron.db import api as db_api
 from neutron.tests import base
 from neutron_lib.api.definitions import multiprovidernet as mpnet_apidef
 from neutron_lib.api.definitions import provider_net as pnet
+from neutron_lib.db import api as db_api
 from oslo_utils import uuidutils
 
 from vmware_nsx.api_client import exception as api_exc

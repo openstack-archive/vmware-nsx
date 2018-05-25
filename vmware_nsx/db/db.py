@@ -17,6 +17,7 @@
 import six
 from sqlalchemy.orm import exc
 
+from neutron_lib.db import api as db_api
 from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -45,14 +46,14 @@ def _apply_filters_to_query(query, model, filters, like_filters=None):
 
 
 def get_network_bindings(session, network_id):
-    session = session or db.get_reader_session()
+    session = session or db_api.get_reader_session()
     return (session.query(nsx_models.TzNetworkBinding).
             filter_by(network_id=network_id).
             all())
 
 
 def get_network_bindings_by_phy_uuid(session, phy_uuid):
-    session = session or db.get_reader_session()
+    session = session or db_api.get_reader_session()
     return (session.query(nsx_models.TzNetworkBinding).
             filter_by(phy_uuid=phy_uuid).
             all())
@@ -60,7 +61,7 @@ def get_network_bindings_by_phy_uuid(session, phy_uuid):
 
 def get_network_bindings_by_vlanid_and_physical_net(session, vlan_id,
                                                     phy_uuid):
-    session = session or db.get_reader_session()
+    session = session or db_api.get_reader_session()
     return (session.query(nsx_models.TzNetworkBinding).
             filter_by(vlan_id=vlan_id, phy_uuid=phy_uuid).
             all())

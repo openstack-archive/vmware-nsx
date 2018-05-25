@@ -14,8 +14,8 @@
 
 import mock
 
-import neutron.db.api as db
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_db
+from neutron_lib.db import api as db_api
 
 from vmware_nsx.db import nsxv_db
 from vmware_nsx.extensions import dns_search_domain as ext_dns_search_domain
@@ -85,7 +85,7 @@ class DnsSearchDomainDBTestCase(test_db.NeutronDbPluginV2TestCase):
 
     def setUp(self):
         super(DnsSearchDomainDBTestCase, self).setUp()
-        self.session = db.get_writer_session()
+        self.session = db_api.get_writer_session()
 
     def test_get_nsxv_subnet_ext_attributes_no_dns_search_domain(self):
         with self.subnet() as sub:
