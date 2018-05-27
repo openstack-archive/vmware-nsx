@@ -28,6 +28,7 @@ from vmware_nsx.shell.admin.plugins.common import formatters
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils as v3_utils
 from vmware_nsx.shell import resources as shell
+from vmware_nsxlib.v3 import core_resources
 from vmware_nsxlib.v3 import exceptions as nsx_exc
 from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
 from vmware_nsxlib.v3 import resources
@@ -86,7 +87,7 @@ def get_network_nsx_id(session, neutron_id):
 def get_port_and_profile_clients():
     _nsx_client = v3_utils.get_nsxv3_client()
     return (resources.LogicalPort(_nsx_client),
-            resources.SwitchingProfile(_nsx_client))
+            core_resources.NsxLibSwitchingProfile(_nsx_client))
 
 
 def get_dhcp_profile_id(profile_client):
@@ -126,10 +127,12 @@ def list_missing_ports(resource, event, trigger, **kwargs):
 
         # get pre-defined profile ids
         dhcp_profile_id = get_dhcp_profile_id(profile_client)
-        dhcp_profile_key = resources.SwitchingProfileTypes.SWITCH_SECURITY
+        dhcp_profile_key = (
+            core_resources.SwitchingProfileTypes.SWITCH_SECURITY)
         spoofguard_profile_id = get_spoofguard_profile_id(profile_client)
-        spoofguard_profile_key = resources.SwitchingProfileTypes.SPOOF_GUARD
-        qos_profile_key = resources.SwitchingProfileTypes.QOS
+        spoofguard_profile_key = (
+            core_resources.SwitchingProfileTypes.SPOOF_GUARD)
+        qos_profile_key = core_resources.SwitchingProfileTypes.QOS
 
         problems = []
         for port in neutron_ports:

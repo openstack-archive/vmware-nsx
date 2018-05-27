@@ -33,6 +33,7 @@ from vmware_nsx.db import db as nsx_db
 from vmware_nsx.extensions import advancedserviceproviders as as_providers
 from vmware_nsx.plugins.nsx_v3 import availability_zones as nsx_az
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin
+from vmware_nsxlib.v3 import core_resources
 from vmware_nsxlib.v3 import nsx_constants
 from vmware_nsxlib.v3 import resources as nsx_resources
 
@@ -69,7 +70,8 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
         self.az_metadata_route = '3.3.3.3'
         set_az_in_config(self._az_name,
                          native_metadata_route=self.az_metadata_route)
-        self._patcher = mock.patch.object(nsx_resources.DhcpProfile, 'get')
+        self._patcher = mock.patch.object(core_resources.NsxLibDhcpProfile,
+                                          'get')
         self._patcher.start()
         # Need to run some plugin init methods manually because plugin was
         # started before setUp() overrides CONF.nsx_v3.native_dhcp_metadata.
@@ -920,7 +922,8 @@ class NsxNativeMetadataTestCase(test_plugin.NsxV3PluginTestCaseMixin):
         self._az_name = 'zone1'
         self._az_metadata_proxy = 'dummy'
         set_az_in_config(self._az_name, metadata_proxy=self._az_metadata_proxy)
-        self._patcher = mock.patch.object(nsx_resources.MetaDataProxy, 'get')
+        self._patcher = mock.patch.object(core_resources.NsxLibMetadataProxy,
+                                          'get')
         self._patcher.start()
         self.plugin.init_availability_zones()
         self.plugin._translate_configured_names_to_uuids()
