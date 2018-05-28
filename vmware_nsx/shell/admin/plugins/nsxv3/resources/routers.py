@@ -98,10 +98,11 @@ def update_nat_rules(resource, event, trigger, **kwargs):
             # get all NAT rules:
             rules = nsxlib.logical_router.list_nat_rules(nsx_id)['results']
             for rule in rules:
-                if 'nat_pass' not in rule or rule['nat_pass']:
-                    nsxlib.logical_router.update_nat_rule(
-                        nsx_id, rule['id'], nat_pass=False)
-                    num_of_updates = num_of_updates + 1
+                if rule['action'] not in ["NO_SNAT", "NO_DNAT", "NO_NAT"]:
+                    if 'nat_pass' not in rule or rule['nat_pass']:
+                        nsxlib.logical_router.update_nat_rule(
+                            nsx_id, rule['id'], nat_pass=False)
+                        num_of_updates = num_of_updates + 1
     if num_of_updates:
         LOG.info("Done updating %s NAT rules", num_of_updates)
     else:
