@@ -64,7 +64,7 @@ def list_metadata_networks(resource, event, trigger, **kwargs):
         for port in ports['results']:
             if port['attachment']['attachment_type'] == 'METADATA_PROXY':
                 net_id = None
-                for tag in port['tags']:
+                for tag in port.get('tags', []):
                     if tag['scope'] == 'os-neutron-net-id':
                         net_id = tag['tag']
                         break

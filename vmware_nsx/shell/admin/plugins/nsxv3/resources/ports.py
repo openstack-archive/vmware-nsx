@@ -298,7 +298,7 @@ def migrate_exclude_ports(resource, event, trigger, **kwargs):
                 continue
             # Validate its a neutron port
             is_neutron_port = False
-            for tag in nsx_port['tags']:
+            for tag in nsx_port.get('tags', []):
                 if tag['scope'] == 'os-neutron-port-id':
                     is_neutron_port = True
                     neutron_port_id = tag['tag']
