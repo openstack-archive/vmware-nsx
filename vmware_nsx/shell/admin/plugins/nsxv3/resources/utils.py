@@ -34,13 +34,10 @@ from vmware_nsxlib.v3 import nsx_constants
 
 try:
     from neutron_fwaas.services.firewall import fwaas_plugin as fwaas_plugin_v1
-    from neutron_fwaas.services.firewall import fwaas_plugin_v2
 except ImportError:
     # FWaaS project no found
     from vmware_nsx.services.fwaas.common import fwaas_mocks \
         as fwaas_plugin_v1
-    from vmware_nsx.services.fwaas.common import fwaas_mocks \
-        as fwaas_plugin_v2
 
 
 _NSXLIB = None
@@ -149,7 +146,8 @@ class NsxV3PluginWrapper(plugin.NsxV3Plugin):
         fwaas_plugin = fwaas_plugin_class()
         self.fwaas_callbacks = callbacks_class()
         # override the fwplugin_rpc since there is no RPC support in adminutils
-        self.fwaas_callbacks.fwplugin_rpc = plugin_callbacks(fwaas_plugin)
+        if plugin_callbacks:
+            self.fwaas_callbacks.fwplugin_rpc = plugin_callbacks(fwaas_plugin)
         self.init_is_complete = True
 
     def init_fwaas_for_admin_utils(self):
@@ -164,7 +162,7 @@ class NsxV3PluginWrapper(plugin.NsxV3Plugin):
                     self._init_fwaas_plugin(
                         'firewall_v2',
                         fwaas_callbacks_v2.Nsxv3FwaasCallbacksV2,
-                        fwaas_plugin_v2.FirewallCallbacks)
+                        None)
                 else:
                     # FWaaS V1
                     self._init_fwaas_plugin(
