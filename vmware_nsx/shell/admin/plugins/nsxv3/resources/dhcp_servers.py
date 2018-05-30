@@ -57,7 +57,7 @@ def _get_orphaned_dhcp_servers(dhcp_profile_uuid):
         if dhcp_server['dhcp_profile_id'] != dhcp_profile_uuid:
             continue
         found = False
-        for tag in dhcp_server['tags']:
+        for tag in dhcp_server.get('tags', []):
             if tag['scope'] == 'os-neutron-net-id':
                 server_net_pairs.append((dhcp_server, tag['tag']))
                 found = True
