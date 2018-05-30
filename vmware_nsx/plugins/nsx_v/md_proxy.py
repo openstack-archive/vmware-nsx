@@ -658,8 +658,8 @@ class NsxVMetadataProxyHandler(object):
             # When shared proxy is configured, insert authentication string
             if cfg.CONF.nsxv.metadata_shared_secret:
                 signature = hmac.new(
-                    cfg.CONF.nsxv.metadata_shared_secret,
-                    edge_id,
+                    bytearray(cfg.CONF.nsxv.metadata_shared_secret, 'ascii'),
+                    bytearray(edge_id, 'ascii'),
                     hashlib.sha256).hexdigest()
                 sign_app_rule = nsxv_lb.NsxvLBAppRule(
                     'insert-auth',

@@ -159,9 +159,10 @@ def update_shared_secret(resource, event, trigger, **kwargs):
 
             virt.del_app_rule('insert-auth')
             if cfg.CONF.nsxv.metadata_shared_secret:
-                signature = hmac.new(cfg.CONF.nsxv.metadata_shared_secret,
-                                     edge_id,
-                                     hashlib.sha256).hexdigest()
+                signature = hmac.new(
+                    bytearray(cfg.CONF.nsxv.metadata_shared_secret, 'ascii'),
+                    bytearray(edge_id, 'ascii'),
+                    hashlib.sha256).hexdigest()
                 sign = 'reqadd X-Metadata-Provider-Signature:' + signature
                 sign_app_rule = nsxv_lb.NsxvLBAppRule('insert-auth', sign)
                 virt.add_app_rule(sign_app_rule)
