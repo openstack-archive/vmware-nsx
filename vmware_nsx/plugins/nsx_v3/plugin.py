@@ -15,6 +15,7 @@
 import copy
 import time
 
+import mock
 import netaddr
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port_security as psec
@@ -304,9 +305,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                           'name': 'NSX Internal',
                           'description': ''}}
             try:
-                # ensure that the global default is created
-                super(NsxV3Plugin, self).create_security_group(
-                    context, sec_group, True)
+                # ensure that the global default is created, and only once
+                # without retrying on DB errors
+                with mock.patch("neutron.db.api.is_retriable",
+                                return_value=False):
+                    super(NsxV3Plugin, self).create_security_group(
+                        context, sec_group, True)
             except Exception:
                 # Treat a race of multiple processing creating the sec group
                 LOG.warning('Unable to create global security group. Probably '
@@ -3183,8 +3187,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def _update_router_wrapper(self, context, router_id, router):
         if cfg.CONF.api_replay_mode:
-            # Only import mock if the reply mode is used
-            import mock
             # NOTE(arosen): the mock.patch here is needed for api_replay_mode
             with mock.patch("neutron.plugins.common.utils._fixup_res_dict",
                             side_effect=api_replay_utils._fixup_res_dict):
@@ -3345,8 +3347,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _add_router_interface_wrapper(self, context, router_id,
                                       interface_info):
         if cfg.CONF.api_replay_mode:
-            # Only import mock if the reply mode is used
-            import mock
             # NOTE(arosen): the mock.patch here is needed for api_replay_mode
             with mock.patch("neutron.plugins.common.utils._fixup_res_dict",
                             side_effect=api_replay_utils._fixup_res_dict):
@@ -3524,8 +3524,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def _create_floating_ip_wrapper(self, context, floatingip):
         if cfg.CONF.api_replay_mode:
-            # Only import mock if the reply mode is used
-            import mock
             # NOTE(arosen): the mock.patch here is needed for api_replay_mode
             with mock.patch("neutron.plugins.common.utils._fixup_res_dict",
                             side_effect=api_replay_utils._fixup_res_dict):
