@@ -15,6 +15,8 @@
 #    under the License.
 #
 
+import weakref
+
 from neutron_lib.agent import topics
 from neutron_lib import constants as const
 from oslo_concurrency import lockutils
@@ -106,10 +108,10 @@ class DhcpMetadataAccess(object):
         nsx_svc.register_dhcp_opts(cfg)
         nsx_svc.register_metadata_opts(cfg)
         lsnmanager.register_lsn_opts(cfg)
-        lsn_manager = lsnmanager.PersistentLsnManager(self.safe_reference)
+        lsn_manager = lsnmanager.PersistentLsnManager(weakref.proxy(self))
         self.lsn_manager = lsn_manager
         if cfg.CONF.NSX.agent_mode == config.AgentModes.AGENTLESS:
-            notifier = nsx_svc.DhcpAgentNotifyAPI(self.safe_reference,
+            notifier = nsx_svc.DhcpAgentNotifyAPI(weakref.proxy(self),
                                                   lsn_manager)
             self.agent_notifiers[const.AGENT_TYPE_DHCP] = notifier
             # In agentless mode, ports whose owner is DHCP need to
@@ -122,13 +124,13 @@ class DhcpMetadataAccess(object):
             # are handled by Logical Services Nodes in NSX
             cfg.CONF.set_override('network_auto_schedule', False)
             LOG.warning('network_auto_schedule has been disabled')
-            notifier = combined.DhcpAgentNotifyAPI(self.safe_reference,
+            notifier = combined.DhcpAgentNotifyAPI(weakref.proxy(self),
                                                    lsn_manager)
             self.supported_extension_aliases.append(lsn.EXT_ALIAS)
             # Add the capability to migrate dhcp and metadata services over
             self.migration_manager = (
                 migration.MigrationManager(
-                    self.safe_reference, lsn_manager, notifier))
+                    weakref.proxy(self), lsn_manager, notifier))
         return notifier
 
     def _init_extensions(self):
@@ -164,18 +166,18 @@ class DhcpMetadataAccess(object):
         return {'network': network_id, 'report': r}
 
     def handle_network_dhcp_access(self, context, network, action):
-        self.handle_network_dhcp_access_delegate(self.safe_reference, context,
+        self.handle_network_dhcp_access_delegate(weakref.proxy(self), context,
                                                  network, action)
 
     def handle_port_dhcp_access(self, context, port_data, action):
-        self.handle_port_dhcp_access_delegate(self.safe_reference, context,
+        self.handle_port_dhcp_access_delegate(weakref.proxy(self), context,
                                               port_data, action)
 
     def handle_port_metadata_access(self, context, port, is_delete=False):
-        self.handle_port_metadata_access_delegate(self.safe_reference, context,
+        self.handle_port_metadata_access_delegate(weakref.proxy(self), context,
                                                   port, is_delete)
 
     def handle_router_metadata_access(self, context,
                                       router_id, interface=None):
-        self.handle_metadata_access_delegate(self.safe_reference, context,
+        self.handle_metadata_access_delegate(weakref.proxy(self), context,
                                              router_id, interface)
