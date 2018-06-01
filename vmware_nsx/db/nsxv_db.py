@@ -14,11 +14,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import neutron.db.api as db
-
 import decorator
 from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib import constants as lib_const
+from neutron_lib.db import api as db_api
 from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -104,7 +103,7 @@ def get_nsxv_router_bindings_by_edge(session, edge_id):
 @warn_on_binding_status_error
 def get_nsxv_router_bindings(session, filters=None,
                              like_filters=None):
-    session = db.get_reader_session()
+    session = db_api.get_reader_session()
     query = session.query(nsxv_models.NsxvRouterBinding)
     return nsx_db._apply_filters_to_query(query, nsxv_models.NsxvRouterBinding,
                                           filters, like_filters).all()
@@ -535,7 +534,7 @@ def get_nsx_vnic_id(session, neutron_id):
 
 
 def get_network_bindings(session, network_id):
-    session = session or db.get_reader_session()
+    session = session or db_api.get_reader_session()
     return (session.query(nsxv_models.NsxvTzNetworkBinding).
             filter_by(network_id=network_id).
             all())
@@ -543,7 +542,7 @@ def get_network_bindings(session, network_id):
 
 def get_network_bindings_by_vlanid_and_physical_net(session, vlan_id,
                                                     phy_uuid):
-    session = session or db.get_reader_session()
+    session = session or db_api.get_reader_session()
     return (session.query(nsxv_models.NsxvTzNetworkBinding).
             filter_by(vlan_id=vlan_id, phy_uuid=phy_uuid).
             all())
@@ -555,7 +554,7 @@ def get_network_bindings_by_ids(session, vlan_id, phy_uuid):
 
 
 def get_network_bindings_by_physical_net(session, phy_uuid):
-    session = session or db.get_reader_session()
+    session = session or db_api.get_reader_session()
     return (session.query(nsxv_models.NsxvTzNetworkBinding).
             filter_by(phy_uuid=phy_uuid).
             all())
@@ -563,7 +562,7 @@ def get_network_bindings_by_physical_net(session, phy_uuid):
 
 def get_network_bindings_by_physical_net_and_type(session, phy_uuid,
                                                   binding_type):
-    session = session or db.get_reader_session()
+    session = session or db_api.get_reader_session()
     return (session.query(nsxv_models.NsxvTzNetworkBinding).
             filter_by(phy_uuid=phy_uuid,
                       binding_type=binding_type).
@@ -584,7 +583,7 @@ def add_network_binding(session, network_id, binding_type, phy_uuid, vlan_id):
 
 
 def get_network_bindings_by_vlanid(session, vlan_id):
-    session = session or db.get_reader_session()
+    session = session or db_api.get_reader_session()
     return (session.query(nsxv_models.NsxvTzNetworkBinding).
             filter_by(vlan_id=vlan_id).
             all())
@@ -666,7 +665,7 @@ def get_spoofguard_policy_id(session, network_id):
 
 def get_nsxv_spoofguard_policy_network_mappings(session, filters=None,
                                                 like_filters=None):
-    session = db.get_reader_session()
+    session = db_api.get_reader_session()
     query = session.query(nsxv_models.NsxvSpoofGuardPolicyNetworkMapping)
     return nsx_db._apply_filters_to_query(
                query, nsxv_models.NsxvSpoofGuardPolicyNetworkMapping,
