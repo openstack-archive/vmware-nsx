@@ -104,3 +104,7 @@ class HousekeeperPluginBase(object):
                          sorts=None, limit=None, marker=None,
                          page_reverse=False):
         pass
+
+    @abc.abstractmethod
+    def get_housekeeper_count(self, context, filters=None):
+        pass

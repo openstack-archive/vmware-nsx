@@ -4786,5 +4786,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self.housekeeper.run(context, name)
         return self.housekeeper.get(name)
 
+    def get_housekeeper_count(self, context, filters=None):
+        return len(self.housekeeper.list())
+
     def _get_appservice_id(self, name):
         return self.nsx_v.vcns.get_application_id(name)
