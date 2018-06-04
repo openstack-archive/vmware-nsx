@@ -37,6 +37,7 @@ from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
 from neutron_lib import constants
 from neutron_lib import context as n_context
+from neutron_lib.db import api as lib_db_api
 from neutron_lib.db import constants as db_const
 from neutron_lib.db import utils as db_utils
 from neutron_lib import exceptions as n_exc
@@ -1814,7 +1815,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     filter(models_v2.Port.mac_address == mac_address).
                     count())
 
-    @db_api.retry_db_errors
+    @lib_db_api.retry_db_errors
     def base_create_port(self, context, port):
         created_port = super(NsxVPluginV2, self).create_port(context, port)
         self._extension_manager.process_create_port(

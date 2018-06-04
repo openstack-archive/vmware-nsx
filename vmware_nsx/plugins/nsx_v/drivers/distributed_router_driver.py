@@ -16,10 +16,10 @@ import netaddr
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from neutron.db import api as db_api
 from neutron.db import l3_db
 
 from neutron_lib import constants
+from neutron_lib.db import api as db_api
 from neutron_lib import exceptions as n_exc
 
 from vmware_nsx.common import locking
