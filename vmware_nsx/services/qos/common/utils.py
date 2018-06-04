@@ -14,13 +14,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.objects.qos import policy as qos_policy
+from neutron_lib.objects import registry as obj_reg
 from neutron_lib.services.qos import constants as qos_consts
 
 
 def update_network_policy_binding(context, net_id, new_policy_id):
     # detach the old policy (if exists) from the network
-    old_policy = qos_policy.QosPolicy.get_network_policy(
+    old_policy = obj_reg.load_class('QosPolicy').get_network_policy(
         context, net_id)
     if old_policy:
         if old_policy.id == new_policy_id:
@@ -29,7 +29,7 @@ def update_network_policy_binding(context, net_id, new_policy_id):
 
     # attach the new policy (if exists) to the network
     if new_policy_id is not None:
-        new_policy = qos_policy.QosPolicy.get_object(
+        new_policy = obj_reg.load_class('QosPolicy').get_object(
             context, id=new_policy_id)
         if new_policy:
             new_policy.attach_network(net_id)
@@ -37,7 +37,7 @@ def update_network_policy_binding(context, net_id, new_policy_id):
 
 def update_port_policy_binding(context, port_id, new_policy_id):
     # detach the old policy (if exists) from the port
-    old_policy = qos_policy.QosPolicy.get_port_policy(
+    old_policy = obj_reg.load_class('QosPolicy').get_port_policy(
         context, port_id)
     if old_policy:
         if old_policy.id == new_policy_id:
@@ -46,21 +46,21 @@ def update_port_policy_binding(context, port_id, new_policy_id):
 
     # attach the new policy (if exists) to the port
     if new_policy_id is not None:
-        new_policy = qos_policy.QosPolicy.get_object(
+        new_policy = obj_reg.load_class('QosPolicy').get_object(
             context, id=new_policy_id)
         if new_policy:
             new_policy.attach_port(port_id)
 
 
 def get_port_policy_id(context, port_id):
-    policy = qos_policy.QosPolicy.get_port_policy(
+    policy = obj_reg.load_class('QosPolicy').get_port_policy(
         context, port_id)
     if policy:
         return policy.id
 
 
 def get_network_policy_id(context, net_id):
-    policy = qos_policy.QosPolicy.get_network_policy(
+    policy = obj_reg.load_class('QosPolicy').get_network_policy(
         context, net_id)
     if policy:
         return policy.id
@@ -74,7 +74,7 @@ def set_qos_policy_on_new_net(context, net_data, created_net):
     qos_policy_id = net_data.get(qos_consts.QOS_POLICY_ID)
     if not qos_policy_id:
         # try and get the default one
-        qos_obj = qos_policy.QosPolicyDefault.get_object(
+        qos_obj = obj_reg.load_class('QosPolicyDefault').get_object(
             context, project_id=created_net['project_id'])
         if qos_obj:
             qos_policy_id = qos_obj.qos_policy_id

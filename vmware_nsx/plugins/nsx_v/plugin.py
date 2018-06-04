@@ -45,6 +45,7 @@ from neutron_lib.exceptions import flavors as flav_exc
 from neutron_lib.exceptions import l3 as l3_exc
 from neutron_lib.exceptions import multiprovidernet as mpnet_exc
 from neutron_lib.exceptions import port_security as psec_exc
+from neutron_lib.objects import registry as obj_reg
 from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
 from neutron_lib.plugins import utils
@@ -84,7 +85,6 @@ from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
-from neutron.objects import securitygroup
 from neutron.quota import resource_registry
 from neutron.services.flavors import flavors_plugin
 from vmware_nsx.dvs import dvs
@@ -4543,7 +4543,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                       "nsx-rule %(nsx_rule_id)s doesn't exist.",
                       {'id': id, 'nsx_rule_id': nsx_rule_id})
         if delete_base:
-            securitygroup.SecurityGroupRule.delete_objects(context, id=id)
+            obj_reg.load_class('SecurityGroupRule').delete_objects(
+                context, id=id)
 
     def _remove_vnic_from_spoofguard_policy(self, session, net_id, vnic_id):
         policy_id = nsxv_db.get_spoofguard_policy_id(session, net_id)

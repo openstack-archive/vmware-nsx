@@ -24,7 +24,6 @@ from neutron.db import _resource_extend as resource_extend
 from neutron.db import api as db_api
 from neutron.db.models import securitygroup as securitygroups_db
 from neutron.extensions import securitygroup as ext_sg
-from neutron.objects import securitygroup as sg_obj
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api import validators
 from neutron_lib.callbacks import events
@@ -32,6 +31,7 @@ from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
 from neutron_lib import constants as n_constants
 from neutron_lib.db import model_base
+from neutron_lib.objects import registry as obj_reg
 from neutron_lib.utils import helpers
 from neutron_lib.utils import net as n_utils
 
@@ -98,8 +98,9 @@ class ExtendedSecurityGroupPropertiesMixin(object):
             self._ensure_default_security_group(context, tenant_id)
 
         with db_api.context_manager.writer.using(context):
-            sg = sg_obj.SecurityGroup(
-                context, id=s.get('id') or uuidutils.generate_uuid(),
+            sg = obj_reg.new_instance(
+                'SecurityGroup', context,
+                id=s.get('id') or uuidutils.generate_uuid(),
                 description=s.get('description', ''), project_id=tenant_id,
                 name=s.get('name', ''), is_default=default_sg)
             # Note(asarfaty): for unknown reason, removing the 'is_default'
