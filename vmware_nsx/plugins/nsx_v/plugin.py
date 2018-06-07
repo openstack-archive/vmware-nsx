@@ -3281,6 +3281,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                 'balancer')
                     raise n_exc.InvalidInput(error_message=err_msg)
 
+            # shared router cannot be attached to a fwaas
+            if self.fwaas_callbacks.should_apply_firewall_to_router(
+                context, router, router_id):
+                err_msg = _('Unable to create a shared router with FWaaS')
+                raise n_exc.InvalidInput(error_message=err_msg)
+
     def update_router(self, context, router_id, router):
         with locking.LockManager.get_lock('router-%s' % router_id):
             return self._safe_update_router(context, router_id, router)
