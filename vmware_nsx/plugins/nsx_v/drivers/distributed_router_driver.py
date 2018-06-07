@@ -21,6 +21,7 @@ from neutron.db import l3_db
 from neutron_lib import constants
 from neutron_lib.db import api as db_api
 from neutron_lib import exceptions as n_exc
+from neutron_lib.exceptions import l3 as l3_exc
 
 from vmware_nsx.common import locking
 from vmware_nsx.db import nsxv_db
@@ -236,7 +237,7 @@ class RouterDistributedDriver(router_driver.RouterBaseDriver):
                 raise n_exc.InvalidInput(error_message=err_msg)
             else:
                 # attach to multiple routers
-                raise n_exc.Conflict(error_message=err_msg)
+                raise l3_exc.RouterInterfaceAttachmentConflict(reason=err_msg)
         # Validate that the subnet is not a v6 one
         subnet = self.plugin.get_subnet(context.elevated(), subnet_id)
         if (subnet.get('ip_version') == 6 or
