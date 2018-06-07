@@ -15,7 +15,6 @@
 
 
 from neutron_lib import exceptions as n_exc
-from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import excutils
 
@@ -23,39 +22,37 @@ from vmware_nsx._i18n import _
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.services.lbaas import base_mgr
 from vmware_nsx.services.lbaas import lb_const
-from vmware_nsx.services.lbaas.nsx_v3 import lb_utils
+from vmware_nsx.services.lbaas.nsx_v3.implementation import lb_utils
 from vmware_nsxlib.v3 import exceptions as nsxlib_exc
 from vmware_nsxlib.v3 import utils
 
 LOG = logging.getLogger(__name__)
 
 
-class EdgeLoadBalancerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
+class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
 
-    @log_helpers.log_method_call
-    def create(self, context, lb):
+    def create(self, context, lb, completor):
         if lb_utils.validate_lb_subnet(context, self.core_plugin,
-                                       lb.vip_subnet_id):
-            self.lbv2_driver.load_balancer.successful_completion(context, lb)
+                                       lb['vip_subnet_id']):
+            completor(success=True)
         else:
             msg = (_('Cannot create lb on subnet %(sub)s for '
                      'loadbalancer %(lb)s. The subnet needs to connect a '
                      'router which is already set gateway.') %
-                   {'sub': lb.vip_subnet_id, 'lb': lb.id})
+                   {'sub': lb['vip_subnet_id'], 'lb': lb['id']})
             raise n_exc.BadRequest(resource='lbaas-subnet', msg=msg)
 
-    @log_helpers.log_method_call
-    def update(self, context, old_lb, new_lb):
+    def update(self, context, old_lb, new_lb, completor):
         vs_client = self.core_plugin.nsxlib.load_balancer.virtual_server
         app_client = self.core_plugin.nsxlib.load_balancer.application_profile
-        if new_lb.name != old_lb.name:
-            for listener in new_lb.listeners:
+        if new_lb['name'] != old_lb['name']:
+            for listener in new_lb['listeners']:
                 binding = nsx_db.get_nsx_lbaas_listener_binding(
-                    context.session, new_lb.id, listener.id)
+                    context.session, new_lb['id'], listener['id'])
                 if binding:
                     vs_id = binding['lb_vs_id']
                     app_profile_id = binding['app_profile_id']
-                    new_lb_name = new_lb.name[:utils.MAX_TAG_LEN]
+                    new_lb_name = new_lb['name'][:utils.MAX_TAG_LEN]
                     try:
                         # Update tag on virtual server with new lb name
                         vs = vs_client.get(vs_id)
@@ -71,19 +68,17 @@ class EdgeLoadBalancerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
 
                     except nsxlib_exc.ManagerError:
                         with excutils.save_and_reraise_exception():
-                            self.lbv2_driver.pool.failed_completion(context,
-                                                                    new_lb)
+                            completor(success=False)
                             LOG.error('Failed to update tag %(tag)s for lb '
                                       '%(lb)s', {'tag': updated_tags,
-                                                 'lb': new_lb.name})
+                                                 'lb': new_lb['name']})
 
-        self.lbv2_driver.load_balancer.successful_completion(context, new_lb)
+        completor(success=True)
 
-    @log_helpers.log_method_call
-    def delete(self, context, lb):
+    def delete(self, context, lb, completor):
         service_client = self.core_plugin.nsxlib.load_balancer.service
         lb_binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
-            context.session, lb.id)
+            context.session, lb['id'])
         if lb_binding:
             lb_service_id = lb_binding['lb_service_id']
             nsx_router_id = lb_binding['lb_router_id']
@@ -103,22 +98,18 @@ class EdgeLoadBalancerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                         router_client.update_advertisement(
                             nsx_router_id, advertise_lb_vip=False)
                     except nsxlib_exc.ManagerError:
-                        self.lbv2_driver.load_balancer.failed_completion(
-                            context, lb, delete=True)
+                        completor(success=False)
                         msg = (_('Failed to delete lb service %(lbs)s from nsx'
                                  ) % {'lbs': lb_service_id})
                         raise n_exc.BadRequest(resource='lbaas-lb', msg=msg)
             nsx_db.delete_nsx_lbaas_loadbalancer_binding(
-                context.session, lb.id)
-        self.lbv2_driver.load_balancer.successful_completion(
-            context, lb, delete=True)
+                context.session, lb['id'])
+        completor(success=True)
 
-    @log_helpers.log_method_call
     def refresh(self, context, lb):
         # TODO(tongl): implememnt
         pass
 
-    @log_helpers.log_method_call
     def stats(self, context, lb):
         # Since multiple LBaaS loadbalancer can share the same LB service,
         # get the corresponding virtual servers' stats instead of LB service.
@@ -129,7 +120,7 @@ class EdgeLoadBalancerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
 
         service_client = self.core_plugin.nsxlib.load_balancer.service
         lb_binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
-            context.session, lb.id)
+            context.session, lb['id'])
         vs_list = self._get_lb_virtual_servers(context, lb)
         if lb_binding:
             lb_service_id = lb_binding.get('lb_service_id')
@@ -148,16 +139,16 @@ class EdgeLoadBalancerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
 
             except nsxlib_exc.ManagerError:
                 msg = _('Failed to retrieve stats from LB service '
-                        'for loadbalancer %(lb)s') % {'lb': lb.id}
+                        'for loadbalancer %(lb)s') % {'lb': lb['id']}
                 raise n_exc.BadRequest(resource='lbaas-lb', msg=msg)
         return stats
 
     def _get_lb_virtual_servers(self, context, lb):
         # Get all virtual servers that belong to this loadbalancer
         vs_list = []
-        for listener in lb.listeners:
+        for listener in lb['listeners']:
             vs_binding = nsx_db.get_nsx_lbaas_listener_binding(
-                context.session, lb.id, listener.id)
+                context.session, lb['id'], listener['id'])
             if vs_binding:
                 vs_list.append(vs_binding.get('lb_vs_id'))
         return vs_list

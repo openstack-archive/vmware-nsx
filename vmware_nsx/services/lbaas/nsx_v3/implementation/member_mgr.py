@@ -24,17 +24,17 @@ from vmware_nsx.common import locking
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.services.lbaas import base_mgr
 from vmware_nsx.services.lbaas import lb_const
-from vmware_nsx.services.lbaas.nsx_v3 import lb_utils
+from vmware_nsx.services.lbaas.nsx_v3.implementation import lb_utils
 from vmware_nsxlib.v3 import exceptions as nsxlib_exc
 from vmware_nsxlib.v3 import utils
 
 LOG = logging.getLogger(__name__)
 
 
-class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
+class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
     @log_helpers.log_method_call
     def __init__(self):
-        super(EdgeMemberManager, self).__init__()
+        super(EdgeMemberManagerFromDict, self).__init__()
 
     @log_helpers.log_method_call
     def _get_info_from_fip(self, context, fip):
@@ -76,16 +76,16 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
 
     def _get_updated_pool_members(self, context, lb_pool, member):
         network = lb_utils.get_network_from_subnet(
-            context, self.core_plugin, member.subnet_id)
+            context, self.core_plugin, member['subnet_id'])
         if network.get('router:external'):
             fixed_ip, router_id = self._get_info_from_fip(
-                context, member.address)
+                context, member['address'])
         else:
-            fixed_ip = member.address
+            fixed_ip = member['address']
         for m in lb_pool['members']:
             if m['ip_address'] == fixed_ip:
-                m['display_name'] = member.name[:219] + '_' + member.id
-                m['weight'] = member.weight
+                m['display_name'] = member['name'][:219] + '_' + member['id']
+                m['weight'] = member['weight']
         return lb_pool['members']
 
     @log_helpers.log_method_call
@@ -103,35 +103,34 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
             LOG.debug("LB binding has already been added, and no need "
                       "to add here.")
 
-    @log_helpers.log_method_call
-    def create(self, context, member):
-        with locking.LockManager.get_lock('member-%s' %
-                                          str(member.pool.loadbalancer_id)):
-            self._member_create(context, member)
+    def create(self, context, member, completor):
+        with locking.LockManager.get_lock(
+            'member-%s' % str(member['pool']['loadbalancer_id'])):
+            self._member_create(context, member, completor)
 
-    def _member_create(self, context, member):
-        lb_id = member.pool.loadbalancer_id
-        pool_id = member.pool.id
-        loadbalancer = member.pool.loadbalancer
+    def _member_create(self, context, member, completor):
+        lb_id = member['pool']['loadbalancer_id']
+        pool_id = member['pool']['id']
+        loadbalancer = member['pool']['loadbalancer']
         if not lb_utils.validate_lb_subnet(context, self.core_plugin,
-                                           member.subnet_id):
+                                           member['subnet_id']):
             msg = (_('Cannot add member %(member)s to pool as member subnet '
                      '%(subnet)s is neither public nor connected to router') %
-                   {'member': member.id, 'subnet': member.subnet_id})
+                   {'member': member['id'], 'subnet': member['subnet_id']})
             raise n_exc.BadRequest(resource='lbaas-subnet', msg=msg)
 
         pool_client = self.core_plugin.nsxlib.load_balancer.pool
         service_client = self.core_plugin.nsxlib.load_balancer.service
 
         network = lb_utils.get_network_from_subnet(
-            context, self.core_plugin, member.subnet_id)
+            context, self.core_plugin, member['subnet_id'])
         if network.get('router:external'):
             router_id, fixed_ip = self._get_info_from_fip(
-                context, member.address)
+                context, member['address'])
         else:
             router_id = lb_utils.get_router_from_network(
-                context, self.core_plugin, member.subnet_id)
-            fixed_ip = member.address
+                context, self.core_plugin, member['subnet_id'])
+            fixed_ip = member['address']
 
         binding = nsx_db.get_nsx_lbaas_pool_binding(context.session,
                                                     lb_id, pool_id)
@@ -147,22 +146,22 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                     nsx_router_id)
                 if not lb_service:
                     lb_size = lb_utils.get_lb_flavor_size(
-                        self.flavor_plugin, context, loadbalancer.flavor_id)
+                        self.flavor_plugin, context,
+                        loadbalancer.get('flavor_id'))
                     lb_service = self._create_lb_service(
-                        context, service_client, member.tenant_id,
-                        router_id, nsx_router_id, loadbalancer.id, lb_size)
+                        context, service_client, member['tenant_id'],
+                        router_id, nsx_router_id, loadbalancer['id'], lb_size)
                 if lb_service:
                     lb_service_id = lb_service['id']
                     self._add_loadbalancer_binding(
-                        context, loadbalancer.id, lb_service_id,
-                        nsx_router_id, loadbalancer.vip_address)
+                        context, loadbalancer['id'], lb_service_id,
+                        nsx_router_id, loadbalancer['vip_address'])
                     if vs_id:
                         try:
                             service_client.add_virtual_server(lb_service_id,
                                                               vs_id)
                         except nsxlib_exc.ManagerError:
-                            self.lbv2_driver.member.failed_completion(context,
-                                                                      member)
+                            completor(success=False)
                             msg = (_('Failed to attach virtual server %(vs)s '
                                    'to lb service %(service)s') %
                                    {'vs': vs_id, 'service': lb_service_id})
@@ -176,10 +175,11 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
 
             lb_pool = pool_client.get(lb_pool_id)
             old_m = lb_pool.get('members', None)
-            new_m = [{'display_name': member.name[:219] + '_' + member.id,
-                      'ip_address': fixed_ip,
-                      'port': member.protocol_port,
-                      'weight': member.weight}]
+            new_m = [{
+                'display_name': member['name'][:219] + '_' + member['id'],
+                'ip_address': fixed_ip,
+                'port': member['protocol_port'],
+                'weight': member['weight']}]
             members = (old_m + new_m) if old_m else new_m
             pool_client.update_pool_with_members(lb_pool_id, members)
         else:
@@ -187,12 +187,11 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                    member['id'])
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
-        self.lbv2_driver.member.successful_completion(context, member)
+        completor(success=True)
 
-    @log_helpers.log_method_call
-    def update(self, context, old_member, new_member):
-        lb_id = old_member.pool.loadbalancer_id
-        pool_id = old_member.pool.id
+    def update(self, context, old_member, new_member, completor):
+        lb_id = old_member['pool']['loadbalancer_id']
+        pool_id = old_member['pool']['id']
         pool_client = self.core_plugin.nsxlib.load_balancer.pool
         pool_binding = nsx_db.get_nsx_lbaas_pool_binding(
             context.session, lb_id, pool_id)
@@ -206,18 +205,15 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                                                      updated_members)
             except Exception as e:
                 with excutils.save_and_reraise_exception():
-                    self.lbv2_driver.member.failed_completion(
-                        context, new_member)
+                    completor(success=False)
                     LOG.error('Failed to update member %(member)s: '
                               '%(err)s',
-                              {'member': old_member.id, 'err': e})
-        self.lbv2_driver.member.successful_completion(
-            context, new_member)
+                              {'member': old_member['id'], 'err': e})
+        completor(success=True)
 
-    @log_helpers.log_method_call
-    def delete(self, context, member):
-        lb_id = member.pool.loadbalancer_id
-        pool_id = member.pool.id
+    def delete(self, context, member, completor):
+        lb_id = member['pool']['loadbalancer_id']
+        pool_id = member['pool']['id']
         pool_client = self.core_plugin.nsxlib.load_balancer.pool
         pool_binding = nsx_db.get_nsx_lbaas_pool_binding(
             context.session, lb_id, pool_id)
@@ -226,12 +222,12 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
             try:
                 lb_pool = pool_client.get(lb_pool_id)
                 network = lb_utils.get_network_from_subnet(
-                    context, self.core_plugin, member.subnet_id)
+                    context, self.core_plugin, member['subnet_id'])
                 if network.get('router:external'):
                     fixed_ip, router_id = self._get_info_from_fip(
-                        context, member.address)
+                        context, member['address'])
                 else:
-                    fixed_ip = member.address
+                    fixed_ip = member['address']
                 if 'members' in lb_pool:
                     m_list = lb_pool['members']
                     members = [m for m in m_list
@@ -240,8 +236,8 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
             except nsxlib_exc.ResourceNotFound:
                 pass
             except nsxlib_exc.ManagerError:
-                self.lbv2_driver.member.failed_completion(context, member)
+                completor(success=False)
                 msg = _('Failed to remove member from pool on NSX backend')
                 raise n_exc.BadRequest(resource='lbaas-member', msg=msg)
-        self.lbv2_driver.member.successful_completion(
-            context, member, delete=True)
+
+        completor(success=True)

@@ -41,67 +41,67 @@ type_by_compare_type = {
 def policy_to_application_rule(policy):
     condition = ''
     rule_lines = []
-    for rule in policy.rules:
-        if rule.provisioning_status == constants.PENDING_DELETE:
+    for rule in policy['rules']:
+        if rule['provisioning_status'] == constants.PENDING_DELETE:
             # skip this rule as it is being deleted
             continue
 
-        type_by_comp = type_by_compare_type.get(rule.compare_type)
+        type_by_comp = type_by_compare_type.get(rule['compare_type'])
         if type_by_comp is None:
             type_by_comp = ''
             LOG.warnning('Unsupported compare type %(type)s is used in '
-                         'policy %(id)s', {'type': rule.compare_type,
-                                           'id': policy.id})
+                         'policy %(id)s', {'type': rule['compare_type'],
+                                           'id': policy['id']})
 
-        if rule.type == lb_const.L7_RULE_TYPE_COOKIE:
+        if rule['type'] == lb_const.L7_RULE_TYPE_COOKIE:
             # Example: acl <id> hdr_sub(cookie) SEEN=1
             hdr_type = 'hdr' + type_by_comp
             rule_line = ('acl %(rule_id)s %(hdr_type)s(cookie) '
-                         '%(key)s=%(val)s' % {'rule_id': rule.id,
+                         '%(key)s=%(val)s' % {'rule_id': rule['id'],
                                               'hdr_type': hdr_type,
-                                              'key': rule.key,
-                                              'val': rule.value})
-        elif rule.type == lb_const.L7_RULE_TYPE_HEADER:
+                                              'key': rule['key'],
+                                              'val': rule['value']})
+        elif rule['type'] == lb_const.L7_RULE_TYPE_HEADER:
             # Example: acl <id> hdr(user-agent) -i test
             hdr_type = 'hdr' + type_by_comp
             rule_line = ('acl %(rule_id)s %(hdr_type)s(%(key)s) '
-                         '-i %(val)s' % {'rule_id': rule.id,
+                         '-i %(val)s' % {'rule_id': rule['id'],
                                          'hdr_type': hdr_type,
-                                         'key': rule.key,
-                                         'val': rule.value})
-        elif rule.type == lb_const.L7_RULE_TYPE_HOST_NAME:
+                                         'key': rule['key'],
+                                         'val': rule['value']})
+        elif rule['type'] == lb_const.L7_RULE_TYPE_HOST_NAME:
             # Example: acl <id> hdr_beg(host) -i abcd
             hdr_type = 'hdr' + type_by_comp
             # -i for case insensitive host name
             rule_line = ('acl %(rule_id)s %(hdr_type)s(host) '
-                         '-i %(val)s' % {'rule_id': rule.id,
+                         '-i %(val)s' % {'rule_id': rule['id'],
                                          'hdr_type': hdr_type,
-                                         'val': rule.value})
-        elif rule.type == lb_const.L7_RULE_TYPE_PATH:
+                                         'val': rule['value']})
+        elif rule['type'] == lb_const.L7_RULE_TYPE_PATH:
             # Example: acl <id> path_beg -i /images
             # -i for case insensitive path
             path_type = 'path' + type_by_comp
             rule_line = ('acl %(rule_id)s %(path_type)s '
-                         '-i %(val)s' % {'rule_id': rule.id,
+                         '-i %(val)s' % {'rule_id': rule['id'],
                                          'path_type': path_type,
-                                         'val': rule.value})
-        elif rule.type == lb_const.L7_RULE_TYPE_FILE_TYPE:
+                                         'val': rule['value']})
+        elif rule['type'] == lb_const.L7_RULE_TYPE_FILE_TYPE:
             # Example: acl <id> path_sub -i .jpg
             # Regardless of the compare type, always check contained in path.
             # -i for case insensitive file type
-            val = rule.value
+            val = rule['value']
             if not val.startswith('.'):
                 val = '.' + val
             rule_line = ('acl %(rule_id)s path_sub '
-                         '-i %(val)s' % {'rule_id': rule.id,
+                         '-i %(val)s' % {'rule_id': rule['id'],
                                          'val': val})
         else:
-            msg = _('Unsupported L7rule type %s') % rule.type
+            msg = _('Unsupported L7rule type %s') % rule['type']
             raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
 
         rule_lines.append(rule_line)
-        invert_sign = '!' if rule.invert else ''
-        condition = condition + invert_sign + rule.id + ' '
+        invert_sign = '!' if rule['invert'] else ''
+        condition = condition + invert_sign + rule['id'] + ' '
 
     if rule_lines:
         # concatenate all the rules with new lines
@@ -113,21 +113,21 @@ def policy_to_application_rule(policy):
         condition = 'TRUE'
 
     # prepare the action
-    if policy.action == lb_const.L7_POLICY_ACTION_REJECT:
+    if policy['action'] == lb_const.L7_POLICY_ACTION_REJECT:
         # return HTTP 403 response
         action = 'http-request deny'
-    elif policy.action == lb_const.L7_POLICY_ACTION_REDIRECT_TO_POOL:
-        action = 'use_backend pool_%s' % policy.redirect_pool_id
-    elif policy.action == lb_const.L7_POLICY_ACTION_REDIRECT_TO_URL:
-        action = 'redirect location %s' % policy.redirect_url
+    elif policy['action'] == lb_const.L7_POLICY_ACTION_REDIRECT_TO_POOL:
+        action = 'use_backend pool_%s' % policy['redirect_pool_id']
+    elif policy['action'] == lb_const.L7_POLICY_ACTION_REDIRECT_TO_URL:
+        action = 'redirect location %s' % policy['redirect_url']
     else:
-        msg = _('Unsupported L7policy action %s') % policy.action
+        msg = _('Unsupported L7policy action %s') % policy['action']
         raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
 
     # Build the final script
     script = all_rules + '%(action)s if %(cond)s' % {
         'action': action, 'cond': condition}
-    app_rule = {'name': 'pol_' + policy.id, 'script': script}
+    app_rule = {'name': 'pol_' + policy['id'], 'script': script}
     return app_rule
 
 
@@ -141,10 +141,10 @@ def policy_to_edge_and_rule_id(context, policy_id):
     return binding['edge_id'], binding['edge_app_rule_id']
 
 
-class EdgeL7PolicyManager(base_mgr.EdgeLoadbalancerBaseManager):
+class EdgeL7PolicyManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
     @log_helpers.log_method_call
     def __init__(self, vcns_driver):
-        super(EdgeL7PolicyManager, self).__init__(vcns_driver)
+        super(EdgeL7PolicyManagerFromDict, self).__init__(vcns_driver)
 
     def _add_app_rule_to_virtual_server(self, edge_id, vse_id, app_rule_id,
                                         policy_position):
@@ -200,29 +200,29 @@ class EdgeL7PolicyManager(base_mgr.EdgeLoadbalancerBaseManager):
         self.vcns.update_vip(edge_id, vse_id, vse)
 
     def _get_vse_id(self, context, pol):
-        lb_id = pol.listener.loadbalancer_id
-        list_id = pol.listener.id
+        lb_id = pol['listener']['loadbalancer_id']
+        list_id = pol['listener']['id']
         listener_binding = nsxv_db.get_nsxv_lbaas_listener_binding(
             context.session, lb_id, list_id)
         if listener_binding:
             return listener_binding['vse_id']
 
-    @log_helpers.log_method_call
-    def create(self, context, pol):
+    def create(self, context, pol, completor):
         # find out the edge to be updated, by the listener of this policy
-        lb_id = pol.listener.loadbalancer_id
+        listener = pol['listener']
+        lb_id = listener['loadbalancer_id']
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
         if not lb_binding:
             msg = _(
-                'No suitable Edge found for listener %s') % pol.listener_id
+                'No suitable Edge found for listener %s') % listener['id']
             raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
 
-        if (pol.listener.protocol == lb_const.LB_PROTOCOL_HTTPS or
-            pol.listener.protocol == lb_const.LB_PROTOCOL_TERMINATED_HTTPS):
+        if (listener['protocol'] == lb_const.LB_PROTOCOL_HTTPS or
+            listener['protocol'] == lb_const.LB_PROTOCOL_TERMINATED_HTTPS):
             msg = _(
                 'L7 policy is not supported for %(prot)s listener %(ls)s') % {
-                'prot': pol.listener.protocol, 'ls': pol.listener_id}
+                'prot': listener['protocol'], 'ls': pol['listener_id']}
             raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
 
         edge_id = lb_binding['edge_id']
@@ -239,10 +239,10 @@ class EdgeL7PolicyManager(base_mgr.EdgeLoadbalancerBaseManager):
                 vse_id = self._get_vse_id(context, pol)
                 if vse_id:
                     self._add_app_rule_to_virtual_server(
-                        edge_id, vse_id, app_rule_id, pol.position)
+                        edge_id, vse_id, app_rule_id, pol['position'])
         except Exception as e:
             with excutils.save_and_reraise_exception():
-                self.lbv2_driver.l7policy.failed_completion(context, pol)
+                completor(success=False)
                 LOG.error('Failed to create L7policy on edge %(edge)s: '
                           '%(err)s',
                           {'edge': edge_id, 'err': e})
@@ -255,15 +255,15 @@ class EdgeL7PolicyManager(base_mgr.EdgeLoadbalancerBaseManager):
                         pass
 
         # save the nsx application rule id in the DB
-        nsxv_db.add_nsxv_lbaas_l7policy_binding(context.session, pol.id,
+        nsxv_db.add_nsxv_lbaas_l7policy_binding(context.session, pol['id'],
                                                 edge_id, app_rule_id)
         # complete the transaction
-        self.lbv2_driver.l7policy.successful_completion(context, pol)
+        completor(success=True)
 
-    @log_helpers.log_method_call
-    def update(self, context, old_pol, new_pol):
+    def update(self, context, old_pol, new_pol, completor):
         # get the nsx application rule id and edge id from the nsx DB
-        edge_id, app_rule_id = policy_to_edge_and_rule_id(context, new_pol.id)
+        edge_id, app_rule_id = policy_to_edge_and_rule_id(
+            context, new_pol['id'])
         # create the script for the new policy data
         app_rule = policy_to_application_rule(new_pol)
         try:
@@ -272,32 +272,31 @@ class EdgeL7PolicyManager(base_mgr.EdgeLoadbalancerBaseManager):
                 self.vcns.update_app_rule(edge_id, app_rule_id, app_rule)
 
                 # if the position changed - update it too
-                if old_pol.position != new_pol.position:
+                if old_pol['position'] != new_pol['position']:
                     vse_id = self._get_vse_id(context, new_pol)
                     if vse_id:
                         self._update_app_rule_possition_in_virtual_server(
-                            edge_id, vse_id, app_rule_id, new_pol.position)
+                            edge_id, vse_id, app_rule_id, new_pol['position'])
 
         except Exception as e:
             with excutils.save_and_reraise_exception():
-                self.lbv2_driver.l7policy.failed_completion(context, new_pol)
+                completor(success=False)
                 LOG.error('Failed to update L7policy on edge %(edge)s: '
                           '%(err)s',
                           {'edge': edge_id, 'err': e})
 
         # complete the transaction
-        self.lbv2_driver.l7policy.successful_completion(context, new_pol)
+        completor(success=True)
 
-    @log_helpers.log_method_call
-    def delete(self, context, pol):
+    def delete(self, context, pol, completor):
         # get the nsx application rule id and edge id from the nsx DB
         try:
-            edge_id, app_rule_id = policy_to_edge_and_rule_id(context, pol.id)
+            edge_id, app_rule_id = policy_to_edge_and_rule_id(
+                context, pol['id'])
         except n_exc.BadRequest:
             # This is probably a policy that we failed to create properly.
             # We should allow deleting it
-            self.lbv2_driver.l7policy.successful_completion(context, pol,
-                                                            delete=True)
+            completor(success=True)
             return
 
         with locking.LockManager.get_lock(edge_id):
@@ -312,14 +311,13 @@ class EdgeL7PolicyManager(base_mgr.EdgeLoadbalancerBaseManager):
                 self.vcns.delete_app_rule(edge_id, app_rule_id)
             except Exception as e:
                 with excutils.save_and_reraise_exception():
-                    self.lbv2_driver.l7policy.failed_completion(context, pol)
+                    completor(success=False)
                     LOG.error('Failed to delete L7policy on edge '
                               '%(edge)s: %(err)s',
                               {'edge': edge_id, 'err': e})
 
         # delete the nsxv db entry
-        nsxv_db.del_nsxv_lbaas_l7policy_binding(context.session, pol.id)
+        nsxv_db.del_nsxv_lbaas_l7policy_binding(context.session, pol['id'])
 
         # complete the transaction
-        self.lbv2_driver.l7policy.successful_completion(context, pol,
-                                                        delete=True)
+        completor(success=True)

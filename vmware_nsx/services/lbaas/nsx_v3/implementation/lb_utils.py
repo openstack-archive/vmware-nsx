@@ -92,49 +92,49 @@ def get_rule_match_conditions(policy):
     # values in rule have already been validated in LBaaS API,
     # we won't need to valid anymore in driver, and just get
     # the LB rule mapping from the dict.
-    for rule in policy.rules:
-        match_type = lb_const.LB_RULE_MATCH_TYPE[rule.compare_type]
-        if rule.type == lb_const.L7_RULE_TYPE_COOKIE:
-            header_value = rule.key + '=' + rule.value
+    for rule in policy['rules']:
+        match_type = lb_const.LB_RULE_MATCH_TYPE[rule['compare_type']]
+        if rule['type'] == lb_const.L7_RULE_TYPE_COOKIE:
+            header_value = rule['key'] + '=' + rule['value']
             match_conditions.append(
                 {'type': 'LbHttpRequestHeaderCondition',
                  'match_type': match_type,
                  'header_name': 'Cookie',
                  'header_value': header_value})
-        elif rule.type == lb_const.L7_RULE_TYPE_FILE_TYPE:
+        elif rule['type'] == lb_const.L7_RULE_TYPE_FILE_TYPE:
             match_conditions.append(
                 {'type': 'LbHttpRequestUriCondition',
                  'match_type': match_type,
-                 'uri': '*.' + rule.value})
-        elif rule.type == lb_const.L7_RULE_TYPE_HEADER:
+                 'uri': '*.' + rule['value']})
+        elif rule['type'] == lb_const.L7_RULE_TYPE_HEADER:
             match_conditions.append(
                 {'type': 'LbHttpRequestHeaderCondition',
                  'match_type': match_type,
-                 'header_name': rule.key,
-                 'header_value': rule.value})
-        elif rule.type == lb_const.L7_RULE_TYPE_HOST_NAME:
+                 'header_name': rule['key'],
+                 'header_value': rule['value']})
+        elif rule['type'] == lb_const.L7_RULE_TYPE_HOST_NAME:
             match_conditions.append(
                 {'type': 'LbHttpRequestHeaderCondition',
                  'match_type': match_type,
                  'header_name': 'Host',
-                 'header_value': rule.value})
-        elif rule.type == lb_const.L7_RULE_TYPE_PATH:
+                 'header_value': rule['value']})
+        elif rule['type'] == lb_const.L7_RULE_TYPE_PATH:
             match_conditions.append(
                 {'type': 'LbHttpRequestUriCondition',
                  'match_type': match_type,
-                 'uri': rule.value})
+                 'uri': rule['value']})
         else:
             msg = (_('l7rule type %(type)s is not supported in LBaaS') %
-                   {'type': rule.type})
+                   {'type': rule['type']})
             raise n_exc.BadRequest(resource='lbaas-l7rule', msg=msg)
     return match_conditions
 
 
 def get_rule_actions(context, l7policy):
-    lb_id = l7policy.listener.loadbalancer_id
-    if l7policy.action == lb_const.L7_POLICY_ACTION_REDIRECT_TO_POOL:
+    lb_id = l7policy['listener']['loadbalancer_id']
+    if l7policy['action'] == lb_const.L7_POLICY_ACTION_REDIRECT_TO_POOL:
         pool_binding = nsx_db.get_nsx_lbaas_pool_binding(
-            context.session, lb_id, l7policy.redirect_pool_id)
+            context.session, lb_id, l7policy['redirect_pool_id'])
         if pool_binding:
             lb_pool_id = pool_binding['lb_pool_id']
             actions = [{'type': lb_const.LB_SELECT_POOL_ACTION,
@@ -143,16 +143,16 @@ def get_rule_actions(context, l7policy):
             msg = _('Failed to get LB pool binding from nsx db')
             raise n_exc.BadRequest(resource='lbaas-l7rule-create',
                                    msg=msg)
-    elif l7policy.action == lb_const.L7_POLICY_ACTION_REDIRECT_TO_URL:
+    elif l7policy['action'] == lb_const.L7_POLICY_ACTION_REDIRECT_TO_URL:
         actions = [{'type': lb_const.LB_HTTP_REDIRECT_ACTION,
                     'redirect_status': lb_const.LB_HTTP_REDIRECT_STATUS,
-                    'redirect_url': l7policy.redirect_url}]
-    elif l7policy.action == lb_const.L7_POLICY_ACTION_REJECT:
+                    'redirect_url': l7policy['redirect_url']}]
+    elif l7policy['action'] == lb_const.L7_POLICY_ACTION_REJECT:
         actions = [{'type': lb_const.LB_REJECT_ACTION,
                     'reply_status': lb_const.LB_HTTP_REJECT_STATUS}]
     else:
         msg = (_('Invalid l7policy action: %(action)s') %
-               {'action': l7policy.action})
+               {'action': l7policy['action']})
         raise n_exc.BadRequest(resource='lbaas-l7rule-create',
                                msg=msg)
     return actions
@@ -168,5 +168,5 @@ def convert_l7policy_to_lb_rule(context, policy):
 
 
 def remove_rule_from_policy(rule):
-    l7rules = rule.policy.rules
-    rule.policy.rules = [r for r in l7rules if r.id != rule.id]
+    l7rules = rule['policy']['rules']
+    rule['policy']['rules'] = [r for r in l7rules if r['id'] != rule['id']]

@@ -19,48 +19,46 @@ from oslo_utils import excutils
 
 from vmware_nsx.common import locking
 from vmware_nsx.services.lbaas import base_mgr
-from vmware_nsx.services.lbaas.nsx_v.v2 import l7policy_mgr
+from vmware_nsx.services.lbaas.nsx_v.implementation import l7policy_mgr
 
 LOG = logging.getLogger(__name__)
 
 
-class EdgeL7RuleManager(base_mgr.EdgeLoadbalancerBaseManager):
+class EdgeL7RuleManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
     @log_helpers.log_method_call
     def __init__(self, vcns_driver):
-        super(EdgeL7RuleManager, self).__init__(vcns_driver)
+        super(EdgeL7RuleManagerFromDict, self).__init__(vcns_driver)
 
-    def _handle_l7policy_rules_change(self, context, rule, delete=False):
+    def _handle_l7policy_rules_change(self, context, rule, completor,
+                                      delete=False):
         # Get the nsx application rule id and edge id
         edge_id, app_rule_id = l7policy_mgr.policy_to_edge_and_rule_id(
-            context, rule.l7policy_id)
+            context, rule['l7policy_id'])
 
         # Create the script for the new policy data.
         # The policy obj on the rule is already updated with the
         # created/updated/deleted rule.
-        app_rule = l7policy_mgr.policy_to_application_rule(rule.policy)
+        app_rule = l7policy_mgr.policy_to_application_rule(rule['policy'])
         try:
             with locking.LockManager.get_lock(edge_id):
                 # update the backend application rule for the updated policy
                 self.vcns.update_app_rule(edge_id, app_rule_id, app_rule)
         except Exception as e:
             with excutils.save_and_reraise_exception():
-                self.lbv2_driver.l7rule.failed_completion(context, rule)
+                completor(success=False)
                 LOG.error('Failed to update L7rules on edge %(edge)s: '
                           '%(err)s',
                           {'edge': edge_id, 'err': e})
 
         # complete the transaction
-        self.lbv2_driver.l7rule.successful_completion(context, rule,
-                                                      delete=delete)
+        completor(success=True)
 
-    @log_helpers.log_method_call
-    def create(self, context, rule):
-        self._handle_l7policy_rules_change(context, rule)
+    def create(self, context, rule, completor):
+        self._handle_l7policy_rules_change(context, rule, completor)
 
-    @log_helpers.log_method_call
-    def update(self, context, old_rule, new_rule):
-        self._handle_l7policy_rules_change(context, new_rule)
+    def update(self, context, old_rule, new_rule, completor):
+        self._handle_l7policy_rules_change(context, new_rule, completor)
 
-    @log_helpers.log_method_call
-    def delete(self, context, rule):
-        self._handle_l7policy_rules_change(context, rule, delete=True)
+    def delete(self, context, rule, completor):
+        self._handle_l7policy_rules_change(context, rule, completor,
+                                           delete=True)

@@ -35,10 +35,10 @@ from vmware_nsx.services.lbaas.nsx_v import lbaas_common as lb_common
 LOG = logging.getLogger(__name__)
 
 
-class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
+class EdgeLoadBalancerManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
     @log_helpers.log_method_call
     def __init__(self, vcns_driver):
-        super(EdgeLoadBalancerManager, self).__init__(vcns_driver)
+        super(EdgeLoadBalancerManagerFromDict, self).__init__(vcns_driver)
         registry.subscribe(
             self._handle_subnet_gw_change,
             resources.SUBNET, events.AFTER_UPDATE)
@@ -59,25 +59,23 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
                             'sizes': vcns_const.ALLOWED_EDGE_SIZES})
                 raise n_exc.InvalidInput(error_message=err_msg)
 
-    @log_helpers.log_method_call
-    def create(self, context, lb):
+    def create(self, context, lb, completor):
+        sub_id = lb['vip_subnet_id']
         if cfg.CONF.nsxv.use_routers_as_lbaas_platform:
             edge_id = lb_common.get_lbaas_edge_id_for_subnet(
-                context, self.core_plugin, lb.vip_subnet_id, lb.tenant_id)
+                context, self.core_plugin, sub_id, lb['tenant_id'])
             if not edge_id:
-                msg = _(
-                    'No suitable Edge found for subnet %s') % lb.vip_subnet_id
+                msg = _('No suitable Edge found for subnet %s') % sub_id
                 raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
         else:
-            lb_size = self._get_lb_flavor_size(context, lb.flavor_id)
+            lb_size = self._get_lb_flavor_size(context, lb.get('flavor_id'))
             edge_id = lb_common.get_lbaas_edge_id(
-                context, self.core_plugin, lb.id, lb.vip_address,
-                lb.vip_subnet_id, lb.tenant_id, lb_size)
+                context, self.core_plugin, lb['id'], lb['vip_address'],
+                sub_id, lb['tenant_id'], lb_size)
 
         if not edge_id:
             msg = _('Failed to allocate Edge on subnet %(sub)s for '
-                    'loadbalancer %(lb)s') % {'sub': lb.vip_subnet_id,
-                                              'lb': lb.id}
+                    'loadbalancer %(lb)s') % {'sub': sub_id, 'lb': lb['id']}
             raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
 
         try:
@@ -86,12 +84,12 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
                         context.session, edge_id):
                     lb_common.enable_edge_acceleration(self.vcns, edge_id)
                 lb_common.add_vip_as_secondary_ip(self.vcns, edge_id,
-                                                  lb.vip_address)
+                                                  lb['vip_address'])
             else:
                 lb_common.enable_edge_acceleration(self.vcns, edge_id)
 
             edge_fw_rule_id = lb_common.add_vip_fw_rule(
-                self.vcns, edge_id, lb.id, lb.vip_address)
+                self.vcns, edge_id, lb['id'], lb['vip_address'])
 
             # set LB default rule
             if not cfg.CONF.nsxv.use_routers_as_lbaas_platform:
@@ -99,24 +97,22 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
                                                        'accept')
 
             nsxv_db.add_nsxv_lbaas_loadbalancer_binding(
-                context.session, lb.id, edge_id, edge_fw_rule_id,
-                lb.vip_address)
-            self.lbv2_driver.load_balancer.successful_completion(context, lb)
+                context.session, lb['id'], edge_id, edge_fw_rule_id,
+                lb['vip_address'])
+            completor(success=True)
 
         except nsxv_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                self.lbv2_driver.load_balancer.failed_completion(context, lb)
-                LOG.error('Failed to create pool %s', lb.id)
+                completor(success=False)
+                LOG.error('Failed to create loadbalancer %s', lb['id'])
 
-    @log_helpers.log_method_call
-    def update(self, context, old_lb, new_lb):
-        self.lbv2_driver.load_balancer.successful_completion(context, new_lb)
+    def update(self, context, old_lb, new_lb, completor):
+        completor(success=True)
 
-    @log_helpers.log_method_call
-    def delete(self, context, lb):
+    def delete(self, context, lb, completor):
         # Discard any ports which are associated with LB
         filters = {
-            'device_id': [lb.id],
+            'device_id': [lb['id']],
             'device_owner': [constants.DEVICE_OWNER_NEUTRON_PREFIX + 'LB']}
         lb_ports = self.core_plugin.get_ports(context.elevated(),
                                               filters=filters)
@@ -124,7 +120,7 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
             self.core_plugin.delete_port(context.elevated(), lb_port['id'])
 
         binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
-            context.session, lb.id)
+            context.session, lb['id'])
         if binding:
             edge_binding = nsxv_db.get_nsxv_router_binding_by_edge(
                 context.session, binding['edge_id'])
@@ -136,7 +132,7 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
                 old_lb = lb_common.is_lb_on_router_edge(
                     context, self.core_plugin, binding['edge_id'])
                 if not old_lb:
-                    resource_id = lb_common.get_lb_resource_id(lb.id)
+                    resource_id = lb_common.get_lb_resource_id(lb['id'])
                     self.core_plugin.edge_manager.delete_lrouter(
                         context, resource_id, dist=False)
                 else:
@@ -148,26 +144,24 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
                     except nsxv_exc.VcnsApiException as e:
                         LOG.error('Failed to delete loadbalancer %(lb)s '
                                   'FW rule. exception is %(exc)s',
-                                  {'lb': lb.id, 'exc': e})
+                                  {'lb': lb['id'], 'exc': e})
                     try:
                         lb_common.del_vip_as_secondary_ip(self.vcns,
                                                           binding['edge_id'],
-                                                          lb.vip_address)
+                                                          lb['vip_address'])
                     except Exception as e:
                         LOG.error('Failed to delete loadbalancer %(lb)s '
                                   'interface IP. exception is %(exc)s',
-                                  {'lb': lb.id, 'exc': e})
+                                  {'lb': lb['id'], 'exc': e})
 
-            nsxv_db.del_nsxv_lbaas_loadbalancer_binding(context.session, lb.id)
-        self.lbv2_driver.load_balancer.successful_completion(context, lb,
-                                                             delete=True)
+            nsxv_db.del_nsxv_lbaas_loadbalancer_binding(
+                context.session, lb['id'])
+        completor(success=True)
 
-    @log_helpers.log_method_call
     def refresh(self, context, lb):
         # TODO(kobis): implememnt
         pass
 
-    @log_helpers.log_method_call
     def stats(self, context, lb):
         stats = {'bytes_in': 0,
                  'bytes_out': 0,
@@ -175,7 +169,7 @@ class EdgeLoadBalancerManager(base_mgr.EdgeLoadbalancerBaseManager):
                  'total_connections': 0}
 
         binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(context.session,
-                                                              lb.id)
+                                                              lb['id'])
 
         try:
             lb_stats = self.vcns.get_loadbalancer_statistics(

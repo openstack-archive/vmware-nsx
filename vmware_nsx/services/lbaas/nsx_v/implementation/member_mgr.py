@@ -29,32 +29,32 @@ from vmware_nsx.services.lbaas.nsx_v import lbaas_common as lb_common
 LOG = logging.getLogger(__name__)
 
 
-class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
+class EdgeMemberManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
     @log_helpers.log_method_call
     def __init__(self, vcns_driver):
-        super(EdgeMemberManager, self).__init__(vcns_driver)
+        super(EdgeMemberManagerFromDict, self).__init__(vcns_driver)
         self._fw_section_id = None
 
     def _get_pool_lb_id(self, member):
-        listener = member.pool.listener
+        if not member.get('pool'):
+            return
+        listener = member['pool']['listener']
         if listener:
-            lb_id = listener.loadbalancer_id
+            lb_id = listener['loadbalancer_id']
         else:
-            lb_id = member.pool.loadbalancer.id
+            lb_id = member['pool']['loadbalancer']['id']
         return lb_id
 
-    @log_helpers.log_method_call
-    def create(self, context, member):
+    def create(self, context, member, completor):
         lb_id = self._get_pool_lb_id(member)
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
         edge_id = lb_binding['edge_id']
 
         pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
-            context.session, lb_id, member.pool_id)
+            context.session, lb_id, member['pool_id'])
         if not pool_binding:
-            self.lbv2_driver.member.failed_completion(
-                context, member)
+            completor(success=False)
             msg = _('Failed to create member on edge: %s. '
                     'Binding not found') % edge_id
             LOG.error(msg)
@@ -69,20 +69,20 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
                 # Verify that Edge appliance is connected to the member's
                 # subnet (only if this is a dedicated loadbalancer edge)
                 if not lb_common.get_lb_interface(
-                        context, self.core_plugin, lb_id, member.subnet_id):
+                        context, self.core_plugin, lb_id, member['subnet_id']):
                     lb_common.create_lb_interface(
-                        context, self.core_plugin, lb_id, member.subnet_id,
-                        member.tenant_id)
+                        context, self.core_plugin, lb_id, member['subnet_id'],
+                        member['tenant_id'])
 
             edge_pool = self.vcns.get_pool(edge_id, edge_pool_id)[1]
             edge_member = {
-                'ipAddress': member.address,
-                'weight': member.weight,
-                'port': member.protocol_port,
-                'monitorPort': member.protocol_port,
-                'name': lb_common.get_member_id(member.id),
+                'ipAddress': member['address'],
+                'weight': member['weight'],
+                'port': member['protocol_port'],
+                'monitorPort': member['protocol_port'],
+                'name': lb_common.get_member_id(member['id']),
                 'condition':
-                    'enabled' if member.admin_state_up else 'disabled'}
+                    'enabled' if member['admin_state_up'] else 'disabled'}
 
             if edge_pool.get('member'):
                 edge_pool['member'].append(edge_member)
@@ -91,69 +91,63 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
 
             try:
                 self.vcns.update_pool(edge_id, edge_pool_id, edge_pool)
-                self.lbv2_driver.member.successful_completion(context, member)
+                completor(success=True)
 
             except nsxv_exc.VcnsApiException:
                 with excutils.save_and_reraise_exception():
-                    self.lbv2_driver.member.failed_completion(context, member)
+                    completor(success=False)
                     LOG.error('Failed to create member on edge: %s',
                               edge_id)
 
-    @log_helpers.log_method_call
-    def update(self, context, old_member, new_member):
+    def update(self, context, old_member, new_member, completor):
         lb_id = self._get_pool_lb_id(new_member)
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
-        pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(context.session,
-                                                           lb_id,
-                                                           new_member.pool_id)
+        pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
+            context.session, lb_id, new_member['pool_id'])
 
         edge_id = lb_binding['edge_id']
         edge_pool_id = pool_binding['edge_pool_id']
 
         edge_member = {
-            'ipAddress': new_member.address,
-            'weight': new_member.weight,
-            'port': new_member.protocol_port,
-            'monitorPort': new_member.protocol_port,
-            'name': lb_common.get_member_id(new_member.id),
+            'ipAddress': new_member['address'],
+            'weight': new_member['weight'],
+            'port': new_member['protocol_port'],
+            'monitorPort': new_member['protocol_port'],
+            'name': lb_common.get_member_id(new_member['id']),
             'condition':
-                'enabled' if new_member.admin_state_up else 'disabled'}
+                'enabled' if new_member['admin_state_up'] else 'disabled'}
 
         with locking.LockManager.get_lock(edge_id):
             edge_pool = self.vcns.get_pool(edge_id, edge_pool_id)[1]
 
             if edge_pool.get('member'):
                 for i, m in enumerate(edge_pool['member']):
-                    if m['name'] == lb_common.get_member_id(new_member.id):
+                    if m['name'] == lb_common.get_member_id(new_member['id']):
                         edge_pool['member'][i] = edge_member
                         break
 
                 try:
                     self.vcns.update_pool(edge_id, edge_pool_id, edge_pool)
-
-                    self.lbv2_driver.member.successful_completion(
-                        context, new_member)
+                    completor(success=True)
 
                 except nsxv_exc.VcnsApiException:
                     with excutils.save_and_reraise_exception():
-                        self.lbv2_driver.member.failed_completion(
-                            context, new_member)
+                        completor(success=False)
                         LOG.error('Failed to update member on edge: %s',
                                   edge_id)
             else:
                 LOG.error('Pool %(pool_id)s on Edge %(edge_id)s has no '
                           'members to update',
-                          {'pool_id': new_member.pool.id,
+                          {'pool_id': new_member['pool']['id'],
                            'edge_id': edge_id})
 
-    @log_helpers.log_method_call
-    def delete(self, context, member):
+    def delete(self, context, member, completor):
         lb_id = self._get_pool_lb_id(member)
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
         pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
-            context.session, lb_id, member.pool_id)
+            context.session, lb_id, member['pool_id'])
         edge_id = lb_binding['edge_id']
 
         with locking.LockManager.get_lock(edge_id):
@@ -161,38 +155,36 @@ class EdgeMemberManager(base_mgr.EdgeLoadbalancerBaseManager):
                 # we should remove LB subnet interface if no members are
                 # attached and this is not the LB's VIP interface
                 remove_interface = True
-                if member.subnet_id == member.pool.loadbalancer.vip_subnet_id:
+                pool = member['pool']
+                subnet_id = member['subnet_id']
+                if subnet_id == pool['loadbalancer']['vip_subnet_id']:
                     remove_interface = False
                 else:
-                    for m in member.pool.members:
-                        if (m.subnet_id == member.subnet_id and
-                                m.id != member.id):
+                    for m in pool['members']:
+                        if (m['subnet_id'] == subnet_id and
+                            m['id'] != member['id']):
                             remove_interface = False
                 if remove_interface:
                     lb_common.delete_lb_interface(context, self.core_plugin,
-                                                  lb_id, member.subnet_id)
+                                                  lb_id, subnet_id)
 
                 if not pool_binding:
-                    self.lbv2_driver.member.successful_completion(
-                        context, member, delete=True)
+                    completor(success=True)
                     return
 
             edge_pool_id = pool_binding['edge_pool_id']
             edge_pool = self.vcns.get_pool(edge_id, edge_pool_id)[1]
 
             for i, m in enumerate(edge_pool['member']):
-                if m['name'] == lb_common.get_member_id(member.id):
+                if m['name'] == lb_common.get_member_id(member['id']):
                     edge_pool['member'].pop(i)
                     break
 
             try:
                 self.vcns.update_pool(edge_id, edge_pool_id, edge_pool)
-
-                self.lbv2_driver.member.successful_completion(
-                    context, member, delete=True)
+                completor(success=True)
 
             except nsxv_exc.VcnsApiException:
                 with excutils.save_and_reraise_exception():
-                    self.lbv2_driver.member.failed_completion(context, member)
-                    LOG.error('Failed to delete member on edge: %s',
-                              edge_id)
+                    completor(success=False)
+                    LOG.error('Failed to delete member on edge: %s', edge_id)

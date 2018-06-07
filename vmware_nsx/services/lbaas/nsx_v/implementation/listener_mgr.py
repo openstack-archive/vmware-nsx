@@ -32,14 +32,14 @@ LOG = logging.getLogger(__name__)
 def listener_to_edge_app_profile(listener, edge_cert_id):
     edge_app_profile = {
         'insertXForwardedFor': False,
-        'name': listener.id,
+        'name': listener['id'],
         'serverSslEnabled': False,
         'sslPassthrough': False,
-        'template': lb_const.PROTOCOL_MAP[listener.protocol],
+        'template': lb_const.PROTOCOL_MAP[listener['protocol']],
     }
 
-    if (listener.protocol == lb_const.LB_PROTOCOL_HTTPS or
-            listener.protocol == lb_const.LB_PROTOCOL_TERMINATED_HTTPS):
+    if (listener['protocol'] == lb_const.LB_PROTOCOL_HTTPS or
+        listener['protocol'] == lb_const.LB_PROTOCOL_TERMINATED_HTTPS):
         if edge_cert_id:
             edge_app_profile['clientSsl'] = {
                 'caCertificate': [],
@@ -49,55 +49,55 @@ def listener_to_edge_app_profile(listener, edge_cert_id):
         else:
             edge_app_profile['sslPassthrough'] = True
 
-    if listener.default_pool:
-        if listener.default_pool.session_persistence:
-            pool_sess_persist = listener.default_pool.session_persistence
-            sess_persist_type = pool_sess_persist.type
-            persistence = {
-                'method':
-                    lb_const.SESSION_PERSISTENCE_METHOD_MAP.get(
-                        sess_persist_type)}
+    if (listener.get('default_pool') and
+        listener['default_pool'].get('session_persistence')):
+        pool_sess_persist = listener['default_pool']['session_persistence']
+        sess_persist_type = pool_sess_persist['type']
+        persistence = {
+            'method':
+                lb_const.SESSION_PERSISTENCE_METHOD_MAP.get(
+                    sess_persist_type)}
 
-            if (sess_persist_type in
-                    lb_const.SESSION_PERSISTENCE_COOKIE_MAP):
-                cookie_name = getattr(pool_sess_persist, 'cookie_name', None)
-                if cookie_name is None:
-                    cookie_name = 'default_cookie_name'
-                persistence.update({
-                    'cookieName': cookie_name,
-                    'cookieMode': lb_const.SESSION_PERSISTENCE_COOKIE_MAP[
-                        sess_persist_type]})
+        if (sess_persist_type in
+                lb_const.SESSION_PERSISTENCE_COOKIE_MAP):
+            cookie_name = pool_sess_persist.get('cookie_name', None)
+            if cookie_name is None:
+                cookie_name = 'default_cookie_name'
+            persistence.update({
+                'cookieName': cookie_name,
+                'cookieMode': lb_const.SESSION_PERSISTENCE_COOKIE_MAP[
+                    sess_persist_type]})
 
-            edge_app_profile['persistence'] = persistence
+        edge_app_profile['persistence'] = persistence
 
     return edge_app_profile
 
 
 def listener_to_edge_vse(context, listener, vip_address, default_pool,
                          app_profile_id):
-    if listener.connection_limit:
-        connection_limit = max(0, listener.connection_limit)
+    if listener['connection_limit']:
+        connection_limit = max(0, listener['connection_limit'])
     else:
         connection_limit = 0
 
     vse = {
-        'name': 'vip_' + listener.id,
-        'description': listener.description,
+        'name': 'vip_' + listener['id'],
+        'description': listener['description'],
         'ipAddress': vip_address,
-        'protocol': lb_const.PROTOCOL_MAP[listener.protocol],
-        'port': listener.protocol_port,
+        'protocol': lb_const.PROTOCOL_MAP[listener['protocol']],
+        'port': listener['protocol_port'],
         'connectionLimit': connection_limit,
         'defaultPoolId': default_pool,
         'accelerationEnabled': (
-            listener.protocol == lb_const.LB_PROTOCOL_TCP),
+            listener['protocol'] == lb_const.LB_PROTOCOL_TCP),
         'applicationProfileId': app_profile_id}
 
     # Add the L7 policies
-    if listener.l7_policies:
+    if listener['l7_policies']:
         app_rule_ids = []
-        for pol in listener.l7_policies:
+        for pol in listener['l7_policies']:
             binding = nsxv_db.get_nsxv_lbaas_l7policy_binding(
-                context.session, pol.id)
+                context.session, pol['id'])
             if binding:
                 app_rule_ids.append(binding['edge_app_rule_id'])
         vse['applicationRuleId'] = app_rule_ids
@@ -106,9 +106,9 @@ def listener_to_edge_vse(context, listener, vip_address, default_pool,
 
 
 def update_app_profile(vcns, context, listener, edge_id, edge_cert_id=None):
-    lb_id = listener.loadbalancer_id
+    lb_id = listener['loadbalancer_id']
     listener_binding = nsxv_db.get_nsxv_lbaas_listener_binding(
-        context.session, lb_id, listener.id)
+        context.session, lb_id, listener['id'])
     app_profile_id = listener_binding['app_profile_id']
     app_profile = listener_to_edge_app_profile(listener, edge_cert_id)
     with locking.LockManager.get_lock(edge_id):
@@ -117,10 +117,10 @@ def update_app_profile(vcns, context, listener, edge_id, edge_cert_id=None):
     return app_profile_id
 
 
-class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
+class EdgeListenerManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
     @log_helpers.log_method_call
     def __init__(self, vcns_driver):
-        super(EdgeListenerManager, self).__init__(vcns_driver)
+        super(EdgeListenerManagerFromDict, self).__init__(vcns_driver)
 
     def _upload_certificate(self, context, edge_id, cert_id, certificate):
         cert_binding = nsxv_db.get_nsxv_lbaas_certificate_binding(
@@ -145,18 +145,17 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
             context.session, cert_id, edge_id, edge_cert_id)
         return edge_cert_id
 
-    @log_helpers.log_method_call
-    def create(self, context, listener, certificate=None):
+    def create(self, context, listener, completor, certificate=None):
         default_pool = None
 
-        lb_id = listener.loadbalancer_id
+        lb_id = listener['loadbalancer_id']
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
         edge_id = lb_binding['edge_id']
 
-        if listener.default_pool and listener.default_pool.id:
+        if listener.get('default_pool') and listener['default_pool'].get('id'):
             pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
-                context.session, lb_id, listener.default_pool.id)
+                context.session, lb_id, listener['default_pool']['id'])
             if pool_binding:
                 default_pool = pool_binding['edge_pool_id']
 
@@ -164,12 +163,11 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
         if certificate:
             try:
                 edge_cert_id = self._upload_certificate(
-                    context, edge_id, listener.default_tls_container_id,
+                    context, edge_id, listener['default_tls_container_id'],
                     certificate)
             except Exception:
                 with excutils.save_and_reraise_exception():
-                    self.lbv2_driver.listener.failed_completion(context,
-                                                                listener)
+                    completor(success=False)
 
         app_profile = listener_to_edge_app_profile(listener, edge_cert_id)
         app_profile_id = None
@@ -180,7 +178,7 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
                 app_profile_id = lb_common.extract_resource_id(h['location'])
         except vcns_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                self.lbv2_driver.listener.failed_completion(context, listener)
+                completor(success=False)
                 LOG.error('Failed to create app profile on edge: %s',
                           lb_binding['edge_id'])
 
@@ -196,54 +194,53 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
 
             nsxv_db.add_nsxv_lbaas_listener_binding(context.session,
                                                     lb_id,
-                                                    listener.id,
+                                                    listener['id'],
                                                     app_profile_id,
                                                     edge_vse_id)
-            self.lbv2_driver.listener.successful_completion(context, listener)
+            completor(success=True)
 
         except vcns_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                self.lbv2_driver.listener.failed_completion(context, listener)
+                completor(success=False)
                 LOG.error('Failed to create vip on Edge: %s', edge_id)
                 self.vcns.delete_app_profile(edge_id, app_profile_id)
 
-    @log_helpers.log_method_call
-    def update(self, context, old_listener, new_listener, certificate=None):
-
+    def update(self, context, old_listener, new_listener, completor,
+               certificate=None):
         default_pool = None
-        if new_listener.default_pool and new_listener.default_pool.id:
+        if (new_listener.get('default_pool') and
+            new_listener['default_pool'].get('id')):
             pool_binding = nsxv_db.get_nsxv_lbaas_pool_binding(
-                context.session, new_listener.loadbalancer_id,
-                new_listener.default_pool.id)
+                context.session, new_listener['loadbalancer_id'],
+                new_listener['default_pool']['id'])
             if pool_binding:
                 default_pool = pool_binding['edge_pool_id']
             else:
                 LOG.error("Couldn't find pool binding for pool %s",
-                          new_listener.default_pool.id)
+                          new_listener['default_pool']['id'])
 
-        lb_id = new_listener.loadbalancer_id
+        lb_id = new_listener['loadbalancer_id']
         listener_binding = nsxv_db.get_nsxv_lbaas_listener_binding(
-            context.session, lb_id, new_listener.id)
+            context.session, lb_id, new_listener['id'])
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
         edge_id = lb_binding['edge_id']
 
         edge_cert_id = None
         if certificate:
-            if (old_listener.default_tls_container_id !=
-                    new_listener.default_tls_container_id):
+            if (old_listener['default_tls_container_id'] !=
+                    new_listener['default_tls_container_id']):
                 try:
                     edge_cert_id = self._upload_certificate(
                         context, edge_id,
-                        new_listener.default_tls_container_id,
+                        new_listener['default_tls_container_id'],
                         certificate)
                 except Exception:
                     with excutils.save_and_reraise_exception():
-                        self.lbv2_driver.listener.failed_completion(
-                            context, new_listener)
+                        completor(success=False)
             else:
                 cert_binding = nsxv_db.get_nsxv_lbaas_certificate_binding(
-                    context.session, new_listener.default_tls_container_id,
+                    context.session, new_listener['default_tls_container_id'],
                     edge_id)
                 edge_cert_id = cert_binding['edge_cert_id']
 
@@ -259,20 +256,17 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
             with locking.LockManager.get_lock(edge_id):
                 self.vcns.update_vip(edge_id, listener_binding['vse_id'], vse)
 
-            self.lbv2_driver.listener.successful_completion(context,
-                                                            new_listener)
+            completor(success=True)
         except vcns_exc.VcnsApiException:
             with excutils.save_and_reraise_exception():
-                self.lbv2_driver.listener.failed_completion(context,
-                                                            new_listener)
+                completor(success=False)
                 LOG.error('Failed to update app profile on edge: %s',
                           edge_id)
 
-    @log_helpers.log_method_call
-    def delete(self, context, listener):
-        lb_id = listener.loadbalancer_id
+    def delete(self, context, listener, completor):
+        lb_id = listener['loadbalancer_id']
         listener_binding = nsxv_db.get_nsxv_lbaas_listener_binding(
-            context.session, lb_id, listener.id)
+            context.session, lb_id, listener['id'])
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
             context.session, lb_id)
 
@@ -299,7 +293,6 @@ class EdgeListenerManager(base_mgr.EdgeLoadbalancerBaseManager):
                 LOG.error('Failed to delete app profile on Edge: %s', edge_id)
 
             nsxv_db.del_nsxv_lbaas_listener_binding(context.session, lb_id,
-                                                    listener.id)
+                                                    listener['id'])
 
-        self.lbv2_driver.listener.successful_completion(
-            context, listener, delete=True)
+        completor(success=True)
