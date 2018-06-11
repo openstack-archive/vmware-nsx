@@ -90,7 +90,8 @@ def listener_to_edge_vse(context, listener, vip_address, default_pool,
         'defaultPoolId': default_pool,
         'accelerationEnabled': (
             listener['protocol'] == lb_const.LB_PROTOCOL_TCP),
-        'applicationProfileId': app_profile_id}
+        'applicationProfileId': app_profile_id,
+        'enabled': listener['admin_state_up']}
 
     # Add the L7 policies
     if listener['l7_policies']:

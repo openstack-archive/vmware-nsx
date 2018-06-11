@@ -51,7 +51,8 @@ EDGE_VIP_ID = 'vip-aaa'
 EDGE_VIP_DEF = {'protocol': 'http', 'name': 'vip_' + LISTENER_ID,
                 'connectionLimit': 0, 'defaultPoolId': None,
                 'ipAddress': LB_VIP, 'port': 80, 'accelerationEnabled': False,
-                'applicationProfileId': EDGE_APP_PROFILE_ID, 'description': ''}
+                'applicationProfileId': EDGE_APP_PROFILE_ID, 'description': '',
+                'enabled': True}
 LISTENER_BINDING = {'loadbalancer_id': LB_ID,
                     'listener_id': LISTENER_ID,
                     'app_profile_id': EDGE_APP_PROFILE_ID,
@@ -117,7 +118,8 @@ class BaseTestEdgeLbaasV2(base.BaseTestCase):
         self.listener = lb_models.Listener(LISTENER_ID, LB_TENANT_ID,
                                            'l-name', '', None, LB_ID,
                                            'HTTP', protocol_port=80,
-                                           loadbalancer=self.lb)
+                                           loadbalancer=self.lb,
+                                           admin_state_up=True)
         self.sess_persist = lb_models.SessionPersistence(type='HTTP_COOKIE')
         self.pool = lb_models.Pool(POOL_ID, LB_TENANT_ID, 'pool-name', '',
                                    None, 'HTTP', 'ROUND_ROBIN',
@@ -449,7 +451,8 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
         new_listener = lb_models.Listener(LISTENER_ID, LB_TENANT_ID,
                                           'l-name', '', None, LB_ID,
                                           'HTTP', protocol_port=8000,
-                                          loadbalancer=self.lb)
+                                          loadbalancer=self.lb,
+                                          admin_state_up=True)
         new_listener.default_pool = self.pool
 
         with mock.patch.object(nsxv_db, 'get_nsxv_lbaas_listener_binding'
