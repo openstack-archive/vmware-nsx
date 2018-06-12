@@ -113,7 +113,7 @@ class EdgeLoadbalancerDriverV2(object):
         router_subnets = self.loadbalancer.core_plugin._find_router_subnets(
             context.elevated(), router_id)
         subnet_ids = [subnet['id'] for subnet in router_subnets]
-        if self._get_lb_ports(context.elevated(), subnet_ids):
+        if subnet_ids and self._get_lb_ports(context.elevated(), subnet_ids):
             msg = (_('Cannot delete a %s as it used by a loadbalancer') %
                    resource)
             raise n_exc.BadRequest(resource='lbaas-lb', msg=msg)
