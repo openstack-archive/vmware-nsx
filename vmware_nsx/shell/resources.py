@@ -215,7 +215,9 @@ nsxv_resources = {
                                             Operations.DELETE.value]),
     constants.BGP_NEIGHBOUR: Resource(constants.BGP_NEIGHBOUR,
                                       [Operations.CREATE.value,
-                                       Operations.DELETE.value])
+                                       Operations.DELETE.value]),
+    constants.LBAAS: Resource(constants.LBAAS,
+                              [Operations.NSX_UPDATE.value]),
 }
 
 
