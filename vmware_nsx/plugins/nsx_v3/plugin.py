@@ -581,6 +581,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         port_data[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
         if 'network_id' in port_data:
             port_data[pbin.VIF_DETAILS] = {
+                pbin.OVS_HYBRID_PLUG: False,
                 # TODO(rkukura): Replace with new VIF security details
                 pbin.CAP_PORT_FILTER:
                 'security-group' in self.supported_extension_aliases,
