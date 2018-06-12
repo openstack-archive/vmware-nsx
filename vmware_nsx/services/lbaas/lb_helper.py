@@ -16,6 +16,8 @@
 from oslo_log import helpers as log_helpers
 
 from neutron_lib import exceptions as n_exc
+from neutron_lib.plugins import constants as plugin_const
+from neutron_lib.plugins import directory
 
 
 class LBaaSNSXObjectManagerWrapper(object):
@@ -24,6 +26,8 @@ class LBaaSNSXObjectManagerWrapper(object):
     This class will call the actual NSX-V LBaaS logic after translating
     the LB object into a dictionary, and will also handle success/failure cases
     """
+    _core_plugin = None
+
     @log_helpers.log_method_call
     def __init__(self, object_type, implementor, translator, get_completor):
         super(LBaaSNSXObjectManagerWrapper, self).__init__()
@@ -31,6 +35,17 @@ class LBaaSNSXObjectManagerWrapper(object):
         self.implementor = implementor
         self.translator = translator
         self.get_completor = get_completor
+
+    def _get_plugin(self, plugin_type):
+        return directory.get_plugin(plugin_type)
+
+    @property
+    def core_plugin(self):
+        if not self._core_plugin:
+            self._core_plugin = (
+                self._get_plugin(plugin_const.CORE))
+
+        return self._core_plugin
 
     def get_completor_func(self, context, obj, delete=False):
         # return a method that will be called on success/failure completion
