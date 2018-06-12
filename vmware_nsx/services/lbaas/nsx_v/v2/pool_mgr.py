@@ -34,6 +34,7 @@ class EdgePoolManager(base_mgr.EdgeLoadbalancerBaseManager):
     @log_helpers.log_method_call
     def __init__(self, vcns_driver):
         super(EdgePoolManager, self).__init__(vcns_driver)
+        self._fw_section_id = None
 
     @log_helpers.log_method_call
     def create(self, context, pool):
@@ -195,6 +196,20 @@ class EdgePoolManager(base_mgr.EdgeLoadbalancerBaseManager):
                 listener_mgr.update_app_profile(
                     self.vcns, context, listener, edge_id)
 
+            old_lb = lb_common.is_lb_on_router_edge(
+                context, self.core_plugin, lb_binding['edge_id'])
+
+            if old_lb:
+                lb_common.update_pool_fw_rule(self.vcns, pool.id,
+                                              edge_id,
+                                              self._get_lbaas_fw_section_id(),
+                                              [])
+
         except nsxv_exc.VcnsApiException:
             self.lbv2_driver.pool.failed_completion(context, pool)
             LOG.error('Failed to delete pool %s', pool.id)
+
+    def _get_lbaas_fw_section_id(self):
+        if not self._fw_section_id:
+            self._fw_section_id = lb_common.get_lbaas_fw_section_id(self.vcns)
+        return self._fw_section_id
