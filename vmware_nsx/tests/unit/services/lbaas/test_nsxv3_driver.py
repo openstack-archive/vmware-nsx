@@ -653,14 +653,25 @@ class TestEdgeLbaasV2HealthMonitor(BaseTestEdgeLbaasV2):
                                                           delete=False)
 
     def test_update(self):
-        new_hm = lb_models.HealthMonitor(HM_ID, LB_TENANT_ID, 'PING', 3, 3,
-                                         3, pool=self.pool)
-        self.edge_driver.healthmonitor.update(self.context, self.hm, new_hm)
+        with mock.patch.object(self.monitor_client, 'update'
+                               ) as mock_update_monitor, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_monitor_binding'
+                              ) as mock_get_monitor_binding:
+            mock_get_monitor_binding.return_value = HM_BINDING
+            new_hm = lb_models.HealthMonitor(
+                HM_ID, LB_TENANT_ID, 'PING', 5, 5,
+                5, pool=self.pool, name='new_name')
+            self.edge_driver.healthmonitor.update(
+                self.context, self.hm, new_hm)
+            mock_update_monitor.assert_called_with(
+                LB_MONITOR_ID, display_name=mock.ANY,
+                fall_count=5, interval=5, timeout=5,
+                resource_type='LbIcmpMonitor')
 
-        mock_successful_completion = (
-            self.lbv2_driver.health_monitor.successful_completion)
-        mock_successful_completion.assert_called_with(self.context, new_hm,
-                                                      delete=False)
+            mock_successful_completion = (
+                self.lbv2_driver.health_monitor.successful_completion)
+            mock_successful_completion.assert_called_with(self.context, new_hm,
+                                                          delete=False)
 
     def test_delete(self):
         with mock.patch.object(nsx_db, 'get_nsx_lbaas_monitor_binding'

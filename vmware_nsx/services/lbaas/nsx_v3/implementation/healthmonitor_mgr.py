@@ -37,7 +37,6 @@ class EdgeHealthMonitorManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def _build_monitor_args(self, hm):
-        # TODO(asarfaty): Add description to backend parameters
         if hm['type'] in lb_const.NSXV3_MONITOR_MAP:
             monitor_type = lb_const.NSXV3_MONITOR_MAP.get(hm['type'])
         else:
@@ -97,11 +96,36 @@ class EdgeHealthMonitorManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             nsx_db.add_nsx_lbaas_monitor_binding(
                 context.session, lb_id, pool_id, hm['id'], lb_monitor['id'],
                 lb_pool_id)
+        else:
+            completor(success=False)
+            msg = _('Failed to attach monitor %(monitor)s to pool '
+                    '%(pool)s: NSX pool was not found on the DB') % {
+                    'monitor': hm['id'],
+                    'pool': pool_id}
+            raise n_exc.BadRequest(resource='lbaas-hm', msg=msg)
 
         completor(success=True)
 
     def update(self, context, old_hm, new_hm, completor):
-        # TODO(asarfaty): Shouldn't this be implemented?
+        lb_id = new_hm['pool']['loadbalancer_id']
+        pool_id = new_hm['pool']['id']
+        monitor_client = self.core_plugin.nsxlib.load_balancer.monitor
+        binding = nsx_db.get_nsx_lbaas_monitor_binding(
+            context.session, lb_id, pool_id, new_hm['id'])
+        if binding:
+            lb_monitor_id = binding['lb_monitor_id']
+            monitor_body = self._build_monitor_args(new_hm)
+            monitor_name = utils.get_name_and_uuid(new_hm['name'] or 'monitor',
+                                                   new_hm['id'])
+            monitor_client.update(lb_monitor_id, display_name=monitor_name,
+                                  **monitor_body)
+        else:
+            completor(success=False)
+            msg = _('Failed to update monitor %(monitor)s: NSX monitor was '
+                    'not found in DB') % {'monitor': new_hm['id'],
+                                          'pool': pool_id}
+            raise n_exc.BadRequest(resource='lbaas-hm', msg=msg)
+
         completor(success=True)
 
     def delete(self, context, hm, completor):
@@ -134,4 +158,8 @@ class EdgeHealthMonitorManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
 
             nsx_db.delete_nsx_lbaas_monitor_binding(context.session, lb_id,
                                                     pool_id, hm['id'])
+        else:
+            # Do not fail a delete action
+            pass
+
         completor(success=True)
