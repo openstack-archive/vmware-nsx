@@ -95,11 +95,37 @@ class EdgeHealthMonitorManager(base_mgr.Nsxv3LoadbalancerBaseManager):
             nsx_db.add_nsx_lbaas_monitor_binding(
                 context.session, lb_id, pool_id, hm.id, lb_monitor['id'],
                 lb_pool_id)
+        else:
+            self.lbv2_driver.health_monitor.failed_completion(context, hm)
+            msg = _('Failed to attach monitor %(monitor)s to pool '
+                    '%(pool)s: NSX pool was not found on the DB') % {
+                    'monitor': hm['id'],
+                    'pool': pool_id}
+            raise n_exc.BadRequest(resource='lbaas-hm', msg=msg)
 
         self.lbv2_driver.health_monitor.successful_completion(context, hm)
 
     @log_helpers.log_method_call
     def update(self, context, old_hm, new_hm):
+        lb_id = new_hm.pool.loadbalancer_id
+        pool_id = new_hm.pool.id
+        monitor_client = self.core_plugin.nsxlib.load_balancer.monitor
+        binding = nsx_db.get_nsx_lbaas_monitor_binding(
+            context.session, lb_id, pool_id, new_hm.id)
+        if binding:
+            lb_monitor_id = binding['lb_monitor_id']
+            monitor_body = self._build_monitor_args(new_hm)
+            monitor_name = utils.get_name_and_uuid(new_hm.name or 'monitor',
+                                                   new_hm.id)
+            monitor_client.update(lb_monitor_id, display_name=monitor_name,
+                                  **monitor_body)
+        else:
+            self.lbv2_driver.health_monitor.failed_completion(context, new_hm)
+            msg = _('Failed to update monitor %(monitor)s: NSX monitor was '
+                    'not found in DB') % {'monitor': new_hm.id,
+                                          'pool': pool_id}
+            raise n_exc.BadRequest(resource='lbaas-hm', msg=msg)
+
         self.lbv2_driver.health_monitor.successful_completion(context, new_hm)
 
     @log_helpers.log_method_call
@@ -133,5 +159,9 @@ class EdgeHealthMonitorManager(base_mgr.Nsxv3LoadbalancerBaseManager):
 
             nsx_db.delete_nsx_lbaas_monitor_binding(context.session, lb_id,
                                                     pool_id, hm.id)
+        else:
+            # Do not fail a delete action
+            pass
+
         self.lbv2_driver.health_monitor.successful_completion(
             context, hm, delete=True)
