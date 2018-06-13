@@ -124,7 +124,7 @@ class BaseTestEdgeLbaasV2(base.BaseTestCase):
         self.lb = lb_models.LoadBalancer(LB_ID, LB_TENANT_ID, 'lb1', '',
                                          'some-subnet', 'port-id', LB_VIP)
         self.listener = lb_models.Listener(LISTENER_ID, LB_TENANT_ID,
-                                           'listener1', '', None, LB_ID,
+                                           'listener1', 'Dummy', None, LB_ID,
                                            'HTTP', protocol_port=80,
                                            loadbalancer=self.lb)
         self.https_listener = lb_models.Listener(
