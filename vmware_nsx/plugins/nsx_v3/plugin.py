@@ -1446,10 +1446,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         providernet._raise_if_updates_provider_attributes(net_data)
         extern_net = self._network_is_external(context, id)
         is_nsx_net = self._network_is_nsx_net(context, id)
+        is_ens_net = self._is_ens_tz_net(context, id)
         if extern_net:
             self._assert_on_external_net_with_qos(net_data)
         else:
-            if self._get_net_tz(context, id):
+            if is_ens_net:
                 self._assert_on_ens_with_qos(net_data)
         updated_net = super(NsxV3Plugin, self).update_network(context, id,
                                                               network)
@@ -1458,8 +1459,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if psec.PORTSECURITY in net_data:
             # do not allow to enable port security on ENS networks
             if (net_data[psec.PORTSECURITY] and
-                not original_net[psec.PORTSECURITY] and
-                self._is_ens_tz_net(context, id)):
+                not original_net[psec.PORTSECURITY] and is_ens_net):
                 raise nsx_exc.NsxENSPortSecurity()
             self._process_network_port_security_update(
                 context, net_data, updated_net)
