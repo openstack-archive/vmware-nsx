@@ -173,15 +173,16 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                            {'vs': vs_id, 'member': member['id']})
                     raise nsx_exc.NsxPluginException(err_msg=msg)
 
-            lb_pool = pool_client.get(lb_pool_id)
-            old_m = lb_pool.get('members', None)
-            new_m = [{
-                'display_name': member['name'][:219] + '_' + member['id'],
-                'ip_address': fixed_ip,
-                'port': member['protocol_port'],
-                'weight': member['weight']}]
-            members = (old_m + new_m) if old_m else new_m
-            pool_client.update_pool_with_members(lb_pool_id, members)
+            with locking.LockManager.get_lock('pool-member-%s' % lb_pool_id):
+                lb_pool = pool_client.get(lb_pool_id)
+                old_m = lb_pool.get('members', None)
+                new_m = [{
+                    'display_name': member['name'][:219] + '_' + member['id'],
+                    'ip_address': fixed_ip,
+                    'port': member['protocol_port'],
+                    'weight': member['weight']}]
+                members = (old_m + new_m) if old_m else new_m
+                pool_client.update_pool_with_members(lb_pool_id, members)
         else:
             msg = (_('Failed to get pool binding to add member %s') %
                    member['id'])
@@ -198,11 +199,13 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         if pool_binding:
             lb_pool_id = pool_binding.get('lb_pool_id')
             try:
-                lb_pool = pool_client.get(lb_pool_id)
-                updated_members = self._get_updated_pool_members(
-                    context, lb_pool, new_member)
-                pool_client.update_pool_with_members(lb_pool_id,
-                                                     updated_members)
+                with locking.LockManager.get_lock('pool-member-%s' %
+                                                  lb_pool_id):
+                    lb_pool = pool_client.get(lb_pool_id)
+                    updated_members = self._get_updated_pool_members(
+                        context, lb_pool, new_member)
+                    pool_client.update_pool_with_members(lb_pool_id,
+                                                         updated_members)
             except Exception as e:
                 with excutils.save_and_reraise_exception():
                     completor(success=False)
@@ -220,19 +223,22 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         if pool_binding:
             lb_pool_id = pool_binding.get('lb_pool_id')
             try:
-                lb_pool = pool_client.get(lb_pool_id)
-                network = lb_utils.get_network_from_subnet(
-                    context, self.core_plugin, member['subnet_id'])
-                if network.get('router:external'):
-                    fixed_ip, router_id = self._get_info_from_fip(
-                        context, member['address'])
-                else:
-                    fixed_ip = member['address']
-                if 'members' in lb_pool:
-                    m_list = lb_pool['members']
-                    members = [m for m in m_list
-                               if m['ip_address'] != fixed_ip]
-                    pool_client.update_pool_with_members(lb_pool_id, members)
+                with locking.LockManager.get_lock('pool-member-%s' %
+                                                  lb_pool_id):
+                    lb_pool = pool_client.get(lb_pool_id)
+                    network = lb_utils.get_network_from_subnet(
+                        context, self.core_plugin, member['subnet_id'])
+                    if network.get('router:external'):
+                        fixed_ip, router_id = self._get_info_from_fip(
+                            context, member['address'])
+                    else:
+                        fixed_ip = member['address']
+                    if 'members' in lb_pool:
+                        m_list = lb_pool['members']
+                        members = [m for m in m_list
+                                if m['ip_address'] != fixed_ip]
+                        pool_client.update_pool_with_members(lb_pool_id,
+                                                            members)
             except nsxlib_exc.ResourceNotFound:
                 pass
             except nsxlib_exc.ManagerError:
