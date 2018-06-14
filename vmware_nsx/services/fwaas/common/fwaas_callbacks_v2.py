@@ -26,7 +26,7 @@ LOG = logging.getLogger(__name__)
 
 try:
     from neutron_fwaas.db.firewall.v2 import firewall_db_v2
-    from neutron_fwaas.services.firewall.agents.l3reference \
+    from neutron_fwaas.services.firewall.service_drivers.agents.l3reference \
         import firewall_l3_agent_v2
 except ImportError:
     # FWaaS project no found

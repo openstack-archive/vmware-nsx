@@ -28,7 +28,7 @@ try:
     from neutron_fwaas.db.firewall import firewall_db  # noqa
     from neutron_fwaas.db.firewall import firewall_router_insertion_db \
         as fw_r_ins_db
-    from neutron_fwaas.services.firewall.agents.l3reference \
+    from neutron_fwaas.services.firewall.service_drivers.agents.l3reference \
         import firewall_l3_agent
 except ImportError:
     # FWaaS project no found
