@@ -82,6 +82,10 @@ def _return_id_key(*args, **kwargs):
     return {'id': uuidutils.generate_uuid()}
 
 
+def _return_id_key_list(*args, **kwargs):
+    return [{'id': uuidutils.generate_uuid()}]
+
+
 def _mock_nsx_backend_calls():
     mock.patch("vmware_nsxlib.v3.client.NSX3Client").start()
 
@@ -120,7 +124,7 @@ def _mock_nsx_backend_calls():
 
     mock.patch(
         "vmware_nsxlib.v3.security.NsxLibNsGroup.find_by_display_name",
-    ).start()
+        side_effect=_return_id_key_list).start()
 
     mock.patch(
         "vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch.create",
@@ -169,6 +173,7 @@ def _mock_nsx_backend_calls():
     mock.patch(
         "vmware_nsxlib.v3.load_balancer.Service.get_router_lb_service",
         return_value=None).start()
+
     mock.patch('vmware_nsxlib.v3.core_resources.NsxLibTransportZone.'
                'get_transport_type', return_value='OVERLAY').start()
 
