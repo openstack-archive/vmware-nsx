@@ -50,7 +50,8 @@ class EdgeListenerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         kwargs = {'enabled': listener['admin_state_up'],
                   'ip_address': lb_vip_address,
                   'port': listener['protocol_port'],
-                  'application_profile_id': app_profile_id}
+                  'application_profile_id': app_profile_id,
+                  'description': listener.get('description')}
         if vs_name:
             kwargs['display_name'] = vs_name
         if tags:
