@@ -27,6 +27,7 @@ from neutron_lib.plugins import directory
 from neutron.db import _resource_extend as resource_extend
 from neutron.db import api as db_api
 from neutron.db import portbindings_db as pbin_db
+from neutron.plugins.common import utils as p_utils
 from neutron.plugins.ml2 import models as pbin_model
 from vmware_nsx._i18n import _
 from vmware_nsx.common import nsx_constants
@@ -156,5 +157,14 @@ class NsxPortBindingMixin(pbin_db.PortBindingMixin):
 
         if port_db.nsx_port_attributes:
             port_res[pbin.VNIC_TYPE] = port_db.nsx_port_attributes.vnic_type
-        if port_db.port_binding:
-            plugin.extend_port_portbinding(port_res, port_db.port_binding)
+
+        # TODO(boden): remove p_utils check when neutron patch lands
+        # see https://review.openstack.org/#/c/571041
+        if hasattr(p_utils, 'get_port_binding_by_status_and_host'):
+            binding = p_utils.get_port_binding_by_status_and_host(
+                port_db.port_bindings, constants.ACTIVE)
+        else:
+            binding = port_db.port_binding
+
+        if binding:
+            plugin.extend_port_portbinding(port_res, binding)
