@@ -3938,7 +3938,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                             context.elevated(), router_id,
                             gw_info['network_id'], fip['subnet_id'])
                 # If the network attached to a router is a VLAN backed network
-                # then it must be attached to a edge cluster
+                # then it must be attached to an edge cluster
                 if (not gw_info and
                     not self._is_overlay_network(context, port['network_id'])):
                     msg = _("A router attached to a VLAN backed network "
