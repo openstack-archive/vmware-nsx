@@ -152,7 +152,7 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
 
     @mock.patch.object(QoSPolicyObject, '_reload_rules')
     def test_bw_rule_create_profile(self, *mocks):
-        # test the switch profile update when a egress QoS BW rule is created
+        # test the switch profile update when an egress QoS BW rule is created
         _policy = QoSPolicyObject(
             self.ctxt, **self.policy_data['policy'])
         # add a rule to the policy
