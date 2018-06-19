@@ -3942,7 +3942,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 if (not gw_info and
                     not self._is_overlay_network(context, port['network_id'])):
                     msg = _("A router attached to a VLAN backed network "
-                            "must have a external network assigned.")
+                            "must have an external network assigned.")
                     raise n_exc.InvalidInput(error_message=msg)
 
             # VPNaaS need to be notified on router GW changes (there is
@@ -4297,7 +4297,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 # GW network is attached
                 if not gw_network_id:
                     msg = _("A router attached to a VLAN backed network "
-                            "must have a external network assigned.")
+                            "must have an external network assigned.")
                     raise n_exc.InvalidInput(error_message=msg)
                 resource_type = nsxlib_consts.LROUTERPORT_CENTRALIZED
 
