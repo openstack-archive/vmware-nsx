@@ -34,6 +34,7 @@ def versioned(func_table):
                  cluster.api_client.get_version())
             func = get_function_by_version(func_table, func_name, v)
             func_kwargs = kwargs
+            # pylint: disable=deprecated-method
             arg_spec = inspect.getargspec(func)
             if not arg_spec.keywords and not arg_spec.varargs:
                 # drop args unknown to function from func_args
