@@ -611,11 +611,14 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
                               ) as mock_del_pool, \
             mock.patch.object(nsxv_db, 'del_nsxv_lbaas_pool_binding'
                               ) as mock_del_binding,\
+            mock.patch.object(lb_common, 'is_lb_on_router_edge'
+                              ) as mock_lb_router, \
             mock.patch.object(self.edge_driver.vcns, 'update_app_profile'
                               ):
             mock_get_lb_binding.return_value = LB_BINDING
             mock_get_pool_binding.return_value = POOL_BINDING
             mock_get_listener_binding.return_value = LISTENER_BINDING
+            mock_lb_router.return_value = False
 
             self.edge_driver.pool.delete(self.context, self.pool)
 
@@ -709,12 +712,15 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
                               ) as mock_get_pool, \
             mock.patch.object(self.core_plugin, 'get_ports'
                               ) as mock_get_ports, \
+            mock.patch.object(lb_common, 'is_lb_on_router_edge'
+                              ) as mock_lb_router, \
             mock.patch.object(lb_common, 'delete_lb_interface'
                               ) as mock_del_lb_iface, \
             mock.patch.object(self.edge_driver.vcns, 'update_pool'
                               ) as mock_update_pool:
             mock_get_lb_binding.return_value = LB_BINDING
             mock_get_pool_binding.return_value = POOL_BINDING
+            mock_lb_router.return_value = False
             edge_pool_def = EDGE_POOL_DEF.copy()
             edge_pool_def['member'] = [EDGE_MEMBER_DEF]
             mock_get_pool.return_value = (None, edge_pool_def)

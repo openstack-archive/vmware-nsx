@@ -45,6 +45,19 @@ class EdgeMemberManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
             lb_id = member['pool']['loadbalancer']['id']
         return lb_id
 
+    def _get_pool_member_ips(self, pool, operation, address):
+        member_ips = [member['address'] for member in pool['members']]
+        if operation == 'add' and address not in member_ips:
+            member_ips.append(address)
+        elif operation == 'del' and address in member_ips:
+            member_ips.remove(address)
+        return member_ips
+
+    def _get_lbaas_fw_section_id(self):
+        if not self._fw_section_id:
+            self._fw_section_id = lb_common.get_lbaas_fw_section_id(self.vcns)
+        return self._fw_section_id
+
     def create(self, context, member, completor):
         lb_id = self._get_pool_lb_id(member)
         lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
@@ -61,11 +74,10 @@ class EdgeMemberManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
             raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
 
         edge_pool_id = pool_binding['edge_pool_id']
+        old_lb = lb_common.is_lb_on_router_edge(
+            context, self.core_plugin, edge_id)
         with locking.LockManager.get_lock(edge_id):
-            if (not cfg.CONF.nsxv.use_routers_as_lbaas_platform and
-                    not lb_common.is_lb_on_router_edge(context.elevated(),
-                                                       self.core_plugin,
-                                                       edge_id)):
+            if not cfg.CONF.nsxv.use_routers_as_lbaas_platform and not old_lb:
                 # Verify that Edge appliance is connected to the member's
                 # subnet (only if this is a dedicated loadbalancer edge)
                 if not lb_common.get_lb_interface(
@@ -92,6 +104,16 @@ class EdgeMemberManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
             try:
                 self.vcns.update_pool(edge_id, edge_pool_id, edge_pool)
                 completor(success=True)
+
+                if old_lb:
+                    member_ips = self._get_pool_member_ips(member['pool'],
+                                                           'add',
+                                                           member['address'])
+                    lb_common.update_pool_fw_rule(
+                        self.vcns, member['pool_id'],
+                        edge_id,
+                        self._get_lbaas_fw_section_id(),
+                        member_ips)
 
             except nsxv_exc.VcnsApiException:
                 with excutils.save_and_reraise_exception():
@@ -150,6 +172,9 @@ class EdgeMemberManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
             context.session, lb_id, member['pool_id'])
         edge_id = lb_binding['edge_id']
 
+        old_lb = lb_common.is_lb_on_router_edge(
+            context, self.core_plugin, edge_id)
+
         with locking.LockManager.get_lock(edge_id):
             if not cfg.CONF.nsxv.use_routers_as_lbaas_platform:
                 # we should remove LB subnet interface if no members are
@@ -182,6 +207,16 @@ class EdgeMemberManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
 
             try:
                 self.vcns.update_pool(edge_id, edge_pool_id, edge_pool)
+                if old_lb:
+                    member_ips = self._get_pool_member_ips(member['pool'],
+                                                           'del',
+                                                           member['address'])
+                    lb_common.update_pool_fw_rule(
+                        self.vcns, member['pool_id'],
+                        edge_id,
+                        self._get_lbaas_fw_section_id(),
+                        member_ips)
+
                 completor(success=True)
 
             except nsxv_exc.VcnsApiException:
