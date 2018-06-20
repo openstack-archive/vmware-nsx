@@ -88,7 +88,9 @@ class VcnsApiHelper(object):
 
     def __init__(self, address, user, password, format='json', ca_file=None,
                  insecure=True, timeout=None):
-        self.authToken = base64.encodestring(six.b("%s:%s" % (user, password)))
+        # pylint: disable=deprecated-method
+        encode_fn = base64.encodestring if six.PY2 else base64.encodebytes
+        self.authToken = encode_fn(six.b("%s:%s" % (user, password)))
         self.user = user
         self.passwd = password
         self.address = address

@@ -31,24 +31,24 @@ LOG = logging.getLogger(__name__)
 
 
 def usage():
-    print ("python nsx_instance_if_migrate.py --username=<username> "
-           "--password=<password> --project=<project> "
-           "--auth-url=<keystone auth URL> "
-           "[--project-domain-id=<project domain>] "
-           "[--user-domain-id=<user domain>] "
-           "[--machine-type=<migrated machine type] "
-           "[--logfile=<log file>] "
-           "[--nsx-bridge=<NSX managed vSwitch>]\n\n"
-           "Convert libvirt interface definitions on a KVM host, to NSX "
-           "managed vSwitch definitions\n\n"
-           "  username: Admin user's username\n"
-           "  password: Admin user's password\n"
-           "  keystone auth URL: URL to keystone's authentication service\n"
-           "  project domain: Keystone project domain\n"
-           "  user domain: Keystone user domain\n"
-           "  migrated machine type: Overwrites libvirt's machine type\n"
-           "  log file: Output log of the command execution\n"
-           "  NSX managed vSwitch: vSwitch on host, managed by NSX\n\n")
+    print("python nsx_instance_if_migrate.py --username=<username> "
+          "--password=<password> --project=<project> "
+          "--auth-url=<keystone auth URL> "
+          "[--project-domain-id=<project domain>] "
+          "[--user-domain-id=<user domain>] "
+          "[--machine-type=<migrated machine type] "
+          "[--logfile=<log file>] "
+          "[--nsx-bridge=<NSX managed vSwitch>]\n\n"
+          "Convert libvirt interface definitions on a KVM host, to NSX "
+          "managed vSwitch definitions\n\n"
+          "  username: Admin user's username\n"
+          "  password: Admin user's password\n"
+          "  keystone auth URL: URL to keystone's authentication service\n"
+          "  project domain: Keystone project domain\n"
+          "  user domain: Keystone user domain\n"
+          "  migrated machine type: Overwrites libvirt's machine type\n"
+          "  log file: Output log of the command execution\n"
+          "  NSX managed vSwitch: vSwitch on host, managed by NSX\n\n")
 
     sys.exit()
 

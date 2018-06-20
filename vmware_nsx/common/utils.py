@@ -161,7 +161,9 @@ def _log_before_retry(func, trial_number):
 
 def _get_args_from_frame(frames, frame_num):
     if len(frames) > frame_num and frames[frame_num] and frames[frame_num][0]:
+        # pylint: disable=deprecated-method
         argvalues = inspect.getargvalues(frames[frame_num][0])
+        # pylint: disable=deprecated-method
         formated_args = inspect.formatargvalues(*argvalues)
         # remove the first 'self' arg from the log as it adds no information
         formated_args = re.sub(r'\(self=.*?, ', "(", formated_args)

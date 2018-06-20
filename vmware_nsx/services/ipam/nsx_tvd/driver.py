@@ -64,7 +64,7 @@ class NsxTvdIpamDriver(subnet_alloc.SubnetAllocator,
                       "support for IPAM", {'project': project,
                                            'plugin': plugin_type})
             raise ipam_exc.IpamValueInvalid(
-                msg="IPAM driver not found")
+                message="IPAM driver not found")
         return self.drivers[plugin_type]
 
     def allocate_subnet(self, subnet_request):
