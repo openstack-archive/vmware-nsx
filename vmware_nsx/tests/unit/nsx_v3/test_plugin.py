@@ -617,6 +617,19 @@ class TestL3NatTestCase(L3NatTest,
     def test_route_update_with_external_route(self):
         self.skipTest('not supported')
 
+    def test_router_add_interface_by_port_other_tenant_address_out_of_pool(
+        self):
+        # multiple fixed ips per port are not supported
+        self.skipTest('not supported')
+
+    def test_router_add_interface_by_port_other_tenant_address_in_pool(self):
+        # multiple fixed ips per port are not supported
+        self.skipTest('not supported')
+
+    def test_router_add_interface_by_port_admin_address_out_of_pool(self):
+        # multiple fixed ips per port are not supported
+        self.skipTest('not supported')
+
     def test_multiple_subnets_on_different_routers(self):
         with self.network() as network:
             with self.subnet(network=network) as s1,\
