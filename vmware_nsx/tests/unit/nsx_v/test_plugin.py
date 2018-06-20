@@ -3434,6 +3434,19 @@ class TestExclusiveRouterTestCase(L3NatTest, L3NatTestCaseBase,
     def test_router_add_gateway_multiple_subnets_ipv6(self):
         self.skipTest('not supported')
 
+    def test_router_add_interface_by_port_other_tenant_address_out_of_pool(
+        self):
+        # multiple fixed ips per port are not supported
+        self.skipTest('not supported')
+
+    def test_router_add_interface_by_port_other_tenant_address_in_pool(self):
+        # multiple fixed ips per port are not supported
+        self.skipTest('not supported')
+
+    def test_router_add_interface_by_port_admin_address_out_of_pool(self):
+        # multiple fixed ips per port are not supported
+        self.skipTest('not supported')
+
     def test_update_subnet_gateway_for_external_net(self):
         plugin = directory.get_plugin()
         router_obj = ex_router_driver.RouterExclusiveDriver(plugin)
@@ -3973,6 +3986,24 @@ class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
 
     def test_floatingip_same_external_and_internal(self):
         self.skipTest('skipped')
+
+    def test_router_add_interface_by_port_other_tenant_address_out_of_pool(
+        self):
+        # multiple fixed ips per port are not supported
+        self.skipTest('not supported')
+
+    def test_router_add_interface_by_port_other_tenant_address_in_pool(self):
+        # multiple fixed ips per port are not supported
+        self.skipTest('not supported')
+
+    def test_router_add_interface_by_subnet_other_tenant_subnet_returns_400(
+        self):
+        # distributes router creation by another tenant is blocked by policy
+        self.skipTest('not supported')
+
+    def test_router_add_interface_by_port_admin_address_out_of_pool(self):
+        # multiple fixed ips per port are not supported
+        self.skipTest('not supported')
 
     def test_create_router_fail_at_the_backend(self):
         p = directory.get_plugin()

@@ -774,6 +774,19 @@ class TestL3NatTestCase(L3NatTest,
     def test_floatingip_update_subnet_gateway_disabled(self):
         self.skipTest('not supported')
 
+    def test_router_add_interface_by_port_other_tenant_address_out_of_pool(
+        self):
+        # multiple fixed ips per port are not supported
+        self.skipTest('not supported')
+
+    def test_router_add_interface_by_port_other_tenant_address_in_pool(self):
+        # multiple fixed ips per port are not supported
+        self.skipTest('not supported')
+
+    def test_router_add_interface_by_port_admin_address_out_of_pool(self):
+        # multiple fixed ips per port are not supported
+        self.skipTest('not supported')
+
     def test_router_delete_with_lb_service(self):
         # Create the LB object - here the delete callback is registered
         lb_driver = lb_driver_v2.EdgeLoadbalancerDriverV2()
