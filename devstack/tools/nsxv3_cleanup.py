@@ -60,6 +60,9 @@ class NeutronNsxDB(object):
         return self.query_all(column_name,
                               nsx_models.NsxVpnConnectionMapping)
 
+    def get_db_objects_by_table_and_column(self, db_table, db_column):
+        return self.query_all(db_column, db_table)
+
 
 class NSXClient(object):
     """Base NSX REST client"""
@@ -502,20 +505,99 @@ class NSXClient(object):
             else:
                 print("Successfully deleted vpn ipsec local endpoint %s" % id)
 
+    def get_os_nsx_objects(self, nsxlib_class, db_table, db_column):
+        """
+        Retrieve all nsx objects of a given type from the nsx and OpenStack DB
+        """
+        objects = self.get_os_resources(nsxlib_class.list()['results'])
+        if self.neutron_db:
+            db_objects = self.neutron_db.get_db_objects_by_table_and_column(
+                db_table, db_column)
+            objects = [obj for obj in objects if obj['id'] in db_objects]
+        return objects
+
+    def clean_lb_objects(self, obj_name, nsxlib_class, objects):
+        print("Number of LB %(name)ss to be deleted: %(num)s" %
+              {'name': obj_name, 'num': len(objects)})
+        for obj in objects:
+            try:
+                nsxlib_class.delete(obj['id'])
+            except Exception as e:
+                print("ERROR: Failed to delete LB %(name)s %(id)s, "
+                      "error %(e)s" % {'name': obj_name, 'id': obj['id'],
+                                       'e': e})
+            else:
+                print("Successfully deleted LB %(name)s %(id)s" %
+                      {'name': obj_name, 'id': obj['id']})
+
+    def cleanup_loadbalancer(self):
+        """
+        Cleanup LBaaS/Octavia loadbalancer objects
+        """
+        if not self.nsxlib.feature_supported(
+            nsx_constants.FEATURE_LOAD_BALANCER):
+            # no LB support
+            return
+
+        # lb services
+        objects = self.get_os_nsx_objects(self.nsxlib.load_balancer.service,
+                                         nsx_models.NsxLbaasLoadbalancer,
+                                         'lb_service_id')
+        self.clean_lb_objects('service', self.nsxlib.load_balancer.service,
+                              objects)
+
+        # listeners
+        objects = self.get_os_nsx_objects(
+            self.nsxlib.load_balancer.virtual_server,
+            nsx_models.NsxLbaasListener, 'lb_vs_id')
+
+        # get a list of application profiles by their virtual servers
+        app_profiles = []
+        for virtual_server in objects:
+            lb_vs = self.nsxlib.load_balancer.virtual_server.get(
+                virtual_server['id'])
+            if lb_vs.get('application_profile_id'):
+                app_profiles.append({'id': lb_vs['application_profile_id']})
+        self.clean_lb_objects('listener',
+                              self.nsxlib.load_balancer.virtual_server,
+                              objects)
+
+        # pools
+        objects = self.get_os_nsx_objects(self.nsxlib.load_balancer.pool,
+                                         nsx_models.NsxLbaasPool, 'lb_pool_id')
+        self.clean_lb_objects('pool', self.nsxlib.load_balancer.pool,
+                              objects)
+
+        # health monitors
+        objects = self.get_os_nsx_objects(self.nsxlib.load_balancer.monitor,
+                                         nsx_models.NsxLbaasMonitor,
+                                         'lb_monitor_id')
+        self.clean_lb_objects('monitor', self.nsxlib.load_balancer.monitor,
+                              objects)
+
+        # application profiles
+        self.clean_lb_objects('application-profile',
+                              self.nsxlib.load_balancer.application_profile,
+                              app_profiles)
+
     def cleanup_all(self):
         """
         Cleanup steps:
-            1. Cleanup firewall sections
-            2. Cleanup NSGroups
-            3. Cleanup logical router ports
-            4. Cleanup logical routers
-            5. Cleanup logical switch ports
-            6. Cleanup logical switches
-            7. Cleanup switching profiles
+            - Firewall sections
+            - NSGroups
+            - VPN objects
+            - Loadbalancer objects
+            - Logical router and their ports
+            - Logical Tier 0 routers ports
+            - Logical switch ports
+            - Logical switches
+            - DHCP servers
+            - Switching profiles
         """
         self.cleanup_os_firewall_sections()
         self.cleanup_os_ns_groups()
         self.cleanup_vpnaas()
+        self.cleanup_loadbalancer()
         self.cleanup_os_logical_routers()
         self.cleanup_os_tier0_logical_ports()
         self.cleanup_os_logical_ports()
