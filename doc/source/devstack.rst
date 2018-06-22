@@ -5,8 +5,8 @@ Below are the options for configuring the NSX plugin with DevStack. Prior
 to doing this DevStack needs to be downloaded. After updating the relevant
 configuration file(s) run ./stack.sh
 
-NSXv
-----
+NSX-V
+-----
 
 LBaaS v2 Driver
 ~~~~~~~~~~~~~~~
@@ -119,7 +119,7 @@ Add neutron-vpnaas repo as an external repository and configure following flags 
     NEUTRON_VPNAAS_SERVICE_PROVIDER=VPN:vmware:vmware_nsx.services.vpnaas.nsxv.ipsec_driver.NSXvIPsecVpnDriver:default
 
 
-NSXv3
+NSX-T
 -----
 
 QoS Driver
@@ -162,7 +162,7 @@ Trunk Driver
 Enable trunk service and configure following flags in ``local.conf``::
 
     [[local]|[localrc]]
-    # Trunk plugin NSXv3 driver config
+    # Trunk plugin NSX-T driver config
     ENABLED_SERVICES+=,q-trunk
     Q_SERVICE_PLUGIN_CLASSES=trunk
 

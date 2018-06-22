@@ -233,7 +233,7 @@ cluster_opts = [
 nsx_common_opts = [
     cfg.StrOpt('nsx_l2gw_driver',
                help=_("Specify the class path for the Layer 2 gateway "
-                      "backend driver(i.e. NSXv3/NSX-V). This field will be "
+                      "backend driver (i.e. NSX-T/NSX-V). This field will be "
                       "used when a L2 Gateway service plugin is configured.")),
     cfg.StrOpt('locking_coordinator_url',
                help=_("(Optional) URL for distributed locking coordination "
@@ -246,7 +246,7 @@ nsx_common_opts = [
                 help=_("If true, the server then allows the caller to "
                        "specify the id of resources. This should only "
                        "be enabled in order to allow one to migrate an "
-                       "existing install of neutron to the nsx-v3 plugin.")),
+                       "existing install of neutron to the NSX-T plugin.")),
     cfg.ListOpt('nsx_extension_drivers',
                 default=[],
                 help=_("An ordered list of extension driver "

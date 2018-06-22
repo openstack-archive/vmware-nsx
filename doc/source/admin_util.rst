@@ -1,11 +1,11 @@
 Admin Utility
 =============
 
-The NSXv and the NSXv3 support the nsxadmin utility. This enables and administrator to determine and rectify inconsistencies between the Neutron DB and the NSX.
+NSX-V and NSX-T support the nsxadmin utility. This enables and administrator to determine and rectify inconsistencies between the Neutron DB and NSX.
 usage: nsxadmin -r <resources> -o <operation>
 
-NSXv Plugin
------------
+NSX-V Plugin
+------------
 
 The following resources are supported: 'security-groups', 'edges', 'networks', 'firewall-sections', 'orphaned-edges', 'spoofguard-policy', 'missing-edges', 'backup-edges', 'nsx-security-groups', 'dhcp-binding' and  'metadata'
 
@@ -171,7 +171,7 @@ Routers
 
     nsxadmin -r routers -o nsx-recreate --property edge-id=edge-308
 
-- Recreate a router on the nsx backend by removing it from the current edge (if any), and attaching to a new one::
+- Recreate a router on the NSX backend by removing it from the current edge (if any), and attaching to a new one::
 
     nsxadmin -r routers -o nsx-recreate --property router-id=8cdd6d06-b457-4cbb-a0b1-41e08ccce287
 
@@ -241,7 +241,7 @@ Security Groups, Firewall and Spoofguard
 
     nsxadmin -r firewall-section -o nsx-clean
 
-- Reorder the nsx L3 firewall sections to correctly support the policy security groups
+- Reorder the NSX L3 firewall sections to correctly support the policy security groups
 
     nsxadmin -r firewall-sections -o nsx-reorder
 
@@ -297,7 +297,7 @@ Config
 
     nsxadmin -r config -o validate
 
-NSXv3 Plugin
+NSX-T Plugin
 ------------
 
 The following resources are supported: 'security-groups', 'routers', 'networks', 'nsx-security-groups', 'dhcp-binding', 'metadata-proxy', 'orphaned-dhcp-servers', 'firewall-sections', 'certificate', 'orphaned-networks', 'orphaned-routers',
@@ -355,7 +355,7 @@ Ports
 
     nsxadmin -r ports -o list-mismatches
 
-- Update the VMs ports (all or of a specific project) on the backend after migrating nsx-v -> nsx-v3::
+- Update the VMs ports (all or of a specific project) on the backend after migrating NSX-V -> NSX-T::
 
     nsxadmin -r ports -o nsx-migrate-v-v3 (--property project-id=<> --property host-moref=<> --property respool-moref=<> --property net-name=<> --property datastore-moref=<>)) --plugin nsxv3
 
@@ -386,7 +386,7 @@ Security Groups & NSX Security Groups
 
     nsxadmin -r security-groups -o fix-mismatch
 
-- Update NSX security groups dynamic criteria for NSXv3 CrossHairs::
+- Update NSX security groups dynamic criteria for NSX-T CrossHairs::
 
     nsxadmin -r nsx-security-groups -o migrate-to-dynamic-criteria
 
@@ -419,7 +419,7 @@ Metadata Proxy
 
     nsxadmin -r metadata-proxy -o list
 
-- Resync metadata proxies for NSXv3 version 1.1.0 and above (enable md proxy, or update the uuid). This is only for migrating to native metadata support::
+- Resync metadata proxies for NSX-T version 1.1.0 and above (enable md proxy, or update the uuid). This is only for migrating to native metadata support::
 
     nsxadmin -r metadata-proxy -o nsx-update --property metadata_proxy_uuid=<metadata_proxy_uuid>
 
@@ -434,7 +434,7 @@ DHCP Bindings
 
     nsxadmin -r dhcp-binding -o list
 
-- Resync DHCP bindings for NSXv3 version 1.1.0 and above. This is only for migrating to native DHCP support::
+- Resync DHCP bindings for NSX-T version 1.1.0 and above. This is only for migrating to native DHCP support::
 
     nsxadmin -r dhcp-binding -o nsx-update --property dhcp_profile_uuid=<dhcp_profile_uuid>
 
@@ -445,11 +445,11 @@ DHCP Bindings
 Orphaned DHCP Servers
 ~~~~~~~~~~~~~~~~~~~~~
 
-- List orphaned DHCP servers (exist on NSXv3 backend but don't have a corresponding binding in Neutron DB)::
+- List orphaned DHCP servers (exist on NSX-T backend but don't have a corresponding binding in Neutron DB)::
 
     nsxadmin -r orphaned-dhcp-servers -o nsx-list
 
-- Clean orphaned DHCP servers (delete logical DHCP servers from NSXv3 backend)::
+- Clean orphaned DHCP servers (delete logical DHCP servers from NSX-T backend)::
 
     nsxadmin -r orphaned-dhcp-servers -o nsx-clean
 
@@ -547,7 +547,7 @@ Config
 NSXtvd Plugin
 -------------
 
-- All the nsx-v/v3 utilities can be used by calling
+- All the NSX-V/T utilities can be used by calling
 
     nsxadmin --plugin nsxv/v3 -r <> -o <>
 
