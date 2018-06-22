@@ -131,11 +131,11 @@ class EdgeLoadbalancerDriverV2(base_mgr.LoadbalancerBaseManager):
             context, filters=filters)
 
     def _check_lb_service_on_router(self, resource, event, trigger,
-                                    **kwargs):
+                                    payload=None):
         """Prevent removing a router GW or deleting a router used by LB"""
-        router_id = kwargs.get('router_id')
-        context = kwargs['context']
-        nsx_router_id = nsx_db.get_nsx_router_id(kwargs['context'].session,
+        router_id = payload.resource_id
+        context = payload.context
+        nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                  router_id)
         if not nsx_router_id:
             # Skip non-v3 routers (could be a V router in case of TVD plugin)
