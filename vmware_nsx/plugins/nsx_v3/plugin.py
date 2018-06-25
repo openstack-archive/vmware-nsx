@@ -104,10 +104,12 @@ from vmware_nsx.db import extended_security_group_rule as extend_sg_rule
 from vmware_nsx.db import maclearning as mac_db
 from vmware_nsx.dhcp_meta import rpc as nsx_rpc
 from vmware_nsx.extensions import advancedserviceproviders as as_providers
+from vmware_nsx.extensions import housekeeper as hk_ext
 from vmware_nsx.extensions import maclearning as mac_ext
 from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
+from vmware_nsx.plugins.common.housekeeper import housekeeper
 from vmware_nsx.plugins.common import plugin as nsx_plugin_common
 from vmware_nsx.plugins.nsx import utils as tvd_utils
 from vmware_nsx.plugins.nsx_v3 import availability_zones as nsx_az
@@ -182,7 +184,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   vlantransparent_db.Vlantransparent_db_mixin,
                   mac_db.MacLearningDbMixin,
                   nsx_com_az.NSXAvailabilityZonesPluginCommon,
-                  l3_attrs_db.ExtraAttributesMixin):
+                  l3_attrs_db.ExtraAttributesMixin,
+                  hk_ext.Housekeeper):
 
     __native_bulk_support = True
     __native_pagination_support = True
@@ -209,6 +212,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                    "subnet_allocation",
                                    "security-group-logging",
                                    "provider-security-group",
+                                   "housekeeper",
                                    "port-security-groups-filtering"]
 
     @resource_registry.tracked_resources(
@@ -455,6 +459,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
             # Init the FWaaS support
             self._init_fwaas()
+
+            # Init the house keeper
+            self.housekeeper = housekeeper.NsxHousekeeper(
+                hk_ns='vmware_nsx.neutron.nsxv3.housekeeper.jobs',
+                hk_jobs=cfg.CONF.nsx_v3.housekeeping_jobs,
+                hk_readonly=cfg.CONF.nsx_v3.housekeeping_readonly,
+                hk_readonly_jobs=cfg.CONF.nsx_v3.housekeeping_readonly_jobs)
 
             self.init_is_complete = True
 

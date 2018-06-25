@@ -20,10 +20,10 @@ Configuration
 
 Housekeeping mechanism uses two configuration parameters:
 
-nsxv.housekeeping_jobs: The housekeeper can be configured which tasks to
+nsxv/v3.housekeeping_jobs: The housekeeper can be configured which tasks to
 execute and which should be skipped.
 
-nsxv.housekeeping_readonly: Housekeeper may attempt to fix a broken environment
+nsxv/v3.housekeeping_readonly: Housekeeper may attempt to fix a broken environment
 when this flag is set to False, or otherwise will just warn about
 inconsistencies.
 
@@ -71,3 +71,20 @@ When in non-readonly mode, the job will reset the Edge appliance configuration.
 
 lbaas_pending: scans the neutron DB for LBaaS objects which are pending for too
 long. Report it, and if in non-readonly mode change its status to ERROR
+
+NSX-v3
+~~~~~~
+
+orphaned_logical_router: scans the NSX backend for logical routers which are
+missing from the neutron DB. Report it, and if in non-readonly mode delete them.
+
+orphaned_logical_swithces: scans the NSX backend for logical switches which are
+missing from the neutron DB. Report it, and if in non-readonly mode delete them.
+
+orphaned_dhcp_server: scans the NSX backend for DHCP servers which are
+missing a matching network in the neutron DB. Report it, and if in non-readonly
+mode delete them.
+
+orphaned_firewall_section: scans the NSX backend for firewall sections which are
+missing a matching security group in the neutron DB. Report it, and if in non-readonly
+mode delete them.

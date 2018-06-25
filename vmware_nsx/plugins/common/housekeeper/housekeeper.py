@@ -53,6 +53,7 @@ class NsxHousekeeper(stevedore.named.NamedExtensionManager):
         else:
             LOG.info('Housekeeper initialized')
 
+        self.results = {}
         self.jobs = {}
         super(NsxHousekeeper, self).__init__(
             hk_ns, hk_jobs, invoke_on_load=True,

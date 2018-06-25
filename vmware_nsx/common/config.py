@@ -459,6 +459,18 @@ nsx_v3_opts = [
                 help=_("When True, port security will be set to False for "
                        "newly created ENS networks and ports, overriding "
                        "user settings")),
+    cfg.ListOpt('housekeeping_jobs',
+                default=['orphaned_dhcp_server', 'orphaned_logical_switch',
+                         'orphaned_logical_router', 'mismatch_logical_port',
+                         'orphaned_firewall_section'],
+                help=_("List of the enabled housekeeping jobs")),
+    cfg.ListOpt('housekeeping_readonly_jobs',
+                default=[],
+                help=_("List of housekeeping jobs which are enabled in read "
+                       "only mode")),
+    cfg.BoolOpt('housekeeping_readonly',
+                default=True,
+                help=_("Housekeeping will only warn about breakage.")),
 
 ]
 
