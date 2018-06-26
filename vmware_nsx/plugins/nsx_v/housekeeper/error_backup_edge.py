@@ -44,6 +44,9 @@ class ErrorBackupEdgeJob(base_job.BaseJob):
 
     def run(self, context):
         super(ErrorBackupEdgeJob, self).run(context)
+        error_count = 0
+        fixed_count = 0
+        error_info = ''
 
         # Gather ERROR state backup edges into dict
         filters = {'status': [constants.ERROR]}
@@ -54,20 +57,30 @@ class ErrorBackupEdgeJob(base_job.BaseJob):
 
         if not error_edge_bindings:
             LOG.debug('Housekeeping: no backup edges in ERROR state detected')
-            return
+            return {'error_count': 0,
+                    'fixed_count': 0,
+                    'error_info': 'No backup edges in ERROR state detected'}
 
         # Keep list of current broken backup edges - as it may change while
         # HK is running
         for binding in error_edge_bindings:
-            LOG.warning('Housekeeping: Backup Edge appliance %s is in ERROR'
-                        ' state', binding['edge_id'])
+            error_count += 1
+            error_info = base_job.housekeeper_warning(
+                error_info, 'Backup Edge appliance %s is in ERROR state',
+                binding['edge_id'])
 
             if not self.readonly:
                 with locking.LockManager.get_lock(binding['edge_id']):
-                    self._handle_backup_edge(context, binding)
+                    if self._handle_backup_edge(context, binding):
+                        fixed_count += 1
+
+        return {'error_count': error_count,
+                'fixed_count': fixed_count,
+                'error_info': error_info}
 
     def _handle_backup_edge(self, context, binding):
         dist = (binding['edge_type'] == nsxv_constants.VDR_EDGE)
+        result = True
         az = self.azs.get_availability_zone(
             binding['availability_zone'])
         try:
@@ -90,7 +103,9 @@ class ErrorBackupEdgeJob(base_job.BaseJob):
         if not update_result:
             LOG.warning('Housekeeping: failed to recover Edge '
                         'appliance %s, trying to delete', binding['edge_id'])
-            self._delete_edge(context, binding, dist)
+            result = self._delete_edge(context, binding, dist)
+
+        return result
 
     def _delete_edge(self, context, binding, dist):
         try:
@@ -104,6 +119,8 @@ class ErrorBackupEdgeJob(base_job.BaseJob):
         try:
             self.plugin.nsx_v.delete_edge(context, binding['router_id'],
                                           binding['edge_id'], dist=dist)
+            return True
+
         except Exception as e:
             LOG.warning('Housekeeping: Failed to delete edge %s with '
                         'exception %s', binding['edge_id'], e)

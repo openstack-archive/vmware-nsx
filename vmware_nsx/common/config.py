@@ -229,6 +229,7 @@ cluster_opts = [
                       "network connection")),
 ]
 
+
 nsx_common_opts = [
     cfg.StrOpt('nsx_l2gw_driver',
                help=_("Specify the class path for the Layer 2 gateway "
@@ -251,8 +252,17 @@ nsx_common_opts = [
                 help=_("An ordered list of extension driver "
                        "entrypoints to be loaded from the "
                        "vmware_nsx.extension_drivers namespace.")),
+    cfg.StrOpt('smtp_gateway',
+               help=_("(Optional) IP address of SMTP gateway to use for"
+                      "admin warnings.")),
+    cfg.StrOpt('smtp_from_addr',
+               help=_("(Optional) email address to use for outgoing admin"
+                      "notifications.")),
+    cfg.ListOpt('snmp_to_list',
+                default=[],
+                help=_("(Optional) List of email addresses for "
+                       "notifications.")),
 ]
-
 nsx_v3_opts = [
     cfg.ListOpt('nsx_api_user',
                 default=['admin'],

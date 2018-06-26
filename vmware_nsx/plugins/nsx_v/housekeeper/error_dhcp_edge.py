@@ -27,6 +27,12 @@ LOG = log.getLogger(__name__)
 
 
 class ErrorDhcpEdgeJob(base_job.BaseJob):
+    def __init__(self, readonly):
+        super(ErrorDhcpEdgeJob, self).__init__(readonly)
+        self.error_count = 0
+        self.fixed_count = 0
+        self.fixed_sub_if_count = 0
+        self.error_info = ''
 
     def get_project_plugin(self, plugin):
         return plugin.get_plugin_by_type(projectpluginmap.NsxPlugins.NSX_V)
@@ -39,6 +45,10 @@ class ErrorDhcpEdgeJob(base_job.BaseJob):
 
     def run(self, context):
         super(ErrorDhcpEdgeJob, self).run(context)
+        self.error_count = 0
+        self.fixed_count = 0
+        self.fixed_sub_if_count = 0
+        self.error_info = ''
 
         # Gather ERROR state DHCP edges into dict
         filters = {'status': [constants.ERROR]}
@@ -47,7 +57,9 @@ class ErrorDhcpEdgeJob(base_job.BaseJob):
 
         if not error_edge_bindings:
             LOG.debug('Housekeeping: no DHCP edges in ERROR state detected')
-            return
+            return {'error_count': self.error_count,
+                    'fixed_count': self.fixed_count,
+                    'error_info': 'No DHCP error state edges detected'}
 
         with locking.LockManager.get_lock('nsx-dhcp-edge-pool'):
             edge_dict = {}
@@ -70,8 +82,14 @@ class ErrorDhcpEdgeJob(base_job.BaseJob):
                 self._validate_dhcp_edge(
                     context, edge_dict, pfx_dict, networks, edge_id)
             except Exception as e:
-                LOG.error('Failed to recover DHCP Edge %s (%s)',
-                          edge_id, e)
+                self.error_count += 1
+                self.error_info = base_job.housekeeper_warning(
+                    self.error_info,
+                    'Failed to recover DHCP Edge %s (%s)', edge_id, e)
+
+        return {'error_count': self.error_count,
+                'fixed_count': self.fixed_count,
+                'error_info': self.error_info}
 
     def _validate_dhcp_edge(
             self, context, edge_dict, pfx_dict, networks, edge_id):
@@ -95,21 +113,29 @@ class ErrorDhcpEdgeJob(base_job.BaseJob):
                 if net_id is None:
                     # Delete router binding as we do not have such network
                     # in Neutron
-                    LOG.warning('Housekeeping: router binding %s for edge '
-                                '%s has no matching neutron network',
-                                router_id, edge_id)
+                    self.error_count += 1
+                    self.error_info = base_job.housekeeper_warning(
+                        self.error_info,
+                        'router binding %s for edge %s has no matching '
+                        'neutron network', router_id, edge_id)
+
                     if not self.readonly:
                         nsxv_db.delete_nsxv_router_binding(
                             context.session, binding['router_id'])
+                        self.fixed_count += 1
                 else:
                     if net_id not in edge_networks:
                         # Create vNic bind here
-                        LOG.warning('Housekeeping: edge %s vnic binding '
-                                    'missing for network %s', edge_id,
-                                    net_id)
+                        self.error_count += 1
+                        self.error_info = base_job.housekeeper_warning(
+                            self.error_info,
+                            'edge %s vnic binding missing for network %s',
+                            edge_id, net_id)
+
                         if not self.readonly:
                             nsxv_db.allocate_edge_vnic_with_tunnel_index(
                                 context.session, edge_id, net_id, az_name)
+                            self.fixed_count += 1
 
             # Step (B)
             # Find vNic bindings which reference invalid networks or aren't
@@ -122,12 +148,16 @@ class ErrorDhcpEdgeJob(base_job.BaseJob):
 
             for bind in vnic_binds:
                 if bind['network_id'] not in networks:
-                    LOG.warning('Housekeeping: edge vnic binding for edge '
-                                '%s is for invalid network id %s',
-                                edge_id, bind['network_id'])
+                    self.error_count += 1
+                    self.error_info = base_job.housekeeper_warning(
+                        self.error_info,
+                        'edge vnic binding for edge %s is for invalid '
+                        'network id %s', edge_id, bind['network_id'])
+
                     if not self.readonly:
                         nsxv_db.free_edge_vnic_by_network(
                             context.session, edge_id, bind['network_id'])
+                        self.fixed_count += 1
 
             # Step (C)
             # Verify that backend is in sync with Neutron
@@ -158,6 +188,8 @@ class ErrorDhcpEdgeJob(base_job.BaseJob):
 
                     self._update_router_bindings(context, edge_id)
 
+                self.fixed_count += self.fixed_sub_if_count
+
     def _validate_edge_subinterfaces(self, context, edge_id, backend_vnics,
                                      vnic_dict, if_changed):
         # Validate that all the interfaces on the Edge
@@ -175,11 +207,13 @@ class ErrorDhcpEdgeJob(base_job.BaseJob):
                         vnic_bind['tunnel_index'] == sub_if['tunnelId']):
                         pass
                     else:
-                        LOG.warning('Housekeeping: subinterface %s for vnic '
-                                    '%s on edge %s is not defined in '
-                                    'nsxv_edge_vnic_bindings',
-                                    sub_if['tunnelId'],
-                                    vnic['index'], edge_id)
+                        self.error_count += 1
+                        self.error_info = base_job.housekeeper_warning(
+                            self.error_info,
+                            'subinterface %s for vnic %s on edge %s is not '
+                            'defined in nsxv_edge_vnic_bindings',
+                            sub_if['tunnelId'], vnic['index'], edge_id)
+                        self.fixed_sub_if_count += 1
                         if_changed[vnic['index']] = True
                         vnic['subInterfaces']['subInterfaces'].remove(sub_if)
 
@@ -210,27 +244,34 @@ class ErrorDhcpEdgeJob(base_job.BaseJob):
                         if sub_if['tunnelId'] == tunnel_index:
                             found = True
                             if sub_if.get('logicalSwitchName') != network_id:
-                                LOG.warning('Housekeeping: subinterface %s on '
-                                            'vnic %s on edge %s should be '
-                                            'connected to network %s',
-                                            tunnel_index, vnic['index'],
-                                            edge_id, network_id)
+                                self.error_count += 1
+                                self.error_info = base_job.housekeeper_warning(
+                                    self.error_info,
+                                    'subinterface %s on vnic %s on edge %s '
+                                    'should be connected to network %s',
+                                    tunnel_index, vnic['index'], edge_id,
+                                    network_id)
                                 if_changed[vnic['index']] = True
                                 if not self.readonly:
                                     self._recreate_vnic_subinterface(
                                         context, network_id, edge_id, vnic,
                                         tunnel_index)
+                                    self.fixed_count += 1
                                 sub_if['name'] = network_id
                     if not found:
-                        LOG.warning('Housekeeping: subinterface %s on vnic '
-                                    '%s on edge %s should be connected to '
-                                    'network %s but is missing', tunnel_index,
-                                    vnic['index'], edge_id, network_id)
+                        self.error_count += 1
+                        self.error_info = base_job.housekeeper_warning(
+                            self.error_info,
+                            'subinterface %s on vnic %s on edge %s should be '
+                            'connected to network %s but is missing',
+                            tunnel_index, vnic['index'], edge_id, network_id)
                         if_changed[vnic['index']] = True
+
                         if not self.readonly:
                             self._recreate_vnic_subinterface(
                                 context, network_id, edge_id, vnic,
                                 tunnel_index)
+                            self.fixed_sub_if_count += 1
 
     def _recreate_vnic_subinterface(
             self, context, network_id, edge_id, vnic, tunnel_index):

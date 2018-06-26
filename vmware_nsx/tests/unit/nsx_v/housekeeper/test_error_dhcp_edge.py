@@ -20,6 +20,7 @@ import mock
 from neutron.tests import base
 from neutron_lib.plugins import constants
 
+from vmware_nsx.plugins.common.housekeeper import base_job
 from vmware_nsx.plugins.nsx_v.housekeeper import error_dhcp_edge
 
 FAKE_ROUTER_BINDINGS = [
@@ -289,7 +290,7 @@ class ErrorDhcpEdgeTestCaseReadOnly(base.BaseTestCase):
         mock.patch.object(self.plugin, 'get_availability_zone_name_by_edge',
                           return_value='default').start()
         self.log = mock.Mock()
-        error_dhcp_edge.LOG = self.log
+        base_job.LOG = self.log
         self.job = error_dhcp_edge.ErrorDhcpEdgeJob(self._is_readonly())
 
     def test_clean_run(self):
