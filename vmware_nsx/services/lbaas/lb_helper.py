@@ -19,6 +19,8 @@ from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
 
+from vmware_nsx.extensions import projectpluginmap
+
 
 class LBaaSNSXObjectManagerWrapper(object):
     """Wrapper class to connect the LB api with the NSX-V/V3 implementations
@@ -44,7 +46,10 @@ class LBaaSNSXObjectManagerWrapper(object):
         if not self._core_plugin:
             self._core_plugin = (
                 self._get_plugin(plugin_const.CORE))
-
+            if self._core_plugin.is_tvd_plugin():
+                # get the plugin that match this driver
+                self._core_plugin = self._core_plugin.get_plugin_by_type(
+                    projectpluginmap.NsxPlugins.NSX_T)
         return self._core_plugin
 
     def get_completor_func(self, context, obj, delete=False):
