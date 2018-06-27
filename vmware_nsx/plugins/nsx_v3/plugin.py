@@ -352,7 +352,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             try:
                 # ensure that the global default is created, and only once
                 # without retrying on DB errors
-                with mock.patch("neutron.db.api.is_retriable",
+                with mock.patch("oslo_db.api.wrap_db_retry."
+                                "_is_exception_expected",
                                 return_value=False):
                     super(NsxV3Plugin, self).create_security_group(
                         context, sec_group, True)
