@@ -358,9 +358,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                             nsx_v_md_proxy.NsxVMetadataProxyHandler(
                                 self, az))
 
-            self.housekeeper = housekeeper.NsxvHousekeeper(
+            self.housekeeper = housekeeper.NsxHousekeeper(
                 hk_ns='vmware_nsx.neutron.nsxv.housekeeper.jobs',
-                hk_jobs=cfg.CONF.nsxv.housekeeping_jobs)
+                hk_jobs=cfg.CONF.nsxv.housekeeping_jobs,
+                hk_readonly=cfg.CONF.nsxv.housekeeping_readonly,
+                hk_readonly_jobs=cfg.CONF.nsxv.housekeeping_readonly_jobs)
 
             self.init_is_complete = True
 
@@ -4797,20 +4799,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if not self._nsx_policy_is_hidden(policy):
                 results.append(self._nsx_policy_to_dict(policy))
         return results
-
-    def get_housekeeper(self, context, name, fields=None):
-        return self.housekeeper.get(name)
-
-    def get_housekeepers(self, context, filters=None, fields=None, sorts=None,
-                         limit=None, marker=None, page_reverse=False):
-        return self.housekeeper.list()
-
-    def update_housekeeper(self, context, name, housekeeper):
-        self.housekeeper.run(context, name)
-        return self.housekeeper.get(name)
-
-    def get_housekeeper_count(self, context, filters=None):
-        return len(self.housekeeper.list())
 
     def _get_appservice_id(self, name):
         return self.nsx_v.vcns.get_application_id(name)

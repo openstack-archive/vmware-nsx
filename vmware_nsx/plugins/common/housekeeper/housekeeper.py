@@ -26,8 +26,9 @@ from neutron_lib import exceptions as n_exc
 from vmware_nsx.common import locking
 
 LOG = log.getLogger(__name__)
+ALL_DUMMY_JOB_NAME = 'all'
 ALL_DUMMY_JOB = {
-    'name': 'all',
+    'name': ALL_DUMMY_JOB_NAME,
     'description': 'Execute all housekeepers',
     'enabled': True,
     'error_count': 0,
@@ -35,33 +36,35 @@ ALL_DUMMY_JOB = {
     'error_info': None}
 
 
-class NsxvHousekeeper(stevedore.named.NamedExtensionManager):
-    def __init__(self, hk_ns, hk_jobs):
+class NsxHousekeeper(stevedore.named.NamedExtensionManager):
+    def __init__(self, hk_ns, hk_jobs, hk_readonly, hk_readonly_jobs):
+        self.global_readonly = hk_readonly
+        self.readonly_jobs = hk_readonly_jobs
         self.email_notifier = None
         if (cfg.CONF.smtp_gateway and
                 cfg.CONF.smtp_from_addr and
                 cfg.CONF.snmp_to_list):
             self.email_notifier = HousekeeperEmailNotifier()
 
-        self.readonly = cfg.CONF.nsxv.housekeeping_readonly
         self.results = {}
 
-        if self.readonly:
+        if self.global_readonly:
             LOG.info('Housekeeper initialized in readonly mode')
         else:
             LOG.info('Housekeeper initialized')
 
         self.jobs = {}
-        super(NsxvHousekeeper, self).__init__(
-            hk_ns, hk_jobs, invoke_on_load=True, invoke_args=(self.readonly,))
+        super(NsxHousekeeper, self).__init__(
+            hk_ns, hk_jobs, invoke_on_load=True,
+            invoke_args=(self.global_readonly, self.readonly_jobs))
 
         LOG.info("Loaded housekeeping job names: %s", self.names())
         for job in self:
-            if job.obj.get_name() in cfg.CONF.nsxv.housekeeping_jobs:
+            if job.obj.get_name() in hk_jobs:
                 self.jobs[job.obj.get_name()] = job.obj
 
     def get(self, job_name):
-        if job_name == ALL_DUMMY_JOB['name']:
+        if job_name == ALL_DUMMY_JOB_NAME:
             return {'name': job_name,
                     'description': ALL_DUMMY_JOB['description'],
                     'enabled': job_name in self.jobs,
@@ -88,15 +91,15 @@ class NsxvHousekeeper(stevedore.named.NamedExtensionManager):
         raise n_exc.ObjectNotFound(id=job_name)
 
     def list(self):
-        results = [{'name': ALL_DUMMY_JOB['name'],
+        results = [{'name': ALL_DUMMY_JOB_NAME,
                     'description': ALL_DUMMY_JOB['description'],
-                    'enabled': ALL_DUMMY_JOB['name'] in self.jobs,
+                    'enabled': ALL_DUMMY_JOB_NAME in self.jobs,
                     'error_count': self.results.get(
-                        ALL_DUMMY_JOB['name'], {}).get('error_count', 0),
+                        ALL_DUMMY_JOB_NAME, {}).get('error_count', 0),
                     'fixed_count': self.results.get(
-                        ALL_DUMMY_JOB['name'], {}).get('fixed_count', 0),
+                        ALL_DUMMY_JOB_NAME, {}).get('fixed_count', 0),
                     'error_info': self.results.get(
-                        ALL_DUMMY_JOB['name'], {}).get('error_info', '')}]
+                        ALL_DUMMY_JOB_NAME, {}).get('error_info', '')}]
 
         for job in self:
             job_name = job.obj.get_name()
@@ -112,7 +115,24 @@ class NsxvHousekeeper(stevedore.named.NamedExtensionManager):
 
         return results
 
-    def run(self, context, job_name):
+    def readwrite_allowed(self, job_name):
+        # Check if a job can run in readwrite mode
+        if self.global_readonly:
+            return False
+
+        non_readonly_jobs = set(self.jobs.keys()) - set(self.readonly_jobs)
+        if job_name == ALL_DUMMY_JOB_NAME:
+            # 'all' readwrite is allowed if it has non readonly jobs
+            if non_readonly_jobs:
+                return True
+            return False
+        else:
+            # specific job is allowed if it is not in the readonly list
+            if job_name in self.readonly_jobs:
+                return False
+            return True
+
+    def run(self, context, job_name, readonly=False):
         self.results = {}
         if context.is_admin:
             if self.email_notifier:
@@ -122,9 +142,16 @@ class NsxvHousekeeper(stevedore.named.NamedExtensionManager):
                 error_count = 0
                 fixed_count = 0
                 error_info = ''
-                if job_name == ALL_DUMMY_JOB.get('name'):
+                if job_name == ALL_DUMMY_JOB_NAME:
+                    if (not readonly and
+                        not self.readwrite_allowed(ALL_DUMMY_JOB_NAME)):
+                        raise n_exc.ObjectNotFound(id=ALL_DUMMY_JOB_NAME)
                     for job in self.jobs.values():
-                        result = job.run(context)
+                        if (not readonly and
+                            not self.readwrite_allowed(job.get_name())):
+                            # skip this job as it is readonly
+                            continue
+                        result = job.run(context, readonly=readonly)
                         if result:
                             if self.email_notifier and result['error_count']:
                                 self._add_job_text_to_notifier(job, result)
@@ -140,7 +167,10 @@ class NsxvHousekeeper(stevedore.named.NamedExtensionManager):
                 else:
                     job = self.jobs.get(job_name)
                     if job:
-                        result = job.run(context)
+                        if (not readonly and
+                            not self.readwrite_allowed(job_name)):
+                            raise n_exc.ObjectNotFound(id=job_name)
+                        result = job.run(context, readonly=readonly)
                         if result:
                             error_count = result['error_count']
                             if self.email_notifier:

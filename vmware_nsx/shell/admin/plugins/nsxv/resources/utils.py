@@ -64,7 +64,7 @@ class NsxVPluginWrapper(plugin.NsxVPlugin):
         # finish the plugin initialization
         # (with md-proxy config, but without housekeeping)
         with mock.patch("vmware_nsx.plugins.common.housekeeper."
-                        "housekeeper.NsxvHousekeeper"):
+                        "housekeeper.NsxHousekeeper"):
             self.init_complete(0, 0, 0)
 
     def _start_rpc_listeners(self):

@@ -29,8 +29,9 @@ LOG = log.getLogger(__name__)
 
 
 class ErrorBackupEdgeJob(base_job.BaseJob):
-    def __init__(self, readonly):
-        super(ErrorBackupEdgeJob, self).__init__(readonly)
+    def __init__(self, global_readonly, readonly_jobs):
+        super(ErrorBackupEdgeJob, self).__init__(
+            global_readonly, readonly_jobs)
         self.azs = nsx_az.NsxVAvailabilityZones()
 
     def get_project_plugin(self, plugin):
@@ -42,7 +43,7 @@ class ErrorBackupEdgeJob(base_job.BaseJob):
     def get_description(self):
         return 'revalidate backup Edge appliances in ERROR state'
 
-    def run(self, context):
+    def run(self, context, readonly=False):
         super(ErrorBackupEdgeJob, self).run(context)
         error_count = 0
         fixed_count = 0
@@ -69,7 +70,7 @@ class ErrorBackupEdgeJob(base_job.BaseJob):
                 error_info, 'Backup Edge appliance %s is in ERROR state',
                 binding['edge_id'])
 
-            if not self.readonly:
+            if not readonly:
                 with locking.LockManager.get_lock(binding['edge_id']):
                     if self._handle_backup_edge(context, binding):
                         fixed_count += 1

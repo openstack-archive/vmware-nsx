@@ -16,7 +16,6 @@
 import abc
 
 from neutron_lib.plugins import directory
-from oslo_config import cfg
 from oslo_log import log
 import six
 
@@ -28,11 +27,10 @@ class BaseJob(object):
 
     _core_plugin = None
 
-    def __init__(self, readonly):
-        self.readonly = readonly or (self.get_name() in
-                                     cfg.CONF.nsxv.housekeeping_readonly_jobs)
+    def __init__(self, global_readonly, readonly_jobs):
+        job_readonly = global_readonly or (self.get_name() in readonly_jobs)
         LOG.info('Housekeeping: %s job initialized in %s mode',
-                 self.get_name(), 'RO' if self.readonly else 'RW')
+                 self.get_name(), 'RO' if job_readonly else 'RW')
 
     @property
     def plugin(self):

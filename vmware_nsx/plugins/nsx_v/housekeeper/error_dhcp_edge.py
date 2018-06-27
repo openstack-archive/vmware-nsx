@@ -27,8 +27,8 @@ LOG = log.getLogger(__name__)
 
 
 class ErrorDhcpEdgeJob(base_job.BaseJob):
-    def __init__(self, readonly):
-        super(ErrorDhcpEdgeJob, self).__init__(readonly)
+    def __init__(self, global_readonly, readonly_jobs):
+        super(ErrorDhcpEdgeJob, self).__init__(global_readonly, readonly_jobs)
         self.error_count = 0
         self.fixed_count = 0
         self.fixed_sub_if_count = 0
@@ -43,7 +43,7 @@ class ErrorDhcpEdgeJob(base_job.BaseJob):
     def get_description(self):
         return 'revalidate DHCP Edge appliances in ERROR state'
 
-    def run(self, context):
+    def run(self, context, readonly=False):
         super(ErrorDhcpEdgeJob, self).run(context)
         self.error_count = 0
         self.fixed_count = 0
@@ -80,7 +80,7 @@ class ErrorDhcpEdgeJob(base_job.BaseJob):
         for edge_id in edge_dict.keys():
             try:
                 self._validate_dhcp_edge(
-                    context, edge_dict, pfx_dict, networks, edge_id)
+                    context, edge_dict, pfx_dict, networks, edge_id, readonly)
             except Exception as e:
                 self.error_count += 1
                 self.error_info = base_job.housekeeper_warning(
@@ -92,7 +92,7 @@ class ErrorDhcpEdgeJob(base_job.BaseJob):
                 'error_info': self.error_info}
 
     def _validate_dhcp_edge(
-            self, context, edge_dict, pfx_dict, networks, edge_id):
+            self, context, edge_dict, pfx_dict, networks, edge_id, readonly):
         # Also metadata network should be a valid network for the edge
         az_name = self.plugin.get_availability_zone_name_by_edge(context,
                                                                  edge_id)
@@ -119,7 +119,7 @@ class ErrorDhcpEdgeJob(base_job.BaseJob):
                         'router binding %s for edge %s has no matching '
                         'neutron network', router_id, edge_id)
 
-                    if not self.readonly:
+                    if not readonly:
                         nsxv_db.delete_nsxv_router_binding(
                             context.session, binding['router_id'])
                         self.fixed_count += 1
@@ -132,7 +132,7 @@ class ErrorDhcpEdgeJob(base_job.BaseJob):
                             'edge %s vnic binding missing for network %s',
                             edge_id, net_id)
 
-                        if not self.readonly:
+                        if not readonly:
                             nsxv_db.allocate_edge_vnic_with_tunnel_index(
                                 context.session, edge_id, net_id, az_name)
                             self.fixed_count += 1
@@ -154,7 +154,7 @@ class ErrorDhcpEdgeJob(base_job.BaseJob):
                         'edge vnic binding for edge %s is for invalid '
                         'network id %s', edge_id, bind['network_id'])
 
-                    if not self.readonly:
+                    if not readonly:
                         nsxv_db.free_edge_vnic_by_network(
                             context.session, edge_id, bind['network_id'])
                         self.fixed_count += 1
@@ -178,9 +178,10 @@ class ErrorDhcpEdgeJob(base_job.BaseJob):
             self._validate_edge_subinterfaces(
                 context, edge_id, backend_vnics, vnic_dict, if_changed)
             self._add_missing_subinterfaces(
-                context, edge_id, vnic_binds, backend_vnics, if_changed)
+                context, edge_id, vnic_binds, backend_vnics, if_changed,
+                readonly)
 
-            if not self.readonly:
+            if not readonly:
                 for vnic in backend_vnics:
                     if if_changed[vnic['index']]:
                         self.plugin.nsx_v.vcns.update_interface(edge_id,
@@ -218,7 +219,7 @@ class ErrorDhcpEdgeJob(base_job.BaseJob):
                         vnic['subInterfaces']['subInterfaces'].remove(sub_if)
 
     def _add_missing_subinterfaces(self, context, edge_id, vnic_binds,
-                                   backend_vnics, if_changed):
+                                   backend_vnics, if_changed, readonly):
         # Verify that all the entries in
         # nsxv_edge_vnic_bindings are attached on the Edge
 
@@ -252,7 +253,7 @@ class ErrorDhcpEdgeJob(base_job.BaseJob):
                                     tunnel_index, vnic['index'], edge_id,
                                     network_id)
                                 if_changed[vnic['index']] = True
-                                if not self.readonly:
+                                if not readonly:
                                     self._recreate_vnic_subinterface(
                                         context, network_id, edge_id, vnic,
                                         tunnel_index)
@@ -267,7 +268,7 @@ class ErrorDhcpEdgeJob(base_job.BaseJob):
                             tunnel_index, vnic['index'], edge_id, network_id)
                         if_changed[vnic['index']] = True
 
-                        if not self.readonly:
+                        if not readonly:
                             self._recreate_vnic_subinterface(
                                 context, network_id, edge_id, vnic,
                                 tunnel_index)

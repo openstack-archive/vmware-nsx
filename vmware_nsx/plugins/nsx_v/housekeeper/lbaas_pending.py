@@ -46,7 +46,7 @@ class LbaasPendingJob(base_job.BaseJob):
     def get_description(self):
         return 'Monitor LBaaS objects in pending states'
 
-    def run(self, context):
+    def run(self, context, readonly=False):
         super(LbaasPendingJob, self).run(context)
         curr_time = time.time()
         error_count = 0
@@ -74,7 +74,7 @@ class LbaasPendingJob(base_job.BaseJob):
                             'LBaaS %s %s is stuck in pending state',
                             model.NAME, element['id'])
 
-                        if not self.readonly:
+                        if not readonly:
                             element['provisioning_status'] = constants.ERROR
                             fixed_count += 1
                         del self.lbaas_objects[element['id']]
