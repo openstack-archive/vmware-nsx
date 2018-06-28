@@ -1453,6 +1453,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         else:
             if is_ens_net:
                 self._assert_on_ens_with_qos(net_data)
+        # Do not support changing external/non-external networks
+        if (extnet_apidef.EXTERNAL in net_data and
+            net_data[extnet_apidef.EXTERNAL] != extern_net):
+            err_msg = _("Cannot change the router:external flag of a network")
+            raise n_exc.InvalidInput(error_message=err_msg)
+
         updated_net = super(NsxV3Plugin, self).update_network(context, id,
                                                               network)
         self._extension_manager.process_update_network(context, net_data,
