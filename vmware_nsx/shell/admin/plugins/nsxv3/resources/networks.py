@@ -15,6 +15,7 @@
 import sys
 
 from vmware_nsx.db import db as nsx_db
+from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
@@ -75,20 +76,8 @@ def list_missing_networks(resource, event, trigger, **kwargs):
 @admin_utils.output_header
 def list_orphaned_networks(resource, event, trigger, **kwargs):
     nsxlib = utils.get_connected_nsxlib()
-    nsx_switches = nsxlib.logical_switch.list()['results']
-    missing_networks = []
-    for nsx_switch in nsx_switches:
-        # check if it exists in the neutron DB
-        if not neutron_client.lswitch_id_to_net_id(nsx_switch['id']):
-            # Skip non-neutron networks, by tags
-            neutron_net = False
-            for tag in nsx_switch.get('tags', []):
-                if tag.get('scope') == 'os-neutron-net-id':
-                    neutron_net = True
-                    break
-            if neutron_net:
-                missing_networks.append(nsx_switch)
-
+    admin_cxt = neutron_context.get_admin_context()
+    missing_networks = v3_utils.get_orphaned_networks(admin_cxt, nsxlib)
     LOG.info(formatters.output_formatter(constants.ORPHANED_NETWORKS,
                                          missing_networks,
                                          ['id', 'display_name']))

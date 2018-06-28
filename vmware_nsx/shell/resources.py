@@ -89,6 +89,10 @@ nsxv3_resources = {
             Operations.LIST.value,
             Operations.LIST_MISMATCHES.value,
             Operations.MIGRATE_TO_DYNAMIC_CRITERIA.value]),
+    constants.ORPHANED_FIREWALL_SECTIONS: Resource(
+        constants.ORPHANED_FIREWALL_SECTIONS, [
+            Operations.NSX_LIST.value,
+            Operations.NSX_CLEAN.value]),
     constants.NETWORKS: Resource(constants.NETWORKS,
                                  [Operations.LIST_MISMATCHES.value]),
     constants.PORTS: Resource(constants.PORTS,

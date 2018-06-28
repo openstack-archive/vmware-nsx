@@ -92,23 +92,18 @@ class NeutronDbClient(db_base_plugin_v2.NeutronDbPluginV2):
         return super(NeutronDbClient, self).get_networks(
             self.context, filters=filters, fields=fields)
 
-    def get_network(self, network_id):
-        return super(NeutronDbClient, self).get_network(
-            self.context, network_id)
+    def get_network(self, context, network_id):
+        if not context:
+            context = self.context
+        return super(NeutronDbClient, self).get_network(context, network_id)
 
-    def get_subnet(self, subnet_id):
-        return super(NeutronDbClient, self).get_subnet(self.context, subnet_id)
+    def get_subnet(self, context, subnet_id):
+        if not context:
+            context = self.context
+        return super(NeutronDbClient, self).get_subnet(context, subnet_id)
 
     def get_lswitch_and_lport_id(self, port_id):
         return nsx_db.get_nsx_switch_and_port_id(self.context.session, port_id)
-
-    def lswitch_id_to_net_id(self, lswitch_id):
-        net_ids = nsx_db.get_net_ids(self.context.session, lswitch_id)
-        return net_ids[0] if net_ids else None
-
-    def lrouter_id_to_router_id(self, lrouter_id):
-        return nsx_db.get_neutron_from_nsx_router_id(self.context.session,
-                                                     lrouter_id)
 
     def net_id_to_lswitch_id(self, net_id):
         lswitch_ids = nsx_db.get_nsx_switch_ids(self.context.session, net_id)

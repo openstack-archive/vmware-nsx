@@ -16,6 +16,7 @@ import sys
 
 from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.db import db as nsx_db
+from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
@@ -115,17 +116,8 @@ def update_nat_rules(resource, event, trigger, **kwargs):
 @admin_utils.output_header
 def list_orphaned_routers(resource, event, trigger, **kwargs):
     nsxlib = utils.get_connected_nsxlib()
-    nsx_routers = nsxlib.logical_router.list()['results']
-    missing_routers = []
-    for nsx_router in nsx_routers:
-        # check if it exists in the neutron DB
-        if not neutron_client.lrouter_id_to_router_id(nsx_router['id']):
-            # Skip non-neutron routers, by tags
-            for tag in nsx_router.get('tags', []):
-                if tag.get('scope') == 'os-neutron-router-id':
-                    missing_routers.append(nsx_router)
-                    break
-
+    admin_cxt = neutron_context.get_admin_context()
+    missing_routers = v3_utils.get_orphaned_routers(admin_cxt, nsxlib)
     LOG.info(formatters.output_formatter(constants.ORPHANED_ROUTERS,
                                          missing_routers,
                                          ['id', 'display_name']))
@@ -154,15 +146,10 @@ def delete_backend_router(resource, event, trigger, **kwargs):
         return
 
     # try to delete it
-    try:
-        # first delete its ports
-        ports = nsxlib.logical_router_port.get_by_router_id(nsx_id)
-        for port in ports:
-            nsxlib.logical_router_port.delete(port['id'])
-        nsxlib.logical_router.delete(nsx_id)
-    except Exception as e:
+    success, error = v3_utils.delete_orphaned_router(nsxlib, nsx_id)
+    if not success:
         LOG.error("Failed to delete backend router %(id)s : %(e)s.", {
-            'id': nsx_id, 'e': e})
+            'id': nsx_id, 'e': error})
         return
 
     # Verify that the router was deleted since the backend does not always
