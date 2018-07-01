@@ -99,7 +99,7 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
 
         return True
 
-    def _get_routers_edges(self, context, apply_list):
+    def _get_routers_edges(self, context, apply_list, delete_fw=False):
         # Get edges for all the routers in the apply list.
         # note that shared routers are currently not supported
         edge_manager = self.edge_manager
@@ -107,7 +107,8 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
         for router_info in apply_list:
 
             # No FWaaS rules needed if there is no external gateway
-            if not self.should_apply_firewall_to_router(router_info.router):
+            if not self.should_apply_firewall_to_router(
+                router_info.router, raise_exception=(not delete_fw)):
                 continue
 
             lookup_id = None
@@ -224,7 +225,8 @@ class EdgeFwaasDriver(fwaas_base.FwaasDriverBase):
                                                delete_fw=False):
         # get router-edge mapping
         context = n_context.get_admin_context()
-        edges_map = self._get_routers_edges(context, apply_list)
+        edges_map = self._get_routers_edges(context, apply_list,
+                                            delete_fw=delete_fw)
 
         # if the firewall is deleted, rules should be None
         rules = None if delete_fw else []
