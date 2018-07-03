@@ -63,3 +63,6 @@ the backend when required.
 
 error_backup_edge: scans from backup Edge appliances which are in ERROR state.
 When in non-readonly mode, the job will reset the Edge appliance configuration.
+
+lbaas_pending: scans the neutron DB for LBaaS objects which are pending for too
+long. Report it, and if in non-readonly mode change its status to ERROR
