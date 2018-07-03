@@ -17,6 +17,7 @@ import mock
 from neutron.tests import base
 from neutron_lib.plugins import constants
 
+from vmware_nsx.plugins.common.housekeeper import base_job
 from vmware_nsx.plugins.nsx_v.housekeeper import error_backup_edge
 
 FAKE_ROUTER_BINDINGS = [
@@ -42,7 +43,7 @@ class ErrorBackupEdgeTestCaseReadOnly(base.BaseTestCase):
         mock.patch('neutron_lib.plugins.directory.get_plugin',
                    side_effect=get_plugin_mock).start()
         self.log = mock.Mock()
-        error_backup_edge.LOG = self.log
+        base_job.LOG = self.log
         self.job = error_backup_edge.ErrorBackupEdgeJob(self._is_readonly())
 
     def test_clean_run(self):

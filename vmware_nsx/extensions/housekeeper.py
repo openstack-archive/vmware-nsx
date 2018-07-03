@@ -34,6 +34,12 @@ RESOURCE_ATTRIBUTE_MAP = {
             'allow_post': False, 'allow_put': False, 'is_visible': True},
         'enabled': {
             'allow_post': False, 'allow_put': False, 'is_visible': True},
+        'error_count': {
+            'allow_post': False, 'allow_put': False, 'is_visible': True},
+        'fixed_count': {
+            'allow_post': False, 'allow_put': False, 'is_visible': True},
+        'error_info': {
+            'allow_post': False, 'allow_put': False, 'is_visible': True},
     }
 }
 
