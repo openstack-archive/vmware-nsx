@@ -113,11 +113,13 @@ def generate_cert(resource, event, trigger, **kwargs):
     subject[client_cert.CERT_SUBJECT_UNIT] = properties.get('org')
     subject[client_cert.CERT_SUBJECT_HOST] = properties.get('host')
 
+    regenerate = False
     with get_certificate_manager(**kwargs) as cert:
         if cert.exists():
             LOG.info("Deleting existing certificate")
             # Need to delete cert first
             cert.delete()
+            regenerate = True
 
         try:
             cert.generate(subject, key_size, valid_for_days, signature_alg)
@@ -126,6 +128,11 @@ def generate_cert(resource, event, trigger, **kwargs):
             return
 
     LOG.info("Client certificate generated successfully")
+    if not regenerate:
+        # No certificate existed, so client authentication service was likely
+        # changed to true just now. The user must restart neutron to avoid
+        # failures.
+        LOG.info("Please restart neutron service")
 
 
 @admin_utils.output_header
