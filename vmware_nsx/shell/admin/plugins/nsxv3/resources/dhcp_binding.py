@@ -79,12 +79,12 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
             if netaddr.IPNetwork(fixed_ip['ip_address']).version == 6:
                 continue
             network_id = port['network_id']
-            subnet = neutron_client.get_subnet(fixed_ip['subnet_id'])
+            subnet = neutron_client.get_subnet(None, fixed_ip['subnet_id'])
             if device_owner == const.DEVICE_OWNER_DHCP:
                 # For each DHCP-enabled network, create a logical DHCP server
                 # and update the attachment type to DHCP on the corresponding
                 # logical port of the Neutron DHCP port.
-                network = neutron_client.get_network(port['network_id'])
+                network = neutron_client.get_network(None, port['network_id'])
                 net_tags = nsxlib.build_v3_tags_payload(
                     network, resource_type='os-neutron-net-id',
                     project_name='admin')
@@ -132,7 +132,7 @@ def nsx_update_dhcp_bindings(resource, event, trigger, **kwargs):
             options = {'option121': {'static_routes': [
                 {'network': '%s' % cfg.CONF.nsx_v3.native_metadata_route,
                  'next_hop': ip}]}}
-            subnet = neutron_client.get_subnet(subnet_id)
+            subnet = neutron_client.get_subnet(None, subnet_id)
             binding = nsxlib.dhcp_server.create_binding(
                 dhcp_server_id, mac, ip, hostname,
                 cfg.CONF.nsx_v3.dhcp_lease_time, options,

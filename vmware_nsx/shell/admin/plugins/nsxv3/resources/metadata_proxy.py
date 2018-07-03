@@ -41,7 +41,7 @@ def _is_metadata_network(network):
     # If a Neutron network has only one subnet with 169.254.169.252/30 CIDR,
     # then it is an internal metadata network.
     if len(network['subnets']) == 1:
-        subnet = neutron_client.get_subnet(network['subnets'][0])
+        subnet = neutron_client.get_subnet(None, network['subnets'][0])
         if subnet['cidr'] == nsx_rpc.METADATA_SUBNET_CIDR:
             return True
     return False

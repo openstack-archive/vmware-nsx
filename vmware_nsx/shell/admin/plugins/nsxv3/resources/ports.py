@@ -12,23 +12,18 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-
-from oslo_config import cfg
 from oslo_log import log as logging
-from sqlalchemy.orm import exc
 
 from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.db import db as nsx_db
-from vmware_nsx.db import nsx_models
 from vmware_nsx.dvs import dvs
 from vmware_nsx.plugins.nsx_v3 import plugin
-from vmware_nsx.services.qos.common import utils as qos_utils
+from vmware_nsx.plugins.nsx_v3 import utils as plugin_utils
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils as v3_utils
 from vmware_nsx.shell import resources as shell
-from vmware_nsxlib.v3 import core_resources
 from vmware_nsxlib.v3 import exceptions as nsx_exc
 from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
 from vmware_nsxlib.v3 import resources
@@ -38,7 +33,6 @@ from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import l3_db
 from neutron.db import portsecurity_db
-from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.callbacks import registry
 from neutron_lib import constants as const
 from neutron_lib import context as neutron_context
@@ -59,17 +53,6 @@ class PortsPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         directory.add_plugin(plugin_constants.CORE, None)
 
 
-def get_port_nsx_id(session, neutron_id):
-    # get the nsx port id from the DB mapping
-    try:
-        mapping = (session.query(nsx_models.NeutronNsxPortMapping).
-                   filter_by(neutron_id=neutron_id).
-                   one())
-        return mapping['nsx_port_id']
-    except exc.NoResultFound:
-        pass
-
-
 def get_network_nsx_id(session, neutron_id):
     # get the nsx switch id from the DB mapping
     mappings = nsx_db.get_nsx_switch_ids(session, neutron_id)
@@ -84,111 +67,17 @@ def get_network_nsx_id(session, neutron_id):
         return mappings[0]
 
 
-def get_port_and_profile_clients():
-    _nsx_client = v3_utils.get_nsxv3_client()
-    return (resources.LogicalPort(_nsx_client),
-            core_resources.NsxLibSwitchingProfile(_nsx_client))
-
-
-def get_dhcp_profile_id(profile_client):
-    profiles = profile_client.find_by_display_name(
-        plugin.NSX_V3_DHCP_PROFILE_NAME)
-    if profiles and len(profiles) == 1:
-        return profiles[0]['id']
-    LOG.warning("Could not find DHCP profile on backend")
-
-
-def get_spoofguard_profile_id(profile_client):
-    profiles = profile_client.find_by_display_name(
-        plugin.NSX_V3_PSEC_PROFILE_NAME)
-    if profiles and len(profiles) == 1:
-        return profiles[0]['id']
-    LOG.warning("Could not find Spoof Guard profile on backend")
-
-
-def add_profile_mismatch(problems, neutron_id, nsx_id, prf_id, title):
-    msg = ('Wrong %(title)s profile %(prf_id)s') % {'title': title,
-                                                    'prf_id': prf_id}
-    problems.append({'neutron_id': neutron_id,
-                     'nsx_id': nsx_id,
-                     'error': msg})
-
-
 @admin_utils.output_header
 def list_missing_ports(resource, event, trigger, **kwargs):
     """List neutron ports that are missing the NSX backend port
-    And ports with wrong switch profiles
+    And ports with wrong switch profiles or bindings
     """
     admin_cxt = neutron_context.get_admin_context()
     filters = v3_utils.get_plugin_filters(admin_cxt)
+    nsxlib = v3_utils.get_connected_nsxlib()
     with PortsPlugin() as plugin:
-        neutron_ports = plugin.get_ports(admin_cxt, filters=filters)
-        port_client, profile_client = get_port_and_profile_clients()
-
-        # get pre-defined profile ids
-        dhcp_profile_id = get_dhcp_profile_id(profile_client)
-        dhcp_profile_key = (
-            core_resources.SwitchingProfileTypes.SWITCH_SECURITY)
-        spoofguard_profile_id = get_spoofguard_profile_id(profile_client)
-        spoofguard_profile_key = (
-            core_resources.SwitchingProfileTypes.SPOOF_GUARD)
-        qos_profile_key = core_resources.SwitchingProfileTypes.QOS
-
-        problems = []
-        for port in neutron_ports:
-            neutron_id = port['id']
-            # get the network nsx id from the mapping table
-            nsx_id = get_port_nsx_id(admin_cxt.session, neutron_id)
-            if not nsx_id:
-                # skip external ports
-                pass
-            else:
-                try:
-                    nsx_port = port_client.get(nsx_id)
-                except nsx_exc.ResourceNotFound:
-                    problems.append({'neutron_id': neutron_id,
-                                     'nsx_id': nsx_id,
-                                     'error': 'Missing from backend'})
-                    continue
-
-                # Port found on backend!
-                # Check that it has all the expected switch profiles.
-                # create a dictionary of the current profiles:
-                profiles_dict = {}
-                for prf in nsx_port['switching_profile_ids']:
-                    profiles_dict[prf['key']] = prf['value']
-
-                # DHCP port: neutron dhcp profile should be attached
-                # to logical ports created for neutron DHCP but not
-                # for native DHCP.
-                if (port.get('device_owner') == const.DEVICE_OWNER_DHCP and
-                    not cfg.CONF.nsx_v3.native_dhcp_metadata):
-                    prf_id = profiles_dict[dhcp_profile_key]
-                    if prf_id != dhcp_profile_id:
-                        add_profile_mismatch(problems, neutron_id, nsx_id,
-                                             prf_id, "DHCP security")
-
-                # Port with QoS policy: a matching profile should be attached
-                qos_policy_id = qos_utils.get_port_policy_id(admin_cxt,
-                                                             neutron_id)
-                if qos_policy_id:
-                    qos_profile_id = nsx_db.get_switch_profile_by_qos_policy(
-                        admin_cxt.session, qos_policy_id)
-                    prf_id = profiles_dict[qos_profile_key]
-                    if prf_id != qos_profile_id:
-                        add_profile_mismatch(problems, neutron_id, nsx_id,
-                                             prf_id, "QoS")
-
-                # Port with security & fixed ips/address pairs:
-                # neutron spoofguard profile should be attached
-                port_sec, has_ip = plugin._determine_port_security_and_has_ip(
-                    admin_cxt, port)
-                addr_pair = port.get(addr_apidef.ADDRESS_PAIRS)
-                if port_sec and (has_ip or addr_pair):
-                    prf_id = profiles_dict[spoofguard_profile_key]
-                    if prf_id != spoofguard_profile_id:
-                        add_profile_mismatch(problems, neutron_id, nsx_id,
-                                             prf_id, "Spoof Guard")
+        problems = plugin_utils.get_mismatch_logical_ports(
+            admin_cxt, nsxlib, plugin, filters)
 
     if len(problems) > 0:
         title = ("Found internal ports misconfiguration on the "
@@ -365,7 +254,8 @@ def tag_default_ports(resource, event, trigger, **kwargs):
         for port in neutron_ports:
             neutron_id = port['id']
             # get the network nsx id from the mapping table
-            nsx_id = get_port_nsx_id(admin_cxt.session, neutron_id)
+            nsx_id = plugin_utils.get_port_nsx_id(admin_cxt.session,
+                                                  neutron_id)
             if not nsx_id:
                 continue
             device_owner = port['device_owner']

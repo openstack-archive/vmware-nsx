@@ -351,7 +351,7 @@ Orphaned Routers
 Ports
 ~~~~~
 
-- List missing ports, and ports that exist on backend but without the expected switch profiles::
+- List missing ports, and ports that exist on backend but without the expected switch profiles or address bindings::
 
     nsxadmin -r ports -o list-mismatches
 
@@ -370,7 +370,7 @@ Ports
 Security Groups & NSX Security Groups
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- List backed security groups::
+- List NSX backend security groups::
 
     nsxadmin -r nsx-security-groups -o list
 
@@ -378,13 +378,13 @@ Security Groups & NSX Security Groups
 
     nsxadmin -r security-groups -o list
 
-- Fix mismatch sections in security group::
-
-    nsxadmin -r security-groups -o fix-mismatch
-
-- List nsx security groups with mismatch sections::
+- List security groups with sections missing on the NSX backend::
 
     nsxadmin -r nsx-security-groups -o list-mismatches
+
+- Fix mismatch security groups by recreating missing sections & NS groups on the NSX backend::
+
+    nsxadmin -r security-groups -o fix-mismatch
 
 - Update NSX security groups dynamic criteria for NSXv3 CrossHairs::
 
@@ -393,13 +393,24 @@ Security Groups & NSX Security Groups
 Firewall Sections
 ~~~~~~~~~~~~~~~~~
 
-- List backed firewall sections::
+- List NSX backend firewall sections::
 
     nsxadmin -r firewall-sections -o list
 
-- List security groups with missing sections::
+- List security groups with missing sections on the NSX backend::
 
     nsxadmin -r firewall-sections -o list-mismatches
+
+Orphaned Firewall Sections
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- List orphaned firewall sections (exist on NSXv3 backend but don't have a corresponding binding in Neutron DB)::
+
+    nsxadmin -r orphaned-firewall-sections -o nsx-list
+
+- Delete orphaned firewall sections (exist on NSXv3 backend but don't have a corresponding binding in Neutron DB)::
+
+    nsxadmin -r orphaned-firewall-sections -o nsx-clean
 
 Metadata Proxy
 ~~~~~~~~~~~~~~

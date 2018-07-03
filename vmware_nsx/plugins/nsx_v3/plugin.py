@@ -129,9 +129,7 @@ from vmware_nsxlib.v3 import utils as nsxlib_utils
 
 
 LOG = log.getLogger(__name__)
-NSX_V3_PSEC_PROFILE_NAME = 'neutron_port_spoof_guard_profile'
 NSX_V3_NO_PSEC_PROFILE_NAME = 'nsx-default-spoof-guard-vif-profile'
-NSX_V3_DHCP_PROFILE_NAME = 'neutron_port_dhcp_profile'
 NSX_V3_MAC_LEARNING_PROFILE_NAME = 'neutron_port_mac_learning_profile'
 NSX_V3_FW_DEFAULT_SECTION = 'OS Default Section for Neutron Security-Groups'
 NSX_V3_FW_DEFAULT_NS_GROUP = 'os_default_section_ns_group'
@@ -507,12 +505,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _init_nsx_profiles(self):
         LOG.debug("Initializing NSX v3 port spoofguard switching profile")
         if not self._init_port_security_profile():
-            msg = _("Unable to initialize NSX v3 port spoofguard "
-                    "switching profile: %s") % NSX_V3_PSEC_PROFILE_NAME
+            msg = _("Unable to initialize NSX v3 port spoofguard switching "
+                    "profile: %s") % v3_utils.NSX_V3_PSEC_PROFILE_NAME
             raise nsx_exc.NsxPluginException(err_msg=msg)
         profile_client = self.nsxlib.switching_profile
         no_psec_prof = profile_client.find_by_display_name(
-                NSX_V3_NO_PSEC_PROFILE_NAME)[0]
+            NSX_V3_NO_PSEC_PROFILE_NAME)[0]
         self._no_psec_profile_id = profile_client.build_switch_profile_ids(
             profile_client, no_psec_prof)[0]
 
@@ -522,7 +520,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         except Exception as e:
             msg = (_("Unable to initialize NSX v3 DHCP switching profile: "
                      "%(id)s. Reason: %(reason)s") % {
-                   'id': NSX_V3_DHCP_PROFILE_NAME,
+                   'id': v3_utils.NSX_V3_DHCP_PROFILE_NAME,
                    'reason': str(e)})
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
@@ -672,7 +670,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         with locking.LockManager.get_lock('nsxv3_dhcp_profile_init'):
             if not self._get_dhcp_security_profile():
                 self.nsxlib.switching_profile.create_dhcp_profile(
-                    NSX_V3_DHCP_PROFILE_NAME, 'Neutron DHCP Security Profile',
+                    v3_utils.NSX_V3_DHCP_PROFILE_NAME,
+                    'Neutron DHCP Security Profile',
                     tags=self.nsxlib.build_v3_api_version_tag())
             return self._get_dhcp_security_profile()
 
@@ -680,7 +679,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if hasattr(self, '_dhcp_profile') and self._dhcp_profile:
             return self._dhcp_profile
         profile = self.nsxlib.switching_profile.find_by_display_name(
-            NSX_V3_DHCP_PROFILE_NAME)
+            v3_utils.NSX_V3_DHCP_PROFILE_NAME)
         self._dhcp_profile = nsx_resources.SwitchingProfileTypeId(
             profile_type=(nsx_resources.SwitchingProfileTypes.
                           SWITCH_SECURITY),
@@ -745,7 +744,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if hasattr(self, '_psec_profile') and self._psec_profile:
             return self._psec_profile
         profile = self.nsxlib.switching_profile.find_by_display_name(
-            NSX_V3_PSEC_PROFILE_NAME)
+            v3_utils.NSX_V3_PSEC_PROFILE_NAME)
         self._psec_profile = profile[0] if profile else None
         return self._psec_profile
 
@@ -763,7 +762,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 return profile
 
             self.nsxlib.switching_profile.create_spoofguard_profile(
-                NSX_V3_PSEC_PROFILE_NAME, 'Neutron Port Security Profile',
+                v3_utils.NSX_V3_PSEC_PROFILE_NAME,
+                'Neutron Port Security Profile',
                 whitelist_ports=True, whitelist_switches=False,
                 tags=self.nsxlib.build_v3_api_version_tag())
         return self._get_port_security_profile()
