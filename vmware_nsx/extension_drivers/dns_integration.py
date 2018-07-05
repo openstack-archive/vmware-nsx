@@ -327,27 +327,34 @@ class DNSExtensionDriverNSXv3(DNSExtensionDriver):
         self._availability_zones = nsx_az.NsxV3AvailabilityZones()
         LOG.info("DNSExtensionDriverNSXv3 initialization complete")
 
-    def _get_network_az(self, network_id, context):
+    def _get_network_and_az(self, network_id, context):
         if not context:
             context = n_context.get_admin_context()
         network = self._get_network(context, network_id)
         if az_def.AZ_HINTS in network and network[az_def.AZ_HINTS]:
             az_name = network[az_def.AZ_HINTS][0]
-            return self._availability_zones.get_availability_zone(az_name)
-        return self._availability_zones.get_default_availability_zone()
+            az = self._availability_zones.get_availability_zone(az_name)
+            return network, az
+        az = self._availability_zones.get_default_availability_zone()
+        return network, az
 
     def _get_dns_domain(self, network_id, context=None):
+        # first try to get the dns_domain configured on the network
+        net, az = self._get_network_and_az(network_id, context)
+        if net.get('dns_domain'):
+            return _dotted_domain(net['dns_domain'])
         # try to get the dns-domain from the specific availability zone
         # of this network
-        az = self._get_network_az(network_id, context)
         if (az.dns_domain
             and _dotted_domain(az.dns_domain) !=
                 _dotted_domain(DNS_DOMAIN_DEFAULT)):
             dns_domain = az.dns_domain
+        # Global nsx_v3 dns domain
         elif (cfg.CONF.nsx_v3.dns_domain
               and (_dotted_domain(cfg.CONF.nsx_v3.dns_domain) !=
                    _dotted_domain(DNS_DOMAIN_DEFAULT))):
             dns_domain = cfg.CONF.nsx_v3.dns_domain
+        # Global neutron dns domain
         elif cfg.CONF.dns_domain:
             dns_domain = cfg.CONF.dns_domain
         else:
