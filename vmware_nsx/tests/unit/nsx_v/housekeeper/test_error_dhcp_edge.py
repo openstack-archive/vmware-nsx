@@ -270,8 +270,6 @@ BAD_INTERFACE = {
 
 
 class ErrorDhcpEdgeTestCaseReadOnly(base.BaseTestCase):
-    def _is_readonly(self):
-        return True
 
     def setUp(self):
         def get_plugin_mock(alias=constants.CORE):
@@ -291,12 +289,15 @@ class ErrorDhcpEdgeTestCaseReadOnly(base.BaseTestCase):
                           return_value='default').start()
         self.log = mock.Mock()
         base_job.LOG = self.log
-        self.job = error_dhcp_edge.ErrorDhcpEdgeJob(self._is_readonly())
+        self.job = error_dhcp_edge.ErrorDhcpEdgeJob(True, [])
+
+    def run_job(self):
+        self.job.run(self.context, readonly=True)
 
     def test_clean_run(self):
         mock.patch('vmware_nsx.db.nsxv_db.get_nsxv_router_bindings',
                    return_value=[]).start()
-        self.job.run(self.context)
+        self.run_job()
         self.log.warning.assert_not_called()
 
     def test_invalid_router_binding(self):
@@ -312,7 +313,7 @@ class ErrorDhcpEdgeTestCaseReadOnly(base.BaseTestCase):
                           return_value=(None, BACKEND_EDGE_VNICS)).start()
         mock.patch('vmware_nsx.db.nsxv_db.get_nsxv_internal_networks',
                    return_value=FAKE_INTERNAL_NETWORKS).start()
-        self.job.run(self.context)
+        self.run_job()
         self.log.warning.assert_called_once()
 
     def test_invalid_edge_vnic_bindings(self):
@@ -340,7 +341,7 @@ class ErrorDhcpEdgeTestCaseReadOnly(base.BaseTestCase):
                           return_value=(None, BACKEND_EDGE_VNICS)).start()
         mock.patch('vmware_nsx.db.nsxv_db.get_nsxv_internal_networks',
                    return_value=FAKE_INTERNAL_NETWORKS).start()
-        self.job.run(self.context)
+        self.run_job()
         self.log.warning.assert_called_once()
 
     def test_invalid_edge_sub_if(self):
@@ -357,7 +358,7 @@ class ErrorDhcpEdgeTestCaseReadOnly(base.BaseTestCase):
                           return_value=(None, backend_vnics)).start()
         mock.patch('vmware_nsx.db.nsxv_db.get_nsxv_internal_networks',
                    return_value=FAKE_INTERNAL_NETWORKS).start()
-        self.job.run(self.context)
+        self.run_job()
         self.log.warning.assert_called_once()
 
     def test_missing_edge_sub_if(self):
@@ -373,7 +374,7 @@ class ErrorDhcpEdgeTestCaseReadOnly(base.BaseTestCase):
                           return_value=(None, backend_vnics)).start()
         mock.patch('vmware_nsx.db.nsxv_db.get_nsxv_internal_networks',
                    return_value=FAKE_INTERNAL_NETWORKS).start()
-        self.job.run(self.context)
+        self.run_job()
         self.log.warning.assert_called_once()
 
     def test_missing_edge_interface(self):
@@ -389,13 +390,14 @@ class ErrorDhcpEdgeTestCaseReadOnly(base.BaseTestCase):
                           return_value=(None, backend_vnics)).start()
         mock.patch('vmware_nsx.db.nsxv_db.get_nsxv_internal_networks',
                    return_value=FAKE_INTERNAL_NETWORKS).start()
-        self.job.run(self.context)
+        self.run_job()
         self.assertEqual(2, self.log.warning.call_count)
 
 
 class ErrorDhcpEdgeTestCaseReadWrite(ErrorDhcpEdgeTestCaseReadOnly):
-    def _is_readonly(self):
-        return False
+
+    def run_job(self):
+        self.job.run(self.context, readonly=False)
 
     def test_invalid_router_binding(self):
         del_binding = mock.patch(

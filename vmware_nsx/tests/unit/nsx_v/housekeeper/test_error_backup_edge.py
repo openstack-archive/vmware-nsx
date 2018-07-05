@@ -28,8 +28,6 @@ FAKE_ROUTER_BINDINGS = [
 
 
 class ErrorBackupEdgeTestCaseReadOnly(base.BaseTestCase):
-    def _is_readonly(self):
-        return True
 
     def setUp(self):
         def get_plugin_mock(alias=constants.CORE):
@@ -44,25 +42,28 @@ class ErrorBackupEdgeTestCaseReadOnly(base.BaseTestCase):
                    side_effect=get_plugin_mock).start()
         self.log = mock.Mock()
         base_job.LOG = self.log
-        self.job = error_backup_edge.ErrorBackupEdgeJob(self._is_readonly())
+        self.job = error_backup_edge.ErrorBackupEdgeJob(True, [])
+
+    def run_job(self):
+        self.job.run(self.context, readonly=True)
 
     def test_clean_run(self):
         mock.patch('vmware_nsx.db.nsxv_db.get_nsxv_router_bindings',
                    return_value=[]).start()
-        self.job.run(self.context)
+        self.run_job()
         self.log.warning.assert_not_called()
 
     def test_broken_backup_edge(self):
         mock.patch('vmware_nsx.db.nsxv_db.get_nsxv_router_bindings',
                    return_value=FAKE_ROUTER_BINDINGS).start()
 
-        self.job.run(self.context)
+        self.run_job()
         self.log.warning.assert_called_once()
 
 
 class ErrorBackupEdgeTestCaseReadWrite(ErrorBackupEdgeTestCaseReadOnly):
-    def _is_readonly(self):
-        return False
+    def run_job(self):
+        self.job.run(self.context, readonly=False)
 
     def test_broken_backup_edge(self):
         upd_binding = mock.patch(
