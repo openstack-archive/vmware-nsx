@@ -19,7 +19,7 @@ import eventlet
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from six.moves import http_client as httplib
-from six.moves.urllib import parse
+from six.moves import urllib
 
 from vmware_nsx._i18n import _
 from vmware_nsx.api_client import request
@@ -169,7 +169,7 @@ class LoginRequestEventlet(EventletApiRequest):
         if headers is None:
             headers = {}
         headers.update({"Content-Type": "application/x-www-form-urlencoded"})
-        body = parse.urlencode({"username": user, "password": password})
+        body = urllib.parse.urlencode({"username": user, "password": password})
         super(LoginRequestEventlet, self).__init__(
             client_obj, "/ws.v1/login", "POST", body, headers,
             auto_login=False, client_conn=client_conn)

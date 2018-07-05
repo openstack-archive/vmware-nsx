@@ -25,7 +25,7 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 import six
 from six.moves import http_client as httplib
-import six.moves.urllib.parse as urlparse
+from six.moves import urllib
 
 from vmware_nsx._i18n import _
 from vmware_nsx import api_client
@@ -240,7 +240,7 @@ class ApiRequest(object):
         # 2. scheme://hostname:[port]/path where scheme is https or http
         # Reject others
         # 3. e.g. relative paths, unsupported scheme, unspecified host
-        result = urlparse.urlparse(url)
+        result = urllib.parse.urlparse(url)
         if not result.scheme and not result.hostname and result.path:
             if result.path[0] == "/":
                 if result.query:
