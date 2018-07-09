@@ -100,3 +100,18 @@ class NsxV3DNSIntegrationTestCase(NsxDNSIntegrationTestCase,
         cfg.CONF.set_override('nsx_extension_drivers', ['vmware_nsxv3_dns'])
         cfg.CONF.set_override('dns_domain', self._domain, 'nsx_v3')
         super(NsxV3DNSIntegrationTestCase, self).setUp()
+
+    def test_create_port_dns_domain_name(self):
+        with self.network(dns_domain=NETWORK_DOMAIN_NAME,
+                          arg_list=(dns.DNSDOMAIN,)) as network,\
+            self.subnet(network=network, cidr='10.0.0.0/24') as subnet,\
+            self.port(subnet=subnet, dns_name=PORT_DNS_NAME,
+                      arg_list=(dns.DNSNAME,)) as port:
+            port_data = port['port']
+            dns_assignment = port_data[dns.DNSASSIGNMENT][0]
+            self.assertEqual(PORT_DNS_NAME, port_data[dns.DNSNAME])
+            self.assertEqual(PORT_DNS_NAME, dns_assignment['hostname'])
+            self.assertEqual(port_data['fixed_ips'][0]['ip_address'],
+                             dns_assignment['ip_address'])
+            self.assertEqual(PORT_DNS_NAME + '.' + NETWORK_DOMAIN_NAME,
+                             dns_assignment['fqdn'])
