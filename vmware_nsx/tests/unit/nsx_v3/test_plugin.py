@@ -74,7 +74,7 @@ NSX_DHCP_RELAY_SRV = 'dhcp relay srv'
 def _mock_create_firewall_rules(*args):
     # NOTE(arosen): the code in the neutron plugin expects the
     # neutron rule id as the display_name.
-    rules = args[5]
+    rules = args[4]
     return {
         'rules': [
             {'display_name': rule['id'], 'id': uuidutils.generate_uuid()}

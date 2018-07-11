@@ -2888,8 +2888,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                                         original)
         nsx_updated = nsx_db.get_nsx_security_group_ids(context.session,
                                                         updated)
-        self.nsxlib.ns_group.update_lport(
-            context, lport_id, nsx_origial, nsx_updated)
+        self.nsxlib.ns_group.update_lport_nsgroups(
+            lport_id, nsx_origial, nsx_updated)
 
     def base_create_port(self, context, port):
         neutron_db = super(NsxV3Plugin, self).create_port(context, port)
@@ -4751,8 +4751,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 sg_rule['local_ip_prefix'].startswith('0.0.0.0/')):
                 sg_rule['local_ip_prefix'] = None
 
-        return self.nsxlib.firewall_section.create_rules(
-            context, section_id, nsgroup_id,
+        return self.nsxlib.firewall_section.create_section_rules(
+            section_id, nsgroup_id,
             logging_enabled, action, _sg_rules,
             ruleid_2_remote_nsgroup_map)
 
@@ -4871,8 +4871,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         try:
             nsgroup_id, section_id = nsx_db.get_sg_mappings(
                 context.session, id)
-            self.nsxlib.ns_group.update_on_backend(
-                context, secgroup_res, nsgroup_id, section_id,
+            self.nsxlib.ns_group.update_nsgroup_and_section(
+                secgroup_res, nsgroup_id, section_id,
                 cfg.CONF.nsx_v3.log_security_groups_allowed_traffic)
         except nsx_lib_exc.ManagerError:
             with excutils.save_and_reraise_exception():

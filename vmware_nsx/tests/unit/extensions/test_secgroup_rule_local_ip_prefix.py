@@ -130,7 +130,8 @@ class TestNSXv3ExtendedSGRule(test_nsxv3_plugin.NsxV3PluginTestCaseMixin,
              'description': ''}]
 
         with mock.patch(
-            "vmware_nsxlib.v3.security.NsxLibFirewallSection.create_rules",
+            "vmware_nsxlib.v3.security.NsxLibFirewallSection."
+            "create_section_rules",
             side_effect=test_nsxv3_plugin._mock_create_firewall_rules,
         ) as mock_rule:
 
@@ -138,7 +139,6 @@ class TestNSXv3ExtendedSGRule(test_nsxv3_plugin.NsxV3PluginTestCaseMixin,
                   self).test_create_rule_with_local_ip_prefix()
 
             mock_rule.assert_called_with(
-                mock.ANY,  # content
                 mock.ANY,  # firewall_section_id
                 mock.ANY,  # ns_group_id
                 False,  # logging
@@ -173,12 +173,12 @@ class TestNSXv3ExtendedSGRule(test_nsxv3_plugin.NsxV3PluginTestCaseMixin,
              'description': ''}]
 
         with mock.patch(
-            "vmware_nsxlib.v3.security.NsxLibFirewallSection.create_rules",
+            "vmware_nsxlib.v3.security.NsxLibFirewallSection."
+            "create_section_rules",
             side_effect=test_nsxv3_plugin._mock_create_firewall_rules,
         ) as mock_rule:
             self.test_create_rule_with_remote_ip_prefix()
             mock_rule.assert_called_with(
-                mock.ANY,  # content
                 mock.ANY,  # firewall_section_id
                 mock.ANY,  # ns_group_id
                 False,  # logging
