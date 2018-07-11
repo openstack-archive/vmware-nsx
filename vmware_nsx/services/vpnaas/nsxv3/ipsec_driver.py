@@ -437,8 +437,11 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
         """Upon router gw update - verify no-snat"""
         # check if this router has a vpn service
         admin_con = context.elevated()
+        # get all relevant services, except those waiting to be deleted or in
+        # ERROR state
         filters = {'router_id': [router_id],
-                   'status': [constants.ACTIVE]}
+                   'status': [constants.ACTIVE, constants.PENDING_CREATE,
+                              constants.INACTIVE, constants.PENDING_UPDATE]}
         services = self.vpn_plugin.get_vpnservices(admin_con, filters=filters)
         if services:
             # do not allow enable-snat
