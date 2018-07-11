@@ -987,6 +987,43 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                                       self.plugin.update_port,
                                       self.ctx, port['id'], data)
 
+    def test_update_port_with_mac_learning(self):
+        with self.network() as network:
+            data = {'port': {
+                        'network_id': network['network']['id'],
+                        'tenant_id': self._tenant_id,
+                        'name': 'qos_port',
+                        'admin_state_up': True,
+                        'device_id': 'fake_device',
+                        'device_owner': 'fake_owner',
+                        'fixed_ips': [],
+                        'port_security_enabled': False,
+                        'mac_address': '00:00:00:00:00:01'}
+                    }
+            port = self.plugin.create_port(self.ctx, data)
+            data['port']['mac_learning_enabled'] = True
+            update_res = self.plugin.update_port(self.ctx, port['id'], data)
+            self.assertTrue(update_res['mac_learning_enabled'])
+
+    def test_update_port_with_mac_learning_failes(self):
+        with self.network() as network:
+            data = {'port': {
+                        'network_id': network['network']['id'],
+                        'tenant_id': self._tenant_id,
+                        'name': 'qos_port',
+                        'admin_state_up': True,
+                        'device_id': 'fake_device',
+                        'device_owner': constants.DEVICE_OWNER_FLOATINGIP,
+                        'fixed_ips': [],
+                        'port_security_enabled': False,
+                        'mac_address': '00:00:00:00:00:01'}
+                    }
+            port = self.plugin.create_port(self.ctx, data)
+            data['port']['mac_learning_enabled'] = True
+            self.assertRaises(
+                n_exc.InvalidInput,
+                self.plugin.update_port, self.ctx, port['id'], data)
+
     def test_create_router_port_with_qos_fail(self):
         self._test_create_illegal_port_with_qos_fail(
             'network:router_interface')

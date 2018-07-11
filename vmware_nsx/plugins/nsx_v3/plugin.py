@@ -2468,14 +2468,21 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 raise n_exc.InvalidInput(error_message=err_msg)
 
     def _assert_on_port_sec_change(self, port_data, device_owner):
-        """Do not allow enabling port security of some ports
+        """Do not allow enabling port security/mac learning of some ports
 
-        Trusted ports are created with port security disabled in neutron,
-        and it should not change.
+        Trusted ports are created with port security and mac learning disabled
+        in neutron, and it should not change.
         """
         if nlib_net.is_port_trusted({'device_owner': device_owner}):
             if port_data.get(psec.PORTSECURITY) is True:
                 err_msg = _("port_security_enabled=True is not supported for "
+                            "trusted ports")
+                LOG.warning(err_msg)
+                raise n_exc.InvalidInput(error_message=err_msg)
+
+            mac_learning = port_data.get(mac_ext.MAC_LEARNING)
+            if (validators.is_attr_set(mac_learning) and mac_learning is True):
+                err_msg = _("mac_learning_enabled=True is not supported for "
                             "trusted ports")
                 LOG.warning(err_msg)
                 raise n_exc.InvalidInput(error_message=err_msg)
