@@ -52,6 +52,7 @@ from neutron_lib import exceptions as n_exc
 from vmware_nsx.common import availability_zones as nsx_com_az
 from vmware_nsx.common import config
 from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.common import locking
 from vmware_nsx.common import managers as nsx_managers
 from vmware_nsx.db import (
     routertype as rt_rtr)
@@ -64,6 +65,8 @@ from vmware_nsx.plugins.dvs import plugin as dvs
 from vmware_nsx.plugins.nsx_v import plugin as v
 from vmware_nsx.plugins.nsx_v3 import plugin as t
 from vmware_nsx.services.lbaas.nsx import lb_driver_v2
+from vmware_nsx.services.lbaas.octavia import octavia_listener
+from vmware_nsx.services.lbaas.octavia import tvd_wrapper as octavia_tvd
 
 LOG = logging.getLogger(__name__)
 TVD_PLUGIN_TYPE = "Nsx-TVD"
@@ -104,6 +107,7 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def __init__(self):
         self._extension_manager = nsx_managers.ExtensionManager()
         LOG.info("Start NSX TVD Plugin")
+        self.init_is_complete = False
         # Validate configuration
         config.validate_nsx_config_options()
         super(NsxTVDPlugin, self).__init__()
@@ -116,6 +120,14 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self.lbv2_driver = lb_driver_v2.EdgeLoadbalancerDriverV2()
 
         self._unsubscribe_callback_events()
+
+        registry.subscribe(self.spawn_complete,
+                           resources.PROCESS,
+                           events.AFTER_SPAWN)
+
+        registry.subscribe(self.init_complete,
+                           resources.PROCESS,
+                           events.AFTER_INIT)
 
     @staticmethod
     def plugin_type():
@@ -214,6 +226,65 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                  set(cfg.CONF.nsx_v3.availability_zones))):
             msg = _("Cannot use the same availability zones in NSX-V and T")
             raise nsx_exc.NsxPluginException(err_msg=msg)
+
+    def _get_octavia_objects(self, plugin_type):
+        plugin = self.get_plugin_by_type(plugin_type)
+        if plugin:
+            return plugin._get_octavia_objects()
+        else:
+            return {'loadbalancer': None, 'listener': None, 'pool': None,
+                    'member': None, 'healthmonitor': None, 'l7policy': None,
+                    'l7rule': None}
+
+    def init_complete(self, resource, event, trigger, payload=None):
+        with locking.LockManager.get_lock('plugin-init-complete-tvd'):
+            if self.init_is_complete:
+                # Should be called only once per worker
+                return
+            self.init_octavia()
+            self.init_is_complete = True
+
+    def init_octavia(self):
+        # Init Octavia listener and endpoints
+        v_objects = self._get_octavia_objects(
+            projectpluginmap.NsxPlugins.NSX_V)
+        t_objects = self._get_octavia_objects(
+            projectpluginmap.NsxPlugins.NSX_T)
+
+        self.octavia_listener = octavia_listener.NSXOctaviaListener(
+            loadbalancer=octavia_tvd.OctaviaTVDWrapper(
+                v_objects['loadbalancer'], t_objects['loadbalancer']),
+            listener=octavia_tvd.OctaviaTVDWrapper(
+                v_objects['listener'], t_objects['listener']),
+            pool=octavia_tvd.OctaviaTVDWrapper(
+                v_objects['pool'], t_objects['pool']),
+            member=octavia_tvd.OctaviaTVDWrapper(
+                v_objects['member'], t_objects['member']),
+            healthmonitor=octavia_tvd.OctaviaTVDWrapper(
+                v_objects['healthmonitor'], t_objects['healthmonitor']),
+            l7policy=octavia_tvd.OctaviaTVDWrapper(
+                v_objects['l7policy'], t_objects['l7policy']),
+            l7rule=octavia_tvd.OctaviaTVDWrapper(
+                v_objects['l7rule'], t_objects['l7rule']))
+
+    def spawn_complete(self, resource, event, trigger, payload=None):
+        # This method should run only once, but after init_complete
+        if not self.init_is_complete:
+            self.init_complete(None, None, None)
+        self.init_octavia_stats_collector()
+
+    def init_octavia_stats_collector(self):
+        self.octavia_stats_collector = (
+            octavia_listener.NSXOctaviaStatisticsCollector(
+                self,
+                octavia_tvd.stats_getter))
+
+    def start_rpc_listeners(self):
+        # Run the start_rpc_listeners of one of the sub-plugins
+        for plugin_type in self.plugins:
+            plugin = self.plugins[plugin_type]
+            if plugin.rpc_workers_supported():
+                return plugin.start_rpc_listeners()
 
     def _unsubscribe_callback_events(self):
         # unsubscribe the callback that should be called on all plugins
