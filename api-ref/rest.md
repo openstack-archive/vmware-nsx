@@ -19,9 +19,8 @@ for the neutron API applies here as well.
 
 The VMware NSX neutron extensions supported by your plugin will depend on the version
 of VMware NSX used. Two versions described herein are:
-  * [NSX for vSphere](https://www.vmware.com/support/pubs/nsx_pubs.html) aka 'NSX-v'.
-  * [NSX Transformers](https://my.vmware.com/web/vmware/details?productId=580&downloadGroup=NSX-v3-101)
-    aka 'NSX-v3'.
+  * [NSX for vSphere](https://www.vmware.com/support/pubs/nsx_pubs.html) aka 'NSX-V'.
+  * [NSX-T](https://docs.vmware.com/en/VMware-NSX-T/index.html).
 
 
 
@@ -53,7 +52,7 @@ when interfacing with the NSX manager backend.
 Resource attribute extension.
 
 ###### Supported NSX Versions
-NSX-v.
+NSX-V.
 
 ###### Supported Verbs
 None (read-only).
@@ -116,7 +115,7 @@ providing the ability to specify per-subnet DHCP MTU via the
 Resource attribute extension.
 
 ###### Supported NSX Versions
-NSX-v.
+NSX-V.
 
 ###### Supported Verbs
 POST, PUT
@@ -179,7 +178,7 @@ providing the ability to specify per-subnet DNS search via the
 Resource attribute extension.
 
 ###### Supported NSX Versions
-NSX-v.
+NSX-V.
 
 ###### Supported Verbs
 POST, PUT
@@ -242,7 +241,7 @@ providing the ability to enable MAC learning on the associated port via the
 Resource attribute extension.
 
 ###### Supported NSX Versions
-NSX-v3.
+NSX-T.
 
 ###### Supported Verbs
 POST, PUT
@@ -320,7 +319,7 @@ onto physical networks in NSX.
 Resource attribute extensions.
 
 ###### Supported NSX Versions
-NSX-v3, NSX-v.
+NSX-T, NSX-V.
 
 ###### Supported Verbs
 See the
@@ -379,7 +378,7 @@ security groups belonging to the said port.
 Resource attribute extensions.
 
 ###### Supported NSX Versions
-NSX-v3, NSX-v.
+NSX-T, NSX-V.
 
 ###### Supported Verbs
 The `provider` attribute on neutron security groups is only settable during creation (POST).
@@ -544,14 +543,14 @@ GET port
 
 ###### Description
 Extends neutron [routers](https://developer.openstack.org/api-ref/networking/v2/#routers-routers)
-by adding the `router_size` attribute to support configuration of NSX-v
+by adding the `router_size` attribute to support configuration of NSX-V
 edge size.
 
 ###### Extension Type
 Resource attribute extension.
 
 ###### Supported NSX Versions
-NSX-v.
+NSX-V.
 
 ###### Supported Verbs
 POST, PUT
@@ -560,7 +559,7 @@ POST, PUT
 [routers](https://developer.openstack.org/api-ref/networking/v2/#routers-routers)
 
 ###### Extension Attribute(s)
-  * `router_size`: The NSX-v edge size to use.
+  * `router_size`: The NSX-V edge size to use.
 
 ###### Example Response
 ```json
@@ -608,14 +607,14 @@ POST, PUT
 
 ###### Description
 Extends neutron [routers](https://developer.openstack.org/api-ref/networking/v2/#routers-routers)
-by adding the `router_type` attribute to support configuration of NSX-v
+by adding the `router_type` attribute to support configuration of NSX-V
 router type.
 
 ###### Extension Type
 Resource attribute extension.
 
 ###### Supported NSX Versions
-NSX-v.
+NSX-V.
 
 ###### Supported Verbs
 POST, PUT
@@ -624,7 +623,7 @@ POST, PUT
 [routers](https://developer.openstack.org/api-ref/networking/v2/#routers-routers)
 
 ###### Extension Attribute(s)
-  * `router_type`: The NSX-v router type. Must be either `shared` or `exclusive`.
+  * `router_type`: The NSX-V router type. Must be either `shared` or `exclusive`.
 
 ###### Example Response
 ```json
@@ -680,7 +679,7 @@ by adding a `local_ip_prefix` attribute allowing rules to be created with IP pre
 Resource attribute extension.
 
 ###### Supported NSX Versions
-NSX-v3, NSXv.
+NSX-T, NSXv.
 
 ###### Supported Verbs
 POST; using an IP prefix on a rule can only be done when creating the rule.
@@ -721,7 +720,7 @@ with a boolean attribute `logging` to enable per security group logging on NSX.
 Resource attribute extension.
 
 ###### Supported NSX Versions
-NSX-v3, NSX-v.
+NSX-T, NSX-V.
 
 ###### Supported Verbs
 POST, PUT.
@@ -809,7 +808,7 @@ the `vnic_index` attribute enabling per-port assignment of a VNIC index.
 Resource attribute extension.
 
 ###### Supported NSX Versions
-NSX-v.
+NSX-V.
 
 ###### Supported Verbs
 POST, PUT.

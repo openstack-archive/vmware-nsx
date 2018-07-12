@@ -58,7 +58,7 @@ via a timing mechanism such as Linux cron.
 Plugin Jobs
 -----------
 
-NSX-v
+NSX-V
 ~~~~~
 
 error_dhcp_edge: scans for DHCP Edge appliances which are in ERROR state.
