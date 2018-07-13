@@ -40,15 +40,15 @@ function install_neutron_projects {
         else
             pkg_renamed=`echo $pkg | sed 's/-/_/g'`
             sudo rm -rf /usr/local/lib/python2.7/dist-packages/${pkg_renamed}*
-            sudo rm -rf ~/src/${pkg_renamed}*
+            sudo rm -rf ./src/${pkg_renamed}*
             sudo pip install -e "git+https://git.openstack.org/openstack/${pkg}#egg=${pkg_renamed}"
-            sudo chown -R ${USER}:${USER} ~/src/${pkg}
+            sudo chown -R ${USER}:${USER} src/${pkg}
         fi
     done
     sudo rm -rf /usr/local/lib/python2.7/dist-packages/neutron
 	sudo rm -rf /usr/local/lib/python2.7/dist-packages/neutron.egg*
 	sudo pip install -e "git+https://git.openstack.org/openstack/neutron#egg=neutron"
-	sudo chown -R ${USER}:${USER} ~/src/neutron
+	sudo chown -R ${USER}:${USER} src/neutron
 }
 
 function nsxv_configure_service {
