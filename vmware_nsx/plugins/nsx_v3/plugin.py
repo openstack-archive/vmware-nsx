@@ -2512,6 +2512,30 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             LOG.warning(err_msg)
             raise n_exc.InvalidInput(error_message=err_msg)
 
+    def _assert_on_device_owner_change(self, port_data, orig_dev_own):
+        """Prevent illegal device owner modifications
+        """
+        if 'device_owner' not in port_data:
+            return
+        new_dev_own = port_data['device_owner']
+        if new_dev_own == orig_dev_own:
+            return
+
+        err_msg = (_("Changing port device owner '%(orig)s' to '%(new)s' is "
+                     "not allowed") % {'orig': orig_dev_own,
+                                       'new': new_dev_own})
+
+        # Do not allow changing nova <-> neutron device owners
+        if ((orig_dev_own.startswith(const.DEVICE_OWNER_COMPUTE_PREFIX) and
+             new_dev_own.startswith(const.DEVICE_OWNER_NETWORK_PREFIX)) or
+            (orig_dev_own.startswith(const.DEVICE_OWNER_NETWORK_PREFIX) and
+             new_dev_own.startswith(const.DEVICE_OWNER_COMPUTE_PREFIX))):
+            raise n_exc.InvalidInput(error_message=err_msg)
+
+        # Do not allow removing the device owner in some cases
+        if orig_dev_own == const.DEVICE_OWNER_DHCP:
+            raise n_exc.InvalidInput(error_message=err_msg)
+
     def _assert_on_port_admin_state(self, port_data, device_owner):
         """Do not allow changing the admin state of some ports"""
         if (device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF or
@@ -3379,6 +3403,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             device_owner = (port_data['device_owner']
                             if 'device_owner' in port_data
                             else original_port.get('device_owner'))
+            self._assert_on_device_owner_change(
+                port_data, original_port.get('device_owner'))
             self._assert_on_illegal_port_with_qos(
                 port_data, device_owner)
             self._assert_on_port_admin_state(port_data, device_owner)
@@ -4593,9 +4619,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             is_lb_port = False
             if new_port_id:
                 new_port_data = self.get_port(context, new_port_id)
-                new_device_owner = new_port_data['device_owner']
+                new_dev_own = new_port_data['device_owner']
                 new_fip_address = new_fip['floating_ip_address']
-                if new_device_owner == const.DEVICE_OWNER_LOADBALANCERV2:
+                if new_dev_own == const.DEVICE_OWNER_LOADBALANCERV2:
                     is_lb_port = True
                     self._update_lb_vip(new_port_data, new_fip_address)
 

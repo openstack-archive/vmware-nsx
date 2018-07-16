@@ -1365,6 +1365,25 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
             self.assertEqual('NsxENSPortSecurity',
                              res['NeutronError']['type'])
 
+    def test_update_dhcp_port_device_owner(self):
+        cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        with self.subnet():
+            pl = directory.get_plugin()
+            ctx = context.Context(user_id=None, tenant_id=self._tenant_id,
+                                  is_admin=False)
+            ports = pl.get_ports(
+                ctx, filters={'device_owner': [constants.DEVICE_OWNER_DHCP]})
+            port_id = ports[0]['id']
+            args = {'port': {'admin_state_up': False,
+                             'fixed_ips': [],
+                             'device_owner': 'abcd'}}
+
+            req = self.new_update_request('ports', args, port_id)
+            res = self.deserialize('json', req.get_response(self.api))
+            # should fail
+            self.assertEqual('InvalidInput',
+                             res['NeutronError']['type'])
+
     def test_update_port_update_ip_address_only(self):
         self.skipTest('Multiple fixed ips on a port are not supported')
 
