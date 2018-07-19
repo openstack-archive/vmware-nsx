@@ -32,7 +32,7 @@ down_revision = 'ea7a72ab9643'
 plugin_type_enum = sa.Enum('dvs', 'nsx-v', 'nsx-t',
                            name='nsx_plugin_type')
 # milestone identifier, used by neutron-db-manage
-neutron_milestone = [migration.QUEENS]
+neutron_milestone = [migration.QUEENS, migration.ROCKY]
 
 
 def upgrade():
