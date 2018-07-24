@@ -36,8 +36,7 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         super(EdgePoolManagerFromDict, self).__init__()
 
     def _get_pool_kwargs(self, name=None, tags=None, algorithm=None,
-                         session_persistence=None):
-        # TODO(asarfaty): Add description to backend parameters
+                         description=None):
         kwargs = {}
         if name:
             kwargs['display_name'] = name
@@ -45,8 +44,8 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             kwargs['tags'] = tags
         if algorithm:
             kwargs['algorithm'] = algorithm
-        if session_persistence:
-            kwargs['session_persistence'] = session_persistence
+        if description:
+            kwargs['description'] = description
         kwargs['snat_translation'] = {'type': "LbSnatAutoMap"}
         return kwargs
 
@@ -61,10 +60,11 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         vs_client = self.core_plugin.nsxlib.load_balancer.virtual_server
         pool_name = utils.get_name_and_uuid(pool['name'] or 'pool', pool['id'])
         tags = self._get_pool_tags(context, pool)
-
+        description = pool.get('description')
         lb_algorithm = lb_const.LB_POOL_ALGORITHM_MAP.get(pool['lb_algorithm'])
         try:
-            kwargs = self._get_pool_kwargs(pool_name, tags, lb_algorithm)
+            kwargs = self._get_pool_kwargs(pool_name, tags, lb_algorithm,
+                                           description)
             lb_pool = pool_client.create(**kwargs)
             nsx_db.add_nsx_lbaas_pool_binding(
                 context.session, lb_id, pool['id'], lb_pool['id'])
@@ -105,6 +105,7 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         pool_name = None
         tags = None
         lb_algorithm = None
+        description = None
         if new_pool['name'] != old_pool['name']:
             pool_name = utils.get_name_and_uuid(new_pool['name'] or 'pool',
                                                 new_pool['id'])
@@ -112,6 +113,8 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         if new_pool['lb_algorithm'] != old_pool['lb_algorithm']:
             lb_algorithm = lb_const.LB_POOL_ALGORITHM_MAP.get(
                 new_pool['lb_algorithm'])
+        if new_pool.get('description') != old_pool.get('description'):
+            description = new_pool['description']
         binding = nsx_db.get_nsx_lbaas_pool_binding(
             context.session, old_pool['loadbalancer_id'], old_pool['id'])
         if not binding:
@@ -120,7 +123,8 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             raise n_exc.BadRequest(resource='lbaas-pool', msg=msg)
         try:
             lb_pool_id = binding['lb_pool_id']
-            kwargs = self._get_pool_kwargs(pool_name, tags, lb_algorithm)
+            kwargs = self._get_pool_kwargs(pool_name, tags, lb_algorithm,
+                                           description)
             pool_client.update(lb_pool_id, **kwargs)
             completor(success=True)
         except Exception as e:
