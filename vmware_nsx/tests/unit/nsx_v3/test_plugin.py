@@ -1120,6 +1120,28 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
             self._get_ports_with_fields(tenid, 'mac_address', 4)
             self._get_ports_with_fields(tenid, 'network_id', 4)
 
+    def test_list_ports_while_deleting(self):
+        self.plugin = directory.get_plugin()
+        orig_get_port = self.plugin._get_port
+
+        class local(object):
+            counter = 0
+
+        def mock_get_port(*args):
+            #global counter
+            local.counter += 1
+            if local.counter == 3:
+                raise n_exc.PortNotFound(port_id=args[1])
+            return orig_get_port(*args)
+
+        self.plugin = directory.get_plugin()
+        with self.port(), self.port(), self.port(), self.port() as p:
+            tenid = p['port']['tenant_id']
+            # get all ports, while "deleting" one of them:
+            with mock.patch.object(self.plugin, "_get_port",
+                                   side_effect=mock_get_port):
+                self._get_ports_with_fields(tenid, None, 3)
+
     def test_port_failure_rollback_dhcp_exception(self):
         cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
         self.plugin = directory.get_plugin()
