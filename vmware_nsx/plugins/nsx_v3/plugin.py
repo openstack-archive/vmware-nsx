@@ -3724,8 +3724,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self._del_subnet_no_dnat_rule(context, nsx_router_id, subnet)
         if remove_router_link_port:
             # remove the link port and reset the router transport zone
-            self.nsxlib.router.remove_router_link_port(
-                nsx_router_id, org_tier0_uuid)
+            self.nsxlib.router.remove_router_link_port(nsx_router_id)
             if self.nsxlib.feature_supported(
                 nsxlib_consts.FEATURE_ROUTER_TRANSPORT_ZONE):
                 self.nsxlib.router.update_router_transport_zone(
