@@ -249,7 +249,9 @@ class FakeVcns(object):
         response = {
             'label': 'vNic_1',
             'name': 'internal1',
-            'addressGroups': {'addressGroups': []},
+            'addressGroups': {
+                'addressGroups': [{'primaryAddress': '1.1.1.1'}]},
+            'portgroupId': '1',
             'mtu': 1500,
             'type': 'trunk',
             'subInterfaces': {'subInterfaces': []},
@@ -787,6 +789,9 @@ class FakeVcns(object):
         if self._fake_loadbalancer_config[edge_id]:
             response['config'] = self._fake_loadbalancer_config[edge_id]
         return self.return_helper(header, response)
+
+    def get_loadbalancer_statistics(self, edge_id):
+        return [{}, {}]
 
     def update_ipsec_config(self, edge_id, ipsec_config):
         self.fake_ipsecvpn_dict[edge_id] = ipsec_config

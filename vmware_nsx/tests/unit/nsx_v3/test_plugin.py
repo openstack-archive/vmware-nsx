@@ -215,7 +215,7 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
 
     def setUp(self, plugin=PLUGIN_NAME,
               ext_mgr=None,
-              service_plugins=None):
+              service_plugins=None, **kwargs):
 
         self._patchers = []
 
