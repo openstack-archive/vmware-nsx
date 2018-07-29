@@ -57,7 +57,32 @@ def _mock_create_and_list_nsgroups(test_method):
 
 class TestSecurityGroups(test_nsxv3.NsxV3PluginTestCaseMixin,
                          test_ext_sg.TestSecurityGroups):
-    pass
+
+    def test_create_security_group_rule_icmp_with_type_and_code(self):
+        name = 'webservers'
+        description = 'my webservers'
+        with self.security_group(name, description) as sg:
+            security_group_id = sg['security_group']['id']
+            direction = "ingress"
+            remote_ip_prefix = "10.0.0.0/24"
+            protocol = "icmp"
+            # port_range_min (ICMP type) is greater than port_range_max
+            # (ICMP code) in order to confirm min <= max port check is
+            # not called for ICMP.
+            port_range_min = 5
+            port_range_max = 1
+            keys = [('remote_ip_prefix', remote_ip_prefix),
+                    ('security_group_id', security_group_id),
+                    ('direction', direction),
+                    ('protocol', protocol),
+                    ('port_range_min', port_range_min),
+                    ('port_range_max', port_range_max)]
+            with self.security_group_rule(security_group_id, direction,
+                                          protocol, port_range_min,
+                                          port_range_max,
+                                          remote_ip_prefix) as rule:
+                for k, v, in keys:
+                    self.assertEqual(rule['security_group_rule'][k], v)
 
 
 class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
@@ -69,6 +94,32 @@ class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
             nsxlib.NsxLib, 'feature_supported', return_value=False)
         mock_nsx_version.start()
         self._patchers.append(mock_nsx_version)
+
+    def test_create_security_group_rule_icmp_with_type_and_code(self):
+        name = 'webservers'
+        description = 'my webservers'
+        with self.security_group(name, description) as sg:
+            security_group_id = sg['security_group']['id']
+            direction = "ingress"
+            remote_ip_prefix = "10.0.0.0/24"
+            protocol = "icmp"
+            # port_range_min (ICMP type) is greater than port_range_max
+            # (ICMP code) in order to confirm min <= max port check is
+            # not called for ICMP.
+            port_range_min = 5
+            port_range_max = 1
+            keys = [('remote_ip_prefix', remote_ip_prefix),
+                    ('security_group_id', security_group_id),
+                    ('direction', direction),
+                    ('protocol', protocol),
+                    ('port_range_min', port_range_min),
+                    ('port_range_max', port_range_max)]
+            with self.security_group_rule(security_group_id, direction,
+                                          protocol, port_range_min,
+                                          port_range_max,
+                                          remote_ip_prefix) as rule:
+                for k, v, in keys:
+                    self.assertEqual(rule['security_group_rule'][k], v)
 
     @_mock_create_and_list_nsgroups
     @mock.patch('vmware_nsxlib.v3.security.NsxLibNsGroup.remove_member')
