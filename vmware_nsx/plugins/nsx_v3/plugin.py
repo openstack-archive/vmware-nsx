@@ -1343,6 +1343,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # Update the QoS policy (will affect only future compute ports)
         qos_com_utils.set_qos_policy_on_new_net(
             context, net_data, created_net)
+        if net_data.get(qos_consts.QOS_POLICY_ID):
+            LOG.info("QoS Policy %(qos)s will be applied to future compute "
+                     "ports of network %(net)s",
+                     {'qos': net_data[qos_consts.QOS_POLICY_ID],
+                      'net': created_net['id']})
 
         return created_net
 
@@ -1516,6 +1521,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             #(will affect only future compute ports)
             qos_com_utils.update_network_policy_binding(
                 context, id, net_data[qos_consts.QOS_POLICY_ID])
+            if net_data[qos_consts.QOS_POLICY_ID]:
+                LOG.info("QoS Policy %(qos)s will be applied to future "
+                         "compute ports of network %(net)s",
+                         {'qos': net_data[qos_consts.QOS_POLICY_ID],
+                          'net': id})
 
         if not extern_net and not is_nsx_net:
             # update the network name & attributes in related NSX objects:
