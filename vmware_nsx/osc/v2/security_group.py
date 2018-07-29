@@ -18,6 +18,7 @@
 from osc_lib import utils as osc_utils
 
 from openstackclient.identity import common as identity_common
+from openstackclient.network.v2 import _tag
 from openstackclient.network.v2 import security_group
 
 from vmware_nsx._i18n import _
@@ -100,6 +101,8 @@ class NsxCreateSecurityGroup(security_group.CreateSecurityGroup):
 
         # Create the security group and display the results.
         obj = client.create_security_group(**attrs)
+        # tags cannot be set when created, so tags need to be set later.
+        _tag.update_tags_for_set(client, obj, parsed_args)
         display_columns, property_columns = security_group._get_columns(obj)
         data = osc_utils.get_item_properties(
             obj,
@@ -138,6 +141,9 @@ class NsxSetSecurityGroup(security_group.SetSecurityGroup):
         attrs = _get_plugin_attrs(attrs, parsed_args, self.app.client_manager)
 
         client.update_security_group(obj, **attrs)
+
+        # tags is a subresource and it needs to be updated separately.
+        _tag.update_tags_for_set(client, obj, parsed_args)
 
     def update_parser_common(self, parser):
         parser = super(NsxSetSecurityGroup, self).update_parser_common(parser)
