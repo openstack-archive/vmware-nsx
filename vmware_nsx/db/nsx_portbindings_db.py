@@ -23,8 +23,8 @@ from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib import exceptions
 from neutron_lib.plugins import directory
+from neutron_lib.plugins import utils as p_utils
 
-from neutron.common import utils as common_utils
 from neutron.db import _resource_extend as resource_extend
 from neutron.db import api as db_api
 from neutron.db import portbindings_db as pbin_db
@@ -159,7 +159,7 @@ class NsxPortBindingMixin(pbin_db.PortBindingMixin):
             port_res[pbin.VNIC_TYPE] = port_db.nsx_port_attributes.vnic_type
 
         if hasattr(port_db, 'port_bindings'):
-            binding = common_utils.get_port_binding_by_status_and_host(
+            binding = p_utils.get_port_binding_by_status_and_host(
                 port_db.port_bindings, constants.ACTIVE)
 
             if binding:
