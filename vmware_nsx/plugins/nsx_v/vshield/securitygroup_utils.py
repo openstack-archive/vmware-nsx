@@ -61,7 +61,7 @@ class NsxSecurityGroupUtils(object):
                         applied_to='SecurityGroup',
                         source=None, destination=None, services=None,
                         flags=None, logged=False, tag=None,
-                        application_services=None):
+                        application_services=None, notes=None):
         """Helper method to create a nsx rule dict."""
         ruleTag = et.Element('rule')
         ruleTag.attrib['logged'] = 'true' if logged else 'false'
@@ -69,6 +69,8 @@ class NsxSecurityGroupUtils(object):
         nameTag.text = name
         actionTag = et.SubElement(ruleTag, 'action')
         actionTag.text = action
+        notesTag = et.SubElement(ruleTag, 'notes')
+        notesTag.text = notes
 
         apList = et.SubElement(ruleTag, 'appliedToList')
         for applied_to_id in applied_to_ids:
