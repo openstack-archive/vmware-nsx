@@ -57,6 +57,11 @@ class Nsxv3IpamDriver(common.NsxAbstractIpamDriver):
             ranges = []
         return ranges
 
+    def _is_supported_net(self, subnet_request):
+        """This driver doesn't support multicast cidrs"""
+        net = netaddr.IPNetwork(subnet_request.subnet_cidr[0])
+        return not net.is_multicast()
+
     def allocate_backend_pool(self, subnet_request):
         """Create a pool on the NSX backend and return its ID"""
         # name/description length on backend is long, so there is no problem
