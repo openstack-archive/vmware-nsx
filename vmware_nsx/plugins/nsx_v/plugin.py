@@ -2632,27 +2632,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             return False
         return bool(subnet['enable_dhcp'] and self.metadata_proxy_handler)
 
-    def _validate_host_routes_input(self, subnet_input,
-                                    orig_enable_dhcp=None,
-                                    orig_host_routes=None):
-        s = subnet_input['subnet']
-        request_host_routes = (validators.is_attr_set(s.get('host_routes')) and
-                               s['host_routes'])
-        clear_host_routes = (validators.is_attr_set(s.get('host_routes')) and
-                             not s['host_routes'])
-        request_enable_dhcp = s.get('enable_dhcp')
-        if request_enable_dhcp is False:
-            if (request_host_routes or
-                not clear_host_routes and orig_host_routes):
-                err_msg = _("Can't disable DHCP while using host routes")
-                raise n_exc.InvalidInput(error_message=err_msg)
-
-        if request_host_routes:
-            if not request_enable_dhcp and orig_enable_dhcp is False:
-                err_msg = _("Host routes can only be supported when DHCP "
-                            "is enabled")
-                raise n_exc.InvalidInput(error_message=err_msg)
-
     def create_subnet_bulk(self, context, subnets):
 
         collection = "subnets"
