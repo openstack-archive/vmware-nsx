@@ -875,6 +875,43 @@ class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
                                   self.plugin.create_subnet,
                                   context.get_admin_context(), data)
 
+    def test_create_subnet_disable_dhcp_with_host_route_fails(self):
+        with self.network() as network:
+            data = {'subnet': {'network_id': network['network']['id'],
+                               'cidr': '172.20.1.0/24',
+                               'name': 'sub1',
+                               'dns_nameservers': None,
+                               'allocation_pools': None,
+                               'tenant_id': 'tenant_one',
+                               'enable_dhcp': False,
+                               'host_routes': [{
+                                    'destination': '135.207.0.0/16',
+                                    'nexthop': '1.2.3.4'}],
+                               'ip_version': 4}}
+            self.assertRaises(n_exc.InvalidInput,
+                              self.plugin.create_subnet,
+                              context.get_admin_context(), data)
+
+    def test_update_subnet_disable_dhcp_with_host_route_fails(self):
+        with self.network() as network:
+            data = {'subnet': {'network_id': network['network']['id'],
+                               'cidr': '172.20.1.0/24',
+                               'name': 'sub1',
+                               'dns_nameservers': None,
+                               'allocation_pools': None,
+                               'tenant_id': 'tenant_one',
+                               'enable_dhcp': True,
+                               'host_routes': [{
+                                    'destination': '135.207.0.0/16',
+                                    'nexthop': '1.2.3.4'}],
+                               'ip_version': 4}}
+            subnet = self.plugin.create_subnet(
+                context.get_admin_context(), data)
+            data['subnet']['enable_dhcp'] = False
+            self.assertRaises(n_exc.InvalidInput,
+                              self.plugin.update_subnet,
+                              context.get_admin_context(), subnet['id'], data)
+
 
 class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                   test_bindings.PortBindingsTestCase,
