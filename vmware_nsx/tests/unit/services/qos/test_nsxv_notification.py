@@ -58,11 +58,12 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
                           return_value=self.qos_plugin).start()
 
         # Pre defined QoS data for the tests
-        self.ctxt = context.Context('fake_user', 'fake_tenant')
+        self.test_tenant_id = '1d7ddf4daf1f47529b5cc93b2e843980'
+        self.ctxt = context.Context('fake_user', self.test_tenant_id)
 
         self.policy_data = {
             'policy': {'id': uuidutils.generate_uuid(),
-                       'project_id': uuidutils.generate_uuid(),
+                       'project_id': self.test_tenant_id,
                        'name': 'test-policy',
                        'description': 'Test policy description',
                        'shared': True}}
@@ -101,7 +102,7 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
 
         self._net_data = {'network': {
             'name': 'test-qos',
-            'tenant_id': 'fake_tenant',
+            'tenant_id': self.test_tenant_id,
             'qos_policy_id': self.policy.id,
             'port_security_enabled': False,
             'admin_state_up': False,
@@ -125,6 +126,7 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
     def _create_net(self, net_data=None):
         if net_data is None:
             net_data = self._net_data
+            net_data['tenant_id'] = self.test_tenant_id
         with mock.patch('vmware_nsx.services.qos.common.utils.'
                         'get_network_policy_id',
                         return_value=self.policy.id):
