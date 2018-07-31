@@ -70,21 +70,23 @@ class LBaaSNSXObjectManagerWrapper(object):
     def create(self, context, obj, **args):
         obj_dict = self.translator(obj)
         completor_func = self.get_completor_func(context, obj)
-        self.implementor.create(context, obj_dict, completor_func, **args)
+        return self.implementor.create(context, obj_dict, completor_func,
+                                       **args)
 
     @log_helpers.log_method_call
     def update(self, context, old_obj, new_obj, **args):
         old_obj_dict = self.translator(old_obj)
         new_obj_dict = self.translator(new_obj)
         completor_func = self.get_completor_func(context, new_obj)
-        self.implementor.update(context, old_obj_dict, new_obj_dict,
-                                completor_func, **args)
+        return self.implementor.update(context, old_obj_dict, new_obj_dict,
+                                       completor_func, **args)
 
     @log_helpers.log_method_call
     def delete(self, context, obj, **args):
         obj_dict = self.translator(obj)
         completor_func = self.get_completor_func(context, obj, delete=True)
-        self.implementor.delete(context, obj_dict, completor_func, **args)
+        return self.implementor.delete(context, obj_dict, completor_func,
+                                       **args)
 
     @log_helpers.log_method_call
     def refresh(self, context, obj):
@@ -94,7 +96,7 @@ class LBaaSNSXObjectManagerWrapper(object):
                    self.object_type)
             raise n_exc.BadRequest(resource='edge', msg=msg)
         obj_dict = self.translator(obj)
-        self.implementor.refresh(context, obj_dict)
+        return self.implementor.refresh(context, obj_dict)
 
     @log_helpers.log_method_call
     def stats(self, context, obj):
@@ -104,4 +106,4 @@ class LBaaSNSXObjectManagerWrapper(object):
                    self.object_type)
             raise n_exc.BadRequest(resource='edge', msg=msg)
         obj_dict = self.translator(obj)
-        self.implementor.stats(context, obj_dict)
+        return self.implementor.stats(context, obj_dict)
