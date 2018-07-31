@@ -103,8 +103,6 @@ NSX_USER=<nsx-username>
 NSX_PASSWORD=<nsx-password>
 # Default tier0 uuid which is created by admin
 DEFAULT_TIER0_ROUTER_UUID=<tier0-router-uuid>
-# Default Edge cluster uuid
-DEFAULT_EDGE_CLUSTER_UUID=<edge-cluster-uuid>
 
 # Enabled native DHCP support from NSX backend
 DHCP_PROFILE_UUID=<dhcp-profile-uuid>
