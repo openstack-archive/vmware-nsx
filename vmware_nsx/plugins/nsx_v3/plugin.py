@@ -271,7 +271,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._init_dhcp_metadata()
 
         self._prepare_default_rules()
-        self._process_security_group_logging()
 
         # init profiles on nsx backend
         self._init_nsx_profiles()
@@ -765,27 +764,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 whitelist_ports=True, whitelist_switches=False,
                 tags=self.nsxlib.build_v3_api_version_tag())
         return self._get_port_security_profile()
-
-    def _process_security_group_logging(self):
-        def process_security_group_logging(*args, **kwargs):
-            context = q_context.get_admin_context()
-            log_all_rules = cfg.CONF.nsx_v3.log_security_groups_allowed_traffic
-            secgroups = self.get_security_groups(context,
-                                                 fields=['id',
-                                                 sg_logging.LOGGING])
-            for sg in [sg for sg in secgroups
-                       if sg.get(sg_logging.LOGGING) is False]:
-                nsgroup_id, section_id = nsx_db.get_sg_mappings(
-                    context.session, sg['id'])
-                if section_id:
-                    try:
-                        self.nsxlib.firewall_section.set_rule_logging(
-                            section_id, logging=log_all_rules)
-                    except nsx_lib_exc.ManagerError:
-                        LOG.error("Failed to update firewall rule logging "
-                                  "for rule in section %s", section_id)
-
-        utils.spawn_n(process_security_group_logging)
 
     def _init_default_section_rules(self):
         with locking.LockManager.get_lock('nsxv3_default_section'):
