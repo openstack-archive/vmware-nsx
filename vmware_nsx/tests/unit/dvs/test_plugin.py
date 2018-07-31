@@ -141,7 +141,7 @@ class NeutronSimpleDvsTestCase(test_plugin.NeutronDbPluginV2TestCase):
     def setUp(self, mock_moref, mock_session,
               plugin=PLUGIN_NAME,
               ext_mgr=None,
-              service_plugins=None):
+              service_plugins=None, **kwargs):
         # Ensure that DVS is enabled
         cfg.CONF.set_override('host_ip', 'fake_ip', group='dvs')
         cfg.CONF.set_override('host_username', 'fake_user', group='dvs')

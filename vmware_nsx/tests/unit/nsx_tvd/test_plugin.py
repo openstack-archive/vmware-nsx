@@ -54,7 +54,8 @@ class NsxTVDPluginTestCase(v_tests.NsxVPluginV2TestCase,
 
         super(NsxTVDPluginTestCase, self).setUp(
             plugin=plugin,
-            ext_mgr=ext_mgr)
+            ext_mgr=ext_mgr,
+            with_md_proxy=False)
         self._project_id = _uuid()
         self.core_plugin = directory.get_plugin()
 
