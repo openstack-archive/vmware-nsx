@@ -61,6 +61,7 @@ from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
+from neutron.plugins.ml2 import models as pbin_model
 from neutron.quota import resource_registry
 from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
 from neutron_lib.api.definitions import portbindings as pbin
@@ -584,6 +585,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # Translate all the uuids in each of the availability
         for az in self.get_azs_list():
             az.translate_configured_names_to_uuids(self.nsxlib)
+
+    def add_port_binding(self, context, port_id):
+        port_binding = pbin_model.PortBinding(
+            port_id=port_id,
+            vif_type=pbin.VIF_TYPE_OVS)
+        context.session.add(port_binding)
 
     def _extend_nsx_port_dict_binding(self, context, port_data):
         # Not using the register api for this because we need the context
@@ -2914,6 +2921,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def base_create_port(self, context, port):
         neutron_db = super(NsxV3Plugin, self).create_port(context, port)
+        self.add_port_binding(context, neutron_db['id'])
         self._extension_manager.process_create_port(
             context, port['port'], neutron_db)
         return neutron_db
