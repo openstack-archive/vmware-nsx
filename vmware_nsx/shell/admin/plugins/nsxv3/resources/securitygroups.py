@@ -30,6 +30,7 @@ from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import ports
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils as v3_utils
 from vmware_nsx.shell import resources as shell
+from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
 from vmware_nsxlib.v3 import nsx_constants as consts
 from vmware_nsxlib.v3 import security
 
@@ -296,6 +297,46 @@ def migrate_nsgroups_to_dynamic_criteria(resource, event, trigger, **kwargs):
     # Update security-groups with dynamic criteria and remove direct members.
     _update_security_group_dynamic_criteria()
 
+
+def update_security_groups_logging(resource, event, trigger, **kwargs):
+    """Update allowed traffic logging for all neutron security group rules"""
+    errmsg = ("Need to specify log-allowed-traffic property. Add --property "
+              "log-allowed-traffic=true/false")
+    if not kwargs.get('property'):
+        LOG.error("%s", errmsg)
+        return
+    properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
+    log_allowed_str = properties.get('log-allowed-traffic')
+    if not log_allowed_str or log_allowed_str.lower() not in ['true', 'false']:
+        LOG.error("%s", errmsg)
+        return
+    log_allowed = log_allowed_str.lower() == 'true'
+
+    context = neutron_context.get_admin_context()
+    nsxlib = v3_utils.get_connected_nsxlib()
+
+    with v3_utils.NsxV3PluginWrapper() as plugin:
+        secgroups = plugin.get_security_groups(context,
+                                             fields=['id',
+                                             sg_logging.LOGGING])
+        LOG.info("Going to update logging of %s sections",
+                 len(secgroups))
+        for sg in [sg for sg in secgroups
+                   if sg.get(sg_logging.LOGGING) is False]:
+            nsgroup_id, section_id = nsx_db.get_sg_mappings(
+                context.session, sg['id'])
+            if section_id:
+                try:
+                    nsxlib.firewall_section.set_rule_logging(
+                        section_id, logging=log_allowed)
+                except nsx_lib_exc.ManagerError:
+                    LOG.error("Failed to update firewall rule logging "
+                              "for rule in section %s", section_id)
+
+
+registry.subscribe(update_security_groups_logging,
+                   constants.SECURITY_GROUPS,
+                   shell.Operations.UPDATE_LOGGING.value)
 
 registry.subscribe(migrate_nsgroups_to_dynamic_criteria,
                    constants.FIREWALL_NSX_GROUPS,

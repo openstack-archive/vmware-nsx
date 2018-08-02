@@ -239,6 +239,10 @@ Security Groups, Firewall and Spoofguard
 
     nsxadmin -r firewall-sections -o nsx-update
 
+- Update logging flag of the security groups on the NSX DFW
+
+    nsxadmin -r security-groups -o update-logging --property log-allowed-traffic=true
+
 Metadata
 ~~~~~~~~
 
@@ -353,6 +357,10 @@ Security Groups & NSX Security Groups
 - Update NSX security groups dynamic criteria for NSXv3 CrossHairs::
 
     nsxadmin -r nsx-security-groups -o migrate-to-dynamic-criteria
+
+- Update logging flag of the security groups on the NSX DFW
+
+    nsxadmin -r security-groups -o update-logging --property log-allowed-traffic=true
 
 Firewall Sections
 ~~~~~~~~~~~~~~~~~

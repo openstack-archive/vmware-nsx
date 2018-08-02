@@ -168,9 +168,6 @@ class NsxV3PluginWrapper(plugin.NsxV3Plugin):
     def _init_dhcp_metadata(self):
         pass
 
-    def _process_security_group_logging(self):
-        pass
-
     def _init_port_security_profile(self):
         return True
 

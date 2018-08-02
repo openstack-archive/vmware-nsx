@@ -218,7 +218,8 @@ class TestNsxvAdminUtils(AbstractTestAdminUtils,
                 "security-group-id=sg-1",
                 "dvs-id=dvs-1",
                 "moref=virtualwire-1",
-                "teamingpolicy=LACP_ACTIVE"
+                "teamingpolicy=LACP_ACTIVE",
+                "log-allowed-traffic=true"
                 ]
         self._test_resources_with_args(
             resources.nsxv_resources, args)
@@ -280,7 +281,8 @@ class TestNsxv3AdminUtils(AbstractTestAdminUtils,
                 "metadata_proxy_uuid=e5b9b249-0034-4729-8ab6-fe4dacaa3a12",
                 "nsx-id=e5b9b249-0034-4729-8ab6-fe4dacaa3a12",
                 "availability-zone=default",
-                "server-ip=1.1.1.1"
+                "server-ip=1.1.1.1",
+                "log-allowed-traffic=true"
                 ]
         # Create some neutron objects for the utilities to run on
         self._create_router()
