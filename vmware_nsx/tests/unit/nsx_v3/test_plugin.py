@@ -197,10 +197,6 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
             'neutron.scheduler.dhcp_agent_scheduler.AZAwareWeightScheduler')
 
     def mock_plugin_methods(self):
-        # mock unnecessary call which causes spawn
-        mock_process_security_group_logging = mock.patch.object(
-            nsx_plugin.NsxV3Plugin, '_process_security_group_logging')
-        mock_process_security_group_logging.start()
         # need to mock the global placeholder. This is due to the fact that
         # the generic security group tests assume that there is just one
         # security group.

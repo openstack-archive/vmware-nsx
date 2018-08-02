@@ -169,9 +169,6 @@ class NsxV3PluginWrapper(plugin.NsxV3Plugin):
     def _init_dhcp_metadata(self):
         pass
 
-    def _process_security_group_logging(self):
-        pass
-
     def _extend_get_network_dict_provider(self, context, net):
         self._extend_network_dict_provider(context, net)
         # skip getting the Qos policy ID because get_object calls

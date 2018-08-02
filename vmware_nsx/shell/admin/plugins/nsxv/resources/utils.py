@@ -75,9 +75,6 @@ class NsxVPluginWrapper(plugin.NsxVPlugin):
         # skip getting the Qos policy ID because get_object calls
         # plugin init again on admin-util environment
 
-    def _process_security_groups_rules_logging(self):
-        pass
-
     def count_spawn_jobs(self):
         # check if there are any spawn jobs running
         return self.edge_manager._get_worker_pool().running()
