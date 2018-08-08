@@ -1636,9 +1636,14 @@ class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxV3PluginTestCaseMixin,
                                      arg_list=(pnet.NETWORK_TYPE,
                                          pnet.PHYSICAL_NETWORK))
 
-    def external_subnet_once(self, *args, **kwargs):
-        result = self.external_subnet(*args, **kwargs)
-        self.subnet = self.original_subnet
+    def external_subnet_by_list(self, *args, **kwargs):
+        if len(self.subnet_calls) > 0:
+            result = self.subnet_calls[0](*args, **kwargs)
+            del self.subnet_calls[0]
+        else:
+            # back to normal
+            self.subnet = self.original_subnet
+            result = self.subnet(*args, **kwargs)
         return result
 
     def test_floatingip_create_different_fixed_ip_same_port(self):
@@ -1670,6 +1675,7 @@ class TestL3NatTestCase(L3NatTest,
         super(TestL3NatTestCase, self).setUp(plugin=plugin, ext_mgr=ext_mgr)
         cfg.CONF.set_override('metadata_mode', None, 'nsx_v3')
         cfg.CONF.set_override('metadata_on_demand', False, 'nsx_v3')
+        self.subnet_calls = []
 
     def _test_create_l3_ext_network(
             self, physical_network=nsx_v3_mocks.DEFAULT_TIER0_ROUTER_UUID):
@@ -1750,13 +1756,35 @@ class TestL3NatTestCase(L3NatTest,
         obj.subnet = obj.original_subnet
         return result
 
+    def _init_subnet_calls(self, n):
+        self.subnet_calls = []
+        for i in range(0, n - 1):
+            self.subnet_calls.append(self.subnet)
+        self.subnet_calls.append(self.external_subnet)
+
+    def _call_with_subnet_calls(self, f, *args, **kwargs):
+        self.subnet = self.external_subnet_by_list
+        result = f(*args, **kwargs)
+        self.subnet = self.original_subnet
+        return result
+
     @decorator.decorator
     def with_external_subnet_once(f, *args, **kwargs):
         obj = args[0]
-        obj.subnet = obj.external_subnet_once
-        result = f(*args, **kwargs)
-        obj.subnet = obj.original_subnet
-        return result
+        obj._init_subnet_calls(1)
+        return obj._call_with_subnet_calls(f, *args, **kwargs)
+
+    @decorator.decorator
+    def with_external_subnet_second_time(f, *args, **kwargs):
+        obj = args[0]
+        obj._init_subnet_calls(2)
+        return obj._call_with_subnet_calls(f, *args, **kwargs)
+
+    @decorator.decorator
+    def with_external_subnet_third_time(f, *args, **kwargs):
+        obj = args[0]
+        obj._init_subnet_calls(3)
+        return obj._call_with_subnet_calls(f, *args, **kwargs)
 
     @decorator.decorator
     def with_external_network(f, *args, **kwargs):
@@ -1786,7 +1814,7 @@ class TestL3NatTestCase(L3NatTest,
         super(TestL3NatTestCase,
               self).test_router_update_gateway_with_different_external_subnet()
 
-    @with_external_subnet
+    @with_external_subnet_once
     def test_router_update_gateway_with_existed_floatingip(self):
         super(TestL3NatTestCase,
               self).test_router_update_gateway_with_existed_floatingip()
@@ -1812,7 +1840,7 @@ class TestL3NatTestCase(L3NatTest,
             TestL3NatTestCase,
             self).test_router_update_gateway_upon_subnet_create_max_ips_ipv6()
 
-    @with_external_subnet
+    @with_external_subnet_second_time
     def test_router_add_interface_cidr_overlapped_with_gateway(self):
         super(TestL3NatTestCase,
               self).test_router_add_interface_cidr_overlapped_with_gateway()
@@ -1847,7 +1875,7 @@ class TestL3NatTestCase(L3NatTest,
         super(TestL3NatTestCase,
               self).test_router_create_with_gwinfo_ext_ip_subnet()
 
-    @with_external_subnet
+    @with_external_subnet_second_time
     def test_router_delete_with_floatingip_existed_returns_409(self):
         super(TestL3NatTestCase,
               self).test_router_delete_with_floatingip_existed_returns_409()
@@ -1857,7 +1885,7 @@ class TestL3NatTestCase(L3NatTest,
         super(TestL3NatTestCase,
               self).test_router_add_and_remove_gateway_tenant_ctx()
 
-    @with_external_subnet
+    @with_external_subnet_second_time
     def test_router_add_interface_by_port_cidr_overlapped_with_gateway(self):
         super(TestL3NatTestCase, self).\
             test_router_add_interface_by_port_cidr_overlapped_with_gateway()
@@ -1872,22 +1900,23 @@ class TestL3NatTestCase(L3NatTest,
         super(TestL3NatTestCase,
               self).test_router_add_and_remove_gateway()
 
-    @with_external_subnet
-    def _test_floatingip_via_router_interface(self, http_status):
-        return super(TestL3NatTestCase,
-              self)._test_floatingip_via_router_interface(http_status)
+    def test_floatingip_via_router_interface_returns_201(self):
+        self.skipTest('not supported')
+
+    def test_floatingip_via_router_interface_returns_404(self):
+        self.skipTest('not supported')
 
     @with_external_subnet
     def test_floatingip_list_with_sort(self):
         super(TestL3NatTestCase,
               self).test_floatingip_list_with_sort()
 
-    @with_external_subnet
+    @with_external_subnet_once
     def test_floatingip_with_assoc_fails(self):
         super(TestL3NatTestCase,
               self).test_floatingip_with_assoc_fails()
 
-    @with_external_subnet
+    @with_external_subnet_second_time
     def test_floatingip_update_same_fixed_ip_same_port(self):
         super(TestL3NatTestCase,
               self).test_floatingip_update_same_fixed_ip_same_port()
@@ -1953,7 +1982,7 @@ class TestL3NatTestCase(L3NatTest,
         super(TestL3NatTestCase,
               self).test_create_floatingip_ipv6_and_ipv4_network_creates_ipv4()
 
-    @with_external_subnet
+    @with_external_subnet_once
     def test_create_floatingip_non_admin_context_agent_notification(self):
         super(
             TestL3NatTestCase,
@@ -1969,7 +1998,7 @@ class TestL3NatTestCase(L3NatTest,
         super(TestL3NatTestCase,
               self).test_create_floatingip_with_specific_ip_out_of_allocation()
 
-    @with_external_subnet
+    @with_external_subnet_third_time
     def test_floatingip_update_different_router(self):
         super(TestL3NatTestCase,
               self).test_floatingip_update_different_router()
@@ -1981,7 +2010,7 @@ class TestL3NatTestCase(L3NatTest,
         super(TestL3NatTestCase, self).test_floatingip_update(
             expected_status=constants.FLOATINGIP_STATUS_DOWN)
 
-    @with_external_subnet
+    @with_external_subnet_second_time
     def test_floatingip_with_invalid_create_port(self):
         self._test_floatingip_with_invalid_create_port(self._plugin_name)
 
