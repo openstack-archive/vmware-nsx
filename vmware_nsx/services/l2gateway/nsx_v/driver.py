@@ -162,7 +162,8 @@ class NsxvL2GatewayDriver(l2gateway_db.L2GatewayMixin):
         device_id = device.get('id')
         interface = self._get_l2_gw_interfaces(context, device_id)
         interface_name = interface[0].get("interface_name")
-        bridge_name = "bridge-" + uuidutils.generate_uuid()
+        # bridge name length cannot exceed 40 characters
+        bridge_name = "brg-" + uuidutils.generate_uuid()
         bridge_dict = {"bridges":
                        {"bridge":
                         {"name": bridge_name,
