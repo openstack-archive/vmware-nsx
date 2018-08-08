@@ -13,13 +13,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron_lbaas.services.loadbalancer import plugin
+from vmware_nsx.services.lbaas import nsx_plugin
 
 from vmware_nsx.plugins.nsx import utils as tvd_utils
 
 
 @tvd_utils.filter_plugins
-class LoadBalancerTVPluginV2(plugin.LoadBalancerPluginv2):
+class LoadBalancerTVPluginV2(nsx_plugin.LoadBalancerNSXPluginV2):
     """NSX-TV plugin for LBaaS V2.
 
     This plugin adds separation between T/V instances
