@@ -2210,6 +2210,12 @@ class TestL3NatTestCase(L3NatTest,
         self._test_route_update_illegal('0.0.0.0/0')
         self._test_route_update_illegal('0.0.0.0/16')
 
+    def test_floatingip_via_router_interface_returns_201(self):
+        self.skipTest('not supported')
+
+    def test_floatingip_via_router_interface_returns_404(self):
+        self.skipTest('not supported')
+
 
 class ExtGwModeTestCase(test_ext_gw_mode.ExtGwModeIntTestCase,
                         L3NatTest):
