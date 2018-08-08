@@ -103,6 +103,31 @@ L7POLICY_BINDING = {'l7policy_id': L7POLICY_ID,
 
 FAKE_CERT = {'id': 'cert-xyz'}
 
+SERVICE_STATUSES = {
+    "virtual_servers": [{
+        "virtual_server_id": LB_VS_ID,
+        "status": "UP"
+    }],
+    "service_id": LB_SERVICE_ID,
+    "service_status": "UP",
+    "pools": [{
+        "members": [{
+            "port": "80",
+            "ip_address": MEMBER_ADDRESS,
+            "status": "DOWN"
+        }],
+        "pool_id": LB_POOL_ID,
+        "status": "DOWN"
+    }]
+}
+
+VS_STATUSES = {
+    "results": [{
+        "virtual_server_id": LB_VS_ID,
+        "status": "UP"
+    }]
+}
+
 
 class BaseTestEdgeLbaasV2(base.BaseTestCase):
     def _tested_entity(self):
@@ -256,6 +281,36 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
 
     def test_refresh(self):
         pass
+
+    def test_status_update(self):
+        with mock.patch.object(nsx_db, 'get_nsx_lbaas_loadbalancer_binding'
+                               ) as mock_get_lb_binding, \
+            mock.patch.object(self.service_client, 'get_status'
+                              ) as mock_get_lb_service_status, \
+            mock.patch.object(self.service_client, 'get_virtual_servers_status'
+                              ) as mock_get_vs_status, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding_by_lb_pool'
+                              ) as mock_get_pool_binding, \
+            mock.patch.object(self.pool_client, 'get'
+                              ) as mock_get_pool, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_listener_binding_by_vs'
+                              ) as mock_get_listener_binding:
+            mock_get_lb_binding.return_value = LB_BINDING
+            mock_get_pool_binding.return_value = POOL_BINDING
+            mock_get_listener_binding.return_value = LISTENER_BINDING
+            mock_get_lb_service_status.return_value = SERVICE_STATUSES
+            mock_get_vs_status.return_value = VS_STATUSES
+            mock_get_pool.return_value = LB_POOL_WITH_MEMBER
+            statuses = self.edge_driver.loadbalancer.get_operating_status(
+                self.context, self.lb.id, with_members=True)
+            self.assertEqual(1, len(statuses['loadbalancers']))
+            self.assertEqual('ONLINE', statuses['loadbalancers'][0]['status'])
+            self.assertEqual(1, len(statuses['pools']))
+            self.assertEqual('OFFLINE', statuses['pools'][0]['status'])
+            self.assertEqual(1, len(statuses['listeners']))
+            self.assertEqual('ONLINE', statuses['listeners'][0]['status'])
+            self.assertEqual(1, len(statuses['members']))
+            self.assertEqual('OFFLINE', statuses['members'][0]['status'])
 
 
 class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
