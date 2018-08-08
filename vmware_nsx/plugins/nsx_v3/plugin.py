@@ -4320,6 +4320,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def add_router_interface(self, context, router_id, interface_info):
         network_id = self._get_interface_network(context, interface_info)
+        extern_net = self._network_is_external(context, network_id)
         overlay_net = self._is_overlay_network(context, network_id)
         router_db = self._get_router(context, router_id)
         gw_network_id = (router_db.gw_port.network_id if router_db.gw_port
@@ -4330,11 +4331,17 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._validate_multiple_subnets_routers(
                 context, router_id, network_id)
 
+            # A router interface cannot be an external network
+            if extern_net:
+                msg = _("An external network cannot be attached as "
+                        "an interface to a router")
+                raise n_exc.InvalidInput(error_message=msg)
+
             # Non overlay networks should be configured with a centralized
             # router, which is allowed only if GW network is attached
             if not overlay_net and not gw_network_id:
                 msg = _("A router attached to a VLAN backed network "
-                        "must have an external network assigned.")
+                        "must have an external network assigned")
                 raise n_exc.InvalidInput(error_message=msg)
 
             # Update the interface of the neutron router
