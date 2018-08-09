@@ -98,6 +98,39 @@ def validate_lb_subnet(context, plugin, subnet_id):
         return False
 
 
+def validate_lb_member_subnet(context, plugin, subnet_id, lb):
+    '''Validate LB member subnet before creating a member.
+
+    The member subnet should belong to an external network or be connected
+    to the same T1 router as the Lb vip.
+    It will throw exception if the subnet doesn't meet this requirement.
+
+    :param context: context
+    :param plugin: core plugin
+    :param subnet_id: loadbalancer's subnet id
+    :return: True if subnet meet requirement, otherwise return False
+    '''
+    network = get_network_from_subnet(context, plugin, subnet_id)
+    if network.get('router:external'):
+        return True
+    member_router_id = get_router_from_network(
+        context, plugin, subnet_id)
+    lb_router_id = get_router_from_network(
+        context, plugin, lb.vip_subnet_id)
+    if lb_router_id:
+        # Lb on non-external network. member must be on the same router
+        if lb_router_id == member_router_id:
+            return True
+        else:
+            return False
+    else:
+        # LB on external network. member subnet must have a router
+        if member_router_id:
+            return True
+        else:
+            return False
+
+
 def get_rule_match_conditions(policy):
     match_conditions = []
     # values in rule have already been validated in LBaaS API,
