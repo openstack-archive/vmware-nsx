@@ -112,11 +112,13 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         lb_id = member['pool']['loadbalancer_id']
         pool_id = member['pool']['id']
         loadbalancer = member['pool']['loadbalancer']
-        if not lb_utils.validate_lb_subnet(context, self.core_plugin,
-                                           member['subnet_id']):
+        if not lb_utils.validate_lb_member_subnet(context, self.core_plugin,
+                                                  member['subnet_id'],
+                                                  loadbalancer):
             completor(success=False)
             msg = (_('Cannot add member %(member)s to pool as member subnet '
-                     '%(subnet)s is neither public nor connected to router') %
+                     '%(subnet)s is neither public nor connected to the LB '
+                     'router') %
                    {'member': member['id'], 'subnet': member['subnet_id']})
             raise n_exc.BadRequest(resource='lbaas-subnet', msg=msg)
 
