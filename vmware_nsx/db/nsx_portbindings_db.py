@@ -53,7 +53,7 @@ class NsxPortBindingMixin(pbin_db.PortBindingMixin):
 
         if vnic_type and vnic_type not in SUPPORTED_VNIC_TYPES:
             err_msg = _("Invalid port vnic-type '%(vnic_type)s'."
-                        "Supported vnic-types are %(valid_types)s."
+                        "Supported vnic-types are %(valid_types)s"
                         ) % {'vnic_type': vnic_type,
                              'valid_types': SUPPORTED_VNIC_TYPES}
             raise exceptions.InvalidInput(error_message=err_msg)

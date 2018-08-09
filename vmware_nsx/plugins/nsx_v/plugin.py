@@ -683,7 +683,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 if segmentation_id_set:
                     err_msg = _("Segmentation ID cannot be set with portgroup")
                 if not physical_network_set:
-                    err_msg = _("Physical network must be set!")
+                    err_msg = _("Physical network must be set")
                 elif not self.nsx_v.vcns.validate_network(physical_network):
                     err_msg = _("Physical network doesn't exist")
                 # A provider network portgroup will need the network name to
@@ -1821,7 +1821,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if new_state is not None and (orig_state != new_state) and (
                     orig_state and not new_state):
                 err_msg = _("Changing admin_state for "
-                            "loadbalancer's internal port is not supported.")
+                            "loadbalancer's internal port is not supported")
                 LOG.warning(err_msg)
                 raise n_exc.InvalidInput(error_message=err_msg)
 
@@ -1853,7 +1853,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 # port-security to be disabled.
                 if direct_vnic_type and port_security:
                     err_msg = _("Security features are not supported for "
-                                "ports with direct/direct-physical VNIC type.")
+                                "ports with direct/direct-physical VNIC type")
                     raise n_exc.InvalidInput(error_message=err_msg)
             elif direct_vnic_type:
                 # Implicitly disable port-security for direct vnic types.
@@ -1920,7 +1920,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                      has_security_groups or provider_sg_specified) and
                     port_data.get(mac_ext.MAC_LEARNING) is True):
                     err_msg = _("Security features are not supported for "
-                                "mac learning.")
+                                "mac learning")
                     raise n_exc.InvalidInput(error_message=err_msg)
                 self._create_mac_learning_state(context, port_data)
             elif mac_ext.MAC_LEARNING in port_data:
@@ -2185,13 +2185,13 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             context, port_data, original_port['network_id'])
         if direct_vnic_type and has_port_security:
             err_msg = _("Security features are not supported for "
-                        "ports with direct/direct-physical VNIC type.")
+                        "ports with direct/direct-physical VNIC type")
             raise n_exc.InvalidInput(error_message=err_msg)
         if (mac_ext.MAC_LEARNING in port_data and
             port_data[mac_ext.MAC_LEARNING] is True and
             has_port_security):
             err_msg = _("Security features are not supported for "
-                        "mac_learning.")
+                        "mac_learning")
             raise n_exc.InvalidInput(error_message=err_msg)
         old_mac_learning_state = original_port.get(mac_ext.MAC_LEARNING)
 
@@ -3503,7 +3503,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     info.get('enable_snat') is False and
                     self.router_gw_port_has_floating_ips(context, router_id)):
                     msg = _("Unable to set SNAT disabled. Floating IPs "
-                            "assigned.")
+                            "assigned")
                     raise n_exc.InvalidInput(error_message=msg)
 
                 # for multiple external subnets support, we need to set gw

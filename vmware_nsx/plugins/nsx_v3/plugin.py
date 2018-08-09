@@ -1808,7 +1808,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 for subnet_network in subnet_networks:
                     if (netaddr.IPAddress(ip_address) in subnet_network):
                         msg = _("External subnet cannot overlap with T0 "
-                                "router address %s!") % ip_address
+                                "router address %s") % ip_address
                         LOG.error(msg)
                         raise n_exc.InvalidInput(error_message=msg)
 
@@ -2552,7 +2552,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             device_owner == l3_db.DEVICE_OWNER_ROUTER_GW):
             if port_data.get("admin_state_up") is False:
                 err_msg = _("admin_state_up=False router ports are not "
-                            "supported.")
+                            "supported")
                 LOG.warning(err_msg)
                 raise n_exc.InvalidInput(error_message=err_msg)
 
@@ -3656,7 +3656,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             org_enable_snat != info.get('enable_snat') and
             info.get('enable_snat') is False and
             self.router_gw_port_has_floating_ips(context, router_id)):
-            msg = _("Unable to set SNAT disabled. Floating IPs assigned.")
+            msg = _("Unable to set SNAT disabled. Floating IPs assigned")
             raise n_exc.InvalidInput(error_message=msg)
 
         router_subnets = self._find_router_subnets(
@@ -3831,7 +3831,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def _assert_on_router_admin_state(self, router_data):
         if router_data.get("admin_state_up") is False:
-            err_msg = _("admin_state_up=False routers are not supported.")
+            err_msg = _("admin_state_up=False routers are not supported")
             LOG.warning(err_msg)
             raise n_exc.InvalidInput(error_message=err_msg)
 
@@ -3840,7 +3840,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if (self._availability_zones_data.dhcp_relay_configured() and
             cfg.CONF.ipam_driver == 'internal'):
             err_msg = _("Neutron is configured with DHCP_Relay but no IPAM "
-                        "plugin configured.")
+                        "plugin configured")
             LOG.warning(err_msg)
             raise n_exc.InvalidInput(error_message=err_msg)
 
@@ -4010,7 +4010,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 if (not gw_info and
                     not self._is_overlay_network(context, port['network_id'])):
                     msg = _("A router attached to a VLAN backed network "
-                            "must have an external network assigned.")
+                            "must have an external network assigned")
                     raise n_exc.InvalidInput(error_message=msg)
 
             # VPNaaS need to be notified on router GW changes (there is
@@ -4334,7 +4334,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # router, which is allowed only if GW network is attached
             if not overlay_net and not gw_network_id:
                 msg = _("A router attached to a VLAN backed network "
-                        "must have an external network assigned.")
+                        "must have an external network assigned")
                 raise n_exc.InvalidInput(error_message=msg)
 
             # Update the interface of the neutron router
