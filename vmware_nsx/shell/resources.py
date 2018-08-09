@@ -141,7 +141,9 @@ nsxv3_resources = {
                                     [Operations.LIST.value]),
     constants.RATE_LIMIT: Resource(constants.RATE_LIMIT,
                                    [Operations.SHOW.value,
-                                    Operations.NSX_UPDATE.value])
+                                    Operations.NSX_UPDATE.value]),
+    constants.CLUSTER: Resource(constants.CLUSTER,
+                                [Operations.SHOW.value])
 }
 
 # Add supported NSX-V resources in this dictionary

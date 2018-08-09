@@ -45,6 +45,7 @@ LB_VIRTUAL_SERVERS = 'lb-virtual-servers'
 LB_POOLS = 'lb-pools'
 LB_MONITORS = 'lb-monitors'
 RATE_LIMIT = 'rate-limit'
+CLUSTER = 'cluster'
 ORPHANED_FIREWALL_SECTIONS = 'orphaned-firewall-sections'
 
 # NSXV only Resource Constants

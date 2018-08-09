@@ -544,6 +544,12 @@ Rate Limit
 
 nsxadmin -r rate-limit -o nsx-update --property value=<>
 
+Cluster
+~~~~~~~
+
+- Show the NSX cluster managers ips:
+
+    nsxadmin -r cluster -o show
 
 Config
 ~~~~~~
