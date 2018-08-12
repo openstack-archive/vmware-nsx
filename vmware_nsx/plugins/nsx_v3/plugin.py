@@ -2262,8 +2262,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             profiles.append(self._no_switch_security)
 
         name = self._get_port_name(context, port_data)
-
-        nsx_net_id = port_data[pbin.VIF_DETAILS]['nsx-logical-switch-id']
+        nsx_net_id = self._get_network_nsx_id(context, port_data['network_id'])
         try:
             result = self.nsxlib.logical_port.create(
                 nsx_net_id, vif_uuid,
@@ -2858,7 +2857,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             err_msg = _("Cannot configure QOS on ENS networks")
             raise n_exc.InvalidInput(error_message=err_msg)
 
-        # TODO(salv-orlando): Undo logical switch creation on failure
         with db_api.context_manager.writer.using(context):
             is_external_net = self._network_is_external(
                 context, port_data['network_id'])
@@ -2891,7 +2889,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # sgids is a set() so we need to | it in.
             if psgids:
                 sgids = list(set(sgids) | set(psgids))
-            self._extend_nsx_port_dict_binding(context, port_data)
             # Make sure mac_learning and port sec are not both enabled
             if (validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)) and
                 port_data.get(mac_ext.MAC_LEARNING)):
@@ -2953,7 +2950,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     else:
                         raise e
             try:
-                net_id = port_data[pbin.VIF_DETAILS]['nsx-logical-switch-id']
+                net_id = self._get_network_nsx_id(
+                    context, port_data['network_id'])
                 nsx_db.add_neutron_nsx_port_mapping(
                     context.session, neutron_db['id'],
                     net_id, lport['id'])
@@ -2968,6 +2966,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # latest db model for the extension functions
         port_model = self._get_port(context, port_data['id'])
         resource_extend.apply_funcs('ports', port_data, port_model)
+        self._extend_nsx_port_dict_binding(context, port_data)
         self._remove_provider_security_groups_from_list(port_data)
 
         # Add Mac/IP binding to native DHCP server and neutron DB.
