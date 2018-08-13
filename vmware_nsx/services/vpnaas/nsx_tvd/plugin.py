@@ -13,14 +13,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron_vpnaas.services.vpn import plugin
-
 from vmware_nsx.plugins.nsx import utils as tvd_utils
+from vmware_nsx.services.vpnaas import nsx_plugin
 
 
 @tvd_utils.filter_plugins
-class VPNPlugin(plugin.VPNDriverPlugin):
-    """NSX-TV plugin for QoS.
+class VPNPlugin(nsx_plugin.NsxVPNPlugin):
+    """NSX-TV plugin for VPNaaS.
 
     This plugin adds separation between T/V instances
     """
