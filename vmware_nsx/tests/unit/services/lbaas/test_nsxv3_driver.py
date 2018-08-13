@@ -481,7 +481,7 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
         return 'member'
 
     def test_create(self):
-        with mock.patch.object(lb_utils, 'validate_lb_subnet'
+        with mock.patch.object(lb_utils, 'validate_lb_member_subnet'
                                ) as mock_validate_lb_subnet, \
             mock.patch.object(self.lbv2_driver.plugin, 'get_pool_members'
                               ) as mock_get_pool_members, \
@@ -530,7 +530,7 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
                                                           self.member)
 
     def test_create_lbs_no_router_gateway(self):
-        with mock.patch.object(lb_utils, 'validate_lb_subnet'
+        with mock.patch.object(lb_utils, 'validate_lb_member_subnet'
                                ) as mock_validate_lb_subnet, \
             mock.patch.object(self.lbv2_driver.plugin, 'get_pool_members'
                               ) as mock_get_pool_members, \
@@ -557,6 +557,22 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
             mock_get_nsx_router_id.return_value = LB_ROUTER_ID
             mock_get_lb_service.return_value = None
             mock_get_router.return_value = {'id': 'router1-xxx'}
+
+            self.assertRaises(n_exc.BadRequest,
+                              self.edge_driver.member.create,
+                              self.context,
+                              self.member)
+
+    def test_create_member_different_router(self):
+        with mock.patch.object(self.lbv2_driver.plugin, 'get_pool_members'
+                               ) as mock_get_pool_members, \
+            mock.patch.object(lb_utils, 'get_network_from_subnet'
+                              ) as mock_get_network, \
+            mock.patch.object(lb_utils, 'get_router_from_network'
+                              ) as mock_get_router:
+            mock_get_pool_members.return_value = [self.member]
+            mock_get_network.return_value = LB_NETWORK
+            mock_get_router.return_value = None
 
             self.assertRaises(n_exc.BadRequest,
                               self.edge_driver.member.create,
