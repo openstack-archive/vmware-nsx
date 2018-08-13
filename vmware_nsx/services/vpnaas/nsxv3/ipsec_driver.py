@@ -493,6 +493,24 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
             policy_rules=rules,
             enabled=enabled)
 
+    def get_ipsec_site_connection_status(self, context, ipsec_site_conn_id):
+        mapping = db.get_nsx_vpn_connection_mapping(
+            context.session, ipsec_site_conn_id)
+        if not mapping or not mapping['session_id']:
+            LOG.info("Couldn't find NSX session for VPN connection %s",
+                     ipsec_site_conn_id)
+            return
+
+        status_result = self._nsx_vpn.session.get_status(mapping['session_id'])
+        if status_result and 'session_status' in status_result:
+            status = status_result['session_status']
+            # NSX statuses are UP, DOWN, DEGRADE
+            # VPNaaS connection status should be ACTIVE or DOWN
+            if status == 'UP':
+                return 'ACTIVE'
+            elif status == 'DOWN' or status == 'DEGRADED':
+                return 'DOWN'
+
     def _delete_session(self, session_id):
         self._nsx_vpn.session.delete(session_id)
 
