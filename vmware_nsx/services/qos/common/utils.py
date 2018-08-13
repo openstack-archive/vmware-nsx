@@ -14,8 +14,18 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron.common import exceptions as n_exc
 from neutron_lib.objects import registry as obj_reg
 from neutron_lib.services.qos import constants as qos_consts
+
+
+def validate_policy_accessable(context, policy_id):
+    policy_obj = obj_reg.load_class('QosPolicy').get_object(
+        context, id=policy_id)
+    if not policy_obj:
+        # This means that rbac decided the policy cannot be used with this
+        # context
+        raise n_exc.QosPolicyNotFound(policy_id=policy_id)
 
 
 def update_network_policy_binding(context, net_id, new_policy_id):
