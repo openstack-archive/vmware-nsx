@@ -222,6 +222,11 @@ Add neutron-vpnaas repo as an external repository and configure following flags 
     [[local|localrc]]
     enable_plugin neutron-vpnaas https://git.openstack.org/openstack/neutron-vpnaas
     NEUTRON_VPNAAS_SERVICE_PROVIDER=VPN:vmware:vmware_nsx.services.vpnaas.nsxv3.ipsec_driver.NSXv3IPsecVpnDriver:default
+    Q_SERVICE_PLUGIN_CLASSES+=,vmware_nsx_vpnaas
+
+    [[post-config|$NEUTRON_CONF]]
+    [DEFAULT]
+    api_extensions_path = $DEST/neutron-vpnaas/neutron_vpnaas/extensions
 
 
 NSX-TVD
