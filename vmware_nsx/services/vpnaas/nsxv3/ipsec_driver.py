@@ -719,20 +719,20 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
 
         to save the ip to be used as the local ip of this service
         """
-        router_id = vpnservice.router['id']
+        router_id = vpnservice['router_id']
         # check if this router already have an IP
         port = self._find_vpn_service_port(context, router_id)
         if not port:
             # create a new port, on the external network of the router
             # Note(asarfaty): using a unique device owner and device id to
             # make sure tis port will be ignored in certain queries
-            ext_net = vpnservice.router.gw_port['network_id']
+            ext_net = vpnservice['router']['gw_port']['network_id']
             port_data = {
                 'port': {
                     'network_id': ext_net,
                     'name': 'VPN local address port',
                     'admin_state_up': True,
-                    'device_id': 'router-' + vpnservice.router['id'],
+                    'device_id': 'router-' + router_id,
                     'device_owner': ipsec_utils.VPN_PORT_OWNER,
                     'fixed_ips': constants.ATTR_NOT_SPECIFIED,
                     'mac_address': constants.ATTR_NOT_SPECIFIED,
