@@ -990,6 +990,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         self._ensure_default_security_group(context, tenant_id)
         nsx_net_id = None
+        self._validate_qos_policy_id(
+            context, net_data.get(qos_consts.QOS_POLICY_ID))
         if validators.is_attr_set(external) and external:
             self._assert_on_external_net_with_qos(net_data)
             is_provider_net, net_type, physical_net, vlan_id = (
@@ -1161,6 +1163,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         net_data = network['network']
         # Neutron does not support changing provider network values
         providernet._raise_if_updates_provider_attributes(net_data)
+        self._validate_qos_policy_id(
+            context, net_data.get(qos_consts.QOS_POLICY_ID))
         extern_net = self._network_is_external(context, id)
         if extern_net:
             self._assert_on_external_net_with_qos(net_data)
@@ -2299,6 +2303,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._validate_extra_dhcp_options(dhcp_opts)
         self._validate_max_ips_per_port(port_data.get('fixed_ips', []),
                                         port_data.get('device_owner'))
+        if validators.is_attr_set(port_data.get(
+            qos_consts.QOS_POLICY_ID)):
+            self._validate_qos_policy_id(
+                context, port_data.get(qos_consts.QOS_POLICY_ID))
 
         # TODO(salv-orlando): Undo logical switch creation on failure
         with db_api.context_manager.writer.using(context):
@@ -2735,6 +2743,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             port_data = port['port']
             nsx_lswitch_id, nsx_lport_id = nsx_db.get_nsx_switch_and_port_id(
                 context.session, id)
+            self._validate_qos_policy_id(
+                context, port_data.get(qos_consts.QOS_POLICY_ID))
             is_external_net = self._network_is_external(
                 context, original_port['network_id'])
             if is_external_net:

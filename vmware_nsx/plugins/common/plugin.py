@@ -34,6 +34,7 @@ from neutron_lib.utils import net
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.services.qos.common import utils as qos_com_utils
 
 LOG = logging.getLogger(__name__)
 
@@ -289,3 +290,7 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
             if route.get('destination', '').startswith('0.0.0.0/'):
                 msg = _("Cannot set a default route using static routes")
                 raise n_exc.BadRequest(resource='router', msg=msg)
+
+    def _validate_qos_policy_id(self, context, qos_policy_id):
+        if qos_policy_id:
+            qos_com_utils.validate_policy_accessable(context, qos_policy_id)

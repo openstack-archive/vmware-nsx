@@ -1111,8 +1111,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         external_backend_network = (
             external and provider_type is not None and
             network_type != c_utils.NsxVNetworkTypes.PORTGROUP)
-        # Update the transparent vlan if configured
+        self._validate_qos_policy_id(
+            context, net_data.get(qos_consts.QOS_POLICY_ID))
         self._validate_network_qos(net_data, backend_network)
+
+        # Update the transparent vlan if configured
         vlt = False
         if n_utils.is_extension_supported(self, 'vlan-transparent'):
             vlt = ext_vlan.get_vlan_transparent(net_data)
@@ -1571,6 +1574,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             net_morefs = []
         backend_network = True if len(net_morefs) > 0 else False
         self._validate_network_qos(net_attrs, backend_network)
+        self._validate_qos_policy_id(
+            context, net_attrs.get(qos_consts.QOS_POLICY_ID))
 
         # PortSecurity validation checks
         # TODO(roeyc): enacapsulate validation in a method
