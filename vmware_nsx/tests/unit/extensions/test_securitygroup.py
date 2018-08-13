@@ -69,8 +69,8 @@ class TestSecurityGroups(test_nsxv3.NsxV3PluginTestCaseMixin,
             # port_range_min (ICMP type) is greater than port_range_max
             # (ICMP code) in order to confirm min <= max port check is
             # not called for ICMP.
-            port_range_min = 5
-            port_range_max = 1
+            port_range_min = 14
+            port_range_max = None
             keys = [('remote_ip_prefix', remote_ip_prefix),
                     ('security_group_id', security_group_id),
                     ('direction', direction),
@@ -106,8 +106,8 @@ class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
             # port_range_min (ICMP type) is greater than port_range_max
             # (ICMP code) in order to confirm min <= max port check is
             # not called for ICMP.
-            port_range_min = 5
-            port_range_max = 1
+            port_range_min = 14
+            port_range_max = None
             keys = [('remote_ip_prefix', remote_ip_prefix),
                     ('security_group_id', security_group_id),
                     ('direction', direction),
