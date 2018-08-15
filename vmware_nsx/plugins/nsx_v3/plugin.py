@@ -3320,7 +3320,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 break
 
         with db_api.context_manager.writer.using(context):
+            # get the original port, and keep it honest as it is later used
+            # for notifications
             original_port = super(NsxV3Plugin, self).get_port(context, id)
+            self._extend_get_port_dict_qos_and_binding(context, original_port)
             self._remove_provider_security_groups_from_list(original_port)
             port_data = port['port']
             nsx_lswitch_id, nsx_lport_id = nsx_db.get_nsx_switch_and_port_id(
