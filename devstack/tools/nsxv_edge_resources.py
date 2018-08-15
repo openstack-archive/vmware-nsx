@@ -67,13 +67,13 @@ class NSXClient(object):
                                 verify=False, data=data)
         return response
 
-    def _get_tuning_configration(self):
+    def _get_tuning_configuration(self):
         response = self._get("json",
                              "/api/4.0/edgePublish/tuningConfiguration")
         return jsonutils.loads(response.text)
 
     def configure_reservations(self):
-        config = self._get_tuning_configration()
+        config = self._get_tuning_configuration()
         # NSX only receive XML format for the resource allocation update
         tuning = et.Element('tuningConfiguration')
         for opt, val in six.iteritems(config):

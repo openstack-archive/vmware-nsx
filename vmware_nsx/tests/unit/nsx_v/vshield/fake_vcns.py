@@ -1217,7 +1217,7 @@ class FakeVcns(object):
     def get_version(self):
         return '6.2.3'
 
-    def get_tuning_configration(self):
+    def get_tuning_configuration(self):
         return {
             'lockUpdatesOnEdge': True,
             'edgeVMHealthCheckIntervalInMin': 0,

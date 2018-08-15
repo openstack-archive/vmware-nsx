@@ -995,7 +995,7 @@ class Vcns(object):
                 self._nsx_version = '6.1'
         return self._nsx_version
 
-    def get_tuning_configration(self):
+    def get_tuning_configuration(self):
         uri = '/api/4.0/edgePublish/tuningConfiguration'
         h, c = self.do_request(HTTP_GET, uri, decode=True)
         return c
@@ -1003,7 +1003,7 @@ class Vcns(object):
     def configure_aggregate_publishing(self):
         uri = "/api/4.0/edgePublish/tuningConfiguration"
         # Ensure that configured values are not changed
-        config = self.get_tuning_configration()
+        config = self.get_tuning_configuration()
         LOG.debug("Tuning configuration: %s", config)
         tuning = et.Element('tuningConfiguration')
         for opt, val in six.iteritems(config):
@@ -1018,7 +1018,7 @@ class Vcns(object):
 
     def configure_reservations(self):
         uri = "/api/4.0/edgePublish/tuningConfiguration"
-        config = self.get_tuning_configration()
+        config = self.get_tuning_configuration()
         tuning = et.Element('tuningConfiguration')
         for opt, val in six.iteritems(config):
             child = et.Element(opt)
