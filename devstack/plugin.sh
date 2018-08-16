@@ -21,6 +21,11 @@ GITDIR['vmware-nsxlib']=$DEST/vmware-nsxlib
 GITREPO['vmware-nsxlib']=${NSXLIB_REPO:-${GIT_BASE}/openstack/vmware-nsxlib.git}
 GITBRANCH['vmware-nsxlib']=${NSXLIB_BRANCH:-master}
 
+PYTHON='python'
+if [[ $USE_PYTHON3 == "True" ]]; then
+    PYTHON='python3'
+fi
+
 dir=${GITDIR['vmware-nsx']}/devstack
 
 if [[ "$1" == "stack" && "$2" == "install" ]]; then
@@ -35,10 +40,10 @@ if [[ $Q_PLUGIN == 'vmware_nsx_v' ]]; then
     source $dir/lib/vmware_nsx_v
     if [[ "$1" == "unstack" ]]; then
         db_connection=$(iniget $NEUTRON_CONF database connection)
-        python $dir/tools/nsxv_cleanup.py --vsm-ip ${NSXV_MANAGER_URI/https:\/\/} --user $NSXV_USER --password $NSXV_PASSWORD --db-connection $db_connection
+        $PYTHON $dir/tools/nsxv_cleanup.py --vsm-ip ${NSXV_MANAGER_URI/https:\/\/} --user $NSXV_USER --password $NSXV_PASSWORD --db-connection $db_connection
     elif [[ "$1" == "clean" ]]; then
         if is_service_enabled q-svc || is_service_enabled neutron-api; then
-            python $dir/tools/nsxv_cleanup.py --vsm-ip ${NSXV_MANAGER_URI/https:\/\/} --user $NSXV_USER --password $NSXV_PASSWORD
+            $PYTHON $dir/tools/nsxv_cleanup.py --vsm-ip ${NSXV_MANAGER_URI/https:\/\/} --user $NSXV_USER --password $NSXV_PASSWORD
         fi
     fi
 
@@ -64,11 +69,11 @@ elif [[ $Q_PLUGIN == 'vmware_nsx_v3' ]]; then
             IFS=','
             NSX_MANAGER=($NSX_MANAGER)
             unset IFS
-            python $dir/tools/nsxv3_cleanup.py --mgr-ip $NSX_MANAGER --user $NSX_USER --password $NSX_PASSWORD --db-connection $db_connection
+            $PYTHON $dir/tools/nsxv3_cleanup.py --mgr-ip $NSX_MANAGER --user $NSX_USER --password $NSX_PASSWORD --db-connection $db_connection
         fi
     elif [[ "$1" == 'clean' ]]; then
         if is_service_enabled q-svc || is_service_enabled neutron-api; then
-            python $dir/tools/nsxv3_cleanup.py --mgr-ip $NSX_MANAGER --user $NSX_USER --password $NSX_PASSWORD
+            $PYTHON $dir/tools/nsxv3_cleanup.py --mgr-ip $NSX_MANAGER --user $NSX_USER --password $NSX_PASSWORD
         fi
     fi
 elif [[ $Q_PLUGIN == 'vmware_nsx_tvd' ]]; then
@@ -85,19 +90,19 @@ elif [[ $Q_PLUGIN == 'vmware_nsx_tvd' ]]; then
             NSX_MANAGER=($NSX_MANAGER)
             unset IFS
             if [[ "$NSX_MANAGER" != "" ]]; then
-                python $dir/tools/nsxv3_cleanup.py --mgr-ip $NSX_MANAGER --user $NSX_USER --password $NSX_PASSWORD --db-connection $db_connection
+                $PYTHON $dir/tools/nsxv3_cleanup.py --mgr-ip $NSX_MANAGER --user $NSX_USER --password $NSX_PASSWORD --db-connection $db_connection
             fi
             if [[ "$NSXV_MANAGER_URI" != "" ]]; then
-                python $dir/tools/nsxv_cleanup.py --vsm-ip ${NSXV_MANAGER_URI/https:\/\/} --user $NSXV_USER --password $NSXV_PASSWORD --db-connection $db_connection
+                $PYTHON $dir/tools/nsxv_cleanup.py --vsm-ip ${NSXV_MANAGER_URI/https:\/\/} --user $NSXV_USER --password $NSXV_PASSWORD --db-connection $db_connection
             fi
         fi
     elif [[ "$1" == 'clean' ]]; then
         if is_service_enabled q-svc || is_service_enabled neutron-api; then
             if [[ "$NSX_MANAGER" != "" ]]; then
-                python $dir/tools/nsxv3_cleanup.py --mgr-ip $NSX_MANAGER --user $NSX_USER --password $NSX_PASSWORD
+                $PYTHON $dir/tools/nsxv3_cleanup.py --mgr-ip $NSX_MANAGER --user $NSX_USER --password $NSX_PASSWORD
             fi
             if [[ "$NSXV_MANAGER_URI" != "" ]]; then
-                python $dir/tools/nsxv_cleanup.py --vsm-ip ${NSXV_MANAGER_URI/https:\/\/} --user $NSXV_USER --password $NSXV_PASSWORD
+                $PYTHON $dir/tools/nsxv_cleanup.py --vsm-ip ${NSXV_MANAGER_URI/https:\/\/} --user $NSXV_USER --password $NSXV_PASSWORD
             fi
         fi
     fi
