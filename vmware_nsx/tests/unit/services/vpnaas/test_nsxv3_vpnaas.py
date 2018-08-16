@@ -1,8 +1,8 @@
-# Copyright 2013, Nachi Ueno, NTT I3, Inc.
-# All Rights Reserved.
+# Copyright 2017 VMware, Inc.
+# All Rights Reserved
 #
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
 #    a copy of the License at
 #
 #         http://www.apache.org/licenses/LICENSE-2.0
@@ -12,14 +12,113 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import mock
 
+from collections import namedtuple
+import contextlib
+
+import mock
+from oslo_utils import uuidutils
+
+from neutron.db import l3_db
 from neutron.db.models import l3 as l3_models
+from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib import context as n_ctx
+from neutron_lib.plugins import directory
+from neutron_vpnaas.db.vpn import vpn_models  # noqa
 from neutron_vpnaas.tests import base
 
 from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.services.vpnaas.nsxv3 import ipsec_driver
 from vmware_nsx.services.vpnaas.nsxv3 import ipsec_validator
+from vmware_nsx.tests.unit.nsx_v3 import test_plugin
+
+_uuid = uuidutils.generate_uuid
+
+FAKE_TENANT = _uuid()
+FAKE_ROUTER_ID = "aaaaaa-bbbbb-ccc"
+FAKE_ROUTER = {'id': FAKE_ROUTER_ID,
+               'name': 'fake router',
+               'tenant_id': FAKE_TENANT,
+               'admin_state_up': True,
+               'status': 'ACTIVE',
+               'gw_port_id': _uuid(),
+               'enable_snat': False,
+               l3_db.EXTERNAL_GW_INFO: {'network_id': _uuid()}}
+FAKE_SUBNET_ID = _uuid()
+FAKE_SUBNET = {'cidr': '1.1.1.0/24', 'id': FAKE_SUBNET_ID}
+FAKE_VPNSERVICE_ID = _uuid()
+FAKE_VPNSERVICE = {'id': FAKE_VPNSERVICE_ID,
+                   'name': 'vpn_service',
+                   'description': 'dummy',
+                   'router': FAKE_ROUTER,
+                   'router_id': FAKE_ROUTER_ID,
+                   'subnet': FAKE_SUBNET,
+                   'subnet_id': FAKE_SUBNET_ID,
+                   'tenant_id': FAKE_TENANT,
+                   'admin_state_up': True}
+FAKE_IKE_POLICY_ID = _uuid()
+FAKE_IKE_POLICY = {'id': FAKE_IKE_POLICY_ID,
+                   'name': 'ike_dummy',
+                   'description': 'ike_dummy',
+                   'auth_algorithm': 'sha1',
+                   'encryption_algorithm': 'aes-128',
+                   'phase1_negotiation_mode': 'main',
+                   'lifetime': {
+                       'units': 'seconds',
+                       'value': 3600},
+                   'ike_version': 'v1',
+                   'pfs': 'group14',
+                   'tenant_id': FAKE_TENANT}
+FAKE_IPSEC_POLICY_ID = _uuid()
+FAKE_IPSEC_POLICY = {'id': FAKE_IPSEC_POLICY_ID,
+                     'name': 'ipsec_dummy',
+                     'description': 'myipsecpolicy1',
+                     'auth_algorithm': 'sha1',
+                     'encryption_algorithm': 'aes-128',
+                     'encapsulation_mode': 'tunnel',
+                     'lifetime': {
+                         'units': 'seconds',
+                         'value': 3600},
+                     'transform_protocol': 'esp',
+                     'pfs': 'group14',
+                     'tenant_id': FAKE_TENANT}
+FAKE_IPSEC_CONNECTION_ID = _uuid()
+FAKE_IPSEC_CONNECTION = {'vpnservice_id': FAKE_VPNSERVICE_ID,
+                         'ikepolicy_id': FAKE_IKE_POLICY_ID,
+                         'ipsecpolicy_id': FAKE_IPSEC_POLICY_ID,
+                         'name': 'VPN connection',
+                         'description': 'VPN connection',
+                         'id': FAKE_IPSEC_CONNECTION_ID,
+                         'peer_address': '192.168.1.10',
+                         'peer_id': '192.168.1.10',
+                         'peer_cidrs': '192.168.1.0/24',
+                         'mtu': 1500,
+                         'psk': 'abcd',
+                         'initiator': 'bi-directional',
+                         'dpd': {
+                             'action': 'hold',
+                             'interval': 30,
+                             'timeout': 120},
+                         'admin_state_up': True,
+                         'tenant_id': FAKE_TENANT}
+FAKE_NEW_CONNECTION = {'vpnservice_id': FAKE_VPNSERVICE_ID,
+                       'ikepolicy_id': FAKE_IKE_POLICY_ID,
+                       'ipsecpolicy_id': FAKE_IPSEC_POLICY_ID,
+                       'name': 'VPN connection',
+                       'description': 'VPN connection',
+                       'id': FAKE_IPSEC_CONNECTION_ID,
+                       'peer_address': '192.168.1.10',
+                       'peer_id': '192.168.1.10',
+                       'peer_cidrs': '192.168.2.0/24',
+                       'mtu': 1500,
+                       'psk': 'abcd',
+                       'initiator': 'bi-directional',
+                       'dpd': {
+                           'action': 'hold',
+                           'interval': 30,
+                           'timeout': 120},
+                       'admin_state_up': True,
+                       'tenant_id': FAKE_TENANT}
 
 
 class TestDriverValidation(base.BaseTestCase):
@@ -396,4 +495,190 @@ class TestDriverValidation(base.BaseTestCase):
                                    router_subnets=router_subnets)
 
 
-# TODO(asarfaty): add tests for the driver
+class TestVpnaasDriver(test_plugin.NsxV3PluginTestCaseMixin):
+
+    def setUp(self):
+        super(TestVpnaasDriver, self).setUp()
+        self.context = n_ctx.get_admin_context()
+        self.service_plugin = mock.Mock()
+        self.validator = mock.Mock()
+        self.driver = ipsec_driver.NSXv3IPsecVpnDriver(self.service_plugin)
+        self.plugin = directory.get_plugin()
+        self.nsxlib_vpn = self.plugin.nsxlib.vpn_ipsec
+        self.l3plugin = self.plugin
+
+    @contextlib.contextmanager
+    def router(self, name='vpn-test-router', tenant_id=_uuid(),
+               admin_state_up=True, **kwargs):
+        request = {'router': {'tenant_id': tenant_id,
+                              'name': name,
+                              'admin_state_up': admin_state_up}}
+        for arg in kwargs:
+            request['router'][arg] = kwargs[arg]
+        router = self.l3plugin.create_router(self.context, request)
+        yield router
+
+    def test_create_ipsec_site_connection(self):
+        with mock.patch.object(self.service_plugin, 'get_ikepolicy',
+                               return_value=FAKE_IKE_POLICY),\
+            mock.patch.object(self.service_plugin, 'get_ipsecpolicy',
+                              return_value=FAKE_IPSEC_POLICY),\
+            mock.patch.object(self.service_plugin, '_get_vpnservice',
+                              return_value=FAKE_VPNSERVICE),\
+            mock.patch.object(self.service_plugin, 'get_vpnservices',
+                              return_value=[FAKE_VPNSERVICE]),\
+            mock.patch.object(self.plugin, 'get_router',
+                              return_value=FAKE_ROUTER),\
+            mock.patch.object(self.plugin, 'get_subnet',
+                              return_value=FAKE_SUBNET),\
+            mock.patch("vmware_nsx.db.db.add_nsx_vpn_connection_mapping"),\
+            mock.patch.object(self.plugin.nsxlib.logical_router,
+                              'update_advertisement_rules') as update_adv,\
+            mock.patch.object(self.nsxlib_vpn.ike_profile,
+                              'create') as create_ike,\
+            mock.patch.object(self.nsxlib_vpn.tunnel_profile,
+                              'create') as create_ipsec,\
+            mock.patch.object(self.nsxlib_vpn.dpd_profile,
+                              'create') as create_dpd,\
+            mock.patch.object(self.nsxlib_vpn.session,
+                              'create') as create_sesson:
+            self.driver.create_ipsec_site_connection(self.context,
+                                                     FAKE_IPSEC_CONNECTION)
+            create_ike.assert_called_once()
+            create_ipsec.assert_called_once()
+            create_dpd.assert_called_once()
+            create_sesson.assert_called_once()
+            update_adv.assert_called_once()
+
+    def test_update_ipsec_site_connection(self):
+        with mock.patch.object(self.service_plugin, '_get_vpnservice',
+                               return_value=FAKE_VPNSERVICE),\
+            mock.patch.object(self.plugin, 'get_router',
+                              return_value=FAKE_ROUTER),\
+            mock.patch.object(self.plugin,
+                              'update_router_firewall') as update_fw,\
+            mock.patch.object(self.nsxlib_vpn.session,
+                              'update') as update_sesson,\
+            mock.patch("vmware_nsx.db.db.get_nsx_vpn_connection_mapping"):
+            self.driver.update_ipsec_site_connection(self.context,
+                                                     FAKE_IPSEC_CONNECTION,
+                                                     FAKE_NEW_CONNECTION)
+            update_sesson.assert_called_once()
+            update_fw.assert_called_once()
+
+    def test_delete_ipsec_site_connection(self):
+        with mock.patch.object(self.service_plugin, 'get_ikepolicy',
+                               return_value=FAKE_IKE_POLICY),\
+            mock.patch.object(self.service_plugin, 'get_ipsecpolicy',
+                              return_value=FAKE_IPSEC_POLICY),\
+            mock.patch.object(self.service_plugin, '_get_vpnservice',
+                              return_value=FAKE_VPNSERVICE),\
+            mock.patch.object(self.service_plugin, 'get_vpnservices',
+                              return_value=[FAKE_VPNSERVICE]),\
+            mock.patch.object(self.plugin, 'get_router',
+                              return_value=FAKE_ROUTER),\
+            mock.patch.object(self.plugin, 'get_subnet',
+                              return_value=FAKE_SUBNET),\
+            mock.patch.object(self.plugin.nsxlib.logical_router,
+                              'update_advertisement_rules') as update_adv,\
+            mock.patch("vmware_nsx.db.db.get_nsx_vpn_connection_mapping"),\
+            mock.patch.object(self.nsxlib_vpn.ike_profile,
+                              'delete') as delete_ike,\
+            mock.patch.object(self.nsxlib_vpn.tunnel_profile,
+                              'delete') as delete_ipsec,\
+            mock.patch.object(self.nsxlib_vpn.dpd_profile,
+                              'delete') as delete_dpd,\
+            mock.patch.object(self.nsxlib_vpn.session,
+                              'delete') as delete_sesson:
+            self.driver.delete_ipsec_site_connection(self.context,
+                                                     FAKE_IPSEC_CONNECTION)
+            delete_ike.assert_called_once()
+            delete_ipsec.assert_called_once()
+            delete_dpd.assert_called_once()
+            delete_sesson.assert_called_once()
+            update_adv.assert_called_once()
+
+    def test_create_vpn_service_legal(self):
+        """Create a legal vpn service"""
+        # create an external network with a subnet, and a router
+        providernet_args = {extnet_apidef.EXTERNAL: True}
+        router_db = namedtuple("Router", FAKE_ROUTER.keys())(
+            *FAKE_ROUTER.values())
+        with self.network(name='ext-net',
+                          providernet_args=providernet_args,
+                          arg_list=(extnet_apidef.EXTERNAL, )) as ext_net,\
+            self.subnet(ext_net),\
+            self.router(external_gateway_info={'network_id':
+                        ext_net['network']['id']}) as router,\
+            self.subnet() as sub:
+            # add an interface to the router
+            self.l3plugin.add_router_interface(
+                self.context,
+                router['id'],
+                {'subnet_id': sub['subnet']['id']})
+            # create the service
+            dummy_port = {'id': 'dummy_port',
+                          'fixed_ips': [{'ip_address': '1.1.1.1'}]}
+            tier0_rtr = {'high_availability_mode': 'ACTIVE_STANDBY'}
+            with mock.patch.object(self.service_plugin, '_get_vpnservice',
+                                   return_value=FAKE_VPNSERVICE),\
+                mock.patch.object(self.nsxlib_vpn.service,
+                                  'create') as create_service,\
+                mock.patch.object(self.l3plugin, '_get_router',
+                                  return_value=router_db),\
+                mock.patch.object(self.plugin, 'get_router',
+                                  return_value=FAKE_ROUTER),\
+                mock.patch.object(self.plugin, 'get_ports',
+                                  return_value=[dummy_port]),\
+                mock.patch.object(self.plugin, '_get_tier0_uuid_by_router'),\
+                mock.patch.object(self.plugin.nsxlib.logical_router, 'get',
+                                  return_value=tier0_rtr):
+                self.driver.create_vpnservice(self.context, FAKE_VPNSERVICE)
+                create_service.assert_called_once()
+
+    def test_create_another_vpn_service(self):
+        # make sure another backend service is not created
+        providernet_args = {extnet_apidef.EXTERNAL: True}
+        router_db = namedtuple("Router", FAKE_ROUTER.keys())(
+            *FAKE_ROUTER.values())
+        with self.network(name='ext-net',
+                          providernet_args=providernet_args,
+                          arg_list=(extnet_apidef.EXTERNAL, )) as ext_net,\
+            self.subnet(ext_net),\
+            self.router(external_gateway_info={'network_id':
+                        ext_net['network']['id']}) as router,\
+            self.subnet() as sub:
+            # add an interface to the router
+            self.l3plugin.add_router_interface(
+                self.context,
+                router['id'],
+                {'subnet_id': sub['subnet']['id']})
+            # create the service
+            dummy_port = {'id': 'dummy_port',
+                          'fixed_ips': [{'ip_address': '1.1.1.1'}]}
+            tier0_rtr_id = _uuid()
+            tier0_rtr = {'id': tier0_rtr_id,
+                         'high_availability_mode': 'ACTIVE_STANDBY'}
+            nsx_srv = {'logical_router_id': tier0_rtr_id,
+                       'id': _uuid(),
+                       'enabled': True}
+            with mock.patch.object(self.service_plugin, '_get_vpnservice',
+                                   return_value=FAKE_VPNSERVICE),\
+                mock.patch.object(self.nsxlib_vpn.service,
+                                  'create') as create_service,\
+                mock.patch.object(
+                    self.nsxlib_vpn.service, 'list',
+                    return_value={'results': [nsx_srv]}) as create_service,\
+                mock.patch.object(self.l3plugin, '_get_router',
+                                  return_value=router_db),\
+                mock.patch.object(self.plugin, 'get_router',
+                                  return_value=FAKE_ROUTER),\
+                mock.patch.object(self.plugin, 'get_ports',
+                                  return_value=[dummy_port]),\
+                mock.patch.object(self.plugin, '_get_tier0_uuid_by_router',
+                                  return_value=tier0_rtr_id),\
+                mock.patch.object(self.plugin.nsxlib.logical_router, 'get',
+                                  return_value=tier0_rtr):
+                self.driver.create_vpnservice(self.context, FAKE_VPNSERVICE)
+                create_service.assert_called_once()
+        pass
