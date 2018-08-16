@@ -747,7 +747,14 @@ class ClusterManager(VCManagerBase):
         rules_spec.info = rules_info
         return rules_spec
 
-    def get_configured_vms(self, resource_id, n_host_groups=2):
+    def _group_name(self, index, host_group_names):
+        return 'neutron-group-%s-%s' % (index, host_group_names[index - 1])
+
+    def _rule_name(self, index, host_group_names):
+        return 'neutron-rule-%s-%s' % (index, host_group_names[index - 1])
+
+    def get_configured_vms(self, resource_id, host_group_names):
+        n_host_groups = len(host_group_names)
         session = self._session
         resource = vim_util.get_moref(resource_id, 'ResourcePool')
         # TODO(garyk): cache the cluster details
@@ -765,7 +772,7 @@ class ClusterManager(VCManagerBase):
             if hasattr(cluster_config, 'group'):
                 groups = cluster_config.group
             for group in groups:
-                if 'neutron-group-%s' % entry_id == group.name:
+                if self._group_name(entry_id, host_group_names) == group.name:
                     vm_group = group
                     break
             if vm_group and hasattr(vm_group, 'vm'):
@@ -804,25 +811,25 @@ class ClusterManager(VCManagerBase):
             if hasattr(cluster_config, 'group'):
                 groups = cluster_config.group
             for group in groups:
-                if 'neutron-group-%s' % index == group.name:
+                if self._group_name(index, host_group_names) == group.name:
                     vmGroup = group
                     break
             # Create/update the VM group
             groupSpec = self._create_vm_group_spec(
                             client_factory,
-                            'neutron-group-%s' % index,
+                            self._group_name(index, host_group_names),
                             [vm], vmGroup)
             config_spec.groupSpec.append(groupSpec)
             config_rule = None
             # Create the config rule if it does not exist
             for rule in rules:
-                if 'neutron-rule-%s' % index == rule.name:
+                if self._rule_name(index, host_group_names) == rule.name:
                     config_rule = rule
                     break
             if config_rule is None and index <= num_host_groups:
                 ruleSpec = self._create_cluster_rules_spec(
-                    client_factory, 'neutron-rule-%s' % index,
-                    'neutron-group-%s' % index,
+                    client_factory, self._rule_name(index, host_group_names),
+                    self._group_name(index, host_group_names),
                     host_group_names[index - 1])
                 config_spec.rulesSpec.append(ruleSpec)
         self._reconfigure_cluster(session, cluster, config_spec)
@@ -861,13 +868,13 @@ class ClusterManager(VCManagerBase):
             entry_id = index + 1
             vmGroup = None
             for group in groups:
-                if 'neutron-group-%s' % entry_id == group.name:
+                if self._group_name(entry_id, host_group_names) == group.name:
                     vmGroup = group
                     break
             if vmGroup is None:
                 groupSpec = self._create_vm_group_spec(
                                 client_factory,
-                                'neutron-group-%s' % entry_id,
+                                self._group_name(entry_id, host_group_names),
                                 [], vmGroup)
                 config_spec.groupSpec.append(groupSpec)
                 update_cluster = True
@@ -875,13 +882,14 @@ class ClusterManager(VCManagerBase):
             config_rule = None
             # Create the config rule if it does not exist
             for rule in rules:
-                if 'neutron-rule-%s' % entry_id == rule.name:
+                if self._rule_name(entry_id, host_group_names) == rule.name:
                     config_rule = rule
                     break
             if config_rule is None and index < num_host_groups:
                 ruleSpec = self._create_cluster_rules_spec(
-                    client_factory, 'neutron-rule-%s' % entry_id,
-                    'neutron-group-%s' % entry_id,
+                    client_factory, self._rule_name(entry_id,
+                                                    host_group_names),
+                    self._group_name(entry_id, host_group_names),
                     host_group_names[index - 1])
                 config_spec.rulesSpec.append(ruleSpec)
                 update_cluster = True
@@ -912,7 +920,8 @@ class ClusterManager(VCManagerBase):
         rules_spec.info = rules_info
         return rules_spec
 
-    def cluster_host_group_cleanup(self, resource_id, n_host_groups=2):
+    def cluster_host_group_cleanup(self, resource_id, host_group_names):
+        n_host_groups = len(host_group_names)
         session = self._session
         resource = vim_util.get_moref(resource_id, 'ResourcePool')
         # TODO(garyk): cache the cluster details
@@ -936,12 +945,12 @@ class ClusterManager(VCManagerBase):
         for index in range(n_host_groups):
             entry_id = index + 1
             for group in groups:
-                if 'neutron-group-%s' % entry_id == group.name:
+                if self._group_name(entry_id, host_group_names) == group.name:
                     groupSpec.append(self._delete_vm_group_spec(
                         client_factory, group.name))
             # Delete the config rule if it exists
             for rule in rules:
-                if 'neutron-rule-%s' % entry_id == rule.name:
+                if self._rule_name(entry_id, host_group_names) == rule.name:
                     ruleSpec.append(self._delete_cluster_rules_spec(
                         client_factory, rule))
 
