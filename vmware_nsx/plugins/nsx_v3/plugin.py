@@ -2846,6 +2846,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if cfg.CONF.nsx_v3.native_dhcp_metadata:
             self._update_dhcp_binding(context, original_port, updated_port)
 
+        # Make sure the port revision is updated
+        if 'revision_number' in updated_port:
+            port_model = self._get_port(context, id)
+            updated_port['revision_number'] = port_model.revision_number
+
         return updated_port
 
     def _extend_get_port_dict_qos_and_binding(self, context, port):
