@@ -152,11 +152,12 @@ class ExtendedSecurityGroupPropertiesMixin(object):
             (sg_policy.POLICY in sg_req and
              (sg_req[sg_policy.POLICY] !=
               sg_res.get(sg_policy.POLICY)))):
-            prop = self._get_security_group_properties(context, sg_res['id'])
             with db_api.context_manager.writer.using(context):
-                prop.update({
-                    sg_logging.LOGGING: sg_req.get(sg_logging.LOGGING, False),
-                    sg_policy.POLICY: sg_req.get(sg_policy.POLICY)})
+                prop = context.session.query(
+                    NsxExtendedSecurityGroupProperties).filter_by(
+                        security_group_id=sg_res['id']).one()
+                prop.logging = sg_req.get(sg_logging.LOGGING, False)
+                prop.policy = sg_req.get(sg_policy.POLICY)
 
             sg_res[sg_logging.LOGGING] = sg_req.get(sg_logging.LOGGING, False)
             sg_res[sg_policy.POLICY] = sg_req.get(sg_policy.POLICY)
