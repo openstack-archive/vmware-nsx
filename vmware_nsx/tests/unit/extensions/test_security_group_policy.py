@@ -110,6 +110,11 @@ class SecGroupPolicyExtensionTestCase(
                                       sg['security_group']['id'])
         updated_sg = self.deserialize(self.fmt, req.get_response(self.ext_api))
         self.assertEqual(new_policy, updated_sg['security_group']['policy'])
+        # Verify the same result in 'get'
+        req = self.new_show_request('security-groups',
+                                    sg['security_group']['id'])
+        shown_sg = self.deserialize(self.fmt, req.get_response(self.ext_api))
+        self.assertEqual(new_policy, shown_sg['security_group']['policy'])
 
     def test_secgroup_update_no_policy_change(self):
         # Test updating without changing the policy
