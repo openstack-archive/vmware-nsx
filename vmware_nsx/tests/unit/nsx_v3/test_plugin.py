@@ -561,7 +561,8 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
                 'provider:physical_network': 'xxx',
                 'qos_policy_id': policy_id,
                 'port_security_enabled': False}}
-        with mock_ens, mock_tz, mock_tt:
+        with mock_ens, mock_tz, mock_tt,\
+            mock.patch.object(self.plugin, '_validate_qos_policy_id'):
                 self.assertRaises(n_exc.InvalidInput,
                                   self.plugin.create_network,
                                   context.get_admin_context(), data)
@@ -585,7 +586,8 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
                 'admin_state_up': True,
                 'shared': False,
                 'port_security_enabled': False}}
-        with mock_ens, mock_tz, mock_tt:
+        with mock_ens, mock_tz, mock_tt,\
+            mock.patch.object(self.plugin, '_validate_qos_policy_id'):
             network = self.plugin.create_network(context.get_admin_context(),
                                                  data)
             policy_id = uuidutils.generate_uuid()
@@ -992,7 +994,8 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                         'fixed_ips': [],
                         'mac_address': '00:00:00:00:00:01'}
                     }
-            with mock.patch.object(self.plugin, '_get_qos_profile_id'):
+            with mock.patch.object(self.plugin, '_get_qos_profile_id'),\
+                mock.patch.object(self.plugin, '_validate_qos_policy_id'):
                 port = self.plugin.create_port(self.ctx, data)
                 self.assertEqual(policy_id, port['qos_policy_id'])
                 # Get port should also return the qos policy id
@@ -1017,7 +1020,8 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
             port = self.plugin.create_port(self.ctx, data)
             policy_id = uuidutils.generate_uuid()
             data['port']['qos_policy_id'] = policy_id
-            with mock.patch.object(self.plugin, '_get_qos_profile_id'):
+            with mock.patch.object(self.plugin, '_get_qos_profile_id'),\
+                mock.patch.object(self.plugin, '_validate_qos_policy_id'):
                 res = self.plugin.update_port(self.ctx, port['id'], data)
                 self.assertEqual(policy_id, res['qos_policy_id'])
                 # Get port should also return the qos policy id
@@ -1029,7 +1033,8 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
 
     def test_create_ext_port_with_qos_fail(self):
         with self._create_l3_ext_network() as network:
-            with self.subnet(network=network, cidr='10.0.0.0/24'):
+            with self.subnet(network=network, cidr='10.0.0.0/24'),\
+                mock.patch.object(self.plugin, '_validate_qos_policy_id'):
                 policy_id = uuidutils.generate_uuid()
                 data = {'port': {'network_id': network['network']['id'],
                         'tenant_id': self._tenant_id,
@@ -1040,7 +1045,8 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
 
     def _test_create_illegal_port_with_qos_fail(self, device_owner):
         with self.network() as network:
-            with self.subnet(network=network, cidr='10.0.0.0/24'):
+            with self.subnet(network=network, cidr='10.0.0.0/24'),\
+                mock.patch.object(self.plugin, '_validate_qos_policy_id'):
                 policy_id = uuidutils.generate_uuid()
                 data = {'port': {'network_id': network['network']['id'],
                                  'tenant_id': self._tenant_id,
@@ -1080,7 +1086,8 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                     'qos_policy_id': policy_id}
                 }
                 # Cannot add qos policy to this type of port
-                with mock_ens, mock_tz, mock_tt:
+                with mock_ens, mock_tz, mock_tt,\
+                    mock.patch.object(self.plugin, '_validate_qos_policy_id'):
                     self.assertRaises(n_exc.InvalidInput,
                                       self.plugin.create_port, self.ctx, data)
 
@@ -1143,7 +1150,8 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                         'port_security_enabled': False,
                         'mac_address': '00:00:00:00:00:01'}
                         }
-                with mock_ens, mock_tz, mock_tt:
+                with mock_ens, mock_tz, mock_tt,\
+                    mock.patch.object(self.plugin, '_validate_qos_policy_id'):
                     port = self.plugin.create_port(self.ctx, data)
                     data['port'] = {'qos_policy_id': policy_id}
                     self.assertRaises(n_exc.InvalidInput,
@@ -1196,7 +1204,8 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
 
     def _test_update_illegal_port_with_qos_fail(self, device_owner):
         with self.network() as network:
-            with self.subnet(network=network, cidr='10.0.0.0/24'):
+            with self.subnet(network=network, cidr='10.0.0.0/24'),\
+                mock.patch.object(self.plugin, '_validate_qos_policy_id'):
                 policy_id = uuidutils.generate_uuid()
                 data = {'port': {'network_id': network['network']['id'],
                                  'tenant_id': self._tenant_id,
@@ -1236,11 +1245,12 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                         'mac_address': '00:00:00:00:00:01'}
                     }
             with mock.patch.object(self.plugin,
-                '_get_qos_profile_id') as get_profile:
-                with mock.patch('vmware_nsx.services.qos.common.utils.'
-                    'get_network_policy_id', return_value=policy_id):
-                    self.plugin.create_port(self.ctx, data)
-                    get_profile.assert_called_once_with(self.ctx, policy_id)
+                '_get_qos_profile_id') as get_profile,\
+                mock.patch('vmware_nsx.services.qos.common.utils.'
+                           'get_network_policy_id', return_value=policy_id),\
+                mock.patch.object(self.plugin, '_validate_qos_policy_id'):
+                self.plugin.create_port(self.ctx, data)
+                get_profile.assert_called_once_with(self.ctx, policy_id)
 
     def test_update_port_with_qos_on_net(self):
         with self.network() as network:
@@ -1259,11 +1269,12 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
             device_owner = constants.DEVICE_OWNER_COMPUTE_PREFIX + 'X'
             data['port']['device_owner'] = device_owner
             with mock.patch.object(self.plugin,
-                '_get_qos_profile_id') as get_profile:
-                with mock.patch('vmware_nsx.services.qos.common.utils.'
-                    'get_network_policy_id', return_value=policy_id):
-                    self.plugin.update_port(self.ctx, port['id'], data)
-                    get_profile.assert_called_once_with(self.ctx, policy_id)
+                '_get_qos_profile_id') as get_profile,\
+                mock.patch('vmware_nsx.services.qos.common.utils.'
+                           'get_network_policy_id', return_value=policy_id),\
+                mock.patch.object(self.plugin, '_validate_qos_policy_id'):
+                self.plugin.update_port(self.ctx, port['id'], data)
+                get_profile.assert_called_once_with(self.ctx, policy_id)
 
     def _get_ports_with_fields(self, tenid, fields, expected_count):
         pl = directory.get_plugin()
