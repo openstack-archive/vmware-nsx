@@ -40,6 +40,7 @@ from neutron_lib.utils import net
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.services.qos.common import utils as qos_com_utils
 
 LOG = logging.getLogger(__name__)
 
@@ -365,6 +366,10 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
                 err_msg = _("Host routes can only be supported when DHCP "
                             "is enabled")
                 raise n_exc.InvalidInput(error_message=err_msg)
+
+    def _validate_qos_policy_id(self, context, qos_policy_id):
+        if qos_policy_id:
+            qos_com_utils.validate_policy_accessable(context, qos_policy_id)
 
 
 # Register the callback

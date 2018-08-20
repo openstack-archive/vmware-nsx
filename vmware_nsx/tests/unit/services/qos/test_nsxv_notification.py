@@ -144,7 +144,8 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
 
         with mock.patch('neutron.services.qos.qos_plugin.QoSPlugin.'
                         'get_policy',
-                        return_value=_policy) as get_rules_mock:
+                        return_value=_policy) as get_rules_mock,\
+            mock.patch.object(self.plugin, '_validate_qos_policy_id'):
             # create the network to use this policy
             net = self._create_net()
 
