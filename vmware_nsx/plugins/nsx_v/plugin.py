@@ -599,7 +599,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             else:
                 LOG.info(msg)
 
-    def _validate_network_qos(self, network, backend_network):
+    def _validate_network_qos(self, context, network, backend_network):
         err_msg = None
         if validators.is_attr_set(network.get(qos_consts.QOS_POLICY_ID)):
             if not backend_network:
@@ -607,9 +607,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if not cfg.CONF.nsxv.use_dvs_features:
                 err_msg = (_("Cannot configure QOS "
                              "without enabling use_dvs_features"))
-
         if err_msg:
             raise n_exc.InvalidInput(error_message=err_msg)
+
+        self._validate_qos_policy_id(
+            context, network.get(qos_consts.QOS_POLICY_ID))
 
     def _get_network_az_from_net_data(self, net_data):
         if az_def.AZ_HINTS in net_data and net_data[az_def.AZ_HINTS]:
@@ -1145,8 +1147,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         external_backend_network = (
             external and provider_type is not None and
             network_type != c_utils.NsxVNetworkTypes.PORTGROUP)
+        self._validate_network_qos(context, net_data, backend_network)
+
         # Update the transparent vlan if configured
-        self._validate_network_qos(net_data, backend_network)
         vlt = False
         if extensions.is_extension_supported(self, 'vlan-transparent'):
             vlt = vlan_apidef.get_vlan_transparent(net_data)
@@ -1638,7 +1641,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         else:
             net_morefs = []
         backend_network = True if len(net_morefs) > 0 else False
-        self._validate_network_qos(net_attrs, backend_network)
+        self._validate_network_qos(context, net_attrs, backend_network)
 
         # PortSecurity validation checks
         psec_update = (psec.PORTSECURITY in net_attrs and

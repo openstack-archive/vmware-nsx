@@ -869,10 +869,11 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                    'tenant_id': self._tenant_id,
                    'qos_policy_id': _uuid()}}
         plugin = directory.get_plugin()
-        self.assertRaises(n_exc.InvalidInput,
-                          plugin.create_network,
-                          context.get_admin_context(),
-                          data)
+        with mock.patch.object(plugin, '_validate_qos_policy_id'):
+            self.assertRaises(n_exc.InvalidInput,
+                              plugin.create_network,
+                              context.get_admin_context(),
+                              data)
 
     def test_update_network_with_qos_no_dvs_fail(self):
         # network update should fail if the qos policy parameter exists,
@@ -909,7 +910,8 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
                 }}
         with mock.patch('vmware_nsx.services.qos.common.utils.'
                         'get_network_policy_id',
-                        return_value=policy_id):
+                        return_value=policy_id),\
+            mock.patch.object(self.plugin, '_validate_qos_policy_id'):
             # create the network - should succeed and translate the policy id
             net = plugin.create_network(ctx, data)
             self.assertEqual(policy_id, net[qos_consts.QOS_POLICY_ID])
@@ -945,7 +947,8 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
         # update the network - should succeed and translate the policy id
         with mock.patch('vmware_nsx.services.qos.common.utils.'
                         'get_network_policy_id',
-                        return_value=policy_id):
+                        return_value=policy_id),\
+            mock.patch.object(self.plugin, '_validate_qos_policy_id'):
             res = plugin.update_network(ctx, net['id'], data)
             self.assertEqual(policy_id, res[qos_consts.QOS_POLICY_ID])
             fake_init_from_policy.assert_called_once_with(ctx, policy_id)
