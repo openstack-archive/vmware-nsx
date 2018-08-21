@@ -2895,25 +2895,28 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # sgids is a set() so we need to | it in.
             if psgids:
                 sgids = list(set(sgids) | set(psgids))
-            # Make sure mac_learning and port sec are not both enabled
-            if (validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)) and
-                port_data.get(mac_ext.MAC_LEARNING)):
-                if is_psec_on:
+
+            # Handle port mac learning
+            if validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)):
+                # Make sure mac_learning and port sec are not both enabled
+                if port_data.get(mac_ext.MAC_LEARNING) and is_psec_on:
                     msg = _('Mac learning requires that port security be '
                             'disabled')
                     LOG.error(msg)
                     raise n_exc.InvalidInput(error_message=msg)
-                self._create_mac_learning_state(context, port_data)
-            elif mac_ext.MAC_LEARNING in port_data:
                 if is_ens_tz_port and not port_data.get(mac_ext.MAC_LEARNING):
                     msg = _('Cannot disable Mac learning for ENS TZ')
                     LOG.error(msg)
                     raise n_exc.InvalidInput(error_message=msg)
+                # save the mac learning value in the DB
+                self._create_mac_learning_state(context, port_data)
+            elif mac_ext.MAC_LEARNING in port_data:
                 # This is due to the fact that the default is
                 # ATTR_NOT_SPECIFIED
                 port_data.pop(mac_ext.MAC_LEARNING)
             # For a ENZ TZ mac learning is always enabled
             if is_ens_tz_port and mac_ext.MAC_LEARNING not in port_data:
+                # Set the default and add to the DB
                 port_data[mac_ext.MAC_LEARNING] = True
                 self._create_mac_learning_state(context, port_data)
 

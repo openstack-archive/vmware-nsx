@@ -43,7 +43,7 @@ class MacLearningDbMixin(object):
     @resource_extend.extends([port_def.COLLECTION_NAME])
     def _extend_port_mac_learning_state(port_res, port_db):
         state = port_db.mac_learning_state
-        if state and state.mac_learning_enabled:
+        if state:
             port_res[mac.MAC_LEARNING] = state.mac_learning_enabled
 
     def _update_mac_learning_state(self, context, port_id, enabled):
