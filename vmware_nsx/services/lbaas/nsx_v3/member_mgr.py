@@ -129,8 +129,14 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
         network = lb_utils.get_network_from_subnet(
             context, self.core_plugin, member.subnet_id)
         if network.get('router:external'):
-            router_id, fixed_ip = self._get_info_from_fip(
+            fixed_ip, router_id = self._get_info_from_fip(
                 context, member.address)
+            if not router_id:
+                self.lbv2_driver.member.failed_completion(context,
+                                                          member)
+                msg = (_('Floating ip %(fip)s has no router') % {
+                    'fip': member['address']})
+                raise n_exc.BadRequest(resource='lbaas-vip', msg=msg)
         else:
             router_id = lb_utils.get_router_from_network(
                 context, self.core_plugin, member.subnet_id)
