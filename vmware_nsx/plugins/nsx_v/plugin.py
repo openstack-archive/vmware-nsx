@@ -492,10 +492,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         router_type_obj._extend_nsx_router_dict(
             router_res, router_db, router_type_obj.nsx_attributes)
 
-    def _create_cluster_default_fw_section(self):
-        section_name = 'OS Cluster Security Group section'
-
-        # Default cluster rules
+    def _get_cluster_default_fw_section_rules(self):
+        """Build Default cluster rules"""
         rules = [{'name': 'Default DHCP rule for OS Security Groups',
                   'action': 'allow',
                   'services': [('17', '67', None, None),
@@ -555,11 +553,20 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             logged=cfg.CONF.nsxv.log_security_groups_blocked_traffic)
         rule_list.append(block_rule)
 
+        return rule_list
+
+    def _create_cluster_default_fw_section(self, update_section=False):
+        section_name = 'OS Cluster Security Group section'
         with locking.LockManager.get_lock('default-section-init'):
             section_id = self.nsx_v.vcns.get_section_id(section_name)
-            section = (
-                self.nsx_sg_utils.get_section_with_rules(
-                    section_name, rule_list, section_id))
+            if section_id and not update_section:
+                # No need to update an existing section, unless the
+                # configuration changed
+                return section_id
+
+            rule_list = self._get_cluster_default_fw_section_rules()
+            section = self.nsx_sg_utils.get_section_with_rules(
+                section_name, rule_list, section_id)
             section_req_body = self.nsx_sg_utils.to_xml_string(section)
             if section_id:
                 self.nsx_v.vcns.update_section_by_id(
@@ -567,10 +574,18 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             else:
                 # cluster section does not exists. Create it above the
                 # default l3 section
-                l3_id = self.nsx_v.vcns.get_default_l3_id()
-                h, c = self.nsx_v.vcns.create_section('ip', section_req_body,
-                                                      insert_before=l3_id)
-                section_id = self.nsx_sg_utils.parse_and_get_section_id(c)
+                try:
+                    l3_id = self.nsx_v.vcns.get_default_l3_id()
+                    h, c = self.nsx_v.vcns.create_section(
+                        'ip', section_req_body, insert_before=l3_id)
+                    section_id = self.nsx_sg_utils.parse_and_get_section_id(c)
+                except Exception as e:
+                    # another controller might have already created one
+                    section_id = self.nsx_v.vcns.get_section_id(section_name)
+                    if not section_id:
+                        with excutils.save_and_reraise_exception():
+                            LOG.error("Failed to create default section: %s",
+                                      e)
         return section_id
 
     def _create_dhcp_static_binding(self, context, neutron_port_db):

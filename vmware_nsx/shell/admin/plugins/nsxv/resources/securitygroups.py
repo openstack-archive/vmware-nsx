@@ -461,7 +461,7 @@ def migrate_sg_to_policy(resource, event, trigger, **kwargs):
 def firewall_update_cluster_default_fw_section(resource, event, trigger,
                                                **kwargs):
     with utils.NsxVPluginWrapper() as plugin:
-        plugin._create_cluster_default_fw_section()
+        plugin._create_cluster_default_fw_section(update_section=True)
         LOG.info("Cluster default FW section updated.")
 
 
