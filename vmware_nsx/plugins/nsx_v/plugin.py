@@ -2562,13 +2562,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     def delete_port(self, context, id, l3_port_check=True,
                     nw_gw_port_check=True, force_delete_dhcp=False,
                     allow_delete_internal=False):
-        kwargs = {
-            'context': context,
-            'port_check': l3_port_check,
-            'port_id': id,
-        }
         # Send delete port notification to any interested service plugin
-        registry.notify(resources.PORT, events.BEFORE_DELETE, self, **kwargs)
+        registry.publish(resources.PORT, events.BEFORE_DELETE, self,
+                         payload=events.DBEventPayload(
+                             context, resource_id=id,
+                             metadata={'port_check': l3_port_check}))
 
         neutron_db_port = self.get_port(context, id)
         device_id = neutron_db_port['device_id']

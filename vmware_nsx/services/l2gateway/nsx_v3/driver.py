@@ -132,10 +132,11 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
                     def_l2gw_exists = True
         return l2_gateway
 
-    def _prevent_l2gw_port_delete(self, resource, event, trigger, **kwargs):
-        context = kwargs.get('context')
-        port_id = kwargs.get('port_id')
-        port_check = kwargs.get('port_check')
+    def _prevent_l2gw_port_delete(self, resource, event,
+                                  trigger, payload=None):
+        context = payload.context
+        port_id = payload.resource_id
+        port_check = payload.metadata['port_check']
         if port_check:
             self.prevent_l2gw_port_deletion(context, port_id)
 

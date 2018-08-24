@@ -1667,14 +1667,12 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
     def _pre_delete_port_check(self, context, port_id, l2gw_port_check):
         """Perform checks prior to deleting a port."""
         try:
-            kwargs = {
-                'context': context,
-                'port_check': l2gw_port_check,
-                'port_id': port_id,
-            }
             # Send delete port notification to any interested service plugin
-            registry.notify(
-                resources.PORT, events.BEFORE_DELETE, self, **kwargs)
+            registry.publish(
+                resources.PORT, events.BEFORE_DELETE, self,
+                payload=events.DBEventPayload(
+                    context, resource_id=port_id,
+                    metadata={'port_check': l2gw_port_check}))
         except callback_exc.CallbackFailure as e:
             if len(e.errors) == 1:
                 raise e.errors[0].error
