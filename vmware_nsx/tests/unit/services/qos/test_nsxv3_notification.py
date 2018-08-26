@@ -305,6 +305,7 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                     dscp_mark = rule_dict['dscp_mark']
                     update_profile.assert_called_once_with(
                         self.fake_profile_id,
+
                         ingress_bw_enabled=False,
                         ingress_burst_size=None,
                         ingress_peak_bandwidth=None,
@@ -316,6 +317,30 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                         dscp=dscp_mark,
                         qos_marking='untrusted'
                     )
+
+    @mock.patch.object(QoSPolicyObject, '_reload_rules')
+    def test_minimum_bw_rule_create_profile(self, *mocks):
+        # Minimum BW rules are not supported
+        policy = QoSPolicyObject(
+            self.ctxt, **self.policy_data['policy'])
+        min_bw_rule_data = {
+            'minimum_bandwidth_rule': {'id': uuidutils.generate_uuid(),
+                                       'min_kbps': 10,
+                                       'direction': 'egress'}}
+        min_bw_rule = obj_reg.new_instance(
+            'QosMinimumBandwidthRule', self.ctxt,
+            **min_bw_rule_data['minimum_bandwidth_rule'])
+        # add a rule to the policy
+        setattr(policy, "rules", [min_bw_rule])
+        with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
+                        return_value=policy),\
+            mock.patch('neutron.objects.db.api.'
+                       'update_object', return_value=self.dscp_rule_data):
+            self.assertRaises(
+                exceptions.DriverCallError,
+                self.qos_plugin.update_policy_minimum_bandwidth_rule,
+                self.ctxt, min_bw_rule.id,
+                policy.id, min_bw_rule_data)
 
     def test_rule_delete_profile(self):
         # test the switch profile update when a QoS rule is deleted
