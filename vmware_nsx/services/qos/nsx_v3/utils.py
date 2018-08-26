@@ -175,8 +175,11 @@ class QosNotificationsHandler(object):
                     egress_bw_rule = rule
                 else:
                     ingress_bw_rule = rule
-            else:
+            elif rule.rule_type == qos_consts.RULE_TYPE_DSCP_MARKING:
                 dscp_rule = rule
+            else:
+                LOG.warning("The NSX-V3 plugin does not support QoS rule of "
+                            "type %s", rule.rule_type)
 
         # the NSX direction is opposite to the neutron direction
         (ingress_bw_enabled, ingress_burst_size, ingress_peak_bw,
@@ -203,3 +206,10 @@ class QosNotificationsHandler(object):
         """Raise an exception if the rule values are not supported"""
         if rule.rule_type == qos_consts.RULE_TYPE_BANDWIDTH_LIMIT:
             self._validate_bw_values(rule)
+        elif rule.rule_type == qos_consts.RULE_TYPE_DSCP_MARKING:
+            pass
+        else:
+            msg = (_("The NSX-V3 plugin does not support QoS rule of type "
+                     "%s") % rule.rule_type)
+            LOG.error(msg)
+            raise n_exc.InvalidInput(error_message=msg)
