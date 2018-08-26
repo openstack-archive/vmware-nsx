@@ -591,6 +591,16 @@ def get_nsx_lbaas_listener_binding(session, loadbalancer_id, listener_id):
         return
 
 
+def get_nsx_lbaas_listener_binding_by_vs(session, loadbalancer_id, lb_vs_id):
+    try:
+        return session.query(
+            nsx_models.NsxLbaasListener).filter_by(
+                loadbalancer_id=loadbalancer_id,
+                lb_vs_id=lb_vs_id).one()
+    except exc.NoResultFound:
+        return
+
+
 def delete_nsx_lbaas_listener_binding(session, loadbalancer_id, listener_id):
     return (session.query(nsx_models.NsxLbaasListener).
             filter_by(loadbalancer_id=loadbalancer_id,
@@ -612,6 +622,15 @@ def get_nsx_lbaas_pool_binding(session, loadbalancer_id, pool_id):
     try:
         return session.query(nsx_models.NsxLbaasPool).filter_by(
             loadbalancer_id=loadbalancer_id, pool_id=pool_id).one()
+    except exc.NoResultFound:
+        return
+
+
+def get_nsx_lbaas_pool_binding_by_lb_pool(session, loadbalancer_id,
+                                          lb_pool_id):
+    try:
+        return session.query(nsx_models.NsxLbaasPool).filter_by(
+            loadbalancer_id=loadbalancer_id, lb_pool_id=lb_pool_id).one()
     except exc.NoResultFound:
         return
 
