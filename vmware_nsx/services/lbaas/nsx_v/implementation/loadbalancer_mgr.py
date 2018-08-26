@@ -189,6 +189,11 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
 
         return stats
 
+    def get_operating_status(self, context, id):
+        """Return a map of the operating status of all connected LB objects """
+        #TODO(asarfaty) implement
+        return {}
+
     def _handle_subnet_gw_change(self, *args, **kwargs):
         # As the Edge appliance doesn't use DHCP, we should change the
         # default gateway here when the subnet GW changes.

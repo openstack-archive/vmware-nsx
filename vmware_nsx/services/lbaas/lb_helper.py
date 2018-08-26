@@ -107,3 +107,12 @@ class LBaaSNSXObjectManagerWrapper(object):
             raise n_exc.BadRequest(resource='edge', msg=msg)
         obj_dict = self.translator(obj)
         return self.implementor.stats(context, obj_dict)
+
+    @log_helpers.log_method_call
+    def get_operating_status(self, context, id, **args):
+        # verify that this api exists (supported only for loadbalancer)
+        if not hasattr(self.implementor, 'get_operating_status'):
+            msg = (_("LBaaS object %s does not support get_operating_status "
+                     "api") % self.object_type)
+            raise n_exc.BadRequest(resource='edge', msg=msg)
+        return self.implementor.get_operating_status(context, id, **args)
