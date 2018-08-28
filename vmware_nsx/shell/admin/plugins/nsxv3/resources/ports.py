@@ -120,7 +120,7 @@ def list_missing_ports(resource, event, trigger, **kwargs):
     """
     admin_cxt = neutron_context.get_admin_context()
     filters = v3_utils.get_plugin_filters(admin_cxt)
-    with PortsPlugin() as plugin:
+    with v3_utils.NsxV3PluginWrapper() as plugin:
         neutron_ports = plugin.get_ports(admin_cxt, filters=filters)
         port_client, profile_client = get_port_and_profile_clients()
 
