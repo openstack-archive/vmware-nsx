@@ -33,6 +33,7 @@ from vmware_nsx._i18n import _
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils as c_utils
 from vmware_nsx.db import nsxv_db
+from vmware_nsx.extensions import projectpluginmap
 
 
 LOG = logging.getLogger(__name__)
@@ -43,12 +44,22 @@ SUPPORTED_VNIC_TYPES = (pbin.VNIC_NORMAL,
                         pbin.VNIC_DIRECT_PHYSICAL)
 
 VNIC_TYPES_DIRECT_PASSTHROUGH = (pbin.VNIC_DIRECT, pbin.VNIC_DIRECT_PHYSICAL)
+SUPPORTED_V_NETWORK_TYPES = (c_utils.NsxVNetworkTypes.VLAN,
+                             c_utils.NsxVNetworkTypes.FLAT,
+                             c_utils.NsxVNetworkTypes.PORTGROUP)
+SUPPORTED_T_NETWORK_TYPES = (c_utils.NsxV3NetworkTypes.VLAN,
+                             c_utils.NsxV3NetworkTypes.FLAT)
 
 
+#Note(asarfaty): This class is currently used also by the NSX-V3 plugin,
+# although it uses the NsxvPortExtAttributes DB table (which can be renamed
+# in the future)
 @resource_extend.has_resource_extenders
 class NsxPortBindingMixin(pbin_db.PortBindingMixin):
 
-    def _validate_port_vnic_type(self, context, port_data, network_id):
+    def _validate_port_vnic_type(
+        self, context, port_data, network_id,
+        plugin_type=projectpluginmap.NsxPlugins.NSX_V):
         vnic_type = port_data.get(pbin.VNIC_TYPE)
 
         if vnic_type and vnic_type not in SUPPORTED_VNIC_TYPES:
@@ -60,15 +71,16 @@ class NsxPortBindingMixin(pbin_db.PortBindingMixin):
         direct_vnic_type = vnic_type in VNIC_TYPES_DIRECT_PASSTHROUGH
         if direct_vnic_type:
             self._validate_vnic_type_direct_passthrough_for_network(
-                context, network_id)
+                context, network_id, plugin_type)
         return direct_vnic_type
 
     def _validate_vnic_type_direct_passthrough_for_network(self,
                                                            context,
-                                                           network_id):
-        supported_network_types = (c_utils.NsxVNetworkTypes.VLAN,
-                                   c_utils.NsxVNetworkTypes.FLAT,
-                                   c_utils.NsxVNetworkTypes.PORTGROUP)
+                                                           network_id,
+                                                           plugin_type):
+        supported_network_types = SUPPORTED_V_NETWORK_TYPES
+        if plugin_type == projectpluginmap.NsxPlugins.NSX_T:
+            supported_network_types = SUPPORTED_T_NETWORK_TYPES
 
         if not self._validate_network_type(context, network_id,
                                            supported_network_types):
@@ -77,10 +89,12 @@ class NsxPortBindingMixin(pbin_db.PortBindingMixin):
                 'networks': supported_network_types}
             err_msg = _("%(vnic_types)s port vnic-types are only supported "
                         "for ports on networks of types "
-                        "%(networks)s.") % msg_info
+                        "%(networks)s") % msg_info
             raise exceptions.InvalidInput(error_message=err_msg)
 
-    def _process_portbindings_create_and_update(self, context, port, port_res):
+    def _process_portbindings_create_and_update(
+        self, context, port, port_res,
+        vif_type=nsx_constants.VIF_TYPE_DVS):
         super(NsxPortBindingMixin,
               self)._process_portbindings_create_and_update(
                   context, port, port_res)
@@ -105,7 +119,7 @@ class NsxPortBindingMixin(pbin_db.PortBindingMixin):
             if not port_binding:
                 port_binding = pbin_model.PortBinding(
                     port_id=port_id,
-                    vif_type=nsx_constants.VIF_TYPE_DVS)
+                    vif_type=vif_type)
                 context.session.add(port_binding)
 
             port_binding.host = port_res[pbin.HOST_ID] or ''

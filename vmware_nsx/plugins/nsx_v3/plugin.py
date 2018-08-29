@@ -61,7 +61,6 @@ from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
-from neutron.plugins.ml2 import models as pbin_model
 from neutron.quota import resource_registry
 from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
 from neutron_lib.api.definitions import portbindings as pbin
@@ -103,6 +102,7 @@ from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import extended_security_group
 from vmware_nsx.db import extended_security_group_rule as extend_sg_rule
 from vmware_nsx.db import maclearning as mac_db
+from vmware_nsx.db import nsx_portbindings_db as pbin_db
 from vmware_nsx.dhcp_meta import rpc as nsx_rpc
 from vmware_nsx.extensions import advancedserviceproviders as as_providers
 from vmware_nsx.extensions import housekeeper as hk_ext
@@ -178,6 +178,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   extraroute_db.ExtraRoute_db_mixin,
                   router_az_db.RouterAvailabilityZoneMixin,
                   l3_gwmode_db.L3_NAT_db_mixin,
+                  pbin_db.NsxPortBindingMixin,
                   portbindings_db.PortBindingMixin,
                   portsecurity_db.PortSecurityDbMixin,
                   extradhcpopt_db.ExtraDhcpOptMixin,
@@ -585,24 +586,28 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         for az in self.get_azs_list():
             az.translate_configured_names_to_uuids(self.nsxlib)
 
-    def add_port_binding(self, context, port_id):
-        port_binding = pbin_model.PortBinding(
-            port_id=port_id,
-            vif_type=pbin.VIF_TYPE_OVS)
-        context.session.add(port_binding)
+    def _get_network_segmentation_id(self, context, neutron_id):
+        bindings = nsx_db.get_network_bindings(context.session, neutron_id)
+        if bindings:
+            return bindings[0].vlan_id
 
     def _extend_nsx_port_dict_binding(self, context, port_data):
         # Not using the register api for this because we need the context
-        port_data[pbin.VIF_TYPE] = pbin.VIF_TYPE_OVS
-        port_data[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
+        # Some attributes were already initialized by _extend_port_portbinding
+        if pbin.VIF_TYPE not in port_data:
+            port_data[pbin.VIF_TYPE] = pbin.VIF_TYPE_OVS
+        if pbin.VNIC_TYPE not in port_data:
+            port_data[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
         if 'network_id' in port_data:
-            port_data[pbin.VIF_DETAILS] = {
-                pbin.OVS_HYBRID_PLUG: False,
-                # TODO(rkukura): Replace with new VIF security details
-                pbin.CAP_PORT_FILTER:
-                'security-group' in self.supported_extension_aliases,
-                'nsx-logical-switch-id':
-                self._get_network_nsx_id(context, port_data['network_id'])}
+            net_id = port_data['network_id']
+            if pbin.VIF_DETAILS not in port_data:
+                port_data[pbin.VIF_DETAILS] = {}
+            port_data[pbin.VIF_DETAILS][pbin.OVS_HYBRID_PLUG] = False
+            port_data[pbin.VIF_DETAILS]['nsx-logical-switch-id'] = (
+                self._get_network_nsx_id(context, net_id))
+            if port_data[pbin.VNIC_TYPE] != pbin.VNIC_NORMAL:
+                port_data[pbin.VIF_DETAILS]['segmentation-id'] = (
+                    self._get_network_segmentation_id(context, net_id))
 
     @nsxlib_utils.retry_upon_exception(
         Exception, max_attempts=cfg.CONF.nsx_v3.retries)
@@ -1096,6 +1101,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return (self.nsxlib.feature_supported(
                     nsxlib_consts.FEATURE_VLAN_ROUTER_INTERFACE) or
                 self._is_overlay_network(context, network_id)), "non-overlay"
+
+    def _validate_network_type(self, context, network_id, net_types):
+        net = self.get_network(context, network_id)
+        if net.get(pnet.NETWORK_TYPE) in net_types:
+            return True
+        return False
 
     def _is_ddi_supported_on_network(self, context, network_id):
         result, _ = self._is_ddi_supported_on_net_with_type(
@@ -2907,10 +2918,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def base_create_port(self, context, port):
         neutron_db = super(NsxV3Plugin, self).create_port(context, port)
-        self.add_port_binding(context, neutron_db['id'])
         self._extension_manager.process_create_port(
             context, port['port'], neutron_db)
         return neutron_db
+
+    def _vif_type_by_vnic_type(self, direct_vnic_type):
+        return (nsx_constants.VIF_TYPE_DVS if direct_vnic_type
+            else pbin.VIF_TYPE_OVS)
 
     def create_port(self, context, port, l2gw_port_check=False):
         port_data = port['port']
@@ -2936,6 +2950,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 port_data[psec.PORTSECURITY] = False
                 port_data['security_groups'] = []
 
+        direct_vnic_type = self._validate_port_vnic_type(
+            context, port_data, port_data['network_id'],
+            projectpluginmap.NsxPlugins.NSX_T)
+
         with db_api.context_manager.writer.using(context):
             is_external_net = self._network_is_external(
                 context, port_data['network_id'])
@@ -2950,12 +2968,26 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             neutron_db = self.base_create_port(context, port)
             port["port"].update(neutron_db)
 
+            if direct_vnic_type:
+                if validators.is_attr_set(port_data.get(psec.PORTSECURITY)):
+                    # 'direct' and 'direct-physical' vnic types ports requires
+                    # port-security to be disabled.
+                    if port_data[psec.PORTSECURITY]:
+                        err_msg = _("Security features are not supported for "
+                                    "ports with direct/direct-physical VNIC "
+                                    "type")
+                        raise n_exc.InvalidInput(error_message=err_msg)
+                else:
+                    # Implicitly disable port-security for direct vnic types.
+                    port_data[psec.PORTSECURITY] = False
+
             (is_psec_on, has_ip, sgids, psgids) = (
                 self._create_port_preprocess_security(context, port,
                                                       port_data, neutron_db,
                                                       is_ens_tz_port))
             self._process_portbindings_create_and_update(
-                context, port['port'], port_data)
+                context, port['port'], port_data,
+                vif_type=self._vif_type_by_vnic_type(direct_vnic_type))
             self._process_port_create_extra_dhcp_opts(
                 context, port_data, dhcp_opts)
 
@@ -3137,7 +3169,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def _update_port_preprocess_security(
             self, context, port, id, updated_port, is_ens_tz_port,
-            validate_port_sec=True):
+            validate_port_sec=True, direct_vnic_type=False):
         delete_addr_pairs = self._check_update_deletes_allowed_address_pairs(
             port)
         has_addr_pairs = self._check_update_has_allowed_address_pairs(port)
@@ -3172,10 +3204,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 context, updated_port,
                 updated_port[addr_apidef.ADDRESS_PAIRS])
 
-        # No port security is allowed if the port belongs to an ENS TZ
-        if (updated_port[psec.PORTSECURITY] and
-            psec.PORTSECURITY in port_data and is_ens_tz_port):
-            raise nsx_exc.NsxENSPortSecurity()
+        if updated_port[psec.PORTSECURITY] and psec.PORTSECURITY in port_data:
+            # No port security is allowed if the port belongs to an ENS TZ
+            if is_ens_tz_port:
+                raise nsx_exc.NsxENSPortSecurity()
+
+            # No port security is allowed if the port has a direct vnic type
+            if direct_vnic_type:
+                err_msg = _("Security features are not supported for "
+                            "ports with direct/direct-physical VNIC type")
+                raise n_exc.InvalidInput(error_message=err_msg)
 
         # checks if security groups were updated adding/modifying
         # security groups, port security is set and port has ip
@@ -3445,6 +3483,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 port_data.get('fixed_ips', []), device_owner)
             self._assert_on_vpn_port_change(original_port)
 
+            direct_vnic_type = self._validate_port_vnic_type(
+                context, port_data, original_port['network_id'])
+
             updated_port = super(NsxV3Plugin, self).update_port(context,
                                                                 id, port)
             self._extension_manager.process_update_port(context, port_data,
@@ -3456,7 +3497,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
             updated_port = self._update_port_preprocess_security(
                 context, port, id, updated_port, is_ens_tz_port,
-                validate_port_sec=validate_port_sec)
+                validate_port_sec=validate_port_sec,
+                direct_vnic_type=direct_vnic_type)
 
             self._update_extra_dhcp_opts_on_port(context, id, port,
                                                  updated_port)
@@ -3469,7 +3511,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             (port_security, has_ip) = self._determine_port_security_and_has_ip(
                 context, updated_port)
             self._process_portbindings_create_and_update(
-                context, port_data, updated_port)
+                context, port_data, updated_port,
+                vif_type=self._vif_type_by_vnic_type(direct_vnic_type))
             self._extend_nsx_port_dict_binding(context, updated_port)
             mac_learning_state = updated_port.get(mac_ext.MAC_LEARNING)
             if mac_learning_state is not None:
@@ -5106,6 +5149,3 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         nsx_router_id, ext_addr,
                         source_net=subnet['cidr'],
                         bypass_firewall=False)
-
-    def extend_port_portbinding(self, port_res, binding):
-        pass
