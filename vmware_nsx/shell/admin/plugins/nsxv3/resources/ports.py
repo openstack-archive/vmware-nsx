@@ -75,7 +75,7 @@ def list_missing_ports(resource, event, trigger, **kwargs):
     admin_cxt = neutron_context.get_admin_context()
     filters = v3_utils.get_plugin_filters(admin_cxt)
     nsxlib = v3_utils.get_connected_nsxlib()
-    with PortsPlugin() as plugin:
+    with v3_utils.NsxV3PluginWrapper() as plugin:
         problems = plugin_utils.get_mismatch_logical_ports(
             admin_cxt, nsxlib, plugin, filters)
 
