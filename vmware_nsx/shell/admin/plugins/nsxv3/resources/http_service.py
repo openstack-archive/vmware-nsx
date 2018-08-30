@@ -55,7 +55,7 @@ def nsx_rate_limit_update(resource, event, trigger, **kwargs):
     if kwargs.get('property'):
         properties = admin_utils.parse_multi_keyval_opt(kwargs['property'])
         rate_limit = properties.get('value', None)
-    if rate_limit is None:
+    if rate_limit is None or not rate_limit.isdigit():
         usage = ("nsxadmin -r rate-limit -o nsx-update "
                  "--property value=<new limit>")
         LOG.error("Missing parameters. Usage: %s", usage)
