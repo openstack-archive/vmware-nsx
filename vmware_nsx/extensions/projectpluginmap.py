@@ -32,6 +32,7 @@ class NsxPlugins(object):
     NSX_V = 'nsx-v'
     NSX_T = 'nsx-t'
     DVS = 'dvs'
+    NSX_P = 'nsx-p'  # Note(asarfaty) this option is missing from the DB enum
 
 
 VALID_TYPES = [NsxPlugins.NSX_V,

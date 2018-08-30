@@ -16,6 +16,7 @@ import os
 import random
 
 from oslo_config import cfg
+from oslo_context import context as context_utils
 from oslo_log import log as logging
 from oslo_utils import fileutils
 from sqlalchemy.orm import exc
@@ -162,6 +163,34 @@ def get_nsxlib_wrapper(nsx_username=None, nsx_password=None, basic_auth=False):
         dns_nameservers=cfg.CONF.nsx_v3.nameservers,
         dns_domain=cfg.CONF.nsx_v3.dns_domain)
     return v3.NsxLib(nsxlib_config)
+
+
+def get_nsxpolicy_wrapper(nsx_username=None, nsx_password=None,
+                          basic_auth=False):
+    #TODO(asarfaty) move to a different file?
+    client_cert_provider = None
+    if not basic_auth:
+        # if basic auth requested, dont use cert file even if provided
+        client_cert_provider = get_client_cert_provider()
+
+    nsxlib_config = config.NsxLibConfig(
+        username=nsx_username or cfg.CONF.nsx_p.nsx_api_user,
+        password=nsx_password or cfg.CONF.nsx_p.nsx_api_password,
+        client_cert_provider=client_cert_provider,
+        retries=cfg.CONF.nsx_p.http_retries,
+        insecure=cfg.CONF.nsx_p.insecure,
+        ca_file=cfg.CONF.nsx_p.ca_file,
+        concurrent_connections=cfg.CONF.nsx_p.concurrent_connections,
+        http_timeout=cfg.CONF.nsx_p.http_timeout,
+        http_read_timeout=cfg.CONF.nsx_p.http_read_timeout,
+        conn_idle_timeout=cfg.CONF.nsx_p.conn_idle_timeout,
+        http_provider=None,
+        max_attempts=cfg.CONF.nsx_p.retries,
+        nsx_api_managers=cfg.CONF.nsx_p.nsx_api_managers,
+        plugin_scope=OS_NEUTRON_ID_SCOPE,
+        plugin_tag=NSX_NEUTRON_PLUGIN,
+        plugin_ver=n_version.version_info.release_string())
+    return v3.NsxPolicyLib(nsxlib_config)
 
 
 def get_orphaned_dhcp_servers(context, plugin, nsxlib, dhcp_profile_uuid=None):
@@ -453,3 +482,19 @@ def get_mismatch_logical_ports(context, nsxlib, plugin, get_filters=None):
                                      'error': 'Different MAC address bindings',
                                      'error_type': PORT_ERROR_TYPE_BINDINGS})
     return problems
+
+
+def inject_headers():
+    ctx = context_utils.get_current()
+    if ctx:
+        ctx_dict = ctx.to_dict()
+        return {'X-NSX-EUSER': ctx_dict.get('user_identity'),
+                'X-NSX-EREQID': ctx_dict.get('request_id')}
+    return {}
+
+
+def inject_requestid_header():
+    ctx = context_utils.get_current()
+    if ctx:
+        return {'X-NSX-EREQID': ctx.__dict__.get('request_id')}
+    return {}

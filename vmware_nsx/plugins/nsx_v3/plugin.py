@@ -77,7 +77,6 @@ from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import utils as plugin_utils
 from neutron_lib.utils import helpers
 from oslo_config import cfg
-from oslo_context import context as context_utils
 from oslo_db import exception as db_exc
 from oslo_log import log
 from oslo_utils import excutils
@@ -141,22 +140,6 @@ NSX_V3_SERVER_SSL_PROFILE = 'nsx-default-server-ssl-profile'
 NSX_V3_CLIENT_SSL_PROFILE = 'nsx-default-client-ssl-profile'
 # Default UUID for the global OS rule
 NSX_V3_OS_DFW_UUID = '00000000-def0-0000-0fed-000000000000'
-
-
-def inject_headers():
-    ctx = context_utils.get_current()
-    if ctx:
-        ctx_dict = ctx.to_dict()
-        return {'X-NSX-EUSER': ctx_dict.get('user_identity'),
-                'X-NSX-EREQID': ctx_dict.get('request_id')}
-    return {}
-
-
-def inject_requestid_header():
-    ctx = context_utils.get_current()
-    if ctx:
-        return {'X-NSX-EREQID': ctx.__dict__.get('request_id')}
-    return {}
 
 
 # NOTE(asarfaty): the order of inheritance here is important. in order for the
@@ -247,9 +230,11 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         self.nsxlib = v3_utils.get_nsxlib_wrapper()
         if self.nsxlib.feature_supported(nsxlib_consts.FEATURE_ON_BEHALF_OF):
-            nsxlib_utils.set_inject_headers_callback(inject_headers)
+            nsxlib_utils.set_inject_headers_callback(
+                v3_utils.inject_headers)
         else:
-            nsxlib_utils.set_inject_headers_callback(inject_requestid_header)
+            nsxlib_utils.set_inject_headers_callback(
+                v3_utils.inject_requestid_header)
         self.lbv2_driver = self._init_lbv2_driver()
 
         registry.subscribe(
@@ -3770,13 +3755,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 action="NO_DNAT",
                 match_destination_network=subnet['cidr'])
 
-    def _process_extra_attr_router_create(self, context, router_db, r):
-        for extra_attr in l3_attrs_db.get_attr_info().keys():
-            if (extra_attr in r and
-                validators.is_attr_set(r.get(extra_attr))):
-                self.set_extra_attr_value(context, router_db,
-                                          extra_attr, r[extra_attr])
-
     def _assert_on_router_admin_state(self, router_data):
         if router_data.get("admin_state_up") is False:
             err_msg = _("admin_state_up=False routers are not supported")
@@ -4205,16 +4183,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             address_group['prefix_length'] = prefixlen
             address_groups.append(address_group)
         return (ports, address_groups)
-
-    def _get_interface_network(self, context, interface_info):
-        is_port, is_sub = self._validate_interface_info(interface_info)
-        if is_port:
-            net_id = self.get_port(context,
-                                   interface_info['port_id'])['network_id']
-        elif is_sub:
-            net_id = self.get_subnet(context,
-                                     interface_info['subnet_id'])['network_id']
-        return net_id
 
     def _validate_multiple_subnets_routers(self, context, router_id, net_id):
         network = self.get_network(context, net_id)

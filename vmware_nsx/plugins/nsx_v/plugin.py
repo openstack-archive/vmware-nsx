@@ -74,7 +74,6 @@ from neutron.db import dns_db
 from neutron.db import external_net_db
 from neutron.db import extradhcpopt_db
 from neutron.db import extraroute_db
-from neutron.db import l3_attrs_db
 from neutron.db import l3_db
 from neutron.db import l3_gwmode_db
 from neutron.db.models import l3 as l3_db_models
@@ -3169,13 +3168,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 LOG.warning("Skipping router flavor metainfo [%(k)s:%(v)s]"
                             ":unsupported field",
                             {'k': k, 'v': v})
-
-    def _process_extra_attr_router_create(self, context, router_db, r):
-        for extra_attr in l3_attrs_db.get_attr_info().keys():
-            if (extra_attr in r and
-                validators.is_attr_set(r.get(extra_attr))):
-                self.set_extra_attr_value(context, router_db,
-                                          extra_attr, r[extra_attr])
 
     def create_router(self, context, router, allow_metadata=True):
         r = router['router']

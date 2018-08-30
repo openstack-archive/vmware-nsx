@@ -20,6 +20,7 @@ from neutron.db import _resource_extend as resource_extend
 from neutron.db import address_scope_db
 from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
+from neutron.db import l3_attrs_db
 from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron_lib.api.definitions import address_scope as ext_address_scope
@@ -551,6 +552,23 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
             port_data.get('fixed_ips', []), device_owner)
 
         self._assert_on_vpn_port_change(original_port)
+
+    def _process_extra_attr_router_create(self, context, router_db, r):
+        for extra_attr in l3_attrs_db.get_attr_info().keys():
+            if (extra_attr in r and
+                validators.is_attr_set(r.get(extra_attr))):
+                self.set_extra_attr_value(context, router_db,
+                                          extra_attr, r[extra_attr])
+
+    def _get_interface_network(self, context, interface_info):
+        is_port, is_sub = self._validate_interface_info(interface_info)
+        if is_port:
+            net_id = self.get_port(context,
+                                   interface_info['port_id'])['network_id']
+        elif is_sub:
+            net_id = self.get_subnet(context,
+                                     interface_info['subnet_id'])['network_id']
+        return net_id
 
     def get_housekeeper(self, context, name, fields=None):
         # run the job in readonly mode and get the results

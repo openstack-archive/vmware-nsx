@@ -263,7 +263,8 @@ nsx_common_opts = [
                 help=_("(Optional) List of email addresses for "
                        "notifications.")),
 ]
-nsx_v3_opts = [
+
+nsx_v3_and_p = [
     cfg.ListOpt('nsx_api_user',
                 default=['admin'],
                 help=_('User names for the NSX managers')),
@@ -293,27 +294,6 @@ nsx_v3_opts = [
                default='nsx-db',
                choices=['nsx-db', 'none'],
                help=_("Storage type for client certificate sensitive data")),
-    cfg.StrOpt('default_overlay_tz',
-               help=_("This is the name or UUID of the default NSX overlay "
-                      "transport zone that will be used for creating "
-                      "tunneled isolated Neutron networks. It needs to be "
-                      "created in NSX before starting Neutron with the NSX "
-                      "plugin.")),
-    cfg.StrOpt('default_vlan_tz',
-               help=_("(Optional) Only required when creating VLAN or flat "
-                      "provider networks. Name or UUID of default NSX VLAN "
-                      "transport zone that will be used for bridging between "
-                      "Neutron networks, if no physical network has been "
-                      "specified")),
-    cfg.StrOpt('default_bridge_cluster',
-               help=_("(Optional) Name or UUID of the default NSX bridge "
-                      "cluster that will be used to perform L2 gateway "
-                      "bridging between VXLAN and VLAN networks. If default "
-                      "bridge cluster UUID is not specified, admin will have "
-                      "to manually create a L2 gateway corresponding to a "
-                      "NSX Bridge Cluster using L2 gateway APIs. This field "
-                      "must be specified on one of the active neutron "
-                      "servers only.")),
     cfg.IntOpt('retries',
                default=10,
                help=_('Maximum number of times to retry API requests upon '
@@ -352,6 +332,30 @@ nsx_v3_opts = [
     cfg.IntOpt('redirects',
                default=2,
                help=_('Number of times a HTTP redirect should be followed.')),
+]
+
+nsx_v3_opts = nsx_v3_and_p + [
+    cfg.StrOpt('default_overlay_tz',
+               help=_("This is the name or UUID of the default NSX overlay "
+                      "transport zone that will be used for creating "
+                      "tunneled isolated Neutron networks. It needs to be "
+                      "created in NSX before starting Neutron with the NSX "
+                      "plugin.")),
+    cfg.StrOpt('default_vlan_tz',
+               help=_("(Optional) Only required when creating VLAN or flat "
+                      "provider networks. Name or UUID of default NSX VLAN "
+                      "transport zone that will be used for bridging between "
+                      "Neutron networks, if no physical network has been "
+                      "specified")),
+    cfg.StrOpt('default_bridge_cluster',
+               help=_("(Optional) Name or UUID of the default NSX bridge "
+                      "cluster that will be used to perform L2 gateway "
+                      "bridging between VXLAN and VLAN networks. If default "
+                      "bridge cluster UUID is not specified, admin will have "
+                      "to manually create a L2 gateway corresponding to a "
+                      "NSX Bridge Cluster using L2 gateway APIs. This field "
+                      "must be specified on one of the active neutron "
+                      "servers only.")),
     cfg.StrOpt('default_tier0_router',
                help=_("Name or UUID of the default tier0 router that will be "
                       "used for connecting to tier1 logical routers and "
@@ -473,6 +477,8 @@ nsx_v3_opts = [
                 help=_("Housekeeping will only warn about breakage.")),
 
 ]
+
+nsx_p_opts = nsx_v3_and_p + []
 
 DEFAULT_STATUS_CHECK_INTERVAL = 2000
 DEFAULT_MINIMUM_POOLED_EDGES = 1
@@ -923,6 +929,7 @@ nsx_tvd_opts = [
 cfg.CONF.register_opts(connection_opts)
 cfg.CONF.register_opts(cluster_opts)
 cfg.CONF.register_opts(nsx_common_opts)
+cfg.CONF.register_opts(nsx_p_opts, group="nsx_p")
 cfg.CONF.register_opts(nsx_v3_opts, group="nsx_v3")
 cfg.CONF.register_opts(nsxv_opts, group="nsxv")
 cfg.CONF.register_opts(nsx_tvd_opts, group="nsx_tvd")
