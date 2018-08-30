@@ -664,6 +664,21 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
 
         self.assertEqual(ctx_manager.exception.code, 503)
 
+    def test_update_network_rollback(self):
+        with self.network() as net:
+            # Fail the backend update
+            with mock.patch("vmware_nsxlib.v3.core_resources."
+                            "NsxLibLogicalSwitch.update",
+                            side_effect=nsxlib_exc.ManagerError):
+                args = {'network': {'description': 'test rollback'}}
+                req = self.new_update_request('networks', args,
+                                              net['network']['id'], fmt='json')
+                res = self.deserialize('json', req.get_response(self.api))
+                # should fail with the nsxlib error (meaning that the rollback
+                # did not fail)
+                self.assertEqual('ManagerError',
+                                 res['NeutronError']['type'])
+
 
 class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
 

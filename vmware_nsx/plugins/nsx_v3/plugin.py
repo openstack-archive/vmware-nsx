@@ -1471,6 +1471,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 LOG.exception("Unable to update NSX backend, rolling "
                               "back changes on neutron")
                 with excutils.save_and_reraise_exception():
+                    # remove the AZ from the network before rollback because
+                    # it is read only, and breaks the rollback
+                    if 'availability_zone_hints' in original_net:
+                        del original_net['availability_zone_hints']
                     super(NsxV3Plugin, self).update_network(
                         context, id, {'network': original_net})
 
