@@ -980,6 +980,23 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                     self.assertEqual(exc.HTTPBadRequest.code,
                                      res.status_int)
 
+    def test_fail_update_lb_port_with_allowed_address_pairs(self):
+        with self.network() as network:
+            data = {'port': {
+                        'network_id': network['network']['id'],
+                        'tenant_id': self._tenant_id,
+                        'name': 'pair_port',
+                        'admin_state_up': True,
+                        'device_id': 'fake_device',
+                        'device_owner': constants.DEVICE_OWNER_LOADBALANCERV2,
+                        'fixed_ips': []}
+                    }
+            port = self.plugin.create_port(self.ctx, data)
+            data['port']['allowed_address_pairs'] = '10.0.0.1'
+            self.assertRaises(
+                n_exc.InvalidInput,
+                self.plugin.update_port, self.ctx, port['id'], data)
+
     def test_create_port_with_qos(self):
         with self.network() as network:
             policy_id = uuidutils.generate_uuid()
