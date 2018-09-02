@@ -1707,7 +1707,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             try:
                 self.delete_port(context, dhcp_service['port_id'],
                                  force_delete_dhcp=True)
-            except Exception:
+            except nsx_lib_exc.ResourceNotFound:
                 # This could happen when the port has been manually deleted.
                 LOG.error("Failed to delete DHCP port %(port)s for "
                           "network %(network)s",
