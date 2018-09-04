@@ -2003,12 +2003,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def update_subnet(self, context, subnet_id, subnet):
         updated_subnet = None
-        orig = self._get_subnet(context, subnet_id)
-        self._validate_host_routes_input(subnet,
-                                         orig_enable_dhcp=orig['enable_dhcp'],
-                                         orig_host_routes=orig['routes'])
+        orig_subnet = self.get_subnet(context, subnet_id)
+        self._validate_host_routes_input(
+            subnet,
+            orig_enable_dhcp=orig_subnet['enable_dhcp'],
+            orig_host_routes=orig_subnet['host_routes'])
         if cfg.CONF.nsx_v3.native_dhcp_metadata:
-            orig_subnet = self.get_subnet(context, subnet_id)
             enable_dhcp = subnet['subnet'].get('enable_dhcp')
             if (enable_dhcp is not None and
                 enable_dhcp != orig_subnet['enable_dhcp']):
