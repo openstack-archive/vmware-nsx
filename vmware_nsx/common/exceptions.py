@@ -142,6 +142,10 @@ class InvalidIPAddress(n_exc.InvalidInput):
     message = _("'%(ip_address)s' must be a /32 CIDR based IPv4 address")
 
 
+class QoSOnExternalNet(n_exc.InvalidInput):
+    message = _("Cannot configure QOS on external networks")
+
+
 class SecurityGroupMaximumCapacityReached(NsxPluginException):
     pass
 
