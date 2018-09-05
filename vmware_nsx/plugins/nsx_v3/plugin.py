@@ -1098,9 +1098,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             return False, "flat"
         # supported for overlay networks, and for vlan networks depending on
         # NSX version
-        return (self.nsxlib.feature_supported(
-                    nsxlib_consts.FEATURE_VLAN_ROUTER_INTERFACE) or
-                self._is_overlay_network(context, network_id)), "non-overlay"
+        is_overlay = self._is_overlay_network(context, network_id)
+        net_type = "overlay" if is_overlay else "non-overlay"
+        return (is_overlay or self.nsxlib.feature_supported(
+                    nsxlib_consts.FEATURE_VLAN_ROUTER_INTERFACE)), net_type
 
     def _validate_network_type(self, context, network_id, net_types):
         net = self.get_network(context, network_id)
