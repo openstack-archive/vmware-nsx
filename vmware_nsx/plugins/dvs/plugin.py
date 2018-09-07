@@ -176,6 +176,18 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             # maximum prefix for name is 43
             return '%s-%s' % (net_data['name'][:43], net_data['id'])
 
+    def _add_port_group(self, dvs_id, net_data, vlan_tag, trunk_mode):
+        if validators.is_attr_set(net_data.get(pnet.PHYSICAL_NETWORK)):
+            dvs_name = net_data.get(pnet.PHYSICAL_NETWORK)
+            dvs_moref = self._dvs.dvs.get_dvs_moref_by_name(dvs_name)
+            self._dvs.dvs.add_port_group(dvs_moref, dvs_id, vlan_tag,
+                                         trunk_mode=trunk_mode)
+        else:
+            dvs_name = dvs_utils.dvs_name_get()
+            self._dvs.add_port_group(dvs_id, vlan_tag,
+                                     trunk_mode=trunk_mode)
+        return dvs_name
+
     def _dvs_create_network(self, context, network):
         net_data = network['network']
         if net_data['admin_state_up'] is False:
@@ -192,7 +204,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         if net_data.get(vlan_apidef.VLANTRANSPARENT) is True:
             trunk_mode = True
 
-        net_id = None
+        net_id = dvs_name = None
         if net_data.get(pnet.NETWORK_TYPE) == c_utils.NetworkTypes.PORTGROUP:
             net_id = net_data.get(pnet.PHYSICAL_NETWORK)
             pg_info = self._dvs.get_port_group_info(net_id)
@@ -206,8 +218,8 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         else:
             dvs_id = self._dvs_get_id(net_data)
             try:
-                self._dvs.add_port_group(dvs_id, vlan_tag,
-                                         trunk_mode=trunk_mode)
+                dvs_name = self._add_port_group(dvs_id, net_data, vlan_tag,
+                                                trunk_mode=trunk_mode)
             except dvs_utils.DvsOperationBulkFault:
                 LOG.warning('One or more hosts may not be configured')
 
@@ -230,17 +242,17 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                 nsx_db.add_network_binding(
                     context.session, new_net['id'],
                     net_data.get(pnet.NETWORK_TYPE),
-                    net_id or 'dvs',
+                    net_id or dvs_name,
                     vlan_tag)
         except Exception:
             with excutils.save_and_reraise_exception():
                 LOG.exception('Failed to create network')
                 if (net_data.get(pnet.NETWORK_TYPE) !=
                         c_utils.NetworkTypes.PORTGROUP):
-                    self._dvs.delete_port_group(dvs_id)
+                    self._delete_port_group(dvs_id, dvs_name)
 
         new_net[pnet.NETWORK_TYPE] = net_data.get(pnet.NETWORK_TYPE)
-        new_net[pnet.PHYSICAL_NETWORK] = net_id or 'dvs'
+        new_net[pnet.PHYSICAL_NETWORK] = net_id or dvs_name
         new_net[pnet.SEGMENTATION_ID] = vlan_tag
 
         # this extra lookup is necessary to get the
@@ -294,6 +306,13 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         self._validate_network(context, network['network'])
         return self._dvs_create_network(context, network)
 
+    def _delete_port_group(self, dvs_id, dvs_name):
+        if dvs_name == dvs_utils.dvs_name_get():
+            self._dvs.delete_port_group(dvs_id)
+        else:
+            dvs_moref = self._dvs.dvs.get_dvs_moref_by_name(dvs_name)
+            self._dvs.dvs.delete_port_group(dvs_moref, dvs_id)
+
     def _dvs_delete_network(self, context, id):
         network = self._get_network(context, id)
         dvs_id = self._dvs_get_id(network)
@@ -304,7 +323,8 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         try:
             if (not bindings or
                 bindings[0].binding_type != c_utils.NetworkTypes.PORTGROUP):
-                self._dvs.delete_port_group(dvs_id)
+                dvs_name = bindings[0].phy_uuid
+                self._delete_port_group(dvs_id, dvs_name)
         except Exception:
             LOG.exception('Unable to delete DVS port group %s', id)
         self.handle_network_dhcp_access(context, id, action='delete_network')

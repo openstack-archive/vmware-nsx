@@ -75,7 +75,7 @@ class DvsTestCase(base.BaseTestCase):
                        return_value='fake-spec')
     def test_add_port_group_with_exception(self, fake_get_spec):
         with (
-            mock.patch.object(self._dvs._dvs._session, 'wait_for_task',
+            mock.patch.object(self._dvs.dvs._session, 'wait_for_task',
                               side_effect=exp.NeutronException())
         ):
             self.assertRaises(exp.NeutronException,
@@ -95,7 +95,7 @@ class DvsTestCase(base.BaseTestCase):
                        return_value='fake-moref')
     def test_delete_port_group_with_exception(self, fake_get_moref):
         with (
-            mock.patch.object(self._dvs._dvs._session, 'wait_for_task',
+            mock.patch.object(self._dvs.dvs._session, 'wait_for_task',
                               side_effect=exp.NeutronException())
         ):
             self.assertRaises(exp.NeutronException,
@@ -166,9 +166,17 @@ class NeutronSimpleDvsTest(NeutronSimpleDvsTestCase):
         with mock.patch.object(self._plugin._dvs,
                                'add_port_group') as mock_add,\
                 mock.patch.object(self._plugin._dvs,
-                    'delete_port_group') as mock_delete,\
+                                  'delete_port_group') as mock_delete,\
                 mock.patch.object(dvs.DvsManager,
-                    '_get_trunk_vlan_spec') as mock_trunk_vlan:
+                                  'add_port_group') as mock_dvs_add,\
+                mock.patch.object(dvs.DvsManager,
+                                  'delete_port_group'),\
+                mock.patch.object(dvs.DvsManager,
+                                  'get_dvs_moref_by_name',
+                                  return_value=mock.MagicMock()
+                                  ) as mock_dvs_moref,\
+                mock.patch.object(dvs.DvsManager,
+                                  '_get_trunk_vlan_spec') as mock_trunk_vlan:
             with self.network(**params) as network:
                 ctx = context.get_admin_context()
                 id = network['network']['id']
@@ -178,11 +186,11 @@ class NeutronSimpleDvsTest(NeutronSimpleDvsTestCase):
                 if network_type == 'flat':
                     self.assertEqual('flat', binding[0].binding_type)
                     self.assertEqual(0, binding[0].vlan_id)
-                    self.assertEqual('dvs', binding[0].phy_uuid)
+                    self.assertEqual('fake-moid', binding[0].phy_uuid)
                 elif network_type == 'vlan':
                     self.assertEqual('vlan', binding[0].binding_type)
                     self.assertEqual(vlan_tag, binding[0].vlan_id)
-                    self.assertEqual('dvs', binding[0].phy_uuid)
+                    self.assertEqual('fake-moid', binding[0].phy_uuid)
                 elif network_type == 'portgroup':
                     self.assertEqual('portgroup', binding[0].binding_type)
                     self.assertEqual(0, binding[0].vlan_id)
@@ -190,8 +198,10 @@ class NeutronSimpleDvsTest(NeutronSimpleDvsTestCase):
                 else:
                     self.fail()
             if network_type != 'portgroup':
-                mock_add.assert_called_once_with(dvs_id, vlan_tag,
-                                                 trunk_mode=trunk_mode)
+                mock_dvs_add.assert_called_once_with(
+                    mock_dvs_moref.return_value,
+                    dvs_id, vlan_tag,
+                    trunk_mode=trunk_mode)
             else:
                 mock_add.call_count = 0
                 mock_delete.call_count = 0
@@ -235,7 +245,10 @@ class NeutronSimpleDvsTest(NeutronSimpleDvsTestCase):
                   'provider:segmentation_id': 7}
         params['arg_list'] = tuple(params.keys())
         with mock.patch.object(self._plugin._dvs, 'add_port_group'),\
-                mock.patch.object(self._plugin._dvs, 'delete_port_group'):
+                mock.patch.object(self._plugin._dvs, 'delete_port_group'),\
+                mock.patch.object(dvs.DvsManager, 'get_dvs_moref_by_name'),\
+                mock.patch.object(dvs.DvsManager, 'add_port_group'),\
+                mock.patch.object(dvs.DvsManager, 'delete_port_group'):
             with self.network(**params) as network,\
                     self.subnet(network) as subnet,\
                     self.port(subnet) as port:
