@@ -24,8 +24,10 @@ from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron_lib.api.definitions import address_scope as ext_address_scope
 from neutron_lib.api.definitions import availability_zone as az_def
+from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port as port_def
+from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import subnet as subnet_def
 from neutron_lib.api import validators
 from neutron_lib.api.validators import availability_zone as az_validator
@@ -36,11 +38,14 @@ from neutron_lib import constants
 from neutron_lib import context as n_context
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
+from neutron_lib.services.qos import constants as qos_consts
 from neutron_lib.utils import net
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.extensions import maclearning as mac_ext
 from vmware_nsx.services.qos.common import utils as qos_com_utils
+from vmware_nsx.services.vpnaas.nsxv3 import ipsec_utils
 
 LOG = logging.getLogger(__name__)
 
@@ -384,6 +389,168 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
     def _validate_qos_policy_id(self, context, qos_policy_id):
         if qos_policy_id:
             qos_com_utils.validate_policy_accessable(context, qos_policy_id)
+
+    def _validate_create_network(self, context, net_data):
+        """Validate the parameters of the new network to be created
+
+        This method includes general validations that does not depend on
+        provider attributes, or plugin specific configurations
+        """
+        external = net_data.get(extnet_apidef.EXTERNAL)
+        is_external_net = validators.is_attr_set(external) and external
+        with_qos = validators.is_attr_set(
+            net_data.get(qos_consts.QOS_POLICY_ID))
+
+        if with_qos:
+            self._validate_qos_policy_id(
+                context, net_data.get(qos_consts.QOS_POLICY_ID))
+            if is_external_net:
+                raise nsx_exc.QoSOnExternalNet()
+
+    def _validate_update_netowrk(self, context, id, original_net, net_data):
+        """Validate the updated parameters of a network
+
+        This method includes general validations that does not depend on
+        provider attributes, or plugin specific configurations
+        """
+        extern_net = self._network_is_external(context, id)
+        with_qos = validators.is_attr_set(
+            net_data.get(qos_consts.QOS_POLICY_ID))
+
+        # Do not allow QoS on external networks
+        if with_qos and extern_net:
+            raise nsx_exc.QoSOnExternalNet()
+
+        # Do not support changing external/non-external networks
+        if (extnet_apidef.EXTERNAL in net_data and
+            net_data[extnet_apidef.EXTERNAL] != extern_net):
+            err_msg = _("Cannot change the router:external flag of a network")
+            raise n_exc.InvalidInput(error_message=err_msg)
+
+    def _assert_on_illegal_port_with_qos(self, device_owner):
+        # Prevent creating/update port with QoS policy
+        # on router-interface/network-dhcp ports.
+        if ((device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF or
+             device_owner == constants.DEVICE_OWNER_DHCP)):
+            err_msg = _("Unable to create or update %s port with a QoS "
+                        "policy") % device_owner
+            LOG.warning(err_msg)
+            raise n_exc.InvalidInput(error_message=err_msg)
+
+    def _assert_on_external_net_with_compute(self, port_data):
+        # Prevent creating port with device owner prefix 'compute'
+        # on external networks.
+        device_owner = port_data.get('device_owner')
+        if (device_owner is not None and
+            device_owner.startswith(constants.DEVICE_OWNER_COMPUTE_PREFIX)):
+            err_msg = _("Unable to update/create a port with an external "
+                        "network")
+            LOG.warning(err_msg)
+            raise n_exc.InvalidInput(error_message=err_msg)
+
+    def _validate_create_port(self, context, port_data):
+        self._validate_max_ips_per_port(port_data.get('fixed_ips', []),
+                                        port_data.get('device_owner'))
+
+        is_external_net = self._network_is_external(
+            context, port_data['network_id'])
+        qos_selected = validators.is_attr_set(port_data.get(
+            qos_consts.QOS_POLICY_ID))
+        device_owner = port_data.get('device_owner')
+
+        # QoS validations
+        if qos_selected:
+            self._validate_qos_policy_id(
+                context, port_data.get(qos_consts.QOS_POLICY_ID))
+            self._assert_on_illegal_port_with_qos(device_owner)
+            if is_external_net:
+                raise nsx_exc.QoSOnExternalNet()
+
+        # External network validations:
+        if is_external_net:
+            self._assert_on_external_net_with_compute(port_data)
+
+        self._assert_on_port_admin_state(port_data, device_owner)
+
+    def _assert_on_vpn_port_change(self, port_data):
+        if port_data['device_owner'] == ipsec_utils.VPN_PORT_OWNER:
+            msg = _('Can not update/delete VPNaaS port %s') % port_data['id']
+            raise n_exc.InvalidInput(error_message=msg)
+
+    def _assert_on_device_owner_change(self, port_data, orig_dev_own):
+        """Prevent illegal device owner modifications
+        """
+        if 'device_owner' not in port_data:
+            return
+        new_dev_own = port_data['device_owner']
+        if new_dev_own == orig_dev_own:
+            return
+
+        err_msg = (_("Changing port device owner '%(orig)s' to '%(new)s' is "
+                     "not allowed") % {'orig': orig_dev_own,
+                                       'new': new_dev_own})
+
+        # Do not allow changing nova <-> neutron device owners
+        if ((orig_dev_own.startswith(constants.DEVICE_OWNER_COMPUTE_PREFIX) and
+             new_dev_own.startswith(constants.DEVICE_OWNER_NETWORK_PREFIX)) or
+            (orig_dev_own.startswith(constants.DEVICE_OWNER_NETWORK_PREFIX) and
+             new_dev_own.startswith(constants.DEVICE_OWNER_COMPUTE_PREFIX))):
+            raise n_exc.InvalidInput(error_message=err_msg)
+
+        # Do not allow removing the device owner in some cases
+        if orig_dev_own == constants.DEVICE_OWNER_DHCP:
+            raise n_exc.InvalidInput(error_message=err_msg)
+
+    def _assert_on_port_sec_change(self, port_data, device_owner):
+        """Do not allow enabling port security/mac learning of some ports
+
+        Trusted ports are created with port security and mac learning disabled
+        in neutron, and it should not change.
+        """
+        if net.is_port_trusted({'device_owner': device_owner}):
+            if port_data.get(psec.PORTSECURITY) is True:
+                err_msg = _("port_security_enabled=True is not supported for "
+                            "trusted ports")
+                LOG.warning(err_msg)
+                raise n_exc.InvalidInput(error_message=err_msg)
+
+            mac_learning = port_data.get(mac_ext.MAC_LEARNING)
+            if (validators.is_attr_set(mac_learning) and mac_learning is True):
+                err_msg = _("mac_learning_enabled=True is not supported for "
+                            "trusted ports")
+                LOG.warning(err_msg)
+                raise n_exc.InvalidInput(error_message=err_msg)
+
+    def _validate_update_port(self, context, id, original_port, port_data):
+        qos_selected = validators.is_attr_set(port_data.get
+                                              (qos_consts.QOS_POLICY_ID))
+        is_external_net = self._network_is_external(
+            context, original_port['network_id'])
+        device_owner = (port_data['device_owner']
+                        if 'device_owner' in port_data
+                        else original_port.get('device_owner'))
+
+        # QoS validations
+        if qos_selected:
+            self._validate_qos_policy_id(
+                context, port_data.get(qos_consts.QOS_POLICY_ID))
+            if is_external_net:
+                raise nsx_exc.QoSOnExternalNet()
+            self._assert_on_illegal_port_with_qos(device_owner)
+
+        # External networks validations:
+        if is_external_net:
+            self._assert_on_external_net_with_compute(port_data)
+
+        # Device owner validations:
+        self._assert_on_device_owner_change(
+            port_data, original_port.get('device_owner'))
+        self._assert_on_port_admin_state(port_data, device_owner)
+        self._assert_on_port_sec_change(port_data, device_owner)
+        self._validate_max_ips_per_port(
+            port_data.get('fixed_ips', []), device_owner)
+
+        self._assert_on_vpn_port_change(original_port)
 
     def get_housekeeper(self, context, name, fields=None):
         # run the job in readonly mode and get the results
