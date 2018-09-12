@@ -16,7 +16,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-# Common VMware NSXv and NSXv3 plugin
+# Common VMware NSXv, NSXv3 and NSXp plugin
 # -----------------------------------
 
 # ensure we don't re-source this in the same environment
@@ -118,6 +118,17 @@ function _nsxv3_ini_set {
     fi
 }
 
+function _nsxp_ini_set {
+    if [[ -z $1 || -z $2 ]]; then
+        if [[ $3 != "" ]]; then
+           die $LINENO $3
+        fi
+    fi
+    if [[ $2 != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE nsx_p $1 $2
+    fi
+}
+
 function nsxv3_configure_service {
     install_neutron_projects
 
@@ -166,101 +177,4 @@ function nsxv3_configure_service {
         _nsxv3_ini_set nsx_client_cert_storage "nsx-db"
         _nsxv3_ini_set nsx_client_cert_pk_password "openstack"
     fi
-}
-
-function is_neutron_ovs_base_plugin {
-    if [ [ $1 == "nsx_v3" ] -o [ $1 == "nsx_p" ] ]; then
-    # This allows the deployer to decide whether devstack should install OVS.
-    # By default, we install OVS, to change this behavior add "OVS_BASE=1" to your localrc file.
-    # Note: Any KVM compute must have OVS installed on it.
-        return ${OVS_BASE:-0}
-    fi
-}
-
-function neutron_plugin_create_nova_conf {
-    if [ [ $1 == "nsx_v3" ] -o [ $1 == "nsx_p" ] ]; then
-        if [[ "$VIRT_DRIVER" != 'vsphere' ]]; then
-            # if n-cpu or octavia is enabled, then setup integration bridge
-            if is_service_enabled n-cpu || is_service_enabled octavia ; then
-                setup_integration_bridge
-                if is_service_enabled n-cpu ; then
-                    iniset $NOVA_CONF neutron ovs_bridge $OVS_BRIDGE
-                fi
-            fi
-        fi
-        # if n-api is enabled, then setup the metadata_proxy_shared_secret
-        if is_service_enabled n-api; then
-            iniset $NOVA_CONF neutron service_metadata_proxy True
-            if [[ "$NATIVE_DHCP_METADATA" == "True" ]]; then
-                iniset $NOVA_CONF neutron metadata_proxy_shared_secret $METADATA_PROXY_SHARED_SECRET
-                if [[ "$METADATA_PROXY_USE_HTTPS" == "True" ]]; then
-                    iniset $NOVA_CONF DEFAULT enabled_ssl_apis metadata
-                    if [[ "$METADATA_PROXY_CERT_FILE" != "" ]]; then
-                        iniset $NOVA_CONF wsgi ssl_cert_file $METADATA_PROXY_CERT_FILE
-                    fi
-                    if [[ "$METADATA_PROXY_PRIV_KEY_FILE" != "" ]]; then
-                        iniset $NOVA_CONF wsgi ssl_key_file $METADATA_PROXY_PRIV_KEY_FILE
-                    fi
-                fi
-            fi
-        fi
-        # if n-api-meta is enabled, then setup https on n-api-meta
-        if is_service_enabled n-api-meta; then
-            if [[ "$NATIVE_DHCP_METADATA" == "True" && "$METADATA_PROXY_USE_HTTPS" == "True" ]]; then
-                inidelete $NOVA_METADATA_UWSGI_CONF uwsgi http
-                https=":8775,$METADATA_PROXY_CERT_FILE,$METADATA_PROXY_PRIV_KEY_FILE"
-                iniset $NOVA_METADATA_UWSGI_CONF uwsgi https $https
-            fi
-        fi
-    fi
-}
-
-function neutron_plugin_configure_l3_agent {
-    if [ [ $1 == "nsx_v3" ] -o [ $1 == "nsx_p" ] ]; then
-    # VMware NSX plugin does not run L3 agent
-        die $LINENO "q-l3 should not be executed with VMware NSX plugin!"
-    fi
-}
-
-function neutron_plugin_configure_plugin_agent {
-    if [ [ $1 == "nsx_v3" ] -o [ $1 == "nsx_p" ] ]; then
-    # VMware NSX plugin does not run L2 agent
-        die $LINENO "q-agt must not be executed with VMware NSX plugin!"
-    fi
-}
-
-function get_bridge_up {
-    # NOTE(armando-migliaccio): if running in a nested environment this will work
-    # only with mac learning enabled, portsecurity and security profiles disabled
-    # The public bridge might not exist for the NSX plugin if Q_USE_DEBUG_COMMAND is off
-    # Try to create it anyway
-    sudo ovs-vsctl --may-exist add-br $PUBLIC_BRIDGE
-    sudo ovs-vsctl --may-exist add-port $PUBLIC_BRIDGE $NSX_GATEWAY_NETWORK_INTERFACE
-    # Flush all existing addresses on public bridge
-    sudo ip addr flush dev $PUBLIC_BRIDGE
-    nsx_gw_net_if_mac=$(ip link show $NSX_GATEWAY_NETWORK_INTERFACE | awk '/ether/ {print $2}')
-    sudo ip link set address $nsx_gw_net_if_mac dev $PUBLIC_BRIDGE
-    for address in $addresses; do
-        sudo ip addr add dev $PUBLIC_BRIDGE $address
-    done
-    sudo ip addr add dev $PUBLIC_BRIDGE $NSX_GATEWAY_NETWORK_CIDR
-    sudo ip link set $PUBLIC_BRIDGE up
-}
-
-function set_nsx_gateway_network_cidr {
-    if ! is_set NSX_GATEWAY_NETWORK_CIDR; then
-        NSX_GATEWAY_NETWORK_CIDR=$PUBLIC_NETWORK_GATEWAY/${FLOATING_RANGE#*/}
-        echo "The IP address expected on $PUBLIC_BRIDGE was not specified. "
-        echo "Defaulting to "$NSX_GATEWAY_NETWORK_CIDR
-    fi
-    sudo ip addr del $NSX_GATEWAY_NETWORK_CIDR dev $PUBLIC_BRIDGE
-    # Save and then flush remaining addresses on the interface
-    addresses=$(ip addr show dev $PUBLIC_BRIDGE | grep inet | awk {'print $2'})
-    sudo ip addr flush $PUBLIC_BRIDGE
-    # Try to detach physical interface from PUBLIC_BRIDGE
-    sudo ovs-vsctl del-port $NSX_GATEWAY_NETWORK_INTERFACE
-    # Restore addresses on NSX_GATEWAY_NETWORK_INTERFACE
-    for address in $addresses; do
-        sudo ip addr add dev $NSX_GATEWAY_NETWORK_INTERFACE $address
-    done
 }

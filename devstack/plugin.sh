@@ -108,4 +108,24 @@ elif [[ $Q_PLUGIN == 'vmware_nsx_tvd' ]]; then
     fi
 elif [[ $Q_PLUGIN == 'vmware_dvs' ]]; then
     source $dir/lib/vmware_dvs
+elif [[ $Q_PLUGIN == 'vmware_nsx_p' ]]; then
+    source $dir/lib/vmware_nsx_p
+    if [[ "$1" == "stack" && "$2" == "post-config" ]]; then
+        init_vmware_nsx_p
+    elif [[ "$1" == "unstack" ]]; then
+        db_connection=$(iniget $NEUTRON_CONF database connection)
+        stop_vmware_nsx_p
+        # only clean up when q-svc (legacy support) or neutron-api is enabled
+        if is_service_enabled q-svc || is_service_enabled neutron-api; then
+            NSX_POLICY=${NSX_POLICIES:-$NSX_POLICY}
+            IFS=','
+            NSX_POLICY=($NSX_POLICY)
+            unset IFS
+            $PYTHON $dir/tools/nsxp_cleanup.py --mgr-ip $NSX_POLICY --user $NSX_USER --password $NSX_PASSWORD --db-connection $db_connection
+        fi
+    elif [[ "$1" == 'clean' ]]; then
+        if is_service_enabled q-svc || is_service_enabled neutron-api; then
+            $PYTHON $dir/tools/nsxp_cleanup.py --mgr-ip $NSX_POLICY --user $NSX_USER --password $NSX_PASSWORD
+        fi
+    fi
 fi

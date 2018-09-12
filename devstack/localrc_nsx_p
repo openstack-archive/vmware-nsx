@@ -1,0 +1,16 @@
+enable_plugin vmware-nsx https://git.openstack.org/openstack/vmware-nsx
+ENABLED_SERVICES=g-api,g-reg,key,n-api,n-crt,n-obj,n-cpu,n-sch,n-cond,n-cauth,horizon,mysql,rabbit,sysstat,quantum,q-svc,q-dhcp,n-novnc,n-xvnc
+DATABASE_PASSWORD=password
+RABBIT_PASSWORD=password
+SERVICE_TOKEN=password
+SERVICE_PASSWORD=password
+ADMIN_PASSWORD=password
+Q_PLUGIN=vmware_nsx_p
+NSX_PASSWORD=Admin!23Admin
+DEFAULT_OVERLAY_TZ_UUID=<FILL_IN>
+EDGE_CLUSTER_UUID=<FILL_IN>
+NSX_MANAGER=<FILL_IN>
+NSX_CONTROLLERS=<FILL_IN>
+DHCP_PROFILE_UUID=<FILL_IN>
+METADATA_PROXY_UUID=<FILL_IN>
+DHCP_RELAY_SERVICE=<FILL_IN>
