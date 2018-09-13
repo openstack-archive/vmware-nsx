@@ -482,7 +482,8 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
         """Prevent illegal device owner modifications
         """
         if orig_dev_own == constants.DEVICE_OWNER_LOADBALANCERV2:
-            if port_data['allowed_address_pairs']:
+            if ("allowed_address_pairs" in port_data and
+                    port_data["allowed_address_pairs"]):
                 msg = _('Loadbalancer port can not be updated '
                         'with address pairs')
                 raise n_exc.InvalidInput(error_message=msg)
