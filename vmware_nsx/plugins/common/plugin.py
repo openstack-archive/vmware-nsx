@@ -478,6 +478,12 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
             msg = _('Can not update/delete VPNaaS port %s') % port_data['id']
             raise n_exc.InvalidInput(error_message=msg)
 
+    def _assert_on_lb_port_fixed_ip_change(self, port_data, orig_dev_own):
+        if orig_dev_own == constants.DEVICE_OWNER_LOADBALANCERV2:
+            if "fixed_ips" in port_data and port_data["fixed_ips"]:
+                msg = _('Can not update Loadbalancer port with fixed IP')
+                raise n_exc.InvalidInput(error_message=msg)
+
     def _assert_on_device_owner_change(self, port_data, orig_dev_own):
         """Prevent illegal device owner modifications
         """
@@ -551,14 +557,14 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
             self._assert_on_external_net_with_compute(port_data)
 
         # Device owner validations:
-        self._assert_on_device_owner_change(
-            port_data, original_port.get('device_owner'))
+        orig_dev_owner = original_port.get('device_owner')
+        self._assert_on_device_owner_change(port_data, orig_dev_owner)
         self._assert_on_port_admin_state(port_data, device_owner)
         self._assert_on_port_sec_change(port_data, device_owner)
         self._validate_max_ips_per_port(
             port_data.get('fixed_ips', []), device_owner)
-
         self._assert_on_vpn_port_change(original_port)
+        self._assert_on_lb_port_fixed_ip_change(port_data, orig_dev_owner)
 
     def _process_extra_attr_router_create(self, context, router_db, r):
         for extra_attr in l3_attrs_db.get_attr_info().keys():
