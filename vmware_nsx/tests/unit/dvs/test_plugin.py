@@ -221,11 +221,10 @@ class NeutronSimpleDvsTest(NeutronSimpleDvsTestCase):
 
     @mock.patch.object(dvs.DvsManager, 'get_port_group_info')
     @mock.patch.object(dvs.DvsManager, '_net_id_to_moref')
-    def test_create_and_delete_dvs_network_portgroup(self, fake_get_moref,
+    def test_create_and_delete_dvs_network_portgroup(self, fake_moref,
                                                      fake_pg_info):
-        fake_pg_info.return_value = {'name': 'fake-name'}
+        fake_pg_info.return_value = {'name': 'fake-name'}, fake_moref
         self._create_and_delete_dvs_network(network_type='portgroup')
-        self.assertTrue(fake_get_moref.call_count)
         self.assertTrue(fake_pg_info.call_count)
 
     @mock.patch.object(dvs.DvsManager, 'get_port_group_info')
@@ -233,10 +232,9 @@ class NeutronSimpleDvsTest(NeutronSimpleDvsTestCase):
     def test_create_and_delete_dvs_network_portgroup_vlan(self,
                                                           fake_get_moref,
                                                           fake_pg_info):
-        fake_pg_info.return_value = {'name': 'fake-name'}
+        fake_pg_info.return_value = {'name': 'fake-name'}, fake_get_moref
         self._create_and_delete_dvs_network(network_type='portgroup',
                                             vlan_tag=7)
-        self.assertTrue(fake_get_moref.call_count)
         self.assertTrue(fake_pg_info.call_count)
 
     def test_create_and_delete_dvs_port(self):
@@ -333,7 +331,7 @@ class NeutronSimpleDvsTest(NeutronSimpleDvsTestCase):
     def test_create_and_delete_portgroup_network_invalid_name(self,
                                                           fake_get_moref,
                                                           fake_pg_info):
-        fake_pg_info.return_value = {'name': 'fake-different-name'}
+        fake_pg_info.return_value = {'name': 'invalid-name'}, fake_get_moref
         data = {'network': {'provider:network_type': 'portgroup',
                             'name': 'fake-name',
                             'admin_state_up': True}}

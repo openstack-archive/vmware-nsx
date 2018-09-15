@@ -188,6 +188,10 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                                      trunk_mode=trunk_mode)
         return dvs_name
 
+    def _get_portgroup_info(self, net_id):
+        pg_info, dvpg_moref = self._dvs.dvs.get_port_group_info(None, net_id)
+        return pg_info, dvpg_moref
+
     def _dvs_create_network(self, context, network):
         net_data = network['network']
         if net_data['admin_state_up'] is False:
@@ -207,13 +211,12 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         net_id = dvs_name = None
         if net_data.get(pnet.NETWORK_TYPE) == c_utils.NetworkTypes.PORTGROUP:
             net_id = net_data.get(pnet.PHYSICAL_NETWORK)
-            pg_info = self._dvs.get_port_group_info(net_id)
+            pg_info, dvpg_moref = self._get_portgroup_info(net_id)
             if pg_info.get('name') != net_data.get('name'):
                 err_msg = (_("Portgroup name %(dvpg)s must match network "
                             "name %(network)s") % {'dvpg': pg_info.get('name'),
                             'network': net_data.get('name')})
                 raise n_exc.InvalidInput(error_message=err_msg)
-            dvpg_moref = self._dvs.net_id_to_moref(net_id)
             dvs_id = dvpg_moref.value
         else:
             dvs_id = self._dvs_get_id(net_data)
