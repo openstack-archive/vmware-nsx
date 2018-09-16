@@ -155,7 +155,7 @@ class VSMClient(object):
         content_type = self.content_type if content is None else content
         accept_type = self.accept_type if accept is None else accept
         auth_cred = self.username + ":" + self.password
-        auth = base64.b64encode(auth_cred)
+        auth = base64.b64encode(auth_cred.encode()).decode()
         headers = {}
         headers['Authorization'] = "Basic %s" % auth
         headers['Content-Type'] = content_type
@@ -396,7 +396,7 @@ def ceil(a, b):
         return 0
     div = a / b
     mod = 0 if a % b is 0 else 1
-    return div + mod
+    return int(div + mod)
 
 
 if __name__ == "__main__":
