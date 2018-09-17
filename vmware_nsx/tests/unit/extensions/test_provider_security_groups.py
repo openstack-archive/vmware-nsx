@@ -106,20 +106,20 @@ class ProviderSecurityGroupTestPlugin(
         return port_data
 
     def delete_security_group(self, context, id):
-        self._prevent_non_admin_delete_provider_sg(context, id)
+        self._prevent_non_admin_edit_provider_sg(context, id)
         super(ProviderSecurityGroupTestPlugin,
               self).delete_security_group(context, id)
 
     def delete_security_group_rule(self, context, id):
         rule_db = self._get_security_group_rule(context, id)
         sg_id = rule_db['security_group_id']
-        self._prevent_non_admin_delete_provider_sg(context, sg_id)
+        self._prevent_non_admin_edit_provider_sg(context, sg_id)
         return super(ProviderSecurityGroupTestPlugin,
                      self).delete_security_group_rule(context, id)
 
     def create_security_group_rule(self, context, security_group_rule):
         id = security_group_rule['security_group_rule']['security_group_id']
-        self._prevent_non_admin_delete_provider_sg(context, id)
+        self._prevent_non_admin_edit_provider_sg(context, id)
         return super(ProviderSecurityGroupTestPlugin,
                      self).create_security_group_rule(context,
                                                       security_group_rule)
