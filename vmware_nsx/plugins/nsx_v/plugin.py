@@ -642,6 +642,16 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         az = self._get_network_az_from_net_data(net_data)
         return az.vdn_scope_id
 
+    def _validate_dvs_id(self, dvs_id):
+        if not self.nsx_v.vcns.validate_dvs(
+            dvs_id, dvs_list=self.existing_dvs):
+            # try to retrieve the dvs list again in case 1 was added
+            self.existing_dvs = self.nsx_v.vcns.get_dvs_list()
+            if not self.nsx_v.vcns.validate_dvs(
+                dvs_id, dvs_list=self.existing_dvs):
+                return False
+        return True
+
     def _validate_provider_create(self, context, network):
         if not validators.is_attr_set(network.get(mpnet_apidef.SEGMENTS)):
             return
@@ -662,6 +672,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 if segmentation_id_set:
                     err_msg = _("Segmentation ID cannot be specified with "
                                 "flat network type")
+                if physical_network_set:
+                    # Validate the DVS Id
+                    if not self._validate_dvs_id(physical_network):
+                        err_msg = (_("DVS Id %s could not be found") %
+                                   physical_network)
             elif network_type == c_utils.NsxVNetworkTypes.VLAN:
                 if not segmentation_id_set:
                     if physical_network_set:
@@ -678,6 +693,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                {'segmentation_id': segmentation_id,
                                 'min_id': constants.MIN_VLAN_TAG,
                                 'max_id': constants.MAX_VLAN_TAG})
+                elif (segmentation_id_set and physical_network_set and
+                      not self._validate_dvs_id(physical_network)):
+                    err_msg = (_("DVS Id %s could not be found") %
+                               physical_network)
                 else:
                     # Verify segment is not already allocated
                     bindings = nsxv_db.get_network_bindings_by_vlanid(
@@ -4597,23 +4616,23 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             LOG.info("Unable to configure edge reservations")
 
     def _validate_config(self):
-        existing_dvs = self.nsx_v.vcns.get_dvs_list()
+        self.existing_dvs = self.nsx_v.vcns.get_dvs_list()
         if (cfg.CONF.nsxv.dvs_id and
             not self.nsx_v.vcns.validate_dvs(cfg.CONF.nsxv.dvs_id,
-                                             dvs_list=existing_dvs)):
+                                             dvs_list=self.existing_dvs)):
             raise nsx_exc.NsxResourceNotFound(
                                 res_name='dvs_id',
                                 res_id=cfg.CONF.nsxv.dvs_id)
         for dvs_id in self._availability_zones_data.get_additional_dvs_ids():
             if not self.nsx_v.vcns.validate_dvs(dvs_id,
-                                                dvs_list=existing_dvs):
+                                                dvs_list=self.existing_dvs):
                 raise nsx_exc.NsxAZResourceNotFound(
                     res_name='dvs_id', res_id=dvs_id)
 
         # validate network-vlan dvs ID's
         for dvs_id in self._network_vlans:
             if not self.nsx_v.vcns.validate_dvs(dvs_id,
-                                                dvs_list=existing_dvs):
+                                                dvs_list=self.existing_dvs):
                 raise nsx_exc.NsxResourceNotFound(res_name='dvs_id',
                                                   res_id=dvs_id)
 
