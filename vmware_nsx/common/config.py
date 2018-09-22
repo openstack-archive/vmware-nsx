@@ -482,7 +482,15 @@ nsx_v3_opts = nsx_v3_and_p + [
 
 ]
 
-nsx_p_opts = nsx_v3_and_p + []
+nsx_p_opts = nsx_v3_and_p + [
+    cfg.StrOpt('default_tier0_router',
+               help=_("Name or UUID of the default tier0 router that will be "
+                      "used for connecting to tier1 logical routers and "
+                      "configuring external networks. If only one tier0 "
+                      " router is present on backend, it will be assumed "
+                      "as default unless this value is provided")),
+               ]
+
 
 DEFAULT_STATUS_CHECK_INTERVAL = 2000
 DEFAULT_MINIMUM_POOLED_EDGES = 1
