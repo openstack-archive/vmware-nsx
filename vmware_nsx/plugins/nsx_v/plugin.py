@@ -50,6 +50,7 @@ from neutron_lib.objects import registry as obj_reg
 from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
 from neutron_lib.plugins import utils
+from neutron_lib import rpc as n_rpc
 from neutron_lib.services.qos import constants as qos_consts
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -63,7 +64,6 @@ from sqlalchemy.orm import exc as sa_exc
 
 from neutron.api import extensions as neutron_extensions
 from neutron.common import ipv6_utils
-from neutron.common import rpc as n_rpc
 from neutron.common import utils as n_utils
 from neutron.db import _resource_extend as resource_extend
 from neutron.db import agents_db

@@ -19,6 +19,7 @@ import weakref
 
 from neutron_lib.agent import topics
 from neutron_lib import constants as const
+from neutron_lib import rpc as n_rpc
 from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -27,7 +28,6 @@ from oslo_utils import importutils
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
 from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
-from neutron.common import rpc as n_rpc
 from neutron.db import agents_db
 
 from vmware_nsx._i18n import _

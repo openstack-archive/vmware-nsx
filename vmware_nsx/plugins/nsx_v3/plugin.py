@@ -32,12 +32,12 @@ from neutron_lib.exceptions import l3 as l3_exc
 from neutron_lib.exceptions import port_security as psec_exc
 from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
+from neutron_lib import rpc as n_rpc
 from neutron_lib.services.qos import constants as qos_consts
 
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
 from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
-from neutron.common import rpc as n_rpc
 from neutron.db import _resource_extend as resource_extend
 from neutron.db import agents_db
 from neutron.db import agentschedulers_db
