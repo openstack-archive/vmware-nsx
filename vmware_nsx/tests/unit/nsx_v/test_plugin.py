@@ -46,6 +46,9 @@ from neutron_lib.api.definitions import portbindings
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api.definitions import router_availability_zone as raz_apidef
 from neutron_lib.api import validators
+from neutron_lib.callbacks import events
+from neutron_lib.callbacks import registry
+from neutron_lib.callbacks import resources
 from neutron_lib import constants
 from neutron_lib import context
 from neutron_lib import exceptions as n_exc
@@ -2813,6 +2816,20 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
                 context.get_admin_context(), subnet_id)
             self.assertFalse(is_dhcp_meta)
             self.new_delete_request('ports', port_req['port']['id'])
+
+    def test_router_add_gateway_notifications(self):
+        with self.router() as r,\
+            self._create_l3_ext_network() as ext_net,\
+            self.subnet(network=ext_net):
+            with mock.patch.object(registry, 'notify') as notify:
+                self._add_external_gateway_to_router(
+                    r['router']['id'], ext_net['network']['id'])
+                expected = [mock.call(
+                                resources.ROUTER_GATEWAY,
+                                events.AFTER_CREATE, mock.ANY,
+                                context=mock.ANY, gw_ips=mock.ANY,
+                                network_id=mock.ANY, router_id=mock.ANY)]
+                notify.assert_has_calls(expected)
 
     def test_router_delete_ipv6_slaac_subnet_inuse_returns_409(self):
         self.skipTest('No DHCP v6 Support yet')
