@@ -15,11 +15,11 @@
 import mock
 
 from neutron_lib import context
+from neutron_lib import exceptions
 from neutron_lib.objects import registry as obj_reg
 from oslo_config import cfg
 from oslo_utils import uuidutils
 
-from neutron.common import exceptions
 from neutron.objects import base as base_object
 from neutron.services.qos import qos_plugin
 from neutron.tests.unit.services.qos import base
