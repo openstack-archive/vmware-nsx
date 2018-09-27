@@ -17,7 +17,6 @@
 import os
 import time
 
-import eventlet
 import mock
 
 from vmware_nsx.api_client import client as nsx_client
@@ -51,7 +50,6 @@ EDGE_MANAGE_NAME = '%s.%s' % (edge_manage_class.__module__,
                               edge_manage_class.__name__)
 
 # Mock for the tenacity retrying sleeping method
-eventlet.monkey_patch()
 mocked_retry_sleep = mock.patch.object(time, 'sleep')
 mocked_retry_sleep.start()
 
