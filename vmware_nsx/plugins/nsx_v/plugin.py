@@ -4267,6 +4267,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     def update_security_group(self, context, id, security_group):
         s = security_group['security_group']
         self._validate_security_group(context, s, False, id=id)
+        self._prevent_non_admin_edit_provider_sg(context, id)
         nsx_sg_id = nsx_db.get_nsx_security_group_id(context.session, id,
                                                      moref=True)
         section_uri = self._get_section_uri(context.session, id)
@@ -4323,7 +4324,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def delete_security_group(self, context, id, delete_base=True):
         """Delete a security group."""
-        self._prevent_non_admin_delete_provider_sg(context, id)
+        self._prevent_non_admin_edit_provider_sg(context, id)
         self._prevent_non_admin_delete_policy_sg(context, id)
         policy = self._get_security_group_policy(context, id)
         try:
@@ -4441,7 +4442,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         sg_rules = security_group_rules['security_group_rules']
         sg_id = sg_rules[0]['security_group_rule']['security_group_id']
 
-        self._prevent_non_admin_delete_provider_sg(context, sg_id)
+        self._prevent_non_admin_edit_provider_sg(context, sg_id)
 
         ruleids = set()
         nsx_rules = []
@@ -4517,7 +4518,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         """Delete a security group rule."""
         rule_db = self._get_security_group_rule(context, id)
         security_group_id = rule_db['security_group_id']
-        self._prevent_non_admin_delete_provider_sg(context, security_group_id)
+        self._prevent_non_admin_edit_provider_sg(context, security_group_id)
 
         # Get the nsx rule from neutron DB and delete it
         nsx_rule_id = nsxv_db.get_nsx_rule_id(context.session, id)
