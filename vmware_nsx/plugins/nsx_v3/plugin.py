@@ -628,8 +628,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if pbin.VIF_DETAILS not in port_data:
                 port_data[pbin.VIF_DETAILS] = {}
             port_data[pbin.VIF_DETAILS][pbin.OVS_HYBRID_PLUG] = False
-            port_data[pbin.VIF_DETAILS]['nsx-logical-switch-id'] = (
-                self._get_network_nsx_id(context, net_id))
+            if port_data.get('device_owner') == const.DEVICE_OWNER_FLOATINGIP:
+                # floatingip belongs to an external net without nsx-id
+                port_data[pbin.VIF_DETAILS]['nsx-logical-switch-id'] = None
+            else:
+                port_data[pbin.VIF_DETAILS]['nsx-logical-switch-id'] = (
+                    self._get_network_nsx_id(context, net_id))
             if port_data[pbin.VNIC_TYPE] != pbin.VNIC_NORMAL:
                 port_data[pbin.VIF_DETAILS]['segmentation-id'] = (
                     self._get_network_segmentation_id(context, net_id))
