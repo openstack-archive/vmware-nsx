@@ -4,21 +4,10 @@
       - check-requirements
       - openstack-python35-jobs-neutron
       - periodic-jobs-with-neutron-lib-master
+      - build-openstack-docs-pti
     check:
       jobs:
         - vmware-tox-lower-constraints
-        - build-openstack-sphinx-docs:
-            required-projects:
-              - openstack/neutron
-              - openstack/networking-l2gw
-              - openstack/networking-sfc
-              - openstack/neutron-lbaas
-              - openstack/vmware-nsxlib
-              - openstack/neutron-fwaas
-              - openstack/neutron-dynamic-routing
-              - openstack/neutron-vpnaas
-              - openstack/tap-as-a-service
-              - openstack/octavia
         - openstack-tox-pep8:
             required-projects:
               - openstack/neutron
@@ -61,18 +50,6 @@
       queue: vmware-nsx
       jobs:
         - vmware-tox-lower-constraints
-        - build-openstack-sphinx-docs:
-            required-projects:
-              - openstack/neutron
-              - openstack/networking-l2gw
-              - openstack/networking-sfc
-              - openstack/neutron-lbaas
-              - openstack/vmware-nsxlib
-              - openstack/neutron-fwaas
-              - openstack/neutron-dynamic-routing
-              - openstack/neutron-vpnaas
-              - openstack/tap-as-a-service
-              - openstack/octavia
         - openstack-tox-pep8:
             required-projects:
               - openstack/neutron
@@ -139,6 +116,7 @@
               - openstack/neutron-vpnaas
               - openstack/tap-as-a-service
               - openstack/octavia
+
 - job:
     name: vmware-tox-lower-constraints
     parent: openstack-tox-lower-constraints
