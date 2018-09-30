@@ -129,20 +129,6 @@
               - openstack/neutron-vpnaas
               - openstack/tap-as-a-service
               - openstack/octavia
-    release:
-      jobs:
-        - release-openstack-python:
-            required-projects:
-              - openstack/neutron
-              - openstack/networking-l2gw
-              - openstack/networking-sfc
-              - openstack/neutron-lbaas
-              - openstack/vmware-nsxlib
-              - openstack/neutron-fwaas
-              - openstack/neutron-dynamic-routing
-              - openstack/neutron-vpnaas
-              - openstack/tap-as-a-service
-              - openstack/octavia
 
 - job:
     name: vmware-tox-lower-constraints
