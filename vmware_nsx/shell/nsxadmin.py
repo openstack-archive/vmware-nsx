@@ -81,6 +81,10 @@ def _validate_resource_choice(resource, nsx_plugin):
         LOG.error('Supported list of NSX-TVD resources: %s',
                   resources.nsxtvd_resources_names)
         sys.exit(1)
+    elif nsx_plugin == 'nsxp'and resource not in resources.nsxp_resources:
+        LOG.error('Supported list of NSX-P resources: %s',
+                  resources.nsxp_resources_names)
+        sys.exit(1)
 
 
 def _validate_op_choice(choice, nsx_plugin):
@@ -105,6 +109,14 @@ def _validate_op_choice(choice, nsx_plugin):
             resources.nsxtvd_resources[cfg.CONF.resource].supported_ops
         if choice not in supported_resource_ops:
             LOG.error('Supported list of operations for the NSX-TVD '
+                      'resource %s', supported_resource_ops)
+            sys.exit(1)
+
+    elif nsx_plugin == 'nsxp':
+        supported_resource_ops = \
+            resources.nsxp_resources[cfg.CONF.resource].supported_ops
+        if choice not in supported_resource_ops:
+            LOG.error('Supported list of operations for the NSX-P '
                       'resource %s', supported_resource_ops)
             sys.exit(1)
 

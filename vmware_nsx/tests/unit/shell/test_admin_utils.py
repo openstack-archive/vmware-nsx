@@ -37,6 +37,7 @@ from vmware_nsx.shell.admin.plugins.nsxv.resources import utils as nsxv_utils
 from vmware_nsx.shell.admin.plugins.nsxv3.resources import utils as nsxv3_utils
 from vmware_nsx.shell import resources
 from vmware_nsx.tests import unit as vmware
+from vmware_nsx.tests.unit.nsx_p import test_plugin as test_p_plugin
 from vmware_nsx.tests.unit.nsx_v import test_plugin as test_v_plugin
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_v3_plugin
 from vmware_nsxlib.v3 import core_resources
@@ -311,3 +312,13 @@ class TestNsxtvdAdminUtils(AbstractTestAdminUtils):
 
     def test_nsxtv_resources(self):
         self._test_resources(resources.nsxtvd_resources)
+
+
+class TestNsxpAdminUtils(AbstractTestAdminUtils,
+                         test_p_plugin.NsxPPluginTestCaseMixin):
+
+    def _get_plugin_name(self):
+        return 'nsxp'
+
+    def test_nsxp_resources(self):
+        self._test_resources(resources.nsxp_resources)

@@ -237,9 +237,19 @@ nsxtvd_resources = {
                                   Operations.NSX_MIGRATE_V_V3.value]),
 }
 
+nsxp_resources = {
+    constants.SECURITY_GROUPS: Resource(constants.SECURITY_GROUPS,
+                                        [Operations.LIST.value]),
+    constants.NETWORKS: Resource(constants.NETWORKS,
+                                 [Operations.LIST.value]),
+    constants.ROUTERS: Resource(constants.ROUTERS,
+                                [Operations.LIST.value]),
+}
+
 nsxv3_resources_names = list(nsxv3_resources.keys())
 nsxv_resources_names = list(nsxv_resources.keys())
 nsxtvd_resources_names = list(nsxtvd_resources.keys())
+nsxp_resources_names = list(nsxp_resources.keys())
 
 
 def get_resources(plugin_dir):
@@ -257,6 +267,8 @@ def get_plugin():
         plugin_name = 'nsxv'
     elif plugin in (constants.NSXTVD_PLUGIN, constants.VMWARE_NSXTVD):
         plugin_name = 'nsxtvd'
+    elif plugin in (constants.NSXP_PLUGIN, constants.VMWARE_NSXP):
+        plugin_name = 'nsxp'
     return plugin_name
 
 
