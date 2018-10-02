@@ -121,17 +121,17 @@ class DbCertProvider(client_cert.ClientCertProvider):
         return self._filename
 
 
-def get_client_cert_provider():
-    if not cfg.CONF.nsx_v3.nsx_use_client_auth:
+def get_client_cert_provider(conf_path=cfg.CONF.nsx_v3):
+    if not conf_path.nsx_use_client_auth:
         return None
 
-    if cfg.CONF.nsx_v3.nsx_client_cert_storage.lower() == 'none':
+    if conf_path.nsx_client_cert_storage.lower() == 'none':
         # Admin is responsible for providing cert file, the plugin
         # should not touch it
         return client_cert.ClientCertProvider(
-                cfg.CONF.nsx_v3.nsx_client_cert_file)
+                conf_path.nsx_client_cert_file)
 
-    if cfg.CONF.nsx_v3.nsx_client_cert_storage.lower() == 'nsx-db':
+    if conf_path.nsx_client_cert_storage.lower() == 'nsx-db':
         # Cert data is stored in DB, and written to file system only
         # when new connection is opened, and deleted immediately after.
         return DbCertProvider
@@ -171,7 +171,8 @@ def get_nsxpolicy_wrapper(nsx_username=None, nsx_password=None,
     client_cert_provider = None
     if not basic_auth:
         # if basic auth requested, dont use cert file even if provided
-        client_cert_provider = get_client_cert_provider()
+        client_cert_provider = get_client_cert_provider(
+            conf_path=cfg.CONF.nsx_p)
 
     nsxlib_config = config.NsxLibConfig(
         username=nsx_username or cfg.CONF.nsx_p.nsx_api_user,
