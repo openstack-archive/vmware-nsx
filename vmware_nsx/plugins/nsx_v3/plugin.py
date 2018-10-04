@@ -145,6 +145,8 @@ NSX_V3_FW_DEFAULT_NS_GROUP = 'os_default_section_ns_group'
 NSX_V3_DEFAULT_SECTION = 'OS-Default-Section'
 NSX_V3_EXCLUDED_PORT_NSGROUP_NAME = 'neutron_excluded_port_nsgroup'
 NSX_V3_NON_VIF_PROFILE = 'nsx-default-switch-security-non-vif-profile'
+NSX_V3_NON_VIF_ENS_PROFILE = \
+    'nsx-default-switch-security-non-vif-profile-for-ens'
 NSX_V3_SERVER_SSL_PROFILE = 'nsx-default-server-ssl-profile'
 NSX_V3_CLIENT_SSL_PROFILE = 'nsx-default-client-ssl-profile'
 # Default UUID for the global OS rule
@@ -578,6 +580,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     NSX_V3_NON_VIF_PROFILE)[0]
             self._no_switch_security = profile_client.build_switch_profile_ids(
                 profile_client, no_switch_security_prof)[0]
+            if self._ens_psec_supported():
+                no_switch_security_prof = profile_client.find_by_display_name(
+                        NSX_V3_NON_VIF_ENS_PROFILE)[0]
+                self._no_switch_security_ens = (
+                    profile_client.build_switch_profile_ids(
+                        profile_client, no_switch_security_prof)[0])
+
         self.server_ssl_profile = None
         self.client_ssl_profile = None
         # Only create LB profiles when nsxv3 version >= 2.1.0
@@ -1055,21 +1064,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                        transparent_vlan):
         provider_data = self._validate_provider_create(context, net_data, az,
                                                        transparent_vlan)
-
-        physical_net = provider_data['physical_net']
         neutron_net_id = net_data.get('id') or uuidutils.generate_uuid()
         net_data['id'] = neutron_net_id
-        if self._is_ens_tz(physical_net):
-            self._assert_on_ens_with_qos(net_data)
-            self._ensure_override_ens_with_portsecurity(net_data)
         if (provider_data['switch_mode'] ==
             self.nsxlib.transport_zone.HOST_SWITCH_MODE_ENS):
             if not cfg.CONF.nsx_v3.ens_support:
                 raise NotImplementedError(_("ENS support is disabled"))
-            if net_data.get(psec.PORTSECURITY):
-                raise nsx_exc.NsxENSPortSecurity()
-            # set the default port security to False
-            net_data[psec.PORTSECURITY] = False
+            self._assert_on_ens_with_qos(net_data)
+            self._validate_ens_net_portsecurity(net_data)
 
         if (provider_data['is_provider_net'] and
             provider_data['net_type'] == utils.NsxV3NetworkTypes.NSX_NETWORK):
@@ -1375,11 +1377,26 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             err_msg = _("Cannot configure QOS on ENS networks")
             raise n_exc.InvalidInput(error_message=err_msg)
 
-    def _ensure_override_ens_with_portsecurity(self, net_data):
-        if cfg.CONF.nsx_v3.disable_port_security_for_ens:
-            if net_data[psec.PORTSECURITY]:
-                LOG.warning("Disabling port security for network %s",
-                            net_data['id'])
+    def _ens_psec_supported(self):
+        return self.nsxlib.feature_supported(
+            nsxlib_consts.FEATURE_ENS_WITH_SEC)
+
+    def _validate_ens_net_portsecurity(self, net_data):
+        """Validate/Update the port security of the new network for ENS TZ"""
+        if not self._ens_psec_supported():
+            if cfg.CONF.nsx_v3.disable_port_security_for_ens:
+                # Override the port-security to False
+                if net_data[psec.PORTSECURITY]:
+                    LOG.warning("Disabling port security for network %s",
+                                net_data['id'])
+                    # Set the port security to False
+                    net_data[psec.PORTSECURITY] = False
+
+            elif net_data.get(psec.PORTSECURITY):
+                # Port security enabled is not allowed
+                raise nsx_exc.NsxENSPortSecurity()
+            else:
+                # Update the default port security to False if not set
                 net_data[psec.PORTSECURITY] = False
 
     def _has_active_port(self, context, network_id):
@@ -1498,7 +1515,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if psec.PORTSECURITY in net_data:
             # do not allow to enable port security on ENS networks
             if (net_data[psec.PORTSECURITY] and
-                not original_net[psec.PORTSECURITY] and is_ens_net):
+                not original_net[psec.PORTSECURITY] and is_ens_net and
+                not self._ens_psec_supported()):
                 raise nsx_exc.NsxENSPortSecurity()
             self._process_network_port_security_update(
                 context, net_data, updated_net)
@@ -2334,7 +2352,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 mac_learning_profile_set = True
             profiles.append(self._get_port_security_profile_id())
         if device_owner == const.DEVICE_OWNER_DHCP:
-            if (not is_ens_tz_port and
+            if ((not is_ens_tz_port or self._ens_psec_supported()) and
                 not cfg.CONF.nsx_v3.native_dhcp_metadata):
                 profiles.append(self._dhcp_profile)
 
@@ -2351,12 +2369,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             profiles.append(qos_profile_id)
 
         # Add mac_learning profile if it exists and is configured
-        if (not is_ens_tz_port and self._mac_learning_profile and
+        if ((not is_ens_tz_port or self._ens_psec_supported()) and
+            self._mac_learning_profile and
             (mac_learning_profile_set or
              (validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)) and
               port_data.get(mac_ext.MAC_LEARNING) is True))):
             profiles.append(self._mac_learning_profile)
-            profiles.append(self._no_switch_security)
+            if is_ens_tz_port:
+                profiles.append(self._no_switch_security_ens)
+            else:
+                profiles.append(self._no_switch_security)
 
         name = self._get_port_name(context, port_data)
         nsx_net_id = self._get_network_nsx_id(context, port_data['network_id'])
@@ -2436,7 +2458,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             context, port_data)
         port_data[psec.PORTSECURITY] = port_security
         # No port security is allowed if the port belongs to an ENS TZ
-        if port_security and is_ens_tz_port:
+        if (port_security and is_ens_tz_port and
+            not self._ens_psec_supported()):
             raise nsx_exc.NsxENSPortSecurity()
         self._process_port_port_security_create(
                 context, port_data, neutron_db)
@@ -2869,7 +2892,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             err_msg = _("Cannot configure QOS on ENS networks")
             raise n_exc.InvalidInput(error_message=err_msg)
 
-        if cfg.CONF.nsx_v3.disable_port_security_for_ens:
+        if (cfg.CONF.nsx_v3.disable_port_security_for_ens and
+            not self._ens_psec_supported()):
             LOG.warning("Disabling port security for network %s",
                         port_data['network_id'])
             port_data[psec.PORTSECURITY] = False
@@ -2940,7 +2964,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                             'disabled')
                     LOG.error(msg)
                     raise n_exc.InvalidInput(error_message=msg)
-                if is_ens_tz_port and not port_data.get(mac_ext.MAC_LEARNING):
+                if (is_ens_tz_port and not self._ens_psec_supported() and
+                    not port_data.get(mac_ext.MAC_LEARNING)):
                     msg = _('Cannot disable Mac learning for ENS TZ')
                     LOG.error(msg)
                     raise n_exc.InvalidInput(error_message=msg)
@@ -2951,7 +2976,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 # ATTR_NOT_SPECIFIED
                 port_data.pop(mac_ext.MAC_LEARNING)
             # For a ENZ TZ mac learning is always enabled
-            if is_ens_tz_port and mac_ext.MAC_LEARNING not in port_data:
+            if (is_ens_tz_port and not self._ens_psec_supported() and
+                mac_ext.MAC_LEARNING not in port_data):
                 # Set the default and add to the DB
                 port_data[mac_ext.MAC_LEARNING] = True
                 self._create_mac_learning_state(context, port_data)
@@ -3137,7 +3163,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         if updated_port[psec.PORTSECURITY] and psec.PORTSECURITY in port_data:
             # No port security is allowed if the port belongs to an ENS TZ
-            if is_ens_tz_port:
+            if is_ens_tz_port and not self._ens_psec_supported():
                 raise nsx_exc.NsxENSPortSecurity()
 
             # No port security is allowed if the port has a direct vnic type
@@ -3285,7 +3311,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         # Update the DHCP profile
         if (updated_device_owner == const.DEVICE_OWNER_DHCP and
-            not self._is_ens_tz_net(context, updated_port['network_id']) and
+            (not is_ens_tz_port or self._ens_psec_supported()) and
             not cfg.CONF.nsx_v3.native_dhcp_metadata):
             switch_profile_ids.append(self._dhcp_profile)
 
@@ -3308,11 +3334,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             validators.is_attr_set(address_pairs) and address_pairs and
             psec_is_on)
         # Add mac_learning profile if it exists and is configured
-        if (not is_ens_tz_port and self._mac_learning_profile and
+        if ((not is_ens_tz_port or self._ens_psec_supported()) and
+            self._mac_learning_profile and
             (mac_learning_profile_set or
              updated_port.get(mac_ext.MAC_LEARNING) is True)):
             switch_profile_ids.append(self._mac_learning_profile)
-            switch_profile_ids.append(self._no_switch_security)
+            if is_ens_tz_port:
+                switch_profile_ids.append(self._no_switch_security_ens)
+            else:
+                switch_profile_ids.append(self._no_switch_security)
 
         try:
             self.nsxlib.logical_port.update(
@@ -3429,7 +3459,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._extend_nsx_port_dict_binding(context, updated_port)
             mac_learning_state = updated_port.get(mac_ext.MAC_LEARNING)
             if mac_learning_state is not None:
-                if (not mac_learning_state and is_ens_tz_port):
+                if (not mac_learning_state and is_ens_tz_port and
+                    not self._ens_psec_supported()):
                     msg = _('Mac learning cannot be disabled with ENS TZ')
                     LOG.error(msg)
                     raise n_exc.InvalidInput(error_message=msg)
