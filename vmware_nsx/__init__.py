@@ -10,7 +10,10 @@
 #  License for the specific language governing permissions and limitations
 #  under the License.
 
+from neutron.common import eventlet_utils
 
-import os
+eventlet_utils.monkey_patch()
+
+import os  # noqa
 
 NSX_EXT_PATH = os.path.join(os.path.dirname(__file__), 'extensions')

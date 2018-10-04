@@ -23,7 +23,7 @@ from vmware_nsx.api_client import base
 from vmware_nsx.api_client import eventlet_request
 
 import eventlet
-eventlet.monkey_patch()
+
 
 LOG = logging.getLogger(__name__)
 
