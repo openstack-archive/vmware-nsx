@@ -30,7 +30,7 @@ function _nsxv_ini_set {
 }
 
 function install_neutron_projects {
-    pkg_list="networking-l2gw networking-sfc neutron-lbaas neutron-fwaas neutron-dynamic-routing neutron-vpnaas vmware-nsxlib"
+    pkg_list="networking-l2gw networking-sfc neutron-lbaas neutron-fwaas neutron-dynamic-routing neutron-vpnaas octavia vmware-nsxlib"
     for pkg in `echo $pkg_list`
     do
         if is_plugin_enabled $pkg; then

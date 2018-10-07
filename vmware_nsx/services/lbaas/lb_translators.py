@@ -32,12 +32,14 @@ def lb_listener_obj_to_dict(listener):
     # Translate the LBaaS listener to a dictionary skipping the some objects
     # to avoid recursions
     listener_dict = listener.to_dict(loadbalancer=False, default_pool=False)
+
     # Translate the default pool separately without it's internal objects
     if listener.default_pool:
         listener_dict['default_pool'] = lb_pool_obj_to_dict(
             listener.default_pool, with_listeners=False)
     else:
         listener_dict['default_pool'] = None
+
     if listener.loadbalancer:
         listener_dict['loadbalancer'] = lb_loadbalancer_obj_to_dict(
             listener.loadbalancer)

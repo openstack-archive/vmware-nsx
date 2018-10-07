@@ -203,3 +203,8 @@ def convert_l7policy_to_lb_rule(context, policy):
 def remove_rule_from_policy(rule):
     l7rules = rule['policy']['rules']
     rule['policy']['rules'] = [r for r in l7rules if r['id'] != rule['id']]
+
+
+def update_rule_in_policy(rule):
+    remove_rule_from_policy(rule)
+    rule['policy']['rules'].append(rule)

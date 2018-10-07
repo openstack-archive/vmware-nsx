@@ -293,7 +293,8 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
                               ) as mock_get_pool_binding, \
             mock.patch.object(self.pool_client, 'get'
                               ) as mock_get_pool, \
-            mock.patch.object(nsx_db, 'get_nsx_lbaas_listener_binding_by_vs'
+            mock.patch.object(nsx_db,
+                              'get_nsx_lbaas_listener_binding_by_lb_and_vs'
                               ) as mock_get_listener_binding:
             mock_get_lb_binding.return_value = LB_BINDING
             mock_get_pool_binding.return_value = POOL_BINDING

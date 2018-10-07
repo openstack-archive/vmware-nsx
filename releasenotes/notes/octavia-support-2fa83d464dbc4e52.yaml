@@ -1,0 +1,6 @@
+---
+prelude: >
+    Support Octavia loadbalancer support in NSXv and NSXv3 plugins.
+features:
+  - |
+  NSXv and NSXv3 plugins now support Octavia loadbalancer.

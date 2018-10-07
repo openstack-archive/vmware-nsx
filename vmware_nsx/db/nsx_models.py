@@ -399,12 +399,7 @@ class NsxLbaasLoadbalancer(model_base.BASEV2, models.TimestampMixin):
     and NSX logical router id.
     """
     __tablename__ = 'nsxv3_lbaas_loadbalancers'
-    fk_name = 'fk_nsxv3_lbaas_loadbalancers_id'
-    loadbalancer_id = sa.Column(sa.String(36),
-                                sa.ForeignKey('lbaas_loadbalancers.id',
-                                              name=fk_name,
-                                              ondelete="CASCADE"),
-                                primary_key=True)
+    loadbalancer_id = sa.Column(sa.String(36), primary_key=True)
     lb_router_id = sa.Column(sa.String(36), nullable=False)
     lb_service_id = sa.Column(sa.String(36), nullable=False)
     vip_address = sa.Column(sa.String(36), nullable=False)
@@ -414,11 +409,7 @@ class NsxLbaasListener(model_base.BASEV2, models.TimestampMixin):
     """Stores the mapping between LBaaS listener and NSX LB virtual server"""
     __tablename__ = 'nsxv3_lbaas_listeners'
     loadbalancer_id = sa.Column(sa.String(36), primary_key=True)
-    listener_id = sa.Column(sa.String(36),
-                            sa.ForeignKey('lbaas_listeners.id',
-                                          name='fk_nsxv3_lbaas_listeners_id',
-                                          ondelete="CASCADE"),
-                            primary_key=True)
+    listener_id = sa.Column(sa.String(36), primary_key=True)
     app_profile_id = sa.Column(sa.String(36), nullable=False)
     lb_vs_id = sa.Column(sa.String(36), nullable=False)
 
@@ -427,11 +418,7 @@ class NsxLbaasPool(model_base.BASEV2, models.TimestampMixin):
     """Stores the mapping between LBaaS pool and NSX LB Pool"""
     __tablename__ = 'nsxv3_lbaas_pools'
     loadbalancer_id = sa.Column(sa.String(36), primary_key=True)
-    pool_id = sa.Column(sa.String(36),
-                        sa.ForeignKey('lbaas_pools.id',
-                                      name='fk_nsxv3_lbaas_pools_id',
-                                      ondelete="CASCADE"),
-                        primary_key=True)
+    pool_id = sa.Column(sa.String(36), primary_key=True)
     lb_pool_id = sa.Column(sa.String(36), nullable=False)
     lb_vs_id = sa.Column(sa.String(36))
 
@@ -441,11 +428,7 @@ class NsxLbaasMonitor(model_base.BASEV2, models.TimestampMixin):
     __tablename__ = 'nsxv3_lbaas_monitors'
     loadbalancer_id = sa.Column(sa.String(36), primary_key=True)
     pool_id = sa.Column(sa.String(36), primary_key=True)
-    hm_id = sa.Column(sa.String(36),
-                      sa.ForeignKey('lbaas_healthmonitors.id',
-                                    name='fk_nsxv3_lbaas_healthmonitors_id',
-                                    ondelete="CASCADE"),
-                      primary_key=True)
+    hm_id = sa.Column(sa.String(36), primary_key=True)
     lb_monitor_id = sa.Column(sa.String(36), nullable=False)
     lb_pool_id = sa.Column(sa.String(36), nullable=False)
 
@@ -462,11 +445,7 @@ class NsxLbaasL7Rule(model_base.BASEV2, models.TimestampMixin):
     __tablename__ = 'nsxv3_lbaas_l7rules'
     loadbalancer_id = sa.Column(sa.String(36), primary_key=True)
     l7policy_id = sa.Column(sa.String(36), primary_key=True)
-    l7rule_id = sa.Column(sa.String(36),
-                          sa.ForeignKey('lbaas_l7rules.id',
-                                        name='fk_nsxv3_lbaas_l7rules_id',
-                                        ondelete="CASCADE"),
-                          primary_key=True)
+    l7rule_id = sa.Column(sa.String(36), primary_key=True)
     lb_rule_id = sa.Column(sa.String(36), nullable=False)
     lb_vs_id = sa.Column(sa.String(36), nullable=False)
 
@@ -474,11 +453,7 @@ class NsxLbaasL7Rule(model_base.BASEV2, models.TimestampMixin):
 class NsxLbaasL7Policy(model_base.BASEV2, models.TimestampMixin):
     """Stores the mapping between LBaaS l7policy and NSX LB rule"""
     __tablename__ = 'nsxv3_lbaas_l7policies'
-    l7policy_id = sa.Column(sa.String(36),
-                            sa.ForeignKey('lbaas_l7policies.id',
-                                          name='fk_nsxv3_lbaas_l7policies_id',
-                                          ondelete="CASCADE"),
-                            primary_key=True)
+    l7policy_id = sa.Column(sa.String(36), primary_key=True)
     lb_rule_id = sa.Column(sa.String(36), nullable=False)
     lb_vs_id = sa.Column(sa.String(36), nullable=False)
 

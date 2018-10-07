@@ -96,6 +96,10 @@ LB_STATS_MAP = {'active_connections': 'current_sessions',
                 'bytes_in': 'bytes_in',
                 'bytes_out': 'bytes_out',
                 'total_connections': 'total_sessions'}
+LB_EMPTY_STATS = {'active_connections': 0,
+                  'bytes_in': 0,
+                  'bytes_out': 0,
+                  'total_connections': 0}
 LR_ROUTER_TYPE = 'os-neutron-router-id'
 LR_PORT_TYPE = 'os-neutron-rport-id'
 LB_CERT_RESOURCE_TYPE = ['certificate_signed', 'certificate_self_signed']
