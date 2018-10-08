@@ -14,6 +14,7 @@
 #    under the License.
 
 from distutils import version
+import xml.etree.ElementTree as et
 
 import netaddr
 
@@ -154,6 +155,23 @@ SUBNET_RULE_NAME = 'Subnet Rule'
 DNAT_RULE_NAME = 'DNAT Rule'
 ALLOCATION_POOL_RULE_NAME = 'Allocation Pool Rule'
 NO_SNAT_RULE_NAME = 'No SNAT Rule'
+
+UNSUPPORTED_RULE_NAMED_PROTOCOLS = [constants.PROTO_NAME_DCCP,
+                                    constants.PROTO_NAME_PGM,
+                                    constants.PROTO_NAME_VRRP,
+                                    constants.PROTO_NAME_UDPLITE,
+                                    constants.PROTO_NAME_EGP,
+                                    constants.PROTO_NAME_IPIP,
+                                    constants.PROTO_NAME_OSPF,
+                                    constants.PROTO_NAME_IPV6_ROUTE,
+                                    constants.PROTO_NAME_IPV6_ENCAP,
+                                    constants.PROTO_NAME_IPV6_FRAG,
+                                    constants.PROTO_NAME_IPV6_OPTS,
+                                    constants.PROTO_NAME_IPV6_NONXT]
+PROTOCOLS_SUPPORTING_PORTS = [constants.PROTO_NUM_TCP,
+                              constants.PROTO_NUM_UDP,
+                              constants.PROTO_NUM_ICMP,
+                              constants.PROTO_NUM_IPV6_ICMP]
 
 
 @resource_extend.has_resource_extenders
@@ -4355,6 +4373,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if (protocol == constants.PROTO_NAME_IPV6_ICMP or
             protocol == constants.PROTO_NAME_IPV6_ICMP_LEGACY):
             return str(constants.PROTO_NUM_IPV6_ICMP)
+
+        # Some protocols are not supported and should be used as a number
+        if protocol in UNSUPPORTED_RULE_NAMED_PROTOCOLS:
+            return str(self._get_ip_proto_number(protocol))
+
         return protocol
 
     def _create_nsx_rule(self, context, rule,
@@ -4411,7 +4434,6 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Get the neutron rule id to use as name in nsxv rule
         name = rule.get('id')
         services = [(protocol, port, icmptype, icmpcode)] if protocol else []
-
         flags['ethertype'] = rule.get('ethertype')
         # Add rule in nsx rule section
         nsx_rule = self.nsx_sg_utils.get_rule_config(
@@ -4433,6 +4455,21 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         bulk_rule = {'security_group_rules': [security_group_rule]}
         return self.create_security_group_rule_bulk(
             context, bulk_rule, create_base=create_base)[0]
+
+    def _validate_security_group_rules(self, context, rules):
+        for rule in rules['security_group_rules']:
+            r = rule.get('security_group_rule')
+            port_based_proto = (self._get_ip_proto_number(r['protocol'])
+                                in PROTOCOLS_SUPPORTING_PORTS)
+            if (not port_based_proto and
+                (r['port_range_min'] is not None or
+                 r['port_range_max'] is not None)):
+                msg = (_("Port values not valid for "
+                         "protocol: %s") % r['protocol'])
+                raise n_exc.BadRequest(resource='security_group_rule',
+                                       msg=msg)
+        return super(NsxVPluginV2, self)._validate_security_group_rules(
+            context, rules)
 
     def create_security_group_rule_bulk(self, context, security_group_rules,
                                         create_base=True):
@@ -4479,8 +4516,16 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             _h, _c = self.nsx_v.vcns.get_section(section_uri)
             section = self.nsx_sg_utils.parse_section(_c)
             self.nsx_sg_utils.extend_section_with_rules(section, nsx_rules)
-            h, c = self.nsx_v.vcns.update_section(
-                section_uri, self.nsx_sg_utils.to_xml_string(section), _h)
+            try:
+                h, c = self.nsx_v.vcns.update_section(
+                    section_uri, self.nsx_sg_utils.to_xml_string(section), _h)
+            except vsh_exc.RequestBad as e:
+                # Raise the original reason of the failure
+                details = et.fromstring(e.response).find('details')
+                raise n_exc.BadRequest(
+                    resource='security_group_rule',
+                    msg=details.text if details is not None else "Unknown")
+
             rule_pairs = self.nsx_sg_utils.get_rule_id_pair_from_section(c)
 
         try:
