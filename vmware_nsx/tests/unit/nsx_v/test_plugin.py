@@ -4165,6 +4165,12 @@ class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
             self.assertEqual(2, len(ret['security_group_rules']))
             update_sect.assert_called_once()
 
+    def test_create_security_group_rule_protocol_as_number_range(self):
+        self.skipTest('not supported')
+
+    def test_create_security_group_rule_protocol_as_number_with_port(self):
+        self.skipTest('not supported')
+
 
 class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
                       test_l3_plugin.L3NatDBIntTestCase,
