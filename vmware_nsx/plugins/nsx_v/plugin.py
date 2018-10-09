@@ -2204,16 +2204,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             port_sec_change = True
             has_port_security = (cfg.CONF.nsxv.spoofguard_enabled and
                                  port_data[psec.PORTSECURITY])
-            # We do not support modification of port security with other
-            # parameters (only with security groups) to reduce some of
-            # the complications
-            if (len(port_data.keys()) > 2 or
-                (ext_sg.SECURITYGROUPS not in port_data and
-                 len(port_data.keys()) > 1)):
-                msg = (_('Port security can only be set with security-groups '
-                         'and no other attributes for port %s') %
-                       original_port['id'])
-                raise n_exc.BadRequest(resource='port', msg=msg)
+
         # Address pairs require port security
         if (not has_port_security and
             (original_port[addr_apidef.ADDRESS_PAIRS] or
@@ -2271,13 +2262,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             err_msg = _("Security features are not supported for "
                         "ports with direct/direct-physical VNIC type")
             raise n_exc.InvalidInput(error_message=err_msg)
-        if (mac_ext.MAC_LEARNING in port_data and
-            port_data[mac_ext.MAC_LEARNING] is True and
-            has_port_security):
-            err_msg = _("Security features are not supported for "
-                        "mac_learning")
-            raise n_exc.InvalidInput(error_message=err_msg)
         old_mac_learning_state = original_port.get(mac_ext.MAC_LEARNING)
+        if has_port_security:
+            if ((mac_ext.MAC_LEARNING in port_data and
+                 port_data[mac_ext.MAC_LEARNING] is True) or
+                (mac_ext.MAC_LEARNING not in port_data and
+                 old_mac_learning_state is True)):
+                err_msg = _("Security features are not supported for "
+                            "mac_learning")
+                raise n_exc.InvalidInput(error_message=err_msg)
 
         with db_api.context_manager.writer.using(context):
             ret_port = super(NsxVPluginV2, self).update_port(
