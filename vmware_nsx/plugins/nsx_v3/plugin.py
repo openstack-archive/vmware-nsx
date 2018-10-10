@@ -1064,7 +1064,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
              net_data.get(pnet.NETWORK_TYPE) != utils.NetworkTypes.L3_EXT and
              net_data.get(pnet.NETWORK_TYPE) != utils.NetworkTypes.LOCAL) or
             validators.is_attr_set(net_data.get(pnet.SEGMENTATION_ID))):
-            msg = _("Invalid provider network configuration")
+            msg = (_("External network cannot be created with %s provider "
+                     "network or segmentation id") %
+                   net_data.get(pnet.NETWORK_TYPE))
             raise n_exc.InvalidInput(error_message=msg)
         self.nsxlib.router.validate_tier0(self.tier0_groups_dict, tier0_uuid)
         return (True, utils.NetworkTypes.L3_EXT, tier0_uuid, 0)
