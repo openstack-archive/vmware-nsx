@@ -22,8 +22,6 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from neutron_lbaas.services.loadbalancer import constants
-
 from vmware_nsx._i18n import _
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.services.lbaas import base_mgr
@@ -152,7 +150,7 @@ class EdgeLoadBalancerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                         # to this loadbalancer
                         if vs['virtual_server_id'] not in vs_list:
                             continue
-                        vs_stats = vs['statistics']
+                        vs_stats = vs.get('statistics', {})
                         for stat in lb_const.LB_STATS_MAP:
                             lb_stat = lb_const.LB_STATS_MAP[stat]
                             stats[stat] += vs_stats[lb_stat]
@@ -166,21 +164,21 @@ class EdgeLoadBalancerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
     def _nsx_status_to_lb_status(self, nsx_status):
         if not nsx_status:
             # default fallback
-            return constants.ONLINE
+            return lb_const.ONLINE
 
         # Statuses that are considered ONLINE:
         if nsx_status.upper() in ['UP', 'UNKNOWN', 'PARTIALLY_UP',
                                   'NO_STANDBY']:
-            return constants.ONLINE
+            return lb_const.ONLINE
         # Statuses that are considered OFFLINE:
         if nsx_status.upper() in ['PRIMARY_DOWN', 'DETACHED', 'DOWN', 'ERROR']:
-            return constants.OFFLINE
+            return lb_const.OFFLINE
         if nsx_status.upper() == 'DISABLED':
-            return constants.DISABLED
+            return lb_const.DISABLED
 
         # default fallback
         LOG.debug("NSX LB status %s - interpreted as ONLINE", nsx_status)
-        return constants.ONLINE
+        return lb_const.ONLINE
 
     def get_lb_pool_members_statuses(self, nsx_pool_id, members_statuses):
         # Combine the NSX pool members data and the NSX statuses to provide
@@ -224,8 +222,12 @@ class EdgeLoadBalancerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
         lb_service_id = lb_binding['lb_service_id']
         try:
             service_status = service_client.get_status(lb_service_id)
+            if not isinstance(service_status, dict):
+                service_status = {}
             vs_statuses = service_client.get_virtual_servers_status(
                 lb_service_id)
+            if not isinstance(vs_statuses, dict):
+                vs_statuses = {}
         except nsxlib_exc.ManagerError:
             LOG.warning("LB service %(lbs)s is not found",
                         {'lbs': lb_service_id})
