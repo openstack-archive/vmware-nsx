@@ -195,6 +195,7 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
               ext_mgr=None,
               service_plugins=None,
               with_md_proxy=True,
+              with_octavia=False,
               **kwargs):
         test_utils.override_nsx_ini_test()
         mock_vcns = mock.patch(vmware.VCNS_NAME, autospec=True)
@@ -238,6 +239,15 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
 
             # Add some mocks required for the md code
             mock.patch.object(edge_utils, "update_internal_interface").start()
+
+        # Skip Octavia init because of RPC conflicts
+        if not with_octavia:
+            mock.patch("vmware_nsx.services.lbaas.octavia.octavia_listener."
+                       "NSXOctaviaListener.__init__",
+                       return_value=None).start()
+            mock.patch("vmware_nsx.services.lbaas.octavia.octavia_listener."
+                       "NSXOctaviaStatisticsCollector.__init__",
+                       return_value=None).start()
 
         if service_plugins is not None:
             # override the service plugins only if specified directly
