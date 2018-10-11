@@ -18,8 +18,6 @@ from neutron_lib import exceptions as n_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from neutron_lbaas.services.loadbalancer import constants
-
 from vmware_nsx._i18n import _
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.services.lbaas import base_mgr
@@ -115,21 +113,21 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
     def _nsx_status_to_lb_status(self, nsx_status):
         if not nsx_status:
             # default fallback
-            return constants.ONLINE
+            return lb_const.ONLINE
 
         # Statuses that are considered ONLINE:
         if nsx_status.upper() in ['UP', 'UNKNOWN', 'PARTIALLY_UP',
                                   'NO_STANDBY']:
-            return constants.ONLINE
+            return lb_const.ONLINE
         # Statuses that are considered OFFLINE:
         if nsx_status.upper() in ['PRIMARY_DOWN', 'DETACHED', 'DOWN', 'ERROR']:
-            return constants.OFFLINE
+            return lb_const.OFFLINE
         if nsx_status.upper() == 'DISABLED':
-            return constants.DISABLED
+            return lb_const.DISABLED
 
         # default fallback
         LOG.debug("NSX LB status %s - interpreted as ONLINE", nsx_status)
-        return constants.ONLINE
+        return lb_const.ONLINE
 
     def get_lb_pool_members_statuses(self, nsx_pool_id, members_statuses):
         # Combine the NSX pool members data and the NSX statuses to provide
