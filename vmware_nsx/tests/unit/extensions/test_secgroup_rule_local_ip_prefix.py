@@ -29,6 +29,7 @@ from neutron_lib.plugins import directory
 from vmware_nsx.db import extended_security_group_rule as ext_rule_db
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix as ext_loip
 from vmware_nsx.plugins.nsx_v.vshield import securitygroup_utils
+from vmware_nsx.tests.unit.nsx_p import test_plugin as test_nsxp_plugin
 from vmware_nsx.tests.unit.nsx_v import test_plugin as test_nsxv_plugin
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_nsxv3_plugin
 
@@ -185,3 +186,8 @@ class TestNSXv3ExtendedSGRule(test_nsxv3_plugin.NsxV3PluginTestCaseMixin,
                 'ALLOW',  # action
                 sg_rules,  # sg_rules
                 mock.ANY)  # ruleid_2_remote_nsgroup_map
+
+
+class TestNSXpExtendedSGRule(test_nsxp_plugin.NsxPPluginTestCaseMixin,
+                             LocalIPPrefixExtTestCase):
+    pass

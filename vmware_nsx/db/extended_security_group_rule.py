@@ -16,6 +16,7 @@
 from neutron_lib.db import model_base
 import sqlalchemy as sa
 from sqlalchemy import orm
+from sqlalchemy.orm import exc
 
 from neutron.db import _resource_extend as resource_extend
 from neutron.db import api as db_api
@@ -90,3 +91,13 @@ class ExtendedSecurityGroupRuleMixin(object):
                 sg_rule_db.ext_properties.local_ip_prefix)
         else:
             sg_rule_res[ext_local_ip.LOCAL_IP_PREFIX] = None
+
+    def _get_security_group_rule_local_ip(self, context, rule_id):
+        with db_api.context_manager.reader.using(context):
+            try:
+                prop = context.session.query(
+                    NsxExtendedSecurityGroupRuleProperties).filter_by(
+                        rule_id=rule_id).one()
+            except exc.NoResultFound:
+                return False
+        return prop[ext_local_ip.LOCAL_IP_PREFIX]

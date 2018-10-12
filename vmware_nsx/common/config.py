@@ -336,6 +336,14 @@ nsx_v3_and_p = [
     cfg.IntOpt('redirects',
                default=2,
                help=_('Number of times a HTTP redirect should be followed.')),
+    cfg.BoolOpt('log_security_groups_blocked_traffic',
+                default=False,
+                help=_("(Optional) Indicates whether distributed-firewall "
+                       "rule for security-groups blocked traffic is logged.")),
+    cfg.BoolOpt('log_security_groups_allowed_traffic',
+                default=False,
+                help=_("(Optional) Indicates whether distributed-firewall "
+                       "security-groups rules are logged.")),
 ]
 
 nsx_v3_opts = nsx_v3_and_p + [
@@ -422,14 +430,6 @@ nsx_v3_opts = nsx_v3_and_p + [
                help=_("(Optional) This is the name or UUID of the NSX dhcp "
                       "relay service that will be used to enable DHCP relay "
                       "on router ports.")),
-    cfg.BoolOpt('log_security_groups_blocked_traffic',
-                default=False,
-                help=_("(Optional) Indicates whether distributed-firewall "
-                       "rule for security-groups blocked traffic is logged.")),
-    cfg.BoolOpt('log_security_groups_allowed_traffic',
-                default=False,
-                help=_("(Optional) Indicates whether distributed-firewall "
-                       "security-groups rules are logged.")),
     cfg.ListOpt('availability_zones',
                 default=[],
                 help=_('Optional parameter defining the networks availability '

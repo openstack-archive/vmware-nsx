@@ -45,6 +45,7 @@ from neutron_lib.utils import net
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.extensions import maclearning as mac_ext
+from vmware_nsx.extensions import secgroup_rule_local_ip_prefix as sg_prefix
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.vpnaas.nsxv3 import ipsec_utils
 
@@ -582,6 +583,17 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
             net_id = self.get_subnet(context,
                                      interface_info['subnet_id'])['network_id']
         return net_id
+
+    def _fix_sg_rule_dict_ips(self, sg_rule):
+        # 0.0.0.0/# is not a valid entry for local and remote so we need
+        # to change this to None
+        if (sg_rule.get('remote_ip_prefix') and
+            sg_rule['remote_ip_prefix'].startswith('0.0.0.0/')):
+            sg_rule['remote_ip_prefix'] = None
+        if (sg_rule.get(sg_prefix.LOCAL_IP_PREFIX) and
+            validators.is_attr_set(sg_rule[sg_prefix.LOCAL_IP_PREFIX]) and
+            sg_rule[sg_prefix.LOCAL_IP_PREFIX].startswith('0.0.0.0/')):
+            sg_rule[sg_prefix.LOCAL_IP_PREFIX] = None
 
     def get_housekeeper(self, context, name, fields=None):
         # run the job in readonly mode and get the results

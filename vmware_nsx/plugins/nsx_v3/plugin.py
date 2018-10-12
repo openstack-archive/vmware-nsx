@@ -4749,6 +4749,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         ruleid_2_remote_nsgroup_map = {}
         _sg_rules = copy.deepcopy(sg_rules)
         for sg_rule in _sg_rules:
+            self._fix_sg_rule_dict_ips(sg_rule)
             remote_nsgroup_id = None
             remote_group_id = sg_rule.get('remote_group_id')
             # skip unnecessary db access when possible
@@ -4758,14 +4759,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 remote_nsgroup_id = nsx_db.get_nsx_security_group_id(
                     context.session, remote_group_id)
             ruleid_2_remote_nsgroup_map[sg_rule['id']] = remote_nsgroup_id
-            # 0.0.0.0/# is not a valid entry for local and remote so we need
-            # to change this to None
-            if (sg_rule.get('remote_ip_prefix') and
-                sg_rule['remote_ip_prefix'].startswith('0.0.0.0/')):
-                sg_rule['remote_ip_prefix'] = None
-            if (sg_rule.get('local_ip_prefix') and
-                sg_rule['local_ip_prefix'].startswith('0.0.0.0/')):
-                sg_rule['local_ip_prefix'] = None
 
         return self.nsxlib.firewall_section.create_section_rules(
             section_id, nsgroup_id,

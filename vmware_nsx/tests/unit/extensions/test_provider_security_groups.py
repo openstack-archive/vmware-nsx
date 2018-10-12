@@ -24,6 +24,7 @@ from neutron_lib import context
 
 from vmware_nsx.db import extended_security_group
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
+from vmware_nsx.tests.unit.nsx_p import test_plugin as test_nsxp_plugin
 from vmware_nsx.tests.unit.nsx_v import test_plugin as test_nsxv_plugin
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_nsxv3_plugin
 
@@ -390,3 +391,38 @@ class TestNSXvProviderSecurityGroup(test_nsxv_plugin.NsxVPluginV2TestCase,
                 create_rule_m.assert_called_with(mock.ANY, mock.ANY,
                                                  logged=mock.ANY,
                                                  action='deny')
+
+
+class TestNSXpProviderSecurityGrp(test_nsxp_plugin.NsxPPluginTestCaseMixin,
+                                  ProviderSecurityGroupExtTestCase):
+
+    # Temporarily skip all port related tests until the plugin supports it
+    def test_update_port_security_groups(self):
+        self.skipTest('Temporarily not supported')
+
+    def test_update_port_remove_provider_sg_with_empty_list(self):
+        self.skipTest('Temporarily not supported')
+
+    def test_update_port_security_groups_only(self):
+        self.skipTest('Temporarily not supported')
+
+    def test_create_port_with_no_provider_sg(self):
+        self.skipTest('Temporarily not supported')
+
+    def test_create_port_gets_multi_provider_sg(self):
+        self.skipTest('Temporarily not supported')
+
+    def test_cannot_update_port_with_provider_group_as_sec_group(self):
+        self.skipTest('Temporarily not supported')
+
+    def test_update_port_remove_provider_sg_with_none(self):
+        self.skipTest('Temporarily not supported')
+
+    def test_create_port_gets_provider_sg(self):
+        self.skipTest('Temporarily not supported')
+
+    def test_cannot_update_port_with_different_tenant_provider_secgroup(self):
+        self.skipTest('Temporarily not supported')
+
+    def test_cannot_update_port_with_sec_group_as_provider(self):
+        self.skipTest('Temporarily not supported')
