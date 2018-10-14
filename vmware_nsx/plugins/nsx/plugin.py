@@ -20,6 +20,7 @@ from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
 from neutron_lib import context as n_context
+from neutron_lib.db import api as lib_db_api
 from neutron_lib.db import utils as db_utils
 from neutron_lib.plugins import constants as plugin_constants
 from neutron_lib.plugins import directory
@@ -363,7 +364,7 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         p = self._get_plugin_from_project(context, tenant_id)
         return p.create_network(context, network)
 
-    @db_api.retry_if_session_inactive()
+    @lib_db_api.retry_if_session_inactive()
     def create_network_bulk(self, context, networks):
         #Implement create bulk so that the plugin calculation will be done once
         objects = []
