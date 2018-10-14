@@ -218,6 +218,9 @@ class NsxVPluginV2TestCase(test_plugin.NeutronDbPluginV2TestCase):
         mock_deploy_backup_edges_at_backend = mock.patch("%s.%s" % (
             vmware.EDGE_MANAGE_NAME, '_deploy_backup_edges_at_backend'))
         mock_deploy_backup_edges_at_backend.start()
+        mock.patch(
+            'neutron_lib.rpc.Connection.consume_in_threads',
+            return_value=[]).start()
 
         self.default_res_pool = 'respool-28'
         cfg.CONF.set_override("resource_pool_id", self.default_res_pool,
@@ -1317,16 +1320,16 @@ class TestPortsV2(NsxVPluginV2TestCase,
         res = self.deserialize('json', req.get_response(self.api))
         return res
 
-    @mock.patch.object(edge_utils.EdgeManager, 'delete_dhcp_binding')
     def _test_update_port_index_and_spoofguard(
-        self, ip_version, subnet_cidr, port_ip, port_mac, ipv6_lla,
-        delete_dhcp_binding):
+        self, ip_version, subnet_cidr, port_ip, port_mac, ipv6_lla):
         q_context = context.Context('', 'tenant_1')
         device_id = _uuid()
         with self.subnet(ip_version=ip_version,
                          enable_dhcp=(False if ip_version == 6 else True),
                          cidr=subnet_cidr,
-                         gateway_ip=None) as subnet:
+                         gateway_ip=None) as subnet, \
+            mock.patch.object(edge_utils.EdgeManager,
+                              'delete_dhcp_binding') as delete_dhcp_binding:
             fixed_ip_data = [{'ip_address': port_ip,
                               'subnet_id': subnet['subnet']['id']}]
             with self.port(subnet=subnet,
