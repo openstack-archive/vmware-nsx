@@ -24,6 +24,7 @@ from neutron.db import l3_attrs_db
 from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron_lib.api.definitions import address_scope as ext_address_scope
+from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import network as net_def
@@ -38,12 +39,14 @@ from neutron_lib.callbacks import resources
 from neutron_lib import constants
 from neutron_lib import context as n_context
 from neutron_lib import exceptions as n_exc
+from neutron_lib.exceptions import allowedaddresspairs as addr_exc
 from neutron_lib.plugins import directory
 from neutron_lib.services.qos import constants as qos_consts
 from neutron_lib.utils import net
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.common import utils
 from vmware_nsx.extensions import maclearning as mac_ext
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix as sg_prefix
 from vmware_nsx.services.qos.common import utils as qos_com_utils
@@ -567,6 +570,24 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
         self._assert_on_vpn_port_change(original_port)
         self._assert_on_lb_port_fixed_ip_change(port_data, orig_dev_owner)
 
+    def _build_port_name(self, context, port_data):
+        device_owner = port_data.get('device_owner')
+        device_id = port_data.get('device_id')
+        if device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF and device_id:
+            router = self._get_router(context, device_id)
+            name = utils.get_name_and_uuid(
+                router['name'] or 'router', port_data['id'], tag='port')
+        elif device_owner == constants.DEVICE_OWNER_DHCP:
+            network = self.get_network(context, port_data['network_id'])
+            name = self._get_dhcp_port_name(network['name'],
+                                            network['id'])
+        elif device_owner.startswith(constants.DEVICE_OWNER_COMPUTE_PREFIX):
+            name = utils.get_name_and_uuid(
+                port_data['name'] or 'instance-port', port_data['id'])
+        else:
+            name = port_data['name']
+        return name
+
     def _process_extra_attr_router_create(self, context, router_db, r):
         for extra_attr in l3_attrs_db.get_attr_info().keys():
             if (extra_attr in r and
@@ -594,6 +615,38 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
             validators.is_attr_set(sg_rule[sg_prefix.LOCAL_IP_PREFIX]) and
             sg_rule[sg_prefix.LOCAL_IP_PREFIX].startswith('0.0.0.0/')):
             sg_rule[sg_prefix.LOCAL_IP_PREFIX] = None
+
+    def _validate_interface_address_scope(self, context,
+                                          router_db, interface_info):
+        gw_network_id = (router_db.gw_port.network_id if router_db.gw_port
+                         else None)
+
+        subnet = self.get_subnet(context, interface_info['subnet_ids'][0])
+        if not router_db.enable_snat and gw_network_id:
+            self._validate_address_scope_for_router_interface(
+                context.elevated(), router_db.id, gw_network_id, subnet['id'])
+
+    def _validate_ipv4_address_pairs(self, address_pairs):
+        for pair in address_pairs:
+            ip = pair.get('ip_address')
+            if not utils.is_ipv4_ip_address(ip):
+                raise nsx_exc.InvalidIPAddress(ip_address=ip)
+
+    # NSXv3 and Policy only
+    def _create_port_address_pairs(self, context, port_data):
+        (port_security, has_ip) = self._determine_port_security_and_has_ip(
+            context, port_data)
+
+        address_pairs = port_data.get(addr_apidef.ADDRESS_PAIRS)
+        if validators.is_attr_set(address_pairs):
+            if not port_security:
+                raise addr_exc.AddressPairAndPortSecurityRequired()
+            else:
+                self._validate_ipv4_address_pairs(address_pairs)
+                self._process_create_allowed_address_pairs(context, port_data,
+                                                           address_pairs)
+        else:
+            port_data[addr_apidef.ADDRESS_PAIRS] = []
 
     def get_housekeeper(self, context, name, fields=None):
         # run the job in readonly mode and get the results

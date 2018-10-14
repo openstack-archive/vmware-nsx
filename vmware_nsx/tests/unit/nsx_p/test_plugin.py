@@ -37,11 +37,16 @@ class NsxPPluginTestCaseMixin(
                                                    ext_mgr=ext_mgr)
 
     def _mock_nsx_policy_backend_calls(self):
+        resource_list_result = {'results': [{'id': 'test',
+                                             'display_name': 'test'}]}
         mock.patch(
             "vmware_nsxlib.v3.NsxPolicyLib.get_version",
             return_value=nsx_constants.NSX_VERSION_2_4_0).start()
         mock.patch(
             "vmware_nsxlib.v3.client.RESTClient.get").start()
+        mock.patch(
+            "vmware_nsxlib.v3.client.RESTClient.list",
+            return_value=resource_list_result).start()
         mock.patch(
             "vmware_nsxlib.v3.client.RESTClient.patch").start()
         mock.patch(

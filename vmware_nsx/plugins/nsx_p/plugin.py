@@ -15,6 +15,8 @@
 
 import sys
 
+import netaddr
+
 from oslo_config import cfg
 from oslo_log import log
 from oslo_utils import excutils
@@ -30,6 +32,7 @@ from neutron.db import external_net_db
 from neutron.db import extradhcpopt_db
 from neutron.db import extraroute_db
 from neutron.db import l3_attrs_db
+from neutron.db import l3_db
 from neutron.db import l3_gwmode_db
 from neutron.db.models import l3 as l3_db_models
 from neutron.db.models import securitygroup as securitygroup_model  # noqa
@@ -40,6 +43,7 @@ from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db
 from neutron.extensions import providernet
 from neutron.quota import resource_registry
+from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import external_net
 from neutron_lib.api.definitions import l3 as l3_apidef
 from neutron_lib.api.definitions import port_security as psec
@@ -161,6 +165,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         self.cfg_group = 'nsx_p'  # group name for nsx_p section in nsx.ini
 
+        self._init_default_config()
         self._prepare_default_rules()
 
         # subscribe the init complete method last, so it will be called only
@@ -168,6 +173,38 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         registry.subscribe(self.init_complete,
                            resources.PROCESS,
                            events.AFTER_INIT)
+
+    # NOTE(annak): we may need to generalize this for API calls
+    # requiring path ids
+    def _init_default_resource(self, resource_api, name_or_id):
+        if not name_or_id:
+            # If not specified, the system will auto-configure
+            # in case only single resource is present
+            resources = resource_api.list()
+            if len(resources) == 1:
+                return resources[0]['id']
+            else:
+                return None
+
+        try:
+            resource_api.get(name_or_id)
+            return name_or_id
+        except nsx_lib_exc.ResourceNotFound:
+            try:
+                resource = resource_api.get_by_name(name_or_id)
+                if resource:
+                    return resource['id']
+            except nsx_lib_exc.ResourceNotFound:
+                return None
+
+    def _init_default_config(self):
+        self.default_tier0_router = self._init_default_resource(
+            self.nsxpolicy.tier0,
+            cfg.CONF.nsx_p.default_tier0_router)
+
+        if not self.default_tier0_router:
+            raise cfg.RequiredOptError("default_tier0_router",
+                                       group=cfg.OptGroup('nsx_p'))
 
     def _validate_nsx_policy_version(self):
         self._nsx_version = self.nsxpolicy.get_version()
@@ -219,8 +256,25 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                  })
 
     def _create_network_at_the_backend(self, context, net_data):
-        #TODO(asarfaty): implement, using nsx-id the same as the neutron id
-        pass
+        # TODO(annak): provider network
+        net_data['id'] = net_data.get('id') or uuidutils.generate_uuid()
+
+        net_name = utils.get_name_and_uuid(net_data['name'] or 'network',
+                                           net_data['id'])
+        tags = self.nsxpolicy.build_v3_tags_payload(
+                net_data, resource_type='os-neutron-net-id',
+                project_name=context.tenant_name)
+
+        # TODO(annak): admin state config is missing on policy
+        # should we not create networks that are down?
+        # alternative - configure status on manager for time being
+        # admin_state = net_data.get('admin_state_up', True)
+
+        self.nsxpolicy.segment.create_or_overwrite(
+            net_name,
+            segment_id=net_data['id'],
+            description=net_data.get('description'),
+            tags=tags)
 
     def _validate_external_net_create(self, net_data):
         #TODO(asarfaty): implement
@@ -255,7 +309,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # Create the backend NSX network
         if not is_external_net:
             try:
-                self._create_network_at_the_backend(context, net_data)
+                self._create_network_at_the_backend(context, created_net)
             except Exception as e:
                 LOG.exception("Failed to create NSX network network: %s", e)
                 with excutils.save_and_reraise_exception():
@@ -272,11 +326,10 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def delete_network(self, context, network_id):
         with db_api.context_manager.writer.using(context):
             self._process_l3_delete(context, network_id)
-            return super(NsxPolicyPlugin, self).delete_network(
+            super(NsxPolicyPlugin, self).delete_network(
                 context, network_id)
         if not self._network_is_external(context, network_id):
-            # TODO(asarfaty) delete the NSX logical network
-            pass
+            self.nsxpolicy.segment.delete(network_id)
 
     def update_network(self, context, id, network):
         original_net = super(NsxPolicyPlugin, self).get_network(context, id)
@@ -352,13 +405,51 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return updated_subnet
 
+    def _build_address_bindings(self, port):
+        address_bindings = []
+        for fixed_ip in port['fixed_ips']:
+            if netaddr.IPNetwork(fixed_ip['ip_address']).version != 4:
+                #TODO(annak): enable when IPv6 is supported
+                continue
+            binding = self.nsxpolicy.segment_port.build_address_binding(
+                fixed_ip['ip_address'], port['mac_address'])
+            address_bindings.append(binding)
+
+        for pair in port.get(addr_apidef.ADDRESS_PAIRS):
+            binding = self.nsxpolicy.segment_port.build_address_binding(
+                pair['ip_address'], pair['mac_address'])
+            address_bindings.append(binding)
+
+        return address_bindings
+
     def _create_port_at_the_backend(self, context, port_data):
-        #TODO(asarfaty): implement
-        pass
+        # TODO(annak): admin_state not supported by policy
+        # TODO(annak): handle exclude list
+        # TODO(annak): switching profiles when supported
+        name = self._build_port_name(context, port_data)
+        psec, has_ip = self._determine_port_security_and_has_ip(context,
+                                                                port_data)
+        address_bindings = (self._build_address_bindings(port_data)
+                            if psec else None)
+        device_owner = port_data.get('device_owner')
+        vif_id = None
+        if device_owner and device_owner != l3_db.DEVICE_OWNER_ROUTER_INTF:
+            vif_id = port_data['id']
+
+        self.nsxpolicy.segment_port.create_or_overwrite(
+            port_data['network_id'],
+            port_data['id'],
+            name,
+            description=port_data.get('description'),
+            address_bindings=address_bindings,
+            vif_id=vif_id)
 
     def _cleanup_port(self, context, port_id, lport_id):
         super(NsxPolicyPlugin, self).delete_port(context, port_id)
-        #TODO(asarfaty): Delete the NSX logical port
+
+        port_data = self.get_port(context, port_id)
+        self.nsxpolicy.segment_port.delete(
+            port_data['network_id'], port_data['id'])
 
     def base_create_port(self, context, port):
         neutron_db = super(NsxPolicyPlugin, self).create_port(context, port)
@@ -379,6 +470,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
             neutron_db = self.base_create_port(context, port)
             port["port"].update(neutron_db)
+
+            self._create_port_address_pairs(context, port_data)
 
         if not is_external_net:
             try:
@@ -403,10 +496,15 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     l3_port_check=True, l2gw_port_check=True,
                     force_delete_dhcp=False,
                     force_delete_vpn=False):
-        port = self.get_port(context, port_id)
-        if not self._network_is_external(context, port['network_id']):
-            #TODO(asarfaty): Delete the NSX logical port
-            pass
+        port_data = self.get_port(context, port_id)
+        if not self._network_is_external(context, port_data['network_id']):
+            try:
+                self.nsxpolicy.segment_port.delete(
+                    port_data['network_id'], port_data['id'])
+            except Exception as ex:
+                LOG.error("Failed to delete port %(id)s on NSX backend "
+                          "due to %(e)s",
+                          {'id': port_data['id'], 'e': ex})
 
         self.disassociate_floatingips(context, port_id)
 
@@ -510,7 +608,22 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 context, router)
             router_db = self._get_router(context, router['id'])
             self._process_extra_attr_router_create(context, router_db, r)
-        #TODO(asarfaty): Create the NSX logical router and add DB mapping
+
+        router_name = utils.get_name_and_uuid(router['name'] or 'router',
+                                              router['id'])
+        #TODO(annak): handle GW
+        try:
+            self.nsxpolicy.tier1.create_or_overwrite(
+                router_name, router['id'],
+                tier0=self.default_tier0_router)
+        #TODO(annak): narrow down the exception
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error('Failed to create router %(id)s '
+                          'on NSX backend. Exception: %(e)s',
+                          {'id': router['id'], 'e': ex})
+                self.delete_router(context, router['id'])
+
         LOG.debug("Created router %s: %s. GW info %s",
                   router['id'], r, gw_info)
         return self.get_router(context, router['id'])
@@ -519,13 +632,14 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         router = self.get_router(context, router_id)
         if router.get(l3_apidef.EXTERNAL_GW_INFO):
             self._update_router_gw_info(context, router_id, {})
-        nsx_router_id = nsx_db.get_nsx_router_id(
-            context.session, router_id)
         ret_val = super(NsxPolicyPlugin, self).delete_router(
             context, router_id)
-        if nsx_router_id:
-            #TODO(asarfaty): delete the NSX logical router
-            pass
+
+        try:
+            self.nsxpolicy.tier1.delete(router_id)
+        except Exception as ex:
+            LOG.error("Failed to delete NSX T1 router %(id)s: %(e)s", {
+                'e': ex, 'id': router_id})
 
         return ret_val
 
@@ -557,7 +671,23 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         info = super(NsxPolicyPlugin, self).add_router_interface(
              context, router_id, interface_info)
 
-        #TODO(asarfaty) Update the NSX logical router ports
+        self._validate_interface_address_scope(context, router_db, info)
+        subnet = self.get_subnet(context, info['subnet_ids'][0])
+
+        # TODO(annak): Validate TZ
+        try:
+            # This is always an overwrite call
+            # NOTE: Connecting network to multiple routers is not supported
+            self.nsxpolicy.segment.create_or_overwrite(network_id,
+                                                       tier1_id=router_id)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error('Failed to create router interface for subnet '
+                          '%(id)s on NSX backend. Exception: %(e)s',
+                          {'id': subnet['id'], 'e': ex})
+                self.remove_router_interface(
+                    context, router_id, interface_info)
+
         return info
 
     def remove_router_interface(self, context, router_id, interface_info):
