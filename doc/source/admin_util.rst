@@ -214,11 +214,11 @@ Orphaned Networks
 
 Portgroups
 ~~~~~~~~~~
-- List all NSX portgroups on the configured dvs
+- List all NSX portgroups on the configured dvs::
 
     nsxadmin -r nsx-portgroups -o list
 
-- Delete all NSX portgroups on the configured dvs
+- Delete all NSX portgroups on the configured dvs::
 
     nsxadmin -r nsx-portgroups -o nsx-cleanup <--force>
 
@@ -241,11 +241,11 @@ Security Groups, Firewall and Spoofguard
 
     nsxadmin -r firewall-section -o nsx-clean
 
-- Reorder the NSX L3 firewall sections to correctly support the policy security groups
+- Reorder the NSX L3 firewall sections to correctly support the policy security groups::
 
     nsxadmin -r firewall-sections -o nsx-reorder
 
-- Update the default cluster section
+- Update the default cluster section::
 
     nsxadmin -r firewall-sections -o nsx-update
 
@@ -261,15 +261,15 @@ Security Groups, Firewall and Spoofguard
 
     nsxadmin -r security-groups -o list
 
-- Recreate missing NSX security groups ans firewall sections
+- Recreate missing NSX security groups ans firewall sections::
 
     nsxadmin -r security-groups -o fix-mismatch
 
-- Migrate a security group from using rules to using a policy
+- Migrate a security group from using rules to using a policy::
 
     nsxadmin -r security-groups -o migrate-to-policy --property policy-id=policy-10 --property security-group-id=733f0741-fa2c-4b32-811c-b78e4dc8ec39
 
-- Update logging flag of the security groups on the NSX DFW
+- Update logging flag of the security groups on the NSX DFW::
 
     nsxadmin -r security-groups -o update-logging --property log-allowed-traffic=true
 
@@ -297,7 +297,7 @@ Metadata
 Config
 ~~~~~~
 
-- Validate the configuration in the nsx.ini and backend connectivity
+- Validate the configuration in the nsx.ini and backend connectivity::
 
     nsxadmin -r config -o validate
 
@@ -333,7 +333,7 @@ Routers
     nsxadmin -r routers -o list-mismatches
 
 - Update NAT rules on all routers to stop bypassing the FW rules.
-  This is useful for NSX version 2.0 & up, before starting to use FWaaS
+  This is useful for NSX version 2.0 & up, before starting to use FWaaS::
 
     nsxadmin -r routers -o nsx-update-rules
 
@@ -394,7 +394,7 @@ Security Groups & NSX Security Groups
 
     nsxadmin -r nsx-security-groups -o migrate-to-dynamic-criteria
 
-- Update logging flag of the security groups on the NSX DFW
+- Update logging flag of the security groups on the NSX DFW::
 
     nsxadmin -r security-groups -o update-logging --property log-allowed-traffic=true
 
@@ -431,7 +431,7 @@ Metadata Proxy
 
     nsxadmin -r metadata-proxy -o nsx-update --property metadata_proxy_uuid=<metadata_proxy_uuid>
 
-- update the ip of the Nova server in the metadata proxy server on the nsx
+- update the ip of the Nova server in the metadata proxy server on the NSX::
 
     nsxadmin -r metadata-proxy -o nsx-update-ip --property server-ip=<server-ip> --property availability-zone=<optional zone name>
 
@@ -536,46 +536,46 @@ LBaaS
 
 Rate Limit
 ~~~~~~~~~~
-- Show the current NSX rate limit:
+- Show the current NSX rate limit::
 
     nsxadmin -r rate-limit -o show
 
-- Update the NSX rate limit:
+- Update the NSX rate limit::
 
 nsxadmin -r rate-limit -o nsx-update --property value=<>
 
 Cluster
 ~~~~~~~
 
-- Show the NSX cluster managers ips:
+- Show the NSX cluster managers ips::
 
     nsxadmin -r cluster -o show
 
 Config
 ~~~~~~
 
-- Validate the configuration in the nsx.ini and backend connectivity
+- Validate the configuration in the nsx.ini and backend connectivity::
 
     nsxadmin -r config -o validate
 
 NSXtvd Plugin
 -------------
 
-- All the NSX-V/T utilities can be used by calling
+- All the NSX-V/T utilities can be used by calling::
 
     nsxadmin --plugin nsxv/v3 -r <> -o <>
 
-- Add mapping between existing projects and old (v) plugin before starting to use the tvd plugin:
+- Add mapping between existing projects and old (v) plugin before starting to use the tvd plugin::
 
     nsxadmin -r projects -o import --property plugin=nsx-v --property project=<>
 
-- Migrate a specific project from V to T:
+- Migrate a specific project from V to T::
 
      nsxadmin -r projects -o nsx-migrate-v-v3 --property project-id=<V project ID> --property external-net=<T external network ID> (--property from-file=True)
 
 
-Upgrade Steps (Version 1.0.0 to Version 1.1.0)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Upgrade Steps (NSX-T Version 1.0.0 to Version 1.1.0)
+----------------------------------------------------
 
 1. Upgrade NSX backend from version 1.0.0 to version 1.1.0
 
@@ -601,7 +601,7 @@ Upgrade Steps (Version 1.0.0 to Version 1.1.0)
 Steps to create a TVD admin user
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Do the following steps:
+Do the following steps::
     source devstack/openrc admin admin
     openstack project create admin_v --domain=default --or-show -f value -c id
     openstack user create admin_v --password password --domain=default --email=alt_demo@example.com --or-show -f value -c id
