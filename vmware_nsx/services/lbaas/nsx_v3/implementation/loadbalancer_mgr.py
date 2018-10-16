@@ -171,8 +171,13 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         lb_service_id = lb_binding['lb_service_id']
         try:
             service_status = service_client.get_status(lb_service_id)
+            if not isinstance(service_status, dict):
+                service_status = {}
+
             vs_statuses = service_client.get_virtual_servers_status(
                 lb_service_id)
+            if not isinstance(vs_statuses, dict):
+                vs_statuses = {}
         except nsxlib_exc.ManagerError:
             LOG.warning("LB service %(lbs)s is not found",
                         {'lbs': lb_service_id})
@@ -237,7 +242,7 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                         # to this loadbalancer
                         if vs['virtual_server_id'] not in vs_list:
                             continue
-                        vs_stats = vs['statistics']
+                        vs_stats = vs.get('statistics', {})
                         for stat in lb_const.LB_STATS_MAP:
                             lb_stat = lb_const.LB_STATS_MAP[stat]
                             stats[stat] += vs_stats[lb_stat]
