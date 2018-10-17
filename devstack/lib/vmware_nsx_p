@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2015 VMware, Inc.
+# Copyright 2018 VMware, Inc.
 #
 # All Rights Reserved
 #
@@ -52,9 +52,9 @@ source $dir/lib/nsx_v3_p_common
 function _version { echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'; }
 
 function _ovsdb_connection {
-    managers=(${NSX_MANAGER//,/ })
-    NSX_MGR_IP=${managers[0]}
-    NSX_VER=$(curl -1 -s -k -u "$NSX_USER:$NSX_PASSWORD" -H 'Accept: application/json' https://$NSX_MGR_IP/api/v1/node | python -c  'import sys, json; print json.load(sys.stdin)["node_version"][:5]')
+    managers=(${NSX_POLICY//,/ })
+    NSX_POLICY_IP=${managers[0]}
+    NSX_VER=$(curl -1 -s -k -u "$NSX_USER:$NSX_PASSWORD" -H 'Accept: application/json' https://$NSX_POLICY_IP/api/v1/node | python -c  'import sys, json; print json.load(sys.stdin)["node_version"][:5]')
     if [ $(_version $NSX_VER) -ge $(_version 1.1.0) ]; then
         echo "unix:/var/run/vmware/nsx-agent/nsxagent_ovsdb.sock"
     else
@@ -63,7 +63,7 @@ function _ovsdb_connection {
 }
 
 function setup_integration_bridge {
-    die_if_not_set $LINENO NSX_MANAGER "NSX_MANAGER has not been set!"
+    die_if_not_set $LINENO NSX_POLICY "NSX_POLICY has not been set!"
     die_if_not_set $LINENO NSX_USER "NSX_USER has not been set!"
     die_if_not_set $LINENO NSX_PASSWORD "NSX_PASSWORD has not been set!"
     # Ensure that the OVS params are set for the OVS utils
@@ -75,7 +75,48 @@ function setup_integration_bridge {
     sudo ovs-vsctl set-manager $(_ovsdb_connection)
 }
 
+function is_neutron_ovs_base_plugin {
+    # This allows the deployer to decide whether devstack should install OVS.
+    # By default, we install OVS, to change this behavior add "OVS_BASE=1" to your localrc file.
+    # Note: Any KVM compute must have OVS installed on it.
+    return ${OVS_BASE:-0}
+}
 
+function neutron_plugin_create_nova_conf {
+    if [[ "$VIRT_DRIVER" != 'vsphere' ]]; then
+        # if n-cpu or octavia is enabled, then setup integration bridge
+        if is_service_enabled n-cpu || is_service_enabled octavia ; then
+            setup_integration_bridge
+            if is_service_enabled n-cpu ; then
+                iniset $NOVA_CONF neutron ovs_bridge $OVS_BRIDGE
+            fi
+        fi
+    fi
+    # if n-api is enabled, then setup the metadata_proxy_shared_secret
+    if is_service_enabled n-api; then
+        iniset $NOVA_CONF neutron service_metadata_proxy True
+        if [[ "$NATIVE_DHCP_METADATA" == "True" ]]; then
+            iniset $NOVA_CONF neutron metadata_proxy_shared_secret $METADATA_PROXY_SHARED_SECRET
+            if [[ "$METADATA_PROXY_USE_HTTPS" == "True" ]]; then
+                iniset $NOVA_CONF DEFAULT enabled_ssl_apis metadata
+                if [[ "$METADATA_PROXY_CERT_FILE" != "" ]]; then
+                    iniset $NOVA_CONF wsgi ssl_cert_file $METADATA_PROXY_CERT_FILE
+                fi
+                if [[ "$METADATA_PROXY_PRIV_KEY_FILE" != "" ]]; then
+                    iniset $NOVA_CONF wsgi ssl_key_file $METADATA_PROXY_PRIV_KEY_FILE
+                fi
+            fi
+        fi
+    fi
+    # if n-api-meta is enabled, then setup https on n-api-meta
+    if is_service_enabled n-api-meta; then
+        if [[ "$NATIVE_DHCP_METADATA" == "True" && "$METADATA_PROXY_USE_HTTPS" == "True" ]]; then
+            inidelete $NOVA_METADATA_UWSGI_CONF uwsgi http
+            https=":8775,$METADATA_PROXY_CERT_FILE,$METADATA_PROXY_PRIV_KEY_FILE"
+            iniset $NOVA_METADATA_UWSGI_CONF uwsgi https $https
+        fi
+    fi
+}
 
 function neutron_plugin_install_agent_packages {
     # VMware NSX Plugin does not run q-agt, but it currently needs dhcp and metadata agents
@@ -93,7 +134,7 @@ function neutron_plugin_configure_common {
     cp $DEST/$Q_PLUGIN_SRC_CONF_PATH/nsx.ini.sample /$Q_PLUGIN_CONF_PATH/$Q_PLUGIN_CONF_FILENAME
     sudo install -d -o $STACK_USER $NEUTRON_CONF_DIR/policy.d
     cp -vr $DEST/$Q_PLUGIN_SRC_CONF_PATH/policy.d/* $NEUTRON_CONF_DIR/policy.d/
-    Q_PLUGIN_CLASS="vmware_nsxv3"
+    Q_PLUGIN_CLASS="vmware_nsxp"
 }
 
 function neutron_plugin_configure_debug_command {
@@ -111,10 +152,19 @@ function neutron_plugin_configure_dhcp_agent {
     iniset $Q_DHCP_CONF_FILE OVS ovsdb_interface vsctl
 }
 
+function neutron_plugin_configure_l3_agent {
+    # VMware NSX plugin does not run L3 agent
+    die $LINENO "q-l3 should not be executed with VMware NSX plugin!"
+}
+
+function neutron_plugin_configure_plugin_agent {
+    # VMware NSX plugin does not run L2 agent
+    die $LINENO "q-agt must not be executed with VMware NSX plugin!"
+}
 
 function neutron_plugin_configure_service {
-    nsxv3_configure_service nsx_v3
-    iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_extension_drivers vmware_nsxv3_dns
+    nsxp_configure_service nsx_p
+    iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_extension_drivers vmware_nsxp_dns
 }
 
 function neutron_plugin_setup_interface_driver {
@@ -126,19 +176,34 @@ function neutron_plugin_check_adv_test_requirements {
     is_service_enabled q-dhcp && return 0
 }
 
-
-function init_vmware_nsx_v3 {
-    if (is_service_enabled q-svc || is_service_enabled neutron-api) && [[ "$NATIVE_DHCP_METADATA" == "True" ]]; then
-        if ! is_set DHCP_PROFILE_UUID; then
-            die $LINENO "DHCP profile needs to be configured!"
-        fi
-        if ! is_set METADATA_PROXY_UUID; then
-            die $LINENO "Metadata proxy needs to be configured!"
-        fi
-        if is_service_enabled q-dhcp q-meta; then
-            die $LINENO "Native support does not require DHCP and Metadata agents!"
+function nsxp_configure_service {
+    install_neutron_projects
+    if [[ "$DEFAULT_TIER0_ROUTER_UUID" != "" ]]; then
+        _nsxp_ini_set default_tier0_router $DEFAULT_TIER0_ROUTER_UUID
+        Q_L3_ENABLED=True
+        Q_L3_ROUTER_PER_TENANT=True
+    fi
+    # NSX_POLICY must be a comma separated string
+    if [[ "$NSX_POLICIES" != "" ]]; then
+        _nsxp_ini_set nsx_api_managers $NSX_POLICIES
+    elif [[ "$NSX_POLICY" != "" ]]; then
+        _nsxp_ini_set nsx_api_managers $NSX_POLICY
+    else
+        if [[ $1 == "nsx_p" ]]; then
+            die $LINENO "The VMware nsx-p plugin needs at least one NSX policy manager."
         fi
     fi
+    if [[ "$NSX_L2GW_DRIVER" != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE DEFAULT nsx_l2gw_driver $NSX_L2GW_DRIVER
+    fi
+    _nsxp_ini_set nsx_api_user $NSX_USER
+    _nsxp_ini_set nsx_api_password $NSX_PASSWORD
+    _nsxp_ini_set retries $NSX_RETRIES
+    _nsxp_ini_set insecure $NSX_INSECURE
+    _nsxp_ini_set ca_file $NSX_CA_FILE
+}
+
+function init_vmware_nsx_p {
     # Generate client certificate
     if [[ "$NSX_USE_CLIENT_CERT_AUTH" == "True" ]]; then
         nsxadmin -o generate -r certificate
@@ -162,7 +227,7 @@ function init_vmware_nsx_v3 {
     get_bridge_up
 }
 
-function stop_vmware_nsx_v3 {
+function stop_vmware_nsx_p {
     # Clean client certificate if exists
     nsxadmin -o clean -r certificate
 
@@ -170,6 +235,7 @@ function stop_vmware_nsx_v3 {
         echo "NSX_GATEWAY_NETWORK_INTERFACE was not configured."
         return
     fi
+
     set_nsx_gateway_network_cidr
 }
 
