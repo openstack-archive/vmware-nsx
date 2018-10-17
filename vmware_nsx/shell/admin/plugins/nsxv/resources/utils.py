@@ -67,7 +67,7 @@ class NsxVPluginWrapper(plugin.NsxVPlugin):
                         "housekeeper.NsxHousekeeper"):
             self.init_complete(0, 0, 0)
 
-    def _start_rpc_listeners(self):
+    def start_rpc_listeners(self):
         pass
 
     def _extend_get_network_dict_provider(self, context, net):
