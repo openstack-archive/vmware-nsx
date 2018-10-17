@@ -13,8 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import sys
-
 import netaddr
 
 from oslo_config import cfg
@@ -777,8 +775,6 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self.nsxpolicy.group.get(NSX_P_GLOBAL_DOMAIN_ID,
                                          NSX_P_DEFAULT_GROUP)
             except nsx_lib_exc.ResourceNotFound:
-                # prevent logger from logging this exception
-                sys.exc_clear()
                 LOG.info("Going to create default group & "
                          "communication map under the default domain")
             else:
