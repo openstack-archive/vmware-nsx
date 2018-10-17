@@ -148,6 +148,7 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
         filters = {'router_id': [router_id], 'status': [constants.ACTIVE]}
         services = self.vpn_plugin.get_vpnservices(
             context.elevated(), filters=filters)
+        rule_name_pref = 'VPN advertisement service'
         for srv in services:
             # use only services with active connections
             filters = {'vpnservice_id': [srv['id']],
@@ -159,13 +160,15 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
             subnet = self.l3_plugin.get_subnet(
                 context.elevated(), srv['subnet_id'])
             rules.append({
-                'display_name': 'VPN advertisement service ' + srv['id'],
+                'display_name': "%s %s" % (rule_name_pref, srv['id']),
                 'action': consts.FW_ACTION_ALLOW,
                 'networks': [subnet['cidr']]})
 
-        logical_router_id = db.get_nsx_router_id(context.session, router_id)
-        self._nsxlib.logical_router.update_advertisement_rules(
-            logical_router_id, rules)
+        if rules:
+            logical_router_id = db.get_nsx_router_id(context.session,
+                                                     router_id)
+            self._nsxlib.logical_router.update_advertisement_rules(
+                logical_router_id, rules, name_prefix=rule_name_pref)
 
     def _update_status(self, context, vpn_service_id, ipsec_site_conn_id,
                        status, updated_pending_status=True):

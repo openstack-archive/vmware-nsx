@@ -93,10 +93,11 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                     try:
                         service_client.delete(lb_service_id)
                         # If there is no lb service attached to the router,
-                        # update the router advertise_lb_vip flag to false.
+                        # delete the router advertise_lb_vip rule.
                         router_client = self.core_plugin.nsxlib.logical_router
-                        router_client.update_advertisement(
-                            nsx_router_id, advertise_lb_vip=False)
+                        router_client.update_advertisement_rules(
+                            nsx_router_id, [],
+                            name_prefix=lb_utils.ADV_RULE_NAME)
                     except nsxlib_exc.ManagerError:
                         completor(success=False)
                         msg = (_('Failed to delete lb service %(lbs)s from nsx'

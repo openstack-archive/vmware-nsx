@@ -142,6 +142,8 @@ nsxv3_resources = {
     constants.RATE_LIMIT: Resource(constants.RATE_LIMIT,
                                    [Operations.SHOW.value,
                                     Operations.NSX_UPDATE.value]),
+    constants.LB_ADVERTISEMENT: Resource(constants.LB_ADVERTISEMENT,
+                                         [Operations.NSX_UPDATE.value]),
     constants.CLUSTER: Resource(constants.CLUSTER,
                                 [Operations.SHOW.value])
 }
