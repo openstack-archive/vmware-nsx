@@ -211,6 +211,9 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
             nsx_plugin.NsxV3Plugin, '_get_edge_cluster',
             return_value=uuidutils.generate_uuid())
         mock_get_edge_cluster.start()
+        mock.patch(
+            'neutron_lib.rpc.Connection.consume_in_threads',
+            return_value=[]).start()
 
     def setUp(self, plugin=PLUGIN_NAME,
               ext_mgr=None,

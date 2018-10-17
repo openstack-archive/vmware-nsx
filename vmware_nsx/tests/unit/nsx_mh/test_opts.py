@@ -41,7 +41,6 @@ class NSXClusterTest(base.BaseTestCase):
 
     cluster_opts = {'default_tz_uuid': uuidutils.generate_uuid(),
                     'default_l2_gw_service_uuid': uuidutils.generate_uuid(),
-                    'default_l2_gw_service_uuid': uuidutils.generate_uuid(),
                     'nsx_user': 'foo',
                     'nsx_password': 'bar',
                     'http_timeout': 25,
@@ -92,7 +91,7 @@ class ConfigurationTest(base.BaseTestCase):
         self.assertEqual('whatever', cluster.nsx_default_interface_name)
 
     def _get_mh_plugin(self):
-        with mock.patch("neutron.common.rpc.Connection"):
+        with mock.patch("neutron_lib.rpc.Connection"):
             plugin = mh_plugin.NsxPlugin()
         return plugin
 
@@ -249,7 +248,7 @@ class OldNVPConfigurationTest(base.BaseTestCase):
         self.config_parse(args=['--config-file', BASE_CONF_PATH,
                                 '--config-file', NVP_INI_DEPR_PATH])
         cfg.CONF.set_override('core_plugin', vmware.PLUGIN_NAME)
-        with mock.patch("neutron.common.rpc.Connection"):
+        with mock.patch("neutron_lib.rpc.Connection"):
             plugin = mh_plugin.NsxPlugin()
             cluster = plugin.cluster
             # Verify old nvp_* params have been fully parsed
