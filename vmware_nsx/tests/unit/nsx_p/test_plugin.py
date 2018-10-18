@@ -66,6 +66,49 @@ class NsxPPluginTestCaseMixin(
         pass
 
 
+class NsxPTestNetworks(test_db_base_plugin_v2.TestNetworksV2,
+                       NsxPPluginTestCaseMixin):
+
+    def setUp(self, plugin=PLUGIN_NAME,
+              ext_mgr=None,
+              service_plugins=None):
+        super(NsxPTestNetworks, self).setUp(plugin=plugin,
+                                            ext_mgr=ext_mgr)
+
+    def tearDown(self):
+        super(NsxPTestNetworks, self).tearDown()
+
+
+class NsxPTestPorts(test_db_base_plugin_v2.TestPortsV2,
+                    NsxPPluginTestCaseMixin):
+    def test_update_port_update_ip_address_only(self):
+        self.skipTest('Multiple fixed ips on a port are not supported')
+
+    def test_update_port_with_new_ipv6_slaac_subnet_in_fixed_ips(self):
+        self.skipTest('Multiple fixed ips on a port are not supported')
+
+    def test_update_port_mac_v6_slaac(self):
+        self.skipTest('Multiple fixed ips on a port are not supported')
+
+    def test_requested_subnet_id_v4_and_v6(self):
+        self.skipTest('Multiple fixed ips on a port are not supported')
+
+    def test_requested_invalid_fixed_ips(self):
+        self.skipTest('Multiple fixed ips on a port are not supported')
+
+    def test_requested_subnet_id_v4_and_v6_slaac(self):
+        self.skipTest('Multiple fixed ips on a port are not supported')
+
+    def test_range_allocation(self):
+        self.skipTest('Multiple fixed ips on a port are not supported')
+
+    def test_create_port_anticipating_allocation(self):
+        self.skipTest('Multiple fixed ips on a port are not supported')
+
+    def test_update_port_add_additional_ip(self):
+        self.skipTest('Multiple fixed ips on a port are not supported')
+
+
 class NsxPTestSecurityGroup(NsxPPluginTestCaseMixin,
                             test_securitygroup.TestSecurityGroups,
                             test_securitygroup.SecurityGroupDBTestCase):
