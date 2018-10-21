@@ -900,7 +900,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def _get_rule_service_id(self, sg_rule):
         """Return the NSX Policy service id matching the SG rule"""
-        srv = None
+        srv_id = None
         l4_protocol = nsxlib_utils.get_l4_protocol_name(sg_rule['protocol'])
         srv_name = 'Service for OS rule %s' % sg_rule['id']
 
@@ -916,7 +916,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             else:
                 destination_ports = ['%(port_range_min)s' % sg_rule]
 
-            srv = self.nsxpolicy.service.create_or_overwrite(
+            srv_id = self.nsxpolicy.service.create_or_overwrite(
                 srv_name, service_id=sg_rule['id'],
                 description=sg_rule.get('description'),
                 protocol=l4_protocol,
@@ -929,20 +929,19 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             nsxlib_utils.validate_icmp_params(
                 icmp_type, icmp_code, icmp_version=version, strict=True)
 
-            srv = self.nsxpolicy.icmp_service.create_or_overwrite(
+            srv_id = self.nsxpolicy.icmp_service.create_or_overwrite(
                 srv_name, service_id=sg_rule['id'],
                 description=sg_rule.get('description'),
                 version=version,
                 icmp_type=icmp_type,
                 icmp_code=icmp_code)
         elif l4_protocol:
-            srv = self.nsxpolicy.ip_protocol_service.create_or_overwrite(
+            srv_id = self.nsxpolicy.ip_protocol_service.create_or_overwrite(
                 srv_name, service_id=sg_rule['id'],
                 description=sg_rule.get('description'),
                 protocol_number=l4_protocol)
 
-        if srv:
-            return srv['id']
+        return srv_id
 
     def _get_sg_rule_remote_ip_group_id(self, sg_rule):
         return '%s_remote_group' % sg_rule['id']
@@ -1017,11 +1016,10 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         so there is no need to keep it in the neutron DB
         """
         try:
-            domain = self.nsxpolicy.domain.create_or_overwrite(
+            domain_id = self.nsxpolicy.domain.create_or_overwrite(
                 name=project_id,
                 domain_id=project_id,
                 description="Domain for OS project %s" % project_id)
-            domain_id = domain['id']
         except Exception as e:
             msg = (_("Failed to create NSX domain for project %(proj)s: "
                      "%(e)s") % {'proj': project_id, 'e': e})
