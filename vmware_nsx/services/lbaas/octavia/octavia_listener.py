@@ -25,9 +25,13 @@ from oslo_log import log as logging
 import oslo_messaging as messaging
 from oslo_messaging.rpc import dispatcher
 
-from neutron_lbaas.db.loadbalancer import models
-
 from vmware_nsx.services.lbaas.octavia import constants
+
+try:
+    from neutron_lbaas.db.loadbalancer import models
+except ImportError:
+    # LBaaS project not found.
+    from vmware_nsx.services.lbaas import lbaas_mocks as models
 
 LOG = logging.getLogger(__name__)
 
@@ -342,6 +346,10 @@ class NSXOctaviaStatisticsCollector(object):
         case that the plugin is currently unavailable, but entries already
         exist on the DB.
         """
+        if not hasattr(models.LoadBalancer, '__tablename__'):
+            # No neutron-lbaas on this deployment
+            return []
+
         nl_loadbalancers = context.session.query(models.LoadBalancer).all()
         return [lb.id for lb in nl_loadbalancers]
 

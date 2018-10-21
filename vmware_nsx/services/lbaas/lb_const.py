@@ -124,3 +124,8 @@ LOADBALANCERS = 'loadbalancers'
 LISTENERS = 'listeners'
 POOLS = 'pools'
 MEMBERS = 'members'
+
+ONLINE = 'ONLINE'
+OFFLINE = 'OFFLINE'
+DEGRADED = 'DEGRADED'
+DISABLED = 'DISABLED'
