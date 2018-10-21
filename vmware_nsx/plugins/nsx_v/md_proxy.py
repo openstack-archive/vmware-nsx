@@ -347,9 +347,12 @@ class NsxVMetadataProxyHandler(object):
         # Read and validate connectivity
         h, if_data = self.nsxv_plugin.nsx_v.get_interface(
             edge_id, vcns_const.EXTERNAL_VNIC_INDEX)
-        cur_ip = if_data.get('addressGroups', {}
-                             ).get('addressGroups', {}
-                                   )[0].get('primaryAddress')
+        a_groups = if_data.get('addressGroups', {}).get('addressGroups')
+        if a_groups:
+            cur_ip = a_groups[0].get('primaryAddress')
+        else:
+            cur_ip = None
+
         cur_pgroup = if_data['portgroupId']
         if (if_data and cur_pgroup != self.az.mgt_net_moid or
             cur_ip != rtr_ext_ip):
@@ -392,8 +395,7 @@ class NsxVMetadataProxyHandler(object):
                     vs.default_pool.members[m_name].payload['ipAddress'] = (
                         m_ip_to_set.pop())
             else:
-                error = _('Number of metadata members should not change')
-                raise nsxv_exc.NsxPluginException(err_msg=error)
+                LOG.error('Number of metadata members should not change')
 
             try:
                 # This may fail if the edge is powered off right now
