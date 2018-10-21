@@ -189,7 +189,7 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
 
         return stats
 
-    def get_operating_status(self, context, id):
+    def get_operating_status(self, context, id, with_members=False):
         """Return a map of the operating status of all connected LB objects """
         #TODO(asarfaty) implement
         return {}
