@@ -259,9 +259,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         net_name = utils.get_name_and_uuid(net_data['name'] or 'network',
                                            net_data['id'])
-        tags = self.nsxpolicy.build_v3_tags_payload(
-                net_data, resource_type='os-neutron-net-id',
-                project_name=context.tenant_name)
+        tags = self.nsxpolicy.build_v3_api_version_project_tag(
+            context.tenant_name)
 
         # TODO(annak): admin state config is missing on policy
         # should we not create networks that are down?
@@ -433,6 +432,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         vif_id = None
         if device_owner and device_owner != l3_db.DEVICE_OWNER_ROUTER_INTF:
             vif_id = port_data['id']
+        tags = self.nsxpolicy.build_v3_api_version_project_tag(
+            context.tenant_name)
 
         self.nsxpolicy.segment_port.create_or_overwrite(
             name,
@@ -440,7 +441,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             port_id=port_data['id'],
             description=port_data.get('description'),
             address_bindings=address_bindings,
-            vif_id=vif_id)
+            vif_id=vif_id,
+            tags=tags)
 
     def _cleanup_port(self, context, port_id, lport_id):
         super(NsxPolicyPlugin, self).delete_port(context, port_id)
@@ -609,11 +611,14 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         router_name = utils.get_name_and_uuid(router['name'] or 'router',
                                               router['id'])
+        tags = self.nsxpolicy.build_v3_api_version_project_tag(
+            context.tenant_name)
         #TODO(annak): handle GW
         try:
             self.nsxpolicy.tier1.create_or_overwrite(
                 router_name, router['id'],
-                tier0=self.default_tier0_router)
+                tier0=self.default_tier0_router,
+                tags=tags)
         #TODO(annak): narrow down the exception
         except Exception as ex:
             with excutils.save_and_reraise_exception():
@@ -855,15 +860,15 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # create exclude port group
             # TODO(asarfaty): add this while handling port security disabled
 
-    def _create_security_group_backend_resources(self, secgroup, domain_id):
+    def _create_security_group_backend_resources(self, context, secgroup,
+                                                 domain_id):
         """Create communication map (=section) and group (=NS group)
 
         Both will have the security group id as their NSX id.
         """
         sg_id = secgroup['id']
-        tags = self.nsxpolicy.build_v3_tags_payload(
-            secgroup, resource_type='os-neutron-secgr-id',
-            project_name=secgroup['tenant_id'])
+        tags = self.nsxpolicy.build_v3_api_version_project_tag(
+            context.tenant_name)
         nsx_name = utils.get_name_and_uuid(secgroup['name'] or 'securitygroup',
                                            sg_id)
         # Create the groups membership criteria for ports by scope & tag
@@ -898,11 +903,13 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self.nsxpolicy.group.delete(domain_id, sg_id)
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
-    def _get_rule_service_id(self, sg_rule):
+    def _get_rule_service_id(self, context, sg_rule):
         """Return the NSX Policy service id matching the SG rule"""
         srv_id = None
         l4_protocol = nsxlib_utils.get_l4_protocol_name(sg_rule['protocol'])
         srv_name = 'Service for OS rule %s' % sg_rule['id']
+        tags = self.nsxpolicy.build_v3_api_version_project_tag(
+            context.tenant_name)
 
         if l4_protocol in [nsxlib_consts.TCP, nsxlib_consts.UDP]:
             # If port_range_min is not specified then we assume all ports are
@@ -920,7 +927,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 srv_name, service_id=sg_rule['id'],
                 description=sg_rule.get('description'),
                 protocol=l4_protocol,
-                dest_ports=destination_ports)
+                dest_ports=destination_ports,
+                tags=tags)
         elif l4_protocol in [nsxlib_consts.ICMPV4, nsxlib_consts.ICMPV6]:
             # Validate the icmp type & code
             version = 4 if l4_protocol == nsxlib_consts.ICMPV4 else 6
@@ -934,12 +942,14 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 description=sg_rule.get('description'),
                 version=version,
                 icmp_type=icmp_type,
-                icmp_code=icmp_code)
+                icmp_code=icmp_code,
+                tags=tags)
         elif l4_protocol:
             srv_id = self.nsxpolicy.ip_protocol_service.create_or_overwrite(
                 srv_name, service_id=sg_rule['id'],
                 description=sg_rule.get('description'),
-                protocol_number=l4_protocol)
+                protocol_number=l4_protocol,
+                tags=tags)
 
         return srv_id
 
@@ -949,8 +959,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _get_sg_rule_local_ip_group_id(self, sg_rule):
         return '%s_local_group' % sg_rule['id']
 
-    def _create_security_group_backend_rule(self, domain_id, map_id, sg_rule,
-                                            secgroup_logging):
+    def _create_security_group_backend_rule(self, context, domain_id, map_id,
+                                            sg_rule, secgroup_logging):
         # The id of the map and group is the same as the security group id
         this_group_id = map_id
         # There is no rule name in neutron. Using ID instead
@@ -960,6 +970,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._fix_sg_rule_dict_ips(sg_rule)
         source = None
         destination = this_group_id
+        tags = self.nsxpolicy.build_v3_api_version_project_tag(
+            context.tenant_name)
         if sg_rule.get('remote_group_id'):
             # This is the ID of a security group that already exists,
             # so it should be known to the policy manager
@@ -968,9 +980,6 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # Create a group for the remote IPs
             remote_ip = sg_rule['remote_ip_prefix']
             remote_group_id = self._get_sg_rule_remote_ip_group_id(sg_rule)
-            tags = self.nsxpolicy.build_v3_tags_payload(
-                sg_rule, resource_type='os-neutron-sgrule-id',
-                project_name=sg_rule['tenant_id'])
             expr = self.nsxpolicy.group.build_ip_address_expression(
                 [remote_ip])
             self.nsxpolicy.group.create_or_overwrite_with_conditions(
@@ -982,9 +991,6 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # Create a group for the local ips
             local_ip = sg_rule[sg_prefix.LOCAL_IP_PREFIX]
             local_group_id = self._get_sg_rule_local_ip_group_id(sg_rule)
-            tags = self.nsxpolicy.build_v3_tags_payload(
-                sg_rule, resource_type='os-neutron-sgrule-id',
-                project_name=sg_rule['tenant_id'])
             expr = self.nsxpolicy.group.build_ip_address_expression(
                 [local_ip])
             self.nsxpolicy.group.create_or_overwrite_with_conditions(
@@ -997,7 +1003,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # Swap source and destination
             source, destination = destination, source
 
-        service = self._get_rule_service_id(sg_rule)
+        service = self._get_rule_service_id(context, sg_rule)
         logging = (cfg.CONF.nsx_p.log_security_groups_allowed_traffic or
                    secgroup_logging)
         self.nsxpolicy.comm_map.create_entry(
@@ -1009,17 +1015,20 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             dest_groups=[destination] if destination else None,
             direction=direction, logged=logging)
 
-    def _create_project_domain(self, project_id):
+    def _create_project_domain(self, context, project_id):
         """Return the NSX domain id of a neutron project
 
         The ID of the created domain will be the same as the project ID
         so there is no need to keep it in the neutron DB
         """
+        tags = self.nsxpolicy.build_v3_api_version_project_tag(
+            context.tenant_name)
         try:
             domain_id = self.nsxpolicy.domain.create_or_overwrite(
                 name=project_id,
                 domain_id=project_id,
-                description="Domain for OS project %s" % project_id)
+                description="Domain for OS project %s" % project_id,
+                tags=tags)
         except Exception as e:
             msg = (_("Failed to create NSX domain for project %(proj)s: "
                      "%(e)s") % {'proj': project_id, 'e': e})
@@ -1038,7 +1047,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._ensure_default_security_group(context, project_id)
         else:
             # create the NSX policy domain for this new project
-            self._create_project_domain(project_id)
+            self._create_project_domain(context, project_id)
 
         # create the Neutron SG
         with db_api.CONTEXT_WRITER.using(context):
@@ -1058,14 +1067,15 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         try:
             # Create Group & communication map on the NSX
             self._create_security_group_backend_resources(
-                secgroup, project_id)
+                context, secgroup, project_id)
 
             # Add the security-group rules
             sg_rules = secgroup_db['security_group_rules']
             secgroup_logging = secgroup.get(sg_logging.LOGGING, False)
             for sg_rule in sg_rules:
                 self._create_security_group_backend_rule(
-                    project_id, secgroup_db['id'], sg_rule, secgroup_logging)
+                    context, project_id, secgroup_db['id'], sg_rule,
+                    secgroup_logging)
         except Exception as e:
             with excutils.save_and_reraise_exception():
                 LOG.exception("Failed to create backend SG rules "
@@ -1165,7 +1175,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             rule_data = sg_rule['security_group_rule']
             rule_data['id'] = rule_data.get('id') or uuidutils.generate_uuid()
             self._create_security_group_backend_rule(
-                domain_id, sg_id, rule_data, secgroup_logging)
+                context, domain_id, sg_id, rule_data, secgroup_logging)
 
         return rules_db
 
