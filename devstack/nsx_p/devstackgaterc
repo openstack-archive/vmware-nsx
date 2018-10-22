@@ -19,6 +19,7 @@
 # based on the features that are ready to be tested.
 
 # Begin list of exclusions.
-r="^(?!.*)"
+#r="^(?!.*)"
 
+r="$r(tempest\.api\.network\.test_security_groups).*$"
 export DEVSTACK_GATE_TEMPEST_REGEX="$r"
