@@ -125,7 +125,7 @@ elif [[ $Q_PLUGIN == 'vmware_nsx_p' ]]; then
         fi
     elif [[ "$1" == 'clean' ]]; then
         if is_service_enabled q-svc || is_service_enabled neutron-api; then
-            $PYTHON $dir/tools/nsxp_cleanup.py --mgr-ip $NSX_POLICY --user $NSX_USER --password $NSX_PASSWORD
+            $PYTHON $dir/tools/nsxp_cleanup.py --policy-ip $NSX_POLICY --user $NSX_USER --password $NSX_PASSWORD
         fi
     fi
 fi
