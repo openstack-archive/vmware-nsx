@@ -2239,11 +2239,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 [db_utils.resource_fields(network,
                                           fields) for network in networks])
 
-    def _get_dhcp_port_name(self, net_name, net_id):
-        return utils.get_name_and_uuid('%s-%s' % ('dhcp',
-                                                  net_name or 'network'),
-                                       net_id)
-
     def _get_qos_profile_id(self, context, policy_id):
         switch_profile_id = nsx_db.get_switch_profile_by_qos_policy(
             context.session, policy_id)

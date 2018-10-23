@@ -570,6 +570,11 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
         self._assert_on_vpn_port_change(original_port)
         self._assert_on_lb_port_fixed_ip_change(port_data, orig_dev_owner)
 
+    def _get_dhcp_port_name(self, net_name, net_id):
+        return utils.get_name_and_uuid('%s-%s' % ('dhcp',
+                                                  net_name or 'network'),
+                                       net_id)
+
     def _build_port_name(self, context, port_data):
         device_owner = port_data.get('device_owner')
         device_id = port_data.get('device_id')
