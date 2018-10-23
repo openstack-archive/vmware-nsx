@@ -1142,6 +1142,9 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def create_security_group_rule_bulk(self, context, security_group_rules):
         sg_rules = security_group_rules['security_group_rules']
+        for r in sg_rules:
+            self._check_local_ip_prefix(context, r['security_group_rule'])
+
         # Tenant & security group are the same for all rules in the bulk
         example_rule = sg_rules[0]['security_group_rule']
         sg_id = example_rule['security_group_id']
@@ -1160,7 +1163,6 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         for sg_rule in sg_rules:
             # create the NSX rule
             rule_data = sg_rule['security_group_rule']
-            self._check_local_ip_prefix(context, rule_data)
             rule_data['id'] = rule_data.get('id') or uuidutils.generate_uuid()
             self._create_security_group_backend_rule(
                 domain_id, sg_id, rule_data, secgroup_logging)
