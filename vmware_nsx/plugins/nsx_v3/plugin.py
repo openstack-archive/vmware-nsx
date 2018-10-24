@@ -4392,8 +4392,13 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 LOG.error("Neutron failed to add_router_interface on "
                           "router %s, and would try to rollback.",
                           router_id)
-                self.remove_router_interface(
-                    context, router_id, interface_info)
+                try:
+                    self.remove_router_interface(
+                        context, router_id, interface_info)
+                except Exception:
+                    # rollback also failed
+                    LOG.error("Neutron rollback failed to remove router "
+                              "interface on router %s.", router_id)
         return info
 
     def remove_router_interface(self, context, router_id, interface_info):
