@@ -15,13 +15,13 @@
 #
 
 from neutron_lib import constants as const
+from neutron_lib.db import api as db_api
 from neutron_lib import exceptions as ntn_exc
 from oslo_config import cfg
 from oslo_db import exception as db_exc
 from oslo_log import log as logging
 
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
-from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron.db import models_v2
 
@@ -159,7 +159,7 @@ def _find_dhcp_disabled_subnet_by_port(plugin, context, ports):
             # of the vmware plugin (and base db neutron plugin) to engine
             # facade to avoid cross transaction session cache reuse but such
             # change wouldn't happen overnight.
-            with db_api.context_manager.reader.using(context):
+            with db_api.CONTEXT_READER.using(context):
                 subnet = plugin.get_subnet(context, fixed_ip['subnet_id'])
             if not subnet['enable_dhcp']:
                 return subnet

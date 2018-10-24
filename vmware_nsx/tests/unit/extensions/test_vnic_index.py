@@ -17,11 +17,11 @@ from oslo_config import cfg
 from oslo_db import exception as d_exc
 from oslo_utils import uuidutils
 
-from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron.tests.unit.db import test_db_base_plugin_v2 as test_db_plugin
 from neutron_lib.api import validators
 from neutron_lib import context as neutron_context
+from neutron_lib.db import api as db_api
 from neutron_lib.plugins import directory
 
 from vmware_nsx.db import vnic_index_db
@@ -49,7 +49,7 @@ class VnicIndexTestPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             self._set_port_vnic_index_mapping(
                 context, id, device_id, vnic_idx)
 
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             p = port['port']
             ret_port = super(VnicIndexTestPlugin, self).update_port(
                 context, id, port)
@@ -65,7 +65,7 @@ class VnicIndexTestPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         vnic_idx = port_db.get(vnicidx.VNIC_INDEX)
         if validators.is_attr_set(vnic_idx):
             self._delete_port_vnic_index_mapping(context, id)
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             super(VnicIndexTestPlugin, self).delete_port(context, id)
 
 

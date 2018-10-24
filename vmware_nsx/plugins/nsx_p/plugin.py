@@ -24,7 +24,6 @@ import webob.exc
 from neutron.db import _resource_extend as resource_extend
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
-from neutron.db import api as db_api
 from neutron.db import dns_db
 from neutron.db import external_net_db
 from neutron.db import extradhcpopt_db
@@ -51,6 +50,7 @@ from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
 from neutron_lib import constants as const
+from neutron_lib.db import api as db_api
 from neutron_lib.db import utils as db_utils
 from neutron_lib import exceptions as n_exc
 
@@ -292,7 +292,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._validate_external_net_create(net_data)
 
         # Create the neutron network
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             # Create network in Neutron
             created_net = super(NsxPolicyPlugin, self).create_network(
                 context, network)
@@ -322,7 +322,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return created_net
 
     def delete_network(self, context, network_id):
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             self._process_l3_delete(context, network_id)
             super(NsxPolicyPlugin, self).delete_network(
                 context, network_id)
@@ -354,7 +354,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return updated_net
 
     def get_network(self, context, id, fields=None):
-        with db_api.context_manager.reader.using(context):
+        with db_api.CONTEXT_READER.using(context):
             # Get network from Neutron database
             network = self._get_network(context, id)
             # Don't do field selection here otherwise we won't be able to add
@@ -367,7 +367,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                      page_reverse=False):
         # Get networks from Neutron database
         filters = filters or {}
-        with db_api.context_manager.reader.using(context):
+        with db_api.CONTEXT_READER.using(context):
             networks = (
                 super(NsxPolicyPlugin, self).get_networks(
                     context, filters, fields, sorts,
@@ -460,7 +460,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._validate_max_ips_per_port(port_data.get('fixed_ips', []),
                                         port_data.get('device_owner'))
 
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             is_external_net = self._network_is_external(
                 context, port_data['network_id'])
             if is_external_net:
@@ -514,7 +514,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         pass
 
     def update_port(self, context, id, port):
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             # get the original port, and keep it honest as it is later used
             # for notifications
             original_port = super(NsxPolicyPlugin, self).get_port(context, id)
@@ -572,7 +572,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   page_reverse=False):
         filters = filters or {}
         self._update_filters_with_sec_group(context, filters)
-        with db_api.context_manager.reader.using(context):
+        with db_api.CONTEXT_READER.using(context):
             ports = (
                 super(NsxPolicyPlugin, self).get_ports(
                     context, filters, fields, sorts,
@@ -601,7 +601,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def create_router(self, context, router):
         r = router['router']
         gw_info = self._extract_external_gw(context, router, is_extract=True)
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             router = super(NsxPolicyPlugin, self).create_router(
                 context, router)
             router_db = self._get_router(context, router['id'])
@@ -1041,7 +1041,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._create_project_domain(project_id)
 
         # create the Neutron SG
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             if secgroup.get(provider_sg.PROVIDER) is True:
                 secgroup_db = self.create_provider_security_group(
                     context, security_group)
@@ -1086,7 +1086,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         sg_data = security_group['security_group']
 
         # update the neutron security group
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             secgroup_res = super(NsxPolicyPlugin, self).update_security_group(
                 context, sg_id, security_group)
             self._process_security_group_properties_update(
@@ -1150,7 +1150,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         sg_id = example_rule['security_group_id']
         self._prevent_non_admin_edit_provider_sg(context, sg_id)
 
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             rules_db = (super(NsxPolicyPlugin,
                               self).create_security_group_rule_bulk_native(
                                   context, security_group_rules))

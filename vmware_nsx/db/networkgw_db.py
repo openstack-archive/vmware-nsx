@@ -15,8 +15,8 @@
 from sqlalchemy.orm import exc as sa_orm_exc
 
 from neutron.db import _model_query as model_query
-from neutron.db import api as db_api
 from neutron_lib import constants
+from neutron_lib.db import api as db_api
 from neutron_lib.db import utils as db_utils
 from neutron_lib import exceptions
 from neutron_lib.plugins import utils
@@ -180,12 +180,12 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
         return query.one() if only_one else query.all()
 
     def _unset_default_network_gateways(self, context):
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             context.session.query(nsx_models.NetworkGateway).update(
                 {nsx_models.NetworkGateway.default: False})
 
     def _set_default_network_gateway(self, context, gw_id):
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             gw = (context.session.query(nsx_models.NetworkGateway).
                   filter_by(id=gw_id).one())
             gw['default'] = True
@@ -220,7 +220,7 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
             validate_device_list=True):
         gw_data = network_gateway[self.gateway_resource]
         tenant_id = gw_data['tenant_id']
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             gw_db = nsx_models.NetworkGateway(
                 id=gw_data.get('id', uuidutils.generate_uuid()),
                 tenant_id=tenant_id,
@@ -238,7 +238,7 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
 
     def update_network_gateway(self, context, id, network_gateway):
         gw_data = network_gateway[self.gateway_resource]
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             gw_db = self._get_network_gateway(context, id)
             if gw_db.default:
                 raise NetworkGatewayUnchangeable(gateway_id=id)
@@ -253,7 +253,7 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
         return self._make_network_gateway_dict(gw_db, fields)
 
     def delete_network_gateway(self, context, id):
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             gw_db = self._get_network_gateway(context, id)
             if gw_db.network_connections:
                 raise GatewayInUse(gateway_id=id)
@@ -281,7 +281,7 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
                   "'%(network_gateway_id)s'",
                   {'network_id': network_id,
                    'network_gateway_id': network_gateway_id})
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             gw_db = self._get_network_gateway(context, network_gateway_id)
             tenant_id = gw_db['tenant_id']
             if context.is_admin and not tenant_id:
@@ -358,7 +358,7 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
                   "'%(network_gateway_id)s'",
                   {'network_id': network_id,
                    'network_gateway_id': network_gateway_id})
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             # Uniquely identify connection, otherwise raise
             try:
                 net_connection = self._retrieve_gateway_connections(
@@ -442,7 +442,7 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
                               initial_status=STATUS_UNKNOWN):
         device_data = gateway_device[self.device_resource]
         tenant_id = device_data['tenant_id']
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             device_db = nsx_models.NetworkGatewayDevice(
                 id=device_data.get('id', uuidutils.generate_uuid()),
                 tenant_id=tenant_id,
@@ -457,7 +457,7 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
     def update_gateway_device(self, context, gateway_device_id,
                               gateway_device, include_nsx_id=False):
         device_data = gateway_device[self.device_resource]
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             device_db = self._get_gateway_device(context, gateway_device_id)
             # Ensure there is something to update before doing it
             if any([device_db[k] != device_data[k] for k in device_data]):
@@ -468,7 +468,7 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
             device_db, include_nsx_id=include_nsx_id)
 
     def delete_gateway_device(self, context, device_id):
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             # A gateway device should not be deleted
             # if it is used in any network gateway service
             if self._is_device_in_use(context, device_id):

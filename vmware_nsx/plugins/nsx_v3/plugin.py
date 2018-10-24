@@ -26,6 +26,7 @@ from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api import extensions
 from neutron_lib.api import faults
 from neutron_lib.api.validators import availability_zone as az_validator
+from neutron_lib.db import api as db_api
 from neutron_lib.db import utils as db_utils
 from neutron_lib.exceptions import allowedaddresspairs as addr_exc
 from neutron_lib.exceptions import l3 as l3_exc
@@ -42,7 +43,6 @@ from neutron.db import _resource_extend as resource_extend
 from neutron.db import agents_db
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
-from neutron.db import api as db_api
 from neutron.db.availability_zone import router as router_az_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import dns_db
@@ -1296,7 +1296,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         try:
             rollback_network = False
-            with db_api.context_manager.writer.using(context):
+            with db_api.CONTEXT_WRITER.using(context):
                 # Create network in Neutron
                 created_net = super(NsxV3Plugin, self).create_network(context,
                                                                       network)
@@ -1434,7 +1434,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         first_try = True
         while True:
             try:
-                with db_api.context_manager.writer.using(context):
+                with db_api.CONTEXT_WRITER.using(context):
                     self._process_l3_delete(context, network_id)
                     return super(NsxV3Plugin, self).delete_network(
                         context, network_id)
@@ -1889,7 +1889,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         collection = "%ss" % resource
         items = request_items[collection]
         try:
-            with db_api.context_manager.writer.using(context):
+            with db_api.CONTEXT_WRITER.using(context):
                 for item in items:
                     obj_creator = getattr(self, 'create_%s' % resource)
                     obj = obj_creator(context, item)
@@ -2213,7 +2213,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             get_network_policy_id(context, network['id']))
 
     def get_network(self, context, id, fields=None):
-        with db_api.context_manager.reader.using(context):
+        with db_api.CONTEXT_READER.using(context):
             # Get network from Neutron database
             network = self._get_network(context, id)
             # Don't do field selection here otherwise we won't be able to add
@@ -2227,7 +2227,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                      page_reverse=False):
         # Get networks from Neutron database
         filters = filters or {}
-        with db_api.context_manager.reader.using(context):
+        with db_api.CONTEXT_READER.using(context):
             networks = (
                 super(NsxV3Plugin, self).get_networks(
                     context, filters, fields, sorts,
@@ -2540,7 +2540,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         for fixed_ip in fixed_ips:
             if netaddr.IPNetwork(fixed_ip['ip_address']).version != 4:
                 continue
-            with db_api.context_manager.reader.using(context):
+            with db_api.CONTEXT_READER.using(context):
                 subnet = self.get_subnet(context, fixed_ip['subnet_id'])
             if subnet['enable_dhcp']:
                 ips.append(fixed_ip)
@@ -2899,7 +2899,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             context, port_data, port_data['network_id'],
             projectpluginmap.NsxPlugins.NSX_T)
 
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             neutron_db = self.base_create_port(context, port)
             port["port"].update(neutron_db)
 
@@ -3381,7 +3381,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 validate_port_sec = False
                 break
 
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             # get the original port, and keep it honest as it is later used
             # for notifications
             original_port = super(NsxV3Plugin, self).get_port(context, id)
@@ -3476,7 +3476,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 LOG.exception("Unable to update NSX backend, rolling back "
                               "changes on neutron")
                 with excutils.save_and_reraise_exception(reraise=False):
-                    with db_api.context_manager.writer.using(context):
+                    with db_api.CONTEXT_WRITER.using(context):
                         super(NsxV3Plugin, self).update_port(
                             context, id, {'port': original_port})
 
@@ -3549,7 +3549,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   page_reverse=False):
         filters = filters or {}
         self._update_filters_with_sec_group(context, filters)
-        with db_api.context_manager.reader.using(context):
+        with db_api.CONTEXT_READER.using(context):
             ports = (
                 super(NsxV3Plugin, self).get_ports(
                     context, filters, fields, sorts,
@@ -3847,7 +3847,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 router['id'],
                 {'router': {az_def.AZ_HINTS: az_hints}})
         router_db = self._get_router(context, r['id'])
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             self._process_extra_attr_router_create(context, router_db, r)
         # Create backend entries here in case neutron DB exception
         # occurred during super.create_router(), which will cause
@@ -4054,7 +4054,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
             return self._update_router_wrapper(context, router_id, router)
         except nsx_lib_exc.ResourceNotFound:
-            with db_api.context_manager.writer.using(context):
+            with db_api.CONTEXT_WRITER.using(context):
                 router_db = self._get_router(context, router_id)
                 router_db['status'] = const.NET_STATUS_ERROR
             raise nsx_exc.NsxPluginException(
@@ -4785,7 +4785,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # REVISIT(roeyc): Ideally, at this point we need not be under an
             # open db transactions, however, unittests fail if omitting
             # subtransactions=True.
-            with db_api.context_manager.writer.using(context):
+            with db_api.CONTEXT_WRITER.using(context):
                 # NOTE(arosen): a neutron security group be default adds rules
                 # that allow egress traffic. We do not want this behavior for
                 # provider security_groups
@@ -4861,7 +4861,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         orig_secgroup = self.get_security_group(
             context, id, fields=['id', 'name', 'description'])
         self._prevent_non_admin_edit_provider_sg(context, id)
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             secgroup_res = (
                 super(NsxV3Plugin, self).update_security_group(context, id,
                                                                security_group))
@@ -4906,7 +4906,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 r['security_group_rule'].get('id') or
                 uuidutils.generate_uuid())
 
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
 
             rules_db = (super(NsxV3Plugin,
                               self).create_security_group_rule_bulk_native(

@@ -27,7 +27,6 @@ from neutron.api import extensions as neutron_extensions
 from neutron.db import _resource_extend as resource_extend
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
-from neutron.db import api as db_api
 from neutron.db import dns_db
 from neutron.db import external_net_db
 from neutron.db import l3_db
@@ -46,6 +45,7 @@ from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api.definitions import vlantransparent as vlan_apidef
 from neutron_lib.api import validators
 from neutron_lib import constants
+from neutron_lib.db import api as db_api
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import utils
 
@@ -212,7 +212,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                 LOG.warning('One or more hosts may not be configured')
 
         try:
-            with db_api.context_manager.writer.using(context):
+            with db_api.CONTEXT_WRITER.using(context):
                 new_net = super(NsxDvsV2, self).create_network(context,
                                                                network)
                 self._extension_manager.process_create_network(
@@ -293,7 +293,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         network = self._get_network(context, id)
         dvs_id = self._dvs_get_id(network)
         bindings = nsx_db.get_network_bindings(context.session, id)
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             nsx_db.delete_network_bindings(context.session, id)
             super(NsxDvsV2, self).delete_network(context, id)
         try:
@@ -308,7 +308,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         self._dvs_delete_network(context, id)
 
     def _dvs_get_network(self, context, id, fields=None):
-        with db_api.context_manager.reader.using(context):
+        with db_api.CONTEXT_READER.using(context):
             # goto to the plugin DB and fetch the network
             network = self._get_network(context, id)
             # Don't do field selection here otherwise we won't be able
@@ -325,7 +325,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                      sorts=None, limit=None, marker=None,
                      page_reverse=False):
         filters = filters or {}
-        with db_api.context_manager.reader.using(context):
+        with db_api.CONTEXT_READER.using(context):
             networks = (
                 super(NsxDvsV2, self).get_networks(
                     context, filters, fields, sorts,
@@ -340,7 +340,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         net_attrs = network['network']
         providernet._raise_if_updates_provider_attributes(net_attrs)
 
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             net_res = super(NsxDvsV2, self).update_network(context, id,
                                                            network)
             self._extension_manager.process_update_network(context, net_attrs,
@@ -374,7 +374,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         # shared network that is not owned by the tenant.
         port_data = port['port']
 
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             # First we allocate port in neutron database
             neutron_db = super(NsxDvsV2, self).create_port(context, port)
             self._extension_manager.process_create_port(
@@ -439,7 +439,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             port)
         has_addr_pairs = self._check_update_has_allowed_address_pairs(port)
 
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             ret_port = super(NsxDvsV2, self).update_port(
                 context, id, port)
             # Save current mac learning state to check whether it's
@@ -497,7 +497,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         """
         neutron_db_port = self.get_port(context, id)
 
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             # metadata_dhcp_host_route
             self.handle_port_metadata_access(
                 context, neutron_db_port, is_delete=True)
@@ -509,7 +509,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                   sorts=None, limit=None, marker=None,
                   page_reverse=False):
         filters = filters or {}
-        with db_api.context_manager.reader.using(context):
+        with db_api.CONTEXT_READER.using(context):
             ports = (
                 super(NsxDvsV2, self).get_ports(
                       context, filters, fields, sorts,
