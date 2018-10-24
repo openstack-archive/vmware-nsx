@@ -47,12 +47,16 @@ function install_neutron_projects {
             sudo chown -R ${USER}:${USER} src/${pkg}
         fi
     done
-    sudo rm -rf /usr/local/lib/python2.7/dist-packages/neutron
-    sudo rm -rf /usr/local/lib/python2.7/dist-packages/neutron.egg*
-    sudo rm -rf /usr/local/lib/python3.5/dist-packages/neutron
-    sudo rm -rf /usr/local/lib/python3.5/dist-packages/neutron.egg*
-    sudo pip install -e "git+https://git.openstack.org/openstack/neutron#egg=neutron"
-    sudo chown -R ${USER}:${USER} src/neutron
+    if is_service_enabled neutron; then
+       echo "service Neutron is enabled explicitly by devstack"
+    else
+        sudo rm -rf /usr/local/lib/python2.7/dist-packages/neutron
+        sudo rm -rf /usr/local/lib/python2.7/dist-packages/neutron.egg*
+        sudo rm -rf /usr/local/lib/python3.5/dist-packages/neutron
+        sudo rm -rf /usr/local/lib/python3.5/dist-packages/neutron.egg*
+        sudo pip install -e "git+https://git.openstack.org/openstack/neutron#egg=neutron"
+        sudo chown -R ${USER}:${USER} src/neutron
+    fi
 }
 
 function nsxv_configure_service {
