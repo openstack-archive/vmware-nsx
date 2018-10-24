@@ -27,6 +27,7 @@ from neutron_lib.api.definitions import l3 as l3_apidef
 from neutron_lib.api.definitions import multiprovidernet as mpnet_apidef
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import port_security as psec
+from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api.definitions import subnet as subnet_def
 from neutron_lib.api.definitions import vlantransparent as vlan_apidef
@@ -101,6 +102,7 @@ from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import l3_rpc_agent_api
 from vmware_nsx.common import locking
 from vmware_nsx.common import managers as nsx_managers
+from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import nsxv_constants
 from vmware_nsx.common import utils as c_utils
 from vmware_nsx.db import (
@@ -1989,6 +1991,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         port_model = self._get_port(context, port_data['id'])
         resource_extend.apply_funcs('ports', port_data, port_model)
         self._remove_provider_security_groups_from_list(port_data)
+        self._extend_nsx_port_dict_binding(context, port_data)
 
         kwargs = {'context': context, 'port': neutron_db}
         registry.notify(resources.PORT, events.AFTER_CREATE, self, **kwargs)
@@ -2088,6 +2091,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         with locking.LockManager.get_lock('port-update-%s' % id):
 
             original_port = super(NsxVPluginV2, self).get_port(context, id)
+            self._extend_get_port_dict_qos_and_binding(context, original_port)
             is_compute_port = self._is_compute_port(original_port)
             device_id = original_port['device_id']
             if is_compute_port and device_id:
@@ -2458,14 +2462,32 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         registry.notify(resources.PORT, events.AFTER_UPDATE, self, **kwargs)
         return ret_port
 
-    def _extend_get_port_dict_qos(self, context, port):
+    def _extend_get_port_dict_qos_and_binding(self, context, port):
+        self._extend_nsx_port_dict_binding(context, port)
         # add the qos policy id from the DB (always None in this plugin)
-        port[qos_consts.QOS_POLICY_ID] = qos_com_utils.get_port_policy_id(
-            context, port['id'])
+        if 'id' in port:
+            port[qos_consts.QOS_POLICY_ID] = qos_com_utils.get_port_policy_id(
+                context, port['id'])
+
+    def _extend_nsx_port_dict_binding(self, context, port_data):
+        # Extend port dict binding in case the data was not updated from the
+        # DB by _extend_port_portbinding, which means this is an older port
+        if pbin.VIF_TYPE not in port_data:
+            port_data[pbin.VIF_TYPE] = nsx_constants.VIF_TYPE_DVS
+        if pbin.VNIC_TYPE not in port_data:
+            port_data[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
+        if pbin.VIF_DETAILS not in port_data:
+            port_data[pbin.VIF_DETAILS] = {pbin.CAP_PORT_FILTER: True}
+            if 'network_id' in port_data:
+                net_bindings = nsxv_db.get_network_bindings(
+                    context.session, port_data['network_id'])
+                if net_bindings:
+                    port_data[pbin.VIF_DETAILS][pbin.VIF_DETAILS_VLAN] = (
+                        net_bindings[0].vlan_id)
 
     def get_port(self, context, id, fields=None):
         port = super(NsxVPluginV2, self).get_port(context, id, fields=None)
-        self._extend_get_port_dict_qos(context, port)
+        self._extend_get_port_dict_qos_and_binding(context, port)
         return db_utils.resource_fields(port, fields)
 
     def delete_port(self, context, id, l3_port_check=True,
