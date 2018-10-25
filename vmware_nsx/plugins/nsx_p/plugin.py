@@ -435,9 +435,9 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             vif_id = port_data['id']
 
         self.nsxpolicy.segment_port.create_or_overwrite(
-            port_data['network_id'],
-            port_data['id'],
             name,
+            port_data['network_id'],
+            port_id=port_data['id'],
             description=port_data.get('description'),
             address_bindings=address_bindings,
             vif_id=vif_id)
