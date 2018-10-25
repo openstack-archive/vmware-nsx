@@ -17,11 +17,11 @@ from sqlalchemy.orm import exc
 
 from neutron.db import _model_query as model_query
 from neutron.db import _resource_extend as resource_extend
-from neutron.db import api as db_api
 from neutron.db import models_v2
 
 from neutron_lib.api.definitions import network as net_def
 from neutron_lib.api.definitions import port as port_def
+from neutron_lib.db import api as db_api
 from neutron_lib.db import utils as db_utils
 
 from oslo_log import log
@@ -39,7 +39,7 @@ class QoSDbMixin(qos.QueuePluginBase):
 
     def create_qos_queue(self, context, qos_queue):
         q = qos_queue['qos_queue']
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             qos_queue = nsx_models.QoSQueue(
                 id=q.get('id', uuidutils.generate_uuid()),
                 name=q.get('name'),
@@ -75,7 +75,7 @@ class QoSDbMixin(qos.QueuePluginBase):
                                           page_reverse=page_reverse)
 
     def delete_qos_queue(self, context, queue_id):
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             qos_queue = self._get_qos_queue(context, queue_id)
             context.session.delete(qos_queue)
 
@@ -83,7 +83,7 @@ class QoSDbMixin(qos.QueuePluginBase):
         port_data[qos.QUEUE] = queue_id
         if not queue_id:
             return
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             context.session.add(nsx_models.PortQueueMapping(
                 port_id=port_data['id'],
                                 queue_id=queue_id))
@@ -105,14 +105,14 @@ class QoSDbMixin(qos.QueuePluginBase):
             # did not already have a queue on it. There is no need to check
             # if there is one before deleting if we return here.
             return
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             context.session.delete(binding)
 
     def _process_network_queue_mapping(self, context, net_data, queue_id):
         net_data[qos.QUEUE] = queue_id
         if not queue_id:
             return
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             context.session.add(
                 nsx_models.NetworkQueueMapping(network_id=net_data['id'],
                                                queue_id=queue_id))
@@ -126,7 +126,7 @@ class QoSDbMixin(qos.QueuePluginBase):
 
     def _delete_network_queue_mapping(self, context, network_id):
         query = self._model_query(context, nsx_models.NetworkQueueMapping)
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             binding = query.filter_by(network_id=network_id).first()
             if binding:
                 context.session.delete(binding)

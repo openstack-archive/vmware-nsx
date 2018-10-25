@@ -12,11 +12,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.db import api as db_api
 from neutron.db import common_db_mixin as common_db
 from neutron.db import securitygroups_db
 from neutron_lib.callbacks import registry
 from neutron_lib import context as neutron_context
+from neutron_lib.db import api as db_api
 from oslo_log import log as logging
 
 from vmware_nsx.db import db as nsx_db
@@ -67,7 +67,7 @@ class NeutronSecurityGroupApi(securitygroups_db.SecurityGroupDbMixin,
         return [b['port_id'] for b in secgroups_bindings]
 
     def delete_security_group_section_mapping(self, sg_id):
-        with db_api.context_manager.writer.using(self.context):
+        with db_api.CONTEXT_WRITER.using(self.context):
             fw_mapping = self.context.session.query(
                 nsx_models.NeutronNsxFirewallSectionMapping).filter_by(
                     neutron_id=sg_id).one_or_none()
@@ -75,7 +75,7 @@ class NeutronSecurityGroupApi(securitygroups_db.SecurityGroupDbMixin,
                 self.context.session.delete(fw_mapping)
 
     def delete_security_group_backend_mapping(self, sg_id):
-        with db_api.context_manager.writer.using(self.context):
+        with db_api.CONTEXT_WRITER.using(self.context):
             sg_mapping = self.context.session.query(
                 nsx_models.NeutronNsxSecurityGroupMapping).filter_by(
                     neutron_id=sg_id).one_or_none()

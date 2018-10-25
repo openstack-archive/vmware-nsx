@@ -19,10 +19,10 @@ from sqlalchemy import orm
 from sqlalchemy.orm import exc
 
 from neutron.db import _resource_extend as resource_extend
-from neutron.db import api as db_api
 from neutron.db.models import securitygroup
 from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.api import validators
+from neutron_lib.db import api as db_api
 from neutron_lib import exceptions as nexception
 from vmware_nsx._i18n import _
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix as ext_local_ip
@@ -75,7 +75,7 @@ class ExtendedSecurityGroupRuleMixin(object):
             rule_req.get(ext_local_ip.LOCAL_IP_PREFIX)):
             return
 
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             properties = NsxExtendedSecurityGroupRuleProperties(
                 rule_id=rule_res['id'],
                 local_ip_prefix=rule_req[ext_local_ip.LOCAL_IP_PREFIX])
@@ -93,7 +93,7 @@ class ExtendedSecurityGroupRuleMixin(object):
             sg_rule_res[ext_local_ip.LOCAL_IP_PREFIX] = None
 
     def _get_security_group_rule_local_ip(self, context, rule_id):
-        with db_api.context_manager.reader.using(context):
+        with db_api.CONTEXT_READER.using(context):
             try:
                 prop = context.session.query(
                     NsxExtendedSecurityGroupRuleProperties).filter_by(

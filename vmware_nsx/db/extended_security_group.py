@@ -21,7 +21,6 @@ from sqlalchemy.orm import exc
 from sqlalchemy import sql
 
 from neutron.db import _resource_extend as resource_extend
-from neutron.db import api as db_api
 from neutron.db.models import securitygroup as securitygroups_db
 from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.api.definitions import port as port_def
@@ -30,6 +29,7 @@ from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
 from neutron_lib import constants as n_constants
+from neutron_lib.db import api as db_api
 from neutron_lib.db import model_base
 from neutron_lib.objects import registry as obj_reg
 from neutron_lib.utils import helpers
@@ -97,7 +97,7 @@ class ExtendedSecurityGroupPropertiesMixin(object):
         if not default_sg:
             self._ensure_default_security_group(context, tenant_id)
 
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             sg = obj_reg.new_instance(
                 'SecurityGroup', context,
                 id=s.get('id') or uuidutils.generate_uuid(),
@@ -123,7 +123,7 @@ class ExtendedSecurityGroupPropertiesMixin(object):
                                                   default_sg=False):
         self._validate_security_group_properties_create(
             context, sg_req, default_sg)
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             properties = NsxExtendedSecurityGroupProperties(
                 security_group_id=sg_res['id'],
                 logging=sg_req.get(sg_logging.LOGGING, False),
@@ -135,7 +135,7 @@ class ExtendedSecurityGroupPropertiesMixin(object):
         sg_res[sg_policy.POLICY] = sg_req.get(sg_policy.POLICY)
 
     def _get_security_group_properties(self, context, security_group_id):
-        with db_api.context_manager.reader.using(context):
+        with db_api.CONTEXT_READER.using(context):
             try:
                 prop = context.session.query(
                     NsxExtendedSecurityGroupProperties).filter_by(
@@ -152,7 +152,7 @@ class ExtendedSecurityGroupPropertiesMixin(object):
             (sg_policy.POLICY in sg_req and
              (sg_req[sg_policy.POLICY] !=
               sg_res.get(sg_policy.POLICY)))):
-            with db_api.context_manager.writer.using(context):
+            with db_api.CONTEXT_WRITER.using(context):
                 prop = context.session.query(
                     NsxExtendedSecurityGroupProperties).filter_by(
                         security_group_id=sg_res['id']).one()

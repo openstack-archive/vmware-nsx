@@ -21,12 +21,12 @@ from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators
 from neutron_lib import constants
+from neutron_lib.db import api as db_api
 from neutron_lib import exceptions
 from neutron_lib.plugins import directory
 from neutron_lib.plugins import utils as p_utils
 
 from neutron.db import _resource_extend as resource_extend
-from neutron.db import api as db_api
 from neutron.db import portbindings_db as pbin_db
 from neutron.plugins.ml2 import models as pbin_model
 from vmware_nsx._i18n import _
@@ -112,7 +112,7 @@ class NsxPortBindingMixin(pbin_db.PortBindingMixin):
         elif network.get(pnet.NETWORK_TYPE) == c_utils.NsxVNetworkTypes.VLAN:
             vif_details[pbin.VIF_DETAILS_VLAN] = network[pnet.SEGMENTATION_ID]
 
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             port_binding = context.session.query(
                 pbin_model.PortBinding).filter_by(port_id=port_id).first()
 

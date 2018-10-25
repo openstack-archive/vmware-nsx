@@ -17,9 +17,9 @@ from sqlalchemy.orm import exc
 
 from neutron.db import _model_query as model_query
 from neutron.db import _resource_extend as resource_extend
-from neutron.db import api as db_api
 
 from neutron_lib.api.definitions import port as port_def
+from neutron_lib.db import api as db_api
 from neutron_lib.db import utils as db_utils
 
 from oslo_log import log as logging
@@ -59,7 +59,7 @@ class MacLearningDbMixin(object):
                                              mac.MAC_LEARNING: enabled})
 
     def _create_mac_learning_state(self, context, port):
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             enabled = port[mac.MAC_LEARNING]
             state = nsx_models.MacLearningState(
                 port_id=port['id'],

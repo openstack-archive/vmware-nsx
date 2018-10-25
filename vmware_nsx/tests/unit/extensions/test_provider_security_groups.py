@@ -15,12 +15,12 @@
 import mock
 import webob.exc
 
-from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron.db import securitygroups_db
 from neutron.extensions import securitygroup as ext_sg
 from neutron.tests.unit.extensions import test_securitygroup
 from neutron_lib import context
+from neutron_lib.db import api as db_api
 
 from vmware_nsx.db import extended_security_group
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
@@ -45,7 +45,7 @@ class ProviderSecurityGroupTestPlugin(
 
     def create_security_group(self, context, security_group, default_sg=False):
         secgroup = security_group['security_group']
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             # NOTE(arosen): a neutron security group by default adds rules
             # that allow egress traffic. We do not want this behavior for
             # provider security_groups
@@ -67,7 +67,7 @@ class ProviderSecurityGroupTestPlugin(
     def create_port(self, context, port, l2gw_port_check=False):
         port_data = port['port']
 
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             self._ensure_default_security_group_on_port(context, port)
             (sgids, provider_groups) = self._get_port_security_groups_lists(
                 context, port)
@@ -86,7 +86,7 @@ class ProviderSecurityGroupTestPlugin(
         return port_data
 
     def update_port(self, context, id, port):
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             original_port = super(ProviderSecurityGroupTestPlugin,
                                   self).get_port(context, id)
             updated_port = super(ProviderSecurityGroupTestPlugin,

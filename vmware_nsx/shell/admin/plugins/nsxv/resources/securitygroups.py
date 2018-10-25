@@ -15,13 +15,13 @@
 import re
 import xml.etree.ElementTree as et
 
-from neutron.db import api as db_api
 from neutron.db.models import securitygroup as sg_models
 from neutron.db import models_v2
 from neutron.db import securitygroups_db
 from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.callbacks import registry
 from neutron_lib import context as n_context
+from neutron_lib.db import api as db_api
 from oslo_log import log as logging
 
 from vmware_nsx.common import utils as com_utils
@@ -96,7 +96,7 @@ class NeutronSecurityGroupDB(
         return False
 
     def delete_security_group_section_mapping(self, sg_id):
-        with db_api.context_manager.writer.using(self.context):
+        with db_api.CONTEXT_WRITER.using(self.context):
             fw_mapping = self.context.session.query(
                 nsxv_models.NsxvSecurityGroupSectionMapping).filter_by(
                     neutron_id=sg_id).one_or_none()
@@ -104,7 +104,7 @@ class NeutronSecurityGroupDB(
                 self.context.session.delete(fw_mapping)
 
     def delete_security_group_backend_mapping(self, sg_id):
-        with db_api.context_manager.writer.using(self.context):
+        with db_api.CONTEXT_WRITER.using(self.context):
             sg_mapping = self.context.session.query(
                 nsx_models.NeutronNsxSecurityGroupMapping).filter_by(
                     neutron_id=sg_id).one_or_none()

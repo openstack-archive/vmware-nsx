@@ -15,6 +15,7 @@
 #    under the License.
 #
 
+from neutron_lib.db import api as db_api
 from oslo_db import exception as d_exc
 from oslo_log import log as logging
 from sqlalchemy import orm
@@ -23,27 +24,26 @@ from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as p_exc
 from vmware_nsx.db import nsx_models
 
-from neutron.db import api as db_api
 
 LOG = logging.getLogger(__name__)
 
 
 def lsn_add(context, network_id, lsn_id):
     """Add Logical Service Node information to persistent datastore."""
-    with db_api.context_manager.writer.using(context):
+    with db_api.CONTEXT_WRITER.using(context):
         lsn = nsx_models.Lsn(network_id, lsn_id)
         context.session.add(lsn)
 
 
 def lsn_remove(context, lsn_id):
     """Remove Logical Service Node information from datastore given its id."""
-    with db_api.context_manager.writer.using(context):
+    with db_api.CONTEXT_WRITER.using(context):
         context.session.query(nsx_models.Lsn).filter_by(lsn_id=lsn_id).delete()
 
 
 def lsn_remove_for_network(context, network_id):
     """Remove information about the Logical Service Node given its network."""
-    with db_api.context_manager.writer.using(context):
+    with db_api.CONTEXT_WRITER.using(context):
         context.session.query(nsx_models.Lsn).filter_by(
             net_id=network_id).delete()
 
@@ -65,14 +65,14 @@ def lsn_get_for_network(context, network_id, raise_on_err=True):
 
 def lsn_port_add_for_lsn(context, lsn_port_id, subnet_id, mac, lsn_id):
     """Add Logical Service Node Port information to persistent datastore."""
-    with db_api.context_manager.writer.using(context):
+    with db_api.CONTEXT_WRITER.using(context):
         lsn_port = nsx_models.LsnPort(lsn_port_id, subnet_id, mac, lsn_id)
         context.session.add(lsn_port)
 
 
 def lsn_port_get_for_subnet(context, subnet_id, raise_on_err=True):
     """Return Logical Service Node Port information given its subnet id."""
-    with db_api.context_manager.reader.using(context):
+    with db_api.CONTEXT_READER.using(context):
         try:
             return (context.session.query(nsx_models.LsnPort).
                     filter_by(sub_id=subnet_id).one())
@@ -85,7 +85,7 @@ def lsn_port_get_for_subnet(context, subnet_id, raise_on_err=True):
 
 def lsn_port_get_for_mac(context, mac_address, raise_on_err=True):
     """Return Logical Service Node Port information given its mac address."""
-    with db_api.context_manager.reader.using(context):
+    with db_api.CONTEXT_READER.using(context):
         try:
             return (context.session.query(nsx_models.LsnPort).
                     filter_by(mac_addr=mac_address).one())
@@ -98,6 +98,6 @@ def lsn_port_get_for_mac(context, mac_address, raise_on_err=True):
 
 def lsn_port_remove(context, lsn_port_id):
     """Remove Logical Service Node port from the given Logical Service Node."""
-    with db_api.context_manager.writer.using(context):
+    with db_api.CONTEXT_WRITER.using(context):
         (context.session.query(nsx_models.LsnPort).
          filter_by(lsn_port_id=lsn_port_id).delete())

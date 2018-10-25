@@ -23,8 +23,6 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import uuidutils
 
-import neutron.db.api as db
-
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import nsx_models
 
@@ -440,7 +438,7 @@ def delete_port_mirror_session_mapping(session, tf_id):
             filter_by(tap_flow_id=tf_id).delete())
 
 
-@db.context_manager.writer
+@db_api.CONTEXT_WRITER
 def save_sg_mappings(context, sg_id, nsgroup_id, section_id):
     context.session.add(
         nsx_models.NeutronNsxFirewallSectionMapping(neutron_id=sg_id,
