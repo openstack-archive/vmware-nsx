@@ -950,7 +950,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             context.elevated(), router_id)
         actions = self._get_update_router_gw_actions(
             org_tier0_uuid, orgaddr, org_enable_snat,
-            new_tier0_uuid, newaddr, new_enable_snat)
+            new_tier0_uuid, newaddr, new_enable_snat, fw_exist=False,
+            lb_exist=False)
 
         if actions['add_service_router']:
             edge_cluster = self.nsxpolicy.tier0.get_edge_cluster_path(

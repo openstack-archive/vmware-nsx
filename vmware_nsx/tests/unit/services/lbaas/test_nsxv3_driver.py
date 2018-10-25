@@ -27,6 +27,7 @@ from vmware_nsx.services.lbaas.nsx_v3.v2 import lb_driver_v2
 
 LB_VIP = '10.0.0.10'
 LB_ROUTER_ID = 'router-x'
+ROUTER_ID = 'neutron-router-x'
 LB_ID = 'xxx-xxx'
 LB_TENANT_ID = 'yyy-yyy'
 LB_SERVICE_ID = 'service-1'
@@ -265,6 +266,8 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
                               ) as mock_get_lb_service, \
             mock.patch.object(self.service_client, 'delete'
                               ) as mock_delete_lb_service, \
+            mock.patch.object(nsx_db, 'get_neutron_from_nsx_router_id'
+                              ) as mock_get_neutron_from_nsx_router_id, \
             mock.patch.object(nsx_db, 'delete_nsx_lbaas_loadbalancer_binding'
                               ) as mock_delete_lb_binding:
             mock_get_lb_binding.return_value = LB_BINDING
@@ -273,6 +276,7 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
             self.edge_driver.loadbalancer.delete(self.context, self.lb)
 
             mock_delete_lb_service.assert_called_with(LB_SERVICE_ID)
+            mock_get_neutron_from_nsx_router_id.router_id = ROUTER_ID
             mock_delete_lb_binding.assert_called_with(
                 self.context.session, LB_ID)
             mock_successful_completion = (
@@ -435,11 +439,14 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
                               ) as mock_remove_virtual_server, \
             mock.patch.object(self.app_client, 'delete'
                               ) as mock_delete_app_profile, \
+            mock.patch.object(nsx_db, 'get_neutron_from_nsx_router_id'
+                              ) as mock_get_neutron_from_nsx_router_id, \
             mock.patch.object(self.vs_client, 'delete'
                               ) as mock_delete_virtual_server, \
             mock.patch.object(nsx_db, 'delete_nsx_lbaas_listener_binding',
                               ) as mock_delete_listener_binding:
             mock_get_listener_binding.return_value = LISTENER_BINDING
+            mock_get_neutron_from_nsx_router_id.router_id = ROUTER_ID
             mock_get_lb_binding.return_value = LB_BINDING
             mock_get_lb_service.return_value = {
                 'id': LB_SERVICE_ID,
@@ -520,9 +527,12 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
                               ) as mock_delete_pool, \
             mock.patch.object(nsx_db, 'delete_nsx_lbaas_pool_binding'
                               ) as mock_delete_pool_binding, \
+            mock.patch.object(nsx_db, 'get_neutron_from_nsx_router_id'
+                              ) as mock_get_neutron_from_nsx_router_id, \
             mock.patch.object(nsx_db, 'get_nsx_lbaas_loadbalancer_binding'
                               ) as mock_get_lb_binding:
             mock_get_pool_binding.return_value = POOL_BINDING
+            mock_get_neutron_from_nsx_router_id.router_id = ROUTER_ID
             mock_get_lb_binding.return_value = None
 
             self.edge_driver.pool.delete(self.context, self.pool)
@@ -759,11 +769,14 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
                               ) as mock_get_pool, \
             mock.patch.object(lb_utils, 'get_network_from_subnet'
                               ) as mock_get_network_from_subnet, \
+            mock.patch.object(nsx_db, 'get_neutron_from_nsx_router_id'
+                              ) as mock_get_neutron_from_nsx_router_id, \
             mock.patch.object(self.pool_client, 'update_pool_with_members'
                               ) as mock_update_pool_with_members:
             mock_get_pool_binding.return_value = POOL_BINDING
             mock_get_pool.return_value = LB_POOL_WITH_MEMBER
             mock_get_network_from_subnet.return_value = LB_NETWORK
+            mock_get_neutron_from_nsx_router_id.router_id = ROUTER_ID
 
             self.edge_driver.member.delete(self.context, self.member)
 
@@ -868,6 +881,8 @@ class TestEdgeLbaasV2HealthMonitor(BaseTestEdgeLbaasV2):
                                ) as mock_get_monitor_binding, \
             mock.patch.object(self.pool_client, 'remove_monitor_from_pool'
                               ) as mock_remove_monitor_from_pool, \
+            mock.patch.object(nsx_db, 'get_neutron_from_nsx_router_id'
+                              ) as mock_get_neutron_from_nsx_router_id, \
             mock.patch.object(self.monitor_client, 'delete'
                               ) as mock_delete_monitor, \
             mock.patch.object(nsx_db, 'delete_nsx_lbaas_monitor_binding'
@@ -878,6 +893,7 @@ class TestEdgeLbaasV2HealthMonitor(BaseTestEdgeLbaasV2):
 
             mock_remove_monitor_from_pool.assert_called_with(LB_POOL_ID,
                                                              LB_MONITOR_ID)
+            mock_get_neutron_from_nsx_router_id.router_id = ROUTER_ID
             mock_delete_monitor.assert_called_with(LB_MONITOR_ID)
             mock_delete_monitor_binding.assert_called_with(
                 self.context.session, LB_ID, POOL_ID, HM_ID)
@@ -980,14 +996,18 @@ class TestEdgeLbaasV2L7Policy(BaseTestEdgeLbaasV2):
                               ) as mock_vs_remove_rule, \
             mock.patch.object(self.rule_client, 'delete'
                               ) as mock_delete_rule, \
+            mock.patch.object(nsx_db, 'get_neutron_from_nsx_router_id'
+                              ) as mock_get_neutron_from_nsx_router_id, \
             mock.patch.object(nsx_db, 'delete_nsx_lbaas_l7policy_binding'
                               ) as mock_delete_l7policy_binding:
             mock_get_l7policy_binding.return_value = L7POLICY_BINDING
+            mock_get_neutron_from_nsx_router_id.return_value = LB_ROUTER_ID
 
             self.edge_driver.l7policy.delete(self.context, self.l7policy)
 
             mock_vs_remove_rule.assert_called_with(LB_VS_ID, LB_RULE_ID)
             mock_delete_rule.assert_called_with(LB_RULE_ID)
+            mock_get_neutron_from_nsx_router_id.router_id = ROUTER_ID
             mock_delete_l7policy_binding.assert_called_with(
                 self.context.session, L7POLICY_ID)
             mock_successful_completion = (
@@ -1098,6 +1118,8 @@ class TestEdgeLbaasV2L7Rule(BaseTestEdgeLbaasV2):
                                ) as mock_get_l7policy_binding, \
             mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
                               ) as mock_get_pool_binding, \
+            mock.patch.object(nsx_db, 'get_neutron_from_nsx_router_id'
+                              ) as mock_get_neutron_from_nsx_router_id, \
             mock.patch.object(self.rule_client, 'update'
                               ) as mock_update_rule:
             mock_get_l7policy_binding.return_value = L7POLICY_BINDING
@@ -1107,6 +1129,7 @@ class TestEdgeLbaasV2L7Rule(BaseTestEdgeLbaasV2):
 
             mock_update_rule.assert_called_with(LB_RULE_ID,
                                                 **delete_rule_body)
+            mock_get_neutron_from_nsx_router_id.router_id = ROUTER_ID
 
             mock_successful_completion = (
                 self.lbv2_driver.l7rule.successful_completion)

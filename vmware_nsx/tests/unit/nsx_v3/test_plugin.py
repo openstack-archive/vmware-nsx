@@ -2594,6 +2594,10 @@ class TestL3NatTestCase(L3NatTest,
         return mock.patch("vmware_nsxlib.v3.router.RouterLib."
                           "add_gw_snat_rule")
 
+    def _mock_add_remove_service_router(self):
+        return mock.patch("vmware_nsxlib.v3.router.RouterLib."
+                          "update_router_edge_cluster")
+
     def _mock_del_snat_rule(self):
         return mock.patch("vmware_nsxlib.v3.router.RouterLib."
                           "delete_gw_snat_rule_by_source")
@@ -2650,6 +2654,43 @@ class TestL3NatTestCase(L3NatTest,
                     add_nat.assert_called()
                 else:
                     add_nat.assert_not_called()
+
+    def test_add_service_router_enable_snat(self):
+        with self.address_scope(name='as1') as addr_scope, \
+                self._create_l3_ext_network() as ext_net:
+            ext_subnet = self._prepare_external_subnet_on_address_scope(
+                ext_net, addr_scope)
+
+            # create a router with this gateway
+            with self.router() as r, \
+                    self._mock_add_remove_service_router() as change_sr:
+                router_id = r['router']['id']
+                self._add_external_gateway_to_router(
+                    router_id, ext_subnet['network_id'])
+                # Checking that update_edge_cluster is being called with
+                # edge_cluster_uuid, for creating a service router
+                self.assertIsNotNone(change_sr.call_args_list[0][0][1])
+
+    def test_remove_service_router_disable_snat(self):
+        with self.address_scope(name='as1') as addr_scope, \
+                self._create_l3_ext_network() as ext_net:
+            ext_subnet = self._prepare_external_subnet_on_address_scope(
+                ext_net, addr_scope)
+
+            # create a router with this gateway, disable snat
+            with self.router() as r:
+                self._add_external_gateway_to_router(
+                    r['router']['id'],
+                    ext_subnet['network_id'])
+                with self._mock_add_remove_service_router() as change_sr:
+                    self._update_router_enable_snat(
+                        r['router']['id'],
+                        ext_subnet['network_id'],
+                        False)
+                    # Checking that update_edge_cluster is being called
+                    # and setting edge_cluster_uuid to None, for service
+                    # router removal.
+                    self.assertIsNone(change_sr.call_args_list[0][0][1])
 
     def test_router_address_scope_snat_rules(self):
         """Test that if the router interface had the same address scope

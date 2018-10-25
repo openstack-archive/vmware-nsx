@@ -60,7 +60,8 @@ class Nsxv3FwaasCallbacksV1(com_clbcks.NsxFwaasCallbacks):
         return True
 
     def update_router_firewall(self, context, nsxlib, router_id,
-                               router_interfaces, nsx_router_id, section_id):
+                               router_interfaces, nsx_router_id, section_id,
+                               from_fw=False):
         """Rewrite all the FWaaS v1 rules in the router edge firewall
 
         This method should be called on FWaaS updates, and on router

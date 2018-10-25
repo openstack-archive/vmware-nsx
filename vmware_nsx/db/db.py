@@ -567,6 +567,15 @@ def get_nsx_lbaas_loadbalancer_binding_by_service(session, lb_service_id):
             lb_service_id=lb_service_id).all()
 
 
+def has_nsx_lbaas_loadbalancer_binding_by_router(session, nsx_router_id):
+    try:
+        session.query(nsx_models.NsxLbaasLoadbalancer).filter_by(
+            lb_router_id=nsx_router_id).one()
+        return True
+    except exc.NoResultFound:
+        return False
+
+
 def delete_nsx_lbaas_loadbalancer_binding(session, loadbalancer_id):
     return (session.query(nsx_models.NsxLbaasLoadbalancer).
             filter_by(loadbalancer_id=loadbalancer_id).delete())
