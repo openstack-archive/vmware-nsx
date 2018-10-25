@@ -77,6 +77,13 @@ class EdgeLoadBalancerManager(base_mgr.LoadbalancerBaseManager):
                                                       lb.tenant_id)
         return p.lbv2_driver.loadbalancer.stats(context, lb)
 
+    @log_helpers.log_method_call
+    def get_operating_status(self, context, id, with_members=False):
+        p = self.core_plugin._get_plugin_from_project(context,
+                                                      context.project_id)
+        return p.lbv2_driver.loadbalancer.get_operating_status(
+            context, id, with_members=with_members)
+
 
 class EdgeListenerManager(base_mgr.LoadbalancerBaseManager):
 
