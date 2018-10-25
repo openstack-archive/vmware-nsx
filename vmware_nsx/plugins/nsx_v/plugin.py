@@ -2490,6 +2490,21 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._extend_get_port_dict_qos_and_binding(context, port)
         return db_utils.resource_fields(port, fields)
 
+    def get_ports(self, context, filters=None, fields=None,
+                  sorts=None, limit=None, marker=None,
+                  page_reverse=False):
+        filters = filters or {}
+        with db_api.context_manager.reader.using(context):
+            ports = (
+                super(NsxVPluginV2, self).get_ports(
+                    context, filters, fields, sorts,
+                    limit, marker, page_reverse))
+            # Add the relevant port extensions
+            for port in ports[:]:
+                self._extend_get_port_dict_qos_and_binding(context, port)
+        return (ports if not fields else
+                [db_utils.resource_fields(port, fields) for port in ports])
+
     def delete_port(self, context, id, l3_port_check=True,
                     nw_gw_port_check=True, force_delete_dhcp=False,
                     allow_delete_internal=False):
