@@ -39,6 +39,7 @@ from neutron.db import portsecurity_db
 from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db
 from neutron.extensions import providernet
+from neutron.extensions import securitygroup as ext_sg
 from neutron.quota import resource_registry
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import external_net
@@ -62,14 +63,13 @@ from vmware_nsx.common import locking
 from vmware_nsx.common import managers
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
-from vmware_nsx.db import extended_security_group as extend_sg
 from vmware_nsx.db import extended_security_group_rule as extend_sg_rule
 from vmware_nsx.db import maclearning as mac_db
 from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix as sg_prefix
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
-from vmware_nsx.plugins.common import plugin as nsx_plugin_common
+from vmware_nsx.plugins.common_v3 import plugin as nsx_plugin_common
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 
 from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
@@ -93,9 +93,8 @@ NSX_P_PROVIDER_SECTION_CATEGORY = policy_constants.CATEGORY_INFRASTRUCTURE
 @resource_extend.has_resource_extenders
 class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                       addr_pair_db.AllowedAddressPairsMixin,
-                      nsx_plugin_common.NsxPluginBase,
+                      nsx_plugin_common.NsxPluginV3Base,
                       extend_sg_rule.ExtendedSecurityGroupRuleMixin,
-                      extend_sg.ExtendedSecurityGroupPropertiesMixin,
                       securitygroups_db.SecurityGroupDbMixin,
                       external_net_db.External_net_db_mixin,
                       extraroute_db.ExtraRoute_db_mixin,
@@ -253,7 +252,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                  webob.exc.HTTPBadRequest,
                                  })
 
-    def _create_network_at_the_backend(self, context, net_data):
+    def _create_network_on_backend(self, context, net_data):
         # TODO(annak): provider network
         net_data['id'] = net_data.get('id') or uuidutils.generate_uuid()
 
@@ -306,7 +305,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # Create the backend NSX network
         if not is_external_net:
             try:
-                self._create_network_at_the_backend(context, created_net)
+                self._create_network_on_backend(context, created_net)
             except Exception as e:
                 LOG.exception("Failed to create NSX network network: %s", e)
                 with excutils.save_and_reraise_exception():
@@ -402,38 +401,57 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return updated_subnet
 
-    def _build_address_bindings(self, port):
+    def _build_port_address_bindings(self, context, port_data):
+        psec_on, has_ip = self._determine_port_security_and_has_ip(context,
+                                                                   port_data)
+        if not psec_on:
+            return None
+
         address_bindings = []
-        for fixed_ip in port['fixed_ips']:
+        for fixed_ip in port_data['fixed_ips']:
             if netaddr.IPNetwork(fixed_ip['ip_address']).version != 4:
                 #TODO(annak): enable when IPv6 is supported
                 continue
             binding = self.nsxpolicy.segment_port.build_address_binding(
-                fixed_ip['ip_address'], port['mac_address'])
+                fixed_ip['ip_address'], port_data['mac_address'])
             address_bindings.append(binding)
 
-        for pair in port.get(addr_apidef.ADDRESS_PAIRS):
+        for pair in port_data.get(addr_apidef.ADDRESS_PAIRS):
             binding = self.nsxpolicy.segment_port.build_address_binding(
                 pair['ip_address'], pair['mac_address'])
             address_bindings.append(binding)
 
         return address_bindings
 
-    def _create_port_at_the_backend(self, context, port_data):
+    def _build_port_tags(self, port_data):
+        sec_groups = port_data.get(ext_sg.SECURITYGROUPS, [])
+        sec_groups += port_data.get(provider_sg.PROVIDER_SECURITYGROUPS, [])
+
+        tags = []
+        for sg in sec_groups:
+            tags = nsxlib_utils.add_v3_tag(tags,
+                                           NSX_P_SECURITY_GROUP_TAG,
+                                           sg)
+
+        return tags
+
+    def _create_port_on_backend(self, context, port_data):
         # TODO(annak): admin_state not supported by policy
         # TODO(annak): handle exclude list
         # TODO(annak): switching profiles when supported
         name = self._build_port_name(context, port_data)
-        psec, has_ip = self._determine_port_security_and_has_ip(context,
-                                                                port_data)
-        address_bindings = (self._build_address_bindings(port_data)
-                            if psec else None)
+        address_bindings = self._build_port_address_bindings(
+            context, port_data)
         device_owner = port_data.get('device_owner')
         vif_id = None
         if device_owner and device_owner != l3_db.DEVICE_OWNER_ROUTER_INTF:
             vif_id = port_data['id']
         tags = self.nsxpolicy.build_v3_api_version_project_tag(
             context.tenant_name)
+
+        tags = self._build_port_tags(port_data)
+        tags.append(self.nsxpolicy.build_v3_api_version_project_tag(
+            context.tenant_name))
 
         self.nsxpolicy.segment_port.create_or_overwrite(
             name,
@@ -471,11 +489,18 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             neutron_db = self.base_create_port(context, port)
             port["port"].update(neutron_db)
 
-            self._create_port_address_pairs(context, port_data)
+            (is_psec_on, has_ip, sgids, psgids) = (
+                self._create_port_preprocess_security(context, port,
+                                                      port_data, neutron_db,
+                                                      False))
+
+            self._process_port_create_security_group(context, port_data, sgids)
+            self._process_port_create_provider_security_group(
+                context, port_data, psgids)
 
         if not is_external_net:
             try:
-                self._create_port_at_the_backend(context, port_data)
+                self._create_port_on_backend(context, port_data)
             except Exception as e:
                 with excutils.save_and_reraise_exception():
                     LOG.error('Failed to create port %(id)s on NSX '
@@ -512,8 +537,9 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def _update_port_on_backend(self, context, lport_id,
                                 original_port, updated_port):
-        #TODO(asarfaty): implement
-        pass
+        # For now port create and update are the same
+        # Update might evolve with more features
+        return self._create_port_on_backend(context, updated_port)
 
     def update_port(self, context, id, port):
         with db_api.CONTEXT_WRITER.using(context):

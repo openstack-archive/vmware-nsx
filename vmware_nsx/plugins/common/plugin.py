@@ -23,7 +23,6 @@ from neutron.db import l3_attrs_db
 from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron_lib.api.definitions import address_scope as ext_address_scope
-from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import network as net_def
@@ -39,7 +38,6 @@ from neutron_lib import constants
 from neutron_lib import context as n_context
 from neutron_lib.db import api as db_api
 from neutron_lib import exceptions as n_exc
-from neutron_lib.exceptions import allowedaddresspairs as addr_exc
 from neutron_lib.plugins import directory
 from neutron_lib.services.qos import constants as qos_consts
 from neutron_lib.utils import net
@@ -48,7 +46,6 @@ from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils
 from vmware_nsx.extensions import maclearning as mac_ext
-from vmware_nsx.extensions import secgroup_rule_local_ip_prefix as sg_prefix
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.vpnaas.nsxv3 import ipsec_utils
 
@@ -600,58 +597,11 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
                 self.set_extra_attr_value(context, router_db,
                                           extra_attr, r[extra_attr])
 
-    def _get_interface_network(self, context, interface_info):
-        is_port, is_sub = self._validate_interface_info(interface_info)
-        if is_port:
-            net_id = self.get_port(context,
-                                   interface_info['port_id'])['network_id']
-        elif is_sub:
-            net_id = self.get_subnet(context,
-                                     interface_info['subnet_id'])['network_id']
-        return net_id
-
-    def _fix_sg_rule_dict_ips(self, sg_rule):
-        # 0.0.0.0/# is not a valid entry for local and remote so we need
-        # to change this to None
-        if (sg_rule.get('remote_ip_prefix') and
-            sg_rule['remote_ip_prefix'].startswith('0.0.0.0/')):
-            sg_rule['remote_ip_prefix'] = None
-        if (sg_rule.get(sg_prefix.LOCAL_IP_PREFIX) and
-            validators.is_attr_set(sg_rule[sg_prefix.LOCAL_IP_PREFIX]) and
-            sg_rule[sg_prefix.LOCAL_IP_PREFIX].startswith('0.0.0.0/')):
-            sg_rule[sg_prefix.LOCAL_IP_PREFIX] = None
-
-    def _validate_interface_address_scope(self, context,
-                                          router_db, interface_info):
-        gw_network_id = (router_db.gw_port.network_id if router_db.gw_port
-                         else None)
-
-        subnet = self.get_subnet(context, interface_info['subnet_ids'][0])
-        if not router_db.enable_snat and gw_network_id:
-            self._validate_address_scope_for_router_interface(
-                context.elevated(), router_db.id, gw_network_id, subnet['id'])
-
     def _validate_ipv4_address_pairs(self, address_pairs):
         for pair in address_pairs:
             ip = pair.get('ip_address')
             if not utils.is_ipv4_ip_address(ip):
                 raise nsx_exc.InvalidIPAddress(ip_address=ip)
-
-    # NSXv3 and Policy only
-    def _create_port_address_pairs(self, context, port_data):
-        (port_security, has_ip) = self._determine_port_security_and_has_ip(
-            context, port_data)
-
-        address_pairs = port_data.get(addr_apidef.ADDRESS_PAIRS)
-        if validators.is_attr_set(address_pairs):
-            if not port_security:
-                raise addr_exc.AddressPairAndPortSecurityRequired()
-            else:
-                self._validate_ipv4_address_pairs(address_pairs)
-                self._process_create_allowed_address_pairs(context, port_data,
-                                                           address_pairs)
-        else:
-            port_data[addr_apidef.ADDRESS_PAIRS] = []
 
     def get_housekeeper(self, context, name, fields=None):
         # run the job in readonly mode and get the results

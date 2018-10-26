@@ -97,7 +97,6 @@ from vmware_nsx.common import managers
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
-from vmware_nsx.db import extended_security_group
 from vmware_nsx.db import extended_security_group_rule as extend_sg_rule
 from vmware_nsx.db import maclearning as mac_db
 from vmware_nsx.db import nsx_portbindings_db as pbin_db
@@ -109,7 +108,7 @@ from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
 from vmware_nsx.plugins.common.housekeeper import housekeeper
-from vmware_nsx.plugins.common import plugin as nsx_plugin_common
+from vmware_nsx.plugins.common_v3 import plugin as nsx_plugin_common
 from vmware_nsx.plugins.nsx import utils as tvd_utils
 from vmware_nsx.plugins.nsx_v3 import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
@@ -161,9 +160,8 @@ NSX_V3_OS_DFW_UUID = '00000000-def0-0000-0fed-000000000000'
 # the classes into a new class to handle the order correctly.
 @resource_extend.has_resource_extenders
 class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
-                  extended_security_group.ExtendedSecurityGroupPropertiesMixin,
                   addr_pair_db.AllowedAddressPairsMixin,
-                  nsx_plugin_common.NsxPluginBase,
+                  nsx_plugin_common.NsxPluginV3Base,
                   extend_sg_rule.ExtendedSecurityGroupRuleMixin,
                   securitygroups_db.SecurityGroupDbMixin,
                   external_net_db.External_net_db_mixin,
@@ -2411,14 +2409,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return result
 
-    def _provider_sgs_specified(self, port_data):
-        # checks if security groups were updated adding/modifying
-        # security groups, port security is set and port has ip
-        provider_sgs_specified = (validators.is_attr_set(
-            port_data.get(provider_sg.PROVIDER_SECURITYGROUPS)) and
-            port_data.get(provider_sg.PROVIDER_SECURITYGROUPS) != [])
-        return provider_sgs_specified
-
     def _get_net_tz(self, context, net_id):
         mappings = nsx_db.get_nsx_switch_ids(context.session, net_id)
         if mappings:
@@ -2442,37 +2432,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _is_ens_tz_port(self, context, port_data):
         # Check the host-switch-mode of the TZ connected to the ports network
         return self._is_ens_tz_net(context, port_data['network_id'])
-
-    def _create_port_preprocess_security(
-            self, context, port, port_data, neutron_db, is_ens_tz_port):
-        (port_security, has_ip) = self._determine_port_security_and_has_ip(
-            context, port_data)
-        port_data[psec.PORTSECURITY] = port_security
-        # No port security is allowed if the port belongs to an ENS TZ
-        if (port_security and is_ens_tz_port and
-            not self._ens_psec_supported()):
-            raise nsx_exc.NsxENSPortSecurity()
-        self._process_port_port_security_create(
-                context, port_data, neutron_db)
-
-        # allowed address pair checks
-        self._create_port_address_pairs(context, port_data)
-
-        if port_security and has_ip:
-            self._ensure_default_security_group_on_port(context, port)
-            (sgids, psgids) = self._get_port_security_groups_lists(
-                context, port)
-        elif (self._check_update_has_security_groups({'port': port_data}) or
-              self._provider_sgs_specified(port_data) or
-              self._get_provider_security_groups_on_port(context, port)):
-            LOG.error("Port has conflicting port security status and "
-                      "security groups")
-            raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
-        else:
-            sgids = psgids = []
-        port_data[ext_sg.SECURITYGROUPS] = (
-            self._get_security_groups_on_port(context, port))
-        return port_security, has_ip, sgids, psgids
 
     def _assert_on_dhcp_relay_without_router(self, context, port_data,
                                              original_port=None):
