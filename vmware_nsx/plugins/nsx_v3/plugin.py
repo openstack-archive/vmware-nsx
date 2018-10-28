@@ -2525,6 +2525,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             msg = _('Can not update/delete VPNaaS port %s') % port_data['id']
             raise n_exc.InvalidInput(error_message=msg)
 
+    def _assert_on_lb_port_fixed_ip_change(self, port_data, orig_dev_own):
+        if orig_dev_own == const.DEVICE_OWNER_LOADBALANCERV2:
+            if "fixed_ips" in port_data and port_data["fixed_ips"]:
+                msg = _('Can not update Loadbalancer port with fixed IP')
+                raise n_exc.InvalidInput(error_message=msg)
+
     def _filter_ipv4_dhcp_fixed_ips(self, context, fixed_ips):
         ips = []
         for fixed_ip in fixed_ips:
@@ -3363,11 +3369,12 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             dhcp_opts = port_data.get(ext_edo.EXTRADHCPOPTS)
             self._validate_extra_dhcp_options(dhcp_opts)
 
+            orig_dev_owner = original_port.get('device_owner')
             device_owner = (port_data['device_owner']
                             if 'device_owner' in port_data
-                            else original_port.get('device_owner'))
+                            else orig_dev_owner)
             self._assert_on_device_owner_change(
-                port_data, original_port.get('device_owner'))
+                port_data, orig_dev_owner)
             self._assert_on_illegal_port_with_qos(
                 port_data, device_owner)
             self._assert_on_port_admin_state(port_data, device_owner)
@@ -3375,6 +3382,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._validate_max_ips_per_port(
                 port_data.get('fixed_ips', []), device_owner)
             self._assert_on_vpn_port_change(original_port)
+            self._assert_on_lb_port_fixed_ip_change(port_data, orig_dev_owner)
 
             updated_port = super(NsxV3Plugin, self).update_port(context,
                                                                 id, port)
