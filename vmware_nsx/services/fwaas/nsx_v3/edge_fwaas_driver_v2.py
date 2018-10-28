@@ -73,6 +73,9 @@ class EdgeFwaasV3DriverV2(base_driver.CommonEdgeFwaasV3Driver):
         routers = set()
         # the apply_list is a list of tuples: routerInfo, port-id
         for router_info, port_id in apply_list:
+            # Skip dummy entries that were added only to avoid errors
+            if isinstance(router_info, str):
+                continue
             # Skip unsupported routers
             if not self.should_apply_firewall_to_router(router_info.router):
                 continue
