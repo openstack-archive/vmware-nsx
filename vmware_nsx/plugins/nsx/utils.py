@@ -14,12 +14,15 @@
 #    under the License.
 
 from oslo_config import cfg
+from oslo_log import log
 
 from neutron_lib import context as n_context
 from neutron_lib import exceptions
 from neutron_lib.plugins import directory
 
 from vmware_nsx.db import db as nsx_db
+
+LOG = log.getLogger(__name__)
 
 
 def is_tvd_core_plugin():
@@ -63,14 +66,22 @@ def filter_plugins(cls):
             by the project id of the context
             """
             entries = orig_method(self, context, **kwargs)
-            if not context.project_id:
+            if not context.project_id or not entries:
                 return entries
             req_p = get_project_mapping(context, context.project_id)
             for entry in entries[:]:
                 if entry.get('tenant_id'):
-                    p = get_project_mapping(context, entry['tenant_id'])
-                    if p != req_p:
+                    try:
+                        p = get_project_mapping(context, entry['tenant_id'])
+                    except exceptions.ObjectNotFound:
+                        # This could be a project that was already deleted
+                        LOG.info("Project %s is not associated with any "
+                                 "plugin and will be ignored",
+                                 entry['tenant_id'])
                         entries.remove(entry)
+                    else:
+                        if p != req_p:
+                            entries.remove(entry)
 
             return entries
 
